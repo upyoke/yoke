@@ -1,26 +1,21 @@
-"""The warm-up gate pays the rolled box's cold start before a run succeeds."""
+"""The warm-up gate pays the rolled box's cold start before a run succeeds.
+
+That a project's own live routes actually place a warm-up after the roll
+is checked against the flow rows by ``HC-hosted-route-stage-contract``.
+"""
 
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import deploy_warm_up
 from yoke_core.domain import deploy_pipeline_step_runners
-from yoke_core.domain.deployment_flow_declaration_schema import (
-    normalize_document,
-)
 from yoke_core.domain.flow_validation import validate_stages
 from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
-from yoke_contracts.project_contract.deployment_flows import (
-    DECLARATION_RELATIVE_PATH,
-)
-
-REPO = Path(__file__).resolve().parents[3]
 
 
 class _Connection:
@@ -212,35 +207,9 @@ class TestWarmUpStageDispatch:
         emit.assert_not_called()
 
 
-class TestWarmUpFlowDeclaration:
+class TestWarmUpStageVocabulary:
     def test_stage_vocabulary_accepts_a_warm_up_stage(self):
         validate_stages(json.dumps([
             {"name": "warm-up", "step_runner": "warm-up",
              "connection_env": "prod"},
         ]))
-
-    def test_every_active_hosted_route_warms_the_box_it_rolls(self):
-        document = json.loads(
-            (REPO / DECLARATION_RELATIVE_PATH).read_text(encoding="utf-8")
-        )
-        flows = {
-            flow.id: json.loads(flow.stages)
-            for flow in normalize_document(document).flows
-        }
-        hosted = {
-            flow_id: stages
-            for flow_id, stages in flows.items()
-            if any(
-                stage["step_runner"] == "github-actions-workflow"
-                for stage in stages
-            )
-        }
-        assert hosted, "no hosted route declared"
-        for flow_id, stages in hosted.items():
-            runners = [stage["step_runner"] for stage in stages]
-            assert "warm-up" in runners, flow_id
-            assert runners.index("warm-up") > runners.index(
-                "github-actions-workflow"
-            ), f"{flow_id} warms before it rolls"
-            warm = stages[runners.index("warm-up")]
-            assert warm.get("connection_env"), flow_id

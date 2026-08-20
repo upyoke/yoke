@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_contracts.project_contract.deployment_flows import (
+from yoke_contracts.deployment_flow_target_tier import (
     TARGET_TIER_EPHEMERAL,
 )
 from yoke_core.domain.ephemeral_substrate import (

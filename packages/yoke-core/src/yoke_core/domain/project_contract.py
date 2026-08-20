@@ -26,10 +26,6 @@ from yoke_contracts.project_contract.install_policy import (
     SEED_IF_MISSING,
     YOKE_TREE_IGNORED_NAMES,
 )
-from yoke_contracts.project_contract.deployment_flows import (
-    DECLARATION_RELATIVE_PATH,
-    EMPTY_DECLARATION_TEXT,
-)
 from yoke_contracts.project_contract.scaffolds import (
     render_deploy_checklist,
     render_deploy_runbook,
@@ -63,7 +59,6 @@ def bundle_contract_files(display_name: str) -> List[Dict[str, str]]:
         f"{CONTRACT_DIR}/lint-config": lint_config.render_lint_config(),
         f"{CONTRACT_DIR}/labels": render_label_policy(),
         f"{CONTRACT_DIR}/board-art": render_board_art(display_name),
-        DECLARATION_RELATIVE_PATH: EMPTY_DECLARATION_TEXT,
         f"{CONTRACT_DIR}/test-inventory.md": render_test_inventory(display_name),
         f"{CONTRACT_DIR}/runbooks/deploy.md": render_deploy_runbook(display_name),
         f"{CONTRACT_DIR}/runbooks/deploy-checklist.md": (
@@ -190,10 +185,6 @@ materialized into that authority by named commands.
   `file_line_exception` globs for files exempt from it.
 - `labels` - GitHub label color policy in `label_color_*=HEX` format.
 - `board-art` - live board header art read by the renderer.
-- `deployment-flows.json` - project-owned delivery definitions. Project
-  install/refresh additively reconciles declared rows; omitted and historically
-  referenced definitions remain in the DB. `retire_if_present` can disable
-  known predecessors without creating them on fresh installs.
 - `packs.json` - repository-authoritative installed-Pack receipt, created by
   Pack get/update operations. It records versions and merge baselines without
   claiming continuing ownership of the resulting project source.
@@ -215,9 +206,6 @@ Repo-owned project files (this directory; rides the repo):
   globs for the local hook and `yoke check file-line`.
 - `lint-config` - hook guard modes (`<guard>=deny|warn`).
 - `labels` - GitHub label colors (`label_color_*=HEX`).
-- `deployment-flows.json` - desired flow definitions and optional project
-  default; reconcile explicitly with
-  `yoke deployment-flows reconcile-project <project>`.
 - `packs.json` - installed Pack versions and immutable merge baselines. Pack
   output is ordinary project-owned source; customization is expected and is
   not classified as drift.
@@ -225,6 +213,12 @@ Repo-owned project files (this directory; rides the repo):
   edit via `yoke strategy ingest`).
 
 DB-owned execution truth and project policy:
+
+- Deployment flows (`deployment_flows`): define one with
+  `yoke deployment-flows create <flow-id> --project <project> --name NAME
+  --stages-file PATH`, retire one with
+  `yoke deployment-flows set-status <flow-id> disabled`, and read the
+  project default with `yoke project-structure deploy-defaults get`.
 
 - Project row (slug, prefix, breakage policy, repo path):
   `yoke projects get|update --project <project>`.

@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-20T15:05:52Z_
+_Audit generated_at: 2026-08-20T15:56:44Z_
 
 ## 1. Summary
 
@@ -10,7 +10,7 @@ _Audit generated_at: 2026-08-20T15:05:52Z_
 - Internal dispatch-only functions without CLI adapters: **76**
 - `yoke` CLI subcommands: **315** (315 carry usable `--help`)
 - Operation tracker: **292 wrapped**, 7 tool_cli, 116 permanent, 0 pending
-- Skill-body recipes: 278 total (217 template-skipped, 2 failing)
+- Skill-body recipes: 279 total (218 template-skipped, 2 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
@@ -46,10 +46,10 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **292** (operation track
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
 | db_claim | `yoke db-claim prose-check` | `db_claim.prose_check` | ok |
 | decision_requests | `yoke decision-requests resolve` | `decision_requests.resolve` | ok |
+| deployment_flows | `yoke deployment-flows create` | `deployment_flows.create` | ok |
 | deployment_flows | `yoke deployment-flows describe` | `deployment_flows.describe` | ok |
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
 | deployment_flows | `yoke deployment-flows list` | `deployment_flows.list` | ok |
-| deployment_flows | `yoke deployment-flows reconcile-project` | `deployment_flows.reconcile_project` | ok |
 | deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
 | deployment_flows | `yoke deployment-flows stages` | `deployment_flows.stages` | ok |
 | deployment_flows | `yoke deployment-flows update-stages` | `deployment_flows.update_stages` | ok |

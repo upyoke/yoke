@@ -4,14 +4,14 @@ A hosted release flow deploys to an environment addressed everywhere by its
 registered name (``prod``/``stage``): the dispatched workflows accept only
 those names, and every Yoke surface they call back into — the fleet-preflight
 receipt gate, the desired-pin writer — is keyed by the same name, so the
-name is what the dispatch must carry.
+name is what the dispatch must carry. That a project's own live routes pass
+the placeholder rather than a hardcoded label is checked against the flow
+rows by ``HC-hosted-route-stage-contract``.
 """
 
 from __future__ import annotations
 
-import json
 import subprocess
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -24,28 +24,9 @@ from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
 from yoke_core.domain.release_pin_capability import route_for_environment
 
 
-ROOT = Path(__file__).resolve().parents[3]
-
 PIN_CAPABILITY = {
     "desired_pin_path": "release.yoke_pin",
 }
-
-
-def test_hosted_flows_declare_the_placeholder_not_a_hardcoded_label() -> None:
-    document = json.loads(
-        (ROOT / ".yoke" / "deployment-flows.json").read_text(encoding="utf-8")
-    )
-    dispatched = [
-        stage
-        for flow in document["flows"]
-        for stage in flow["stages"]
-        if stage.get("step_runner") == "github-actions-workflow"
-    ]
-
-    assert dispatched
-    assert {
-        stage["inputs"]["target_environment"] for stage in dispatched
-    } == {"{target_environment}"}
 
 
 def test_target_environment_placeholder_resolves_to_the_registered_name() -> None:

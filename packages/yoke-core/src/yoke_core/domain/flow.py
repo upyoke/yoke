@@ -29,8 +29,8 @@ from yoke_core.domain.db_helpers import connect
 # Re-exports — every importer of ``yoke_core.domain.flow`` continues
 # to resolve these names from this front door.  Each public name imports
 # DIRECTLY from its canonical owner sibling (no two-hop indirection).
+from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.flow_crud import (
-    cmd_create,
     cmd_delete,
     cmd_get,
     cmd_list,

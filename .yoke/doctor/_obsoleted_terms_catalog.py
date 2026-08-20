@@ -125,6 +125,27 @@ _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN = (
     "SessionOffer" + r"LaneOverrideIgnored\b"
 )
 
+#: The file-driven deployment-flow declaration: a project repository no longer
+#: defines its flows, so the reconcile command, its function id, and the
+#: declaration modules are all gone. Flows are created and retired by command.
+#: The ``.yoke/deployment-flows.json`` files still sitting in project
+#: repositories are deliberately NOT matched. They were left in place and are
+#: the owning project's to keep, retire, or keep reading from its own tests —
+#: so their keys (``retire_if_present`` among them) are data in a file Yoke no
+#: longer owns rather than live Yoke surface names.
+_RETIRED_FLOW_RECONCILE_CLI_PATTERN = (
+    r"deployment-flows\s+" + "reconcile" + r"-project"
+)
+_RETIRED_FLOW_RECONCILE_FUNCTION_PATTERN = (
+    r"deployment_flows\." + "reconcile" + r"_project\b"
+)
+_RETIRED_FLOW_DECLARATION_MODULE_PATTERN = (
+    r"deployment_flow_declaration" + r"(_schema)?\b"
+)
+_RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN = (
+    r"yoke_contracts\.project_contract\.deployment_flows\b"
+)
+
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN,
     # CLI-argument form of the same retired parent-epic item field. The shape is
@@ -177,11 +198,30 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN,
     _RETIRED_APPLIED_EVERYWHERE_PATTERN,
     _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN,
+    _RETIRED_FLOW_RECONCILE_CLI_PATTERN,
+    _RETIRED_FLOW_RECONCILE_FUNCTION_PATTERN,
+    _RETIRED_FLOW_DECLARATION_MODULE_PATTERN,
+    _RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN,
     *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
+    _RETIRED_FLOW_RECONCILE_CLI_PATTERN: (
+        "retired file-driven deployment-flow reconcile CLI "
+        "(use `yoke deployment-flows create` / `set-status`)"
+    ),
+    _RETIRED_FLOW_RECONCILE_FUNCTION_PATTERN: (
+        "retired file-driven deployment-flow reconcile function id "
+        "(use `deployment_flows.create`)"
+    ),
+    _RETIRED_FLOW_DECLARATION_MODULE_PATTERN: (
+        "retired deployment-flow declaration module"
+    ),
+    _RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN: (
+        "retired deployment-flow declaration contract module "
+        "(tier vocabulary moved to `yoke_contracts.deployment_flow_target_tier`)"
+    ),
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: "retired ephemeral-migration module",
     _RETIRED_LIVE_APPLY_CLI_PATTERN: "retired live-apply CLI (boot converge applies)",
     _RETIRED_MODULE_PATH_OVERRIDE_PATTERN: "retired cross-worktree module override",

@@ -178,8 +178,8 @@ surfaces a brand-new user or the public installer runs in a plain terminal
 before any harness session exists: project install / refresh / register /
 uninstall, onboarding, and the project-config writes they drive —
 create/update, capability and environment settings, github binding, and
-project-owned deployment-flow reconciliation
-(`deployment_flows.reconcile_project`). A session is still bound and audited
+a new project's first deployment flows
+(`deployment_flows.create`). A session is still bound and audited
 when one is present, https callers stay project-scoped through the dispatch
 permission gate (which enforces only once a numeric actor id is bound), and
 the call is still recorded via `YokeFunctionCalled` — session-less, not

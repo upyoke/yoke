@@ -11,7 +11,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke deployment-flows describe", "deployment_flows"),
     _w("yoke deployment-flows get", "deployment_flows"),
     _w("yoke deployment-flows list", "deployment_flows"),
-    _w("yoke deployment-flows reconcile-project", "deployment_flows"),
+    _w("yoke deployment-flows create", "deployment_flows"),
     _w("yoke deployment-flows set-status", "deployment_flows"),
     _w("yoke deployment-flows stages", "deployment_flows"),
     _w("yoke deployment-flows update-stages", "deployment_flows"),

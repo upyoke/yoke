@@ -82,6 +82,7 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
         ("workflow-item", "epic-dispatch-chain", "advance"),
         ("deployment-runs", "start-for-item"),
         ("deployment-flows", "update-stages"),
+        ("deployment-flows", "create"),
         ("projects", "infrastructure", "list"),
     }
     assert expected <= set(registry.SUBCOMMAND_REGISTRY)
@@ -110,7 +111,6 @@ def test_product_schema_does_not_embed_project_delivery_topology() -> None:
     assert "yoke-hosted-stage" not in flow_init
     assert "platform-stage" not in flow_init
     assert "yoke-ephemeral-deploy" not in flow_init
-    assert (REPO / ".yoke" / "deployment-flows.json").is_file()
 
 
 def test_atlas_names_real_pulumi_client_local_source_owners() -> None:

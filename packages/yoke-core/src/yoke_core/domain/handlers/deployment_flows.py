@@ -216,46 +216,69 @@ def handle_deployment_flow_set_status(
     )
 
 
-def handle_deployment_flow_reconcile_project(
+def handle_deployment_flow_create(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    """Converge one project-owned declaration without pruning history."""
+    """Create one deployment flow for a project."""
     project = str(request.target.project_id or "").strip()
     if not project:
         return error(
             "target_invalid",
-            "deployment_flows.reconcile_project requires target.project_id",
+            "deployment_flows.create requires target.project_id",
             jsonpath="$.target.project_id",
+        )
+    payload = request.payload or {}
+    resolved_flow_id = flow_id(payload, "deployment_flows.create")
+    if isinstance(resolved_flow_id, HandlerOutcome):
+        return resolved_flow_id
+    name = payload.get("name")
+    stages = payload.get("stages")
+    if not isinstance(name, str) or not name.strip():
+        return error(
+            "payload_invalid", "name must be a non-empty string",
+            jsonpath="$.payload.name",
+        )
+    if not isinstance(stages, str) or not stages.strip():
+        return error(
+            "payload_invalid", "stages must be a non-empty JSON string",
+            jsonpath="$.payload.stages",
         )
 
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.deployment_flow_declarations import (
-        reconcile_project_flows,
-    )
-    from yoke_core.domain.project_structure import ProjectStructureError
+    from yoke_core.domain.flow_create import cmd_create
+
     conn = connect()
     try:
         try:
-            result = reconcile_project_flows(
+            message = cmd_create(
                 conn,
+                resolved_flow_id,
                 project,
-                request.payload,
-                preview_only=bool(request.options.get("preview_only")),
+                name,
+                str(payload.get("description") or ""),
+                stages,
+                on_failure=str(payload.get("on_failure") or "halt"),
+                target_tier=payload.get("target_tier"),
+                environment=payload.get("environment"),
+                done_description=payload.get("done_description"),
+                status=str(payload.get("status") or "active"),
             )
-        except (LookupError, ValueError, ProjectStructureError) as exc:
-            return error(
-                "declaration_invalid", str(exc), jsonpath="$.payload",
-            )
+        except LookupError as exc:
+            return error("not_found", str(exc), jsonpath="$.payload")
+        except ValueError as exc:
+            return error("flow_invalid", str(exc), jsonpath="$.payload")
     finally:
         conn.close()
-
-    return HandlerOutcome(result_payload=result, primary_success=True)
+    return HandlerOutcome(
+        result_payload={"flow_id": resolved_flow_id, "message": message},
+        primary_success=True,
+    )
 
 
 __all__ = [
+    "handle_deployment_flow_create",
     "handle_deployment_flow_describe",
     "handle_deployment_flow_get",
-    "handle_deployment_flow_reconcile_project",
     "handle_deployment_flow_set_status",
     "handle_deployment_flow_stages",
     "handle_deployment_flow_update_stages",

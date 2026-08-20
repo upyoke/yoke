@@ -53,7 +53,7 @@ def resolve_flow_gate_branch(
     ``base_branch`` stance governs the fallback when the referenced
     environment declares no branch.
     """
-    from yoke_contracts.project_contract.deployment_flows import (
+    from yoke_contracts.deployment_flow_target_tier import (
         TARGET_TIER_EPHEMERAL,
     )
 

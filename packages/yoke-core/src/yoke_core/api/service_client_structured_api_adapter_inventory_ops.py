@@ -37,8 +37,8 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-flows set-status",
     ),
     AdapterEntry(
-        function_id="deployment_flows.reconcile_project",
-        cli_invocation="yoke deployment-flows reconcile-project PROJECT",
+        function_id="deployment_flows.create",
+        cli_invocation="yoke deployment-flows create FLOW-ID --project P",
     ),
     AdapterEntry(
         function_id="deployment_flows.update_stages",

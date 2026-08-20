@@ -93,9 +93,9 @@ def _ensure_flow_schema(conn) -> None:
 def converge_flow_catalog(conn) -> None:
     """Converge the additive flow schema without project-owned definitions.
 
-    Project repositories declare definitions in ``.yoke/deployment-flows.json``
-    and materialize them through project refresh. Schema boot never guesses a
-    project's delivery topology or rewrites historical definitions.
+    Projects define their own flows with ``yoke deployment-flows create`` and
+    retire them with ``yoke deployment-flows set-status``. Schema boot never
+    guesses a project's delivery topology or rewrites historical definitions.
     """
     _ensure_flow_schema(conn)
     conn.commit()

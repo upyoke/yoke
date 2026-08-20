@@ -235,25 +235,27 @@ owner: `yoke_core.domain.deploy_warm_up`.
 
 **`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's referenced environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
-Read the current project workflow definition with `yoke workflows definition get --project <slug> --json`; inspect a materialized flow with `yoke deployment-flows get <flow-id>` / `stages`. External project
-repositories own their desired definitions in `.yoke/deployment-flows.json`;
-`yoke project refresh` (or `yoke deployment-flows reconcile-project <project>`)
-validates and materializes the declared rows plus the optional `default_flow`.
-Reconciliation is additive: omitted rows are preserved, and a definition
-referenced by a run is immutable. A declaration may name predecessor IDs in
-`retire_if_present`; matching rows owned by that project are disabled, absent
-rows and same-id rows owned by another project are skipped (receipt labels
-`retire_absent` and `retire_foreign`), and run history remains intact. Change lifecycle state with
-`yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents
-new assignments and runs while preserving the definition and every historical
-run.
+Read the current project workflow definition with `yoke workflows definition get --project <slug> --json`; inspect a flow with `yoke deployment-flows get <flow-id>` / `stages`.
+
+Flows are ordinary control-plane rows, managed by command like every other
+database object. Define one with
+`yoke deployment-flows create <flow-id> --project <slug> --name NAME --stages-file PATH`,
+adding `--target-tier persistent --environment <name>` for a flow that deploys
+to a registered environment or `--target-tier ephemeral` for per-run preview
+substrate. Change lifecycle state with
+`yoke deployment-flows set-status <flow-id> active|disabled`; disabling is how a
+route is retired — it prevents new assignments and runs while preserving the
+definition and every historical run. A definition referenced by a run is
+immutable, so changing a route's shape is a retirement plus a new flow. The
+project default lives in the `deploy_defaults` Project Structure family: read it
+with `yoke project-structure deploy-defaults get --project <slug>` and set it
+through `yoke project-structure patch apply`.
 
 Schema initialization creates the registry but never seeds a project's delivery
-topology. Every project—without exception—owns its
-flow IDs, stage names, workflow filenames, retirements, and optional default in
-`.yoke/deployment-flows.json`. Existing rows remain readable when a declaration
-omits or retires them, so historical runs keep resolving without teaching new
-installs an old topology. Runtime behavior comes from stored stages and
-capabilities, not from a recognized project slug or flow-ID prefix.
+topology, and no file in a project repository defines it either. Every
+project—without exception—owns its flow IDs, stage names, workflow filenames,
+retirements, and default as control-plane rows. Runtime behavior comes from
+stored stages and capabilities, not from a recognized project slug or flow-ID
+prefix.
 
 Flow ids are definitions, not executions. Item-bound delivery creates concrete `run-...` ids through `/yoke usher`, and the run retains its definition relationship for durable history.

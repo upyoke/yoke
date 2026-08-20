@@ -1,17 +1,10 @@
-"""Flow schema boot and repository-owned declaration coverage."""
+"""Flow schema boot leaves project delivery topology to the project."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from yoke_core.domain.deployment_flow_declaration_schema import (
-    normalize_document,
-)
 from yoke_core.domain.flow_init import cmd_init as flow_cmd_init
-
-
-ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_schema_init_does_not_seed_project_delivery_topology(
@@ -45,38 +38,3 @@ def test_schema_init_does_not_seed_project_delivery_topology(
             assert int(count) == 0
         finally:
             conn.close()
-
-
-def test_yoke_checkout_owns_valid_flow_declarations() -> None:
-    document = json.loads(
-        (ROOT / ".yoke" / "deployment-flows.json").read_text(encoding="utf-8")
-    )
-    normalized = normalize_document(document)
-    by_id = {flow.id: flow for flow in normalized.flows}
-
-    assert normalized.default_flow == "yoke-internal"
-    assert "yoke-branch-preview" in by_id
-    assert by_id["yoke-branch-preview"].target_tier == "ephemeral"
-    assert json.loads(by_id["yoke-branch-preview"].stages) == [
-        {"name": "ephemeral-deploy", "step_runner": "ephemeral-deploy"},
-        {"name": "complete", "step_runner": "auto"},
-    ]
-    assert "yoke-ephemeral-deploy" not in by_id
-
-
-def test_yoke_hosted_flows_keep_dispatch_correlation() -> None:
-    document = json.loads(
-        (ROOT / ".yoke" / "deployment-flows.json").read_text(encoding="utf-8")
-    )
-    normalized = normalize_document(document)
-    stages = [
-        stage
-        for flow in normalized.flows
-        for stage in json.loads(flow.stages)
-        if stage.get("step_runner") == "github-actions-workflow"
-    ]
-    assert stages
-    assert {stage["dispatch_correlation_input"] for stage in stages} == {
-        "yoke_dispatch_id"
-    }
-    assert all(stage["wait_for_ci"] is False for stage in stages)
