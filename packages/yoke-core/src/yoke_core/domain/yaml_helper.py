@@ -28,6 +28,48 @@ def parse_document(text: str):
     return yaml.safe_load(text)
 
 
+class DuplicateMappingKeyError(ValueError):
+    """A YAML mapping repeats a key."""
+
+
+class _RejectDuplicateKeys(yaml.SafeLoader):
+    """A safe loader that treats a repeated mapping key as an error.
+
+    :func:`parse_document` accepts duplicates and silently keeps the last
+    value, which is what PyYAML does and what the readers of these files do
+    not: GitHub Actions, for one, refuses a workflow outright over exactly this
+    and names every repeated key. Anything that has to answer "would the
+    consumer of this file accept it?" needs the strict answer, not the lenient
+    one.
+    """
+
+    def construct_mapping(self, node, deep=False):  # type: ignore[override]
+        seen = set()
+        for key_node, _value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                duplicate = key in seen
+            except TypeError:  # unhashable key: nothing to compare it against
+                continue
+            if duplicate:
+                raise DuplicateMappingKeyError(
+                    f"duplicate mapping key {key!r} at line "
+                    f"{key_node.start_mark.line + 1}"
+                )
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
+def parse_documents_strictly(text: str) -> list:
+    """Parse every YAML document in *text*, refusing duplicate mapping keys.
+
+    Every document, because a file may hold a stream of them and a later one
+    can be the malformed one. Raises whatever the loader raises — a YAML syntax
+    error or :class:`DuplicateMappingKeyError` — so a caller can report which.
+    """
+    return list(yaml.load_all(text, Loader=_RejectDuplicateKeys))
+
+
 def read_top_level_scalars(path: Path, keys: Iterable[str]) -> dict[str, str]:
     """Read an exact set of unindented scalar fields from a YAML file.
 
