@@ -2,29 +2,27 @@
 
 ``items.freeze.run`` / ``items.thaw.run`` toggle ``items.frozen``;
 ``items.block.run`` / ``items.unblock.run`` toggle ``items.blocked``
-together with ``items.blocked_reason``. Both flags are board-display and
-dispatch-routing state that sits beside the lifecycle rather than inside
-it, so none of the four requires the item work claim.
+together with ``items.blocked_reason``.
 
-Why no claim is required: the shared mutation layer already draws that
-line — :func:`yoke_core.domain.backlog_status_claim_verification._verify_status_claim`
-runs only for ``field == "status"``. A work claim serializes authority
-over an item's content and lifecycle position, and these verbs change
-neither. Requiring it would also make the verbs useless in their main
-case, because an operator reaches for freeze or block precisely when
-another session is holding the item. ``items.scalar.update`` keeps
-``claim_required_kind="item"`` for every other caller and field.
+Claim handling is implicit, not absent. The caller does not write the
+acquire/release choreography by hand, but the work claim still governs
+the write: with no live claim the handler acquires one and releases what
+it acquired; when the calling session already holds the claim it
+proceeds and leaves that claim untouched; when a different live session
+holds it the call is refused, naming the holder. See
+:mod:`items_flags_claim` for why the acquire is attempted before the
+holder is read.
 
-A frozen item still accepts block and unblock. The frozen guard on
-``items.scalar.update`` exists to stop content drift on a parked item;
+A frozen item still accepts block and unblock — the frozen guard on
+``items.scalar.update`` stops content drift on a parked item, and
 recording why a parked item is also blocked is coordination, not drift.
 
-Block write ordering: ``blocked_reason`` is written before ``blocked``,
-and cleared after it on unblock, because every reader keys on the flag
-and none surfaces a reason without it (:func:`render_blocked_section`
-returns ``None`` unless ``blocked`` is set). The flag write is therefore
-the single observable commit point, so a failure between the two writes
-can never leave a half-applied block.
+``blocked_reason`` is written before ``blocked``, and cleared after it on
+unblock, because every reader keys on the flag and none surfaces a
+reason without it (:func:`render_blocked_section` returns ``None``
+unless ``blocked`` is set). The flag write is therefore the single
+observable commit point, so a failure between the two writes can never
+leave a half-applied block.
 """
 
 from __future__ import annotations
@@ -35,9 +33,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
-    FunctionCallRequest,
-    FunctionError,
-    HandlerOutcome,
+    FunctionCallRequest, FunctionError, HandlerOutcome,
+)
+from yoke_core.domain.handlers.items_flags_claim import (
+    _ClaimRefused, _acquire_for_caller, _release_acquired,
 )
 
 
@@ -47,7 +46,7 @@ from yoke_contracts.api.function_call import (
 
 
 class FlagRequest(BaseModel):
-    """Empty payload — freeze, thaw, and unblock take only the target."""
+    """Empty payload — freeze, thaw, unblock take only the target."""
 
 
 class BlockRequest(BaseModel):
@@ -137,6 +136,38 @@ def _prepare(
     return int(target.item_id), payload, state, None
 
 
+def _apply(
+    item_id: int,
+    item_ref: str,
+    writes: List[Tuple[str, Any]],
+    request: FunctionCallRequest,
+    captured: io.StringIO,
+) -> Optional[HandlerOutcome]:
+    """Apply the verb's writes under the caller's work claim.
+
+    Returns a refusal outcome when another session holds the claim or a
+    write fails, else None.
+    """
+    try:
+        acquired = _acquire_for_caller(
+            item_id, item_ref, str(request.actor.session_id or "")
+        )
+    except _ClaimRefused as refused:
+        return _error(
+            "claim_held",
+            f"{refused.item_ref} is claimed by session {refused.holder}; "
+            "coordinate with the holder before changing its coordination flags.",
+        )
+    try:
+        for field, value in writes:
+            error = _write(item_id, field, value, request, captured)
+            if error is not None:
+                return _error("write_failed", error)
+    finally:
+        _release_acquired(acquired)
+    return None
+
+
 def _write(
     item_id: int,
     field: str,
@@ -200,10 +231,10 @@ def handle_freeze(request: FunctionCallRequest) -> HandlerOutcome:
     captured = io.StringIO()
     if state["frozen"]:
         return _done(item_id, state, False, captured)
-    error = _write(item_id, "frozen", True, request, captured)
-    if error is not None:
-        return _error("write_failed", error)
-    return _done(item_id, state, True, captured)
+    failure = _apply(
+        item_id, state["item_ref"], [("frozen", True)], request, captured
+    )
+    return failure or _done(item_id, state, True, captured)
 
 
 def handle_thaw(request: FunctionCallRequest) -> HandlerOutcome:
@@ -216,10 +247,10 @@ def handle_thaw(request: FunctionCallRequest) -> HandlerOutcome:
     captured = io.StringIO()
     if not state["frozen"]:
         return _done(item_id, state, False, captured)
-    error = _write(item_id, "frozen", False, request, captured)
-    if error is not None:
-        return _error("write_failed", error)
-    return _done(item_id, state, True, captured)
+    failure = _apply(
+        item_id, state["item_ref"], [("frozen", False)], request, captured
+    )
+    return failure or _done(item_id, state, True, captured)
 
 
 def handle_block(request: FunctionCallRequest) -> HandlerOutcome:
@@ -242,12 +273,11 @@ def handle_block(request: FunctionCallRequest) -> HandlerOutcome:
     changed = not state["blocked"] or str(state["blocked_reason"] or "") != reason
     if not changed:
         return _done(item_id, state, False, captured)
-    error = _write(item_id, "blocked_reason", reason, request, captured)
-    if error is None and not state["blocked"]:
-        error = _write(item_id, "blocked", True, request, captured)
-    if error is not None:
-        return _error("write_failed", error)
-    return _done(item_id, state, True, captured)
+    writes: List[Tuple[str, Any]] = [("blocked_reason", reason)]
+    if not state["blocked"]:
+        writes.append(("blocked", True))
+    failure = _apply(item_id, state["item_ref"], writes, request, captured)
+    return failure or _done(item_id, state, True, captured)
 
 
 def handle_unblock(request: FunctionCallRequest) -> HandlerOutcome:
@@ -260,12 +290,14 @@ def handle_unblock(request: FunctionCallRequest) -> HandlerOutcome:
     captured = io.StringIO()
     if not state["blocked"]:
         return _done(item_id, state, False, captured)
-    error = _write(item_id, "blocked", False, request, captured)
-    if error is None:
-        error = _write(item_id, "blocked_reason", None, request, captured)
-    if error is not None:
-        return _error("write_failed", error)
-    return _done(item_id, state, True, captured)
+    failure = _apply(
+        item_id,
+        state["item_ref"],
+        [("blocked", False), ("blocked_reason", None)],
+        request,
+        captured,
+    )
+    return failure or _done(item_id, state, True, captured)
 
 
 # ---------------------------------------------------------------------------
@@ -286,8 +318,11 @@ def _descriptor(
         "target_kinds": ["item"],
         "side_effects": ["render_body", "rebuild_board", "github_sync", summary],
         "emitted_event_names": ["YokeFunctionCalled"],
-        "guardrails": ["done_item_block"],
+        "guardrails": ["implicit_item_claim", "done_item_block"],
         "adapter_status": "live",
+        # None at the dispatcher on purpose: its gate would refuse before
+        # the handler could acquire for the caller. The claim boundary is
+        # enforced in the handler, as claims.work.release_session_scoped.
         "claim_required_kind": None,
     }
 

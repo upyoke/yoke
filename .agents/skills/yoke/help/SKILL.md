@@ -60,7 +60,7 @@ LOCAL TERMINAL HELPERS
   Park an item off the active board, or return it. Lifecycle status is kept.
  yoke items block PREFIX-N --reason TEXT / yoke items unblock PREFIX-N
   Set or clear the blocked flag and its reason. Lifecycle status is kept.
-  Neither verb needs a work claim on the item.
+  The command takes the item claim for you; refuses if someone holds it.
  yoke board art variant create --ascii
   Generate, preview, and optionally apply .yoke/board-art variants.
   Use `--mixed` or `--image PATH` for the other variant families.

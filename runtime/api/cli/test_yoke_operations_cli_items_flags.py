@@ -2,10 +2,11 @@
 
 Covers ``yoke items freeze|thaw|block|unblock``: route resolution,
 envelope shape, the required ``--reason`` on block, the usage map, and
-the claim contract these commands exist to fix — the flag verbs declare
-no claim requirement, so a live claim held by a different session no
-longer refuses them, while ``items.scalar.update`` keeps its item-claim
-gate unchanged for every other caller and field.
+the dispatcher-side claim contract. The flag verbs carry no dispatcher
+claim gate on purpose — it would refuse before the handler could acquire
+on the caller's behalf — so the boundary lives in the handler instead
+(covered in ``runtime/api/domain/test_items_flag_commands.py``).
+``items.scalar.update`` keeps its item-claim gate unchanged.
 """
 
 from __future__ import annotations
@@ -142,9 +143,16 @@ class TestFlagClaimContract:
         )
 
     @pytest.mark.parametrize("function_id", FLAG_FUNCTION_IDS)
-    def test_a_foreign_session_claim_does_not_refuse_a_flag_verb(
+    def test_the_dispatcher_gate_defers_to_the_handler(
         self, function_id: str, monkeypatch,
     ) -> None:
+        """No dispatcher refusal — the handler owns the claim decision.
+
+        A dispatcher-level item gate would refuse before the handler
+        could acquire for a caller who holds no claim, which is the
+        ceremony these verbs remove. The foreign-holder refusal is
+        asserted at the handler in test_items_flag_commands.
+        """
         monkeypatch.setattr(
             "yoke_core.domain.yoke_function_dispatch_claims.who_claims_for_item",
             lambda _item_id: {"id": 7, "session_id": "someone-else"},
