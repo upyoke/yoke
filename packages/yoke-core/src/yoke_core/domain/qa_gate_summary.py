@@ -102,6 +102,7 @@ def render_gate_summary(
         "blocking_unsatisfied_count": 0,
         "browser_unsatisfied_count": 0,
         "e2e_unsatisfied_count": 0,
+        "tree_freshness_checked": False,
         "requirements": [],
     }
 
@@ -226,6 +227,10 @@ def _format_text(summary: Dict[str, Any]) -> str:
         return "\n".join(lines)
     status = "SATISFIED" if summary["satisfied"] else "UNSATISFIED"
     lines.append(f"  Status: {status}")
+    lines.append(
+        "  Tree freshness: not evaluated here. The terminal gate also requires "
+        "each passing run to name the merged tree."
+    )
     lines.append(f"  Blocking unsatisfied: {summary['blocking_unsatisfied_count']}")
     lines.append(f"  Browser unsatisfied:  {summary['browser_unsatisfied_count']}")
     lines.append(f"  E2E unsatisfied:      {summary['e2e_unsatisfied_count']}")
