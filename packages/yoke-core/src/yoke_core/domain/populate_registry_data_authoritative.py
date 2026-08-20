@@ -86,6 +86,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("MergeEngineFailed", "lifecycle", "merge_lifecycle", "merge_worktree", "ERROR", "Merge engine failed before completion"),
     ("MergeEngineStarted", "lifecycle", "merge_lifecycle", "merge_worktree", "INFO", "Merge engine started for the selected branch and target"),
     ("MergeEngineSucceeded", "lifecycle", "merge_lifecycle", "merge_worktree", "INFO", "Merge engine completed successfully"),
+    ("MergeQueueDriftCheckSkipped", "audit", "merge_queue_drift_check", "yoke_core.domain.merge_queue_drift_gate", "WARN", "The fail-open merge-path comparison against .yoke/merge-queue.json was skipped. Carries item_id, project, branch, skip_reason, and detail so repeated unverified landings are countable without changing merge outcomes."),
     ("LocalVerificationAcceptedAsCiSubstitute", "lifecycle", "merge_lifecycle", "merge_worktree", "INFO", "Merge accepted a non-empty PASS verdict in items.test_results as the evidence substitute when the PR had no required CI checks configured"),
     ("MergeBlockedNoVerificationEvidence", "lifecycle", "merge_lifecycle", "merge_worktree", "ERROR", "Merge refused: PR had no required CI checks AND items.test_results was empty or contained a failure signature"),
     ("MergePullRequestCiFailed", "lifecycle", "merge_lifecycle", "merge_worktree", "ERROR", "Pull request CI checks failed or could not be confirmed"),
