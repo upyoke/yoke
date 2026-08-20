@@ -72,8 +72,10 @@ def _recovery_instruction(requirement: dict[str, Any]) -> str:
     source = str(requirement.get("requirement_source") or "")
     evidence_instruction = (
         "Record the existing exact-head CI result for this requirement through "
-        "`yoke qa run record-verdict --help`, with "
-        "verification_tree.head_sha and the CI run id/URL in --raw-result"
+        "`yoke qa run record-verdict --help`, passing --raw-result as JSON "
+        'carrying the CI run id/URL and {"verification_tree": {"head_sha": '
+        '"<the commit that run verified>"}} -- prose is stored verbatim, '
+        "leaves the head SHA unreadable, and this gate refuses again"
     )
     if source == "flow_derived":
         return evidence_instruction
