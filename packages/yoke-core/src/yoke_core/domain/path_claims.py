@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Sequence
 
 from yoke_core.domain import db_backend, workflow_item_binding_lock
+from yoke_core.domain import path_claims_dependency_resolver_coordination as dep_edges
 from yoke_core.domain.actors import validate_actor_id
 from yoke_core.domain.path_claim_owner import (
     derive_owner_from_signals,
@@ -277,6 +278,15 @@ def activate(
         raise IncompatibleOverlap(
             f"claim {claim_id}: another active claim now owns overlapping "
             f"coverage on {row['integration_target']!r}"
+        )
+    if (
+        state == "planned"
+        and classification is OverlapClassification.SERIAL_VIA_DEPENDENCY
+        and dep_edges.has_active_serial_claim_dependency(
+            conn, owner_item_id, row["integration_target"], targets)
+    ):
+        raise UpstreamNotReleased(
+            f"claim {claim_id} has an active serial dependency; wait for release"
         )
     if state == "blocked":
         if upstream_claim_id is None:

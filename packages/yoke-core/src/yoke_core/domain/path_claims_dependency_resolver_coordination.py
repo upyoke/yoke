@@ -26,7 +26,7 @@ respects ``item_dependencies.dependent_item_id`` direction.
 from __future__ import annotations
 
 import enum
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from yoke_core.domain.dependency_types import is_coordination_only
 from yoke_core.domain.db_optional_queries import fetch_optional_rows
@@ -34,6 +34,7 @@ from yoke_core.domain.path_claims_dependency_resolver import (
     _claim_owning_item,
     _placeholder,
 )
+from yoke_core.domain.schema_common import _column_exists
 class CoordinationClassification(enum.Enum):
     """Edge-shape between a candidate and a blocker's owning items."""
 
@@ -116,6 +117,49 @@ def has_forward_serial_edge(
     )
 
 
+def has_active_serial_claim_dependency(
+    conn: Any,
+    candidate_item_id: Optional[int],
+    integration_target: str,
+    target_ids: Sequence[int],
+) -> bool:
+    """Return whether an active claim belongs to this item's serial blocker."""
+    if candidate_item_id is None:
+        return False
+    from yoke_core.domain.path_claims_lineage import expand_lineage
+
+    expanded_targets = expand_lineage(conn, target_ids)
+    if not expanded_targets:
+        return False
+    placeholder = _placeholder(conn)
+    target_markers = ", ".join(placeholder for _ in expanded_targets)
+    frozen_join = ""
+    frozen_filter = ""
+    if _column_exists(conn, "items", "frozen"):
+        frozen_join = " LEFT JOIN items owner ON owner.id = pc.owner_item_id"
+        frozen_filter = " AND COALESCE(owner.frozen, 0) = 0"
+    rows = fetch_optional_rows(
+        conn,
+        "SELECT DISTINCT pc.owner_item_id FROM path_claims pc "
+        "JOIN path_claim_targets pct ON pct.claim_id = pc.id"
+        f"{frozen_join} WHERE pc.integration_target = {placeholder} "
+        "AND pc.state = 'active' AND pc.mode <> 'exception' "
+        "AND pc.owner_kind = 'item' AND pc.owner_item_id IS NOT NULL "
+        f"AND pc.owner_item_id <> {placeholder} "
+        f"AND pct.target_id IN ({target_markers}){frozen_filter}",
+        (integration_target, int(candidate_item_id), *expanded_targets),
+        savepoint="_yoke_active_serial_claim_dependency_probe",
+    )
+    return any(
+        has_forward_serial_edge(
+            conn,
+            dependent_item_id=int(candidate_item_id),
+            blocking_item_id=int(row[0]),
+        )
+        for row in rows
+    )
+
+
 def items_are_coordination_only(
     conn: Any, *, item_a_id: int, item_b_id: int,
 ) -> bool:
@@ -188,6 +232,7 @@ def classify_inter_item_edges(
 __all__ = [
     "CoordinationClassification",
     "classify_inter_item_edges",
+    "has_active_serial_claim_dependency",
     "has_forward_serial_edge",
     "items_are_coordination_only",
 ]

@@ -24,6 +24,7 @@ from yoke_core.domain.conflict_survey_declared_paths import (
 from yoke_core.domain.conflict_survey_models import ConflictMatch, ConflictSurvey
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.path_claims_dependency_resolver_coordination import (
+    has_forward_serial_edge,
     items_are_coordination_only,
 )
 from yoke_core.domain.schema_common import _table_exists
@@ -118,10 +119,17 @@ def survey_conflicts(
         row
         for row in blockers
         if row.owner_item_id is None
-        or not items_are_coordination_only(
-            conn,
-            item_a_id=int(item["id"]),
-            item_b_id=row.owner_item_id,
+        or (
+            not items_are_coordination_only(
+                conn,
+                item_a_id=int(item["id"]),
+                item_b_id=row.owner_item_id,
+            )
+            and not has_forward_serial_edge(
+                conn,
+                dependent_item_id=row.owner_item_id,
+                blocking_item_id=int(item["id"]),
+            )
         )
     ]
     blockers.sort(

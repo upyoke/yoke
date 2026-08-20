@@ -58,7 +58,8 @@ def evaluate(
         "success": False,
         "error_code": "GATE_CONFLICT_SURVEY_BLOCKED",
         "error": (
-            "Registered coordination wins over claim-less work: " + details
+            "Resolve the listed coordination conflict before continuing: "
+            + details
         ),
         "remediation_hint": (
             "Coordinate or wait, narrow the touch set, register path claims, "
