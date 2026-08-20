@@ -10,6 +10,8 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_contracts.item_ref import format_item_ref
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.machine_qa_capability import lease_key
+from yoke_core.domain.machine_qa_host_registrar import host_registrations
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
@@ -32,16 +34,30 @@ def read_test_machine_facts(
                 tuple(project_ids),
             ).fetchall()
         }
+    requested = set(project_ids)
+    host_keys = {
+        registration.project_id: lease_key(registration.resource_name)
+        for registration in host_registrations(conn)
+        if registration.project_id in requested
+    }
     active_sessions: dict[int, str] = {}
-    if _table_exists(conn, "coordination_leases"):
-        active_sessions = {
-            int(row["project_id"]): str(row["session_id"])
+    if host_keys and _table_exists(conn, "coordination_leases"):
+        # The host lease lives under whichever project registered the machine,
+        # so a shared host is busy for every project that names it.
+        keys = sorted(set(host_keys.values()))
+        key_markers = ", ".join([marker] * len(keys))
+        holders = {
+            str(row["lease_key"]): str(row["session_id"])
             for row in conn.execute(
-                "SELECT project_id,session_id FROM coordination_leases "
-                f"WHERE project_id IN ({placeholders}) "
-                "AND lease_key LIKE 'QA_HOST:%%' AND released_at IS NULL",
-                tuple(project_ids),
+                "SELECT lease_key,session_id FROM coordination_leases "
+                f"WHERE lease_key IN ({key_markers}) AND released_at IS NULL",
+                tuple(keys),
             ).fetchall()
+        }
+        active_sessions = {
+            project_id: holders[key]
+            for project_id, key in host_keys.items()
+            if key in holders
         }
     active_items: dict[int, str | None] = {
         project_id: None for project_id in active_sessions

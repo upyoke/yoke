@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.qa_catalog_test_support import (
@@ -22,6 +24,20 @@ from yoke_core.domain.qa_plan_management import (
 from yoke_core.domain.qa_plan_project_defaults import set_project_default
 from yoke_core.domain.schema_init_tables import create_governed_tables
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
+
+
+# The roster resolves a host lease through the registered resource name,
+# so the capability row must name the machine its lease references.
+MACHINE_SETTINGS = json.dumps(
+    {
+        "host": "test-mac.local",
+        "operating_notes": "",
+        "resource_name": "mac-mini-lab",
+        "user": "yoke-test",
+    },
+    separators=(",", ":"),
+    sort_keys=True,
+)
 
 
 def test_builtin_methods_seed_with_real_contracts() -> None:
@@ -161,10 +177,14 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         conn.execute(
             "INSERT INTO project_capabilities("
             "project_id,type,settings,verified_at,created_at"
-            ") VALUES(1,'test-machine','{}',%s,%s) "
+            ") VALUES(1,'test-machine',%s,%s,%s) "
             "ON CONFLICT(project_id,type) DO UPDATE SET "
             "verified_at=EXCLUDED.verified_at",
-            ("2026-07-26T16:00:00Z", "2026-07-26T15:00:00Z"),
+            (
+                MACHINE_SETTINGS,
+                "2026-07-26T16:00:00Z",
+                "2026-07-26T15:00:00Z",
+            ),
         )
         conn.execute(
             "INSERT INTO test_machine_verifications("

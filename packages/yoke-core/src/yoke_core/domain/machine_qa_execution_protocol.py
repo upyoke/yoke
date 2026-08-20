@@ -29,6 +29,7 @@ from yoke_core.domain.machine_qa_execution_contract import (
     issue_execution_contract,
 )
 from yoke_core.domain.machine_qa_capability import lease_key
+from yoke_core.domain.machine_qa_host_registrar import host_lease_project_id
 
 HOST_CONTROL_SUBMISSION_RECEIPT_KEY = "host_control_submission"
 
@@ -179,10 +180,11 @@ def begin_host_control_execution(
     machine = load_test_machine_contract(conn, project=project)
     resource_name = machine.settings["resource_name"]
     resource_lease_key = lease_key(resource_name)
+    lease_project_id = host_lease_project_id(conn, resource_name)
     try:
         lease = acquire_lease(
             conn,
-            machine.project_id,
+            lease_project_id,
             resource_lease_key,
             session_id,
             actor_id=actor_id,
@@ -192,7 +194,7 @@ def begin_host_control_execution(
     except LeaseHeldError as exc:
         held = active_lease(
             conn,
-            machine.project_id,
+            lease_project_id,
             resource_lease_key,
         )
         if held is None:
@@ -235,8 +237,9 @@ def _validate_lease_owner(
             f"host-control lease {lease_id} was not issued"
         ) from exc
     machine = load_test_machine_contract(conn, project=project)
-    expected_key = lease_key(machine.settings["resource_name"])
-    if lease.project_id != machine.project_id or (
+    resource_name = machine.settings["resource_name"]
+    expected_key = lease_key(resource_name)
+    if lease.project_id != host_lease_project_id(conn, resource_name) or (
         lease.is_active and lease.lease_key != expected_key
     ):
         raise MachineQaProtocolError(

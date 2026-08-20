@@ -39,6 +39,7 @@ from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
 from yoke_core.domain.machine_qa_capability import lease_key
+from yoke_core.domain.machine_qa_host_registrar import host_lease_project_id
 from yoke_core.domain.machine_verification_recording import (
     record_test_machine_verification,
 )
@@ -213,10 +214,11 @@ def acquire_machine_qa_lease(
     control, material = resolve_host_control(conn, project=project)
     resource_name = str(material.settings["resource_name"])
     resource_lease_key = lease_key(resource_name)
+    lease_project_id = host_lease_project_id(conn, resource_name)
     try:
         lease = acquire_lease(
             conn,
-            material.project_id,
+            lease_project_id,
             resource_lease_key,
             session_id,
             actor_id=actor_id,
@@ -226,7 +228,7 @@ def acquire_machine_qa_lease(
     except LeaseHeldError as exc:
         held = active_lease(
             conn,
-            material.project_id,
+            lease_project_id,
             resource_lease_key,
         )
         if held is None:
