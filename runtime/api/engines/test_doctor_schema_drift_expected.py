@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import db_backend, environment_bootstrap
-from yoke_core.engines.doctor_hc_db_project_schema_expected import (
+from yoke_core.domain.schema_expected_catalog import (
     parse_expected_schema,
 )
 from yoke_core.engines.doctor_hc_db_project_schema import hc_schema_drift

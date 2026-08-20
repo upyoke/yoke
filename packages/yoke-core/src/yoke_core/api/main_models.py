@@ -70,9 +70,15 @@ class HealthResponse(BaseModel):
     applied that THIS build cannot survive. An older build's history does
     not contain a newer destructive entry at all, so it computes an empty
     pending set and reports ``migrations_current`` true while reading
-    columns that are gone. ``stranded_by_migrations`` names each such
-    entry with the remedy. Missing ledger or serving-floor evidence also
-    fails closed because compatibility cannot be inferred from silence.
+    columns that are gone. ``stranded_by_migrations`` names each finding
+    with its remedy, from two independent sources: a probe comparing the
+    tables and columns this build reads against the live catalog, and the
+    ledger's recorded serving floors. The probe leads because it is the
+    direct question and cannot be defeated by a mis-authored floor, which
+    is how a fleet once reported itself able to serve a schema whose
+    columns it could no longer read. Missing ledger or serving-floor
+    evidence also fails closed because compatibility cannot be inferred
+    from silence.
     ``migration_content_matches`` answers whether every common non-NULL ledger
     digest matches the packaged raw migration bytes. Mismatches refuse serving
     and are named in ``migration_content_mismatches``. Legacy NULL rows remain

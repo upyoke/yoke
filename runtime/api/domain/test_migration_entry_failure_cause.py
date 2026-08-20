@@ -16,10 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.migration_boot_apply import (
+from yoke_core.domain.migration_boot_apply import apply_pending as _apply_pending
+from yoke_core.domain.migration_entry_failure_cause import (
     EntryFailed,
-    _failure_reason,
-    apply_pending as _apply_pending,
+    failure_reason,
 )
 from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 from yoke_core.domain.migration_history import ordered_entries
@@ -93,14 +93,14 @@ class TestFailureReason:
             finally:
                 raise RuntimeError("cleanup could not run")
         except RuntimeError as exc:
-            reason = _failure_reason(exc)
+            reason = failure_reason(exc)
 
         assert "the real cause" in reason
         assert "ValueError" in reason
         assert "RuntimeError" in reason, "the surfaced type stays visible too"
 
     def test_an_unchained_exception_reads_as_itself(self) -> None:
-        reason = _failure_reason(ValueError("plain"))
+        reason = failure_reason(ValueError("plain"))
 
         assert reason == "ValueError: plain"
         assert "surfaced as" not in reason
@@ -112,7 +112,7 @@ class TestFailureReason:
         first.__context__ = second
         second.__context__ = first
 
-        assert "first" in _failure_reason(first) or "second" in _failure_reason(first)
+        assert "first" in failure_reason(first) or "second" in failure_reason(first)
 
 
 class TestApplyFailure:

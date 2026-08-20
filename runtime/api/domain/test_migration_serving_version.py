@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
 import types
+from pathlib import Path
 
 import pytest
 
@@ -113,3 +115,114 @@ class TestApplierRefusal:
         on the entry that tree just authored.
         """
         serving.refuse_if_behind("0001_retire", "", "99.0.0")
+
+
+def _committed_in_an_untagged_checkout(root: Path) -> Path:
+    """Write one entry into a fresh checkout that carries no release tag.
+
+    A checkout with no tag containing the entry's commit is exactly the state
+    an author is in while writing one, which is the state the gate is for.
+    """
+    subprocess.run(("git", "init", "-q", str(root)), check=True)
+    entry = root / "0099_drop_a_column.py"
+    entry.write_text("MINIMUM_SERVING_VERSION = '0.1.2'\n", encoding="utf-8")
+    subprocess.run(("git", "-C", str(root), "add", entry.name), check=True)
+    subprocess.run(
+        (
+            "git", "-C", str(root),
+            "-c", "user.email=test@example.invalid",
+            "-c", "user.name=test",
+            "commit", "-q", "-m", "add entry",
+        ),
+        check=True,
+    )
+    return entry
+
+
+class TestNextReleaseSentinel:
+    """A new destructive entry can only be served by a release that is not cut.
+
+    Every literal an author could write today names a build that predates the
+    entry, so a literal on an unreleased entry is always wrong. One such
+    declaration named precisely the build that could not read the schema its
+    own entry produced, and the compatibility gate believed it.
+    """
+
+    def test_the_sentinel_is_a_declaration_not_a_version(self) -> None:
+        module = _module(MINIMUM_SERVING_VERSION=serving.NEXT_RELEASE)
+        assert serving.declared_minimum(module) == serving.NEXT_RELEASE
+
+    def test_an_unreleased_entry_declaring_a_literal_fails_module_load(
+        self, tmp_path
+    ) -> None:
+        entry = _committed_in_an_untagged_checkout(tmp_path)
+
+        with pytest.raises(serving.ServingVersionError) as excinfo:
+            serving.require_declaration(
+                "0099_drop_a_column",
+                "ALTER TABLE items DROP COLUMN flow",
+                _module(MINIMUM_SERVING_VERSION="0.1.2"),
+                path=entry,
+            )
+        message = str(excinfo.value)
+        assert "no release contains this entry yet" in message
+        assert serving.NEXT_RELEASE in message
+
+    def test_an_unreleased_entry_declaring_the_sentinel_loads(self, tmp_path) -> None:
+        entry = _committed_in_an_untagged_checkout(tmp_path)
+
+        declared = serving.require_declaration(
+            "0099_drop_a_column",
+            "ALTER TABLE items DROP COLUMN flow",
+            _module(MINIMUM_SERVING_VERSION=serving.NEXT_RELEASE),
+            path=entry,
+        )
+        assert declared == serving.NEXT_RELEASE
+
+    def test_the_missing_declaration_message_teaches_the_sentinel(self) -> None:
+        with pytest.raises(serving.ServingVersionError) as excinfo:
+            serving.require_declaration(
+                "0099_drop_a_column",
+                "ALTER TABLE items DROP COLUMN flow",
+                _module(),
+            )
+        assert serving.NEXT_RELEASE in str(excinfo.value)
+
+    def test_a_built_artifact_outside_a_checkout_keeps_its_literals(
+        self, tmp_path
+    ) -> None:
+        """A wheel ships only released bytes, so its literals are already true.
+
+        Nothing else could be the case: the file exists because a release put
+        it there, and no checkout is present to say which release that was.
+        """
+        entry = tmp_path / "0001_retire_superseded_surfaces.py"
+        entry.write_text("", encoding="utf-8")
+        assert serving.entry_is_released(entry)
+
+    def test_the_applier_never_refuses_the_sentinel(self) -> None:
+        # The artifact applying an entry is by construction one that carries
+        # it, which is exactly the claim the sentinel makes.
+        serving.refuse_if_behind("0099_drop", "0.0.1", serving.NEXT_RELEASE)
+
+
+class TestRecordedFloor:
+    def test_a_literal_is_recorded_as_authored(self) -> None:
+        module = _module(MINIMUM_SERVING_VERSION="0.1.2")
+        assert serving.recorded_floor(module, running_version="9.9.9") == "0.1.2"
+
+    def test_the_sentinel_resolves_to_the_applying_artifact(self) -> None:
+        module = _module(MINIMUM_SERVING_VERSION=serving.NEXT_RELEASE)
+        assert (
+            serving.recorded_floor(module, running_version="0.1.1+launch.250")
+            == "0.1.1+launch.250"
+        )
+
+    def test_an_unresolved_artifact_records_no_floor_rather_than_a_guess(
+        self,
+    ) -> None:
+        module = _module(MINIMUM_SERVING_VERSION=serving.NEXT_RELEASE)
+        assert serving.recorded_floor(module, running_version="") is None
+
+    def test_an_entry_with_no_declaration_records_nothing(self) -> None:
+        assert serving.recorded_floor(_module(), running_version="0.1.2") is None

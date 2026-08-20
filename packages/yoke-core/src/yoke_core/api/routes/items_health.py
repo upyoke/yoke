@@ -21,6 +21,7 @@ from yoke_core.domain.schema_readiness import (
     missing_readiness_tables,
     pending_migration_names,
     stranded_by_applied_migrations,
+    unreadable_serving_surfaces,
 )
 from yoke_core.domain.migration_yoke_ledger import (
     yoke_migration_content_schema_is_prepared,
@@ -233,7 +234,12 @@ def _health_snapshot() -> Tuple[
             # the ledger, and a second probe would defeat the reason the TTL
             # exists. Both answers also move backwards together — a restore or
             # a repointed DSN changes what was applied and what may serve it.
-            stranded = stranded_by_applied_migrations(
+            # The probe leads: it asks the database whether the shapes this
+            # build reads are there, which is true or false independently of
+            # any floor an author declared, and a wrong floor is exactly how a
+            # fleet once reported itself able to serve a schema it could not.
+            stranded = unreadable_serving_surfaces(conn)
+            stranded += stranded_by_applied_migrations(
                 conn,
                 advertised_engine_version(),
                 history,

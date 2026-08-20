@@ -1,17 +1,27 @@
-"""Expected Postgres catalog for HC-schema-drift.
+"""The table/column surface this build reads, as one declared catalog.
 
-The table/column surface a converged Yoke universe carries, dumped from the
-authoritative database. Machine-generated reference data rather than authored
-logic: regenerate it from a converged universe rather than editing it by hand,
-the same way Platform maintains its own catalog fixture.
+Dumped from a converged authoritative database: machine-generated reference
+data rather than authored logic, so regenerate it from a converged universe
+rather than editing it by hand, the same way Platform maintains its own
+catalog fixture.
+
+Two readers depend on it, and they ask opposite questions. The schema-drift
+health check asks whether the database carries anything this build does not
+know about. The serving-surface probe in
+:mod:`yoke_core.domain.schema_readiness` asks the reverse — whether everything
+this build reads is still there — which is what a build stranded behind a
+destructive migration needs and cannot learn from any declared version floor.
+Because a build ships the catalog it was written against, that catalog is a
+faithful statement of what its code expects, and the probe compares it against
+the live database rather than trusting a constant an author hand-wrote.
 
 The declaration is one ``"|"``-separated string so per-table sections stay
 legible in a diff. Each section is ``<table>:<col>/<TYPE>,...``. The parser is
 a thin split routine with no schema-loading logic (no PRAGMA, no connection),
 so it stays cheap to import and easy to unit-test against a fixed string.
 
-The drift check compares NAMES; the type field is descriptive and appears only
-in the message a mismatch prints.
+Both readers compare NAMES; the type field is descriptive and appears only in
+the message a mismatch prints.
 """
 
 from __future__ import annotations

@@ -38,6 +38,9 @@ from yoke_core.domain.qa_plan_execution_schema import (
 from yoke_core.domain.qa_plan_review_schema import (
     ensure_qa_plan_review_schema,
 )
+from yoke_contracts.schema_authority import (
+    refuse_without_serving_build_authority,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _connect_raw
 from yoke_core.domain.schema_common import _table_exists
@@ -160,7 +163,12 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     Order matters — ``create_external_identity_tables`` FKs into actors,
     organizations (created by ``create_auth_tables``), and roles, so those
     creation steps precede it.
+
+    Whether this process may converge at all is a question about the database,
+    not about the command that got here: a workstation pointed at a control
+    plane it does not serve is refused whatever it is running.
     """
+    refuse_without_serving_build_authority("converging a database schema")
     # Read born-ness BEFORE creating anything. A database that is already a
     # live universe owes the history; a newborn one gets its schema from this
     # very call and therefore already satisfies every historical entry. After

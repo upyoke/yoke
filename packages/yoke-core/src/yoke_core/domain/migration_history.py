@@ -226,9 +226,11 @@ def load_migration_module(
     something importing can check.
 
     An entry that removes a surface must also declare the oldest artifact
-    version that may serve against it. That check lives here because every
-    path that could apply an entry loads it through this function first, so
-    the declaration cannot be forgotten by taking a different route.
+    version that may serve against it, and an entry no release carries yet
+    must declare that as the next-release sentinel rather than as a literal
+    version that predates it. Both checks live here because every path that
+    could apply an entry loads it through this function first, so neither can
+    be forgotten by taking a different route.
     """
     if not path.is_file():
         raise ModuleResolutionError(
@@ -259,7 +261,7 @@ def load_migration_module(
         )
     try:
         migration_serving_version.require_declaration(
-            identifier, content.decode("utf-8"), module
+            identifier, content.decode("utf-8"), module, path=path
         )
     except (UnicodeDecodeError, migration_serving_version.ServingVersionError) as exc:
         raise ModuleContractError(str(exc)) from exc

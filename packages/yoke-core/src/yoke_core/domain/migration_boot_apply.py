@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
+from yoke_contracts.schema_authority import (
+    refuse_without_serving_build_authority,
+)
 from yoke_core.domain import (
     db_backend,
     migration_restore_point,
@@ -38,39 +41,10 @@ from yoke_core.domain.migration_content_identity import (
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
 from yoke_core.domain.migration_ledger_contract import LedgerContract
 from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
-
-
-class EntryFailed(MigrationApplyError):
-    """An entry that could not be applied, named by what actually broke.
-
-    An entry rarely reports its own failure accurately. Most wrap their SQL in
-    ``try``/``finally`` to restore a guard they crossed, and on Postgres the
-    statement that really failed aborts the transaction — so the cleanup in
-    the ``finally`` fails too, with a generic "transaction is aborted", and
-    that replaces the real error. The original survives only on
-    ``__context__``, which no log surface prints and which the reports
-    reaching an operator routinely truncate away. Carrying the root cause in
-    this message keeps it legible down to a single final line.
-    """
-
-
-def _root_cause(exc: BaseException) -> BaseException:
-    """The deepest exception behind this one, following causes and contexts."""
-    seen = {id(exc)}
-    root = exc
-    while True:
-        deeper = root.__cause__ or root.__context__
-        if deeper is None or id(deeper) in seen:
-            return root
-        seen.add(id(deeper))
-        root = deeper
-
-
-def _failure_reason(exc: BaseException) -> str:
-    root = _root_cause(exc)
-    if root is exc:
-        return f"{type(exc).__name__}: {exc}"
-    return f"{type(root).__name__}: {root} (surfaced as {type(exc).__name__})"
+from yoke_core.domain.migration_entry_failure_cause import (
+    EntryFailed,
+    failure_reason,
+)
 
 
 @dataclass(frozen=True)
@@ -103,6 +77,7 @@ def stamp_history(
     empty ledger here — a pre-ledger database that predates this mechanism
     also has no rows, and stamping *that* one would skip real work.
     """
+    refuse_without_serving_build_authority("recording a migration history as applied")
     require_matching_content_identity(conn, history, ledger)
     stamped: list[str] = []
     try:
@@ -124,8 +99,8 @@ def stamp_history(
                 ledger=ledger,
                 applied_by=applied_by,
                 content_sha256=raw_content_sha256(source_bytes),
-                minimum_serving_version=(
-                    migration_serving_version.declared_minimum(module)
+                minimum_serving_version=migration_serving_version.recorded_floor(
+                    module, running_version="",
                 ),
             )
             stamped.append(entry.name)
@@ -175,6 +150,7 @@ def apply_pending(
     build old enough to be in danger does not ship the entry that would tell
     it so.
     """
+    refuse_without_serving_build_authority("applying a migration history")
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
 
@@ -246,10 +222,10 @@ def _apply_one(
         raise EntryFailed(
             f"{entry.name} source changed while the migration module loaded"
         )
-    minimum = migration_serving_version.declared_minimum(module)
+    declared = migration_serving_version.declared_minimum(module)
     # Refuse before DDL: a newer floor means the declaration and code disagree.
     # Catching it here costs nothing; catching it later costs the database.
-    migration_serving_version.refuse_if_behind(entry.name, running_version, minimum)
+    migration_serving_version.refuse_if_behind(entry.name, running_version, declared)
     started_at = now_stamp()
     failure_state = "live_apply_failed"
     failure_phase = "apply"
@@ -271,7 +247,9 @@ def _apply_one(
             ledger=ledger,
             applied_by=applied_by,
             content_sha256=source_sha256,
-            minimum_serving_version=minimum,
+            minimum_serving_version=migration_serving_version.recorded_floor(
+                module, running_version=running_version,
+            ),
         )
         invariants = getattr(module, "invariants", None)
         if callable(invariants):
@@ -291,7 +269,7 @@ def _apply_one(
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
         conn.rollback()
-        reason = _failure_reason(exc)
+        reason = failure_reason(exc)
         write_receipt(
             conn,
             entry,
