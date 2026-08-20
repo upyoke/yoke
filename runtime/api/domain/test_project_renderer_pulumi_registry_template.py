@@ -130,6 +130,7 @@ def test_real_registry_template_renders_ci_keys():
             "state_bucket": "acme-pulumi-state",
             "kms_key_alias": "alias/acme-pulumi-state",
             "delivery_distribution_bucket_names_json": ('["acme-distribution-prod"]'),
+            "delivery_authority_json": "{}",
             "delivery_cloudfront_distribution_ids_json": ('["EACME"]'),
             "github_app_private_key_secret_arns_json": (
                 '["arn:aws:secretsmanager:us-east-1:123456789012:'
@@ -143,4 +144,7 @@ def test_real_registry_template_renders_ci_keys():
     assert "webapp-infra:distribution_bucket_names:" in rendered
     assert "webapp-infra:cloudfront_distribution_ids:" in rendered
     assert "webapp-infra:github_app_private_key_secret_arns:" in rendered
+    # A project that opts into nothing still renders an explicit empty
+    # descriptor, so the stack always has a value to read.
+    assert "webapp-infra:delivery_authority: {}" in rendered
     assert "{{" not in rendered

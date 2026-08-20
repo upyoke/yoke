@@ -41,6 +41,7 @@ _PULUMI_KEYS = {
     "domain_mx_records_json",
 }
 _CI_KEYS = {
+    "delivery_authority_json",
     "delivery_cloudfront_distribution_ids_json",
     "delivery_distribution_bucket_names_json",
     "github_api_url",
