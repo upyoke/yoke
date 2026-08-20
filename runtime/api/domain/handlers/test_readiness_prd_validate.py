@@ -40,7 +40,7 @@ def _patch_prd(monkeypatch: pytest.MonkeyPatch, report: prd_validate.Report):
         print(f"rendered {item_label}")
 
     # Handler local-imports item_ref_for_id; under xdist that helper
-    # can map fixture id 42 to a different public sequence than YOK-42.
+    # can map fixture id 42 to a different public sequence than the typed ref.
     monkeypatch.setattr(
         "yoke_core.domain.project_identity_item_ref.item_ref_for_id",
         lambda item_id: f"YOK-{item_id}",
