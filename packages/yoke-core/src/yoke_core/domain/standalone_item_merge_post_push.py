@@ -44,6 +44,10 @@ from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 DISCOVERY_TIMEOUT_KEY = "standalone_post_push_ci_discovery_timeout"
 CONCLUSION_TIMEOUT_KEY = "standalone_post_push_ci_timeout"
 _GREEN_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
+CHECK_RUNS_PER_PAGE = 100
+_MALFORMED_PAGINATION = (
+    "post-push check-runs pagination is incomplete or malformed"
+)
 
 
 @dataclass(frozen=True)
@@ -90,10 +94,38 @@ def _setting_seconds(key: str) -> int:
     return runtime_settings.get_seconds(key, default)
 
 
+def _decode_check_runs_page(
+    payload: object,
+) -> tuple[Optional[list[CheckRun]], Optional[int], str]:
+    if not isinstance(payload, dict):
+        return None, None, "post-push check-runs response omitted check_runs"
+    raw_runs = payload.get("check_runs")
+    if not isinstance(raw_runs, list):
+        return None, None, "post-push check-runs response omitted check_runs"
+    raw_count = payload.get("total_count")
+    if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
+        return None, None, _MALFORMED_PAGINATION
+    runs: list[CheckRun] = []
+    for raw in raw_runs:
+        if not isinstance(raw, dict):
+            return None, None, (
+                "post-push check-runs response contained a malformed run"
+            )
+        runs.append(CheckRun(
+            name=str(raw.get("name") or "unnamed check").strip(),
+            status=str(raw.get("status") or "").strip().lower(),
+            conclusion=str(raw.get("conclusion") or "").strip().lower(),
+            url=str(raw.get("html_url") or raw.get("details_url") or "").strip(),
+        ))
+    if len(runs) > raw_count:
+        return None, None, _MALFORMED_PAGINATION
+    return runs, raw_count, ""
+
+
 def read_check_runs(
     project: str, merge_sha: str, authority: str,
 ) -> tuple[Optional[tuple[CheckRun, ...]], str]:
-    """Read check runs for exactly ``merge_sha`` under the merge's authority."""
+    """Read every check run for ``merge_sha`` under the merge's authority."""
     ctx = MergeContext(args=MergeArgs(branch=""), project=project)
     try:
         auth = resolve_auth(
@@ -105,29 +137,40 @@ def read_check_runs(
         hint = f" Repair: {exc.hint}" if exc.hint else ""
         return None, f"post-push check auth resolution failed: {exc}.{hint}"
     owner, repo = gh_rest_transport.split_repo(auth.repo)
-    request = RestRequest(
-        method="GET",
-        path=f"/repos/{owner}/{repo}/commits/{merge_sha}/check-runs",
-    )
-    try:
-        response = request_with_retry(request, token=auth.token)
-    except RestTransportError as exc:
-        return None, f"post-push check-runs read failed: {exc}"
-    payload = response.body if isinstance(response.body, dict) else None
-    raw_runs = payload.get("check_runs") if payload is not None else None
-    if not isinstance(raw_runs, list):
-        return None, "post-push check-runs response omitted check_runs"
-    runs: list[CheckRun] = []
-    for raw in raw_runs:
-        if not isinstance(raw, dict):
-            return None, "post-push check-runs response contained a malformed run"
-        runs.append(CheckRun(
-            name=str(raw.get("name") or "unnamed check").strip(),
-            status=str(raw.get("status") or "").strip().lower(),
-            conclusion=str(raw.get("conclusion") or "").strip().lower(),
-            url=str(raw.get("html_url") or raw.get("details_url") or "").strip(),
-        ))
-    return tuple(runs), ""
+    collected: list[CheckRun] = []
+    expected: Optional[int] = None
+    page = 1
+    while True:
+        request = RestRequest(
+            method="GET",
+            path=f"/repos/{owner}/{repo}/commits/{merge_sha}/check-runs",
+            query={
+                "per_page": str(CHECK_RUNS_PER_PAGE),
+                "page": str(page),
+            },
+        )
+        try:
+            response = request_with_retry(request, token=auth.token)
+        except RestTransportError as exc:
+            return None, f"post-push check-runs read failed: {exc}"
+        payload = response.body if isinstance(response.body, dict) else None
+        page_runs, total_count, error = _decode_check_runs_page(payload)
+        if error or page_runs is None or total_count is None:
+            return None, error
+        if expected is None:
+            expected = total_count
+        elif total_count != expected:
+            return None, _MALFORMED_PAGINATION
+        collected.extend(page_runs)
+        if len(collected) == expected:
+            return tuple(collected), ""
+        if (
+            len(collected) > expected
+            or not page_runs
+            or len(page_runs) < CHECK_RUNS_PER_PAGE
+        ):
+            return None, _MALFORMED_PAGINATION
+        page += 1
 
 
 def _terminal_kind(runs: tuple[CheckRun, ...]) -> str:
@@ -169,10 +212,7 @@ def await_post_push_checks(
         remaining = discovery_deadline - (monotonic() - started)
         if remaining <= 0:
             return PostPushVerdict("no_checks")
-        if remaining < MINIMUM_POLL_INTERVAL_SECONDS:
-            sleep(remaining)
-            return PostPushVerdict("no_checks")
-        sleep(MINIMUM_POLL_INTERVAL_SECONDS)
+        sleep(min(remaining, MINIMUM_POLL_INTERVAL_SECONDS))
 
     while True:
         kind = _terminal_kind(runs)
@@ -181,10 +221,7 @@ def await_post_push_checks(
         remaining = conclusion_timeout - (monotonic() - started)
         if remaining <= 0:
             return PostPushVerdict("timed_out", runs=runs)
-        if remaining < MINIMUM_POLL_INTERVAL_SECONDS:
-            sleep(remaining)
-            return PostPushVerdict("timed_out", runs=runs)
-        sleep(MINIMUM_POLL_INTERVAL_SECONDS)
+        sleep(min(remaining, MINIMUM_POLL_INTERVAL_SECONDS))
         refreshed, error = read(project, merge_sha, authority)
         if error or refreshed is None:
             return PostPushVerdict("unreadable", runs=runs, detail=error)
