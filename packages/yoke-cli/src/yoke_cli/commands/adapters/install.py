@@ -26,10 +26,12 @@ from yoke_cli.project_install.files import ProjectInstallError
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 
 PROJECT_INSTALL_USAGE = (
-    "yoke project install [REPO_ROOT] [--project-id N] [--config PATH] [--json]"
+    "yoke project install [REPO_ROOT] [--project-id N] [--config PATH] "
+    "[--force] [--no-commit] [--json]"
 )
 PROJECT_REFRESH_USAGE = (
     "yoke project refresh [REPO_ROOT] [--project-id N] [--config PATH] "
+    "[--force] [--no-commit] "
     "[--source-checkout PATH] [--project-slug SLUG] "
     "[--manifest-from PATH] [--apply] [--json]"
 )
@@ -45,6 +47,20 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
     parser.add_argument("--project-id", dest="project_id", type=int,
                         default=None)
     parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Proceed despite a dirty working tree or a checkout that is not "
+            "on the project default branch."
+        ),
+    )
+    parser.add_argument(
+        "--no-commit",
+        dest="no_commit",
+        action="store_true",
+        help="Write the bundle without committing the touched paths.",
+    )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     attach_field_note_footer(parser)
     return parser
@@ -102,6 +118,8 @@ def _run_install(args: List[str], usage: str, prog: str,
         project_id=parsed.project_id,
         config_path=parsed.config_path,
         mode=None,
+        force=parsed.force,
+        commit=not parsed.no_commit,
     ))
 
 
@@ -142,12 +160,16 @@ def project_refresh(args: List[str]) -> int:
             project_slug=parsed.project_slug,
             manifest_from=parsed.manifest_from,
             apply=parsed.apply,
+            force=parsed.force,
+            commit=not parsed.no_commit,
         ))
     return _run(lambda: _project_install_domain().refresh(
         parsed.repo_root,
         project_id=parsed.project_id,
         config_path=parsed.config_path,
         mode=None,
+        force=parsed.force,
+        commit=not parsed.no_commit,
     ))
 
 

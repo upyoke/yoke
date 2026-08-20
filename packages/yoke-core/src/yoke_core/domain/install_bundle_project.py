@@ -8,13 +8,13 @@ from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
 from yoke_core.domain import install_bundle as bundle_sources
 
 
-def _project_row(project_id: int, conn: Any) -> tuple[str, str]:
-    """Return ``(slug, display_name)`` for the project, or raise."""
+def _project_row(project_id: int, conn: Any) -> tuple[str, str, str]:
+    """Return ``(slug, display_name, default_branch)`` for the project."""
     from yoke_core.domain import db_backend
 
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        f"SELECT slug, name FROM projects WHERE id = {placeholder}",
+        f"SELECT slug, name, default_branch FROM projects WHERE id = {placeholder}",
         (project_id,),
     ).fetchone()
     if row is None:
@@ -22,10 +22,10 @@ def _project_row(project_id: int, conn: Any) -> tuple[str, str]:
             f"project id {project_id} has no projects row on this env"
         )
     if hasattr(row, "keys"):
-        slug, name = row["slug"], row["name"]
+        slug, name, default_branch = row["slug"], row["name"], row["default_branch"]
     else:
-        slug, name = row[0], row[1]
-    return str(slug), str(name or slug)
+        slug, name, default_branch = row[0], row[1], row[2]
+    return str(slug), str(name or slug), str(default_branch or "main")
 
 
 def _contract_files(display_name: str) -> List[Dict[str, str]]:
@@ -56,7 +56,7 @@ def _strategy_files(
 
 def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
     """Render the deterministic install bundle for one project row."""
-    slug, display_name = _project_row(project_id, conn)
+    slug, display_name, default_branch = _project_row(project_id, conn)
     from yoke_core.domain import install_bundle_managed as managed
     from yoke_core.domain.project_policy_capabilities import (
         ensure_default_policy_capabilities,
@@ -76,6 +76,7 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
         "yoke_version": bundle_sources.yoke_version(),
         "project_id": project_id,
         "project_slug": slug,
+        "default_branch": default_branch,
         "files": files,
         "project_contract_files": _contract_files(display_name),
         "strategy_files": _strategy_files(project_id, display_name, conn),

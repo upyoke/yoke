@@ -31,7 +31,10 @@ yoke project install ~/path/to/checkout
 ```
 
 Writes skills, agents, hooks, contract seeds, and `.yoke/docs` from the
-engine. Refresh after upgrades the same way.
+engine. Refresh after upgrades the same way. Both operations require a
+clean checkout on the project default branch, then commit the bundle
+output. `--force` overrides the checkout gate; `--no-commit` skips the
+commit. Pushing stays an operator decision.
 
 ## Execution-ready onboard
 

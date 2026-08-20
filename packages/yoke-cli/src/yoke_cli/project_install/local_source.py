@@ -34,6 +34,8 @@ def refresh_from_source(
     project_slug: str | None,
     manifest_from: str | Path | None,
     apply: bool,
+    force: bool = False,
+    commit: bool = True,
 ) -> dict[str, Any]:
     """Preview or apply source-derived project files without server state."""
     root = files_layer.resolve_repo_root(repo_root)
@@ -83,6 +85,16 @@ def refresh_from_source(
             source_label=source_label,
             preserved_files=preserved_files,
         )
+    from yoke_cli.project_install import checkout_gate
+
+    checkout_gate.assert_ready_for_write(
+        root,
+        default_branch=str(
+            bundle.get("default_branch") or checkout_gate.FALLBACK_DEFAULT_BRANCH
+        ),
+        force=force,
+        require_default_branch=False,
+    )
     report = runner.apply_bundle(
         root,
         bundle,
@@ -105,6 +117,9 @@ def refresh_from_source(
         },
         "machine_config_newly_registered": False,
     })
+    report["commit"] = checkout_gate.commit_touched_paths(
+        root, report, skip=not commit, operation="refresh",
+    )
     return report
 
 

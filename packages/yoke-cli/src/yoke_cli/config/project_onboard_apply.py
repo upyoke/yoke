@@ -121,6 +121,9 @@ def finish_after_dispatch(
             install = install_runner.install(
                 root, project_id=project_id, config_path=config_path,
                 operation=install_operation(scaffold_action),
+                # Reviewed apply; the folder may be a just-cloned or
+                # just-inited tree with leftover install dirt.
+                force=True,
             )
             github = machine_config.github_config(config_path)
             web_url = str(github.get("web_url") or "")

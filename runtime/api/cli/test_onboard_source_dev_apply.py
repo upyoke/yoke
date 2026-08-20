@@ -216,7 +216,7 @@ def test_external_checkout_apply_still_uses_product_install(
     root.mkdir()  # not a Yoke source checkout
     seen: dict[str, Path] = {}
 
-    def _fake_product_install(root_, *, project_id, config_path, operation):
+    def _fake_product_install(root_, **_kwargs):
         seen["product"] = Path(root_)
         return {"machine_config_newly_registered": False}
 

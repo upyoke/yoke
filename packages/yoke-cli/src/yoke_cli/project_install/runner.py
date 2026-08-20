@@ -42,6 +42,7 @@ from yoke_cli.project_install.file_line_config_migration import (
 from yoke_cli.project_install.hooks_path_check import (
     collect_hooks_path_warnings,
 )
+from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install.files import (
@@ -68,6 +69,9 @@ def install(
     *,
     operation: str = "install",
     mode: Optional[str] = None,
+    force: bool = False,
+    commit: bool = True,
+    require_default_branch: bool = True,
 ) -> Dict[str, Any]:
     """Install (or refresh — same code path) the project-local layer.
 
@@ -89,6 +93,23 @@ def install(
         resolved_id, explicit_env=explicit_env, config_path=config_path
     )
     validate_bundle_for_project(bundle, resolved_id)
+    raw_branch = bundle.get("default_branch")
+    require_branch = (
+        require_default_branch
+        and isinstance(raw_branch, str)
+        and bool(raw_branch.strip())
+    )
+    default_branch = (
+        str(raw_branch).strip()
+        if require_branch
+        else checkout_gate.FALLBACK_DEFAULT_BRANCH
+    )
+    checkout = checkout_gate.assert_ready_for_write(
+        root,
+        default_branch=default_branch,
+        force=force,
+        require_default_branch=require_branch,
+    )
     preflight_apply(root, bundle, files_layer.load_manifest(root) or {}, {})
     # Register between bundle resolution and apply: the fetch has already
     # validated the project id against the env (a 404 aborts before any
@@ -132,6 +153,10 @@ def install(
         report.setdefault("warnings", []).append(
             f"harness machine report was not persisted: {exc}"
         )
+    report["checkout"] = checkout
+    report["commit"] = checkout_gate.commit_touched_paths(
+        root, report, skip=not commit, operation=operation,
+    )
     return report
 
 
@@ -142,9 +167,15 @@ def refresh(
     config_path: str | Path | None = None,
     *,
     mode: Optional[str] = None,
+    force: bool = False,
+    commit: bool = True,
+    require_default_branch: bool = True,
 ) -> Dict[str, Any]:
-    return install(repo_root, project_id, explicit_env, config_path,
-                   operation="refresh", mode=mode)
+    return install(
+        repo_root, project_id, explicit_env, config_path,
+        operation="refresh", mode=mode, force=force, commit=commit,
+        require_default_branch=require_default_branch,
+    )
 
 
 

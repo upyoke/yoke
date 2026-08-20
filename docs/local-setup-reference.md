@@ -23,6 +23,14 @@ yoke project refresh ~/work/my-app --config ~/.yoke/config.json
 yoke project uninstall ~/work/my-app --config ~/.yoke/config.json
 ```
 
+On a git checkout, install and refresh refuse a dirty working tree and refuse
+when HEAD is not the project's `default_branch`. Pass `--force` to proceed
+anyway. A successful write commits the touched bundle paths — including
+untracked and deleted files — and leaves pushing to the operator. Pass
+`--no-commit` to skip that commit. `--source-checkout` preview never
+enforces the dirty-tree check and never commits; `--apply` still refuses a
+dirty tree and still commits, but does not require the default branch.
+
 ### Preview an Unshipped Source Refresh
 
 Yoke developers can preview the project layer from one explicit local Yoke
