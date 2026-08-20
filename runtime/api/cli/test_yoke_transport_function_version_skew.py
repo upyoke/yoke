@@ -121,6 +121,30 @@ class TestSkewErrorDirection:
         )
         assert "deployed server predates this client build" in error.recovery_hint
 
+    def test_same_release_development_and_launch_builds_are_not_ordered(self):
+        error = skew_error(
+            function_id=SERVED_LOCALLY,
+            client_version="0.1.1.dev5+gabc",
+            server_version="0.1.1+launch.246",
+        )
+        assert "do not establish which side is behind" in error.recovery_hint
+
+    def test_malformed_version_does_not_compare_equal(self):
+        error = skew_error(
+            function_id=SERVED_LOCALLY,
+            client_version="0.1.1junk",
+            server_version="0.1.1",
+        )
+        assert "do not establish which side is behind" in error.recovery_hint
+
+    def test_launch_number_orders_releases_on_same_public_version(self):
+        error = skew_error(
+            function_id=SERVED_LOCALLY,
+            client_version="0.1.1+launch.246",
+            server_version="0.1.1+launch.245",
+        )
+        assert "deployed server predates this client build" in error.recovery_hint
+
     def test_equal_versions_do_not_claim_a_direction(self):
         error = skew_error(
             function_id=SERVED_LOCALLY,

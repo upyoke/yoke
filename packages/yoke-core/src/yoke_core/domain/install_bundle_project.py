@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
+from yoke_contracts.project_contract.installed_layer import (
+    installed_layer_receipt_entry,
+)
 from yoke_core.domain import install_bundle as bundle_sources
 
 
@@ -65,15 +68,17 @@ def build_project_bundle(project_id: int, conn: Any) -> Dict[str, Any]:
     policy_capabilities = ensure_default_policy_capabilities(conn, project_id)
     conn.commit()
     root = bundle_sources.server_tree_root()
+    source_engine_release = bundle_sources.yoke_version()
     files: List[Dict[str, str]] = []
     files.extend(bundle_sources._skill_files(root))
     files.extend(bundle_sources._agent_files(root))
     files.extend(bundle_sources._rules_files(root))
     files.extend(managed.docs_bundle_files(root))
+    files.append(installed_layer_receipt_entry(source_engine_release))
     files.sort(key=lambda entry: entry["path"])
     return {
         "bundle_schema": BUNDLE_SCHEMA,
-        "yoke_version": bundle_sources.yoke_version(),
+        "yoke_version": source_engine_release,
         "project_id": project_id,
         "project_slug": slug,
         "default_branch": default_branch,

@@ -334,3 +334,12 @@ class TestPortableOwnerReferences:
         assert "They do not drain claims." in text
         assert "item-worktree auto-commit" in text
         assert "HarnessSessionStopped" in text
+
+    def test_do_wait_reports_runnable_elsewhere_payload(self):
+        text = _read(REPO / ".agents/skills/yoke/do/loop-routing-wait.md")
+        start = text.index("**Runnable-elsewhere branch.**")
+        end = text.index("**Lane-filtered branch.**")
+        branch = text[start:end]
+        for field in "runnable_elsewhere group.project group.item_refs checkout_path".split():
+            assert field in branch
+        assert "No actionable work exists" not in branch

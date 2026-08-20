@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,10 @@ import yoke_contracts
 
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
+from yoke_contracts.project_contract.installed_layer import (
+    INSTALLED_LAYER_RECEIPT_REL,
+    installed_layer_receipt_entry,
+)
 from yoke_core.domain import install_bundle, install_bundle_managed
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_core.domain.workspace_authority import (
@@ -32,6 +37,7 @@ class SourceProjectBundleError(RuntimeError):
 
 
 SOURCE_MANAGED_PREFIXES = (
+    INSTALLED_LAYER_RECEIPT_REL,
     ".agents/skills/yoke/",
     ".claude/skills/yoke/",
     ".codex/skills/yoke/",
@@ -41,6 +47,21 @@ SOURCE_MANAGED_PREFIXES = (
     ".cursor/agents/yoke-",
     ".claude/rules/",
 )
+
+
+def _source_build(source_checkout: Path) -> str:
+    """Return the source commit when git can identify it, else empty."""
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(source_checkout), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
 def _assert_checkout_origin(source_checkout: Path) -> None:
@@ -98,6 +119,13 @@ def build_source_bundle(
         separators=(",", ":"),
     ).encode("utf-8")
     source_version = "source-" + hashlib.sha256(digest_source).hexdigest()[:16]
+    files.append(
+        installed_layer_receipt_entry(
+            source_version,
+            source_build=_source_build(source_checkout),
+        )
+    )
+    files.sort(key=lambda entry: entry["path"])
     return {
         "bundle_schema": BUNDLE_SCHEMA,
         "yoke_version": source_version,
