@@ -50,6 +50,28 @@ class TestGateClassifier:
     @pytest.mark.parametrize(
         "line",
         [
+            "# qa case run: requirement=15582 covering run=32421897187 "
+            "https://github.com/o/r/actions/runs/32421897187",
+            "# qa case run: requirement=15582 waiting for a covering run on "
+            "o/r@aac38c7b5f2f; no run id yet; next poll=10s",
+            "# qa case run: inspect with `gh run view 1 --repo o/r`; watch "
+            "with `gh run watch 1 --repo o/r`",
+            "# qa case run: if cancellation stalls, force-cancel with "
+            "`gh api --method POST repos/o/r/actions/runs/1/force-cancel`",
+        ],
+    )
+    def test_run_announcements_are_metadata_not_summary(self, line: str) -> None:
+        """A hint about a run must never stand in for the run's outcome.
+
+        These share the outcome line's prefix, so a prefix-only summary
+        class reports the last hint — how to force-cancel — as the result
+        of a run that passed.
+        """
+        assert watch_qa_case.classify_qa_case_line(line).cls is LineClass.METADATA
+
+    @pytest.mark.parametrize(
+        "line",
+        [
             "yoke qa case run: this Command case requires --base-url",
             "qa case run TREE-BINDING REFUSAL: session s holds a work-claim",
             "GitHub Actions status relay is temporarily unavailable; retrying",

@@ -23,6 +23,38 @@ from yoke_core.tools.watch_progress_stall import ProgressEmitWatch
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 
 
+def _route_line(
+    line: str,
+    *,
+    now: float,
+    classifier: Callable[[str], Classification],
+    gate: ProgressGate,
+    raw_f: TextIO,
+    progress_watch: ProgressEmitWatch,
+    emit_immediate: Callable[[str], None],
+    emit_progress: Callable[[str, int], None],
+) -> Optional[str]:
+    """Record and emit one child line; return it when it is a summary.
+
+    Shared by the live read and the post-exit drain so a line arriving in
+    either place is classified, captured, and emitted identically.
+    """
+    raw_f.write(line)
+    progress_watch.note_output(now)
+    classification = classifier(line)
+    cls = classification.cls
+    if cls is LineClass.NOISE:
+        return None
+    if cls in (LineClass.URGENT, LineClass.SUMMARY, LineClass.METADATA):
+        emit_immediate(line)
+        return line if cls is LineClass.SUMMARY else None
+    decision = gate.consider(classification)
+    if decision.emit:
+        progress_watch.note_progress_emit(now, classification.progress_value)
+        emit_progress(line, decision.suppressed_count)
+    return None
+
+
 def drain_watched_child(
     *,
     proc,
@@ -65,6 +97,30 @@ def drain_watched_child(
             now = clock()
             if not events:
                 if proc.poll() is not None:
+                    # An exited child is not a drained one. Its last write
+                    # and its exit race the select timeout, so breaking here
+                    # on the exit alone discards whatever is still in the
+                    # pipe — which is exactly the terminal burst a run is
+                    # read for: its verdict, its summary, its failure
+                    # reason. Read what is ready, then stop.
+                    while True:
+                        if not selector.select(timeout=0):
+                            break
+                        line = proc.stdout.readline()
+                        if line == "":
+                            break
+                        summary = _route_line(
+                            line,
+                            now=clock(),
+                            classifier=classifier,
+                            gate=gate,
+                            raw_f=raw_f,
+                            progress_watch=progress_watch,
+                            emit_immediate=emit_immediate,
+                            emit_progress=emit_progress,
+                        )
+                        if summary is not None:
+                            last_summary = summary
                     break
                 if deadline is not None and now >= deadline:
                     process_group_reaping.terminate_process_group(proc)
@@ -97,27 +153,18 @@ def drain_watched_child(
                     if proc.poll() is not None:
                         break
                     continue
-                raw_f.write(line)
-                progress_watch.note_output(now)
-                classification = classifier(line)
-                cls = classification.cls
-                if cls is LineClass.NOISE:
-                    pass
-                elif cls in (
-                    LineClass.URGENT,
-                    LineClass.SUMMARY,
-                    LineClass.METADATA,
-                ):
-                    emit_immediate(line)
-                    if cls is LineClass.SUMMARY:
-                        last_summary = line
-                else:
-                    decision = gate.consider(classification)
-                    if decision.emit:
-                        progress_watch.note_progress_emit(
-                            now, classification.progress_value
-                        )
-                        emit_progress(line, decision.suppressed_count)
+                summary = _route_line(
+                    line,
+                    now=now,
+                    classifier=classifier,
+                    gate=gate,
+                    raw_f=raw_f,
+                    progress_watch=progress_watch,
+                    emit_immediate=emit_immediate,
+                    emit_progress=emit_progress,
+                )
+                if summary is not None:
+                    last_summary = summary
             stall_line = progress_watch.report_if_stalled(now)
             if stall_line is not None:
                 emit_immediate(stall_line)
