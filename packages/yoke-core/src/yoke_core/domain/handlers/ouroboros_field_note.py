@@ -8,9 +8,12 @@ but its purpose was unclear", or "I noticed something worth logging"
 1. Writing one row to ``ouroboros_entries`` via ``cmd_insert_entry`` —
    this is the AUTHORITATIVE store. ``/yoke curate`` reads this table.
 2. Emitting one ``OuroborosFieldNoteAppended`` event for telemetry. The
-   event is best-effort: if event emission fails AFTER the durable row
-   is written, the call still reports ``primary_success=True`` with
-   ``event_id=None`` (the durable store is authoritative).
+   event names the project identity resolved for the durable row, so
+   ``events.project_id`` indexes the note the same way the entry is
+   attributed instead of leaving it unscoped. The event is best-effort:
+   if event emission fails AFTER the durable row is written, the call
+   still reports ``primary_success=True`` with ``event_id=None`` (the
+   durable store is authoritative).
 
 If the durable write fails (``cmd_insert_entry`` raises), the call
 reports ``primary_success=False`` with ``error.code="emit_failed"`` and
@@ -178,8 +181,11 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         "entry_id": entry_id,
         "author": provenance.author,
     }
-    if provenance.project:
-        context["project"] = provenance.project
+    if provenance.project_id is not None:
+        # The resolved id, not the slug: a slug two projects share would
+        # index the note against whichever row a second lookup happened to
+        # answer with, or against none at all.
+        context["project_id"] = provenance.project_id
     if provenance.target_project:
         context["target_project"] = provenance.target_project
     if linked_correction is not None:
@@ -197,6 +203,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         session_id=session_id or "",
         severity="INFO",
         outcome="completed",
+        project=provenance.project or "",
         context=context,
     )
 
