@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import json
 import sqlite3
 
@@ -104,3 +105,9 @@ def test_migration_replay_is_a_no_op() -> None:
 
 def test_migration_declares_the_next_serving_floor() -> None:
     assert MIGRATION.MINIMUM_SERVING_VERSION == "0.1.1+launch.243"
+
+
+def test_migration_does_not_import_its_undeployed_runtime_helper() -> None:
+    assert "yoke_core.domain.qa_method_capabilities" not in inspect.getsource(
+        MIGRATION
+    )

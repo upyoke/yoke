@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _column_exists,
@@ -33,8 +33,34 @@ def _value(row: Any, key: str, position: int) -> Any:
     return row[key] if hasattr(row, "keys") else row[position]
 
 
+def _capability_kinds(value: Any, *, subject: str) -> tuple[str, ...]:
+    """Decode one strict capability array without importing cutover code."""
+    decoded = value
+    if value is None:
+        decoded = []
+    elif isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"{subject} required capability kinds must be a JSON array"
+            ) from exc
+    if isinstance(decoded, (str, bytes, dict)) or not isinstance(
+        decoded, Iterable
+    ):
+        raise ValueError(f"{subject} required capability kinds must be an array")
+    kinds: list[str] = []
+    for raw in decoded:
+        if not isinstance(raw, str) or not raw.strip():
+            raise ValueError(
+                f"{subject} required capability kinds must be non-empty strings"
+            )
+        kinds.append(raw.strip())
+    return tuple(sorted(set(kinds)))
+
+
 def _encode(values: Any) -> str:
-    return json.dumps(list(capability_kinds(values)))
+    return json.dumps(list(_capability_kinds(values, subject="capability set")))
 
 
 def _migrate_methods(conn: Any) -> None:
@@ -55,7 +81,7 @@ def _migrate_methods(conn: Any) -> None:
     for row in rows:
         retired = _value(row, _RETIRED_COLUMN, 1)
         current = _value(row, _SET_COLUMN, 2)
-        values = capability_kinds(
+        values = _capability_kinds(
             current,
             subject=f"method {_value(row, 'id', 0)!r}",
         )
@@ -88,7 +114,7 @@ def _migrate_requirements(conn: Any) -> None:
         raw_existing = _value(row, "capability_requirements", 2)
         existing = _NON_ARRAY_REQUIREMENT_VALUES.get(raw_existing)
         if existing is None:
-            existing = capability_kinds(
+            existing = _capability_kinds(
                 raw_existing,
                 subject=f"QA requirement {_value(row, 'id', 0)}",
             )
@@ -119,7 +145,7 @@ def invariants(conn: Any) -> None:
         for row in conn.execute(
             f'SELECT id,"{_SET_COLUMN}" FROM qa_methods'
         ).fetchall():
-            capability_kinds(
+            _capability_kinds(
                 _value(row, _SET_COLUMN, 1),
                 subject=f"method {_value(row, 'id', 0)!r}",
             )
@@ -132,7 +158,7 @@ def invariants(conn: Any) -> None:
             "SELECT id,capability_requirements FROM qa_requirements "
             "WHERE capability_requirements IS NOT NULL"
         ).fetchall():
-            capability_kinds(
+            _capability_kinds(
                 _value(row, "capability_requirements", 1),
                 subject=f"QA requirement {_value(row, 'id', 0)}",
             )
