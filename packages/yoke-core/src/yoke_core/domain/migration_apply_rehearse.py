@@ -63,11 +63,8 @@ def rehearse(
     ``None`` and the canonical YOKE_DB wins.  *worktree_path* is the
     checkout root; defaults to the current working directory.
 
-    Refuses a prod-flagged connection outright, before opening anything.
-    Rehearsal exists to execute an unreleased migration somewhere disposable;
-    aiming it at a production control plane is never what the caller meant,
-    and one session that did it went on to use the same connection for
-    unrelated work.
+    Refuses a prod-flagged connection outright, before opening anything:
+    rehearsal executes an unreleased migration somewhere disposable.
     """
     prod_refusal = refuse_on_prod_control_plane("governed migration rehearsal")
     if prod_refusal is not None:
