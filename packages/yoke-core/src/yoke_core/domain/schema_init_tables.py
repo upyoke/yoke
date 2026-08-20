@@ -241,7 +241,8 @@ def create_core_tables(conn: Any) -> None:
           qa_requirement_id INTEGER NOT NULL,
           performed_by TEXT NOT NULL,
           qa_kind TEXT NOT NULL,
-          verdict TEXT CHECK(verdict IN ('pass','fail','inconclusive','error')),
+          verdict TEXT CHECK(verdict IN ('pass','fail','undetermined','error')),
+          verdict_reason TEXT,
           execution_status TEXT CHECK(execution_status IN ('captured','capture_failed') OR execution_status IS NULL),
           score REAL,
           confidence REAL,
@@ -250,6 +251,7 @@ def create_core_tables(conn: Any) -> None:
           started_at TEXT,
           completed_at TEXT,
           created_at TEXT NOT NULL,
+          CHECK(verdict <> 'undetermined' OR COALESCE(LENGTH(TRIM(verdict_reason)), 0) > 0),
           FOREIGN KEY (qa_requirement_id) REFERENCES qa_requirements(id)
         );
         CREATE INDEX IF NOT EXISTS idx_qa_runs_requirement ON qa_runs(qa_requirement_id);

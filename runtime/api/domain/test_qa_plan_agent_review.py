@@ -256,10 +256,10 @@ def test_bundle_uses_this_execution_capture_not_latest_requirement_run() -> None
     (
         ("pass", "passed", "agent_reviewed", 0),
         ("fail", "failed", "agent_reviewed", 0),
-        ("inconclusive", "needs_review", "human_review_requested", 1),
+        ("undetermined", "needs_review", "human_review_requested", 1),
     ),
 )
-def test_agent_verdict_is_per_case_and_only_inconclusive_escalates(
+def test_agent_verdict_is_per_case_and_only_undetermined_escalates(
     verdict: str,
     expected_state: str,
     review_state: str,
@@ -289,10 +289,14 @@ def test_agent_verdict_is_per_case_and_only_inconclusive_escalates(
         assert result["state"] == expected_state
         assert execution["state"] == "completed"
         run = conn.execute(
-            "SELECT performed_by,verdict,raw_result FROM qa_runs WHERE id=%s",
+            "SELECT performed_by,verdict,verdict_reason,raw_result "
+            "FROM qa_runs WHERE id=%s",
             (result["verdicts"][0]["review_run_id"],),
         ).fetchone()
         assert (run["performed_by"], run["verdict"]) == ("agent", verdict)
+        assert (
+            run["verdict_reason"] == f"Recorded {verdict} from the supplied evidence."
+        )
         assert "rationale" in json.loads(run["raw_result"])
         plan_id = int(
             conn.execute(

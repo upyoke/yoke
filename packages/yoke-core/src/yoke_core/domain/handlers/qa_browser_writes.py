@@ -1,13 +1,7 @@
 """Browser-QA write handlers — qa.run.add, qa.run.complete, qa.artifact.add.
-
-The write half of the browser-QA function family (read half + family
-docstring: :mod:`yoke_core.domain.handlers.qa_browser`). Each handler
-mirrors its CLI counterpart's gates without the ``sys.exit`` branches:
-- ``qa.run.add`` mirrors :func:`yoke_core.domain.qa_execution.cmd_run_add`
-  (stored-kind resolution, qa_kind mismatch hard error, agent-for-browser
-  refusal, QARunStarted/Captured/Completed event selection).
-- ``qa.run.complete`` mirrors
-  :func:`yoke_core.domain.qa_execution.cmd_run_complete`.
+The write half of the browser-QA function family mirrors CLI gates without
+``sys.exit`` branches: run add resolves the stored kind and event; run complete
+finalizes the same run; artifact add validates and records its typed handle.
 - ``qa.artifact.add`` mirrors
   :func:`yoke_core.domain.qa_artifact_ops.cmd_artifact_add`.
 
@@ -38,8 +32,10 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import qa_events
     from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
     from yoke_core.domain.qa_constants import (
+        VALID_VERDICTS,
         case_outcome_for_verdict,
         is_browser_method_requirement,
+        normalized_verdict_reason,
     )
 
     req_id = request.target.qa_requirement_id
@@ -52,6 +48,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
     performed_by = payload.get("performed_by")
     qa_kind = payload.get("qa_kind")
     verdict = payload.get("verdict")
+    verdict_reason = payload.get("verdict_reason")
     execution_status = payload.get("execution_status")
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
@@ -61,6 +58,14 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             "performed_by is required",
             jsonpath="$.payload.performed_by",
         )
+    if verdict is not None and verdict not in VALID_VERDICTS:
+        return _error(
+            "payload_invalid", "invalid verdict", jsonpath="$.payload.verdict"
+        )
+    try:
+        verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
+    except ValueError as exc:
+        return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
 
     conn = connect()
     try:
@@ -80,10 +85,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 f"stored kind {stored_kind!r}",
                 jsonpath="$.payload.qa_kind",
             )
-        if (
-            performed_by == "agent"
-            and is_browser_method_requirement(row["method_id"])
-        ):
+        if performed_by == "agent" and is_browser_method_requirement(row["method_id"]):
             return _error(
                 "policy_violation",
                 "performed_by 'agent' is not allowed for Browser methods "
@@ -97,16 +99,17 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         )
         cur = conn.execute(
             "INSERT INTO qa_runs "
-            "(qa_requirement_id, performed_by, qa_kind, verdict, "
+            "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
             "execution_status, case_outcome, raw_result, duration_ms, "
             "started_at, completed_at, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
             "RETURNING id",
             (
                 int(req_id),
                 performed_by,
                 stored_kind,
                 verdict,
+                verdict_reason,
                 execution_status,
                 case_outcome_for_verdict(verdict),
                 raw_result,
@@ -131,7 +134,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             run_id=run_id,
             requirement_id=int(req_id),
             qa_kind=stored_kind,
-            verdict=verdict,
+            verdict=verdict, verdict_reason=verdict_reason,
         )
     finally:
         conn.close()
@@ -145,7 +148,11 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import qa_events
     from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
-    from yoke_core.domain.qa_constants import case_outcome_for_verdict
+    from yoke_core.domain.qa_constants import (
+        VALID_VERDICTS,
+        case_outcome_for_verdict,
+        normalized_verdict_reason,
+    )
 
     req_id = request.target.qa_requirement_id
     if req_id is None:
@@ -156,6 +163,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
     run_id = payload.get("run_id")
     verdict = payload.get("verdict")
+    verdict_reason = payload.get("verdict_reason")
     execution_status = payload.get("execution_status")
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
@@ -171,6 +179,14 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             "at least one of verdict or execution_status is required",
             jsonpath="$.payload.verdict",
         )
+    if verdict is not None and verdict not in VALID_VERDICTS:
+        return _error(
+            "payload_invalid", "invalid verdict", jsonpath="$.payload.verdict"
+        )
+    try:
+        verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
+    except ValueError as exc:
+        return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
 
     conn = connect()
     try:
@@ -194,6 +210,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         if verdict is not None:
             set_parts.append(f"verdict = {p}")
             params.append(verdict)
+            set_parts.append(f"verdict_reason = {p}")
+            params.append(verdict_reason)
             set_parts.append(f"case_outcome = {p}")
             params.append(case_outcome_for_verdict(verdict))
         if execution_status is not None:
@@ -219,7 +237,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             run_id=int(run_id),
             requirement_id=int(req_id),
             qa_kind=str(row["qa_kind"]),
-            verdict=verdict,
+            verdict=verdict, verdict_reason=verdict_reason,
         )
     finally:
         conn.close()

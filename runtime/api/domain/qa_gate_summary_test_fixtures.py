@@ -43,6 +43,7 @@ CREATE TABLE qa_runs (
     performed_by TEXT,
     qa_kind TEXT,
     verdict TEXT,
+    verdict_reason TEXT,
     execution_status TEXT,
     case_outcome TEXT,
     raw_result TEXT,
@@ -153,6 +154,7 @@ def add_run(
     verdict: str = "pass",
     performed_by: str = "agent",
     qa_kind: str = "ac_verification",
+    verdict_reason: Optional[str] = None,
     created_at: str = "2026-05-07T01:00:00Z",
 ) -> int:
     conn = connect_test_db(db_path)
@@ -160,11 +162,11 @@ def add_run(
         cursor = conn.execute(
             """
             INSERT INTO qa_runs
-              (qa_requirement_id, performed_by, qa_kind, verdict, created_at)
-            VALUES (%s, %s, %s, %s, %s)
+              (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (req_id, performed_by, qa_kind, verdict, created_at),
+            (req_id, performed_by, qa_kind, verdict, verdict_reason, created_at),
         )
         rid = int(cursor.fetchone()[0])
         conn.commit()

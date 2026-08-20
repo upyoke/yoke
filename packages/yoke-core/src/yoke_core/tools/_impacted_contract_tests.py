@@ -55,6 +55,19 @@ SCHEMA_CONVERGE_CONTRACT_TESTS = (
     "runtime/api/cli/test_yoke_schema_converge_command.py",
 )
 
+MIGRATION_HISTORY_CONTRACT_TESTS = (
+    "runtime/api/domain/test_universe_portability_migration_content_bridge.py",
+    "runtime/api/engines/test_doctor_schema_drift_expected.py",
+)
+
+MACHINE_QA_PACK_CONTRACT_TESTS = (
+    "runtime/api/domain/test_machine_qa.py",
+)
+
+EPIC_QA_READ_CONTRACT_TESTS = (
+    "runtime/api/test_epic_full_review.py",
+)
+
 PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
     "runtime/api/cli/test_yoke_product_boundary_hooks.py",
@@ -67,6 +80,19 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
 )
 
 PRODUCT_CLI_SOURCE_PREFIX = "packages/yoke-cli/src/yoke_cli/"
+
+MIGRATION_HISTORY_SOURCE_PREFIX = (
+    "packages/yoke-core/src/yoke_core/domain/migrations/"
+)
+
+MACHINE_QA_PACK_SOURCE_PREFIXES = (
+    "packs/machine-qa/",
+    "packages/yoke-core/src/yoke_core/install_bundle_tree/packs/machine-qa/",
+)
+
+EPIC_RESOLUTION_SOURCE_PATH = (
+    "packages/yoke-core/src/yoke_core/domain/epic_resolution.py"
+)
 
 STANDALONE_MERGE_CLOSE_OUT_TESTS = (
     "runtime/api/domain/test_landed_merge_receipt_recovery.py",
@@ -128,6 +154,24 @@ PATH_CONTRACT_TESTS = (
         "schema_converge_contract",
         frozenset({"packages/yoke-cli/src/yoke_cli/commands/schema_converge.py"}),
         SCHEMA_CONVERGE_CONTRACT_TESTS,
+    ),
+    (
+        "schema_shape_contract",
+        frozenset(
+            {
+                "packages/yoke-core/src/yoke_core/domain/qa_plan_review_schema.py",
+                "packages/yoke-core/src/yoke_core/domain/qa_schema.py",
+                "packages/yoke-core/src/yoke_core/domain/schema_init_tables.py",
+                "packages/yoke-core/src/yoke_core/engines/"
+                "doctor_hc_db_project_schema_expected.py",
+            }
+        ),
+        MIGRATION_HISTORY_CONTRACT_TESTS,
+    ),
+    (
+        "epic_qa_read_contract",
+        frozenset({EPIC_RESOLUTION_SOURCE_PATH}),
+        EPIC_QA_READ_CONTRACT_TESTS,
     ),
     (
         "standalone_merge_close_out_contract",
@@ -197,6 +241,28 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
         widening_triggers.extend(
             f"product_cli_boundary_contract:{path}" for path in product_cli_hits
         )
+
+    migration_hits = tuple(
+        path
+        for path in changed_paths
+        if path.startswith(MIGRATION_HISTORY_SOURCE_PREFIX)
+    )
+    if migration_hits:
+        tests.update(MIGRATION_HISTORY_CONTRACT_TESTS)
+        widening_triggers.extend(
+            f"migration_history_contract:{path}" for path in migration_hits
+        )
+
+    machine_qa_pack_hits = tuple(
+        path
+        for path in changed_paths
+        if any(path.startswith(prefix) for prefix in MACHINE_QA_PACK_SOURCE_PREFIXES)
+    )
+    if machine_qa_pack_hits:
+        tests.update(MACHINE_QA_PACK_CONTRACT_TESTS)
+        widening_triggers.extend(
+            f"machine_qa_pack_contract:{path}" for path in machine_qa_pack_hits
+        )
     return ContractSelection(frozenset(tests), tuple(widening_triggers))
 
 
@@ -206,7 +272,13 @@ __all__ = [
     "CURSOR_SESSION_IDENTITY_DISPATCH_TESTS",
     "DIRECT_WORKFLOW_PREPARE_TESTS",
     "DONE_TRANSITION_CLOSE_OUT_TESTS",
+    "EPIC_QA_READ_CONTRACT_TESTS",
+    "EPIC_RESOLUTION_SOURCE_PATH",
     "ITEM_WORKTREE_SCHEMA_TESTS",
+    "MACHINE_QA_PACK_CONTRACT_TESTS",
+    "MACHINE_QA_PACK_SOURCE_PREFIXES",
+    "MIGRATION_HISTORY_CONTRACT_TESTS",
+    "MIGRATION_HISTORY_SOURCE_PREFIX",
     "PRODUCT_CLI_BOUNDARY_TESTS",
     "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",

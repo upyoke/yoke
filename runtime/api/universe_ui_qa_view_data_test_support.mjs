@@ -79,6 +79,8 @@ export const planRow = {
     item_ref: "YOK-2001",
   }],
   last_outcome: "needs_review",
+  last_verdict_reason:
+    "Checkout completion could not be established because the confirmation was outside the captured viewport.",
   last_at: "2026-07-26T12:00:00Z",
 };
 

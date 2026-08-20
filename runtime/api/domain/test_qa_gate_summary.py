@@ -170,6 +170,22 @@ def test_e2e_without_passing_run_unsatisfied(qa_db):
     assert req["satisfied"] is False
 
 
+def test_undetermined_latest_run_surfaces_its_reason(qa_db):
+    rid = add_requirement(qa_db, qa_kind="e2e")
+    add_run(
+        qa_db,
+        rid,
+        verdict="undetermined",
+        verdict_reason="The deployment log omits the final assertion.",
+    )
+    summary = render_gate_summary(
+        GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
+    )
+    latest = summary["requirements"][0]["latest_run"]
+    assert latest["verdict"] == "undetermined"
+    assert "final assertion" in latest["verdict_reason"]
+
+
 def test_waived_requirement_treated_as_satisfied(qa_db):
     add_requirement(
         qa_db,

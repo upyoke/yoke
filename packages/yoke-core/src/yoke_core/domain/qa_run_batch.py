@@ -32,6 +32,7 @@ from yoke_core.domain.qa_artifact_handle import (
 from yoke_core.domain.qa_constants import (
     _normalize_qa_kind,
     is_browser_method_requirement,
+    normalized_verdict_reason,
 )
 from yoke_core.domain.qa_events import emit_qa_run_event
 
@@ -44,8 +45,8 @@ def cmd_run_add_batch(
     """Insert multiple qa_run rows in one transaction. Returns list of new IDs.
 
     The JSON file must contain an array of objects with the same fields as
-    run-add: requirement_id, performed_by, qa_kind, verdict, score,
-    confidence, raw_result, duration_ms, artifact_path.
+    run-add: requirement_id, performed_by, qa_kind, verdict, verdict_reason,
+    score, confidence, raw_result, duration_ms, artifact_path.
 
     Rolls back the entire batch if any row fails validation.
     Emits per-row QA lifecycle events.
@@ -76,14 +77,27 @@ def cmd_run_add_batch(
             sys.exit(2)
 
         if not row.get("requirement_id"):
-            print(f"Error: row {idx} missing required field 'requirement_id'", file=sys.stderr)
+            print(
+                f"Error: row {idx} missing required field 'requirement_id'",
+                file=sys.stderr,
+            )
             sys.exit(2)
         if not row.get("performed_by"):
-            print(f"Error: row {idx} missing required field 'performed_by'", file=sys.stderr)
+            print(
+                f"Error: row {idx} missing required field 'performed_by'",
+                file=sys.stderr,
+            )
             sys.exit(2)
 
         if row.get("qa_kind"):
             row["qa_kind"] = _normalize_qa_kind(row["qa_kind"])
+        try:
+            row["verdict_reason"] = normalized_verdict_reason(
+                row.get("verdict"), row.get("verdict_reason")
+            )
+        except ValueError as exc:
+            print(f"Error: row {idx}: {exc}", file=sys.stderr)
+            sys.exit(2)
 
     # All rows validated — insert in one transaction
     conn = connect(path=db_path)
@@ -119,9 +133,8 @@ def cmd_run_add_batch(
                         file=sys.stderr,
                     )
                     sys.exit(2)
-            if (
-                row["performed_by"] == "agent"
-                and is_browser_method_requirement(requirement["method_id"])
+            if row["performed_by"] == "agent" and is_browser_method_requirement(
+                requirement["method_id"]
             ):
                 print(
                     f"Error: row {idx}: performed_by 'agent' is not "
@@ -173,21 +186,27 @@ def cmd_run_add_batch(
             completed_at_value = None if verdict is None else now_iso
 
             sql = """INSERT INTO qa_runs
-                      (qa_requirement_id, performed_by, qa_kind, verdict,
+                      (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason,
                        score, confidence, raw_result, duration_ms,
                        started_at, completed_at, created_at)
-                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
-            cur = conn.execute(sql, (
-                row["requirement_id"],
-                row["performed_by"],
-                row["qa_kind"],
-                verdict,
-                row.get("score"),
-                row.get("confidence"),
-                row.get("raw_result"),
-                row.get("duration_ms"),
-                now_iso, completed_at_value, now_iso,
-            ))
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
+            cur = conn.execute(
+                sql,
+                (
+                    row["requirement_id"],
+                    row["performed_by"],
+                    row["qa_kind"],
+                    verdict,
+                    row.get("verdict_reason"),
+                    row.get("score"),
+                    row.get("confidence"),
+                    row.get("raw_result"),
+                    row.get("duration_ms"),
+                    now_iso,
+                    completed_at_value,
+                    now_iso,
+                ),
+            )
             inserted_id = int(cur.fetchone()[0])
             inserted_ids.append(inserted_id)
 
@@ -210,11 +229,19 @@ def cmd_run_add_batch(
                 conn.execute(
                     """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                        VALUES (%s, %s, %s, %s, %s, %s)""",
-                    (inserted_id, "screenshot", _content_type, _handle, None, iso8601_now()),
+                    (
+                        inserted_id,
+                        "screenshot",
+                        _content_type,
+                        _handle,
+                        None,
+                        iso8601_now(),
+                    ),
                 )
 
         # QA run writes are real item activity (R1 semantics).
         from yoke_core.domain.item_activity import touch_for_qa_requirement
+
         for row in payload:
             touch_for_qa_requirement(conn, row["requirement_id"])
 
@@ -231,6 +258,7 @@ def cmd_run_add_batch(
                 requirement_id=row["requirement_id"],
                 qa_kind=row["qa_kind"],
                 verdict=verdict,
+                verdict_reason=row.get("verdict_reason"),
             )
     except Exception:
         conn.rollback()

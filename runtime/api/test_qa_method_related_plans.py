@@ -94,7 +94,7 @@ def test_method_details_roll_up_only_their_current_case_proofs() -> None:
             conn,
             inspection_id,
             created_at="2026-07-27T09:02:00Z",
-            verdict="inconclusive",
+            verdict="undetermined",
             case_outcome="needs_review",
         )
         _run(

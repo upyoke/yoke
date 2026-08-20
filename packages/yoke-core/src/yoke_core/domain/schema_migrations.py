@@ -34,11 +34,11 @@ QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_NAME = "qa_runs_verdict_immutable"
 
 QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_SQL = (
     f"CREATE TRIGGER IF NOT EXISTS {QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_NAME}\n"
-    "BEFORE UPDATE OF verdict, raw_result ON qa_runs\n"
+    "BEFORE UPDATE OF verdict, verdict_reason, raw_result ON qa_runs\n"
     "WHEN OLD.verdict IS NOT NULL\n"
     "BEGIN\n"
     "  SELECT RAISE(ABORT,\n"
-    "    'qa_runs.verdict and raw_result are immutable once verdict is set; "
+    "    'qa_runs.verdict, verdict_reason, and raw_result are immutable once verdict is set; "
     "record a new run via qa run-add');\n"
     "END"
 )
@@ -53,9 +53,10 @@ BEGIN
   IF OLD.verdict IS NOT NULL
      AND (
        NEW.verdict IS DISTINCT FROM OLD.verdict
+       OR NEW.verdict_reason IS DISTINCT FROM OLD.verdict_reason
        OR NEW.raw_result IS DISTINCT FROM OLD.raw_result
      ) THEN
-    RAISE EXCEPTION 'qa_runs.verdict and raw_result are immutable once verdict is set; record a new run via qa run-add';
+    RAISE EXCEPTION 'qa_runs.verdict, verdict_reason, and raw_result are immutable once verdict is set; record a new run via qa run-add';
   END IF;
   RETURN NEW;
 END;
@@ -72,7 +73,7 @@ BEGIN
       AND NOT tgisinternal
   ) THEN
     CREATE TRIGGER {QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_NAME}
-    BEFORE UPDATE OF verdict, raw_result ON qa_runs
+    BEFORE UPDATE OF verdict, verdict_reason, raw_result ON qa_runs
     FOR EACH ROW
     EXECUTE FUNCTION qa_runs_verdict_immutable_fn();
   END IF;
@@ -82,7 +83,7 @@ $$;
 
 
 def _ensure_qa_runs_verdict_trigger(conn: Any) -> None:
-    """Install the qa_runs verdict/raw_result immutability trigger."""
+    """Install immutable verdict, reason, and raw-result evidence."""
     if db_backend.connection_is_postgres(conn):
         conn.execute(_PG_QA_RUNS_VERDICT_IMMUTABLE_FUNCTION_SQL)
         conn.execute(_PG_QA_RUNS_VERDICT_IMMUTABLE_TRIGGER_SQL)

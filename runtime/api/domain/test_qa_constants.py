@@ -26,6 +26,7 @@ from yoke_core.domain.qa_constants import (
 # VALID_* tuples
 # ---------------------------------------------------------------------------
 
+
 def test_valid_qa_phases_tuple():
     assert isinstance(VALID_QA_PHASES, tuple)
     assert VALID_QA_PHASES == ("verification", "post_deploy", "manual_acceptance")
@@ -48,7 +49,7 @@ def test_valid_requirement_sources_tuple():
 
 def test_valid_verdicts_tuple():
     assert isinstance(VALID_VERDICTS, tuple)
-    assert VALID_VERDICTS == ("pass", "fail", "inconclusive", "error")
+    assert VALID_VERDICTS == ("pass", "fail", "undetermined", "error")
 
 
 def test_browser_method_ids_tuple():
@@ -88,6 +89,7 @@ def test_browser_requirement_predicate_uses_only_method_identity():
 # _normalize_qa_phase
 # ---------------------------------------------------------------------------
 
+
 def test_normalize_qa_phase_canonical_passes_through():
     assert _normalize_qa_phase("verification") == "verification"
     assert _normalize_qa_phase("post_deploy") == "post_deploy"
@@ -112,6 +114,7 @@ def test_normalize_qa_phase_is_case_sensitive():
 # _normalize_qa_kind
 # ---------------------------------------------------------------------------
 
+
 def test_normalize_qa_kind_plan_case_round_trips():
     assert _normalize_qa_kind("plan_case") == "plan_case"
 
@@ -127,6 +130,7 @@ def test_normalize_qa_kind_unknown_passes_through():
 # ---------------------------------------------------------------------------
 # _coalesce
 # ---------------------------------------------------------------------------
+
 
 def test_coalesce_none_returns_empty_default():
     assert _coalesce(None) == ""
@@ -158,6 +162,7 @@ def test_coalesce_empty_string_passthrough():
 # ---------------------------------------------------------------------------
 # _pipe_row on an authority row object
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def sample_row():
@@ -195,6 +200,7 @@ def test_pipe_row_with_dict_like_row():
 # ---------------------------------------------------------------------------
 # _REQ_SELECT — canonical SELECT column list
 # ---------------------------------------------------------------------------
+
 
 def test_req_select_is_string_with_id_first():
     assert isinstance(_REQ_SELECT, str)

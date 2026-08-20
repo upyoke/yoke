@@ -15,7 +15,7 @@ from yoke_core.domain.qa_catalog_schema import (
 )
 
 
-def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
+def test_undetermined_review_request_resolves_to_human_verdict(test_db):
     create_decision_request_tables(test_db)
     create_qa_catalog_tables(test_db)
     seed_builtin_qa_methods(test_db)
@@ -70,10 +70,11 @@ def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
     ).fetchone()[0]
     run_id = test_db.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, performed_by, qa_kind, verdict, "
+        "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
         "started_at, completed_at, created_at) "
         "VALUES (%s, 'browser_substrate', 'manual_acceptance', "
-        "'inconclusive', '2026-07-26T00:00:00Z', "
+        "'undetermined', 'The screenshot does not show the saved state.', "
+        "'2026-07-26T00:00:00Z', "
         "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z') RETURNING id",
         (requirement_id,),
     ).fetchone()[0]
@@ -96,7 +97,7 @@ def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
         "case_name": "checkout-flow",
         "method_name": "Browser inspection",
         "title": "QA evidence needs your review",
-        "evidence_summary": "",
+        "evidence_summary": "The screenshot does not show the saved state.",
     }
     resolve_decision_request(
         test_db,
@@ -111,6 +112,6 @@ def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
         (requirement_id,),
     ).fetchall()
     assert [(row[0], row[1]) for row in verdicts] == [
-        ("browser_substrate", "inconclusive"),
+        ("browser_substrate", "undetermined"),
         ("human_review", "pass"),
     ]

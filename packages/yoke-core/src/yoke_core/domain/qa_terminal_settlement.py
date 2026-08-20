@@ -117,10 +117,12 @@ def _issue_for_requirement(
             or verdict
             or "pending"
         ).strip()
+        reason = str(requirement.get("verdict_reason") or "").strip()
+        reason_text = f"; reason: {reason}" if verdict == "undetermined" else ""
         return BlockingRequirementIssue(
             requirement_id,
             "incomplete",
-            f"latest run #{run_id} concluded {actual!r}, not completed success",
+            f"latest run #{run_id} concluded {actual!r}{reason_text}, not completed success",
             recovery,
         )
     run_sha = str(requirement.get("recorded_head_sha") or "").strip()
@@ -195,7 +197,7 @@ def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     cursor = conn.execute(
         "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, "
         "q.method_id, q.method_config, r.id AS run_id, "
-        "r.verdict, r.execution_status, r.case_outcome, r.completed_at, "
+        "r.verdict, r.verdict_reason, r.execution_status, r.case_outcome, r.completed_at, "
         "r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
         "SELECT latest.id FROM qa_runs latest "
         "WHERE latest.qa_requirement_id = q.id "

@@ -172,6 +172,14 @@ class TestCheckEpicSimulationGate:
         result = check_epic_simulation_gate(42, qa_db)
         assert result.passed
 
+    def test_tc_undetermined_never_passes(self, qa_db):
+        _add_simulation(
+            qa_db, 42, "integration", "undetermined", "", "No final verdict."
+        )
+        result = check_epic_simulation_gate(42, qa_db)
+        assert not result.passed
+        assert any("No final verdict" in error for error in result.errors)
+
     def test_tc_gaps_non_critical_logs_summary(self, qa_db, capsys):
         body = (
             "## Gaps Found: 1 (0 critical, 0 warning, 1 note)\n\n"

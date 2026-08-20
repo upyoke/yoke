@@ -103,9 +103,9 @@ run owns its delivery context.
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
-| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [opts]` | Insert a started or completed run |
-| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status S] [opts]` | Complete a previously recorded run |
-| `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [opts]` | Record a one-shot verdict |
+| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--verdict-reason R] [opts]` | Insert a started or completed run |
+| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--verdict-reason R] [--execution-status S] [opts]` | Complete a previously recorded run |
+| `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [--verdict-reason R] [opts]` | Record a one-shot verdict; reason is required for `undetermined` |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T --artifact-handle JSON [opts]` | Insert artifact evidence |
@@ -182,7 +182,7 @@ includes `review_bundle.dispatch`. The harness must immediately dispatch the
 named reviewer subagent with that immutable bundle and prompt, then use the
 exact returned submission command. The execution remains live and the QA gate
 remains unsatisfied until submission. Pending dispatch does not create human
-work; only a submitted agent verdict of `inconclusive` creates a human Inbox
+work; only a submitted agent verdict of `undetermined` creates a human Inbox
 request.
 
 ## Missing Public Adapters

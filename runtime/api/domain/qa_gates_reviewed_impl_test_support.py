@@ -49,6 +49,7 @@ CREATE TABLE qa_runs (
     performed_by TEXT,
     qa_kind TEXT,
     verdict TEXT,
+    verdict_reason TEXT,
     execution_status TEXT,
     case_outcome TEXT,
     raw_result TEXT,

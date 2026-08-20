@@ -69,6 +69,7 @@ def _format_run(row: Optional[Any]) -> Optional[Dict[str, Any]]:
     return {
         "id": int(row["id"]),
         "verdict": str(verdict) if verdict else None,
+        "verdict_reason": row["verdict_reason"],
         "performed_by": str(row["performed_by"]),
         "created_at": str(row["created_at"]) if row["created_at"] else None,
     }
@@ -139,7 +140,7 @@ def render_gate_summary(
             substrate_row = query_one(
                 conn,
                 """
-                SELECT qr.id, qr.verdict, qr.performed_by, qr.created_at
+                SELECT qr.id, qr.verdict, qr.verdict_reason, qr.performed_by, qr.created_at
                 FROM qa_runs qr
                 WHERE qr.qa_requirement_id = %s
                   AND qr.verdict = 'pass'
@@ -155,7 +156,7 @@ def render_gate_summary(
             pass_row = query_one(
                 conn,
                 """
-                SELECT id, verdict, performed_by, created_at
+                SELECT id, verdict, verdict_reason, performed_by, created_at
                 FROM qa_runs
                 WHERE qa_requirement_id = %s
                   AND verdict = 'pass'
@@ -166,7 +167,7 @@ def render_gate_summary(
             latest_row = query_one(
                 conn,
                 """
-                SELECT id, verdict, performed_by, created_at
+                SELECT id, verdict, verdict_reason, performed_by, created_at
                 FROM qa_runs
                 WHERE qa_requirement_id = %s
                 ORDER BY created_at DESC, id DESC LIMIT 1

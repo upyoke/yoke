@@ -47,7 +47,8 @@ def _case_result(
         conn,
         "SELECT q.id AS requirement_id, q.host_baseline, "
         "q.deployment_run_id, q.waived_at, "
-        "r.id AS run_id, r.performed_by, r.verdict, r.execution_status, "
+        "r.id AS run_id, r.performed_by, r.verdict, r.verdict_reason, "
+        "r.execution_status, "
         "r.case_outcome, r.raw_result, "
         "r.capture_degraded_reason, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
@@ -117,7 +118,7 @@ def _prior_agent_run(
     marker = _placeholder(conn)
     return query_one(
         conn,
-        "SELECT id,verdict,raw_result FROM qa_runs "
+        "SELECT id,verdict,verdict_reason,raw_result FROM qa_runs "
         f"WHERE qa_requirement_id={marker} AND performed_by='agent' "
         f"AND id<{marker} ORDER BY id DESC LIMIT 1",
         (requirement_id, before_run_id),
@@ -131,7 +132,7 @@ def _review_state(
 ) -> dict[str, Any]:
     performed_by = str(run["performed_by"] or "")
     raw = _decode(run["raw_result"], {})
-    rationale = raw.get("rationale") if isinstance(raw, dict) else None
+    rationale = run["verdict_reason"]
     capture_run_id = raw.get("capture_run_id") if isinstance(raw, dict) else None
     agent_verdict = run["verdict"] if performed_by == "agent" else None
     agent_run_id = int(run["run_id"]) if performed_by == "agent" else None
@@ -146,7 +147,7 @@ def _review_state(
             agent_raw = _decode(agent["raw_result"], {})
             capture_run_id = agent_raw.get("capture_run_id")
             agent_verdict = agent["verdict"]
-            rationale = agent_raw.get("rationale")
+            rationale = agent["verdict_reason"]
     request = None
     if performed_by in {"agent", "human_review"} and _table_exists(
         conn, "decision_requests"
@@ -181,11 +182,11 @@ def _review_state(
             }
     if performed_by == "human_review":
         state = "human_review_resolved"
-    elif performed_by == "agent" and run["verdict"] == "inconclusive":
+    elif performed_by == "agent" and run["verdict"] == "undetermined":
         state = (
             "human_review_requested"
             if request is not None and request["status"] == "pending"
-            else "agent_inconclusive"
+            else "agent_undetermined"
         )
     elif performed_by == "agent":
         state = "agent_reviewed"

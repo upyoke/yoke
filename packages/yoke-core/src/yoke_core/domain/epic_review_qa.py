@@ -198,11 +198,17 @@ def simulation_upsert(
     result = _parse_simulation_result(body)
 
     # Map result to qa_runs verdict
-    verdict = "inconclusive"
+    verdict = "undetermined"
+    verdict_reason = (
+        "The simulation body did not state CLEAN or GAPS FOUND, so its "
+        "quality outcome could not be established."
+    )
     if result == "CLEAN":
         verdict = "pass"
+        verdict_reason = None
     elif result == "GAPS FOUND":
         verdict = "fail"
+        verdict_reason = None
 
     raw_result = json.dumps({"body": body, "phase": phase}, separators=(",", ":"))
     success_policy = json.dumps(
@@ -260,6 +266,7 @@ def simulation_upsert(
             performed_by="agent",
             qa_kind="simulation",
             verdict=verdict,
+            verdict_reason=verdict_reason,
             raw_result=raw_result,
         )
     except SystemExit as exc:

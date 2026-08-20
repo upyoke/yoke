@@ -67,7 +67,7 @@ def qa_browser_context_get(args: List[str]) -> int:
 
 QA_RUN_ADD_USAGE = (
     "yoke qa run add --requirement-id N --performed-by TYPE "
-    "[--qa-kind KIND] [--verdict V] [--execution-status S] "
+    "[--qa-kind KIND] [--verdict V] [--verdict-reason REASON] [--execution-status S] "
     "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]"
 )
 
@@ -85,6 +85,8 @@ def qa_run_add(args: List[str]) -> int:
                         help="Must match the requirement's stored kind.")
     parser.add_argument("--verdict", default=None,
                         help="Optional verdict (omitted for started runs).")
+    parser.add_argument("--verdict-reason", dest="verdict_reason", default=None,
+                        help="Required with an undetermined verdict.")
     parser.add_argument("--execution-status", dest="execution_status",
                         default=None, help="Optional execution status.")
     parser.add_argument("--raw-result", dest="raw_result", default=None,
@@ -98,7 +100,7 @@ def qa_run_add(args: List[str]) -> int:
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {"performed_by": parsed.performed_by}
-    for key in ("qa_kind", "verdict", "execution_status", "raw_result"):
+    for key in ("qa_kind", "verdict", "verdict_reason", "execution_status", "raw_result"):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value
@@ -117,7 +119,7 @@ def qa_run_add(args: List[str]) -> int:
 
 QA_RUN_COMPLETE_USAGE = (
     "yoke qa run complete --requirement-id N --run-id N "
-    "[--verdict V] [--execution-status S] [--raw-result TEXT] "
+    "[--verdict V] [--verdict-reason REASON] [--execution-status S] [--raw-result TEXT] "
     "[--duration-ms N] [--session-id S] [--json]"
 )
 
@@ -133,6 +135,8 @@ def qa_run_complete(args: List[str]) -> int:
                         help="Target qa_runs.id.")
     parser.add_argument("--verdict", default=None,
                         help="Verdict to set (at least one of verdict/status).")
+    parser.add_argument("--verdict-reason", dest="verdict_reason", default=None,
+                        help="Required with an undetermined verdict.")
     parser.add_argument("--execution-status", dest="execution_status",
                         default=None, help="Execution status to set.")
     parser.add_argument("--raw-result", dest="raw_result", default=None,
@@ -146,7 +150,7 @@ def qa_run_complete(args: List[str]) -> int:
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {"run_id": int(parsed.run_id)}
-    for key in ("verdict", "execution_status", "raw_result"):
+    for key in ("verdict", "verdict_reason", "execution_status", "raw_result"):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value

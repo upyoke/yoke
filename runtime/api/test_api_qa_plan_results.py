@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers import qa_catalog_reads as activity_handlers
-from yoke_core.domain.qa_catalog_reads import list_activity, read_activity
+from yoke_core.domain.qa_catalog_reads import list_activity, list_plans, read_activity
 from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
     set_project_default,
@@ -230,21 +230,21 @@ def test_activity_summary_counts_the_full_day_before_limiting_recent_rows() -> N
             transition_id="release",
         )
         run_states = [
-            ("pass", None, "2026-07-26T12:00:00Z"),
-            ("inconclusive", None, "2026-07-26T11:00:00Z"),
-            (None, "running", "2026-07-26T10:00:00Z"),
-            ("pass", None, "2026-07-25T23:00:00Z"),
+            ("pass", None, None, "2026-07-26T12:00:00Z"),
+            ("undetermined", "Evidence is ambiguous.", None, "2026-07-26T13:00:00Z"),
+            (None, None, "running", "2026-07-26T10:00:00Z"),
+            ("pass", None, None, "2026-07-25T23:00:00Z"),
         ]
-        for requirement_id, (verdict, case_outcome, happened_at) in zip(
+        for requirement_id, (verdict, reason, case_outcome, happened_at) in zip(
             materialized["created_requirement_ids"],
             run_states,
         ):
             conn.execute(
                 "INSERT INTO qa_runs("
-                "qa_requirement_id, performed_by, qa_kind, verdict, "
+                "qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
                 "case_outcome, created_at"
-                ") VALUES (%s, 'worktree_run', 'command', %s, %s, %s)",
-                (requirement_id, verdict, case_outcome, happened_at),
+                ") VALUES (%s, 'worktree_run', 'command', %s, %s, %s, %s)",
+                (requirement_id, verdict, reason, case_outcome, happened_at),
             )
         conn.commit()
 
@@ -254,8 +254,12 @@ def test_activity_summary_counts_the_full_day_before_limiting_recent_rows() -> N
             limit=1,
             day=activity_day,
         )
+        plans = list_plans(conn, project="yoke")
 
     assert len(activity["rows"]) == 1
+    assert activity["rows"][0]["verdict_reason"] == "Evidence is ambiguous."
+    assert activity["rows"][0]["proof_summary"] == "Evidence is ambiguous."
+    assert plans[0]["last_verdict_reason"] == "Evidence is ambiguous."
     assert activity["summary"] == {
         "day": "2026-07-26",
         "total": 3,

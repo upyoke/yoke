@@ -83,6 +83,11 @@ def _run(
         performed_by="test_runner",
         qa_kind="plan_case",
         verdict=verdict,
+        verdict_reason=(
+            "The screenshots do not establish the expected outcome."
+            if verdict == "undetermined"
+            else None
+        ),
         case_outcome=case_outcome,
         created_at=created_at,
     )

@@ -124,6 +124,10 @@ test("Plans renders the durable objects and the full case-detail composition", a
   assert.match(listText, /item · YOK-2001/);
   assert.doesNotMatch(listText, /item · YOK-2001 · reviewing-implementation/);
   assert.match(listText, /1 needs review/);
+  assert.match(
+    listText,
+    /Checkout completion could not be established because the confirmation was outside the captured viewport\./,
+  );
   assert.equal(
     byClass(root, "qa-method-summary")[0].children
       .map((node) => node.textContent)

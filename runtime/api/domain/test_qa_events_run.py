@@ -78,14 +78,16 @@ def test_emit_run_event_with_verdict(conn, monkeypatch):
         run_id=101,
         requirement_id=2,
         qa_kind="implementation_review",
-        verdict="pass",
+        verdict="undetermined",
+        verdict_reason="The artifact omits the final state.",
     )
 
     call = captured.calls[0]
     assert call["item_id"] == "100"
     assert call["task_num"] == 3
     detail = call["context"]["detail"]
-    assert detail["verdict"] == "pass"
+    assert detail["verdict"] == "undetermined"
+    assert detail["verdict_reason"] == "The artifact omits the final state."
     assert detail["run_id"] == 101
     assert detail["requirement_id"] == 2
 

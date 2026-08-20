@@ -119,6 +119,15 @@ function itemTable(documentNode, rows, rowHref, scope, projects) {
     );
     titleLink.href = href;
     titleCell.appendChild(titleLink);
+    if (row.qa_attention?.verdict === "undetermined") {
+      const reason = String(row.qa_attention.verdict_reason || "").trim();
+      const attention = el(
+        documentNode, "span", "item-workflow",
+        reason ? `QA undetermined — ${reason}` : "QA undetermined",
+      );
+      attention.title = reason;
+      titleCell.appendChild(attention);
+    }
     tr.appendChild(titleCell);
     const workflowCell = el(documentNode, "td");
     const workflow = el(

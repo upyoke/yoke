@@ -1,10 +1,8 @@
 """QA test execution and run management.
-
 Parent shim for the QA-execution surface. Owns ``cmd_run_add``,
 ``cmd_run_complete``, ``cmd_run_list``, and ``cmd_run_get``. Other
-execution-domain commands live in dedicated sibling modules
-(``qa_run_batch`` and ``qa_artifact_ops``) and are
-re-exported here so existing callers keep working unchanged. Event
+execution-domain commands live in sibling modules and are re-exported here so
+existing callers keep working unchanged. Event
 helpers come from ``qa_events``; vocab/formatting helpers from
 ``qa_constants``.
 """
@@ -27,6 +25,7 @@ from yoke_core.domain.qa_constants import (  # noqa: F401  (re-exported)
     _normalize_qa_kind,
     _pipe_row,
     case_outcome_for_verdict,
+    normalized_verdict_reason,
 )
 from yoke_core.domain import qa_events
 from yoke_core.domain.qa_artifact_ops import (  # noqa: F401  (re-exported)
@@ -94,6 +93,7 @@ def cmd_run_add(
     performed_by: str,
     qa_kind: Optional[str] = None,
     verdict: Optional[str] = None,
+    verdict_reason: Optional[str] = None,
     execution_status: Optional[str] = None,
     score: Optional[float] = None,
     confidence: Optional[float] = None,
@@ -110,6 +110,11 @@ def cmd_run_add(
         print("Error: --performed-by is required", file=sys.stderr)
         sys.exit(2)
     qa_kind = _resolve_qa_kind(db_path, requirement_id, qa_kind)
+    try:
+        verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(2)
 
     conn = connect(path=db_path)
     try:
@@ -169,10 +174,10 @@ def cmd_run_add(
         )
 
         sql = """INSERT INTO qa_runs
-                  (qa_requirement_id, performed_by, qa_kind, verdict,
+                  (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason,
                    execution_status, case_outcome, score, confidence, raw_result,
                    duration_ms, started_at, completed_at, created_at)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
         cur = conn.execute(
             sql,
             (
@@ -180,6 +185,7 @@ def cmd_run_add(
                 performed_by,
                 qa_kind,
                 verdict,
+                verdict_reason,
                 execution_status,
                 case_outcome_for_verdict(verdict),
                 score,
@@ -209,7 +215,7 @@ def cmd_run_add(
             run_id=inserted_id,
             requirement_id=requirement_id,
             qa_kind=qa_kind,
-            verdict=verdict,
+            verdict=verdict, verdict_reason=verdict_reason,
         )
         # optional one-step artifact creation
         if artifact_path is not None:
@@ -252,6 +258,7 @@ def cmd_run_complete(
     db_path: Optional[str] = None,
     run_id: int,
     verdict: Optional[str] = None,
+    verdict_reason: Optional[str] = None,
     execution_status: Optional[str] = None,
     raw_result: Optional[str] = None,
     duration_ms: Optional[int] = None,
@@ -261,7 +268,7 @@ def cmd_run_complete(
     browser capture can finalize with ``execution_status='captured'``
     and ``verdict=None`` — the infra step succeeded but quality has not been
     inspected yet. Inspection is a later ``run-complete`` call that sets
-    ``verdict='pass'`` or ``verdict='fail'`` in place. At least one of
+    ``pass``, ``fail``, or explained ``undetermined`` verdict in place. At least one of
     ``verdict`` or ``execution_status`` must be provided.
 
     Event emission: ``QARunCompleted`` fires when a verdict is written,
@@ -276,6 +283,11 @@ def cmd_run_complete(
             "Error: at least one of --verdict or --execution-status is required",
             file=sys.stderr,
         )
+        sys.exit(2)
+    try:
+        verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(2)
 
     conn = connect(path=db_path)
@@ -293,8 +305,10 @@ def cmd_run_complete(
         params: list = [iso8601_now()]
         set_parts = ["completed_at = %s"]
         if verdict is not None:
-            set_parts.extend(("verdict = %s", "case_outcome = %s"))
-            params.extend((verdict, case_outcome_for_verdict(verdict)))
+            set_parts.extend(
+                ("verdict = %s", "verdict_reason = %s", "case_outcome = %s")
+            )
+            params.extend((verdict, verdict_reason, case_outcome_for_verdict(verdict)))
         if execution_status is not None:
             set_parts.append("execution_status = %s")
             params.append(execution_status)
@@ -326,7 +340,7 @@ def cmd_run_complete(
             run_id=run_id,
             requirement_id=int(row["qa_requirement_id"]),
             qa_kind=str(row["qa_kind"]),
-            verdict=verdict,
+            verdict=verdict, verdict_reason=verdict_reason,
         )
     finally:
         conn.close()

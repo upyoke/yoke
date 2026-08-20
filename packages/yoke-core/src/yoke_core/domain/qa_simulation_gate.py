@@ -65,6 +65,8 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
             conn,
             f"""SELECT qr.id,
                       qreq.item_id,
+                      qr.verdict,
+                      qr.verdict_reason,
                       CASE qr.verdict
                         WHEN 'pass' THEN 'CLEAN'
                         WHEN 'fail' THEN 'GAPS FOUND'
@@ -98,6 +100,13 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
                 f"Error: No integration simulation found for epic {epic_ref}.",
                 f"Run '/yoke simulate {epic_id} --phase integration' before advancing.",
             ],
+        )
+
+    if row["verdict"] == "undetermined":
+        reason = str(row["verdict_reason"] or "").strip()
+        return GateResult(
+            passed=False,
+            errors=[f"Error: Integration simulation is undetermined: {reason}"],
         )
 
     result = row["result"] or ""

@@ -115,7 +115,7 @@ and the command returns `state="awaiting_agent_review"` with exit `12`. The
 returned typed dispatch contract is mandatory: the harness dispatches its
 reviewer over the immutable bundle, and that reviewer submits one verdict and
 rationale per case through the exact returned command. The gate remains
-unsatisfied while dispatch is pending. Only an agent `inconclusive` verdict
+unsatisfied while dispatch is pending. Only an agent `undetermined` verdict
 creates human Inbox work.
 When reading the result, pass `deployment_run_id` to `qa.plan.get` to avoid
 mixing another item or run's latest proof into the plan view.

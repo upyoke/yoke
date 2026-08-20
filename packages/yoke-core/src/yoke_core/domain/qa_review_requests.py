@@ -78,12 +78,20 @@ def ensure_qa_review_request(
     session_id: str = "",
     commit: bool = True,
 ) -> tuple[Optional[dict[str, Any]], bool]:
-    """Create or reuse the review request for an inconclusive QA run."""
+    """Create or reuse the review request for an undetermined QA run."""
     required = ("decision_requests", "projects", "items")
     if not all(_table_exists(conn, table) for table in required):
         return None, False
     requirement = _requirement(conn, requirement_id)
     project_id = int(requirement["project_id"])
+    p = _p(conn)
+    reason_row = conn.execute(
+        f"SELECT verdict_reason FROM qa_runs WHERE id={p} AND qa_requirement_id={p}",
+        (int(run_id), int(requirement_id)),
+    ).fetchone()
+    verdict_reason = str(reason_row[0] if reason_row else "").strip()
+    if not verdict_reason:
+        raise ValueError("undetermined QA run is missing its required reason")
     return create_decision_request(
         conn,
         kind="qa_needs_review",
@@ -108,7 +116,7 @@ def ensure_qa_review_request(
             "case_name": requirement.get("plan_case_key"),
             "method_name": requirement.get("method_name"),
             "title": "QA evidence needs your review",
-            "evidence_summary": str(requirement.get("success_policy") or ""),
+            "evidence_summary": verdict_reason,
         },
         session_id=session_id,
         commit=commit,
@@ -124,8 +132,8 @@ def maybe_ensure_qa_review_request(
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
 ) -> Optional[dict[str, Any]]:
-    """Produce human work only for an agent's inconclusive verdict."""
-    if verdict != "inconclusive":
+    """Produce human work only for an agent's undetermined verdict."""
+    if verdict != "undetermined":
         return None
     p = _p(conn)
     run = conn.execute(

@@ -87,7 +87,7 @@ def register(registry) -> None:
             side_effects=[
                 "qa_plan_review_write",
                 "qa_run_write",
-                "decision_request_write_if_inconclusive",
+                "decision_request_write_if_undetermined",
             ],
             emitted_event_names=[
                 "YokeFunctionCalled",
@@ -100,9 +100,7 @@ def register(registry) -> None:
                 "complete_verdict_batch",
                 "actor_session_bound",
             ],
-            adapter_status=(
-                "internal" if function_id.endswith(".begin") else "live"
-            ),
+            adapter_status=("internal" if function_id.endswith(".begin") else "live"),
             claim_required_kind="qa_subject",
             ambient_session_required=True,
         )

@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
-from yoke_core.domain.qa_constants import case_outcome_for_verdict
+from yoke_core.domain.qa_constants import (
+    UNDETERMINED_VERDICT,
+    case_outcome_for_verdict,
+)
 from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
 from yoke_core.domain.qa_plan_review import QaPlanReviewError, _public_bundle
@@ -24,7 +27,7 @@ def _validated_verdicts(
         if (
             requirement_id not in expected
             or requirement_id in result
-            or verdict not in {"pass", "fail", "inconclusive"}
+            or verdict not in {"pass", "fail", UNDETERMINED_VERDICT}
             or not rationale
             or len(rationale) > 8000
         ):
@@ -84,14 +87,15 @@ def _record_verdict(
     )
     run = conn.execute(
         "INSERT INTO qa_runs("
-        "qa_requirement_id,performed_by,qa_kind,verdict,case_outcome,"
-        "raw_result,started_at,completed_at,created_at"
-        f") VALUES({', '.join([p] * 9)}) RETURNING id",
+        "qa_requirement_id,performed_by,qa_kind,verdict,verdict_reason,"
+        "case_outcome,raw_result,started_at,completed_at,created_at"
+        f") VALUES({', '.join([p] * 10)}) RETURNING id",
         (
             int(case["requirement_id"]),
             "agent",
             str(case["qa_kind"]),
             verdict,
+            rationale,
             case_outcome_for_verdict(verdict),
             raw_result,
             created_at,
@@ -131,8 +135,8 @@ def _ensure_requests(
 ) -> dict[int, int]:
     p = marker(conn)
     requests: dict[int, int] = {}
-    for requirement_id, (verdict, _rationale) in verdicts.items():
-        if verdict != "inconclusive":
+    for requirement_id, (verdict, rationale) in verdicts.items():
+        if verdict != UNDETERMINED_VERDICT:
             continue
         from yoke_core.domain.qa_review_requests import ensure_qa_review_request
 
@@ -170,7 +174,7 @@ def _emit_review_events(
     from yoke_core.domain import qa_events
 
     cases = {int(case["requirement_id"]): case for case in bundle["cases"]}
-    for requirement_id, (verdict, _rationale) in verdicts.items():
+    for requirement_id, (verdict, rationale) in verdicts.items():
         qa_events.emit_qa_run_event(
             conn,
             db_path=None,
@@ -179,6 +183,7 @@ def _emit_review_events(
             requirement_id=requirement_id,
             qa_kind=str(cases[requirement_id]["qa_kind"]),
             verdict=verdict,
+            verdict_reason=rationale,
         )
     conn.commit()
 

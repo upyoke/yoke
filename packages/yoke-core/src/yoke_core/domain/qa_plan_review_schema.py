@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_review_verdicts (
     requirement_id INTEGER NOT NULL REFERENCES qa_requirements(id),
     capture_run_id INTEGER NOT NULL REFERENCES qa_runs(id),
     review_run_id INTEGER NOT NULL REFERENCES qa_runs(id),
-    verdict TEXT NOT NULL CHECK(verdict IN ('pass','fail','inconclusive')),
+    verdict TEXT NOT NULL CHECK(verdict IN ('pass','fail','undetermined')),
     rationale TEXT NOT NULL,
     decision_request_id INTEGER,
     created_at TEXT NOT NULL,

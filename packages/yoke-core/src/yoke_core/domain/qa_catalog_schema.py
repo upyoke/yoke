@@ -133,6 +133,7 @@ _REQUIREMENT_COLUMNS = (
 )
 
 _RUN_COLUMNS = (
+    ("verdict_reason", "TEXT"),
     (
         "case_outcome",
         "TEXT CHECK(case_outcome IN "

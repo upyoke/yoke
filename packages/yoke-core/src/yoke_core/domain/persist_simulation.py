@@ -16,7 +16,7 @@ Exit codes:
     0  = success; stdout contains CLEAN or GAPS FOUND
     10 = simulation-upsert failed
     11 = missing persisted row after upsert
-    12 = inconclusive persisted verdict (empty verdict field)
+    12 = undetermined persisted verdict
     13 = parser mismatch (local verdict disagrees with persisted)
     14 = no local verdict parseable from Simulator output
     15 = verified simulation persisted but the Python-owned handoff failed
@@ -124,7 +124,7 @@ def persist_and_verify(
     Raises:
         ``SystemExit(10)``  — upsert failed
         ``SystemExit(11)``  — missing persisted row
-        ``SystemExit(12)``  — inconclusive verdict
+        ``SystemExit(12)``  — undetermined verdict
         ``SystemExit(13)``  — parser mismatch
         ``SystemExit(14)``  — no parseable verdict in input
         ``SystemExit(15)``  — verified persist succeeded but auto-handoff failed
@@ -181,13 +181,14 @@ def persist_and_verify(
             )
             raise SystemExit(11)
 
-    # simulation_get returns: id|epic_id|phase|result|body|created_at
+    # simulation_get returns: id|epic_id|phase|result|body|created_at|verdict_reason
     fields = persisted_row.split("|")
     persisted_verdict = fields[3] if len(fields) > 3 else ""
 
-    if not persisted_verdict:
-        _err(f"Persisted verdict is inconclusive for epic {epic_id} phase {phase}. "
-             f"Local parse was '{local_verdict}'.")
+    if persisted_verdict == "UNDETERMINED":
+        reason = fields[6] if len(fields) > 6 else "reason unavailable"
+        _err(f"Persisted verdict is undetermined for epic {epic_id} phase {phase}: "
+             f"{reason}. Local parse was '{local_verdict}'.")
         raise SystemExit(12)
 
     if persisted_verdict != local_verdict:

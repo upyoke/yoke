@@ -147,7 +147,9 @@ function renderActivityTable(context, body, rows, scope) {
       documentNode, row.outcome, row.capture_degraded_reason,
     ));
     tr.appendChild(outcome);
-    tr.appendChild(el(documentNode, "td", null, evidenceText(row)));
+    const evidence = el(documentNode, "td", null, evidenceText(row));
+    if (row.verdict_reason) evidence.title = row.verdict_reason;
+    tr.appendChild(evidence);
     const when = el(documentNode, "td");
     when.appendChild(relativeTimeNode(documentNode, row.happened_at));
     tr.appendChild(when);

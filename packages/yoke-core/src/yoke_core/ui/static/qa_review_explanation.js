@@ -10,14 +10,14 @@ export function reviewExplanation(review) {
     return `Agent inspection recorded ${verdict}.` +
       (rationale ? ` Rationale: ${rationale}` : "");
   }
-  if (review.state === "agent_inconclusive") {
-    return "Agent inspection recorded an inconclusive verdict, but no " +
+  if (review.state === "agent_undetermined") {
+    return "Agent inspection recorded an undetermined verdict, but no " +
       "human decision request is recorded yet." +
       (rationale ? ` Rationale: ${rationale}` : "");
   }
   if (review.state === "human_review_requested") {
     const requestId = review.decision_request?.id;
-    return "Agent inspection recorded an inconclusive verdict. " +
+    return "Agent inspection recorded an undetermined verdict. " +
       `Human decision request ${requestId || ""} is pending in Inbox.` +
       (rationale ? ` Rationale: ${rationale}` : "");
   }

@@ -9,6 +9,14 @@ from runtime.api.item_page_reads_test_support import _connection
 
 def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
     conn = _connection()
+    conn.execute("ALTER TABLE qa_runs ADD COLUMN performed_by TEXT")
+    conn.execute("ALTER TABLE qa_runs ADD COLUMN verdict_reason TEXT")
+    conn.execute(
+        "UPDATE qa_runs SET performed_by='agent', verdict='undetermined', "
+        "verdict_reason='The footer screenshot omits the mobile breakpoint.' "
+        "WHERE id=8"
+    )
+    conn.commit()
     monkeypatch.setattr(
         item_overview_read.db_helpers,
         "connect",
@@ -36,19 +44,28 @@ def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
     assert rows[0]["worktrees"][0]["branch"] == "codex/footer"
     assert rows[0]["worktrees"][0]["lane_role"] == "implementation"
     assert rows[0]["worktrees"][0]["state"] == "active"
+    assert rows[0]["qa_attention"]["verdict"] == "undetermined"
+    assert "mobile breakpoint" in rows[0]["qa_attention"]["verdict_reason"]
 
 
 def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     conn = _connection()
+    conn.execute("ALTER TABLE qa_runs ADD COLUMN verdict_reason TEXT")
+    conn.execute(
+        "UPDATE qa_runs SET verdict='undetermined', "
+        "verdict_reason='The screenshot omits the mobile breakpoint.' WHERE id=8"
+    )
+    conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
     item = item_detail_read.get_item_detail(51)
 
     assert item["public_ref"] == "ACM-22"
     assert item["title"] == "Fix the footer"
     assert item["workflow"]["id"] == "dash"
-    assert item["workflow"]["version"] == builtin_workflow_definition("dash")[
-        "canon_version"
-    ]
+    assert (
+        item["workflow"]["version"]
+        == builtin_workflow_definition("dash")["canon_version"]
+    )
     assert item["workflow"]["stage_label"] == "reviewing implementation"
     assert item["workflow"]["skill_id"] == "dash"
     assert item["workflow"]["next_skill_id"] is None
@@ -69,7 +86,7 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     }
     assert item["progress_log"]["content"].endswith("built")
     assert item["qa_requirements"][0]["requirement_source"] == "footer-renders"
-    assert item["qa_requirements"][0]["verdict"] == "needs review"
+    assert item["qa_requirements"][0]["verdict"] == "undetermined"
     assert item["qa_requirements"][0]["plan_slug"] == "browser-close"
     assert item["qa_requirements"][0]["plan_name"] == "Browser closeout"
     assert item["qa_requirements"][0]["plan_case_key"] == "responsive-footer"
@@ -81,7 +98,12 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     assert item["qa_requirements"][0]["evidence_count"] == 1
     assert item["qa_requirements"][0]["latest_evidence_type"] == "screenshot"
     assert item["qa_requirements"][0]["outcome"] == "needs_review"
-    assert item["qa_requirements"][0]["proof_summary"] == "1 screenshot"
+    assert item["qa_requirements"][0]["verdict_reason"] == (
+        "The screenshot omits the mobile breakpoint."
+    )
+    assert item["qa_requirements"][0]["proof_summary"] == (
+        "The screenshot omits the mobile breakpoint."
+    )
     assert item["qa_requirements"][0]["precondition_reason"] is None
     assert item["qa_plan_attachments"] == [
         {
@@ -187,7 +209,7 @@ def test_detail_proof_summarizes_current_runs_and_no_run_fallback(monkeypatch):
             (
                 10,
                 6,
-                "inconclusive",
+                "undetermined",
                 "captured",
                 "now",
                 "blocked_on_precondition",
@@ -208,7 +230,7 @@ def test_detail_proof_summarizes_current_runs_and_no_run_fallback(monkeypatch):
             (
                 12,
                 9,
-                "inconclusive",
+                "undetermined",
                 "captured",
                 "now",
                 "blocked_on_precondition",

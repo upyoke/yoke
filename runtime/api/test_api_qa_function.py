@@ -175,17 +175,17 @@ class TestQaRunRecordVerdict(unittest.TestCase):
                         TargetRef(kind="qa_requirement", qa_requirement_id=7),
                         payload={
                             "performed_by": "agent",
-                            "verdict": "pass",
+                            "verdict": "undetermined",
+                            "verdict_reason": "The log omits the final assertion.",
                             "raw_result": "all good",
                         },
                     )
                     outcome = qa_run.handle_qa_run_record_verdict(req)
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["qa_run_id"], 99)
-        self.assertEqual(outcome.result_payload["verdict"], "pass")
+        self.assertEqual(outcome.result_payload["verdict"], "undetermined")
+        self.assertIn("final assertion", outcome.result_payload["verdict_reason"])
         emit.assert_called_once()
-
-
 class TestQaRequirementClaimDispatch(unittest.TestCase):
     """Real-dispatch coverage for qa.requirement.update + qa.run.record_verdict
     when the caller passes only ``target.qa_requirement_id``.
