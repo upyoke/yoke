@@ -201,7 +201,9 @@ class TestPostPushProofUsesTheMergesAuthority:
         monkeypatch.setattr(
             post_push,
             "request_with_retry",
-            lambda _request, **_k: SimpleNamespace(body={"check_runs": []}),
+            lambda _request, **_k: SimpleNamespace(
+                body={"total_count": 0, "check_runs": []},
+            ),
         )
 
         runs, error = post_push.read_check_runs(

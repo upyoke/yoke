@@ -80,7 +80,7 @@ def test_no_runs_inside_the_discovery_window_is_ci_less(monkeypatch) -> None:
 
     assert verdict.kind == "no_checks"
     assert verdict.ok
-    assert seen == [0.0, 60.0]
+    assert seen == [0.0, 60.0, 90.0]
     assert clock.sleeps == [60.0, 30.0]
 
 
@@ -111,8 +111,11 @@ def test_pending_timeout_never_reads_faster_than_the_shared_floor(
 
     assert verdict.kind == "timed_out"
     assert not verdict.ok
-    assert seen == [0.0, 60.0, 120.0]
-    assert all(later - earlier >= 60 for earlier, later in zip(seen, seen[1:]))
+    assert seen == [0.0, 60.0, 120.0, 150.0]
+    assert all(
+        later - earlier >= 60 for earlier, later in zip(seen[:-1], seen[1:-1])
+    )
+    assert seen[-1] - seen[-2] == 30.0
     assert clock.sleeps == [60.0, 60.0, 30.0]
 
 
@@ -132,12 +135,15 @@ def test_check_run_reader_keeps_conclusions_and_urls(monkeypatch) -> None:
     monkeypatch.setattr(
         post_push,
         "request_with_retry",
-        lambda request, **_k: SimpleNamespace(body={"check_runs": [{
-            "name": "suite",
-            "status": "completed",
-            "conclusion": "success",
-            "html_url": "https://runs/suite",
-        }]}),
+        lambda request, **_k: SimpleNamespace(body={
+            "total_count": 1,
+            "check_runs": [{
+                "name": "suite",
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://runs/suite",
+            }],
+        }),
     )
 
     runs, error = post_push.read_check_runs(
@@ -151,3 +157,138 @@ def test_check_run_reader_keeps_conclusions_and_urls(monkeypatch) -> None:
             url="https://runs/suite",
         ),
     )
+
+
+def test_checks_appear_on_the_final_discovery_read(monkeypatch) -> None:
+    verdict, clock, seen = _run(
+        monkeypatch,
+        [
+            ((), ""),
+            ((), ""),
+            ((_check("completed", "success"),), ""),
+        ],
+    )
+
+    assert verdict.kind == "passed"
+    assert verdict.ok
+    assert seen == [0.0, 60.0, 90.0]
+    assert clock.sleeps == [60.0, 30.0]
+
+
+def test_status_change_on_the_final_conclusion_read(monkeypatch) -> None:
+    verdict, clock, seen = _run(
+        monkeypatch,
+        [
+            ((_check("in_progress"),), ""),
+            ((_check("in_progress"),), ""),
+            ((_check("in_progress"),), ""),
+            ((_check("completed", "failure"),), ""),
+        ],
+        conclusion=150,
+    )
+
+    assert verdict.kind == "failed"
+    assert not verdict.ok
+    assert seen == [0.0, 60.0, 120.0, 150.0]
+    assert clock.sleeps == [60.0, 60.0, 30.0]
+
+
+def _raw(name: str, status: str = "completed", conclusion: str = "success"):
+    return {
+        "name": name,
+        "status": status,
+        "conclusion": conclusion,
+        "html_url": f"https://runs/{name}",
+    }
+
+
+def _install_pages(monkeypatch, pages: dict) -> None:
+    monkeypatch.setattr(
+        post_push,
+        "resolve_auth",
+        lambda *_a, **_k: SimpleNamespace(repo="upyoke/yoke", token="token"),
+    )
+    monkeypatch.setattr(
+        post_push,
+        "request_with_retry",
+        lambda request, **_k: SimpleNamespace(body=pages[request.query["page"]]),
+    )
+
+
+def test_a_failing_check_on_page_two_is_evaluated(monkeypatch) -> None:
+    monkeypatch.setattr(post_push, "CHECK_RUNS_PER_PAGE", 1)
+    _install_pages(monkeypatch, {
+        "1": {"total_count": 2, "check_runs": [_raw("one")]},
+        "2": {
+            "total_count": 2,
+            "check_runs": [_raw("two", conclusion="failure")],
+        },
+    })
+
+    runs, error = post_push.read_check_runs(
+        "yoke", "abc123", GITHUB_AUTHORITY_INSTALLATION,
+    )
+
+    assert error == ""
+    assert runs is not None
+    assert [run.name for run in runs] == ["one", "two"]
+    assert runs[1].conclusion == "failure"
+
+
+def test_a_pending_check_on_page_two_is_evaluated(monkeypatch) -> None:
+    monkeypatch.setattr(post_push, "CHECK_RUNS_PER_PAGE", 1)
+    _install_pages(monkeypatch, {
+        "1": {"total_count": 2, "check_runs": [_raw("one")]},
+        "2": {
+            "total_count": 2,
+            "check_runs": [_raw("two", status="in_progress", conclusion="")],
+        },
+    })
+
+    runs, error = post_push.read_check_runs(
+        "yoke", "abc123", GITHUB_AUTHORITY_INSTALLATION,
+    )
+
+    assert error == ""
+    assert runs is not None
+    assert runs[1].status == "in_progress"
+
+
+def test_malformed_pagination_is_refused(monkeypatch) -> None:
+    _install_pages(monkeypatch, {"1": {"check_runs": []}})
+
+    runs, error = post_push.read_check_runs(
+        "yoke", "abc123", GITHUB_AUTHORITY_INSTALLATION,
+    )
+
+    assert runs is None
+    assert "pagination" in error
+
+
+def test_truncated_second_page_is_refused(monkeypatch) -> None:
+    monkeypatch.setattr(post_push, "CHECK_RUNS_PER_PAGE", 30)
+    _install_pages(monkeypatch, {
+        "1": {
+            "total_count": 44,
+            "check_runs": [_raw(f"c{i}") for i in range(30)],
+        },
+        "2": {"total_count": 44, "check_runs": []},
+    })
+
+    runs, error = post_push.read_check_runs(
+        "yoke", "abc123", GITHUB_AUTHORITY_INSTALLATION,
+    )
+
+    assert runs is None
+    assert "pagination" in error
+
+
+def test_a_genuinely_empty_page_is_complete(monkeypatch) -> None:
+    _install_pages(monkeypatch, {"1": {"total_count": 0, "check_runs": []}})
+
+    runs, error = post_push.read_check_runs(
+        "yoke", "abc123", GITHUB_AUTHORITY_INSTALLATION,
+    )
+
+    assert error == ""
+    assert runs == ()
