@@ -87,6 +87,19 @@ def test_off_default_branch_refuses(tmp_path: Path) -> None:
     assert "git switch main" in message
 
 
+def test_commit_fills_missing_git_identity(tmp_path: Path) -> None:
+    root = _git_repo(tmp_path / "repo")
+    _git(root, "config", "--unset", "user.email")
+    _git(root, "config", "--unset", "user.name")
+    (root / "fresh.txt").write_text("new\n", encoding="utf-8")
+    result = checkout_gate.commit_touched_paths(
+        root,
+        {"yoke_version": "9.9.9", "files_written": ["fresh.txt"]},
+    )
+    assert result["status"] == "created"
+    assert _git(root, "status", "--porcelain").stdout.strip() == ""
+
+
 def test_source_apply_skips_the_default_branch_check(tmp_path: Path) -> None:
     root = _git_repo(tmp_path / "repo", branch="main")
     _git(root, "switch", "-c", "topic")
@@ -224,3 +237,43 @@ def test_install_commits_bundle_output_on_a_clean_default_branch(
     assert report["commit"]["message"].startswith("Install Yoke operating layer")
     assert _git(root, "status", "--porcelain").stdout.strip() == ""
     assert (root / ".claude/skills/yoke/SKILL.md").is_file()
+
+
+def test_install_skips_branch_check_when_bundle_omits_default_branch(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+    monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
+    monkeypatch.delenv("YOKE_ENV", raising=False)
+    from yoke_cli.project_install import runner
+
+    monkeypatch.setattr(
+        runner, "_resolve_bundle",
+        lambda *_a, **_k: (make_bundle(), "test"),
+    )
+    monkeypatch.setattr(
+        runner, "_register_in_machine_config", lambda *_a, **_k: False,
+    )
+    root = _git_repo(tmp_path / "repo", branch="trunk")
+    report = runner.install(root, project_id=7)
+    assert report["checkout"]["status"] == "ok"
+    assert report["commit"]["status"] == "created"
+
+
+def test_install_refuses_off_branch_when_bundle_names_default_branch(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+    monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
+    monkeypatch.delenv("YOKE_ENV", raising=False)
+    from yoke_cli.project_install import runner
+
+    bundle = make_bundle()
+    bundle["default_branch"] = "main"
+    monkeypatch.setattr(
+        runner, "_resolve_bundle",
+        lambda *_a, **_k: (bundle, "test"),
+    )
+    root = _git_repo(tmp_path / "repo", branch="trunk")
+    with pytest.raises(ProjectInstallError, match="default_branch is 'main'"):
+        runner.install(root, project_id=7)

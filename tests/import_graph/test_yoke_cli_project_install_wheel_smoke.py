@@ -65,7 +65,7 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
 
         install = _run([
             str(yoke), "project", "install", str(checkout),
-            "--project-id", "7", "--config", str(config),
+            "--project-id", "7", "--config", str(config), "--no-commit",
         ], cwd=checkout, env=env, timeout=90)
         install_payload = json.loads(install.stdout)
         assert install_payload["operation"] == "install"
@@ -91,7 +91,7 @@ def test_project_install_product_wheel_uses_https_bundle_with_inert_engine(
         }])
         refresh = _run([
             str(yoke), "project", "refresh", str(checkout),
-            "--config", str(config),
+            "--config", str(config), "--force", "--no-commit",
         ], cwd=checkout, env=env, timeout=90)
         assert sorted(json.loads(refresh.stdout)["files_pruned"]) == [
             ".claude/agents/yoke-engineer.md",

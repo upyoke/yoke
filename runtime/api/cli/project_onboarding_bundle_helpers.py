@@ -22,6 +22,7 @@ def install_bundle(project: dict[str, Any]) -> dict[str, Any]:
         "yoke_version": "9.9.9",
         "project_id": project["id"],
         "project_slug": project["slug"],
+        "default_branch": str(project.get("default_branch") or "main"),
         "files": [{
             "path": ".codex/skills/yoke/onboard/SKILL.md",
             "content": "# onboard\n",

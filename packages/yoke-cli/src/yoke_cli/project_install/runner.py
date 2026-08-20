@@ -93,14 +93,22 @@ def install(
         resolved_id, explicit_env=explicit_env, config_path=config_path
     )
     validate_bundle_for_project(bundle, resolved_id)
-    default_branch = str(
-        bundle.get("default_branch") or checkout_gate.FALLBACK_DEFAULT_BRANCH
+    raw_branch = bundle.get("default_branch")
+    require_branch = (
+        require_default_branch
+        and isinstance(raw_branch, str)
+        and bool(raw_branch.strip())
+    )
+    default_branch = (
+        str(raw_branch).strip()
+        if require_branch
+        else checkout_gate.FALLBACK_DEFAULT_BRANCH
     )
     checkout = checkout_gate.assert_ready_for_write(
         root,
         default_branch=default_branch,
         force=force,
-        require_default_branch=require_default_branch,
+        require_default_branch=require_branch,
     )
     preflight_apply(root, bundle, files_layer.load_manifest(root) or {}, {})
     # Register between bundle resolution and apply: the fetch has already
