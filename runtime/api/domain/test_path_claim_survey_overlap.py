@@ -14,6 +14,8 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
 from yoke_core.domain.path_claims import IncompatibleOverlap, register
+from yoke_core.domain.path_claims_overlap import OverlapClassification
+from yoke_core.domain.path_claims_overlap_survey import classify_survey_overlap
 
 SURVEYED_PATH = "src/declared_by_a_dash.py"
 
@@ -96,6 +98,21 @@ class TestSurveyBlocksRegistration:
 
         assert _register_over(test_db, item_id=2268) > 0
         assert _register_over(test_db, item_id=2269, path="src/parked.py") > 0
+
+
+    def test_claim_without_an_owning_item_consults_no_survey(self, test_db):
+        """Survey coordination is item-to-item; a session claim has no side."""
+        _seed_survey(test_db, item_id=2276)
+        insert_item(test_db, id=2277, workflow_id="issue")
+
+        verdict = classify_survey_overlap(
+            test_db,
+            target_ids=[seed_target(test_db, item_id=2277, path=SURVEYED_PATH)],
+            integration_target="main",
+            candidate_item_id=None,
+        )
+
+        assert verdict is OverlapClassification.NONE
 
 
 class TestDeclaredEdgesDecideDirection:

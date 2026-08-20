@@ -26,6 +26,15 @@ from yoke_core.domain.conflict_survey_declared_paths import (
     matching_scope,
 )
 from yoke_core.domain.path_claims_overlap import OverlapClassification
+from yoke_core.domain.schema_common import _column_exists, _table_exists
+
+# ``classify_overlap`` is exercised against deliberately minimal schemas
+# that carry path claims without the item columns a survey is scoped by.
+# On Postgres a query against a missing column aborts the surrounding
+# transaction, so the shape is checked before the read, never caught
+# after it.
+_REQUIRED_ITEM_COLUMNS = ("project_id", "status")
+_REQUIRED_TABLES = ("items", "item_sections", "path_targets")
 
 
 def _p(conn: Any) -> str:
@@ -43,14 +52,36 @@ def _candidate_paths(conn: Any, target_ids: Sequence[int]) -> Tuple[str, ...]:
     return tuple(str(row[0]) for row in rows)
 
 
-def _candidate_project_id(conn: Any, target_ids: Sequence[int]) -> Optional[int]:
-    if not target_ids:
-        return None
+def _schema_supports_survey_coordination(conn: Any) -> bool:
+    """Whether this database exposes the surfaces a survey read needs."""
+    if not all(_table_exists(conn, table) for table in _REQUIRED_TABLES):
+        return False
+    if not _column_exists(conn, "path_targets", "path_string"):
+        return False
+    return all(
+        _column_exists(conn, "items", column)
+        for column in _REQUIRED_ITEM_COLUMNS
+    )
+
+
+def _item_project_id(conn: Any, item_id: int) -> Optional[int]:
+    """Resolve the candidate's project from the item that owns the claim.
+
+    The item row is the typed authority. Reading the project off a path
+    target instead would inherit whatever that column happens to hold,
+    and a project we cannot resolve leaves the claim-side door lock as
+    the only check rather than crashing the caller.
+    """
     row = conn.execute(
-        f"SELECT project_id FROM path_targets WHERE id = {_p(conn)}",
-        (int(target_ids[0]),),
+        f"SELECT project_id FROM items WHERE id = {_p(conn)}",
+        (int(item_id),),
     ).fetchone()
-    return None if row is None or row[0] is None else int(row[0])
+    if row is None or row[0] is None:
+        return None
+    try:
+        return int(row[0])
+    except (TypeError, ValueError):
+        return None
 
 
 def survey_overlaps(
@@ -60,8 +91,18 @@ def survey_overlaps(
     integration_target: str,
     candidate_item_id: Optional[int],
 ) -> list[tuple[DeclaredSurvey, str]]:
-    """Return each live survey the candidate coverage lands on, with the path."""
-    project_id = _candidate_project_id(conn, target_ids)
+    """Return each live survey the candidate coverage lands on, with the path.
+
+    Survey coordination is item-to-item: a claim with no owning item
+    carries no identity to coordinate against and no declared edges to
+    classify direction from, so it consults nothing here and the
+    claim-side classification stands alone.
+    """
+    if candidate_item_id is None:
+        return []
+    if not _schema_supports_survey_coordination(conn):
+        return []
+    project_id = _item_project_id(conn, candidate_item_id)
     if project_id is None:
         return []
     paths = _candidate_paths(conn, target_ids)
@@ -100,8 +141,6 @@ def classify_survey_overlap(
         integration_target=integration_target,
         candidate_item_id=candidate_item_id,
     ):
-        if candidate_item_id is None:
-            return OverlapClassification.INCOMPATIBLE
         if items_are_coordination_only(
             conn, item_a_id=int(candidate_item_id), item_b_id=survey.item_id,
         ):
