@@ -116,4 +116,5 @@ def test_cutover_rejects_an_undetermined_run_without_a_reason() -> None:
 
 
 def test_cutover_declares_the_first_compatible_serving_build() -> None:
+    assert entry.MINIMUM_SERVING_VERSION == "0.1.1+launch.245"
     assert declared_minimum(entry) == entry.MINIMUM_SERVING_VERSION

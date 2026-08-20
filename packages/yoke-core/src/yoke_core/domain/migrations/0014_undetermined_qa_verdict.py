@@ -13,7 +13,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
-MINIMUM_SERVING_VERSION = "0.1.1+launch.243"
+MINIMUM_SERVING_VERSION = "0.1.1+launch.245"
 LEGACY_REASON = (
     "The original QA check could not establish pass or fail because its "
     "legacy verdict did not require a reason."
