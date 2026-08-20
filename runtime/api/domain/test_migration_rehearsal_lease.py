@@ -112,3 +112,7 @@ def test_a_second_session_is_refused_and_told_who_holds_it(apply_env) -> None:
         )
     assert "heartbeat age" in str(exc.value)
     assert "yoke coordination-lease release" in str(exc.value)
+    assert "migration entry may collide" in str(exc.value)
+    assert "Coordinate with the holder or wait" in str(exc.value)
+    assert "signal to escalate to an operator" in str(exc.value)
+    assert "not permission to release the lease or continue" in str(exc.value)

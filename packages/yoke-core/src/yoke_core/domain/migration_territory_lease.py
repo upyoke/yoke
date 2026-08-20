@@ -76,7 +76,15 @@ def enter(
 def _held_as_error(conn: Any, held: Lease) -> LeaseHeldError:
     from yoke_core.domain.coordination_leases import _held_error
 
-    return _held_error(conn, held)
+    base = _held_error(conn, held)
+    message = (
+        f"{base} Migration territory is already owned by another lane, so "
+        "its migration entry may collide with this one. Coordinate with the "
+        "holder or wait; do not retry or proceed around the lease. An old "
+        "heartbeat is a signal to escalate to an operator, not permission to "
+        "release the lease or continue."
+    )
+    return type(base)(message, contention=base.contention)
 
 
 def leave(conn: Any, lease_id: int, reason: str) -> Lease:

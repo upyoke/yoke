@@ -39,6 +39,9 @@ from yoke_core.domain.migration_apply_resolve import (
     default_worktree_path, resolve_runner_input,
 )
 from yoke_core.domain.migration_apply_runners import dispatch_handle
+from yoke_core.domain.migration_history_integration import (
+    require_rehearsal_history_extension,
+)
 from yoke_core.domain.migration_apply_verify import (
     _append_rehearsal_outcomes, _row_count_map, _run_baseline_verify,
     _run_module_invariants, _run_rehearsal_commands,
@@ -99,15 +102,6 @@ def _rehearse_inner(
             f"breakage_policy={breakage_policy!r}: {'; '.join(matrix_errors)}"
         )
 
-    # Held past this call on purpose -- see migration_territory_lease.
-    lease = migration_territory_lease.enter(
-        control_conn,
-        project=project,
-        model_name=profile["model_name"],
-        item_id=int(item_id),
-        session_id=session_id,
-    )
-
     capability = _resolve_capability_settings(control_conn, project)
     try:
         model = resolve_model(capability, profile["model_name"])
@@ -117,6 +111,18 @@ def _rehearse_inner(
         ) from exc
 
     repo_path = _resolve_repo_path(control_conn, project)
+    runner_config = (model.get("runner") or {}).get("config") or {}
+    require_rehearsal_history_extension(
+        worktree_path=worktree_path,
+        modules_dir=str(runner_config.get("modules_dir") or ""),
+        integration_target=resolved.integration_target,
+        migration_modules=profile["migration_modules"],
+    )
+    # Held past this call on purpose -- see migration_territory_lease.
+    lease = migration_territory_lease.enter(
+        control_conn, project=project, model_name=profile["model_name"],
+        item_id=int(item_id), session_id=session_id,
+    )
     authoritative_db = resolve_authoritative_db_target(repo_path, model)
     env_var = resolve_connection_env_var(model)
 

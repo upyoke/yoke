@@ -156,14 +156,7 @@ def history_dir(package: ModuleType) -> Path:
     return Path(locations[0])
 
 
-def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
-    """Return every entry in *directory*, ordered by sequence prefix.
-
-    Gaps in the sequence are fine — numbers order the history, they do not
-    count it. Duplicates are rejected: two entries claiming one number have
-    no defined order, which is the collision that matters when two work
-    items author migrations in parallel.
-    """
+def _entries(directory: Path, *, strict_names: bool) -> Tuple[MigrationEntry, ...]:
     if not directory.is_dir():
         raise HistoryError(f"migration history directory not found: {directory}")
 
@@ -175,6 +168,8 @@ def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
             continue
         match = ENTRY_NAME_PATTERN.match(stem)
         if match is None:
+            if not strict_names:
+                continue
             raise HistoryError(
                 f"migration history file {path.name!r} is not a valid entry name; "
                 "new entries use NNNN_slug.py (established zero-padded prefixes "
@@ -192,6 +187,27 @@ def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
 
     entries.sort(key=lambda entry: entry.sequence)
     return tuple(entries)
+
+
+def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
+    """Return every entry in *directory*, ordered by sequence prefix.
+
+    Gaps in the sequence are fine — numbers order the history, they do not
+    count it. Duplicates are rejected: two entries claiming one number have
+    no defined order, which is the collision that matters when two work
+    items author migrations in parallel.
+    """
+    return _entries(directory, strict_names=True)
+
+
+def ordinal_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
+    """Return numbered entries while tolerating unnumbered runner modules.
+
+    Governed runner directories can contain older slug-only modules. Numbered
+    entries still form one ordered history within that directory, so their
+    ordinals must remain unique even when the older modules coexist with them.
+    """
+    return _entries(directory, strict_names=False)
 
 
 def load_migration_module(
@@ -218,6 +234,8 @@ def load_migration_module(
         raise ModuleResolutionError(
             f"migration module '{identifier}' not found at {path}"
         )
+    if ENTRY_NAME_PATTERN.fullmatch(path.stem):
+        ordinal_entries(path.parent)
     content = path.read_bytes() if source_bytes is None else source_bytes
     if check_psycopg_sql:
         validate_psycopg_migration_sql(
@@ -254,6 +272,7 @@ __all__ = [
     "MigrationEntry",
     "history_dir",
     "load_migration_module",
+    "ordinal_entries",
     "ordered_entries",
     "validate_psycopg_migration_sql",
 ]
