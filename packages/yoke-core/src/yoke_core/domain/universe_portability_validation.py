@@ -99,15 +99,17 @@ def converge_and_validate_restored_universe(
     )
     parsed_dsn["connect_timeout"] = str(max(1, min(30, math.ceil(timeout_s))))
     bounded_dsn = conninfo.make_conninfo(**parsed_dsn)
-    run_init_chain_at_dsn(
-        bounded_dsn,
-        emit=lambda line: _log.debug("restored schema converge: %s", line),
-    )
+    # This validator restored the database at *dsn* for its own use, so it is
+    # the only thing serving it; nothing else can be reading the shapes the
+    # init chain and the converge are about to create. The declaration covers
+    # both, because the init chain reaches the same convergence kernel.
+    with serving_build_authority():
+        run_init_chain_at_dsn(
+            bounded_dsn,
+            emit=lambda line: _log.debug("restored schema converge: %s", line),
+        )
     conn = db_backend.connect_psycopg(bounded_dsn)
     try:
-        # This validator restored the database at *dsn* for its own use, so it
-        # is the only thing serving it; nothing else can be reading the shapes
-        # it is about to converge.
         with serving_build_authority():
             converge_core_schema(conn, backup_target_dsn=bounded_dsn)
         seed_roles_and_permissions(conn)

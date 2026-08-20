@@ -92,6 +92,7 @@ def reset_restore_target(conn: object) -> None:
 
 def prepare_trusted_restore_schema(dsn: str, *, timeout_s: float) -> None:
     """Reset the destination and materialize schema from deployed code."""
+    from yoke_contracts.schema_authority import serving_build_authority
     from yoke_core.domain import db_backend
     from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
 
@@ -113,10 +114,13 @@ def prepare_trusted_restore_schema(dsn: str, *, timeout_s: float) -> None:
     finally:
         conn.close()
 
-    run_init_chain_at_dsn(
-        bounded_dsn,
-        emit=lambda line: _log.debug("trusted schema init: %s", line),
-    )
+    # This function just reset the destination: it owns that database
+    # outright, and nothing is serving the schema it is about to materialize.
+    with serving_build_authority():
+        run_init_chain_at_dsn(
+            bounded_dsn,
+            emit=lambda line: _log.debug("trusted schema init: %s", line),
+        )
     conn = db_backend.connect_psycopg(bounded_dsn)
     try:
         from yoke_core.domain.migration_content_restore_guards import (
