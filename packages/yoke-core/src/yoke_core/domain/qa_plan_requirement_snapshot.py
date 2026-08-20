@@ -7,6 +7,7 @@ from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
+from yoke_core.domain.qa_method_capabilities import encoded_capability_kinds
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     require_case_target,
@@ -140,11 +141,11 @@ def insert_requirement(
         "item_id, deployment_run_id, qa_kind, qa_phase, blocking_mode, "
         "requirement_source, success_policy, capability_requirements, "
         "plan_id, plan_case_key, case_position, baseline_position, "
-        "method_id, method_name, runner_id, required_capability_kind, "
-        "verdict_path, host_baseline, entry_surface, required_completion, "
+        "method_id, method_name, runner_id, verdict_path, host_baseline, "
+        "entry_surface, required_completion, "
         "workflow_transition_id, instructions, expected_outcome, "
         "method_config, execution_target_json, execution_target_digest, created_at"
-        f") VALUES ({', '.join([marker] * 27)}) "
+        f") VALUES ({', '.join([marker] * 26)}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
             item_id,
@@ -154,9 +155,10 @@ def insert_requirement(
             "blocking",
             "flow_derived",
             _json({"id": policy_id, "params": params}),
-            _json([case["required_capability_kind"]])
-            if case["required_capability_kind"]
-            else _json([]),
+            encoded_capability_kinds(
+                case["required_capability_kinds"],
+                subject=f"method {case['method_id']!r}",
+            ),
             int(plan["id"]),
             str(case["case_key"]),
             int(case["position"]),
@@ -164,7 +166,6 @@ def insert_requirement(
             str(case["method_id"]),
             str(case["method_name"]),
             str(case["runner_id"]),
-            case["required_capability_kind"],
             str(case["verdict_path"]),
             baseline,
             case["entry_surface"],
@@ -219,8 +220,8 @@ def refresh_requirement(
         f"success_policy={marker}, capability_requirements={marker}, "
         f"plan_id={marker}, plan_case_key={marker}, case_position={marker}, "
         f"baseline_position={marker}, method_id={marker}, method_name={marker}, "
-        f"runner_id={marker}, required_capability_kind={marker}, "
-        f"verdict_path={marker}, host_baseline={marker}, entry_surface={marker}, "
+        f"runner_id={marker}, verdict_path={marker}, "
+        f"host_baseline={marker}, entry_surface={marker}, "
         f"required_completion={marker}, workflow_transition_id={marker}, "
         f"instructions={marker}, expected_outcome={marker}, method_config={marker}, "
         f"execution_target_json={marker}, execution_target_digest={marker}, "
@@ -229,9 +230,10 @@ def refresh_requirement(
         (
             str(attachment["qa_phase"]),
             _json({"id": policy_id, "params": params}),
-            _json([case["required_capability_kind"]])
-            if case["required_capability_kind"]
-            else _json([]),
+            encoded_capability_kinds(
+                case["required_capability_kinds"],
+                subject=f"method {case['method_id']!r}",
+            ),
             int(plan["id"]),
             str(case["case_key"]),
             int(case["position"]),
@@ -239,7 +241,6 @@ def refresh_requirement(
             str(case["method_id"]),
             str(case["method_name"]),
             str(case["runner_id"]),
-            case["required_capability_kind"],
             str(case["verdict_path"]),
             baseline,
             case["entry_surface"],

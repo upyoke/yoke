@@ -39,7 +39,6 @@ def test_qa_packet_lists_live_qa_requirements_columns() -> None:
         "method_id",
         "method_name",
         "runner_id",
-        "required_capability_kind",
         "verdict_path",
         "host_baseline",
         "entry_surface",

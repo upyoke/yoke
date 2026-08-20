@@ -10,7 +10,7 @@ USAGE_BY_FUNCTION_ID = {
         "yoke qa project-method register --project P --slug SLUG --name NAME "
         "--description TEXT --runner worktree_run "
         "--verdict-path automatic --verdict-contract TEXT "
-        "--evidence-contract TEXT"
+        "--evidence-contract TEXT [--required-capability KIND ...]"
     ),
     "qa.plan.list": "yoke qa plan list --project P",
     "qa.plan.get": ("yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN]"),

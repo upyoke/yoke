@@ -22,6 +22,7 @@ from yoke_core.domain.qa_method_definitions import (
     method_presentations,
     method_read_metadata,
 )
+from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.capabilities_test_machine_read import (
     read_test_machine_facts,
 )
@@ -65,13 +66,11 @@ def _capability_contexts(
     conn: Any,
     *,
     project_id: Optional[int],
-    capability_kinds: set[Optional[str]],
-) -> dict[Optional[str], dict[str, Any]]:
+    capability_kinds: set[str],
+) -> dict[str, dict[str, Any]]:
     """Return one truthful readiness projection per capability kind."""
-    contexts: dict[Optional[str], dict[str, Any]] = {
-        None: {"state": "available"},
-    }
-    kinds = sorted(str(kind) for kind in capability_kinds if kind)
+    contexts: dict[str, dict[str, Any]] = {}
+    kinds = sorted(capability_kinds)
     if not kinds:
         return contexts
     if project_id is None:
@@ -132,6 +131,21 @@ def _capability_contexts(
     return contexts
 
 
+def _required_capability_details(
+    kinds: tuple[str, ...],
+    contexts: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "kind": kind,
+            "label": capability_type_definition(kind)["display_label"],
+            "state": contexts[kind]["state"],
+            "context": dict(contexts[kind]),
+        }
+        for kind in kinds
+    ]
+
+
 def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
     """Return contracts plus derived usage and capability availability."""
     identity = _project_row(conn, project)
@@ -148,7 +162,14 @@ def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
     capability_contexts = _capability_contexts(
         conn,
         project_id=project_id,
-        capability_kinds={row["required_capability_kind"] for row in rows},
+        capability_kinds={
+            kind
+            for row in rows
+            for kind in capability_kinds(
+                row["required_capability_kinds"],
+                subject=f"method {row['id']!r}",
+            )
+        },
     )
     result = []
     for row in rows:
@@ -162,8 +183,10 @@ def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
             count_sql += f" AND p.project_id={marker}"
             count_params += (project_id,)
         used_by = int(query_scalar(conn, count_sql, count_params) or 0)
-        capability_kind = row["required_capability_kind"]
-        capability_context = dict(capability_contexts[capability_kind])
+        required_kinds = capability_kinds(
+            row["required_capability_kinds"],
+            subject=f"method {row['id']!r}",
+        )
         result.append(
             {
                 "id": str(row["id"]),
@@ -172,7 +195,7 @@ def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                 "source_kind": str(row["source_kind"]),
                 "source_ref": row["source_ref"],
                 "runner_id": str(row["runner_id"]),
-                "required_capability_kind": capability_kind,
+                "required_capability_kinds": list(required_kinds),
                 "verdict_path": str(row["verdict_path"]),
                 "verdict_contract": str(row["verdict_contract"]),
                 "evidence_contract": str(row["evidence_contract"]),
@@ -183,14 +206,11 @@ def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                 ),
                 "concurrency_mode": str(row["concurrency_mode"]),
                 **method_read_metadata(row),
-                "required_capability_label": (
-                    capability_type_definition(str(capability_kind))["display_label"]
-                    if capability_kind
-                    else "none"
+                "required_capabilities": _required_capability_details(
+                    required_kinds,
+                    capability_contexts,
                 ),
                 "used_by_plan_count": used_by,
-                "capability_state": capability_context["state"],
-                "capability_context": capability_context,
             }
         )
     return result

@@ -36,7 +36,6 @@ QA_TABLES: dict[str, dict] = {
             ("method_id", "TEXT"),
             ("method_name", "TEXT"),
             ("runner_id", "TEXT"),
-            ("required_capability_kind", "TEXT"),
             ("verdict_path", "TEXT"),
             ("host_baseline", "TEXT"),
             ("entry_surface", "TEXT"),
@@ -58,6 +57,8 @@ QA_TABLES: dict[str, dict] = {
             "is NO `is_blocking` column. Primary key is `id`, not "
             "`requirement_id`; requirement rows do not carry `status` "
             "or `last_known_result`. "
+            "`capability_requirements` is a canonical JSON array of capability "
+            "kinds; `[]` means the case has no capability prerequisite. "
             "The aggregate discriminator is `qa_kind` "
             "(values like `ac_verification` / `implementation_review`) — "
             "there is no `kind` and no `requirement_type` column; "

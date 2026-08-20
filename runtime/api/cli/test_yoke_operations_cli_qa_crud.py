@@ -1,6 +1,4 @@
-"""Dispatch-path tests for the qa CRUD conversion slice —
-``yoke qa requirement list/get/add/add-batch``, ``yoke qa run list``,
-``yoke qa run get``, ``yoke qa gate-summary``."""
+"""Dispatch-path tests for public QA requirement, run, and gate-summary CRUD."""
 
 from __future__ import annotations
 
@@ -87,10 +85,8 @@ class TestQaRequirementList:
         assert req.payload == {}
 
     def test_explicit_project_satisfies_global_resolution(self) -> None:
-        rc = _run(
-            _stub_ok, "qa", "requirement", "list",
-            "--epic-id", "1704", "--project", "yoke",
-        )
+        args = ("qa", "requirement", "list", "--epic-id", "1704")
+        rc = _run(_stub_ok, *args, "--project", "yoke")
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "global"
@@ -137,6 +133,10 @@ class TestQaRequirementAdd:
             "ac_derived",
             "--success-policy",
             "acceptance criteria verified",
+            "--required-capability",
+            "desktop-control",
+            "--required-capability",
+            "browser-control",
             "--workflow-transition",
             "reviewed-implementation",
         )
@@ -151,6 +151,7 @@ class TestQaRequirementAdd:
             "blocking_mode": "blocking",
             "requirement_source": "ac_derived",
             "success_policy": "acceptance criteria verified",
+            "capability_requirements": ["desktop-control", "browser-control"],
             "workflow_transition_id": "reviewed-implementation",
         }
 
@@ -294,7 +295,6 @@ class TestQaRequirementAddBatch:
             stdin=json.dumps(rows),
         )
         assert rc == 2
-        assert _CAPTURED_REQUESTS == []
         assert _CAPTURED_REQUESTS == []
 
     def test_non_array_returns_two(self) -> None:

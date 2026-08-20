@@ -14,7 +14,7 @@ BUILTIN_QA_METHODS = (
             "exit 0 is the verdict, captured output is the evidence."
         ),
         "runner_id": "worktree_run",
-        "required_capability_kind": None,
+        "required_capability_kinds": [],
         "verdict_path": "automatic",
         "verdict_contract": "exit 0 = pass",
         "evidence_contract": "exit code · captured output tail",
@@ -34,7 +34,7 @@ BUILTIN_QA_METHODS = (
             "the evidence."
         ),
         "runner_id": "ci_run",
-        "required_capability_kind": None,
+        "required_capability_kinds": [],
         "verdict_path": "automatic",
         "verdict_contract": "workflow run concluded success = pass",
         "evidence_contract": "run url · head sha · run conclusion",
@@ -52,7 +52,7 @@ BUILTIN_QA_METHODS = (
             "Playwright-style assertions against declared routes; automatic verdict."
         ),
         "runner_id": "browser_substrate",
-        "required_capability_kind": "browser-control",
+        "required_capability_kinds": ["browser-control"],
         "verdict_path": "automatic",
         "verdict_contract": "assertions",
         "evidence_contract": "assertions · trace · logs",
@@ -71,7 +71,7 @@ BUILTIN_QA_METHODS = (
             "case's expected outcome."
         ),
         "runner_id": "browser_substrate",
-        "required_capability_kind": "browser-control",
+        "required_capability_kinds": ["browser-control"],
         "verdict_path": "agent",
         "verdict_contract": (
             "inspects the screenshot and judges whether it shows the case's "
@@ -94,10 +94,7 @@ def method_metadata_for_runner(
 ) -> dict[str, Any]:
     """Return reusable method metadata for one registered runner contract."""
     for method in BUILTIN_QA_METHODS:
-        if (
-            method["runner_id"] == runner_id
-            and method["verdict_path"] == verdict_path
-        ):
+        if method["runner_id"] == runner_id and method["verdict_path"] == verdict_path:
             return {
                 key: method[key]
                 for key in (

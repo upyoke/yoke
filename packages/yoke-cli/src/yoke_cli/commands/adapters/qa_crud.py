@@ -32,7 +32,7 @@ QA_REQUIREMENT_ADD_USAGE = (
     "(--qa-kind KIND | --method-id METHOD) "
     "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
     "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
-    "[--capability-requirements C] [--suite-id ID] "
+    "[--required-capability KIND ...] [--suite-id ID] "
     "--workflow-transition STAGE [--session-id S] [--json]"
 )
 
@@ -70,7 +70,7 @@ Flag matrix:
   --method-config             method    —          method-specific JSON object
   --workflow-transition      yes       —          pinned workflow stage id
   --success-policy            no        —          aggregate/ad hoc policy
-  --capability-requirements   no        —          capability slug (e.g. browser-qa)
+  --required-capability       no        —          repeatable capability kind
   --suite-id                  no        —          suite id string
   --session-id                no        ambient    opaque session id (operator-debug)
   --json                      no        false      flag (typed envelope on stdout)
@@ -131,10 +131,11 @@ def qa_requirement_add(args: List[str]) -> int:
         help="Policy text; browser kinds require steps JSON.",
     )
     parser.add_argument(
-        "--capability-requirements",
+        "--required-capability",
         dest="capability_requirements",
+        action="append",
         default=None,
-        help="Capability slug the runner needs.",
+        help="Required capability kind; repeat for more than one.",
     )
     parser.add_argument(
         "--suite-id", dest="suite_id", default=None, help="Optional suite id."

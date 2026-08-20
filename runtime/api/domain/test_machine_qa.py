@@ -40,7 +40,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 
 def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.4"
+    assert version == "1.0.5"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
@@ -49,7 +49,9 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     assert MACHINE_METHODS == frozenset(row["id"] for row in methods)
     assert {row["config_contract_id"] for row in methods} == MACHINE_METHODS
     assert {row["runner_id"] for row in methods} == {"host_control"}
-    assert {row["required_capability_kind"] for row in methods} == {"test-machine"}
+    assert {tuple(row["required_capability_kinds"]) for row in methods} == {
+        ("test-machine",)
+    }
     assert {row["concurrency_mode"] for row in methods} == {"serial"}
     assert all(
         row["display_icon"]

@@ -99,7 +99,7 @@ def test_restore_backfills_requirement_snapshots_from_an_older_archive(tmp_path)
             with psycopg.connect(target_dsn) as target:
                 assert target.execute(
                     "SELECT case_position, baseline_position, method_name, "
-                    "runner_id, required_capability_kind, verdict_path "
+                    "runner_id, capability_requirements, verdict_path "
                     "FROM qa_requirements WHERE id = %s",
                     (requirement_id,),
                 ).fetchone() == (
@@ -107,7 +107,7 @@ def test_restore_backfills_requirement_snapshots_from_an_older_archive(tmp_path)
                     1,
                     "Command",
                     "worktree_run",
-                    None,
+                    "[]",
                     "automatic",
                 )
         finally:

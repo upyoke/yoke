@@ -27,6 +27,9 @@ from yoke_core.domain.machine_qa_submission_recording import (
     validate_case_submission,
 )
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
+from yoke_core.domain.qa_case_execution_context import (
+    execution_host_capability_kinds,
+)
 
 
 class TestMachineCaseExecuteRequest(BaseModel):
@@ -62,9 +65,7 @@ class TestMachineCaseSubmitRequest(BaseModel):
 def _is_machine_case(case: dict[str, Any]) -> bool:
     from yoke_core.domain.machine_qa_method_contracts import MACHINE_METHODS
 
-    return (
-        case["runner_id"] == "host_control" and case["method_id"] in MACHINE_METHODS
-    )
+    return case["runner_id"] == "host_control" and case["method_id"] in MACHINE_METHODS
 
 
 def _target_requirement(
@@ -106,7 +107,12 @@ def handle_case_execute(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def _load_case(conn: Any, requirement_id: int) -> dict[str, Any]:
+def _load_case(
+    conn: Any,
+    requirement_id: int,
+    *,
+    host_capability_kinds: Any | None = None,
+) -> dict[str, Any]:
     from yoke_core.domain.qa_case_execution_context import (
         get_case_execution_context,
     )
@@ -114,6 +120,7 @@ def _load_case(conn: Any, requirement_id: int) -> dict[str, Any]:
     case = get_case_execution_context(
         conn,
         requirement_id=requirement_id,
+        host_capability_kinds=host_capability_kinds,
     )
     if not _is_machine_case(case):
         raise ValueError("the requirement is not a registered Machine QA case")
@@ -133,7 +140,14 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
-        case = _load_case(conn, target)
+        case = _load_case(
+            conn,
+            target,
+            host_capability_kinds=execution_host_capability_kinds(
+                conn,
+                session_id=request.actor.session_id,
+            ),
+        )
         try:
             contract = begin_host_control_execution(
                 conn,

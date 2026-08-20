@@ -17,6 +17,7 @@ from yoke_contracts.machine_config.test_machine import (
 from yoke_contracts.machine_qa_execution import VERIFICATION_BASELINES
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.capability_machine_secrets import (
     list_machine_capability_secret_keys,
 )
@@ -234,11 +235,18 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
     lease_item = (
         _lease_item(conn, session_id=lease.session_id) if lease is not None else None
     )
-    methods = conn.execute(
-        "SELECT id,name,source_ref FROM qa_methods "
-        f"WHERE required_capability_kind={marker} ORDER BY name",
-        (TEST_MACHINE_CAPABILITY,),
-    ).fetchall()
+    methods = [
+        method
+        for method in conn.execute(
+            "SELECT id,name,source_ref,required_capability_kinds "
+            "FROM qa_methods ORDER BY name"
+        ).fetchall()
+        if TEST_MACHINE_CAPABILITY
+        in capability_kinds(
+            method[3],
+            subject=f"method {method[0]!r}",
+        )
+    ]
     stored_keys = set(
         list_machine_capability_secret_keys(identity.slug, TEST_MACHINE_CAPABILITY)
     )

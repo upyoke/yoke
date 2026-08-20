@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from runtime.api.domain.machine_qa_baseline_group_test_support import (
+    TEST_MACHINE_SETTINGS,
     OpenFixtureConnection,
     baseline_group_request,
     materialize_installer_campaign,
@@ -32,6 +33,7 @@ from yoke_core.domain.machine_qa_execution import (
 from yoke_core.domain.machine_qa_execution_protocol import (
     MachineQaProtocolLeaseHeld,
 )
+from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 from yoke_core.domain.host_control_runner import (
     TestMachineMaterial as MachineMaterial,
 )
@@ -95,6 +97,12 @@ def test_group_begin_lease_contention_records_nonterminal_waiting_cases(
     monkeypatch,
 ) -> None:
     rows = materialize_installer_campaign(test_db, item_id=4203)
+    replace_test_machine_settings(
+        test_db,
+        project="yoke",
+        settings=TEST_MACHINE_SETTINGS,
+        base_settings=None,
+    )
     fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
     held = MachineQaProtocolLeaseHeld(
         lease=Lease(
@@ -177,6 +185,12 @@ def test_single_case_begin_contention_preserves_rerun_identity(
     monkeypatch,
 ) -> None:
     rows = materialize_installer_campaign(test_db, item_id=4204)
+    replace_test_machine_settings(
+        test_db,
+        project="yoke",
+        settings=TEST_MACHINE_SETTINGS,
+        base_settings=None,
+    )
     target = next(row for row in rows if row["host_baseline"] == "shell-preconfigured")
     held = MachineQaProtocolLeaseHeld(
         lease=Lease(

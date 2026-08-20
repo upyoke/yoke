@@ -6,6 +6,9 @@ import json
 
 import pytest
 
+from runtime.api.domain.machine_qa_baseline_group_test_support import (
+    TEST_MACHINE_SETTINGS,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.qa_plan_attachments import (
@@ -26,6 +29,7 @@ from yoke_core.domain.qa_plan_review import (
     begin_plan_review,
 )
 from yoke_core.domain.qa_plan_review_submission import submit_plan_review
+from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
 
 
 def _review_execution(conn, item_id: int):
@@ -34,6 +38,12 @@ def _review_execution(conn, item_id: int):
         id=item_id,
         title="Inspect captured terminal evidence",
         workflow_id="issue",
+    )
+    replace_test_machine_settings(
+        conn,
+        project="yoke",
+        settings=TEST_MACHINE_SETTINGS,
+        base_settings=None,
     )
     plan = create_plan(
         conn,

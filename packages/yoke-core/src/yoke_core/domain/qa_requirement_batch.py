@@ -11,6 +11,10 @@ from yoke_core.domain.qa_cli_requirement_insert import INSERT_SQL, insert_params
 from yoke_core.domain.qa_cli_transition_binding import require_cli_workflow_transition
 from yoke_core.domain.qa_constants import _normalize_qa_kind, _normalize_qa_phase
 from yoke_core.domain.qa_events import emit_qa_requirement_event
+from yoke_core.domain.qa_method_capabilities import (
+    QaMethodCapabilityError,
+    encoded_capability_kinds,
+)
 from yoke_core.domain.qa_requirement_policy_validation import (
     validate_requirement_source,
     validate_success_policy,
@@ -141,6 +145,13 @@ def _validate_row(row, index: int) -> None:
 
     row["qa_phase"] = _normalize_qa_phase(qa_phase)
     row["qa_kind"] = _normalize_qa_kind(qa_kind)
+    try:
+        row["capability_requirements"] = encoded_capability_kinds(
+            row.get("capability_requirements"),
+            subject=f"QA requirement row {index}",
+        )
+    except QaMethodCapabilityError as exc:
+        _exit(str(exc))
     _exit_policy_errors(
         validate_requirement_source(
             row.get("requirement_source", "explicit"),

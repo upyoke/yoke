@@ -41,7 +41,7 @@ class MachineQaCaseContract(BaseModel):
     method_id: str
     method_name: str
     runner_id: Literal["host_control"]
-    required_capability_kind: str | None
+    required_capability_kinds: list[str]
     verdict_path: str
     qa_kind: str
     instructions: str

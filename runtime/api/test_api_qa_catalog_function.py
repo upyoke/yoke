@@ -56,17 +56,15 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
         "machine-state-check",
     ]
     assert command["runner_id"] == "worktree_run"
-    assert command["required_capability_kind"] is None
+    assert command["required_capability_kinds"] == []
     assert command["verdict_path"] == "automatic"
-    assert command["capability_state"] == "available"
+    assert command["required_capabilities"] == []
     # Same Command contract, executed on the project's CI workflow rather
     # than on this machine.
     assert command_ci["runner_id"] == "ci_run"
-    assert command_ci["required_capability_kind"] is None
+    assert command_ci["required_capability_kinds"] == []
     assert command_ci["verdict_path"] == "automatic"
-    inspection = next(
-        row for row in rows if row["id"] == "browser-inspection"
-    )
+    inspection = next(row for row in rows if row["id"] == "browser-inspection")
     assert inspection["description"] == (
         "Captures screenshots; an agent judges whether they show the "
         "case's expected outcome."
@@ -97,22 +95,25 @@ def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
     assert len(rows) == 1
     assert rows[0]["case_count"] == 2
     assert rows[0]["materialized_requirement_count"] == 2
-    assert rows[0]["attachments"] == [{
-        "kind": "project_default",
-        "project": "yoke",
-        "workflow_id": "issue",
-        "transition_id": "release",
-        "item_id": None,
+    assert rows[0]["attachments"] == [
+        {
+            "kind": "project_default",
+            "project": "yoke",
+            "workflow_id": "issue",
+            "transition_id": "release",
+            "item_id": None,
             "transition_label": "release",
-    }, {
-        "kind": "item",
-        "project": "yoke",
-        "workflow_id": "issue",
-        "transition_id": "reviewing-implementation",
-        "item_id": 2001,
+        },
+        {
+            "kind": "item",
+            "project": "yoke",
+            "workflow_id": "issue",
+            "transition_id": "reviewing-implementation",
+            "item_id": 2001,
             "transition_label": "reviewing implementation",
-        "item_ref": "YOK-2001",
-    }]
+            "item_ref": "YOK-2001",
+        },
+    ]
     assert [case["case_key"] for case in detail["cases"]] == [
         "backend-suite",
         "checkout-flow",
@@ -163,16 +164,18 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         replace_plan_cases(
             conn,
             plan_id=plan["id"],
-            cases=[{
-                "case_key": "host-state",
-                "position": 1,
-                "method_id": "machine-state-check",
-                "instructions": "Inspect the controlled host.",
-                "expected_outcome": "The host state is ready.",
-                "method_config": {
-                    "assertions": [{"argv": ["/usr/bin/true"]}],
-                },
-            }],
+            cases=[
+                {
+                    "case_key": "host-state",
+                    "position": 1,
+                    "method_id": "machine-state-check",
+                    "instructions": "Inspect the controlled host.",
+                    "expected_outcome": "The host state is ready.",
+                    "method_config": {
+                        "assertions": [{"argv": ["/usr/bin/true"]}],
+                    },
+                }
+            ],
         )
         conn.execute(
             "INSERT INTO project_capabilities("
@@ -221,12 +224,13 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             ("2026-07-26T16:10:00Z",),
         )
         conn.execute(
-            "UPDATE test_machine_verifications SET status='error' "
-            "WHERE project_id=1",
+            "UPDATE test_machine_verifications SET status='error' WHERE project_id=1",
         )
         error_state = next(
-            row["capability_state"] for row in list_methods(
-                conn, project="yoke",
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(
+                conn,
+                project="yoke",
             )
             if row["id"] == "machine-state-check"
         )
@@ -235,8 +239,10 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             "SET status='configured_unverified' WHERE project_id=1",
         )
         configured_state = next(
-            row["capability_state"] for row in list_methods(
-                conn, project="yoke",
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(
+                conn,
+                project="yoke",
             )
             if row["id"] == "machine-state-check"
         )
@@ -245,8 +251,10 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             "WHERE project_id=1",
         )
         ready_state = next(
-            row["capability_state"] for row in list_methods(
-                conn, project="yoke",
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(
+                conn,
+                project="yoke",
             )
             if row["id"] == "machine-state-check"
         )
@@ -254,8 +262,10 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             "DELETE FROM test_machine_verifications WHERE project_id=1",
         )
         fallback_ready_state = next(
-            row["capability_state"] for row in list_methods(
-                conn, project="yoke",
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(
+                conn,
+                project="yoke",
             )
             if row["id"] == "machine-state-check"
         )
@@ -264,8 +274,10 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             "WHERE project_id=1 AND type='test-machine'",
         )
         fallback_configured_state = next(
-            row["capability_state"] for row in list_methods(
-                conn, project="yoke",
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(
+                conn,
+                project="yoke",
             )
             if row["id"] == "machine-state-check"
         )
@@ -274,8 +286,10 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             "WHERE project_id=1 AND type='test-machine'",
         )
         missing_state = next(
-            row["capability_state"] for row in list_methods(
-                conn, project="yoke",
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(
+                conn,
+                project="yoke",
             )
             if row["id"] == "machine-state-check"
         )
@@ -287,17 +301,29 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         "active_lease": {"item_ref": "YOK-2101"},
     }
     machine_methods = [
-        row for row in methods
-        if row["required_capability_kind"] == "test-machine"
+        row for row in methods if "test-machine" in row["required_capability_kinds"]
     ]
     assert len(machine_methods) == 3
     assert all(
-        row["capability_state"] == "in_use"
-        and row["capability_context"] == expected_context
+        row["required_capabilities"]
+        == [
+            {
+                "kind": "test-machine",
+                "label": "Test Mac",
+                "state": "in_use",
+                "context": expected_context,
+            }
+        ]
         for row in machine_methods
     )
-    assert detail["cases"][0]["capability_state"] == "in_use"
-    assert detail["cases"][0]["capability_context"] == expected_context
+    assert detail["cases"][0]["required_capabilities"] == [
+        {
+            "kind": "test-machine",
+            "label": "Test Mac",
+            "state": "in_use",
+            "context": expected_context,
+        }
+    ]
     assert [
         error_state,
         configured_state,

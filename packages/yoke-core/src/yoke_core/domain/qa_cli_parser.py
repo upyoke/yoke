@@ -34,7 +34,12 @@ def build_parser() -> argparse.ArgumentParser:
         help=_qap.REQUIREMENT_SOURCE_HELP,
     )
     ra.add_argument("--success-policy", help=_qap.SUCCESS_POLICY_HELP)
-    ra.add_argument("--capability-requirements")
+    ra.add_argument(
+        "--required-capability",
+        dest="capability_requirements",
+        action="append",
+        help="Required capability kind; repeat for more than one.",
+    )
     ra.add_argument("--suite-id")
     ra.add_argument(
         "--workflow-transition",

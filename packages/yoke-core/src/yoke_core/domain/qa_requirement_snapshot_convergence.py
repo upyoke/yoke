@@ -11,6 +11,11 @@ from yoke_core.domain.schema_common import (
     _column_exists,
     _table_exists,
 )
+from yoke_core.domain.qa_method_capabilities import (
+    QaMethodCapabilityError,
+    capability_kinds,
+    encoded_capability_kinds,
+)
 
 
 SNAPSHOT_COLUMN_DEFINITIONS = (
@@ -20,7 +25,6 @@ SNAPSHOT_COLUMN_DEFINITIONS = (
     ("required_completion", "TEXT"),
     ("method_name", "TEXT"),
     ("runner_id", "TEXT"),
-    ("required_capability_kind", "TEXT"),
     ("verdict_path", "TEXT"),
 )
 SNAPSHOT_COLUMNS = tuple(column for column, _definition in SNAPSHOT_COLUMN_DEFINITIONS)
@@ -75,6 +79,8 @@ def _snapshot_complete(row: Any) -> bool:
     )
     if not method_complete:
         return False
+    if row["capability_requirements"] in (None, ""):
+        return False
     if row["plan_id"] is None:
         return True
     return row["case_position"] is not None and row["baseline_position"] is not None
@@ -85,14 +91,14 @@ def _backfill_rows(conn: Any) -> None:
         "SELECT q.id, q.plan_id, q.plan_case_key, q.method_id, "
         "q.host_baseline, q.case_position, q.baseline_position, "
         "q.entry_surface, q.required_completion, q.method_name, "
-        "q.runner_id, q.required_capability_kind, q.verdict_path, "
+        "q.runner_id, q.capability_requirements, q.verdict_path, "
         "c.position AS catalog_case_position, "
         "c.host_baselines AS catalog_host_baselines, "
         "c.entry_surface AS catalog_entry_surface, "
         "c.required_completion AS catalog_required_completion, "
         "m.name AS catalog_method_name, "
         "m.runner_id AS catalog_runner_id, "
-        "m.required_capability_kind AS catalog_capability_kind, "
+        "m.required_capability_kinds AS catalog_capability_kinds, "
         "m.verdict_path AS catalog_verdict_path "
         "FROM qa_requirements q "
         "LEFT JOIN qa_plan_cases c "
@@ -129,20 +135,24 @@ def _backfill_rows(conn: Any) -> None:
                 raise RuntimeError(
                     f"QA requirement {requirement_id} has no source plan case"
                 )
-            case_position = int(row["catalog_case_position"])
-            baseline_position = _baseline_position(
-                requirement_id=requirement_id,
-                host_baseline=row["host_baseline"],
-                raw_baselines=row["catalog_host_baselines"],
-            )
-            entry_surface = row["catalog_entry_surface"]
-            required_completion = row["catalog_required_completion"]
+            if case_position is None:
+                case_position = int(row["catalog_case_position"])
+            if baseline_position is None:
+                baseline_position = _baseline_position(
+                    requirement_id=requirement_id,
+                    host_baseline=row["host_baseline"],
+                    raw_baselines=row["catalog_host_baselines"],
+                )
+            if entry_surface is None:
+                entry_surface = row["catalog_entry_surface"]
+            if required_completion is None:
+                required_completion = row["catalog_required_completion"]
         conn.execute(
             "UPDATE qa_requirements SET "
             f"case_position={marker}, baseline_position={marker}, "
             f"entry_surface={marker}, required_completion={marker}, "
             f"method_name={marker}, runner_id={marker}, "
-            f"required_capability_kind={marker}, verdict_path={marker} "
+            f"capability_requirements={marker}, verdict_path={marker} "
             f"WHERE id={marker}",
             (
                 case_position,
@@ -151,7 +161,10 @@ def _backfill_rows(conn: Any) -> None:
                 required_completion,
                 str(row["catalog_method_name"]),
                 str(row["catalog_runner_id"]),
-                row["catalog_capability_kind"],
+                encoded_capability_kinds(
+                    row["catalog_capability_kinds"],
+                    subject=f"method {row['method_id']!r}",
+                ),
                 str(row["catalog_verdict_path"]),
                 requirement_id,
             ),
@@ -188,6 +201,7 @@ def assert_requirement_execution_snapshot_invariants(conn: Any) -> None:
             "WHERE method_id IS NOT NULL AND ("
             "method_name IS NULL OR method_name='' OR "
             "runner_id IS NULL OR runner_id='' OR "
+            "capability_requirements IS NULL OR capability_requirements='' OR "
             "verdict_path IS NULL OR verdict_path='' OR "
             "(plan_id IS NOT NULL AND ("
             "case_position IS NULL OR case_position < 1 OR "
@@ -198,6 +212,21 @@ def assert_requirement_execution_snapshot_invariants(conn: Any) -> None:
         raise AssertionError(
             f"{incomplete} method-backed QA requirement snapshots are incomplete"
         )
+    for row in conn.execute(
+        "SELECT id, capability_requirements FROM qa_requirements "
+        "WHERE method_id IS NOT NULL"
+    ).fetchall():
+        requirement_id = int(row["id"] if hasattr(row, "keys") else row[0])
+        raw_capabilities = (
+            row["capability_requirements"] if hasattr(row, "keys") else row[1]
+        )
+        try:
+            capability_kinds(
+                raw_capabilities,
+                subject=f"QA requirement {requirement_id}",
+            )
+        except QaMethodCapabilityError as exc:
+            raise AssertionError(str(exc)) from exc
     duplicate_positions = int(
         conn.execute(
             "SELECT COUNT(*) FROM ("

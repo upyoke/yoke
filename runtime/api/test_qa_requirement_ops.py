@@ -224,6 +224,23 @@ class TestRequirementUpdate:
             qa.cmd_requirement_update(req_id, "qa_phase", "whenever", db_path=db_path)
         assert exc.value.code == 2
 
+    def test_update_canonicalizes_capability_array(
+        self, db_path: str, req_id: int
+    ) -> None:
+        qa.cmd_requirement_update(
+            req_id,
+            "capability_requirements",
+            '["test-machine", "browser-control"]',
+            db_path=db_path,
+        )
+        conn = connect_test_db(db_path)
+        value = conn.execute(
+            "SELECT capability_requirements FROM qa_requirements WHERE id = %s",
+            (req_id,),
+        ).fetchone()[0]
+        conn.close()
+        assert value == '["browser-control", "test-machine"]'
+
     def test_update_missing_requirement_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
             qa.cmd_requirement_update(9999, "target_env", "stage", db_path=db_path)

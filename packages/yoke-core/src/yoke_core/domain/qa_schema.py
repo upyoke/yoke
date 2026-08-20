@@ -63,7 +63,6 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     method_id TEXT,
     method_name TEXT,
     runner_id TEXT,
-    required_capability_kind TEXT,
     verdict_path TEXT,
     host_baseline TEXT,
     entry_surface TEXT,
@@ -207,7 +206,6 @@ def _migrate_qa_vocab(conn) -> None:
         "method_id",
         "method_name",
         "runner_id",
-        "required_capability_kind",
         "verdict_path",
         "host_baseline",
         "entry_surface",
@@ -253,7 +251,6 @@ def _migrate_qa_vocab(conn) -> None:
             method_id TEXT,
             method_name TEXT,
             runner_id TEXT,
-            required_capability_kind TEXT,
             verdict_path TEXT,
             host_baseline TEXT,
             entry_surface TEXT,
@@ -276,7 +273,7 @@ def _migrate_qa_vocab(conn) -> None:
             capability_requirements, suite_id, waived_at, waiver_rationale,
             waiver_source, plan_id, plan_case_key, case_position,
             baseline_position, method_id, method_name, runner_id,
-            required_capability_kind, verdict_path, host_baseline,
+            verdict_path, host_baseline,
             entry_surface, required_completion, workflow_transition_id,
             instructions, expected_outcome, method_config, created_at
         )

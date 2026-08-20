@@ -13,6 +13,31 @@ const machineContext = {
   active_lease: { item_ref: "YOK-2001" },
 };
 
+const noCapabilities = {
+  required_capability_kinds: [],
+  required_capabilities: [],
+};
+
+const browserCapabilities = {
+  required_capability_kinds: ["browser-control"],
+  required_capabilities: [{
+    kind: "browser-control",
+    label: "Browser control",
+    state: "ready",
+    context: { state: "ready" },
+  }],
+};
+
+const machineCapabilities = {
+  required_capability_kinds: ["test-machine"],
+  required_capabilities: [{
+    kind: "test-machine",
+    label: "Test Mac",
+    state: "in_use",
+    context: machineContext,
+  }],
+};
+
 export const methods = [
   {
     ...commonMethod,
@@ -22,13 +47,11 @@ export const methods = [
     source_ref: null,
     runner_id: "worktree_run",
     runner_gloss: "runs the case's command in the item worktree",
-    required_capability_kind: null,
+    ...noCapabilities,
     verdict_path: "automatic",
     verdict_contract: "exit 0 = pass",
     evidence_contract: "exit code · captured output tail",
     concurrency_mode: "parallel",
-    capability_state: "available",
-    capability_context: { state: "available" },
   },
   {
     ...commonMethod,
@@ -39,14 +62,11 @@ export const methods = [
     runner_id: "browser_substrate",
     runner_gloss:
       "the machine-local browser daemon — recorded on every run today",
-    required_capability_label: "Browser control",
-    required_capability_kind: "browser-control",
+    ...browserCapabilities,
     verdict_path: "automatic",
     verdict_contract: "assertions",
     evidence_contract: "assertions · trace · logs",
     concurrency_mode: "parallel",
-    capability_state: "ready",
-    capability_context: { state: "ready" },
   },
   {
     ...commonMethod,
@@ -57,15 +77,12 @@ export const methods = [
     runner_id: "browser_substrate",
     runner_gloss:
       "the machine-local browser daemon — recorded on every run today",
-    required_capability_label: "Browser control",
-    required_capability_kind: "browser-control",
+    ...browserCapabilities,
     verdict_path: "agent",
     verdict_contract:
       "inspects the screenshot against the case's expected outcome",
     evidence_contract: "screenshots · inspection verdict",
     concurrency_mode: "parallel",
-    capability_state: "ready",
-    capability_context: { state: "ready" },
   },
   {
     ...commonMethod,
@@ -75,14 +92,11 @@ export const methods = [
     source_ref: "machine-qa",
     runner_id: "host_control",
     runner_gloss: "SSH + PTY on the capability-named machine",
-    required_capability_label: "Test machine",
-    required_capability_kind: "test-machine",
+    ...machineCapabilities,
     verdict_path: "automatic",
     verdict_contract: "transcript checkpoints met",
     evidence_contract: "step transcript · checkpoint expectations",
     concurrency_mode: "serial",
-    capability_state: "in_use",
-    capability_context: machineContext,
   },
   {
     ...commonMethod,
@@ -92,16 +106,13 @@ export const methods = [
     source_ref: "machine-qa",
     runner_id: "host_control",
     runner_gloss: "SSH + PTY on the capability-named machine",
-    required_capability_label: "Test machine",
-    required_capability_kind: "test-machine",
+    ...machineCapabilities,
     verdict_path: "agent",
     verdict_contract:
       "inspects Terminal captures against the case's expected outcome",
     evidence_contract:
       "paired text + Terminal screenshots · inspection verdict",
     concurrency_mode: "serial",
-    capability_state: "in_use",
-    capability_context: machineContext,
   },
   {
     ...commonMethod,
@@ -111,13 +122,10 @@ export const methods = [
     source_ref: "machine-qa",
     runner_id: "host_control",
     runner_gloss: "shell assertions on the controlled host",
-    required_capability_label: "Test machine",
-    required_capability_kind: "test-machine",
+    ...machineCapabilities,
     verdict_path: "automatic",
     verdict_contract: "exit 0 on the host",
     evidence_contract: "assertion commands · outputs · secret scan",
     concurrency_mode: "serial",
-    capability_state: "in_use",
-    capability_context: machineContext,
   },
 ];

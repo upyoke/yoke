@@ -49,7 +49,9 @@ class QaRequirementUpdateResponse(BaseModel):
     new_value: Optional[str] = None
 
 
-def _error(code: str, message: str, *, jsonpath: Optional[str] = None) -> HandlerOutcome:
+def _error(
+    code: str, message: str, *, jsonpath: Optional[str] = None
+) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
         error=FunctionError(code=code, message=message, jsonpath=jsonpath),
@@ -78,7 +80,8 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
     value = payload.get("value")
     if not isinstance(field, str) or not field:
         return _error(
-            "payload_invalid", "field is required",
+            "payload_invalid",
+            "field is required",
             jsonpath="$.payload.field",
         )
     if field == "qa_kind":
@@ -110,6 +113,20 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
                 jsonpath="$.payload.value",
             )
         value = normalized
+    if field == "capability_requirements":
+        from yoke_core.domain.qa_method_capabilities import (
+            QaMethodCapabilityError,
+            encoded_capability_kinds,
+        )
+
+        try:
+            value = encoded_capability_kinds(value, subject="QA requirement")
+        except QaMethodCapabilityError as exc:
+            return _error(
+                "payload_invalid",
+                str(exc),
+                jsonpath="$.payload.value",
+            )
 
     conn = connect()
     try:
@@ -153,7 +170,8 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
 
 
 __all__ = [
-    "QaRequirementUpdateRequest", "QaRequirementUpdateResponse",
+    "QaRequirementUpdateRequest",
+    "QaRequirementUpdateResponse",
     "handle_qa_requirement_update",
     "_error",
 ]

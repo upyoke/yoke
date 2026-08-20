@@ -156,6 +156,7 @@ def handle_case_execution_begin(
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_case_execution_context import (
         QaCaseExecutionError,
+        execution_host_capability_kinds,
         get_case_execution_context,
     )
     from yoke_core.domain.qa_start_bound_authority import (
@@ -165,9 +166,14 @@ def handle_case_execution_begin(
 
     try:
         with connect() as conn:
+            host_capabilities = execution_host_capability_kinds(
+                conn,
+                session_id=request.actor.session_id,
+            )
             result = get_case_execution_context(
                 conn,
                 requirement_id=int(requirement_id),
+                host_capability_kinds=host_capabilities,
             )
             # The dispatcher just verified this session's claim to admit
             # the call. Hand that verified claim back on the contract so
