@@ -177,13 +177,23 @@ _release_state: Dict[Tuple[str, int, int], bool] = {}
 def entry_is_released(path: Path) -> bool:
     """Whether some release tag already contains the commit that added *path*.
 
-    Answered from the checkout the entry lives in, because that is the only
-    place the mapping from an entry to the releases carrying it exists. A file
-    outside a work tree is part of a built artifact and therefore released;
-    so is one whose checkout cannot answer, since refusing to load a history
-    on a machine without Git would brick boots for a reason unrelated to
-    schema safety. Only a file the checkout positively reports as carried by
-    no tag is unreleased.
+    Answered from the checkout that owns the entry, because that is the only
+    place the mapping from an entry to the releases carrying it exists. Only a
+    file such a checkout tracks alongside, and positively reports as carried
+    by no tag, is unreleased.
+
+    Everything else reads as released, and an installed artifact is the case
+    that matters. Its bytes exist because a release put them there, and they
+    stay released wherever they are unpacked — including inside some unrelated
+    project's work tree, which is exactly where a virtualenv normally lives.
+    That repository has never tracked the file, so it reports the same empty
+    history a brand-new entry would; reading that emptiness as "no release
+    carries this" refused boot for every install whose packages landed under a
+    checkout. Being inside *a* work tree is therefore not enough to be asked
+    about — the tree has to own the file's directory. A checkout that cannot
+    answer at all is released too, since refusing to load a history on a
+    machine without Git would brick boots for a reason unrelated to schema
+    safety.
     """
     try:
         stat = path.stat()
@@ -211,9 +221,21 @@ def _git(directory: Path, *args: str) -> Optional[str]:
     return done.stdout.strip() if done.returncode == 0 else None
 
 
+def _checkout_tracks_anything_in(directory: Path) -> bool:
+    """Whether the surrounding work tree keeps source of its own in *directory*.
+
+    Separates a history an author is writing from a package that was installed
+    into the tree. Both are untracked at the file level while the entry is
+    new, so the sibling entries are what distinguish them.
+    """
+    return bool(_git(directory, "ls-files", "--", str(directory)))
+
+
 def _released_in_any_tag(path: Path) -> bool:
     directory = path.parent
     if _git(directory, "rev-parse", "--is-inside-work-tree") != "true":
+        return True
+    if not _checkout_tracks_anything_in(directory):
         return True
     commit = _git(
         directory, "log", "--diff-filter=A", "--format=%H", "-1", "--", str(path)

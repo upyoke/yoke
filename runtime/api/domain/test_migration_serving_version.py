@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import migration_serving_version as serving
+from yoke_core.domain.migration_history import load_migration_module
 
 
 def _module(**attributes: object) -> types.ModuleType:
@@ -117,6 +118,28 @@ class TestApplierRefusal:
         serving.refuse_if_behind("0001_retire", "", "99.0.0")
 
 
+#: A destructive entry as a release ships it: a literal floor that was true
+#: when the release carrying it was cut, and DDL that removes a surface.
+_RELEASED_ENTRY_SOURCE = (
+    "MINIMUM_SERVING_VERSION = '0.1.1+launch.181'\n"
+    "\n"
+    "def apply(conn):\n"
+    "    conn.execute('ALTER TABLE \"items\" DROP COLUMN \"flow\"')\n"
+)
+
+
+def _commit(root: Path, message: str) -> None:
+    subprocess.run(
+        (
+            "git", "-C", str(root),
+            "-c", "user.email=test@example.invalid",
+            "-c", "user.name=test",
+            "commit", "-q", "-m", message,
+        ),
+        check=True,
+    )
+
+
 def _committed_in_an_untagged_checkout(root: Path) -> Path:
     """Write one entry into a fresh checkout that carries no release tag.
 
@@ -127,15 +150,26 @@ def _committed_in_an_untagged_checkout(root: Path) -> Path:
     entry = root / "0099_drop_a_column.py"
     entry.write_text("MINIMUM_SERVING_VERSION = '0.1.2'\n", encoding="utf-8")
     subprocess.run(("git", "-C", str(root), "add", entry.name), check=True)
-    subprocess.run(
-        (
-            "git", "-C", str(root),
-            "-c", "user.email=test@example.invalid",
-            "-c", "user.name=test",
-            "commit", "-q", "-m", "add entry",
-        ),
-        check=True,
-    )
+    _commit(root, "add entry")
+    return entry
+
+
+def _installed_beneath_an_unrelated_checkout(root: Path) -> Path:
+    """Unpack one released entry where an installed package normally lands.
+
+    A virtualenv under some project's own repository. That repository has
+    never tracked the entry, so it answers about it exactly as it would about
+    a file that does not exist — while the bytes are as released as bytes get.
+    """
+    subprocess.run(("git", "init", "-q", str(root)), check=True)
+    tracked = root / "README.md"
+    tracked.write_text("a project depending on this package\n", encoding="utf-8")
+    subprocess.run(("git", "-C", str(root), "add", tracked.name), check=True)
+    _commit(root, "add a tracked file")
+    installed = root / ".venv" / "site-packages" / "migrations"
+    installed.mkdir(parents=True)
+    entry = installed / "0001_retire_superseded_surfaces.py"
+    entry.write_text(_RELEASED_ENTRY_SOURCE, encoding="utf-8")
     return entry
 
 
@@ -199,6 +233,53 @@ class TestNextReleaseSentinel:
         entry = tmp_path / "0001_retire_superseded_surfaces.py"
         entry.write_text("", encoding="utf-8")
         assert serving.entry_is_released(entry)
+
+    def test_an_installed_entry_under_a_foreign_checkout_stays_released(
+        self, tmp_path
+    ) -> None:
+        """Being inside a work tree is not the same as being its source."""
+        entry = _installed_beneath_an_unrelated_checkout(tmp_path)
+
+        assert serving.entry_is_released(entry)
+
+    def test_an_installed_entry_keeps_its_literal_through_the_gate(
+        self, tmp_path
+    ) -> None:
+        entry = _installed_beneath_an_unrelated_checkout(tmp_path)
+
+        declared = serving.require_declaration(
+            "0001_retire_superseded_surfaces",
+            entry.read_text(encoding="utf-8"),
+            _module(MINIMUM_SERVING_VERSION="0.1.1+launch.181"),
+            path=entry,
+        )
+        assert declared == "0.1.1+launch.181"
+
+    def test_an_installed_history_loads_for_a_birth_that_stamps_it(
+        self, tmp_path
+    ) -> None:
+        """Birth loads every entry before stamping it, and refusing bricks it.
+
+        A released engine whose packages sat under a checkout could not bring
+        up a new database at all: the gate read the surrounding repository's
+        silence about a file it had never tracked as proof that no release
+        carried the entry the running artifact was shipping.
+        """
+        entry = _installed_beneath_an_unrelated_checkout(tmp_path)
+
+        module = load_migration_module(entry, "0001_retire_superseded_surfaces")
+
+        assert module.MINIMUM_SERVING_VERSION == "0.1.1+launch.181"
+
+    def test_an_uncommitted_entry_beside_tracked_siblings_is_unreleased(
+        self, tmp_path
+    ) -> None:
+        """A history the checkout owns still answers for one being written."""
+        sibling = _committed_in_an_untagged_checkout(tmp_path)
+        authored = sibling.parent / "0100_drop_another_column.py"
+        authored.write_text(_RELEASED_ENTRY_SOURCE, encoding="utf-8")
+
+        assert not serving.entry_is_released(authored)
 
     def test_the_applier_never_refuses_the_sentinel(self) -> None:
         # The artifact applying an entry is by construction one that carries
