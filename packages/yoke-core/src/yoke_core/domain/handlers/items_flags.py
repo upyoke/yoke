@@ -238,7 +238,7 @@ def handle_freeze(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_thaw(request: FunctionCallRequest) -> HandlerOutcome:
-    """Set ``frozen=false``, no-opping when the item is not frozen."""
+    """Clear frozen after dormant path claims revalidate against live overlap."""
     item_id, _payload, state, refusal = _prepare(
         request, FlagRequest, "items.thaw.run"
     )
@@ -247,6 +247,8 @@ def handle_thaw(request: FunctionCallRequest) -> HandlerOutcome:
     captured = io.StringIO()
     if not state["frozen"]:
         return _done(item_id, state, False, captured)
+    from yoke_core.domain.path_claims_thaw import revalidate_item_path_claims_on_thaw
+    revalidate_item_path_claims_on_thaw(int(item_id))
     failure = _apply(
         item_id, state["item_ref"], [("frozen", False)], request, captured
     )

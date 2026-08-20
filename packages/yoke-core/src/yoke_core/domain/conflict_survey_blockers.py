@@ -2,25 +2,14 @@
 
 from __future__ import annotations
 
-import shlex
 import subprocess
 from pathlib import PurePosixPath
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_models import ConflictMatch
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
-from yoke_core.domain.path_claims_dependency_resolver_coordination import (
-    has_forward_serial_edge,
-)
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.workflow_definition_builders import (
-    WORKFLOW_PATH_CLAIMS_OPTIONAL,
-)
-from yoke_core.domain.workflow_effective_policies import (
-    load_item_effective_workflow_policies,
-)
 
 _NON_TERMINAL_CLAIM_STATES = ("planned", "blocked", "active")
 _TERMINAL_STATUSES = frozenset({"done", "cancelled", "stopped"})
@@ -66,21 +55,12 @@ def _matching_path(touch_paths: tuple[str, ...], candidates: Iterable[str]) -> s
     return ""
 
 
-def _ignores_frozen_planning_scopes(conn: Any, item: dict[str, Any]) -> bool:
-    """Whether an optional-path-claims Dash may proceed past frozen plans."""
-    if str(item["workflow_id"]) != "dash":
-        return False
-    policies = load_item_effective_workflow_policies(conn, int(item["id"]))
-    return policies.path_claims == WORKFLOW_PATH_CLAIMS_OPTIONAL
-
-
 def _path_claim_blockers(
     conn: Any,
     *,
     item: dict[str, Any],
     touch_paths: tuple[str, ...],
     integration_target: str,
-    ignore_frozen_planning_scopes: bool,
 ) -> list[ConflictMatch]:
     tables = ("path_claims", "path_claim_targets", "path_targets")
     if not all(_table_exists(conn, table) for table in tables):
@@ -110,18 +90,7 @@ def _path_claim_blockers(
         owner = row.get("owner_item_id")
         if owner is not None and int(owner) == int(item["id"]):
             continue
-        reconciliation = _downstream_reconciliation(
-            conn,
-            item_id=int(item["id"]),
-            integration_target=integration_target,
-            row=row,
-        )
-        if (
-            ignore_frozen_planning_scopes
-            and str(row["state"]) == "planned"
-            and bool(row.get("owner_frozen"))
-            and reconciliation is None
-        ):
+        if bool(row.get("owner_frozen")):
             continue
         matched = _matching_path(touch_paths, [str(row["path_string"])])
         if matched:
@@ -131,45 +100,10 @@ def _path_claim_blockers(
                     owner_item_id=int(owner) if owner is not None else None,
                     path=matched,
                     state=str(row["state"]),
-                    detail=(
-                        reconciliation
-                        or f"path claim {row['id']} wins over claim-less work"
-                    ),
+                    detail=f"path claim {row['id']} wins over claim-less work",
                 )
             )
     return blockers
-
-
-def _downstream_reconciliation(
-    conn: Any,
-    *,
-    item_id: int,
-    integration_target: str,
-    row: dict[str, Any],
-) -> Optional[str]:
-    owner = row.get("owner_item_id")
-    if (
-        owner is None
-        or str(row["state"]) != "planned"
-        or not bool(row.get("owner_frozen"))
-        or not has_forward_serial_edge(
-            conn,
-            dependent_item_id=int(owner),
-            blocking_item_id=item_id,
-        )
-    ):
-        return None
-    owner_ref = render_item_ref(conn, int(owner))
-    upstream_ref = render_item_ref(conn, item_id)
-    reason = shlex.quote(f"{upstream_ref} lands before frozen downstream work")
-    path = shlex.quote(str(row["path_string"]))
-    return (
-        f"declared order puts {owner_ref} after {upstream_ref}; reconcile the "
-        "frozen planned claim with `yoke claims path amend "
-        f"--claim-id {row['id']} --remove-paths {path} --reason {reason} "
-        f"--item {owner_ref} --integration-target "
-        f"{shlex.quote(integration_target)}`"
-    )
 
 
 def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
@@ -204,7 +138,6 @@ def _item_coordination_blockers(
     item: dict[str, Any],
     touch_paths: tuple[str, ...],
     integration_target: str,
-    ignore_frozen_planning_scopes: bool,
 ) -> list[ConflictMatch]:
     marker = _p(conn)
     worktree_select = (
@@ -258,12 +191,7 @@ def _item_coordination_blockers(
     for row in rows:
         if str(row["status"]) in _TERMINAL_STATUSES:
             continue
-        if (
-            ignore_frozen_planning_scopes
-            and bool(row.get("frozen"))
-            and row.get("work_claim_id") is None
-            and not row.get("worktree_path")
-        ):
+        if bool(row.get("frozen")):
             continue
         declared = extract_file_budget_paths(
             f"{row['spec']}\n{row['execution_document']}"
@@ -306,20 +234,17 @@ def direct_workflow_blockers(
     integration_target: str,
 ) -> list[ConflictMatch]:
     """Return path-claim and work-item blockers for a direct-workflow item."""
-    ignore_frozen_planning_scopes = _ignores_frozen_planning_scopes(conn, item)
     return [
         *_path_claim_blockers(
             conn,
             item=item,
             touch_paths=touch_paths,
             integration_target=integration_target,
-            ignore_frozen_planning_scopes=ignore_frozen_planning_scopes,
         ),
         *_item_coordination_blockers(
             conn,
             item=item,
             touch_paths=touch_paths,
             integration_target=integration_target,
-            ignore_frozen_planning_scopes=ignore_frozen_planning_scopes,
         ),
     ]
