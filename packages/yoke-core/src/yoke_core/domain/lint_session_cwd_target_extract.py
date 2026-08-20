@@ -186,10 +186,15 @@ class PayloadWriteTargets:
     fall back to the harness cwd must not do so on that signal: the write
     lands wherever the variable points, which is precisely what we failed
     to determine, so cwd is a manufactured verdict rather than a fallback.
+
+    ``unresolved_writes`` names the embedded-Python write expressions whose
+    destination stayed unreadable, so a caller that does fall back to cwd
+    can say which write it could not follow.
     """
 
     targets: List[str]
     unresolved_variable: bool
+    unresolved_writes: Tuple[str, ...] = ()
 
 
 def analyze_payload_write_targets(
@@ -214,8 +219,11 @@ def analyze_payload_write_targets(
 
     shell_targets, unresolved = _extract_shell_write_targets(command)
     out.extend(shell_targets)
-    out.extend(analyze_python_heredoc_writes(command).targets)
-    return PayloadWriteTargets(_dedupe_paths(out), unresolved)
+    python_writes = analyze_python_heredoc_writes(command)
+    out.extend(python_writes.targets)
+    return PayloadWriteTargets(
+        _dedupe_paths(out), unresolved, python_writes.unresolved_writes,
+    )
 
 
 def extract_payload_write_targets(payload: Mapping[str, Any]) -> List[str]:

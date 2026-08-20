@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 from yoke_core.domain.lint_lane_main_write_classify import (
     collect_main_write_targets,
@@ -39,6 +39,10 @@ from yoke_core.domain.lint_lane_main_write_classify import (
     lane_equivalent_path,
     lane_path_exists_on_disk,
     payload_has_escape_token,
+)
+from yoke_core.domain.lint_lane_main_write_derivation import (
+    TargetDerivation,
+    first_hit_fields,
 )
 from yoke_core.domain.lint_lane_main_write_emit import (
     claim_heartbeat_is_stale,
@@ -78,6 +82,7 @@ class Verdict:
     mode: str = DEFAULT_MODE
     suppression_attempted: bool = False
     escape_used: bool = False
+    derivation: Optional[TargetDerivation] = None
 
 
 def _open_conn():
@@ -142,7 +147,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             )
             if not hits:
                 return Verdict(allow=True)
-            attempted_path, claim = hits[0]
+            _attempted, claim, _derivation = first_hit_fields(hits)
             if (
                 not lane_path_exists_on_disk(claim)
                 and claim_heartbeat_is_stale(conn, session_id, claim)
@@ -160,7 +165,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
     except Exception:
         return Verdict(allow=True)
 
-    attempted_path, claim = hits[0]
+    attempted_path, claim, derivation = first_hit_fields(hits)
     lane_path = claim.worktree_path
     equivalent = lane_equivalent_path(attempted_path, claim)
     label = item_label(claim)
@@ -184,6 +189,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             item_id=claim.item_id,
             mode=mode,
             escape_used=True,
+            derivation=derivation,
         )
 
     reason = format_denial(
@@ -194,6 +200,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         mode=mode,
         suppression_seen=suppression_seen,
         config_note=_config_note(mode),
+        derivation=derivation,
     )
     emit_denied(
         session_id=session_id,
@@ -203,6 +210,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         item_id=claim.item_id,
         mode=mode,
         suppression_attempted=suppression_seen,
+        derivation=derivation,
     )
 
     if mode == "warn":
@@ -216,6 +224,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             item_id=claim.item_id,
             mode=mode,
             suppression_attempted=suppression_seen,
+            derivation=derivation,
         )
 
     return Verdict(
@@ -228,6 +237,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         item_id=claim.item_id,
         mode=mode,
         suppression_attempted=suppression_seen,
+        derivation=derivation,
     )
 
 
@@ -257,6 +267,9 @@ def evaluate(record: HookContext) -> HookDecision:
             "lane_path": verdict.lane_path,
             "mode": verdict.mode,
             "suppression_attempted": verdict.suppression_attempted,
+            "derivation_source": (
+                verdict.derivation.source if verdict.derivation else ""
+            ),
         },
     )
 

@@ -1,4 +1,17 @@
-"""Extract concrete write destinations from Python fed through heredocs."""
+"""Extract concrete write destinations from Python fed through heredocs.
+
+Only paths occupying a real write position count as destinations: the
+receiver of a path write method, or the file operand of an ``open`` call
+in a writing mode. A path the body merely *mentions* — a search string, a
+replacement operand, text being stripped from documentation, a literal in
+a comment — is string data, never a write target, and is not returned.
+
+A write whose destination cannot be resolved (a loop operand, a variable
+bound outside the body, a computed join) is reported separately as an
+unresolved write rather than silently dropped, so a caller that must fail
+closed can name the ambiguity instead of blaming a path the body never
+wrote to.
+"""
 
 from __future__ import annotations
 
@@ -15,17 +28,24 @@ from yoke_core.domain.lint_session_cwd_target_extract_shell import (
 
 
 _PATH_WRITE_METHODS = frozenset({"write_text", "write_bytes", "touch", "mkdir"})
+# Receivers that read wrong without parentheses: ``WT / rel.write_text``
+# names a different expression than ``(WT / rel).write_text``.
+_NEEDS_PARENS = (ast.BinOp, ast.BoolOp, ast.Compare, ast.IfExp, ast.UnaryOp)
 
 
 @dataclass(frozen=True)
 class PythonWriteAnalysis:
+    """Resolved write destinations plus the ones that stayed unreadable."""
+
     targets: Tuple[str, ...]
     detected: bool
+    unresolved_writes: Tuple[str, ...] = ()
 
 
 def analyze_python_heredoc_writes(command: str) -> PythonWriteAnalysis:
     """Parse executable Python heredoc bodies and return literal destinations."""
     targets: List[str] = []
+    unresolved: List[str] = []
     detected = False
     for source in _python_sources(command):
         try:
@@ -35,8 +55,11 @@ def analyze_python_heredoc_writes(command: str) -> PythonWriteAnalysis:
         visitor = _PythonWriteVisitor()
         visitor.visit(tree)
         targets.extend(visitor.targets)
+        unresolved.extend(visitor.unresolved_writes)
         detected = detected or visitor.detected
-    return PythonWriteAnalysis(_dedupe(targets), detected)
+    return PythonWriteAnalysis(
+        _dedupe(targets), detected, _dedupe(unresolved),
+    )
 
 
 def _python_sources(command: str) -> List[str]:
@@ -59,6 +82,7 @@ class _PythonWriteVisitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.bindings: dict[str, str] = {}
         self.targets: List[str] = []
+        self.unresolved_writes: List[str] = []
         self.detected = False
 
     def visit_Assign(self, node: ast.Assign) -> None:
@@ -73,7 +97,7 @@ class _PythonWriteVisitor(ast.NodeVisitor):
         func = node.func
         if isinstance(func, ast.Attribute) and func.attr in _PATH_WRITE_METHODS:
             self.detected = True
-            self._add_target(self._path_value(func.value))
+            self._record_write(self._path_value(func.value), node)
         elif self._is_write_open(node):
             self.detected = True
             if isinstance(func, ast.Attribute):
@@ -81,7 +105,7 @@ class _PythonWriteVisitor(ast.NodeVisitor):
                 target = bound_path if bound_path is not None else self._first_arg(node)
             else:
                 target = self._first_arg(node)
-            self._add_target(target)
+            self._record_write(target, node)
         self.generic_visit(node)
 
     def _is_write_open(self, node: ast.Call) -> bool:
@@ -128,9 +152,32 @@ class _PythonWriteVisitor(ast.NodeVisitor):
                 return str(PurePath(left).joinpath(right))
         return None
 
-    def _add_target(self, path: Optional[str]) -> None:
+    def _record_write(self, path: Optional[str], node: ast.Call) -> None:
+        """Keep a resolved destination, or name the one that stayed unread."""
         if path:
             self.targets += [path]
+            return
+        self.unresolved_writes += [_describe_write(node)]
+
+
+def _describe_write(node: ast.Call) -> str:
+    """Render the write expression whose destination could not be read."""
+    func = node.func
+    try:
+        if isinstance(func, ast.Attribute):
+            receiver = ast.unparse(func.value)
+            if isinstance(func.value, _NEEDS_PARENS):
+                receiver = f"({receiver})"
+            return f"{_clip(receiver)}.{func.attr}(...)"
+        head = ast.unparse(node.args[0]) if node.args else ""
+        return f"{ast.unparse(func)}({_clip(head)}, ...)"
+    except (AttributeError, ValueError):  # pragma: no cover - unparse floor
+        return "<write with an unreadable destination>"
+
+
+def _clip(text: str, limit: int = 60) -> str:
+    collapsed = " ".join(text.split())
+    return collapsed if len(collapsed) <= limit else collapsed[: limit - 3] + "..."
 
 
 __all__ = ["PythonWriteAnalysis", "analyze_python_heredoc_writes"]
