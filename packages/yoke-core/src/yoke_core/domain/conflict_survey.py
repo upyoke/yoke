@@ -11,9 +11,15 @@ from uuid import uuid4
 from yoke_contracts import conflict_survey as survey_contract
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_blockers import (
-    clean_path,
     direct_workflow_blockers,
     git_touched_paths,
+)
+from yoke_core.domain.conflict_survey_declared_paths import (
+    CONFLICT_SURVEY_ORDERING,
+    CONFLICT_SURVEY_SECTION,
+    PENDING_REQUEST_KEY as _PENDING_REQUEST_KEY,
+    classify_survey_payload,
+    clean_path,
 )
 from yoke_core.domain.conflict_survey_models import ConflictMatch, ConflictSurvey
 from yoke_core.domain.db_helpers import iso8601_now
@@ -22,9 +28,7 @@ from yoke_core.domain.path_claims_dependency_resolver_coordination import (
 )
 from yoke_core.domain.schema_common import _table_exists
 
-CONFLICT_SURVEY_SECTION = "Conflict Survey"
 DIRECT_WORKFLOW_IDS = frozenset({"blitz", "dash"})
-_PENDING_REQUEST_KEY = "pending_request"
 
 
 @dataclass(frozen=True)
@@ -190,7 +194,7 @@ def reserve_conflict_survey_record(
             int(item_id),
             CONFLICT_SURVEY_SECTION,
             content,
-            180,
+            CONFLICT_SURVEY_ORDERING,
             "direct-workflow",
             now,
             now,
@@ -245,7 +249,7 @@ def record_conflict_survey(
             survey.item_id,
             CONFLICT_SURVEY_SECTION,
             content,
-            180,
+            CONFLICT_SURVEY_ORDERING,
             "direct-workflow",
             now,
             now,
@@ -307,22 +311,8 @@ def read_recorded_survey_state(
     ).fetchone()
     if row is None:
         return RecordedConflictSurvey(survey_contract.DURABLE_ABSENT)
-    try:
-        parsed = json.loads(str(row[0]))
-    except (TypeError, ValueError):
-        return RecordedConflictSurvey(survey_contract.DURABLE_UNREADABLE)
-    if not isinstance(parsed, dict):
-        return RecordedConflictSurvey(survey_contract.DURABLE_UNREADABLE)
-    if _PENDING_REQUEST_KEY in parsed:
-        return RecordedConflictSurvey(survey_contract.DURABLE_PENDING)
-    paths = parsed.get("touch_paths")
-    valid_paths = isinstance(paths, list) and bool(paths) and all(
-        isinstance(path, str) and clean_path(path) for path in paths
-    )
-    valid_record = parsed.get("schema") == 1 and valid_paths
-    if not valid_record or not isinstance(parsed.get("fingerprint"), str):
-        return RecordedConflictSurvey(survey_contract.DURABLE_UNREADABLE)
-    return RecordedConflictSurvey(survey_contract.DURABLE_RECORDED, parsed)
+    state, payload = classify_survey_payload(row[0])
+    return RecordedConflictSurvey(state, payload)
 
 
 def read_recorded_survey(conn: Any, item_id: int) -> Optional[dict[str, Any]]:

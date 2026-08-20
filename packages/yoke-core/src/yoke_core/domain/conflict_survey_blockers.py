@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import PurePosixPath
-from typing import Any, Iterable
+from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.conflict_survey_declared_paths import (
+    CONFLICT_SURVEY_SECTION,
+    declared_surveys,
+    matching_scope,
+)
 from yoke_core.domain.conflict_survey_models import ConflictMatch
-from yoke_core.domain.file_budget_paths import extract_file_budget_paths
+from yoke_core.domain.file_budget_paths import (
+    extract_file_budget_paths,
+    extract_file_budget_section_paths,
+)
+from yoke_core.domain.file_budget_paths import FILE_BUDGET_SECTION
 from yoke_core.domain.schema_common import _table_exists
 
 _NON_TERMINAL_CLAIM_STATES = ("planned", "blocked", "active")
@@ -25,34 +33,6 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
         dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
         for row in cursor.fetchall()
     ]
-
-
-def clean_path(value: Any) -> str:
-    """Normalize a path before comparing it with a declared scope."""
-    path = str(value).strip().replace("\\", "/")
-    while path.startswith("./"):
-        path = path[2:]
-    return path.lstrip("/")
-
-
-def _overlap(left: str, right: str) -> bool:
-    """Treat equal files and ancestor directory scopes as overlap."""
-    left_path = PurePosixPath(left)
-    right_path = PurePosixPath(right)
-    return (
-        left_path == right_path
-        or left_path in right_path.parents
-        or right_path in left_path.parents
-    )
-
-
-def _matching_path(touch_paths: tuple[str, ...], candidates: Iterable[str]) -> str:
-    for candidate in candidates:
-        clean = clean_path(candidate)
-        for intended in touch_paths:
-            if clean and _overlap(intended, clean):
-                return clean
-    return ""
 
 
 def _path_claim_blockers(
@@ -92,7 +72,7 @@ def _path_claim_blockers(
             continue
         if bool(row.get("owner_frozen")):
             continue
-        matched = _matching_path(touch_paths, [str(row["path_string"])])
+        matched = matching_scope(touch_paths, [str(row["path_string"])])
         if matched:
             blockers.append(
                 ConflictMatch(
@@ -106,20 +86,10 @@ def _path_claim_blockers(
     return blockers
 
 
-def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
-    """Return changed paths from a live worktree when git can read it."""
-    if not worktree_path:
-        return []
+def _git_lines(worktree_path: str, argv: list[str]) -> list[str]:
     try:
         result = subprocess.run(
-            [
-                "git",
-                "-C",
-                worktree_path,
-                "diff",
-                "--name-only",
-                f"{integration_target}...HEAD",
-            ],
+            ["git", "-C", worktree_path, *argv],
             check=False,
             capture_output=True,
             text=True,
@@ -130,6 +100,26 @@ def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
     if result.returncode != 0:
         return []
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
+    """Return changed paths from a live worktree when git can read it.
+
+    Three reads, because committed history alone hides an agent that is
+    mid-edit: the branch's own commits against the integration target,
+    tracked edits not yet committed, and files git is not tracking yet.
+    Ignored files stay out, so lane scratch never reads as declared work.
+    """
+    if not worktree_path:
+        return []
+    touched: list[str] = []
+    for argv in (
+        ["diff", "--name-only", f"{integration_target}...HEAD"],
+        ["diff", "--name-only", "HEAD"],
+        ["ls-files", "--others", "--exclude-standard"],
+    ):
+        touched.extend(_git_lines(worktree_path, argv))
+    return list(dict.fromkeys(touched))
 
 
 def _item_coordination_blockers(
@@ -176,16 +166,44 @@ def _item_coordination_blockers(
         if "sd.content" in doc_select
         else ""
     )
+    # A File Budget authored through the section surface never reaches
+    # ``items.spec``, so reading the spec alone misses it entirely. Both
+    # storages are live, so both are read.
+    budget_select = (
+        ", COALESCE(fb.content, '') AS file_budget_section"
+        if _table_exists(conn, "item_sections")
+        else ", '' AS file_budget_section"
+    )
+    budget_join = (
+        " LEFT JOIN item_sections fb ON fb.item_id = i.id "
+        f"AND fb.section_name = {marker}"
+        if _table_exists(conn, "item_sections")
+        else ""
+    )
+    params: list[Any] = []
+    if budget_join:
+        params.append(FILE_BUDGET_SECTION)
+    params.extend([int(item["project_id"]), int(item["id"])])
     rows = _dict_rows(
         conn.execute(
             "SELECT i.id, i.status, COALESCE(i.frozen, 0) AS frozen, "
             "COALESCE(i.spec, '') AS spec"
-            f"{worktree_select}{claim_select}{doc_select} FROM items i"
-            f"{worktree_join}{claim_join}{doc_join} "
+            f"{worktree_select}{claim_select}{doc_select}{budget_select}"
+            f" FROM items i"
+            f"{worktree_join}{claim_join}{doc_join}{budget_join} "
             f"WHERE i.project_id = {marker} AND i.id <> {marker}",
-            (int(item["project_id"]), int(item["id"])),
+            tuple(params),
         )
     )
+    surveys = {
+        survey.item_id: survey.paths
+        for survey in declared_surveys(
+            conn,
+            project_id=int(item["project_id"]),
+            integration_target=integration_target,
+            exclude_item_id=int(item["id"]),
+        )
+    }
     blockers: list[ConflictMatch] = []
     seen: set[tuple[str, int, str]] = set()
     for row in rows:
@@ -193,16 +211,35 @@ def _item_coordination_blockers(
             continue
         if bool(row.get("frozen")):
             continue
-        declared = extract_file_budget_paths(
-            f"{row['spec']}\n{row['execution_document']}"
-        )
+        declared = [
+            *extract_file_budget_paths(
+                f"{row['spec']}\n{row['execution_document']}"
+            ),
+            *extract_file_budget_section_paths(
+                str(row.get("file_budget_section") or "")
+            ),
+        ]
         worktree_paths = git_touched_paths(
             str(row.get("worktree_path") or ""), integration_target
         )
-        matched = _matching_path(touch_paths, [*worktree_paths, *declared])
-        if not matched:
+        matched = matching_scope(touch_paths, [*worktree_paths, *declared])
+        # A recorded survey is the weakest of the three signals — declared
+        # intent, not work already under way — so it answers only where the
+        # stronger ones found nothing, and it is attributed separately so
+        # the operator can tell the two apart.
+        survey_match = "" if matched else matching_scope(
+            touch_paths, surveys.get(int(row["id"]), ())
+        )
+        if not matched and not survey_match:
             continue
-        if row.get("work_claim_id") is not None:
+        if not matched:
+            matched = survey_match
+            kind, state = "survey_scope", str(row["status"])
+            detail = (
+                "non-terminal item declares this path in its recorded "
+                f"{CONFLICT_SURVEY_SECTION}"
+            )
+        elif row.get("work_claim_id") is not None:
             kind, state = "work_claim", "active"
             detail = f"active work claim {row['work_claim_id']}"
         elif row.get("worktree_path"):

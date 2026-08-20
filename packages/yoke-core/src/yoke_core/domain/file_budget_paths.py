@@ -42,7 +42,10 @@ from __future__ import annotations
 import re
 from typing import List, Set
 
-_FILE_BUDGET_HEADER = re.compile(r"^## File Budget\b")
+FILE_BUDGET_SECTION = "File Budget"
+FILE_BUDGET_HEADING = f"## {FILE_BUDGET_SECTION}"
+
+_FILE_BUDGET_HEADER = re.compile(rf"^{re.escape(FILE_BUDGET_HEADING)}\b")
 _LEVEL2_HEADER = re.compile(r"^## ")
 _LIST_ITEM = re.compile(r"^\s*-\s")
 _BACKTICKED = re.compile(r"`([^`]+)`")
@@ -82,7 +85,7 @@ _UNRESOLVED_PROSE = re.compile(
     re.IGNORECASE,
 )
 _FILE_BUDGET_BLOCK = re.compile(
-    r"^## File Budget\b.*?(?=^## |\Z)",
+    rf"^{re.escape(FILE_BUDGET_HEADING)}\b.*?(?=^## |\Z)",
     re.MULTILINE | re.DOTALL,
 )
 
@@ -93,7 +96,7 @@ UNRESOLVED_FILE_BUDGET_MARKER = (
     "`refining-idea`."
 )
 UNRESOLVED_FILE_BUDGET_SECTION = (
-    f"## File Budget\n\n{UNRESOLVED_FILE_BUDGET_MARKER}\n"
+    f"{FILE_BUDGET_HEADING}\n\n{UNRESOLVED_FILE_BUDGET_MARKER}\n"
 )
 
 
@@ -146,6 +149,25 @@ def extract_file_budget_paths(spec_text: str) -> List[str]:
             seen.add(candidate)
             paths.append(candidate)
     return paths
+
+
+def extract_file_budget_section_paths(section_content: str) -> List[str]:
+    """Pull path tokens from a stored ``File Budget`` section body.
+
+    ``item_sections`` stores a section's body without its own heading,
+    so the extractor above — which locates the section by that heading —
+    finds nothing in a stored row. Restoring the heading the rendered
+    body would carry keeps one parser for both storages, and keeps a
+    stored budget reading exactly as it reads in the rendered item.
+    """
+    if not section_content or not section_content.strip():
+        return []
+    body = (
+        section_content
+        if section_content.lstrip().startswith(FILE_BUDGET_HEADING)
+        else f"{FILE_BUDGET_HEADING}\n{section_content}"
+    )
+    return extract_file_budget_paths(body)
 
 
 def extract_file_budget_section(spec_text: str) -> str | None:
@@ -225,11 +247,14 @@ def apply_unresolved_file_budget_marker(spec_text: str) -> str:
 
 
 __all__ = [
+    "FILE_BUDGET_HEADING",
+    "FILE_BUDGET_SECTION",
     "UNRESOLVED_FILE_BUDGET_MARKER",
     "UNRESOLVED_FILE_BUDGET_SECTION",
     "apply_unresolved_file_budget_marker",
     "extract_file_budget_paths",
     "extract_file_budget_section",
+    "extract_file_budget_section_paths",
     "extract_file_budget_paths_set",
     "has_resolved_file_budget",
     "has_unresolved_file_budget",

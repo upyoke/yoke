@@ -133,12 +133,6 @@ def test_ci_context_keeps_the_merged_commit_after_lane_release() -> None:
     with test_database() as conn:
         insert_item(conn, id=43, title="Run CI", workflow_id="dash")
         conn.execute(
-            "CREATE TABLE item_sections ("
-            "item_id INTEGER NOT NULL, section_name TEXT NOT NULL, content TEXT, "
-            "ordering INTEGER, source TEXT, created_at TEXT, updated_at TEXT, "
-            "PRIMARY KEY(item_id, section_name))"
-        )
-        conn.execute(
             "INSERT INTO item_sections "
             "(item_id, section_name, content, ordering, source, created_at, updated_at) "
             "VALUES (43, 'Execution Evidence', %s, 190, 'direct-workflow', %s, %s)",
