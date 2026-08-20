@@ -258,7 +258,7 @@ def make_conn() -> sqlite3.Connection:
             source_ref TEXT,
             project_id INTEGER,
             runner_id TEXT NOT NULL,
-            required_capability_kind TEXT,
+            required_capability_kinds TEXT NOT NULL DEFAULT '[]',
             verdict_path TEXT NOT NULL,
             verdict_contract TEXT NOT NULL,
             evidence_contract TEXT NOT NULL,

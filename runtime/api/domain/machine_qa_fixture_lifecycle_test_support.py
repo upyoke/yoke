@@ -192,7 +192,7 @@ def case_contract(
             "method_id": "terminal-check",
             "method_name": "Terminal check",
             "runner_id": "host_control",
-            "required_capability_kind": "test-machine",
+            "required_capability_kinds": ["test-machine"],
             "verdict_path": "automated",
             "qa_kind": "acceptance",
             "instructions": "Run the typed recipe.",

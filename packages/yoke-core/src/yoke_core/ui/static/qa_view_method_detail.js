@@ -34,32 +34,28 @@ function scopeParam(scope) {
 
 function capabilityContract(context, method, project) {
   const documentNode = context.document;
-  if (!method.required_capability_kind) {
+  const capabilities = method.required_capabilities || [];
+  if (!capabilities.length) {
     return el(
       documentNode, "span", "qa-no-capability",
       "none — a checkout is enough",
     );
   }
   const node = el(documentNode, "span", "qa-capability-contract");
-  const link = el(
-    documentNode,
-    "a",
-    "qa-capability-link",
-    `${capabilityLabel(
-      method.required_capability_kind,
-      method.required_capability_label,
-    )} →`,
-  );
-  link.href = capabilityRoute(
-    context, project, method.required_capability_kind,
-  );
-  node.appendChild(link);
-  const state = capabilityStateNode(
-    documentNode,
-    method.capability_context,
-    method.capability_state,
-  );
-  if (state) node.appendChild(state);
+  for (const capability of capabilities) {
+    const link = el(
+      documentNode,
+      "a",
+      "qa-capability-link",
+      `${capabilityLabel(capability.kind, capability.label)} →`,
+    );
+    link.href = capabilityRoute(context, project, capability.kind);
+    node.appendChild(link);
+    const state = capabilityStateNode(
+      documentNode, capability.context, capability.state,
+    );
+    if (state) node.appendChild(state);
+  }
   return node;
 }
 
@@ -130,7 +126,8 @@ function planCaseSummaryNode(documentNode, plan, method) {
       case_key: caseKey,
       host_baselines: [],
     }));
-  const machineCases = method.required_capability_kind === "test-machine";
+  const machineCases = (method.required_capability_kinds || [])
+    .includes("test-machine");
   if (machineCases) {
     node.appendChild(el(
       documentNode,

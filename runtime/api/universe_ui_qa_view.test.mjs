@@ -70,7 +70,15 @@ test("QA defaults to the prototype Methods roster and opens contract detail", as
     /Test plans prove the work; methods say how; capabilities make it possible/,
   );
   assert.match(text, /requires nothing — a checkout is enough/);
-  assert.match(text, /requires\s+Browser control\s+·\s+ready/);
+  assert.deepEqual(
+    byClass(root, "qa-group-label").map((node) => node.textContent),
+    ["requires nothing — a checkout is enough", "requires Browser control"],
+  );
+  assert.deepEqual(
+    byClass(byClass(root, "qa-method-card")[1], "qa-method-foot")[0]
+      .children.map((node) => node.textContent),
+    ["capabilities", "Browser control", "ready"],
+  );
   assert.doesNotMatch(text, /How methods enter this project/);
   assert.deepEqual(
     client.requests.find((request) => request.function === "qa.method.list"),

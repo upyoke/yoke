@@ -80,7 +80,6 @@ def test_additive_work_surfaces_accept_older_archive_shapes():
             "method_id",
             "method_name",
             "runner_id",
-            "required_capability_kind",
             "verdict_path",
             "host_baseline",
             "entry_surface",

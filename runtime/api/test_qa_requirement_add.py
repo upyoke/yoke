@@ -97,7 +97,7 @@ class TestRequirementAdd:
             target_env="stage",
             blocking_mode="non_blocking",
             requirement_source="ac_derived",
-            capability_requirements='{"browser": true}',
+            capability_requirements=["desktop-control", "browser-control"],
             suite_id="suite-abc",
         )
         conn = connect_test_db(rid and db_path)
@@ -109,8 +109,20 @@ class TestRequirementAdd:
         assert row[0] == "stage"
         assert row[1] == "non_blocking"
         assert row[2] == "ac_derived"
-        assert row[3] == '{"browser": true}'
+        assert row[3] == '["browser-control", "desktop-control"]'
         assert row[4] == "suite-abc"
+
+    @pytest.mark.parametrize("value", ["browser-qa", '{"repo":true}'])
+    def test_non_array_capabilities_exit(self, db_path: str, value: str) -> None:
+        with pytest.raises(SystemExit) as exc:
+            add_bound_requirement(
+                db_path=db_path,
+                item_id=10,
+                qa_kind="unit_test",
+                qa_phase="verification",
+                capability_requirements=value,
+            )
+        assert exc.value.code == 2
 
     def test_invalid_requirement_source_exits_before_sqlite(
         self, db_path: str, capsys

@@ -46,6 +46,7 @@ class ProjectMethodRegisterRequest(BaseModel):
     verdict_path: str = Field(..., min_length=1)
     verdict_contract: str = Field(..., min_length=1)
     evidence_contract: str = Field(..., min_length=1)
+    required_capability_kinds: Optional[List[str]] = None
     concurrency_mode: str = "parallel"
     success_policy_params: Dict[str, Any] = Field(default_factory=dict)
 
@@ -55,6 +56,7 @@ class ProjectMethodRegisterResponse(BaseModel):
     project: str
     project_id: int
     runner_id: str
+    required_capability_kinds: List[str]
     verdict_path: str
 
 

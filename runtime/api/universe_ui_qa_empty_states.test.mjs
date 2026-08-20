@@ -113,13 +113,17 @@ test("a lease-waiting case explains contention without offering actions", async 
       position: 1,
       method_id: "machine-state-check",
       method_name: "Machine state check",
-      required_capability_kind: "test-machine",
-      capability_state: "in_use",
-      capability_context: {
+      required_capability_kinds: ["test-machine"],
+      required_capabilities: [{
+        kind: "test-machine",
+        label: "Test Mac",
         state: "in_use",
-        wait_reason: "serial_lease_in_use",
-        active_lease: { item_ref: "YOK-2001" },
-      },
+        context: {
+          state: "in_use",
+          wait_reason: "serial_lease_in_use",
+          active_lease: { item_ref: "YOK-2001" },
+        },
+      }],
       last_result: {
         requirement_id: 42,
         run_id: 92,

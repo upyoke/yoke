@@ -10,16 +10,20 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_one
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_method_definitions import method_metadata_for_runner
+from yoke_core.domain.qa_method_capabilities import (
+    QaMethodCapabilityError,
+    capability_kinds,
+)
 
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-_EXECUTOR_CONTRACTS = {
+_RUNNER_CONTRACTS = {
     "worktree_run": {
-        "capability": None,
+        "capabilities": (),
         "verdict_paths": {"automatic"},
     },
     "browser_substrate": {
-        "capability": "browser-control",
+        "capabilities": ("browser-control",),
         "verdict_paths": {"automatic", "agent"},
     },
 }
@@ -44,6 +48,7 @@ def register_project_method(
     verdict_path: str,
     verdict_contract: str,
     evidence_contract: str,
+    required_capability_kinds: Optional[list[str]] = None,
     concurrency_mode: str = "parallel",
     success_policy_params: Optional[dict] = None,
 ) -> dict:
@@ -55,7 +60,7 @@ def register_project_method(
         raise QaMethodError(
             "method slug must contain lowercase words separated by hyphens"
         )
-    contract = _EXECUTOR_CONTRACTS.get(runner_id)
+    contract = _RUNNER_CONTRACTS.get(runner_id)
     if contract is None:
         raise QaMethodError(
             f"runner {runner_id!r} is not registered for project methods"
@@ -66,6 +71,23 @@ def register_project_method(
         )
     if concurrency_mode not in {"parallel", "serial"}:
         raise QaMethodError("concurrency_mode must be parallel or serial")
+    try:
+        declared_capabilities = capability_kinds(
+            contract["capabilities"]
+            if required_capability_kinds is None
+            else required_capability_kinds,
+            subject=f"method {slug!r}",
+        )
+    except QaMethodCapabilityError as exc:
+        raise QaMethodError(str(exc)) from exc
+    missing_runner_capabilities = sorted(
+        set(contract["capabilities"]) - set(declared_capabilities)
+    )
+    if missing_runner_capabilities:
+        raise QaMethodError(
+            f"runner {runner_id!r} requires capabilities: "
+            + ", ".join(missing_runner_capabilities)
+        )
     required = {
         "name": name,
         "description": description,
@@ -94,7 +116,7 @@ def register_project_method(
         "source_ref",
         "project_id",
         "runner_id",
-        "required_capability_kind",
+        "required_capability_kinds",
         "verdict_path",
         "verdict_contract",
         "evidence_contract",
@@ -116,7 +138,7 @@ def register_project_method(
         "ON CONFLICT(id) DO UPDATE SET "
         "name=EXCLUDED.name, description=EXCLUDED.description, "
         "runner_id=EXCLUDED.runner_id, "
-        "required_capability_kind=EXCLUDED.required_capability_kind, "
+        "required_capability_kinds=EXCLUDED.required_capability_kinds, "
         "verdict_path=EXCLUDED.verdict_path, "
         "verdict_contract=EXCLUDED.verdict_contract, "
         "evidence_contract=EXCLUDED.evidence_contract, "
@@ -137,7 +159,7 @@ def register_project_method(
             identity.slug,
             int(identity.id),
             runner_id,
-            contract["capability"],
+            json.dumps(declared_capabilities),
             verdict_path,
             verdict_contract.strip(),
             evidence_contract.strip(),
@@ -160,6 +182,7 @@ def register_project_method(
         "project": identity.slug,
         "project_id": int(identity.id),
         "runner_id": runner_id,
+        "required_capability_kinds": list(declared_capabilities),
         "verdict_path": verdict_path,
     }
 

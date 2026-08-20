@@ -64,7 +64,6 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "method_name",
             "plan_case_key",
             "plan_id",
-            "required_capability_kind",
             "required_completion",
             "verdict_path",
             "workflow_transition_id",

@@ -41,26 +41,44 @@ function combinedMethods(callResults) {
         methods.set(row.id, {
           ...row,
           used_by_plan_count: Number(row.used_by_plan_count || 0),
-          capability_states: new Set([row.capability_state]),
-          capability_contexts: [row.capability_context],
+          capability_samples: new Map(
+            (row.required_capabilities || []).map((capability) => [
+              capability.kind,
+              {
+                ...capability,
+                states: new Set([capability.state]),
+                contexts: [capability.context],
+              },
+            ]),
+          ),
         });
         continue;
       }
       existing.used_by_plan_count += Number(row.used_by_plan_count || 0);
-      existing.capability_states.add(row.capability_state);
-      existing.capability_contexts.push(row.capability_context);
+      for (const capability of row.required_capabilities || []) {
+        const sample = existing.capability_samples.get(capability.kind);
+        if (sample) {
+          sample.states.add(capability.state);
+          sample.contexts.push(capability.context);
+        }
+      }
     }
   }
   return [...methods.values()]
     .map((method) => {
-      const state = method.capability_states.size === 1
-        ? [...method.capability_states][0] : "mixed";
       return {
         ...method,
-        capability_state: state,
-        capability_context: method.capability_contexts.length === 1
-          ? method.capability_contexts[0]
-          : { state },
+        required_capabilities: [...method.capability_samples.values()]
+          .map((capability) => {
+            const state = capability.states.size === 1
+              ? [...capability.states][0] : "mixed";
+            return {
+              ...capability,
+              state,
+              context: capability.contexts.length === 1
+                ? capability.contexts[0] : { state },
+            };
+          }),
       };
     })
     .sort((left, right) => (
@@ -94,51 +112,44 @@ function methodCard(context, method, scope) {
     documentNode, "span", "qa-method-description", method.description,
   );
   const foot = el(documentNode, "span", "qa-method-foot");
-  foot.appendChild(el(documentNode, "span", null, "capability"));
-  foot.appendChild(el(
-    documentNode, "strong", "qa-capability-name",
-    capabilityLabel(
-      method.required_capability_kind,
-      method.required_capability_label,
-    ),
-  ));
-  const state = method.required_capability_kind
-    ? capabilityStateNode(
-      documentNode,
-      method.capability_context,
-      method.capability_state,
-    )
-    : null;
-  if (state) foot.appendChild(state);
+  foot.appendChild(el(documentNode, "span", null, "capabilities"));
+  const capabilities = method.required_capabilities || [];
+  if (!capabilities.length) {
+    foot.appendChild(el(documentNode, "strong", "qa-capability-name", "none"));
+  }
+  for (const capability of capabilities) {
+    foot.appendChild(el(
+      documentNode, "strong", "qa-capability-name",
+      capabilityLabel(capability.kind, capability.label),
+    ));
+    const state = capabilityStateNode(
+      documentNode, capability.context, capability.state,
+    );
+    if (state) foot.appendChild(state);
+  }
   card.appendChild(top);
   card.appendChild(description);
   card.appendChild(foot);
   return card;
 }
 
-function groupHeading(context, kind, rows, scope) {
+function groupHeading(context, kinds, rows, scope) {
   const documentNode = context.document;
   const heading = el(documentNode, "p", "qa-group-label");
-  if (!kind) {
-    heading.textContent = methodGroupLabel(kind);
+  if (!kinds.length) {
+    heading.textContent = methodGroupLabel("");
     return heading;
   }
   heading.appendChild(el(documentNode, "span", null, "requires "));
-  const capability = el(
-    documentNode, "a", "qa-capability-link", capabilityLabel(kind),
-  );
-  capability.href = capabilityRoute(context, scopeParam(scope), kind);
-  heading.appendChild(capability);
-  const states = new Set(rows.map((row) => row.capability_state));
-  const state = states.size === 1 ? [...states][0] : "mixed";
-  heading.appendChild(el(documentNode, "span", null, " · "));
-  const pill = capabilityStateNode(
-    documentNode,
-    rows.length === 1 ? rows[0].capability_context : { state },
-    state,
-  );
-  if (pill) heading.appendChild(pill);
-  if (kind === "test-machine") {
+  for (const [index, kind] of kinds.entries()) {
+    if (index) heading.appendChild(el(documentNode, "span", null, " + "));
+    const capability = el(
+      documentNode, "a", "qa-capability-link", capabilityLabel(kind),
+    );
+    capability.href = capabilityRoute(context, scopeParam(scope), kind);
+    heading.appendChild(capability);
+  }
+  if (kinds.includes("test-machine")) {
     heading.appendChild(el(
       documentNode, "span", null, " · serial lease",
     ));
@@ -162,12 +173,14 @@ function renderRoster(context, host, methods, scope) {
   }
   const groups = new Map();
   for (const method of methods) {
-    const key = method.required_capability_kind || "";
+    const key = (method.required_capability_kinds || []).join("+");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(method);
   }
-  for (const [kind, rows] of groups) {
-    stack.appendChild(groupHeading(context, kind, rows, scope));
+  for (const [key, rows] of groups) {
+    stack.appendChild(groupHeading(
+      context, key ? key.split("+") : [], rows, scope,
+    ));
     const catalog = el(documentNode, "div", "qa-method-catalog");
     for (const method of rows) {
       catalog.appendChild(methodCard(context, method, scope));

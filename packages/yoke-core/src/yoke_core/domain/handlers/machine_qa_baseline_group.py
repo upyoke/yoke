@@ -33,6 +33,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     validate_case_submission,
 )
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
+from yoke_core.domain.qa_case_execution_context import execution_host_capability_kinds
 
 
 class TestMachineBaselineGroupExecuteRequest(BaseModel):
@@ -58,9 +59,7 @@ class TestMachineBaselineGroupSubmitRequest(TestMachineCaseSubmitRequest):
     baseline_ok: bool
 
 
-def handle_baseline_group_execute(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
+def handle_baseline_group_execute(request: FunctionCallRequest) -> HandlerOutcome:
     target = _target_requirement(
         request,
         "test_machine.baseline_group_execute",
@@ -92,8 +91,20 @@ def handle_baseline_group_begin(
 
     conn = connect()
     try:
-        anchor = _load_case(conn, target)
-        cases = _baseline_group_cases(conn, anchor=anchor)
+        host_capabilities = execution_host_capability_kinds(
+            conn,
+            session_id=request.actor.session_id,
+        )
+        anchor = _load_case(
+            conn,
+            target,
+            host_capability_kinds=host_capabilities,
+        )
+        cases = _baseline_group_cases(
+            conn,
+            anchor=anchor,
+            host_capability_kinds=host_capabilities,
+        )
         try:
             contract = begin_host_control_execution(
                 conn,

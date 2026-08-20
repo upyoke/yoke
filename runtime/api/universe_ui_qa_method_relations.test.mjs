@@ -20,7 +20,8 @@ const method = {
   source_kind: "built_in",
   source_ref: null,
   runner_id: "worktree_run",
-  required_capability_kind: null,
+  required_capability_kinds: [],
+  required_capabilities: [],
   verdict_path: "automatic",
   verdict_contract: "exit 0 = pass",
   evidence_contract: "exit code · captured output tail",
@@ -28,8 +29,6 @@ const method = {
   success_policy_params: {},
   concurrency_mode: "parallel",
   used_by_plan_count: 4,
-  capability_state: "available",
-  capability_context: { state: "available" },
 };
 
 const plans = [
@@ -255,7 +254,13 @@ test("test-machine method plan subtitles show counts and bounded case names", as
     ...method,
     id: "terminal-check",
     name: "Terminal check",
-    required_capability_kind: "test-machine",
+    required_capability_kinds: ["test-machine"],
+    required_capabilities: [{
+      kind: "test-machine",
+      label: "Test Mac",
+      state: "ready",
+      context: { state: "ready" },
+    }],
     plans: [],
   };
   const context = {

@@ -62,27 +62,24 @@ function planProofRows(plan) {
 
 function capabilityCell(context, row, project) {
   const documentNode = context.document;
-  if (!row.required_capability_kind) {
+  const capabilities = row.required_capabilities || [];
+  if (!capabilities.length) {
     return el(documentNode, "span", "muted", "none");
   }
   const wrap = el(documentNode, "span", "qa-case-capability");
-  const link = el(
-    documentNode,
-    "a",
-    "qa-capability-link",
-    capabilityLabel(row.required_capability_kind),
-  );
-  link.href = capabilityRoute(
-    context, project, row.required_capability_kind,
-  );
-  wrap.appendChild(link);
-  const pill = capabilityStateNode(
-    documentNode,
-    row.capability_context,
-    row.capability_state || "not_configured",
-    true,
-  );
-  if (pill) wrap.appendChild(pill);
+  for (const capability of capabilities) {
+    const link = el(
+      documentNode, "a", "qa-capability-link",
+      capabilityLabel(capability.kind, capability.label),
+    );
+    link.href = capabilityRoute(context, project, capability.kind);
+    wrap.appendChild(link);
+    const pill = capabilityStateNode(
+      documentNode, capability.context,
+      capability.state || "not_configured", true,
+    );
+    if (pill) wrap.appendChild(pill);
+  }
   return wrap;
 }
 

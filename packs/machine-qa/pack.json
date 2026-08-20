@@ -3,7 +3,7 @@
   "slug": "machine-qa",
   "name": "Machine QA",
   "description": "Registers reusable terminal and machine-state proof methods over the approved host_control runner.",
-  "latest_version": "1.0.4",
+  "latest_version": "1.0.5",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -135,6 +135,38 @@
     },
     "1.0.4": {
       "source": "versions/1.0.4/files",
+      "documentation": "docs/packs/machine-qa/README.md",
+      "dependencies": [],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "qa_methods": "qa/methods/machine-qa.json",
+      "files": [
+        {
+          "source": "docs/packs/machine-qa/README.md",
+          "target": "docs/packs/machine-qa/README.md",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "qa/methods/machine-qa.json",
+          "target": "qa/methods/machine-qa.json",
+          "mode": "0644",
+          "render": "copy"
+        }
+      ],
+      "verification": [
+        {
+          "name": "method-contracts",
+          "command": "python3 -m json.tool qa/methods/machine-qa.json"
+        }
+      ]
+    },
+    "1.0.5": {
+      "source": "versions/1.0.5/files",
       "documentation": "docs/packs/machine-qa/README.md",
       "dependencies": [],
       "settings_schema": {

@@ -115,7 +115,6 @@ REQ_COLUMNS = (
     "method_id",
     "method_name",
     "runner_id",
-    "required_capability_kind",
     "verdict_path",
     "host_baseline",
     "entry_surface",
@@ -139,8 +138,8 @@ _REQ_SELECT = (
     "COALESCE(CAST(case_position AS TEXT),''), "
     "COALESCE(CAST(baseline_position AS TEXT),''), "
     "COALESCE(method_id,''), COALESCE(method_name,''), "
-    "COALESCE(runner_id,''), COALESCE(required_capability_kind,''), "
-    "COALESCE(verdict_path,''), COALESCE(host_baseline,''), "
+    "COALESCE(runner_id,''), COALESCE(verdict_path,''), "
+    "COALESCE(host_baseline,''), "
     "COALESCE(entry_surface,''), COALESCE(required_completion,''), "
     "COALESCE(workflow_transition_id,''), "
     "COALESCE(instructions,''), COALESCE(expected_outcome,''), "

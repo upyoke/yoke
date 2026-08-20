@@ -2,6 +2,21 @@ export function ok(result) {
   return { status: 200, envelope: { success: true, result } };
 }
 
+const noCapabilities = {
+  required_capability_kinds: [],
+  required_capabilities: [],
+};
+
+const browserCapabilities = {
+  required_capability_kinds: ["browser-control"],
+  required_capabilities: [{
+    kind: "browser-control",
+    label: "Browser control",
+    state: "ready",
+    context: { state: "ready" },
+  }],
+};
+
 export const methods = [
   {
     id: "command",
@@ -12,14 +27,13 @@ export const methods = [
     source_ref: null,
     runner_id: "worktree_run",
     runner_gloss: "runs the case's command in the item worktree",
-    required_capability_kind: null,
+    ...noCapabilities,
     verdict_path: "automatic",
     verdict_contract: "exit 0 = pass",
     evidence_contract: "exit code · captured output tail",
     success_policy_id: "all-pass",
     concurrency_mode: "parallel",
     used_by_plan_count: 2,
-    capability_state: "available",
   },
   {
     id: "browser-check",
@@ -29,15 +43,13 @@ export const methods = [
     source_ref: null,
     runner_id: "browser_substrate",
     runner_gloss: "the registered browser-control substrate",
-    required_capability_label: "Browser control",
-    required_capability_kind: "browser-control",
+    ...browserCapabilities,
     verdict_path: "automatic",
     verdict_contract: "assertions",
     evidence_contract: "assertions · trace · logs",
     success_policy_id: "all-pass",
     concurrency_mode: "parallel",
     used_by_plan_count: 1,
-    capability_state: "ready",
   },
 ];
 
@@ -86,8 +98,7 @@ export const planDetail = {
       method_id: "command",
       method_name: "Command",
       runner_id: "worktree_run",
-      required_capability_kind: null,
-      capability_state: null,
+      ...noCapabilities,
       verdict_path: "automatic",
       instructions: "Run it.",
       expected_outcome: "It passes.",
@@ -117,8 +128,7 @@ export const planDetail = {
       method_id: "browser-check",
       method_name: "Browser check",
       runner_id: "browser_substrate",
-      required_capability_kind: "browser-control",
-      capability_state: "ready",
+      ...browserCapabilities,
       verdict_path: "automatic",
       instructions: "Open checkout.",
       expected_outcome: "Confirmation is visible.",
@@ -142,8 +152,7 @@ export const planDetail = {
       method_id: "browser-check",
       method_name: "Browser check",
       runner_id: "browser_substrate",
-      required_capability_kind: "browser-control",
-      capability_state: "ready",
+      ...browserCapabilities,
       verdict_path: "automatic",
       instructions: "Wait for its turn.",
       expected_outcome: "It eventually runs.",
@@ -167,8 +176,7 @@ export const planDetail = {
       method_id: "browser-check",
       method_name: "Browser check",
       runner_id: "browser_substrate",
-      required_capability_kind: "browser-control",
-      capability_state: "ready",
+      ...browserCapabilities,
       verdict_path: "automatic",
       instructions: "Verify the hosted cold start.",
       expected_outcome: "The correct handoff is visible.",

@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS qa_methods (
     source_ref TEXT,
     project_id INTEGER REFERENCES projects(id),
     runner_id TEXT NOT NULL,
-    required_capability_kind TEXT,
+    required_capability_kinds TEXT NOT NULL DEFAULT '[]',
     verdict_path TEXT NOT NULL CHECK(verdict_path IN ('automatic','agent')),
     verdict_contract TEXT NOT NULL,
     evidence_contract TEXT NOT NULL,
@@ -120,7 +120,6 @@ _REQUIREMENT_COLUMNS = (
     ("method_id", "TEXT REFERENCES qa_methods(id)"),
     ("method_name", "TEXT"),
     ("runner_id", "TEXT"),
-    ("required_capability_kind", "TEXT"),
     ("verdict_path", "TEXT"),
     ("host_baseline", "TEXT"),
     ("entry_surface", "TEXT"),
@@ -175,7 +174,7 @@ def seed_builtin_qa_methods(conn: Any) -> None:
         "source_ref",
         "project_id",
         "runner_id",
-        "required_capability_kind",
+        "required_capability_kinds",
         "verdict_path",
         "verdict_contract",
         "evidence_contract",
@@ -212,7 +211,7 @@ def seed_builtin_qa_methods(conn: Any) -> None:
                 None,
                 None,
                 method["runner_id"],
-                method["required_capability_kind"],
+                json.dumps(method["required_capability_kinds"], sort_keys=True),
                 method["verdict_path"],
                 method["verdict_contract"],
                 method["evidence_contract"],
@@ -250,6 +249,12 @@ def create_qa_catalog_tables(
     """
     execute_schema_script(conn, QA_CATALOG_TABLES_SQL)
     ensure_qa_method_metadata_columns(conn)
+    _add_column_if_not_exists(
+        conn,
+        "qa_methods",
+        "required_capability_kinds",
+        "TEXT NOT NULL DEFAULT '[]'",
+    )
     _add_column_if_not_exists(
         conn,
         "qa_plans",

@@ -46,7 +46,7 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
         "method_id": "machine-state-check",
         "method_name": "Machine state check",
         "runner_id": "host_control",
-        "required_capability_kind": "test-machine",
+        "required_capability_kinds": ["test-machine"],
         "verdict_path": "automatic",
         "qa_kind": "machine",
         "instructions": "Check the machine.",

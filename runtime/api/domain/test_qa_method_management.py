@@ -23,15 +23,27 @@ def test_project_method_uses_registered_runner_contract() -> None:
             verdict_path="automatic",
             verdict_contract="exit 0 = pass",
             evidence_contract="captured command output",
+            required_capability_kinds=[
+                "browser-control",
+                "native-dialog-control",
+            ],
         )
         row = conn.execute(
             "SELECT source_kind, project_id, runner_id, display_icon, "
-            "display_group, config_contract_id, proof_kind, runner_gloss "
+            "display_group, config_contract_id, proof_kind, runner_gloss, "
+            "required_capability_kinds "
             "FROM qa_methods WHERE id=%s",
             (result["id"],),
         ).fetchone()
 
     assert result["id"] == "project-yoke-checkout-lint"
+    assert result["required_capability_kinds"] == [
+        "browser-control",
+        "native-dialog-control",
+    ]
+    assert row["required_capability_kinds"] == (
+        '["browser-control", "native-dialog-control"]'
+    )
     assert (row["source_kind"], row["project_id"], row["runner_id"]) == (
         "project",
         1,

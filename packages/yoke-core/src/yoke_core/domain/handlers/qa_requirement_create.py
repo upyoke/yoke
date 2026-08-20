@@ -56,7 +56,7 @@ class QaRequirementAddRequest(BaseModel):
     blocking_mode: str = "blocking"
     requirement_source: str = "explicit"
     success_policy: Optional[str] = None
-    capability_requirements: Optional[str] = None
+    capability_requirements: Optional[List[str]] = None
     suite_id: Optional[str] = None
     method_id: Optional[str] = None
     instructions: Optional[str] = None
@@ -71,10 +71,9 @@ class QaRequirementAddResponse(BaseModel):
 
 
 def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]:
-    """Shared add/add-batch row validation. Returns an error outcome or None.
+    """Validate one add/add-batch row and return an error outcome or None.
 
-    Mutates *row* in place: normalizes ``qa_kind`` / ``qa_phase`` via the
-    canonical normalizers (same as the CLI path).
+    Mutates *row* in place through the canonical field normalizers.
     """
     from yoke_core.domain.qa_constants import (
         VALID_BLOCKING_MODES,

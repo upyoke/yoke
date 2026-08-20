@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, Optional
 
 from yoke_contracts.api.function_call import HandlerOutcome
@@ -16,7 +15,23 @@ def validate_method_requirement(
     jsonpath: str,
 ) -> Optional[HandlerOutcome]:
     """Validate a registered method case and derive its safe storage fields."""
+    from yoke_core.domain.qa_method_capabilities import (
+        QaMethodCapabilityError,
+        encoded_capability_kinds,
+    )
+
     method_id = row.get("method_id")
+    try:
+        row["capability_requirements"] = encoded_capability_kinds(
+            row.get("capability_requirements"),
+            subject="QA requirement",
+        )
+    except QaMethodCapabilityError as exc:
+        return _error(
+            "payload_invalid",
+            str(exc),
+            jsonpath=f"{jsonpath}.capability_requirements",
+        )
     if not method_id:
         return None
     from yoke_core.domain.db_helpers import query_one
@@ -28,7 +43,7 @@ def validate_method_requirement(
     p = _p(conn)
     method = query_one(
         conn,
-        "SELECT name, runner_id, verdict_path, required_capability_kind, "
+        "SELECT name, runner_id, verdict_path, required_capability_kinds, "
         "config_contract_id "
         f"FROM qa_methods WHERE id={p}",
         (str(method_id),),
@@ -64,14 +79,19 @@ def validate_method_requirement(
             str(exc),
             jsonpath=f"{jsonpath}.method_config",
         )
-    capability = method["required_capability_kind"]
-    row["capability_requirements"] = json.dumps(
-        [str(capability)] if capability else [],
-        sort_keys=True,
-    )
+    try:
+        row["capability_requirements"] = encoded_capability_kinds(
+            method["required_capability_kinds"],
+            subject=f"method {method_id!r}",
+        )
+    except QaMethodCapabilityError as exc:
+        return _error(
+            "catalog_invalid",
+            str(exc),
+            jsonpath=f"{jsonpath}.method_id",
+        )
     row["method_name"] = str(method["name"])
     row["runner_id"] = str(method["runner_id"])
-    row["required_capability_kind"] = capability
     row["verdict_path"] = str(method["verdict_path"])
     return None
 

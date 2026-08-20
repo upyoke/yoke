@@ -6,9 +6,14 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.item_worktree_resolution import (
     recorded_item_worktree_value_sql,
+)
+from yoke_core.domain.qa_method_capabilities import (
+    QaMethodCapabilityError,
+    capability_kinds,
+    missing_capability_kinds,
 )
 
 
@@ -18,6 +23,29 @@ class QaCaseExecutionError(ValueError):
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def execution_host_capability_kinds(
+    conn: Any,
+    *,
+    session_id: str,
+) -> tuple[str, ...]:
+    """Read the capability set declared by one harness session."""
+    marker = _p(conn)
+    session = query_one(
+        conn,
+        f"SELECT capabilities FROM harness_sessions WHERE session_id={marker}",
+        (str(session_id),),
+    )
+    if session is None:
+        return ()
+    try:
+        return capability_kinds(
+            session["capabilities"],
+            subject=f"execution session {session_id!r}",
+        )
+    except (QaMethodCapabilityError, KeyError, TypeError):
+        return ()
 
 
 def _json_object(raw: Any) -> dict:
@@ -34,6 +62,7 @@ def get_case_execution_context(
     conn: Any,
     *,
     requirement_id: int,
+    host_capability_kinds: Any | None = None,
 ) -> dict[str, Any]:
     """Return the client-local runner contract for a method-backed case."""
     marker = _p(conn)
@@ -45,7 +74,7 @@ def get_case_execution_context(
         "q.expected_outcome, q.method_config, q.host_baseline, "
         "q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.runner_id, "
-        "q.required_capability_kind, q.verdict_path, "
+        "q.capability_requirements, q.verdict_path, "
         "q.execution_target_json, q.execution_target_digest, "
         f"{recorded_item_worktree_value_sql('i.id', 'branch')} AS lane_branch, "
         f"{recorded_item_worktree_value_sql('i.id', 'commit_sha')} "
@@ -71,12 +100,17 @@ def get_case_execution_context(
     method_snapshot = {
         "method_name": row["method_name"],
         "runner_id": row["runner_id"],
-        "required_capability_kind": row["required_capability_kind"],
+        "required_capability_kinds": row["capability_requirements"],
         "verdict_path": row["verdict_path"],
     }
     if not all(
         str(method_snapshot[key] or "").strip()
-        for key in ("method_name", "runner_id", "verdict_path")
+        for key in (
+            "method_name",
+            "runner_id",
+            "required_capability_kinds",
+            "verdict_path",
+        )
     ):
         if plan_id is not None:
             raise QaCaseExecutionError(
@@ -86,7 +120,7 @@ def get_case_execution_context(
         method = query_one(
             conn,
             "SELECT name AS method_name, runner_id, "
-            "required_capability_kind, verdict_path FROM qa_methods "
+            "required_capability_kinds, verdict_path FROM qa_methods "
             f"WHERE id={marker}",
             (str(row["method_id"]),),
         )
@@ -95,6 +129,41 @@ def get_case_execution_context(
                 f"ad-hoc QA method {row['method_id']!r} is not registered"
             )
         method_snapshot = dict(method)
+    try:
+        required_capabilities = capability_kinds(
+            method_snapshot["required_capability_kinds"],
+            subject=f"QA requirement {requirement_id}",
+        )
+    except QaMethodCapabilityError as exc:
+        raise QaCaseExecutionError(str(exc)) from exc
+    if host_capability_kinds is not None:
+        try:
+            available_capabilities = set(
+                capability_kinds(host_capability_kinds, subject="execution host")
+            )
+        except QaMethodCapabilityError as exc:
+            raise QaCaseExecutionError(str(exc)) from exc
+        from yoke_core.domain.schema_common import _table_exists
+
+        if _table_exists(conn, "project_capabilities"):
+            available_capabilities.update(
+                str(capability["type"])
+                for capability in query_rows(
+                    conn,
+                    f"SELECT type FROM project_capabilities WHERE project_id={marker}",
+                    (int(row["project_id"]),),
+                )
+            )
+        missing_capabilities = missing_capability_kinds(
+            required_capabilities,
+            available_capabilities,
+            subject=f"QA requirement {requirement_id}",
+        )
+        if missing_capabilities:
+            raise QaCaseExecutionError(
+                f"QA case requirement {requirement_id} cannot run; execution host "
+                "is missing required capabilities: " + ", ".join(missing_capabilities)
+            )
     case_key = (
         str(row["plan_case_key"])
         if row["plan_case_key"]
@@ -109,7 +178,7 @@ def get_case_execution_context(
         "method_id": str(row["method_id"]),
         "method_name": str(method_snapshot["method_name"]),
         "runner_id": str(method_snapshot["runner_id"]),
-        "required_capability_kind": method_snapshot["required_capability_kind"],
+        "required_capability_kinds": list(required_capabilities),
         "verdict_path": str(method_snapshot["verdict_path"]),
         "qa_kind": str(row["qa_kind"]),
         "instructions": str(row["instructions"] or ""),

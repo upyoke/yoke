@@ -132,7 +132,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "(--qa-kind KIND | --method-id METHOD) "
         "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
         "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
-        "[--capability-requirements C] [--suite-id ID] "
+        "[--required-capability KIND ...] [--suite-id ID] "
         "--workflow-transition STAGE [--session-id S] [--json]",
     ),
     AdapterEntry(
@@ -167,9 +167,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         function_id="qa.browser_context.get",
         cli_invocation="yoke qa browser-context get --item PREFIX-N --requirement-id N --project P",
     ),
-    AdapterEntry(
-        "qa.run.add", "yoke qa run add --requirement-id N --performed-by WHO"
-    ),
+    AdapterEntry("qa.run.add", "yoke qa run add --requirement-id N --performed-by WHO"),
     AdapterEntry(
         "qa.run.complete",
         "yoke qa run complete --requirement-id N --run-id N --verdict V",

@@ -11,6 +11,7 @@ def baseline_group_cases(
     conn: Any,
     *,
     anchor: dict[str, Any],
+    host_capability_kinds: Any | None = None,
 ) -> list[dict[str, Any]]:
     """Reread one materialized baseline group from database authority."""
     from yoke_core.domain import db_backend
@@ -52,7 +53,12 @@ def baseline_group_cases(
         ),
     ).fetchall()
     cases = [
-        get_case_execution_context(conn, requirement_id=int(row[0])) for row in rows
+        get_case_execution_context(
+            conn,
+            requirement_id=int(row[0]),
+            host_capability_kinds=host_capability_kinds,
+        )
+        for row in rows
     ]
     anchor_id = int(anchor["requirement_id"])
     if not cases or anchor_id not in {int(case["requirement_id"]) for case in cases}:

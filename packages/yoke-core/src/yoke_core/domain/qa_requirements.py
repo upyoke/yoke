@@ -31,6 +31,10 @@ from yoke_core.domain.qa_requirement_policy_validation import (
     validate_requirement_source,
     validate_success_policy,
 )
+from yoke_core.domain.qa_method_capabilities import (
+    QaMethodCapabilityError,
+    encoded_capability_kinds,
+)
 from yoke_core.domain.qa_requirement_ops import (
     UPDATABLE_REQUIREMENT_FIELDS,
     cmd_requirement_get,
@@ -84,7 +88,7 @@ def cmd_requirement_add(
     blocking_mode: str = "blocking",
     requirement_source: str = "explicit",
     success_policy: Optional[str] = None,
-    capability_requirements: Optional[str] = None,
+    capability_requirements: Optional[list[str]] = None,
     suite_id: Optional[str] = None,
     workflow_transition_id: Optional[str] = None,
 ) -> int:
@@ -125,6 +129,14 @@ def cmd_requirement_add(
 
     _exit_policy_errors(validate_requirement_source(requirement_source))
     _exit_policy_errors(validate_success_policy(qa_kind, success_policy))
+    try:
+        capability_requirements = encoded_capability_kinds(
+            capability_requirements,
+            subject="QA requirement",
+        )
+    except QaMethodCapabilityError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(2)
 
     conn = connect(path=db_path)
     try:

@@ -129,6 +129,10 @@ def test_project_method_register_maps_the_complete_contract() -> None:
         "Report pass or fail.",
         "--evidence-contract",
         "Attach a screenshot.",
+        "--required-capability",
+        "browser-control",
+        "--required-capability",
+        "native-dialog-control",
         "--concurrency-mode",
         "serial",
         "--success-policy-params",
@@ -146,6 +150,10 @@ def test_project_method_register_maps_the_complete_contract() -> None:
         "verdict_path": "agent",
         "verdict_contract": "Report pass or fail.",
         "evidence_contract": "Attach a screenshot.",
+        "required_capability_kinds": [
+            "browser-control",
+            "native-dialog-control",
+        ],
         "concurrency_mode": "serial",
         "success_policy_params": {"minimum_score": 90},
     }

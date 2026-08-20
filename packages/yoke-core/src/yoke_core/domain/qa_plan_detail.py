@@ -11,7 +11,9 @@ from yoke_core.domain.qa_catalog_reads import (
     _attachment_rows,
     _capability_contexts,
     _outcome,
+    _required_capability_details,
 )
+from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -194,7 +196,9 @@ def _review_state(
     return {
         "state": state,
         "capture_runner": (
-            performed_by if performed_by in {"browser_substrate", "host_control"} else None
+            performed_by
+            if performed_by in {"browser_substrate", "host_control"}
+            else None
         ),
         "review_runner": (
             performed_by if performed_by in {"agent", "human_review"} else None
@@ -248,7 +252,7 @@ def get_plan(
     case_rows = query_rows(
         conn,
         "SELECT c.*, m.name AS method_name, m.runner_id, "
-        "m.required_capability_kind, m.verdict_path "
+        "m.required_capability_kinds, m.verdict_path "
         "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
         f"WHERE c.plan_id={marker} ORDER BY c.position",
         (int(plan_id),),
@@ -256,7 +260,14 @@ def get_plan(
     capability_contexts = _capability_contexts(
         conn,
         project_id=int(row["project_id"]),
-        capability_kinds={case["required_capability_kind"] for case in case_rows},
+        capability_kinds={
+            kind
+            for case in case_rows
+            for kind in capability_kinds(
+                case["required_capability_kinds"],
+                subject=f"method {case['method_id']!r}",
+            )
+        },
     )
     cases = []
     proofs = []
@@ -272,8 +283,10 @@ def get_plan(
             )
             for host_baseline in (host_baselines or [None])
         ]
-        capability_kind = case["required_capability_kind"]
-        capability_context = dict(capability_contexts[capability_kind])
+        required_kinds = capability_kinds(
+            case["required_capability_kinds"],
+            subject=f"method {case['method_id']!r}",
+        )
         case_detail = {
             "id": int(case["id"]),
             "case_key": str(case["case_key"]),
@@ -281,9 +294,11 @@ def get_plan(
             "method_id": str(case["method_id"]),
             "method_name": str(case["method_name"]),
             "runner_id": str(case["runner_id"]),
-            "required_capability_kind": capability_kind,
-            "capability_state": capability_context["state"],
-            "capability_context": capability_context,
+            "required_capability_kinds": list(required_kinds),
+            "required_capabilities": _required_capability_details(
+                required_kinds,
+                capability_contexts,
+            ),
             "verdict_path": str(case["verdict_path"]),
             "instructions": str(case["instructions"]),
             "expected_outcome": str(case["expected_outcome"]),

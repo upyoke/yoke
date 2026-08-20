@@ -14,7 +14,8 @@ def _row_count(conn, table: str) -> int:
 
 
 def test_boot_converges_supporting_schema_and_code_owned_seeds(
-    test_db, monkeypatch,
+    test_db,
+    monkeypatch,
 ) -> None:
     monkeypatch.setenv(RESTORE_POINT_ENV, "workflow-schema-test-snapshot")
     converge_core_schema(test_db)
@@ -44,7 +45,6 @@ def test_boot_converges_supporting_schema_and_code_owned_seeds(
         ("qa_requirements", "required_completion"),
         ("qa_requirements", "method_name"),
         ("qa_requirements", "runner_id"),
-        ("qa_requirements", "required_capability_kind"),
         ("qa_requirements", "verdict_path"),
         ("qa_requirements", "workflow_transition_id"),
         ("qa_runs", "case_outcome"),

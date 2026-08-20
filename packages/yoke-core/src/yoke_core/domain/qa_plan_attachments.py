@@ -184,13 +184,17 @@ def materialize_for_item(
         )
         if existing_ids:
             snapshots[plan_id] = (
-                plan, attachment, [], existing_ids, execution_target,
+                plan,
+                attachment,
+                [],
+                existing_ids,
+                execution_target,
             )
             continue
         cases = query_rows(
             conn,
             "SELECT c.*, m.name AS method_name, m.runner_id, "
-            "m.required_capability_kind, m.verdict_path, m.config_contract_id "
+            "m.required_capability_kinds, m.verdict_path, m.config_contract_id "
             "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
             f"WHERE c.plan_id={marker} ORDER BY c.position",
             (plan_id,),
@@ -202,7 +206,11 @@ def materialize_for_item(
         snapshots[plan_id] = (plan, attachment, cases, [], execution_target)
 
     for plan_id, (
-        plan, attachment, cases, existing_ids, execution_target,
+        plan,
+        attachment,
+        cases,
+        existing_ids,
+        execution_target,
     ) in snapshots.items():
         if existing_ids:
             existing.extend(existing_ids)
@@ -239,9 +247,7 @@ def materialize_for_item(
                             conn,
                             requirement_id=requirement_id,
                             execution_target=execution_target,
-                            subject=(
-                                f"item {item_id} transition {transition_id!r}"
-                            ),
+                            subject=(f"item {item_id} transition {transition_id!r}"),
                         )
                     )
     if commit:

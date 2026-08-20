@@ -13,6 +13,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.machine_qa_capability import lease_key
 from yoke_core.domain.machine_qa_host_registrar import host_registrations
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.qa_method_capabilities import capability_kinds
 
 
 def read_test_machine_facts(
@@ -64,8 +65,12 @@ def read_test_machine_facts(
     }
     required_columns = {
         "work_claims": (
-            "id", "session_id", "target_kind", "item_id",
-            "claimed_at", "released_at",
+            "id",
+            "session_id",
+            "target_kind",
+            "item_id",
+            "claimed_at",
+            "released_at",
         ),
         "items": ("id", "project_id", "project_sequence"),
         "projects": ("id", "slug", "public_item_prefix"),
@@ -105,14 +110,20 @@ def read_test_machine_facts(
             project_id: refs_by_session.get(session_id)
             for project_id, session_id in active_sessions.items()
         }
-    count_row = None
+    method_count = 0
     if _table_exists(conn, "qa_methods"):
-        count_row = conn.execute(
-            "SELECT COUNT(*) FROM qa_methods "
-            f"WHERE required_capability_kind={marker}",
-            (TEST_MACHINE_CAPABILITY,),
-        ).fetchone()
-    return verification, active_items, int(count_row[0] if count_row else 0)
+        methods = conn.execute(
+            "SELECT id,required_capability_kinds FROM qa_methods"
+        ).fetchall()
+        method_count = sum(
+            TEST_MACHINE_CAPABILITY
+            in capability_kinds(
+                row["required_capability_kinds"],
+                subject=f"method {row['id']!r}",
+            )
+            for row in methods
+        )
+    return verification, active_items, method_count
 
 
 __all__ = ["read_test_machine_facts"]

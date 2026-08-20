@@ -104,6 +104,11 @@ def _configure_method_register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--verdict-contract", required=True)
     parser.add_argument("--evidence-contract", required=True)
     parser.add_argument(
+        "--required-capability",
+        dest="required_capability_kinds",
+        action="append",
+    )
+    parser.add_argument(
         "--concurrency-mode",
         choices=("parallel", "serial"),
         default="parallel",
@@ -117,6 +122,7 @@ def qa_method_register(args: List[str]) -> int:
         "--description TEXT --runner worktree_run|browser_substrate "
         "--verdict-path automatic|agent --verdict-contract TEXT "
         "--evidence-contract TEXT [--concurrency-mode parallel|serial] "
+        "[--required-capability KIND ...] "
         "[--success-policy-params JSON] [--json]"
     )
 
@@ -132,6 +138,7 @@ def qa_method_register(args: List[str]) -> int:
             "verdict_path": parsed.verdict_path,
             "verdict_contract": parsed.verdict_contract,
             "evidence_contract": parsed.evidence_contract,
+            "required_capability_kinds": parsed.required_capability_kinds,
             "concurrency_mode": parsed.concurrency_mode,
             "success_policy_params": policy,
         }

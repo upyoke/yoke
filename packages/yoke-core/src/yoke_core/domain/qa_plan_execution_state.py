@@ -99,11 +99,20 @@ def begin_plan_execution(
         )
     if item_id is not None:
         lock_item_workflow_bindings(conn, (int(item_id),))
+    from yoke_core.domain.qa_case_execution_context import (
+        execution_host_capability_kinds,
+    )
+
+    host_capabilities = execution_host_capability_kinds(
+        conn,
+        session_id=session_id,
+    )
     roster = build_execution_roster(
         conn,
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
+        host_capability_kinds=host_capabilities,
     )
     digest = roster_digest(roster)
     execution_target, execution_target_digest = execution_target_for_roster(roster)
@@ -136,6 +145,7 @@ def begin_plan_execution(
                 item_id=item_id,
                 transition_id=transition_id,
                 deployment_run_id=deployment_run_id,
+                host_capability_kinds=host_capabilities,
             )
             digest = roster_digest(roster)
             execution_target, execution_target_digest = execution_target_for_roster(

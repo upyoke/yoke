@@ -31,11 +31,16 @@ from yoke_core.domain.qa_constants import (
     _pipe_row,
 )
 from yoke_core.domain.qa_events import emit_qa_requirement_event
+from yoke_core.domain.qa_method_capabilities import (
+    QaMethodCapabilityError,
+    encoded_capability_kinds,
+)
 
 
 # ---------------------------------------------------------------------------
 # requirement-list
 # ---------------------------------------------------------------------------
+
 
 def cmd_requirement_list(
     *,
@@ -59,7 +64,11 @@ def cmd_requirement_list(
             where = "deployment_run_id = %s"
             params.append(deployment_run_id)
 
-        rows = query_rows(conn, f"SELECT {_REQ_SELECT} FROM qa_requirements WHERE {where} ORDER BY id", tuple(params))
+        rows = query_rows(
+            conn,
+            f"SELECT {_REQ_SELECT} FROM qa_requirements WHERE {where} ORDER BY id",
+            tuple(params),
+        )
     finally:
         conn.close()
 
@@ -75,6 +84,7 @@ def cmd_requirement_list(
 # requirement-get
 # ---------------------------------------------------------------------------
 
+
 def cmd_requirement_get(
     req_id: int,
     *,
@@ -87,7 +97,9 @@ def cmd_requirement_get(
 
     conn = connect(path=db_path)
     try:
-        row = query_one(conn, f"SELECT {_REQ_SELECT} FROM qa_requirements WHERE id = %s", (req_id,))
+        row = query_one(
+            conn, f"SELECT {_REQ_SELECT} FROM qa_requirements WHERE id = %s", (req_id,)
+        )
     finally:
         conn.close()
 
@@ -103,6 +115,7 @@ def cmd_requirement_get(
 # ---------------------------------------------------------------------------
 # requirement-waive
 # ---------------------------------------------------------------------------
+
 
 def waive_requirement(
     conn,
@@ -164,7 +177,10 @@ def cmd_requirement_waive(
 ) -> None:
     """Waive a requirement. Validates blocking mode and records rationale."""
     if req_id is None or not rationale:
-        print("Usage: qa requirement-waive <id> <rationale> [--source operator|agent] [--force]", file=sys.stderr)
+        print(
+            "Usage: qa requirement-waive <id> <rationale> [--source operator|agent] [--force]",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     conn = connect(path=db_path)
@@ -285,6 +301,12 @@ def cmd_requirement_update(
             )
             sys.exit(2)
         value = normalized
+    if field == "capability_requirements":
+        try:
+            value = encoded_capability_kinds(value, subject="QA requirement")
+        except QaMethodCapabilityError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(2)
 
     conn = connect(path=db_path)
     try:

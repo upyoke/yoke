@@ -11,6 +11,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.pack_catalog import load_pack_descriptor, packs_root
 from yoke_core.domain.qa_catalog_schema import ensure_qa_method_metadata_columns
+from yoke_core.domain.qa_method_capabilities import capability_kinds
 
 
 MACHINE_QA_PACK = "machine-qa"
@@ -20,7 +21,7 @@ _METHOD_KEYS = frozenset(
         "name",
         "description",
         "runner_id",
-        "required_capability_kind",
+        "required_capability_kinds",
         "verdict_path",
         "verdict_contract",
         "evidence_contract",
@@ -37,32 +38,6 @@ _METHOD_METADATA_KEYS = frozenset(
         "runner_gloss",
     }
 )
-_LEGACY_METHOD_METADATA = {
-    "terminal-check": (
-        "⌨",
-        50,
-        "Machine",
-        "terminal-check",
-        "terminal-check",
-        "SSH + PTY on the capability-named machine",
-    ),
-    "terminal-inspection": (
-        "⌘",
-        60,
-        "Machine",
-        "terminal-inspection",
-        "terminal-inspection",
-        "SSH + PTY on the capability-named machine",
-    ),
-    "machine-state-check": (
-        "≡",
-        70,
-        "Machine",
-        "machine-state-check",
-        "machine-state-check",
-        "shell assertions on the controlled host",
-    ),
-}
 _METHOD_ID = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 
 
@@ -95,13 +70,22 @@ def _definition_path(
     return path
 
 
-def _method(raw: Any, *, schema: int) -> dict[str, Any]:
-    expected_keys = _METHOD_KEYS | (_METHOD_METADATA_KEYS if schema >= 2 else set())
+def _method(raw: Any) -> dict[str, Any]:
+    expected_keys = _METHOD_KEYS | _METHOD_METADATA_KEYS
     if not isinstance(raw, dict) or set(raw) != expected_keys:
         raise MachineQaPackError(
             "machine-qa methods require the complete registered contract"
         )
-    row: dict[str, Any] = {key: str(raw[key] or "").strip() for key in _METHOD_KEYS}
+    row: dict[str, Any] = {
+        key: str(raw[key] or "").strip()
+        for key in _METHOD_KEYS - {"required_capability_kinds"}
+    }
+    row["required_capability_kinds"] = list(
+        capability_kinds(
+            raw["required_capability_kinds"],
+            subject=f"machine-qa method {row['id']!r}",
+        )
+    )
     if not _METHOD_ID.fullmatch(row["id"]):
         raise MachineQaPackError("machine-qa method id is invalid")
     for key in (
@@ -116,7 +100,7 @@ def _method(raw: Any, *, schema: int) -> dict[str, Any]:
         raise MachineQaPackError(
             f"machine-qa method {row['id']} must select host_control"
         )
-    if row["required_capability_kind"] != "test-machine":
+    if "test-machine" not in row["required_capability_kinds"]:
         raise MachineQaPackError(
             f"machine-qa method {row['id']} must require test-machine"
         )
@@ -126,36 +110,18 @@ def _method(raw: Any, *, schema: int) -> dict[str, Any]:
         )
     if row["concurrency_mode"] != "serial":
         raise MachineQaPackError(f"machine-qa method {row['id']} must be serial")
-    if schema >= 2:
-        row.update(
-            {
-                key: str(raw[key] or "").strip()
-                for key in _METHOD_METADATA_KEYS - {"display_order"}
-            }
+    row.update(
+        {
+            key: str(raw[key] or "").strip()
+            for key in _METHOD_METADATA_KEYS - {"display_order"}
+        }
+    )
+    display_order = raw["display_order"]
+    if isinstance(display_order, bool) or not isinstance(display_order, int):
+        raise MachineQaPackError(
+            f"machine-qa method {row['id']} display_order must be an integer"
         )
-        display_order = raw["display_order"]
-        if isinstance(display_order, bool) or not isinstance(display_order, int):
-            raise MachineQaPackError(
-                f"machine-qa method {row['id']} display_order must be an integer"
-            )
-        row["display_order"] = display_order
-    else:
-        metadata = _LEGACY_METHOD_METADATA[row["id"]]
-        row.update(
-            dict(
-                zip(
-                    (
-                        "display_icon",
-                        "display_order",
-                        "display_group",
-                        "config_contract_id",
-                        "proof_kind",
-                        "runner_gloss",
-                    ),
-                    metadata,
-                )
-            )
-        )
+    row["display_order"] = display_order
     return row
 
 
@@ -175,13 +141,12 @@ def load_machine_qa_methods(
         raise MachineQaPackError(
             "machine-qa method definitions are unreadable"
         ) from exc
-    if not isinstance(payload, dict) or payload.get("schema") not in {1, 2}:
-        raise MachineQaPackError("machine-qa method definitions require schema 1 or 2")
+    if not isinstance(payload, dict) or payload.get("schema") != 3:
+        raise MachineQaPackError("machine-qa method definitions require schema 3")
     methods = payload.get("methods")
     if not isinstance(methods, list) or not methods:
         raise MachineQaPackError("machine-qa method definitions are empty")
-    schema = int(payload["schema"])
-    rows = [_method(raw, schema=schema) for raw in methods]
+    rows = [_method(raw) for raw in methods]
     ids = [row["id"] for row in rows]
     if len(ids) != len(set(ids)):
         raise MachineQaPackError("machine-qa method ids must be unique")
@@ -206,7 +171,7 @@ def sync_machine_qa_pack_methods(
         "source_ref",
         "project_id",
         "runner_id",
-        "required_capability_kind",
+        "required_capability_kinds",
         "verdict_path",
         "verdict_contract",
         "evidence_contract",
@@ -243,7 +208,7 @@ def sync_machine_qa_pack_methods(
                 MACHINE_QA_PACK,
                 None,
                 method["runner_id"],
-                method["required_capability_kind"],
+                json.dumps(method["required_capability_kinds"], sort_keys=True),
                 method["verdict_path"],
                 method["verdict_contract"],
                 method["evidence_contract"],
