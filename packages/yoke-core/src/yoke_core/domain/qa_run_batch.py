@@ -45,8 +45,8 @@ def cmd_run_add_batch(
     """Insert multiple qa_run rows in one transaction. Returns list of new IDs.
 
     The JSON file must contain an array of objects with the same fields as
-    run-add: requirement_id, performed_by, qa_kind, verdict, score,
-    confidence, raw_result, duration_ms, artifact_path.
+    run-add: requirement_id, performed_by, qa_kind, verdict, verdict_reason,
+    score, confidence, raw_result, duration_ms, artifact_path.
 
     Rolls back the entire batch if any row fails validation.
     Emits per-row QA lifecycle events.
