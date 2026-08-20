@@ -8,6 +8,7 @@ import shlex
 from pathlib import Path
 from typing import List, Optional, Sequence
 
+from yoke_core.domain import lint_lane_main_write_derivation as derivation
 from yoke_core.domain.file_line_check import classify_path
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, SUPPRESSION_TOKEN
 from yoke_core.domain.lint_session_cwd_path_authority import (
@@ -277,31 +278,37 @@ def collect_main_write_targets(
     fallback_cwd: str,
     claims: Sequence[ClaimedWorktree],
     repo_roots: Sequence[str],
-) -> list[tuple[str, ClaimedWorktree]]:
-    """Return ``(main_target, claim)`` pairs that should be refused.
+) -> list[derivation.MainWriteHit]:
+    """Return the refusable targets plus the derivation behind each one.
 
     Cwd alone is never a write target. Fallback to cwd only when a real
-    Bash write shape has no extractable path (relative ``touch file``).
+    Bash write shape has no extractable path (relative ``touch file``);
+    the hit records that fallback so the refusal can name it instead of
+    presenting cwd as a path the call itself asked for.
     """
     if not is_write_operation(tool_name, payload):
         return []
 
     analysis = analyze_payload_write_targets(payload)
     raw_targets = list(analysis.targets)
+    fell_back_to_cwd = False
     if (
         not raw_targets
         and not analysis.unresolved_variable
         and tool_name == "Bash"
         and fallback_cwd.strip()
     ):
-        # Genuine write verb / redirect with no absolute extractable path
-        # (relative targets): the write lands under the harness cwd. A body
-        # whose only write operand was an unresolvable variable is excluded
-        # — cwd would answer for a path we already established we cannot
-        # resolve.
+        # A body whose only write operand was an unresolvable variable is
+        # excluded — cwd would answer for a path we already established we
+        # cannot resolve.
         raw_targets = [fallback_cwd]
+        fell_back_to_cwd = True
 
-    hits: list[tuple[str, ClaimedWorktree]] = []
+    context = derivation.derivation_context(
+        fallback_cwd, is_write_tool_name(tool_name), fell_back_to_cwd,
+        analysis.unresolved_writes,
+    )
+    hits: list[derivation.MainWriteHit] = []
     seen: set[str] = set()
     for raw in raw_targets:
         if not isinstance(raw, str) or not raw.strip():
@@ -320,7 +327,7 @@ def collect_main_write_targets(
         if display in seen:
             continue
         seen.add(display)
-        hits.append((display, claim))
+        hits.append(derivation.build_hit(display, claim, raw, root, context))
     return hits
 
 

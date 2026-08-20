@@ -6,6 +6,7 @@ import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.lint_lane_main_write_derivation import TargetDerivation
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.domain.session_staleness import activity_is_stale
 
@@ -56,12 +57,25 @@ def _emit(
         pass
 
 
+def _derivation_context(derivation: Optional[TargetDerivation]) -> dict:
+    """Render the derivation for an audit envelope, or nothing."""
+    if derivation is None:
+        return {}
+    return {
+        "derivation_source": derivation.source,
+        "derivation_token": derivation.token,
+        "derivation_working_directory": derivation.working_directory,
+        "unresolved_writes": list(derivation.unresolved_writes),
+    }
+
+
 def emit_escape_used(
     *,
     session_id: str,
     attempted_path: str,
     lane_path: str,
     item_id: int,
+    derivation: Optional[TargetDerivation] = None,
 ) -> None:
     """Record deliberate main-targeted work while a lane is held."""
     _emit(
@@ -72,6 +86,7 @@ def emit_escape_used(
             "lane_path": lane_path,
             "item_id": int(item_id),
             "escape_token": "# lint:allow-lane-main-write",
+            **_derivation_context(derivation),
         },
         session_id=session_id,
         item_id=int(item_id),
@@ -88,6 +103,7 @@ def emit_denied(
     item_id: int,
     mode: str,
     suppression_attempted: bool,
+    derivation: Optional[TargetDerivation] = None,
 ) -> None:
     outcome = "suppression_attempted" if suppression_attempted else "blocked"
     _emit(
@@ -100,6 +116,7 @@ def emit_denied(
             "item_id": int(item_id),
             "mode": mode,
             "failure_class": "lane_main_write",
+            **_derivation_context(derivation),
         },
         session_id=session_id,
         item_id=int(item_id),

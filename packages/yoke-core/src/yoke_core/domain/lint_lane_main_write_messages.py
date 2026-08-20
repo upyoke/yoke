@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.lint_lane_main_write_derivation import (
+    TargetDerivation,
+    format_derivation,
+    format_derivation_guidance,
+)
 
 RULE_ID = "lint-lane-main-write"
 SUPPRESSION_TOKEN = "# lint:no-lane-main-write-check"
@@ -18,8 +25,15 @@ def format_denial(
     mode: str,
     suppression_seen: bool,
     config_note: str = "",
+    derivation: Optional[TargetDerivation] = None,
 ) -> str:
-    """Render the refusal body naming lane, attempted path, and in-lane repair."""
+    """Render the refusal, showing how the refused path was derived.
+
+    The derivation block is what makes the refusal reproducible: it names
+    the token the guard read, where that token came from, and how it
+    resolved into the main checkout. A refusal that fell back to the
+    working directory says so, because the operator's next move differs.
+    """
     config_line = f"\n{config_note}" if config_note else ""
     suffix = ""
     if mode == "warn":
@@ -29,16 +43,26 @@ def format_denial(
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."
         )
+    derivation_block = ""
+    guidance = (
+        "While this session holds an implementation-lane work claim, tracked "
+        "source edits belong in the lane worktree — not the main checkout. "
+        "Copy the in-lane path above into your Edit/Write/Bash call."
+    )
+    if derivation is not None:
+        derivation_block = format_derivation(
+            derivation, attempted_path=attempted_path,
+        ) + "\n"
+        guidance = format_derivation_guidance(derivation)
     body = (
         "BLOCKED: source write to the main checkout while an implementation "
         "lane is held.\n\n"
         f"Held lane:     {item_label}\n"
         f"Lane path:     {lane_path}\n"
+        f"{derivation_block}"
         f"Attempted:     {attempted_path}\n"
         f"Use instead:   {lane_equivalent}\n\n"
-        "While this session holds an implementation-lane work claim, tracked "
-        "source edits belong in the lane worktree — not the main checkout. "
-        "Copy the in-lane path above into your Edit/Write/Bash call.\n\n"
+        f"{guidance}\n\n"
         f"Deliberate main-targeted work: add `{ESCAPE_TOKEN}` to the command "
         "or tool call body (records an audit event; use only when main is "
         "intentionally the write target)."
