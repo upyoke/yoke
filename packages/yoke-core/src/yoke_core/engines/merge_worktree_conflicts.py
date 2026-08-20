@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
 
-from yoke_core.domain.project_scratch_dir import scratch_subdir
 from yoke_core.engines.merge_worktree_prepare import ConflictInfo, MergeContext
+from yoke_core.engines.merge_worktree_union import (
+    compute_union_merge,
+    union_is_safe,
+    union_rejection,
+)
 
 
 def _parent():
@@ -78,7 +81,11 @@ def is_additive_conflict(filepath: str, cwd: str) -> bool:
     if not ours_added and not theirs_added:
         return False
 
-    return True
+    # Additive line-wise is not the same as safe to union. A structured file
+    # whose two sides added the same key unions into a document with the key
+    # twice, which is a classification fact: such a conflict needs agent
+    # judgement, and saying so here is what keeps the trial merge honest.
+    return union_is_safe(filepath, cwd, _run_git)
 
 
 def resolve_conflict(info: ConflictInfo, ctx: MergeContext) -> bool:
@@ -119,55 +126,20 @@ def _resolve_additive_conflict(filepath: str, cwd: str) -> bool:
     _run_git = mw._run_git
     _print = mw._print
 
-    with scratch_subdir(prefix="merge-additive") as tmpdir:
-        base_path = os.path.join(tmpdir, "base")
-        ours_path = os.path.join(tmpdir, "ours")
-        theirs_path = os.path.join(tmpdir, "theirs")
+    union = compute_union_merge(filepath, cwd, _run_git)
+    if union is None:
+        return False
 
-        base = _run_git(["show", f":1:{filepath}"], cwd=cwd, capture=True)
-        ours = _run_git(["show", f":2:{filepath}"], cwd=cwd, capture=True)
-        theirs = _run_git(["show", f":3:{filepath}"], cwd=cwd, capture=True)
+    rejection = union_rejection(filepath, union)
+    if rejection is not None:
+        _print(f"  Additive resolver: {rejection} — aborting for {filepath}")
+        return False
 
-        if any(r.returncode != 0 for r in (base, ours, theirs)):
-            return False
-
-        Path(base_path).write_text(base.stdout)
-        Path(ours_path).write_text(ours.stdout)
-        Path(theirs_path).write_text(theirs.stdout)
-
-        # git merge-file --union modifies ours_path in-place
-        subprocess.run(
-            ["git", "merge-file", "--union", ours_path, base_path, theirs_path],
-            capture_output=True, text=True,
-        )
-
-        result_text = Path(ours_path).read_text()
-
-        # Safety: check for conflict markers
-        for marker in ("<<<<<<< ", "=======", ">>>>>>> "):
-            if marker in result_text:
-                _print(f"  Additive resolver: conflict markers remain — aborting for {filepath}")
-                return False
-
-        # Verify content preservation
-        ours_orig = ours.stdout
-        theirs_orig = theirs.stdout
-        base_orig = base.stdout
-        base_set = set(base_orig.splitlines())
-
-        for source, label in [(ours_orig, "ours"), (theirs_orig, "theirs")]:
-            for line in source.splitlines():
-                if line.strip() and line not in base_set:
-                    if line not in result_text:
-                        _print(f"  Additive resolver: content from {label} lost — aborting for {filepath}")
-                        return False
-
-        # Apply resolved content
-        target = os.path.join(cwd, filepath)
-        Path(target).write_text(result_text)
-        _run_git(["add", filepath], cwd=cwd, capture=True)
-        _print(f"Auto-resolving additive conflict: {filepath} (both sides preserved via union merge)")
-        return True
+    target = os.path.join(cwd, filepath)
+    Path(target).write_text(union.text)
+    _run_git(["add", filepath], cwd=cwd, capture=True)
+    _print(f"Auto-resolving additive conflict: {filepath} (both sides preserved via union merge)")
+    return True
 
 
 def auto_resolve_conflicts(ctx: MergeContext) -> Tuple[int, list[ConflictInfo]]:

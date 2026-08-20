@@ -276,3 +276,75 @@ class TestAdditiveConflictResolution:
         assert '"target"' in integrated
         assert _git(repo, "rev-parse", "main").stdout.strip() == target_before
         assert _git(repo, "rev-parse", "origin/main").stdout.strip() == origin_before
+
+
+class TestUnionMustProduceAValidDocument:
+    """Additive line-wise is not the same as safe to union.
+
+    Both sides adding the same mapping key to a YAML file is the ordinary case
+    where union merging is unsound: it keeps both copies, and the result is a
+    document its own consumer rejects. One instance committed a workflow with
+    duplicated keys, and GitHub refused it with a 422 ten minutes later at a
+    dispatch pointing nowhere near the merge.
+    """
+
+    WORKFLOW = ".github/workflows/shared-dispatch.yml"
+
+    def _both_sides_append(
+        self, merge_env: MergeEnv, branch_block: str, main_block: str
+    ) -> None:
+        repo, wt = merge_env.repo, merge_env.worktree
+        _write_file(
+            repo / self.WORKFLOW,
+            "on:\n  workflow_dispatch:\n    inputs:\n"
+            "      existing_input:\n        description: already here\n",
+        )
+        _git(repo, "add", self.WORKFLOW)
+        _git(repo, "commit", "-m", "add shared dispatch workflow")
+        _git(repo, "push", "origin", "main")
+        _git(wt, "pull", "origin", "main", "--rebase")
+
+        with open(wt / self.WORKFLOW, "a") as handle:
+            handle.write(branch_block)
+        _git(wt, "add", self.WORKFLOW)
+        _git(wt, "commit", "-m", "branch adds an input")
+        _git(wt, "push", "origin", TEST_BRANCH, "--force")
+
+        with open(repo / self.WORKFLOW, "a") as handle:
+            handle.write(main_block)
+        _git(repo, "add", self.WORKFLOW)
+        _git(repo, "commit", "-m", "main adds an input")
+        _git(repo, "push", "origin", "main")
+
+    def test_same_key_on_both_sides_is_not_auto_resolved(
+        self, merge_env: MergeEnv
+    ) -> None:
+        self._both_sides_append(
+            merge_env,
+            "      dispatch_id:\n        description: dispatch correlation id\n"
+            "        required: true\n",
+            "      dispatch_id:\n        description: correlation id\n"
+            "        required: false\n",
+        )
+
+        result = run_merge(merge_env)
+
+        assert result.exit_code == 3
+        assert f"CONFLICT|{self.WORKFLOW}|overlapping" in result.stderr
+        assert "real branch is untouched" in result.stderr
+
+    def test_different_keys_on_both_sides_still_auto_resolve(
+        self, merge_env: MergeEnv
+    ) -> None:
+        # The union stays a valid document here, so the check must not turn
+        # every structured file into a refusal.
+        self._both_sides_append(
+            merge_env,
+            "      branch_input:\n        description: from the branch\n",
+            "      main_input:\n        description: from main\n",
+        )
+
+        result = run_merge(merge_env)
+
+        assert result.exit_code == 0
+        assert "additive" in result.stdout.lower()

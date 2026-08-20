@@ -15,9 +15,9 @@ CONFLICT|path/to/test.sh|overlapping (needs agent judgement)
 
 Classifications:
 - **generated (auto)** / **doc (auto)** / **yoke-gen (auto)** — script auto-resolves these
-- **additive (auto)** — both sides only added lines (no deletions from base); script auto-resolves via union merge
+- **additive (auto)** — both sides only added lines (no deletions from base) AND the union of those additions is still something the file's own format accepts; script auto-resolves via union merge
 - **doc (branch-modified, manual)** — doc file intentionally changed on the branch; review needed
-- **overlapping (needs agent judgement)** — conflicting edits that are not provably additive; the agent should inspect and resolve
+- **overlapping (needs agent judgement)** — conflicting edits that are not provably additive, or whose union would not be a valid document — two sides adding the same key to a YAML, JSON, or TOML file union into one that repeats the key, which the file's real consumer rejects; the agent should inspect and resolve
 
 **Agent resolution flow (exit code 3):**
 
