@@ -107,6 +107,7 @@ def make_bundle(
         "yoke_version": "9.9.9",
         "project_id": 7,
         "project_slug": "demo",
+        "default_branch": "main",
         "files": DEFAULT_FILES if files is None else files,
         "project_contract_files": (
             DEFAULT_CONTRACT_FILES if contract is None else contract

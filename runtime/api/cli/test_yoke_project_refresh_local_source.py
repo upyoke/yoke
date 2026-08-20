@@ -141,7 +141,7 @@ def test_apply_then_second_run_is_idempotent(
     args = [
         "project", "refresh", str(target),
         "--source-checkout", str(REPO_ROOT),
-        "--project-id", "42", "--apply", "--json",
+        "--project-id", "42", "--force", "--no-commit", "--apply", "--json",
     ]
 
     assert cli_main(args) == 0
@@ -173,7 +173,7 @@ def test_preview_reports_non_file_convergence_when_source_files_unchanged(
         "--source-checkout", str(REPO_ROOT),
         "--project-id", "49", "--json",
     ]
-    assert cli_main([*base[:-1], "--apply", "--json"]) == 0
+    assert cli_main([*base[:-1], "--force", "--no-commit", "--apply", "--json"]) == 0
     capsys.readouterr()
 
     settings_path = target / ".claude/settings.json"
@@ -200,7 +200,7 @@ def test_preview_reports_non_file_convergence_when_source_files_unchanged(
     assert preview["git_hooks_would_install_or_update"] == 1
     assert preview["worktrees_ignore"]["would_add"] is True
 
-    assert cli_main([*base[:-1], "--apply", "--json"]) == 0
+    assert cli_main([*base[:-1], "--force", "--no-commit", "--apply", "--json"]) == 0
     capsys.readouterr()
     assert pre_commit.read_text(encoding="utf-8") == (
         git_hooks_layer.PRE_COMMIT_SHIM
@@ -218,7 +218,7 @@ def test_apply_requires_manifest_lineage_before_writes(
     rc = cli_main([
         "project", "refresh", str(target),
         "--source-checkout", str(REPO_ROOT),
-        "--project-id", "45", "--apply", "--json",
+        "--project-id", "45", "--force", "--no-commit", "--apply", "--json",
     ])
 
     assert rc == 1
@@ -237,7 +237,7 @@ def test_manifest_transfer_prunes_dropped_file_in_linked_checkout(
     base_args = [
         "project", "refresh", str(main_checkout),
         "--source-checkout", str(REPO_ROOT),
-        "--project-id", "43", "--apply", "--json",
+        "--project-id", "43", "--force", "--no-commit", "--apply", "--json",
     ]
     assert cli_main(base_args) == 0
     capsys.readouterr()
@@ -261,7 +261,7 @@ def test_manifest_transfer_prunes_dropped_file_in_linked_checkout(
         "project", "refresh", str(linked_checkout),
         "--source-checkout", str(REPO_ROOT),
         "--manifest-from", str(manifest_path),
-        "--apply", "--json",
+        "--force", "--no-commit", "--apply", "--json",
     ])
 
     assert rc == 0
@@ -332,7 +332,7 @@ def test_full_manifest_preserves_unrendered_workflow_and_contract(
     assert (target / workflow_rel).read_text(encoding="utf-8") == workflow_content
     assert (target / contract_rel).read_text(encoding="utf-8") == contract_content
 
-    assert cli_main([*args[:-1], "--apply", "--json"]) == 0
+    assert cli_main([*args[:-1], "--force", "--no-commit", "--apply", "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["files_preserved_unrendered"] == [workflow_rel]
     assert report["files_pruned"] == [removed_source_rel]
