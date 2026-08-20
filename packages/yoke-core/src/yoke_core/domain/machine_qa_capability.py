@@ -25,6 +25,10 @@ from yoke_core.domain.capability_type_definitions import (
 )
 from yoke_core.domain.coordination_leases import active_lease
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.machine_qa_host_registrar import (
+    assert_sole_host_registrar,
+    host_lease_project_id,
+)
 from yoke_core.domain.project_identity import (
     DEFAULT_PUBLIC_ITEM_PREFIX,
     render_item_ref,
@@ -136,11 +140,13 @@ def replace_test_machine_settings(
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
     ensure_test_machine_schema(conn)
-    canonical = json.dumps(
-        validate_test_machine_settings(settings),
-        separators=(",", ":"),
-        sort_keys=True,
+    document = validate_test_machine_settings(settings)
+    assert_sole_host_registrar(
+        conn,
+        project_id=identity.id,
+        resource_name=document["resource_name"],
     )
+    canonical = json.dumps(document, separators=(",", ":"), sort_keys=True)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT COALESCE(settings, '{}') FROM project_capabilities "
@@ -219,7 +225,12 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
         (identity.id,),
     ).fetchone()
     receipt = json.loads(str(verification[2] or "{}")) if verification else {}
-    lease = active_lease(conn, identity.id, lease_key(settings["resource_name"]))
+    resource_name = settings["resource_name"]
+    lease = active_lease(
+        conn,
+        host_lease_project_id(conn, resource_name),
+        lease_key(resource_name),
+    )
     lease_item = (
         _lease_item(conn, session_id=lease.session_id) if lease is not None else None
     )

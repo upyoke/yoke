@@ -130,6 +130,10 @@ is one of: not configured, configured (unverified), ready, in use, or error.
 Serial resources queue while in use; that does not prevent plan attachment.
 
 The Test Mac is one `test-machine` capability, not three separate resources.
+`resource_name` identifies the physical host globally: only one project may
+register a given name, and every project's run contends on the registering
+project's `QA_HOST:<resource_name>` lease, so the machine admits one
+execution at a time no matter which project or item drives it.
 Inspect, update non-secret settings, and verify it with:
 
 ```text

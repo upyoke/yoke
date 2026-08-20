@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
 import sqlite3
+
+from yoke_contracts.machine_config.capability_secrets import (
+    TEST_MACHINE_CAPABILITY,
+)
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
     FakeRemote,
@@ -290,4 +295,38 @@ def make_conn() -> sqlite3.Connection:
     return conn
 
 
-__all__ = ["FakeHostControl", "make_conn"]
+def register_test_machine(
+    conn: sqlite3.Connection,
+    *,
+    project_id: int = 1,
+    resource_name: str = "mac-mini-lab",
+    created_at: str = "2026-08-01T00:00:00Z",
+) -> None:
+    """Declare that a project operates a named physical host.
+
+    The registrar is whichever project declared the host first, so callers
+    state ``created_at`` rather than relying on wall clock ordering.
+    """
+    conn.execute(
+        "INSERT INTO project_capabilities(project_id,type,settings,created_at) "
+        "VALUES(?,?,?,?)",
+        (
+            project_id,
+            TEST_MACHINE_CAPABILITY,
+            json.dumps(
+                {
+                    "resource_name": resource_name,
+                    "host": "test-mac.local",
+                    "user": "yoke-test",
+                    "operating_notes": "Do not interrupt an active lease.",
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+            created_at,
+        ),
+    )
+    conn.commit()
+
+
+__all__ = ["FakeHostControl", "make_conn", "register_test_machine"]

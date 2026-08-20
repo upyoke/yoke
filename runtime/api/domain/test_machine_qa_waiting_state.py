@@ -43,9 +43,11 @@ def test_held_lease_becomes_structured_machine_waiting_state(
     from runtime.api.domain.machine_qa_test_support import (
         FakeHostControl,
         make_conn,
+        register_test_machine,
     )
 
     conn = make_conn()
+    register_test_machine(conn)
     now = iso8601_now()
     conn.execute(
         "INSERT INTO coordination_leases("
