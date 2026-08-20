@@ -6,10 +6,7 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.domain.advance_blocked_gate import (
-    AdvanceBlockedDecision,
-    evaluate,
-)
+from yoke_core.domain.advance_blocked_gate import evaluate
 
 
 @pytest.fixture
