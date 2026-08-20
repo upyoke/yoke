@@ -16,6 +16,8 @@ from yoke_contracts.machine_config.test_machine import (
 
 HOST_CONTROL_PROTOCOL = "host-control-v1"
 HOST_TEST_COMMAND = "/bin/test"
+GUI_SESSION_CONTEXT = "gui"
+REQUIRED_SESSION_CONTEXT_FIELD = "required_session_context"
 VERIFICATION_CHECKS = ("connection", "terminal_bridge")
 VERIFICATION_BASELINES = ("fresh-host", "shell-preconfigured")
 HostControlOperation = Literal[
@@ -236,11 +238,13 @@ def issue_execution_contract(
 
 
 __all__ = [
+    "GUI_SESSION_CONTEXT",
     "HOST_CONTROL_PROTOCOL",
     "HOST_TEST_COMMAND",
     "HostControlExecutionContract",
     "HostControlOperation",
     "MachineQaCaseContract",
+    "REQUIRED_SESSION_CONTEXT_FIELD",
     "VERIFICATION_BASELINES",
     "VERIFICATION_CHECKS",
     "execution_contract_digest",

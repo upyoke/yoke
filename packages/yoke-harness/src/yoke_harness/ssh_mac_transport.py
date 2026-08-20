@@ -12,7 +12,15 @@ from yoke_cli.config.path_doctor import (
     PathStateContract,
     resolve_path_state_contract,
 )
+from yoke_contracts.machine_qa_execution import (
+    GUI_SESSION_CONTEXT,
+    REQUIRED_SESSION_CONTEXT_FIELD,
+)
 from yoke_harness.ssh_mac_full_reset import execute_full_test_mac_reset
+from yoke_harness.ssh_mac_gui_session import (
+    classify_macos_session_context_failure,
+    run_terminal_app_command,
+)
 from yoke_harness.ssh_mac_terminal_app import (
     verify_terminal_app_control,
 )
@@ -183,6 +191,29 @@ class SshMacTransport:
             raise RuntimeError(f"host_control {surface} PATH probe failed")
         return tuple(entry for entry in result.stdout.strip().split(":") if entry)
 
+    def run_command(
+        self,
+        argv: Sequence[str],
+        *,
+        required_session_context: str | None = None,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run bounded argv through SSH or the declared GUI session."""
+        normalized = tuple(str(value) for value in argv)
+        if not normalized or any(not value for value in normalized):
+            raise ValueError("host_control command requires non-empty argv")
+        if required_session_context == GUI_SESSION_CONTEXT:
+            return run_terminal_app_command(
+                self._run,
+                argv=normalized,
+                timeout=timeout,
+            )
+        if required_session_context is not None:
+            raise ValueError(
+                f"unknown host_control session context {required_session_context!r}"
+            )
+        return self._run(shlex.join(normalized), timeout=timeout)
+
     def run_machine_assertions(
         self,
         assertions: Sequence[Mapping[str, Any]],
@@ -191,21 +222,47 @@ class SshMacTransport:
         for assertion in assertions:
             argv = [str(value) for value in assertion["argv"]]
             expected = int(assertion.get("expected_exit", 0))
-            result = self._run(" ".join(shlex.quote(value) for value in argv))
-            rows.append(
-                {
-                    "argv": argv,
-                    "expected_exit": expected,
-                    "exit_code": result.returncode,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                }
+            required_context = assertion.get(REQUIRED_SESSION_CONTEXT_FIELD)
+            result = self.run_command(
+                argv,
+                required_session_context=(
+                    str(required_context) if required_context is not None else None
+                ),
             )
-            if result.returncode != expected:
+            execution_context = required_context or "ssh"
+            context_failure = (
+                classify_macos_session_context_failure(result)
+                if result.returncode != 0
+                else None
+            )
+            row = {
+                "argv": argv,
+                "expected_exit": expected,
+                "exit_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "execution_context": execution_context,
+            }
+            if required_context is not None:
+                row[REQUIRED_SESSION_CONTEXT_FIELD] = required_context
+            if context_failure is not None:
+                row["session_context_degraded_reason"] = context_failure.reason
+            rows.append(row)
+            if context_failure is not None or result.returncode != expected:
+                evidence: dict[str, Any] = {
+                    "assertions": rows,
+                    "secret_scan": "pending-redaction",
+                }
+                if context_failure is not None:
+                    evidence["session_context_degraded_reason"] = context_failure.reason
                 return HostActionResult(
                     False,
-                    {"assertions": rows, "secret_scan": "pending-redaction"},
-                    "machine_assertion_failed",
+                    evidence,
+                    (
+                        context_failure.error_code
+                        if context_failure is not None
+                        else "machine_assertion_failed"
+                    ),
                 )
         return HostActionResult(
             True,

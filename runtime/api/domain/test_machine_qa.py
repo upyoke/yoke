@@ -40,7 +40,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 
 def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.3"
+    assert version == "1.0.4"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
@@ -69,8 +69,8 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
             "them against the expected outcome."
         ),
         "machine-state-check": (
-            "Shell assertions on the controlled host — any provisioning "
-            "or install claim."
+            "Shell assertions on the controlled host, including declared "
+            "macOS GUI-session commands."
         ),
     }
 
