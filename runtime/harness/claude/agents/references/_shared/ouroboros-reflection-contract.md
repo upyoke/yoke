@@ -18,7 +18,7 @@ Include reflections in the final response using the exact delimited block below.
 - **Outer envelope:** one `---REFLECTION-START---` line and one `---REFLECTION-END---` line per response.
 - **Each entry:** a `---BEGIN ENTRY---` line, four field-led rows (`timestamp:`, `agent:`, `context:`, `category:`) in any order, the body, and a `---END ENTRY---` line.
 - **Field rows** use lowercase keys followed by `: ` and the value. The body is every line after the last field row and before `---END ENTRY---`.
-- **`agent:`** is the agent's role name (`engineer`, `tester`, `architect`, `simulator`, `boss`, `product-manager`, or `product-designer`).
+- **`agent:`** is the agent's role name (`engineer`, `tester`, `architect`, `simulator`, `boss`, `product-manager`, `product-designer`, or `qa-walker`).
 - **`context:`** names the epic/task/PREFIX-N being worked on (e.g., `PREFIX-N task 001`, `conduct epic PREFIX-N`). Never empty.
 - **`category:`** is one of the four enum values above. Lowercase. Hyphens, not underscores. No other values.
 
@@ -48,7 +48,7 @@ Before emitting your final response, verify every entry block against this check
 - Every entry is wrapped in `---BEGIN ENTRY---` and `---END ENTRY---` (both required, one of each per entry).
 - Every entry contains all four field rows: `timestamp:`, `agent:`, `context:`, `category:`. Field keys are lowercase, followed by `: ` and the value, one per line.
 - `category:` value is one of exactly four strings: `problem`, `process-improvement`, `game-changing-idea`, `cross-agent-critique`. Lowercase. Hyphenated. Map every observation to one of these — a "friction" is a `problem`; an "idea" is either `process-improvement` or `game-changing-idea` depending on scope.
-- `agent:` value matches the dispatching role exactly (e.g., `engineer`, `tester`, `architect`, `simulator`, `boss`, `product-manager`, `product-designer`).
+- `agent:` value matches the dispatching role exactly (e.g., `engineer`, `tester`, `architect`, `simulator`, `boss`, `product-manager`, `product-designer`, `qa-walker`).
 - `context:` value names a real epic/task/PREFIX-N identifier — never empty, never a placeholder.
 - The body begins on the line immediately after the last field row. No separator line, no code fence, no blank line required.
 

@@ -96,9 +96,9 @@ def _method(raw: Any) -> dict[str, Any]:
     ):
         if not row[key]:
             raise MachineQaPackError(f"machine-qa method {row['id']} lacks {key}")
-    if row["runner_id"] != "host_control":
+    if row["runner_id"] not in {"host_control", "agent_mission"}:
         raise MachineQaPackError(
-            f"machine-qa method {row['id']} must select host_control"
+            f"machine-qa method {row['id']} has an invalid runner"
         )
     if "test-machine" not in row["required_capability_kinds"]:
         raise MachineQaPackError(
@@ -122,6 +122,14 @@ def _method(raw: Any) -> dict[str, Any]:
             f"machine-qa method {row['id']} display_order must be an integer"
         )
     row["display_order"] = display_order
+    if row["runner_id"] == "agent_mission" and (
+        row["required_capability_kinds"] != ["browser-control", "test-machine"]
+        or row["verdict_path"] != "agent"
+        or row["config_contract_id"] != "agent-mission"
+    ):
+        raise MachineQaPackError(
+            f"machine-qa mission {row['id']} requires both substrates and agent review"
+        )
     return row
 
 

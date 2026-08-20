@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+from yoke_contracts.machine_qa_execution import AGENT_MISSION_ARTIFACT_LIMIT
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import (
     connect,
     iso8601_now,
@@ -44,6 +46,43 @@ BARE_PATH_GUIDANCE = (
     '{"backend":"s3","bucket":B,"key":K} for uploaded evidence or '
     '{"backend":"local","path":P} for explicit machine-local evidence.'
 )
+
+
+class QaArtifactLimitError(ValueError):
+    """A mission run already carries its maximum deliberate proof set."""
+
+
+def ensure_artifact_capacity(conn, run_id: int | None) -> int | None:
+    """Lock a run, enforce the mission cap, and return its requirement id."""
+    if run_id is None:
+        return None
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    lock = " FOR UPDATE OF r" if db_backend.connection_is_postgres(conn) else ""
+    row = query_one(
+        conn,
+        "SELECT r.qa_requirement_id,q.runner_id FROM qa_runs r "
+        "JOIN qa_requirements q ON q.id=r.qa_requirement_id "
+        f"WHERE r.id={p}{lock}",
+        (int(run_id),),
+    )
+    if row is None:
+        return None
+    if str(row["runner_id"] or "") == "agent_mission":
+        count = query_one(
+            conn,
+            f"SELECT COUNT(*) AS artifact_count FROM qa_artifacts WHERE qa_run_id={p}",
+            (int(run_id),),
+        )
+        artifact_count = int(count["artifact_count"] if count is not None else 0)
+        if artifact_count >= AGENT_MISSION_ARTIFACT_LIMIT:
+            attempted = artifact_count + 1
+            raise QaArtifactLimitError(
+                "exploratory mission artifact limit reached for run "
+                f"{run_id}: attachment {attempted} was not added; limit is "
+                f"{AGENT_MISSION_ARTIFACT_LIMIT}. Keep only deliberate proof "
+                "of findings."
+            )
+    return int(row["qa_requirement_id"])
 
 
 def linked_artifact_handle(
@@ -144,6 +183,11 @@ def cmd_artifact_add(
 
     conn = connect(path=db_path)
     try:
+        try:
+            ensure_artifact_capacity(conn, run_id)
+        except QaArtifactLimitError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(2)
         cur = conn.execute(
             """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
@@ -223,3 +267,13 @@ def cmd_artifact_list(
     if not lines and item_id is not None:
         print(f"No artifacts found for item {item_id}")
     return lines
+
+
+__all__ = [
+    "BARE_PATH_GUIDANCE",
+    "QaArtifactLimitError",
+    "cmd_artifact_add",
+    "cmd_artifact_list",
+    "ensure_artifact_capacity",
+    "linked_artifact_handle",
+]

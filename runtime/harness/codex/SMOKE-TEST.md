@@ -140,7 +140,7 @@ codex app-server generate-json-schema --experimental --out "$_schema_dir"
 rg -n 'config/read|externalAgentConfig/detect|SubagentStart|SubagentStop|agent_role|agent_nickname' "$_schema_dir"
 ```
 
-Finally, run the actual Desktop registration proof. Fully quit and relaunch Codex Desktop before attempting a custom-agent spawn. On codex-cli 0.133.0 the in-app `multi_agent` spawn surface rejected `agent_type="yoke-architect"` as an unknown agent type until the app was restarted; after a clean relaunch `multi_agent_v1` advertised and spawned all seven Yoke custom agents from `.codex/agents`. Newly rendered `.codex/agents/yoke-*.toml` adapters are picked up by the spawn surface only after the relaunch.
+Finally, run the actual Desktop registration proof. Fully quit and relaunch Codex Desktop before attempting a custom-agent spawn. On codex-cli 0.133.0 the in-app `multi_agent` spawn surface rejected `agent_type="yoke-architect"` as an unknown agent type until the app was restarted; after a clean relaunch `multi_agent_v1` advertised and spawned all eight Yoke custom agents from `.codex/agents`. Newly rendered `.codex/agents/yoke-*.toml` adapters are picked up by the spawn surface only after the relaunch.
 
 Do **not** use `externalAgentConfig/detect` as registration evidence. On codex-cli 0.133.0 it reports external migration candidates, not the already-loaded custom-agent registry; it returned no subagents for the Yoke checkout even with valid `.codex/agents` symlinks. A successful `multi_agent_v1` spawn after restart is the registration proof.
 

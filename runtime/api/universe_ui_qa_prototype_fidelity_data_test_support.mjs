@@ -38,6 +38,24 @@ const machineCapabilities = {
   }],
 };
 
+const missionCapabilities = {
+  required_capability_kinds: ["browser-control", "test-machine"],
+  required_capabilities: [
+    {
+      kind: "browser-control",
+      label: "Browser control",
+      state: "ready",
+      context: { state: "ready" },
+    },
+    {
+      kind: "test-machine",
+      label: "Test Mac",
+      state: "in_use",
+      context: machineContext,
+    },
+  ],
+};
+
 export const methods = [
   {
     ...commonMethod,
@@ -126,6 +144,20 @@ export const methods = [
     verdict_path: "automatic",
     verdict_contract: "exit 0 on the host",
     evidence_contract: "assertion commands · outputs · secret scan",
+    concurrency_mode: "serial",
+  },
+  {
+    ...commonMethod,
+    id: "exploratory-mission",
+    name: "Exploratory mission",
+    source_kind: "pack",
+    source_ref: "machine-qa",
+    runner_id: "agent_mission",
+    runner_gloss: "Main-owned mission with an informed or target-naive walker",
+    ...missionCapabilities,
+    verdict_path: "agent",
+    verdict_contract: "pass, fail, or undetermined with a written rationale",
+    evidence_contract: "ranked findings plus deliberate proof artifacts",
     concurrency_mode: "serial",
   },
 ];

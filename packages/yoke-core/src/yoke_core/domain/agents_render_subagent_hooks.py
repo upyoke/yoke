@@ -16,8 +16,8 @@ orchestrator (:mod:`yoke_core.domain.agents_render`) used to inline:
 
 Single source of truth for subagent hook chains:
 
-The 5 Bash-capable canonical specs
-(``runtime/agents/{architect,boss,engineer,simulator,tester}.claude.json``)
+The 6 Bash-capable canonical specs
+(``runtime/agents/{architect,boss,engineer,qa-walker,simulator,tester}.claude.json``)
 drop their hand-authored ``hooks`` block; the composer here writes the full
 block from the universal ``HOOK_ORDERING`` registry. Each PreToolUse entry
 emits one runner command of the form
@@ -238,7 +238,7 @@ def load_claude_spec(
 ) -> dict:
     """Read ``runtime/agents/<role>.claude.json`` and inject the hooks block.
 
-    For Bash-capable subagents (5 of 7), the canonical JSON has no
+    For Bash-capable subagents (6 of 8), the canonical JSON has no
     ``hooks`` key — the composed block is injected via
     :func:`render_claude_subagent_hooks_block`. For PM/PD the canonical
     JSON's hand-authored ``hooks`` block is preserved verbatim.

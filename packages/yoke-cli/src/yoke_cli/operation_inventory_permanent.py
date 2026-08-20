@@ -122,10 +122,12 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # The case runner executes one materialized method requirement.
     _p("yoke qa case run", "qa.case", REASON_TOOL_SHAPED),
     _p("yoke qa plan run", "qa.plan", REASON_TOOL_SHAPED),
+    _p("yoke qa mission host-command", "qa.mission", REASON_TOOL_SHAPED),
     _p("yoke qa plan review-submit", "qa.plan", REASON_TOOL_SHAPED),
     _p("yoke qa plan abort", "qa.plan", REASON_TOOL_SHAPED),
     _p("yoke qa browser setup", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser screenshot", "qa.browser", REASON_TOOL_SHAPED),
+    _p("yoke qa browser step", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser status", "qa.browser", REASON_TOOL_SHAPED),
     *tuple(
         _p(f"yoke core {verb}", "core.local", REASON_TOOL_SHAPED)

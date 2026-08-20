@@ -17,6 +17,7 @@ from yoke_contracts.machine_config.test_machine import (
 HOST_CONTROL_PROTOCOL = "host-control-v1"
 HOST_TEST_COMMAND = "/bin/test"
 GUI_SESSION_CONTEXT = "gui"
+AGENT_MISSION_ARTIFACT_LIMIT = 100
 REQUIRED_SESSION_CONTEXT_FIELD = "required_session_context"
 VERIFICATION_CHECKS = ("connection", "terminal_bridge")
 VERIFICATION_BASELINES = ("fresh-host", "shell-preconfigured")
@@ -40,7 +41,7 @@ class MachineQaCaseContract(BaseModel):
     case_key: str
     method_id: str
     method_name: str
-    runner_id: Literal["host_control"]
+    runner_id: Literal["host_control", "agent_mission"]
     required_capability_kinds: list[str]
     verdict_path: str
     qa_kind: str
@@ -238,6 +239,7 @@ def issue_execution_contract(
 
 
 __all__ = [
+    "AGENT_MISSION_ARTIFACT_LIMIT",
     "GUI_SESSION_CONTEXT",
     "HOST_CONTROL_PROTOCOL",
     "HOST_TEST_COMMAND",

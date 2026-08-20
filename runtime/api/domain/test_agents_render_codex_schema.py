@@ -39,6 +39,7 @@ _EXPECTED_SANDBOX = {
     "tester": "read-only",
     "simulator": "read-only",
     "boss": "read-only",
+    "qa-walker": "read-only",
     "engineer": "workspace-write",
 }
 

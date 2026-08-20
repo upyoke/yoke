@@ -7,7 +7,7 @@ import json
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
-from yoke_cli.commands.qa_browser import qa_browser_screenshot
+from yoke_cli.commands.qa_browser import qa_browser_screenshot, qa_browser_step
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 
 
@@ -24,6 +24,15 @@ class TestTokenRouting:
         adapter, rest = resolved
         assert adapter is qa_browser_screenshot
         assert rest == ["https://x", "--output", "/tmp/a.png"]
+
+    def test_step_token_resolves(self):
+        resolved = resolve_tool_shaped(
+            ["qa", "browser", "step", "--base-url", "https://x", "--step-json", "{}"]
+        )
+        assert resolved is not None
+        adapter, rest = resolved
+        assert adapter is qa_browser_step
+        assert rest == ["--base-url", "https://x", "--step-json", "{}"]
 
 
 class TestScreenshotAdapter:
@@ -93,13 +102,56 @@ class TestScreenshotAdapter:
         assert "daemon http 500" in err
 
 
+class TestStepAdapter:
+    def _run(self, *argv: str):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            rc = qa_browser_step(list(argv))
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_invalid_step_json_is_usage_error(self):
+        rc, _out, err = self._run(
+            "--base-url", "https://x.example", "--step-json", "["
+        )
+        assert rc == 2
+        assert "invalid step JSON" in err
+
+    def test_step_passes_agent_selected_payload_and_prints_json(self):
+        captured = {}
+
+        def fake_execute(step, base_url, *, output_dir):
+            captured.update(step=step, base_url=base_url, output_dir=output_dir)
+            return {"ok": True, "url": base_url}
+
+        with patch(
+            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
+            return_value=None,
+        ), patch(
+            "yoke_harness.browser_client.execute_step",
+            side_effect=fake_execute,
+        ):
+            rc, out, _err = self._run(
+                "--base-url", "https://x.example",
+                "--step-json", '{"action":"click","selector":"#continue"}',
+                "--output-dir", "/tmp/browser-proof",
+            )
+        assert rc == 0
+        assert captured == {
+            "step": {"action": "click", "selector": "#continue"},
+            "base_url": "https://x.example",
+            "output_dir": "/tmp/browser-proof",
+        }
+        assert json.loads(out) == {"ok": True, "url": "https://x.example"}
+
+
 class TestOperationInventory:
-    def test_case_and_screenshot_tokens_are_permanent_tool_shaped(self):
+    def test_case_and_browser_tokens_are_permanent_tool_shaped(self):
         from yoke_cli import operation_inventory as inv
 
         for shell_form in (
             "yoke qa case run",
             "yoke qa browser screenshot",
+            "yoke qa browser step",
         ):
             entry = inv.lookup(shell_form)
             assert entry is not None, shell_form

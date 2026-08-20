@@ -64,7 +64,10 @@ def test_qa_packet_lists_live_qa_runs_columns() -> None:
         "execution_status",
     ):
         assert column in body, f"qa_runs column {column!r} missing from qa packet"
-    assert "execution_status` is the browser capture outcome" in body
+    assert (
+        "execution_status` is the capture-stage outcome for browser and "
+        "agent-mission runs"
+    ) in body
 
 
 def test_qa_packet_carries_canonical_unsatisfied_verification_select() -> None:

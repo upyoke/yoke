@@ -6,9 +6,11 @@ from yoke_core.domain.handlers import machine_qa as _handlers
 from yoke_core.domain.handlers import machine_qa_case as _case
 from yoke_core.domain.handlers import machine_qa_execution_abort as _abort
 from yoke_core.domain.handlers import machine_qa_plan_case as _plan_case
+from yoke_core.domain import agent_mission_recording as _agent_mission
 
 
 def register(registry) -> None:
+    _agent_mission.register(registry)
     registry.register(
         "test_machine.plan_case.begin",
         _plan_case.handle_plan_case_begin,

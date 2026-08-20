@@ -124,7 +124,90 @@ def execute_plan_machine_case(
     return result
 
 
+def execute_plan_agent_mission_case(
+    case: Mapping[str, Any],
+    *,
+    execution_id: str,
+    ordinal: int,
+    actor: ActorContext,
+) -> dict[str, Any]:
+    """Prepare one leased target and record its zero-artifact mission docket."""
+    requirement_id = int(case.get("requirement_id") or 0)
+    item_id = case.get("item_id")
+    deployment_run_id = case.get("deployment_run_id")
+    if requirement_id < 1 or bool(item_id) == bool(deployment_run_id):
+        raise MachinePlanCaseDispatchError(
+            "plan-scoped agent mission requires one subject and a requirement id"
+        )
+    target = (
+        TargetRef(kind="item", item_id=int(item_id))
+        if item_id is not None
+        else TargetRef(kind="deployment_run", deployment_run_id=str(deployment_run_id))
+    )
+    request = {
+        "execution_id": execution_id,
+        "ordinal": int(ordinal),
+        "requirement_id": requirement_id,
+    }
+    begun = _dispatch(
+        "test_machine.plan_case.begin",
+        target=target,
+        actor=actor,
+        payload=request,
+    )
+    if begun.get("state") == "waiting":
+        return {
+            "requirement_id": requirement_id,
+            "runner_id": "agent_mission",
+            "verdict": "waiting",
+            "case_outcome": "waiting",
+            "lease_context": begun.get("lease_context"),
+        }
+    execution = begun.get("execution")
+    if begun.get("state") != "ready" or not isinstance(execution, dict):
+        raise MachinePlanCaseDispatchError(
+            "test_machine.plan_case.begin returned no mission contract"
+        )
+    try:
+        from yoke_core.domain.machine_qa_local_execution import (
+            prepare_agent_mission_contract,
+        )
+        from yoke_core.domain.ssh_mac_host_control import (
+            register_ssh_mac_host_control,
+        )
+
+        register_ssh_mac_host_control()
+        prepared = prepare_agent_mission_contract(
+            execution,
+            progress_callback=lambda: _dispatch(
+                "qa.plan_execution.heartbeat",
+                target=target,
+                actor=actor,
+                payload={"execution_id": execution_id},
+            ),
+        )
+        submitted = _dispatch(
+            "test_machine.mission.ready",
+            target=target,
+            actor=actor,
+            payload={**request, **prepared},
+        )
+    except Exception as exc:
+        raise MachinePlanCaseDispatchError(
+            f"plan-scoped agent mission preparation failed ({type(exc).__name__})"
+        ) from exc
+    result = submitted.get("result")
+    if not isinstance(result, dict) or (
+        int(result.get("requirement_id") or 0) != requirement_id
+    ):
+        raise MachinePlanCaseDispatchError(
+            "test_machine.mission.ready returned an invalid case result"
+        )
+    return result
+
+
 __all__ = [
     "MachinePlanCaseDispatchError",
     "execute_plan_machine_case",
+    "execute_plan_agent_mission_case",
 ]

@@ -1,9 +1,10 @@
 """Tool-shaped ``yoke qa browser`` machine-substrate utilities.
 
-Setup, status, and screenshot operate on this machine's Playwright daemon
-under ``~/.yoke/browser-runtime/``. Materialized Browser check and Browser
-inspection cases execute through ``yoke qa case run --requirement-id``;
-this family deliberately has no parallel aggregate runner.
+Setup, status, screenshot, and one-step execution operate on this machine's
+Playwright daemon under ``~/.yoke/browser-runtime/``. Materialized Browser
+check and Browser inspection cases execute through
+``yoke qa case run --requirement-id``; this family deliberately has no
+parallel aggregate runner.
 """
 
 from __future__ import annotations
@@ -19,6 +20,10 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 QA_BROWSER_SCREENSHOT_USAGE = (
     "yoke qa browser screenshot <url> --output PATH "
     "[--viewport WxH] [--annotate]"
+)
+QA_BROWSER_STEP_USAGE = (
+    "yoke qa browser step --base-url URL --step-json JSON "
+    "[--output-dir PATH]"
 )
 
 _QA_BROWSER_SCREENSHOT_HELP_DEEP = """\
@@ -99,10 +104,64 @@ def qa_browser_screenshot(args: List[str]) -> int:
     return 0
 
 
+def qa_browser_step(args: List[str]) -> int:
+    """Execute one agent-selected step with the machine-local browser."""
+    parser = argparse.ArgumentParser(
+        prog="yoke qa browser step",
+        description=(
+            "Execute one JSON browser step. Exploratory agents choose and "
+            "sequence calls at runtime; this command does not author a case."
+        ),
+    )
+    parser.add_argument("--base-url", required=True)
+    parser.add_argument("--step-json", required=True)
+    parser.add_argument("--output-dir")
+    parsed = parse_or_usage_error(parser, args, QA_BROWSER_STEP_USAGE)
+    if parsed is None:
+        return 2
+    try:
+        step = json.loads(parsed.step_json)
+    except json.JSONDecodeError as exc:
+        print(f"yoke qa browser step: invalid step JSON: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(step, dict):
+        print("yoke qa browser step: step JSON must be an object", file=sys.stderr)
+        return 2
+    try:
+        from yoke_harness import browser_client
+        from yoke_harness.browser_qa_daemon import ensure_daemon_running
+    except ImportError as exc:
+        print(
+            "yoke qa browser step requires yoke-harness in the "
+            f"product install: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+    daemon_error = ensure_daemon_running()
+    if daemon_error:
+        print(
+            f"yoke qa browser step: browser daemon unavailable: {daemon_error}",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        result = browser_client.execute_step(
+            step,
+            parsed.base_url,
+            output_dir=parsed.output_dir,
+        )
+    except RuntimeError as exc:
+        print(f"yoke qa browser step: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(result))
+    return 0
+
+
 # CLI token tuples -> adapter, merged into the launcher's tool-shaped
 # table by yoke_cli.commands.tool_shaped.
 QA_BROWSER_SUBCOMMANDS = {
     ("qa", "browser", "screenshot"): qa_browser_screenshot,
+    ("qa", "browser", "step"): qa_browser_step,
 }
 
 QA_BROWSER_USAGE = {
@@ -110,12 +169,17 @@ QA_BROWSER_USAGE = {
         "Capture one URL screenshot with the machine-local browser daemon "
         "for substrate diagnostics."
     ),
+    "yoke qa browser step": (
+        "Execute one agent-selected JSON step with the machine-local browser."
+    ),
 }
 
 
 __all__ = [
     "QA_BROWSER_SCREENSHOT_USAGE",
+    "QA_BROWSER_STEP_USAGE",
     "QA_BROWSER_SUBCOMMANDS",
     "QA_BROWSER_USAGE",
     "qa_browser_screenshot",
+    "qa_browser_step",
 ]

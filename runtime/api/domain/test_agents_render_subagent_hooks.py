@@ -29,7 +29,9 @@ from yoke_contracts.hook_runner.hook_ordering import (
 )
 
 
-_BASH_CAPABLE_ROLES = ("engineer", "tester", "architect", "boss", "simulator")
+_BASH_CAPABLE_ROLES = (
+    "engineer", "tester", "architect", "boss", "simulator", "qa-walker",
+)
 _NON_BASH_ROLES = ("product-manager", "product-designer")
 
 
@@ -53,6 +55,10 @@ def _simulator_tools() -> str:
     return "Read, Grep, Glob, Bash"
 
 
+def _qa_walker_tools() -> str:
+    return "Read, Grep, Glob, Bash, Monitor"
+
+
 def _pm_tools() -> str:
     return "Read, Grep, Glob"
 
@@ -67,6 +73,7 @@ _TOOLS_BY_ROLE = {
     "architect": _architect_tools(),
     "boss": _boss_tools(),
     "simulator": _simulator_tools(),
+    "qa-walker": _qa_walker_tools(),
     "product-manager": _pm_tools(),
     "product-designer": _pd_tools(),
 }

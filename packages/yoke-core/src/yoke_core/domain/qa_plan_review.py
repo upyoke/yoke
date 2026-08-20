@@ -41,7 +41,7 @@ def _capture_run(
         "case_outcome,capture_degraded_reason,raw_result,completed_at "
         "FROM qa_runs "
         f"WHERE id={p} AND qa_requirement_id={p} "
-        "AND performed_by IN ('browser_substrate','host_control') "
+        "AND performed_by IN ('browser_substrate','host_control','agent_mission') "
         "AND completed_at IS NOT NULL",
         (int(capture_run_id), int(requirement_id)),
     )
@@ -102,6 +102,9 @@ def _review_case(
         "baseline_position": int(case["baseline_position"]),
         "host_baseline": case.get("host_baseline"),
         "method_id": str(case["method_id"]),
+        "runner_id": str(case["runner_id"]),
+        "method_config": dict(case.get("method_config") or {}),
+        "executor": (case.get("method_config") or {}).get("executor"),
         "instructions": str(case.get("instructions") or ""),
         "expected_outcome": str(case.get("expected_outcome") or ""),
         "capture_run_id": int(capture["id"]),
@@ -121,6 +124,7 @@ def _execution_capture_run_id(
     key = {
         "browser_substrate": "qa_run_id",
         "host_control": "run_id",
+        "agent_mission": "run_id",
     }.get(runner_id)
     if key is None:
         raise QaPlanReviewError(
@@ -140,6 +144,15 @@ def _execution_capture_run_id(
 
 
 def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    if any(
+        case.get("capture_runner") == "agent_mission"
+        for case in bundle["cases"]
+    ):
+        from yoke_core.domain.agent_mission_review import (
+            agent_mission_dispatch_contract,
+        )
+
+        return agent_mission_dispatch_contract(bundle)
     descriptor = DispatchDescriptor("tester")
     bundle_id = str(bundle["bundle_id"])
     digest = str(bundle["bundle_digest"])

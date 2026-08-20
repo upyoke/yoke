@@ -84,6 +84,30 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
     dispatch["artifact_read_commands"] = [
         command.replace("yoke ", f"{prefix} ", 1) for command in commands
     ]
+    walkers = dispatch.get("walker_dispatches") or []
+    if not isinstance(walkers, list):
+        raise QaPlanExecutionError("QA review bundle has invalid walker dispatches")
+    for walker in walkers:
+        if not isinstance(walker, dict):
+            raise QaPlanExecutionError("QA mission walker is not an object")
+        for key in (
+            "host_command",
+            "browser_setup_command",
+            "browser_step_command",
+            "artifact_add_command",
+        ):
+            command = walker.get(key)
+            if not isinstance(command, str) or not command.startswith("yoke "):
+                label = key.replace("_", "-")
+                raise QaPlanExecutionError(
+                    f"QA mission walker lacks a typed {label}"
+                )
+            qualified = command.replace("yoke ", f"{prefix} ", 1)
+            walker[key] = qualified
+            walker["prompt"] = str(walker.get("prompt") or "").replace(
+                command,
+                qualified,
+            )
     submit = dispatch.get("submit_command")
     if not isinstance(submit, str) or not submit.startswith("yoke "):
         raise QaPlanExecutionError(

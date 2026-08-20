@@ -2,7 +2,7 @@
 
 Canonical agent behavior bodies live in `runtime/agents/{agent}.md`. These are the source-of-truth persona definitions — one per agent, containing the full system prompt body. The substrate renderer fans each canonical body into per-harness adapters: Claude adapters at `runtime/harness/claude/agents/yoke-{agent}.md`, Codex custom agents at `runtime/harness/codex/agents/yoke-{agent}.toml`. The runtime `.claude/agents` and `.codex/agents` paths are symlinks into those adapter directories, so each harness reads the rendered files from its native location. Codex Desktop reads the rendered TOML adapters as custom agents and dispatches them through Codex-native primitives. Each adapter combines harness-specific metadata with the same canonical body, so the prompt text stays identical across harnesses. Claude adapters carry Markdown YAML frontmatter (`name`, `description`, `tools`, `model`, `hooks`); Codex custom agents carry the current Codex subagent schema — required `name` / `description` / `developer_instructions` plus optional config (`model`, `sandbox_mode`) that Codex inherits from the parent session when omitted. The Claude `tools` allowlist and `model` pin are Claude-only and are not emitted into the Codex TOML. The `canonical_agents` entries in `runtime/harness/bootstrap-spec.json` and `runtime/harness/codex/manifest.json` document where the canonical bodies live without inlining them into bootstrap output. Shared dispatch descriptors emit one task envelope per agent and feed both harness call paths, so phase files name agents by descriptor rather than hardcoding Claude's `subagent_type`. The drift check `HC-agent-canonical-drift` in doctor verifies adapter bodies stay in sync with their canonical sources. The full universal-source + per-harness-renderer model is documented in [`harness-substrate.md`](harness-substrate.md).
 
-> **Note:** Shepherd and Conduct are orchestration skills (`SKILL.md` files), not agents. They run inline in the main session and invoke the 7 agents below as needed. Usher is also a skill (post-merge pipeline), not an agent. See [lifecycle.md](../.yoke/docs/reference/lifecycle.md) for the canonical state machine. Per-project test-surface docs live in each managed project at `.yoke/test-inventory.md`.
+> **Note:** Shepherd and Conduct are orchestration skills (`SKILL.md` files), not agents. They run inline in the main session and invoke the 8 agents below as needed. Usher is also a skill (post-merge pipeline), not an agent. See [lifecycle.md](../.yoke/docs/reference/lifecycle.md) for the canonical state machine. Per-project test-surface docs live in each managed project at `.yoke/test-inventory.md`.
 
 ### Lane Reversal
 
@@ -23,6 +23,7 @@ The headline idea is `Be the giant`: we stand on inherited shoulders and owe the
 | Architect | `yoke-architect.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
 | Engineer | `yoke-engineer.md` | opus | 300 | bypassPermissions | Read, Write, Edit, Bash, Grep, Glob | Yes |
 | Tester | `yoke-tester.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
+| QA Walker | `yoke-qa-walker.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
 | Simulator | `yoke-simulator.md` | opus | 300 | default | Read, Grep, Glob, Bash | Yes |
 | Boss | `yoke-boss.md` | opus | 300 | default | Read, Grep, Glob, Bash | No |
 
@@ -176,6 +177,25 @@ without hardcoded assumptions about a project's test runner or layout.
 
 **E2E execution against ephemeral URLs:** For external project items with ephemeral environments, the Conduct injects an `Ephemeral URL` and an `E2E` test command into the Tester's dispatch prompt. The Tester runs E2E tests after unit/integration tests pass, injecting the URL via `BASE_URL={ephemeral_url} {e2e_command}`. Both an ephemeral URL and an E2E command must be present to proceed; if either is missing, E2E is skipped gracefully. When E2E tests fail, the Tester collects failing test names, error messages, and Playwright artifact paths (screenshots, traces, videos from `test-results/` or `playwright-report/`). E2E failures produce a **FAIL** verdict even if all unit/integration tests passed.
 
+## QA Walker
+
+**Tools:** Read, Grep, Glob, Bash (no Write or Edit)
+**Hooks:** The normal Bash-capable observe, policy, and SubagentStop hooks.
+
+Walks one exploratory mission whose sequence is chosen at run time. The main
+agent retains ownership of the item, Progress Log, operator channel, report,
+and final verdict; the walker returns ranked findings and unverified areas.
+Each case chooses either an informed subagent or a target-naive agent session.
+
+A walker turn is atomic. At a permission dialog, interactive sign-in, or
+approval, it returns `WALK_STATUS: HUMAN_GATE` with the exact needed action and
+resume state. The main agent asks the operator and dispatches a fresh walker.
+Routine screen perception is discarded; only deliberate proof of a finding is
+attached, within the runtime-supplied artifact limit. On macOS, commands
+requiring the window server or login keychain use the Terminal GUI-session
+bridge. Screenshot display failure, audit-session denial, and misleading OAuth
+expiry over SSH are all treated as wrong-session signals.
+
 ## Simulator
 
 **Tools:** Read, Grep, Glob, Bash (no Write, Edit -- 3-layer enforcement)
@@ -230,20 +250,20 @@ Quality gate agent. Reviews worker artifacts (specs, plans, designs) at pipeline
 ### Tool Access Tiers
 
 - **Read-only agents** (PM, Designer): Read, Grep, Glob only. No Bash, Write, or Edit.
-- **Read + Bash agents** (Architect, Boss, Simulator, Tester): Read, Grep, Glob, Bash. Write and Edit blocked by `disallowedTools` + PreToolUse hooks.
+- **Read + Bash agents** (Architect, Boss, Simulator, Tester, QA Walker): Read, Grep, Glob, Bash. Write and Edit blocked by `disallowedTools` + PreToolUse hooks.
 - **Full-access agent** (Engineer): All tools. `bypassPermissions` for unattended dispatch.
 
 ### Hook Coverage
 
-All 7 agents have SubagentStop -> `yoke_core.domain.agent_stop` (item-worktree
+All 8 agents have SubagentStop -> `yoke_core.domain.agent_stop` (item-worktree
 auto-commit safety net plus `HarnessSessionStopped` event emission; it does
 not drain claims or set task lifecycle state).
 
-**Agent-frontmatter observe attribution** (PostToolUse + PostToolUseFailure -> observe hook with `--agent ... --hook-event ...`): Present on 6 agents -- Product Manager, Product Designer, Architect, Engineer, Simulator, and Tester. Boss does not add agent-specific `--agent` wiring in frontmatter.
+**Agent-frontmatter observe attribution** (PostToolUse + PostToolUseFailure -> observe hook with `--agent ... --hook-event ...`): Present on 7 agents -- Product Manager, Product Designer, Architect, Engineer, Simulator, Tester, and QA Walker. Boss does not add agent-specific `--agent` wiring in frontmatter.
 
-**Agent-frontmatter `observe-tool-pre` wiring** (PreToolUse -> observe hook): Present on the same 6 agents. Boss does not add extra frontmatter wiring for this hook.
+**Agent-frontmatter `observe-tool-pre` wiring** (PreToolUse -> observe hook): Present on the same 7 agents. Boss does not add extra frontmatter wiring for this hook.
 
-**lint_db_cmd** (PreToolUse/Bash): Present on all 5 Bash-capable agents -- Architect, Engineer, Tester, Simulator, Boss. The hook owner is `yoke_core.domain.lint_db_cmd`; telemetry/check id `lint-sqlite-cmd` remains stable for audit-history compatibility.
+**lint_db_cmd** (PreToolUse/Bash): Present on all 6 Bash-capable agents -- Architect, Engineer, Tester, Simulator, Boss, QA Walker. The hook owner is `yoke_core.domain.lint_db_cmd`; telemetry/check id `lint-sqlite-cmd` remains stable for audit-history compatibility.
 
 **Write/Edit block hooks** (PreToolUse): Present on 3 agents -- Tester, Simulator, and Boss. Architect relies on `disallowedTools` only (no runtime block hook). PM and Designer lack Bash entirely, so the block is moot.
 
@@ -252,23 +272,23 @@ Python observe hook; no separate shell completion hook owns progress.
 
 ### Shared Prompt Sections
 
-All 7 agents include the following sections in their system prompts:
+All 8 agents include the following sections in their system prompts:
 
-- **Turn Budget Discipline:** Rules for managing the agent's turn budget -- commit incrementally, use last 10% of turns for committing partial work, final turn must include a commit.
+- **Turn Budget Discipline:** Role-specific rules for reserving enough time to hand off cleanly. Implementation agents commit partial work; read-only roles return a complete final report, and QA Walker returns its status and mission report rather than another tool call.
 - **Path Resolution and Disambiguation:** Canonical path resolution rules, including the instruction to always use absolute paths, never double the `yoke/` prefix, and use `$(git rev-parse --show-toplevel)` for path resolution.
 - **Ouroboros End-of-Session Reflection:** All agents produce reflections answering 4 questions: problems encountered, process improvement ideas, game-changing feature ideas, and **cross-critique observations about other agents' work**. Reflections use the `---REFLECTION-START---` / `---REFLECTION-END---` delimited block format with `---BEGIN ENTRY---` / `---END ENTRY---` per observation. Categories: `problem`, `friction`, `idea`, `cross-critique`.
 
-**DB Quick Reference (generated packet chain):** Present on the 5 Bash-capable subagents (Architect, Engineer, Tester, Simulator, Boss) and on the top-level Yoke session via the `main_agent` packet injected by `yoke_core.hooks.bootstrap`. The section is no longer hand-authored — each canonical prompt under `runtime/agents/<role>.md` carries `<!-- YOKE:DB-PACKET role=<role>_agent topic=T start --> ... <!-- YOKE:DB-PACKET end -->` marker pairs that `yoke_core.domain.agents_render` expands at render time using `yoke_core.domain.schema_api_context`. The expander reconciles the curated seed (the facade `yoke_core.domain.schema_api_context_seed` plus its sibling data modules `schema_api_context_tables` and `schema_api_context_commands`) against live schema introspection and CLI `--help` surfaces, so the packet stays current with schema changes. The `agents.render.check` function id (CLI adapter: `yoke agents render check`) rejects rendered adapters whose body has drifted from the freshly generated packet, malformed marker pairs in canonical prompts, seed/live schema disagreements, and stale hand-authored DB/API examples that coexist with packet markers in canonical bodies. Topics today: `core` (control plane + structured fields plus item-dependency wrappers — `epic_tasks`, `epic_progress_notes`, `events`, `shepherd dependency-{list,add,update,remove}`), `claims` (`harness_sessions`, `work_claims`, `path_claims`, `who-claims` recipe), `qa` (`qa_requirements`, `qa_runs`, QA plans, discovery + reviewed-implementation gate preview), and `project` (Project Structure declarations, deployment defaults, and project QA plans).
+**DB Quick Reference (generated packet chain):** Present on the 6 Bash-capable subagents (Architect, Engineer, Tester, Simulator, Boss, QA Walker) and on the top-level Yoke session via the `main_agent` packet injected by `yoke_core.hooks.bootstrap`. The section is no longer hand-authored — each canonical prompt under `runtime/agents/<role>.md` carries `<!-- YOKE:DB-PACKET role=<role>_agent topic=T start --> ... <!-- YOKE:DB-PACKET end -->` marker pairs that `yoke_core.domain.agents_render` expands at render time using `yoke_core.domain.schema_api_context`. The expander reconciles the curated seed (the facade `yoke_core.domain.schema_api_context_seed` plus its sibling data modules `schema_api_context_tables` and `schema_api_context_commands`) against live schema introspection and CLI `--help` surfaces, so the packet stays current with schema changes. The `agents.render.check` function id (CLI adapter: `yoke agents render check`) rejects rendered adapters whose body has drifted from the freshly generated packet, malformed marker pairs in canonical prompts, seed/live schema disagreements, and stale hand-authored DB/API examples that coexist with packet markers in canonical bodies. Topics today: `core` (control plane + structured fields plus item-dependency wrappers — `epic_tasks`, `epic_progress_notes`, `events`, `shepherd dependency-{list,add,update,remove}`), `claims` (`harness_sessions`, `work_claims`, `path_claims`, `who-claims` recipe), `qa` (`qa_requirements`, `qa_runs`, QA plans, discovery + reviewed-implementation gate preview), and `project` (Project Structure declarations, deployment defaults, and project QA plans).
 
 **Layer-explicit packet names.** Every LLM-facing packet role uses an `*_agent` suffix so the audience layer is unambiguous:
 
 - `main_agent` — the top-level Yoke session running inline skills / ad-hoc investigation. Receives `core` + `claims` + `qa` via `yoke_core.domain.main_agent_packet` so main-session DB/API work has live packet truth alongside subagent dispatches. `qa` is included because conduct / polish / advance main sessions orchestrate engineer + tester loops and routinely inspect tester-review state (`qa_requirements` / `qa_runs` joined on `qa_kind='implementation_review'`) ahead of re-dispatch; without it the main session confabulates plausible `epic_*`-shaped names that do not exist.
-- `architect_agent`, `engineer_agent`, `tester_agent`, `simulator_agent`, `boss_agent` — the five Bash-capable subagents. The marker pair role attribute in each canonical prompt uses these names; the renderer expands them via `schema_api_context.render_topic_packet`.
+- `architect_agent`, `engineer_agent`, `tester_agent`, `simulator_agent`, `boss_agent`, `qa_walker_agent` — the six Bash-capable subagents. The marker pair role attribute in each canonical prompt uses these names; the renderer expands them via `schema_api_context.render_topic_packet`.
 - `harness_contract` — the substrate manifest contract documented in [`docs/harness-bootstrap.md`](harness-bootstrap.md) and [`runtime/harness/manifest-schema.md`](../runtime/harness/manifest-schema.md). Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits). `harness_contract` is deliberately NOT a `schema_api_context` role; it lives in the manifest layer, not in the LLM-facing packet layer.
 
 **Per-role topic assignment (`ROLE_TOPICS`):**
 
-- **`engineer_agent`** and **`tester_agent`** receive every topic — `core`, `claims`, `qa`, `project`. They run tests, record QA verdicts, and read project test commands at execution time.
+- **`engineer_agent`**, **`tester_agent`**, and **`qa_walker_agent`** receive every topic — `core`, `claims`, `qa`, `project`. They run or explore execution surfaces and read project and QA contracts at execution time.
 - **`main_agent`** receives `core` + `claims` + `qa`. The QA topic is included because conduct / polish / advance main sessions orchestrate engineer + tester loops and inspect case/run state ahead of re-dispatch.
 - **`architect_agent`**, **`simulator_agent`**, and **`boss_agent`** receive `core` + `claims` only. Architect plans work, Simulator traces contracts, and Boss reviews artifacts without recording QA runs. If a future role assignment needs another topic, add the role key to `seed.ROLE_TOPICS` plus marker pairs in the canonical prompt.
 
@@ -278,7 +298,7 @@ PM and Designer do not have this section because they have no Bash tool and cann
 
 ### CLI Prohibition
 
-All 5 Bash-capable agents (Engineer, Tester, Boss, Simulator, Architect) include a prominent `**CRITICAL: NEVER invoke claude as a CLI/Bash command**` rule in their system prompt. This is a belt-and-suspenders defense alongside Check 5 in `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`), which blocks local `claude` CLI invocations at the hook level. Nested Claude Code sessions crash the parent process. The only configurable exception is the project-local `lint_db_cmd_remote_claude_cli=warn` setting for operator-attended remote SSH smoke tests; local `claude` remains blocked. The Shepherd and Conduct SKILL.md files also include this rule for inline execution.
+All 6 Bash-capable agents (Engineer, Tester, Boss, Simulator, Architect, QA Walker) include a prominent `**CRITICAL: NEVER invoke claude as a CLI/Bash command**` rule in their system prompt. This is a belt-and-suspenders defense alongside Check 5 in `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`), which blocks local `claude` CLI invocations at the hook level. Nested Claude Code sessions crash the parent process. The only configurable exception is the project-local `lint_db_cmd_remote_claude_cli=warn` setting for operator-attended remote SSH smoke tests; local `claude` remains blocked. The Shepherd and Conduct SKILL.md files also include this rule for inline execution.
 
 ### Work-item Entry Convention
 
@@ -296,7 +316,7 @@ Agents invoked as subagents (via the Agent tool) are subject to their configured
 
 ### Ouroboros Reflection
 
-All 7 agents have an `## Ouroboros -- End-of-Session Reflection` section at the bottom of their system prompt. This is part of Ouroboros -- Yoke's self-improvement system.
+All 8 agents have an `## Ouroboros -- End-of-Session Reflection` section at the bottom of their system prompt. This is part of Ouroboros -- Yoke's self-improvement system.
 
 **How it works:**
 - Each agent answers 4 reflection questions at session end: problems encountered, process improvement ideas, game-changing feature ideas, and cross-critique observations about other agents' work

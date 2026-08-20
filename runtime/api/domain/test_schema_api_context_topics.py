@@ -170,13 +170,16 @@ def test_new_stale_terms_in_seed() -> None:
         assert term in seed.STALE_TERMS, f"STALE_TERMS missing YOK-1611 entry: {term!r}"
 
 
-def test_engineer_and_tester_receive_project_and_qa_topics() -> None:
-    """Engineer and Tester get every topic; Architect / Simulator /
+def test_execution_agents_receive_project_and_qa_topics() -> None:
+    """Engineer, Tester, and QA Walker get execution topics; Architect / Simulator /
     Boss intentionally omit `qa` and `project` (they plan, trace, or
     review without invoking project execution surfaces directly)."""
 
     assert seed.ROLE_TOPICS["engineer_agent"] == ("core", "claims", "qa", "project")
     assert seed.ROLE_TOPICS["tester_agent"] == ("core", "claims", "qa", "project")
+    assert seed.ROLE_TOPICS["qa_walker_agent"] == (
+        "core", "claims", "qa", "project",
+    )
     for role in ("architect_agent", "simulator_agent", "boss_agent"):
         assert seed.ROLE_TOPICS[role] == ("core", "claims"), (
             f"role={role} should NOT carry qa or project topics — see "

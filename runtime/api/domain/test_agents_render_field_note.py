@@ -35,7 +35,7 @@ from runtime.api.domain.test_agents_render_workspace_fixtures import (
 )
 
 
-# Canonical agent bodies that must carry the marker (6 Bash-capable
+# Canonical agent bodies that must carry the marker (7 Bash-capable
 # subagents + 2 read-only sub-roles).
 EXPECTED_MARKERED_AGENTS: tuple[str, ...] = (
     "architect",
@@ -44,6 +44,7 @@ EXPECTED_MARKERED_AGENTS: tuple[str, ...] = (
     "simulator",
     "tester",
     "tester-browser",
+    "qa-walker",
     "product-manager",
     "product-designer",
 )
@@ -119,7 +120,7 @@ def test_every_expected_agent_body_carries_exactly_one_marker(
 
 
 def test_marker_insertion_target_for_ouroboros_bodies(repo_root: Path) -> None:
-    # Seven of the eight bodies anchor the marker before the Ouroboros
+    # Eight of the nine bodies anchor the marker before the Ouroboros
     # reflection section; tester-browser anchors before Important Notes.
     for agent in EXPECTED_MARKERED_AGENTS:
         body = (repo_root / CANONICAL_DIR / f"{agent}.md").read_text(
@@ -169,7 +170,7 @@ def test_pmpd_bodies_carry_reflection_bridge_sentence(repo_root: Path) -> None:
 # tester-browser is served to the running agent via a committed symlink
 # (``runtime/harness/claude/agents/references/yoke-tester-browser.md``),
 # not via the AGENTS-list render pipeline; the rendered-adapter assertions
-# below cover the seven AGENTS-list bodies whose adapters are generated.
+# below cover the eight AGENTS-list bodies whose adapters are generated.
 _RENDERED_AGENTS: tuple[str, ...] = tuple(
     a for a in EXPECTED_MARKERED_AGENTS if a != "tester-browser"
 )

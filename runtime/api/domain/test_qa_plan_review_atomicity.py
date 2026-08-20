@@ -22,6 +22,32 @@ def _undetermined(requirement_id: int) -> list[dict[str, object]]:
     ]
 
 
+def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
+    with test_database() as conn:
+        execution, _requirement_id, _capture_run_id = _review_execution(conn, 4540)
+        create_governed_tables(conn)
+        lease = acquire_lease(
+            conn,
+            1,
+            "TEST_MAC:ordinary-review",
+            "review-session",
+            actor_id="7",
+        )
+        conn.execute(
+            "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
+            (lease.id, execution["id"]),
+        )
+        conn.commit()
+        execution["machine_lease_id"] = lease.id
+
+        bundle = begin_plan_review(conn, execution)
+
+        assert bundle is not None
+        assert execution["state"] == "awaiting_agent_review"
+        assert execution["machine_lease_id"] is None
+        assert get_lease(conn, lease.id).is_active is False
+
+
 def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> None:
     with test_database() as conn:
         execution, requirement_id, _capture_run_id = _review_execution(conn, 4541)

@@ -15,9 +15,9 @@ A Tester dispatch is appropriate when:
 2. The item needs deliberate agent verification before a `reviewed-implementation` or `done` transition outside the conduct pipeline
 3. The operator explicitly requests Tester validation
 
-Browser method cases execute through the ordered plan runner and the advance
-Browser gate. Do not invent an ad-hoc Tester prompt for those cases; dispatch
-the typed reviewer descriptor returned by the plan runner.
+Browser and exploratory mission cases execute through the ordered plan runner
+and the advance QA gate. Do not invent an ad-hoc Tester prompt for those cases;
+follow the typed dispatch contract returned by the plan runner.
 
 ---
 
@@ -67,11 +67,13 @@ yoke qa plan run --item "PREFIX-{N}" --transition <transition>
 
 When the result is `state="awaiting_agent_review"` (exit `12`), the returned
 `review_bundle.dispatch` is the complete dispatch authority. Immediately invoke
-the harness subagent facility with its `subagent_type`, prompt, and immutable
-bundle. The reviewer must inspect every supplied transcript and visual and run
-the exact `submit_command` with one verdict and rationale per bundled case.
-Never treat missing or pending dispatch as human review. Only a submitted
-`inconclusive` verdict creates an Inbox request.
+the named path. A `subagent` dispatch uses its `subagent_type`, prompt, and
+immutable bundle. A `main_agent_mission` dispatch stays with the main agent,
+which sends each typed walker dispatch to an informed subagent or a separate
+target-machine session, handles `HUMAN_GATE` returns through the Progress Log
+and operator channel, aggregates the written report, and runs the exact
+`submit_command`. Never treat missing or pending dispatch as human review. Only
+a submitted `undetermined` verdict creates an Inbox request.
 
 ### 3. Changed files and diff
 

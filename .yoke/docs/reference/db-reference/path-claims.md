@@ -66,8 +66,8 @@ overwrites in place). Triggered by `python3 -m
 yoke_core.domain.agents_render render` and the `agents.render.run`
 function-call surface.
 
-Scope (v0): the 14 rendered packet outputs for the seven canonical
-agents (7 Claude `.md` + 7 Codex `.toml`). Non-packet generated
+Scope (v0): the 16 rendered packet outputs for the eight canonical
+agents (8 Claude `.md` + 8 Codex `.toml`). Non-packet generated
 surfaces (BOARD, event-catalog, and function inventory) are not
 in scope for this slice.
 
