@@ -9,10 +9,9 @@ a fresh shell whose PATH order favors Apple Python.
 
 This module owns a fast pre-call probe: resolve the ``python3`` the
 operator's shell will invoke, attempt to import a sentinel module
-(``pydantic``), and return a typed result. Callers (``session_init``
-stderr emit; ``main_agent_packet`` orientation block) gate their
-advisory text on a confirmed missing-dep signal — never on uncertain
-state. Fail open on timeout, missing interpreter, or non-pydantic
+(``pydantic``), and return a typed result. Callers (the
+``main_agent_packet`` orientation block) gate their advisory text on a
+confirmed missing-dep signal — never on uncertain state. Fail open on timeout, missing interpreter, or non-pydantic
 errors so the probe never blocks a working session.
 
 Honors ``$YOKE_PYTHON`` override: when set, the probe checks that

@@ -14,6 +14,8 @@ Focused unit tests live in child files:
 
 from __future__ import annotations
 
+import re
+
 import os
 import sys
 from pathlib import Path
@@ -65,14 +67,18 @@ class TestDoLoopContract:
             ]
         )
 
-    def test_loop_uses_stable_session_id(self):
-        # The loop teaches the client-local wrapper once, then passes the
-        # resolved session id on each re-offer so every iteration stays
-        # attached to the same session.
+    def test_loop_passes_no_session_id(self):
+        """The loop must not hand the server a session id it resolved itself.
+
+        Ambient resolution returns the same session on every iteration, so
+        an environment prefix or an explicit flag adds nothing — and passing
+        identity is how a locally guessed value reaches the server at all.
+        """
         text = self._loop_text()
-        assert "yoke sessions init" in text
-        assert "YOKE_SESSION_ID" in text
-        assert '--session-id "$YOKE_SESSION_ID"' in text
+        assert "yoke sessions identity" in text
+        assert '--session-id "$YOKE_SESSION_ID"' not in text
+        assert 'YOKE_SESSION_ID="' not in text
+        assert "YOKE_SESSION_ID=$" not in text
 
     def test_loop_passes_step_to_shared_path(self):
         text = self._loop_text()
@@ -107,45 +113,61 @@ class TestDoLoopContract:
         assert "YOKE_HEARTBEAT_PID" not in text
         assert "run_keepalive" not in text
 
-    def test_loop_resolves_executor_from_env(self):
-        """Executor resolution is delegated to the session init wrapper.
+    def _loop_commands(self) -> str:
+        """Every fenced command block across the loop files, concatenated.
 
-        The loop teaches the installed wrapper and documents the environment
-        contract; the wrapper's unit tests cover the fallback mechanics.
+        Prose may name a flag in order to forbid it; a command block may not
+        carry one. Checking the blocks keeps the guard on what an agent
+        actually runs.
         """
-        text = self._loop_text()
-        assert "yoke sessions init" in text
-        assert "YOKE_EXECUTOR" in text
-        assert "EXECUTOR" in text  # wrapper emits ``EXECUTOR=<value>`` line
-        assert '$_executor' in text  # offer call substitutes captured value
+        return "\n".join(
+            re.findall(r"```(?:bash|sh|text)?\n(.*?)```", self._loop_text(), re.S)
+        )
 
-    def test_loop_resolves_provider_from_env(self):
-        """Provider resolution is delegated to the session init wrapper.
+    def test_loop_commands_carry_no_identity_of_their_own(self):
+        """No retired identity flag may appear in a loop command block.
 
-        The loop teaches the installed wrapper and its environment contract;
-        the wrapper owns the executor-aware fallback ladder.
+        Two identical sessions in one checkout reached opposite outcomes
+        purely on whether their shell variables happened to be empty when
+        these flags were assembled. ``--lane`` is banned here even though the
+        offer surface still honours it: it is a deliberate operator re-route,
+        and a loop that fills it in is exactly how a locally guessed lane
+        reached the server.
         """
-        text = self._loop_text()
-        assert "yoke sessions init" in text
-        assert "YOKE_PROVIDER" in text
-        assert "PROVIDER" in text  # wrapper emits ``PROVIDER=<value>`` line
-        assert '$_provider' in text  # offer call substitutes captured value
+        commands = self._loop_commands()
+        assert commands, "no fenced command blocks found in the loop files"
+        for flag in (
+            "--executor", "--provider", "--workspace", "--lane", "--model",
+            "--supported-paths",
+        ):
+            # Whole-flag match: ``--lane-role`` is a worktree lane role and
+            # has nothing to do with a session's execution lane.
+            assert not re.search(rf"{re.escape(flag)}(?![-\w])", commands), (
+                f"loop command block still passes {flag}"
+            )
 
-    def test_loop_passes_resolved_identity_to_service_client(self):
-        """Resolved identity vars are passed to service_client.py."""
+    def test_loop_prose_forbids_resolving_a_lane(self):
+        """The loop must say why the operator override is not its to send."""
         text = self._loop_text()
-        assert "--executor" in text
-        assert "$_executor" in text
-        assert "--provider" in text
-        assert "$_provider" in text
+        assert "operator re-route" in text
+        for shell_var in ("$_executor", "$_provider", "$_workspace", "$_lane"):
+            assert shell_var not in text, f"loop still substitutes {shell_var}"
+
+    def test_loop_reads_identity_from_the_authority(self):
+        """The loop names the one call and the values it returns."""
+        text = self._loop_text()
+        assert "yoke sessions identity" in text
+        for field in (
+            "execution_lane", "lane_allowed_paths", "max_chain_steps",
+            "executor_display_name",
+        ):
+            assert field in text, f"loop does not name {field}"
 
     def test_loop_relies_on_server_derived_supported_paths(self):
-        """Loop no longer passes --supported-paths from harness env."""
+        """Loop declares no capability of its own; the server derives them."""
         text = self._loop_text()
         assert "YOKE_SUPPORTED_PATHS" not in text
-        assert 'No --supported-paths.' in text
-        assert '--session-id "$YOKE_SESSION_ID"' in text
-        assert "Server derives capabilities from shared registry plus manifest limitations" in text
+        assert "lane_allowed_paths" in text
 
     def test_loop_does_not_hardcode_executor_provider_in_offers(self):
         """No hardcoded claude-code/anthropic in session-offer calls."""
@@ -189,24 +211,24 @@ class TestDoLoopContract:
         assert "context.scheduler.next_step" in text
         assert "dispatch based on item type" not in text
 
-    def test_do_skill_documents_session_init_identity(self):
-        """SKILL.md teaches ``yoke sessions init`` as the identity owner.
+    def test_do_skill_documents_identity_read_back(self):
+        """SKILL.md teaches ``yoke sessions identity`` as the identity owner.
 
-        Agents use the printed SESSION_ID/EXECUTOR/LANE values. They do not
-        reconstruct executor or session id from env vars, and they never mint.
-        Cursor is a first-class executor. Model stays server-resolved.
+        Agents read the stored values back. They do not resolve, detect, or
+        mint any of them, and they pass none of them onward. Cursor is a
+        first-class executor.
         """
         text = _DO_SKILL_PATH.read_text(encoding="utf-8")
-        assert "yoke sessions init" in text
-        assert "Do not resolve them yourself." in text
-        assert "Never mint a session id." in text
+        assert "yoke sessions identity" in text
+        assert "yoke sessions init" not in text
+        assert "Do not" in text
+        assert "never mint" in text.lower()
         assert "Cursor is a" in text
         assert "YOKE_MODEL" not in text
         assert "CLAUDE_MODEL" not in text
         assert "YOKE_SUPPORTED_PATHS" not in text
-        assert "Yoke-owned harnesses self-report identity only." in text
-        assert "derives harness capabilities server-side" in text
-        assert "Model is server-resolved." in text
+        assert "derived server-side" in text
+        assert "Identity is server-resolved" in text
 
     def test_do_skill_documents_shared_path_emission(self):
         """SKILL.md documents canonical emission in shared offer path."""

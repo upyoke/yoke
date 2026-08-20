@@ -12,8 +12,9 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import register_session
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
-from runtime.api.test_session_offer_schemas import session_offer_db  # noqa: F401
 from runtime.api.test_constants import TEST_MODEL_ID
+
+pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
 
 def _p(conn) -> str:
@@ -41,10 +42,6 @@ class TestSessionOfferLanes:
     def _make_offer(self, **overrides):
         payload = {
             "session_id": "test-session-001",
-            "executor": "DARIUS",
-            "provider": "anthropic",
-            "model": TEST_MODEL_ID,
-            "workspace": "/tmp/test-workspace",
             "execution_lane": "DARIUS",
         }
         payload.update(overrides)
@@ -143,10 +140,6 @@ class TestSessionOfferLanes:
         with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json={
                 "session_id": "test-session-config-lane",
-                "executor": "codex",
-                "provider": "openai",
-                "model": "gpt-5.4",
-                "workspace": "/tmp/test-workspace",
             })
 
         assert resp.status_code == 200
@@ -172,10 +165,6 @@ class TestSessionOfferLanes:
         with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json={
                 "session_id": "test-session-default-alias",
-                "executor": "claude-code",
-                "provider": "anthropic",
-                "model": TEST_MODEL_ID,
-                "workspace": "/tmp/test-workspace",
                 "execution_lane": "default",
             })
 
@@ -205,10 +194,6 @@ class TestSessionOfferLanes:
              patch("yoke_core.api.main.emit_post_decision_telemetry") as mock_emit:
             resp = self.client.post("/v1/sessions/offer", json={
                 "session_id": "test-session-telemetry-lane",
-                "executor": "codex",
-                "provider": "openai",
-                "model": "gpt-5.4",
-                "workspace": "/tmp/test-workspace",
                 "execution_lane": "ALTMAN",
             })
 

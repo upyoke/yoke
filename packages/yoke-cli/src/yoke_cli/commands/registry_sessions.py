@@ -11,7 +11,10 @@ from yoke_cli.commands.adapters.sessions_maintenance import (
 
 SESSIONS_SUBCOMMAND_REGISTRY = {
     ("sessions", "begin"): ("sessions.begin", _adapters.sessions_begin),
-    ("sessions", "init"): ("sessions.init", _adapters.sessions_init),
+    ("sessions", "identity"): (
+        "sessions.identity",
+        _adapters.sessions_identity,
+    ),
     ("sessions", "list"): ("sessions.list", _adapters.sessions_list),
     ("sessions", "touch"): ("sessions.touch", _adapters.sessions_touch),
     ("sessions", "checkpoint"): (

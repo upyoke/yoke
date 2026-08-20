@@ -12,14 +12,6 @@ import sys
 from typing import List, Optional
 
 import yoke_core.api.service_client_shared as _shared
-from yoke_harness.hooks.identity import (
-    _is_placeholder_model,
-    detect_model,
-    is_claude,
-    is_codex,
-    is_cursor,
-)
-
 from yoke_core.api.service_client_shared import (
     _get_config_path,
     _get_db_readwrite,
@@ -30,7 +22,6 @@ from yoke_core.api.service_client_shared import (
     get_max_chain_steps,
     load_routing_config,
     release_item_claim_for_execution,
-    resolve_execution_lane,
     session_offer_with_ownership,
     set_session_mode,
     should_emit_drift_review_checkpoint,
@@ -53,6 +44,7 @@ from yoke_core.api.service_client_sessions_offer_invariant import CLI_SURFACE, h
 from yoke_core.api.service_client_sessions_frontier import (
     build_frontier_state_from_schedule as _build_frontier_state_from_schedule,
 )
+from yoke_core.domain.sessions_identity_read import resolve_session_identity
 
 
 def _resolve_monkeypatchable(name: str):
@@ -76,29 +68,31 @@ class SessionOfferCommandError(Exception):
 
 def run_session_offer(
     *,
-    executor: str,
-    provider: str,
-    workspace: str,
-    model: Optional[str] = None,
-    lane: Optional[str] = None,
-    session_id: Optional[str] = None,
+    session_id: str,
     step: int = 1,
-    supported_paths: Optional[List[str]] = None,
+    lane: Optional[str] = None,
     project: Optional[str] = None,
 ) -> dict:
-    """Run the canonical session-offer flow and return ``NextAction`` JSON."""
-    if not session_id:
-        if is_claude(executor) or is_codex(executor) or is_cursor(executor):
-            raise SessionOfferCommandError(
-                f"Error: session-offer for executor '{executor}' requires --session-id "
-                f"(the canonical harness session ID); fallback IDs are not allowed for supported "
-                f"harnesses. Pass $CLAUDE_SESSION_ID, $CODEX_THREAD_ID, or the hook-payload session_id (Cursor)."
-            )
-        from datetime import datetime, timezone
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        session_id = f"{executor}-{ts}"
+    """Run the canonical session-offer flow and return ``NextAction`` JSON.
 
-    supported_paths = list(supported_paths or [])
+    Executor, provider, model, workspace, and the default execution lane all
+    come from the session row registration already resolved. The caller
+    supplies only what the row cannot answer: which session is asking, which
+    chain step it is on, an optional project-scope narrowing, and an optional
+    operator lane override.
+
+    ``lane`` is the one identity-shaped field a caller may still send: it is
+    a deliberate operator override that routes a session to a different lane
+    on purpose, and the server records it as
+    ``SessionOfferLaneOverrideApplied``. It is not something an autonomous
+    loop resolves — a lane guessed from local config is the failure this
+    surface must never receive.
+    """
+    if not session_id:
+        raise SessionOfferCommandError(
+            "Error: session-offer requires a session id; sessions resolve "
+            "their own ambient identity and fallback ids are not allowed."
+        )
 
     _config_path = _get_config_path()
     max_chain_steps = get_max_chain_steps(_config_path)
@@ -112,30 +106,12 @@ def run_session_offer(
             raise SessionOfferCommandError(f"Error: {exc}") from exc
         project_label = _canonical_project_label(conn, project_scope)
 
-        session_project_id: Optional[int] = None
-        stored_model: Optional[str] = None
         try:
-            session_row = conn.execute(
-                "SELECT model, project_id FROM harness_sessions WHERE session_id=%s",
-                (session_id,),
-            ).fetchone()
-        except Exception:
-            session_row = None
-        if session_row is not None:
-            try:
-                stored_model = session_row["model"]
-                raw_project_id = session_row["project_id"]
-            except (KeyError, TypeError):
-                stored_model = session_row[0]
-                raw_project_id = session_row[1] if len(session_row) > 1 else None
-            try:
-                session_project_id = (
-                    int(raw_project_id) if raw_project_id is not None else None
-                )
-            except (TypeError, ValueError):
-                session_project_id = None
+            identity = resolve_session_identity(conn, session_id)
+        except SessionError as exc:
+            raise SessionOfferCommandError(f"Error: {exc.message}") from exc
 
-        policy_project_id = session_project_id
+        policy_project_id = identity.project_id
         if policy_project_id is None and project_scope and len(project_scope) == 1:
             policy_project_id = int(project_scope[0])
         project_routing_settings = load_project_routing_settings(
@@ -145,30 +121,16 @@ def run_session_offer(
             _config_path,
             project_settings=project_routing_settings,
         )
-        # Executor default; a supplied --lane overrides the session row.
-        resolved_lane = resolve_execution_lane(
-            executor=executor,
-            explicit_lane=None,
-            routing_config=routing_config,
-        )
-
-        if not model:
-            model = (
-                stored_model
-                if isinstance(stored_model, str)
-                and not _is_placeholder_model(stored_model)
-                else detect_model(executor)
-            )
 
         offer = SessionOffer(
             session_id=session_id,
-            executor=executor,
-            provider=provider,
-            model=model,
-            workspace=workspace,
-            execution_lane=resolved_lane,
+            executor=identity.executor,
+            provider=identity.provider,
+            model=identity.model,
+            workspace=identity.workspace,
+            execution_lane=identity.execution_lane,
             step=step,
-            supported_paths=supported_paths,
+            supported_paths=[],
         )
 
         # Per-project offer stance is DB-backed through session-routing.
@@ -189,13 +151,13 @@ def run_session_offer(
             ownership = session_offer_with_ownership(
                 conn,
                 session_id=session_id,
-                executor=executor,
-                provider=provider,
-                model=model,
-                workspace=workspace,
-                execution_lane=resolved_lane,
+                executor=identity.executor,
+                provider=identity.provider,
+                model=identity.model,
+                workspace=identity.workspace,
+                execution_lane=identity.execution_lane,
                 caller_supplied_lane=lane,
-                supported_paths=supported_paths,
+                capabilities=identity.capabilities,
                 lane_allowed_paths=routing_config.lane_allowed_paths,
                 step=step,
                 project_scope=project_scope,
@@ -206,7 +168,9 @@ def run_session_offer(
             if exc.code in ("NO_SESSION", "SESSION_ENDED"):
                 raise SessionOfferCommandError(f"Error: {exc.message}") from exc
             raise
-        authoritative_lane = ownership.get("authoritative_lane") or resolved_lane
+        authoritative_lane = (
+            ownership.get("authoritative_lane") or identity.execution_lane
+        )
         offer = offer.model_copy(update={
             "supported_paths": ownership.get("supported_paths") or [],
             "execution_lane": authoritative_lane,

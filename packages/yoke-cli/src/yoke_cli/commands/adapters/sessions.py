@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
-import sys
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -24,7 +22,7 @@ from yoke_contracts.api.function_call import TargetRef
 SESSIONS_TOUCH_USAGE = (
     "yoke sessions touch [--mode MODE] [--session-id S] [--json]"
 )
-SESSIONS_INIT_USAGE = "yoke sessions init"
+SESSIONS_IDENTITY_USAGE = "yoke sessions identity [--session-id S] [--json]"
 SESSIONS_CHECKPOINT_USAGE = (
     "yoke sessions checkpoint --step N --action ACTION --chainable BOOL "
     "[--item-id I] [--task-num N] [--outcome O] [--status S] "
@@ -39,9 +37,8 @@ SESSIONS_BEGIN_USAGE = (
     "[--project ID] [--mode MODE] [--entrypoint E] [--session-id S] [--json]"
 )
 SESSIONS_OFFER_USAGE = (
-    "yoke sessions offer --executor E --provider P --workspace W "
-    "[--model M] [--lane L] [--step N] [--supported-paths P] "
-    "[--project IDS] [--session-id S] [--json]"
+    "yoke sessions offer [--step N] [--lane L] [--project IDS] "
+    "[--session-id S] [--json]"
 )
 SESSIONS_OWNERSHIP_GUARD_USAGE = (
     "yoke sessions ownership-guard --item PREFIX-N [--session-id S] [--json]"
@@ -56,24 +53,29 @@ def _chainable(raw: str) -> bool:
     return str(raw).strip().lower() in ("true", "1", "yes")
 
 
-def sessions_init(args: List[str]) -> int:
-    """Run session bootstrap with the interpreter that owns ``yoke``.
+def sessions_identity(args: List[str]) -> int:
+    """Read the calling session's resolved identity back from the authority.
 
-    The bootstrap helper spans CLI, core, and harness packages. Invoking it
-    through an ambient ``python3`` is unreliable for packaged installs, while
-    this wrapper guarantees the sibling runtime packages are importable.
+    Every value comes from the session row registration already resolved —
+    canonical executor and display alias, provider, model, execution lane and
+    the paths that lane may execute, workspace, project, actor — plus the
+    chain budget. Nothing is detected locally, so no field is advisory.
     """
     parser = argparse.ArgumentParser(
-        prog="yoke sessions init", description=SESSIONS_INIT_USAGE,
+        prog="yoke sessions identity", description=SESSIONS_IDENTITY_USAGE,
     )
-    parsed = parse_or_usage_error(parser, args, SESSIONS_INIT_USAGE)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, SESSIONS_IDENTITY_USAGE)
     if parsed is None:
         return 2
-    completed = subprocess.run(
-        [sys.executable, "-m", "yoke_core.tools.session_init"],
-        check=False,
+    return dispatch_and_emit(
+        function_id="sessions.identity",
+        target=TargetRef(kind="global"),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
-    return int(completed.returncode)
 
 
 def sessions_touch(args: List[str]) -> int:
@@ -237,30 +239,23 @@ def sessions_offer(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions offer", description=SESSIONS_OFFER_USAGE,
     )
-    parser.add_argument("--executor", required=True)
-    parser.add_argument("--provider", required=True)
-    parser.add_argument("--model", default=None)
-    parser.add_argument("--workspace", required=True)
-    parser.add_argument("--lane", default=None)
     parser.add_argument("--step", type=int, default=1)
-    parser.add_argument("--supported-paths", default=None)
+    parser.add_argument(
+        "--lane",
+        default=None,
+        help=(
+            "Deliberate operator lane override; recorded as "
+            "SessionOfferLaneOverrideApplied. Autonomous loops pass nothing."
+        ),
+    )
     parser.add_argument("--project", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_OFFER_USAGE)
     if parsed is None:
         return 2
-    supported_paths = [
-        p.strip() for p in (parsed.supported_paths or "").split(",") if p.strip()
-    ]
-    payload: Dict[str, Any] = {
-        "executor": parsed.executor,
-        "provider": parsed.provider,
-        "workspace": parsed.workspace,
-        "step": parsed.step,
-        "supported_paths": supported_paths,
-    }
-    for key in ("model", "lane", "project"):
+    payload: Dict[str, Any] = {"step": parsed.step}
+    for key in ("lane", "project"):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value
@@ -331,10 +326,11 @@ def charge_schedule(args: List[str]) -> int:
 
 
 __all__ = [
-    "sessions_begin", "sessions_touch", "sessions_checkpoint",
-    "sessions_checkpoint_read",
+    "sessions_begin", "sessions_identity", "sessions_touch",
+    "sessions_checkpoint", "sessions_checkpoint_read",
     "sessions_offer", "sessions_ownership_guard", "charge_schedule",
-    "SESSIONS_BEGIN_USAGE", "SESSIONS_TOUCH_USAGE", "SESSIONS_CHECKPOINT_USAGE",
+    "SESSIONS_BEGIN_USAGE", "SESSIONS_IDENTITY_USAGE", "SESSIONS_TOUCH_USAGE",
+    "SESSIONS_CHECKPOINT_USAGE",
     "SESSIONS_CHECKPOINT_READ_USAGE", "SESSIONS_OFFER_USAGE",
     "SESSIONS_OWNERSHIP_GUARD_USAGE", "CHARGE_SCHEDULE_USAGE",
 ]

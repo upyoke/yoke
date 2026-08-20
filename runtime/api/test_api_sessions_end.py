@@ -17,13 +17,15 @@ from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.sessions import register_session
 from yoke_core.api.main import app
-from runtime.api.test_session_offer_schemas import fresh_now, session_offer_db  # noqa: F401
+from runtime.api.test_session_offer_schemas import fresh_now  # noqa: F401
 from runtime.api.test_constants import TEST_MODEL_ID
 from runtime.api.test_service_client import (
     _REPO_ROOT,
     _service_client_cmd,
     _with_source_pythonpath,
 )
+
+pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
 
 ITEM_ID = 10
@@ -189,11 +191,8 @@ class TestServiceClientSessionOffer:
         result = subprocess.run(
             _service_client_cmd([
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", "DARIUS-test-session",
+                "--session-id",
+                "DARIUS-test-session",
             ]),
             env=_with_source_pythonpath(env),
             cwd=_REPO_ROOT,
@@ -207,8 +206,8 @@ class TestServiceClientSessionOffer:
         assert "reason" in data
         assert "correlation_id" in data
 
-    def test_session_offer_missing_args_exits_2(self, session_offer_db):
-        """Missing required args should exit with code 2."""
+    def test_session_offer_rejects_retired_identity_flag(self, session_offer_db):
+        """The surface has no identity argument left to accept."""
         import subprocess
 
         env = os.environ.copy()
@@ -218,7 +217,6 @@ class TestServiceClientSessionOffer:
             _service_client_cmd([
                 "session-offer",
                 "--executor", "DARIUS",
-                # Missing --provider, --model, --workspace
             ]),
             env=_with_source_pythonpath(env),
             cwd=_REPO_ROOT,

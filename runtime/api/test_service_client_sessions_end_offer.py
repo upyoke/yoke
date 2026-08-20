@@ -6,8 +6,9 @@ import json
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db, _pre_register_session  # noqa: F401
-from runtime.api.test_constants import TEST_MODEL_ID
+from runtime.api.test_service_client_sessions_helpers import _pre_register_session
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 # ---------------------------------------------------------------------------
@@ -45,10 +46,6 @@ class TestOfferClaimReconciliation:
         monkeypatch.setattr(service_client, "decide_next_action", _force_strategize)
 
         rc = service_client.cmd_session_offer([
-            "--executor", "DARIUS",
-            "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
-            "--workspace", session_offer_db["tmp_dir"],
             "--session-id", sid,
         ])
 
@@ -99,11 +96,8 @@ class TestOfferClaimReconciliation:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -144,17 +138,15 @@ class TestSessionOfferDecoupling:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", "nonexistent-session",
+                "--session-id",
+                "nonexistent-session",
             ],
             db_path=session_offer_db["db_path"],
         )
         assert result.returncode == 1
-        assert "No active session found" in result.stderr
-        assert "nonexistent-session" in result.stderr
+        assert "No session row for 'nonexistent-session'" in result.stderr
+        # The refusal names how to register, never a value to substitute.
+        assert "hook" in result.stderr.lower()
 
     def test_session_offer_ended_session_returns_error(self, session_offer_db):
         """Session-offer with ended session fails with SESSION_ENDED."""
@@ -167,11 +159,8 @@ class TestSessionOfferDecoupling:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -190,11 +179,8 @@ class TestSessionOfferDecoupling:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -222,10 +208,6 @@ class TestSessionOfferDecoupling:
 
         import yoke_core.api.service_client as sc
         sc.cmd_session_offer([
-            "--executor", "DARIUS",
-            "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
-            "--workspace", session_offer_db["tmp_dir"],
             "--session-id", sid,
         ])
         assert len(called) == 0, "register_session() was called — session-offer should not register"

@@ -62,7 +62,7 @@ class TestPositiveTrip(unittest.TestCase):
         self.assertIsNotNone(result)
         _mode, reason, _outcome = result
         self.assertIn("-m", reason)
-        self.assertIn("session_init", reason)
+        self.assertIn("module invocations", reason)
 
     def test_runtime_harness_import_denies(self):
         cmd = 'python3 -c "from yoke_core.hooks.sessions_cli import x"'

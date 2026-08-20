@@ -98,10 +98,6 @@ class TestApiSessionOfferLaneOverride:
     def _post_offer(self, **body) -> dict:
         payload = {
             "session_id": body.pop("session_id"),
-            "executor": "claude-code",
-            "provider": "anthropic",
-            "model": "claude-opus-4-7",
-            "workspace": "/tmp/api-lane",
             "execution_lane": body.pop("execution_lane", None),
         }
         payload.update(body)

@@ -11,8 +11,9 @@ checkpoint from the handler keeps each statement on its own so the
 lint's wrapping classifier evaluates them independently. The keepalive
 background loop has been eliminated; the PreToolUse
 heartbeat hook refreshes activity at agent turn boundaries and events
-are the canonical liveness signal. `YOKE_SESSION_ID` is in the
-environment from Step A; the session wrappers resolve it internally.
+are the canonical liveness signal. Every session wrapper resolves the
+calling session ambiently — pass no session id and set no environment
+prefix.
 
 **Call 1 — pre-dispatch checkpoint.** Single statement: write
 the current loop frame to the DB before any compaction risk so Step C
@@ -101,7 +102,7 @@ adapter classifies. Parse `handler_outcome` and `chain_summary_label`
 from stdout in the prompt context.
 
 ```bash
-# YOKE_SESSION_ID is in the environment — the wrapper resolves it internally
+# The wrapper resolves the calling session ambiently — no session id needed
 yoke sessions checkpoint \
  --step "{step}" \
  --action "{action}" \

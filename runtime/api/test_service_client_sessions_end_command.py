@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db, _pre_register_session  # noqa: F401
+from runtime.api.test_service_client_sessions_helpers import _pre_register_session
 from runtime.api.test_constants import TEST_MODEL_ID
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -31,9 +33,9 @@ class TestSessionEndCommand:
         _pre_register_session(db, sid, workspace=ws)
         r1 = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -282,9 +284,9 @@ class TestSessionEndIfEmptyCommand:
         _pre_register_session(db, sid, workspace=ws)
         offer = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )

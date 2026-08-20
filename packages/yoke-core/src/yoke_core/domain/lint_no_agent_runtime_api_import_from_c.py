@@ -165,8 +165,7 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         'This rule targets ONLY `python3 -c "..."` import one-liners. '
         "Read-only constant and inspection probes are allowed when every "
         "imported symbol and call has an explicit read-shaped name. "
-        "`python3 -m <module>` module invocations (e.g. the `/yoke do` "
-        "`python3 -m yoke_core.tools.session_init` bootstrap) are a sanctioned "
+        "`python3 -m <module>` module invocations are a sanctioned "
         "execution shape and are never blocked by this rule.\n\n"
         "Clean alternatives (preferred order):\n"
         "  1. Canonical agent shape — `yoke <subcommand>` covers the\n"

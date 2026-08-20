@@ -33,6 +33,50 @@ canonical session identity for registration or `session-offer`.
  produce no duplicate `harness_sessions` rows. This allows safe backfill from
  the prompt-submit hook and re-entry scenarios.
 
+## Identity Read-Back Contract
+
+Registration resolves identity once. Every later consumer READS it back
+through one call and re-derives nothing:
+
+```bash
+yoke sessions identity
+```
+
+The call takes no arguments — it resolves the caller through the ambient
+chain below, works on both transports (relaying rather than opening a local
+database), and is available to any session at any time, not only one running
+the autonomous loop. It returns session id, canonical executor and display
+alias, provider, model, execution lane and that lane's permitted downstream
+paths, workspace, project, actor, and `max_chain_steps`. Every field comes
+from the authority, so no field is advisory and none carries a hedge.
+
+**A session never resolves its own identity to send back.** Executor,
+provider, model, and workspace are read server-side from the row; the offer
+surface does not accept them, so they cannot be restated.
+
+The execution lane is the one deliberate exception. `--lane` / request-body
+`execution_lane` remains an **operator** override that routes a session to a
+different lane on purpose, recorded as `SessionOfferLaneOverrideApplied`. It
+is honoured faithfully, which is exactly why nothing automated may fill it
+in: a lane a client guessed locally outranks the project's `session-routing`
+mapping. Two Cursor sessions in one checkout showed the cost — the one whose
+shell variables happened to be empty passed nothing, fell through to the
+stored row, and was offered work; the one that substituted its locally
+guessed lane had every frontier item filtered behind a lane name no
+`lane_paths` entry declares. Same harness, same project, same workspace,
+opposite outcomes. The defect was upstream of the server the whole time: the
+value was fabricated locally and then passed. Identical sessions reach
+identical offers because no loop resolves or sends a lane, not because the
+override was removed.
+
+**A missing row is a registration fact, not a cue to guess.** When the
+authority holds no row for the calling id, the read is refused with the
+recovery command. Hooks register at session start and re-register on any
+later hook event, so a missing row means hook installation — never a reason
+to fall back to a locally detected executor, lane, or model. A wrong value
+that looks authoritative is harder to catch than a missing one: the caller
+reasons correctly from a false input and nothing downstream misbehaves.
+
 ## Orientation Identity Contract
 
 When a canonical session ID is available, every orientation block MUST include

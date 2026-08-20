@@ -8,16 +8,17 @@ Persistence + concurrency → test_service_client_sessions_offer_persist.py
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 
-from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
-    session_offer_db,  # noqa: F401 — re-exported fixture
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 class TestSessionOfferResume:
@@ -47,11 +48,8 @@ class TestSessionOfferResume:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -98,11 +96,8 @@ class TestSessionOfferResume:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", "sess-epic-task",
+                "--session-id",
+                "sess-epic-task",
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -113,15 +108,40 @@ class TestSessionOfferResume:
         assert data["context"]["task_num"] == 3
 
     def test_session_offer_resume_enforces_supported_paths(self, session_offer_db):
-        """CLI resume derives required_path from current item state."""
+        """CLI resume derives required_path from current item state.
+
+        Supported paths are derived server-side from the session's own
+        executor manifest, so the fixture declares a manifest that
+        disables ``polish`` rather than passing a path list the surface
+        no longer accepts.
+        """
+        manifest_dir = os.path.join(
+            session_offer_db["tmp_dir"], "runtime", "harness", "codex",
+        )
+        os.makedirs(manifest_dir, exist_ok=True)
+        with open(
+            os.path.join(manifest_dir, "manifest.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            json.dump(
+                {
+                    "supports": {
+                        "command_source": "shared_yoke_registry",
+                        "disabled_downstream_paths": ["polish"],
+                    }
+                },
+                handle,
+            )
+
         conn = connect_test_db(session_offer_db["db_path"])
         fresh_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         conn.execute("UPDATE items SET status = 'reviewed-implementation' WHERE id = 10")
         conn.execute(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat, offer_envelope)
-               VALUES ('sess-resume-path', 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s, '{{}}')""",
-            (fresh_iso, fresh_iso),
+               VALUES ('sess-resume-path', 'codex', 'openai', '{TEST_MODEL_ID}', %s, %s, %s, '{{}}')""",
+            (session_offer_db["tmp_dir"], fresh_iso, fresh_iso),
         )
         conn.execute(
             """INSERT INTO work_claims
@@ -135,12 +155,8 @@ class TestSessionOfferResume:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", "sess-resume-path",
-                "--supported-paths", "advance",
+                "--session-id",
+                "sess-resume-path",
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -195,13 +211,10 @@ class TestSessionOfferResume:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", "sess-resume-loop",
-                "--step", "2",
-                "--supported-paths", "polish",
+                "--session-id",
+                "sess-resume-loop",
+                "--step",
+                "2",
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -267,13 +280,10 @@ class TestSessionOfferResume:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", "sess-resume-progress",
-                "--step", "3",
-                "--supported-paths", "usher",
+                "--session-id",
+                "sess-resume-progress",
+                "--step",
+                "3",
             ],
             db_path=session_offer_db["db_path"],
         )

@@ -112,7 +112,7 @@ class TestDecideNextActionFeed:
         """Filtered-empty WAIT fires before drift_review FEED — operator
         must be told that existing work is not compatible with this lane instead of
         silently auto-feeding."""
-        offer = _make_offer()
+        offer = _make_offer(execution_lane="DARIUS")
         frontier = FrontierState(
             runnable_items=[],
             blocked_items=[],

@@ -59,13 +59,11 @@ def test_tool_shaped_classifications_cover_atlas_helpers() -> None:
     for shell_form in (
         "python3 -m yoke_core.tools.atlas_render_docs render",
         "python3 -m yoke_core.tools.atlas_render_docs check",
-        "yoke sessions init",
     ):
         entry = ops.lookup(shell_form)
         assert entry is not None
         assert entry.status == ops.PERMANENT
         assert entry.reason == ops.REASON_TOOL_SHAPED
-    assert ops.lookup("python3 -m yoke_core.tools.session_init") is None
 
 
 def test_register_all_handlers_includes_new_function_ids() -> None:

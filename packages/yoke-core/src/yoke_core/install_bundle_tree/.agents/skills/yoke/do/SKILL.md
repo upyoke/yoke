@@ -19,29 +19,30 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Events at every decision.** The decision engine emits `HarnessSessionOffered` and `NextActionChosen` events for a full audit trail. When investigating unexpected routing, query `yoke events query --event-name NextActionChosen --since "1 hour ago"` for the session's decision history.
 
-**Model is server-resolved.** The model identifier is canonicalized by SessionStart (and the registration hook fallback) into the session row's model field (see your `harness_sessions` packet stanza) — including any `[variant]` suffix such as `[1m]`. The `/yoke do` loop never substitutes a model value into a command line; `yoke sessions init` reads the canonical row and `yoke sessions offer` either accepts an explicit `--model` (rare) or defaults to the same DB lookup. The LLM agent is not part of the model resolution chain.
+**Identity is server-resolved, and the loop passes none of it.** Registration resolves a session's identity once — canonical executor, display alias, provider, model (including any `[variant]` suffix such as `[1m]`), execution lane, workspace, project, actor — and writes it to the session row. `yoke sessions identity` reads it back; `yoke sessions offer` reads the same row server-side. The loop never substitutes an identity value into a command line, because a locally guessed value would *override* correct server state rather than merely duplicate it: a session that passed its own guessed lane had every frontier item filtered behind a lane name its project declares no paths for, while an otherwise identical session that happened to pass nothing was routed correctly. The offer surface still accepts `--lane`, but only as a deliberate operator re-route — never as something this loop resolves. Two sessions with the same stored row must reach the same offer, so the loop passes only the step.
 
 ## Steps
 
-### 1. Resolve harness identity
+### 1. Read your session identity
 
-Run `yoke sessions init` as a single foreground call. Use the printed
-`SESSION_ID`, `EXECUTOR`, `LANE`, `PROVIDER`, `WORKSPACE`, and `MODEL`
-values. Do not resolve them yourself. Never mint a session id.
+Run `yoke sessions identity` as a single foreground call. It resolves the
+calling session ambiently — no environment prefix, no `--session-id` — and
+returns the stored identity: session id, canonical executor and its display
+alias, provider, model, execution lane and the downstream paths that lane may
+execute, workspace, project, actor, and `max_chain_steps`.
 
-`yoke sessions init` owns executor/provider/session-id resolution for
-Claude Code, Codex, and Cursor, then calls `sessions.begin`. Cursor is a
-first-class executor (`cursor-desktop` / `cursor-cli`); its session id
-comes from the conversation map, not from inventing an id.
-
-- **Note:** Yoke-owned harnesses self-report identity only. `supported_paths` is no longer passed by the harness — Yoke core derives harness capabilities server-side from the shared registry plus manifest limitations keyed by `executor`
+Every field comes from the authority, so none of it is advisory. Do not
+resolve, detect, or mint any of it yourself, and do not pass any of it back
+to a later call. If the read is refused because the session has no row, the
+refusal names the recovery — hooks register sessions at start, so a missing
+row is a hook-installation fact, not a cue to substitute a detected value.
 
 ### 2. Call the decision engine
 
-Read the loop logic from `.agents/skills/yoke/do/loop.md` and follow those instructions, passing the resolved harness identity parameters.
+Read the loop logic from `.agents/skills/yoke/do/loop.md` and follow those instructions.
 
 The loop handles:
-- Calling `yoke sessions offer` with the resolved identity
+- Calling `yoke sessions offer --step N`
 - Parsing the `NextAction` JSON response
 - Routing to the correct mode handler
 - Bounded chaining for chainable actions
@@ -58,7 +59,7 @@ Canonical emission of `HarnessSessionOffered` and `NextActionChosen` lives in th
 
 ## Notes
 
-- The ownership adapter runs through `yoke sessions offer`. Downstream calls (`session-heartbeat`, `yoke sessions checkpoint`, claim release) resolve the session ID internally from the `YOKE_SESSION_ID` environment variable — no explicit `--session-id` argument needed.
+- The ownership adapter runs through `yoke sessions offer`. Every session call — `yoke sessions identity`, `yoke sessions offer`, `yoke sessions touch`, `yoke sessions checkpoint`, claim release — resolves the calling session ambiently. Do not set `YOKE_SESSION_ID` and do not pass `--session-id`; the flag is an operator-debug override only.
 - The `yoke sessions offer` path requires an active session (started by harness hooks or `session-begin`), heartbeats it, computes a schedule, claims ownership, and routes to the chosen mode handler.
 - Only `resume` and `charge` are chainable. All other actions terminate the loop.
 - `charge` dispatches from `context.scheduler.next_step`, which the pinned
@@ -66,9 +67,9 @@ Canonical emission of `HarnessSessionOffered` and `NextActionChosen` lives in th
 - `resume` uses claimed status first and the pinned workflow's registered
   skill binding for the resumed stage.
 - Epic-task resumes use `context.epic_id` / `context.task_num`; they re-enter `/yoke conduct PREFIX-{epic_id}` instead of relying on `item_id`.
-- Max chain depth is controlled by `max_chain_steps` in machine config (default: 3).
+- Max chain depth is `max_chain_steps`, returned by `yoke sessions identity` from machine config (default: 3).
 - The loop must keep `session_id` stable across every chained step so claim/lease state can correlate correctly.
 - The loop refreshes the session heartbeat while a mode handler is running so live work does not become reclaimable just because the handler takes time.
-- Harness identity is resolved by `yoke sessions init` for Claude Code, Codex, and Cursor. Do not reconstruct executor or session id from env vars, and never mint. Supported paths are derived server-side from the shared registry plus manifest limitations. The model identifier is read from the session row's model field (see your `harness_sessions` packet stanza) or the canonical `hook_helpers_model.detect_model` fallback — never substituted by the LLM agent.
+- Harness identity is resolved once at registration and read back by `yoke sessions identity`, for Claude Code, Codex, and Cursor alike. Cursor is a first-class executor (`cursor-desktop` / `cursor-cli`); its session id comes from the conversation map, never from inventing one. Do not reconstruct executor, lane, model, provider, or session id, and never mint. Supported paths are derived server-side from the shared registry plus manifest limitations.
 - Canonical `HarnessSessionOffered` / `NextActionChosen` emission is in the shared `yoke sessions offer` path, not in the loop. This ensures all harnesses produce identical event lineage regardless of whether they use `do/loop.md`.
 - An empty or unparseable `yoke sessions offer` response is not a no-work answer. Read back `HarnessSessionOffered` (and `FrontierStepSelected` / `WorkClaimed`) for this session before concluding the frontier is empty — see `loop.md` Step A.

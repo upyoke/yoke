@@ -18,7 +18,7 @@ class TestDecideNextActionEscalate:
 
     def test_filtered_empty_lane_returns_no_lane_compatible_work_wait(self):
         """No runnable, no blockers, lane_filtered>0 -> WAIT with no_lane_compatible_work."""
-        offer = _make_offer()
+        offer = _make_offer(execution_lane="DARIUS")
         frontier = FrontierState(
             runnable_items=[],
             blocked_items=[],
@@ -226,10 +226,32 @@ class TestDecideNextActionEscalate:
         assert "lane_filtered_note" not in ctx
         assert "lane_filtered_items" not in ctx
 
+    def test_unresolved_lane_names_its_own_constraint(self):
+        """An unresolved lane is not "queued for another lane".
+
+        Nothing routed the session to a lane at all, so the work is not
+        waiting on a different one — it is waiting on an executor-to-lane
+        mapping that never matched. Naming the wrong constraint is what sent
+        an operator chasing a lane that was never the problem.
+        """
+        offer = _make_offer(execution_lane="primary")
+        frontier = FrontierState(
+            runnable_items=[],
+            blocked_items=[],
+            exceptional_items=[],
+            sml_coherent=True,
+            lane_filtered_count=3,
+        )
+        result = decide_next_action(offer, frontier)
+        assert result.action == ActionKind.WAIT
+        assert result.context["wait_reason"] == "session_lane_unresolved"
+        assert "no resolved execution lane" in result.reason
+        assert "session-routing" in result.reason
+
     def test_lane_filtered_items_round_trip_through_decision_engine(self):
         """Structured filtered-item detail is preserved from
         FrontierState input through NextAction.context output, unchanged."""
-        offer = _make_offer()
+        offer = _make_offer(execution_lane="DARIUS")
         filtered = [
             {
                 "item_id": _test_item_ref(9101),

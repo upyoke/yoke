@@ -119,12 +119,23 @@ def _decide_next_action(
         no_lane_ctx = build_no_lane_compatible_work_context(
             frontier, offer.execution_lane,
         )
-        return NextAction(
-            action=ActionKind.WAIT,
-            reason=(
+        if no_lane_ctx["wait_reason"] == "session_lane_unresolved":
+            lane_reason = (
+                f"{frontier.lane_filtered_count} frontier item(s) exist but this "
+                f"session has no resolved execution lane, so none of them can be "
+                f"routed to it. Nothing mapped executor "
+                f"'{offer.executor}' to a lane in the project's session-routing "
+                f"capability; declare that mapping rather than reading this as "
+                f"the work being unavailable."
+            )
+        else:
+            lane_reason = (
                 f"{frontier.lane_filtered_count} frontier item(s) exist but are queued "
                 f"for another lane; this lane has no compatible work right now."
-            ),
+            )
+        return NextAction(
+            action=ActionKind.WAIT,
+            reason=lane_reason,
             chainable=False,
             correlation_id=correlation,
             context=no_lane_ctx,

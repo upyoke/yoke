@@ -9,6 +9,7 @@ from fastapi.routing import APIRouter
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import (
+    SessionError,
     display_claim_item_id,
     normalize_claim_item_id,
     read_chain_checkpoint,
@@ -32,7 +33,6 @@ from yoke_core.api.routing_config import (
     load_process_offer_policy,
     load_project_routing_settings,
     load_routing_config,
-    resolve_execution_lane,
 )
 from yoke_core.api.service_client_sessions_frontier import (
     build_frontier_state_from_schedule,
@@ -49,6 +49,7 @@ from yoke_core.domain.session_decision_process_gate import (
     record_disabled_process_skip,
 )
 from yoke_core.domain.sessions_offer_envelope_merge import persist_offer_diagnostics
+from yoke_core.domain.sessions_identity_read import resolve_session_identity
 from yoke_core.api.routes.session_offer_models import SessionOfferRequest
 
 router = APIRouter()
@@ -63,8 +64,10 @@ def _main_api():
 def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
     """Accept a session offer and return a NextAction directive."""
     _main = _main_api()
-    if not req.session_id or not req.executor or not req.provider or not req.model or not req.workspace:
-        return _main._error_response(400, "MISSING_FIELD", "session_id, executor, provider, model, and workspace are required.")
+    if not req.session_id:
+        return _main._error_response(
+            400, "MISSING_FIELD", "session_id is required.",
+        )
 
     conn = _main.get_db_readwrite()
     try:
@@ -79,23 +82,12 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
             return _main._error_response(400, "UNKNOWN_PROJECT", str(exc))
         project_label = _canonical_project_label(conn, project_scope)
 
-        policy_project_id: Optional[int] = None
         try:
-            session_row = conn.execute(
-                "SELECT project_id FROM harness_sessions WHERE session_id=%s",
-                (req.session_id,),
-            ).fetchone()
-        except Exception:
-            session_row = None
-        if session_row is not None:
-            try:
-                raw_project_id = session_row["project_id"]
-            except (KeyError, TypeError):
-                raw_project_id = session_row[0]
-            try:
-                policy_project_id = int(raw_project_id)
-            except (TypeError, ValueError):
-                policy_project_id = None
+            identity = resolve_session_identity(conn, req.session_id)
+        except SessionError as exc:
+            return _main._error_response(400, exc.code, exc.message)
+
+        policy_project_id: Optional[int] = identity.project_id
         if policy_project_id is None and project_scope and len(project_scope) == 1:
             policy_project_id = int(project_scope[0])
 
@@ -115,35 +107,31 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                 else None
             ),
         )
-        # Executor default; a supplied body lane overrides the session row.
-        resolved_lane = resolve_execution_lane(
-            executor=req.executor,
-            explicit_lane=None,
-            routing_config=routing_config,
-        )
+        # The row carries the lane registration resolved; a supplied body
+        # lane is the deliberate operator override on top of it.
+        resolved_lane = identity.execution_lane
         offer = SessionOffer(
             session_id=req.session_id,
-            executor=req.executor,
-            provider=req.provider,
-            model=req.model,
-            capabilities=req.capabilities or [],
-            workspace=req.workspace,
+            executor=identity.executor,
+            provider=identity.provider,
+            model=identity.model,
+            capabilities=identity.capabilities,
+            workspace=identity.workspace,
             execution_lane=resolved_lane,
             step=req.step,
-            supported_paths=req.supported_paths or [],
+            supported_paths=[],
         )
 
         ownership = session_offer_with_ownership(
             conn,
             session_id=req.session_id,
-            executor=req.executor,
-            provider=req.provider,
-            model=req.model,
-            workspace=req.workspace,
+            executor=identity.executor,
+            provider=identity.provider,
+            model=identity.model,
+            workspace=identity.workspace,
             execution_lane=resolved_lane,
             caller_supplied_lane=req.execution_lane,
-            capabilities=req.capabilities,
-            supported_paths=req.supported_paths,
+            capabilities=identity.capabilities,
             lane_allowed_paths=routing_config.lane_allowed_paths,
             step=req.step,
             project_scope=project_scope,

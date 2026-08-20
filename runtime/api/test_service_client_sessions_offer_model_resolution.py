@@ -21,8 +21,9 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
-    session_offer_db,  # noqa: F401 — re-exported fixture
 )
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 class TestSessionOfferModelResolution:
@@ -41,12 +42,11 @@ class TestSessionOfferModelResolution:
 
         result = _run_client(
             [
+                # NB: no identity flags at all — the server resolves every
+                # one of them, model included, from the session row.
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                # NB: no --model flag — server must resolve from DB.
-                "--workspace", ws,
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -83,10 +83,8 @@ class TestSessionOfferModelResolution:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", "cold-start-sess",
+                "--session-id",
+                "cold-start-sess",
             ],
             db_path=session_offer_db["db_path"],
         )

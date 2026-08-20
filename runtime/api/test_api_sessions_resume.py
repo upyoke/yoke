@@ -8,6 +8,7 @@ Shared schema/fixture helpers live in ``test_session_offer_schemas.py``.
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import patch
 from yoke_core.domain.scheduler_types import SMLState
 
@@ -45,14 +46,7 @@ class TestSessionOfferResume:
         self.db_info = session_offer_db
 
     def _make_offer(self, **overrides):
-        payload = {
-            "session_id": "test-session-001",
-            "executor": "DARIUS",
-            "provider": "anthropic",
-            "model": TEST_MODEL_ID,
-            "workspace": "/tmp/test-workspace",
-            "execution_lane": "DARIUS",
-        }
+        payload = {"session_id": "test-session-001"}
         payload.update(overrides)
         return payload
 
@@ -148,7 +142,32 @@ class TestSessionOfferResume:
         assert data["context"]["task_num"] == 3
 
     def test_offer_resume_enforces_supported_paths(self):
-        """API resume derives required_path from current item state."""
+        """API resume derives required_path from current item state.
+
+        Supported paths are derived server-side from the session's own
+        executor manifest, so the fixture declares a manifest that
+        disables ``polish`` rather than sending a path list the request
+        body no longer carries.
+        """
+        workspace = self.db_info["tmp_dir"]
+        manifest_dir = os.path.join(
+            workspace, "runtime", "harness", "codex",
+        )
+        os.makedirs(manifest_dir, exist_ok=True)
+        with open(
+            os.path.join(manifest_dir, "manifest.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            json.dump(
+                {
+                    "supports": {
+                        "command_source": "shared_yoke_registry",
+                        "disabled_downstream_paths": ["polish"],
+                    }
+                },
+                handle,
+            )
         conn = connect_test_db(self.db_info["db_path"])
         conn.execute("UPDATE items SET status = 'reviewed-implementation' WHERE id = 10")
         now = fresh_now()
@@ -157,9 +176,9 @@ class TestSessionOfferResume:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, project_id,
                 offer_envelope, offered_at, last_heartbeat)
-               VALUES ('test-session-001', 'DARIUS', 'anthropic',
-                       '{TEST_MODEL_ID}', '/tmp/test', 1, '{{}}', {p}, {p})""",
-            (now, now),
+               VALUES ('test-session-001', 'codex', 'openai',
+                       '{TEST_MODEL_ID}', {p}, 1, '{{}}', {p}, {p})""",
+            (workspace, now, now),
         )
         conn.execute(
             """INSERT INTO work_claims
@@ -173,7 +192,7 @@ class TestSessionOfferResume:
         with _sml_state_patch():
             resp = self.client.post(
                 "/v1/sessions/offer",
-                json=self._make_offer(supported_paths=["advance"]),
+                json=self._make_offer(),
             )
 
         assert resp.status_code == 200
@@ -230,7 +249,7 @@ class TestSessionOfferResume:
         with _sml_state_patch():
             resp = self.client.post(
                 "/v1/sessions/offer",
-                json=self._make_offer(step=2, supported_paths=["polish"]),
+                json=self._make_offer(step=2),
             )
 
         assert resp.status_code == 200

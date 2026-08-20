@@ -35,7 +35,6 @@ from runtime.api.test_service_client import (
     _service_client_cmd,
     _with_source_pythonpath,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
 
 
 def _p(conn) -> str:
@@ -70,12 +69,10 @@ def _offer(session_id: str, *, db_path: str, workspace: str):
     return _run_client(
         [
             "session-offer",
-            "--executor", "DARIUS",
-            "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
-            "--workspace", workspace,
-            "--session-id", session_id,
-            "--step", "1",
+            "--session-id",
+            session_id,
+            "--step",
+            "1",
         ],
         db_path=db_path,
     )

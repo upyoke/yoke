@@ -6,7 +6,7 @@ from yoke_cli.commands.adapters.sessions import (
     SESSIONS_BEGIN_USAGE,
     SESSIONS_CHECKPOINT_READ_USAGE,
     SESSIONS_CHECKPOINT_USAGE,
-    SESSIONS_INIT_USAGE,
+    SESSIONS_IDENTITY_USAGE,
     SESSIONS_OFFER_USAGE,
     SESSIONS_OWNERSHIP_GUARD_USAGE,
     SESSIONS_TOUCH_USAGE,
@@ -20,7 +20,7 @@ from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
 
 USAGE_BY_FUNCTION_ID = {
     "sessions.begin": SESSIONS_BEGIN_USAGE,
-    "sessions.init": SESSIONS_INIT_USAGE,
+    "sessions.identity": SESSIONS_IDENTITY_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,

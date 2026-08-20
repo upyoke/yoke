@@ -8,6 +8,7 @@ from yoke_core.domain.handlers import sessions_charge_schedule as _scs
 from yoke_core.domain.handlers import sessions_orchestration as _so
 from yoke_core.domain.handlers import sessions_reclaim as _sr
 from yoke_core.domain.handlers import sessions_closeout as _sc
+from yoke_core.domain.handlers import sessions_identity as _si
 
 
 def register(registry) -> None:
@@ -63,6 +64,18 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
+    )
+    registry.register(
+        "sessions.identity", _si.handle_identity,
+        _si.IdentityRequest, _si.IdentityResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.sessions_identity",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["session_required"],
+        adapter_status="live",
+        claim_required_kind=None,
     )
     registry.register(
         "sessions.touch", _so.handle_touch,

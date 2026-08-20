@@ -4,7 +4,7 @@ This file contains the loop logic for `/yoke do`. It is read and executed by the
 
 ## Constants
 
-- `MAX_CHAIN_STEPS` — Read from machine config key `max_chain_steps` (default: 3). Resolved once in the init block and reused for all chain decisions.
+- `max_chain_steps` — returned by `yoke sessions identity` from machine config (default: 3). Read once in Step A and reused for all chain decisions.
 - Chainable actions: `resume`, `charge` (as indicated by the `chainable` field in the response).
 
 ## Loop Procedure
@@ -13,90 +13,65 @@ Execute the following loop, starting at `step = 1`:
 
 ### Step A: Call the Decision Engine
 
-Initialize a stable session id and resolve harness identity once per `/yoke do`
-invocation and reuse them on every loop iteration.
+Read your session identity once per `/yoke do` invocation and reuse the
+printed values for the whole run.
 
-**IMPORTANT — cross-invocation variable persistence:** Shell
-variables set via `export` in one Bash tool call do NOT persist to subsequent
-Bash tool calls. After running this block, **capture the printed
-`YOKE_SESSION_ID` and `_workspace` values in your prompt context** and
-substitute them as literal strings in all later Bash calls (Steps B, C, D).
-Never reference `$YOKE_SESSION_ID` or `$_workspace` in a later Bash call
-expecting them to survive from this one — they won't.
-
-**Session-ID resolution:** Downstream session wrappers
-(`session-heartbeat`, `yoke sessions checkpoint`, `yoke sessions checkpoint-read`,
-claim release) resolve the session ID internally from the `YOKE_SESSION_ID`
-environment variable — no explicit `--session-id` needed. Only the session
-establishment call (`yoke sessions begin`, invoked internally by the init
-wrapper) and `yoke sessions offer` pass `--session-id` explicitly (for
-establishment and validation). Set `YOKE_SESSION_ID` in each Bash call's
-environment using the literal value captured from the init output.
-
-Run `yoke sessions init` as a single foreground call. The client-local wrapper
-uses the interpreter that owns the installed `yoke` command, so packaged
-installs never depend on an ambient shell Python carrying Yoke modules.
-The wrapper owns all session identity resolution + the idempotent session
-establishment call internally. Establishment routes through the
-transport-keyed `yoke sessions begin` adapter, which is connection-keyed
-exactly like `yoke sessions offer`: an https active connection relays the
-registration to the connected server (so a prod-over-https bootstrap
-registers on that authority), while a non-prod local-postgres connection
-dispatches in-process. It also resolves the canonical
-model from the session row's model field (see your `harness_sessions`
-packet stanza, preserving any `[variant]` suffix written by SessionStart)
-and falls back to the harness model detector on a
-cold-start cache miss — the LLM agent never substitutes a model value.
-The wrapper writes `KEY=VALUE` lines to stdout; capture each value into
-your prompt context for substitution into later Bash calls.
+Run `yoke sessions identity` as a single foreground call:
 
 ```bash
-yoke sessions init
+yoke sessions identity
 ```
 
-The wrapper emits these keys, one per line, in stable order:
+It resolves the calling session ambiently and returns the stored identity
+the authority holds:
 
-- `SESSION_ID` — resolved `YOKE_SESSION_ID` (existing env, harness-mapped, or generated)
-- `WORKSPACE` — git toplevel of the calling cwd
-- `LANE` — resolved execution lane
-- `EXECUTOR` — `claude-code` | `codex` | (custom from `YOKE_EXECUTOR`)
-- `PROVIDER` — `anthropic` | `openai` | (custom from `YOKE_PROVIDER`)
-- `MODEL` — the canonical model id resolved from the session row's model field (see your `harness_sessions` packet stanza) / `detect_model` fallback
-- `MAX_CHAIN_STEPS` — read from machine config (default `3`)
+- `session_id` — the resolved session id
+- `executor` / `executor_display_name` — canonical harness id and its surface alias
+- `provider`, `model` — as registration recorded them
+- `execution_lane` and `lane_allowed_paths` — the lane the project's
+  session-routing policy assigned this executor, and the downstream paths
+  that lane may execute
+- `workspace`, `project_id`, `project_slug`, `actor_id`, `actor_label`
+- `max_chain_steps` — the chain budget (default `3`)
 
-The wrapper exits non-zero if the cwd is not inside a git repository or if
-`yoke sessions begin` fails; on failure it forwards the underlying handler's
-actionable message (missing project id, transport misconfiguration,
-`SessionError`) to stderr before the exit-code line. Otherwise it exits 0
-and the printed values are stable for the duration of the `/yoke do`
-invocation.
+Every value comes from the authority, so none is advisory and none needs a
+label. The call takes no arguments: it resolves ambiently, on both
+transports, and works from any session at any time — not only inside this
+loop. A refusal names its recovery; a session that cannot reach its own
+identity says so rather than inventing one, so never fall back to a locally
+detected executor, lane, or model.
 
-Run the registered `yoke sessions offer` wrapper to get a `NextAction`. The shared offer path
-emits canonical `HarnessSessionOffered` and `NextActionChosen` events internally --
-the loop does not emit these events directly.
+**Do not carry identity into later calls.** Shell variables set in one Bash
+tool call do not survive to the next, and that is not a problem to work
+around here: every session call resolves the caller ambiently, so there is
+nothing to carry. Do not prefix commands with `YOKE_SESSION_ID=...` and do
+not pass `--session-id`. Passing identity is not harmless duplication — a
+value the client guessed *overrides* correct server state. Two Cursor
+sessions in one checkout, same harness and same project, reached opposite
+outcomes purely on this: the one whose shell variables were empty was routed
+correctly, and the one that substituted its locally guessed lane had all 13
+frontier items filtered behind a lane its project declares no paths for.
+`--session-id` remains only as the operator-debug override the project rules
+describe.
 
-The session MUST already be active before calling `yoke sessions offer` (created by
-the `yoke sessions begin` establishment call above). The offer path validates,
+Then run the registered `yoke sessions offer` wrapper to get a `NextAction`.
+The shared offer path emits canonical `HarnessSessionOffered` and
+`NextActionChosen` events internally — the loop does not emit these events
+directly.
+
+The session MUST already be active before calling `yoke sessions offer`
+(registered by the harness hooks at session start). The offer path validates,
 heartbeats, schedules, and claims — it does NOT create sessions.
 
-This MUST run in the **same Bash call** as the init block above (or substitute
-`{_executor}`, `{_provider}`, and `{_workspace}` with literal
-values captured from the init output, and set `YOKE_SESSION_ID` in the
-environment):
-
 ```bash
-# FR-7: No --supported-paths. Server derives capabilities from shared registry plus manifest limitations.
-yoke sessions offer \
- --executor "$_executor" \
- --provider "$_provider" \
- --workspace "$_workspace" \
- --session-id "$YOKE_SESSION_ID" \
- --step "{step}"
+yoke sessions offer --step "{step}"
 ```
 
-The assembled command must literally include `--session-id "$YOKE_SESSION_ID"`
-so every re-offer stays attached to the stable session identity begun at the
-start of the `/yoke do` invocation.
+That is the whole command. Executor, provider, workspace, and model are read
+server-side from the session row, and the lane comes from the row too. The
+surface does still accept `--lane` and `--project`, but neither belongs here:
+`--lane` is a deliberate operator re-route, and a loop that fills it in is
+precisely how a locally guessed lane reached the server. Add nothing else.
 
 Parse the JSON from stdout **in the prompt context** — do not capture it into a shell variable (`_offer=$(...)`) and do not pipe it to a parser (`| python3 -c ...`); the harness renders the command's stdout to the next turn and you read it inline. Bare invocation + prompt-context parsing is the canonical shape, the same as `yoke sessions ownership-guard` at `loop-routing.md` Step B. The response has this shape:
 
@@ -109,11 +84,6 @@ Parse the JSON from stdout **in the prompt context** — do not capture it into 
  "context": { ... }
 }
 ```
-
-`yoke sessions offer` itself does not need `--model` — it resolves the canonical
-model from the session row's model field (same DB row `yoke sessions begin`
-populated above; see your `harness_sessions` packet stanza) with the
-`detect_model` fallback.
 
 If stdout is empty or is not a parseable NextAction JSON object —
 including an exec that exits 0 with empty stdout — do **not** treat that
@@ -129,9 +99,9 @@ yoke events query --event-name WorkClaimed --session {SESSION_ID} --limit 1 --js
 yoke events query --event-name NextActionChosen --session {SESSION_ID} --limit 1 --json
 ```
 
-Substitute the literal session id captured from `yoke sessions init`
-(`SESSION_ID`), not `$YOKE_SESSION_ID` from a prior Bash call. `--session`
-filters `events.session_id`; `--session-id` is caller identity.
+Substitute the literal `session_id` captured from `yoke sessions identity`.
+`--session` filters `events.session_id`; it is a query predicate, not caller
+identity.
 
 - If `HarnessSessionOffered` fired (and `FrontierStepSelected` /
   `WorkClaimed` when the offer selected work), the offer succeeded.
@@ -147,7 +117,7 @@ If the command exits non-zero **and** stdout is a parseable error **and**
 the durable-state check above found no matching offer events, report the
 error and stop.
 
-**Note:** Canonical `HarnessSessionOffered` and `NextActionChosen` events are emitted by the shared offer path (via `yoke sessions offer` / the `/v1/session/offer` API endpoint), not by this loop. Pass the current `{step}` number to that shared path so it can attach the same loop iteration to both events while centrally handling indexed `item_id` / `task_num` population and merged action-specific context.
+**Note:** Canonical `HarnessSessionOffered` and `NextActionChosen` events are emitted by the shared offer path (via `yoke sessions offer` / the `/v1/sessions/offer` API endpoint), not by this loop. Pass the current `{step}` number to that shared path so it can attach the same loop iteration to both events while centrally handling indexed `item_id` / `task_num` population and merged action-specific context.
 
 ### Step B: Route to Mode Handler
 

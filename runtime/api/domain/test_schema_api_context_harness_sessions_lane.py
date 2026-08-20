@@ -32,3 +32,15 @@ def test_notes_describe_lane_override_doctrine():
     notes = packet["notes"]
     assert "execution_lane" in notes
     assert "SessionOfferLaneOverrideApplied" in notes
+
+
+def test_notes_scope_the_override_to_a_deliberate_operator_re_route():
+    """The override exists for operators, not for a loop to fill in.
+
+    An agent that reads "a caller lane overrides the row" and concludes it
+    may send its own is the failure this clause has to pre-empt: the guessed
+    lane wins over the project mapping and filters the whole frontier.
+    """
+    notes = CANONICAL_TABLES["harness_sessions"]["notes"]
+    assert "DELIBERATE" in notes
+    assert "yoke sessions identity" in notes

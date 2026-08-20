@@ -16,6 +16,10 @@ SESSION_ADAPTERS = [
             "--workspace W"
         ),
     ),
+    _read_entry(
+        function_id="sessions.identity",
+        cli_invocation="yoke sessions identity",
+    ),
     AdapterEntry(
         function_id="sessions.touch",
         cli_invocation="yoke sessions touch [--mode MODE]",
@@ -34,7 +38,7 @@ SESSION_ADAPTERS = [
     AdapterEntry(
         function_id="sessions.offer",
         cli_invocation=(
-            "yoke sessions offer --executor E --provider P --workspace W"
+            "yoke sessions offer [--step N] [--project IDS]"
         ),
     ),
     AdapterEntry(

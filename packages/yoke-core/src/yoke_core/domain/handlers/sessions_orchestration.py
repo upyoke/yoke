@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -66,13 +66,27 @@ class OwnershipGuardResponse(BaseModel):
 
 
 class OfferRequest(BaseModel):
-    executor: str
-    provider: str
-    workspace: str
-    model: Optional[str] = None
-    lane: Optional[str] = None
+    """Everything an offer needs that the session row cannot answer.
+
+    Executor, provider, model, and workspace are read server-side from the
+    session row; a caller cannot restate them, so two sessions with the same
+    stored row reach the same offer unless an operator deliberately says
+    otherwise.
+
+    ``lane`` is the one identity-shaped field a caller may still send: a
+    deliberate operator override that routes a session to a different lane on
+    purpose, recorded as ``SessionOfferLaneOverrideApplied``. It is honoured
+    faithfully, which is why nothing automated may fill it in — a lane guessed
+    from local config outranks the project's routing mapping.
+
+    Extras are forbidden rather than ignored, so a caller still sending a
+    retired field is told it is gone instead of having it silently dropped.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     step: int = 1
-    supported_paths: List[str] = Field(default_factory=list)
+    lane: Optional[str] = None
     project: Optional[str] = None
 
 
@@ -220,14 +234,9 @@ def handle_offer(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         result = run_session_offer(
-            executor=body.executor,
-            provider=body.provider,
-            model=body.model,
-            workspace=body.workspace,
-            lane=body.lane,
-            session_id=_session_id(request) or None,
+            session_id=_session_id(request),
             step=body.step,
-            supported_paths=body.supported_paths,
+            lane=body.lane,
             project=body.project,
         )
     except SessionOfferCommandError as exc:

@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import os
 
-import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
@@ -23,7 +22,6 @@ from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
     session_offer_db,  # noqa: F401 — re-exported fixture
 )
-from runtime.api.test_constants import TEST_MODEL_ID
 
 
 class TestSessionOfferCommand:
@@ -37,11 +35,8 @@ class TestSessionOfferCommand:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -59,11 +54,8 @@ class TestSessionOfferCommand:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -78,12 +70,8 @@ class TestSessionOfferCommand:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--lane", "review",
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -102,11 +90,8 @@ class TestSessionOfferCommand:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "codex",
-                "--provider", "openai",
-                "--model", "gpt-5.4",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -133,12 +118,8 @@ class TestSessionOfferCommand:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "claude-code",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--lane", "default",
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -165,11 +146,8 @@ class TestSessionOfferCommand:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "codex",
-                "--provider", "openai",
-                "--model", "gpt-5.4",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -186,47 +164,39 @@ class TestSessionOfferCommand:
         event = json.loads(row[0])
         assert event["context"]["actual_lane"] == "ALTMAN"
 
-    def test_session_offer_missing_required_args(self, session_offer_db):
-        """Missing required args exits with code 2."""
-        result = _run_client(
-            ["session-offer", "--executor", "DARIUS"],
-            db_path=session_offer_db["db_path"],
-        )
-        assert result.returncode == 2
+    def test_session_offer_accepts_no_identity_arguments(self, session_offer_db):
+        """The surface has no field a caller could assert identity into.
 
-    def test_session_offer_auto_session_id_fails_without_pre_registered(self, session_offer_db):
-        """auto-generated session ID fails because session-offer no longer creates sessions."""
+        A caller-supplied lane is the mechanism by which a locally guessed
+        value outranks the session row, so argument parsing — not a runtime
+        check — is what keeps it unreachable.
+        """
+        for flag, value in (
+            ("--executor", "codex"),
+            ("--provider", "openai"),
+            ("--model", "some-model"),
+            ("--workspace", "/tmp/workspace"),
+            ("--supported-paths", "advance"),
+        ):
+            result = _run_client(
+                ["session-offer", flag, value],
+                db_path=session_offer_db["db_path"],
+            )
+            assert result.returncode == 2, f"{flag} was accepted"
+            assert "unrecognized arguments" in result.stderr
+
+    def test_session_offer_unregistered_session_names_registration_recovery(
+        self, session_offer_db,
+    ):
+        """An unregistered id is refused with its recovery, never invented."""
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
+                "--session-id",
+                "offer-never-registered",
             ],
             db_path=session_offer_db["db_path"],
         )
         assert result.returncode == 1
-        assert "No active session found" in result.stderr
-
-    @pytest.mark.parametrize(
-        "executor",
-        ["claude-code", "claude-desktop", "codex", "codex-desktop", "cursor", "cursor-cli"],
-    )
-    def test_session_offer_supported_harness_requires_session_id(self, session_offer_db, executor):
-        """Supported harnesses must pass their canonical session ID."""
-        from yoke_core.hooks.helpers import is_codex
-        result = _run_client(
-            [
-                "session-offer",
-                "--executor", executor,
-                "--provider", "openai" if is_codex(executor) else "anthropic",
-                "--model", "gpt-5.4" if is_codex(executor) else TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-            ],
-            db_path=session_offer_db["db_path"],
-        )
-        assert result.returncode == 1
-        assert "--session-id" in result.stderr
-        assert "canonical harness session ID" in result.stderr
-        assert "fallback IDs are not allowed for supported harnesses" in result.stderr
+        assert "offer-never-registered" in result.stderr
+        assert "hook" in result.stderr.lower()

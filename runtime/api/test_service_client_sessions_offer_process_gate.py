@@ -21,15 +21,15 @@ import os
 import sys
 
 import pytest  # noqa: F401  (used by monkeypatch / capsys fixtures)
-from runtime.api.test_constants import TEST_MODEL_ID
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from yoke_core.domain.session_contract import FrontierState
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
-    session_offer_db,  # noqa: F401 — re-exported fixture
 )
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 _DISABLED_PROCESS_CONFIG = (
@@ -121,10 +121,6 @@ class TestSessionOfferProcessGateCharge:
         )
 
         rc = service_client.cmd_session_offer([
-            "--executor", "claude-code",
-            "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
-            "--workspace", session_offer_db["tmp_dir"],
             "--session-id", sid,
         ])
         captured = capsys.readouterr()
@@ -200,10 +196,6 @@ class TestSessionOfferProcessGateCharge:
         )
 
         rc = service_client.cmd_session_offer([
-            "--executor", "claude-code",
-            "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
-            "--workspace", session_offer_db["tmp_dir"],
             "--session-id", sid,
         ])
         captured = capsys.readouterr()

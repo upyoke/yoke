@@ -150,21 +150,21 @@ A harness with `command_source: "shared_yoke_registry"` inherits the shared oper
 
 ### Shared registry plus manifest limitations
 
-For harnesses with a manifest, Yoke core derives the effective `downstream_paths` server-side from the shared registry and then applies limitations from the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`). A harness's session-offer-time `supported_paths` argument is ignored for Yoke-owned harnesses. The shared registry is the command/path source; the manifest is the limitation and affordance declaration; the session offer is the transport.
+For harnesses with a manifest, Yoke core derives the effective `downstream_paths` server-side from the shared registry and then applies limitations from the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`). No harness passes `supported_paths` at offer time; the argument does not exist on the surface. The shared registry is the command/path source; the manifest is the limitation and affordance declaration; the session offer is the transport.
 
-**Shared Yoke code is the command/path source of truth for Yoke-owned harnesses.** A harness that does not ship a manifest falls into the backward-compat branch — an empty effective list is treated as "all downstream paths supported". Adapters that want truthful fallback enforcement should either add a manifest under `runtime/harness/{executor}/manifest.json` (or explicitly normalize surface-specific executors back to a coarse family manifest) or, for non-Yoke-owned adapters, continue to pass `supported_paths` explicitly at session-offer time.
+**Shared Yoke code is the command/path source of truth for Yoke-owned harnesses.** A harness that does not ship a manifest falls into the backward-compat branch — an empty effective list is treated as "all downstream paths supported". Adapters that want truthful fallback enforcement add a manifest under `runtime/harness/{executor}/manifest.json` (or explicitly normalize surface-specific executors back to a coarse family manifest); there is no offer-time argument to pass instead.
 
 ---
 
 ## Part 3: Session-Offer Builder
 
-The session-offer builder translates the adapter's runtime identity and declared limitations into the format that `/yoke do` expects. For Yoke-owned harnesses, truthful downstream-path support is normally derived server-side from the shared registry plus manifest limitations rather than passed as an operator-facing argument.
+The session-offer builder translates the adapter's runtime identity and declared limitations into the format that `/yoke do` expects. Truthful downstream-path support is derived server-side from the shared registry plus manifest limitations; it is never passed as an argument.
 
 ### Requirements
 
 - Read identity fields from the capability manifest's `identity` section.
 - Resolve runtime values (provider, model) from the source specified in the manifest.
-- Ensure Yoke core can resolve truthful downstream-path support from the shared registry plus manifest limitations. Only non-Yoke-owned adapters without a Yoke-managed manifest should pass `supported_paths` explicitly to the shared session-offer API.
+- Ensure Yoke core can resolve truthful downstream-path support from the shared registry plus manifest limitations. An adapter without a manifest is treated as unconstrained; passing paths explicitly is not an option the offer surface offers.
 - Include the `supports.optional_local_affordances` for informational enrichment.
 
 ### Session-offer parameters
