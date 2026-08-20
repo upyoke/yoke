@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.tools._impacted_contract_tests import (
+    AGENT_SKILL_CONTRACT_TESTS,
     ALWAYS_RUN_TESTS,
     ITEM_WORKTREE_SCHEMA_TESTS,
     PRODUCT_CLI_BOUNDARY_TESTS,
@@ -319,6 +320,7 @@ def main(argv: "Sequence[str] | None" = None) -> int:
 
 
 __all__ = [
+    "AGENT_SKILL_CONTRACT_TESTS",
     "ALWAYS_RUN_TESTS",
     "FALLBACK_RULES",
     "FULL_SWEEP_TRIGGERS",

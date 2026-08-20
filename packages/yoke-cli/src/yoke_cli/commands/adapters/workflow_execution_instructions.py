@@ -47,6 +47,7 @@ def _dispatch(
     configure: Callable[[argparse.ArgumentParser], None] | None,
     function_id: str,
     payload: Callable[[argparse.Namespace], dict],
+    human_writer: Callable[[Any, Any, Any], None] | None = None,
 ) -> int:
     usage = f"yoke {tokens} [--json]"
     parser = argparse.ArgumentParser(prog=f"yoke {tokens}", description=usage)
@@ -63,6 +64,7 @@ def _dispatch(
         payload=payload(parsed),
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        human_writer=human_writer,
     )
 
 
@@ -145,6 +147,33 @@ def workflow_execution_instruction_list(args: List[str]) -> int:
     )
 
 
+def _resolve_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--workflow", required=True)
+    parser.add_argument("--project", required=True)
+
+
+def _resolved_instructions_writer(response, stdout, stderr) -> None:
+    del stderr
+    if response.success:
+        result = response.result or {}
+        stdout.write(render_execution_instruction_block(
+            result.get("execution_instructions") or []
+        ))
+
+
+def workflow_execution_instruction_resolve(args: List[str]) -> int:
+    return _dispatch(
+        args, tokens="workflow execution-instruction resolve",
+        configure=_resolve_args,
+        function_id="workflow.execution_instruction.resolve",
+        payload=lambda parsed: {
+            "workflow": parsed.workflow,
+            "project": parsed.project,
+        },
+        human_writer=_resolved_instructions_writer,
+    )
+
+
 def workflow_execution_instruction_delete(args: List[str]) -> int:
     return _dispatch(
         args, tokens="workflow execution-instruction delete",
@@ -173,6 +202,10 @@ USAGE_BY_FUNCTION_ID = {
     "workflow.execution_instruction.list": (
         "yoke workflow execution-instruction list [--json]"
     ),
+    "workflow.execution_instruction.resolve": (
+        "yoke workflow execution-instruction resolve "
+        "--workflow W --project P [--json]"
+    ),
     "workflow.execution_instruction.delete": (
         "yoke workflow execution-instruction delete ID [--json]"
     ),
@@ -186,6 +219,7 @@ __all__ = [
     "workflow_execution_instruction_create",
     "workflow_execution_instruction_delete",
     "workflow_execution_instruction_list",
+    "workflow_execution_instruction_resolve",
     "workflow_execution_instruction_set_scope",
     "workflow_execution_instruction_update",
 ]

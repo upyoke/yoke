@@ -61,10 +61,12 @@ def test_registrations_expose_the_crud_contract() -> None:
         "workflow.execution_instruction.create",
         "workflow.execution_instruction.update",
         "workflow.execution_instruction.set_scope",
+        "workflow.execution_instruction.resolve",
         "workflow.execution_instruction.list",
         "workflow.execution_instruction.delete",
     }
     assert by_id["workflow.execution_instruction.list"]["side_effects"] == []
+    assert by_id["workflow.execution_instruction.resolve"]["side_effects"] == []
     create = by_id["workflow.execution_instruction.create"]
     assert create["side_effects"] == ["db_write", "event_emit"]
     assert create["emitted_event_names"] == [crud.INSTRUCTION_CREATED_EVENT]
@@ -144,6 +146,56 @@ def test_missing_instruction_and_empty_content_fail_closed(monkeypatch):
     ))
     assert not blank.primary_success
     assert blank.error.code == "empty_content_refused"
+
+
+def test_resolve_returns_only_the_named_scope_in_specificity_order(monkeypatch):
+    from yoke_core.domain import workflow_execution_instructions as domain
+
+    conn = _connection()
+    monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: conn)
+    conn.execute(
+        "INSERT INTO projects VALUES (8, 'other', 'Other', 'main', 'OTH')"
+    )
+
+    broad = domain.create_instruction(conn, content="Broad rule.")
+    domain.set_instruction_scope(
+        conn, broad, workflow_ids=[], applies_to_all_workflows=True,
+        applies_to_all_projects=True, project_ids=[],
+    )
+    specific = domain.create_instruction(conn, content="Acme Dash rule.")
+    domain.set_instruction_scope(
+        conn, specific, workflow_ids=["dash"],
+        applies_to_all_projects=False, project_ids=[7],
+    )
+    other_workflow = domain.create_instruction(conn, content="Issue rule.")
+    domain.set_instruction_scope(
+        conn, other_workflow, workflow_ids=["issue"],
+        applies_to_all_projects=True, project_ids=[],
+    )
+    other_project = domain.create_instruction(conn, content="Other project rule.")
+    domain.set_instruction_scope(
+        conn, other_project, workflow_ids=["dash"],
+        applies_to_all_projects=False, project_ids=[8],
+    )
+    conn.commit()
+
+    resolved = crud.handle_instruction_resolve(_request(
+        "workflow.execution_instruction.resolve",
+        {"workflow": "dash", "project": "acme"},
+    ))
+
+    assert resolved.primary_success
+    rows = resolved.result_payload["execution_instructions"]
+    assert [row["id"] for row in rows] == [broad, specific]
+    assert [row["content"] for row in rows] == ["Broad rule.", "Acme Dash rule."]
+
+    missing = crud.handle_instruction_resolve(_request(
+        "workflow.execution_instruction.resolve",
+        {"workflow": "dash", "project": "missing"},
+    ))
+    assert not missing.primary_success
+    assert missing.error.code == "not_found"
+    assert missing.error.jsonpath == "$.payload.project"
 
 
 def _seed_resolved_instruction(conn) -> int:

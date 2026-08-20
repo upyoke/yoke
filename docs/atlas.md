@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-20T16:40:32Z_
+_Audit generated_at: 2026-08-20T18:25:54Z_
 
 ## 1. Summary
 
-- Function ids registered: **390**
+- Function ids registered: **391**
 - Internal dispatch-only functions without CLI adapters: **76**
-- `yoke` CLI subcommands: **315** (315 carry usable `--help`)
-- Operation tracker: **293 wrapped**, 7 tool_cli, 115 permanent, 0 pending
-- Skill-body recipes: 279 total (218 template-skipped, 2 failing)
+- `yoke` CLI subcommands: **316** (316 carry usable `--help`)
+- Operation tracker: **294 wrapped**, 7 tool_cli, 115 permanent, 0 pending
+- Skill-body recipes: 286 total (224 template-skipped, 2 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **293** (operation tracker confirms 293 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **294** (operation tracker confirms 294 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -271,6 +271,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **293** (operation track
 | workflow | `yoke workflow execution-instruction create` | `workflow.execution_instruction.create` | ok |
 | workflow | `yoke workflow execution-instruction delete` | `workflow.execution_instruction.delete` | ok |
 | workflow | `yoke workflow execution-instruction list` | `workflow.execution_instruction.list` | ok |
+| workflow | `yoke workflow execution-instruction resolve` | `workflow.execution_instruction.resolve` | ok |
 | workflow | `yoke workflow execution-instruction set-scope` | `workflow.execution_instruction.set_scope` | ok |
 | workflow | `yoke workflow execution-instruction update` | `workflow.execution_instruction.update` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain advance` | `workflow_item.epic_dispatch_chain.advance` | ok |
@@ -467,7 +468,7 @@ _No pending handler-registration rows._
 
 | path glob | count |
 |---|---|
-| .agents/skills/yoke/**/*.md | 127 |
+| .agents/skills/yoke/**/*.md | 128 |
 | packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 31 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
@@ -481,8 +482,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 41 |
-| claude-code | 9 |
+| codex | 45 |
+| claude-code | 5 |
 
 ## 8. Contradictions
 

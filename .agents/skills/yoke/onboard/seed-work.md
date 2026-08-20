@@ -8,6 +8,15 @@ Turn CURRENT-PLAN into the first backlog items, verify the whole checklist, and 
 
 ## 1. Derive The Proposed Item List
 
+The onboarding target already fixes `{project}`, and seeded work uses the
+`issue` workflow. Before finalizing any title or proposal, call the registered
+`workflow.execution_instruction.resolve` read and apply every returned
+instruction to the complete batch:
+
+```bash
+yoke workflow execution-instruction resolve --workflow issue --project {project}
+```
+
 Read CURRENT-PLAN (`yoke strategy doc get CURRENT-PLAN --project {project}`) and derive a short list of concrete, independently workable items — the plan's near-term outcomes, one item each, titles ≤100 characters. These are `/yoke idea` intakes filed through the registered create surface; follow the idea intake conventions:
 
 - Resolve the deployment flow **before** proposing: `yoke project-structure deploy-defaults get --project {project}` prints the project default (set by the flow declaration in step 5 of this skill); empty output means no flow — omit the flag, and never pass the literal string `none`.

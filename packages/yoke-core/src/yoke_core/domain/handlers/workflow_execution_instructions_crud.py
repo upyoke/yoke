@@ -1,8 +1,8 @@
 """Handlers for the ``workflow.execution_instruction.*`` function family.
 
-Create, update, set-scope, list, and delete operator-authored execution
-instructions. Every mutation emits an audited event carrying the acting
-session and actor identity.
+Create, update, set-scope, resolve, list, and delete operator-authored
+execution instructions. Every mutation emits an audited event carrying the
+acting session and actor identity.
 """
 
 from __future__ import annotations
@@ -46,6 +46,11 @@ class InstructionListRequest(BaseModel):
     pass
 
 
+class InstructionResolveRequest(BaseModel):
+    workflow: str = Field(..., min_length=1)
+    project: str = Field(..., min_length=1)
+
+
 class InstructionDeleteRequest(BaseModel):
     instruction_id: int = Field(..., gt=0)
 
@@ -56,6 +61,10 @@ class InstructionIdResponse(BaseModel):
 
 class InstructionListResponse(BaseModel):
     instructions: list[dict[str, Any]]
+
+
+class InstructionResolveResponse(BaseModel):
+    execution_instructions: list[dict[str, Any]]
 
 
 def _error(code: str, message: str, jsonpath: str | None = None) -> HandlerOutcome:
@@ -198,6 +207,27 @@ def handle_instruction_list(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_instruction_resolve(request: FunctionCallRequest) -> HandlerOutcome:
+    payload, err = _validated(request, InstructionResolveRequest)
+    if err is not None:
+        return err
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_identity import resolve_project_id
+
+    with connect() as conn:
+        try:
+            project_id = resolve_project_id(conn, payload.project)
+        except LookupError as exc:
+            return _error("not_found", str(exc), "$.payload.project")
+        instructions = _instructions.resolve_execution_instructions(
+            conn, workflow_id=payload.workflow, project_id=project_id
+        )
+    return HandlerOutcome(
+        result_payload={"execution_instructions": instructions},
+        primary_success=True,
+    )
+
+
 def handle_instruction_delete(request: FunctionCallRequest) -> HandlerOutcome:
     payload, err = _validated(request, InstructionDeleteRequest)
     if err is not None:
@@ -275,6 +305,14 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         InstructionIdResponse,
         write=True,
         event_name=INSTRUCTION_SCOPE_SET_EVENT,
+    ),
+    _registration(
+        "resolve",
+        handle_instruction_resolve,
+        InstructionResolveRequest,
+        InstructionResolveResponse,
+        write=False,
+        event_name=None,
     ),
     _registration(
         "list",

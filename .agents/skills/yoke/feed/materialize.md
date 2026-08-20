@@ -94,7 +94,24 @@ Replace `%keyword%` with 2-3 distinctive words from the proposed title. Check mu
 
 **If no duplicate found**, proceed to creation.
 
-### 3A.2 Create via `/yoke idea`
+### 3A.2 Resolve The Filing Contract
+
+Resolve the target project and workflow before finalizing a candidate's title
+or body context. Instruction-sized entries use `dash`; larger entries use the
+eligible workflow selected by `/yoke idea` policy (`issue` or `epic`). Keep
+those values as `_project` and `_workflow`, then call the registered
+`workflow.execution_instruction.resolve` read:
+
+```bash
+yoke workflow execution-instruction resolve \
+ --workflow "${_workflow}" --project "${_project}"
+```
+
+Apply every returned instruction while finalizing the title, instruction,
+strategic provenance, and body context. Do not defer this read until the
+post-create receipt.
+
+### 3A.3 Create via `/yoke idea`
 
 Feed MUST create items through the existing `/yoke idea` pipeline to preserve dedup search, GitHub sync, body generation, and AC normalization. For each item:
 
@@ -133,11 +150,12 @@ The `/yoke idea` pipeline handles:
   This files without executing. The item lands at `idea` with `workflow=dash`
   and reaches a `/yoke do` or `/yoke charge` session as `next_step=dash`.
 - Anything needing a spec, acceptance criteria, design, or more than one
-  delivery slice: use `/yoke idea` as above and let it infer the workflow.
+  delivery slice: invoke `/yoke idea --workflow ${_workflow}` with the
+  workflow already resolved above.
 
 Record Dash-filed items in `_materialized_items` exactly like idea-filed ones.
 
-### 3A.3 Record Created Item
+### 3A.4 Record Created Item
 
 After each successful creation, record the result:
 
@@ -151,7 +169,7 @@ _materialized_items.append({
 
 If the idea pipeline rejects the item (e.g., detected as duplicate during its own dedup), record as skipped with the rejection reason.
 
-### 3A.4 Pacing
+### 3A.5 Pacing
 
 Create items one at a time, not in batch. After each creation:
 - Verify the item exists in the backlog

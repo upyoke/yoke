@@ -18,9 +18,14 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Philosophy
 
-**Two outputs, sized to the cluster.** Most field-note clusters describe one concrete, instruction-sized repair: a recipe that names the wrong flag, a stale doc reference, an unhelpful denial message. Those go straight to a Dash — the promotion links the note to the Dash it produced, so the note is never re-clustered and the Dash carries its origin:
+**Two outputs, sized to the cluster.** Most field-note clusters describe one
+concrete, instruction-sized repair. Those go straight to a Dash, whose
+promotion links the note to its output. Resolve the note or cluster's project,
+call registered `workflow.execution_instruction.resolve`, and apply every
+returned instruction before finalizing the promotion title or instruction:
 
 ```bash
+yoke workflow execution-instruction resolve --workflow dash --project {project}
 yoke ouroboros field-note promote {entry-id} --title "{specific title}" [--instruction "{what to do}"]
 ```
 

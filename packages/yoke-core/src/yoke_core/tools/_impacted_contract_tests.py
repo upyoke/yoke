@@ -26,6 +26,42 @@ ALWAYS_RUN_TESTS = tuple(
     test for _rule, tests in _ALWAYS_RUN_CONTRACTS for test in tests
 )
 
+AGENT_SKILL_CONTRACT_TESTS = (
+    "runtime/api/test_agent_authored_filing_instruction_resolution.py",
+    "runtime/api/test_direct_workflow_skills.py",
+    "runtime/api/test_file_budget_workflow_teaching.py",
+    "runtime/api/test_idea_db_claim_recipe_fail_closed.py",
+    "runtime/api/test_skill_doc_regressions_advance.py",
+    "runtime/api/test_skill_doc_regressions_conduct_claims.py",
+    "runtime/api/test_skill_doc_regressions_conduct_core.py",
+    "runtime/api/test_skill_doc_regressions_conduct_simulation.py",
+    "runtime/api/test_skill_doc_regressions_conduct_task_claims.py",
+    "runtime/api/test_skill_doc_regressions_dash_qa_gate_order.py",
+    "runtime/api/test_skill_doc_regressions_engineer.py",
+    "runtime/api/test_skill_doc_regressions_file_budget.py",
+    "runtime/api/test_skill_doc_regressions_file_budget_agents.py",
+    "runtime/api/test_skill_doc_regressions_misc.py",
+    "runtime/api/test_skill_doc_regressions_onboard.py",
+    "runtime/api/test_skill_doc_regressions_path_claim_coordination.py",
+    "runtime/api/test_skill_doc_regressions_plan_merge.py",
+    "runtime/api/test_skill_doc_regressions_refine_obvious_file_budget.py",
+    "runtime/api/test_skill_doc_regressions_refine_polish.py",
+    "runtime/api/test_skill_doc_regressions_refine_release_sequencing.py",
+    "runtime/api/test_skill_doc_regressions_shepherd_pm.py",
+    "runtime/api/test_skill_doc_regressions_strategize.py",
+    "runtime/api/test_skill_doc_regressions_usher_collect.py",
+    "runtime/api/test_skill_prose_schema_drift.py",
+    "runtime/api/domain/test_db_claim_prose_check_buckets.py",
+    "runtime/api/domain/test_idea_db_claim_buckets.py",
+    "runtime/api/domain/test_install_bundle_tree_sync.py",
+    "runtime/api/domain/test_migration_instruction_coherence.py",
+)
+
+AGENT_SKILL_SOURCE_PREFIXES = (
+    ".agents/skills/yoke/",
+    "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke/",
+)
+
 ITEM_WORKTREE_SCHEMA_TESTS = (
     "runtime/api/domain/test_workflow_item_update_api.py",
     "runtime/api/engines/test_doctor_stale_remote_branches.py",
@@ -241,7 +277,6 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
         widening_triggers.extend(
             f"product_cli_boundary_contract:{path}" for path in product_cli_hits
         )
-
     migration_hits = tuple(
         path
         for path in changed_paths
@@ -263,10 +298,23 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
         widening_triggers.extend(
             f"machine_qa_pack_contract:{path}" for path in machine_qa_pack_hits
         )
+
+    skill_hits = tuple(
+        path
+        for path in changed_paths
+        if path.startswith(AGENT_SKILL_SOURCE_PREFIXES)
+    )
+    if skill_hits:
+        tests.update(AGENT_SKILL_CONTRACT_TESTS)
+        widening_triggers.extend(
+            f"agent_skill_contract:{path}" for path in skill_hits
+        )
     return ContractSelection(frozenset(tests), tuple(widening_triggers))
 
 
 __all__ = [
+    "AGENT_SKILL_CONTRACT_TESTS",
+    "AGENT_SKILL_SOURCE_PREFIXES",
     "ALWAYS_RUN_TESTS",
     "ContractSelection",
     "CURSOR_SESSION_IDENTITY_DISPATCH_TESTS",

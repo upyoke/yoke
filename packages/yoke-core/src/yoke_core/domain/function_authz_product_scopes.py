@@ -96,11 +96,13 @@ PRODUCT_AUTHZ_BY_ID = {
     "workflows.approval_defaults.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Execution instructions are org-wide operator prose layered onto every
     # matching item fetch, so authoring them carries workflow-definition
-    # authority; the list read feeds editors and per-workflow screens.
+    # authority; authenticated agents may read either the editor list or only
+    # the instructions resolved for the workflow/project they are filing.
     "workflow.execution_instruction.create": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflow.execution_instruction.update": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflow.execution_instruction.set_scope": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflow.execution_instruction.delete": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "workflow.execution_instruction.resolve": AuthzSpec(ACTOR_SESSION, None),
     "workflow.execution_instruction.list": AuthzSpec(ACTOR_SESSION, None),
     "qa.case.rerun": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

@@ -1,72 +1,7 @@
 # Idea Phase: Infer Fields And Create The Item
 This phase owns the metadata inference, cross-project guardrails, duplicate check, item creation, dependency persistence, and creation confirmation for `/yoke idea`.
 
-## 1a. Pre-Body Reference Verification (Prevention 1 + 2)
-
-When `/yoke idea` proposes concrete file paths, package roots, or owner-symbol names that will land in the spec body, every reference must be **verified against the live tree before it is written**. Naming intuition is not enough — historical familiarity drifts as the codebase evolves, and a wrong file reference makes refine and execution chase ghosts.
-
-Apply both rules below any time the agent composes body content for the spec — during inference (section 2), during body drafting in `body-and-sync.md`, or any later edit that introduces an implementation surface.
-
-### Prevention 1 — verify concrete file/package paths before writing them
-
-When the spec proposes a concrete implementation path (a file, directory, or package root the implementation will edit or create), run an explicit verification verb **before** the path is written into the body:
-
-- **Directory or package root** — `test -d <path>` from the repo root. If the directory does not exist, do not write the path.
-- **Specific file or file pattern** — use the Glob tool with the proposed pattern. If Glob returns no matches, do not write the path.
-
-If the path does not resolve, re-derive from the live tree before writing. Canonical re-derivation sources, in order:
-
-1. The project's verified one-shot migration package root. New migration ideas reference the live package that discovery resolves, never a guessed directory.
-2. The live skill structure under `.agents/skills/yoke/` for skill-prose ideas.
-3. The most recent completed work item of the same family (`yoke items list --status done` plus body inspection) for any other concrete-path category.
-
-No path is written into the spec from naming intuition. If verification still fails after re-derivation, flag the unresolved reference as a clarification question in the spec rather than guessing.
-
-### Prevention 2 — grep for gate/owner symbols before naming a control-plane file
-
-When the spec proposes a control-plane implementation surface — a lifecycle gate, status-write gate, QA gate composition, or error-code owner — the agent first runs the canonical grep template against the live tree and cites the verified owner from the output. Naming intuition is not enough: gate composition is consolidated in helpers like `_run_authoritative_status_gate` (in `yoke_core.domain.backlog_updates_helpers`) and `check_verification_gate` (in `yoke_core.domain.qa_gates`), not in vocabulary-only files like `yoke_core.domain.task_lifecycle`.
-
-Run this exact template (`<source-roots>` = this project's own source and test roots — see **Discovery-grep scoping** below for how to derive them):
-
-```bash
-rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' <source-roots>
-```
-
-Pick the verified owner from the grep output and cite the resolved path/function in the spec — do not infer from a generic filename. Item stage, progression, and gate placement belong to immutable workflow definitions interpreted by `workflow_runtime.py`; independent epic-task vocabulary lives in `task_lifecycle.py`. If the grep returns zero matches for the family the spec is targeting, treat the absence as a clarification question rather than a guess.
-
-This rule applies to gates, error codes (`GATE_*` constants), and any composition surface the spec proposes to extend or modify. Item-lifecycle changes target the workflow registry/definition owner; epic-task vocabulary changes target `task_lifecycle.py`. Proposed gate composition belongs in the live helper that grep names.
-
-#### Prevention 2b — grep for ANY function the spec proposes to modify
-
-The gate-specific template above is the narrow case. The general rule is broader: when the spec body proposes modifying, extending, editing, or adding behavior to any concrete `module.function_name` — not only gates — the agent runs:
-
-```bash
-rg -n '^def <funcname>' <source-roots> <docs-and-agent-instruction-roots>
-```
-
-and cites the verified `file:line` of the **definition** (not a caller). If the grep finds zero `def function_name` in the named module file, the spec records the unresolved reference as a clarification question rather than guessing.
-
-This is the broader version of the gate template that catches the "spec named `yoke_core.domain.foo.bar` but the function actually lives in `module_other.py`" defect class. The pre-handoff readiness check at idea exit and refine entry runs this verification automatically through `yoke readiness check`.
-
-**Discovery-grep scoping.** Scope discovery greps to *this* project's own roots — its source and test roots (`<source-roots>`), plus its docs and agent-instruction roots (`<docs-and-agent-instruction-roots>`) where relevant. Read those roots from the project rules file, or derive the tracked top-level ones with `git ls-files | cut -d/ -f1 | sort -u`; never assume another project's directory layout. No project stores item bodies on the filesystem (they are virtual: read them via `yoke items get PREFIX-N body` or the DB, never by grepping the filesystem). Use **single-quoted** `rg` patterns; an unescaped backtick inside a double-quoted zsh pattern triggers command substitution before `rg` runs.
-
-## 1b. Active Path Claim Conflicts Are Coordination, Not Scope
-
-**Rule:** claimed paths do not narrow work item scope. When inference (or later body drafting) discovers that a required file is already covered by another item's active or non-terminal path claim, do **not** remove the file from the work item, do **not** rewrite the spec to avoid the overlap, and do **not** narrow any enabled File Budget to whatever paths happen to be unclaimed. Active path claims are coordination/dependency/blocking facts about who currently coordinates work on a path — they never authorize omitting a required file from a new work item. "Avoid the overlap" never means "omit the required file."
-
-The accepted remediations when an overlap is observed are:
-
-- Classify the overlap via `yoke claims path coordination-decision-build` and author either a `coordination_only` compatibility edge (independent same-file edits, no lifecycle gate) or an explicit `--gate-point activation` row (order-dependent edits, with directional rationale).
-- Leave the candidate claim in `state="blocked"` so the upstream coordination is surfaced explicitly.
-- Wait for the holder to release the claim.
-- Coordinate with the holder out of band.
-- Ask the holder to narrow or cancel their claim.
-- Use operator override (`path-claim-override`) only as a last resort.
-
-Keep every required file in the execution artifact and in each enabled File
-Budget or path-claim surface regardless of overlap. The path-claim workflow
-handles the conflict downstream; idea intake does not. See `AGENTS.md`
-`## Path Claims — Hard Rule` for the full rule.
+Before metadata research, remember that claimed paths do not narrow work item scope; do **not** remove the file from the work item. Claim conflicts are coordination/dependency/blocking facts: distinguish `coordination_only` compatible overlaps from `activation`-gated dependencies. Follow [`reference-and-scope-verification.md`](reference-and-scope-verification.md) and `AGENTS.md` `## Path Claims — Hard Rule` for live-tree checks and overlap handling.
 
 ## 2. Research And Infer All Fields From Context
 
@@ -169,6 +104,18 @@ imagined child decomposition. Backlog items are flat rows in `items`. When the
 selected definition declares `generated_children=epic_tasks`, the Architect
 populates those rows inside the registered planning skill; do not gate this
 rule on a remembered item status.
+
+### c2. Resolve execution instructions before final authoring
+
+Once `_project` and `{workflow}` are fixed, call registered
+`workflow.execution_instruction.resolve` before finalizing any prose:
+
+```bash
+yoke workflow execution-instruction resolve --workflow "{workflow}" --project "${_project}"
+```
+
+Apply every result before continuing. The post-`items.create` instruction
+block remains defense in depth, not a substitute for this pre-authoring read.
 
 ### d. Infer priority from language
 

@@ -4,6 +4,8 @@ import pytest
 
 from yoke_core.domain.actor_permissions import seed_roles_and_permissions
 from yoke_core.domain.auth_schema import create_auth_tables
+from yoke_core.domain.function_authz_product_scopes import PRODUCT_AUTHZ_BY_ID
+from yoke_core.domain.function_authz_types import ACTOR_SESSION
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
@@ -98,3 +100,10 @@ def test_field_note_promotion_falls_back_to_note_project_without_flag(conn):
     )
     assert allowed.error is None
     assert allowed.project_id == yoke
+
+
+def test_execution_instruction_resolve_is_an_authenticated_read() -> None:
+    spec = PRODUCT_AUTHZ_BY_ID["workflow.execution_instruction.resolve"]
+
+    assert spec.scope == ACTOR_SESSION
+    assert spec.permission_key is None

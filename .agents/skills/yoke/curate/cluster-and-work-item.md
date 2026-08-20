@@ -104,7 +104,22 @@ Pick the smaller output that still covers the cluster:
 - **Dash** — the cluster names one concrete repair a single session can carry out from a written instruction: a recipe naming the wrong flag, a stale doc reference, an unhelpful denial message, a missing `--help` body. This is the common case for field-note clusters.
 - **Work item** — the cluster names a root cause that needs crafted acceptance criteria, design work, or more than one delivery slice.
 
-### d. Present the cluster
+### d. Resolve the filing contract
+
+Resolve the cluster's target project before finalizing its proposed output.
+Use workflow `dash` for a Dash and `issue` for a work item, then call the
+registered `workflow.execution_instruction.resolve` read:
+
+```bash
+yoke workflow execution-instruction resolve \
+ --workflow {dash|issue} --project {project}
+```
+
+Apply every returned instruction to the proposed title, Dash instruction, or
+work-item body. The create receipt remains defense in depth, not the first
+delivery point.
+
+### e. Present the cluster
 
 ```text
 Cluster {N}: {synthesized title}
@@ -141,6 +156,7 @@ Action? (create / skip / defer)
 Promote the entry that best states the signal. The promotion creates the Dash, links it to the note, and marks that note reviewed:
 
 ```bash
+yoke workflow execution-instruction resolve --workflow dash --project {project}
 yoke ouroboros field-note promote {entry-id} \
   --title "{specific title}" \
   --instruction "{the complete requested scope, in one paragraph}"
@@ -153,6 +169,7 @@ The instruction defaults to the note's own body — pass `--instruction` when th
 Invoke:
 
 ```bash
+yoke workflow execution-instruction resolve --workflow issue --project {project}
 yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill
 ```
 

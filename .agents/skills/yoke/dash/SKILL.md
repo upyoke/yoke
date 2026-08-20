@@ -26,6 +26,7 @@ function-call envelope:
 | Function id | Target and payload | CLI adapter |
 |---|---|---|
 | `items.create` | Global target; Dash title, instruction, project, entry surface, and permitted posture | `yoke dash "<title>" "<instruction>" --json` |
+| `workflow.execution_instruction.resolve` | Global target; named workflow and project; read-only matching instructions | `yoke workflow execution-instruction resolve --workflow W --project P` |
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
 | `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
 | `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
@@ -135,8 +136,17 @@ yoke sessions touch --mode dash
 
 If the argument is not an item reference:
 
-1. Write a specific title of at most 100 characters.
-2. File with:
+1. Resolve the target project as `PROJECT`; the workflow is `dash`.
+2. Before authoring the title or changing the supplied instruction, read the
+   registered `workflow.execution_instruction.resolve` projection and obey
+   every matching instruction:
+
+   ```text
+   yoke workflow execution-instruction resolve --workflow dash --project PROJECT
+   ```
+
+3. Write a specific title of at most 100 characters.
+4. File with:
 
    ```text
    yoke dash "<title>" "<instruction>" --json
@@ -280,7 +290,15 @@ Halt as soon as the required outcome needs crafted acceptance criteria,
 substantial design, durable multi-file coordination, or multiple delivery
 slices. Escalation files a new Issue and cancels the Dash, so it is a scope
 judgment the operator owns — a deliberate exception to the
-kick-off-and-walk-away default. Stop Dash execution at the trigger and
+kick-off-and-walk-away default. Before drafting the proposed Issue title and
+findings, take `PROJECT` from the Dash item detail and read the issue-workflow
+projection through registered `workflow.execution_instruction.resolve`:
+
+```text
+yoke workflow execution-instruction resolve --workflow issue --project PROJECT
+```
+
+Apply every returned instruction, then stop Dash execution at the trigger and
 present to the operator:
 
 - the grounded findings and what the instruction turned out to require;
