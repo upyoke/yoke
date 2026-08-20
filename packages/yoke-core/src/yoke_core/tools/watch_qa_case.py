@@ -16,6 +16,9 @@ The classifier maps:
   ``PROGRESS`` (time-window throttled).
 - The restated outcome (``# qa case run: verdict=...``) and the final
   result envelope → ``SUMMARY``.
+- The gate's other ``# qa case run:`` announcements — which run covers
+  this case, how to inspect it, how to cancel it → ``METADATA``: shown
+  at once like a summary, but never reported as the run's outcome.
 
 Anything the gate-specific patterns miss falls through to the pytest
 classifier, because a locally-executed case streams its command's output
@@ -76,10 +79,19 @@ QA_CASE_PROGRESS_RE = re.compile(r"^\s*Workflow status:\s*\S+")
 # The restated outcome line, then the machine-readable envelope the gate
 # prints last. The envelope is matched by its verdict key rather than its
 # first key, which is only ``artifact_id`` for the runners that produce
-# artifacts.
+# artifacts. The outcome line is matched by its ``verdict=`` field and not
+# by its prefix alone: the gate's live CI announcements share that prefix,
+# and a class that swallows them makes the last hint of a finished run —
+# how to force-cancel it — the summary reported for a run that passed.
 QA_CASE_SUMMARY_RE = re.compile(
-    r"(^#\s*qa case run:|^\{.*\"verdict\":)",
+    r"(^#\s*qa case run:\s*verdict=|^\{.*\"verdict\":)",
 )
+# The gate's own run announcements: which run is covering this case, how to
+# inspect it, how to cancel it, and any supplementary outcome detail. They
+# are one-shot orientation rather than repeating ticks, so they emit
+# immediately like a summary — but they are not the run's outcome and must
+# not stand in for it.
+QA_CASE_ANNOUNCEMENT_RE = re.compile(r"^#\s*qa case run:")
 
 # Public union pattern: one "is this a gate signal line?" check for
 # callers and tests, composed from the per-class regexes so each shape
@@ -90,6 +102,7 @@ QA_CASE_PROGRESS_PATTERN = re.compile(
             QA_CASE_URGENT_RE.pattern,
             QA_CASE_PROGRESS_RE.pattern,
             QA_CASE_SUMMARY_RE.pattern,
+            QA_CASE_ANNOUNCEMENT_RE.pattern,
         )
     ),
 )
@@ -100,7 +113,9 @@ def classify_qa_case_line(line: str) -> Classification:
 
     Order matters: a failure line that also carries a gate token must
     still emit immediately, so URGENT is checked first and SUMMARY
-    before PROGRESS.
+    before PROGRESS. SUMMARY is also checked before the announcement
+    shape, because the outcome line shares the announcements' prefix and
+    only the outcome may be reported as the run's summary.
 
     A line matching none of the gate shapes is handed to the pytest
     classifier: a locally-executed case streams its command's output
@@ -112,6 +127,8 @@ def classify_qa_case_line(line: str) -> Classification:
         return Classification(LineClass.URGENT)
     if QA_CASE_SUMMARY_RE.search(line):
         return Classification(LineClass.SUMMARY)
+    if QA_CASE_ANNOUNCEMENT_RE.search(line):
+        return Classification(LineClass.METADATA)
     if QA_CASE_PROGRESS_RE.search(line):
         return Classification(LineClass.PROGRESS)
     return classify_pytest_line(line)
