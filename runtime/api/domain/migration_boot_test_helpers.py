@@ -33,6 +33,16 @@ def pending_entries(conn, history):
 
 
 def apply_pending(conn, **kwargs):
+    kwargs.setdefault(
+        "attribution",
+        {
+            "session_id": "test-session",
+            "actor_id": "test-actor",
+            "source_branch": "main",
+            "source_commit": "test-commit",
+        },
+    )
+    kwargs.setdefault("model_name", "primary")
     return _apply_pending(conn, ledger=YOKE_LEDGER_CONTRACT, **kwargs)
 
 
@@ -69,6 +79,13 @@ def heal(conn: sqlite3.Connection, migration_history) -> tuple[str, ...]:
         applied=applied_names(conn),
         stamp=now_stamp(),
         restore_point=RESTORE_POINT,
+        attribution={
+            "session_id": "test-session",
+            "actor_id": "test-actor",
+            "source_branch": "main",
+            "source_commit": "test-commit",
+        },
+        model_name="primary",
     )
 
 

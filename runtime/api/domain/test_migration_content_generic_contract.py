@@ -126,6 +126,13 @@ def test_custom_ledger_schema_adoption_and_apply_use_no_fixed_identifiers(
         ledger=ledger,
         applied_by="boot",
         running_version="",
+        attribution={
+            "session_id": "boot",
+            "actor_id": "boot",
+            "source_branch": "boot",
+            "source_commit": "test-commit",
+        },
+        model_name="primary",
         external_restore_point=RESTORE_POINT,
     )
 

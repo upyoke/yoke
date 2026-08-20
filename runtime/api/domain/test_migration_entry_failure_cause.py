@@ -32,6 +32,16 @@ RESTORE_POINT = "snapshot:test-restore-point"
 
 
 def apply_pending(conn, **kwargs):
+    kwargs.setdefault(
+        "attribution",
+        {
+            "session_id": "test-session",
+            "actor_id": "test-actor",
+            "source_branch": "main",
+            "source_commit": "test-commit",
+        },
+    )
+    kwargs.setdefault("model_name", "primary")
     return _apply_pending(conn, ledger=YOKE_LEDGER_CONTRACT, **kwargs)
 
 #: An entry shaped like the ones in the real history: it crosses a guard,

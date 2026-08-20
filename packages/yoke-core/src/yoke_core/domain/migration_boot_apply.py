@@ -1,41 +1,35 @@
 """Apply the pending migration history to a database, in order, at boot.
 
-This is the whole distribution mechanism. A container starting on new code
-brings its own database up to that code before it serves, so "deployed" and
-"migrated" stop being two things that can disagree. There is no per-target
-dispatch or operator apply: the wheel carries the history, and boot carries
-the apply. Release manifests independently attest which permanent bytes that
-wheel contains; boot does not use them as a dispatch list.
-
-The kernel is deliberately ignorant of *whose* history it applies — the
-caller passes one. That keeps the "should this run here?" judgment with the
-caller that knows the answer, and lets a second install family (a registry
-database with its own history) reuse this code rather than copy it.
-
-Postgres transactional DDL commits an entry's ``apply()`` with its ledger row,
-so "applied but unrecorded" has no window in which to exist. A failed entry
-stops the chain: boot is fail-hard rather than serving behind its own schema.
-
-Full rationale: ``docs/archive/decisions/ordered-cumulative-migrations.md``.
+A container starting on new code brings its own database up to that code
+before it serves, so deployed and migrated cannot disagree. The kernel is
+ignorant of whose history it applies — the caller passes one. Postgres
+transactional DDL commits an entry's apply() with its ledger row. Rationale:
+``docs/archive/decisions/ordered-cumulative-migrations.md``.
 """
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Sequence, Tuple
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 from yoke_core.domain import (
     db_backend,
     migration_restore_point,
     migration_serving_version,
 )
+from yoke_core.domain.migration_apply_attribution import (
+    refuse_lane_as_model_name,
+    require_attribution,
+)
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
 from yoke_core.domain.migration_boot_ledger import (
+    MIGRATION_APPLY_LOCK_KEY,
+    acquire_apply_lock,
     applied_names,
     pending_entries,
     record_applied,
+    release_apply_lock,
 )
 from yoke_core.domain.migration_content_identity import (
     raw_content_sha256,
@@ -77,18 +71,6 @@ def _failure_reason(exc: BaseException) -> str:
     if root is exc:
         return f"{type(exc).__name__}: {exc}"
     return f"{type(root).__name__}: {root} (surfaced as {type(exc).__name__})"
-
-
-#: Advisory-lock id serializing migration apply on one database. Postgres
-#: advisory locks already carry the database in their lock tag, so a single
-#: constant gives per-database exclusion for free: two servers rolling the
-#: same tenant contend, while different tenants never do. Derived from a
-#: name so it is stable and self-documenting rather than a bare magic number.
-MIGRATION_APPLY_LOCK_KEY = int.from_bytes(
-    hashlib.sha256(b"yoke.migration.boot_apply").digest()[:8],
-    "big",
-    signed=True,
-)
 
 
 @dataclass(frozen=True)
@@ -161,6 +143,8 @@ def apply_pending(
     ledger: LedgerContract,
     applied_by: str,
     running_version: str,
+    attribution: Mapping[str, str],
+    model_name: str,
     backup_root: Optional[Path] = None,
     backup_target_dsn: Optional[str] = None,
     external_restore_point: Optional[str] = None,
@@ -194,6 +178,9 @@ def apply_pending(
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
 
+    provenance = require_attribution(attribution)
+    model = refuse_lane_as_model_name(model_name)
+
     # A permanent name whose recorded non-NULL digest differs is corruption,
     # not pending work. Refuse before the current fast-path or any restore.
     require_matching_content_identity(conn, history, ledger)
@@ -210,7 +197,7 @@ def apply_pending(
         external_restore_point=external_restore_point,
     )
 
-    _acquire_apply_lock(conn)
+    acquire_apply_lock(conn)
     try:
         # Re-enumerate under the lock. Reading the pending set before taking
         # it is check-then-act: the boot guard other containers hold is a
@@ -227,11 +214,13 @@ def apply_pending(
                 applied_by=applied_by,
                 running_version=running_version,
                 restore_point=restore_point,
+                attribution=provenance,
+                model_name=model,
             )
             applied.append(entry.name)
         return ApplyOutcome(applied=tuple(applied), restore_point=restore_point)
     finally:
-        _release_apply_lock(conn)
+        release_apply_lock(conn)
 
 
 def _apply_one(
@@ -242,6 +231,8 @@ def _apply_one(
     applied_by: str,
     running_version: str,
     restore_point: str,
+    attribution: Mapping[str, str],
+    model_name: str,
 ) -> None:
     source_bytes = entry.path.read_bytes()
     source_sha256 = raw_content_sha256(source_bytes)
@@ -309,6 +300,8 @@ def _apply_one(
             completed_at=now_stamp(),
             restore_point=restore_point,
             failure_reason=reason[:500],
+            attribution=attribution,
+            model_name=model_name,
         )
         raise EntryFailed(f"{entry.name} {failure_phase} failed -- {reason}") from exc
 
@@ -319,22 +312,9 @@ def _apply_one(
         started_at=started_at,
         completed_at=now_stamp(),
         restore_point=restore_point,
+        attribution=attribution,
+        model_name=model_name,
     )
-
-
-def _acquire_apply_lock(conn: Any) -> None:
-    if not db_backend.connection_is_postgres(conn):
-        return
-    conn.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_APPLY_LOCK_KEY,))
-
-
-def _release_apply_lock(conn: Any) -> None:
-    if not db_backend.connection_is_postgres(conn):
-        return
-    try:
-        conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATION_APPLY_LOCK_KEY,))
-    except Exception:  # noqa: BLE001 — the session ending releases it anyway
-        pass
 
 
 __all__ = [

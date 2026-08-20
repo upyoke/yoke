@@ -39,6 +39,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 #: names the entries and the command to clear them.
 _RECEIPT_QUERY_LIMIT = 500
 _QUERY_TIMEOUT_SECONDS = 120
+_BUILD_ARTIFACTS_WORKFLOW = "yoke-build-artifacts.yml"
 
 
 def _yoke_fleet_rehearse_command(
@@ -54,9 +55,19 @@ def _yoke_fleet_rehearse_command(
     )
     return (
         "yoke watch preflight -- "
-        f"{admin_env} --engine-wheel <release-yoke-core-wheel> "
+        f"{admin_env} --engine-wheel <yoke_core-wheel-from-yoke-build-artifacts> "
         "--record-receipt --product-sha <sha> "
         f"--receipt-env {receipt_env_arg}"
+    )
+
+
+def _engine_wheel_source(product_sha: str) -> str:
+    sha = product_sha.strip() or "<product-sha>"
+    return (
+        "The engine wheel is the yoke_core wheel produced by "
+        f"{_BUILD_ARTIFACTS_WORKFLOW} for commit {sha} "
+        "(yoke-release.yml calls that factory). Take that wheel artifact "
+        "from the factory run for this SHA and pass it to --engine-wheel."
     )
 
 
@@ -119,18 +130,34 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(receipt.unreadable_message(environment, unreadable), file=sys.stderr)
         return 1
 
-    missing = receipt.uncovered(history, rows, environment)
-    covered = len(history) - len(missing)
+    missing_by_env = receipt.coverage_by_environment(
+        history, rows, receipt.RELEASE_ENVIRONMENTS
+    )
+    if environment not in missing_by_env:
+        missing_by_env[environment] = receipt.uncovered(history, rows, environment)
+    target_missing = missing_by_env[environment]
+    covered = len(history) - len(target_missing)
     print(f"covered by a passing fleet preflight: {covered} of {len(history)}")
-    if missing:
+    for env, missing in missing_by_env.items():
+        if env == environment:
+            continue
         print(
-            receipt.refusal_message(
+            f"also {env}: "
+            f"{len(history) - len(missing)} of {len(history)} covered"
+        )
+    if target_missing:
+        receipt_env = os.environ.get("YOKE_ENV", "")
+        print(
+            receipt.release_refusal_message(
                 environment,
-                missing,
+                missing_by_env,
                 product_sha=product_sha,
-                rehearse_command=_yoke_fleet_rehearse_command(
-                    environment, os.environ.get("YOKE_ENV", "")
-                ),
+                rehearse_commands={
+                    env: _yoke_fleet_rehearse_command(env, receipt_env)
+                    for env, missing in missing_by_env.items()
+                    if missing
+                },
+                engine_wheel_source=_engine_wheel_source(product_sha),
             ),
             file=sys.stderr,
         )

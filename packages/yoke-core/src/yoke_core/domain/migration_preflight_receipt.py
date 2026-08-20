@@ -140,6 +140,10 @@ def uncovered(
     return tuple(name for name in history if name not in covered)
 
 
+#: Registered environments a Yoke hosted release can target. Coverage is
+#: per environment, so a receipt for one is not evidence for another.
+RELEASE_ENVIRONMENTS = ("stage", "prod")
+
 #: Project-generic unblock recipe. Callers that own a fleet adapter (for
 #: example Yoke's release gate) inject that recipe via ``rehearse_command``;
 #: the default must not name any project's source-dev path.
@@ -169,10 +173,82 @@ def refusal_message(
         f"this build{build} carries {len(missing)} migration history "
         f"entr{'y' if len(missing) == 1 else 'ies'} no passing fleet preflight "
         f"has covered for {target_environment_for_admin_env(environment)}: "
-        f"{listed}. An entry exists for the databases that are behind it, and "
-        "nothing here has yet run it against one. Rehearse the fleet, then "
-        f"re-run this release:\n  {command}"
+        f"{listed}. Receipts are per environment — a receipt for one is not "
+        "coverage for another. An entry exists for the databases that are "
+        "behind it, and nothing here has yet run it against one. Rehearse "
+        f"the fleet, then re-run this release:\n  {command}"
     )
+
+
+def coverage_by_environment(
+    history: Sequence[str],
+    rows: Iterable[Mapping[str, Any]],
+    environments: Sequence[str] = RELEASE_ENVIRONMENTS,
+) -> Dict[str, Tuple[str, ...]]:
+    """Uncovered entries for each environment, in history order."""
+    return {
+        target_environment_for_admin_env(env): uncovered(history, rows, env)
+        for env in environments
+    }
+
+
+def release_refusal_message(
+    target_environment: str,
+    missing_by_environment: Mapping[str, Sequence[str]],
+    *,
+    product_sha: str = "",
+    rehearse_commands: Mapping[str, str] | None = None,
+    engine_wheel_source: str = "",
+) -> str:
+    """Refuse, naming every environment still missing a receipt.
+
+    The release still fails because *target_environment* is uncovered.
+    Sibling environments are listed in the same message so the second gap
+    is not discovered by a repeat attempt.
+    """
+    target = target_environment_for_admin_env(target_environment)
+    commands = rehearse_commands or {}
+    parts: list[str] = []
+    target_missing = tuple(missing_by_environment.get(target) or ())
+    parts.append(
+        refusal_message(
+            target,
+            target_missing,
+            product_sha=product_sha,
+            rehearse_command=commands.get(target, ""),
+        )
+    )
+    others = [
+        (env, tuple(missing))
+        for env, missing in missing_by_environment.items()
+        if target_environment_for_admin_env(env) != target and missing
+    ]
+    if others:
+        extra = "; ".join(
+            f"{env}: {', '.join(missing)}" for env, missing in others
+        )
+        parts.append(
+            "Also uncovered (receipts are per environment, so these are "
+            f"separate gaps): {extra}."
+        )
+        for env, _missing in others:
+            command = commands.get(env, "").strip()
+            if command:
+                parts.append(f"  {command}")
+    covered = [
+        env
+        for env in missing_by_environment
+        if target_environment_for_admin_env(env) != target
+        and not missing_by_environment[env]
+    ]
+    if covered:
+        named = ", ".join(target_environment_for_admin_env(env) for env in covered)
+        parts.append(
+            f"Covered for {named}; that evidence does not transfer."
+        )
+    if engine_wheel_source.strip():
+        parts.append(engine_wheel_source.strip())
+    return "\n".join(parts)
 
 
 def unreadable_message(environment: str, reason: str) -> str:

@@ -2,12 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Optional, Sequence, Set, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_audit_receipts import now_stamp
 from yoke_core.domain.migration_history import MigrationEntry
 from yoke_core.domain.migration_ledger_contract import LedgerContract
+
+#: Advisory-lock id serializing migration apply on one database. Postgres
+#: advisory locks already carry the database in their lock tag, so a single
+#: constant gives per-database exclusion for free.
+MIGRATION_APPLY_LOCK_KEY = int.from_bytes(
+    hashlib.sha256(b"yoke.migration.boot_apply").digest()[:8],
+    "big",
+    signed=True,
+)
 
 
 def applied_names(conn: Any, ledger: LedgerContract) -> Set[str]:
@@ -54,4 +64,26 @@ def record_applied(
     )
 
 
-__all__ = ["applied_names", "pending_entries", "record_applied"]
+def acquire_apply_lock(conn: Any) -> None:
+    if not db_backend.connection_is_postgres(conn):
+        return
+    conn.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_APPLY_LOCK_KEY,))
+
+
+def release_apply_lock(conn: Any) -> None:
+    if not db_backend.connection_is_postgres(conn):
+        return
+    try:
+        conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATION_APPLY_LOCK_KEY,))
+    except Exception:  # noqa: BLE001 — the session ending releases it anyway
+        pass
+
+
+__all__ = [
+    "MIGRATION_APPLY_LOCK_KEY",
+    "acquire_apply_lock",
+    "applied_names",
+    "pending_entries",
+    "record_applied",
+    "release_apply_lock",
+]

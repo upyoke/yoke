@@ -75,8 +75,10 @@ def pg_insert_migration_audit_row(
     tables: List[str],
     description: Optional[str] = None,
 ) -> int:
+    from yoke_core.domain.migration_apply_attribution import refuse_lane_as_model_name
     from yoke_core.domain.migration_apply_audit import DESCRIPTION_BASE
 
+    model = refuse_lane_as_model_name(model_name)
     cur = audit_conn.execute(
         "INSERT INTO migration_audit "
         "(migration_name, description, tables_declared, expected_deltas, "
@@ -94,7 +96,7 @@ def pg_insert_migration_audit_row(
             "",
             _now(),
             STATE_PLANNED,
-            model_name,
+            model,
             project_id,
             session_id,
             test_copy_path,

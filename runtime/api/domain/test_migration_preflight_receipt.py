@@ -194,6 +194,7 @@ class TestRefusalMessage:
         assert "prod" in message
         assert "0002_b" in message
         assert "0003_c" in message
+        assert "per environment" in message
 
     def test_default_refusal_teaches_project_generic_rehearsal(self):
         message = receipt.refusal_message("prod", ["0002_b"])
@@ -232,6 +233,30 @@ class TestRefusalMessage:
     def test_no_empty_build_reference_is_printed_when_unknown(self):
         message = receipt.refusal_message("stage", ["0002_b"], product_sha="  ")
         assert "at  " not in message
+
+
+class TestReleaseRefusalMessage:
+    def test_sibling_gaps_are_named_in_one_refusal(self):
+        message = receipt.release_refusal_message(
+            "prod",
+            {"prod": ("0002_b",), "stage": ("0002_b",)},
+            rehearse_commands={
+                "prod": "yoke watch preflight -- prod-db-admin",
+                "stage": "yoke watch preflight -- stage-db-admin",
+            },
+        )
+        assert "prod" in message
+        assert "stage" in message
+        assert "per environment" in message
+        assert "stage-db-admin" in message
+
+    def test_a_covered_sibling_is_named_as_non_transferable(self):
+        message = receipt.release_refusal_message(
+            "stage",
+            {"stage": ("0002_b",), "prod": ()},
+        )
+        assert "does not transfer" in message
+        assert "prod" in message
 
 
 class TestAdminConnectionForEnvironment:

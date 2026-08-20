@@ -255,7 +255,14 @@ contract are documented at
 
 ## Live-apply provenance on `migration_audit`
 
-The apply path stamps accountable provenance onto every audit row it touches so an operator inspecting a completed (or failed) apply can reconstruct who did what against the authoritative DB without re-deriving the context. The columns are nullable so legacy rows remain readable; the writer (`yoke_core.domain.migration_apply_audit.set_audit_provenance`) silently skips on a pre-migration authoritative DB.
+A destructive apply refuses rather than writing nulls: session, actor, branch,
+and commit must be established first, and the receipt records them. Legacy
+null rows stay as incident evidence and are not backfilled. `model_name` is a
+declared migration model; an execution lane in that column is refused.
+
+The extra provenance columns below remain nullable so older rows stay
+readable. `set_audit_provenance` still skips unknown columns on a
+pre-migration authoritative DB.
 
 ```sql
 actor_id          TEXT  -- harness_sessions.actor_id at apply time

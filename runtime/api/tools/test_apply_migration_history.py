@@ -6,6 +6,21 @@ from types import SimpleNamespace
 
 from runtime.api.tools import apply_migration_history as tool
 
+_TEST_ATTRIBUTION = {
+    "session_id": "test-session",
+    "actor_id": "2",
+    "source_branch": "main",
+    "source_commit": "abc123",
+}
+
+
+def _stub_operator_attribution(monkeypatch) -> None:
+    monkeypatch.setattr(
+        tool,
+        "collect_operator_attribution",
+        lambda _conn, *, worktree=None: dict(_TEST_ATTRIBUTION),
+    )
+
 
 class _Connection:
     def close(self) -> None:
@@ -19,6 +34,7 @@ def test_pending_apply_supplies_the_running_artifact_version(monkeypatch) -> Non
     entry = SimpleNamespace(name="0001_pending")
     seen = {}
     guard_repairs = []
+    _stub_operator_attribution(monkeypatch)
     monkeypatch.setattr(tool, "ordered_entries", lambda _directory: (entry,))
     monkeypatch.setattr(tool, "history_dir", lambda _package: object())
     monkeypatch.setattr(tool.db_helpers, "connect", lambda: _Connection())
@@ -61,11 +77,14 @@ def test_pending_apply_supplies_the_running_artifact_version(monkeypatch) -> Non
 
     assert tool.main([]) == 0
     assert seen["running_version"] == "4.2.0"
+    assert seen["attribution"]["session_id"] == "test-session"
+    assert seen["model_name"] == "primary"
     assert guard_repairs == [True]
 
 
 def test_apply_hands_back_tables_that_drifted_during_apply(monkeypatch) -> None:
     entry = SimpleNamespace(name="0010_rebuild")
+    _stub_operator_attribution(monkeypatch)
     reports = [
         SimpleNamespace(drifted=(), expected_owner="tenant", summary="before"),
         SimpleNamespace(

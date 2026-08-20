@@ -16,9 +16,13 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime, timezone
-from typing import Any, Optional, Sequence, Set, Tuple
+from typing import Any, Mapping, Optional, Sequence, Set, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.migration_apply_attribution import (
+    refuse_lane_as_model_name,
+    require_attribution,
+)
 from yoke_core.domain.migration_history import MigrationEntry
 
 DESCRIPTION = "boot-converge apply from the ordered migration history"
@@ -41,17 +45,20 @@ def write_receipt(
     started_at: str,
     completed_at: str,
     restore_point: str,
+    attribution: Mapping[str, str],
+    model_name: str,
     failure_reason: Optional[str] = None,
     project_id: Optional[int] = None,
-    model_name: Optional[str] = None,
 ) -> None:
     """Record one ``migration_audit`` row; never fail the caller over it.
 
-    ``tables_declared`` / ``expected_deltas`` / ``pre_row_counts`` are NOT NULL
-    and written empty on purpose: they carry the declared-delta bookkeeping of
-    the rehearse-then-verify runner, which this path does not have. Empty is
-    honest; omitting them is a constraint violation.
+    Attribution is required before this insert is attempted. A database
+    error writing the row still does not fail the apply — evidence is not
+    worth failing a boot — but missing session, actor, branch, or commit
+    is a refused apply, not a bookkeeping miss.
     """
+    fields = require_attribution(attribution)
+    model = refuse_lane_as_model_name(model_name)
     p = _p(conn)
     try:
         conn.execute(
@@ -59,8 +66,10 @@ def write_receipt(
             "(migration_name, state, backup_path, failure_reason, "
             " started_at, completed_at, description, "
             " tables_declared, expected_deltas, pre_row_counts, "
-            " project_id, model_name) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
+            " project_id, model_name, session_id, actor_id, "
+            " source_branch, source_commit) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, "
+            f"{p}, {p}, {p}, {p}, {p}, {p})",
             (
                 entry.name,
                 state,
@@ -73,7 +82,11 @@ def write_receipt(
                 json.dumps({}),
                 json.dumps({}),
                 project_id,
-                model_name,
+                model,
+                fields["session_id"],
+                fields["actor_id"],
+                fields["source_branch"],
+                fields["source_commit"],
             ),
         )
         conn.commit()
@@ -96,8 +109,9 @@ def record_missing_receipts(
     applied: Set[str],
     stamp: str,
     restore_point: str,
+    attribution: Mapping[str, str],
+    model_name: str,
     project_id: Optional[int] = None,
-    model_name: Optional[str] = None,
 ) -> Tuple[str, ...]:
     """Write ``completed`` receipts for applied entries that have none.
 
@@ -107,10 +121,9 @@ def record_missing_receipts(
     whatever hand-written SQL an operator reaches for at the time.
 
     *applied* is the ledger, and it is what authorizes a receipt: an entry that
-    never ran never gets one. *restore_point*, and the project and model the
-    apply was performed for, are facts only the operator still holds, so they
-    are passed in rather than guessed. Boot leaves the attribution unset --
-    nothing it writes is gate input, and it cannot see the control plane.
+    never ran never gets one. *restore_point*, model, and attribution are
+    facts the caller still holds; they are passed in rather than guessed.
+    Existing unaudited rows are not rewritten.
     """
     p = _p(conn)
     if project_id is None:
@@ -134,6 +147,7 @@ def record_missing_receipts(
             restore_point=restore_point,
             project_id=project_id,
             model_name=model_name,
+            attribution=attribution,
         )
     return tuple(e.name for e in healed)
 

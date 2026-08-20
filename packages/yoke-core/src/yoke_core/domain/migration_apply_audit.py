@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.migration_apply_attribution import refuse_lane_as_model_name
 from yoke_core.domain.migration_apply_contract import (
     STATE_PLANNED,
     STATE_REHEARSED,
@@ -53,6 +54,7 @@ def _insert_audit_row(
     description: Optional[str] = None,
 ) -> int:
     now = _now()
+    model = refuse_lane_as_model_name(model_name)
     p = _placeholder(audit_conn)
     expected_deltas_json = json.dumps({t: 0 for t in tables})
     cur = audit_conn.execute(
@@ -71,7 +73,7 @@ def _insert_audit_row(
             "",
             now,
             STATE_PLANNED,
-            model_name,
+            model,
             project_id,
             session_id,
             test_copy_path,
