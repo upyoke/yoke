@@ -24,7 +24,6 @@ import pulumi  # noqa: E402 -- sibling path must be installed before this import
 from webapp_component_aliases import component_type_aliases  # noqa: E402
 from webapp_stack_config import (  # noqa: E402
     config_string_list as _config_string_list,
-    config_string_map as _config_string_map,
     runner_fleet_args_from_config as _runner_fleet_args_from_config,
 )
 
