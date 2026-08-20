@@ -24,7 +24,6 @@ GITHUB_ACTIONS_WAIT_RUN_USAGE = (
     "[--timeout SEC] --project P [--session-id S] [--json]"
 )
 RUN_WAIT_POLL_INTERVAL_SEC = 15
-RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC = 5
 
 now = time.time
 sleep = time.sleep
@@ -79,7 +78,6 @@ def wait_for_run_completion(
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
     start = now()
-    transient_errors = 0
     liveness = ClientSessionLiveness(
         actor,
         interval_seconds=RUN_WAIT_POLL_INTERVAL_SEC,
@@ -93,23 +91,7 @@ def wait_for_run_completion(
             actor=actor,
         )
         if not response.success:
-            error_code = response.error.code if response.error else ""
-            elapsed = int(now() - start)
-            if (
-                error_code == "https_transport_failed"
-                and elapsed < timeout_sec
-            ):
-                transient_errors += 1
-                print(
-                    "  Run status poll hit a transient HTTPS failure; "
-                    f"retrying within the {timeout_sec}s wait budget "
-                    f"(consecutive failure {transient_errors})",
-                    file=sys.stderr,
-                )
-                sleep(RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC)
-                continue
             return emit_response(response, json_mode=json_mode)
-        transient_errors = 0
 
         result = response.result or {}
         state = str(result.get("state") or "")
@@ -158,7 +140,6 @@ def _emit_timeout(response: FunctionCallResponse, *, json_mode: bool) -> int:
 __all__ = [
     "GITHUB_ACTIONS_WAIT_RUN_USAGE",
     "RUN_WAIT_POLL_INTERVAL_SEC",
-    "RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC",
     "github_actions_wait_run",
     "wait_for_run_completion",
 ]

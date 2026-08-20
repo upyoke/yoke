@@ -115,12 +115,6 @@ def _transition_to_done(
     )
     if response.success:
         return ""
-    if (
-        response.error is not None
-        and response.error.code == "https_transport_failed"
-        and evidence.authoritative_status_is(item_id, evidence.CLOSED_OUT_STATUS)
-    ):
-        return ""
     return _relay_error(response, "terminal transition refused")
 
 

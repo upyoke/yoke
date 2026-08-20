@@ -303,4 +303,21 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "Operator set or cleared the org auto-join email domain; context carries previous and new values",
         "STATUS",
     ),
+    # --- relay transport (spooled machine-side, emitted once a call lands) ---
+    (
+        "RelayTransportRetrySucceeded",
+        "system",
+        "relay_transport",
+        "cli",
+        "An HTTPS relay call needed more than one attempt and then landed; context carries the function, env, and attempt count, and the session id resolves the harness it ran under",
+        "INFO",
+    ),
+    (
+        "RelayTransportAttemptsExhausted",
+        "system",
+        "relay_transport",
+        "cli",
+        "An HTTPS relay call spent its whole attempt budget without an answer; context carries the function, env, and attempt count, and the session id resolves the harness it ran under",
+        "WARN",
+    ),
 )

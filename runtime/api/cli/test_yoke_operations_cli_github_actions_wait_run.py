@@ -140,7 +140,14 @@ def test_wait_run_dispatch_error_stops_polling() -> None:
     assert len(_CALLS) == 1
 
 
-def test_wait_run_retries_transient_https_failure_then_observes_success() -> None:
+def test_wait_run_surfaces_a_transport_failure_instead_of_retrying_it() -> None:
+    """The wait loop no longer knows the transport error code by name.
+
+    Retrying a relay that did not answer belongs to the relay, which spends
+    its own attempt budget with backoff before saying so. A failure that
+    reaches here has already survived that, so continuing to poll would be a
+    second retry mechanism stacked on the first.
+    """
     responses = iter([
         FunctionCallResponse(
             success=False,
@@ -149,7 +156,7 @@ def test_wait_run_retries_transient_https_failure_then_observes_success() -> Non
             request_id="transport-failure",
             error={"code": "https_transport_failed", "message": "502"},
         ),
-        _response("github_actions.wait_run", "success", message="success"),
+        _response("github_actions.wait_run", "success", message="unreached"),
     ])
     sleeps: List[float] = []
     ticks = iter([0, 1])
@@ -166,46 +173,10 @@ def test_wait_run_retries_transient_https_failure_then_observes_success() -> Non
             "--project", "yoke",
         ])
 
-    assert rc == 0
-    assert out.getvalue().strip() == "success"
-    assert "transient HTTPS failure" in err.getvalue()
-    assert sleeps == [wait_mod.RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC]
-
-
-def test_wait_run_uses_the_timeout_budget_for_a_long_https_outage() -> None:
-    failures = [
-        FunctionCallResponse(
-            success=False,
-            function="github_actions.wait_run",
-            version="v1",
-            request_id=f"transport-failure-{index}",
-            error={"code": "https_transport_failed", "message": "503"},
-        )
-        for index in range(10)
-    ]
-    responses = iter([
-        *failures,
-        _response("github_actions.wait_run", "success", message="success"),
-    ])
-    sleeps: List[float] = []
-    ticks = iter(range(12))
-
-    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}), \
-            patch.object(wait_mod, "call_dispatcher", side_effect=lambda **_kw: next(responses)), \
-            patch.object(wait_mod, "ensure_handlers_loaded"), \
-            patch.object(wait_mod, "now", side_effect=lambda: next(ticks)), \
-            patch.object(wait_mod, "sleep", side_effect=sleeps.append), \
-            redirect_stdout(io.StringIO()) as out, \
-            redirect_stderr(io.StringIO()) as err:
-        rc = cli_main([
-            "github-actions", "wait-run", "o/r", "123",
-            "--timeout", "300", "--project", "yoke",
-        ])
-
-    assert rc == 0
-    assert out.getvalue().strip() == "success"
-    assert "consecutive failure 10" in err.getvalue()
-    assert sleeps == [wait_mod.RUN_WAIT_TRANSIENT_RETRY_INTERVAL_SEC] * 10
+    assert rc == 1
+    assert "unreached" not in out.getvalue()
+    assert "https_transport_failed" in err.getvalue()
+    assert sleeps == []
 
 
 def test_wait_run_repo_without_slash_returns_usage_error() -> None:

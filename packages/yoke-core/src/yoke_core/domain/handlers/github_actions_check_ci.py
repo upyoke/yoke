@@ -14,11 +14,14 @@ This handler is deliberately SINGLE-SHOT: wait/poll semantics live
 client-side in the ``yoke github-actions check-ci --wait`` adapter
 (:mod:`yoke_cli.commands.adapters.github_actions`), which
 re-dispatches this point-in-time check on its own sleep/timeout budget.
-A server-side wait loop blocks one ``POST /v1/functions/call`` for the
-whole CI wait and exceeds the https relay's read timeout (the client
-reports ``https_transport_failed`` while the server keeps polling).
-Legacy ``wait``/``timeout_sec`` payload keys from
-older clients are ignored by pydantic's default extra-field handling.
+A CI wait outlasts any request timeout, so a server-side wait loop would
+hold one ``POST /v1/functions/call`` open past the relay's read deadline
+and hand the caller a failure for an operation the server is still
+completing. Keeping each call short is what makes the relay's own retry
+safe here: a poll that is retried costs one more point-in-time read
+rather than restarting a wait. Legacy ``wait``/``timeout_sec`` payload
+keys from older clients are ignored by pydantic's default extra-field
+handling.
 """
 
 from __future__ import annotations

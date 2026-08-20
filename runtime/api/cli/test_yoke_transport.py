@@ -10,6 +10,7 @@ import urllib.error
 import pytest
 
 from yoke_cli.transport import https as yoke_transport
+from yoke_cli.transport import https_retry_policy
 from yoke_cli.transport.https import (
     HttpsConnection,
     TransportError,
@@ -263,7 +264,8 @@ class TestRelayHttps:
         assert response.success is False
         assert response.error.code == "https_transport_failed"
         assert "502" in response.error.message
-        assert "yoke status" in response.error.recovery_hint
+        # The hint names what the relay did, not a configuration to inspect.
+        assert "not a Yoke envelope" in response.error.recovery_hint
 
     def test_unreachable_host_synthesizes_transport_error(self, monkeypatch):
         attempts = []
@@ -279,4 +281,4 @@ class TestRelayHttps:
         assert response.success is False
         assert response.error.code == "https_transport_failed"
         assert "could not reach" in response.error.message
-        assert len(attempts) == 2
+        assert len(attempts) == https_retry_policy.CONNECTION_ATTEMPTS
