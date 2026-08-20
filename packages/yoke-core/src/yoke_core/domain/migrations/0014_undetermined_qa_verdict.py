@@ -85,7 +85,7 @@ def apply(conn: Any) -> None:
             "CHECK(verdict IN ('pass','fail','undetermined','error'))"
         )
         conn.execute(
-            "ALTER TABLE qa_runs ADD CONSTRAINT qa_runs_undetermined_reason_check "
+            "ALTER TABLE qa_runs ADD CONSTRAINT qa_runs_check "
             "CHECK(verdict <> 'undetermined' OR "
             "COALESCE(LENGTH(TRIM(verdict_reason)), 0) > 0)"
         )

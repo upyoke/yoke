@@ -178,8 +178,8 @@ class TestSimulationGet:
         result = epic.simulation_get(test_db, "42", "plan")
         assert "plan" in result
         assert "CLEAN" in result
-        # Pipe-delimited: id|item_id|phase|result|body|created_at => 5 pipes
-        assert result.count("|") == 5
+        # Pipe-delimited: id|item_id|phase|result|body|created_at|verdict_reason
+        assert result.count("|") == 6
 
     def test_simulation_get_not_found(self, test_db):
         with pytest.raises(LookupError, match="not found"):

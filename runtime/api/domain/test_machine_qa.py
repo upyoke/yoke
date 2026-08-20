@@ -40,7 +40,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 
 def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.5"
+    assert version == "1.0.6"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",

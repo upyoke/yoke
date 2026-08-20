@@ -87,8 +87,16 @@ def test_cutover_constraints_and_trigger_are_replay_safe() -> None:
         review_checks = " ".join(
             _get_check_constraint_defs(conn, "qa_plan_review_verdicts")
         )
+        run_check_names = {
+            str(row[0])
+            for row in conn.execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid='qa_runs'::regclass AND contype='c'"
+            ).fetchall()
+        }
         assert "undetermined" in run_checks and "inconclusive" not in run_checks
         assert "verdict_reason" in run_checks
+        assert {"qa_runs_verdict_check", "qa_runs_check"} <= run_check_names
         assert "undetermined" in review_checks
         trigger = conn.execute(
             "SELECT COUNT(*) FROM pg_trigger WHERE tgname=%s AND NOT tgisinternal",
