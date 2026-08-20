@@ -278,6 +278,13 @@ def activate(
             f"claim {claim_id}: another active claim now owns overlapping "
             f"coverage on {row['integration_target']!r}"
         )
+    if (
+        state == "planned"
+        and classification is OverlapClassification.SERIAL_VIA_DEPENDENCY
+    ):
+        raise UpstreamNotReleased(
+            f"claim {claim_id} has an active serial dependency; wait for release"
+        )
     if state == "blocked":
         if upstream_claim_id is None:
             raise UpstreamNotReleased(

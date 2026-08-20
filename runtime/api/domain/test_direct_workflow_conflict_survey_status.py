@@ -307,7 +307,7 @@ def test_run_rebuilds_blocked_outcome_with_blockers(monkeypatch, capsys):
         "owner_item_id": 4200,
         "path": "src/contended.py",
         "state": "active",
-        "detail": "path claim 9 wins over claim-less work",
+        "detail": "uncoordinated path claim 9",
     }
     dispatcher = _RoutedDispatcher(
         item_id=4103,

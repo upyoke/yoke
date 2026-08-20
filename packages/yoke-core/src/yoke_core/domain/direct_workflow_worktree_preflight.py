@@ -194,7 +194,7 @@ def run(args: List[str]) -> int:
             "ok": False,
             "block_kind": "conflict-survey-blocked",
             "narrative": (
-                "Registered coordination wins over claim-less work."
+                "Resolve the listed coordination conflict before continuing."
             ),
             "item_id": item_id,
             "blockers": survey.get("blockers") or [],

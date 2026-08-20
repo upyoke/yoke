@@ -1,12 +1,22 @@
 # ruff: noqa: F811
 """Cross-surface directional path-claim overlap consistency tests."""
 
+import pytest
+
+from yoke_core.domain.path_claims import (
+    UpstreamNotReleased,
+    activate,
+    get_claim,
+    register,
+)
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
     classify_overlap,
 )
 from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
+    SNAP,
     conn,
+    local_human,
     seed_target,
 )
 from runtime.api.domain.test_path_claim_directional_overlap import (
@@ -53,3 +63,36 @@ class TestCrossSurfaceConsistency:
             gate_filter="activation",
         )
         assert blockers == []
+
+    def test_activation_keeps_dependent_planned_while_upstream_is_active(
+        self, conn,
+    ):
+        target = seed_target(conn, path_string="runtime/api/domain/serial.py")
+        downstream_item = _seed_item(conn, item_id=3013)
+        upstream_item = _seed_item(conn, item_id=3014)
+        downstream_claim = register(
+            conn,
+            actor_id=local_human(conn),
+            integration_target="main",
+            target_ids=[target],
+            item_id=downstream_item,
+        )
+        _add_dep_edge(
+            conn,
+            dependent=downstream_item,
+            blocking=upstream_item,
+        )
+        upstream_claim = register(
+            conn,
+            actor_id=local_human(conn),
+            integration_target="main",
+            target_ids=[target],
+            item_id=upstream_item,
+        )
+
+        activate(conn, claim_id=upstream_claim, base_commit_sha=SNAP)
+        with pytest.raises(UpstreamNotReleased, match="active serial dependency"):
+            activate(conn, claim_id=downstream_claim, base_commit_sha=SNAP)
+
+        assert get_claim(conn, upstream_claim)["state"] == "active"
+        assert get_claim(conn, downstream_claim)["state"] == "planned"

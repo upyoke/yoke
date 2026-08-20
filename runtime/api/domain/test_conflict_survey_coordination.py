@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from runtime.api.domain.path_claim_task_test_support import (
     seed_item_claim,
     seed_session,
@@ -41,6 +43,7 @@ def test_coordination_only_edge_clears_claim_and_frontier_contacts(test_db):
         "frontier_scope",
         "path_claim",
     }
+    assert all("claim-less" not in row.detail for row in blocked.blockers)
 
     test_db.execute(
         "INSERT INTO item_dependencies "
@@ -83,6 +86,43 @@ def test_coordination_only_edge_clears_claim_and_frontier_contacts(test_db):
         "frontier_scope",
         "path_claim",
     }
+
+
+@pytest.mark.parametrize("claim_state", ["planned", "active"])
+def test_serial_dependency_clears_upstream_survey(test_db, claim_state):
+    upstream_id = 2220 if claim_state == "planned" else 2221
+    downstream_id = upstream_id + 10
+    shared_path = f"src/{claim_state}_downstream.py"
+    insert_item(test_db, id=upstream_id, workflow_id="dash")
+    insert_item(
+        test_db,
+        id=downstream_id,
+        workflow_id="issue",
+        spec=f"## File Budget\n\n- `{shared_path}`\n",
+    )
+    target_id = seed_target(test_db, item_id=downstream_id, path=shared_path)
+    seed_item_claim(
+        test_db,
+        item_id=downstream_id,
+        target_ids=(target_id,),
+        state=claim_state,
+    )
+    test_db.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
+        "rationale, created_at) VALUES (%s, %s, 'activation', "
+        "'fact:merged', 'test', 'upstream lands first', "
+        "'2026-08-20T00:00:00Z')",
+        (downstream_id, upstream_id),
+    )
+    test_db.commit()
+
+    survey = survey_conflicts(
+        test_db, item_id=upstream_id, touch_paths=[shared_path],
+    )
+
+    assert survey.clear is True
+    assert survey.blockers == ()
 
 
 def test_optional_dash_ignores_frozen_planned_scope_and_claim(test_db):

@@ -80,7 +80,7 @@ def _path_claim_blockers(
                     owner_item_id=int(owner) if owner is not None else None,
                     path=matched,
                     state=str(row["state"]),
-                    detail=f"path claim {row['id']} wins over claim-less work",
+                    detail=f"uncoordinated path claim {row['id']}",
                 )
             )
     return blockers
