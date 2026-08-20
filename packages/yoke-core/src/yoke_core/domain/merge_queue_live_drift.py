@@ -35,6 +35,10 @@ from yoke_core.domain.merge_queue_declaration import (
 )
 
 MERGE_QUEUE_RULE_TYPE = "merge_queue"
+DRIFT_SKIP_DECLARATION_MISSING = "declaration_missing"
+DRIFT_SKIP_DECLARATION_UNREADABLE = "declaration_unreadable"
+DRIFT_SKIP_GITHUB_AUTH_UNRESOLVED = "github_auth_unresolved"
+DRIFT_SKIP_GITHUB_UNREACHABLE = "github_unreachable"
 
 
 @dataclass(frozen=True)
@@ -46,10 +50,16 @@ class LiveDriftReport:
     # because an unreadable repository is not evidence of disagreement,
     # and callers that block on drift must not block on an outage.
     unreadable: tuple[str, ...] = field(default=())
+    skip_reason: str = ""
+    skip_detail: str = ""
 
     @property
     def drifted(self) -> bool:
         return bool(self.drift)
+
+    @property
+    def skipped(self) -> bool:
+        return bool(self.skip_reason)
 
     def refusal(self, project: str) -> str:
         """Why the landing stopped, and the one command that clears it."""
@@ -177,12 +187,19 @@ def drift_blocking_landing(
 
     path = declaration_path(Path(checkout))
     if not path.is_file():
-        # No declaration is the Doctor check's business, not a landing's.
-        return LiveDriftReport()
+        return LiveDriftReport(
+            skip_reason=DRIFT_SKIP_DECLARATION_MISSING,
+            skip_detail=f"no declaration at {DECLARATION_RELATIVE_PATH}",
+        )
     try:
         declared = load_declaration(path)
     except MergeQueueDeclarationError as exc:
-        return LiveDriftReport(unreadable=(f"declaration unreadable: {exc}",))
+        detail = f"declaration unreadable: {exc}"
+        return LiveDriftReport(
+            unreadable=(detail,),
+            skip_reason=DRIFT_SKIP_DECLARATION_UNREADABLE,
+            skip_detail=detail,
+        )
 
     try:
         auth = resolve_project_github_auth(
@@ -193,8 +210,11 @@ def drift_blocking_landing(
             },
         )
     except ProjectGithubAuthError as exc:
+        detail = f"ruleset drift unverified: {exc.code}: {exc}"
         return LiveDriftReport(
-            unreadable=(f"ruleset drift unverified: {exc.code}: {exc}",),
+            unreadable=(detail,),
+            skip_reason=DRIFT_SKIP_GITHUB_AUTH_UNRESOLVED,
+            skip_detail=detail,
         )
 
     owner, repo = gh_rest_transport.split_repo(auth.repo)
@@ -202,11 +222,20 @@ def drift_blocking_landing(
         owner, repo, branch, token=auth.token,
     )
     if rules is None:
-        return LiveDriftReport(unreadable=(str(rules_error),))
+        detail = str(rules_error)
+        return LiveDriftReport(
+            unreadable=(detail,),
+            skip_reason=DRIFT_SKIP_GITHUB_UNREACHABLE,
+            skip_detail=detail,
+        )
     return LiveDriftReport(drift=enforcement_drift(declared, rules=rules))
 
 
 __all__ = [
+    "DRIFT_SKIP_DECLARATION_MISSING",
+    "DRIFT_SKIP_DECLARATION_UNREADABLE",
+    "DRIFT_SKIP_GITHUB_AUTH_UNRESOLVED",
+    "DRIFT_SKIP_GITHUB_UNREACHABLE",
     "MERGE_QUEUE_RULE_TYPE",
     "LiveDriftReport",
     "drift_blocking_landing",

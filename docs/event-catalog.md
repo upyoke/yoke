@@ -103,6 +103,7 @@
 | MergePullRequestMergeRetried | lifecycle | merge_lifecycle | merge_worktree | Pull request merge step retried after transient GraphQL propagation state | INFO | active |
 | MergePullRequestMergeStarted | lifecycle | merge_lifecycle | merge_worktree | Pull request merge step started | INFO | active |
 | MergePullRequestReused | lifecycle | merge_lifecycle | merge_worktree | Existing pull request was reused for the merge branch | INFO | active |
+| MergeQueueDriftCheckSkipped | audit | merge_queue_drift_check | yoke_core.domain.merge_queue_drift_gate | The fail-open merge-path comparison against .yoke/merge-queue.json was skipped. Carries item_id, project, branch, skip_reason, and detail so repeated unverified landings are countable without changing merge outcomes. | WARN | active |
 | MergeTargetPushFailed | lifecycle | merge_lifecycle | merge_worktree | Merge target branch push failed before validation | ERROR | active |
 | MergeTargetStale | lifecycle | merge_lifecycle | merge_worktree | Merge target branch moved during the merge window | ERROR | active |
 | MergeTargetValidated | lifecycle | merge_lifecycle | merge_worktree | Merge target branch was validated before merge execution | INFO | active |

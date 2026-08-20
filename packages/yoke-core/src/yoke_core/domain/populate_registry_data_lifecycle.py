@@ -97,6 +97,7 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "LeaseHeartbeated",
     "LeaseReleased",
     "MergePullRequestMergeRetried",
+    "MergeQueueDriftCheckSkipped",
     "MergeTargetStale",
     "MergeVerificationFailed",
     "MigrationCompleted",
