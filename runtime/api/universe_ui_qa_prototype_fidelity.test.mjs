@@ -138,7 +138,7 @@ test("review explanations derive human work only from recorded request state", (
   );
   assert.doesNotMatch(
     reviewExplanation({
-      state: "agent_inconclusive",
+      state: "agent_undetermined",
       rationale: "The evidence is ambiguous.",
     }),
     /pending in Inbox/,

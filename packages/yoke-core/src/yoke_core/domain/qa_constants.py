@@ -21,7 +21,8 @@ from typing import Any, Optional, Sequence
 VALID_QA_PHASES = ("verification", "post_deploy", "manual_acceptance")
 VALID_BLOCKING_MODES = ("blocking", "non_blocking")
 VALID_REQUIREMENT_SOURCES = ("explicit", "seeded_default", "ac_derived", "flow_derived")
-VALID_VERDICTS = ("pass", "fail", "inconclusive", "error")
+UNDETERMINED_VERDICT = "undetermined"
+VALID_VERDICTS = ("pass", "fail", UNDETERMINED_VERDICT, "error")
 BROWSER_METHOD_IDS = ("browser-check", "browser-inspection")
 INVALID_BROWSER_METHOD_LABEL = "invalid Browser method"
 
@@ -48,9 +49,23 @@ def case_outcome_for_verdict(verdict: Optional[str]) -> Optional[str]:
         return "passed"
     if verdict in {"fail", "error"}:
         return "failed"
-    if verdict == "inconclusive":
+    if verdict == UNDETERMINED_VERDICT:
         return "needs_review"
     return None
+
+
+def normalized_verdict_reason(
+    verdict: Optional[str],
+    reason: Optional[str],
+) -> Optional[str]:
+    """Normalize verdict evidence and require an explanation when undecidable."""
+    normalized = str(reason or "").strip() or None
+    if verdict == UNDETERMINED_VERDICT and normalized is None:
+        raise ValueError(
+            "undetermined verdict requires a reason naming what could not "
+            "be established and why"
+        )
+    return normalized
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +172,7 @@ RUN_COLUMNS = (
     "performed_by",
     "qa_kind",
     "verdict",
+    "verdict_reason",
     "execution_status",
     "case_outcome",
     "capture_degraded_reason",

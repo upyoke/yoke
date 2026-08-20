@@ -93,6 +93,7 @@ QA_TABLES: dict[str, dict] = {
             ("performed_by", "TEXT"),
             ("qa_kind", "TEXT"),
             ("verdict", "TEXT"),
+            ("verdict_reason", "TEXT"),
             ("score", "REAL"),
             ("confidence", "REAL"),
             ("raw_result", "TEXT"),
@@ -123,7 +124,8 @@ QA_TABLES: dict[str, dict] = {
             "`qa_requirement_id`, `verdict`, and `raw_result`. "
             "`execution_status` is the browser capture outcome "
             "(captured | capture_failed), distinct from the quality "
-            "`verdict`. "
+            "`verdict`. An `undetermined` verdict requires `verdict_reason` "
+            "to name what could not be established and why. "
             "Browser method execution shape: `yoke qa case run "
             "--requirement-id R --base-url URL --expected-branch BRANCH "
             "--expected-sha SHA`. The runner reads the immutable case "

@@ -36,7 +36,7 @@ def aggregate_state(current: str, result: dict[str, Any]) -> str:
     outcome = str(result.get("case_outcome") or "")
     verdict = str(result.get("verdict") or "")
     result_state = "passed"
-    if outcome == "needs_review" or verdict in {"inconclusive", "pending"}:
+    if outcome == "needs_review" or verdict in {"undetermined", "pending"}:
         result_state = "needs_review"
     if outcome == "blocked_on_precondition":
         result_state = "blocked_on_precondition"

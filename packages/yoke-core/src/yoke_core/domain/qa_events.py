@@ -158,13 +158,14 @@ def emit_qa_run_event(
     requirement_id: int,
     qa_kind: str,
     verdict: Optional[str] = None,
+    verdict_reason: Optional[str] = None,
 ) -> None:
     """Best-effort lifecycle emission for QA runs.
 
     Looks up the parent ``qa_requirements`` row by ``requirement_id`` to
     resolve the event target, then emits a lifecycle envelope with
     event_type=``qa_execution``. ``verdict`` is included in the context
-    detail only when not None.
+    detail only when not None, together with its reason when supplied.
     """
     from yoke_core.domain.qa_review_requests import (
         maybe_ensure_qa_review_request,
@@ -199,6 +200,8 @@ def emit_qa_run_event(
     }
     if verdict is not None:
         detail["verdict"] = verdict
+    if verdict_reason is not None:
+        detail["verdict_reason"] = verdict_reason
 
     try:
         result = emit_event(

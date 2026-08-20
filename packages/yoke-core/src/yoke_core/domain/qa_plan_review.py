@@ -83,7 +83,7 @@ def _review_case(
         "blocked_on_precondition",
     }:
         return None
-    if capture["verdict"] not in {None, "inconclusive"}:
+    if capture["verdict"] not in {None, "undetermined"}:
         raise QaPlanReviewError(
             f"agent-verdict case {requirement_id} has an invalid capture verdict"
         )
@@ -186,7 +186,9 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
             "and visual artifact against that case's instructions and "
             "expected outcome. Return exactly one independent verdict and "
             f"rationale for each of the {len(cases)} cases. Do not infer a "
-            "verdict from capture status. Use only the supplied artifact-read "
+            "verdict from capture status. An undetermined verdict's rationale "
+            "must name what could not be established and why. Use only the "
+            "supplied artifact-read "
             "commands for bytes that are not directly available "
             "(add --output PATH to land bytes on disk; prefer the result "
             "path key — artifact_handle.path may be a dead /tmp location), "
@@ -214,7 +216,7 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
             "verdicts": [
                 {
                     "requirement_id": "integer",
-                    "verdict": "pass|fail|inconclusive",
+                    "verdict": "pass|fail|undetermined",
                     "rationale": "non-empty string",
                 }
             ]

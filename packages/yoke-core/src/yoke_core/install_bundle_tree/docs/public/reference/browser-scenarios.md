@@ -126,7 +126,7 @@ yoke qa case run \
 ```
 
 `browser-check` produces an automatic verdict from its assertions.
-`browser-inspection` captures evidence and returns an inconclusive/review
+`browser-inspection` captures evidence and returns an undetermined/review
 outcome until a reviewer resolves it.
 
 The runner writes the run and evidence on the materialized Browser

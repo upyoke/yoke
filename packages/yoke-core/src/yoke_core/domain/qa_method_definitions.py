@@ -74,8 +74,8 @@ BUILTIN_QA_METHODS = (
         "required_capability_kinds": ["browser-control"],
         "verdict_path": "agent",
         "verdict_contract": (
-            "inspects the screenshot and judges whether it shows the case's "
-            "expected outcome"
+            "agent verdict is pass, fail, or undetermined; undetermined "
+            "requires a reason naming what could not be established and why"
         ),
         "evidence_contract": "screenshots · inspection verdict",
         "display_icon": "◉",

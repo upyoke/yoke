@@ -1,9 +1,6 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { relativeTime } from "./universe_time.js";
-import {
-  el,
-  statePill,
-} from "./universe_view_support.js";
+import { el, statePill } from "./universe_view_support.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
 function qaOutcome(row) {
   if (row.waived_at) return "waived";
@@ -16,7 +13,7 @@ function qaOutcome(row) {
   ).toLowerCase().replaceAll("_", " ");
   if (outcome === "pass") return "passed";
   if (["fail", "error"].includes(outcome)) return "failed";
-  if (outcome === "inconclusive") return "needs review";
+  if (outcome === "undetermined") return "needs review";
   return outcome;
 }
 function qaOutcomePill(documentNode, row, workflowId) {

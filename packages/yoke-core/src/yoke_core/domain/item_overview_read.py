@@ -8,6 +8,7 @@ from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 def _p(conn: Any) -> str:
@@ -55,9 +56,26 @@ def enrich_item_overview_rows(
         for lane in _dict_rows(lane_cursor):
             worktrees.setdefault(int(lane["item_id"]), []).append(lane)
         claims = active_item_claims(conn, ids)
-        version_ids = sorted({
-            int(row["workflow_version_id"]) for row in base_rows
-        })
+        qa_attention: dict[int, dict[str, str]] = {}
+        if (
+            _table_exists(conn, "qa_requirements")
+            and _table_exists(conn, "qa_runs")
+            and _column_exists(conn, "qa_runs", "performed_by")
+            and _column_exists(conn, "qa_runs", "verdict_reason")
+        ):
+            qa_cursor = conn.execute(
+                "SELECT COALESCE(q.item_id,q.epic_id) AS item_id, "
+                "r.verdict,r.verdict_reason FROM qa_requirements q "
+                "JOIN qa_runs r ON r.id=(SELECT rr.id FROM qa_runs rr "
+                "WHERE rr.qa_requirement_id=q.id ORDER BY rr.id DESC LIMIT 1) "
+                f"WHERE COALESCE(q.item_id,q.epic_id) IN ({placeholders}) "
+                "AND r.performed_by='agent' AND r.verdict='undetermined' "
+                "ORDER BY r.id DESC",
+                tuple(ids),
+            )
+            for attention in _dict_rows(qa_cursor):
+                qa_attention.setdefault(int(attention["item_id"]), attention)
+        version_ids = sorted({int(row["workflow_version_id"]) for row in base_rows})
         version_placeholders = ", ".join(marker for _ in version_ids)
         version_cursor = conn.execute(
             "SELECT v.id AS workflow_version_id, v.workflow_id, v.version, "
@@ -67,8 +85,7 @@ def enrich_item_overview_rows(
             tuple(version_ids),
         )
         runtimes = {
-            int(version["workflow_version_id"]):
-                workflow_runtime_from_row(version)
+            int(version["workflow_version_id"]): workflow_runtime_from_row(version)
             for version in _dict_rows(version_cursor)
         }
     finally:
@@ -79,20 +96,23 @@ def enrich_item_overview_rows(
         item_id = int(row["id"])
         fact = facts[item_id]
         runtime = runtimes[int(row["workflow_version_id"])]
-        row.update({
-            "public_ref": format_item_ref(
-                fact["project"],
-                fact["public_item_prefix"],
-                int(fact["project_sequence"]),
-            ),
-            "project_id": int(fact["project_id"]),
-            "project": str(fact["project"]),
-            "project_name": str(fact["project_name"]),
-            "owner": str(fact.get("owner") or ""),
-            "claimed_by": claims.get(item_id),
-            "worktrees": worktrees.get(item_id, []),
-            "stage_label": runtime.stage_label(str(row["status"])),
-        })
+        row.update(
+            {
+                "public_ref": format_item_ref(
+                    fact["project"],
+                    fact["public_item_prefix"],
+                    int(fact["project_sequence"]),
+                ),
+                "project_id": int(fact["project_id"]),
+                "project": str(fact["project"]),
+                "project_name": str(fact["project_name"]),
+                "owner": str(fact.get("owner") or ""),
+                "claimed_by": claims.get(item_id),
+                "worktrees": worktrees.get(item_id, []),
+                "stage_label": runtime.stage_label(str(row["status"])),
+                "qa_attention": qa_attention.get(item_id),
+            }
+        )
         result.append(row)
     return result
 

@@ -12,11 +12,11 @@ from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.schema_init_tables import create_governed_tables
 
 
-def _inconclusive(requirement_id: int) -> list[dict[str, object]]:
+def _undetermined(requirement_id: int) -> list[dict[str, object]]:
     return [
         {
             "requirement_id": requirement_id,
-            "verdict": "inconclusive",
+            "verdict": "undetermined",
             "rationale": "The supplied evidence is not decisive.",
         }
     ]
@@ -57,7 +57,7 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
                 execution,
                 bundle_id=bundle["bundle_id"],
                 bundle_digest=bundle["bundle_digest"],
-                verdicts=_inconclusive(requirement_id),
+                verdicts=_undetermined(requirement_id),
                 reviewer_actor_id=None,
                 reviewer_session_id="review-session",
             )

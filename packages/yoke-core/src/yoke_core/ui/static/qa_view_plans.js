@@ -148,6 +148,13 @@ function renderPlanTable(context, body, rows) {
     result.appendChild(outcomeNode(
       documentNode, row.last_outcome || "not run", null, displayLabel,
     ));
+    if (row.last_verdict_reason) {
+      result.title = row.last_verdict_reason;
+      result.appendChild(el(
+        documentNode, "span", "qa-result-reason",
+        ` · ${row.last_verdict_reason}`,
+      ));
+    }
     if (row.last_at && row.last_outcome === "passed") {
       result.appendChild(el(documentNode, "span", "qa-result-age", " "));
       result.appendChild(planResultAge(documentNode, row.last_at));

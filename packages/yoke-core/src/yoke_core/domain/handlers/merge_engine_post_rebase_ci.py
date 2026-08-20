@@ -161,20 +161,18 @@ def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOut
         return _err("payload_invalid", f"post_rebase CI record payload invalid: {exc}")
 
     from yoke_core.domain import qa_events
-    from yoke_core.domain.qa_constants import (
-        VALID_VERDICTS,
-        case_outcome_for_verdict,
-    )
+    from yoke_core.domain.qa_constants import case_outcome_for_verdict
 
     if body.scope not in {"full", "quick"}:
         return _err(
             "payload_invalid",
             "scope must be 'full' or 'quick'",
         )
-    if body.verdict not in VALID_VERDICTS:
+    automatic_verdicts = ("pass", "fail", "error")
+    if body.verdict not in automatic_verdicts:
         return _err(
             "payload_invalid",
-            f"verdict must be one of {list(VALID_VERDICTS)}",
+            f"automatic CI verdict must be one of {list(automatic_verdicts)}",
         )
     if not str(body.raw_result or "").strip():
         return _err("payload_invalid", "raw_result is required")

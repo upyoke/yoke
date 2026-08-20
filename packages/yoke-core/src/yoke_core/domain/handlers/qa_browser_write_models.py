@@ -18,6 +18,7 @@ class QaRunAddRequest(BaseModel):
     performed_by: str
     qa_kind: Optional[str] = None
     verdict: Optional[str] = None
+    verdict_reason: Optional[str] = None
     execution_status: Optional[str] = None
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None
@@ -32,6 +33,7 @@ class QaRunAddResponse(BaseModel):
 class QaRunCompleteRequest(BaseModel):
     run_id: int
     verdict: Optional[str] = None
+    verdict_reason: Optional[str] = None
     execution_status: Optional[str] = None
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None

@@ -126,7 +126,7 @@ class TestRunAdd:
         assert row[0] == "pass"
         assert row[1] is not None  # completed_at set
 
-    def test_inconclusive_verdict_remains_valid_in_qa_only_database(
+    def test_undetermined_verdict_remains_valid_in_qa_only_database(
         self,
         db_path: str,
         req_id: int,
@@ -136,15 +136,29 @@ class TestRunAdd:
             requirement_id=req_id,
             performed_by="agent",
             qa_kind="unit_test",
-            verdict="inconclusive",
+            verdict="undetermined",
+            verdict_reason="The available output cannot establish pass or fail.",
         )
         conn = connect_test_db(db_path)
         stored = conn.execute(
-            "SELECT verdict FROM qa_runs WHERE id = %s",
+            "SELECT verdict, verdict_reason FROM qa_runs WHERE id = %s",
             (run_id,),
         ).fetchone()
         conn.close()
-        assert stored[0] == "inconclusive"
+        assert stored[0] == "undetermined"
+        assert "cannot establish" in stored[1]
+
+    def test_undetermined_verdict_requires_reason(
+        self, db_path: str, req_id: int
+    ) -> None:
+        with pytest.raises(SystemExit) as exc:
+            qa.cmd_run_add(
+                db_path=db_path,
+                requirement_id=req_id,
+                performed_by="agent",
+                verdict="undetermined",
+            )
+        assert exc.value.code == 2
 
     @pytest.mark.parametrize(
         "method_id",

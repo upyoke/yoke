@@ -25,7 +25,7 @@ class AgentVerdict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     requirement_id: int = Field(ge=1)
-    verdict: str = Field(pattern="^(pass|fail|inconclusive)$")
+    verdict: str = Field(pattern="^(pass|fail|undetermined)$")
     rationale: str = Field(min_length=1, max_length=8000)
 
 

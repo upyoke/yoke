@@ -261,16 +261,20 @@ class TestPersistAndVerify:
                 persist_and_verify("42", "plan", sim_output)
         assert exc_info.value.code == 13
 
-    def test_inconclusive_verdict(self):
+    def test_undetermined_verdict_preserves_reason(self, capsys):
         sim_output = "SIMULATION: CLEAN\nEPIC: YOK-42"
         connect_patch, upsert_patch, get_patch = self._patch_owners(
             upsert_side_effect=[None],
-            get_side_effect=["1|42|plan||body|2026-04-09"],
+            get_side_effect=[
+                "1|42|plan|UNDETERMINED|body|2026-04-09|"
+                "The report does not establish checkout behavior."
+            ],
         )
         with connect_patch, upsert_patch, get_patch:
             with pytest.raises(SystemExit) as exc_info:
                 persist_and_verify("42", "plan", sim_output)
         assert exc_info.value.code == 12
+        assert "does not establish checkout behavior" in capsys.readouterr().err
 
     def test_integration_clean_triggers_auto_handoff(self):
         sim_output = "SIMULATION: CLEAN\nEPIC: YOK-42"

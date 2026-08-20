@@ -134,6 +134,19 @@ def test_record_requires_item_target(db):
     assert outcome.error.code == "target_invalid"
 
 
+def test_record_refuses_agent_only_undetermined_verdict(db):
+    outcome = ci.handle_record_post_rebase_ci_run(
+        _item_envelope(
+            "merge.tests.record_post_rebase_ci_run",
+            item_id=9501,
+            payload={"scope": "full", "verdict": "undetermined", "raw_result": "{}"},
+        )
+    )
+    assert outcome.primary_success is False
+    assert outcome.error.code == "payload_invalid"
+    assert "automatic CI verdict" in outcome.error.message
+
+
 def test_flow_derived_requirement_resolves_complete_project_ci_config(db):
     item_id = 9502
     conn = connect_test_db(db)

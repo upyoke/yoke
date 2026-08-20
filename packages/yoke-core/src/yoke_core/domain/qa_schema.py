@@ -87,7 +87,8 @@ CREATE TABLE IF NOT EXISTS qa_runs (
     qa_requirement_id INTEGER NOT NULL,
     performed_by TEXT NOT NULL,
     qa_kind TEXT NOT NULL,
-    verdict TEXT CHECK(verdict IN ('pass','fail','inconclusive','error')),
+    verdict TEXT CHECK(verdict IN ('pass','fail','undetermined','error')),
+    verdict_reason TEXT,
     execution_status TEXT CHECK(execution_status IN ('captured','capture_failed') OR execution_status IS NULL),
     case_outcome TEXT CHECK(case_outcome IN (
         'running','waiting','passed','failed','needs_review',
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS qa_runs (
     started_at TEXT,
     completed_at TEXT,
     created_at TEXT NOT NULL,
+    CHECK(verdict <> 'undetermined' OR COALESCE(LENGTH(TRIM(verdict_reason)), 0) > 0),
     FOREIGN KEY (qa_requirement_id) REFERENCES qa_requirements(id)
 );
 CREATE INDEX IF NOT EXISTS idx_qa_runs_requirement ON qa_runs(qa_requirement_id);

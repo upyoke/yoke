@@ -157,13 +157,13 @@ def test_plan_state_aggregation_preserves_outcome_precedence() -> None:
         ("passed", {"case_outcome": "passed", "verdict": "pass"}),
         (
             "needs_review",
-            {"case_outcome": "needs_review", "verdict": "inconclusive"},
+            {"case_outcome": "needs_review", "verdict": "undetermined"},
         ),
         (
             "blocked_on_precondition",
             {
                 "case_outcome": "blocked_on_precondition",
-                "verdict": "inconclusive",
+                "verdict": "undetermined",
             },
         ),
         ("failed", {"case_outcome": "failed", "verdict": "fail"}),
@@ -201,7 +201,7 @@ def test_fully_blocked_baseline_group_completes_with_distinct_plan_state() -> No
     blocked_results = [
         {
             "requirement_id": requirement_id,
-            "verdict": "inconclusive",
+            "verdict": "undetermined",
             "case_outcome": "blocked_on_precondition",
         }
         for requirement_id in (151, 152)
@@ -259,10 +259,10 @@ def test_fully_blocked_baseline_group_completes_with_distinct_plan_state() -> No
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",
         "qa.plan_execution.advance",
-            "qa.plan_execution.heartbeat",
-            "qa.plan_execution.advance",
-            "qa.plan_review.begin",
-            "qa.plan_execution.complete",
+        "qa.plan_execution.heartbeat",
+        "qa.plan_execution.advance",
+        "qa.plan_review.begin",
+        "qa.plan_execution.complete",
     ]
 
 
@@ -339,8 +339,8 @@ def test_client_runner_resumes_from_durable_baseline_group_results() -> None:
     assert all("baseline_group_results" not in row for row in result["results"])
     assert function_calls == [
         "qa.plan_execution.begin",
-            "qa.plan_execution.heartbeat",
-            "qa.plan_execution.advance",
-            "qa.plan_review.begin",
-            "qa.plan_execution.complete",
+        "qa.plan_execution.heartbeat",
+        "qa.plan_execution.advance",
+        "qa.plan_review.begin",
+        "qa.plan_execution.complete",
     ]

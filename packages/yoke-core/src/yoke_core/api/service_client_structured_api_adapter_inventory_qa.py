@@ -110,7 +110,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "qa.run.record_verdict",
         "yoke qa run record-verdict --requirement-id N "
         "--performed-by WHO --verdict VERDICT "
-        "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]",
+        "[--verdict-reason REASON] [--raw-result TEXT] "
+        "[--duration-ms N] [--session-id S] [--json]",
     ),
     # Public QA reads, item-attached creation, and gate-entry summary.
     _read_entry(
@@ -167,10 +168,15 @@ QA_ADAPTERS: List[AdapterEntry] = [
         function_id="qa.browser_context.get",
         cli_invocation="yoke qa browser-context get --item PREFIX-N --requirement-id N --project P",
     ),
-    AdapterEntry("qa.run.add", "yoke qa run add --requirement-id N --performed-by WHO"),
+    AdapterEntry(
+        "qa.run.add",
+        "yoke qa run add --requirement-id N --performed-by WHO "
+        "[--verdict V --verdict-reason REASON]",
+    ),
     AdapterEntry(
         "qa.run.complete",
-        "yoke qa run complete --requirement-id N --run-id N --verdict V",
+        "yoke qa run complete --requirement-id N --run-id N --verdict V "
+        "[--verdict-reason REASON]",
     ),
     AdapterEntry(
         "qa.artifact.add",

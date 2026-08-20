@@ -43,7 +43,7 @@ def qa_run_outcome(row: Any) -> str:
         return "passed"
     if verdict in {"fail", "error"}:
         return "failed"
-    if verdict in {"inconclusive", "needs review", "needs_review"}:
+    if verdict in {"undetermined", "needs review", "needs_review"}:
         return "needs_review"
     execution_status = str(_row_value(row, "execution_status") or "").strip().lower()
     if execution_status in {"queued", "running", "waiting"}:
@@ -112,6 +112,7 @@ def qa_proof_summary(
     raw_result: Any,
     artifacts: Mapping[str, int],
     outcome: str,
+    verdict_reason: str | None,
     capture_degraded_reason: str | None,
     host_baseline: str | None,
     precondition_reason: str | None,
@@ -120,6 +121,8 @@ def qa_proof_summary(
     """Summarize evidence for the latest run, never the expected result."""
     if run_id is None:
         return "not run"
+    if outcome == "needs_review" and str(verdict_reason or "").strip():
+        return str(verdict_reason).strip()
 
     supplied = _current_proof_hint(raw_result)
     if supplied:

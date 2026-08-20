@@ -227,7 +227,7 @@ def test_qa_withdraw_requires_conclusive_or_waived_requirement(conn) -> None:
             conn,
             request["id"],
             actor_id=2,
-            reason="still inconclusive",
+            reason="still undetermined",
         )
 
     conn.execute("INSERT INTO qa_runs VALUES (71, 7, 'pass', 'passed')")

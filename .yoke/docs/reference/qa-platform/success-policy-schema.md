@@ -47,7 +47,7 @@ Pass rate across multiple runs.
 - `min_runs` -- minimum number of runs required before the policy can be evaluated
 - `min_pass_rate` -- fraction of runs that must have `verdict='pass'` (0.0 to 1.0)
 
-**Semantics:** The requirement is satisfied when at least `min_runs` QA runs exist AND at least `min_pass_rate` fraction of them have `verdict='pass'`. Runs with `verdict='inconclusive'` are excluded from both the numerator and denominator. Runs with `verdict='error'` count as failures.
+**Semantics:** The requirement is satisfied when at least `min_runs` QA runs exist AND at least `min_pass_rate` fraction of them have `verdict='pass'`. Runs with `verdict='undetermined'` are excluded from both the numerator and denominator. Runs with `verdict='error'` count as failures.
 
 ## Type: composite
 
@@ -90,9 +90,9 @@ Agent-judged assessment with confidence thresholds for non-deterministic QA.
 **Semantics:** This is the critical policy type for LLM-judged visual QA. The Tester agent reads screenshots (Claude is multimodal) and judges against ACs, producing a `verdict` and `confidence` score on each run.
 
 Decision logic:
-1. If fewer than `min_runs` exist, the requirement is **inconclusive** (not yet evaluable).
+1. If fewer than `min_runs` exist, the requirement is **undetermined** (not yet evaluable).
 2. If any run has `verdict='pass'` AND `confidence >= confidence_pass`, the requirement is **satisfied**.
 3. If all runs have `verdict='fail'` AND `confidence >= (1 - confidence_fail)`, the requirement is **failed**.
-4. Otherwise, the requirement is **inconclusive** -- more runs are needed or results are ambiguous.
+4. Otherwise, the requirement is **undetermined** -- more runs are needed or results are ambiguous.
 
-The gap between `confidence_pass` and `confidence_fail` defines the "inconclusive zone" where results are neither clearly passing nor clearly failing.
+The gap between `confidence_pass` and `confidence_fail` defines the "undetermined zone" where results are neither clearly passing nor clearly failing.

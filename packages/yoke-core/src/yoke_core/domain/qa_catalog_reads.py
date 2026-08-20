@@ -239,7 +239,7 @@ def _latest_requirement_outcome(conn: Any, plan_id: int) -> tuple:
     marker = _placeholder(conn)
     row = query_one(
         conn,
-        "SELECT q.id, q.waived_at, r.verdict, r.case_outcome, "
+        "SELECT q.id, q.waived_at, r.verdict, r.verdict_reason, r.case_outcome, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
         "FROM qa_requirements q "
         "LEFT JOIN qa_runs r ON r.id=("
@@ -252,8 +252,8 @@ def _latest_requirement_outcome(conn: Any, plan_id: int) -> tuple:
         (plan_id,),
     )
     if row is None:
-        return (None, None)
-    return (qa_run_outcome(row), row["happened_at"])
+        return (None, None, None)
+    return (qa_run_outcome(row), row["happened_at"], row["verdict_reason"])
 
 
 def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
@@ -287,7 +287,9 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         materialized_count = sum(
             max(1, len(_json_value(case["host_baselines"], []))) for case in cases
         )
-        last_outcome, last_at = _latest_requirement_outcome(conn, plan_id)
+        last_outcome, last_at, last_verdict_reason = _latest_requirement_outcome(
+            conn, plan_id
+        )
         execution_target = None
         if row["target_environment_id"]:
             execution_target = resolve_plan_execution_target(
@@ -313,6 +315,7 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                 "attachments": plan_attachment_rows(conn, plan_id),
                 "last_outcome": last_outcome,
                 "last_at": last_at,
+                "last_verdict_reason": last_verdict_reason,
             }
         )
     return result

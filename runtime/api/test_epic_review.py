@@ -188,16 +188,17 @@ class TestReviewGet:
         )
         db_with_task.execute(
             """INSERT INTO qa_runs
-               (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
-               VALUES (%s, 'agent', 'implementation_review', 'pass', '{"body":"Good work"}', '2025-01-01T00:00:00Z')""",
+               (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, raw_result, created_at)
+               VALUES (%s, 'agent', 'implementation_review', 'undetermined', 'Missing checkout evidence', '{"body":"Good work"}', '2025-01-01T00:00:00Z')""",
             (req_id,),
         )
         db_with_task.commit()
 
         result = epic.review_get(db_with_task, "42", 1)
         parts = result.split("|")
-        assert parts[3] == "PASS"
+        assert parts[3] == "UNDETERMINED"
         assert "Good work" in parts[4]
+        assert parts[6] == "Missing checkout evidence"
 
 
 class TestReviewAndSimulationWrites:
@@ -293,6 +294,7 @@ class TestReviewAndSimulationWrites:
             performed_by="agent",
             qa_kind="simulation",
             verdict="pass",
+            verdict_reason=None,
             raw_result='{"body":"SIMULATION: CLEAN","phase":"plan"}',
         )
 
@@ -335,5 +337,6 @@ class TestReviewAndSimulationWrites:
             performed_by="agent",
             qa_kind="simulation",
             verdict="fail",
+            verdict_reason=None,
             raw_result='{"body":"## Result: GAPS FOUND","phase":"integration"}',
         )

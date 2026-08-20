@@ -72,6 +72,10 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
                 actor_label: "build-system",
                 session_id: "session-a",
               },
+              qa_attention: {
+                verdict: "undetermined",
+                verdict_reason: "The checkout confirmation is not visible.",
+              },
             },
             {
               id: 42,
@@ -96,7 +100,7 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
     function: "items.overview.list",
     payload: {},
   }]);
-  assert.equal(byClass(root, "item-workflow").length, 2);
+  assert.equal(byClass(root, "item-workflow").length, 3);
   assert.equal(byClass(root, "item-roster-wrap").length, 1);
   assert.deepEqual(
     allNodes(byClass(root, "item-roster")[0])
@@ -115,6 +119,7 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
   assert.match(itemText(root), /unassigned/);
   assert.match(itemText(root), /Reviewing work/);
   assert.match(itemText(root), /Ready to plan/);
+  assert.match(itemText(root), /checkout confirmation is not visible/);
   assert.doesNotMatch(itemText(root), /reviewing-implementation/);
   assert.ok(!itemText(root).includes("priority"));
   const hrefs = byClass(root, "row-link").map((node) => node.href);

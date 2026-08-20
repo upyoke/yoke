@@ -39,7 +39,8 @@ named requirement.
 Browser cases use one of two method IDs:
 
 - `browser-check` runs declared assertions and produces an automatic verdict.
-- `browser-inspection` captures evidence and produces an inconclusive verdict,
+- `browser-inspection` captures evidence and produces an undetermined verdict
+  with a reason naming what could not be established and why,
   which creates a review request for approval, rejection, or waiver.
 
 The case's `method_config` is a JSON object with a non-empty `steps` array and
@@ -69,7 +70,7 @@ parallel run or self-report Browser evidence as an agent verdict.
 
 | Exit | Meaning |
 |------|---------|
-| `0` | Execution completed without a fail/error verdict. A Browser inspection can still be `inconclusive` and awaiting review. |
+| `0` | Execution completed without a fail/error verdict. A Browser inspection can still be `undetermined` and awaiting review. |
 | `1` | The case verdict is `fail`. |
 | `2` | A prerequisite, case-contract, freshness, or runner error prevented valid completion. |
 

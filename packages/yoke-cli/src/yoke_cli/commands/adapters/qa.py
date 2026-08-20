@@ -127,7 +127,8 @@ def qa_requirement_waive(args: List[str]) -> int:
 QA_RUN_RECORD_VERDICT_USAGE = (
     "yoke qa run record-verdict --requirement-id N "
     "--performed-by WHO --verdict VERDICT "
-    "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]"
+    "[--verdict-reason REASON] [--raw-result TEXT] "
+    "[--duration-ms N] [--session-id S] [--json]"
 )
 
 
@@ -143,6 +144,8 @@ def qa_run_record_verdict(args: List[str]) -> int:
                         help="Who or what ran the QA check.")
     parser.add_argument("--verdict", required=True,
                         help="One of the registered QA verdicts.")
+    parser.add_argument("--verdict-reason", dest="verdict_reason",
+                        help="Required for undetermined: what is unknown and why.")
     parser.add_argument("--raw-result", dest="raw_result", default=None,
                         help="Optional raw output snippet.")
     parser.add_argument("--duration-ms", dest="duration_ms",
@@ -157,6 +160,8 @@ def qa_run_record_verdict(args: List[str]) -> int:
         "performed_by": parsed.performed_by,
         "verdict": parsed.verdict,
     }
+    if parsed.verdict_reason is not None:
+        payload["verdict_reason"] = parsed.verdict_reason
     if parsed.raw_result is not None:
         payload["raw_result"] = parsed.raw_result
     if parsed.duration_ms is not None:

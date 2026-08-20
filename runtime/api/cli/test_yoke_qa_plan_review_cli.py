@@ -121,7 +121,7 @@ def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
         "verdicts": [
             {
                 "requirement_id": 41,
-                "verdict": "inconclusive",
+                "verdict": "undetermined",
                 "rationale": "Needs a human look.",
             }
         ]

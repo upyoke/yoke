@@ -134,7 +134,9 @@ def dispatch_chain_list(conn, epic_id: str) -> str:
 # Review queries
 # ---------------------------------------------------------------------------
 
-_REVIEW_COLUMNS = ["id", "epic_id", "task_num", "verdict", "body", "created_at"]
+_REVIEW_COLUMNS = [
+    "id", "epic_id", "task_num", "verdict", "body", "created_at", "verdict_reason",
+]
 
 
 def _review_select_sql(conn) -> str:
@@ -142,12 +144,18 @@ def _review_select_sql(conn) -> str:
     return f"""SELECT qr.id,
                   qreq.epic_id,
                   qreq.task_num,
-                  CASE qr.verdict WHEN 'pass' THEN 'PASS' WHEN 'fail' THEN 'FAIL' ELSE 'FAIL' END as verdict,
+                  CASE qr.verdict
+                    WHEN 'pass' THEN 'PASS'
+                    WHEN 'fail' THEN 'FAIL'
+                    WHEN 'undetermined' THEN 'UNDETERMINED'
+                    ELSE 'ERROR'
+                  END as verdict,
                   CASE WHEN {json_valid_expr('qr.raw_result')}
                        THEN COALESCE({json_get('qr.raw_result', '$.body')}, qr.raw_result)
                        ELSE COALESCE(qr.raw_result, '')
                   END as body,
-                  qr.created_at
+                  qr.created_at,
+                  COALESCE(qr.verdict_reason, '') AS verdict_reason
            FROM qa_runs qr
            JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id
            WHERE qreq.qa_kind = 'implementation_review'
@@ -160,7 +168,7 @@ def _review_select_sql(conn) -> str:
 def review_get(conn, epic_id: str, task_num: int) -> str:
     """Get most recent review for a task (pipe-delimited).
 
-    Format: id|epic_id|task_num|verdict|body|created_at
+    Format: id|epic_id|task_num|verdict|body|created_at|verdict_reason
     """
     row = query_one(
         conn,
@@ -245,7 +253,7 @@ def progress_note_list(
 def simulation_get(conn, epic_id: str, phase: str) -> str:
     """Get a simulation report (pipe-delimited).
 
-    Format: id|epic_id|phase|result|body|created_at
+    Format: id|epic_id|phase|result|body|created_at|verdict_reason
     """
     row = query_one(
         conn,
@@ -258,13 +266,15 @@ def simulation_get(conn, epic_id: str, phase: str) -> str:
                   CASE qr.verdict
                     WHEN 'pass' THEN 'CLEAN'
                     WHEN 'fail' THEN 'GAPS FOUND'
-                    ELSE ''
+                    WHEN 'undetermined' THEN 'UNDETERMINED'
+                    ELSE 'ERROR'
                   END as result,
                   CASE WHEN substr(qr.raw_result, 1, 1) = '{{'
                        THEN COALESCE({json_get('qr.raw_result', '$.body')}, '')
                        ELSE qr.raw_result
                   END as body,
-                  qr.created_at
+                  qr.created_at,
+                  COALESCE(qr.verdict_reason, '') AS verdict_reason
            FROM qa_runs qr
            JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id
            WHERE qreq.qa_kind = 'simulation'
@@ -280,7 +290,10 @@ def simulation_get(conn, epic_id: str, phase: str) -> str:
     )
     if row is None:
         raise LookupError(f"simulation '{epic_id}/{phase}' not found")
-    return _pipe_row(row, ["id", "item_id", "phase", "result", "body", "created_at"])
+    return _pipe_row(
+        row,
+        ["id", "item_id", "phase", "result", "body", "created_at", "verdict_reason"],
+    )
 
 
 # ---------------------------------------------------------------------------

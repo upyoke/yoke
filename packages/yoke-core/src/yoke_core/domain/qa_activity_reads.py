@@ -63,7 +63,7 @@ def _list_activity(
         "q.deployment_run_id, "
         "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
         "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
-        "r.verdict, r.case_outcome, r.capture_degraded_reason, "
+        "r.verdict, r.verdict_reason, r.case_outcome, r.capture_degraded_reason, "
         "r.raw_result, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at, "
         "(SELECT COUNT(*) FROM qa_artifacts a WHERE a.qa_run_id=r.id) "
@@ -102,6 +102,7 @@ def _list_activity(
                 "outcome": outcome,
                 "evidence_count": int(row["evidence_count"] or 0),
                 "capture_degraded_reason": row["capture_degraded_reason"],
+                "verdict_reason": row["verdict_reason"],
                 "precondition_reason": precondition_reason,
                 "proof_summary": qa_proof_summary(
                     method_id=row["method_id"],
@@ -109,6 +110,7 @@ def _list_activity(
                     raw_result=raw_result,
                     artifacts=artifacts_by_run.get(run_id, {}),
                     outcome=outcome,
+                    verdict_reason=row["verdict_reason"],
                     capture_degraded_reason=row["capture_degraded_reason"],
                     host_baseline=row["host_baseline"],
                     precondition_reason=precondition_reason,

@@ -107,6 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     rna.add_argument("--verdict")
+    rna.add_argument("--verdict-reason")
     rna.add_argument(
         "--execution-status",
         choices=("captured", "capture_failed"),
@@ -133,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     rc = sub.add_parser("run-complete")
     rc.add_argument("--run-id", type=int, required=True)
     rc.add_argument("--verdict")
+    rc.add_argument("--verdict-reason")
     rc.add_argument(
         "--execution-status",
         choices=("captured", "capture_failed"),
