@@ -100,6 +100,18 @@ def test_duplicate_sequence_is_rejected(tmp_path: Path) -> None:
         ordered_entries(tmp_path)
 
 
+def test_module_load_rejects_a_duplicate_ordinal_before_import(tmp_path: Path) -> None:
+    first = _write_entry(
+        tmp_path,
+        "0001_first",
+        body="raise RuntimeError('module body must not execute')\n",
+    )
+    _write_entry(tmp_path, "0001_also_first")
+
+    with pytest.raises(HistoryError, match="duplicate sequence 0001"):
+        load_migration_module(first, "0001_first")
+
+
 def test_missing_history_directory_is_an_error(tmp_path: Path) -> None:
     with pytest.raises(HistoryError, match="directory not found"):
         ordered_entries(tmp_path / "absent")

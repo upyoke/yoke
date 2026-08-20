@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional, Tuple
 
 from typing import TYPE_CHECKING
@@ -237,6 +238,76 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             _print("  OK: Blocked-flag gate skipped (DB unavailable)")
     except Exception:  # noqa: BLE001 - degrade if DB unavailable
         _print("  OK: Blocked-flag gate skipped (DB unavailable)")
+
+    # PF-7: Numbered migration history integrity. The existing item-list and
+    # capability-settings reads keep this gate deployable across an HTTPS
+    # control plane: the server provides state, while the merge host proves
+    # the lane-vs-target Git ordering from its own checkout.
+    if ctx.item_id is not None:
+        from yoke_core.domain.migration_merge_preflight import (
+            evaluate_migration_merge,
+            migration_merge_applicable,
+        )
+
+        project = ctx.project or "yoke"
+        try:
+            items_resp = call_dispatcher(
+                function_id="items.list.run",
+                target=TargetRef(kind="global"),
+                payload={
+                    "project": project,
+                    "fields": ["id", "status", "db_mutation_profile"],
+                },
+            )
+        except Exception:  # noqa: BLE001 - item-bound gate fails closed below.
+            items_resp = None
+        if items_resp is None or not items_resp.success:
+            _print(
+                "  FAIL: Migration-history item roster unavailable for "
+                f"item {ctx.item_id}",
+                err=True,
+            )
+            fail = True
+        else:
+            rows = list((items_resp.result or {}).get("rows") or [])
+            if not migration_merge_applicable(rows, int(ctx.item_id)):
+                _print("  OK: Numbered migration-history gate not applicable")
+            else:
+                try:
+                    capability_resp = call_dispatcher(
+                        function_id="projects.capability_settings.get",
+                        target=TargetRef(kind="global"),
+                        payload={
+                            "project": project,
+                            "cap_type": "migration_model",
+                        },
+                    )
+                except Exception:  # noqa: BLE001 - fail closed below.
+                    capability_resp = None
+                if capability_resp is None or not capability_resp.success:
+                    _print(
+                        "  FAIL: migration_model capability settings unavailable "
+                        f"for project {project!r}",
+                        err=True,
+                    )
+                    fail = True
+                else:
+                    decision = evaluate_migration_merge(
+                        rows=rows,
+                        item_id=int(ctx.item_id),
+                        capability_settings_json=str(
+                            (capability_resp.result or {}).get("settings_json") or ""
+                        ),
+                        worktree_path=Path(ctx.worktree_path),
+                        integration_target=ctx.args.target,
+                    )
+                    if decision.passed:
+                        _print("  OK: Numbered migration history extends target")
+                    else:
+                        _print("  FAIL: Numbered migration-history gate refused:", err=True)
+                        for error in decision.errors:
+                            _print(f"    - {error}", err=True)
+                        fail = True
 
     if fail:
         _print("", err=True)

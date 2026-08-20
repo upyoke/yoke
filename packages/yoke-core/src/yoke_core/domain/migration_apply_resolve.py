@@ -130,7 +130,7 @@ def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:
     row = conn.execute(
         "SELECT i.id, i.workflow_id, i.workflow_version_id, i.status, "
         "p.slug AS project, i.project_id, p.public_item_prefix, "
-        "i.project_sequence, "
+        "i.project_sequence, COALESCE(p.default_branch, 'main') AS integration_target, "
         "i.db_mutation_profile, "
         "i.db_compatibility_attestation "
         "FROM items i JOIN projects p ON p.id = i.project_id "
@@ -179,6 +179,7 @@ class ResolvedMigrationInput:
     item_id: int
     project: str
     project_id: int
+    integration_target: str
     profile: Mapping[str, Any]
     attestation_raw: Any
 
@@ -201,6 +202,7 @@ def resolve_runner_input(
         item_id=item_id,
         project=str(item.get("project") or ""),
         project_id=int(item["project_id"]),
+        integration_target=str(item.get("integration_target") or "main"),
         profile=_resolve_profile_or_raise(item),
         attestation_raw=item.get("db_compatibility_attestation"),
     )
