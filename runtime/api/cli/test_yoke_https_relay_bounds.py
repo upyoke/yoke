@@ -112,25 +112,35 @@ def test_http_error_content_length_rejects_before_read(monkeypatch) -> None:
 def test_http_error_stream_is_bounded_without_content_length(
     monkeypatch,
 ) -> None:
-    error_stream = FakeResponse(
-        USER_TOKEN.encode("utf-8") + b"x" * FUNCTION_RESPONSE_LIMIT_BYTES
-    )
+    # A gateway status is retried, and every attempt gets its own response
+    # off the wire, so the fixture mints one per raise the way the transport
+    # would receive them.
+    streams: list[FakeResponse] = []
 
     def reject(request, timeout=None):
+        streams.append(
+            FakeResponse(
+                USER_TOKEN.encode("utf-8") + b"x" * FUNCTION_RESPONSE_LIMIT_BYTES
+            )
+        )
         raise urllib.error.HTTPError(
             request.full_url,
             502,
             "Bad Gateway",
             {},
-            error_stream,
+            streams[-1],
         )
 
     monkeypatch.setattr(relay_module, "open_no_redirect", reject)
 
-    response = relay_https(sensitive_request(), CONNECTION)
+    response = relay_https(
+        sensitive_request(), CONNECTION, sleep=lambda _seconds: None,
+    )
 
     _assert_transport_failure(response, "exceeded the size limit")
-    assert error_stream.read_sizes == [FUNCTION_RESPONSE_LIMIT_BYTES + 1]
+    # Only the attempt that stopped retrying reads the body at all.
+    assert streams[-1].read_sizes == [FUNCTION_RESPONSE_LIMIT_BYTES + 1]
+    assert all(stream.read_sizes == [] for stream in streams[:-1])
 
 
 def test_exact_declared_length_keeps_ordinary_envelope_behavior(

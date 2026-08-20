@@ -186,29 +186,27 @@ class TestEvidenceWriteRetry:
 
 
 class TestTerminalTransitionConvergence:
-    @pytest.mark.parametrize(
-        ("recorded_status", "expected_error"),
-        [("done", ""), ("reviewing-implementation", "connection dropped")],
-    )
-    def test_transport_failure_uses_the_authoritative_status(
+    def test_a_transport_failure_surfaces_without_a_second_opinion(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-        recorded_status: str, expected_error: str,
     ) -> None:
+        """The transport owns the retry; this boundary owns the verdict.
+
+        Asking the database whether the transition had secretly landed was a
+        local patch over a relay that gave up after one try. The relay now
+        spends an attempt budget with backoff, and a repeat carries the same
+        request_id, so a transition that did land replays as success instead
+        of needing to be discovered afterwards.
+        """
         calls = []
 
         def dispatch(*, function_id, **_kwargs):
             calls.append(function_id)
-            if function_id == "lifecycle.transition.execute":
-                return SimpleNamespace(
-                    success=False,
-                    error=SimpleNamespace(
-                        code="https_transport_failed",
-                        message="connection dropped",
-                    ),
-                )
             return SimpleNamespace(
-                success=True, error=None,
-                result={"item": {"status": recorded_status}},
+                success=False,
+                error=SimpleNamespace(
+                    code="https_transport_failed",
+                    message="connection dropped",
+                ),
             )
 
         monkeypatch.setattr(sim_cli, "call_dispatcher", dispatch)
@@ -219,8 +217,8 @@ class TestTerminalTransitionConvergence:
             7, "reviewing-implementation", tmp_path, "main", "a" * 40,
         )
 
-        assert error == expected_error
-        assert calls == ["lifecycle.transition.execute", "items.detail.get"]
+        assert "connection dropped" in error
+        assert calls == ["lifecycle.transition.execute"]
 
     def test_server_refusal_surfaces_without_authoritative_retry(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,

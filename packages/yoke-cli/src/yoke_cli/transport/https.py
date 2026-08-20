@@ -4,17 +4,28 @@ from __future__ import annotations
 
 import http.client
 import json
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, HEALTH_PATH, join_api_url
+from yoke_cli.api_urls import FUNCTIONS_CALL_PATH, join_api_url
 from yoke_cli.config.machine_config import active_connection
 from yoke_cli.transport.bounded_http_open_policy import (
     HttpOpenPolicyError,
     open_bounded_request,
+)
+from yoke_cli.transport.https_relay_outcome import (
+    record_outcome,
+    transport_error_response,
+)
+from yoke_cli.transport.https_retry_policy import (
+    CONNECTION_ATTEMPTS,
+    RESPONSE_DEADLINE_ATTEMPTS,
+    connection_backoff_seconds,
+    http_status_is_transient,
 )
 from yoke_cli.transport.https_engine_handshake import (
     ServerHandshake,
@@ -26,7 +37,6 @@ from yoke_cli.transport.https_response_policy import (
     collect_request_secrets,
     parse_typed_response,
     read_bounded_response,
-    redact_text,
     safe_excerpt,
 )
 from yoke_cli.transport.https_urlopen import open_no_redirect
@@ -37,7 +47,6 @@ from yoke_cli.transport.response_deadline_read import deadline_after
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
-    FunctionError,
 )
 from yoke_contracts.machine_config.schema import (
     CREDENTIAL_KIND_TOKEN_FILE,
@@ -46,8 +55,8 @@ from yoke_contracts.machine_config.schema import (
 )
 
 _DEFAULT_TIMEOUT_S = 30.0
-_TRANSPORT_ATTEMPTS = 2
 _RETRYABLE_RESPONSE_ERROR = "HTTPS function relay response exceeded the time limit"
+_UNREACHABLE = "could not reach the HTTPS function relay endpoint"
 _NETWORK_ERRORS = (
     urllib.error.URLError,
     TimeoutError,
@@ -132,9 +141,29 @@ def relay_https(
     *,
     timeout_s: float = _DEFAULT_TIMEOUT_S,
     handshake: Optional[ServerHandshake] = None,
+    sleep=time.sleep,
 ) -> FunctionCallResponse:
-    """POST the envelope to the active env; parse the typed response."""
+    """POST the envelope to the active env; parse the typed response.
 
+    Counts what it took, so a relay that only answered on the third try is
+    visible later instead of being inferred from operator reports.
+    """
+    response, attempts = _relay_attempts(
+        request, connection, timeout_s=timeout_s,
+        handshake=handshake, sleep=sleep,
+    )
+    record_outcome(request, response, env=connection.env, attempts=attempts)
+    return response
+
+
+def _relay_attempts(
+    request: FunctionCallRequest,
+    connection: HttpsConnection,
+    *,
+    timeout_s: float,
+    handshake: Optional[ServerHandshake],
+    sleep,
+) -> tuple[FunctionCallResponse, int]:
     payload = request.model_dump(mode="json")
     sensitive_values = collect_request_secrets(
         request, transport_token=connection.token
@@ -142,14 +171,16 @@ def relay_https(
     try:
         deadline = deadline_after(timeout_s)
     except ValueError:
-        return _transport_error_response(
-            request,
-            connection,
+        return _refuse(
+            request, connection,
             "HTTPS function relay timeout must be positive and finite",
             sensitive_values=sensitive_values,
-        )
+        ), 1
+    # Serialized once: every attempt carries the same request_id, which is
+    # what makes a repeat safe against a call that already landed.
     body = json.dumps(payload).encode("utf-8")
-    for attempt in range(_TRANSPORT_ATTEMPTS):
+    attempt = 0
+    for attempt in range(CONNECTION_ATTEMPTS):
         if attempt:
             deadline = deadline_after(timeout_s)
         http_request = urllib.request.Request(
@@ -173,42 +204,59 @@ def relay_https(
                 )
                 raw = read_bounded_response(resp, deadline=deadline)
         except urllib.error.HTTPError as exc:
+            # Decided from the status alone, before the body is touched: a
+            # 5xx is the box rather than an answer about this request, and
+            # reading it only to discard it would spend the response's one
+            # bounded read on a reply we are about to ask for again.
+            if (
+                http_status_is_transient(getattr(exc, "code", None))
+                and _more_connection_attempts(attempt)
+            ):
+                sleep(connection_backoff_seconds(attempt))
+                continue
             return _http_error_response(
                 request, connection, exc, deadline=deadline,
                 sensitive_values=sensitive_values, handshake=handshake,
-            )
+            ), attempt + 1
         except HttpsResponsePolicyError as exc:
             if (
                 str(exc) == _RETRYABLE_RESPONSE_ERROR
-                and attempt + 1 < _TRANSPORT_ATTEMPTS
+                and attempt + 1 < RESPONSE_DEADLINE_ATTEMPTS
             ):
                 continue
-            return _transport_error_response(
-                request, connection, str(exc), sensitive_values=sensitive_values,
-            )
+            return _refuse(
+                request, connection, str(exc),
+                sensitive_values=sensitive_values,
+            ), attempt + 1
         except ResponseOpenDeadlineError:
-            if attempt + 1 < _TRANSPORT_ATTEMPTS:
+            if attempt + 1 < RESPONSE_DEADLINE_ATTEMPTS:
                 continue
-            return _transport_error_response(
+            return _refuse(
                 request, connection, _RETRYABLE_RESPONSE_ERROR,
                 sensitive_values=sensitive_values,
-            )
+            ), attempt + 1
         except _NETWORK_ERRORS:
-            if attempt + 1 < _TRANSPORT_ATTEMPTS:
+            if _more_connection_attempts(attempt):
+                sleep(connection_backoff_seconds(attempt))
                 continue
-            return _network_error_response(
-                request, connection, sensitive_values=sensitive_values
-            )
+            return _refuse(
+                request, connection, _UNREACHABLE,
+                attempts=attempt + 1, sensitive_values=sensitive_values,
+            ), attempt + 1
         break
     try:
-        return parse_typed_response(raw, sensitive_values=sensitive_values)
+        return parse_typed_response(
+            raw, sensitive_values=sensitive_values
+        ), attempt + 1
     except HttpsResponsePolicyError as exc:
-        return _transport_error_response(
-            request,
-            connection,
-            str(exc),
+        return _refuse(
+            request, connection, str(exc),
             sensitive_values=sensitive_values,
-        )
+        ), attempt + 1
+
+
+def _more_connection_attempts(attempt: int) -> bool:
+    return attempt + 1 < CONNECTION_ATTEMPTS
 
 
 def _open_function_relay(
@@ -244,15 +292,14 @@ def _http_error_response(
     try:
         raw = read_bounded_response(exc, deadline=deadline)
     except HttpsResponsePolicyError as read_error:
-        return _transport_error_response(
-            request,
-            connection,
-            str(read_error),
+        return _refuse(
+            request, connection, str(read_error),
             sensitive_values=sensitive_values,
         )
     except _NETWORK_ERRORS:
-        return _network_error_response(
-            request, connection, sensitive_values=sensitive_values
+        return _refuse(
+            request, connection, _UNREACHABLE,
+            attempts=1, sensitive_values=sensitive_values,
         )
     try:
         return parse_typed_response(raw, sensitive_values=sensitive_values)
@@ -262,54 +309,28 @@ def _http_error_response(
             return adopted
         excerpt = safe_excerpt(raw, sensitive_values=sensitive_values)
         detail = f": {excerpt}" if excerpt else ""
-        return _transport_error_response(
-            request,
-            connection,
+        return _refuse(
+            request, connection,
             f"{connection.functions_url} returned HTTP {exc.code} "
             f"with a non-envelope body{detail}",
             sensitive_values=sensitive_values,
         )
 
 
-def _network_error_response(
-    request: FunctionCallRequest,
-    connection: HttpsConnection,
-    *,
-    sensitive_values: tuple[str, ...],
-) -> FunctionCallResponse:
-    return _transport_error_response(
-        request,
-        connection,
-        "could not reach the HTTPS function relay endpoint",
-        sensitive_values=sensitive_values,
-    )
-
-
-def _transport_error_response(
+def _refuse(
     request: FunctionCallRequest,
     connection: HttpsConnection,
     detail: str,
     *,
+    attempts: Optional[int] = None,
     sensitive_values: tuple[str, ...] = (),
 ) -> FunctionCallResponse:
-    health_url = join_api_url(connection.api_url, HEALTH_PATH)
-    safe_detail = redact_text(detail, sensitive_values)
-    recovery_hint = redact_text(
-        "Verify the active env and credential with `yoke status`; "
-        "repair ~/.yoke/config.json per `yoke config example`. "
-        f"The env's public health endpoint is {health_url}.",
-        sensitive_values,
-    )
-    return FunctionCallResponse(
-        success=False,
-        function=request.function,
-        version=request.version,
-        request_id=request.request_id,
-        error=FunctionError(
-            code="https_transport_failed",
-            message=safe_detail,
-            recovery_hint=recovery_hint,
-        ),
+    return transport_error_response(
+        request,
+        connection.api_url,
+        detail,
+        attempts=attempts,
+        sensitive_values=sensitive_values,
     )
 
 
