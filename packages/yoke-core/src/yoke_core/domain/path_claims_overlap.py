@@ -24,6 +24,9 @@ membership only. Snapshot-based verification is out of scope here.
 * Cross-target classification (claim on ``main`` vs claim on
   ``release/2026.01``) returns ``NONE`` — different integration
   targets are independent door locks by definition.
+* Frozen item-owned claims are dormant: register, widen, and
+  activation checks skip them so parked coordination cannot block
+  live work. Thaw revalidates before that authority returns.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims_lineage import expand_lineage
+from yoke_core.domain.schema_common import _column_exists
 
 
 def _p(conn: Any) -> str: return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -196,15 +200,23 @@ def classify_overlap(
         else _NON_TERMINAL_STATES
     )
     placeholders = ",".join(_p(conn) for _ in states_to_check)
-    same_target_clauses = f"AND id <> {_p(conn)}" if exclude_claim_id is not None else ""
+    same_target_clauses = (
+        f"AND pc.id <> {_p(conn)}" if exclude_claim_id is not None else ""
+    )
+    frozen_join = ""
+    frozen_filter = ""
+    if _column_exists(conn, "items", "frozen"):
+        frozen_join = " LEFT JOIN items owner ON owner.id = pc.owner_item_id"
+        frozen_filter = " AND COALESCE(owner.frozen, 0) = 0"
     params: list = [integration_target, *list(states_to_check)]
     if exclude_claim_id is not None:
         params.append(exclude_claim_id)
     rows = conn.execute(
-        f"SELECT id, state FROM path_claims "
-        f"WHERE integration_target = {_p(conn)} "
-        f"AND state IN ({placeholders}) AND mode <> 'exception' "
-        f"{same_target_clauses}",
+        f"SELECT pc.id, pc.state FROM path_claims pc"
+        f"{frozen_join} "
+        f"WHERE pc.integration_target = {_p(conn)} "
+        f"AND pc.state IN ({placeholders}) AND pc.mode <> 'exception' "
+        f"{same_target_clauses}{frozen_filter}",
         tuple(params),
     ).fetchall()
 

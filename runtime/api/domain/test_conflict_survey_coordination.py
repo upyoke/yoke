@@ -6,6 +6,7 @@ import json
 
 from runtime.api.domain.path_claim_task_test_support import (
     seed_item_claim,
+    seed_session,
     seed_target,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -114,7 +115,7 @@ def test_optional_dash_ignores_frozen_planned_scope_and_claim(test_db):
     assert survey.blockers == ()
 
 
-def test_optional_dash_proposes_narrowing_for_downstream_frozen_claim(test_db):
+def test_frozen_downstream_claim_stays_dormant_for_upstream_dash(test_db):
     candidate_id = 2216
     blocker_id = 2217
     shared_path = "src/downstream_frozen_scope.py"
@@ -127,7 +128,7 @@ def test_optional_dash_proposes_narrowing_for_downstream_frozen_claim(test_db):
         spec=f"## File Budget\n\n- `{shared_path}`\n",
     )
     target_id = seed_target(test_db, item_id=blocker_id, path=shared_path)
-    claim_id = seed_item_claim(
+    seed_item_claim(
         test_db,
         item_id=blocker_id,
         target_ids=(target_id,),
@@ -149,15 +150,11 @@ def test_optional_dash_proposes_narrowing_for_downstream_frozen_claim(test_db):
         touch_paths=[shared_path],
     )
 
-    assert [row.kind for row in survey.blockers] == ["path_claim"]
-    detail = survey.blockers[0].detail
-    assert f"--claim-id {claim_id}" in detail
-    assert f"--remove-paths {shared_path}" in detail
-    assert f"--item YOK-{blocker_id}" in detail
-    assert "--integration-target main" in detail
+    assert survey.clear is True
+    assert survey.blockers == ()
 
 
-def test_selected_dash_path_claims_keep_frozen_planned_scope_blocking(test_db):
+def test_selected_dash_path_claims_treat_frozen_planned_scope_as_dormant(test_db):
     candidate_id = 2212
     blocker_id = 2213
     shared_path = "src/frozen_required_scope.py"
@@ -188,13 +185,11 @@ def test_selected_dash_path_claims_keep_frozen_planned_scope_blocking(test_db):
         touch_paths=[shared_path],
     )
 
-    assert {row.kind for row in survey.blockers} == {
-        "frontier_scope",
-        "path_claim",
-    }
+    assert survey.clear is True
+    assert survey.blockers == ()
 
 
-def test_optional_dash_keeps_active_frozen_claim_blocking(test_db):
+def test_frozen_active_claim_is_dormant(test_db):
     candidate_id = 2214
     blocker_id = 2215
     shared_path = "src/frozen_active_scope.py"
@@ -214,4 +209,45 @@ def test_optional_dash_keeps_active_frozen_claim_blocking(test_db):
         touch_paths=[shared_path],
     )
 
-    assert {row.kind for row in survey.blockers} == {"path_claim"}
+    assert survey.clear is True
+    assert survey.blockers == ()
+
+
+def test_frozen_incidental_work_claim_does_not_revive_stale_file_budget(test_db):
+    """A frozen item's audit work claim must not revive File Budget paths
+    the item does not actually claim.
+    """
+    candidate_id = 2218
+    blocker_id = 2219
+    budget_path = "src/stale_budget.py"
+    claimed_path = "src/actually_claimed.py"
+    insert_item(
+        test_db,
+        id=candidate_id,
+        workflow_id="dash",
+        workflow_posture=json.dumps({"path_claims": True}),
+    )
+    insert_item(
+        test_db,
+        id=blocker_id,
+        workflow_id="issue",
+        frozen=1,
+        spec=f"## File Budget\n\n- `{budget_path}`\n",
+    )
+    claimed_target = seed_target(test_db, item_id=blocker_id, path=claimed_path)
+    seed_item_claim(
+        test_db,
+        item_id=blocker_id,
+        target_ids=(claimed_target,),
+        state="planned",
+    )
+    seed_session(test_db, session_id="frozen-audit-claim", item_id=blocker_id)
+
+    survey = survey_conflicts(
+        test_db,
+        item_id=candidate_id,
+        touch_paths=[budget_path],
+    )
+
+    assert survey.clear is True
+    assert survey.blockers == ()

@@ -39,6 +39,12 @@ def _patch_prd(monkeypatch: pytest.MonkeyPatch, report: prd_validate.Report):
         calls["print_report"] = (item_label, rendered_report)
         print(f"rendered {item_label}")
 
+    # Handler local-imports item_ref_for_id; under xdist that helper
+    # can map fixture id 42 to a different public sequence than the typed ref.
+    monkeypatch.setattr(
+        "yoke_core.domain.project_identity_item_ref.item_ref_for_id",
+        lambda item_id: f"YOK-{item_id}",
+    )
     monkeypatch.setattr(prd_validate, "resolve_body", resolve_body)
     monkeypatch.setattr(prd_validate, "validate_prd", validate_prd)
     monkeypatch.setattr(
