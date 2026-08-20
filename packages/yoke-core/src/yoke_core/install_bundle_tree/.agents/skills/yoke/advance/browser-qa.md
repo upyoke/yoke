@@ -5,7 +5,9 @@ same flow executes both built-in methods:
 
 - `browser-check`: assertions produce an automatic verdict.
 - `browser-inspection`: capture produces evidence for the plan's batched agent
-  reviewer. Only an inconclusive agent verdict requests a human decision.
+  reviewer. Only an undetermined agent verdict requests a human decision.
+- `exploratory-mission`: the main agent owns the report and verdict while a
+  case-selected informed or target-naive walker chooses the sequence.
 
 The gate is re-entrant. Materialization is idempotent and rerunning a case
 records a new run.
@@ -72,13 +74,18 @@ plan run with a manually assembled series of case runs.
 - `fail` or runner error: block, fix the defect or environment, then rerun
   the same requirement.
 - Exit `12` / `awaiting_agent_review`: immediately dispatch the returned typed
-  `review_bundle.dispatch` through the harness subagent facility. Supply the
-  complete immutable bundle and exact prompt to its `subagent_type`; the
-  reviewer inspects every visual and transcript, then runs the returned
-  `submit_command` with one verdict and rationale per case. This state is
-  pending agent review, never evidence that a human request exists.
+  `review_bundle.dispatch`. For `dispatch_kind=subagent`, supply the complete
+  immutable bundle and exact prompt to its `subagent_type`. For
+  `dispatch_kind=main_agent_mission`, the main agent follows each typed
+  `walker_dispatch`: use the harness subagent facility for an informed walker
+  or a separate target-machine agent session for a naive walker. A walker turn
+  is atomic. On `WALK_STATUS: HUMAN_GATE`, append its exact action and resume
+  state to the Progress Log, ask the operator from the main session, then
+  dispatch a fresh walker after the action. The main agent aggregates the
+  report and runs the exact `submit_command` with one verdict and rationale per
+  case. The parked state alone is never evidence that a human request exists.
 - A submitted `pass` continues and `fail` blocks. Only submitted
-  `inconclusive` creates the human Inbox request; approval, rejection, and
+  `undetermined` creates the human Inbox request; approval, rejection, and
   waiver then use the ordinary review-resolution paths.
 
 ## 4. Confirm the union gate

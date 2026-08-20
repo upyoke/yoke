@@ -38,18 +38,24 @@ from yoke_core.domain.capability_machine_secrets import (
 from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_conn
 
 
-def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
+def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.6"
+    assert version == "1.0.7"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
         "machine-state-check",
+        "exploratory-mission",
     }
-    assert MACHINE_METHODS == frozenset(row["id"] for row in methods)
-    assert {row["config_contract_id"] for row in methods} == MACHINE_METHODS
-    assert {row["runner_id"] for row in methods} == {"host_control"}
+    assert MACHINE_METHODS == frozenset(
+        {"terminal-check", "terminal-inspection", "machine-state-check"}
+    )
+    assert {row["runner_id"] for row in methods} == {
+        "agent_mission",
+        "host_control",
+    }
     assert {tuple(row["required_capability_kinds"]) for row in methods} == {
+        ("browser-control", "test-machine"),
         ("test-machine",)
     }
     assert {row["concurrency_mode"] for row in methods} == {"serial"}
@@ -74,6 +80,11 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
             "Shell assertions on the controlled host, including declared "
             "macOS GUI-session commands."
         ),
+        "exploratory-mission": (
+            "Agent-chosen exploration across declared substrates. Do not use "
+            "it for deterministic checks: Command methods are faster, "
+            "cheaper, and repeatable."
+        ),
     }
 
     conn = make_conn()
@@ -83,6 +94,7 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
         "FROM qa_methods ORDER BY id"
     ).fetchall()
     assert [(row[0], row[1], row[2]) for row in rows] == [
+        ("exploratory-mission", "pack", "machine-qa"),
         ("machine-state-check", "pack", "machine-qa"),
         ("terminal-check", "pack", "machine-qa"),
         ("terminal-inspection", "pack", "machine-qa"),
@@ -124,6 +136,7 @@ def test_test_machine_is_typed_and_secret_presence_only(
         for key in TEST_MACHINE_SECRET_KEYS
     )
     assert {row["id"] for row in detail["methods"]} == {
+        "exploratory-mission",
         "terminal-check",
         "terminal-inspection",
         "machine-state-check",

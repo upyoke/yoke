@@ -21,7 +21,11 @@ from yoke_core.domain.machine_qa_recipe_contracts import (
 from yoke_core.domain.machine_qa_pack import load_machine_qa_methods
 
 _MACHINE_METHOD_DEFINITIONS = {row["id"]: row for row in load_machine_qa_methods()[1]}
-MACHINE_METHODS = frozenset(_MACHINE_METHOD_DEFINITIONS)
+MACHINE_METHODS = frozenset(
+    method_id
+    for method_id, definition in _MACHINE_METHOD_DEFINITIONS.items()
+    if definition["runner_id"] == "host_control"
+)
 _REGISTERED_HOST_BASELINES = frozenset(HOST_BASELINE_OPERATIONS)
 _MAX_STEPS = 100
 _MAX_ASSERTIONS = 50

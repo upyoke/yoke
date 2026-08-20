@@ -24,6 +24,18 @@ def test_qa_browser_help_does_not_import_source_authority(tmp_path: Path) -> Non
     _assert_clean_client_boundary(run)
 
 
+def test_qa_browser_step_help_is_a_clean_client_surface(tmp_path: Path) -> None:
+    run = _run_product_cli(
+        tmp_path,
+        ["qa", "browser", "step", "--help"],
+    )
+
+    assert run.returncode == 0
+    assert "usage: yoke qa browser step" in run.stdout
+    assert run.stderr == ""
+    _assert_clean_client_boundary(run)
+
+
 def test_aggregate_qa_browser_run_is_not_a_product_command(
     tmp_path: Path,
 ) -> None:
@@ -60,6 +72,27 @@ def test_qa_browser_screenshot_missing_harness_reports_product_requirement(
             "https://x.example/route",
             "--output",
             str(tmp_path / "shot.png"),
+        ],
+        include_harness=False,
+    )
+
+    assert run.returncode == 2
+    assert "requires yoke-harness" in run.stderr
+    assert run.boundary["caught"] is None
+    assert run.boundary["blocked_attempts"] == []
+    assert run.boundary["forbidden_loaded"] == []
+    assert _repo_pythonpath(run) == [str(CLI_SRC), str(CONTRACTS_SRC)]
+
+
+def test_qa_browser_step_missing_harness_reports_product_requirement(
+    tmp_path: Path,
+) -> None:
+    run = _run_product_cli(
+        tmp_path,
+        [
+            "qa", "browser", "step",
+            "--base-url", "https://x.example",
+            "--step-json", "{}",
         ],
         include_harness=False,
     )

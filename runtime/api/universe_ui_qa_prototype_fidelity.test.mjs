@@ -46,7 +46,7 @@ async function methodDetail(method) {
   };
 }
 
-test("all six method details retain the prototype contract anatomy", async () => {
+test("all method details retain the prototype contract anatomy", async () => {
   const expectedGloss = {
     command: "runs the case's command in the item worktree",
     "browser-check":
@@ -56,6 +56,8 @@ test("all six method details retain the prototype contract anatomy", async () =>
     "terminal-check": "SSH + PTY on the capability-named machine",
     "terminal-inspection": "SSH + PTY on the capability-named machine",
     "machine-state-check": "shell assertions on the controlled host",
+    "exploratory-mission":
+      "Main-owned mission with an informed or target-naive walker",
   };
 
   for (const method of methods) {
@@ -93,6 +95,14 @@ test("all six method details retain the prototype contract anatomy", async () =>
         text,
         /checkpoint not reached.*checkpoint failed.*fabricated verdict/,
       );
+    }
+    if (method.id === "exploratory-mission") {
+      assert.deepEqual(
+        byClass(host, "qa-capability-link").map((node) => node.textContent),
+        ["Browser control →", "Test Mac →"],
+      );
+      assert.match(text, /agent — pass, fail, or undetermined/);
+      assert.match(text, /ranked findings plus deliberate proof artifacts/);
     }
   }
 });

@@ -6,7 +6,7 @@ and the Codex agent ``.toml`` tree from canonical Yoke source. The
 legacy Claude agent-render surface (``.md`` adapters) is covered by
 ``test_agents_render.py``.
 
-Behavior covered: drift check + idempotency, the seven Codex agents,
+Behavior covered: drift check + idempotency, the eight Codex agents,
 embedded subdir fragments, per-output render coverage, the
 do-not-hand-edit marker, and the absence of a second
 canonical Codex prompt body.
@@ -125,15 +125,15 @@ def test_no_codex_canonical_md_exists(repo_root: Path) -> None:
     assert stray == [], f"stray .codex.md canonical bodies present: {stray}"
 
 
-def test_render_emits_seven_codex_agents() -> None:
-    """AGENTS contains exactly the seven primary Yoke agents."""
+def test_render_emits_eight_codex_agents() -> None:
+    """AGENTS contains exactly the eight primary Yoke agents."""
     expected = {
         "architect", "boss", "engineer",
         "product-designer", "product-manager",
-        "simulator", "tester",
+        "qa-walker", "simulator", "tester",
     }
     assert set(AGENTS) == expected
-    assert len(AGENTS) == 7
+    assert len(AGENTS) == 8
 
 
 # ---------------------------------------------------------------------------

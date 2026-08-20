@@ -25,7 +25,7 @@ from yoke_core.domain.schema_api_context_seed import ROLE_TOPICS
 
 def _dispatched_subagent_names() -> tuple[str, ...]:
     return tuple(
-        role.removesuffix("_agent")
+        role.removesuffix("_agent").replace("_", "-")
         for role in ROLE_TOPICS
         if role != "main_agent" and role.endswith("_agent")
     )

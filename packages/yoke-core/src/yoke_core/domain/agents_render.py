@@ -87,6 +87,7 @@ AGENTS = [
     "tester",
     "simulator",
     "boss",
+    "qa-walker",
 ]
 
 ROLES_WITH_INLINE_REFERENCES = {"architect", "tester"}

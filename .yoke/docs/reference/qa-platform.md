@@ -39,6 +39,7 @@ New qa_kinds can be added without schema changes. The column is free-form text, 
 | Value | Description |
 |-------|-------------|
 | `agent` | Claude agent (Tester, Simulator) executes and judges |
+| `agent_mission` | Exploratory walker captures findings; the main agent judges |
 | `shell` | Shell script execution (`exit_code == 0` = pass) |
 | `playwright` | Playwright browser automation framework |
 | `manual` | Human performs the QA step and records result |
@@ -302,9 +303,9 @@ yoke qa case run \
   --expected-sha <commit>
 ```
 
-`yoke qa browser setup`, `status`, and `screenshot` remain low-level
-machine-substrate utilities. Diagnostic screenshot capture does not create a
-parallel QA verdict.
+`yoke qa browser setup`, `status`, `screenshot`, and `step` remain low-level
+machine-substrate utilities; diagnostic capture creates no parallel verdict.
+For agent-chosen cross-substrate cases, see [Exploratory QA Missions](exploratory-qa.md).
 
 ## AC-Derived Requirements and Suite Graduation
 

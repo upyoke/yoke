@@ -51,6 +51,14 @@ class HostControl(Protocol):
 
     def probe_path(self, surface: str) -> Sequence[str]: ...
 
+    def run_command(
+        self,
+        argv: Sequence[str],
+        *,
+        required_session_context: str | None = None,
+        timeout: int = 60,
+    ) -> Any: ...
+
     def run_terminal_case(
         self,
         *,

@@ -86,7 +86,7 @@ def test_manifest_canonical_agents_points_at_bootstrap(manifest: dict) -> None:
 def test_load_spec_accepts_new_key(bootstrap_spec: dict) -> None:
     """load_spec returns the full dict including canonical_agents."""
     assert isinstance(bootstrap_spec["canonical_agents"], dict)
-    assert len(bootstrap_spec["canonical_agents"]["agents"]) == 7
+    assert "qa-walker" in bootstrap_spec["canonical_agents"]["agents"]
 
 
 def test_recommended_files_no_agents_bloat(bootstrap_spec: dict) -> None:

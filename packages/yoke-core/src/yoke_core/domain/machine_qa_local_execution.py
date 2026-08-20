@@ -11,6 +11,10 @@ from yoke_harness.test_machine_verification import (
     LocalHostControlSubmission,
     execute_verification_contract as execute_client_verification_contract,
 )
+from yoke_harness.ssh_mac_gui_session import (
+    classify_macos_session_context_failure,
+)
+from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 
 from yoke_core.domain.coordination_leases import Lease
 from yoke_core.domain.host_control_runner import (
@@ -154,8 +158,95 @@ def execute_machine_case_contract(
     )
 
 
+def prepare_agent_mission_contract(
+    raw_contract: dict[str, Any],
+    *,
+    progress_callback: Callable[[], None] | None = None,
+) -> dict[str, Any]:
+    """Reach the mission baseline without executing an authored step list."""
+    contract = HostControlExecutionContract.model_validate(raw_contract)
+    if contract.operation != "plan_case" or (
+        len(contract.cases) != 1
+        or contract.cases[0].runner_id != "agent_mission"
+    ):
+        raise ValueError("expected an agent-mission plan-case contract")
+    execution = _execution(contract, progress_callback=progress_callback)
+    if progress_callback is not None:
+        progress_callback()
+    baseline = (
+        execution.reach_baseline(contract.cases[0].host_baseline)
+        if contract.cases[0].host_baseline
+        else None
+    )
+    if progress_callback is not None:
+        progress_callback()
+    preparation = {
+        "baseline": baseline.name if baseline else None,
+        "ok": baseline.ok if baseline else True,
+        "error_code": baseline.error_code if baseline else None,
+        "evidence": baseline.evidence if baseline else {},
+    }
+    payload = {
+        "lease_id": contract.lease_id,
+        "contract_digest": contract.contract_digest,
+        "preparation": redact_machine_qa_value(
+            preparation,
+            tuple(execution.material.secrets.values()),
+        ),
+    }
+    ensure_secret_free_result(payload)
+    return payload
+
+
+def execute_agent_mission_host_command(
+    raw_contract: dict[str, Any],
+    *,
+    argv: list[str],
+    gui_session: bool,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Run one lease-authorized walker command and return redacted output."""
+    contract = HostControlExecutionContract.model_validate(raw_contract)
+    if contract.operation != "plan_case" or (
+        len(contract.cases) != 1
+        or contract.cases[0].runner_id != "agent_mission"
+    ):
+        raise ValueError("expected an agent-mission plan-case contract")
+    execution = _execution(contract)
+    completed = execution.control.run_command(
+        argv,
+        required_session_context=GUI_SESSION_CONTEXT if gui_session else None,
+        timeout=timeout_seconds,
+    )
+    context_failure = (
+        classify_macos_session_context_failure(completed)
+        if completed.returncode != 0 and not gui_session
+        else None
+    )
+    result = {
+        "exit_code": int(completed.returncode),
+        "stdout": completed.stdout or "",
+        "stderr": completed.stderr or "",
+        "execution_context": "gui" if gui_session else "ssh",
+        "session_context_degraded_reason": (
+            context_failure.reason if context_failure is not None else None
+        ),
+        "session_context_error_code": (
+            context_failure.error_code if context_failure is not None else None
+        ),
+    }
+    redacted = redact_machine_qa_value(
+        result,
+        tuple(execution.material.secrets.values()),
+    )
+    ensure_secret_free_result(redacted)
+    return redacted
+
+
 __all__ = [
     "LocalHostControlSubmission",
     "execute_machine_case_contract",
+    "execute_agent_mission_host_command",
+    "prepare_agent_mission_contract",
     "execute_verification_contract",
 ]

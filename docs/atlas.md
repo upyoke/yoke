@@ -2,16 +2,16 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-20T18:25:54Z_
+_Audit generated_at: 2026-08-20T20:34:56Z_
 
 ## 1. Summary
 
-- Function ids registered: **391**
-- Internal dispatch-only functions without CLI adapters: **76**
+- Function ids registered: **393**
+- Internal dispatch-only functions without CLI adapters: **78**
 - `yoke` CLI subcommands: **316** (316 carry usable `--help`)
-- Operation tracker: **294 wrapped**, 7 tool_cli, 115 permanent, 0 pending
+- Operation tracker: **294 wrapped**, 7 tool_cli, 117 permanent, 0 pending
 - Skill-body recipes: 286 total (224 template-skipped, 2 failing)
-- Recent field-notes inspected: 50
+- Recent field-notes inspected: 0
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
@@ -413,7 +413,9 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | qa.browser | `yoke qa browser screenshot` | tool_shaped | — |
 | qa.browser | `yoke qa browser setup` | tool_shaped | — |
 | qa.browser | `yoke qa browser status` | tool_shaped | — |
+| qa.browser | `yoke qa browser step` | tool_shaped | — |
 | qa.case | `yoke qa case run` | tool_shaped | — |
+| qa.mission | `yoke qa mission host-command` | tool_shaped | — |
 | qa.plan | `yoke qa plan abort` | tool_shaped | — |
 | qa.plan | `yoke qa plan review-submit` | tool_shaped | — |
 | qa.plan | `yoke qa plan run` | tool_shaped | — |
@@ -470,20 +472,15 @@ _No pending handler-registration rows._
 |---|---|
 | .agents/skills/yoke/**/*.md | 128 |
 | packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 31 |
-| runtime/agents/*.md | 8 |
-| runtime/harness/claude/agents/yoke-*.md | 7 |
-| runtime/harness/codex/agents/yoke-*.toml | 7 |
+| runtime/agents/*.md | 9 |
+| runtime/harness/claude/agents/yoke-*.md | 8 |
+| runtime/harness/codex/agents/yoke-*.toml | 8 |
 
 Lint modules inventoried: **2** (0 reference the field-note footer; 0 carry denial text).
 
 ## 7. Field-note hotspots
 
-Recent field-notes inspected: **50** (read surface: `agent_facing`).
-
-| agent | recent count |
-|---|---|
-| codex | 45 |
-| claude-code | 5 |
+_Field-note read failed: could not reach the HTTPS function relay endpoint after 3 attempts_
 
 ## 8. Contradictions
 
@@ -494,6 +491,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 ## 9. Next-slice recommendation
 
+- **Field-note hotspot read through the agent-facing surface is unhealthy** _(category: teaching_drift)_
 - **2 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
 
 ## 10. Curl floor — the envelope shape under every family

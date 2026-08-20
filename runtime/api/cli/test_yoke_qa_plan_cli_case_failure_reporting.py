@@ -114,3 +114,47 @@ def test_plan_cli_stays_quiet_when_every_case_passed(capsys) -> None:
     assert code == 0
     assert captured.err == ""
     assert json.loads(captured.out)["state"] == "passed"
+
+
+def test_mission_handoff_qualifies_every_control_plane_command(monkeypatch) -> None:
+    commands = {
+        "host_command": "yoke qa mission host-command --item-id 42 -- ARGV...",
+        "browser_setup_command": (
+            "yoke qa mission host-command --item-id 42 -- yoke qa browser setup"
+        ),
+        "browser_step_command": (
+            "yoke qa mission host-command --item-id 42 -- "
+            "yoke qa browser step --base-url URL --step-json JSON"
+        ),
+        "artifact_add_command": (
+            "yoke qa artifact add --requirement-id 41 --run-id 7 "
+            "--artifact-type TYPE --artifact-handle HANDLE_JSON"
+        ),
+    }
+    prompt = " ".join(commands.values())
+    result = {
+        "review_bundle": {
+            "dispatch": {
+                "authority": {"state": "bound"},
+                "artifact_read_commands": [
+                    "yoke qa artifact read --requirement-id 41 --artifact-id 8"
+                ],
+                "walker_dispatches": [{**commands, "prompt": prompt}],
+                "submit_command": "yoke qa plan review-submit --item-id 42 --stdin",
+                "prompt": "Submit the complete verdict batch.",
+            }
+        }
+    }
+    monkeypatch.setenv("YOKE_ENV", "prod")
+
+    qa_plan_execution_cli._qualify_review_dispatch(result)
+
+    dispatch = result["review_bundle"]["dispatch"]
+    assert dispatch["authority"]["connection_env"] == "prod"
+    walker = dispatch["walker_dispatches"][0]
+    for key, original in commands.items():
+        assert walker[key].startswith("yoke --env prod ")
+        assert original not in walker["prompt"]
+    assert "-- yoke qa browser step" in walker["browser_step_command"]
+    assert dispatch["artifact_read_commands"][0].startswith("yoke --env prod ")
+    assert dispatch["submit_command"].startswith("yoke --env prod ")

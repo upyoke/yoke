@@ -60,6 +60,10 @@ def test_registry_operation_and_tool_shaped_surfaces_are_present():
         inventory.CLIENT_LOCAL_HELPER
     )
     assert rows["yoke qa browser screenshot"].import_edges == ()
+    assert rows["yoke qa browser step"].disposition == (
+        inventory.CLIENT_LOCAL_HELPER
+    )
+    assert rows["yoke qa browser step"].import_edges == ()
     assert rows["yoke claims work current"].function_id == "claims.work.holder_get"
     assert rows["yoke deployment-runs get"].function_id == "deployment_runs.get"
     assert rows["yoke deployment-runs get"].disposition == inventory.HTTPS_RELAY

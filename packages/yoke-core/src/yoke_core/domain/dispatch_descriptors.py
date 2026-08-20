@@ -1,8 +1,8 @@
 """Shared dispatch descriptors — the cross-harness substrate for sub-agent spawn.
 
 Every Yoke skill dispatches role-typed sub-agents (engineer, tester, architect,
-simulator, boss, product-manager, product-designer). Each harness exposes that
-spawn primitive differently:
+simulator, boss, product-manager, product-designer, qa-walker). Each harness
+exposes that spawn primitive differently:
 
 - **Claude Code** renders an `Agent` tool call with `subagent_type: "yoke-<role>"`
   and a `prompt: |` block.
@@ -35,6 +35,7 @@ ROLES: Final[tuple[str, ...]] = (
     "boss",
     "product-manager",
     "product-designer",
+    "qa-walker",
 )
 
 
@@ -45,6 +46,7 @@ SUBMISSION_CHECKS_BLOCK: Final[str] = "---SUBMISSION-CHECKS-START---"
 VERDICT_PASS_FAIL: Final[str] = "VERDICT: PASS|FAIL"
 VERDICT_READY_NOT_READY_CAVEATS: Final[str] = "VERDICT: READY|NOT_READY|CAVEATS"
 VERDICT_SIMULATION: Final[str] = "SIMULATION: CLEAN|GAPS FOUND"
+WALK_STATUS: Final[str] = "WALK_STATUS: COMPLETE|HUMAN_GATE|UNDETERMINED"
 
 
 # Per-role parseable-result schema. Both harnesses' renderings reference the
@@ -57,6 +59,7 @@ ROLE_RESULT_SCHEMA: Final[dict[str, tuple[str, ...]]] = {
     "boss": (VERDICT_READY_NOT_READY_CAVEATS, REFLECTION_BLOCK),
     "product-manager": (REFLECTION_BLOCK,),
     "product-designer": (REFLECTION_BLOCK,),
+    "qa-walker": (WALK_STATUS, REFLECTION_BLOCK),
 }
 
 

@@ -42,7 +42,46 @@ class TestMachinePlanCaseSubmitResponse(BaseModel):
     result: dict[str, Any]
 
 
+class AgentMissionPreparation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    baseline: str | None = None
+    ok: bool
+    error_code: str | None = None
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentMissionPlanCaseReadyRequest(TestMachinePlanCaseBeginRequest):
+    lease_id: int = Field(ge=1)
+    contract_digest: str = Field(min_length=1)
+    preparation: AgentMissionPreparation
+
+
+class AgentMissionPlanCaseReadyResponse(BaseModel):
+    execution_id: str
+    cursor_ordinal: int
+    result: dict[str, Any]
+
+
+class AgentMissionAccessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    execution_id: str = Field(min_length=1)
+    requirement_id: int = Field(ge=1)
+
+
+class AgentMissionAccessResponse(BaseModel):
+    execution_id: str
+    requirement_id: int
+    execution: HostControlExecutionContract
+
+
 __all__ = [
+    "AgentMissionAccessRequest",
+    "AgentMissionAccessResponse",
+    "AgentMissionPlanCaseReadyRequest",
+    "AgentMissionPlanCaseReadyResponse",
+    "AgentMissionPreparation",
     "TestMachinePlanCaseBeginRequest",
     "TestMachinePlanCaseBeginResponse",
     "TestMachinePlanCaseSubmitRequest",

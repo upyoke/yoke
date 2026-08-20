@@ -74,6 +74,17 @@ def validate_method_config(config_contract_id: str, raw: Any) -> dict:
         violation = browser_method_contract_violation(config_contract_id, steps)
         if violation is not None:
             raise QaMethodConfigError(violation.message)
+    elif config_contract_id == "agent-mission":
+        executor = config.get("executor")
+        if set(config) != {"executor"} or executor not in {
+            "informed_subagent",
+            "naive_target_session",
+        }:
+            raise QaMethodConfigError(
+                "Agent missions require exactly one executor: "
+                "informed_subagent or naive_target_session"
+            )
+        config["executor"] = str(executor)
     elif config_contract_id in {"terminal-check", "terminal-inspection"}:
         from yoke_core.domain.machine_qa_action_readiness_contract import (
             bound_ready_timeout_seconds,

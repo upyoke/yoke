@@ -5,14 +5,14 @@ finalizes the same run; artifact add validates and records its typed handle.
 - ``qa.artifact.add`` mirrors
   :func:`yoke_core.domain.qa_artifact_ops.cmd_artifact_add`.
 
-All three carry ``claim_required_kind="item"`` (the dispatcher resolves the
-item through ``target.qa_requirement_id``); run-scoped writes additionally
-verify the run belongs to the targeted requirement so a claim on one item
-cannot write runs of another.
+All three resolve the item through ``target.qa_requirement_id``; run-scoped
+writes additionally verify the run belongs to the targeted requirement so a
+claim on one item cannot write runs of another.
 """
 
 from __future__ import annotations
 
+from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.handlers.qa_browser_write_models import (
     QaArtifactAddRequest,
@@ -21,10 +21,6 @@ from yoke_core.domain.handlers.qa_browser_write_models import (
     QaRunAddResponse,
     QaRunCompleteRequest,
     QaRunCompleteResponse,
-)
-from yoke_contracts.api.function_call import (
-    FunctionCallRequest,
-    HandlerOutcome,
 )
 
 
@@ -249,13 +245,17 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+    from yoke_core.domain.db_helpers import connect, iso8601_now
     from yoke_core.domain.qa_artifact_handle import (
         ArtifactHandleError,
         parse_handle,
         serialize_handle,
     )
-    from yoke_core.domain.qa_artifact_ops import BARE_PATH_GUIDANCE
+    from yoke_core.domain.qa_artifact_ops import (
+        BARE_PATH_GUIDANCE,
+        QaArtifactLimitError,
+        ensure_artifact_capacity,
+    )
 
     req_id = request.target.qa_requirement_id
     if req_id is None:
@@ -294,22 +294,20 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
             f"{exc}. {BARE_PATH_GUIDANCE}",
             jsonpath="$.payload.artifact_handle",
         )
-
     conn = connect()
     try:
         p = _p(conn)
-        row = query_one(
-            conn,
-            f"SELECT qa_requirement_id FROM qa_runs WHERE id = {p}",
-            (int(run_id),),
-        )
-        if row is None:
+        try:
+            stored_requirement_id = ensure_artifact_capacity(conn, run_id)
+        except QaArtifactLimitError as exc:
+            return _error("policy_violation", str(exc))
+        if stored_requirement_id is None:
             return _error("not_found", f"run {run_id} not found")
-        if int(row["qa_requirement_id"]) != int(req_id):
+        if stored_requirement_id != int(req_id):
             return _error(
                 "target_invalid",
                 f"run {run_id} belongs to requirement "
-                f"{row['qa_requirement_id']}, not {req_id}",
+                f"{stored_requirement_id}, not {req_id}",
             )
         cur = conn.execute(
             "INSERT INTO qa_artifacts "

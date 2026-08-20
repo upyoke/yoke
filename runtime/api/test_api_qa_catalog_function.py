@@ -54,6 +54,7 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
         "terminal-check",
         "terminal-inspection",
         "machine-state-check",
+        "exploratory-mission",
     ]
     assert command["runner_id"] == "worktree_run"
     assert command["required_capability_kinds"] == []
@@ -293,7 +294,6 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             )
             if row["id"] == "machine-state-check"
         )
-
     expected_context = {
         "state": "in_use",
         "concurrency_mode": "serial",
@@ -303,7 +303,9 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
     machine_methods = [
         row for row in methods if "test-machine" in row["required_capability_kinds"]
     ]
-    assert len(machine_methods) == 3
+    assert len(machine_methods) == 4
+    scripted_machine_methods = [row for row in machine_methods
+                                if row["runner_id"] == "host_control"]
     assert all(
         row["required_capabilities"]
         == [
@@ -314,8 +316,15 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
                 "context": expected_context,
             }
         ]
-        for row in machine_methods
+        for row in scripted_machine_methods
     )
+    mission = next(row for row in machine_methods if row["runner_id"] == "agent_mission")
+    assert mission["required_capabilities"] == [
+        {"kind": "browser-control", "label": "Browser control",
+         "state": "not_configured", "context": {"state": "not_configured"}},
+        {"kind": "test-machine", "label": "Test Mac", "state": "in_use",
+         "context": expected_context},
+    ]
     assert detail["cases"][0]["required_capabilities"] == [
         {
             "kind": "test-machine",

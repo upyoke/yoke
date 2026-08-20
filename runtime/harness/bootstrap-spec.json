@@ -30,7 +30,8 @@
       "engineer",
       "tester",
       "simulator",
-      "boss"
+      "boss",
+      "qa-walker"
     ],
     "references": [
       "tester-browser"

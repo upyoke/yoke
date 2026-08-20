@@ -234,6 +234,16 @@ def execute_plan(
                         actor=resolved_actor,
                     )
                     advance_result = False
+            elif requirement.get("runner_id") == "agent_mission":
+                from yoke_core.domain.machine_qa_plan_case_execution import (
+                    execute_plan_agent_mission_case,
+                )
+
+                result = execute_plan_agent_mission_case(
+                    requirement, execution_id=execution_id,
+                    ordinal=ordinal, actor=resolved_actor,
+                )
+                advance_result = False
             else:
                 result = execute_case_context(
                     requirement,
@@ -333,8 +343,4 @@ def execute_plan(
     }
 
 
-__all__ = [
-    "QaPlanExecutionError",
-    "execute_plan",
-    "ordered_plan_requirements",
-]
+__all__ = ["QaPlanExecutionError", "execute_plan", "ordered_plan_requirements"]

@@ -45,6 +45,7 @@ def test_product_wheel_help_labels_non_product_surfaces(
     top_help = _assert_command(yoke, project, env, ["--help"], 0)
     assert "yoke dev setup [source-dev/admin]" in top_help.stdout
     assert "yoke qa browser screenshot [client-local]" in top_help.stdout
+    assert "yoke qa browser step [client-local]" in top_help.stdout
     assert "yoke qa browser run" not in top_help.stdout
     assert not any(
         line.startswith("    yoke status [")

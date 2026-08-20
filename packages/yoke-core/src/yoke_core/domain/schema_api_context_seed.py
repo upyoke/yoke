@@ -80,7 +80,8 @@ STALE_TERMS: tuple[str, ...] = (
 #   ``core`` + ``claims``: they plan, trace, and verdict against the same
 #   spine but never record QA runs and never invoke project test commands
 #   directly.
-# - ``engineer_agent`` / ``tester_agent`` add ``qa`` and ``project`` for
+# - ``engineer_agent`` / ``tester_agent`` / ``qa_walker_agent`` add ``qa``
+#   and ``project`` for
 #   QA discovery, gate previews, and project test command surfacing. The
 #   rationale is mirrored in ``docs/agents.md``.
 #
@@ -95,6 +96,7 @@ ROLE_TOPICS: dict[str, tuple[str, ...]] = {
     "architect_agent": ("core", "claims"),
     "engineer_agent": ("core", "claims", "qa", "project"),
     "tester_agent": ("core", "claims", "qa", "project"),
+    "qa_walker_agent": ("core", "claims", "qa", "project"),
     "simulator_agent": ("core", "claims"),
     "boss_agent": ("core", "claims"),
 }
@@ -169,7 +171,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 
 # Tests fail when a rendered packet exceeds its budget — curate rather
 # than duplicate. Per-role budget covers each `*_agent` packet; aggregate
-# budget covers all six roles combined. The budgets absorb the inline
+# budget covers all seven roles combined. The budgets absorb the inline
 # universal recipe set (cancel/transition, progress-log via HTTP,
 # function-call envelope dispatch, session lifecycle, field-note
 # channel, claim/path-claim concrete-value variants); the recipes ARE the
@@ -179,7 +181,8 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # lifecycle entry. The watcher / Monitor / background-command recipes
 # pasted into the ``schema_api_context_commands_watchers`` sibling — the
 # vetted-telemetry watch_pytest / watch_doctor / watch_merge patterns —
-# push each multi-topic packet (engineer_agent / tester_agent) past a
+# push each multi-topic packet (engineer_agent / tester_agent /
+# qa_walker_agent) past a
 # smaller per-role cap. The top-level packet also carries the compact Pack
 # catalog/report projection so Pack-status audits do not guess its schema.
 # These caps therefore follow the complete registered recipes and table facts
@@ -190,4 +193,4 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # where a module physically lives instead of guessing a repo-root directory
 # named after the package.
 PACKET_LINE_BUDGET_PER_ROLE: int = 423
-PACKET_LINE_BUDGET_AGGREGATE: int = 2185
+PACKET_LINE_BUDGET_AGGREGATE: int = 2608

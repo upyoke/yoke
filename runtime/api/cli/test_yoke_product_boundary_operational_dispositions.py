@@ -22,6 +22,7 @@ def test_browser_qa_lifecycle_commands_are_client_local_helpers() -> None:
     rows = _rows()
     for shell_form in (
         "yoke qa browser setup",
+        "yoke qa browser step",
         "yoke qa browser status",
     ):
         row = rows[shell_form]

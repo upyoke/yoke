@@ -40,8 +40,9 @@ yoke qa plan run --item "PREFIX-{N}" \
 ```
 
 The method owns execution: Command uses the mapped worktree and exit-code
-verdict, Browser check uses automatic assertions, and Browser inspection
-captures evidence for agent review. Never extract `method_config.command` and
+verdict, Browser check uses automatic assertions, Browser inspection captures
+evidence for agent review, and Exploratory mission returns a main-owned walker
+dispatch. Never extract `method_config.command` and
 run it separately, discover a substitute from `package.json`, or replace a
 failing case with a smaller command. Use `yoke qa case run` only to rerun a
 specific failed deterministic case after diagnosis; inspection verdicts come
@@ -62,12 +63,15 @@ new commit, the post-rebase run — is a different execution and stays required.
 Exit `12` and `state="awaiting_agent_review"` are a mandatory continuation,
 not a human-review state. Immediately dispatch the returned
 `review_bundle.dispatch` descriptor through the harness subagent facility,
-passing its prompt and complete immutable bundle to the named
-`subagent_type`. The reviewing agent inspects every transcript and visual,
-then sends exactly one complete verdict batch through the returned
-`submit_command`. Do not continue lifecycle work, ask a human, waive the cases,
-or recapture evidence because the reviewer dispatch is pending. Only an
-agent verdict of `inconclusive` creates a human Inbox request.
+when its `dispatch_kind` is `subagent`, passing the prompt and complete
+immutable bundle to the named `subagent_type`. When the dispatch kind is
+`main_agent_mission`, keep mission ownership here: dispatch each typed walker
+according to its informed or target-naive executor, aggregate its report, and
+send the complete verdict batch through the returned `submit_command`. A walker
+`HUMAN_GATE` return is the one exception to the no-operator rule: append its
+exact action and resume state to the Progress Log, ask from the main session,
+then dispatch a fresh walker. Do not waive or recapture evidence merely because
+review is pending. Only an `undetermined` verdict creates a human Inbox request.
 
 ## a2b. Plan-case failure discipline
 
@@ -231,10 +235,10 @@ When summarizing test results, the agent MUST derive all claims from recorded ev
 - **Suite scope claims** MUST reflect which suites were actually run.
 - **Never claim success for a suite that was not run or that failed.**
 
-**IMPORTANT — Browser method cases:** Do not record an `agent` verdict for
-`browser-check` or `browser-inspection`. Execute the requirement through
-`yoke qa case run`; the registered `browser_substrate` executor records its
-own provenance and evidence.
+**IMPORTANT — Browser and mission cases:** Do not record an ad-hoc `agent`
+verdict for `browser-check`, `browser-inspection`, or `exploratory-mission`.
+Execute the complete roster through `yoke qa plan run`; the registered runners
+and review submission own provenance, evidence, and verdicts.
 
 ## c. Advance Through Review Completion
 

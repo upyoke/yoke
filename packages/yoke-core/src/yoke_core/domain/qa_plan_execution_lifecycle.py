@@ -15,13 +15,20 @@ from yoke_core.domain.qa_plan_execution_store import (
 _TERMINAL_EXECUTION_STATES = frozenset({"completed", "aborted", "error"})
 
 
+def _mission_needs_retained_lease(execution: dict[str, Any]) -> bool:
+    return any(
+        case.get("runner_id") == "agent_mission"
+        for case in execution.get("roster") or []
+    )
+
+
 def heartbeat_plan_execution(
     conn: Any,
     execution: dict[str, Any],
 ) -> None:
     """Refresh execution and held-machine liveness together."""
-    if execution["state"] != "active":
-        raise QaPlanExecutionStateError("QA plan execution is not active")
+    if execution["state"] not in {"active", "awaiting_agent_review"}:
+        raise QaPlanExecutionStateError("QA plan execution cannot heartbeat")
     placeholder = marker(conn)
     now = iso8601_now()
     conn.execute(
@@ -69,7 +76,7 @@ def finish_plan_execution(
     reason: str,
     commit: bool = True,
 ) -> None:
-    """Finalize the execution and idempotently release its machine lease."""
+    """Finalize the execution, retaining a mission lease only for review."""
     if state not in {
         "completed",
         "aborted",
@@ -92,7 +99,11 @@ def finish_plan_execution(
         raise QaPlanExecutionStateError(
             "QA plan execution cannot complete before every case advances"
         )
-    if execution.get("machine_lease_id") is not None:
+    retain_lease = (
+        state == "awaiting_agent_review"
+        and _mission_needs_retained_lease(execution)
+    )
+    if execution.get("machine_lease_id") is not None and not retain_lease:
         release_lease(
             conn,
             int(execution["machine_lease_id"]),
@@ -105,14 +116,22 @@ def finish_plan_execution(
     conn.execute(
         "UPDATE qa_plan_executions SET state="
         f"{placeholder},completed_at={placeholder},heartbeat_at={placeholder},"
-        f"release_reason={placeholder},machine_lease_id=NULL "
+        f"release_reason={placeholder},machine_lease_id={placeholder} "
         f"WHERE id={placeholder}",
-        (state, completed_at, now, reason, str(execution["id"])),
+        (
+            state,
+            completed_at,
+            now,
+            reason,
+            execution.get("machine_lease_id") if retain_lease else None,
+            str(execution["id"]),
+        ),
     )
     if commit:
         conn.commit()
     execution["state"] = state
-    execution["machine_lease_id"] = None
+    if not retain_lease:
+        execution["machine_lease_id"] = None
     execution["completed_at"] = completed_at
     execution["release_reason"] = reason
 

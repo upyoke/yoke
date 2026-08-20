@@ -37,6 +37,7 @@ def _owned_case(
     deployment_run_id: str | None,
     *,
     replay: bool,
+    expected_runner: str | None = "host_control",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     from yoke_core.domain.qa_plan_execution_state import (
         expected_plan_case,
@@ -58,8 +59,8 @@ def _owned_case(
         requirement_id=parsed.requirement_id,
         allow_replay=replay,
     )
-    if case.get("runner_id") != "host_control":
-        raise ValueError("the ordered plan case is not a host-control case")
+    if expected_runner is not None and case.get("runner_id") != expected_runner:
+        raise ValueError(f"the ordered plan case is not a {expected_runner} case")
     _assert_current_snapshot(conn, case)
     return execution, case
 
@@ -144,7 +145,10 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
             item_id,
             deployment_run_id,
             replay=False,
+            expected_runner=None,
         )
+        if case.get("runner_id") not in {"host_control", "agent_mission"}:
+            raise ValueError("the ordered plan case is not machine-backed")
         arguments = _contract_args(execution, case, ordinal=parsed.ordinal)
         lease_id = execution.get("machine_lease_id")
         try:

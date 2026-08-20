@@ -21,6 +21,7 @@ def test_top_help_labels_non_product_dispositions() -> None:
     assert "yoke dev db-admin setup [source-dev/admin]" in out
     assert "yoke qa case run [client-local]" in out
     assert "yoke qa browser run" not in out
+    assert "yoke qa browser step [client-local]" in out
     assert "yoke git pre-commit [hook-local]" in out
     assert "yoke status\n" in out
     assert "yoke self-host import ARCHIVE [--dir D] [--yes] [--json]" in out

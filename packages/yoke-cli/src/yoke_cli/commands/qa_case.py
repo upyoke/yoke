@@ -33,6 +33,12 @@ QA_PLAN_REVIEW_SUBMIT_USAGE = (
     "(--item-id N | --deployment-run-id RUN) --execution-id ID "
     "--bundle-id ID --bundle-digest SHA256 --stdin [--session-id S]"
 )
+QA_MISSION_HOST_COMMAND_USAGE = (
+    "yoke qa mission host-command "
+    "(--item PREFIX-N | --item-id N | --deployment-run-id RUN) "
+    "--execution-id ID --requirement-id N [--gui-session] "
+    "[--timeout-seconds N] -- ARGV..."
+)
 
 
 def qa_case_run(args: List[str]) -> int:
@@ -59,6 +65,13 @@ def qa_plan_abort(args: List[str]) -> int:
 def qa_plan_review_submit(args: List[str]) -> int:
     return _run_execution_module(
         "yoke_core.domain.qa_plan_review_cli",
+        args,
+    )
+
+
+def qa_mission_host_command(args: List[str]) -> int:
+    return _run_execution_module(
+        "yoke_core.domain.agent_mission_host_command_cli",
         args,
     )
 
@@ -113,6 +126,7 @@ TOOL_COMMANDS = {
     ("qa", "plan", "abort"): qa_plan_abort,
     ("qa", "plan", "review-submit"): qa_plan_review_submit,
     ("qa", "plan", "run"): qa_plan_run,
+    ("qa", "mission", "host-command"): qa_mission_host_command,
 }
 
 USAGE = {
@@ -120,6 +134,7 @@ USAGE = {
     "yoke qa plan abort": QA_PLAN_ABORT_USAGE,
     "yoke qa plan review-submit": QA_PLAN_REVIEW_SUBMIT_USAGE,
     "yoke qa plan run": QA_PLAN_RUN_USAGE,
+    "yoke qa mission host-command": QA_MISSION_HOST_COMMAND_USAGE,
 }
 
 
@@ -128,9 +143,11 @@ __all__ = [
     "QA_PLAN_ABORT_USAGE",
     "QA_PLAN_RUN_USAGE",
     "QA_PLAN_REVIEW_SUBMIT_USAGE",
+    "QA_MISSION_HOST_COMMAND_USAGE",
     "TOOL_COMMANDS",
     "USAGE",
     "qa_case_run",
+    "qa_mission_host_command",
     "qa_plan_abort",
     "qa_plan_review_submit",
     "qa_plan_run",

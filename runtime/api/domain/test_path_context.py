@@ -112,8 +112,8 @@ def test_family_constants_exported():
 
 def test_render_relationship_map_covers_every_agent_packet():
     relationships = render_relationship_map()
-    # 7 agents × 2 adapter formats = 14 rendered files.
-    assert len(relationships) == 14
+    # 8 agents × 2 adapter formats = 16 rendered files.
+    assert len(relationships) == 16
     for target_path, sources in relationships.items():
         assert (
             target_path.startswith("runtime/harness/claude/agents/yoke-")
