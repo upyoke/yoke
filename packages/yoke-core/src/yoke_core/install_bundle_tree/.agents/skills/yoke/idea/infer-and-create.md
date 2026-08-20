@@ -1,7 +1,7 @@
 # Idea Phase: Infer Fields And Create The Item
 This phase owns the metadata inference, cross-project guardrails, duplicate check, item creation, dependency persistence, and creation confirmation for `/yoke idea`.
 
-Before metadata research, remember that claimed paths do not narrow work item scope; do **not** remove the file from the work item. Claim conflicts are coordination/dependency/blocking facts; follow [`reference-and-scope-verification.md`](reference-and-scope-verification.md) and `AGENTS.md` `## Path Claims — Hard Rule` for live-tree checks and overlap handling.
+Before metadata research, remember that claimed paths do not narrow work item scope; do **not** remove the file from the work item. Claim conflicts are coordination/dependency/blocking facts: distinguish `coordination_only` compatible overlaps from `activation`-gated dependencies. Follow [`reference-and-scope-verification.md`](reference-and-scope-verification.md) and `AGENTS.md` `## Path Claims — Hard Rule` for live-tree checks and overlap handling.
 
 ## 2. Research And Infer All Fields From Context
 

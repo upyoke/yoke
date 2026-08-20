@@ -17,7 +17,7 @@ path:
 - For a specific file or pattern, use the Glob tool and require a match.
 
 If the path does not resolve, re-derive it from the live tree. Prefer the
-project's verified migration root, the live `.agents/skills/yoke/` structure
+project's verified one-shot migration package root, the live `.agents/skills/yoke/` structure
 for skill prose, or a recently completed item in the same family. If it still
 cannot be verified, record a clarification question instead of guessing.
 

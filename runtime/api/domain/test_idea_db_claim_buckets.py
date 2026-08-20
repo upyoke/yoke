@@ -22,6 +22,10 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _BODY_AND_SYNC = _REPO_ROOT / ".agents/skills/yoke/idea/body-and-sync.md"
 _INFER_AND_CREATE = _REPO_ROOT / ".agents/skills/yoke/idea/infer-and-create.md"
+_REFERENCE_AND_SCOPE_VERIFICATION = (
+    _REPO_ROOT
+    / ".agents/skills/yoke/idea/reference-and-scope-verification.md"
+)
 _OBSOLETED_DEFERRAL_REASON = "deferred declaration" + " to refine"
 
 
@@ -91,7 +95,7 @@ class TestBodyAndSyncThreeBuckets:
 
 
 # ---------------------------------------------------------------------------
-# infer-and-create.md — Prevention 1 + 2
+# reference-and-scope-verification.md — Prevention 1 + 2
 # ---------------------------------------------------------------------------
 
 
@@ -99,20 +103,20 @@ class TestInferAndCreatePreventions:
     def test_prevention_1_verification_verb_pinned(self):
         """Prevention 1 names ``test -d`` for directories and the
         Glob tool for file patterns."""
-        text = _read(_INFER_AND_CREATE)
+        text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
         assert "test -d" in text
         assert "Glob tool" in text or "Glob" in text
 
     def test_prevention_1_canonical_migration_root_named(self):
         """Migration ideas discover the active project's one-shot package root."""
-        text = _read(_INFER_AND_CREATE)
+        text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
         assert "project's verified one-shot migration package root" in text
         assert "runtime/api/domain/migrations/" not in text
 
     def test_prevention_2_canonical_grep_template_pinned(self):
         """The canonical grep template is pinned literally so
         agents copy it directly rather than improvising."""
-        text = _read(_INFER_AND_CREATE)
+        text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
         assert (
             "rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' "
             "<source-roots>"
@@ -120,7 +124,7 @@ class TestInferAndCreatePreventions:
 
     def test_prevention_2_names_current_lifecycle_owners(self):
         """Gate and vocabulary guidance names only current owners."""
-        text = _read(_INFER_AND_CREATE)
+        text = _read(_REFERENCE_AND_SCOPE_VERIFICATION)
         assert "workflow_runtime.py" in text
         assert "task_lifecycle.py" in text
         retired_module = "yoke_core.domain." + "life" + "cycle"
