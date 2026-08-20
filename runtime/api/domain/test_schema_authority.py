@@ -119,6 +119,8 @@ class TestKernelsRefuseBeforeTouchingTheDatabase:
                 ledger=YOKE_LEDGER_CONTRACT,
                 applied_by="test",
                 running_version="",
+                attribution={},
+                model_name="",
             )
 
     def test_stamping_a_history_as_applied_refuses(
