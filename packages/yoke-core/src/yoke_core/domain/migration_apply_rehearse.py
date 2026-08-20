@@ -7,6 +7,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional
 
+from yoke_contracts.schema_authority import refuse_on_prod_control_plane
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_compatibility_attestation import (
     _safe_parse_dict as _safe_parse_attestation,
@@ -61,7 +62,16 @@ def rehearse(
     the control-plane DB lookup for tests; production callers leave it
     ``None`` and the canonical YOKE_DB wins.  *worktree_path* is the
     checkout root; defaults to the current working directory.
+
+    Refuses a prod-flagged connection outright, before opening anything.
+    Rehearsal exists to execute an unreleased migration somewhere disposable;
+    aiming it at a production control plane is never what the caller meant,
+    and one session that did it went on to use the same connection for
+    unrelated work.
     """
+    prod_refusal = refuse_on_prod_control_plane("governed migration rehearsal")
+    if prod_refusal is not None:
+        raise MigrationApplyError(prod_refusal)
     control_conn = db_helpers.connect(control_db_path)
     try:
         return _rehearse_inner(

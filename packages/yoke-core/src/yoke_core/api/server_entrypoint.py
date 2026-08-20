@@ -163,11 +163,16 @@ def ensure_core_schema() -> None:
     ordered history's restore-point and serving-floor policy. Birth-only
     legacy work stays in :func:`yoke_core.domain.schema_init.cmd_init`.
     Fail-hard: if convergence cannot complete, the API must not start.
+
+    This is the process the convergence guard exists to admit: it is about to
+    serve the database it changes, so it declares that outright rather than
+    being recognized by some property of how it was launched.
     """
+    from yoke_contracts.schema_authority import serving_build_authority
     from yoke_core.domain import db_backend, db_helpers
     from yoke_core.domain.schema_init import converge_core_schema
 
-    with db_helpers.connect() as conn:
+    with db_helpers.connect() as conn, serving_build_authority():
         converge_core_schema(
             conn, backup_target_dsn=db_backend.resolve_pg_dsn(),
         )
@@ -223,6 +228,7 @@ def birth_universe() -> None:
     token is still minted and printed exactly once in the universe's
     lifetime.
     """
+    from yoke_contracts.schema_authority import serving_build_authority
     from yoke_core.domain import db_helpers, org_schema
     from yoke_core.domain.actors import LOCAL_HUMAN_LABEL_ENV
     from yoke_core.domain.api_tokens import (
@@ -239,7 +245,10 @@ def birth_universe() -> None:
     prior_label = os.environ.get(LOCAL_HUMAN_LABEL_ENV)
     os.environ[LOCAL_HUMAN_LABEL_ENV] = DEFAULT_ADMIN_ACTOR_LABEL
     try:
-        run_bootstrap(emit=_log.info)
+        # Birth builds the schema this same process is about to serve, so the
+        # chain it runs holds the same authority the boot converge does.
+        with serving_build_authority():
+            run_bootstrap(emit=_log.info)
     finally:
         if prior_label is None:
             os.environ.pop(LOCAL_HUMAN_LABEL_ENV, None)

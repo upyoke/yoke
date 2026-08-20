@@ -26,7 +26,13 @@ def backfill_serving_floors(
     *,
     ledger: LedgerContract | None = None,
 ) -> Tuple[str, ...]:
-    """Fill missing ledger floors from permanent applied history entries."""
+    """Fill missing ledger floors from permanent applied history entries.
+
+    Only literal declarations can be backfilled. The next-release sentinel
+    names the release that carried the entry when it was applied, and this
+    runs long afterwards with no way to learn which one that was; writing a
+    version it cannot know would be worse evidence than the absence it repairs.
+    """
     selected = ledger or _permanent_history_compatibility_ledger()
     rows = conn.execute(
         f"SELECT {selected.entry_column} FROM {selected.table}"
@@ -38,7 +44,7 @@ def backfill_serving_floors(
         if entry.name not in recorded:
             continue
         module = load_migration_module(entry.path, entry.name)
-        minimum = migration_serving_version.declared_minimum(module)
+        minimum = migration_serving_version.recorded_floor(module, running_version="")
         if minimum is None:
             continue
         cursor = conn.execute(
@@ -58,7 +64,12 @@ def missing_declared_serving_floors(
     *,
     ledger: LedgerContract | None = None,
 ) -> Tuple[str, ...]:
-    """Applied entries whose declared rollback floor is absent in the ledger."""
+    """Applied entries whose declared rollback floor is absent in the ledger.
+
+    A sentinel declaration is not among them: it resolves per artifact, so an
+    absent row value records that the applying build had no release identity
+    rather than that evidence was lost.
+    """
     selected = ledger or _permanent_history_compatibility_ledger()
     rows = conn.execute(
         f"SELECT {selected.entry_column} FROM {selected.table} "
@@ -70,7 +81,10 @@ def missing_declared_serving_floors(
         if entry.name not in missing:
             continue
         module = load_migration_module(entry.path, entry.name)
-        if migration_serving_version.declared_minimum(module) is not None:
+        if (
+            migration_serving_version.recorded_floor(module, running_version="")
+            is not None
+        ):
             findings.append(entry.name)
     return tuple(findings)
 

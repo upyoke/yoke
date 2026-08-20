@@ -82,6 +82,7 @@ def converge_and_validate_restored_universe(
     from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
     from yoke_core.domain.flow_init import create_or_replace_item_progress_view
     from yoke_core.domain.schema_fingerprint import fingerprint_portable_postgres_schema
+    from yoke_contracts.schema_authority import serving_build_authority
     from yoke_core.domain.schema_init import converge_core_schema
     from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
     from yoke_core.domain.schema_readiness import missing_readiness_tables
@@ -104,7 +105,11 @@ def converge_and_validate_restored_universe(
     )
     conn = db_backend.connect_psycopg(bounded_dsn)
     try:
-        converge_core_schema(conn, backup_target_dsn=bounded_dsn)
+        # This validator restored the database at *dsn* for its own use, so it
+        # is the only thing serving it; nothing else can be reading the shapes
+        # it is about to converge.
+        with serving_build_authority():
+            converge_core_schema(conn, backup_target_dsn=bounded_dsn)
         seed_roles_and_permissions(conn)
         create_or_replace_item_progress_view(conn)
         _ensure_qa_runs_verdict_trigger(conn)

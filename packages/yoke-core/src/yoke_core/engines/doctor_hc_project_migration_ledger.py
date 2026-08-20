@@ -96,7 +96,11 @@ def hc_project_migration_ledger_contract(conn, args, rec) -> None:
                     invalid_floors.append(f"{name}={recorded!r}")
         for entry in state.history:
             module = load_migration_module(entry.path, entry.name)
-            declared = migration_serving_version.declared_minimum(module)
+            # A sentinel declaration resolves per applying artifact, so an
+            # absent row value is evidence about that build, not a lost floor.
+            declared = migration_serving_version.recorded_floor(
+                module, running_version=""
+            )
             recorded = floors.get(entry.name)
             if declared is not None and not recorded:
                 missing_floors.append(entry.name)

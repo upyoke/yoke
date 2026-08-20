@@ -134,6 +134,18 @@ is the path every apply route goes through, so the declaration cannot be
 skipped by taking a different one. The applier refuses to run an entry whose
 floor is newer than the build running it.
 
+**A new entry declares the next-release sentinel, not a literal version.** The
+literal an author would reach for is the newest release that exists while they
+are writing, and that release was cut before their entry — so it is precisely
+the build that cannot read the schema the entry produces. That is not a
+hypothetical: one entry declared it, the gate below believed it, and every QA
+surface answered `UndefinedColumn` on a fleet reporting itself able to serve.
+Module load now rejects a literal on an entry no release tag contains, and the
+sentinel resolves at apply time to the artifact doing the applying — which by
+construction carries the entry, so the ledger still records a real, comparable
+version. Entries already carried by a release keep their literals; their bytes
+are permanent, and the probe below is what covers them.
+
 **The declaration is copied into the ledger row at apply time.** That is the
 whole mechanism: the reader who needs it is a build old enough to be stranded,
 and such a build does not ship the entry module that would tell it so. The
@@ -141,6 +153,15 @@ ledger row is the only surface the two share. `/v1/health` reads it back and
 answers `can_serve_this_database`, naming each offending entry — which is what
 converts a silent broken-read outage into a container that fails its own health
 gate.
+
+**The gate leads with a probe rather than a comparison.** A floor is only ever
+as right as its author, and the ledger can only be asked what was applied. So
+before any of that, the gate asks the database the direct question: is every
+table and column this build reads still present? The build's own declared
+catalog is a faithful statement of what its code expects, because the build
+ships it, and comparing it against the live catalog cannot be defeated by a
+mis-authored floor. The floor comparison then runs on top, still failing
+closed.
 
 Compatibility evidence fails closed. An applied entry absent from the running
 artifact's history is unsafe when its ledger row has no floor; a known entry

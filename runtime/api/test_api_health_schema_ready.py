@@ -209,6 +209,12 @@ class TestHealthMigrationContentIdentity:
             mock.patch.object(
                 items_health, "stranded_by_applied_migrations", return_value=[]
             ),
+            # This fixture applies a deliberately partial schema, so the
+            # serving-surface probe legitimately reports what it is missing.
+            # The subject here is content identity, not surface coverage.
+            mock.patch.object(
+                items_health, "unreadable_serving_surfaces", return_value=[]
+            ),
             mock.patch.object(
                 items_health,
                 "yoke_migration_content_schema_is_prepared",

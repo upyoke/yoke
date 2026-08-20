@@ -30,7 +30,7 @@ from yoke_core.domain.migration_apply import (
     STATE_COMPLETED,
 )
 
-from yoke_core.engines.doctor_hc_db_project_schema_expected import (
+from yoke_core.domain.schema_expected_catalog import (
     parse_expected_schema,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -53,7 +53,7 @@ def hc_schema_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-schema-drift: Schema drift detection.
 
     Diffs the live schema against the canonical declaration in
-    ``doctor_hc_db_project_schema_expected``. Refresh that module
+    ``yoke_core.domain.schema_expected_catalog``. Refresh that module
     after every schema migration so the HC stays green.
     """
     expected = parse_expected_schema()

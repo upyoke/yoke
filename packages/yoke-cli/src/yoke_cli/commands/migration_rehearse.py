@@ -12,6 +12,7 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config import machine_config
 from yoke_contracts.control_plane_locality import local_authority_is_pinned
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE, TRANSPORT_HTTPS
+from yoke_contracts.schema_authority import refuse_on_prod_control_plane
 from yoke_contracts.migration_rehearsal_teaching import (
     CONNECTION_READER,
     PREFLIGHT_HELP,
@@ -37,8 +38,9 @@ def migration_rehearse(args: List[str]) -> int:
         description=(
             "Rehearse one item-declared migration against its project-local "
             "validation surface. This is a source-dev/admin operation: use a "
-            "local-Postgres or named db-admin connection, never an HTTPS "
-            "product connection. Applying belongs to boot convergence."
+            "non-prod local-Postgres or db-admin connection, never an HTTPS "
+            "product connection and never a prod-flagged one. Applying belongs "
+            "to boot convergence."
         ),
         epilog=PREFLIGHT_HELP,
     )
@@ -50,6 +52,10 @@ def migration_rehearse(args: List[str]) -> int:
         return 2
 
     try:
+        prod_refusal = refuse_on_prod_control_plane("yoke migration rehearse")
+        if prod_refusal is not None:
+            print(prod_refusal, file=sys.stderr)
+            return 1
         if remote_without_admin_authority():
             selected = os.environ.get(ENV_OVERRIDE, "").strip() or "active HTTPS"
             print(

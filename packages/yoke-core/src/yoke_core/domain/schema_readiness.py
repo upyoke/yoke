@@ -14,9 +14,16 @@ the changes this code requires have actually run. The health payload's
 deploy gate distinguish "the container came up" from "the container's
 database is the one its code was written against".
 
-:func:`stranded_by_applied_migrations` asks the question the first two
-cannot: *has this database had something applied that this code cannot
-survive?* Membership is by name, so an older build whose history simply
+:func:`unreadable_serving_surfaces` asks the question the first two cannot,
+and asks it of the database rather than of a constant: *is every table and
+column this build reads still present?* A build stranded behind a destructive
+migration answers no, whatever any declared version floor says — and a floor
+is hand-authored, so a wrong one reported a fleet healthy while every request
+touching a renamed column failed. The probe cannot be wrong in that direction:
+it compares this build's own declared catalog against the live catalog.
+
+:func:`stranded_by_applied_migrations` asks the narrower ledger question:
+*has this database had something applied that this code cannot survive?* Membership is by name, so an older build whose history simply
 does not contain a newer destructive entry computes an empty pending set
 and reports itself current — correctly, by its own lights, and fatally.
 That build reads columns that are gone. Preserving membership-by-name is
@@ -41,7 +48,7 @@ public health payload.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, List, Mapping, Sequence, Tuple
 
 if TYPE_CHECKING:
     from yoke_core.domain.migration_content_identity import ContentIdentityStatus
@@ -78,6 +85,57 @@ def missing_readiness_tables(
     for row in cur.fetchall():
         present.add(row["table_name"] if isinstance(row, dict) else row[0])
     return [table for table in tables if table not in present]
+
+
+def unreadable_serving_surfaces(
+    conn: Any, expected: Mapping[str, Mapping[str, str]] | None = None
+) -> List[str]:
+    """Return the surfaces this build reads that the database no longer has.
+
+    One ``information_schema.columns`` read, compared against the catalog the
+    running artifact ships. A build serves a database only if the shapes its
+    code names are actually there, and that is a question the database can
+    answer directly — unlike the ledger, which can only be asked what was
+    applied, and unlike a declared floor, which can only be asked what an
+    author believed.
+
+    A missing table is reported once rather than once per column, because the
+    finding an operator needs is "this table is gone", not sixty of them. An
+    unreadable catalog is itself a finding: at this altitude "cannot tell" and
+    "cannot serve" must be the same answer.
+    """
+    if expected is None:
+        from yoke_core.domain.schema_expected_catalog import parse_expected_schema
+
+        expected = parse_expected_schema()
+    try:
+        rows = conn.execute(
+            "SELECT table_name, column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema()"
+        ).fetchall()
+    except Exception:  # noqa: BLE001 — public health must not expose DB details
+        return [
+            "the database catalog is unreadable, so serving compatibility "
+            "cannot be proven"
+        ]
+    live: dict[str, set] = {}
+    for row in rows:
+        table = str(row["table_name"] if isinstance(row, dict) else row[0])
+        column = str(row["column_name"] if isinstance(row, dict) else row[1])
+        live.setdefault(table, set()).add(column)
+    findings: List[str] = []
+    for table, columns in expected.items():
+        present = live.get(table)
+        if present is None:
+            findings.append(f"{table}: this build reads this table and it is absent")
+            continue
+        missing = [name for name in columns if name not in present]
+        if missing:
+            findings.append(
+                f"{table}: this build reads {', '.join(missing)}, which "
+                "this database does not have"
+            )
+    return findings
 
 
 def pending_migration_names(
@@ -166,6 +224,7 @@ def stranded_by_applied_migrations(
     """
     from yoke_core.domain.migration_history import load_migration_module
     from yoke_core.domain.migration_serving_version import (
+        NEXT_RELEASE,
         ServingVersionError,
         declared_minimum,
         satisfies_minimum,
@@ -208,6 +267,14 @@ def stranded_by_applied_migrations(
                 )
                 continue
 
+        if declared == NEXT_RELEASE:
+            # The declaration names the release that carries the entry rather
+            # than a version, so the recorded floor is the only comparable
+            # value and an absent one is no worse than an unresolved build:
+            # this build ships the entry, so it ships the code that goes with
+            # it. An entry this build does NOT ship still falls through to the
+            # unknown-entry findings below.
+            declared = None
         if not floor:
             if entry is None:
                 findings.append(
