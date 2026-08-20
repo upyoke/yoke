@@ -13,6 +13,7 @@ from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
     classify_overlap,
 )
+from yoke_core.domain.path_claims_override import invoke_override
 from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP,
     conn,
@@ -96,3 +97,46 @@ class TestCrossSurfaceConsistency:
 
         assert get_claim(conn, upstream_claim)["state"] == "active"
         assert get_claim(conn, downstream_claim)["state"] == "planned"
+
+    def test_operator_override_still_permits_activation(self, conn):
+        target = seed_target(conn, path_string="runtime/api/domain/override.py")
+        unrelated_target = seed_target(
+            conn, path_string="runtime/api/domain/unrelated.py",
+        )
+        candidate_item = _seed_item(conn, item_id=3015)
+        blocking_item = _seed_item(conn, item_id=3016)
+        unrelated_item = _seed_item(conn, item_id=3017)
+        candidate_claim = register(
+            conn,
+            actor_id=local_human(conn),
+            integration_target="main",
+            target_ids=[target],
+            item_id=candidate_item,
+        )
+        blocking_claim = _seed_active_claim(
+            conn, item_id=blocking_item, target_id=target,
+        )
+        _seed_active_claim(
+            conn, item_id=unrelated_item, target_id=unrelated_target,
+        )
+        _add_dep_edge(
+            conn, dependent=candidate_item, blocking=unrelated_item,
+        )
+        invoke_override(
+            conn,
+            path_claim_id=candidate_claim,
+            blocking_claim_id=blocking_claim,
+            blocking_path_targets=[target],
+            override_point="revalidation_conflict",
+            conflict_reason="claim_overlap",
+            integration_target="main",
+            actor_id=local_human(conn),
+            actor_reason="Operator accepted this live collision.",
+            item_id=candidate_item,
+            project="yoke",
+            session_id="operator-session",
+        )
+
+        activate(conn, claim_id=candidate_claim, base_commit_sha=SNAP)
+
+        assert get_claim(conn, candidate_claim)["state"] == "active"
