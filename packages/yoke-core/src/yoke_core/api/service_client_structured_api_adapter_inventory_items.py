@@ -128,6 +128,30 @@ ITEMS_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="items.freeze.run",
+        cli_invocation="yoke items freeze YOK-N",
+        notes="Coordination-flag verb; needs no work claim on the item.",
+    ),
+    AdapterEntry(
+        function_id="items.thaw.run",
+        cli_invocation="yoke items thaw YOK-N",
+        notes="Coordination-flag verb; needs no work claim on the item.",
+    ),
+    AdapterEntry(
+        function_id="items.block.run",
+        cli_invocation="yoke items block YOK-N --reason TEXT",
+        notes=(
+            "Coordination-flag verb; needs no work claim on the item. Writes "
+            "blocked_reason before blocked so the flag is the only observable "
+            "commit point."
+        ),
+    ),
+    AdapterEntry(
+        function_id="items.unblock.run",
+        cli_invocation="yoke items unblock YOK-N",
+        notes="Coordination-flag verb; needs no work claim on the item.",
+    ),
+    AdapterEntry(
         function_id="items.merge_provenance.operator_correct",
         cli_invocation=(
             "yoke items merge-provenance operator-correct YOK-N "
