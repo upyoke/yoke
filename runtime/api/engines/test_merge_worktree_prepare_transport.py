@@ -300,7 +300,7 @@ class TestPreflightRelays:
         err = capsys.readouterr().err
         assert f"FAIL: Item {TEST_ITEM_REF} is blocked (items.blocked=1)." in err
         assert "Reason: upstream unresolved" in err
-        assert f"Run /yoke unblock {TEST_ITEM_REF} before merging." in err
+        assert f"Run yoke items unblock {TEST_ITEM_REF} before merging." in err
 
     def test_blocked_gate_not_applicable_is_silent(self, monkeypatch, capsys):
         responses = _pass_responses()

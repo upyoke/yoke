@@ -62,7 +62,7 @@ def test_renders_section_with_reason_and_updated_at(conn):
     assert out.startswith("## Block")
     assert "Awaiting external API contract" in out
     assert "2026-05-08T12:00:00Z" in out
-    assert "/yoke unblock YOK-2" in out
+    assert "yoke items unblock YOK-2" in out
 
 
 def test_renders_with_missing_reason(conn):

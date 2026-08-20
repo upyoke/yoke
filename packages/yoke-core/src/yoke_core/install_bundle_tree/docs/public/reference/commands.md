@@ -19,8 +19,8 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `/yoke conduct PREFIX-N` | Engineer/Tester loop for a single epic |
 | `/yoke usher [PREFIX-N]` | Merge and deploy `implemented` / `release` items through the deployment pipeline |
 | `/yoke doctor [project]` | Health checks and diagnostics (`--fix` for auto-repair) |
-| `/yoke freeze PREFIX-N` / `/yoke thaw PREFIX-N` | Freeze / thaw an item (keep status, set/clear frozen flag) |
-| `/yoke block PREFIX-N "<reason>"` / `/yoke unblock PREFIX-N` | Block / unblock (preserves lifecycle status; sets the orthogonal blocked flag) |
+| `yoke items freeze PREFIX-N` / `yoke items thaw PREFIX-N` | Freeze / thaw an item (keep status, set/clear frozen flag) |
+| `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N` | Block / unblock (preserves lifecycle status; sets the orthogonal blocked flag) |
 | `/yoke resync` | Detect and repair drift between local backlog and GitHub issues |
 | `/yoke curate` | Curate the Ouroboros learning log -- cluster, archive, promote patterns |
 | `/yoke wrapup` | Structured session wrap-up with ouroboros reflections |

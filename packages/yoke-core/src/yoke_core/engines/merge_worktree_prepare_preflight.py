@@ -227,7 +227,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                     if data.get("reason"):
                         _print(f"    Reason: {data['reason']}", err=True)
                     _print(
-                        f"    Run /yoke unblock {ref} before merging.",
+                        f"    Run yoke items unblock {ref} before merging.",
                         err=True,
                     )
                     fail = True

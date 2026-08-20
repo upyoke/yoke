@@ -214,15 +214,14 @@ Use **only** when none of (2)–(5) can represent the conflict. The
 flag-driven model gives the operator a sanctioned shape:
 
 ```bash
-yoke items scalar update PREFIX-{id-number} --field blocked --value true
-yoke items scalar update PREFIX-{id-number} --field blocked_reason \
-    --value "<copy the path-claims register CLI error verbatim, plus the upstream coordination required to unblock>"
+yoke items block PREFIX-{id-number} \
+    --reason "<copy the path-claims register CLI error verbatim, plus the upstream coordination required to unblock>"
 ```
 
 This preserves the lifecycle status (the item stays at `idea`/`refined-idea`)
 and routes the row into the BOARD's Blocked section instead of leaving
 it hidden in Active. Once the upstream coordination is resolved, the
-operator runs `/yoke unblock PREFIX-{id-number}` to clear the flag and
+operator runs `yoke items unblock PREFIX-{id-number}` to clear the flag and
 re-run path-claim registration.
 
 The forbidden state is "normal synced issue at `status='idea'` /

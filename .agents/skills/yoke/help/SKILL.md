@@ -33,10 +33,6 @@ COMMANDS
  /yoke conduct PREFIX-N Engineer/Tester loop for a single epic
  /yoke usher [PREFIX-N] Merge and deploy implemented/release items
  /yoke doctor [project] Health checks and diagnostics (--fix for auto-repair)
- /yoke freeze PREFIX-N Freeze a backlog item
- /yoke thaw PREFIX-N Thaw a frozen item
- /yoke block PREFIX-N "<reason>" Block an item (preserves lifecycle status)
- /yoke unblock PREFIX-N Clear an item's blocked flag
  /yoke resync Detect and repair drift between local and GitHub
  /yoke curate Curate the Ouroboros learning log
  /yoke wrapup Structured session wrap-up
@@ -60,6 +56,11 @@ LOCAL TERMINAL HELPERS
   Verify machine, env, credential, and checkout bindings.
  yoke dev setup [CHECKOUT]
   Explicit Yoke source-dev/admin setup.
+ yoke items freeze PREFIX-N / yoke items thaw PREFIX-N
+  Park an item off the active board, or return it. Lifecycle status is kept.
+ yoke items block PREFIX-N --reason TEXT / yoke items unblock PREFIX-N
+  Set or clear the blocked flag and its reason. Lifecycle status is kept.
+  Neither verb needs a work claim on the item.
  yoke board art variant create --ascii
   Generate, preview, and optionally apply .yoke/board-art variants.
   Use `--mixed` or `--image PATH` for the other variant families.

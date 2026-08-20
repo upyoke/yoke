@@ -6,10 +6,7 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.domain.advance_blocked_gate import (
-    AdvanceBlockedDecision,
-    evaluate,
-)
+from yoke_core.domain.advance_blocked_gate import evaluate
 
 
 @pytest.fixture
@@ -50,7 +47,7 @@ def test_blocked_with_reason(conn):
     assert decision.blocked is True
     assert decision.reason == "Awaiting external API contract"
     assert decision.rendered_blocker is not None
-    assert "/yoke unblock YOK-2" in decision.rendered_blocker
+    assert "yoke items unblock YOK-2" in decision.rendered_blocker
     assert "Awaiting external API contract" in decision.rendered_blocker
 
 

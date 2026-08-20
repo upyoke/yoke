@@ -256,8 +256,8 @@ Stage executor types: `auto`, `health-check`, `warm-up`, `environment-activate`,
 | `/yoke doctor`                   | 40+ health checks. `--fix` for auto-repair.           |
 | `/yoke curate`                   | Process agent learnings → work items + patterns.       |
 | `/yoke resync`                   | GitHub bidirectional sync.                            |
-| `/yoke freeze YOK-N`             | Park an item.                                         |
-| `/yoke thaw YOK-N`               | Unfreeze.                                             |
+| `yoke items freeze YOK-N`        | Park an item.                                         |
+| `yoke items thaw YOK-N`          | Unfreeze.                                             |
 
 ---
 

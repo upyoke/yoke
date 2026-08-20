@@ -124,8 +124,6 @@ class TestSkillDiscovery:
         "conduct",
         "usher",
         "doctor",
-        "freeze",
-        "thaw",
         "resync",
         "curate",
         "wrapup",

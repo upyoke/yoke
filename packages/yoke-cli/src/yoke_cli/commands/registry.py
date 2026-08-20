@@ -30,6 +30,7 @@ from yoke_cli.commands.registry_claims import (
     CLAIMS_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_items_flags import ITEMS_FLAGS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_product_surfaces as _product_surfaces
@@ -62,6 +63,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "items.scalar.update",
         _adapters.items_scalar_update,
     ),
+    **ITEMS_FLAGS_SUBCOMMAND_REGISTRY,
     ("items", "merge-provenance", "operator-correct"): (
         "items.merge_provenance.operator_correct",
         items_merge_provenance_operator_correct,

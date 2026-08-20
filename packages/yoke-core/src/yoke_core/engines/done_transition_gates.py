@@ -239,7 +239,7 @@ def _check_blocked_flag(
         f"\n=== Blocked-flag refusal ===\n"
         f"Item {ref} has items.blocked=1; cannot transition to done.\n"
         + (f"Reason: {reason}\n" if reason else "")
-        + f"Run /yoke unblock {ref} first."
+        + f"Run yoke items unblock {ref} first."
     )
     return 9
 

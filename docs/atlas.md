@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-19T18:00:01Z_
+_Audit generated_at: 2026-08-20T15:05:52Z_
 
 ## 1. Summary
 
-- Function ids registered: **385**
+- Function ids registered: **389**
 - Internal dispatch-only functions without CLI adapters: **76**
-- `yoke` CLI subcommands: **311** (311 carry usable `--help`)
-- Operation tracker: **288 wrapped**, 7 tool_cli, 116 permanent, 0 pending
-- Skill-body recipes: 277 total (218 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **315** (315 carry usable `--help`)
+- Operation tracker: **292 wrapped**, 7 tool_cli, 116 permanent, 0 pending
+- Skill-body recipes: 278 total (217 template-skipped, 2 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **288** (operation tracker confirms 288 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **292** (operation tracker confirms 292 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -114,9 +114,11 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **288** (operation track
 | item_worktrees | `yoke item-worktrees list` | `item_worktrees.list` | ok |
 | item_worktrees | `yoke item-worktrees path-record` | `item_worktrees.path_record` | ok |
 | item_worktrees | `yoke item-worktrees release` | `item_worktrees.release` | ok |
+| items | `yoke items block` | `items.block.run` | ok |
 | items | `yoke items create` | `items.create` | ok |
 | items | `yoke dash` | `items.create` | ok |
 | items | `yoke items detail get` | `items.detail.get` | ok |
+| items | `yoke items freeze` | `items.freeze.run` | ok |
 | items | `yoke items get` | `items.get.run` | ok |
 | items | `yoke items github-sync` | `items.github_sync` | ok |
 | items | `yoke items list` | `items.list.run` | ok |
@@ -132,6 +134,8 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **288** (operation track
 | items | `yoke items structured-field replace` | `items.structured_field.replace` | ok |
 | items | `yoke items structured-field section-append` | `items.structured_field.section_append` | ok |
 | items | `yoke items structured-field section-upsert` | `items.structured_field.section_upsert` | ok |
+| items | `yoke items thaw` | `items.thaw.run` | ok |
+| items | `yoke items unblock` | `items.unblock.run` | ok |
 | lifecycle | `yoke lifecycle repair-status` | `lifecycle.repair_status.execute` | ok |
 | lifecycle | `yoke lifecycle skip record-recoverable-substrate` | `lifecycle.skip.record_recoverable_substrate` | ok |
 | lifecycle | `yoke lifecycle transition` | `lifecycle.transition.execute` | ok |
@@ -463,7 +467,7 @@ _No pending handler-registration rows._
 
 | path glob | count |
 |---|---|
-| .agents/skills/yoke/**/*.md | 131 |
+| .agents/skills/yoke/**/*.md | 127 |
 | packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 31 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
@@ -477,9 +481,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 30 |
-| claude-code | 18 |
-| cursor | 2 |
+| codex | 47 |
+| claude-code | 3 |
 
 ## 8. Contradictions
 
@@ -490,7 +493,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 ## 9. Next-slice recommendation
 
-_No outstanding follow-ups — the harness has nothing to recommend._
+- **2 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
 
 ## 10. Curl floor — the envelope shape under every family
 

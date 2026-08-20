@@ -15,7 +15,7 @@ The runtime additionally recognizes the engine-owned exceptional stages
 retained only as compatibility vocabulary; normal blocking uses the orthogonal
 flag described below.
 
-> Item-level `blocked` is not a lifecycle status. Use the orthogonal `items.blocked` flag (set via `/yoke block PREFIX-N "<reason>"`, cleared via `/yoke unblock PREFIX-N`) — the flag preserves the lifecycle status. Epic-task `status='blocked'` semantics use the lifecycle status. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
+> Item-level `blocked` is not a lifecycle status. Use the orthogonal `items.blocked` flag (set via `yoke items block PREFIX-N --reason TEXT`, cleared via `yoke items unblock PREFIX-N`) — the flag preserves the lifecycle status. Epic-task `status='blocked'` semantics use the lifecycle status. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
 
 The item-level lifecycle is therefore a definition shape, not a global status
 table:
