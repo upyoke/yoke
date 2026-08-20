@@ -21,6 +21,9 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import backlog, backlog_update_op
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.sessions_lifecycle_claim import claim_work
+from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.handlers.items_flags import (
     handle_block,
     handle_freeze,
@@ -41,6 +44,39 @@ def _isolate_write_side_effects(monkeypatch) -> None:
         "_maybe_rebuild_board",
         lambda *_args, **_kwargs: None,
     )
+
+
+def _seed_session(conn: Any, session_id: str) -> None:
+    """Register a live harness session so the handler can claim for it.
+
+    The heartbeat is stamped now, not at a fixed date: ``claim_work``
+    runs the stale-session sweep first, and a session whose heartbeat is
+    older than the stale TTL is ended out from under the claim.
+    """
+    now = iso8601_now()
+    conn.execute(
+        "INSERT INTO harness_sessions (session_id, executor, provider, model, "
+        "workspace, offered_at, last_heartbeat) VALUES "
+        "(%s, 'claude-code', 'anthropic', 'test', '/tmp', %s, %s) "
+        "ON CONFLICT (session_id) DO NOTHING",
+        (session_id, now, now),
+    )
+    conn.commit()
+
+
+@pytest.fixture(autouse=True)
+def _caller_session(test_db) -> None:
+    """Every flag call runs as a registered session."""
+    _seed_session(test_db, SESSION)
+
+
+def _live_claims(conn: Any, item_id: int) -> list:
+    rows = conn.execute(
+        "SELECT session_id FROM work_claims WHERE target_kind='item' "
+        "AND item_id = %s AND released_at IS NULL",
+        (item_id,),
+    ).fetchall()
+    return [str(row["session_id"]) for row in rows]
 
 
 def _request(item_id: int, **payload: Any) -> FunctionCallRequest:
@@ -102,12 +138,12 @@ class TestFreezeAndThaw:
         assert outcome.result_payload["frozen"] is True
 
     def test_thaw_clears_the_flag_and_preserves_status(self, test_db) -> None:
-        insert_item(test_db, id=8104, status="planned", frozen=1)
+        insert_item(test_db, id=8104, status="implementing", frozen=1)
         outcome = handle_thaw(_request(8104))
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["changed"] is True
         assert _flags(test_db, 8104)[0] is False
-        assert _flags(test_db, 8104)[3] == "planned"
+        assert _flags(test_db, 8104)[3] == "implementing"
 
     def test_thaw_is_a_reported_no_op_when_not_frozen(self, test_db) -> None:
         insert_item(test_db, id=8105, status="planned")
@@ -174,7 +210,7 @@ class TestBlockAndUnblock:
         assert outcome.error.code == "invalid_payload"
 
     def test_block_works_on_a_frozen_item(self, test_db) -> None:
-        insert_item(test_db, id=8208, status="planned", frozen=1)
+        insert_item(test_db, id=8208, status="implementing", frozen=1)
         outcome = handle_block(_request(8208, reason="parked and blocked"))
         assert outcome.primary_success, outcome.error
         frozen, blocked, reason, _status = _flags(test_db, 8208)
@@ -200,7 +236,7 @@ class TestBlockAndUnblock:
 
     def test_unblock_works_on_a_frozen_item(self, test_db) -> None:
         insert_item(
-            test_db, id=8211, status="planned", frozen=1, blocked=1,
+            test_db, id=8211, status="implementing", frozen=1, blocked=1,
             blocked_reason="parked",
         )
         outcome = handle_unblock(_request(8211))
@@ -226,3 +262,62 @@ class TestMissingTargets:
         outcome = handle_freeze(request)
         assert not outcome.primary_success
         assert outcome.error.code == "invalid_payload"
+
+
+class TestImplicitClaim:
+    """The claim still governs the write; the caller just does not spell it."""
+
+    def test_the_command_takes_and_releases_a_claim_it_acquired(
+        self, test_db,
+    ) -> None:
+        insert_item(test_db, id=8301, status="implementing")
+        assert _live_claims(test_db, 8301) == []
+        outcome = handle_freeze(_request(8301))
+        assert outcome.primary_success, outcome.error
+        assert _flags(test_db, 8301)[0] is True
+        assert _live_claims(test_db, 8301) == []
+
+    def test_a_claim_the_caller_already_held_survives_the_call(
+        self, test_db,
+    ) -> None:
+        insert_item(test_db, id=8302, status="implementing")
+        claim_work(
+            test_db, session_id=SESSION, target=make_item_target(8302),
+            reason="already working",
+        )
+        test_db.commit()
+        outcome = handle_freeze(_request(8302))
+        assert outcome.primary_success, outcome.error
+        assert _flags(test_db, 8302)[0] is True
+        assert _live_claims(test_db, 8302) == [SESSION]
+
+    def test_a_foreign_holder_refuses_the_write(self, test_db) -> None:
+        insert_item(test_db, id=8303, status="implementing")
+        _seed_session(test_db, "someone-else")
+        claim_work(
+            test_db, session_id="someone-else", target=make_item_target(8303),
+            reason="mid-flight",
+        )
+        test_db.commit()
+        outcome = handle_freeze(_request(8303))
+        assert not outcome.primary_success
+        assert outcome.error.code == "claim_held"
+        assert "someone-else" in outcome.error.message
+        assert _flags(test_db, 8303)[0] is False
+        assert _live_claims(test_db, 8303) == ["someone-else"]
+
+    def test_a_foreign_holder_refuses_block_before_any_write(
+        self, test_db,
+    ) -> None:
+        insert_item(test_db, id=8304, status="implementing")
+        _seed_session(test_db, "other-agent")
+        claim_work(
+            test_db, session_id="other-agent", target=make_item_target(8304),
+            reason="mid-flight",
+        )
+        test_db.commit()
+        outcome = handle_block(_request(8304, reason="stop this"))
+        assert not outcome.primary_success
+        assert outcome.error.code == "claim_held"
+        blocked, reason = _flags(test_db, 8304)[1:3]
+        assert (blocked, reason) == (False, None)

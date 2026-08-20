@@ -51,15 +51,18 @@ USAGE_BY_FUNCTION_ID: Dict[str, str] = {
 
 _CLAIM_NOTE = """
 Claim behavior (identical for all four flag verbs)
-  These commands need no work claim on the item, and never acquire,
-  steal, or release one. A flag verb is coordination *about* an item
-  rather than a change *to* it: the write moves the item on the board
-  and in dispatch routing while leaving its lifecycle status, spec, and
-  plan untouched. Requiring a claim would also refuse the verb in its
-  main case, because an operator reaches for freeze or block precisely
-  when another session is holding the item. Content and lifecycle
-  writes (`yoke items scalar update`, `yoke lifecycle transition`)
-  still require the claim.
+  The work claim still governs the write; you just do not write the
+  acquire/release steps yourself. The command checks for you:
+
+    * nobody holds the item -> it takes the claim, applies the write,
+      then releases the claim it took;
+    * you already hold it -> it proceeds and leaves your claim alone,
+      so the claim survives the call;
+    * someone else holds it -> it refuses, naming the holding session.
+      Nothing is written and no claim is taken from its holder.
+
+  There is no override flag. A refusal means another session is live on
+  that item, which is a coordination question rather than a CLI one.
 
 Frozen items
   Block and unblock work on a frozen item. The frozen guard on
