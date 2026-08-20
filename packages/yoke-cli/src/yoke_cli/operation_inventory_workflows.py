@@ -17,6 +17,7 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke workflow execution-instruction create", "workflow.execution_instruction"),
     _w("yoke workflow execution-instruction update", "workflow.execution_instruction"),
     _w("yoke workflow execution-instruction set-scope", "workflow.execution_instruction"),
+    _w("yoke workflow execution-instruction resolve", "workflow.execution_instruction"),
     _w("yoke workflow execution-instruction list", "workflow.execution_instruction"),
     _w("yoke workflow execution-instruction delete", "workflow.execution_instruction"),
 )

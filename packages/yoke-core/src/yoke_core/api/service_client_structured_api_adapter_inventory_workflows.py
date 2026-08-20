@@ -112,6 +112,14 @@ WORKFLOW_ADAPTERS = [
         notes="Replaces the instruction's workflow and project bindings.",
     ),
     read_entry(
+        function_id="workflow.execution_instruction.resolve",
+        cli_invocation=(
+            "yoke workflow execution-instruction resolve "
+            "--workflow W --project P [--json]"
+        ),
+        notes="Only instructions matching the named workflow and project.",
+    ),
+    read_entry(
         function_id="workflow.execution_instruction.list",
         cli_invocation="yoke workflow execution-instruction list [--json]",
         notes="Every instruction with its workflow/project scope.",

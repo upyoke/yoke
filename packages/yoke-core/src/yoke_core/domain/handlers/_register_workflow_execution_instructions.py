@@ -1,7 +1,7 @@
 """Handler registrations for ``workflow.execution_instruction.*``.
 
 Operator-authored execution instructions scoped by workflow and project:
-``create``, ``update``, ``set_scope``, ``list``, and ``delete``.
+``create``, ``update``, ``set_scope``, ``resolve``, ``list``, and ``delete``.
 """
 from __future__ import annotations
 

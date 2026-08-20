@@ -69,6 +69,15 @@ _recommendation=$(echo "$_simulation_gaps" | grep '^- Recommendation:' | sed 's/
 
 Print: `Simulation found WARNING/NOTE gaps but Simulator recommends PROCEED. Filing follow-up work items.`
 
+The target `_project` and `issue` workflow are now fixed. Before finalizing any
+gap title or spec, call the registered
+`workflow.execution_instruction.resolve` read and apply every returned
+instruction:
+
+```bash
+yoke workflow execution-instruction resolve --workflow issue --project "$_project"
+```
+
 For each `### GAP #N:` block in `_simulation_gaps`:
 1. Extract: title, severity, category, tasks involved, "what happens", root cause, fix guidance.
 2. Map priority: `[WARNING]` → `medium`, `[NOTE]` → `low`.
