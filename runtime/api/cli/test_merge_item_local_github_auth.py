@@ -17,6 +17,9 @@ from yoke_contracts.github_app_installation_permissions import (
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_core.domain import project_github_auth as project_auth
 from yoke_core.domain import project_github_auth_tokens
+from yoke_core.domain.github_app_control_plane import (
+    GitHubAppControlPlaneConfigError,
+)
 from yoke_core.domain.github_app_dispatch_context import (
     LOCAL_API_ENDPOINT,
     LOCAL_USER_TOKEN_PROVIDER,
@@ -207,7 +210,27 @@ def test_bound_user_provider_never_reads_service_app_credentials(
     assert resolved.token_source == "github_app_user"
 
 
-def test_origin_mismatch_fails_before_token_or_service_credential_lookup(
+def _machine_has_no_service_key(monkeypatch) -> None:
+    """A local machine holds no App private key, so the installation fails.
+
+    An operation the installation could perform still tries it; on this
+    machine that attempt has nothing to mint with, and the machine
+    authorization failure is the one the operator can act on.
+    """
+
+    def _no_service_credentials():
+        raise GitHubAppControlPlaneConfigError(
+            "no GitHub App private key is mounted on this machine"
+        )
+
+    monkeypatch.setattr(
+        project_github_auth_tokens,
+        "load_github_app_control_plane_config",
+        _no_service_credentials,
+    )
+
+
+def test_origin_mismatch_is_the_verdict_and_precedes_any_token_refresh(
     monkeypatch,
 ) -> None:
     _configure_https_machine(
@@ -222,11 +245,7 @@ def test_origin_mismatch_fails_before_token_or_service_credential_lookup(
     monkeypatch.setattr(
         project_auth, "read_github_state", lambda *_args, **_kw: _state()
     )
-    monkeypatch.setattr(
-        project_github_auth_tokens,
-        "load_github_app_control_plane_config",
-        lambda: pytest.fail("origin mismatch must not read service credentials"),
-    )
+    _machine_has_no_service_key(monkeypatch)
 
     with local_runtime.machine_github_user_authority():
         with pytest.raises(
@@ -248,11 +267,7 @@ def test_missing_machine_authorization_teaches_reconnect_without_service_key(
     monkeypatch.setattr(
         project_auth, "read_github_state", lambda *_args, **_kw: _state()
     )
-    monkeypatch.setattr(
-        project_github_auth_tokens,
-        "load_github_app_control_plane_config",
-        lambda: pytest.fail("missing local auth must not read service credentials"),
-    )
+    _machine_has_no_service_key(monkeypatch)
 
     with local_runtime.machine_github_user_authority():
         with pytest.raises(project_auth.UserAuthorizationUnavailable) as info:

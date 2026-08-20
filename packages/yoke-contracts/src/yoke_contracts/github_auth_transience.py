@@ -23,6 +23,10 @@ GITHUB_AUTH_READ_BACKOFF_SECONDS = (0.5, 2.0)
 GITHUB_AUTH_RETRY_RECIPE = (
     "retry the command, and run `yoke github status` if it keeps failing"
 )
+GITHUB_AUTH_STATUS_CHECK_RECIPE = (
+    "run `yoke github status`, and reconnect GitHub on this machine only if "
+    "it reports the authorization missing"
+)
 
 _CAUSE_CHAIN_LIMIT = 16
 
@@ -65,6 +69,7 @@ __all__ = [
     "GITHUB_AUTH_READ_ATTEMPTS",
     "GITHUB_AUTH_READ_BACKOFF_SECONDS",
     "GITHUB_AUTH_RETRY_RECIPE",
+    "GITHUB_AUTH_STATUS_CHECK_RECIPE",
     "TransientGitHubAuthError",
     "auth_failure_chain",
     "is_transient_auth_failure",

@@ -3,7 +3,8 @@
 Local dispatch uses a context-bound App user token. Hosted and self-hosted
 control planes mint short-lived installation tokens from global credentials.
 
-Callers name the weakest authority their operation can run under. Only an
+Callers name the weakest authority their operation can run under, and the
+project's installation is what they inherit by naming nothing. Only an
 operation attributed to a person genuinely needs the machine's user
 authorization; one the project's installation is itself authorized to perform
 should not fail merely because that machine authorization is unreadable.
@@ -13,7 +14,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
+from yoke_contracts.github_auth_transience import (
+    GITHUB_AUTH_RETRY_RECIPE,
+    GITHUB_AUTH_STATUS_CHECK_RECIPE,
+)
 from yoke_core.domain.github_app_control_plane import GitHubAppControlPlaneConfig
 from yoke_core.domain.github_app_installation_tokens import InstallationTokenCache
 from yoke_core.domain.project_github_auth_models import (
@@ -67,21 +71,24 @@ def resolve_project_github_auth(
     token_minter: TokenMinter | None = None,
     control_plane_config: GitHubAppControlPlaneConfig | None = None,
     required_permissions: Mapping[str, str] | None = None,
-    required_authority: str = GITHUB_AUTHORITY_USER,
+    required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
 ) -> ProjectGithubAuth:
     """Resolve a verified binding and the mode-appropriate bearer token.
 
     ``required_authority`` is the weakest authority that can perform the
-    caller's operation. ``GITHUB_AUTHORITY_USER`` means only the machine's App
-    user authorization will do, so an unreadable one is the answer. With
+    caller's operation, and it defaults to the weakest one there is. With
     ``GITHUB_AUTHORITY_INSTALLATION`` the project's installation is itself
-    authorized, so an unavailable user authorization falls through to an
+    authorized, so an unreadable user authorization falls through to an
     installation token instead of refusing work the binding already covers.
-    Any other value fails closed to the strict reading.
+    ``GITHUB_AUTHORITY_USER`` means the operation is attributed to a person
+    and only the machine's App user authorization will do, so an unreadable
+    one is the answer; a caller wanting that says so. Any other value fails
+    closed to the strict reading.
 
     The user-authorization failure outranks the installation one when neither
-    path produces a token: on a machine bound to user authority, reconnecting
-    is the repair, and a missing service private key is expected there.
+    path produces a token: on a machine bound to user authority, repairing
+    that read is the route back, and a missing service private key is expected
+    there.
     """
     state = read_github_state(project, db_path, conn=conn)
     if not state.has_capability:
@@ -175,6 +182,16 @@ def resolve_project_github_auth(
     return resolved
 
 
+def _installation_can_perform(required_authority: str) -> bool:
+    """Whether the project's installation is itself authorized to do the work.
+
+    Only an operation attributed to a person is beyond it. Any unrecognized
+    authority reads as that strict case, so a caller that names nothing
+    meaningful is refused rather than quietly re-attributed to the App.
+    """
+    return required_authority == GITHUB_AUTHORITY_INSTALLATION
+
+
 def _local_user_token(
     state: ProjectGithubState, required_authority: str,
 ) -> tuple[Optional[str], Optional[ProjectGithubAuthError]]:
@@ -183,11 +200,20 @@ def _local_user_token(
     Returns ``(None, None)`` when no local provider is bound at all, which is
     the server-side shape: there is no user authorization to fail, and the
     installation path is simply the only one.
+
+    The two read failures are not the same fact and are not flattened here. A
+    transient one has already spent its retry budget in
+    :func:`_read_user_token_with_retry` and leaves the stored authorization
+    standing, so it must never end work the installation can perform; a
+    genuine unavailability hands that same work over rather than refusing it.
+    Only an operation attributed to a person is refused, and there the two
+    part again: the transient verdict is retryable, the unavailable one names
+    the read that failed.
     """
     try:
         return resolve_local_user_token(state), None
-    except (UserAuthorizationUnavailable, UserAuthorizationTransient) as exc:
-        if required_authority != GITHUB_AUTHORITY_INSTALLATION:
+    except (UserAuthorizationTransient, UserAuthorizationUnavailable) as exc:
+        if not _installation_can_perform(required_authority):
             raise
         return None, exc
 
@@ -231,7 +257,7 @@ _HINT_BY_CODE: Mapping[str, str] = {
         "repair App credentials or installation access for project {project}"
     ),
     "user_authorization_unavailable": (
-        "reconnect GitHub on this machine, then retry project {project}"
+        f"{GITHUB_AUTH_STATUS_CHECK_RECIPE}, then retry project {{project}}"
     ),
     "user_authorization_transient": (
         "the machine GitHub authorization is busy or temporarily unreachable; "

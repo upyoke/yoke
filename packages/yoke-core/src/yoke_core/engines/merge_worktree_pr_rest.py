@@ -28,6 +28,7 @@ from yoke_core.domain.gh_rest_transport import (
 )
 from yoke_core.domain.merge_github_authority import MergeAuthority
 from yoke_core.domain.project_github_auth import (
+    GITHUB_AUTHORITY_INSTALLATION,
     GITHUB_AUTHORITY_USER,
     ProjectGithubAuth,
     ProjectGithubAuthError,
@@ -91,13 +92,13 @@ def resolve_auth(
     ctx: MergeContext,
     *,
     required_permissions: Mapping[str, str],
-    required_authority: str = GITHUB_AUTHORITY_USER,
+    required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
 ) -> ProjectGithubAuth:
     """Resolve the project's GitHub auth bundle for this merge.
 
     ``required_authority`` is the weakest authority that can perform the
-    operation, so a read the installation is authorized to serve is not
-    refused for want of a machine user authorization.
+    operation and defaults to the installation, so work the installation is
+    authorized to do is never refused for want of a machine user token.
 
     Raises :class:`AuthResolutionFailed` carrying a repair hint when the
     project capability / secret / repo metadata is incomplete.
@@ -172,7 +173,11 @@ def create_pr(
     the base. Hard failures return with ``error_detail`` populated and
     ``pr_url``/``pr_num`` empty.
     """
-    auth = resolve_auth(ctx, required_permissions=PR_WRITE)
+    # A pull request is attributed to whoever opened it, and one opened by the
+    # App is a different actor on the repository.
+    auth = resolve_auth(
+        ctx, required_permissions=PR_WRITE, required_authority=GITHUB_AUTHORITY_USER,
+    )
     owner, repo = gh_rest_transport.split_repo(auth.repo)
     req = RestRequest(
         method="POST",
@@ -277,8 +282,13 @@ def merge_pr(ctx: MergeContext, pr_num: str) -> PrMergeResult:
     Returns :class:`PrMergeResult`. ``success=True`` for a merged PR,
     ``success=False`` with ``error_detail`` for terminal failures.
     """
+    # Landing is the approval-bearing act, and a repository ruleset may count
+    # the App differently from the operator for the approvals it requires.
     try:
-        auth = resolve_auth(ctx, required_permissions=CONTENTS_WRITE)
+        auth = resolve_auth(
+            ctx, required_permissions=CONTENTS_WRITE,
+            required_authority=GITHUB_AUTHORITY_USER,
+        )
     except AuthResolutionFailed as exc:
         return PrMergeResult(
             success=False, error_detail=f"auth resolution failed: {exc}"

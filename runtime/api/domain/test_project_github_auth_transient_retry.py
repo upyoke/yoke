@@ -1,15 +1,22 @@
-"""Retry-shaped machine authorization reads never prescribe a reconnect.
+"""A machine authorization read that fails does not end the work.
 
 The local user-token provider can fail because the stored authorization is
 gone, or because the read collided with a sibling process or a slow GitHub.
-Only the first earns the sign-in prescription; the second is retried and, if
-it never clears, reported as retryable.
+The second is retried and, if it never clears, reported as retryable. Neither
+one ends an operation the project's installation is itself authorized to
+perform, which is what an operation gets by naming no authority at all.
 """
 
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+
 import pytest
 
+from yoke_contracts.github_app_installation_permissions import (
+    REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS,
+)
 from yoke_contracts.github_auth_transience import (
     GITHUB_AUTH_READ_ATTEMPTS,
     TransientGitHubAuthError,
@@ -18,6 +25,8 @@ from yoke_contracts.github_auth_transience import (
 from yoke_core.domain import project_github_auth as pga
 from yoke_core.domain import project_github_auth_tokens
 from yoke_core.domain.project_github_auth_models import (
+    GITHUB_AUTHORITY_INSTALLATION,
+    GITHUB_AUTHORITY_USER,
     ProjectGithubState,
     UserAuthorizationTransient,
     UserAuthorizationUnavailable,
@@ -99,8 +108,17 @@ def test_absent_authorization_still_prescribes_a_reconnect() -> None:
     assert attempts == [1]
     assert waits == []
     assert raised.value.code == "user_authorization_unavailable"
-    assert "reconnect" in str(raised.value).lower()
+    message = str(raised.value)
+    assert "did not land" in message
+    assert "yoke github status" in message
+    assert "reconnect" in message.lower()
     assert "reconnect" in pga.repair_command_hint(raised.value, "yoke").lower()
+    # The provider's own text can carry a credential path, so it rides on the
+    # cause rather than in anything the operator is shown.
+    assert "machine GitHub App authorization is not configured" not in message
+    assert "machine GitHub App authorization is not configured" in str(
+        raised.value.__cause__
+    )
 
 
 def test_empty_token_is_an_invalid_authorization_not_a_retry() -> None:
@@ -128,3 +146,99 @@ def test_transience_is_read_through_the_raised_from_chain() -> None:
             raise RuntimeError("machine authority unavailable")
     except RuntimeError as unlinked:
         assert is_transient_auth_failure(unlinked) is False
+
+
+def _bound_state() -> ProjectGithubState:
+    return ProjectGithubState(
+        project_slug="yoke",
+        project_id=1,
+        has_capability=True,
+        binding={
+            "status": "active",
+            "github_repo": "upyoke/yoke",
+            "installation_id": "12345",
+            "repository_id": "4567",
+            "api_url": API_URL,
+        },
+        installation={
+            "status": "active",
+            "permissions": json.dumps(
+                dict(REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS)
+            ),
+            "api_url": API_URL,
+        },
+    )
+
+
+class TestAFailedReadDoesNotEndInstallationCapableWork:
+    """The closeouts and merges that hit this every day never needed a person.
+
+    Every one of them named no authority, inherited the strongest possible
+    requirement, and died on a machine token the operation had no use for.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _bound_project(self, monkeypatch):
+        monkeypatch.setattr(
+            pga, "read_github_state", lambda *_a, **_k: _bound_state(),
+        )
+        monkeypatch.setattr(
+            pga, "register_installation_token", lambda *_a, **_k: None,
+        )
+        monkeypatch.setattr(
+            pga,
+            "read_app_credentials",
+            lambda *_a, **_k: SimpleNamespace(
+                issuer="1", private_key_pem="k", api_url=API_URL,
+                private_key_file="/k.pem",
+            ),
+        )
+        monkeypatch.setattr(
+            pga,
+            "mint_bound_installation_token",
+            lambda *_a, **_k: SimpleNamespace(
+                token="ghs_installation",
+                expires_at=SimpleNamespace(isoformat=lambda: "later"),
+            ),
+        )
+
+    def _read_fails_with(self, monkeypatch, error) -> None:
+        def _refuse(state, **_kwargs):
+            raise error(state.project_slug, "the read did not land")
+
+        monkeypatch.setattr(pga, "resolve_local_user_token", _refuse)
+
+    def test_the_inherited_authority_is_the_weakest_sufficient_one(self) -> None:
+        import inspect
+
+        signature = inspect.signature(pga.resolve_project_github_auth)
+        assert (
+            signature.parameters["required_authority"].default
+            == GITHUB_AUTHORITY_INSTALLATION
+        )
+
+    @pytest.mark.parametrize(
+        "error", [UserAuthorizationTransient, UserAuthorizationUnavailable],
+    )
+    def test_a_failed_read_falls_through_to_the_installation(
+        self, monkeypatch, error,
+    ) -> None:
+        self._read_fails_with(monkeypatch, error)
+
+        resolved = pga.resolve_project_github_auth("yoke")
+
+        assert resolved.token == "ghs_installation"
+        assert resolved.token_source == GITHUB_AUTHORITY_INSTALLATION
+
+    @pytest.mark.parametrize(
+        "error", [UserAuthorizationTransient, UserAuthorizationUnavailable],
+    )
+    def test_work_attributed_to_a_person_still_refuses(
+        self, monkeypatch, error,
+    ) -> None:
+        self._read_fails_with(monkeypatch, error)
+
+        with pytest.raises(error):
+            pga.resolve_project_github_auth(
+                "yoke", required_authority=GITHUB_AUTHORITY_USER,
+            )

@@ -107,12 +107,18 @@ def apply_step_8(
     ``github_sync_degraded`` warning on the degraded path. Returns the
     underlying :class:`Step8Result` for callers that need it.
 
-    The bundled ``sync_done_item`` call covers labels + body + close in one
-    GraphQL operation, so a non-zero rc here means at least one of those
-    sub-steps failed without surfacing through the per-operation
-    ``_close_issue`` / ``_sync_body`` wrappers. Emit a structured
-    ``SyncFailed(operation="state")`` event so ``/yoke resync --fix``
-    has the same observability surface it has for the per-operation paths.
+    The bundled ``sync_done_item`` call is not one operation. It resolves the
+    authorization the closeout needs, writes the issue body through the typed
+    writer, adds and removes labels one REST call at a time, and finally
+    closes the issue — each of them able to fail while the ones before it
+    stand. A non-zero rc therefore means the closeout stopped somewhere in
+    that sequence, and everything up to that point is already applied: a
+    failure at the close leaves an issue whose body reads done while the
+    issue is still open. Resolving the authorization first removes the one
+    failure that used to open that window routinely, not the window itself.
+    Emit a structured ``SyncFailed(operation="state")`` event so
+    ``/yoke resync --fix`` has the same observability surface it has for the
+    per-operation paths.
     """
     import sys
     outcome = run_step_8(

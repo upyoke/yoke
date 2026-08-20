@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterator, Mapping
 from yoke_contracts.github_auth_transience import (
     GITHUB_AUTH_READ_ATTEMPTS,
     GITHUB_AUTH_RETRY_RECIPE,
+    GITHUB_AUTH_STATUS_CHECK_RECIPE,
     is_transient_auth_failure,
     retry_backoff_seconds,
 )
@@ -110,10 +111,17 @@ def _read_user_token_with_retry(
 ) -> str:
     """Read the bound machine token, waiting out retry-shaped failures.
 
-    Only a verifiably absent or invalid authorization earns the reconnect
-    verdict. Lock contention, an unreachable GitHub, and a single unauthorized
-    refresh are read failures against an authorization that still stands, so
-    they retry first and surface as retryable when the attempts run out.
+    Lock contention, an unreachable GitHub, and a single unauthorized refresh
+    are read failures against an authorization that still stands, so they
+    retry first and surface as retryable when the attempts run out.
+
+    Everything else names the read that failed rather than declaring the
+    authorization gone: a profile mismatch and an unreadable machine config
+    both land here while `yoke github status` still reports a connected
+    account, so the verdict points at that check instead of prescribing a
+    reconnect the operator has no reason to need. The underlying failure
+    rides on the raised-from cause rather than in the message, which is what
+    keeps a credential path out of operator-facing text.
     """
 
     attempt = 0
@@ -124,8 +132,8 @@ def _read_user_token_with_retry(
             if not is_transient_auth_failure(exc):
                 raise UserAuthorizationUnavailable(
                     state.project_slug,
-                    "local GitHub App user authorization is unavailable; "
-                    "reconnect GitHub on this machine",
+                    "reading the machine GitHub App user authorization did not "
+                    f"land; {GITHUB_AUTH_STATUS_CHECK_RECIPE}",
                 ) from exc
             attempt += 1
             if attempt >= GITHUB_AUTH_READ_ATTEMPTS:

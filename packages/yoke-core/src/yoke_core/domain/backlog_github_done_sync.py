@@ -6,6 +6,11 @@ compact-mirror budget guard catches over-budget rendered bodies before
 the REST issue-edit endpoint rejects them with ``GraphQL: Body is too
 long``. Label add/remove and the issue close call use the typed REST
 surface directly.
+
+Those are separate calls with a failure point between each, so the
+authorization every one of them needs is resolved before the first
+mutation. Resolving it partway through is what left an issue whose body
+said done while the issue itself stayed open.
 """
 
 from __future__ import annotations
@@ -140,10 +145,15 @@ def sync_done_item(
         gh_project = project or "yoke"
         if _bgs()._github_sync_skip(gh_project, "sync-done-item", conn=conn, out=stdout):
             return 0
-        if not _bgs()._github_auth_available(gh_project):
+        try:
+            auth = resolve_project_github_auth(
+                gh_project,
+                required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
+            )
+        except Exception as exc:  # noqa: BLE001
             print(
                 f"Error: project '{gh_project}' has no usable GitHub App auth "
-                "for sync-done-item",
+                f"for sync-done-item: {exc}",
                 file=stderr,
             )
             return 1
@@ -224,14 +234,6 @@ def sync_done_item(
 
         _budget.record_sync_mode(conn, int(item_pk), edit.mode)
 
-        try:
-            auth = resolve_project_github_auth(
-                gh_project,
-                required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(f"Error: auth failed mid-flow for {github_issue}: {exc}", file=stderr)
-            return 1
         target_repo = auth.repo
         if add_labels:
             try:
