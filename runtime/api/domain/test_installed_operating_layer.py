@@ -100,7 +100,7 @@ def test_project_bundle_receipt_matches_top_level_engine_release(
     monkeypatch.setattr(
         install_bundle_project,
         "_project_row",
-        lambda project_id, conn: ("sample", "Sample"),
+        lambda project_id, conn: ("sample", "Sample", "main"),
     )
     monkeypatch.setattr(install_bundle_project, "_contract_files", lambda name: [])
     monkeypatch.setattr(
