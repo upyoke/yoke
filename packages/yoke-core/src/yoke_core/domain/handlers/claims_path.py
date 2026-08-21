@@ -117,6 +117,16 @@ def handle_register(request: FunctionCallRequest) -> HandlerOutcome:
             if body.task_num is not None:
                 kwargs["task_num"] = int(body.task_num)
             claim_id = registrar(**kwargs)
+            from yoke_core.domain.path_claims_overlap_survey import (
+                describe_claim_survey_overlap,
+            )
+
+            advisory = describe_claim_survey_overlap(
+                conn,
+                claim_id=int(claim_id),
+                integration_target=integration_target,
+                candidate_item_id=int(body.item_id),
+            )
         except (ItemNotFound, ItemHasNoProject) as exc:
             return _err("item_not_found", str(exc))
         except DefaultActorUnavailable as exc:
@@ -136,7 +146,10 @@ def handle_register(request: FunctionCallRequest) -> HandlerOutcome:
             fallback = f"{type(exc).__name__}: {exc}"
             return _err("register_failed", message if message is not None else fallback)
 
-    return HandlerOutcome(result_payload={"claim_id": int(claim_id)})
+    result_payload = {"claim_id": int(claim_id)}
+    if advisory:
+        result_payload["advisory"] = advisory
+    return HandlerOutcome(result_payload=result_payload)
 
 
 def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:

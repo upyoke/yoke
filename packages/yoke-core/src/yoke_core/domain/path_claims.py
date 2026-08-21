@@ -155,18 +155,8 @@ def register(
         candidate_item_id=effective_candidate_item_id,
     )
     if classification is OverlapClassification.INCOMPATIBLE:
-        from yoke_core.domain.path_claims_overlap_survey import (
-            describe_survey_overlap,
-        )
-
         raise IncompatibleOverlap(
-            describe_survey_overlap(
-                conn,
-                target_ids=list(target_ids),
-                integration_target=integration_target,
-                candidate_item_id=effective_candidate_item_id,
-            )
-            or f"path coverage overlaps an active claim on "
+            f"path coverage overlaps an active claim on "
             f"{integration_target!r}; declare an upstream dependency or wait"
         )
 

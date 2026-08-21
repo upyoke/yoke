@@ -104,9 +104,11 @@ def _enumerate_conflicts(
     candidate_target_ids: List[int],
     integration_target: str,
 ) -> Tuple[List[int], List[str], List[str]]:
-    """Same-target non-terminal claims that share at least one target
-    (post-lineage) with the candidate. Used after classify_overlap
-    returned INCOMPATIBLE to name the actual blockers."""
+    """Name claims whose declared targets intersect candidate lineage.
+
+    Expanding only the candidate mirrors ``classify_overlap``. Expanding
+    both sides would make disjoint files collide on shared directories.
+    """
     expanded = set(expand_lineage(conn, candidate_target_ids))
     if not expanded:
         return [], [], []
@@ -129,8 +131,7 @@ def _enumerate_conflicts(
         other_id = int(row[0])
         other_item_id = row[1]
         other_targets = _fetch_claim_target_ids(conn, other_id)
-        other_expanded = set(expand_lineage(conn, other_targets))
-        shared = expanded & other_expanded
+        shared = expanded & set(other_targets)
         if not shared:
             continue
         conflicting_claim_ids.append(other_id)

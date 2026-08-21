@@ -1,18 +1,9 @@
-"""Consult recorded conflict surveys while classifying a path claim.
+"""Report recorded conflict surveys as path-claim advisories.
 
 Path-claim classification compares ``path_claim_targets`` membership, so
-it sees only work that has already registered a claim. A direct-workflow
-item that recorded a survey has declared exactly the same thing — these
-are my edit targets on this integration target — without a claim row to
-compare against, and an ordinary Issue could therefore register a claim
-straight through a live declaration and be told the surface was free.
-
-This module closes that direction. It applies the same directional rules
-the claim-pair classifier applies, at item granularity because a survey
-has no claim id: a coordination-only pair proceeds, a candidate that is
-the DEPENDENT of a serial edge serializes, a candidate that is the
-BLOCKER of one is upstream and does not wait, and an unattested overlap
-is incompatible.
+it intentionally sees only work that has reserved coverage. A recorded
+survey is weaker: it declares intent before a claim exists, so overlap is
+reported for agent judgement but never feeds the claim verdict.
 """
 
 from __future__ import annotations
@@ -25,8 +16,15 @@ from yoke_core.domain.conflict_survey_declared_paths import (
     declared_surveys,
     matching_scope,
 )
-from yoke_core.domain.path_claims_overlap import OverlapClassification
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+
+SURVEY_ADVISORY_PROCEED = (
+    "Proceed when the edits are independent; same-file collisions resolve at merge."
+)
+SURVEY_ADVISORY_YIELD = (
+    "Yield by authoring an activation dependency from this item to the other "
+    "item, dropping this claim, and re-offering the item to the engine."
+)
 
 # ``classify_overlap`` is exercised against deliberately minimal schemas
 # that carry path claims without the item columns a survey is scoped by.
@@ -121,51 +119,6 @@ def survey_overlaps(
     return matches
 
 
-def classify_survey_overlap(
-    conn: Any,
-    *,
-    target_ids: Sequence[int],
-    integration_target: str,
-    candidate_item_id: Optional[int],
-) -> OverlapClassification:
-    """Classify the candidate coverage against live declared surveys."""
-    from yoke_core.domain.path_claims_dependency_resolver_coordination import (
-        has_forward_serial_edge,
-        items_are_coordination_only,
-    )
-
-    matched_upstream = False
-    for survey, _path in survey_overlaps(
-        conn,
-        target_ids=target_ids,
-        integration_target=integration_target,
-        candidate_item_id=candidate_item_id,
-    ):
-        if items_are_coordination_only(
-            conn, item_a_id=int(candidate_item_id), item_b_id=survey.item_id,
-        ):
-            continue
-        if has_forward_serial_edge(
-            conn,
-            dependent_item_id=int(candidate_item_id),
-            blocking_item_id=survey.item_id,
-        ):
-            matched_upstream = True
-            continue
-        if has_forward_serial_edge(
-            conn,
-            dependent_item_id=survey.item_id,
-            blocking_item_id=int(candidate_item_id),
-        ):
-            continue
-        return OverlapClassification.INCOMPATIBLE
-    return (
-        OverlapClassification.SERIAL_VIA_DEPENDENCY
-        if matched_upstream
-        else OverlapClassification.NONE
-    )
-
-
 def describe_survey_overlap(
     conn: Any,
     *,
@@ -173,7 +126,7 @@ def describe_survey_overlap(
     integration_target: str,
     candidate_item_id: Optional[int],
 ) -> str:
-    """Name the surveying item and path so a refusal says which door is held."""
+    """Render live survey overlap and the two available agent routes."""
     from yoke_core.domain.project_identity import render_item_ref
 
     matches = survey_overlaps(
@@ -184,17 +137,42 @@ def describe_survey_overlap(
     )
     if not matches:
         return ""
-    survey, path = matches[0]
+    overlaps = "; ".join(
+        f"{render_item_ref(conn, survey.item_id)} ({survey.status}) on {path!r}"
+        for survey, path in matches
+    )
     return (
-        f"path coverage overlaps the recorded Conflict Survey of "
-        f"{render_item_ref(conn, survey.item_id)} on {path!r} "
-        f"({survey.status}, declared intent rather than a registered claim); "
-        "coordinate with that item, declare an upstream dependency, or wait"
+        f"survey advisory: declared paths overlap {overlaps}. "
+        f"{SURVEY_ADVISORY_PROCEED} {SURVEY_ADVISORY_YIELD}"
+    )
+
+
+def describe_claim_survey_overlap(
+    conn: Any,
+    *,
+    claim_id: int,
+    integration_target: str,
+    candidate_item_id: Optional[int],
+) -> str:
+    """Render survey overlap for one claim's declared target ids."""
+    if not _table_exists(conn, "path_claim_targets"):
+        return ""
+    rows = conn.execute(
+        f"SELECT target_id FROM path_claim_targets WHERE claim_id = {_p(conn)}",
+        (int(claim_id),),
+    ).fetchall()
+    return describe_survey_overlap(
+        conn,
+        target_ids=[int(row[0]) for row in rows],
+        integration_target=integration_target,
+        candidate_item_id=candidate_item_id,
     )
 
 
 __all__ = [
-    "classify_survey_overlap",
+    "SURVEY_ADVISORY_PROCEED",
+    "SURVEY_ADVISORY_YIELD",
+    "describe_claim_survey_overlap",
     "describe_survey_overlap",
     "survey_overlaps",
 ]

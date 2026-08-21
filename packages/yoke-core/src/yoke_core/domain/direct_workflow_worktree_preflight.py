@@ -15,6 +15,10 @@ from yoke_contracts.conflict_survey import (
     DURABLE_PENDING,
     INCOMPLETE_DURABLE_STATES,
 )
+from yoke_core.domain.path_claims_overlap_survey import (
+    SURVEY_ADVISORY_PROCEED,
+    SURVEY_ADVISORY_YIELD,
+)
 from yoke_core.domain.worktree_preflight import run_preflight
 from yoke_core.tools._source_pythonpath import (
     INSTALL_BUNDLE_SYNC_RECIPE,
@@ -189,7 +193,14 @@ def run(args: List[str]) -> int:
             "item_id": item_id,
         }))
         return 1
-    if not survey.get("clear"):
+    blockers = list(survey.get("blockers") or [])
+    survey_blockers = [
+        blocker for blocker in blockers if blocker.get("kind") == "survey_scope"
+    ]
+    hard_blockers = [
+        blocker for blocker in blockers if blocker.get("kind") != "survey_scope"
+    ]
+    if not survey.get("clear") and (not survey_blockers or hard_blockers):
         print(json.dumps({
             "ok": False,
             "block_kind": "conflict-survey-blocked",
@@ -197,9 +208,38 @@ def run(args: List[str]) -> int:
                 "Resolve the listed coordination conflict before continuing."
             ),
             "item_id": item_id,
-            "blockers": survey.get("blockers") or [],
+            "blockers": blockers,
         }))
         return 1
+
+    advisory_by_item: dict[int, dict] = {}
+    for blocker in survey_blockers:
+        owner_item_id = int(blocker["owner_item_id"])
+        advisory = advisory_by_item.setdefault(owner_item_id, {
+            "kind": "survey_scope",
+            "item_ref": f"item {owner_item_id}",
+            "status": str(blocker.get("state") or "unknown"),
+            "shared_paths": [],
+            "routes": {
+                "proceed": SURVEY_ADVISORY_PROCEED,
+                "yield": SURVEY_ADVISORY_YIELD,
+            },
+        })
+        path = str(blocker.get("path") or "")
+        if path and path not in advisory["shared_paths"]:
+            advisory["shared_paths"].append(path)
+    for owner_item_id, advisory in advisory_by_item.items():
+        other_detail = call_dispatcher(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_id=owner_item_id),
+        )
+        other_item = (other_detail.result or {}).get("item") \
+            if other_detail.success else {}
+        advisory["item_ref"] = str(
+            other_item.get("public_ref") or advisory["item_ref"]
+        )
+        advisory["shared_paths"].sort()
+    advisories = list(advisory_by_item.values())
     touch_paths = tuple(survey.get("touch_paths") or ())
     integration_target = str(survey.get("integration_target") or "main")
 
@@ -224,6 +264,8 @@ def run(args: List[str]) -> int:
         envelope["run_recipes"] = _run_recipes(
             str(envelope.get("worktree_path") or "")
         )
+    if advisories:
+        envelope["advisories"] = advisories
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0 if outcome.ok else 1
 
