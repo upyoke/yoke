@@ -31,11 +31,7 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
     try:
         import subprocess
 
-        project_id = (
-            getattr(ctx.args, "project", None)
-            or getattr(ctx, "project_id", None)
-            or "yoke"
-        )
+        project = ctx.project or "yoke"
         # Resolve the freshly-merged HEAD from the local checkout, then relay
         # the path-snapshot write so it lands on the connected control plane
         # (in-process against local Postgres, or over https server-side)
@@ -52,7 +48,7 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
             function_id="project.snapshot.ensure_at",
             target=TargetRef(kind="global"),
             payload={
-                "project": str(project_id),
+                "project": project,
                 "commit_sha": head.stdout.strip(),
             },
         )

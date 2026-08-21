@@ -74,6 +74,37 @@ class TestSnapshotEnsureRelays:
         assert calls[0]["payload"]["commit_sha"] == "abc123"
         assert calls[0]["payload"]["project"] == "yoke"
 
+    def test_cross_project_uses_resolved_checkout_and_project(self, monkeypatch):
+        calls = []
+        git_calls = []
+
+        def fake_dispatch(**kwargs):
+            calls.append(kwargs)
+            return _resp("project.snapshot.ensure_at", {"snapshot_id": 5})
+
+        def fake_git(command, **kwargs):
+            git_calls.append((command, kwargs))
+            return SimpleNamespace(returncode=0, stdout="abc123\n")
+
+        monkeypatch.setattr(post_local, "call_dispatcher", fake_dispatch)
+        monkeypatch.setattr(subprocess, "run", fake_git)
+        _no_bare_db(monkeypatch)
+
+        ctx = MergeContext(
+            args=MergeArgs(branch=TEST_ITEM_REF),
+            repo_root="/platform",
+            project="platform",
+        )
+        post_local._ensure_snapshot_for_project(ctx)
+
+        assert git_calls[0][0] == [
+            "git", "-C", "/platform", "rev-parse", "HEAD",
+        ]
+        assert calls[0]["payload"] == {
+            "project": "platform",
+            "commit_sha": "abc123",
+        }
+
     def test_no_head_skips_relay(self, monkeypatch):
         calls = []
         monkeypatch.setattr(
