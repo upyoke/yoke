@@ -36,7 +36,7 @@ has a stable slug key, its own method, instructions, and expected outcome, so
 one plan may mix command, browser, terminal, and machine proof.
 
 ```text
-yoke qa plan create <slug> --project <project> --name "<name>"
+yoke qa plan create <slug> --project <project> --environment <site>/<name> --name "<name>"
 yoke qa plan edit <slug>
 yoke qa plan get <id> --project <project>
 ```

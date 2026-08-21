@@ -8,6 +8,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_catalog_reads import (
+    PLAN_WITH_TARGET_ENVIRONMENT_SELECT,
     _attachment_rows,
     _capability_contexts,
     _outcome,
@@ -221,10 +222,7 @@ def get_plan(
     marker = _placeholder(conn)
     row = query_one(
         conn,
-        "SELECT p.*, pr.slug AS project, e.name AS target_environment "
-        "FROM qa_plans p JOIN projects pr ON pr.id=p.project_id "
-        "LEFT JOIN environments e ON e.id=p.target_environment_id "
-        f"WHERE p.id={marker}",
+        f"{PLAN_WITH_TARGET_ENVIRONMENT_SELECT} WHERE p.id={marker}",
         (int(plan_id),),
     )
     if row is None:

@@ -105,29 +105,70 @@ def eligible_plan_environment_rows(
     ]
 
 
-def resolve_plan_environment_name(
+def _rendered_candidates(rows: list[dict[str, Any]]) -> str:
+    """Render every eligible target as the SITE/NAME reference it answers to."""
+    return (
+        ", ".join(
+            sorted(f"{row['site_name']}/{row['environment_name']}" for row in rows)
+        )
+        or "(none)"
+    )
+
+
+def _default_environment_site(rows: list[dict[str, Any]]) -> str | None:
+    """Return the site an unqualified environment name resolves within.
+
+    A project reaching the shared hosted runtime resolves there, because that
+    runtime is what its QA executes against, while its own site holds deploy
+    targets under the same ``prod``/``stage`` names. Any other project resolves
+    within its single site, and one owning several needs an explicit reference.
+    """
+    for row in rows:
+        if _shared_runtime_allowed(row):
+            return str(row["site_name"])
+    sites = {str(row["site_name"]) for row in rows}
+    return sites.pop() if len(sites) == 1 else None
+
+
+def resolve_plan_environment_reference(
     conn: Any,
     *,
     plan_project_id: int,
     environment: str,
 ) -> dict[str, Any]:
-    """Resolve one readable plan environment name, refusing ambiguity."""
-    name = str(environment or "").strip()
+    """Resolve a SITE/NAME reference, an environment id, or a bare name.
+
+    Environment names are unique only inside one site, so a bare name resolves
+    within the default site rather than across every eligible site.
+    """
+    reference = str(environment or "").strip()
     rows = eligible_plan_environment_rows(
         conn, plan_project_id=int(plan_project_id),
     )
-    matches = [row for row in rows if str(row["environment_name"]) == name]
-    if len(matches) == 1:
-        return matches[0]
-    available = sorted(str(row["environment_name"]) for row in rows)
-    rendered = ", ".join(available) if available else "(none)"
-    if not matches:
+    rendered = _rendered_candidates(rows)
+    if reference.isdigit():
+        for row in rows:
+            if int(row["environment_id"]) == int(reference):
+                return row
         raise ValueError(
-            f"environment {name!r} is unavailable; registered: {rendered}"
+            f"environment id {reference} is not registered for plan project "
+            f"{plan_project_id}; registered: {rendered}"
         )
+    site, separator, name = reference.rpartition("/")
+    if not separator:
+        site = _default_environment_site(rows) or ""
+        if not site:
+            raise ValueError(
+                f"environment {reference!r} needs a SITE/NAME reference or an "
+                f"environment id for plan project {plan_project_id}; "
+                f"registered: {rendered}"
+            )
+    for row in rows:
+        if str(row["site_name"]) == site and str(row["environment_name"]) == name:
+            return row
     raise ValueError(
-        f"environment {name!r} is ambiguous for plan project {plan_project_id}; "
-        f"registered: {rendered}"
+        f"environment {site}/{name} is not registered for plan project "
+        f"{plan_project_id}; registered: {rendered}"
     )
 
 
@@ -169,7 +210,7 @@ __all__ = [
     "HOSTED_RUNTIME_NAMES",
     "eligible_plan_environment_rows",
     "normalize_runtime",
-    "resolve_plan_environment_name",
+    "resolve_plan_environment_reference",
     "require_plan_environment_access",
     "require_runtime_site_owner",
 ]

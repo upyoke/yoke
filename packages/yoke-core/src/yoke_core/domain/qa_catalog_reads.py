@@ -36,6 +36,16 @@ from yoke_core.domain.qa_execution_environment_target import (
     resolve_plan_execution_target,
 )
 
+#: Plan rows carrying a site-qualified target, because an environment name
+#: repeats across the sites one project may reach.
+PLAN_WITH_TARGET_ENVIRONMENT_SELECT = (
+    "SELECT p.*, pr.slug AS project, "
+    "s.name || '/' || e.name AS target_environment "
+    "FROM qa_plans p JOIN projects pr ON pr.id=p.project_id "
+    "LEFT JOIN environments e ON e.id=p.target_environment_id "
+    "LEFT JOIN sites s ON s.id=e.site"
+)
+
 _outcome = qa_run_outcome
 _attachment_rows = plan_attachment_rows
 
@@ -266,10 +276,7 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         params = (int(identity.id),)
     rows = query_rows(
         conn,
-        "SELECT p.*, pr.slug AS project, e.name AS target_environment "
-        "FROM qa_plans p JOIN projects pr ON pr.id=p.project_id "
-        "LEFT JOIN environments e ON e.id=p.target_environment_id "
-        f"{where} "
+        f"{PLAN_WITH_TARGET_ENVIRONMENT_SELECT} {where} "
         "ORDER BY pr.slug, p.slug",
         params,
     )

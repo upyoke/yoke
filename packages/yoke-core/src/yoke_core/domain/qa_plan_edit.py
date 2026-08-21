@@ -146,10 +146,10 @@ def edit_plan(
         raise QaPlanError(f"QA plan {project}/{slug} is retired")
     if target_environment is not None:
         from yoke_core.domain.qa_hosted_runtime_identity import (
-            resolve_plan_environment_name,
+            resolve_plan_environment_reference,
         )
         try:
-            target = resolve_plan_environment_name(
+            target = resolve_plan_environment_reference(
                 conn,
                 plan_project_id=project_id,
                 environment=target_environment,

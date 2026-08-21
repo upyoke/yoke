@@ -217,13 +217,21 @@ def _configure_plan_create(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("slug")
     parser.add_argument("--name")
     parser.add_argument("--description", default="")
-    parser.add_argument("--environment", required=True)
+    parser.add_argument(
+        "--environment",
+        required=True,
+        help=(
+            "Target environment as SITE/NAME, or an environment id. A bare "
+            "name resolves within the project's default site."
+        ),
+    )
 
 
 def qa_plan_create(args: List[str]) -> int:
     usage = (
         "yoke qa plan create SLUG --project P "
-        "--environment ENV [--name NAME] [--description TEXT] [--json]"
+        "--environment SITE/NAME|ENV_ID "
+        "[--name NAME] [--description TEXT] [--json]"
     )
     return _global(
         args,
