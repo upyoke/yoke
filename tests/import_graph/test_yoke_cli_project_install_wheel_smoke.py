@@ -252,6 +252,9 @@ class _BundleServer:
         owner = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self) -> None:  # noqa: N802
+                self.send_error(404)
+
             def do_GET(self) -> None:  # noqa: N802
                 owner.requests.append((
                     self.path, self.headers.get("Authorization", "")

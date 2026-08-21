@@ -116,6 +116,15 @@ def test_a_gateway_page_from_a_restarting_box_is_retried(monkeypatch) -> None:
     assert sleeps == [https_retry_policy.connection_backoff_seconds(0)]
 
 
+def test_connection_backoff_spans_a_container_roll() -> None:
+    delays = [
+        https_retry_policy.connection_backoff_seconds(attempt)
+        for attempt in range(https_retry_policy.CONNECTION_ATTEMPTS - 1)
+    ]
+
+    assert 90 <= sum(delays) <= 120
+
+
 def test_a_rejection_about_this_request_is_never_retried(monkeypatch) -> None:
     """401, 403 and a malformed payload are answers, not outages."""
     for status in (400, 401, 403, 422):

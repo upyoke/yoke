@@ -117,52 +117,56 @@ def test_wait_run_timeout_returns_three_and_json_state() -> None:
     assert '"message": "timeout:in_progress"' in out
 
 
-def test_wait_run_dispatch_error_stops_polling() -> None:
-    def stub_call_dispatcher(**kwargs):
-        _CALLS.append(kwargs)
-        return FunctionCallResponse(
-            success=False,
-            function=kwargs["function_id"],
-            version="v1",
-            request_id="test-request",
-            error={"code": "rest_transport_error", "message": "boom"},
-        )
-
-    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
-        with patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher), \
-                patch.object(wait_mod, "ensure_handlers_loaded"):
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                rc = cli_main([
-                    "github-actions", "wait-run", "o/r", "123",
-                    "--project", "yoke",
-                ])
-    assert rc == 1
-    assert len(_CALLS) == 1
-
-
-def test_wait_run_surfaces_a_transport_failure_instead_of_retrying_it() -> None:
-    """The wait loop no longer knows the transport error code by name.
-
-    Retrying a relay that did not answer belongs to the relay, which spends
-    its own attempt budget with backoff before saying so. A failure that
-    reaches here has already survived that, so continuing to poll would be a
-    second retry mechanism stacked on the first.
-    """
+def test_wait_run_dispatch_error_remains_pending_until_success() -> None:
     responses = iter([
         FunctionCallResponse(
             success=False,
             function="github_actions.wait_run",
             version="v1",
-            request_id="transport-failure",
-            error={"code": "https_transport_failed", "message": "502"},
+            request_id="test-request",
+            error={"code": "https_transport_failed", "message": "boom"},
         ),
-        _response("github_actions.wait_run", "success", message="unreached"),
+        _response("github_actions.wait_run", "success", message="success"),
     ])
     sleeps: List[float] = []
     ticks = iter([0, 1])
 
+    def stub_call_dispatcher(**kwargs):
+        _CALLS.append(kwargs)
+        return next(responses)
+
+    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
+        with patch.object(wait_mod, "call_dispatcher", side_effect=stub_call_dispatcher), \
+                patch.object(wait_mod, "ensure_handlers_loaded"), \
+                patch.object(wait_mod, "now", lambda: next(ticks)), \
+                patch.object(wait_mod, "sleep", sleeps.append):
+            with redirect_stdout(io.StringIO()) as out, \
+                    redirect_stderr(io.StringIO()) as err:
+                rc = cli_main([
+                    "github-actions", "wait-run", "o/r", "123",
+                    "--project", "yoke",
+                ])
+    assert rc == 0
+    assert len(_CALLS) == 2
+    assert sleeps == [wait_mod.RUN_WAIT_POLL_INTERVAL_SEC]
+    assert out.getvalue().strip() == "success"
+    assert "https_transport_failed" in err.getvalue()
+    assert "unreadable; retrying" in err.getvalue()
+
+
+def test_wait_run_unreadable_past_budget_exits_pending() -> None:
+    sleeps: List[float] = []
+    response = FunctionCallResponse(
+        success=False,
+        function="github_actions.wait_run",
+        version="v1",
+        request_id="transport-failure",
+        error={"code": "https_transport_failed", "message": "502"},
+    )
+    ticks = iter([0, 601])
+
     with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}), \
-            patch.object(wait_mod, "call_dispatcher", side_effect=lambda **_kw: next(responses)), \
+            patch.object(wait_mod, "call_dispatcher", return_value=response), \
             patch.object(wait_mod, "ensure_handlers_loaded"), \
             patch.object(wait_mod, "now", side_effect=lambda: next(ticks)), \
             patch.object(wait_mod, "sleep", side_effect=sleeps.append), \
@@ -170,11 +174,12 @@ def test_wait_run_surfaces_a_transport_failure_instead_of_retrying_it() -> None:
             redirect_stderr(io.StringIO()) as err:
         rc = cli_main([
             "github-actions", "wait-run", "o/r", "123",
-            "--project", "yoke",
+            "--timeout", "600", "--json", "--project", "yoke",
         ])
 
-    assert rc == 1
-    assert "unreached" not in out.getvalue()
+    assert rc == 3
+    assert '"success": true' in out.getvalue()
+    assert '"state": "timeout"' in out.getvalue()
     assert "https_transport_failed" in err.getvalue()
     assert sleeps == []
 
