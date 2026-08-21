@@ -1,23 +1,38 @@
-"""Path-claim registration must see a live survey's declared paths.
-
-Claim classification compares claim membership, so an item registering a
-claim was blind to a direct-workflow item that had declared the same edit
-targets without a claim of its own. Visibility now runs both ways.
-"""
+"""Survey declarations advise while registered claims keep the door lock."""
 
 from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.path_claim_task_test_support import seed_target
+from runtime.api.domain.path_claim_task_test_support import (
+    seed_item_claim,
+    seed_target,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.conflict_survey import record_conflict_survey, survey_conflicts
-from yoke_core.domain.path_claims import IncompatibleOverlap, register
-from yoke_core.domain.path_claims_overlap import OverlapClassification
-from yoke_core.domain.path_claims_overlap_survey import classify_survey_overlap
+from yoke_core.domain.path_claims import (
+    IncompatibleOverlap,
+    activate,
+    register,
+)
+from yoke_core.domain.path_claims_lineage import expand_lineage
+from yoke_core.domain.path_claims_overlap_survey import (
+    SURVEY_ADVISORY_PROCEED,
+    SURVEY_ADVISORY_YIELD,
+    describe_survey_overlap,
+    survey_overlaps,
+)
 
 SURVEYED_PATH = "src/declared_by_a_dash.py"
+
+
+@pytest.fixture(autouse=True)
+def _no_render_target_context(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_path_context.read_render_source_for",
+        lambda *_args, **_kwargs: None,
+    )
 
 
 def _seed_survey(conn, *, item_id, paths=(SURVEYED_PATH,), status=None, frozen=0):
@@ -33,160 +48,167 @@ def _seed_survey(conn, *, item_id, paths=(SURVEYED_PATH,), status=None, frozen=0
     )
 
 
-def _register_over(conn, *, item_id, path=SURVEYED_PATH):
-    insert_item(conn, id=item_id, workflow_id="issue")
+def _register(conn, *, item_id, target_id):
     return register(
         conn,
         actor_id=seed_human_actor(conn),
         integration_target="main",
-        target_ids=[seed_target(conn, item_id=item_id, path=path)],
+        target_ids=[target_id],
         item_id=item_id,
         candidate_item_id=item_id,
     )
 
 
-def _link(conn, *, dependent_item_id, blocking_item_id, gate_point, rationale):
+def _link_coordination(conn, *, candidate_item_id, blocker_item_id, path):
     conn.execute(
         "INSERT INTO item_dependencies "
         "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
         "source, rationale, created_at) "
-        "VALUES (%s, %s, %s, 'fact:merged', 'test', %s, "
+        "VALUES (%s, %s, 'coordination_only', 'compatible', 'test', %s, "
         "'2026-08-20T00:00:00Z')",
-        (dependent_item_id, blocking_item_id, gate_point, rationale),
+        (
+            candidate_item_id,
+            blocker_item_id,
+            f"decision=coordination_only. shared_paths={path}. "
+            "independence_evidence=disjoint functions",
+        ),
     )
     conn.commit()
 
 
-class TestSurveyBlocksRegistration:
-    def test_registration_over_a_declared_survey_path_is_refused(self, test_db):
-        _seed_survey(test_db, item_id=2260)
+def _set_parent(conn, *, child_id, parent_id):
+    conn.execute(
+        "UPDATE path_targets SET parent_target_id = %s WHERE id = %s",
+        (parent_id, child_id),
+    )
+    conn.commit()
 
-        with pytest.raises(IncompatibleOverlap) as refusal:
-            _register_over(test_db, item_id=2261)
 
-        message = str(refusal.value)
-        assert "Conflict Survey" in message
-        assert SURVEYED_PATH in message
-        assert "declared intent rather than a registered claim" in message
+class TestSurveyAdvisory:
+    def test_overlap_reports_routes_but_registers_and_activates(self, test_db):
+        _seed_survey(test_db, item_id=2260, status="implementing")
+        insert_item(test_db, id=2261, workflow_id="issue")
+        target_id = seed_target(test_db, item_id=2261, path=SURVEYED_PATH)
 
-    def test_disjoint_coverage_still_registers(self, test_db):
-        _seed_survey(test_db, item_id=2262)
-
-        claim_id = _register_over(
-            test_db, item_id=2263, path="src/somewhere_else.py",
-        )
-
-        assert claim_id > 0
-
-    def test_survey_on_another_integration_target_does_not_refuse(self, test_db):
-        insert_item(test_db, id=2264, workflow_id="dash")
-        record_conflict_survey(
+        advisory = describe_survey_overlap(
             test_db,
-            survey_conflicts(
-                test_db,
-                item_id=2264,
-                touch_paths=[SURVEYED_PATH],
-                integration_target="release/2026.01",
-            ),
+            target_ids=[target_id],
+            integration_target="main",
+            candidate_item_id=2261,
         )
+        claim_id = _register(test_db, item_id=2261, target_id=target_id)
+        activate(test_db, claim_id=claim_id, base_commit_sha="candidate-base")
 
-        assert _register_over(test_db, item_id=2265) > 0
+        assert "YOK-2260 (implementing)" in advisory
+        assert repr(SURVEYED_PATH) in advisory
+        assert SURVEY_ADVISORY_PROCEED in advisory
+        assert SURVEY_ADVISORY_YIELD in advisory
+        state = test_db.execute(
+            "SELECT state FROM path_claims WHERE id = %s", (claim_id,),
+        ).fetchone()[0]
+        assert state == "active"
+
+    def test_disjoint_files_under_shared_ancestors_have_no_advisory(self, test_db):
+        surveyed = "packages/yoke-core/src/surveyed.py"
+        candidate = "packages/yoke-core/src/candidate.py"
+        _seed_survey(test_db, item_id=2262, paths=(surveyed,))
+        insert_item(test_db, id=2263, workflow_id="issue")
+        root_id = seed_target(
+            test_db, item_id=2263, path="packages", kind="directory",
+        )
+        package_id = seed_target(
+            test_db,
+            item_id=2263,
+            path="packages/yoke-core",
+            kind="directory",
+        )
+        target_id = seed_target(test_db, item_id=2263, path=candidate)
+        _set_parent(test_db, child_id=package_id, parent_id=root_id)
+        _set_parent(test_db, child_id=target_id, parent_id=package_id)
+
+        assert {root_id, package_id, target_id} <= set(
+            expand_lineage(test_db, [target_id])
+        )
+        assert survey_overlaps(
+            test_db,
+            target_ids=[target_id],
+            integration_target="main",
+            candidate_item_id=2263,
+        ) == []
+        assert _register(test_db, item_id=2263, target_id=target_id) > 0
 
     def test_terminal_and_frozen_surveys_are_dormant(self, test_db):
-        _seed_survey(test_db, item_id=2266, status="done")
-        _seed_survey(test_db, item_id=2267, frozen=1, paths=("src/parked.py",))
+        _seed_survey(test_db, item_id=2264, status="done")
+        _seed_survey(test_db, item_id=2265, frozen=1)
+        insert_item(test_db, id=2266, workflow_id="issue")
+        target_id = seed_target(test_db, item_id=2266, path=SURVEYED_PATH)
 
-        assert _register_over(test_db, item_id=2268) > 0
-        assert _register_over(test_db, item_id=2269, path="src/parked.py") > 0
-
+        assert survey_overlaps(
+            test_db,
+            target_ids=[target_id],
+            integration_target="main",
+            candidate_item_id=2266,
+        ) == []
 
     def test_claim_without_an_owning_item_consults_no_survey(self, test_db):
-        """Survey coordination is item-to-item; a session claim has no side."""
-        _seed_survey(test_db, item_id=2276)
-        insert_item(test_db, id=2277, workflow_id="issue")
+        _seed_survey(test_db, item_id=2267)
+        insert_item(test_db, id=2268, workflow_id="issue")
+        target_id = seed_target(test_db, item_id=2268, path=SURVEYED_PATH)
 
-        verdict = classify_survey_overlap(
+        assert survey_overlaps(
             test_db,
-            target_ids=[seed_target(test_db, item_id=2277, path=SURVEYED_PATH)],
+            target_ids=[target_id],
             integration_target="main",
             candidate_item_id=None,
+        ) == []
+
+
+class TestClaimDoorLock:
+    def test_same_target_claim_still_blocks(self, test_db):
+        insert_item(test_db, id=2280, workflow_id="issue")
+        insert_item(test_db, id=2281, workflow_id="issue")
+        target_id = seed_target(test_db, item_id=2280, path="src/shared.py")
+        seed_item_claim(
+            test_db, item_id=2280, target_ids=(target_id,), state="active",
         )
 
-        assert verdict is OverlapClassification.NONE
+        with pytest.raises(IncompatibleOverlap, match="active claim"):
+            _register(test_db, item_id=2281, target_id=target_id)
 
-
-class TestDeclaredEdgesDecideDirection:
-    def test_coordination_only_edge_allows_registration(self, test_db):
-        _seed_survey(test_db, item_id=2270)
-        insert_item(test_db, id=2271, workflow_id="issue")
-        _link(
+    def test_coordination_only_claims_activate_in_parallel(self, test_db):
+        path = "src/coordinated.py"
+        insert_item(test_db, id=2282, workflow_id="issue")
+        insert_item(test_db, id=2283, workflow_id="issue")
+        target_id = seed_target(test_db, item_id=2282, path=path)
+        seed_item_claim(
+            test_db, item_id=2282, target_ids=(target_id,), state="active",
+        )
+        _link_coordination(
             test_db,
-            dependent_item_id=2271,
-            blocking_item_id=2270,
-            gate_point="coordination_only",
-            rationale=(
-                f"decision=coordination_only. shared_paths={SURVEYED_PATH}. "
-                "independence_evidence=disjoint functions"
-            ),
+            candidate_item_id=2283,
+            blocker_item_id=2282,
+            path=path,
         )
 
-        claim_id = register(
-            test_db,
-            actor_id=seed_human_actor(test_db),
-            integration_target="main",
-            target_ids=[seed_target(test_db, item_id=2271, path=SURVEYED_PATH)],
-            item_id=2271,
-            candidate_item_id=2271,
-        )
-
-        assert claim_id > 0
-
-    def test_candidate_as_dependent_registers_blocked(self, test_db):
-        _seed_survey(test_db, item_id=2272)
-        insert_item(test_db, id=2273, workflow_id="issue")
-        _link(
-            test_db,
-            dependent_item_id=2273,
-            blocking_item_id=2272,
-            gate_point="activation",
-            rationale="declared survey lands first",
-        )
-
-        claim_id = register(
-            test_db,
-            actor_id=seed_human_actor(test_db),
-            integration_target="main",
-            target_ids=[seed_target(test_db, item_id=2273, path=SURVEYED_PATH)],
-            item_id=2273,
-            candidate_item_id=2273,
-        )
+        claim_id = _register(test_db, item_id=2283, target_id=target_id)
+        activate(test_db, claim_id=claim_id, base_commit_sha="coordinated-base")
 
         state = test_db.execute(
             "SELECT state FROM path_claims WHERE id = %s", (claim_id,),
         ).fetchone()[0]
-        assert state == "blocked"
+        assert state == "active"
 
-    def test_candidate_as_blocker_does_not_wait(self, test_db):
-        _seed_survey(test_db, item_id=2274)
-        insert_item(test_db, id=2275, workflow_id="issue")
-        _link(
-            test_db,
-            dependent_item_id=2274,
-            blocking_item_id=2275,
-            gate_point="activation",
-            rationale="registering claim lands first",
+    def test_ancestor_claim_still_blocks_descendant_claim(self, test_db):
+        insert_item(test_db, id=2284, workflow_id="issue")
+        insert_item(test_db, id=2285, workflow_id="issue")
+        directory_id = seed_target(
+            test_db, item_id=2284, path="src", kind="directory",
+        )
+        file_id = seed_target(test_db, item_id=2285, path="src/nested.py")
+        _set_parent(test_db, child_id=file_id, parent_id=directory_id)
+        seed_item_claim(
+            test_db, item_id=2284, target_ids=(directory_id,), state="active",
         )
 
-        claim_id = register(
-            test_db,
-            actor_id=seed_human_actor(test_db),
-            integration_target="main",
-            target_ids=[seed_target(test_db, item_id=2275, path=SURVEYED_PATH)],
-            item_id=2275,
-            candidate_item_id=2275,
-        )
-
-        state = test_db.execute(
-            "SELECT state FROM path_claims WHERE id = %s", (claim_id,),
-        ).fetchone()[0]
-        assert state == "planned"
+        with pytest.raises(IncompatibleOverlap):
+            _register(test_db, item_id=2285, target_id=file_id)

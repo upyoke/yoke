@@ -188,6 +188,26 @@ class TestBlockedCrossItemOverlap:
         assert "YOK-43" in verdict.conflicting_item_ids
         assert "shared.py" in verdict.shared_paths
 
+    def test_enumeration_excludes_disjoint_file_under_shared_directory(
+        self, conn,
+    ) -> None:
+        _insert_target(conn, 90, "src")
+        _insert_target(conn, 100, "src/shared.py", parent=90)
+        _insert_target(conn, 101, "src/unrelated.py", parent=90)
+        _insert_claim(conn, 500, item_id=42, state="planned")
+        _attach_target(conn, 500, 100)
+        _insert_claim(conn, 501, item_id=43, state="planned")
+        _attach_target(conn, 501, 100)
+        _insert_claim(conn, 502, item_id=44, state="planned")
+        _attach_target(conn, 502, 101)
+
+        verdict = probe_advance_feasibility(conn, item_id=42)
+
+        assert verdict.outcome is FeasibilityOutcome.BLOCKED_CROSS_ITEM_OVERLAP
+        assert verdict.conflicting_claim_ids == [501]
+        assert verdict.conflicting_item_ids == ["YOK-43"]
+        assert verdict.shared_paths == ["src/shared.py"]
+
 
 class TestTerminalSiblingIgnored:
     """A released or cancelled sibling claim does not contribute to the

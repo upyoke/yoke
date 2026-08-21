@@ -27,11 +27,8 @@ membership only. Snapshot-based verification is out of scope here.
 * Frozen item-owned claims are dormant: register, widen, and
   activation checks skip them so parked coordination cannot block
   live work. Thaw revalidates before that authority returns.
-* Recorded conflict surveys are consulted alongside claims. A
-  direct-workflow item declares its edit targets before it owns a
-  claim, so comparing claim membership alone would let this candidate
-  register straight through a live declaration
-  (:mod:`path_claims_overlap_survey`).
+Recorded conflict surveys are advisory declarations rather than door
+locks, so they are intentionally outside this classifier.
 """
 
 from __future__ import annotations
@@ -313,21 +310,6 @@ def classify_overlap(
         ):
             continue
         return OverlapClassification.INCOMPATIBLE
-
-    from yoke_core.domain.path_claims_overlap_survey import (
-        classify_survey_overlap,
-    )
-
-    survey_verdict = classify_survey_overlap(
-        conn,
-        target_ids=expanded_targets,
-        integration_target=integration_target,
-        candidate_item_id=candidate_item_id,
-    )
-    if survey_verdict is OverlapClassification.INCOMPATIBLE:
-        return OverlapClassification.INCOMPATIBLE
-    if survey_verdict is OverlapClassification.SERIAL_VIA_DEPENDENCY:
-        matched_upstream = True
 
     if matched_upstream:
         return OverlapClassification.SERIAL_VIA_DEPENDENCY
