@@ -128,6 +128,56 @@ class TestSeveralInstancesAndBuckets:
             assert "arn:aws:s3:::example-stage/*" not in resources
 
 
+class TestTheGrantServesTheFlowItDocuments:
+    """A delivery resolves a target, runs a document, and reads the result.
+
+    Each phase is asserted by the shape of the actions it requires rather than
+    by naming them, because restating the granted list here would pass by
+    construction: the check would agree with whatever the module happened to
+    grant, including nothing. A phase left with no action at all is the defect
+    worth catching — a grant missing its target lookup denies the opening step
+    of every delivery while every other assertion still passes.
+    """
+
+    def _granted_ssm_actions(self) -> set[str]:
+        statements = policy.delivery_authority_from_config(STATED).statements(
+            region=REGION, account_id=ACCOUNT
+        )
+        actions: set[str] = set()
+        for statement in statements:
+            value = statement["Action"]
+            actions.update([value] if isinstance(value, str) else value)
+        return {action for action in actions if action.startswith("ssm:")}
+
+    def test_the_target_can_be_resolved_before_a_command_is_sent(self) -> None:
+        granted = self._granted_ssm_actions()
+        assert {a for a in granted if a.startswith("ssm:Describe")}, (
+            "the grant names no instance-describing action, so a delivery "
+            "cannot establish that its target is a managed node before "
+            "sending; the first step of the documented flow would be denied"
+        )
+
+    def test_a_document_can_be_run_on_the_resolved_target(self) -> None:
+        assert "ssm:SendCommand" in self._granted_ssm_actions()
+
+    def test_the_result_of_the_command_can_be_read_back(self) -> None:
+        granted = self._granted_ssm_actions()
+        assert {a for a in granted if "Command" in a and a != "ssm:SendCommand"}, (
+            "the grant names no command-reading action, so a delivery could "
+            "start work it can never observe the outcome of"
+        )
+
+    def test_the_flow_needs_no_mutating_action_beyond_sending(self) -> None:
+        # Everything else the grant carries is a read. If a second mutating
+        # verb appears here it widened past the flow without anyone saying so.
+        mutating = {
+            action
+            for action in self._granted_ssm_actions()
+            if not action.startswith(("ssm:Describe", "ssm:Get", "ssm:List"))
+        }
+        assert mutating == {"ssm:SendCommand"}
+
+
 class TestPartialStatementsAreRefused:
     @pytest.mark.parametrize(
         "stated",
