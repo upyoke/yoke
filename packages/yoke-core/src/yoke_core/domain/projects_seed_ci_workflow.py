@@ -6,7 +6,11 @@ of the ``seed_all`` pipeline.
 Capability shapes:
 
 * ``type = "ci_workflow_file"`` — single per-project row whose ``settings``
-  JSON carries ``{"workflow_file": "<filename>"}``.
+  JSON carries ``{"workflow_file": "<filename>"}``, optionally alongside
+  ``{"scope_workflows": {"<scope>": "<filename>"}}`` naming the workflow that
+  runs one verification scope. A scope the project maps that way is routed to
+  CI whatever the scope's default says
+  (:mod:`yoke_core.domain.qa_command_scope_routing`).
 * ``type = "merge_queue"`` — presence-only declaration that the project's
   item branches land through the GitHub merge queue (PR + merge-when-ready;
   the queue runs the CI workflow's ``merge_group`` gate on the combined
@@ -54,7 +58,20 @@ CI_WORKFLOW_CAPABILITY_TEMPLATE: tuple[str, str, str, str, str] = (
                     "required-status-check workflow (e.g. yoke-ci.yml)."
                 ),
                 "secret": False,
-            }
+            },
+            {
+                "key": "scope_workflows",
+                "description": (
+                    "Optional map of verification scope to the workflow "
+                    "filename that runs it (e.g. {\"smoke\": "
+                    "\"post-deploy.yml\"}). Naming a workflow for a scope "
+                    "declares that scope reachable from CI for this project, "
+                    "which is how a deployed-environment suite runs where its "
+                    "credentials live. Scopes left unmapped keep their "
+                    "default."
+                ),
+                "secret": False,
+            },
         ]
     ),
     "[]",
