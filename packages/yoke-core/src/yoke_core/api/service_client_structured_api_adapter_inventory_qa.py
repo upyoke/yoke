@@ -171,7 +171,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         "qa.run.add",
         "yoke qa run add --requirement-id N --performed-by WHO "
-        "[--verdict V --verdict-reason REASON]",
+        "[--verdict V --verdict-reason REASON --head-sha SHA]",
     ),
     AdapterEntry(
         "qa.run.complete",

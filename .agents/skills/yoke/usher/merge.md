@@ -210,6 +210,8 @@ fi
 
 **Engine contract:** an item branch with no epic lane is a standalone merge, and every standalone merge routes through one operation — `yoke merge item`, wrapped here as `watch_merge merge-item`. The operation declares the standalone permission to the merge engine as an argument, so the engine's refusal for an unpermitted standalone branch stays intact for every other caller. Contract and portability constraints: [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
 
+A preflight refusal whose only issues are missing or stale commit-bound verdicts is recovered inside `yoke merge item`: it re-records hand acceptance runs (or re-runs SHA-bound Command cases) against the lane head and then lands. That class is not a halt, and it must not roll the item back to `implemented` or release the claim. A later non-recoverable merge failure still follows the exit-code halt rules below.
+
 **Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it runs under the watcher wrapper. `yoke watch merge --print-streaming-pair merge-item -- PREFIX-{N} --skip-status` prints the background + Monitor pair.
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.

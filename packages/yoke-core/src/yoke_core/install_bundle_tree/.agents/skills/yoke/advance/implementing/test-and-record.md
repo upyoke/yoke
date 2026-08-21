@@ -216,7 +216,9 @@ only executable record.
 After completing implementation and running tests and verification, record a `qa_runs` entry for each requirement:
 
 ```bash
-# Record a passing run:
+# Record a passing run. The write stamps verification_tree.head_sha from the
+# claimed lane HEAD on a clean tree. --raw-result is evidence text, not identity.
+# Pass --head-sha <commit> to override. A dirty tree or missing lane refuses.
 yoke qa run add \
  --requirement-id {req-id} \
  --performed-by "agent" \
@@ -225,7 +227,7 @@ yoke qa run add \
  --raw-result "{brief evidence — e.g., 'All 12 tests pass', 'Config verified in output'}"
 ```
 
-If a test fails, record `--verdict "fail"` with brief failure details in `--raw-result`. For multi-line file evidence, summarize the relevant excerpt or attach an artifact through the registered QA artifact surfaces; the old DB-router `qa run-add --raw-result-file` helper is operator-debug only, not normal product flow. Fix the issue, then record a new passing run.
+If a test fails, record `--verdict "fail"` with brief failure details in `--raw-result`. For multi-line file evidence, summarize the relevant excerpt or attach an artifact through the registered QA artifact surfaces; the old DB-router `qa run-add --raw-result-file` helper is operator-debug only, not normal product flow. Fix the issue, then record a new passing run. Do not pass prose as the run's identity — a blocking pass without a head sha is refused at record time.
 
 ## Evidence-Based Summary Discipline
 

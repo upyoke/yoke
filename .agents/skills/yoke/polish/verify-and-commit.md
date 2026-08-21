@@ -45,6 +45,10 @@ yoke items structured-field replace "$ITEM_REF" --field test_results --stdin < C
 the registered replace adapter; do not skip this write because a later
 usher/merge gate can also read the field.
 
+A CI-routed Command case (`command-ci`) already records `verification_tree.head_sha`
+and a conclusion on the run. The polish→implemented gate accepts that recorded
+verdict without a hand-fetched pytest banner in `items.test_results`.
+
 **This is the one full execution.** Iterate with the cheap layers while
 fixing — the individual failing tests, the changed module's paths,
 `yoke watch pytest --impacted main --bounded` (which reports an unbounded

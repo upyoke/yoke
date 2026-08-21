@@ -43,7 +43,9 @@ yoke qa requirement get --requirement-id 1
 yoke qa requirement update --requirement-id 4309 --field blocking_mode --value non_blocking
 yoke qa requirement update --requirement-id 4309 --field success_policy --value "$policy_json"
 
-# Record a QA run for that item-bound review requirement
+# Record a QA run for that item-bound review requirement.
+# Blocking passes stamp verification_tree.head_sha from the claimed lane HEAD
+# (or --head-sha). --raw-result is evidence text, not the run identity.
 yoke qa run add \
  --requirement-id 1 --performed-by agent --qa-kind implementation_review --verdict pass
 
@@ -77,7 +79,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT [--source operator\|agent] [--force]` | Waive a requirement with a recorded rationale |
-| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [opts]` | Insert a run |
+| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--head-sha SHA] [opts]` | Insert a run; blocking passes are commit-bound |
 | `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status S] [opts]` | Complete a previously recorded run |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [opts]` | Record a one-shot verdict |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |

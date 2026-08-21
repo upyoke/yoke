@@ -1,14 +1,4 @@
-"""Browser-QA write handlers — qa.run.add, qa.run.complete, qa.artifact.add.
-The write half of the browser-QA function family mirrors CLI gates without
-``sys.exit`` branches: run add resolves the stored kind and event; run complete
-finalizes the same run; artifact add validates and records its typed handle.
-- ``qa.artifact.add`` mirrors
-  :func:`yoke_core.domain.qa_artifact_ops.cmd_artifact_add`.
-
-All three resolve the item through ``target.qa_requirement_id``; run-scoped
-writes additionally verify the run belongs to the targeted requirement so a
-claim on one item cannot write runs of another.
-"""
+"""Browser-QA write handlers — qa.run.add, qa.run.complete, qa.artifact.add."""
 
 from __future__ import annotations
 
@@ -68,7 +58,8 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         p = _p(conn)
         row = query_one(
             conn,
-            f"SELECT qa_kind, method_id FROM qa_requirements WHERE id = {p}",
+            f"SELECT qa_kind, method_id, blocking_mode, waived_at, item_id "
+            f"FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
         if row is None:
@@ -89,6 +80,16 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath="$.payload.performed_by",
             )
 
+        from yoke_core.domain.qa_run_commit_binding import bind_recorded_raw_result
+        raw_result, bind_error = bind_recorded_raw_result(
+            verdict=verdict, raw_result=raw_result, performed_by=performed_by,
+            blocking_mode=row["blocking_mode"], waived_at=row["waived_at"],
+            head_sha=payload.get("head_sha"), item_id=row["item_id"], conn=conn,
+        )
+        if bind_error:
+            return _error(
+                "payload_invalid", bind_error, jsonpath="$.payload.raw_result",
+            )
         now_iso = iso8601_now()
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None

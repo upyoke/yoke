@@ -1,11 +1,4 @@
-"""QA test execution and run management.
-Parent shim for the QA-execution surface. Owns ``cmd_run_add``,
-``cmd_run_complete``, ``cmd_run_list``, and ``cmd_run_get``. Other
-execution-domain commands live in sibling modules and are re-exported here so
-existing callers keep working unchanged. Event
-helpers come from ``qa_events``; vocab/formatting helpers from
-``qa_constants``.
-"""
+"""QA-execution parent shim: run add/complete/list/get and re-exports."""
 
 from __future__ import annotations
 
@@ -41,9 +34,6 @@ from yoke_core.domain.qa_run_reads import (  # noqa: F401  (re-exported)
     cmd_run_list,
 )
 
-# Backward-compat aliases for the parent shim's existing API. Internal
-# callers (and qa.py re-exports) reference the underscore-prefixed names;
-# the leaf modules expose canonical public names.
 _resolve_requirement_event_target = qa_events.resolve_requirement_event_target
 _emit_qa_requirement_event = qa_events.emit_qa_requirement_event
 _emit_qa_run_event = qa_events.emit_qa_run_event
@@ -100,6 +90,7 @@ def cmd_run_add(
     raw_result: Optional[str] = None,
     duration_ms: Optional[int] = None,
     artifact_path: Optional[str] = None,
+    head_sha: Optional[str] = None,
 ) -> int:
     """Insert a qa_run row. Returns the new ID. ``qa_kind`` defaults to
     the requirement's stored kind; a supplied mismatch is a hard error."""
@@ -131,7 +122,6 @@ def cmd_run_add(
             )
             sys.exit(2)
 
-        # Reject agent-performed ac_verification with screenshot evidence
         if performed_by == "agent" and qa_kind == "ac_verification":
             req_policy = query_scalar(
                 conn,
@@ -146,7 +136,6 @@ def cmd_run_add(
                 )
                 sys.exit(2)
 
-        # Epic-task implementation-review runs must flow through yoke-db epic review-insert
         if qa_kind == "implementation_review":
             target_row = query_one(
                 conn,
@@ -165,10 +154,12 @@ def cmd_run_add(
                         )
                         sys.exit(2)
 
+        from yoke_core.domain.qa_run_commit_binding import bind_cli_raw_result
+        raw_result = bind_cli_raw_result(
+            verdict=verdict, raw_result=raw_result, performed_by=performed_by,
+            requirement_id=requirement_id, db_path=db_path, head_sha=head_sha,
+        )
         now_iso = iso8601_now()
-        # a row is "completed" when either a verdict or a capture
-        # execution_status lands (both mark the run as finalized in some
-        # dimension). Pure QARunStarted rows stay with completed_at=NULL.
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None
         )
