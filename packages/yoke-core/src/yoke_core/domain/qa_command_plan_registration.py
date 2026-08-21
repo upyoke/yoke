@@ -6,22 +6,29 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.project_identity import row_value
-from yoke_core.domain.projects_seed_ci_workflow import CI_WORKFLOW_CAPABILITY_TYPE
 from yoke_core.domain.qa_command_invocation import (
     canonicalize_registered_command,
     rewrite_retired_watch_pytest_commands,
+)
+from yoke_core.domain.qa_command_scope_routing import (
+    capability_settings,
+    default_workflow,
+    workflow_for_scope,
 )
 from yoke_core.domain.qa_plan_attachments import set_project_default
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.workflow_registry import list_current_workflows
 
 
-#: ``ci_routable`` marks the scopes whose verification is the repository's
-#: own test suite — exactly what a CI workflow already runs on every pull
-#: request. The deployed-environment scopes are not routable: they assert
-#: against a running site behind a base URL that CI has no access to.
+#: ``ci_routable`` is the DEFAULT for each scope, not a verdict. The
+#: repository's own test suite is what a CI workflow already runs on every
+#: pull request, so those scopes default to CI. The deployed-environment
+#: scopes default to the local runner because a site behind a base URL is
+#: often unreachable from CI — but whether it actually is belongs to the
+#: project, which overrides this by naming the workflow that runs the scope
+#: (see :mod:`yoke_core.domain.qa_command_scope_routing`).
 COMMAND_SCOPE_POLICIES = {
     "quick": {
         "preferred_transition": "reviewing-implementation",
@@ -60,29 +67,27 @@ def _p(conn: Any) -> str:
 
 
 def declared_ci_workflow(conn: Any, project_id: int) -> str:
-    """Return the project's declared CI workflow filename, or empty.
+    """Return the project's default CI workflow filename, or empty.
 
-    A project that names its required-status-check workflow is telling
-    Yoke where its suite already runs; registration routes the repository
-    verification scopes there instead of onto the developer machine. A
-    project with no declaration keeps the local runner.
+    A project that names its required-status-check workflow is telling Yoke
+    where its suite already runs. This is the project-wide default; a scope
+    the project maps explicitly runs the workflow that mapping names instead
+    (see :func:`_scope_ci_workflow`). A project with no declaration keeps the
+    local runner.
     """
-    marker = _p(conn)
-    raw = query_scalar(
+    return default_workflow(capability_settings(conn, int(project_id)))
+
+
+def _scope_ci_workflow(
+    conn: Any, project_id: int, scope: str, policy: dict[str, Any]
+) -> str:
+    """The workflow that runs this scope for this project, or empty."""
+    return workflow_for_scope(
         conn,
-        "SELECT COALESCE(settings, '{}') FROM project_capabilities "
-        f"WHERE project_id={marker} AND type={marker}",
-        (int(project_id), CI_WORKFLOW_CAPABILITY_TYPE),
+        project_id=int(project_id),
+        scope=scope,
+        default_routable=bool(policy["ci_routable"]),
     )
-    if not raw:
-        return ""
-    try:
-        settings = json.loads(str(raw))
-    except (TypeError, ValueError):
-        return ""
-    if not isinstance(settings, dict):
-        return ""
-    return str(settings.get("workflow_file") or "").strip()
 
 
 def _plan_for_scope(
@@ -190,11 +195,7 @@ def ensure_registered_command_plan(
     if not command:
         raise ValueError("registered command must be non-empty")
     policy = COMMAND_SCOPE_POLICIES[scope]
-    ci_workflow = (
-        declared_ci_workflow(conn, int(project_id))
-        if policy["ci_routable"]
-        else ""
-    )
+    ci_workflow = _scope_ci_workflow(conn, int(project_id), scope, policy)
     plan_id = _plan_for_scope(
         conn,
         project_id=int(project_id),
@@ -278,11 +279,7 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             continue
         canonical = canonicalize_registered_command(command)
         project_id = int(row["project_id"])
-        ci_workflow = (
-            declared_ci_workflow(conn, project_id)
-            if policy["ci_routable"]
-            else ""
-        )
+        ci_workflow = _scope_ci_workflow(conn, project_id, scope, policy)
         desired_method = (
             CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
         )
