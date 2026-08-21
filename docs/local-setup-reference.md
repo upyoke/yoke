@@ -69,9 +69,13 @@ register the checkout in machine config, or sync snapshots. Its subprocess
 refuses source imports that originate anywhere other than the explicit
 checkout. Project contract and strategy files are preserved because their
 rendering requires project DB authority. Prior managed files outside the
-source-rendered skill, agent, and rule namespaces (for example, a
-project-specific deployment workflow) remain tracked at their prior manifest
-hash and are neither rewritten nor pruned. Legacy manifests do not record the
+source-rendered skill, agent, rule, and documentation namespaces (for example,
+a project-specific deployment workflow) remain tracked at their prior manifest
+hash and are neither rewritten nor pruned. Inside those namespaces the source
+checkout is authoritative: an installed file updates when its source changes,
+and one that has left the corpus is pruned when it still matches the prior
+manifest hash, or preserved with a warning and released from Yoke management
+when it carries local edits. Legacy manifests do not record the
 real project slug, so pass `--project-slug`; current refreshes persist it for
 later runs.
 
