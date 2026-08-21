@@ -88,17 +88,23 @@ def _seed_manifest(root: Path, project_id: int, files: dict[str, str]) -> None:
     })
 
 
-def _refresh_args(target: Path, project_id: int) -> list[str]:
+def _base_args(target: Path, project_id: int) -> list[str]:
     return [
         "project", "refresh", str(target),
         "--source-checkout", str(REPO_ROOT),
-        "--project-id", str(project_id), "--json",
+        "--project-id", str(project_id),
     ]
 
 
+def _refresh_args(target: Path, project_id: int) -> list[str]:
+    return [*_base_args(target, project_id), "--json"]
+
+
 def _apply_args(target: Path, project_id: int) -> list[str]:
-    preview = _refresh_args(target, project_id)
-    return [*preview[:-1], "--force", "--no-commit", "--apply", "--json"]
+    return [
+        *_base_args(target, project_id),
+        "--force", "--no-commit", "--apply", "--json",
+    ]
 
 
 def _installed_docs(report_paths: list[str]) -> list[str]:
@@ -169,7 +175,7 @@ def test_installed_doc_that_drifted_from_source_is_rewritten(
     capsys.readouterr()
 
     manifest = _read_manifest(target)
-    doc_rel = sorted(_installed_docs(sorted(manifest["files"])))[0]
+    doc_rel = _installed_docs(sorted(manifest["files"]))[0]
     canonical_body = (
         REPO_ROOT / DOCS_SOURCE / doc_rel[len(DOCS_PREFIX):]
     ).read_text(encoding="utf-8")
