@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Optional, Tuple
 
+from yoke_contracts import schema_authority
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import control_plane_function_degradation
@@ -60,6 +61,10 @@ def _run_streaming(
     Both stdout and stderr are merged into a single stream, printed line by
     line with *prefix*, and accumulated into a transcript for failure reports.
     The subprocess is terminated cleanly on timeout (SIGTERM then SIGKILL).
+
+    Every command reaching here is the project's own, so it runs under the
+    project's ordinary control-plane selection rather than the administering
+    authority this boundary took for its own control-plane work.
     """
     mw = _parent()
     _print = mw._print
@@ -68,6 +73,7 @@ def _run_streaming(
     proc = subprocess.Popen(
         cmd,
         cwd=str(cwd),
+        env=schema_authority.environment_without_administering_selection(),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
