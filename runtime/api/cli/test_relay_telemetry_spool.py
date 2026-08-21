@@ -34,6 +34,17 @@ def _response(*, code: str = "") -> FunctionCallResponse:
     )
 
 
+def _emit_response(*, success: bool) -> FunctionCallResponse:
+    return FunctionCallResponse(
+        success=success,
+        function="events.emit",
+        version="v1",
+        request_id="emit",
+        result={"emitted": True} if success else {},
+        error=None if success else {"code": "payload_invalid", "message": "no"},
+    )
+
+
 def _spooled() -> list[dict]:
     path = relay_telemetry.spool_path()
     if not path.exists():
@@ -137,6 +148,50 @@ def test_the_next_call_that_lands_drains_the_spool(monkeypatch) -> None:
     assert sent[0]["payload"]["context"]["attempts"] == 3
 
 
+def test_a_refused_emit_leaves_the_record_spooled(monkeypatch) -> None:
+    """The spool is worth having exactly when delivery is not working."""
+    relay_telemetry.record(
+        function_id="items.detail.get", session_id="session-a", env="prod",
+        attempts=3, succeeded=False, failure_class="https_transport_failed",
+    )
+    monkeypatch.setattr(
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        lambda **_kwargs: _emit_response(success=False),
+    )
+
+    assert relay_telemetry.flush() == 0
+
+    (entry,) = _spooled()
+    assert entry["function"] == "items.detail.get"
+    assert entry["failure_class"] == "https_transport_failed"
+
+
+def test_a_flush_that_starts_refusing_keeps_what_it_did_not_send(
+    monkeypatch,
+) -> None:
+    """Only a delivered record leaves the spool; the rest waits."""
+    for name in ("first", "second", "third"):
+        relay_telemetry.record(
+            function_id=name, session_id="session-a", env="prod",
+            attempts=3, succeeded=True, failure_class="",
+        )
+    calls = {"count": 0}
+
+    def _one_then_refuse(**_kwargs):
+        calls["count"] += 1
+        return _emit_response(success=calls["count"] == 1)
+
+    monkeypatch.setattr(
+        "yoke_cli.transport.dispatcher.call_dispatcher", _one_then_refuse,
+    )
+
+    assert relay_telemetry.flush() == 1
+    assert [entry["function"] for entry in _spooled()] == ["second", "third"]
+    # This runs inline on a real caller's call, so the queue behind a
+    # refusal is not spent on a relay that has just refused.
+    assert calls["count"] == 2
+
+
 def test_flushing_does_not_flush_itself(monkeypatch) -> None:
     """Emitting goes back through the relay whose success triggered this."""
     depth = {"max": 0, "now": 0}
@@ -172,6 +227,25 @@ def test_the_spool_stops_growing_when_nothing_ever_lands() -> None:
             failure_class="https_transport_failed",
         )
 
+    assert len(_spooled()) == relay_telemetry.SPOOL_MAX_RECORDS
+
+
+def test_records_coming_back_from_a_refused_flush_stay_bounded(
+    monkeypatch,
+) -> None:
+    """Returning records to the spool is capped like writing new ones."""
+    for index in range(relay_telemetry.SPOOL_MAX_RECORDS):
+        relay_telemetry.record(
+            function_id=f"items.get.{index}", session_id="session-a",
+            env="prod", attempts=3, succeeded=False,
+            failure_class="https_transport_failed",
+        )
+    monkeypatch.setattr(
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        lambda **_kwargs: _emit_response(success=False),
+    )
+
+    assert relay_telemetry.flush() == 0
     assert len(_spooled()) == relay_telemetry.SPOOL_MAX_RECORDS
 
 
