@@ -64,8 +64,10 @@ class TestExactResourceScoping:
         )
 
     def test_send_command_names_the_stated_documents_and_nothing_else(self) -> None:
+        # ``AWS-RunShellScript`` is AWS-owned, so the ARN the service evaluates
+        # carries no account; the ownership rule has its own class below.
         assert self._by_sid("RunDeliveryDocuments")["Resource"] == [
-            f"arn:aws:ssm:{REGION}:{ACCOUNT}:document/AWS-RunShellScript"
+            f"arn:aws:ssm:{REGION}::document/AWS-RunShellScript"
         ]
 
     def test_artifact_access_is_bound_to_the_stated_prefixes(self) -> None:
@@ -126,6 +128,48 @@ class TestSeveralInstancesAndBuckets:
             resources = [resources] if isinstance(resources, str) else resources
             assert "arn:aws:s3:::example-prod/*" not in resources
             assert "arn:aws:s3:::example-stage/*" not in resources
+
+
+class TestDocumentArnsAreTheOnesSystemsManagerEvaluates:
+    """The document resource is pinned literally, for both ownerships.
+
+    A resource that differs from the evaluated ARN by one empty field denies
+    every send while reading as correct, and the denial names the resource the
+    caller wanted rather than the one granted. Rebuilding the expectation from
+    the same format the module uses would agree with whatever it rendered, so
+    the literal strings are the assertion.
+    """
+
+    def _document_resources(self, documents: list[str]) -> list[str]:
+        statements = policy.ssm_delivery_statements(
+            region="us-east-1",
+            account_id="123456789012",
+            instance_tags={"project": "example"},
+            documents=documents,
+        )
+        return next(s for s in statements if s["Sid"] == "RunDeliveryDocuments")[
+            "Resource"
+        ]
+
+    def test_an_aws_owned_document_is_granted_without_an_account(self) -> None:
+        assert self._document_resources(["AWS-RunShellScript"]) == [
+            "arn:aws:ssm:us-east-1::document/AWS-RunShellScript"
+        ]
+
+    def test_a_customer_owned_document_is_granted_with_the_project_account(
+        self,
+    ) -> None:
+        assert self._document_resources(["example-prepare-box"]) == [
+            "arn:aws:ssm:us-east-1:123456789012:document/example-prepare-box"
+        ]
+
+    def test_both_ownerships_may_be_stated_together(self) -> None:
+        assert self._document_resources(
+            ["example-prepare-box", "AWS-RunShellScript"]
+        ) == [
+            "arn:aws:ssm:us-east-1::document/AWS-RunShellScript",
+            "arn:aws:ssm:us-east-1:123456789012:document/example-prepare-box",
+        ]
 
 
 class TestTheGrantServesTheFlowItDocuments:
