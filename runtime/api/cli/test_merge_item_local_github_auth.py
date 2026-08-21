@@ -130,10 +130,30 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
         "access_token",
         token_loader,
     )
+    claim_calls: list[dict[str, object]] = []
+
+    def claim_lookup(**kwargs):
+        assert os.environ.get(ENV_OVERRIDE) == "prod"
+        claim_calls.append(kwargs)
+        return SimpleNamespace(
+            success=True,
+            result={
+                "holder": {
+                    "item_id": 42,
+                    "session_id": "session-1",
+                }
+            },
+            error=None,
+        )
+
+    monkeypatch.setattr(local_runtime, "call_dispatcher", claim_lookup)
 
     def child_main(argv):
-        assert argv == ["YOK-42"]
+        assert argv == ["YOK-42", "--session-id", "session-1"]
         assert os.environ.get(ENV_OVERRIDE) == "prod-db-admin"
+        from yoke_core.domain import standalone_item_merge_recovery as recovery
+
+        assert recovery.claim_error(42, "session-1") == ""
         endpoint = LOCAL_API_ENDPOINT.get()
         provider = LOCAL_USER_TOKEN_PROVIDER.get()
         assert endpoint is not None
@@ -152,7 +172,8 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
 
-    assert local_runtime.run(["YOK-42"]) == 19
+    assert local_runtime.run(["YOK-42", "--session-id", "session-1"]) == 19
+    assert claim_calls[0]["function_id"] == "claims.work.holder_get"
     assert token_calls == [
         {
             "service_api_url": "https://api.stage.upyoke.test",
