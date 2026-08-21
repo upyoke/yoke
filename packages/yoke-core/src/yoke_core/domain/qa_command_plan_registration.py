@@ -15,6 +15,7 @@ from yoke_core.domain.qa_command_invocation import (
 from yoke_core.domain.qa_command_scope_routing import (
     capability_settings,
     default_workflow,
+    scope_workflow,
     workflow_for_scope,
 )
 from yoke_core.domain.qa_plan_attachments import set_project_default
@@ -72,22 +73,10 @@ def declared_ci_workflow(conn: Any, project_id: int) -> str:
     A project that names its required-status-check workflow is telling Yoke
     where its suite already runs. This is the project-wide default; a scope
     the project maps explicitly runs the workflow that mapping names instead
-    (see :func:`_scope_ci_workflow`). A project with no declaration keeps the
-    local runner.
+    (see :mod:`yoke_core.domain.qa_command_scope_routing`). A project with no
+    declaration keeps the local runner.
     """
     return default_workflow(capability_settings(conn, int(project_id)))
-
-
-def _scope_ci_workflow(
-    conn: Any, project_id: int, scope: str, policy: dict[str, Any]
-) -> str:
-    """The workflow that runs this scope for this project, or empty."""
-    return workflow_for_scope(
-        conn,
-        project_id=int(project_id),
-        scope=scope,
-        default_routable=bool(policy["ci_routable"]),
-    )
 
 
 def _plan_for_scope(
@@ -195,7 +184,12 @@ def ensure_registered_command_plan(
     if not command:
         raise ValueError("registered command must be non-empty")
     policy = COMMAND_SCOPE_POLICIES[scope]
-    ci_workflow = _scope_ci_workflow(conn, int(project_id), scope, policy)
+    ci_workflow = workflow_for_scope(
+        conn,
+        project_id=int(project_id),
+        scope=scope,
+        default_routable=bool(policy["ci_routable"]),
+    )
     plan_id = _plan_for_scope(
         conn,
         project_id=int(project_id),
@@ -263,6 +257,10 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
     drops its declaration rebinds back to the local runner.
     """
     converged: list[dict] = []
+    # One capability read per project rather than per binding: the bindings
+    # arrive grouped by project and every scope of a project answers from the
+    # same settings document.
+    settings_by_project: dict[int, dict[str, Any]] = {}
     for row in _registered_scope_bindings(conn):
         scope = str(row["plan_slug"]).removeprefix("registered-command-")
         policy = COMMAND_SCOPE_POLICIES.get(scope)
@@ -279,7 +277,13 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             continue
         canonical = canonicalize_registered_command(command)
         project_id = int(row["project_id"])
-        ci_workflow = _scope_ci_workflow(conn, project_id, scope, policy)
+        if project_id not in settings_by_project:
+            settings_by_project[project_id] = capability_settings(conn, project_id)
+        ci_workflow = scope_workflow(
+            settings_by_project[project_id],
+            scope=scope,
+            default_routable=bool(policy["ci_routable"]),
+        )
         desired_method = (
             CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
         )

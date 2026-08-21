@@ -134,12 +134,13 @@ def rebind_unresolvable_targets(
     that runs after this still sees — and still refuses — everything it did
     before.
     """
+    from yoke_core.domain import db_backend
     from yoke_core.domain.qa_execution_environment_target import (
         canonical_target,
         target_digest,
     )
 
-    marker = "%s" if _is_postgres(conn) else "?"
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     current_json = canonical_target(execution_target)
     current_digest = target_digest(execution_target)
     rebound: list[dict[str, Any]] = []
@@ -162,8 +163,8 @@ def rebind_unresolvable_targets(
         if _requirement_has_runs(conn, requirement_id, marker):
             continue
         conn.execute(
-            "UPDATE qa_requirements SET execution_target_json=" + marker
-            + ", execution_target_digest=" + marker + " WHERE id=" + marker,
+            f"UPDATE qa_requirements SET execution_target_json={marker}, "
+            f"execution_target_digest={marker} WHERE id={marker}",
             (current_json, current_digest, requirement_id),
         )
         updated["execution_target_json"] = current_json
@@ -177,12 +178,6 @@ def _requirement_has_runs(conn: Any, requirement_id: int, marker: str) -> bool:
         (requirement_id,),
     ).fetchone()
     return row is not None
-
-
-def _is_postgres(conn: Any) -> bool:
-    from yoke_core.domain import db_backend
-
-    return db_backend.connection_is_postgres(conn)
 
 
 __all__ = [

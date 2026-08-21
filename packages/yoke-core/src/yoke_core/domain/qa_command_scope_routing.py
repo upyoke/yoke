@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.projects_seed_ci_workflow import CI_WORKFLOW_CAPABILITY_TYPE
 
@@ -44,7 +45,7 @@ def capability_settings(conn: Any, project_id: int) -> dict[str, Any]:
     One read serves both the default workflow and the per-scope map, because
     both live in the same document and every caller needs at most both.
     """
-    marker = "%s" if _is_postgres(conn) else "?"
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     raw = query_scalar(
         conn,
         "SELECT COALESCE(settings, '{}') FROM project_capabilities "
@@ -101,12 +102,6 @@ def workflow_for_scope(
         scope=scope,
         default_routable=default_routable,
     )
-
-
-def _is_postgres(conn: Any) -> bool:
-    from yoke_core.domain import db_backend
-
-    return db_backend.connection_is_postgres(conn)
 
 
 __all__ = [
