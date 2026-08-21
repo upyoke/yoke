@@ -11,6 +11,9 @@ from yoke_core.domain.qa_execution_environment_target import (
 )
 from yoke_core.domain.qa_plan_attachment_validation import validate_item_transition
 from yoke_core.domain.qa_plan_attachments import _attached_plans
+from yoke_core.domain.qa_plan_execution_target_snapshot import (
+    rebind_unresolvable_targets,
+)
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder, _plan_row
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     existing_requirement_id,
@@ -67,7 +70,15 @@ def rematerialize_for_item(
     for plan_id, attachment in attachments.items():
         plan = _plan_row(conn, plan_id)
         execution_target = resolve_plan_execution_target(conn, plan_id=plan_id)
-        plan_rows = rows_by_plan.get(plan_id, [])
+        # Before the strict reuse check, let go of any stored target the plan
+        # no longer resolves to. Rematerializing is exactly the moment a moved
+        # environment binding can be honored, because every retained row is
+        # refreshed against the current target further down.
+        plan_rows = rebind_unresolvable_targets(
+            conn,
+            rows_by_plan.get(plan_id, []),
+            execution_target=execution_target,
+        )
         require_existing_target(
             plan_rows,
             execution_target=execution_target,

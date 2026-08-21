@@ -8,6 +8,7 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     target_digest,
@@ -22,6 +23,7 @@ from yoke_core.domain.qa_plan_management import (
     create_plan,
     replace_plan_cases,
 )
+from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
 
 
 def _materialize_command_plan(conn, *, item_id: int) -> dict:
@@ -150,3 +152,91 @@ def test_fresh_target_bound_rows_start_a_durable_execution() -> None:
     assert execution["roster"][0]["requirement_id"] == (
         result["created_requirement_ids"][0]
     )
+
+
+def _move_the_plan_binding(conn, requirement_id: int) -> str:
+    """Rewrite one requirement's stored target so its plan no longer names it.
+
+    Models the real shape: the plan's environment binding moved after the
+    requirement was written, so the stored copy names a host the plan no longer
+    resolves to. Written through the same canonicalizer the product uses, so
+    the row stays internally consistent — a moved binding, not a corrupt one.
+    """
+    raw = conn.execute(
+        "SELECT execution_target_json FROM qa_requirements WHERE id=%s",
+        (requirement_id,),
+    ).fetchone()["execution_target_json"]
+    moved = json.loads(raw)
+    moved["environment"] = {"name": "a-host-the-plan-no-longer-names"}
+    conn.execute(
+        "UPDATE qa_requirements SET execution_target_json=%s,"
+        "execution_target_digest=%s WHERE id=%s",
+        (canonical_target(moved), target_digest(moved), requirement_id),
+    )
+    conn.commit()
+    return target_digest(moved)
+
+
+def _stored_digest(conn, requirement_id: int) -> str:
+    return str(conn.execute(
+        "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
+        (requirement_id,),
+    ).fetchone()["execution_target_digest"])
+
+
+def test_rematerializing_drops_a_target_the_plan_no_longer_resolves_to() -> None:
+    """AC-5: the moved binding is let go of, not carried forward."""
+    with test_database() as conn:
+        result = _materialize_command_plan(conn, item_id=825)
+        requirement_id = result["created_requirement_ids"][0]
+        current = _stored_digest(conn, requirement_id)
+        moved = _move_the_plan_binding(conn, requirement_id)
+
+        rematerialize_for_item(conn, item_id=825, transition_id="implemented")
+        after = _stored_digest(conn, requirement_id)
+
+    assert moved != current
+    assert after == current
+
+
+def test_a_requirement_with_run_evidence_keeps_its_target() -> None:
+    """The evidence clause: a verdict earned against one host is not relabelled."""
+    with test_database() as conn:
+        result = _materialize_command_plan(conn, item_id=826)
+        requirement_id = result["created_requirement_ids"][0]
+        moved = _move_the_plan_binding(conn, requirement_id)
+        conn.execute(
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, "
+            "verdict, case_outcome, created_at) VALUES (%s, 'tester', "
+            "'plan_case', 'pass', 'passed', %s)",
+            (requirement_id, iso8601_now()),
+        )
+        conn.commit()
+
+        with pytest.raises(
+            QaPlanError,
+            match="different execution target.*start a fresh",
+        ):
+            rematerialize_for_item(
+                conn, item_id=826, transition_id="implemented"
+            )
+        after = _stored_digest(conn, requirement_id)
+
+    assert after == moved
+
+
+def test_a_corrupt_target_snapshot_is_still_refused() -> None:
+    """A digest that disagrees with its own JSON is corruption, not a move."""
+    with test_database() as conn:
+        result = _materialize_command_plan(conn, item_id=827)
+        requirement_id = result["created_requirement_ids"][0]
+        conn.execute(
+            "UPDATE qa_requirements SET execution_target_digest=%s WHERE id=%s",
+            ("0" * 64, requirement_id),
+        )
+        conn.commit()
+
+        with pytest.raises(QaPlanError, match="different execution target"):
+            rematerialize_for_item(
+                conn, item_id=827, transition_id="implemented"
+            )
