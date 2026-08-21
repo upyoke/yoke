@@ -173,9 +173,10 @@ def run(argv: List[str]) -> int:
             as_json=as_json,
         )
 
-    if len(active_lanes(item)) > 1:
+    lane_error = lane_resolution_error(item)
+    if active_lanes(item) and lane_error:
         return _fail(
-            f"{item_ref}: {lane_resolution_error(item)}", as_json=as_json,
+            f"{item_ref}: {lane_error}", as_json=as_json,
         )
 
     branch = lane_branch(item, item_ref)

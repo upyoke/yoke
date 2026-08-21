@@ -216,18 +216,28 @@ For each slice:
 6. Yield on contact with registered claims. Coordinate through `Slice Log`,
    reorder work, or tighten the Blitz with complete path claims. Do not
    silently resolve another owner's semantic changes.
-7. Merge the slice through the standalone-item merge boundary, then run any
-   delivery/migration action that the slice itself requires. `--skip-status`
-   keeps the item non-terminal — a Blitz closes out only when its execution
-   document completes:
+7. When an integration lane is registered, it is the only merge source.
+   Fold completed worker commits into it with `git merge` from inside the
+   integration worktree; worker lanes keep building but never land on their
+   own. Once the integration pull request is queued, do not commit or merge
+   into that branch until it lands — a push removes it from the queue. Workers
+   may continue in their own lanes during the wait; fold that work only after
+   main fast-forwards from the completed landing.
+
+   Merge the integrated slice through the standalone-item merge boundary.
+   `--skip-status` keeps the item non-terminal — a Blitz closes out only when
+   its execution document completes:
 
    ```text
    yoke merge item ITEM --skip-status --json
    ```
 
-   The response carries the `merge_sha` for the checkpoint below. If the
-   merge released the lane, re-prepare it before the next slice with
-   `yoke direct-workflow worktree prepare ITEM --workflow blitz`.
+   The response carries the `merge_sha` for the checkpoint below. A
+   queue-declared project keeps all registered lanes until the item is done.
+   Only a project using the local merge engine needs to re-prepare the lane
+   before the next slice, because that engine's cleanup deletes the landed
+   branch. Run the delivery or migration action a slice itself requires; do
+   not add one after every landing.
 8. Append a cold-start-readable checkpoint:
 
    ```text

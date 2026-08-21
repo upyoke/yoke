@@ -9,6 +9,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.handlers import reads, shepherd_reads
 from yoke_core.domain.handlers.reads import ItemsGetResponse
 from yoke_core.domain.handlers.shepherd_reads import ShepherdDependencyListResponse
@@ -93,7 +94,15 @@ def test_blocks_edge_refuses_dependent_against_real_list_projection(test_db):
     assert all("other_item" in row and "direction" in row for row in rows)
     assert all("dependent_item" not in row for row in rows)
 
+    lane_dispatch = dispatch_for({"YOK-150": {}})
+
     def dispatch(*, function_id, target, payload=None, **_kw):
+        if function_id == DB_READ_FUNCTION_ID:
+            return lane_dispatch(
+                function_id=function_id,
+                target=target,
+                payload=payload,
+            )
         if function_id == "claims.path.list":
             return ok_response({"claims": []})
         if function_id == "items.get.run":
@@ -115,7 +124,15 @@ def test_migration_carrier_reads_fields_nested_items_get(test_db):
     insert_item(test_db, id=150, db_mutation_profile=profile)
     payloads = {}
 
+    lane_dispatch = dispatch_for({"YOK-150": {}})
+
     def dispatch(*, function_id, target, payload=None, **_kw):
+        if function_id == DB_READ_FUNCTION_ID:
+            return lane_dispatch(
+                function_id=function_id,
+                target=target,
+                payload=payload,
+            )
         item_id = int(str(target.item_ref).rsplit("-", 1)[-1])
         if function_id == "claims.path.list":
             return ok_response({"claims": []})
@@ -140,3 +157,47 @@ def test_migration_carrier_reads_fields_nested_items_get(test_db):
     verdict = evaluate_admission(candidate, context)
     assert not verdict.admit
     assert verdict.reason == REFUSE_MIGRATION_CARRIER
+
+
+def test_queued_integration_branch_resolves_to_its_registered_item():
+    fake = dispatch_for(
+        {
+            "YOK-200": {},
+            "YOK-150": {"branch": "YOK-150-integration"},
+        }
+    )
+    lane_reads = []
+
+    def dispatch(**kwargs):
+        if kwargs["function_id"] == DB_READ_FUNCTION_ID:
+            lane_reads.append(kwargs["payload"]["sql"])
+        return fake(**kwargs)
+
+    context, err = train_context(
+        dispatch,
+        "YOK-200",
+        ("YOK-150-integration",),
+        "yoke",
+    )
+
+    assert err is None
+    assert len(lane_reads) == 1
+    assert "FROM item_worktrees" in lane_reads[0]
+    assert "YOK-150-integration" in lane_reads[0]
+    assert [member.item_ref for member in context.members] == ["YOK-150"]
+    assert context.notes == ()
+
+
+def test_unmapped_queued_branch_is_skipped_with_a_named_warning():
+    context, err = train_context(
+        dispatch_for({"YOK-200": {}}),
+        "YOK-200",
+        ("outside-yoke",),
+        "yoke",
+    )
+
+    assert err is None
+    assert context.members == ()
+    assert len(context.notes) == 1
+    assert "outside-yoke" in context.notes[0]
+    assert "not a Yoke item" in context.notes[0]

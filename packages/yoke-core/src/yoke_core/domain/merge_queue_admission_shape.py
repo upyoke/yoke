@@ -15,7 +15,9 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_ref import format_item_ref
 
+from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
@@ -24,6 +26,66 @@ from yoke_core.domain.merge_queue_admission import TrainCandidate, TrainContext
 
 
 _NON_TERMINAL_CLAIM_STATES = ("planned", "active", "blocked")
+
+
+def _sql_literal(value: str) -> str:
+    """Quote one stored identifier for the read-only SQL adapter."""
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _member_item_refs(
+    dispatch: Callable[..., Any],
+    member_branches: tuple[str, ...],
+    project: Optional[str],
+) -> tuple[dict[str, str], Optional[str]]:
+    """Map queued branch names to public refs through item worktree rows."""
+    branches = tuple(dict.fromkeys(ref for ref in member_branches if ref))
+    if not branches:
+        return {}, None
+    branch_literals = ", ".join(_sql_literal(branch) for branch in branches)
+    project_clause = f" AND p.slug = {_sql_literal(project)}" if project else ""
+    sql = (
+        "SELECT iw.branch, i.id AS item_id, p.slug AS project_slug, "
+        "p.public_item_prefix, i.project_sequence "
+        "FROM item_worktrees iw "
+        "JOIN items i ON i.id = iw.item_id "
+        "JOIN projects p ON p.id = i.project_id "
+        f"WHERE iw.branch IN ({branch_literals}){project_clause} "
+        "ORDER BY iw.branch, "
+        "CASE WHEN iw.state = 'active' THEN 0 ELSE 1 END, iw.id DESC"
+    )
+    response = call_with_machine_lock_retry(
+        lambda: dispatch(
+            function_id=DB_READ_FUNCTION_ID,
+            target=TargetRef(kind="global"),
+            payload={"sql": sql, "row_cap": 100},
+        )
+    )
+    if not getattr(response, "success", False):
+        error = getattr(response, "error", None)
+        message = getattr(error, "message", None) or "lane lookup failed"
+        return {}, f"{DB_READ_FUNCTION_ID}: {message}"
+    result = getattr(response, "result", None) or {}
+    if result.get("truncated"):
+        return {}, "queued lane lookup exceeded the registered read row cap"
+    columns = list(result.get("columns") or [])
+    refs: dict[str, str] = {}
+    for row in result.get("rows") or []:
+        values = row if isinstance(row, dict) else dict(zip(columns, row))
+        branch = str(values.get("branch") or "")
+        if not branch or branch in refs:
+            continue
+        try:
+            item_id = int(values.get("item_id"))
+        except (TypeError, ValueError):
+            continue
+        refs[branch] = format_item_ref(
+            values.get("project_slug"),
+            values.get("public_item_prefix"),
+            values.get("project_sequence"),
+            item_id=item_id,
+        )
+    return refs, None
 
 
 def _dispatch_read(
@@ -105,10 +167,26 @@ def train_context(
     dispatch: Callable[..., Any],
     candidate_ref: str,
     member_refs: tuple[str, ...],
+    project: Optional[str] = "",
 ) -> tuple[Optional[TrainContext], Optional[str]]:
     """Resolve the queued members and how the candidate is linked to them."""
+    resolved_refs, resolution_err = _member_item_refs(
+        dispatch,
+        member_refs,
+        project,
+    )
+    if resolution_err:
+        return None, resolution_err
     members: list[TrainCandidate] = []
-    for ref in member_refs:
+    notes: list[str] = []
+    for branch in member_refs:
+        ref = resolved_refs.get(branch)
+        if ref is None:
+            notes.append(
+                f"queued branch {branch!r} has no registered item worktree "
+                "lane; skipped because it is not a Yoke item"
+            )
+            continue
         shape, err = candidate_shape(dispatch, ref)
         if err:
             return None, err
@@ -138,6 +216,7 @@ def train_context(
             members=tuple(members),
             coordination_attested_refs=frozenset(attested),
             serial_linked_refs=frozenset(serial),
+            notes=tuple(notes),
         ),
         None,
     )

@@ -50,6 +50,7 @@ def stalled_clock(step=40.0):
 def test_happy_path_lands_and_records(monkeypatch):
     receipt = wire_happy_path(
         monkeypatch,
+        members=(QueueMember(pr_num="9", head_ref="outside-yoke"),),
         landing_states=[UNARMED, ARMED, MERGED],
     )
     outcome = land()
@@ -62,6 +63,7 @@ def test_happy_path_lands_and_records(monkeypatch):
     # Carried out of the close-out because the caller writes it straight
     # into the item's execution evidence, which is refused without it.
     assert outcome.touched_files == ("a.py",)
+    assert any("outside-yoke" in warning for warning in outcome.warnings)
 
 
 def test_admission_refusal_is_recoverable_and_skips_pr(monkeypatch):

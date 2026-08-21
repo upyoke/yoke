@@ -1,4 +1,4 @@
-"""Standalone merge source is the unique active item worktree lane."""
+"""Standalone merge source follows the active item worktree lane topology."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from yoke_core.domain import standalone_item_merge_qa as merge_qa
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain.standalone_item_merge_lane import (
     lane_branch,
+    lane_path,
     lane_resolution_error,
     merge_source_lane,
 )
@@ -49,6 +50,25 @@ def _stale_and_live() -> list[dict]:
             "state": "active",
             "commit_sha": ACTIVE_SHA,
             "path": "/live",
+        },
+    ]
+
+
+def _worker_and_integration() -> list[dict]:
+    return [
+        {
+            "branch": "YOK-10-worker",
+            "state": "active",
+            "lane_role": "worker",
+            "commit_sha": OTHER_SHA,
+            "path": "/worker",
+        },
+        {
+            "branch": "YOK-10-integration",
+            "state": "active",
+            "lane_role": "integration",
+            "commit_sha": ACTIVE_SHA,
+            "path": "/integration",
         },
     ]
 
@@ -132,27 +152,54 @@ def test_merge_item_refuses_zero_active_lanes(
     merger.assert_not_called()
 
 
-def test_multiple_active_lanes_are_a_named_error_not_first_wins(
-    tmp_path: Path, monkeypatch, capsys,
+def test_worker_and_integration_lanes_choose_the_integration_source(
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
-    item = _item([
-        {
-            "branch": "YOK-10",
-            "state": "active",
-            "lane_role": "implementation",
-            "commit_sha": ACTIVE_SHA,
-        },
-        {
-            "branch": "YOK-10-worker",
-            "state": "active",
-            "lane_role": "worker",
-            "commit_sha": OTHER_SHA,
-        },
-    ])
+    item = _item(_worker_and_integration())
+    assert merge_source_lane(item)["branch"] == "YOK-10-integration"
+    assert lane_branch(item, "YOK-10") == "YOK-10-integration"
+    assert lane_path(item) == "/integration"
+    assert lane_resolution_error(item) == ""
+
+    merger = _wire_cli(monkeypatch, item, tmp_path)
+    assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
+    assert merger.call_args.kwargs["branch"] == "YOK-10-integration"
+    assert merger.call_args.kwargs["commit_sha"] == ACTIVE_SHA
+
+
+def test_single_worker_lane_remains_the_merge_source() -> None:
+    worker = _worker_and_integration()[0]
+    item = _item([worker])
+    assert merge_source_lane(item) is worker
+    assert lane_resolution_error(item) == ""
+
+
+def test_multiple_workers_without_integration_are_a_named_error(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    item = _item(
+        [
+            {
+                "branch": "YOK-10-worker-a",
+                "state": "active",
+                "lane_role": "worker",
+                "commit_sha": ACTIVE_SHA,
+            },
+            {
+                "branch": "YOK-10-worker-b",
+                "state": "active",
+                "lane_role": "worker",
+                "commit_sha": OTHER_SHA,
+            },
+        ]
+    )
     error = lane_resolution_error(item)
     assert error.startswith("multiple active worktree lanes")
-    assert "YOK-10 (implementation)" in error
-    assert "YOK-10-worker (worker)" in error
+    assert "YOK-10-worker-a (worker)" in error
+    assert "YOK-10-worker-b (worker)" in error
     assert merge_source_lane(item) is None
 
     merger = _wire_cli(monkeypatch, item, tmp_path)

@@ -169,15 +169,16 @@ def land_item_through_merge_queue(
     candidate, candidate_err = candidate_shape(dispatch, item_ref)
     if candidate_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=candidate_err)
-    context, context_err = train_context(dispatch, item_ref, member_refs)
+    context, context_err = train_context(dispatch, item_ref, member_refs, ctx.project)
     if context_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=context_err)
+    warnings.extend(context.notes)
     verdict = evaluate_admission(candidate, context)
     if not verdict.admit:
         return QueueLandingOutcome(
             ok=False,
             exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-            error=verdict.narrative(),
+            error=verdict.narrative(), warnings=tuple(warnings),
         )
 
     # The verification gate already opened this pull request for a project
