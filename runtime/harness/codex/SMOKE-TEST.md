@@ -226,9 +226,11 @@ python3 -m yoke_core.cli.db_router query "SELECT event_name, created_at, event_o
 **Verify:**
 - [ ] The hook command in `runtime/harness/codex/hooks.json` includes `YOKE_EXECUTOR=codex`, `YOKE_PROVIDER=openai`, and resolves to `python3 -m yoke_core.hooks Stop`
 - [ ] `yoke_core.hooks Stop` exits 0 (no chain failure surfaced back into Codex)
-- [ ] **Codex `Stop` stdout is exactly `{}`** — the JSON contract is preserved even when direct cleanup times out or the service client is missing
+- [ ] **Codex `Stop` allow stdout is exactly `{}`** — the JSON contract is preserved even when direct cleanup times out or the service client is missing
+- [ ] When the session holds a live mid-lifecycle claim and the turn is not asking the operator, the first Stop holds with `{"decision":"block","reason":...}` and records `ChainEndDeferred` with `reason=promised_work_reinjected`
+- [ ] A second eligible Stop before any completed tool use allows and records `ChainEndDeferred` with `reason=reinjection_cap_reached` and `cap_reached=true`
 - [ ] Exactly one of `HarnessSessionEnded` or `ChainEndDeferred` is present when the session was eligible for cleanup
-- [ ] `HarnessSessionHookFailed` is absent for a clean run and present only when direct cleanup cannot complete
+- [ ] `HarnessSessionHookFailed` is absent for a clean run and present only when direct cleanup cannot complete or turn evidence is unavailable
 - [ ] Caveat preserved: Codex `Stop` is a **turn-boundary cleanup**, not an archive trigger. The next prompt may legitimately re-register the same stable Codex thread/session id and clear `ended_at`.
 
 ## Automated Test Coverage

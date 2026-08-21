@@ -158,6 +158,22 @@ def evaluate_local_subset(
         payload[lint_policy.SNAPSHOT_PAYLOAD_KEY] = lint_config_snapshot
     matcher = _matcher(event_name, payload)
     payload_extra: dict[str, object] = {}
+    if event_name == "Stop":
+        from yoke_contracts.turn_end_evidence import (
+            PAYLOAD_KEY,
+            extract_turn_end_evidence,
+            read_transcript_tail,
+        )
+
+        path = payload.get("transcript_path")
+        text = (
+            read_transcript_tail(path)
+            if isinstance(path, str) and path
+            else None
+        )
+        payload_extra[PAYLOAD_KEY] = extract_turn_end_evidence(
+            payload=payload, transcript_text=text,
+        ).as_dict()
     if defer_main_commit:
         payload_extra.update(_client_scratch_root_fact())
         payload_extra.update(collect_git_commit_facts(payload))

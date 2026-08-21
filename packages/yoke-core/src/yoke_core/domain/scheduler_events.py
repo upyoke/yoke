@@ -161,20 +161,33 @@ def emit_chain_end_deferred(
     action: Optional[str] = None,
     item_id: Optional[str] = None,
     last_release_at: Optional[str] = None,
+    reason: Optional[str] = None,
+    cap_reached: Optional[bool] = None,
 ) -> None:
-    """Emit ``ChainEndDeferred`` when ``session-end-if-empty`` declines to end a session because a chainable checkpoint still has budget remaining.
+    """Emit ``ChainEndDeferred`` when a Stop path declines to end a session.
 
-    Structural counterpart to :func:`emit_chain_decline_overridden`: the
-    Stop hook routinely fires after the loop has released its work claim
-    mid-chain (at the ``handoff-to-polish`` / ``handoff-to-usher``
-    handoff) but before the next routed offer can run. The
-    cleanup helper sees ``claim_count == 0`` and previously ended the
-    session silently; this event records the structural decline so an
-    operator (or doctor) can audit chains the guard protected.
+    Checkpoint callers (``session-end-if-empty``) omit turn-gate fields.
+    The promised-work gate adds ``reason`` / ``cap_reached`` on the same
+    event so doctor resolution can tell a reinjection from a cap.
     """
     try:
         from .events import emit_event
 
+        context = {
+            "session_id": session_id,
+            "triggered_by": triggered_by,
+            "checkpoint_step": checkpoint_step,
+            "max_chain_steps": max_chain_steps,
+            "handler_outcome": handler_outcome,
+            "chainable": chainable,
+            "action": action,
+            "item_id": item_id,
+            "last_release_at": last_release_at,
+        }
+        if reason is not None:
+            context["reason"] = reason
+        if cap_reached is not None:
+            context["cap_reached"] = cap_reached
         emit_event(
             "ChainEndDeferred",
             event_kind="audit",
@@ -183,17 +196,7 @@ def emit_chain_end_deferred(
             session_id=session_id,
             item_id=item_id,
             project=project,
-            context={
-                "session_id": session_id,
-                "triggered_by": triggered_by,
-                "checkpoint_step": checkpoint_step,
-                "max_chain_steps": max_chain_steps,
-                "handler_outcome": handler_outcome,
-                "chainable": chainable,
-                "action": action,
-                "item_id": item_id,
-                "last_release_at": last_release_at,
-            },
+            context=context,
         )
     except Exception as exc:
         _logger.debug("ChainEndDeferred emission failed: %s", exc)
