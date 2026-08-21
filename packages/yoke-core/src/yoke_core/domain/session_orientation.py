@@ -1,4 +1,4 @@
-"""First-prompt orientation for a managed project's top-level session.
+"""Startup orientation for a managed project's top-level session.
 
 A Yoke source checkout renders startup orientation from its own harness
 tree. A managed project has no such tree: its hooks relay every event to
@@ -30,15 +30,19 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.hook_runner.chain_registry import (
-    SESSION_ORIENTATION_EVENT,
-)
+from yoke_contracts.hook_runner.chain_registry import session_orientation_event
 from yoke_contracts.project_contract.managed_block import (
     carries_main_agent_packet,
 )
 
 
 ORIENTATION_HEADING = "## Yoke Orientation"
+
+# Local-universe evaluation receives client-composed context through
+# ``RunControls.payload_extra``. Cursor's lifecycle dispatcher reads this
+# marker so it consumes the shared body directly only when no client body is
+# already waiting to be merged into its SessionStart reply.
+CLIENT_ORIENTATION_PRESENT_KEY = "_yoke_client_orientation_present"
 
 # Rules files the install bundle writes the managed doctrine block into.
 # Presence of the packet marker in ANY of them means the harness already
@@ -167,8 +171,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
             ORIENTATION_HEADING,
             "",
             f"Your Session: {session_id}",
-            "Do NOT infer your identity from the active sessions table "
-            "on the board.",
+            "Do NOT infer your identity from the active sessions table on the board.",
             "",
             f"Root: {root}",
         ]
@@ -185,39 +188,73 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def orientation_for_hook(event_name: str, stdin_data: str) -> Optional[str]:
-    """Return orientation context for one hook event, or ``None``.
+def orientation_for_hook(
+    event_name: str,
+    stdin_data: str,
+    *,
+    cursor: bool = False,
+) -> Optional[str]:
+    """Return orientation context for one harness startup event, or ``None``.
 
     The single entry point the hook adapter calls. Returns ``None`` — never
-    raises — for every case that is not a first prompt worth orienting:
+    raises — for every case that is not a startup event worth orienting:
     the wrong event, an unparseable payload, a non-project cwd, a session
     already oriented, or any unexpected failure. Hook delivery must not
     break the calling agent, so orientation degrades to silence.
     """
     try:
-        return _orientation_for_hook(event_name, stdin_data)
+        return _orientation_for_hook(
+            event_name,
+            stdin_data,
+            cursor=cursor,
+        )
     except Exception:
         return None
 
 
-def _orientation_for_hook(event_name: str, stdin_data: str) -> Optional[str]:
+def _orientation_for_hook(
+    event_name: str,
+    stdin_data: str,
+    *,
+    cursor: bool,
+) -> Optional[str]:
     from yoke_core.domain.json_helper import loads_text
 
-    if event_name != SESSION_ORIENTATION_EVENT:
+    if event_name != session_orientation_event(cursor=cursor):
         return None
     payload = loads_text(stdin_data) if stdin_data else None
     if not isinstance(payload, dict):
         return None
-    session_id = _text(payload, "session_id")
+    if cursor:
+        from yoke_core.hooks.cursor_payload import (
+            is_folded_cursor_session,
+            parse_payload,
+            resolve_root,
+            resolve_session_id,
+        )
+
+        payload = parse_payload(stdin_data)
+        if is_folded_cursor_session(payload):
+            return None
+        session_id = (
+            _text(payload, "container_session_id")
+            or _text(payload, "session_id")
+            or resolve_session_id(stdin_data)
+        )
+        cwd = resolve_root(stdin_data)
+        if session_id:
+            payload["session_id"] = session_id
+    else:
+        session_id = _text(payload, "session_id")
+        cwd = _text(payload, "cwd")
     if not session_id or session_id == "unknown":
         return None
-    cwd = _text(payload, "cwd")
     if not cwd:
         return None
     root = _project_root(Path(cwd))
     if root is None:
         return None
-    if not _claim_first_prompt(session_id):
+    if not _claim_session_orientation(session_id):
         return None
     return render_orientation(payload, root) or None
 
@@ -239,10 +276,10 @@ def _project_root(start: Path) -> Optional[Path]:
     return None
 
 
-def _claim_first_prompt(session_id: str) -> bool:
-    """True the first time *session_id* asks; arm the marker so it is once.
+def _claim_session_orientation(session_id: str) -> bool:
+    """True once for *session_id*; arm the startup-orientation marker.
 
-    Each hook event runs in a fresh process, so "first prompt" has to be
+    Each hook event runs in a fresh process, so "already oriented" has to be
     filesystem state. A marker that cannot be written degrades toward
     orienting again rather than never — a duplicated orientation block is
     recoverable, a session that never gets one is not.
@@ -260,6 +297,7 @@ def _claim_first_prompt(session_id: str) -> bool:
 
 
 __all__ = [
+    "CLIENT_ORIENTATION_PRESENT_KEY",
     "ORIENTATION_HEADING",
     "orientation_for_hook",
     "render_orientation",

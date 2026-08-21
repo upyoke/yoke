@@ -39,22 +39,62 @@ def quiet_side_effects(monkeypatch: pytest.MonkeyPatch) -> dict:
         calls["touch"].append((root, session_id))
         return 0
 
-    monkeypatch.setattr(
-        dispatch_cursor._lifecycle, "register", fake_register
-    )
+    monkeypatch.setattr(dispatch_cursor._lifecycle, "register", fake_register)
     monkeypatch.setattr(dispatch_cursor._lifecycle, "touch", fake_touch)
-    monkeypatch.setattr(
-        dispatch_cursor, "_render_resume_block", lambda *a, **k: ""
-    )
+    monkeypatch.setattr(dispatch_cursor, "_render_resume_block", lambda *a, **k: "")
     monkeypatch.setattr(
         dispatch_cursor,
         "_render_orientation",
-        lambda session_id, root, err: f"orientation for {session_id}\n",
+        lambda record, root, err: f"orientation for {record.payload['session_id']}\n",
     )
     monkeypatch.delenv("CURSOR_INVOKED_AS", raising=False)
     monkeypatch.delenv("CURSOR_TRANSCRIPT_PATH", raising=False)
     monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
     return calls
+
+
+def test_cursor_dispatch_consumes_the_shared_orientation_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {"session_id": MAIN}
+    monkeypatch.setattr(
+        "yoke_core.domain.session_orientation.render_orientation",
+        lambda received, root: f"shared {received['session_id']} at {root}\n",
+    )
+
+    body = dispatch_cursor._render_orientation(
+        _context(payload),
+        "/repo",
+        "",
+    )
+
+    assert body == f"shared {MAIN} at /repo\n"
+
+
+def test_cursor_dispatch_does_not_duplicate_client_orientation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from yoke_core.domain.session_orientation import (
+        CLIENT_ORIENTATION_PRESENT_KEY,
+    )
+
+    payload = {
+        "session_id": MAIN,
+        CLIENT_ORIENTATION_PRESENT_KEY: True,
+    }
+    monkeypatch.setattr(
+        "yoke_core.domain.session_orientation.render_orientation",
+        lambda *_a, **_k: pytest.fail("client already supplied orientation"),
+    )
+
+    assert (
+        dispatch_cursor._render_orientation(
+            _context(payload),
+            "/repo",
+            "",
+        )
+        == ""
+    )
 
 
 def test_session_start_wraps_orientation_in_additional_context(
@@ -110,9 +150,7 @@ def test_prompt_submit_is_silent_and_touches(
 def test_prompt_submit_reregisters_when_touch_fails(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        dispatch_cursor._lifecycle, "touch", lambda root, sid: 1
-    )
+    monkeypatch.setattr(dispatch_cursor._lifecycle, "touch", lambda root, sid: 1)
     monkeypatch.setattr(
         "yoke_core.hooks.session_dispatch._first_prompt",
         lambda session_id, codex: False,
@@ -134,9 +172,7 @@ def test_session_start_refuses_to_store_the_default_placeholder(
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     payload = {"session_id": MAIN, "model": "default"}
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "unknown", "cursor-cli")
-    ]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
 
 
 def test_model_report_registers_the_named_model(
@@ -150,9 +186,7 @@ def test_model_report_registers_the_named_model(
         "model_id": "grok-4.5",
     }
     assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
-    assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "grok-4.5", "cursor-cli")
-    ]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, "grok-4.5", "cursor-cli")]
 
 
 def test_model_report_skips_registration_without_a_real_model(
@@ -201,7 +235,8 @@ def test_prompt_submit_skips_touch_for_subagent_session(
 
 
 def test_model_report_skips_register_for_subagent_session(
-    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch,
+    quiet_side_effects: dict,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     payload = {

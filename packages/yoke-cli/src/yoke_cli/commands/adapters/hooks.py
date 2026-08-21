@@ -15,9 +15,7 @@ import sys
 from typing import List
 
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
-from yoke_contracts.hook_runner.chain_registry import (
-    SESSION_ORIENTATION_EVENT,
-)
+from yoke_contracts.hook_runner.chain_registry import session_orientation_event
 from yoke_contracts.hook_runner.config_owner import (
     CONFIG_OWNER_ENV_VAR,
 )
@@ -34,13 +32,14 @@ from yoke_cli.commands.adapters.hook_config_dedup import (
 __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
 
 
-HOOK_EVALUATE_USAGE = (
-    "yoke hook evaluate <event> [--dry-run]"
-)
+HOOK_EVALUATE_USAGE = "yoke hook evaluate <event> [--dry-run]"
 
 
 def _degrade_to_noop(
-    event_name: str, detail: str, *, cursor_invocation: bool,
+    event_name: str,
+    detail: str,
+    *,
+    cursor_invocation: bool,
 ) -> int:
     sys.stderr.write(
         f"WARNING: YOKE_HOOK_DEGRADED: yoke hook evaluate {event_name}: "
@@ -80,12 +79,13 @@ def hook_evaluate(args: List[str]) -> int:
         # payload provenance before deduplication. Read once here so an
         # ambient Cursor variable cannot disable a genuine Claude hook.
         stdin_data = sys.stdin.read()
-        cursor_invocation = (
-            cursor_invocation
-            or is_cursor_config_invocation(os.environ, stdin_data)
+        cursor_invocation = cursor_invocation or is_cursor_config_invocation(
+            os.environ, stdin_data
         )
         if should_skip_config_duplicate(
-            parsed.event_name, os.environ, stdin_data,
+            parsed.event_name,
+            os.environ,
+            stdin_data,
         ):
             stdout = cursor_lifecycle_allow_stdout(parsed.event_name)
             if stdout:
@@ -101,8 +101,7 @@ def hook_evaluate(args: List[str]) -> int:
     except ImportError as exc:
         if parsed.dry_run:
             sys.stderr.write(
-                "yoke hook evaluate --dry-run requires yoke-harness: "
-                f"{exc}\n"
+                f"yoke hook evaluate --dry-run requires yoke-harness: {exc}\n"
             )
             return 1
         return _degrade_to_noop(
@@ -130,7 +129,11 @@ def hook_evaluate(args: List[str]) -> int:
         # exactly one shot at it.
         if stdin_data is None:
             stdin_data = sys.stdin.read()
-        extra_context = _session_orientation(parsed.event_name, stdin_data)
+        extra_context = _session_orientation(
+            parsed.event_name,
+            stdin_data,
+            cursor=cursor_invocation,
+        )
         if connection is not None:
             return relay_hook_event(
                 parsed.event_name,
@@ -157,8 +160,13 @@ def hook_evaluate(args: List[str]) -> int:
     return evaluate_hook_event(parsed.event_name, dry_run=parsed.dry_run)
 
 
-def _session_orientation(event_name: str, stdin_data: str) -> str:
-    """Compose this machine's session orientation, or ``""``.
+def _session_orientation(
+    event_name: str,
+    stdin_data: str,
+    *,
+    cursor: bool,
+) -> str:
+    """Compose this machine's harness-timed session orientation, or ``""``.
 
     Reaches the engine-side composer (bundled with the core wheel) through
     the sanctioned dynamic-import lane, for the same reason the local
@@ -171,14 +179,21 @@ def _session_orientation(event_name: str, stdin_data: str) -> str:
     touching the engine at all."""
     import importlib
 
-    if event_name != SESSION_ORIENTATION_EVENT:
+    if event_name != session_orientation_event(cursor=cursor):
         return ""
     try:
         module = importlib.import_module("yoke_core.domain.session_orientation")
     except Exception:
         return ""
     try:
-        return module.orientation_for_hook(event_name, stdin_data) or ""
+        return (
+            module.orientation_for_hook(
+                event_name,
+                stdin_data,
+                cursor=cursor,
+            )
+            or ""
+        )
     except Exception:
         return ""
 
@@ -196,9 +211,7 @@ def _active_local_universe() -> bool:
     except Exception:
         return False
     transport = str(connection.get("transport") or "").strip()
-    return transport in POSTGRES_TRANSPORTS and not connection_is_prod(
-        connection
-    )
+    return transport in POSTGRES_TRANSPORTS and not connection_is_prod(connection)
 
 
 def _evaluate_local_universe_hook(
@@ -219,14 +232,15 @@ def _evaluate_local_universe_hook(
         )
         return 1
     try:
-        return int(module.evaluate_local_hook(
-            event_name,
-            stdin_data,
-            extra_context=extra_context,
-        ))
+        return int(
+            module.evaluate_local_hook(
+                event_name,
+                stdin_data,
+                extra_context=extra_context,
+            )
+        )
     except Exception as exc:
         sys.stderr.write(
-            "ERROR: YOKE_LOCAL_HOOK_ENGINE_FAILED: "
-            f"{type(exc).__name__}: {exc}\n"
+            f"ERROR: YOKE_LOCAL_HOOK_ENGINE_FAILED: {type(exc).__name__}: {exc}\n"
         )
         return 1
