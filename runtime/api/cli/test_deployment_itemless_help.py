@@ -7,7 +7,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
+from yoke_cli.commands.deployment_execute import deployment_runs_execute
 from yoke_contracts.deployment_itemless_teaching import (
+    INTERRUPTED_RUN_RECOVERY,
     ITEMLESS_RELEASE_RECIPE,
 )
 
@@ -34,6 +36,8 @@ def _assert_itemless_recipe(text: str) -> None:
     assert "CONTROL-PLANE-db-admin" in text
     # Shared constant must be the single source for the recipe body.
     assert ITEMLESS_RELEASE_RECIPE.strip() in text
+    assert INTERRUPTED_RUN_RECOVERY.strip() in text
+    assert "SAME run id" in text
 
 
 def test_resolve_target_help_teaches_verify_destination() -> None:
@@ -66,7 +70,20 @@ def test_watch_deploy_help_teaches_itemless_release_path() -> None:
     assert "resolve the flow's" in out
     assert "--project-repo-path" in out
     assert "Verify the resolved environment" in out
+    assert "correlation token" in out
     _assert_itemless_recipe(out)
+
+
+def test_execute_help_teaches_interrupted_run_redrive() -> None:
+    out = io.StringIO()
+    err = io.StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
+        rc = deployment_runs_execute(["--help"])
+    assert rc == 0, err.getvalue()
+    text = out.getvalue()
+    assert INTERRUPTED_RUN_RECOVERY.strip() in text
+    assert "SAME run id" in text
+    assert "does not fire a second release" in text
 
 
 def test_create_post_note_points_at_watch_deploy() -> None:

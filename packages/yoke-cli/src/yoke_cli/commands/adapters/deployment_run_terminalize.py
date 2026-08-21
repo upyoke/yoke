@@ -12,6 +12,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.deployment_itemless_teaching import (
+    INTERRUPTED_RUN_RECOVERY,
+)
 
 
 DEPLOYMENT_RUNS_TERMINALIZE_USAGE = (
@@ -24,9 +27,14 @@ DEPLOYMENT_RUNS_TERMINALIZE_USAGE = (
 def deployment_runs_terminalize(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs terminalize",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Close an active deployment run with a permanent audit event."
+            "Close an active deployment run with a permanent failed or "
+            "cancelled audit event. An interrupted driver whose GitHub "
+            "workflow is still running or already succeeded is recovered "
+            "by re-driving the same run, not by terminalize."
         ),
+        epilog=INTERRUPTED_RUN_RECOVERY,
     )
     parser.add_argument("run_id")
     parser.add_argument(

@@ -20,7 +20,8 @@ from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
     _dispatch_correlation_input,
     _find_existing_workflow_run as _reconcile_existing_workflow_run,
     _found_run_id,
-    _trigger_args,
+    narrate_sha_only_search_skip,
+    run_correlated_or_oneshot_trigger,
 )
 from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
     trigger_with_recovery_retries,
@@ -166,12 +167,9 @@ def _dispatch_github_actions_workflow(
         # while a later --fresh invocation gets a genuinely new dispatch.
         retrigger_scope = f"fresh:{uuid.uuid4().hex}"
     elif not reconcile_by_head_sha:
-        print("  reconcile_by_head_sha=false: skipping existing-run search")
+        narrate_sha_only_search_skip(reconcile_disabled=True)
     elif workflow_inputs:
-        print(
-            "  Stage inputs present: skipping SHA-only existing-run search, "
-            "will trigger workflow_dispatch"
-        )
+        narrate_sha_only_search_skip(reconcile_disabled=False)
     elif head_sha:
         try:
             ga_run_id, already_complete, retrigger_scope = (
@@ -185,9 +183,13 @@ def _dispatch_github_actions_workflow(
             return 1, diagnostic
 
     if not ga_run_id and not already_complete:
-        print("  No existing run found, triggering workflow_dispatch...")
-        trigger_args = _trigger_args(
-            github_repo, workflow, workflow_ref, workflow_inputs,
+        r, ga_run_id, _dispatched = run_correlated_or_oneshot_trigger(
+            github_actions=_github_actions,
+            trigger_with_retries=trigger_with_recovery_retries,
+            github_repo=github_repo,
+            workflow=workflow,
+            workflow_ref=workflow_ref,
+            workflow_inputs=workflow_inputs,
             request_id=(
                 _workflow_dispatch_request_id(
                     project, run_id, name, retrigger_scope=retrigger_scope,
@@ -196,15 +198,10 @@ def _dispatch_github_actions_workflow(
                 else ""
             ),
             correlation_input=correlation_input,
+            project=project,
+            sd=sd,
+            timeout_sec=timeout_sec,
         )
-        if correlation_input:
-            r = trigger_with_recovery_retries(
-                trigger_args, github_actions=_github_actions, project=project,
-                sd=sd, timeout_sec=timeout_sec,
-            )
-        else:
-            r = _github_actions(*trigger_args, project=project, sd=sd)
-        ga_run_id = r.stdout.strip()
         if not ga_run_id or r.returncode != 0:
             if not reconcile_by_head_sha or not head_sha or workflow_inputs:
                 diagnostic = (r.stderr or r.stdout or "").strip()

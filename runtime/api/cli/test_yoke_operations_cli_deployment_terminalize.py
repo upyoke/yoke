@@ -11,6 +11,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
 )
+from yoke_contracts.deployment_itemless_teaching import (
+    INTERRUPTED_RUN_RECOVERY,
+)
 
 
 def _run(*argv: str):
@@ -84,3 +87,15 @@ def test_terminalize_is_registered_and_inventoried():
         "deployment_runs.terminalize"
     )
     assert lookup("yoke deployment-runs terminalize").status == "wrapped"
+
+
+def test_terminalize_help_teaches_redrive_instead_of_success_disposition():
+    rc, stdout, stderr, captured = _run(
+        "deployment-runs", "terminalize", "--help",
+    )
+    assert rc == 0, stderr
+    assert captured == []
+    text = stdout + stderr
+    assert INTERRUPTED_RUN_RECOVERY.strip() in text
+    assert "re-driving the same run" in text
+    assert "failed or cancelled" in text
