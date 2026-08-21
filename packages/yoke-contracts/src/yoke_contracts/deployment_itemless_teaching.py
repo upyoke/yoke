@@ -10,6 +10,16 @@ assuming the two names match.
 
 from __future__ import annotations
 
+INTERRUPTED_RUN_RECOVERY = """\
+Interrupted driver (watch/execute died; GitHub kept going): re-drive the
+SAME run id. The dispatch correlation token reattaches to the workflow
+already started and does not fire a second release.
+  yoke --env CONTROL-PLANE-db-admin watch deploy -- RUN-ID
+`deployment-runs terminalize` only records failed or cancelled. Do not
+use it to close a run whose workflow succeeded — re-driving is the
+recovery.
+"""
+
 # Copy-pasteable recipe shown on the surfaces that own each step.
 ITEMLESS_RELEASE_RECIPE = """\
 Itemless environment release (project-generic):
@@ -30,7 +40,8 @@ Retry a failed or cancelled run without following a moving branch:
   RETRY_ID=$(yoke --env CONTROL-PLANE-db-admin deployment-runs create \
     PROJECT FLOW --retry-of FAILED_RUN_ID)
   yoke --env CONTROL-PLANE-db-admin watch deploy -- "$RETRY_ID"
-"""
+
+""" + INTERRUPTED_RUN_RECOVERY
 
 RESOLVE_TARGET_DESCRIPTION = (
     "Resolve the flow's target tier and registered environment (or honor "
@@ -57,7 +68,8 @@ WATCH_DEPLOY_DESCRIPTION = (
     "target, create the run with --project-repo-path and --source-ref, "
     "then drive it here through the control-plane db-admin connection. "
     "Verify the resolved environment rather than assuming it matches the "
-    "--env connection name."
+    "--env connection name. Re-driving the same run recovers an interrupted "
+    "driver by correlation token instead of dispatching a second release."
 )
 
 
@@ -71,6 +83,7 @@ def execute_created_run_note(authority: str, run_id: str) -> str:
 
 __all__ = [
     "CREATE_DESCRIPTION",
+    "INTERRUPTED_RUN_RECOVERY",
     "ITEMLESS_RELEASE_RECIPE",
     "RESOLVE_TARGET_DESCRIPTION",
     "WATCH_DEPLOY_DESCRIPTION",

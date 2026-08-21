@@ -14,6 +14,9 @@ import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 
+from yoke_contracts.deployment_itemless_teaching import (
+    INTERRUPTED_RUN_RECOVERY,
+)
 from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
@@ -49,7 +52,8 @@ def deployment_runs_execute(args: List[str]) -> int:
             "registered target). One control plane usually serves every "
             "target, so a stage-targeted run and a prod-targeted run are "
             "both driven through the same <control-plane>-db-admin env; the "
-            "run output names both as release_control_plane=... target=..."
+            "run output names both as release_control_plane=... target=...\n\n"
+            f"{INTERRUPTED_RUN_RECOVERY}"
         )
         return 0
     active_env = os.environ.get(ENV_OVERRIDE, "").strip()

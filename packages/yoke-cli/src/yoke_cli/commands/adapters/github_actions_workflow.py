@@ -23,6 +23,7 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.github_workflow_dispatch import (
     GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV,
     WORKFLOW_DISPATCH_CORRELATION_INPUT,
+    print_workflow_dispatch_run,
 )
 
 
@@ -49,10 +50,8 @@ GITHUB_ACTIONS_JOBS_COUNT_USAGE = (
     "--project P [--session-id S] [--json]"
 )
 
-# Point-in-time workflow state uses 0=success, 1=workflow failure/not-found,
-# 2=waiting, and 3=running. Hosted dispatcher/transport failures must stay
-# outside that state vocabulary so deploy polling retries them instead of
-# declaring that the workflow itself failed.
+# Point-in-time workflow state: 0 success, 1 failure/not-found, 2 waiting,
+# 3 running. Hosted transport failures stay at 4 so deploy polling retries.
 GITHUB_ACTIONS_OPERATION_ERROR_EXIT = 4
 
 
@@ -146,8 +145,8 @@ def github_actions_trigger(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github-actions trigger",
         description=(
-            "Dispatch one workflow and return its exact run id through the "
-            "project's GitHub App authority."
+            "Dispatch one workflow or recover the existing run for the same "
+            "--request-id. Prints the run id; stderr names recovered vs posted."
         ),
     )
     parser.add_argument("repo")
@@ -157,7 +156,7 @@ def github_actions_trigger(args: List[str]) -> int:
     parser.add_argument(
         "--request-id",
         required=True,
-        help="Stable idempotency key for one logical workflow dispatch.",
+        help="Stable idempotency key; retries recover the same GitHub run.",
     )
     parser.add_argument(
         "--correlation-input",
@@ -196,7 +195,7 @@ def github_actions_trigger(args: List[str]) -> int:
         return _emit_operation_error(response, json_mode=parsed.json_mode)
     if parsed.json_mode:
         return emit_response(response, json_mode=parsed.json_mode)
-    print(response.result.get("run_id") or "")
+    print_workflow_dispatch_run(response.result)
     return 0
 
 
