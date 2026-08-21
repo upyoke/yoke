@@ -30,6 +30,9 @@ ALWAYS_RUN_TESTS = tuple(
 )
 
 AGENT_SKILL_CONTRACT_TESTS = (
+    # Skill prose is scanned for the `yoke` commands it teaches, so editing a
+    # skill can break this check with no import edge to reveal it.
+    "runtime/api/engines/test_doctor_hc_atlas.py",
     "runtime/api/test_agent_authored_filing_instruction_resolution.py",
     "runtime/api/test_direct_workflow_skills.py",
     "runtime/api/test_file_budget_workflow_teaching.py",

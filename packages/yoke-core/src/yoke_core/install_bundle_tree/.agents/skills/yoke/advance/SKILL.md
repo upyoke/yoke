@@ -277,11 +277,13 @@ Before invocation, require `_target_skill=advance` and
 conduct PREFIX-{N}` and halt on every other mismatch; this engine is an
 skill-specific contract, not a generic transition shortcut.
 
-The skill-router internal entrypoint is the advance implementation-entry engine
-for `PREFIX-{N}`. This engine is not a product CLI wrapper; the operator surface is
-still `/yoke advance PREFIX-{N} implementation`.
+```bash
+yoke advance implementation-entry --item PREFIX-{N}
+```
 
-Pass `--no-worktree` for evidence-only items, `--force` for the operator-asserted override path, `--qa-bypass` to bypass implementation QA when truly needed. The orchestrator composes preflight gates → `worktree_preflight.run_preflight` (bundles claim + activation + worktree creation/reuse) → environment (capability-gated) → finalize (`lifecycle.transition.execute`) inside one Python process and emits one `AdvancePhaseCompleted` event per phase. It is idempotent: rerunning against an item already at `implementing` reuses the worktree, re-acquires the same claim, and skips the status flip rather than re-emitting it. On preflight failure the orchestrator stops before activation/worktree/finalize and prints the gate narrative; on `worktree-create-failed` it releases the claim with reason `worktree-create-failed`; on finalize failure the worktree and claim remain in place so the next invocation can converge. Verify the phase trail with `yoke events query --item {N} --event-name AdvancePhaseCompleted`.
+That command is how this skill enters the engine; the operator surface stays
+`/yoke advance PREFIX-{N} implementation`. Run
+`yoke advance implementation-entry --help` for the flag matrix: `--no-worktree` for evidence-only items, `--force` for the operator-asserted override path, `--qa-bypass` to bypass implementation QA when truly needed. The orchestrator composes preflight gates → `worktree_preflight.run_preflight` (bundles claim + activation + worktree creation/reuse) → environment (capability-gated) → finalize (`lifecycle.transition.execute`) inside one Python process and emits one `AdvancePhaseCompleted` event per phase. It is idempotent: rerunning against an item already at `implementing` reuses the worktree, re-acquires the same claim, and skips the status flip rather than re-emitting it. On preflight failure the orchestrator stops before activation/worktree/finalize and prints the gate narrative; on `worktree-create-failed` it releases the claim with reason `worktree-create-failed`; on finalize failure the worktree and claim remain in place so the next invocation can converge. Verify the phase trail with `yoke events query --item {N} --event-name AdvancePhaseCompleted`.
 
 Before worktree preflight or any claim/lane mutation, the orchestrator corroborates the acting session through the same canonical ambient resolver used by the PreToolUse write guards. Missing identity refuses as `write-guard-identity-unresolved`; an explicit `--session-id` must match the ambient result. Repair the harness env stamp, process-anchor registry, or Cursor conversation map and retry — never provision an unwritable lane with a guessed identity.
 

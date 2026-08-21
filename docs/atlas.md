@@ -2,16 +2,16 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-20T20:34:56Z_
+_Audit generated_at: 2026-08-21T10:57:40Z_
 
 ## 1. Summary
 
 - Function ids registered: **393**
 - Internal dispatch-only functions without CLI adapters: **78**
 - `yoke` CLI subcommands: **316** (316 carry usable `--help`)
-- Operation tracker: **294 wrapped**, 7 tool_cli, 117 permanent, 0 pending
+- Operation tracker: **294 wrapped**, 8 tool_cli, 117 permanent, 0 pending
 - Skill-body recipes: 286 total (224 template-skipped, 2 failing)
-- Recent field-notes inspected: 0
+- Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
@@ -321,6 +321,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 
 | family | yoke form | reason |
 |---|---|---|
+| tools.advance_implementation_entry | `yoke advance implementation-entry` | tool_shaped |
 | tools.release_pin | `yoke release-pin verify` | tool_shaped |
 | tools.source_dev_run | `yoke dev run` | tool_shaped |
 | tools.watch | `yoke watch doctor` | tool_shaped |
@@ -480,7 +481,14 @@ Lint modules inventoried: **2** (0 reference the field-note footer; 0 carry deni
 
 ## 7. Field-note hotspots
 
-_Field-note read failed: could not reach the HTTPS function relay endpoint after 3 attempts_
+Recent field-notes inspected: **50** (read surface: `agent_facing`).
+
+| agent | recent count |
+|---|---|
+| claude-code | 20 |
+| codex | 18 |
+| agent | 9 |
+| cursor | 3 |
 
 ## 8. Contradictions
 
@@ -491,7 +499,6 @@ _Field-note read failed: could not reach the HTTPS function relay endpoint after
 
 ## 9. Next-slice recommendation
 
-- **Field-note hotspot read through the agent-facing surface is unhealthy** _(category: teaching_drift)_
 - **2 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
 
 ## 10. Curl floor — the envelope shape under every family

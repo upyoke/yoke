@@ -12,6 +12,7 @@ from yoke_cli.operation_inventory_model import _Row, _t
 # explicit prevents a fabricated function id from making the registry look
 # wrapped when it is not.
 TOOL_CLI_ROWS: Tuple[_Row, ...] = (
+    _t("yoke advance implementation-entry", "tools.advance_implementation_entry"),
     _t("yoke dev run", "tools.source_dev_run"),
     _t("yoke watch pytest", "tools.watch"),
     _t("yoke watch doctor", "tools.watch"),
