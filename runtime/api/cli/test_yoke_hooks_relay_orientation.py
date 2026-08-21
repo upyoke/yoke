@@ -9,6 +9,10 @@ message the agent reads must not be buried under startup context.
 Shares the wire fixtures of ``test_yoke_operations_cli_hooks.py``.
 """
 
+# Imported pytest fixtures are intentionally requested by their registered
+# names in the tests below.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import io
@@ -23,6 +27,10 @@ from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
     https_connection,
     local_subset,
 )
+from yoke_contracts.hook_runner.config_owner import (
+    CURSOR_EXECUTOR_ID,
+    EXECUTOR_ENV_VAR,
+)
 from yoke_harness.hooks.decision_render import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     render_context_stdout,
@@ -35,8 +43,12 @@ ORIENTATION = "## Yoke Orientation\n\nsession s-1\n"
 
 def _server_response(**overrides) -> bytes:
     payload = {
-        "hook_schema": 1, "stdout": "", "exit_code": 0,
-        "wait_ms": 1, "degraded": [], "outcome": "completed",
+        "hook_schema": 1,
+        "stdout": "",
+        "exit_code": 0,
+        "wait_ms": 1,
+        "degraded": [],
+        "outcome": "completed",
     }
     payload.update(overrides)
     return json.dumps(payload).encode("utf-8")
@@ -47,7 +59,7 @@ def oriented(monkeypatch):
     """Make the client-side orientation composer return fixed text."""
     monkeypatch.setattr(
         "yoke_core.domain.session_orientation.orientation_for_hook",
-        lambda event_name, stdin_data: ORIENTATION,
+        lambda event_name, stdin_data, *, cursor=False: ORIENTATION,
     )
 
 
@@ -55,7 +67,8 @@ def oriented(monkeypatch):
 def prompt_submit_payload(monkeypatch):
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s-1"}'))
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay.record_session_anchor", lambda *_a, **_k: None,
+        "yoke_harness.hooks.relay.record_session_anchor",
+        lambda *_a, **_k: None,
     )
 
 
@@ -68,16 +81,20 @@ def test_blank_context_renders_no_envelope() -> None:
 
 
 def test_context_renders_the_harness_additional_context_envelope() -> None:
-    inner = json.loads(
-        render_context_stdout("orientation body", "UserPromptSubmit")
-    )[HOOK_SPECIFIC_OUTPUT_KEY]
+    inner = json.loads(render_context_stdout("orientation body", "UserPromptSubmit"))[
+        HOOK_SPECIFIC_OUTPUT_KEY
+    ]
 
     assert inner["hookEventName"] == "UserPromptSubmit"
     assert inner["additionalContext"] == "orientation body"
 
 
 def test_client_orientation_merges_into_the_allow_stdout(
-    monkeypatch, capsys, https_connection, local_subset, oriented,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    oriented,
 ) -> None:
     """Without this the top-level session of a managed project starts with
     nothing while its subagents start fully oriented."""
@@ -91,13 +108,79 @@ def test_client_orientation_merges_into_the_allow_stdout(
     out = capsys.readouterr()
     assert rc == 0
     envelope = json.loads(out.out)
-    assert "## Yoke Orientation" in (
-        envelope[HOOK_SPECIFIC_OUTPUT_KEY]["additionalContext"]
+    assert (
+        "## Yoke Orientation"
+        in (envelope[HOOK_SPECIFIC_OUTPUT_KEY]["additionalContext"])
     )
 
 
+def test_cursor_session_start_uses_cursor_context_and_merges_existing_body(
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    oriented,
+) -> None:
+    monkeypatch.setenv(EXECUTOR_ENV_VAR, CURSOR_EXECUTOR_ID)
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "hook_event_name": "sessionStart",
+                    "session_id": "s-1",
+                    "conversation_id": "s-1",
+                    "workspace_roots": ["/repo"],
+                }
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_a, **_k: _FakeResponse(
+            _server_response(
+                stdout=json.dumps({"additional_context": "resume body"}),
+            )
+        ),
+    )
+
+    rc = cli_main(["hook", "evaluate", "SessionStart"])
+
+    out = capsys.readouterr()
+    assert rc == 0
+    assert json.loads(out.out) == {
+        "additional_context": ORIENTATION + "\n\nresume body",
+    }
+
+
+def test_cursor_user_prompt_submit_stays_silent_for_orientation(
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    oriented,
+) -> None:
+    monkeypatch.setenv(EXECUTOR_ENV_VAR, CURSOR_EXECUTOR_ID)
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_a, **_k: _FakeResponse(_server_response()),
+    )
+
+    rc = cli_main(["hook", "evaluate", "UserPromptSubmit"])
+
+    out = capsys.readouterr()
+    assert rc == 0
+    assert ORIENTATION not in out.out
+
+
 def test_client_orientation_survives_an_unreachable_server(
-    monkeypatch, capsys, https_connection, local_subset, oriented,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    oriented,
 ) -> None:
     """Orientation is composed entirely from this machine, so a dead tunnel
     costs the session its server policy verdict but not its bearings."""
@@ -117,12 +200,18 @@ def test_client_orientation_survives_an_unreachable_server(
 
 
 def test_client_deny_is_not_diluted_by_orientation(
-    monkeypatch, capsys, https_connection, local_subset, oriented,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    oriented,
 ) -> None:
     """A deny's stdout is the block message the agent reads; appending
     orientation to it would bury the reason the call was refused."""
     local_subset.result = LocalSubsetEvaluation(
-        stdout="BLOCKED: destructive git verb", exit_code=2, denied=True,
+        stdout="BLOCKED: destructive git verb",
+        exit_code=2,
+        denied=True,
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
@@ -137,13 +226,21 @@ def test_client_deny_is_not_diluted_by_orientation(
 
 
 def test_server_deny_is_not_diluted_by_orientation(
-    monkeypatch, capsys, https_connection, local_subset, oriented,
+    monkeypatch,
+    capsys,
+    https_connection,
+    local_subset,
+    oriented,
 ) -> None:
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(_server_response(
-            stdout="DENY: server policy", exit_code=2, outcome="denied",
-        )),
+        lambda *_a, **_k: _FakeResponse(
+            _server_response(
+                stdout="DENY: server policy",
+                exit_code=2,
+                outcome="denied",
+            )
+        ),
     )
 
     rc = cli_main(["hook", "evaluate", "UserPromptSubmit"])

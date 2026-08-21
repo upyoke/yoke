@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 from yoke_core.hooks import session_dispatch_cursor_lifecycle as _lifecycle
 from yoke_core.hooks.resume_block_dispatch import render as _render_resume_block
@@ -68,21 +69,17 @@ def _entrypoint() -> str:
 
 
 def _render_orientation(
-    session_id: str, root: str, registration_failed: str,
+    record: HookContext,
+    root: str,
+    registration_failed: str,
 ) -> str:
-    from yoke_core.domain.harness_capability_registry import (
-        compact_entrypoint_display,
-        shared_downstream_paths,
+    from yoke_core.domain.session_orientation import (
+        CLIENT_ORIENTATION_PRESENT_KEY,
+        render_orientation,
     )
-    from yoke_core.hooks.session_dispatch import (
-        _connected_env_remediation,
-        _orientation_base,
-    )
+    from yoke_core.hooks.session_dispatch import _connected_env_remediation
 
-    lines = _orientation_base(
-        "## Yoke Orientation (Cursor hook-enhanced)", session_id, root,
-        extra_files=["CURSOR.md"],
-    )
+    blocks: list[str] = []
     if registration_failed:
         remediation = _connected_env_remediation(registration_failed)
         warning = [
@@ -90,19 +87,12 @@ def _render_orientation(
             "this session.",
         ]
         warning += [remediation] if remediation else []
-        lines[5:5] = [*warning, ""]
-    lines[5:5] = [
-        "Executor: cursor",
-        "Mode: hook-enhanced (sessionStart additional_context)",
-        f"Root: {root}",
-        "",
-    ]
-    lines.extend([
-        "Safe commands: " + compact_entrypoint_display(),
-        "Downstream paths: " + ", ".join(shared_downstream_paths())
-        + " (derived from shared registry)",
-    ])
-    return "\n".join(lines) + "\n"
+        blocks.append("\n".join(warning))
+    if not record.payload.get(CLIENT_ORIENTATION_PRESENT_KEY):
+        orientation = render_orientation(record.payload, Path(root)).strip()
+        if orientation:
+            blocks.append(orientation)
+    return "\n\n".join(blocks) + ("\n" if blocks else "")
 
 
 def run_session_start(record: HookContext, root: str) -> str:
@@ -122,22 +112,29 @@ def run_session_start(record: HookContext, root: str) -> str:
     raw = _payload_json(record.payload)
     session_id = _cursor.resolve_session_id(raw)
     if not session_id:
-        return json.dumps({
-            "additional_context": (
-                "## Yoke Orientation (Cursor hook-enhanced)\n\n"
-                "WARNING: No stable session ID available. Running in "
-                "degraded mode.\nDo NOT infer your identity from the "
-                "active sessions table on the board.\n"
+        return (
+            json.dumps(
+                {
+                    "additional_context": (
+                        "## Yoke Orientation (Cursor hook-enhanced)\n\n"
+                        "WARNING: No stable session ID available. Running in "
+                        "degraded mode.\nDo NOT infer your identity from the "
+                        "active sessions table on the board.\n"
+                    )
+                }
             )
-        }) + "\n"
+            + "\n"
+        )
     os.environ["YOKE_SESSION_ID"] = session_id
     if _cursor.is_folded_cursor_session(record.payload):
         return json.dumps({"additional_context": ""}) + "\n"
     err = _lifecycle.register(
-        root, session_id, _payload_model(record.payload) or "unknown",
+        root,
+        session_id,
+        _payload_model(record.payload) or "unknown",
         _entrypoint(),
     )
-    orientation = _render_orientation(session_id, root, err)
+    orientation = _render_orientation(record, root, err)
     orientation += _render_resume_block(root, session_id, "SessionStart")
     return json.dumps({"additional_context": orientation}) + "\n"
 
@@ -161,12 +158,15 @@ def run_prompt_submit(record: HookContext, root: str) -> str:
     if not _cursor.is_folded_cursor_session(record.payload):
         if _lifecycle.touch(root, session_id) != 0:
             _lifecycle.register(
-                root, session_id, _payload_model(record.payload) or "unknown",
+                root,
+                session_id,
+                _payload_model(record.payload) or "unknown",
                 _entrypoint(),
             )
         if _first_prompt(session_id, codex=False):
             telemetry.emit_harness_session_sent_first_user_prompt_submit(
-                "", session_id,
+                "",
+                session_id,
             )
     return ""
 
@@ -198,14 +198,8 @@ def run_model_report(record: HookContext, root: str) -> str:
 
     model = _payload_model(record.payload)
     session_id = (
-        _cursor.resolve_session_id(_payload_json(record.payload))
-        if model
-        else ""
+        _cursor.resolve_session_id(_payload_json(record.payload)) if model else ""
     )
-    if (
-        model
-        and session_id
-        and not _cursor.is_folded_cursor_session(record.payload)
-    ):
+    if model and session_id and not _cursor.is_folded_cursor_session(record.payload):
         _lifecycle.register(root, session_id, model, _entrypoint())
     return _STREAM_SAFE_REPLY

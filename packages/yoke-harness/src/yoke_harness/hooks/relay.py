@@ -58,16 +58,15 @@ _HOOK_WIRE_SCHEMA = 1
 _CURSOR_CONTEXT_EVENTS = frozenset({SESSION_START_EVENT, "PostToolUse"})
 _DEGRADED_MARKER = "YOKE_HOOK_DEGRADED"
 
+
 def _cursor_degradation_stdout(
-    event_name: str,
-    detail: str,
-    preserved_stdout: str,
+    event_name: str, detail: str, preserved_stdout: str
 ) -> str:
-    """Expose relay degradation through Cursor's visible context channel."""
     if not is_cursor(detect_executor()):
         return preserved_stdout
     preserved_stdout = cursor_lifecycle_allow_stdout(
-        event_name, preserved_stdout,
+        event_name,
+        preserved_stdout,
     )
     if event_name not in _CURSOR_CONTEXT_EVENTS:
         return preserved_stdout
@@ -80,11 +79,13 @@ def _cursor_degradation_stdout(
     except (json.JSONDecodeError, TypeError):
         payload = {}
     if isinstance(payload, dict) and isinstance(
-        payload.get("additional_context"), str,
+        payload.get("additional_context"),
+        str,
     ):
         payload["additional_context"] += "\n\n" + warning
         return json.dumps(payload)
     return json.dumps({"additional_context": warning})
+
 
 def degrade_to_noop(event_name: str, detail: str, *, preserved_stdout: str = "") -> int:
     """Fail open for hook transport/local harness failures."""
@@ -95,11 +96,14 @@ def degrade_to_noop(event_name: str, detail: str, *, preserved_stdout: str = "")
     )
     print_execution_provenance(fallback_local=True)
     visible_stdout = _cursor_degradation_stdout(
-        event_name, detail, preserved_stdout,
+        event_name,
+        detail,
+        preserved_stdout,
     )
     if visible_stdout:
         sys.stdout.write(visible_stdout)
     return 0
+
 
 def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
     cwd = payload.get("cwd")
@@ -109,23 +113,22 @@ def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
     except Exception:
         return {}
 
+
 def _with_extra_context(
     stdout: str,
     extra_context: Optional[str],
     event_name: str,
+    *,
+    cursor: bool = False,
 ) -> str:
-    """Merge caller-supplied context into an ALLOW-path stdout.
-
-    Only ever called on paths that already decided to allow: a deny's
-    stdout is the block message the harness shows the agent, and appending
-    orientation to it would bury the reason the call was refused.
-    """
+    """Merge caller context into allow-path stdout without obscuring denies."""
     if not extra_context:
         return stdout
-    rendered = render_context_stdout(extra_context, event_name)
+    rendered = render_context_stdout(extra_context, event_name, cursor=cursor)
     if not rendered:
         return stdout
-    return merge_allow_stdout(stdout, rendered, event_name)
+    return merge_allow_stdout(stdout, rendered, event_name, cursor=cursor)
+
 
 def evaluate_hook_event(
     event_name: str,
@@ -134,14 +137,7 @@ def evaluate_hook_event(
     stdin_data: Optional[str] = None,
     extra_context: Optional[str] = None,
 ) -> int:
-    """Evaluate the installed product-local hook subset only.
-
-    ``stdin_data`` lets the caller supply the already-read payload (the CLI
-    adapter reads stdin once so it can also drive the local-universe session
-    lifecycle from the same payload); when ``None`` the payload is read from
-    stdin as before. ``extra_context`` is client-composed text (session
-    orientation) merged into the allow-path stdout.
-    """
+    """Evaluate the installed product-local hook subset only."""
     if stdin_data is None:
         stdin_data = sys.stdin.read()
     if dry_run:
@@ -172,10 +168,16 @@ def evaluate_hook_event(
     if local.denied:
         print_execution_provenance()
     if not local.denied:
-        stdout = _with_extra_context(stdout, extra_context, event_name)
+        stdout = _with_extra_context(
+            stdout,
+            extra_context,
+            event_name,
+            cursor=is_cursor(executor),
+        )
     if stdout:
         sys.stdout.write(stdout)
     return local.exit_code
+
 
 def relay_hook_event(
     event_name: str,
@@ -184,21 +186,15 @@ def relay_hook_event(
     stdin_data: Optional[str] = None,
     extra_context: Optional[str] = None,
 ) -> int:
-    """Evaluate one hook event across the client/server relay split.
-
-    ``stdin_data`` lets the caller supply the already-read payload, and
-    ``extra_context`` carries client-composed text (session orientation)
-    into the allow-path stdout. Both exist because the server cannot see
-    this machine: over https it skips the orientation policy entirely, so
-    the client is the only side that can produce it.
-    """
+    """Evaluate one hook event across the client/server relay split."""
     deadline = start_hook_deadline()
     if stdin_data is None:
         stdin_data = sys.stdin.read()
     payload = parse_hook_payload(stdin_data)
     policy_snapshot = _client_lint_config_snapshot(payload)
     _record_client_anchor(
-        payload, session_start=event_name == SESSION_START_EVENT,
+        payload,
+        session_start=event_name == SESSION_START_EVENT,
     )
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
@@ -226,10 +222,12 @@ def relay_hook_event(
             sys.stdout.write(local.stdout)
         return local.exit_code
 
-    # The client half already allowed, so orientation rides along from here
-    # on — including down every degrade path, so an unreachable server
-    # costs the session its policy verdict but never its orientation.
-    allow_stdout = _with_extra_context(local.stdout, extra_context, event_name)
+    allow_stdout = _with_extra_context(
+        local.stdout,
+        extra_context,
+        event_name,
+        cursor=is_cursor(executor),
+    )
 
     denied = deny_unstamped_relay(parse_hook_payload(stdin_data))
     if denied is not None:
@@ -239,6 +237,7 @@ def relay_hook_event(
     if policy_snapshot:
         payload_extra[lint_policy.SNAPSHOT_PAYLOAD_KEY] = policy_snapshot
     from yoke_contracts.execution_provenance import collect_execution_provenance
+
     body = {
         "hook_schema": _HOOK_WIRE_SCHEMA,
         "event_name": event_name,
@@ -317,16 +316,24 @@ def relay_hook_event(
         sys.stderr.write(failure_warning)
     if outcome == "denied":
         stdout = annotate_guard_version_skew(
-            stdout, client=body["execution_provenance"], server=server_fp,
+            stdout,
+            client=body["execution_provenance"],
+            server=server_fp,
         )
         if stdout:
             sys.stdout.write(stdout)
         return exit_code
 
-    merged = merge_allow_stdout(allow_stdout, stdout, event_name)
+    merged = merge_allow_stdout(
+        allow_stdout,
+        stdout,
+        event_name,
+        cursor=is_cursor(executor),
+    )
     if merged:
         sys.stdout.write(merged)
     return exit_code
+
 
 __all__ = [
     "HOOKS_EVALUATE_PATH",

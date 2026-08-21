@@ -31,36 +31,35 @@ from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 # chain-eligible content is empty today; we surface the same single
 # dispatch entry so the runner can route them uniformly without a None
 # check at the call site.
-_LIFECYCLE_DISPATCH: tuple[str, ...] = (
-    "yoke_core.hooks.session_dispatch",
+_LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
+
+_LIFECYCLE_EVENTS: frozenset[str] = frozenset(
+    {
+        "SessionStart",
+        "UserPromptSubmit",
+        "SessionEnd",
+        "Stop",
+        "SubagentStop",
+        "PreCompact",
+        "Notification",
+    }
 )
 
-_LIFECYCLE_EVENTS: frozenset[str] = frozenset({
-    "SessionStart",
-    "UserPromptSubmit",
-    "SessionEnd",
-    "Stop",
-    "SubagentStop",
-    "PreCompact",
-    "Notification",
-})
-
-# The one event on which a client composes session orientation. Lives in the
-# shared package because two sides must agree without importing each other:
-# the hook CLI adapter reads it to know whether this event can produce
-# orientation at all (every other event, including the hot PreToolUse path,
-# then skips the engine entirely), and the engine-side composer reads it as
-# its own authoritative gate.
-#
-# UserPromptSubmit rather than SessionStart because it is the one event both
-# harness hook configs carry AND the event the in-repo renderer already uses
-# to deliver orientation for the Claude family; matching it keeps the client
-# path on one convention instead of inventing a second.
+# The default event on which a client composes session orientation. Claude
+# and Codex accept context on UserPromptSubmit; Cursor's model-visible startup
+# channel is SessionStart instead. Both the product adapter and the shared
+# composer call ``session_orientation_event`` so hot-path events can skip the
+# engine without independently reconstructing that harness mapping.
 SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
 
 # The canonical name for the event a harness fires once when a session
 # opens, before any tool call. Several client-side paths key on it.
 SESSION_START_EVENT = "SessionStart"
+
+
+def session_orientation_event(*, cursor: bool = False) -> str:
+    """Return the context-bearing startup event for one harness family."""
+    return SESSION_START_EVENT if cursor else SESSION_ORIENTATION_EVENT
 
 
 def chain_for(event_name: str, matcher: str | None = None) -> list[str]:
