@@ -24,9 +24,13 @@ Local verification stays change-scoped:
   Selection is reverse-import reachability, hardened two ways: dotted
   module paths appearing as string literals (subprocess `-m` targets,
   patch targets, registry keys) count as dependency edges, and a small
-  always-run floor of fast cross-cutting contract tests executes on every
+  always-run floor of cross-cutting contract tests executes on every
   selection (CLI registry, operation inventory, adapter parity, and Atlas
-  currency). The conservative full-sweep fallback (non-Python changes,
+  currency, plus a fresh-universe birth from the published engine wheel).
+  Every member but the last is fast; that one builds an artifact and boots
+  a database, and it is on the floor precisely because a deferred test is
+  how the engine last shipped unable to create one. The conservative
+  full-sweep fallback (non-Python changes,
   conftest or shared-fixture edits, test tooling) still catches anything
   reachability cannot bound.
 - **At the review gate** — the project-default plan case blocks the
