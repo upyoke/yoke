@@ -116,9 +116,11 @@ def pulumi_exec(args: List[str]) -> int:
         )
 
     try:
+        caller_root = _current_git_root()
         project_root = _project_checkout(
             parsed.project,
             session_id=parsed.session_id,
+            caller_root=caller_root,
         )
         executor = importlib.import_module("yoke_core.tools.pulumi_exec")
         return executor.execute_pulumi_command(
@@ -127,6 +129,7 @@ def pulumi_exec(args: List[str]) -> int:
             command,
             config_loader=config_loader,
             project_root=project_root,
+            caller_root=caller_root,
             aws_env_loader=executor.aws_machine_capability_env,
             github_auth_loader=build_pulumi_github_auth_loader(
                 session_id=parsed.session_id
@@ -142,7 +145,12 @@ def pulumi_exec(args: List[str]) -> int:
         return 1
 
 
-def _project_checkout(project: str, *, session_id: str | None) -> Path:
+def _project_checkout(
+    project: str,
+    *,
+    session_id: str | None,
+    caller_root: Path | None,
+) -> Path:
     """Resolve the selected project's local, project-owned Pack files."""
 
     response = call_dispatcher(
@@ -162,13 +170,12 @@ def _project_checkout(project: str, *, session_id: str | None) -> Path:
     except (KeyError, TypeError, ValueError) as exc:
         raise RuntimeError("project lookup returned no numeric project id") from exc
 
-    current = _current_git_root()
-    if current is not None:
+    if caller_root is not None:
         reference = existing_project_lookup.find_local_project_reference(
-            current, config_path=None
+            caller_root, config_path=None
         )
         if reference is not None and reference.project_id == project_id:
-            return current
+            return caller_root
 
     matches = [
         configured.checkout.expanduser().resolve()

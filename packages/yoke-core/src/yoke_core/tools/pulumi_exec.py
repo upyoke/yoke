@@ -36,6 +36,7 @@ from yoke_core.tools.pulumi_exec_github_failure import (
     CaptureTee,
     named_github_provider_failure,
 )
+from yoke_core.tools.pulumi_exec_source import announce_render_source
 from yoke_core.tools.pulumi_exec_validation import validated_command
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
 from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
@@ -49,6 +50,7 @@ def execute_pulumi_command(
     *,
     config_loader: Callable[[str, str], Mapping[str, Any]],
     project_root: Path,
+    caller_root: Path | None = None,
     aws_env_loader: Callable[..., Mapping[str, str]] = aws_machine_capability_env,
     github_auth_loader: Callable[..., Any] = resolve_project_github_auth,
     hosted_repository_token_loader: Callable[[str, str, Mapping[str, str]], str]
@@ -65,11 +67,20 @@ def execute_pulumi_command(
     out: TextIO | None = None,
     err: TextIO | None = None,
 ) -> int:
-    """Materialize one stack and run a bounded operator operation."""
+    """Materialize one stack and run a bounded operator operation.
+
+    ``caller_root`` is the git top-level the operator invoked from. Every
+    operation states the tree it renders before producing any result, and a
+    caller standing in a different working tree of that same repository is
+    refused instead of handed a summary for a tree they did not name.
+    """
     selected_project = str(project or "").strip()
     selected_stack = str(stack or "").strip()
     if not selected_project or not selected_stack:
         raise PulumiExecError("project and stack are required")
+    announce_render_source(
+        project_root, caller_root=caller_root, err=err or sys.stderr
+    )
     if command and str(command[0]) == "init":
         from yoke_core.tools.pulumi_exec_init import execute_pulumi_stack_init
 

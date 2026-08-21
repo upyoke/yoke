@@ -278,3 +278,40 @@ def test_pulumi_exec_injects_machine_aws_and_transport_github_authority(
         "aws_env": {"AWS_REGION": "us-east-1"},
     }
     assert calls["execute"][1]["bootstrap_local_authority"] is True
+
+
+def test_pulumi_exec_hands_the_callers_working_tree_to_the_executor(monkeypatch):
+    """The tree the operator stands in reaches the render-source guard."""
+    calls = {}
+    seen = {}
+    caller = Path("/checkouts/platform/.worktrees/PLAT-44")
+
+    def execute(*args, **kwargs):
+        calls["execute"] = (args, kwargs)
+        return 0
+
+    def checkout(project, **kwargs):
+        seen.update(kwargs)
+        return Path("/checkouts/platform")
+
+    executor = type("Executor", (), {
+        "aws_machine_capability_env": object(),
+        "execute_pulumi_command": staticmethod(execute),
+    })
+    monkeypatch.setattr(pulumi, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(pulumi, "_current_git_root", lambda: caller)
+    monkeypatch.setattr(pulumi, "_project_checkout", checkout)
+    monkeypatch.setattr(
+        pulumi, "build_pulumi_github_auth_loader", lambda **kwargs: object(),
+    )
+    monkeypatch.setattr(pulumi.importlib, "import_module", lambda name: executor)
+
+    rc = pulumi.pulumi_exec([
+        "--project", "platform", "--stack", "yoke-registry", "--",
+        "preview", "--non-interactive",
+    ])
+
+    assert rc == 0
+    assert calls["execute"][1]["caller_root"] == caller
+    assert calls["execute"][1]["project_root"] == Path("/checkouts/platform")
+    assert seen["caller_root"] == caller
