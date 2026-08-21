@@ -1,4 +1,4 @@
-"""Status-gate evaluator for a recorded direct-workflow conflict survey."""
+"""Lifecycle prerequisite for a recorded direct-workflow conflict survey."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def evaluate(
                 ),
             }
         try:
-            result = survey_conflicts(
+            survey_conflicts(
                 conn,
                 item_id=item_id,
                 touch_paths=recorded.get("touch_paths") or (),
@@ -47,25 +47,11 @@ def evaluate(
             }
     finally:
         conn.close()
-    if result.clear:
-        return None
-    details = "; ".join(
-        f"{row.kind} item={row.owner_item_id or '-'} path={row.path} "
-        f"({row.detail})"
-        for row in result.blockers
-    )
-    return {
-        "success": False,
-        "error_code": "GATE_CONFLICT_SURVEY_BLOCKED",
-        "error": (
-            "Resolve the listed coordination conflict before continuing: "
-            + details
-        ),
-        "remediation_hint": (
-            "Coordinate or wait, narrow the touch set, register path claims, "
-            "or escalate the work item."
-        ),
-    }
+    # A valid survey is the lifecycle prerequisite. Its overlaps are
+    # advisory and are rendered by worktree preparation, where the agent
+    # can choose to proceed or yield without turning declared intent into
+    # a second path-claim lock.
+    return None
 
 
 __all__ = ["evaluate"]

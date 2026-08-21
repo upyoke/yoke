@@ -3,8 +3,8 @@
 A direct-workflow item records its intended edit targets before it has a
 worktree, a path claim, or a File Budget. For a workflow that resolves
 both of those policies to optional, the recorded survey is the only
-durable statement of intent that exists, and the window between
-recording it and creating the lane is otherwise unguarded.
+durable statement of intent that exists, so readers surface it as
+advisory coordination context while the lane is being prepared.
 
 This module owns that row — where it is stored, how a stored payload is
 classified, and how one item's declared paths compare with another's —
@@ -12,14 +12,12 @@ and it sits below every reader so each can consult declared intent
 without importing the others. :mod:`conflict_survey` writes the row and
 surveys on top of it, :mod:`conflict_survey_blockers` reads other items'
 declared paths while surveying, and :mod:`path_claims_overlap_survey`
-reads them while classifying a path claim. Visibility therefore runs in
-both directions: a survey sees registered claims, and a registering
-claim sees declared surveys.
+reads them while reporting a path-claim advisory. Visibility therefore
+runs in both directions without turning a declaration into a lock.
 
-Terminal and frozen items declare nothing. Terminal work coordinates
-nothing by definition, and a frozen item's intent is parked exactly as
-its path claims are dormant — surfacing it would let parked coordination
-block live work through a second door.
+Terminal and frozen items contribute no advisory. Terminal work
+coordinates nothing by definition, and a frozen item's intent is parked
+exactly as its path claims are dormant.
 """
 
 from __future__ import annotations
@@ -123,8 +121,8 @@ def declared_surveys(
     """Return every live item's recorded survey on one integration target.
 
     A pending or unreadable row declares nothing, so only a fully
-    recorded payload contributes, and a survey taken against a different
-    integration target is a different door lock entirely.
+    recorded payload contributes. A survey taken against a different
+    integration target belongs to a different coordination scope.
     """
     if not all(_table_exists(conn, table) for table in ("item_sections", "items")):
         return []

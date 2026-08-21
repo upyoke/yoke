@@ -147,9 +147,32 @@ def describe_survey_overlap(
     )
 
 
+def describe_claim_survey_overlap(
+    conn: Any,
+    *,
+    claim_id: int,
+    integration_target: str,
+    candidate_item_id: Optional[int],
+) -> str:
+    """Render survey overlap for one claim's declared target ids."""
+    if not _table_exists(conn, "path_claim_targets"):
+        return ""
+    rows = conn.execute(
+        f"SELECT target_id FROM path_claim_targets WHERE claim_id = {_p(conn)}",
+        (int(claim_id),),
+    ).fetchall()
+    return describe_survey_overlap(
+        conn,
+        target_ids=[int(row[0]) for row in rows],
+        integration_target=integration_target,
+        candidate_item_id=candidate_item_id,
+    )
+
+
 __all__ = [
     "SURVEY_ADVISORY_PROCEED",
     "SURVEY_ADVISORY_YIELD",
+    "describe_claim_survey_overlap",
     "describe_survey_overlap",
     "survey_overlaps",
 ]

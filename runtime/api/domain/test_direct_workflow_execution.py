@@ -264,7 +264,7 @@ class _NonClosingConnection:
         return None
 
 
-def test_conflict_survey_gate_reruns_recorded_paths(
+def test_conflict_survey_gate_allows_recorded_overlap(
     test_db,
     monkeypatch,
 ):
@@ -286,14 +286,13 @@ def test_conflict_survey_gate_reruns_recorded_paths(
         lambda _path: _NonClosingConnection(test_db),
     )
 
-    blocked = conflict_survey_gate.evaluate(
+    verdict = conflict_survey_gate.evaluate(
         item_id=2140,
         target_status="implementing",
         db_path="unused",
     )
 
-    assert blocked["error_code"] == "GATE_CONFLICT_SURVEY_BLOCKED"
-    assert "item=2141" in blocked["error"]
+    assert verdict is None
 
 
 def test_dash_evidence_gate_accepts_complete_close_record(

@@ -23,6 +23,7 @@ class RegisterRequest(BaseModel):
 
 class RegisterResponse(BaseModel):
     claim_id: int
+    advisory: Optional[str] = None
 
 
 class WidenRequest(BaseModel):
