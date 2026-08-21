@@ -8,15 +8,18 @@ selects the same-universe local Postgres connection before loading the engine.
 
 from __future__ import annotations
 
+import argparse
 from contextlib import contextmanager
 import importlib
 import os
 import sys
-from typing import Callable, Iterator, List, Optional
+from typing import Any, Callable, Iterator, List, Optional
 
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_cli.config import machine_config
+from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_auth_transience import TransientGitHubAuthError
 from yoke_contracts.github_origin import GitHubApiEndpoint
 from yoke_contracts.machine_config.schema import (
@@ -45,6 +48,36 @@ class TransientLocalMergeGithubAuthorityError(
 
 class LocalMergeControlPlaneAuthorityError(LocalMergeAuthorityError):
     """The local merge process cannot reach its universe through Postgres."""
+
+
+def _work_claim_lookup(argv: List[str]) -> Optional[dict[str, Any]]:
+    """Read the item holder before an HTTPS connection yields to DB admin."""
+    if not argv or "--help" in argv or "-h" in argv:
+        return None
+    parser = argparse.ArgumentParser(add_help=False, exit_on_error=False)
+    parser.add_argument("item")
+    parser.add_argument("--project", default=None)
+    parser.add_argument("--session-id", default=None)
+    try:
+        parsed, _unknown = parser.parse_known_args(argv)
+    except (argparse.ArgumentError, SystemExit):
+        return None
+    actor = build_actor(session_id=parsed.session_id)
+    response = call_dispatcher(
+        function_id="claims.work.holder_get",
+        target=TargetRef(
+            kind="item",
+            item_ref=str(parsed.item),
+            project_id=parsed.project,
+        ),
+        actor=actor,
+    )
+    return {
+        "caller_session_id": str(actor.session_id or ""),
+        "connection": str(machine_config.active_env() or "unknown"),
+        "function_id": "claims.work.holder_get",
+        "response": response,
+    }
 
 
 def _machine_authority() -> tuple[GitHubApiEndpoint, Callable[[], str]]:
@@ -145,6 +178,7 @@ def run(argv: List[str]) -> int:
     """Load the engine under its GitHub and control-plane authorities."""
 
     with machine_github_user_authority():
+        claim_lookup = _work_claim_lookup(argv)
         with same_universe_control_plane_authority() as (selected, authority):
             if selected != authority:
                 print(
@@ -155,7 +189,13 @@ def run(argv: List[str]) -> int:
             merge_cli = importlib.import_module(
                 "yoke_core.domain.standalone_item_merge_cli"
             )
-            return int(merge_cli.main(argv))
+            if claim_lookup is None:
+                return int(merge_cli.main(argv))
+            recovery = importlib.import_module(
+                "yoke_core.domain.standalone_item_merge_recovery"
+            )
+            with recovery.bind_work_claim_lookup(claim_lookup):
+                return int(merge_cli.main(argv))
 
 
 def main(argv: Optional[List[str]] = None) -> int:
