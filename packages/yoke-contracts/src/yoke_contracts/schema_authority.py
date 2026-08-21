@@ -38,11 +38,16 @@ leaks into every concurrent one.
 from __future__ import annotations
 
 import contextvars
+import os
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
 from yoke_contracts.machine_config import runtime as machine_config_runtime
-from yoke_contracts.machine_config.schema import connection_is_prod
+from yoke_contracts.machine_config.schema import (
+    ENV_OVERRIDE,
+    connection_is_prod,
+    same_universe_https_env,
+)
 from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
 
 
@@ -149,8 +154,41 @@ def refuse_on_prod_control_plane(operation: str) -> Optional[str]:
     )
 
 
+def environment_without_administering_selection() -> dict[str, str]:
+    """Return this environment with a prod-flagged selection swapped for served.
+
+    A prod-flagged connection is administering authority over a database this
+    machine does not serve, and a process that selects one means to hold it.
+    A command it shells out to inherits that selection by accident. When the
+    command is a project's own test suite, it converges disposable databases it
+    created for itself and every one of those convergences is refused, because
+    the guard above reads the ambient selection rather than the target — the
+    right question for the parent, the wrong one for the child.
+
+    The same-universe served connection is the only safe substitute: it reaches
+    the rows the child would have read outside the boundary. Where the
+    selection is not prod-flagged — every local universe, every self-hosted
+    one, every container — or no served sibling is configured, the environment
+    passes through untouched, because pointing a child at some other universe's
+    connection is worse than the refusal it would avoid.
+    """
+    env = dict(os.environ)
+    administering = prod_flagged_connection()
+    if not administering:
+        return env
+    try:
+        config = machine_config_runtime.load_config()
+    except Exception:  # noqa: BLE001 - config problems surface where they are
+        return env
+    served = same_universe_https_env(config, administering)
+    if served:
+        env[ENV_OVERRIDE] = served
+    return env
+
+
 __all__ = [
     "SchemaAuthorityRefused",
+    "environment_without_administering_selection",
     "prod_flagged_connection",
     "refuse_on_prod_control_plane",
     "refuse_without_serving_build_authority",

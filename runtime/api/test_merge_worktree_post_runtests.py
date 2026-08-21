@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import json
+import shlex
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts import schema_authority
+from yoke_contracts.machine_config import runtime as machine_config_runtime
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_core.engines import merge_worktree_tests
 
 
@@ -222,3 +228,51 @@ def test_run_tests_executes_when_worktree_is_not_a_repository(
     )
     assert merge_worktree_tests.run_tests(_ctx(tmp_path)) is None
     assert executed == [["/bin/sh", "-c", "python3 verify_tree.py"]]
+
+
+def test_registered_verification_converges_a_schema_under_an_administering_env(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+) -> None:
+    """The project's suite converges schemas the boundary has no authority over.
+
+    The observed block: the boundary took the administering connection for its
+    own control-plane work, then ran the project's registered verification in
+    that same environment. Every schema the suite converged on a disposable
+    database it created for itself was refused, so no project whose tests
+    converge a schema could merge at all.
+    """
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({
+        "active_env": "prod",
+        "connections": {
+            "prod": {"transport": "https"},
+            "prod-db-admin": {"transport": "local-postgres", "prod": True},
+        },
+    }))
+    monkeypatch.setenv(machine_config_runtime.CONFIG_FILE_ENV, str(config))
+    monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
+    # The discriminator: this selection genuinely refuses, so a completed run
+    # below is the environment change and not an inert guard.
+    with pytest.raises(schema_authority.SchemaAuthorityRefused):
+        schema_authority.refuse_without_serving_build_authority("converging")
+
+    converging_suite = "{python} -c {source}".format(
+        python=shlex.quote(sys.executable),
+        source=shlex.quote(
+            "import os;"
+            "from yoke_contracts.schema_authority import"
+            " refuse_without_serving_build_authority as guard;"
+            "guard('converging');"
+            "print('converged under', os.environ['YOKE_ENV'])"
+        ),
+    )
+    monkeypatch.setattr(
+        merge_worktree_tests,
+        "_registered_verification_command",
+        _resolved("quick", converging_suite),
+    )
+
+    assert merge_worktree_tests.run_tests(_ctx(tmp_path)) is None
+    assert "converged under prod" in capsys.readouterr().out

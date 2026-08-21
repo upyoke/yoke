@@ -10,13 +10,20 @@ connection is touched at all is the property that matters.
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
+
 import pytest
 
 from yoke_contracts import schema_authority
+from yoke_contracts.machine_config import runtime as machine_config_runtime
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_core.domain import migration_boot_apply, schema_init
 from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 
 PROD_ENV = "prod-db-admin"
+SERVED_ENV = "prod"
 
 
 @pytest.fixture
@@ -149,3 +156,113 @@ class TestRehearsalRefusesProductionOutright:
 
     def test_a_non_prod_connection_rehearses(self, local_connection: None) -> None:
         assert schema_authority.refuse_on_prod_control_plane("rehearsal") is None
+
+
+def _select(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    connections: dict[str, dict[str, object]],
+    active_env: str,
+    override: str | None,
+) -> None:
+    """Point the contract at a machine config and select one env within it."""
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps({"active_env": active_env, "connections": connections})
+    )
+    monkeypatch.setenv(machine_config_runtime.CONFIG_FILE_ENV, str(config))
+    if override is None:
+        monkeypatch.delenv(ENV_OVERRIDE, raising=False)
+    else:
+        monkeypatch.setenv(ENV_OVERRIDE, override)
+
+
+PAIRED_UNIVERSE: dict[str, dict[str, object]] = {
+    SERVED_ENV: {"transport": "https"},
+    PROD_ENV: {"transport": "local-postgres", "prod": True},
+    "local": {"transport": "local-postgres", "prod": False},
+}
+
+
+class TestChildCommandsDoNotInheritAdministeringAuthority:
+    """A command shelled out to holds no opinion about the parent's authority.
+
+    The observed failure ran a project's own test suite from a boundary that
+    had taken the administering connection for its control-plane work. Every
+    schema the suite converged on a disposable database of its own was refused,
+    because the guard reads the ambient selection rather than the target.
+    """
+
+    def test_administering_selection_is_swapped_for_the_served_sibling(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _select(
+            monkeypatch, tmp_path,
+            connections=PAIRED_UNIVERSE, active_env=SERVED_ENV, override=PROD_ENV,
+        )
+        assert schema_authority.prod_flagged_connection() == PROD_ENV
+
+        env = schema_authority.environment_without_administering_selection()
+
+        assert env[ENV_OVERRIDE] == SERVED_ENV
+
+    def test_an_administering_default_is_swapped_rather_than_unset(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # Dropping the override would leave the child resolving the same
+        # administering connection through the config's own default.
+        _select(
+            monkeypatch, tmp_path,
+            connections=PAIRED_UNIVERSE, active_env=PROD_ENV, override=None,
+        )
+
+        env = schema_authority.environment_without_administering_selection()
+
+        assert env[ENV_OVERRIDE] == SERVED_ENV
+
+    def test_a_served_selection_passes_through_untouched(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _select(
+            monkeypatch, tmp_path,
+            connections=PAIRED_UNIVERSE, active_env=SERVED_ENV, override=SERVED_ENV,
+        )
+
+        assert (
+            schema_authority.environment_without_administering_selection()
+            == dict(os.environ)
+        )
+
+    def test_a_local_universe_passes_through_untouched(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _select(
+            monkeypatch, tmp_path,
+            connections=PAIRED_UNIVERSE, active_env="local", override="local",
+        )
+
+        assert (
+            schema_authority.environment_without_administering_selection()
+            == dict(os.environ)
+        )
+
+    def test_no_served_sibling_leaves_the_selection_alone(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # Substituting some other universe's connection would send the child
+        # to rows that are not its own — worse than the refusal it avoids.
+        _select(
+            monkeypatch, tmp_path,
+            connections={
+                "solo": {"transport": "local-postgres", "prod": True},
+                "local": {"transport": "local-postgres", "prod": False},
+            },
+            active_env="solo",
+            override="solo",
+        )
+
+        assert (
+            schema_authority.environment_without_administering_selection()
+            == dict(os.environ)
+        )
