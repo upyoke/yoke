@@ -241,7 +241,7 @@ Every item declares an `architecture_impact` classification at idea / refine tim
 | `architecture_model_change` | Modifies the architecture model itself (domains, layers, edges, entrypoints). |
 | `uncertain`                 | Declared at idea time; refine / Architect must resolve before refined-idea.   |
 
-`architecture_impact='uncertain'` blocks `refining-idea → refined-idea` via the readiness check; the authoritative status gate is defense-in-depth for the same rule across every later transition. `architecture_impact='architecture_model_change'` requires the path-claim to cover at least one architecture-model authoring surface; the gate blocks otherwise.
+`architecture_impact='uncertain'` blocks `refining-idea → refined-idea` via the readiness check; the authoritative status gate is defense-in-depth for the same rule across every later transition.
 
 ### Doctor surface
 

@@ -1,8 +1,8 @@
 """Architecture-impact gate for the canonical status write path.
 
 Composed into :mod:`backlog_authoritative_status_gate` alongside the
-existing DB-mutation gates. Two narrow blockers, both
-defense-in-depth on the readiness-check signal:
+existing DB-mutation gates. It enforces one narrow defense-in-depth
+blocker on the readiness-check signal:
 
 * **uncertain past refined-idea** — an item whose
   ``architecture_impact`` is still ``'uncertain'`` cannot advance into
@@ -10,18 +10,11 @@ defense-in-depth on the readiness-check signal:
   ``refined-idea`` is the primary gate; this is the backstop on the
   authoritative write path so a direct DB poke or skipped refine
   doesn't slip through.
-* **architecture_model_change requires architecture surface evidence**
-  — an item declaring ``architecture_model_change`` must have at
-  least one architecture-model authoring surface in its path-claim
-  coverage (``architecture_model.py`` /
-  ``project_structure*.py`` / ``doctor_hc_architecture*.py``). The
-  check is coarse "evidence present" — refine still owns the rich
-  multi-surface decision.
 
 Pattern mirrors :mod:`backlog_db_mutation_gate_runner`. The runner is
-a no-op for items with ``architecture_impact = 'none'`` or
-``'path_context_only'`` — those impact classes pass without further
-inspection.
+a no-op for items with ``architecture_impact = 'none'``,
+``'path_context_only'``, or ``'architecture_model_change'`` — those
+impact classes pass without further inspection.
 """
 
 from __future__ import annotations
@@ -42,18 +35,6 @@ _ARCHITECTURE_GATE_TARGETS = frozenset({
     "implemented", "release", "done",
 })
 
-# Architecture-model authoring surfaces: a path claim that covers any of
-# these substrings counts as "architecture surface evidence" for an
-# architecture_model_change item.
-_ARCH_SURFACE_HINTS = (
-    "architecture_model",
-    "project_structure",
-    "project_structure_validation",
-    "doctor_hc_architecture",
-    "architecture_dependency_scan",
-)
-
-
 def _read_item_impact(
     conn: Any, item_id: int,
 ) -> Optional[str]:
@@ -68,28 +49,6 @@ def _read_item_impact(
     if row is None or row[0] is None:
         return None
     return str(row[0]).strip().lower() or None
-
-
-def _claim_covers_arch_surface(
-    conn: Any, item_id: int,
-) -> bool:
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    try:
-        rows = conn.execute(
-            f"SELECT pt.path_string FROM path_claim_targets pct "
-            "JOIN path_claims pc ON pc.id = pct.claim_id "
-            "JOIN path_targets pt ON pt.id = pct.target_id "
-            f"WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {p} "
-            "AND pc.state IN ('planned', 'active', 'blocked')",
-            (item_id,),
-        ).fetchall()
-    except db_backend.operational_error_types(conn=conn):
-        return True  # minimal schema fixtures don't have these tables
-    for row in rows:
-        path = str(row[0])
-        if any(hint in path for hint in _ARCH_SURFACE_HINTS):
-            return True
-    return False
 
 
 def _run_architecture_impact_gate(
@@ -123,24 +82,6 @@ def _run_architecture_impact_gate(
                     "<value> | python3 -m yoke_core.cli.db_router "
                     f"items update {item_ref} architecture_impact "
                     "--stdin`."
-                ),
-            }
-        if impact == "architecture_model_change":
-            if _claim_covers_arch_surface(conn, item_id):
-                return None
-            return {
-                "success": False,
-                "error_code": "GATE_ARCHITECTURE_MODEL_CHANGE_NO_SURFACE",
-                "error": (
-                    f"Cannot advance {item_ref} to '{target_status}' — "
-                    "architecture_impact='architecture_model_change' but "
-                    "the path-claim does not cover any architecture-model "
-                    "authoring surface (architecture_model.py, "
-                    "project_structure*.py, doctor_hc_architecture*.py, "
-                    "architecture_dependency_scan.py). Repair: widen the "
-                    "claim to include the architecture-model surface the "
-                    "slice changes, or relax architecture_impact to "
-                    "'path_context_only' when only context families move."
                 ),
             }
         return None
