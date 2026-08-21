@@ -24,8 +24,8 @@ never-run one proceeds fresh.
 from __future__ import annotations
 
 
-CONNECTION_ATTEMPTS = 3
-CONNECTION_BACKOFF_SECONDS = (1.0, 3.0)
+CONNECTION_ATTEMPTS = 7
+CONNECTION_BACKOFF_SECONDS = (1.0, 3.0, 6.0, 12.0, 24.0, 48.0)
 RESPONSE_DEADLINE_ATTEMPTS = 2
 
 

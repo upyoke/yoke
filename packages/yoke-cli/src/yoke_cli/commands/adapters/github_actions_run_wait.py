@@ -90,20 +90,27 @@ def wait_for_run_completion(
             payload=dict(payload),
             actor=actor,
         )
-        if not response.success:
-            return emit_response(response, json_mode=json_mode)
-
         result = response.result or {}
-        state = str(result.get("state") or "")
-        if state in {"success", "failed"}:
-            return _emit_terminal(response, json_mode=json_mode)
+        if response.success:
+            state = str(result.get("state") or "")
+            if state in {"success", "failed"}:
+                return _emit_terminal(response, json_mode=json_mode)
+            status_message = str(
+                result.get("message") or state or "running"
+            )
+        else:
+            # A status read that cannot reach the relay is not a verdict on
+            # the GitHub run. Surface the transport diagnostic, then let the
+            # existing wait budget decide when the unresolved run is pending.
+            emit_response(response, json_mode=False)
+            status_message = "unreadable; retrying"
 
         elapsed = int(now() - start)
         if elapsed >= timeout_sec:
             return _emit_timeout(response, json_mode=json_mode)
 
         print(
-            f"  Run status: {result.get('message') or state or 'running'} "
+            f"  Run status: {status_message} "
             f"(elapsed: {elapsed}s, timeout: {timeout_sec}s)",
             file=sys.stderr,
         )
@@ -128,7 +135,11 @@ def _emit_timeout(response: FunctionCallResponse, *, json_mode: bool) -> int:
     result = dict(response.result or {})
     message = f"timeout:{result.get('message') or result.get('state') or 'running'}"
     timed_out = response.model_copy(
-        update={"result": {**result, "state": "timeout", "message": message}},
+        update={
+            "success": True,
+            "error": None,
+            "result": {**result, "state": "timeout", "message": message},
+        },
     )
     if json_mode:
         emit_response(timed_out, json_mode=True)
