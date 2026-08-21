@@ -134,10 +134,10 @@ Full envelope shape, claim-verification matrix, and the per-family function id r
 For session-continuity context on an item that future agents need to pick up — what's done so far, decisions made, dead ends explored, where to resume after compaction or session swap — write to a **Progress Log** section on the item (works for every workflow). Agents call `items.progress_log.append`, which handles the read-then-upsert-with-`ordering=200` convention internally:
 
 ```json
-{"function":"items.progress_log.append","target":{"kind":"item","item_id":42},"payload":{"headline":"kicked off engineer dispatch","body":"..."}}
+{"function":"items.progress_log.append","target":{"kind":"item","item_id":42},"payload":{"headline":"kicked off engineer dispatch","content":"..."}}
 ```
 
-CLI adapter: `yoke items section get PREFIX-N --section "Progress Log"` to read; `yoke items section upsert PREFIX-N --section "Progress Log" --content-file /tmp/progress-log.md --ordering 200` to write (destructive — read first when appending; the function call above does the read-merge-write internally). Reading the existing Progress Log into a shell variable / temp file and piping back into `items section upsert` is structured-field-transform shell choreography that the PreToolUse lint refuses by default.
+CLI adapter: `yoke items progress-log append PREFIX-N --headline TEXT --content TEXT` (or `--content-file PATH`); `yoke items section get PREFIX-N --section "Progress Log"` to read. Destructive rewrite: `yoke items section upsert PREFIX-N --section "Progress Log" --content-file PATH --ordering 200`. Reading the existing Progress Log into a shell variable / temp file and piping back into `items section upsert` is structured-field-transform shell choreography that the PreToolUse lint refuses by default.
 
 Why this surface: `shepherd_log`/`shepherd_caveats` are epic architect verdicts; `spec`/`technical_plan`/`worktree_plan` are intent fields, not execution state; `epic_progress_notes` is the equivalent for epic *tasks* keyed `(epic_id, task_num)`; the rendered body is virtual and picks up section writes automatically.
 

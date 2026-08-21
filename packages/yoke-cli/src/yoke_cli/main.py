@@ -215,6 +215,9 @@ def _extract_global_env(argv: List[str]) -> tuple[List[str], Optional[str], bool
     i = 0
     while i < len(argv):
         token = argv[i]
+        if token == "--":
+            out.extend(argv[i:])
+            break
         if token == "--env":
             if i + 1 >= len(argv) or not argv[i + 1].strip():
                 return argv, None, False
