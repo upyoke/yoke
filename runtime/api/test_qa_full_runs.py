@@ -79,6 +79,8 @@ class TestRunAdd:
                 "pass",
                 "--raw-result-file",
                 str(raw_file),
+                "--head-sha",
+                "a" * 40,
             ]
         )
         run_id = int(capsys.readouterr().out.strip())
@@ -88,7 +90,9 @@ class TestRunAdd:
             (run_id,),
         ).fetchone()
         conn.close()
-        assert row["raw_result"] == "multi\nline\nresult"
+        payload = json.loads(row["raw_result"])
+        assert payload["evidence"] == "multi\nline\nresult"
+        assert payload["verification_tree"]["head_sha"] == "a" * 40
 
     def test_cli_run_add_raw_result_forms_are_exclusive(self) -> None:
         parser = qa_cli.build_parser()
@@ -245,6 +249,7 @@ class TestRunAdd:
                 performed_by="agent",
                 qa_kind="implementation_review",
                 verdict="pass",
+                head_sha="a" * 40,
             )
             assert run_id >= 1
         finally:

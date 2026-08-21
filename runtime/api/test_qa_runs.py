@@ -117,6 +117,7 @@ class TestRunAdd:
             performed_by="agent",
             qa_kind="unit_test",
             verdict="pass",
+            head_sha="a" * 40,
         )
         conn = connect_test_db(db_path)
         row = conn.execute(
@@ -217,6 +218,7 @@ class TestRunAdd:
             confidence=0.8,
             raw_result="all green",
             duration_ms=1234,
+            head_sha="a" * 40,
         )
         conn = connect_test_db(db_path)
         row = conn.execute(
@@ -226,7 +228,9 @@ class TestRunAdd:
         conn.close()
         assert row[0] == 0.95
         assert row[1] == 0.8
-        assert row[2] == "all green"
+        payload = json.loads(row[2])
+        assert payload["evidence"] == "all green"
+        assert payload["verification_tree"]["head_sha"] == "a" * 40
         assert row[3] == 1234
 
     def test_legacy_review_alias_normalized_on_write(self, db_path: str) -> None:
@@ -242,6 +246,7 @@ class TestRunAdd:
             performed_by="agent",
             qa_kind="review",
             verdict="pass",
+            head_sha="a" * 40,
         )
         conn = connect_test_db(db_path)
         row = conn.execute(
@@ -291,6 +296,7 @@ class TestRunAdd:
             performed_by="agent",
             qa_kind="unit_test",
             verdict="pass",
+            head_sha="a" * 40,
         )
         conn = connect_test_db(db_path)
         count = conn.execute(

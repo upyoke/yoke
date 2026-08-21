@@ -33,6 +33,8 @@ from yoke_core.domain.db_mutation_profile import (
 )
 from yoke_core.domain.item_test_results_classify import classify_test_results
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.qa_merging_identity import recorded_head_sha
+from yoke_core.domain.schema_common import _table_exists
 
 
 def check_polishing_implementation_to_implemented_gate(
@@ -66,7 +68,7 @@ def check_polishing_implementation_to_implemented_gate(
                 errors=[f"Item {render_item_ref(c, item_id)} not found"],
             )
 
-        test_results_error = _check_test_results_evidence(item)
+        test_results_error = _check_test_results_evidence(item, c)
 
         profile = validate_profile(_safe_parse_dict(item.get("db_mutation_profile")))
         if profile["state"] == STATE_NONE:
@@ -95,7 +97,34 @@ def check_polishing_implementation_to_implemented_gate(
         return _evaluate(owned)
 
 
-def _check_test_results_evidence(item: dict) -> Optional[str]:
+def _ci_routed_case_satisfies(conn: Any, item_id: int) -> bool:
+    """True when a command-ci case already recorded a passing head sha."""
+    if not (
+        _table_exists(conn, "qa_requirements") and _table_exists(conn, "qa_runs")
+    ):
+        return False
+    from yoke_core.domain import db_backend
+
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    rows = conn.execute(
+        "SELECT r.verdict, r.raw_result FROM qa_runs r "
+        "JOIN qa_requirements q ON q.id = r.qa_requirement_id "
+        f"WHERE q.item_id = {placeholder} AND q.method_id = 'command-ci' "
+        "AND q.waived_at IS NULL AND r.id = ("
+        "SELECT latest.id FROM qa_runs latest "
+        "WHERE latest.qa_requirement_id = q.id "
+        "ORDER BY latest.id DESC LIMIT 1)",
+        (int(item_id),),
+    ).fetchall()
+    for row in rows:
+        verdict = row["verdict"] if hasattr(row, "keys") else row[0]
+        raw = row["raw_result"] if hasattr(row, "keys") else row[1]
+        if str(verdict or "").strip().lower() == "pass" and recorded_head_sha(raw):
+            return True
+    return False
+
+
+def _check_test_results_evidence(item: dict, conn: Any) -> Optional[str]:
     """Symmetric upstream half of the merge-engine verification gate.
 
     Polish doctrine (`.agents/skills/yoke/polish/verify-and-commit.md`)
@@ -125,6 +154,13 @@ def _check_test_results_evidence(item: dict) -> Optional[str]:
     raw = item.get("test_results") or ""
     verdict = classify_test_results(raw)
     if verdict == "passed":
+        return None
+    item_id = item.get("id")
+    if (
+        verdict != "failed"
+        and item_id is not None
+        and _ci_routed_case_satisfies(conn, int(item_id))
+    ):
         return None
     if verdict == "failed":
         return (

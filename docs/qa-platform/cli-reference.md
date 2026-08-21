@@ -58,7 +58,8 @@ yoke qa requirement list --deployment-run-id run-20260616-001 --json
 yoke qa requirement get --requirement-id 1
 yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
 
-# Record or complete QA runs
+# Record or complete QA runs. --raw-result is evidence text; a blocking
+# pass stamps verification_tree.head_sha from the claimed lane HEAD (or --head-sha).
 yoke qa run add \
  --requirement-id 1 --performed-by agent --qa-kind implementation_review \
  --verdict pass --raw-result "Tester review passed"
@@ -103,7 +104,7 @@ run owns its delivery context.
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
-| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--verdict-reason R] [opts]` | Insert a started or completed run |
+| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--verdict-reason R] [--head-sha SHA] [opts]` | Insert a started or completed run; blocking passes stamp `verification_tree.head_sha` from the claimed lane HEAD (or `--head-sha`). `--raw-result` is evidence text |
 | `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--verdict-reason R] [--execution-status S] [opts]` | Complete a previously recorded run |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [--verdict-reason R] [opts]` | Record a one-shot verdict; reason is required for `undetermined` |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |

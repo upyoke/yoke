@@ -37,6 +37,7 @@ When any of these fire, conduct does NOT enter result branching; it goes straigh
  --verdict "pass" \
  --raw-result "Satisfied from conduct evidence: all ${_task_count} epic tasks passed + integration simulation CLEAN"
  ```
+ `--raw-result` is evidence text. The write stamps `verification_tree.head_sha` from the claimed lane HEAD (or `--head-sha`). A blocking pass without a head sha is refused.
 
 - **Auto-handoff and claim release.** The `persist_and_verify` call auto-triggered `conduct_reviewed_handoff` on CLEAN verdict (T-1), which released the Conduct item claim with reason `handoff-to-polish` (T-4). Verify:
  ```bash

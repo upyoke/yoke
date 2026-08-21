@@ -38,6 +38,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_path,
     lane_resolution_error,
 )
+from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
 from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
 from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
 from yoke_contracts.dash_evidence_status import status_argument_kwargs
@@ -221,6 +222,13 @@ def run(argv: List[str]) -> int:
     commit_sha, qa_error = qa_preflight(
         item, item_ref=item_ref, repo_root=repo_root, branch=branch,
     )
+    if qa_error:
+        commit_sha, qa_error = commit_bound.recover_and_recheck(
+            item, item_ref=item_ref, repo_root=repo_root, branch=branch,
+            qa_error=qa_error,
+            rerecord=commit_bound.rerecord_hand_run,
+            run_case=commit_bound.rerun_command_case,
+        )
     if qa_error:
         return _fail(f"{item_ref}: {qa_error}", as_json=as_json)
 

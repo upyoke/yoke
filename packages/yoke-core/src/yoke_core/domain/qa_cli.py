@@ -125,6 +125,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             raw_result=raw_result,
             duration_ms=args.duration_ms,
             artifact_path=args.artifact_path,
+            head_sha=getattr(args, "head_sha", None),
         )
     elif args.subcmd == "run-add-batch":
         cmd_run_add_batch(db_path=db_path, json_file=args.json_file)

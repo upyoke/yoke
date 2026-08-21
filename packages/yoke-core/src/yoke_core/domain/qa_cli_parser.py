@@ -119,6 +119,13 @@ def build_parser() -> argparse.ArgumentParser:
     add_text_file_pair(rna_raw, "--raw-result", "--raw-result-file", dest="raw_result")
     rna.add_argument("--duration-ms", type=int)
     rna.add_argument(
+        "--head-sha",
+        help=(
+            "Commit the run verified. Default: stamp the claimed lane HEAD "
+            "on a clean tree. Required when no lane resolves."
+        ),
+    )
+    rna.add_argument(
         "--artifact-path",
         help=(
             "Optional screenshot path; creates a linked qa_artifact automatically "

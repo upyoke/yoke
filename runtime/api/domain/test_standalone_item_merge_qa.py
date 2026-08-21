@@ -55,7 +55,6 @@ def _requirement(*, verdict: str, sha: str, completed: bool = True) -> dict:
     [
         (None, "no blocking QA requirement was materialized"),
         (_requirement(verdict="error", sha=MERGING_SHA), "concluded 'failed'"),
-        (_requirement(verdict="pass", sha=EARLIER_SHA), "recorded SHA " + EARLIER_SHA),
     ],
 )
 def test_merge_refuses_before_invoking_git(
@@ -94,6 +93,21 @@ def test_exact_commit_pass_reaches_the_merge_boundary(tmp_path: Path, monkeypatc
 
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
     assert merger.call_args.kwargs["commit_sha"] == MERGING_SHA
+
+
+def test_preflight_accepts_bound_hand_run_and_refuses_prose(tmp_path: Path):
+    commit_sha, error = merge_qa.preflight(
+        _item(_requirement(verdict="pass", sha=MERGING_SHA)),
+        item_ref="YOK-10", repo_root=tmp_path, branch="YOK-10",
+    )
+    assert commit_sha == MERGING_SHA
+    assert error == ""
+    commit_sha, error = merge_qa.preflight(
+        _item(_requirement(verdict="pass", sha="")),
+        item_ref="YOK-10", repo_root=tmp_path, branch="YOK-10",
+    )
+    assert commit_sha == MERGING_SHA
+    assert "recorded SHA" in error
 
 
 def test_preflight_reads_raw_proof_from_an_older_item_detail_server(

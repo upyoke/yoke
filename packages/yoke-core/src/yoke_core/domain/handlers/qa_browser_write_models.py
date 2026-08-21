@@ -22,6 +22,7 @@ class QaRunAddRequest(BaseModel):
     execution_status: Optional[str] = None
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None
+    head_sha: Optional[str] = None
     execution_claim_id: Optional[int] = None
 
 

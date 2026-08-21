@@ -139,14 +139,18 @@ QA_COMMANDS: list[dict] = [
             "yoke qa run add "
             "--requirement-id R --performed-by agent "
             "--qa-kind ac_verification --verdict pass "
+            "--head-sha <commit> "
             "--raw-result 'Full backend pytest passed: N passed, K skipped.'"
         ),
         "notes": (
             "Registered write qa.run.add — item claims remain required for "
             "item-backed requirements; deployment-run requirements use their "
             "server-resolved run subject. "
-            "`--raw-result` is a literal string; `--qa-kind` defaults "
-            "to the requirement's kind (mismatch is a hard error). "
+            "A blocking pass stamps verification_tree.head_sha from the "
+            "claimed lane HEAD on a clean tree, or from --head-sha. "
+            "`--raw-result` is evidence text, not the run identity; a "
+            "blocking pass without a head sha is refused. `--qa-kind` "
+            "defaults to the requirement's kind (mismatch is a hard error). "
             "For multi-line evidence, read the file and pass the literal "
             "content through `--raw-result`."
         ),

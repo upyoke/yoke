@@ -13,6 +13,7 @@ from yoke_core.domain.merge_preflight_github_lock_retry import (
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_terminal_settlement import (
+    BlockingRequirementIssue,
     blocking_requirement_issues,
     requirement_issue_errors,
 )
@@ -54,35 +55,46 @@ def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
     return ""
 
 
-def preflight(
+def evaluate(
     item: dict[str, Any], *, item_ref: str, repo_root: Path, branch: str,
-) -> tuple[str, str]:
-    """Return the merging commit and any terminal-QA refusal before landing."""
+) -> tuple[str, list[BlockingRequirementIssue], str]:
+    """Return the merging commit, blocking issues, and any hard error."""
     source_error = lane_resolution_error(item)
     if source_error:
-        return "", source_error
+        return "", [], source_error
     lane = merge_source_lane(item) or {}
     commit_sha = (
         str(lane.get("commit_sha") or "").strip()
         or git.head_of(str(repo_root), branch)
     )
     if not commit_sha:
-        return "", f"cannot resolve the commit carried by branch {branch!r}"
-    requirements = [dict(row) for row in item.get("qa_requirements") or []]
+        return "", [], f"cannot resolve the commit carried by branch {branch!r}"
+    requirements = list(item.get("qa_requirements") or [])
     for requirement in requirements:
         hydration_error = _hydrate_run_identity(requirement)
         if hydration_error:
-            return commit_sha, hydration_error
+            return commit_sha, [], hydration_error
     attachments = list(item.get("qa_plan_attachments") or [])
     require_any = bool(requirements) or any(
         int(attachment.get("case_count") or 0) > 0 for attachment in attachments
     )
-    issues = blocking_requirement_issues(
+    return commit_sha, blocking_requirement_issues(
         requirements,
         accepted_shas=(commit_sha,),
         item_ref=item_ref,
         require_any=require_any,
+    ), ""
+
+
+def preflight(
+    item: dict[str, Any], *, item_ref: str, repo_root: Path, branch: str,
+) -> tuple[str, str]:
+    """Return the merging commit and any terminal-QA refusal before landing."""
+    commit_sha, issues, error = evaluate(
+        item, item_ref=item_ref, repo_root=repo_root, branch=branch,
     )
+    if error:
+        return commit_sha, error
     errors = requirement_issue_errors(
         issues, item_ref=item_ref, target_status="done",
     )
@@ -93,4 +105,4 @@ def preflight(
     return commit_sha, ""
 
 
-__all__ = ["preflight"]
+__all__ = ["evaluate", "preflight"]
