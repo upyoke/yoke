@@ -94,7 +94,12 @@ def flush_run_tail(
     _telemetry.flush_hook_telemetry(
         telem_records, deadline=deadline, ensure_session=ensure_session,
     )
-    if controls is not None and controls.remote and context.session_id:
+    if (
+        controls is not None
+        and controls.remote
+        and context.session_id
+        and final_outcome != "deny"
+    ):
         from yoke_core.hooks.remote_lifecycle import (
             run_remote_session_lifecycle,
         )

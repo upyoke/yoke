@@ -50,6 +50,12 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    `beforeSubmitPrompt` (with `attachments` naming `AGENTS.md`), `stop`,
    and `afterFileEdit` (via a Write-tool edit) all fire. The session
    registers with display name `cursor-desktop`.
+   On an allow-path Stop the reply is `{}`. When the session holds a live
+   mid-lifecycle claim and the turn is not asking the operator, the first
+   Stop holds via `followup_message` (self-continuation only) and records
+   `ChainEndDeferred` with `reason=promised_work_reinjected`. A second
+   eligible Stop before completed tool use allows with `{}` and records
+   `cap_reached=true`.
 8. Dispatch a project subagent and confirm `subagentStart`/`subagentStop`
    carry `parent_conversation_id` equal to the top-level session id, and
    that the subagent's own tool calls arrive under the subagent session id

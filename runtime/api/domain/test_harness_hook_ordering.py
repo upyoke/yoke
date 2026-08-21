@@ -287,7 +287,10 @@ class TestNonPreEvents(unittest.TestCase):
 
     def test_TC_stop_runs_session_hooks(self):
         chain = ordered_pipeline_for("Stop")
-        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
+        self.assertEqual(chain, [
+            "yoke_core.domain.turn_end_promised_work_gate",
+            "yoke_core.hooks.session_dispatch",
+        ])
 
 
 class TestRegistryShape(unittest.TestCase):

@@ -138,6 +138,10 @@ def render_claude_decision(
     Advisory text is intentionally dropped when a deny exists so the deny
     narrative cannot be hidden or replaced.
     """
+    if event_name == "Stop":
+        from yoke_core.hooks.turn_end_decision_render import render_claude_stop
+
+        return render_claude_stop(decisions)
     narratives = _collect_deny_narratives(decisions)
     if narratives:
         return (_join_narratives(narratives), 2)
@@ -169,6 +173,10 @@ def render_codex_decision(
     Advisory text is intentionally dropped when a deny exists so the deny
     narrative cannot be hidden or replaced.
     """
+    if event_name == "Stop":
+        from yoke_core.hooks.turn_end_decision_render import render_codex_stop
+
+        return render_codex_stop(decisions)
     narratives = _collect_deny_narratives(decisions)
     if narratives:
         envelope = {
@@ -248,6 +256,10 @@ def render_cursor_decision(
     ``pretool_omissions`` already elides advisory-only modules from those
     chains).
     """
+    if event_name == "Stop":
+        from yoke_core.hooks.turn_end_decision_render import render_cursor_stop
+
+        return render_cursor_stop(decisions)
     narratives = [
         _plain_deny_narrative(n) for n in _collect_deny_narratives(decisions)
     ]

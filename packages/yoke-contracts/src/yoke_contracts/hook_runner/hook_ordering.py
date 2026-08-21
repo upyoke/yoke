@@ -262,9 +262,9 @@ _PERMISSION_REQUEST: tuple[str, ...] = (
     "yoke_core.domain.observe_pre",
 )
 
-# Every session-lifecycle event routes to the one dispatch entry; none of
-# them has a policy chain of its own.
-_LIFECYCLE_DISPATCH: tuple[str, ...] = (
+_LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
+_STOP_CHAIN: tuple[str, ...] = (
+    "yoke_core.domain.turn_end_promised_work_gate",
     "yoke_core.hooks.session_dispatch",
 )
 
@@ -303,7 +303,7 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
         "_default": _LIFECYCLE_DISPATCH,
     },
     "Stop": {
-        "_default": _LIFECYCLE_DISPATCH,
+        "_default": _STOP_CHAIN,
     },
     # A harness that multiplexes model providers names its active model on
     # a dedicated event rather than on the events that open the session.

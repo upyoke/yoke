@@ -53,7 +53,7 @@ The conversation map is established on the first client hook (`preToolUse` / `be
 
 ## What Cursor does NOT own
 
-Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; the `stop` hook's `followup_message` loop channel — Yoke's session chaining is core-owned; Cloud Agent handoff (`&`) — Yoke sessions are local.
+Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; Cloud Agent handoff (`&`) — Yoke sessions are local. The `stop` hook's `followup_message` loop channel is reserved for one self-continuation: when the promised-work gate holds a turn open because this session still has uncalled work. That is not operator-to-session steering.
 
 ## Approvals and the network sandbox
 

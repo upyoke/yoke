@@ -1,28 +1,18 @@
-"""HC-stop-hook-chain-end-deferred: detect chains the structural fix protected but the agent never returned to.
+"""HC-stop-hook-chain-end-deferred: stranded Stop deferrals, plus chain membership.
 
-The Stop hook fires after every turn boundary. When ``end_session_if_empty``
-declines to end a session because a chainable checkpoint still has budget
-remaining, it emits ``ChainEndDeferred`` and leaves the session alive for
-the next agent turn to resume. The 60-minute heartbeat-stale window is the
-safety net for the legitimate "the agent crashed and abandoned the chain"
-case — a session that never returns gets reclaimed by the next session-offer.
-
-This HC is the operator-facing observability surface for the case in
-between: a deferred chain that aged past the stale window without a
-follow-up ``HarnessSessionEnded`` row. That is a signal — operator-skill
-prose drift, agent muscle memory drift, or a real chain abandonment —
-the operator should investigate.
-
-Surface: WARN with the affected sessions and the first deferred event's
-context. The HC does not auto-end the sessions; the standard reclaim path
-already handles them.
+A deferred Stop that aged past the stale window is only a warning when
+nothing resolved it: later completed tool use, a cap-reached record, a
+terminal/blocked status change, or ``HarnessSessionEnded``. The Stop chain
+must also keep the promised-work gate ahead of lifecycle dispatch.
 """
 
 from __future__ import annotations
 
 from typing import List
 
+from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.time_sql import now_sql
 
 import yoke_core.engines.doctor_report as _base
@@ -31,14 +21,85 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 _HC_NAME = "HC-stop-hook-chain-end-deferred"
 _HC_DESC = "Stop-hook deferred chains that aged past the heartbeat-stale window"
+_MEMBER_NAME = "HC-stop-hook-chain-membership"
+_MEMBER_DESC = "Stop chain registers the promised-work gate before dispatch"
+_EXPECTED_STOP = [
+    "yoke_core.domain.turn_end_promised_work_gate",
+    "yoke_core.hooks.session_dispatch",
+]
 
 _LOOKBACK_HOURS = 24
 _STALE_WINDOW_MIN = 60
 
 
+def _record_membership(rec: RecordCollector) -> None:
+    chain = ordered_pipeline_for("Stop")
+    if chain == _EXPECTED_STOP:
+        rec.record(_MEMBER_NAME, _MEMBER_DESC, "PASS", "")
+        return
+    rec.record(
+        _MEMBER_NAME,
+        _MEMBER_DESC,
+        "FAIL",
+        f"Stop chain is {chain}; expected {_EXPECTED_STOP}",
+    )
+
+
+def _resolution_sql(conn) -> str:
+    clauses = [
+        """
+          AND NOT EXISTS (
+            SELECT 1 FROM events e2
+            WHERE e2.session_id = e.session_id
+              AND e2.event_name = 'HarnessSessionEnded'
+              AND (e2.created_at)::timestamp >= (e.created_at)::timestamp
+          )
+        """,
+    ]
+    if _column_exists(conn, "events", "envelope"):
+        clauses.append(
+            """
+          AND COALESCE((e.envelope)::jsonb #>> '{context,cap_reached}', '')
+              <> 'true'
+          AND COALESCE((e.envelope)::jsonb #>> '{context,reason}', '')
+              <> 'reinjection_cap_reached'
+          AND NOT EXISTS (
+            SELECT 1 FROM events e3
+            WHERE e3.session_id = e.session_id
+              AND (e3.created_at)::timestamp >= (e.created_at)::timestamp
+              AND (
+                COALESCE((e3.envelope)::jsonb #>> '{context,cap_reached}', '')
+                    = 'true'
+                OR COALESCE((e3.envelope)::jsonb #>> '{context,reason}', '')
+                    = 'reinjection_cap_reached'
+                OR (
+                    e3.event_name = 'ItemStatusChanged'
+                    AND COALESCE(
+                        (e3.envelope)::jsonb #>> '{context,to_status}', ''
+                    ) IN ('done', 'blocked')
+                )
+              )
+          )
+            """
+        )
+    if _column_exists(conn, "events", "hook_event_name"):
+        clauses.append(
+            """
+          AND NOT EXISTS (
+            SELECT 1 FROM events e4
+            WHERE e4.session_id = e.session_id
+              AND (e4.created_at)::timestamp > (e.created_at)::timestamp
+              AND e4.hook_event_name IN ('PreToolUse', 'PostToolUse')
+          )
+            """
+        )
+    return "".join(clauses)
+
+
 def hc_stop_hook_chain_end_deferred(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
+    _record_membership(rec)
     if not _base._table_exists(conn, "events"):
         rec.record(_HC_NAME, _HC_DESC, "PASS", "events table missing — skipping")
         return
@@ -51,12 +112,7 @@ def hc_stop_hook_chain_end_deferred(
         WHERE e.event_name = 'ChainEndDeferred'
           AND (e.created_at)::timestamp >= ({now_sql(offset_hours=-_LOOKBACK_HOURS)})::timestamp
           AND (e.created_at)::timestamp <= ({now_sql(offset_minutes=-_STALE_WINDOW_MIN)})::timestamp
-          AND NOT EXISTS (
-            SELECT 1 FROM events e2
-            WHERE e2.session_id = e.session_id
-              AND e2.event_name = 'HarnessSessionEnded'
-              AND (e2.created_at)::timestamp >= (e.created_at)::timestamp
-          )
+          {_resolution_sql(conn)}
         ORDER BY e.created_at ASC
         """,
     )
@@ -68,10 +124,8 @@ def hc_stop_hook_chain_end_deferred(
     issues: List[str] = [
         f"- {len(rows)} ChainEndDeferred event(s) in the last {_LOOKBACK_HOURS}h "
         f"aged past the {_STALE_WINDOW_MIN}-minute stale window without a "
-        "follow-up HarnessSessionEnded. Investigate whether the chain was "
-        "abandoned (operator killed the harness, session crashed) or whether "
-        "operator-skill prose / agent muscle memory drifted — the next "
-        "session-offer's reclaim path will recover the claim itself."
+        "resolving follow-up (tool use, cap-reached, terminal transition, or "
+        "HarnessSessionEnded). Investigate whether the chain was abandoned."
     ]
     for row in rows[:10]:
         sid = row["session_id"] or "(none)"
