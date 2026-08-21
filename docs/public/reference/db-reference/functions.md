@@ -151,11 +151,11 @@ The same handler accepts `items.structured_field.section_upsert` (replace a `## 
 {
   "function": "items.progress_log.append",
   "target":   {"kind": "item", "item_id": 42},
-  "payload":  {"headline": "kicked off engineer dispatch", "body": "..." }
+  "payload":  {"headline": "kicked off engineer dispatch", "content": "..." }
 }
 ```
 
-The handler reads the existing `Progress Log` section, appends a timestamped entry, and upserts at `ordering=200` (the canonical Progress Log convention — see `AGENTS.md` § Progress Log).
+The handler reads the existing `Progress Log` section, appends a timestamped entry, and upserts at `ordering=200` (the canonical Progress Log convention — see `AGENTS.md` § Progress Log). CLI adapter: `yoke items progress-log append PREFIX-N --headline TEXT --content TEXT` (or `--content-file PATH`).
 
 ### `item_worktrees.*` — explicit additional lanes, reads, and recovery
 

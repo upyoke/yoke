@@ -117,6 +117,9 @@ def events_emit(args: List[str]) -> int:
         value = getattr(parsed, attr)
         if value is not None and str(value) != "":
             payload[attr] = value
+    project = client_project_context(parsed.project)
+    if project:
+        payload["project"] = project
 
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
@@ -125,7 +128,7 @@ def events_emit(args: List[str]) -> int:
 
     return dispatch_and_emit(
         function_id="events.emit",
-        target=TargetRef(kind="global"),
+        target=TargetRef(kind="global", project_id=project),
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
