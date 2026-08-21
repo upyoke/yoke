@@ -4,7 +4,7 @@ Covers polish steps 10 through 15: rerun attached QA cases, capture the final
 summary, advance status, release the claim, emit the final output, and confirm
 completion.
 
-**Context variables** (set by earlier phases): `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
 
 ---
 
@@ -15,7 +15,7 @@ know exactly which blocking requirements still need passing runs. This is a
 typed read-only diagnostic:
 
 ```bash
-yoke qa gate-summary --item "PREFIX-$ITEM_NUM" --target implemented
+yoke qa gate-summary --item "$ITEM_REF" --target implemented
 ```
 
 Use `--target reviewed-implementation` to scope to verification-phase only; the bare call prints the summary JSON (add `--json` for the full typed envelope). Do not compose raw `qa_requirements` SQL during polish — `qa.gate_summary.run` is the canonical surface and matches the gate semantics in `yoke_core.domain.qa_gates`. The old checkout-local db-router QA summary is operator-debug fallback only, not the agent-facing teaching shape.
@@ -52,7 +52,7 @@ Before status advancement, capture the details you will present after cleanup is
 After all polish work is verified complete and tests pass, advance to `implemented`. Use `/yoke advance` so the canonical advance skill runs the polishing-implementation → implemented gate, rebuilds the rendered body, and syncs GitHub.
 
 ```bash
-/yoke advance "PREFIX-${ITEM_NUM}" implemented
+/yoke advance "$ITEM_REF" implemented
 ```
 
 Final output should include:
@@ -69,7 +69,7 @@ Function-call equivalent (for dispatch-surface callers — `/yoke advance` build
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM},
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
   "intent": "polish_complete",
   "payload": {"source_status": "polishing-implementation", "target_status": "implemented"},
   "options": {"sync_github_body": true}
@@ -78,11 +78,11 @@ Function-call equivalent (for dispatch-surface callers — `/yoke advance` build
 
 ## 13. Release Item Claim
 
-Release the exclusive work claim before any success output is emitted. Successful polish is not complete while the session still owns `PREFIX-${ITEM_NUM}`.
+Release the exclusive work claim before any success output is emitted. Successful polish is not complete while the session still owns `$ITEM_REF`.
 
 ```bash
 yoke claims work release \
-    --item "PREFIX-${ITEM_NUM}" \
+    --item "$ITEM_REF" \
     --reason completed
 ```
 

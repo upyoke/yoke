@@ -2,7 +2,7 @@
 
 Covers polish steps 1, 2, and 3: parse the item argument, locate the existing worktree lane set, and activate polish (hard gate).
 
-**Context variables** (consumed by later phases): `ITEM_NUM`,
+**Context variables** (consumed by later phases): `ITEM_REF`, `ITEM_NUM`,
 `ITEM_WORKFLOW_ID`, `ITEM_STATUS`, `ITEM_TITLE`, `WORKTREE_SCOPE`,
 `WORKTREE_COUNT`, `WORKTREE_BRANCH`, `WORKTREE_BRANCHES`, `WORKTREE_PATH`,
 `WORKTREE_PATHS`, `WORKTREE_EXISTS`, `WORKTREE_MISSING`, `ITEM_PROJECT`,
@@ -16,10 +16,20 @@ Resolve the item metadata through the unified DB router.
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_NUM" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
-ITEM_STATUS=$(yoke items get "$ITEM_NUM" status 2>/dev/null) || ITEM_STATUS=""
-ITEM_TITLE=$(yoke items get "$ITEM_NUM" title 2>/dev/null) || ITEM_TITLE=""
+ITEM_REF="{arg}"
+ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json 2>/dev/null) || ITEM_PIN_JSON=""
+# ITEM_REF — public PREFIX-N for every yoke CLI item argument.
+# ITEM_NUM — global DB items.id for function-call payloads and
+#            work_claims.item_id. Never pass ITEM_NUM to a CLI that
+#            expects PREFIX-N or a project-local number. Never re-parse
+#            the numeric tail of PREFIX-N as items.id.
+ITEM_NUM=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["item_id"])' 2>/dev/null) || ITEM_NUM=""
+ITEM_WORKFLOW_ID=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])' 2>/dev/null) || ITEM_WORKFLOW_ID=""
+ITEM_STATUS=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["status"])' 2>/dev/null) || ITEM_STATUS=""
+ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
 ```
 
 If any of those reads come back empty, stop with:
@@ -82,18 +92,18 @@ All subsequent file operations MUST use absolute paths from `WORKTREE_PATHS`. Fo
 ```bash
 yoke sessions touch --mode polish
 yoke claims work acquire \
-    --item "PREFIX-${ITEM_NUM}" \
+    --item "$ITEM_REF" \
     --reason polish_run
 ```
 
-After `claim-work`, verify the session holds an active claim on `PREFIX-${ITEM_NUM}` before proceeding. Use the canonical DB router — never construct a DB path manually or use worktree-local paths:
+After `claim-work`, verify the session holds an active claim on `$ITEM_REF` before proceeding. Use the canonical DB router — never construct a DB path manually or use worktree-local paths:
 
 ```bash
 _claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
     "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND item_id=${ITEM_NUM} AND released_at IS NULL")
 if [ -z "$_claim_ok" ] || [ "$_claim_ok" = "0" ]; then
-    echo "HALT: polish — no active work_claims row for PREFIX-${ITEM_NUM}."
-    echo "Recovery: re-run 'yoke claims work acquire --item PREFIX-${ITEM_NUM} --reason polish_run'."
+    echo "HALT: polish — no active work_claims row for ${ITEM_REF}."
+    echo "Recovery: re-run 'yoke claims work acquire --item ${ITEM_REF} --reason polish_run'."
     exit 1
 fi
 ```
@@ -106,15 +116,15 @@ Function-call equivalent (for dispatch-surface callers — the CLI above builds 
 {
   "function": "claims.work.acquire",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM},
-  "payload": {"target": {"kind": "item", "item_id": $ITEM_NUM}, "reason": "polish_run"}
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
+  "payload": {"target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"}, "reason": "polish_run"}
 }
 ```
 
 **3b. Transition to polishing-implementation** (when entry status is `reviewed-implementation`). Use `/yoke advance` so the canonical advance skill runs the gate and emits the matching event:
 
 ```bash
-/yoke advance "PREFIX-${ITEM_NUM}" polishing-implementation
+/yoke advance "$ITEM_REF" polishing-implementation
 ```
 
 Update `ITEM_STATUS="polishing-implementation"` in your local shell context after the advance returns success.
@@ -125,7 +135,7 @@ Function-call equivalent (for dispatch-surface callers — `/yoke advance` build
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM},
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
   "intent": "enter_polish",
   "payload": {"source_status": "reviewed-implementation", "target_status": "polishing-implementation"}
 }

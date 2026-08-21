@@ -13,10 +13,13 @@ Owns the single-statement database reads consumed by every gate phase:
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 from yoke_core.domain.db_mutation_gate_shared import (
     _NON_TERMINAL_STATUSES,
     _safe_parse_dict,
@@ -34,12 +37,54 @@ from yoke_core.domain.migration_model_capability import (
 from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 
+_ACTING_ITEM_REF: ContextVar[Optional[str]] = ContextVar(
+    "yoke_acting_item_ref", default=None
+)
+
+
+class ItemIdRefMismatch(Exception):
+    """Caller public ref and requested ``items.id`` name different rows."""
+
+
+@contextmanager
+def acting_item_ref_bound(item_ref: Optional[str]) -> Iterator[None]:
+    """Bind the caller's public item ref for the duration of a gate read."""
+    value = item_ref.strip() if isinstance(item_ref, str) and item_ref.strip() else None
+    token = _ACTING_ITEM_REF.set(value)
+    try:
+        yield
+    finally:
+        _ACTING_ITEM_REF.reset(token)
+
 
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _load_item_row(conn: Any, item_id: int) -> Optional[Dict[str, Any]]:
+def _assert_item_id_matches_ref(
+    conn: Any, item_id: int, expected_ref: str, project: str
+) -> None:
+    """Refuse when *expected_ref* resolves to a different ``items.id``.
+
+    Comparison is by resolved id, not string equality, so a bare project-local
+    sequence and the rendered ``PREFIX-N`` form of the same item agree.
+    """
+    resolved = parse_item_id_or_none(
+        expected_ref, project=project, conn=conn, allow_bare_internal=False,
+    )
+    if resolved is None or int(resolved) != int(item_id):
+        raise ItemIdRefMismatch(
+            f"acting item ref {expected_ref!r} does not name "
+            f"items.id={int(item_id)}"
+        )
+
+
+def _load_item_row(
+    conn: Any,
+    item_id: int,
+    *,
+    acting_item_ref: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     p = _placeholder(conn)
     row = conn.execute(
         "SELECT i.id, i.workflow_id, i.workflow_version_id, i.status, "
@@ -52,7 +97,17 @@ def _load_item_row(conn: Any, item_id: int) -> Optional[Dict[str, Any]]:
     ).fetchone()
     if row is None:
         return None
-    return dict(row)
+    loaded = dict(row)
+    expected = (
+        acting_item_ref
+        if acting_item_ref is not None
+        else _ACTING_ITEM_REF.get()
+    )
+    if expected:
+        _assert_item_id_matches_ref(
+            conn, item_id, expected, str(loaded.get("project") or ""),
+        )
+    return loaded
 
 
 def _load_capability_settings(
@@ -110,8 +165,10 @@ def _other_non_terminal_profiles(
 
 
 __all__ = [
+    "ItemIdRefMismatch",
     "_load_capability_settings",
     "_load_item_row",
     "_other_non_terminal_profiles",
     "_resolve_repo_path",
+    "acting_item_ref_bound",
 ]

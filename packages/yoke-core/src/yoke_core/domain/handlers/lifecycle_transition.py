@@ -163,9 +163,11 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
 
     item_id = int(target.item_id)
     from yoke_core.domain import backlog
+    from yoke_core.domain.actor_project_visibility import numeric_actor_id
     from yoke_core.domain.backlog_status_write_precondition import (
         WORKFLOW_STATUS_PRECONDITION_FAILED,
     )
+    from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
 
     current, item_ref = _read_current_status(item_id)
     if current is None:
@@ -190,22 +192,21 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         if reason_error:
             return _error_outcome("invalid_payload", reason_error)
 
-    from yoke_core.domain.actor_project_visibility import numeric_actor_id
-
     captured = io.StringIO()
-    result: Dict[str, Any] = backlog.execute_update(
-        item_id=item_id,
-        field="status",
-        value=payload.target_status,
-        resolution=cancellation_reason,
-        done_nonce_verified=payload.done_nonce_verified,
-        force=payload.force,
-        qa_bypass=payload.qa_bypass,
-        session_id=request.actor.session_id,
-        out=captured,
-        expected_status=current,
-        originator_actor_id=numeric_actor_id(request.actor.actor_id),
-    )
+    with acting_item_ref_bound(target.item_ref):
+        result = backlog.execute_update(
+            item_id=item_id,
+            field="status",
+            value=payload.target_status,
+            resolution=cancellation_reason,
+            done_nonce_verified=payload.done_nonce_verified,
+            force=payload.force,
+            qa_bypass=payload.qa_bypass,
+            session_id=request.actor.session_id,
+            out=captured,
+            expected_status=current,
+            originator_actor_id=numeric_actor_id(request.actor.actor_id),
+        )
 
     if not result.get("success"):
         legacy_code = result.get("error_code")

@@ -19,6 +19,7 @@ from yoke_core.domain.db_mutation_gate_implementing import (
     check_implementing_to_reviewing_implementation_gate,
 )
 from yoke_core.domain.db_mutation_gate_loaders import (
+    ItemIdRefMismatch,
     _load_item_row,
 )
 from yoke_core.domain.db_mutation_gate_shared import (
@@ -55,7 +56,10 @@ def check_polishing_implementation_to_implemented_gate(
         return base
 
     def _evaluate(c: Any) -> GateOutcome:
-        item = _load_item_row(c, item_id)
+        try:
+            item = _load_item_row(c, item_id)
+        except ItemIdRefMismatch as exc:
+            return GateOutcome(passed=False, errors=[str(exc)])
         if item is None:
             return GateOutcome(
                 passed=False,

@@ -6,7 +6,9 @@ Entry and activation stage of the conduct epic flow. Covers argument parsing, en
 
 ### S1. Argument Parsing
 
-Detect `PREFIX-N` pattern (case-insensitive regex, e.g., `PREFIX-N`, `yok-7`). Extract the numeric part `{N}`.
+Detect `PREFIX-N` pattern (case-insensitive regex, e.g., `PREFIX-N`, `yok-7`).
+Keep that token as the public item ref for every CLI item argument. Do not
+treat the numeric tail as `items.id`.
 
 Set defaults: `_max_attempts={--max-attempts value, default 5}`, `_no_chain={true if --no-chain flag present, false otherwise}`.
 
@@ -30,7 +32,7 @@ PROJECT=${PROJECT:-yoke}
 
 **Workflow binding gate:**
 ```bash
-_workflow_id=$(yoke items get ${N} workflow_id)
+_workflow_id=$(yoke items get PREFIX-${N} workflow_id)
 ```
 
 If `_workflow_id` is not `epic`, halt immediately:

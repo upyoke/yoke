@@ -102,7 +102,7 @@ Call `lifecycle.transition.execute` from `implemented` to `release`. The handler
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": {N}},
+  "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
   "intent": "usher_enter_release",
   "payload": {"source_status": "implemented", "target_status": "release"}
 }
@@ -252,7 +252,7 @@ Rollback step (exits 1, 4, unknown non-zero only):
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": {N}},
+  "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
   "intent": "usher_rollback_to_implemented",
   "payload": {"source_status": "release", "target_status": "implemented", "rollback_reason": "<merge_worktree exit code>"}
 }

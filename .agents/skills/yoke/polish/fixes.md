@@ -2,7 +2,7 @@
 
 Covers polish step 7: apply targeted finishing fixes to the worktree. Includes the DB-claim stop-and-amend gate when governed DB mutation is discovered.
 
-**Context variables** (set by earlier phases): `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
 
 ---
 
@@ -24,10 +24,10 @@ Each fix should be verifiable — the fix should be testable or the deletion sho
 **DB-claim stop-and-amend.** If polish discovers governed DB mutation that the stored `db_mutation_profile` does not declare — schema changes, migration modules, bulk data, `migration_audit` writes — STOP and amend the claim before continuing. Inspect the current state, then route the correction through the unified `db-claim-amend` adapter (the CLI builds the `db_claim.amend` envelope internally):
 
 ```bash
-yoke items get "PREFIX-${ITEM_NUM}" db_mutation_profile
+yoke items get "$ITEM_REF" db_mutation_profile
 
 yoke db-claim amend \
-    --item "PREFIX-${ITEM_NUM}" \
+    --item "$ITEM_REF" \
     --reason "polish discovered governed DB mutation" \
     --payload -  # stream the unified DB claim payload on stdin
 ```
@@ -40,7 +40,7 @@ Function-call equivalent (for dispatch-surface callers — `db-claim-amend` buil
 {
   "function": "db_claim.amend",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM},
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
   "intent": "polish_db_mutation_discovered",
   "payload": {
     "reason": "polish discovered governed DB mutation",
