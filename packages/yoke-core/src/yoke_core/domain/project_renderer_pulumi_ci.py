@@ -19,7 +19,7 @@ DELIVERY_AUTHORITY_KEY = "delivery_authority"
 DELIVERY_AUTHORITY_FIELDS = (
     "instance_tags",
     "documents",
-    "artifact_bucket",
+    "artifact_buckets",
     "artifact_key_prefixes",
 )
 
@@ -32,11 +32,14 @@ def _delivery_authority(settings: ProjectRendererSettings) -> dict[str, object]:
     nothing contributes nothing. Merging here rather than in the stack keeps
     the stack reading a single descriptor whatever the project's shape.
 
-    Two environments naming different artifact buckets is refused: the role
-    carries one bucket, so silently keeping either one would grant against a
-    bucket its owner never stated.
+    The union is lossless, which is the whole point of merging rather than
+    picking: environments naming different buckets contribute all of them, and
+    environments naming the same tag key with different values yield one
+    selector accepting any of those values. Assigning the later value over the
+    earlier one would silently strip an environment's authority — a role that
+    reaches production and no longer reaches stage, with nothing to show why.
     """
-    tags: dict[str, str] = {}
+    tags: dict[str, set[str]] = {}
     documents: set[str] = set()
     buckets: set[str] = set()
     prefixes: set[str] = set()
@@ -55,29 +58,33 @@ def _delivery_authority(settings: ProjectRendererSettings) -> dict[str, object]:
         if not isinstance(stated_tags, Mapping):
             raise ValueError("instance_tags must be a mapping")
         for key, value in stated_tags.items():
-            tags[str(key)] = str(value)
+            tags.setdefault(str(key), set()).update(
+                _stated_tag_values(value, f"instance_tags[{key}]")
+            )
         documents.update(_stated_strings(stated.get("documents"), "documents"))
-        bucket = str(stated.get("artifact_bucket") or "").strip()
-        if bucket:
-            buckets.add(bucket)
+        buckets.update(
+            _stated_strings(stated.get("artifact_buckets"), "artifact_buckets")
+        )
         prefixes.update(
             _stated_strings(
                 stated.get("artifact_key_prefixes"), "artifact_key_prefixes"
             )
         )
-    if len(buckets) > 1:
-        raise ValueError(
-            "environments state different artifact_bucket values "
-            f"({', '.join(sorted(buckets))}); the delivery role carries one"
-        )
     if not (tags or documents or buckets or prefixes):
         return {}
     return {
-        "instance_tags": dict(sorted(tags.items())),
+        "instance_tags": {key: sorted(values) for key, values in sorted(tags.items())},
         "documents": sorted(documents),
-        "artifact_bucket": next(iter(buckets), ""),
+        "artifact_buckets": sorted(buckets),
         "artifact_key_prefixes": sorted(prefixes),
     }
+
+
+def _stated_tag_values(value: object, label: str) -> set[str]:
+    """Return one tag key's accepted values, stated singly or as a list."""
+    if isinstance(value, str):
+        return {value.strip()} if value.strip() else set()
+    return _stated_strings(value, label)
 
 
 def _stated_strings(values: object, label: str) -> set[str]:
