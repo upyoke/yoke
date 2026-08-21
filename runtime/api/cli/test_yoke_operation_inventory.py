@@ -117,6 +117,7 @@ class TestRegistryShape:
         assert {
             entry.shell_form for entry in inv.by_status(inv.TOOL_CLI)
         } == {
+            "yoke advance implementation-entry",
             "yoke dev run",
             "yoke watch pytest",
             "yoke watch doctor",
