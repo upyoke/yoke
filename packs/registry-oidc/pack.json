@@ -3,7 +3,7 @@
   "slug": "registry-oidc",
   "name": "Registry and OIDC",
   "description": "Creates an AWS container-image registry and secure GitHub-to-AWS access, so deployment workflows can publish images without stored AWS passwords.",
-  "latest_version": "1.3.0",
+  "latest_version": "1.4.0",
   "versions": {
     "1.0.0": {
       "source": "versions/1.0.0/files",
@@ -355,6 +355,69 @@
     },
     "1.3.0": {
       "source": "versions/1.3.0/files",
+      "documentation": "docs/packs/registry-oidc/README.md",
+      "dependencies": [
+        "pulumi-foundation"
+      ],
+      "settings_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "files": [
+        {
+          "source": "docs/packs/registry-oidc/README.md",
+          "target": "docs/packs/registry-oidc/README.md",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/Pulumi.registry-stack.yaml.tmpl",
+          "target": "infra/Pulumi.registry-stack.yaml.tmpl",
+          "mode": "0644",
+          "render": "copy"
+        },
+        {
+          "source": "infra/webapp_registry_ci_metadata_policy.py",
+          "target": "infra/webapp_registry_ci_metadata_policy.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_registry_ci_policy.py",
+          "target": "infra/webapp_registry_ci_policy.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_registry_delivery_ssm_policy.py",
+          "target": "infra/webapp_registry_delivery_ssm_policy.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_registry_github_variables.py",
+          "target": "infra/webapp_registry_github_variables.py",
+          "mode": "0644",
+          "render": "install"
+        },
+        {
+          "source": "infra/webapp_registry_stack.py",
+          "target": "infra/webapp_registry_stack.py",
+          "mode": "0644",
+          "render": "install"
+        }
+      ],
+      "verification": [
+        {
+          "name": "python-check",
+          "command": "python3 -m compileall -q infra"
+        }
+      ]
+    },
+    "1.4.0": {
+      "source": "versions/1.4.0/files",
       "documentation": "docs/packs/registry-oidc/README.md",
       "dependencies": [
         "pulumi-foundation"

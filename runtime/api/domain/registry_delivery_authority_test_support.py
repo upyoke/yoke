@@ -16,16 +16,12 @@ from yoke_core.domain.project_renderer_settings import (
     ProjectRendererSettings,
     RendererEnvironmentSettings,
 )
+from runtime.api.domain.webapp_pulumi_test_support import _pack_program_source
 
-PACK_INFRA = (
-    Path(__file__).resolve().parents[3]
-    / "packs"
-    / "registry-oidc"
-    / "versions"
-    / "1.3.0"
-    / "files"
-    / "infra"
-)
+#: Resolved from the latest published Pack rather than pinned, so a new Pack
+#: version is covered the moment it ships. A pinned path silently left every
+#: version after it untested until someone remembered to bump the literal.
+PACK_INFRA = _pack_program_source("webapp_registry_delivery_ssm_policy.py").parent
 REGION = "us-east-1"
 ACCOUNT = "123456789012"
 
