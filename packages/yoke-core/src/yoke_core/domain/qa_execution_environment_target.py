@@ -206,31 +206,6 @@ def resolve_plan_execution_target(
     return target
 
 
-def select_backfill_environment(conn: Any, *, project_id: int) -> int:
-    """Select the current hosted runtime's one project environment."""
-    rows = [
-        {
-            "id": row["environment_id"],
-            "name": row["environment_name"],
-        }
-        for row in hosted_identity.eligible_plan_environment_rows(
-            conn,
-            plan_project_id=int(project_id),
-        )
-    ]
-    runtime = runtime_environment_name()
-    matches = [
-        row for row in rows if str(row["name"]).lower() == runtime
-    ]
-    if len(matches) == 1:
-        return int(matches[0]["id"])
-    if runtime not in {"prod", "stage"} and len(rows) == 1:
-        return int(rows[0]["id"])
-    raise QaExecutionTargetError(
-        f"project {project_id} cannot resolve one environment for runtime {runtime!r}"
-    )
-
-
 def only_project_environment(conn: Any, *, project_id: int) -> int | None:
     """Return a sole declared project environment key for internal writes."""
     from yoke_core.domain.schema_common import _table_exists
