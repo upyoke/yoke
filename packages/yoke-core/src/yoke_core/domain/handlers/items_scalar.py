@@ -174,19 +174,21 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
 
     from yoke_core.domain import backlog
     from yoke_core.domain.actor_project_visibility import numeric_actor_id
+    from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
 
     captured = io.StringIO()
-    result: Dict[str, Any] = backlog.execute_update(
-        item_id=int(target.item_id),
-        field=payload.field,
-        value=payload.value,
-        done_nonce_verified=payload.done_nonce_verified,
-        force=payload.force,
-        qa_bypass=payload.qa_bypass,
-        session_id=request.actor.session_id,
-        out=captured,
-        originator_actor_id=numeric_actor_id(request.actor.actor_id),
-    )
+    with acting_item_ref_bound(target.item_ref):
+        result = backlog.execute_update(
+            item_id=int(target.item_id),
+            field=payload.field,
+            value=payload.value,
+            done_nonce_verified=payload.done_nonce_verified,
+            force=payload.force,
+            qa_bypass=payload.qa_bypass,
+            session_id=request.actor.session_id,
+            out=captured,
+            originator_actor_id=numeric_actor_id(request.actor.actor_id),
+        )
 
     if not result.get("success"):
         legacy_code = result.get("error_code")

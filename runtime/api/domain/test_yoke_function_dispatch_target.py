@@ -37,12 +37,52 @@ class TestResolveTargetItemRef(unittest.TestCase):
         self.assertIsNone(resolve_target_item_ref(request))
         self.assertEqual(request.target.item_id, 42)
 
-    def test_explicit_item_id_wins_over_ref(self):
+    def test_mismatched_item_id_and_ref_is_refused(self):
         request = _request(
             TargetRef(kind="item", item_id=42, item_ref="YOK-99"),
         )
-        self.assertIsNone(resolve_target_item_ref(request))
+
+        @contextmanager
+        def _cm(*_a, **_k):
+            yield object()
+
+        with patch(
+            "yoke_core.domain.db_helpers.connect",
+            side_effect=lambda *a, **kw: _cm(),
+        ), patch.object(
+            target_module, "_session_project_context", return_value=None,
+        ), patch(
+            "yoke_core.domain.yok_n_parser.parse_item_id",
+            return_value=99,
+        ):
+            response = resolve_target_item_ref(request)
+        assert response is not None
+        self.assertFalse(response.success)
+        assert response.error is not None
+        self.assertEqual(response.error.code, "item_id_ref_mismatch")
         self.assertEqual(request.target.item_id, 42)
+
+    def test_matching_item_id_and_ref_keeps_resolved_id(self):
+        request = _request(
+            TargetRef(kind="item", item_id=42, item_ref="YOK-99"),
+        )
+
+        @contextmanager
+        def _cm(*_a, **_k):
+            yield object()
+
+        with patch(
+            "yoke_core.domain.db_helpers.connect",
+            side_effect=lambda *a, **kw: _cm(),
+        ), patch.object(
+            target_module, "_session_project_context", return_value=None,
+        ), patch(
+            "yoke_core.domain.yok_n_parser.parse_item_id",
+            return_value=42,
+        ):
+            self.assertIsNone(resolve_target_item_ref(request))
+        self.assertEqual(request.target.item_id, 42)
+        self.assertIsNone(request.target.project_id)
 
     def test_resolves_ref_with_target_project_context(self):
         request = _request(

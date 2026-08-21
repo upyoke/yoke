@@ -213,6 +213,76 @@ class TestPolishGateTestResults:
         assert any("test_results is empty" in e for e in outcome.errors)
 
 
+class TestPolishGateActingItemRef:
+    """The polish gate must read the caller's item, not a sequence-as-id row."""
+
+    def _stub_quick(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "yoke_core.domain.db_mutation_gate_polish.qa_command_plans.get_registered_command",
+            lambda project_id, scope, db_path=None: (
+                "python3 -m pytest runtime/api/" if scope == "quick" else None
+            ),
+        )
+
+    def test_matching_ref_reads_this_item_row(self, gate_db, monkeypatch) -> None:
+        conn, repo_path = gate_db
+        _seed_project(conn, "yoke", repo_path)
+        self._stub_quick(monkeypatch)
+        insert_item(
+            conn, id=6100, project="yoke", project_sequence=1,
+            status="polishing-implementation", test_results="",
+        )
+        insert_item(
+            conn, id=6200, project="yoke", project_sequence=6100,
+            status="polishing-implementation", test_results=_PASS_VERDICT,
+        )
+        from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
+
+        with acting_item_ref_bound("YOK-6100"):
+            outcome = check_polishing_implementation_to_implemented_gate(
+                6200, conn=conn,
+            )
+        assert outcome.passed, outcome.errors
+
+    def test_mismatched_ref_is_refused_not_answered(self, gate_db, monkeypatch) -> None:
+        conn, repo_path = gate_db
+        _seed_project(conn, "yoke", repo_path)
+        self._stub_quick(monkeypatch)
+        insert_item(
+            conn, id=6100, project="yoke", project_sequence=1,
+            status="polishing-implementation", test_results="",
+        )
+        insert_item(
+            conn, id=6200, project="yoke", project_sequence=6100,
+            status="polishing-implementation", test_results=_PASS_VERDICT,
+        )
+        from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
+
+        with acting_item_ref_bound("YOK-6100"):
+            outcome = check_polishing_implementation_to_implemented_gate(
+                6100, conn=conn,
+            )
+        assert not outcome.passed
+        assert any("does not name items.id=6100" in e for e in outcome.errors)
+        assert not any("test_results is empty" in e for e in outcome.errors)
+
+    def test_bare_sequence_ref_agrees_with_rendered_prefix(self, gate_db, monkeypatch) -> None:
+        conn, repo_path = gate_db
+        _seed_project(conn, "yoke", repo_path)
+        self._stub_quick(monkeypatch)
+        insert_item(
+            conn, id=6200, project="yoke", project_sequence=6100,
+            status="polishing-implementation", test_results=_PASS_VERDICT,
+        )
+        from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
+
+        with acting_item_ref_bound("6100"):
+            outcome = check_polishing_implementation_to_implemented_gate(
+                6200, conn=conn,
+            )
+        assert outcome.passed, outcome.errors
+
+
 # ---------------------------------------------------------------------------
 # Smoke: the canonical seed itself uses the canonical capability shape
 # ---------------------------------------------------------------------------

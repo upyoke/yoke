@@ -205,6 +205,26 @@ class TestPolishVerificationFailureOwnership:
         assert "Do not leave the worktree in a failing state" in text
 
 
+class TestPolishItemReferenceResolution:
+    """Polish resolves item identity from the immutable pin, like refine."""
+
+    def test_polish_resolves_once_through_the_registered_pin_reader(self):
+        parse = _read(SKILLS / "polish" / "parse-and-claim.md")
+        context = _read(SKILLS / "polish" / "context.md")
+        assert 'ITEM_REF="{arg}"' in parse
+        assert 'ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF"' in parse
+        assert "ITEM_NUM=$(printf '%s' \"$ITEM_PIN_JSON\"" in parse
+        assert '["result"]["item_id"]' in parse
+        assert "s/^[Ss][Uu][Nn]-//" not in parse
+        assert "s/^[Ss][Uu][Nn]-//" not in context
+
+    def test_polish_persists_test_results_after_verification(self):
+        text = _read(SKILLS / "polish" / "verify-and-commit.md")
+        assert "structured-field replace" in text
+        assert "--field test_results" in text
+        assert "$ITEM_REF" in text
+
+
 # ---------------------------------------------------------------------------
 # per-skill-family function-call expectations.
 # Refine prose must teach the typed function-call adapters for

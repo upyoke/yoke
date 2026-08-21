@@ -28,6 +28,7 @@ from yoke_core.domain.db_mutation_gate_evidence import (
     _audit_row_rehearsed_for_module,
 )
 from yoke_core.domain.db_mutation_gate_loaders import (
+    ItemIdRefMismatch,
     _load_capability_settings,
     _load_item_row,
     _resolve_repo_path,
@@ -70,7 +71,10 @@ def check_implementing_to_reviewing_implementation_gate(
     """
 
     def _evaluate(c: Any) -> GateOutcome:
-        item = _load_item_row(c, item_id)
+        try:
+            item = _load_item_row(c, item_id)
+        except ItemIdRefMismatch as exc:
+            return GateOutcome(passed=False, errors=[str(exc)])
         if item is None:
             from yoke_core.domain.project_identity import render_item_ref
 

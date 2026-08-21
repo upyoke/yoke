@@ -2,7 +2,7 @@
 
 Covers polish steps 4 and 5: gather item artifacts and survey the surrounding landscape for drift, overlap, and staleness.
 
-**Context variables** (set by parse-and-claim): `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
+**Context variables** (set by parse-and-claim): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
 
 ---
 
@@ -11,12 +11,10 @@ Covers polish steps 4 and 5: gather item artifacts and survey the surrounding la
 Read the item's artifacts to understand the intended implementation:
 
 ```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-SPEC=$(yoke items get "$ITEM_NUM" spec 2>/dev/null) || true
-BODY=$(yoke items get "$ITEM_NUM" body 2>/dev/null) || true
-TECHNICAL_PLAN=$(yoke items get "$ITEM_NUM" technical_plan 2>/dev/null) || true
-TEST_RESULTS=$(yoke items get "$ITEM_NUM" test_results 2>/dev/null) || true
+SPEC=$(yoke items get "$ITEM_REF" spec 2>/dev/null) || true
+BODY=$(yoke items get "$ITEM_REF" body 2>/dev/null) || true
+TECHNICAL_PLAN=$(yoke items get "$ITEM_REF" technical_plan 2>/dev/null) || true
+TEST_RESULTS=$(yoke items get "$ITEM_REF" test_results 2>/dev/null) || true
 ```
 
 Use spec (or body fallback) to identify:

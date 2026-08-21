@@ -81,11 +81,13 @@ def resolve_target_item_ref(
     """Resolve ``target.item_ref`` into ``target.item_id`` in place.
 
     Returns ``None`` on success / no-op; a typed error response when the
-    ref cannot be resolved. An explicit ``target.item_id`` wins — the
-    ref is only consulted when the id is absent.
+    ref cannot be resolved, or when an explicit ``target.item_id`` names
+    a different row than ``target.item_ref``. The public ref is always
+    resolved when present — a numeric tail stuffed into ``item_id`` must
+    not skip that lookup.
     """
     target = request.target
-    if target.item_ref is None or target.item_id is not None:
+    if target.item_ref is None:
         return None
     from yoke_core.domain import db_helpers
     from yoke_core.domain.yok_n_parser import parse_item_id
@@ -97,17 +99,12 @@ def resolve_target_item_ref(
                 context = _session_project_context(
                     conn, request.actor.session_id
                 )
-            target.item_id = parse_item_id(
+            resolved = parse_item_id(
                 target.item_ref,
                 project=context,
                 conn=conn,
                 allow_bare_internal=False,
             )
-            # The client-side context hint has served its purpose; clear
-            # it so permission scoping derives from the resolved item's
-            # own project, not the caller's ambient checkout (a PREFIX-N
-            # ref may legitimately point at another project).
-            target.project_id = None
     except ValueError as exc:
         return FunctionCallResponse(
             success=False,
@@ -120,6 +117,28 @@ def resolve_target_item_ref(
                 jsonpath="$.target.item_ref",
             ),
         )
+    if target.item_id is not None and int(target.item_id) != int(resolved):
+        return FunctionCallResponse(
+            success=False,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            error=FunctionError(
+                code="item_id_ref_mismatch",
+                message=(
+                    f"target.item_id {int(target.item_id)} does not match "
+                    f"target.item_ref {target.item_ref!r} "
+                    f"(resolves to items.id={int(resolved)})"
+                ),
+                jsonpath="$.target",
+            ),
+        )
+    target.item_id = int(resolved)
+    # The client-side context hint has served its purpose; clear it so
+    # permission scoping derives from the resolved item's own project,
+    # not the caller's ambient checkout (a PREFIX-N ref may
+    # legitimately point at another project).
+    target.project_id = None
     return None
 
 

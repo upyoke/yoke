@@ -47,7 +47,7 @@ The retained merge watcher (`yoke watch merge merge-worktree`) attempts this int
     {
       "function": "lifecycle.transition",
       "actor": {"session_id": "<this-session>"},
-      "target": {"kind": "item", "item_id": {N}},
+      "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
       "intent": "merge_post_pr_done",
       "payload": {"to": "done", "bypass_reason": "merge:post-PR-done"},
       "options": {"sync_github_body": true, "close_github_issue": true}

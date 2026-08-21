@@ -19,7 +19,7 @@ _effective_file_budget_policy=$(printf '%s' "$_item_workflow_json" | python3 -c 
  'import json,sys; print(json.load(sys.stdin)["result"]["effective_policies"]["file_budget"])')
 _effective_path_claims_policy=$(printf '%s' "$_item_workflow_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["effective_policies"]["path_claims"])')
-_title=$(yoke items get {N} title)
+_title=$(yoke items get PREFIX-{N} title)
 _pinned_definition_json=$(yoke workflows version get "$_workflow_id" "$_workflow_version" --json) || {
  echo "The pinned workflow version $_workflow_id@$_workflow_version could not be read."
  exit 1

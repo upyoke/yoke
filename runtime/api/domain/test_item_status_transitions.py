@@ -82,6 +82,21 @@ class TestRecordItemTransition:
         finally:
             conn.close()
 
+    def test_public_ref_records_internal_id_not_sequence_tail(self, db_path):
+        conn = connect_test_db(db_path)
+        try:
+            _seed_item(conn, 901, project_sequence=777)
+            assert item_status_transitions.record_item_transition(
+                conn, item_id="YOK-777", from_status=None, to_status="done",
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT item_id FROM item_status_transitions"
+            ).fetchone()
+            assert tuple(row) == (901,)
+        finally:
+            conn.close()
+
     def test_missing_table_never_poisons_caller_txn(self, db_path):
         conn = connect_test_db(db_path)
         try:

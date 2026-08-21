@@ -2,7 +2,7 @@
 
 Covers polish steps 8 and 9: run verification against the fixes, then commit.
 
-**Context variables** (set by earlier phases): `ITEM_NUM`, `WORKTREE_PATH`,
+**Context variables** (set by earlier phases): `ITEM_REF`, `ITEM_NUM`, `WORKTREE_PATH`,
 `WORKTREE_PATHS`.
 
 ---
@@ -30,8 +30,20 @@ yoke qa case run --requirement-id <requirement-id>
 The case runner resolves the item's worktree, streams the command's output
 live to stderr while capturing it, records the verdict, and stores the
 complete command output as a QA artifact. It names its raw capture file
-before the command starts, so a long case is followable without a second
-copy of the run.
+before the command starts (`capture=...` on stderr), so a long case is
+followable without a second copy of the run.
+
+When a Command case passes, persist that capture onto **this** item so the
+polish evidence gate reads this row's `items.test_results` rather than an
+empty field (or another item's row):
+
+```bash
+yoke items structured-field replace "$ITEM_REF" --field test_results --stdin < CAPTURE_PATH
+```
+
+`CAPTURE_PATH` is the file named by the case runner's `capture=` line. Use
+the registered replace adapter; do not skip this write because a later
+usher/merge gate can also read the field.
 
 **This is the one full execution.** Iterate with the cheap layers while
 fixing — the individual failing tests, the changed module's paths,

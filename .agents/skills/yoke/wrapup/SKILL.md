@@ -166,7 +166,7 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
  {
    "function": "items.structured_field.replace",
    "actor": {"session_id": "<this-session>"},
-   "target": {"kind": "item", "item_id": {N}},
+   "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
    "intent": "wrapup_continuity",
    "payload": {
      "field": "spec",

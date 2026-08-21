@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_activity import touch_item_activity
+from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
 _TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS item_status_transitions (
@@ -89,6 +90,25 @@ def _resolve_identity(conn: Any, session_id: Optional[str]) -> tuple:
     return session_id, actor_id
 
 
+def _internal_item_id(conn: Any, item_id: Any) -> Optional[int]:
+    """Resolve *item_id* to ``items.id``.
+
+    Python ints and digit strings are already-internal ids. Public
+    ``PREFIX-N`` refs resolve through the parser so a sequence number is
+    never stored as ``item_id``.
+    """
+    if isinstance(item_id, bool) or item_id is None:
+        return None
+    if isinstance(item_id, int):
+        return item_id
+    text = str(item_id).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    return parse_item_id_or_none(text, conn=conn)
+
+
 def _record(
     conn: Any,
     *,
@@ -100,9 +120,8 @@ def _record(
     session_id: Optional[str],
     project_id: Optional[int],
 ) -> bool:
-    try:
-        numeric_item = int(str(item_id).strip().upper().replace("YOK-", ""))
-    except (TypeError, ValueError):
+    numeric_item = _internal_item_id(conn, item_id)
+    if numeric_item is None:
         return False
     p = _p(conn)
     try:
@@ -275,9 +294,8 @@ def latest_transition(conn: Any, item_id: Any) -> Optional[Dict[str, Any]]:
     Tolerant of a missing table (returns ``None``) so projection
     surfaces stay usable on minimal fixture DBs.
     """
-    try:
-        numeric_item = int(str(item_id).strip().upper().replace("YOK-", ""))
-    except (TypeError, ValueError):
+    numeric_item = _internal_item_id(conn, item_id)
+    if numeric_item is None:
         return None
     p = _p(conn)
     try:
