@@ -28,15 +28,22 @@ def active_lanes(item: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def merge_source_lane(item: dict[str, Any]) -> Optional[dict[str, Any]]:
-    """The unique active lane, or None when the source is absent or ambiguous."""
+    """The sole active lane, or the sole integration lane among many."""
     lanes = active_lanes(item)
-    return lanes[0] if len(lanes) == 1 else None
+    if len(lanes) == 1:
+        return lanes[0]
+    integration_lanes = [
+        lane
+        for lane in lanes
+        if str(lane.get("lane_role") or "").strip() == "integration"
+    ]
+    return integration_lanes[0] if len(integration_lanes) == 1 else None
 
 
 def lane_resolution_error(item: dict[str, Any]) -> str:
     """Named refusal when the active-lane source is missing or ambiguous."""
     lanes = active_lanes(item)
-    if len(lanes) == 1:
+    if merge_source_lane(item) is not None:
         return ""
     if not lanes:
         return (
@@ -57,7 +64,7 @@ def lane_resolution_error(item: dict[str, Any]) -> str:
 
 
 def lane_branch(item: dict[str, Any], item_ref: str) -> str:
-    """Branch of the unique active lane, else the item-ref recovery key.
+    """Branch of the resolved active lane, else the item-ref recovery key.
 
     The fallback is the receipt lookup key when no active lane exists; it is
     not a merge source. Callers still refuse via :func:`lane_resolution_error`
@@ -73,7 +80,7 @@ def lane_branch(item: dict[str, Any], item_ref: str) -> str:
 
 
 def lane_path(item: dict[str, Any]) -> str:
-    """Recorded path of the unique active lane, if any."""
+    """Recorded path of the resolved active lane, if any."""
     lane = merge_source_lane(item)
     if lane is None:
         return ""

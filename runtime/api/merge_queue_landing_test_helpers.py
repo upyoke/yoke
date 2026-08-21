@@ -12,10 +12,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from yoke_contracts.item_ref import parse_public_item_ref
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
 from yoke_core.domain import merge_queue_route as route_mod
+from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
@@ -63,6 +65,37 @@ def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION):
     def dispatch(*, function_id, target, payload=None, **_kw):
         if function_id == "claims.work.holder_get":
             return ok_response({"holder": holder})
+        if function_id == DB_READ_FUNCTION_ID:
+            rows = []
+            for item_ref, shape in shapes.items():
+                prefix, sequence = parse_public_item_ref(item_ref)
+                if prefix is None or sequence is None:
+                    continue
+                rows.append(
+                    [
+                        shape.get("branch", item_ref),
+                        shape.get("item_id", sequence),
+                        shape.get("project", "yoke"),
+                        prefix,
+                        sequence,
+                    ]
+                )
+            return ok_response(
+                {
+                    "columns": [
+                        "branch",
+                        "item_id",
+                        "project_slug",
+                        "public_item_prefix",
+                        "project_sequence",
+                    ],
+                    "rows": rows,
+                    "row_count": len(rows),
+                    "row_cap": 100,
+                    "truncated": False,
+                    "statement_timeout_ms": 5000,
+                }
+            )
         ref = target.item_ref
         shape = shapes.get(ref) or {}
         if function_id == "claims.path.list":
