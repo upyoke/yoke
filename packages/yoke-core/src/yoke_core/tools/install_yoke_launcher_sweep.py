@@ -9,6 +9,9 @@ stays intact.
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,11 +22,15 @@ from yoke_core.tools.install_yoke_launcher_cleanup import (
     quarantine_shadow_launcher,
 )
 from yoke_core.tools.install_yoke_launcher_core import (
+    InstallError,
     LAUNCHER_FILENAME,
     refuse_foreign_binary,
     verify_repo_root,
     write_launcher,
 )
+
+
+LAUNCHER_PROBE_TIMEOUT_SECONDS = 5.0
 
 
 @dataclass(frozen=True)
@@ -88,6 +95,76 @@ def enumerate_shadow_installs(
     return found
 
 
+def _candidate_interpreters(checkout: Path, home: Optional[Path]) -> List[Path]:
+    """Return distinct launcher interpreters in machine-preference order."""
+    raw_candidates: List[Path] = []
+    if home is not None:
+        raw_candidates.append(Path(home) / ".venv" / "bin" / "python3")
+    raw_candidates.extend(
+        [
+            Path(checkout) / ".venv" / "bin" / "python3",
+            Path(sys.executable),
+        ]
+    )
+
+    candidates: List[Path] = []
+    seen: set[Path] = set()
+    for candidate in raw_candidates:
+        invocation_path = Path(os.path.abspath(candidate.expanduser()))
+        if invocation_path in seen or not invocation_path.is_file():
+            continue
+        seen.add(invocation_path)
+        candidates.append(invocation_path)
+    return candidates
+
+
+def _render_launcher_candidate(
+    target: Path,
+    *,
+    default_home: Path,
+    interpreter: Path,
+) -> Path:
+    """Render the installable shim beside its eventual canonical path."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, raw_path = tempfile.mkstemp(
+        dir=target.parent,
+        prefix=f".{target.name}.",
+        suffix=".candidate",
+    )
+    os.close(descriptor)
+    candidate = Path(raw_path)
+    try:
+        write_launcher(
+            candidate,
+            default_home=default_home,
+            python=interpreter,
+        )
+    except Exception:
+        candidate.unlink(missing_ok=True)
+        raise
+    return candidate
+
+
+def _launcher_probe_passes(candidate: Path, *, default_home: Path) -> bool:
+    """Return whether the rendered launcher completes its version probe."""
+    probe_env = os.environ.copy()
+    probe_env["YOKE_HOME"] = str(default_home)
+    probe_env.pop("PYTHONHOME", None)
+    probe_env.pop("PYTHONPATH", None)
+    try:
+        subprocess.run(
+            [str(candidate), "--version"],
+            check=True,
+            env=probe_env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=LAUNCHER_PROBE_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return True
+
+
 def repair_canonical_launcher(
     checkout: Path,
     *,
@@ -99,18 +176,34 @@ def repair_canonical_launcher(
     """Write or repair the canonical shim against ``checkout``."""
     verify_repo_root(checkout)
     target = canonical_shim_path(env)
-    if target.is_symlink():
-        target.unlink()
-    refuse_foreign_binary(target, force=force)
-    python = None
-    for root in (home, checkout):
-        if root is None:
+    if not target.is_symlink():
+        refuse_foreign_binary(target, force=force)
+
+    default_home = Path(home or checkout)
+    interpreters = _candidate_interpreters(checkout, home)
+    for interpreter in interpreters:
+        candidate = _render_launcher_candidate(
+            target,
+            default_home=default_home,
+            interpreter=interpreter,
+        )
+        if not _launcher_probe_passes(candidate, default_home=default_home):
+            candidate.unlink(missing_ok=True)
             continue
-        candidate = Path(root) / ".venv" / "bin" / "python3"
-        if candidate.exists():
-            python = candidate.resolve()
-            break
-    write_launcher(target, default_home=home or checkout, python=python)
+        try:
+            os.replace(candidate, target)
+        except OSError as exc:
+            candidate.unlink(missing_ok=True)
+            raise InstallError(
+                f"cannot atomically replace canonical launcher {target}: {exc}"
+            ) from exc
+        break
+    else:
+        raise InstallError(
+            f"cannot repair canonical launcher {target}: "
+            "no candidate interpreter passed the launcher --version probe."
+        )
+
     if stream is not None:
         stream.write(f"Canonical launcher repaired: {target}\n")
     return target

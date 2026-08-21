@@ -14,8 +14,13 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.project_contract.install_manifest import INSTALL_MANIFEST_REL
 from yoke_contracts.project_contract.managed_block import (
     MAIN_AGENT_PACKET_MARKER,
+)
+from yoke_contracts.project_contract.installed_layer import (
+    INSTALLED_LAYER_RECEIPT_REL,
+    render_installed_layer_receipt,
 )
 from yoke_core.domain import session_orientation as so
 
@@ -173,6 +178,72 @@ def test_orientation_names_the_board_only_when_it_exists(project: Path) -> None:
     )
     assert with_board is not None
     assert "Board available at .yoke/BOARD.md" in with_board
+
+
+def test_orientation_warns_when_installed_teaching_is_behind(
+    project: Path, monkeypatch,
+) -> None:
+    receipt = project / INSTALLED_LAYER_RECEIPT_REL
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text(
+        render_installed_layer_receipt("0.1.1+launch.24"),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "yoke_contracts.engine_version.installed_engine_version",
+        lambda: "0.1.1+launch.25",
+    )
+
+    out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+
+    assert out is not None
+    assert "operating layer 0.1.1+launch.24 is behind" in out
+    assert f"`yoke project install {project}`" in out
+
+
+def test_orientation_warns_for_install_predating_tracked_receipts(
+    project: Path, monkeypatch,
+) -> None:
+    manifest = project / INSTALL_MANIFEST_REL
+    manifest.write_text(
+        json.dumps({"yoke_version": "0.1.1+launch.24"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "yoke_contracts.engine_version.installed_engine_version",
+        lambda: "0.1.1+launch.25",
+    )
+
+    out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+
+    assert out is not None
+    assert "operating layer 0.1.1+launch.24 is behind" in out
+    assert f"`yoke project install {project}`" in out
+
+
+@pytest.mark.parametrize(
+    "receipt_text,running_version",
+    [
+        (render_installed_layer_receipt("0.1.1+launch.25"), "0.1.1+launch.25"),
+        (render_installed_layer_receipt("0.1.1+launch.26"), "0.1.1+launch.25"),
+        ("not json\n", "0.1.1+launch.25"),
+    ],
+)
+def test_orientation_stays_silent_without_older_comparable_teaching(
+    project: Path, monkeypatch, receipt_text: str, running_version: str,
+) -> None:
+    receipt = project / INSTALLED_LAYER_RECEIPT_REL
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text(receipt_text, encoding="utf-8")
+    monkeypatch.setattr(
+        "yoke_contracts.engine_version.installed_engine_version",
+        lambda: running_version,
+    )
+
+    out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+
+    assert out is not None
+    assert "operating layer" not in out
 
 
 def test_module_takes_no_source_repo_imports() -> None:

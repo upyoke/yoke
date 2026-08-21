@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
+from yoke_contracts.project_contract.installed_layer import (
+    INSTALLED_LAYER_RECEIPT_REL,
+)
 from yoke_cli.main import main as cli_main
 from yoke_cli.project_install import managed_git_hooks
 from runtime.api.tools import source_project_bundle
@@ -79,6 +83,18 @@ def test_source_bundle_versions_selected_git_hook_content(monkeypatch) -> None:
         project_id=50,
         project_slug="git-hook-source",
     )
+    baseline_files = {entry["path"]: entry for entry in baseline["files"]}
+    baseline_receipt = json.loads(
+        baseline_files[INSTALLED_LAYER_RECEIPT_REL]["content"]
+    )
+    source_head = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert baseline_receipt["source_engine_release"] == baseline["yoke_version"]
+    assert baseline_receipt["source_build"] == source_head
     selected = managed_git_hooks.PRE_COMMIT_SHIM.replace(
         "# Hard-fails",
         "# selected source behavior\n# Hard-fails",
@@ -97,5 +113,11 @@ def test_source_bundle_versions_selected_git_hook_content(monkeypatch) -> None:
     )
 
     hooks = {entry["name"]: entry for entry in refreshed["managed_git_hooks"]}
+    refreshed_files = {entry["path"]: entry for entry in refreshed["files"]}
+    refreshed_receipt = json.loads(
+        refreshed_files[INSTALLED_LAYER_RECEIPT_REL]["content"]
+    )
     assert hooks["pre-commit"]["content"] == selected
     assert refreshed["yoke_version"] != baseline["yoke_version"]
+    assert refreshed_receipt["source_engine_release"] == refreshed["yoke_version"]
+    assert refreshed_receipt["source_build"] == source_head

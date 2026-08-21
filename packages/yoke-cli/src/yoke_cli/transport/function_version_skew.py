@@ -22,9 +22,9 @@ registry, so this gate applies only to the HTTPS relay.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Optional, Tuple
 
 from yoke_contracts.api.function_call import FunctionError
+from yoke_contracts.engine_version import compare_engine_versions
 
 #: Error code replacing a relayed ``function_not_registered``.
 SKEW_ERROR_CODE = "function_version_skew"
@@ -101,34 +101,10 @@ def skew_error(
 
 
 def _recovery_for_direction(client_version: str, server_version: str) -> str:
-    client = _version_key(client_version)
-    server = _version_key(server_version)
-    if client is None or server is None or client == server:
+    comparison = compare_engine_versions(client_version, server_version)
+    if comparison is None or comparison == 0:
         return _UNDETERMINED_RECOVERY
-    return _SERVER_BEHIND_RECOVERY if client > server else _CLIENT_BEHIND_RECOVERY
-
-
-def _version_key(version: str) -> Optional[Tuple[int, ...]]:
-    """Leading numeric release components, or ``None`` when unorderable.
-
-    setuptools-scm versions carry development and local suffixes
-    (``1.2.3.dev4+g89ab``); only the release components order reliably
-    across a client/server pair, and anything without them cannot decide
-    the direction at all.
-    """
-    components = []
-    for part in (version or "").split("."):
-        digits = ""
-        for char in part:
-            if not char.isdigit():
-                break
-            digits += char
-        if not digits:
-            break
-        components.append(int(digits))
-        if digits != part:
-            break
-    return tuple(components) if components else None
+    return _SERVER_BEHIND_RECOVERY if comparison > 0 else _CLIENT_BEHIND_RECOVERY
 
 
 __all__ = [

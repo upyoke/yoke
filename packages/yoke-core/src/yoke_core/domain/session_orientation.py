@@ -84,7 +84,34 @@ def _read_rules_text(root: Path) -> str:
     return "\n".join(parts)
 
 
-def _advisory_lines() -> list[str]:
+def _operating_layer_advisory(root: Path) -> str:
+    """One refresh notice when tracked project teaching predates this engine."""
+    try:
+        import yoke_core
+        from yoke_contracts.engine_version import installed_engine_version
+        from yoke_cli.operating_layer_drift import (
+            compare_installed_layer,
+            refresh_command,
+        )
+
+        comparison = compare_installed_layer(
+            root,
+            running_version=installed_engine_version(),
+            running_module_file=str(yoke_core.__file__ or ""),
+        )
+    except Exception:  # noqa: BLE001 — startup orientation must fail open
+        return ""
+    if comparison is None or not comparison.layer_is_behind:
+        return ""
+    release = comparison.receipt.source_engine_release
+    command = refresh_command(comparison.receipt.project_root)
+    return (
+        f"Yoke operating layer {release} is behind the running engine; "
+        f"refresh it with `{command}`."
+    )
+
+
+def _advisory_lines(root: Path) -> list[str]:
     """Machine-local install/interpreter advisories, newest problem first.
 
     These probe the machine this hook runs on, which is exactly why they
@@ -97,6 +124,7 @@ def _advisory_lines() -> list[str]:
 
     lines: list[str] = []
     for block in (
+        _operating_layer_advisory(root),
         render_interpreter_advisory_block(),
         render_install_advisory_block(),
     ):
@@ -133,7 +161,7 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     session_id = _text(payload, "session_id")
     if not session_id or session_id == "unknown":
         return ""
-    lines: list[str] = _advisory_lines()
+    lines: list[str] = _advisory_lines(root)
     lines.extend(
         [
             ORIENTATION_HEADING,

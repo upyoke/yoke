@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -75,7 +76,7 @@ def https_env(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",
-        lambda path=None: HttpsConnection(
+        lambda path=None, explicit_env=None: HttpsConnection(
             api_url="https://api.example", token="tok",
         ),
     )
@@ -86,7 +87,7 @@ class TestActiveEnvManifest:
     def test_local_transport_returns_none(self, monkeypatch) -> None:
         monkeypatch.setattr(
             "yoke_cli.transport.https.resolve_https_connection",
-            lambda path=None: None,
+            lambda path=None, explicit_env=None: None,
         )
         assert active_env_manifest() is None
 
@@ -140,12 +141,55 @@ class TestActiveEnvManifest:
 
         assert active_env_manifest() == stale
 
+    def test_forced_refresh_drops_cached_server_version_on_fetch_failure(
+        self, monkeypatch, https_env,
+    ) -> None:
+        https_env.parent.mkdir(parents=True)
+        cached = {
+            "manifest_version": manifest_mod.MANIFEST_VERSION,
+            "subcommands": [{"tokens": ["zz", "top"]}],
+            "aliases": [],
+            "server_engine_version": "0.1.1+launch.244",
+        }
+        https_env.write_text(json.dumps(cached))
+        monkeypatch.setattr(manifest_mod, "_fetch", lambda connection: None)
+
+        refreshed = active_env_manifest(force_refresh=True)
+
+        assert refreshed["subcommands"] == cached["subcommands"]
+        assert "server_engine_version" not in refreshed
+
     def test_no_cache_no_fetch_returns_none(
         self, monkeypatch, https_env,
     ) -> None:
         monkeypatch.setattr(manifest_mod, "_fetch", lambda connection: None)
 
         assert active_env_manifest() is None
+
+    def test_fetch_retains_server_engine_version_in_cache(
+        self,
+        monkeypatch,
+        https_env,
+    ) -> None:
+        monkeypatch.setattr(
+            manifest_mod,
+            "request_json",
+            lambda *args, **kwargs: SimpleNamespace(
+                payload={
+                    "manifest_version": manifest_mod.MANIFEST_VERSION,
+                    "subcommands": [],
+                    "aliases": [],
+                },
+                headers={"X-Yoke-Engine-Version": "0.1.1+launch.246"},
+            ),
+        )
+
+        fetched = active_env_manifest()
+
+        assert fetched["server_engine_version"] == "0.1.1+launch.246"
+        assert json.loads(https_env.read_text())["server_engine_version"] == (
+            "0.1.1+launch.246"
+        )
 
     def test_old_manifest_version_is_refetched_even_when_cache_is_fresh(
         self, monkeypatch, https_env,
@@ -209,7 +253,6 @@ def test_manifest_request_accepts_versioned_api_url() -> None:
 def test_diagnose_fetch_failure_reports_http_401(monkeypatch) -> None:
     import io
     import urllib.error
-    from types import SimpleNamespace
 
     monkeypatch.setattr(
         "yoke_cli.transport.https.resolve_https_connection",

@@ -3,12 +3,13 @@
 The active env serves ``GET /v1/cli/manifest`` (auth-gated) rendering
 its subcommand grammar from the same registries that drive ``yoke
 --help`` locally. The machine client caches one manifest per env label
-under the machine cache dir and uses it to surface drift: subcommands
-the server knows that this CLI build predates point the operator at
-`rerun the public installer` instead of a bare unknown-subcommand error
-for help/capability compatibility. Local-postgres
-transport never consults a manifest — the in-checkout registry is the
-authority there.
+under the machine cache dir and uses it to surface drift: a subcommand
+served only by the active env can reflect an older project operating
+layer, an older client, or an older server.  The manifest's response
+header retains the server engine release so the caller can diagnose
+those cases rather than guessing from command presence alone.
+Local-postgres transport never consults a manifest — the in-checkout
+registry is the authority there.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.api_urls import join_api_url
+from yoke_contracts.engine_version import ENGINE_VERSION_HEADER
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
@@ -65,7 +67,12 @@ def build_manifest() -> Dict[str, Any]:
     }
 
 
-def active_env_manifest(*, allow_fetch: bool = True) -> Optional[Dict[str, Any]]:
+def active_env_manifest(
+    *,
+    allow_fetch: bool = True,
+    explicit_env: str | None = None,
+    force_refresh: bool = False,
+) -> Optional[Dict[str, Any]]:
     """Return the active https env's manifest, or ``None``.
 
     ``None`` means "no manifest applies": local transport, no active
@@ -76,7 +83,7 @@ def active_env_manifest(*, allow_fetch: bool = True) -> Optional[Dict[str, Any]]
     try:
         from yoke_cli.transport.https import resolve_https_connection
 
-        connection = resolve_https_connection()
+        connection = resolve_https_connection(explicit_env=explicit_env)
     except Exception:
         return None
     if connection is None:
@@ -84,18 +91,24 @@ def active_env_manifest(*, allow_fetch: bool = True) -> Optional[Dict[str, Any]]
     from yoke_cli.config.machine_config import active_env
 
     try:
-        env_name = active_env()
+        env_name = active_env(explicit_env=explicit_env)
     except Exception:
         return None
     cache_path = _cache_path(env_name)
     cached = _read_cache(cache_path)
-    if cached is not None and not _stale(cache_path):
+    if cached is not None and not force_refresh and not _stale(cache_path):
         return cached
     if allow_fetch:
         fetched = _fetch(connection)
         if _compatible_manifest(fetched):
             _write_cache(cache_path, fetched)
             return fetched
+    if force_refresh and cached is not None:
+        # Cached grammar can still explain what an environment served, but a
+        # cached release cannot safely choose a directional skew remedy after
+        # a deploy. Preserve the rows and discard only that stale evidence.
+        cached = dict(cached)
+        cached.pop("server_engine_version", None)
     return cached
 
 
@@ -199,7 +212,25 @@ def _fetch(connection) -> Optional[Dict[str, Any]]:
     except BoundedJsonHttpError:
         return None
     payload = response.payload
-    return payload if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return None
+    manifest = dict(payload)
+    # ``request_json`` normalizes response-header names to lowercase.  Keep
+    # the lookup tolerant of alternate Mapping implementations used by
+    # callers/tests so this diagnostic survives either representation.
+    server_version = next(
+        (
+            str(value).strip()
+            for key, value in response.headers.items()
+            if str(key).casefold() == ENGINE_VERSION_HEADER.casefold()
+            and str(value).strip()
+        ),
+        "",
+    )
+    manifest.pop("server_engine_version", None)
+    if server_version:
+        manifest["server_engine_version"] = server_version
+    return manifest
 
 
 def diagnose_env_manifest_fetch(env_name: str) -> str:

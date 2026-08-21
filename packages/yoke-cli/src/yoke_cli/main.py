@@ -128,9 +128,9 @@ def _render_help() -> str:
     return "\n".join(lines)
 
 
-def _emit_help() -> int:
+def _emit_help(*, explicit_env: Optional[str] = None) -> int:
     print(_render_help())
-    drift = render_manifest_drift()
+    drift = render_manifest_drift(explicit_env=explicit_env)
     if drift:
         print(drift)
     return 0
@@ -155,9 +155,15 @@ def _emit_bare_onboard_route(problem: str, *, interactive: bool) -> int:
     return 1
 
 
-def _emit_unknown(argv: Sequence[str]) -> int:
+def _emit_unknown(
+    argv: Sequence[str],
+    *,
+    explicit_env: Optional[str] = None,
+) -> int:
     head = " ".join(list(argv)[:3]) if argv else "<no subcommand>"
-    hint = manifest_unknown_hint(list(argv)) or nearest_subcommand_hint(argv) or (
+    hint = manifest_unknown_hint(
+        list(argv), explicit_env=explicit_env,
+    ) or nearest_subcommand_hint(argv) or (
         "Run `yoke --help` for the canonical list of subcommands."
     )
     print(f"yoke: unknown subcommand: {head!r}\n{hint}", file=sys.stderr)
@@ -273,10 +279,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             return _emit_bare_onboard_route(
                 problem, interactive=_stdin_is_interactive(),
             )
-        return _emit_help()
+        return _emit_help(explicit_env=global_env)
 
     if argv[0] in ("-h", "--help", "help"):
-        return _emit_help()
+        return _emit_help(explicit_env=global_env)
 
     if argv[0] in ("-V", "--version", "version"):
         return _emit_version()
@@ -300,7 +306,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             group_help = emit_group_help_if_available(argv)
             if group_help is not None:
                 return group_help
-            return _emit_unknown(argv)
+            return _emit_unknown(argv, explicit_env=global_env)
 
     old_env = os.environ.get(ENV_OVERRIDE)
     try:
