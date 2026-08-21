@@ -15,6 +15,9 @@ _ALWAYS_RUN_CONTRACTS = (
         (
             "runtime/api/cli/test_adapter_inventory_usage_contract.py",
             "runtime/api/cli/test_yoke_operation_inventory.py",
+            # Losing the ability to create a database is the worst thing the
+            # engine can do and reaches no test by import, so it runs always.
+            "runtime/api/domain/test_engine_artifact_universe_birth.py",
             "runtime/api/test_service_client_structured_api_adapter.py",
             "runtime/api/tools/test_atlas_currency_contract.py",
         ),
