@@ -46,6 +46,7 @@ SOURCE_MANAGED_PREFIXES = (
     ".codex/agents/yoke-",
     ".cursor/agents/yoke-",
     ".claude/rules/",
+    f"{install_bundle.DOCS_DEST}/",
 )
 
 
@@ -104,6 +105,7 @@ def build_source_bundle(
     files.extend(install_bundle._skill_files(source_checkout))
     files.extend(install_bundle._agent_files(source_checkout))
     files.extend(install_bundle._rules_files(source_checkout))
+    files.extend(install_bundle_managed.docs_bundle_files(source_checkout))
     files.sort(key=lambda entry: entry["path"])
     hooks = install_bundle._hooks_block()
     managed = install_bundle_managed.managed_bundle_keys(source_checkout)
