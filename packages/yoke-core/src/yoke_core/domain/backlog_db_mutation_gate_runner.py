@@ -6,9 +6,12 @@ canonical `{"success": False, ...}` failure payload or `None` on pass.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 import json
-from typing import Any, Optional
+from typing import Any, Iterator, List, Optional
 
+from yoke_contracts.api.function_call import FunctionWarning
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
 
@@ -39,6 +42,36 @@ _PROSE_CHECK_TARGETS = frozenset(
         "implemented",
     }
 )
+
+_WARNING_SINK: ContextVar[Optional[List[FunctionWarning]]] = ContextVar(
+    "db_mutation_gate_warning_sink",
+    default=None,
+)
+
+
+@contextmanager
+def capture_db_mutation_gate_warnings() -> Iterator[List[FunctionWarning]]:
+    """Capture non-blocking DB-gate degradation for one function call."""
+    warnings: List[FunctionWarning] = []
+    token = _WARNING_SINK.set(warnings)
+    try:
+        yield warnings
+    finally:
+        _WARNING_SINK.reset(token)
+
+
+def _publish_gate_warnings(details: List[str]) -> None:
+    sink = _WARNING_SINK.get()
+    if sink is None:
+        return
+    sink.extend(
+        FunctionWarning(
+            code="db_mutation_check_skipped",
+            step="mechanical_ddl_scan",
+            detail=detail,
+        )
+        for detail in details
+    )
 
 
 def _p(conn: Any) -> str:
@@ -191,6 +224,8 @@ def _run_db_mutation_gate(
                 "error_code": error_codes[gate_kind],
             }
 
+        _publish_gate_warnings(outcome.warnings)
+
         # Joint-gate side effect: stamp frozen_at only when the
         # profile declares a governed mutation. Negative claims
         # (state="none") stay mutable — they remain editable via the
@@ -228,6 +263,7 @@ __all__ = [
     "_DB_MUTATION_GATE_TARGETS",
     "_PROSE_CHECK_TARGETS",
     "_profile_declares_mutation",
+    "capture_db_mutation_gate_warnings",
     "_run_prose_vs_claim_check",
     "_run_db_mutation_gate",
 ]

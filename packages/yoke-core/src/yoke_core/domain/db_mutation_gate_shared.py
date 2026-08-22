@@ -29,12 +29,14 @@ class GateOutcome:
 
     ``passed`` — whether the gate allows the transition.
     ``errors`` — operator-facing reasons the gate blocked (empty on pass).
+    ``warnings`` — non-blocking checks that degraded or were skipped.
     ``escalations`` — class escalations the joint gate would record on
     the attestation (used by the stamping step at §7.1 transition).
     """
 
     passed: bool
     errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
     escalations: List[Dict[str, Any]] = field(default_factory=list)
 
 
@@ -42,28 +44,30 @@ class GateOutcome:
 # Work items in any of these states still hold a claim against affected
 # surfaces; once a work item reaches a terminal state its declared profile
 # no longer participates in overlap detection.
-_NON_TERMINAL_STATUSES = frozenset({
-    "idea",
-    "refining-idea",
-    "refined-idea",
-    "planning",
-    "plan-drafted",
-    "refining-plan",
-    "planned",
-    "implementing",
-    "reviewing-implementation",
-    "reviewed-implementation",
-    "polishing-implementation",
-    "implemented",
-    "release",
-    # legacy lifecycle status retained here only so a row whose
-    # status='blocked' has not yet been migrated still participates in
-    # overlap detection. Post-cutover the canonical block signal is
-    # items.blocked=1 (orthogonal to status); a flag-blocked item still
-    # holds an in-flight lifecycle position above and stays in this set
-    # via that status, not via the legacy "blocked" entry.
-    "blocked",
-})
+_NON_TERMINAL_STATUSES = frozenset(
+    {
+        "idea",
+        "refining-idea",
+        "refined-idea",
+        "planning",
+        "plan-drafted",
+        "refining-plan",
+        "planned",
+        "implementing",
+        "reviewing-implementation",
+        "reviewed-implementation",
+        "polishing-implementation",
+        "implemented",
+        "release",
+        # legacy lifecycle status retained here only so a row whose
+        # status='blocked' has not yet been migrated still participates in
+        # overlap detection. Post-cutover the canonical block signal is
+        # items.blocked=1 (orthogonal to status); a flag-blocked item still
+        # holds an in-flight lifecycle position above and stays in this set
+        # via that status, not via the legacy "blocked" entry.
+        "blocked",
+    }
+)
 
 
 def _safe_parse_dict(raw: Any) -> Dict[str, Any]:

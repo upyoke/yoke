@@ -53,6 +53,7 @@ def test_parent_transaction_owns_declared_attestation_freeze(
         lambda *_args, **_kwargs: SimpleNamespace(
             passed=True,
             errors=[],
+            warnings=[],
             escalations=[],
         ),
     )

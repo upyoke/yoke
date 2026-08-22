@@ -77,8 +77,9 @@ def check_idea_to_refining_idea_gate(
     authored during implementation, enforced at rehearsal time by the
     runner, and apply-audit evidence is enforced at
     :func:`check_implementing_to_reviewing_implementation_gate`.  The
-    mechanical scanner reads DDL opportunistically when the
-    module file already exists and skips missing files silently.
+    mechanical scanner reads DDL opportunistically when the module file
+    already exists. Missing files stay outside this intent gate; a missing
+    machine-local checkout is recorded as a non-blocking warning.
     """
 
     def _evaluate(c: Any) -> GateOutcome:
@@ -101,7 +102,7 @@ def check_idea_to_refining_idea_gate(
                 errors=[
                     f"{render_item_ref(c, item_id)} db_mutation_profile is "
                     "empty/null; every item must carry the negative default "
-                    "{\"state\":\"none\"}"
+                    '{"state":"none"}'
                 ],
             )
         try:
@@ -116,6 +117,7 @@ def check_idea_to_refining_idea_gate(
             return GateOutcome(passed=True)
 
         errors: List[str] = []
+        warnings: List[str] = []
         escalations: List[Dict[str, Any]] = []
         attestation = _safe_parse_dict(item.get("db_compatibility_attestation"))
         compatibility_class = profile.get("compatibility_class")
@@ -140,16 +142,18 @@ def check_idea_to_refining_idea_gate(
                     f"the class to pre_merge_breaking — fix the attestation "
                     f"or change compatibility_class."
                 )
-                escalations.append({
-                    "from": COMPATIBILITY_PRE_MERGE_SAFE,
-                    "to": "pre_merge_breaking",
-                    "reason": (
-                        "missing/empty authored attestation fields: "
-                        f"{sorted(missing)}"
-                    ),
-                    "source": "joint_gate",
-                    "observed_at": _now_iso(),
-                })
+                escalations.append(
+                    {
+                        "from": COMPATIBILITY_PRE_MERGE_SAFE,
+                        "to": "pre_merge_breaking",
+                        "reason": (
+                            "missing/empty authored attestation fields: "
+                            f"{sorted(missing)}"
+                        ),
+                        "source": "joint_gate",
+                        "observed_at": _now_iso(),
+                    }
+                )
 
         # Step (d): model + flow cross-reference.
         project = item.get("project") or ""
@@ -184,20 +188,13 @@ def check_idea_to_refining_idea_gate(
         runner = model.get("runner") or {}
         runner_kind = runner.get("kind")
 
-        # Model configuration check (repo path + runner-kind supported).
+        # Model configuration check (DB-sourced runner kind + config).
         # File existence for declared migration_modules is intentionally
         # NOT checked here — see docstring: refine proves intent,
         # implementation proves artifacts.
         repo_path = _resolve_repo_path(c, project)
-        if repo_path is None:
-            errors.append(
-                f"project '{project}' has no machine-local checkout mapping; "
-                "cannot verify migration_model configuration"
-            )
-        elif runner_kind == "governed_migration_module":
-            modules_dir = (runner.get("config") or {}).get(
-                "modules_dir"
-            )
+        if runner_kind == "governed_migration_module":
+            modules_dir = (runner.get("config") or {}).get("modules_dir")
             if not modules_dir:
                 errors.append(
                     f"runner.config.modules_dir missing on model "
@@ -207,6 +204,16 @@ def check_idea_to_refining_idea_gate(
             errors.append(
                 "external_adapter runners are reserved in governed DB-mutation gate — combination "
                 "not yet supported"
+            )
+
+        if (
+            profile["mutation_intent"] == MUTATION_INTENT_APPLY
+            and runner_kind == "governed_migration_module"
+            and repo_path is None
+        ):
+            warnings.append(
+                f"mechanical DDL scan skipped: project '{project}' has no "
+                "machine-local checkout on this execution host"
             )
 
         # Step (b): mechanical scanner — runs after module-file resolution
@@ -240,17 +247,19 @@ def check_idea_to_refining_idea_gate(
                                 f"(line {hit.line_number}): "
                                 f"{hit.pattern_id} — {hit.reason}"
                             )
-                            escalations.append({
-                                "from": COMPATIBILITY_PRE_MERGE_SAFE,
-                                "to": "pre_merge_breaking",
-                                "reason": (
-                                    f"scanner pattern {hit.pattern_id} in "
-                                    f"{identifier}:{hit.line_number} — "
-                                    f"{hit.snippet}"
-                                ),
-                                "source": "scanner",
-                                "observed_at": _now_iso(),
-                            })
+                            escalations.append(
+                                {
+                                    "from": COMPATIBILITY_PRE_MERGE_SAFE,
+                                    "to": "pre_merge_breaking",
+                                    "reason": (
+                                        f"scanner pattern {hit.pattern_id} in "
+                                        f"{identifier}:{hit.line_number} — "
+                                        f"{hit.snippet}"
+                                    ),
+                                    "source": "scanner",
+                                    "observed_at": _now_iso(),
+                                }
+                            )
 
         # Step (e): cross-item overlap.  Dependency-aware bypass treats
         # candidate ↔ other pairs that already carry a blocks/depends-on
@@ -262,7 +271,9 @@ def check_idea_to_refining_idea_gate(
         others = _other_non_terminal_profiles(c, project, item_id)
         dependency_pairs = load_dependency_pairs(c, item_id, others)
         overlaps = detect_overlap(
-            candidate, others, dependency_pairs=dependency_pairs,
+            candidate,
+            others,
+            dependency_pairs=dependency_pairs,
         )
         errors.extend(overlaps)
 
@@ -275,13 +286,20 @@ def check_idea_to_refining_idea_gate(
             except BreakagePolicyError as exc:
                 errors.append(str(exc))
             else:
-                errors.extend(evaluate_strategy_matrix(
-                    breakage_policy=breakage_policy,
-                    profile=profile,
-                ))
+                errors.extend(
+                    evaluate_strategy_matrix(
+                        breakage_policy=breakage_policy,
+                        profile=profile,
+                    )
+                )
 
         passed = not errors
-        return GateOutcome(passed=passed, errors=errors, escalations=escalations)
+        return GateOutcome(
+            passed=passed,
+            errors=errors,
+            warnings=warnings,
+            escalations=escalations,
+        )
 
     if conn is not None:
         return _evaluate(conn)
