@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_contracts.turn_end_evidence import TurnEndEvidence, UNAVAILABLE
 from yoke_core.domain import turn_end_promised_work_gate as gate
@@ -12,6 +14,9 @@ from yoke_core.hooks.types import HookContext, Outcome, Next
 class _Conn:
     def close(self) -> None:
         return None
+
+
+_NOW = datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc)
 
 
 def _ctx(**kwargs) -> HookContext:
@@ -38,7 +43,9 @@ def _question() -> TurnEndEvidence:
 def _patch_db(monkeypatch, *, claim, at_cap=False, emitted=None):
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
     monkeypatch.setattr(gate, "_live_claim", lambda conn, sid: claim)
-    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda conn, sid: at_cap)
+    monkeypatch.setattr(
+        gate, "_at_reinjection_cap", lambda conn, sid, item_id: at_cap,
+    )
 
     captured: list[dict] = emitted if emitted is not None else []
 
@@ -124,6 +131,90 @@ def test_cap_allows_and_records(monkeypatch) -> None:
     assert decision.outcome is Outcome.ALLOW
     assert captured[0]["reason"] == gate.REASON_CAP_REACHED
     assert captured[0]["cap_reached"] is True
+
+
+def test_recent_hold_stays_capped_without_consulting_tool_use(monkeypatch) -> None:
+    assert not hasattr(gate, "_completed_tool_use_since")
+    held_at = _NOW - gate.REINJECTION_COOLDOWN + timedelta(seconds=1)
+    monkeypatch.setattr(
+        gate,
+        "_reinjection_history",
+        lambda conn, sid, item_id: (held_at.isoformat(), 1),
+    )
+
+    def _unexpected_tool_lookup(*args) -> bool:
+        raise AssertionError("tool use must not affect the reinjection cooldown")
+
+    monkeypatch.setattr(
+        gate, "_completed_tool_use_since", _unexpected_tool_lookup, raising=False,
+    )
+    assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is True
+
+
+def test_expired_cooldown_reinjects_until_ceiling(monkeypatch) -> None:
+    held_at = _NOW - gate.REINJECTION_COOLDOWN
+    for hold_count in (1, gate.REINJECTION_CEILING - 1):
+        monkeypatch.setattr(
+            gate,
+            "_reinjection_history",
+            lambda conn, sid, item_id, count=hold_count: (
+                held_at.isoformat(),
+                count,
+            ),
+        )
+        assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is False
+
+
+def test_ceiling_stays_capped_regardless_of_elapsed_time(monkeypatch) -> None:
+    held_at = _NOW - (gate.REINJECTION_COOLDOWN * 10)
+    monkeypatch.setattr(
+        gate,
+        "_reinjection_history",
+        lambda conn, sid, item_id: (
+            held_at.isoformat(),
+            gate.REINJECTION_CEILING,
+        ),
+    )
+    assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is True
+
+
+def test_ceiling_is_scoped_to_the_claim_item(monkeypatch) -> None:
+    held_at = _NOW - gate.REINJECTION_COOLDOWN
+    histories = {
+        5: (held_at.isoformat(), gate.REINJECTION_CEILING),
+        6: (held_at.isoformat(), 1),
+    }
+    monkeypatch.setattr(
+        gate,
+        "_reinjection_history",
+        lambda conn, sid, item_id: histories[item_id],
+    )
+    assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is True
+    assert gate._at_reinjection_cap(_Conn(), "sess-1", 6, now=_NOW) is False
+
+
+def test_reinjection_history_query_filters_claim_item(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _Rows:
+        def fetchone(self) -> dict[str, object]:
+            return {"last_hold_at": _NOW.isoformat(), "hold_count": 2}
+
+    class _HistoryConn:
+        def execute(self, query: str, params: tuple[object, ...]) -> _Rows:
+            captured["query"] = query
+            captured["params"] = params
+            return _Rows()
+
+    monkeypatch.setattr(
+        "yoke_core.domain.db_backend.connection_is_postgres", lambda conn: True,
+    )
+    assert gate._reinjection_history(_HistoryConn(), "sess-1", 6) == (
+        _NOW.isoformat(),
+        2,
+    )
+    assert "{context,item_id}" in str(captured["query"])
+    assert captured["params"] == ("sess-1", gate.REASON_REINJECTED, "6")
 
 
 def test_unavailable_evidence_fails_open(monkeypatch) -> None:

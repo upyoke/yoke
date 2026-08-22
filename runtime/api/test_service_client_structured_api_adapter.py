@@ -325,9 +325,9 @@ class TestActorResolution:
     def test_build_actor_leaves_actor_id_none_for_server_resolution(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # actor_id is optional; build_actor no longer fabricates a sentinel.
         monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
         monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+        monkeypatch.delenv("CODEX_SESSION_ID", raising=False)
         monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
         monkeypatch.delenv("YOKE_ACTOR_ID", raising=False)
         actor = build_actor()
