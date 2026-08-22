@@ -119,10 +119,16 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_inventory.py",
     "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
     "runtime/api/test_installer_package_boundaries.py",
+    "runtime/api/test_parity_render.py",
+    "runtime/api/test_service_client_items.py",
     "tests/import_graph/test_skeletons_importable.py",
 )
 
-PRODUCT_CLI_SOURCE_PREFIX = "packages/yoke-cli/src/yoke_cli/"
+PRODUCT_CLI_SOURCE_PREFIXES = (
+    "packages/yoke-cli/src/yoke_cli/",
+    "packages/yoke-core/src/yoke_core/api/service_client_items",
+    "packages/yoke-core/src/yoke_core/domain/items_projection.py",
+)
 
 MIGRATION_HISTORY_SOURCE_PREFIX = (
     "packages/yoke-core/src/yoke_core/domain/migrations/"
@@ -276,7 +282,8 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
         widening_triggers.extend(f"{rule}:{path}" for path in hits)
 
     product_cli_hits = tuple(
-        path for path in changed_paths if path.startswith(PRODUCT_CLI_SOURCE_PREFIX)
+        path for path in changed_paths
+        if path.startswith(PRODUCT_CLI_SOURCE_PREFIXES)
     )
     if product_cli_hits:
         tests.update(PRODUCT_CLI_BOUNDARY_TESTS)

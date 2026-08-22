@@ -50,29 +50,29 @@ class TestActiveQueueParity:
             },
         )
         assert api_resp.status_code == 200
-        api_ids = sorted(item["id"] for item in api_resp.json()["items"])
+        api_titles = sorted(item["title"] for item in api_resp.json()["items"])
 
         # CLI: active-queue (default filter)
         result = _run_service_client(db_path, "active-queue")
         assert result.returncode == 0
-        cli_ids = sorted(
-            int(line.split("|")[0])
+        cli_titles = sorted(
+            line.split("|")[1]
             for line in result.stdout.strip().split("\n")
             if line.strip()
         )
 
-        assert api_ids == cli_ids, (
-            f"API returned {api_ids} but CLI returned {cli_ids}"
+        assert api_titles == cli_titles, (
+            f"API returned {api_titles} but CLI returned {cli_titles}"
         )
 
         # Verify expected: items 1 (implementing), 3 (idea/externalwebapp), 4 (release),
         # 7 (reviewing-implementation), 8 (implemented), 9 (blocked)
         # are active queue.
         # Items excluded: 2 (done), 5 (cancelled), 6 (frozen)
-        assert 2 not in api_ids, "Done item should be excluded"
-        assert 5 not in api_ids, "Cancelled item should be excluded"
-        assert 6 not in api_ids, "Frozen item should be excluded"
-        assert 1 in api_ids, "Implementing item should be included"
+        assert "Done item" not in api_titles
+        assert "Cancelled item" not in api_titles
+        assert "Frozen item" not in api_titles
+        assert "Implementing item" in api_titles
 
     def test_active_queue_project_scoped(self, parity_env):
         """Both surfaces should return the same results when scoped to a project."""
@@ -90,20 +90,20 @@ class TestActiveQueueParity:
             },
         )
         assert api_resp.status_code == 200
-        api_ids = sorted(item["id"] for item in api_resp.json()["items"])
+        api_titles = sorted(item["title"] for item in api_resp.json()["items"])
 
         # CLI: active-queue --project yoke
         result = _run_service_client(db_path, "active-queue", "--project", "yoke")
         assert result.returncode == 0
-        cli_ids = sorted(
-            int(line.split("|")[0])
+        cli_titles = sorted(
+            line.split("|")[1]
             for line in result.stdout.strip().split("\n")
             if line.strip()
         )
 
-        assert api_ids == cli_ids
+        assert api_titles == cli_titles
         # Item 3 is externalwebapp, so it should NOT be in yoke-scoped results
-        assert 3 not in api_ids
+        assert "ExternalWebapp idea" not in api_titles
 
 
 class TestStatusFilterParity:
@@ -163,18 +163,18 @@ class TestFrozenFilterParity:
             "/v1/items",
             params={"exclude_frozen": True},
         )
-        api_ids = [item["id"] for item in api_resp.json()["items"]]
-        assert 6 not in api_ids, "Frozen item (id=6) should be excluded"
+        api_titles = [item["title"] for item in api_resp.json()["items"]]
+        assert "Frozen item" not in api_titles
 
         # CLI active-queue also excludes frozen by default
         result = _run_service_client(db_path, "active-queue")
         assert result.returncode == 0
-        cli_ids = [
-            int(line.split("|")[0])
+        cli_titles = [
+            line.split("|")[1]
             for line in result.stdout.strip().split("\n")
             if line.strip()
         ]
-        assert 6 not in cli_ids, "Frozen item (id=6) should be excluded from active-queue"
+        assert "Frozen item" not in cli_titles
 
     def test_frozen_included_when_filter_not_set(self, parity_env):
         """Without exclude_frozen, frozen items appear in API results."""
