@@ -28,9 +28,42 @@ def session_rows(
     limit = "" if active_only else "LIMIT 3"
     scope_sql, params = _scope_filter(db, scope, active_only=active_only)
     ended_col = "" if active_only else ", hs.ended_at"
-    return db.query_quiet(
-        f"""
-        SELECT hs.session_id, hs.executor, hs.executor_surface, hs.model,
+    enriched_sql = _session_rows_sql(
+        ended_filter=ended_filter,
+        order_col=order_col,
+        limit=limit,
+        scope_sql=scope_sql,
+        ended_col=ended_col,
+        surface_col=", hs.executor_surface",
+    )
+    probe = getattr(db, "has_query_quiet", None)
+    if not callable(probe) or probe(enriched_sql, params):
+        return db.query_quiet(enriched_sql, params)
+    legacy_sql = _session_rows_sql(
+        ended_filter=ended_filter,
+        order_col=order_col,
+        limit=limit,
+        scope_sql=scope_sql,
+        ended_col=ended_col,
+        surface_col="",
+    )
+    return [
+        (row[0], row[1], None, *row[2:])
+        for row in db.query_quiet(legacy_sql, params)
+    ]
+
+
+def _session_rows_sql(
+    *,
+    ended_filter: str,
+    order_col: str,
+    limit: str,
+    scope_sql: str,
+    ended_col: str,
+    surface_col: str,
+) -> str:
+    return f"""
+        SELECT hs.session_id, hs.executor{surface_col}, hs.model,
                hs.mode, hs.execution_lane, hs.offered_at, hs.last_heartbeat,
                hs.workspace, hs.project_id
                {ended_col}
@@ -39,9 +72,7 @@ def session_rows(
         {scope_sql}
         ORDER BY {order_col} DESC
         {limit}
-        """,
-        params,
-    )
+        """
 
 
 ProjectRow = Tuple[int, str, str]

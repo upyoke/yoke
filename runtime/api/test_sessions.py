@@ -318,7 +318,7 @@ def _ensure_active_session(
     session_id: str,
     workspace: str,
     *,
-    executor: str = "DARIUS",
+    executor: str = "claude-code",
     provider: str = "anthropic",
     model: str = TEST_MODEL_ID,
     execution_lane: str = "primary",

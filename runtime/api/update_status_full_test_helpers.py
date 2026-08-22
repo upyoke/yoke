@@ -128,9 +128,9 @@ class UpdateStatusEnv:
         conn.execute(
             "INSERT INTO harness_sessions"
             " (session_id, executor, provider, model, execution_lane,"
-            "  capabilities, workspace, mode, offered_at, last_heartbeat)"
+            "  executor_version, machine_id, workspace, mode, offered_at, last_heartbeat)"
             f" VALUES ({p}, 'claude-code', 'anthropic', 'test-model', 'primary',"
-            f"  '[]', {p}, 'test', {p}, {p})"
+            f"  NULL, NULL, {p}, 'test', {p}, {p})"
             f" ON CONFLICT (session_id) DO UPDATE SET {_HARNESS_SESSION_UPSERT_SET}",
             (self.session_id, str(self.root), _ts, _ts),
         )

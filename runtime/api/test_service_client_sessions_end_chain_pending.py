@@ -63,7 +63,7 @@ class TestSessionEndIfEmptyChainPending:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offer_envelope,
                 offered_at, last_heartbeat)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
             (
                 sid,
                 session_offer_db["tmp_dir"],
@@ -98,7 +98,7 @@ class TestSessionEndIfEmptyChainPending:
         assert data["handler_outcome"] == "completed"
         assert data["item_id"] == str(ITEM_ID)
         assert data["triggered_by"] == "stop-hook"
-        assert "--executor DARIUS" in data["next_action"]
+        assert "--executor claude-code" in data["next_action"]
         assert "--provider anthropic" in data["next_action"]
         # ``--model`` is no longer echoed — session-offer resolves the canonical
         # model from harness_sessions.model.
@@ -142,7 +142,7 @@ class TestSessionEndIfEmptyChainPending:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offer_envelope,
                 offered_at, last_heartbeat)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
             (
                 sid,
                 session_offer_db["tmp_dir"],

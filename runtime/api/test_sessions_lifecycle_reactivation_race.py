@@ -68,7 +68,7 @@ def test_reactivation_loser_does_not_emit_started_event():
     conn = _RaceConn()
 
     with patch(
-        "yoke_core.domain.sessions_lifecycle_registry._resolve_session_actor_id",
+        "yoke_core.domain.sessions_lifecycle_registry.resolve_session_actor_id",
         return_value=None,
     ), patch(
         "yoke_core.domain.sessions_analytics._emit_session_event",

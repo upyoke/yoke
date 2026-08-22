@@ -54,7 +54,7 @@ class TestSessionOfferResume:
         self,
         session_id: str,
         *,
-        executor: str = "DARIUS",
+        executor: str = "claude-code",
         provider: str = "anthropic",
         model: str = TEST_MODEL_ID,
         workspace: str = "/tmp/test-workspace",
@@ -89,7 +89,7 @@ class TestSessionOfferResume:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, project_id,
                 offered_at, last_heartbeat)
-               VALUES ('test-session-001', 'DARIUS', 'anthropic',
+               VALUES ('test-session-001', 'claude-code', 'anthropic',
                        '{TEST_MODEL_ID}', '/tmp/test', 1, {p}, {p})""",
             (now, now),
         )
@@ -119,7 +119,7 @@ class TestSessionOfferResume:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, project_id,
                 offered_at, last_heartbeat)
-               VALUES ('test-session-001', 'DARIUS', 'anthropic',
+               VALUES ('test-session-001', 'claude-code', 'anthropic',
                        '{TEST_MODEL_ID}', '/tmp/test', 1, {p}, {p})""",
             (now, now),
         )
@@ -228,7 +228,7 @@ class TestSessionOfferResume:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, project_id,
                 offer_envelope, offered_at, last_heartbeat)
-               VALUES ({p}, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}',
+               VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}',
                        '/tmp/test', 1, {p}, {p}, {p})""",
             (
                 "test-session-001",

@@ -74,7 +74,7 @@ class TestEventEmission:
         register_session(
             conn,
             session_id="ev-1",
-            executor="agent",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace="/tmp/test",

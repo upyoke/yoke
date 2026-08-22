@@ -66,9 +66,9 @@ def _seed_session(conn) -> None:
     now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model,"
-        " execution_lane, capabilities, workspace, mode, offered_at,"
+        " execution_lane, executor_version, machine_id, workspace, mode, offered_at,"
         " last_heartbeat) VALUES (%s, 'claude-code', 'anthropic',"
-        f" '{TEST_MODEL_ID}', 'primary', '[]', '/tmp/yok1674', 'wait', %s, %s)",
+        f" '{TEST_MODEL_ID}', 'primary', NULL, NULL, '/tmp/yok1674', 'wait', %s, %s)",
         (SESSION_ID, now, now))
     conn.commit()
 

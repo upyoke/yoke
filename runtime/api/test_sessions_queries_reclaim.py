@@ -73,7 +73,7 @@ class TestSessionOfferReclaim:
         session_offer_with_ownership(
             conn,
             session_id="sess-envelope-1",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace=ws,
@@ -99,7 +99,7 @@ class TestSessionOfferReclaim:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('stale-sess', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s)""",
+               VALUES ('stale-sess', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
         conn.execute(
@@ -113,7 +113,7 @@ class TestSessionOfferReclaim:
         result = session_offer_with_ownership(
             conn,
             session_id="new-sess-reclaim",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace=ws,
@@ -144,7 +144,7 @@ class TestSessionOfferReclaim:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat, ended_at)
-               VALUES ('ended-sess', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s, %s)""",
+               VALUES ('ended-sess', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s, %s)""",
             (ended_iso, ended_iso, ended_iso),
         )
         conn.execute(
@@ -158,7 +158,7 @@ class TestSessionOfferReclaim:
         result = session_offer_with_ownership(
             conn,
             session_id="new-sess-ended",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace=ws,
@@ -180,7 +180,7 @@ class TestSessionOfferReclaim:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('sole-stale', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s)""",
+               VALUES ('sole-stale', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
         conn.execute(
@@ -194,7 +194,7 @@ class TestSessionOfferReclaim:
         result = session_offer_with_ownership(
             conn,
             session_id="rescuer-sess",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace=ws,
@@ -214,7 +214,7 @@ class TestSessionOfferReclaim:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('live-sess', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s)""",
+               VALUES ('live-sess', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (fresh_iso, fresh_iso),
         )
         conn.execute(
@@ -228,7 +228,7 @@ class TestSessionOfferReclaim:
         result = session_offer_with_ownership(
             conn,
             session_id="competing-sess",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace=ws,

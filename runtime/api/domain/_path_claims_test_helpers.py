@@ -240,9 +240,9 @@ def seed_test_holder_session(
     if _column_exists(conn, "harness_sessions", "actor_id"):
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, "
-            "provider, model, project_id, execution_lane, capabilities, workspace, mode, "
+            "provider, model, project_id, execution_lane, executor_version, machine_id, workspace, mode, "
             "offered_at, last_heartbeat, actor_id) "
-            "VALUES (%s, 'test', 'test', 'test', 1, 'primary', '[]', '/tmp', "
+            "VALUES (%s, 'claude-code', 'test', 'test', 1, 'primary', NULL, NULL, '/tmp', "
             "'active', '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', %s) "
             "ON CONFLICT(session_id) DO UPDATE SET actor_id = EXCLUDED.actor_id",
             (session_id, actor_id),
@@ -250,9 +250,9 @@ def seed_test_holder_session(
         return
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, "
-        "provider, model, project_id, execution_lane, capabilities, workspace, mode, "
+        "provider, model, project_id, execution_lane, executor_version, machine_id, workspace, mode, "
         "offered_at, last_heartbeat) "
-        "VALUES (%s, 'test', 'test', 'test', 1, 'primary', '[]', '/tmp', "
+        "VALUES (%s, 'claude-code', 'test', 'test', 1, 'primary', NULL, NULL, '/tmp', "
         "'active', '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z') "
         "ON CONFLICT(session_id) DO NOTHING",
         (session_id,),

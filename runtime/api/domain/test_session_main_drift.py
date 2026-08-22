@@ -30,9 +30,9 @@ def drift_db(tmp_path):
             conn.execute(
                 f"""INSERT INTO harness_sessions
                    (session_id, executor, provider, model, execution_lane,
-                    capabilities, workspace, mode, offered_at, last_heartbeat)
+                    executor_version, machine_id, workspace, mode, offered_at, last_heartbeat)
                    VALUES
-                   ('sess-drift', 'codex', 'openai', 'test', 'primary', '[]',
+                   ('sess-drift', 'codex', 'openai', 'test', 'primary', NULL, NULL,
                     {p}, 'test', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')""",
                 (str(tmp_path),),
             )

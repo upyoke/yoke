@@ -10,6 +10,7 @@ from yoke_cli.config import github_git_credential_document
 from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_git_credential_store
 from yoke_contracts import github_app_tokens
+from yoke_contracts.machine_config import schema as contract
 from yoke_cli.config.machine_config_mutation import (
     MachineConfigWriteError,
     load_payload,
@@ -89,7 +90,7 @@ def clear_github(
     removed = payload.pop("github", None)
     configured = removed is not None
     removed_ref = _github_credential_ref(removed)
-    if set(payload) <= {"schema_version"}:
+    if set(payload) <= {"schema_version", contract.MACHINE_ID_KEY}:
         machine_config_file.remove_file(cfg_path)
     else:
         write_payload(payload, cfg_path)

@@ -206,7 +206,7 @@ class TestEndSessionIfEmptyShapes:
         assert result["action"] == "charge"
         assert result["last_release_at"] is not None
         assert result["triggered_by"] == "stop-hook"
-        assert "--executor DARIUS" in result["next_action"]
+        assert "--executor claude-code" in result["next_action"]
         assert "--provider anthropic" in result["next_action"]
         # ``--model`` is no longer echoed in next_action — session-offer
         # resolves the canonical model from harness_sessions.model.

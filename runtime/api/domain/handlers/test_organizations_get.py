@@ -49,6 +49,7 @@ class TestOrganizationsGet:
         assert outcome.result_payload == {
             "slug": "second",
             "name": "Second Org",
+            "domain": None,
             "created_at": "2026-02-02T00:00:00Z",
         }
 

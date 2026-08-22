@@ -17,9 +17,9 @@ from runtime.api.test_sessions import (
 class TestRegisterCanonicalizesExecutor:
     """Surface-specific inputs become ``(canonical, surface)`` splits.
 
-    The contract: ``harness_sessions.executor`` stores only ``claude-code``
-    or ``codex`` after register; the surface-specific input (when known) is
-    preserved in ``executor_surface``. Custom values pass through.
+    The contract: ``harness_sessions.executor`` stores only a closed canonical
+    harness id after register; the surface-specific input (when known) is
+    preserved in ``executor_surface``. Custom values are refused.
     """
 
     def test_register_canonical_executor_stored_with_display_alias(self, conn):

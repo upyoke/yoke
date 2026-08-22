@@ -147,4 +147,4 @@ def test_client_entrypoint_non_cursor_families_unchanged(monkeypatch) -> None:
     assert client_entrypoint("claude-code", {}) == "claude-desktop"
 
     monkeypatch.delenv("CLAUDE_CODE_ENTRYPOINT")
-    assert client_entrypoint("claude-code", {}) is None
+    assert client_entrypoint("claude-code", {}) == "claude-cli"

@@ -57,9 +57,9 @@ def _seed_item(conn, *, item_id: int, project="yoke") -> int:
 def _seed_session(conn, *, session_id: str) -> str:
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model, "
-        "project_id, execution_lane, capabilities, workspace, mode, offered_at, "
+        "project_id, execution_lane, executor_version, machine_id, workspace, mode, offered_at, "
         "last_heartbeat) "
-        "VALUES (%s, 'test', 'test', 'test', 1, 'primary', '[]', '/tmp', 'wait', "
+        "VALUES (%s, 'claude-code', 'test', 'test', 1, 'primary', NULL, NULL, '/tmp', 'wait', "
         "%s, %s)",
         (session_id, _now(), _now()),
     )

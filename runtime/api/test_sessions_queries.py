@@ -137,7 +137,7 @@ class TestSessionOfferWithOwnership:
         session_offer_with_ownership(
             conn,
             session_id="sess-offer-contract",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model=TEST_MODEL_ID,
             workspace=ws,
@@ -167,7 +167,7 @@ class TestSessionOfferWithOwnership:
         result = session_offer_with_ownership(
             conn,
             session_id="test-sess-1",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model=TEST_MODEL_ID,
             workspace=ws,
@@ -185,12 +185,12 @@ class TestSessionOfferWithOwnership:
         conn, ws = ownership_conn
         _ensure_active_session(conn, "test-sess-hb", ws, model="opus")
         session_offer_with_ownership(
-            conn, session_id="test-sess-hb", executor="DARIUS",
+            conn, session_id="test-sess-hb", executor="claude-code",
             provider="anthropic", model="opus", workspace=ws,
         )
         # Second offer with same session_id heartbeats (no error)
         result = session_offer_with_ownership(
-            conn, session_id="test-sess-hb", executor="DARIUS",
+            conn, session_id="test-sess-hb", executor="claude-code",
             provider="anthropic", model="opus", workspace=ws,
         )
         # Should get resume since the first offer claimed the item
@@ -201,7 +201,7 @@ class TestSessionOfferWithOwnership:
         conn, ws = ownership_conn
         _ensure_active_session(conn, "test-sess-claim", ws, model="opus")
         result = session_offer_with_ownership(
-            conn, session_id="test-sess-claim", executor="DARIUS",
+            conn, session_id="test-sess-claim", executor="claude-code",
             provider="anthropic", model="opus", workspace=ws,
         )
         assert result["action_hint"] == "charge"
@@ -217,11 +217,11 @@ class TestSessionOfferWithOwnership:
     def test_concurrent_offers_no_double_assign(self, ownership_conn):
         """Two concurrent offers never both claim the same item."""
         conn, ws = ownership_conn
-        _ensure_active_session(conn, "sess-A", ws, executor="A", model="opus")
-        _ensure_active_session(conn, "sess-B", ws, executor="B", model="opus")
+        _ensure_active_session(conn, "sess-A", ws, executor="claude-code", model="opus")
+        _ensure_active_session(conn, "sess-B", ws, executor="codex", model="opus")
         # First session claims
         r1 = session_offer_with_ownership(
-            conn, session_id="sess-A", executor="A",
+            conn, session_id="sess-A", executor="claude-code",
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r1["action_hint"] == "charge"
@@ -229,7 +229,7 @@ class TestSessionOfferWithOwnership:
 
         # Second session with a different session_id should NOT get the same item
         r2 = session_offer_with_ownership(
-            conn, session_id="sess-B", executor="B",
+            conn, session_id="sess-B", executor="codex",
             provider="anthropic", model="opus", workspace=ws,
         )
         # No other runnable items, so no_work
@@ -241,14 +241,14 @@ class TestSessionOfferWithOwnership:
         conn, ws = ownership_conn
         _ensure_active_session(conn, "sess-resume", ws, model="opus")
         r1 = session_offer_with_ownership(
-            conn, session_id="sess-resume", executor="DARIUS",
+            conn, session_id="sess-resume", executor="claude-code",
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r1["action_hint"] == "charge"
 
         # Second offer with same session_id sees existing claim
         r2 = session_offer_with_ownership(
-            conn, session_id="sess-resume", executor="DARIUS",
+            conn, session_id="sess-resume", executor="claude-code",
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r2["action_hint"] == "resume"

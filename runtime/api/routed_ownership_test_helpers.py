@@ -128,11 +128,11 @@ def register_live_session(
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, execution_lane, "
-        " capabilities, workspace, mode, offered_at, last_heartbeat, "
+        " executor_version, machine_id, workspace, mode, offered_at, last_heartbeat, "
         " ended_at, offer_envelope, current_item_id, "
         " current_item_set_at) "
         f"VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', "
-        f" 'primary', '[]', {p}, 'wait', {p}, {p}, NULL, NULL, {p}, {p})",
+        f" 'primary', NULL, NULL, {p}, 'wait', {p}, {p}, NULL, NULL, {p}, {p})",
         (
             session_id, WORKSPACE, now, now,
             current_item_id, now if current_item_id else None,

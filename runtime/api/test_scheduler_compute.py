@@ -167,7 +167,7 @@ class TestComputeSchedule:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('sess-1', 'DARIUS', 'anthropic', 'claude', '/tmp', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')"""
+               VALUES ('sess-1', 'claude-code', 'anthropic', 'claude', '/tmp', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')"""
         )
         conn.execute(
             """INSERT INTO work_claims
@@ -191,7 +191,7 @@ class TestComputeSchedule:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('sess-stale', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s)""",
+               VALUES ('sess-stale', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
         conn.execute(
@@ -215,7 +215,7 @@ class TestComputeSchedule:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('sess-stale', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s)""",
+               VALUES ('sess-stale', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
 
@@ -248,7 +248,7 @@ class TestComputeSchedule:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, ended_at, offered_at, last_heartbeat)
-               VALUES ('sess-ended', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')""",
+               VALUES ('sess-ended', 'claude-code', 'anthropic', 'claude', '/tmp', %s, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')""",
             (now_iso,),
         )
 
@@ -282,7 +282,7 @@ class TestComputeSchedule:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('sess-15min', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s)""",
+               VALUES ('sess-15min', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (live_iso, live_iso),
         )
 
@@ -314,7 +314,7 @@ class TestComputeSchedule:
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('sess-25min', 'DARIUS', 'anthropic', 'claude', '/tmp', %s, %s)""",
+               VALUES ('sess-25min', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
 
