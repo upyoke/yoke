@@ -246,6 +246,8 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
             "direct_workflow.dash.evidence": (
                 "yoke direct-workflow dash evidence"
             ),
+            "sessions.identity": "yoke sessions identity",
+            "events.query.run": "yoke events query",
             "claims.work.release": "yoke claims work release",
             "direct_workflow.dash.escalate": (
                 "yoke direct-workflow dash escalate"
@@ -279,6 +281,27 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
         )
         assert "retained tool-shaped operation" in content
         assert "direct_workflow.worktree.prepare" not in content
+
+
+def test_dash_close_out_surfaces_session_guardrail_denials():
+    content = (CANONICAL / "dash/verification-and-close.md").read_text()
+    step = content[content.index("### 7."):]
+    for required in (
+        "HarnessToolCallDenied",
+        "sessions.identity",
+        "yoke sessions identity",
+        "events.query.run",
+        "yoke events query",
+        "check_id",
+        "command_snippet",
+        "does not block",
+        "say nothing extra",
+        "field-note",
+    ):
+        assert required in step
+    assert "does not correlate" in step.lower() or (
+        "Do not correlate denials" in step
+    )
 
 
 def test_direct_workflow_skills_match_install_bundle():

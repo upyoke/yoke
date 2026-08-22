@@ -200,3 +200,28 @@ yoke claims work release --item ITEM --reason "Dash completed"
 
 Skip that call when merge or `done` already released the claim. Do not treat
 an already-released claim as a close-out failure.
+
+**Surface this session's guardrail denials.** After evidence is recorded,
+report this episode's PreToolUse denials. Close-out reports; it does not block.
+An empty result is silence: say nothing extra.
+
+Read `session_id` from registered `sessions.identity`
+(`yoke sessions identity`); do not invent it. `--session` filters
+`events.session_id`. Do not pass `--session-id` — that flag overrides
+caller identity. Then run registered `events.query.run`:
+
+```text
+yoke events query --session SESSION_ID --event-name HarnessToolCallDenied --current-episode --json
+```
+
+When `result.rows` is non-empty, print a short list of each row's
+`check_id` and `command_snippet` from `envelope.context.detail` (parse
+`envelope` when it is a JSON string). File a field-note for any denial
+not already recorded, or state why none is warranted:
+
+```text
+yoke ouroboros field-note append --kind observation --evidence '...'
+```
+
+Do not correlate denials to field-notes in storage. Visibility is the
+entire ask.
