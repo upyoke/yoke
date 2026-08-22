@@ -1,9 +1,10 @@
 """Tests for :func:`session_claimed_worktrees.claimed_worktrees`.
 
-Covers the four shape rules:
+Covers the shape rules:
 
 * Empty-claim session returns ``[]``.
-* Single ``target_kind='item'`` claim returns its lane's recorded path.
+* A ``target_kind='item'`` claim returns every active lane recorded
+  under its item, in lane id order, whatever the lane role.
 * Multi-claim epic (``target_kind='epic_task'``) enumerates per-task
   worktrees, one row per task, each resolved through that task's own
   ``epic_tasks.item_worktree_id`` rather than widened to the epic.
@@ -150,6 +151,23 @@ def _seed_epic_task(conn, *, epic_id, task_num, worktree):
     conn.commit()
 
 
+def _seed_lane(conn, *, item_id, worktree, role):
+    conn.execute(
+        "INSERT INTO item_worktrees "
+        "(item_id, branch, path, lane_role, state, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, 'active', %s, %s)",
+        (
+            item_id,
+            worktree,
+            _worktree_path(worktree),
+            role,
+            "2026-05-14T12:00:00Z",
+            "2026-05-14T12:00:00Z",
+        ),
+    )
+    conn.commit()
+
+
 def _seed_claim(
     conn, *, session_id, target_kind, item_id=None,
     epic_id=None, task_num=None, released_at=None,
@@ -258,39 +276,58 @@ class TestProcessTargetKind:
         assert claimed_worktrees(conn, session_id="sid-1") == []
 
 
-class TestEpicItemClaimAuthorityIsItemOnly:
-    """An ``item``-level claim authorises only the primary item lane.
+class TestItemClaimCoversEveryRegisteredLane:
+    """An ``item``-level claim authorises every active lane of its item.
 
-    Sibling-branch task
-    worktrees require explicit ``target_kind='epic_task'`` claims.
+    Worker lanes are included: a Blitz registers them beside one
+    integration lane under the item itself, and an epic's task lanes are
+    recorded under the epic's ``item_id``. Foreign-session protection is
+    ``lane_occupancy``'s job, not a narrower authority here.
     """
 
-    def test_item_claim_does_not_inherit_sibling_task_worktrees(self, conn):
-        _seed_item(conn, item_id=1872, worktree="YOK-1872")
-        _seed_epic_task(
-            conn, epic_id=1872, task_num=1, worktree="YOK-1872-substrate",
-        )
-        _seed_epic_task(
-            conn, epic_id=1872, task_num=10, worktree="YOK-1872-propagation",
+    def test_item_claim_returns_every_lane_in_lane_order(self, conn):
+        _seed_item(conn, item_id=500, worktree=None)
+        _seed_lane(conn, item_id=500, worktree="lane-hooks", role="worker")
+        _seed_lane(conn, item_id=500, worktree="lane-relay", role="worker")
+        _seed_lane(
+            conn, item_id=500, worktree="lane-integration", role="integration",
         )
         _seed_claim(
-            conn, session_id="sid-orch", target_kind="item", item_id=1872,
+            conn, session_id="sid-blitz", target_kind="item", item_id=500,
         )
-        result = claimed_worktrees(conn, session_id="sid-orch")
+        result = claimed_worktrees(conn, session_id="sid-blitz")
         assert [c.worktree_path for c in result] == [
-            _worktree_path("YOK-1872"),
+            _worktree_path("lane-hooks"),
+            _worktree_path("lane-relay"),
+            _worktree_path("lane-integration"),
         ]
+        assert {(c.item_id, c.task_num) for c in result} == {(500, None)}
 
-    def test_non_epic_item_claim_unchanged(self, conn):
-        # Standard non-epic item: single worktree binding.
-        _seed_item(conn, item_id=42, worktree="YOK-42")
-        _seed_claim(
-            conn, session_id="sid-1", target_kind="item", item_id=42,
+    def test_released_lane_is_excluded(self, conn):
+        _seed_item(conn, item_id=501, worktree=None)
+        _seed_lane(conn, item_id=501, worktree="lane-live", role="worker")
+        _seed_lane(conn, item_id=501, worktree="lane-gone", role="worker")
+        conn.execute(
+            "UPDATE item_worktrees SET released_at = %s WHERE branch = %s",
+            ("2026-05-14T13:00:00Z", "lane-gone"),
         )
-        assert claimed_worktrees(conn, session_id="sid-1") == [
-            ClaimedWorktree(
-                item_id=42,
-                task_num=None,
-                worktree_path=_worktree_path("YOK-42"),
-            ),
-        ]
+        conn.commit()
+        _seed_claim(
+            conn, session_id="sid-1", target_kind="item", item_id=501,
+        )
+        assert [
+            c.worktree_path for c in claimed_worktrees(conn, session_id="sid-1")
+        ] == [_worktree_path("lane-live")]
+
+    def test_epic_item_claim_includes_task_lanes(self, conn):
+        # Task lanes are recorded under the epic's item_id, so the epic's
+        # own claim covers them; the per-task claim stays task-scoped.
+        _seed_item(conn, item_id=700, worktree="epic-main")
+        _seed_epic_task(conn, epic_id=700, task_num=1, worktree="epic-task-1")
+        _seed_claim(
+            conn, session_id="sid-orch", target_kind="item", item_id=700,
+        )
+        assert [
+            c.worktree_path
+            for c in claimed_worktrees(conn, session_id="sid-orch")
+        ] == [_worktree_path("epic-main"), _worktree_path("epic-task-1")]

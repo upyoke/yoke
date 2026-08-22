@@ -8,7 +8,7 @@ consumes this set per tool call to decide whether a target path lands
 under a claimed worktree, under the main control plane, or under a
 free-path allowlist.
 
-The resolution is small (typically 1-3 worktrees + control plane); no
+The resolution is small (a handful of worktrees + control plane); no
 caching is required. Released claims are excluded. Items without an
 active recorded lane (e.g. evidence-only items with no worktree)
 contribute no row — the session still holds the work claim, but it has
@@ -25,14 +25,22 @@ survives the relay, so authority computed from it is the same on both
 sides. ``handlers.claims_work_holders._lane_worktrees`` reads the same
 column for the same reason.
 
-Items with worker lanes rely on explicit
-``target_kind='epic_task'`` claims (one per task) — see
-``.agents/skills/yoke/conduct/engineer-tester-dispatch.md`` for the
-per-task acquire / release wiring. An epic-task claim resolves through
-its epic, and the lane table keys lanes by item alone, so such a claim
-reports every active lane under that epic. This only ever widens what
-the caller accepts as its own, so the breadth cannot produce a false
-refusal.
+**An item claim covers every active lane registered to its item.** An
+item may register several lanes at once — a Blitz registers worker lanes
+beside one integration lane, and an epic's task lanes are recorded under
+the epic's own ``item_id`` — and the claim that owns the item owns all
+of them, in lane id order. There is no role filter and no first-lane
+rule: the holder view and the write guard must agree, and a lane an
+item registered but its own claim could not write into is a lane no
+session can use. An ``epic_task`` claim still resolves through its own
+``epic_tasks.item_worktree_id`` to that one task's lane, so a
+task-scoped session is never widened to its siblings.
+
+Protection against *another* session's lane does not live here.
+``lane_occupancy.occupying_claim`` refuses a target inside any lane
+whose item a different session holds, and the validator consults it
+before this session's own authority, so widening the holder's authority
+never admits a foreign writer.
 
 Codex subagent dispatch runs in-process inside the parent harness
 session — the subagent's tool calls land under the parent's
@@ -169,22 +177,14 @@ def _epic_task_lane_paths(
     return out
 
 
-#: An item's own lane roles, in the order a claim on the item should
-#: prefer them. ``worker`` is deliberately absent: worker lanes belong
-#: to an epic's tasks and are stored under the EPIC's ``item_id``, so an
-#: item-level claim on an epic would otherwise inherit authority over
-#: every one of its tasks' worktrees.
-_ITEM_LANE_ROLES = ("integration", "implementation")
-
-
 def recorded_lane_paths(
     conn: Any, item_ids: Sequence[int],
 ) -> Dict[int, List[str]]:
-    """The lane an item-level claim authorises, per item id.
+    """Every active lane an item-level claim authorises, per item id.
 
-    Reads ``item_worktrees.path`` directly. Returns at most one lane per
-    item — its own — never the worker lanes its epic tasks occupy. A
-    schema that carries claims but no lane table (minimal fixtures and
+    Reads ``item_worktrees.path`` directly and returns each item's active
+    lanes in lane id order, whatever their ``lane_role``. A schema that
+    carries claims but no lane table (minimal fixtures and
     partially-converged universes both hit this) yields an empty mapping
     rather than failing the caller.
     """
@@ -197,7 +197,7 @@ def recorded_lane_paths(
     placeholders = ", ".join(marker for _ in wanted)
     try:
         found = conn.execute(
-            "SELECT item_id, path, lane_role FROM item_worktrees "
+            "SELECT item_id, path FROM item_worktrees "
             f"WHERE released_at IS NULL AND item_id IN ({placeholders}) "
             "ORDER BY id",
             tuple(wanted),
@@ -210,13 +210,10 @@ def recorded_lane_paths(
         has_keys = hasattr(lane, "keys")
         owner = lane["item_id"] if has_keys else lane[0]
         path = str((lane["path"] if has_keys else lane[1]) or "").strip()
-        role = str((lane["lane_role"] if has_keys else lane[2]) or "").strip()
-        if owner is None or not path or role not in _ITEM_LANE_ROLES:
+        if owner is None or not path:
             continue
         lanes.setdefault(int(owner), []).append(path)
-    # One lane per item, matching the single-lane authority an item
-    # claim has always carried.
-    return {owner: paths[:1] for owner, paths in lanes.items()}
+    return lanes
 
 
 __all__ = ["ClaimedWorktree", "claimed_worktrees", "recorded_lane_paths"]

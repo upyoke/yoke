@@ -127,9 +127,9 @@ class TestMultiWorktreeFanOutLifecycle:
             ).allow
             is True
         )
-        # A worktree the session never claimed and that lives outside
-        # the free-path allowlist still denies — proves the per-task
-        # claim shape is the only authority gate (no inheritance).
+        # A worktree no claim of the session records and that lives
+        # outside the free-path allowlist still denies — authority comes
+        # only from recorded lanes of claimed targets.
         rogue = "/opt/other-repo/.worktrees/YOK-1872-rogue/x.py"
         verdict = validate_targets(
             conn,
@@ -223,7 +223,7 @@ class TestSameWorktreeFanOutLifecycle:
         assert claimed_worktrees(conn, session_id="sid-orch") == []
 
 
-# Item + epic_task coexistence — no sibling inheritance.
+# Item + epic_task coexistence — both claims resolve their lanes.
 class TestItemAndEpicTaskClaimsCoexist:
     def test_both_claims_coexist_and_authorise_correctly(
         self,
