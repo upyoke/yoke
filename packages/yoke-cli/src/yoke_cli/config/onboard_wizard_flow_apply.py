@@ -128,6 +128,10 @@ class ApplyFlow:
             if isinstance(summary, dict):
                 self.report_path = summary.get("path")
             self._hook_trust = _hook_trust_from_report(report)
+            relay = report.get("session_relay")
+            self._session_relay_installed = bool(
+                isinstance(relay, dict) and relay.get("installed")
+            )
         # When the operator designed board art, materialize it into the freshly
         # created checkout and show the payoff instead of exiting straight away.
         try:
@@ -273,6 +277,7 @@ class ApplyFlow:
     def _build_apply_success(self) -> list:
         return steps.apply_success_body(
             self.report_path, getattr(self, "_hook_trust", ()),
+            relay_installed=getattr(self, "_session_relay_installed", False),
         )
 
     def _on_apply_success(self, choice: str) -> None:

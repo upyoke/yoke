@@ -158,7 +158,9 @@ def create_session_control_tables(conn: Any) -> None:
 
         CREATE TABLE IF NOT EXISTS session_relays (
             relay_id TEXT PRIMARY KEY,
+            actor_id INTEGER NOT NULL REFERENCES actors(id),
             machine_id TEXT NOT NULL,
+            hostname TEXT NOT NULL,
             relay_version TEXT,
             surface_versions TEXT NOT NULL,
             project_checkouts TEXT NOT NULL,

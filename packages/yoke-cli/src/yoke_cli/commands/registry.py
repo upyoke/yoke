@@ -1,9 +1,4 @@
-"""Hand-curated ``yoke <subcommand>`` registry.
-
-Entries map CLI token tuples to ``(function_id, adapter)`` pairs. The
-strict grammar is: dots become spaces, underscores become hyphens, and
-terminal ``.run`` / ``.execute`` segments drop.
-"""
+"""Registered function-id routes for the ``yoke`` operations CLI."""
 
 from __future__ import annotations
 
@@ -41,6 +36,7 @@ from yoke_cli.commands.registry_shepherd_dependency import (
     SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.registry_sessions import SESSIONS_SUBCOMMAND_REGISTRY
+from yoke_cli.commands import registry_session_control as _session_control
 from yoke_cli.commands.registry_strategy_event import STRATEGY_EVENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_workflows import WORKFLOW_SUBCOMMAND_REGISTRY
 
@@ -146,8 +142,14 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("events", "tail"): ("events.tail.run", _adapters.events_tail),
     ("events", "count"): ("events.count.run", _adapters.events_count),
     ("events", "anomalies"): ("events.anomalies.run", _adapters.events_anomalies),
-    ("lifecycle", "transition"): ("lifecycle.transition.execute", _adapters.lifecycle_transition),
-    ("lifecycle", "repair-status"): ("lifecycle.repair_status.execute", lifecycle_repair_status),
+    ("lifecycle", "transition"): (
+        "lifecycle.transition.execute",
+        _adapters.lifecycle_transition,
+    ),
+    ("lifecycle", "repair-status"): (
+        "lifecycle.repair_status.execute",
+        lifecycle_repair_status,
+    ),
     ("lifecycle", "skip", "record-recoverable-substrate"): (
         "lifecycle.skip.record_recoverable_substrate",
         _adapters.lifecycle_skip_record_recoverable_substrate,
@@ -202,7 +204,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ),
     ("config", "example"): ("config.example.run", _adapters.config_example),
     ("config", "stamp-project-env"): (
-        "config.stamp_project_env.run", _adapters.config_stamp_project_env,
+        "config.stamp_project_env.run",
+        _adapters.config_stamp_project_env,
     ),
     ("config", "status"): ("config.status.run", _adapters.status),
     ("status",): ("status.run", _adapters.status),
@@ -227,6 +230,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
 
 SUBCOMMAND_REGISTRY.update(SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(SESSIONS_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(_session_control.SESSION_CONTROL_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPIC_OPS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(DEPLOYMENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPHEMERAL_ENV_SUBCOMMAND_REGISTRY)
@@ -261,6 +265,9 @@ SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
 }
 SUBCOMMAND_ALIAS_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_ALIAS_REGISTRY)
 SUBCOMMAND_ALIAS_REGISTRY.update(CLAIMS_SUBCOMMAND_ALIAS_REGISTRY)
+SUBCOMMAND_ALIAS_REGISTRY.update(
+    _session_control.SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY
+)
 SPACE_EXPANDED_ROUTE_REGISTRY = expanded_hyphen_routes(
     SUBCOMMAND_REGISTRY,
     SUBCOMMAND_ALIAS_REGISTRY,
@@ -278,17 +285,10 @@ _TOKEN_LENGTHS: Tuple[int, ...] = tuple(
         -1,
     )
 )
-def resolve(argv_head: List[str]) -> Tuple[Tuple[str, ...], str, AdapterFn, List[str]]:
-    """Find the registered subcommand at the head of ``argv_head``.
 
-    Walks the longest token-tuple first. Returns
-    ``(cli_tokens, function_id, adapter, remaining_argv)`` on a match.
-    Consults both the primary registry and the alias registry; aliases
-    return their own cli_tokens (not the primary's) so callers can
-    distinguish the entry point used.
-    Raises :class:`KeyError` with a teaching message when no registered
-    subcommand prefixes the input.
-    """
+
+def resolve(argv_head: List[str]) -> Tuple[Tuple[str, ...], str, AdapterFn, List[str]]:
+    """Resolve the longest registered route prefix from ``argv_head``."""
     for length in _TOKEN_LENGTHS:
         if len(argv_head) < length:
             continue
@@ -313,13 +313,7 @@ def resolve(argv_head: List[str]) -> Tuple[Tuple[str, ...], str, AdapterFn, List
 
 
 def function_id_to_cli(function_id: str) -> Tuple[str, ...]:
-    """Translate a function id to CLI tokens per the grammar rule.
-
-    Mechanical: drop terminal ``.run``/``.execute``, replace each ``_``
-    inside a segment with ``-``. The transform is one-way (the synthetic
-    terminal carries no information, so it cannot be recovered without
-    the registry).
-    """
+    """Drop synthetic terminals and translate dots/underscores to CLI tokens."""
     parts = function_id.split(".")
     if parts and parts[-1] in ("run", "execute"):
         parts = parts[:-1]
@@ -327,11 +321,7 @@ def function_id_to_cli(function_id: str) -> Tuple[str, ...]:
 
 
 def cli_to_function_id_stem(tokens: Tuple[str, ...]) -> str:
-    """Translate CLI tokens back to the function-id stem (without terminal).
-
-    The synthetic terminal ``.run`` / ``.execute`` cannot be inferred
-    mechanically; callers that need the full id consult the registry.
-    """
+    """Translate CLI tokens to a function-id stem without its terminal."""
     return ".".join(t.replace("-", "_") for t in tokens)
 
 

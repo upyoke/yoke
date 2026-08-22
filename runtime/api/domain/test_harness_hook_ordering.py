@@ -16,6 +16,7 @@ from yoke_contracts.hook_runner.hook_ordering import (
 )
 
 _POST_HEARTBEAT_OBSERVE = [
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 ]
@@ -37,19 +38,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_long_command_polling",
             ],
         )
-        # Tail: pipe-to-truncator lint (owns the Command Output rule's
-        # pipe-to-truncator clause, beside the polling lint), raw-pytest
-        # sweep lint (steers a bare sweep into the wrapper that takes the
-        # machine-wide admission slot), if-status-capture lint (blocks
-        # `fi; rc=$?` masking), subagent-background lint, session-cwd guard,
-        # workspace-cwd-match guard (writer-class cross-checkout deny),
-        # path-claim guard, structured-field transform shell lint,
-        # shell-quoted function payload lint, backtick-search shell
-        # footgun lint, agent-CLI-contract sibling shape lints (refuse
-        # ``python3 -c "from runtime..."``, ``curl localhost:8765``, and
-        # ``service_client session-end`` from agent context), claim-
-        # ownership mutation lint, git-stash arg-order shape lint,
-        # destructive-git inspection, heartbeat refresh, observe_pre.
+        # Structural, authority, mutation, delivery, heartbeat, telemetry tail.
         self.assertEqual(
             chain[5:],
             [
@@ -71,6 +60,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_claim_ownership_mutations",
                 "yoke_core.domain.lint_git_stash_arg_order",
                 "yoke_core.domain.lint_destructive_git",
+                "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.heartbeat",
                 "yoke_core.domain.observe_pre",
             ],
@@ -84,13 +74,15 @@ class TestPreToolUseBash(unittest.TestCase):
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         self.assertIn("yoke_core.domain.lint_destructive_git", chain)
         self.assertLess(
-            chain.index(
-                "yoke_core.domain.lint_structured_field_transform_shell"
-            ),
+            chain.index("yoke_core.domain.lint_structured_field_transform_shell"),
             chain.index("yoke_core.domain.lint_destructive_git"),
         )
         self.assertEqual(
             chain[chain.index("yoke_core.domain.lint_destructive_git") + 1],
+            "yoke_core.hooks.session_message_delivery",
+        )
+        self.assertEqual(
+            chain[chain.index("yoke_core.hooks.session_message_delivery") + 1],
             "yoke_core.hooks.heartbeat",
         )
         self.assertEqual(
@@ -103,42 +95,34 @@ class TestPreToolUseBash(unittest.TestCase):
         transform lint and before the destructive-git inspector."""
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         self.assertIn(
-            "yoke_core.domain.lint_shell_quoted_function_payload", chain,
+            "yoke_core.domain.lint_shell_quoted_function_payload",
+            chain,
         )
         self.assertLess(
-            chain.index(
-                "yoke_core.domain.lint_structured_field_transform_shell"
-            ),
-            chain.index(
-                "yoke_core.domain.lint_shell_quoted_function_payload"
-            ),
+            chain.index("yoke_core.domain.lint_structured_field_transform_shell"),
+            chain.index("yoke_core.domain.lint_shell_quoted_function_payload"),
         )
         self.assertLess(
-            chain.index(
-                "yoke_core.domain.lint_shell_quoted_function_payload"
-            ),
+            chain.index("yoke_core.domain.lint_shell_quoted_function_payload"),
             chain.index("yoke_core.domain.lint_destructive_git"),
         )
 
-    def test_TC_bash_chain_claim_ownership_lint_between_shell_payload_and_destructive(self):
+    def test_TC_bash_chain_claim_ownership_lint_between_shell_payload_and_destructive(
+        self,
+    ):
         """``lint_claim_ownership_mutations`` runs after the shell-quoted
         payload lint and before the destructive-git inspector."""
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         self.assertIn(
-            "yoke_core.domain.lint_claim_ownership_mutations", chain,
+            "yoke_core.domain.lint_claim_ownership_mutations",
+            chain,
         )
         self.assertLess(
-            chain.index(
-                "yoke_core.domain.lint_shell_quoted_function_payload"
-            ),
-            chain.index(
-                "yoke_core.domain.lint_claim_ownership_mutations"
-            ),
+            chain.index("yoke_core.domain.lint_shell_quoted_function_payload"),
+            chain.index("yoke_core.domain.lint_claim_ownership_mutations"),
         )
         self.assertLess(
-            chain.index(
-                "yoke_core.domain.lint_claim_ownership_mutations"
-            ),
+            chain.index("yoke_core.domain.lint_claim_ownership_mutations"),
             chain.index("yoke_core.domain.lint_destructive_git"),
         )
 
@@ -148,7 +132,8 @@ class TestPreToolUseBash(unittest.TestCase):
         misordered ``git stash push`` invocations fail fast."""
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         self.assertIn(
-            "yoke_core.domain.lint_git_stash_arg_order", chain,
+            "yoke_core.domain.lint_git_stash_arg_order",
+            chain,
         )
         self.assertEqual(
             chain[chain.index("yoke_core.domain.lint_git_stash_arg_order") + 1],
@@ -166,14 +151,10 @@ class TestPreToolUseBash(unittest.TestCase):
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         self.assertLess(
             chain.index("yoke_core.domain.path_claim_bash_guard"),
-            chain.index(
-                "yoke_core.domain.lint_structured_field_transform_shell"
-            ),
+            chain.index("yoke_core.domain.lint_structured_field_transform_shell"),
         )
         self.assertLess(
-            chain.index(
-                "yoke_core.domain.lint_structured_field_transform_shell"
-            ),
+            chain.index("yoke_core.domain.lint_structured_field_transform_shell"),
             chain.index("yoke_core.domain.observe_pre"),
         )
 
@@ -235,6 +216,7 @@ class TestPreToolUseMonitor(unittest.TestCase):
                 "yoke_core.domain.lint_long_command_polling",
                 "yoke_core.domain.lint_subagent_background",
                 "yoke_core.domain.hint_monitor_relay",
+                "yoke_core.hooks.session_message_delivery",
                 "yoke_core.domain.observe_pre",
             ],
         )
@@ -253,7 +235,8 @@ class TestNonPreEvents(unittest.TestCase):
         # DB-error advisory (front-door first) and telemetry (tail).
         chain = ordered_pipeline_for("PostToolUse", "Bash")
         self.assertIn(
-            "yoke_core.domain.hint_posttool_field_note", chain,
+            "yoke_core.domain.hint_posttool_field_note",
+            chain,
         )
         self.assertLess(
             chain.index("yoke_core.domain.db_error_hook"),
@@ -275,7 +258,14 @@ class TestNonPreEvents(unittest.TestCase):
 
     def test_TC_session_start_runs_session_hooks(self):
         chain = ordered_pipeline_for("SessionStart")
-        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
+        self.assertEqual(
+            chain,
+            [
+                "yoke_core.hooks.session_dispatch",
+                "yoke_core.hooks.session_message_delivery",
+                "yoke_core.hooks.session_launch_attestation",
+            ],
+        )
 
     def test_TC_session_end_runs_session_hooks(self):
         chain = ordered_pipeline_for("SessionEnd")
@@ -283,14 +273,25 @@ class TestNonPreEvents(unittest.TestCase):
 
     def test_TC_user_prompt_submit_runs_session_hooks(self):
         chain = ordered_pipeline_for("UserPromptSubmit")
-        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
+        self.assertEqual(
+            chain,
+            [
+                "yoke_core.hooks.session_dispatch",
+                "yoke_core.hooks.session_message_delivery",
+                "yoke_core.hooks.session_launch_attestation",
+            ],
+        )
 
     def test_TC_stop_runs_session_hooks(self):
         chain = ordered_pipeline_for("Stop")
-        self.assertEqual(chain, [
-            "yoke_core.domain.turn_end_promised_work_gate",
-            "yoke_core.hooks.session_dispatch",
-        ])
+        self.assertEqual(
+            chain,
+            [
+                "yoke_core.domain.turn_end_promised_work_gate",
+                "yoke_core.hooks.session_message_delivery",
+                "yoke_core.hooks.session_dispatch",
+            ],
+        )
 
 
 class TestRegistryShape(unittest.TestCase):

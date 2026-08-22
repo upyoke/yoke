@@ -1,0 +1,280 @@
+"""Transactional product operations for fleet session messages."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from typing import Any
+
+from yoke_contracts.session_control.models import RecipientSelector
+from yoke_core.domain.session_message_authorization import (
+    authorize_recipients,
+    authorize_universe,
+    can_read_project,
+)
+from yoke_core.domain.session_message_selectors import (
+    confirmation_token,
+    resolve_recipients,
+)
+from yoke_core.domain.session_message_store import (
+    acknowledge_recipient,
+    begin_message_mutation,
+    cancel_message_rows,
+    insert_message,
+    list_message_ids,
+    message_details,
+    public_recipients,
+    recipient_project_ids,
+)
+from yoke_core.domain.session_message_types import (
+    ResolvedRecipient,
+    SessionMessageError,
+    utc_now,
+)
+
+
+def _require_recipients(recipients: list[ResolvedRecipient]) -> None:
+    if not recipients:
+        raise SessionMessageError(
+            "zero_recipients", "recipient selector resolved to zero sessions"
+        )
+
+
+def _public_recipients(
+    recipients: list[ResolvedRecipient],
+) -> list[dict[str, Any]]:
+    return [recipient.public() for recipient in recipients]
+
+
+def preview_message(
+    conn: Any,
+    *,
+    actor_id: int,
+    selector: RecipientSelector,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    recipients = resolve_recipients(conn, selector, now=now)
+    _require_recipients(recipients)
+    policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
+    if selector.universe:
+        authorize_universe(conn, actor_id=actor_id, policies=policies.values())
+    public = _public_recipients(recipients)
+    return {
+        "recipients": public,
+        "recipient_count": len(public),
+        "confirmation_token": (
+            confirmation_token(selector, recipients) if selector.universe else None
+        ),
+    }
+
+
+def _validate_routes(recipients: list[ResolvedRecipient]) -> None:
+    unsupported = [
+        recipient.session_id
+        for recipient in recipients
+        if not recipient.messageability.get("messageable")
+    ]
+    if unsupported:
+        raise SessionMessageError(
+            "unsupported_route",
+            f"recipient sessions have no version-qualified hook route: {unsupported}",
+        )
+
+
+def send_message(
+    conn: Any,
+    *,
+    actor_id: int,
+    sender_session_id: str | None,
+    selector: RecipientSelector,
+    body: str,
+    idempotency_key: str | None = None,
+    supplied_confirmation_token: str | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Resolve, authorize, and snapshot recipients in the write transaction."""
+    current = now or utc_now()
+    begin_message_mutation(conn)
+    try:
+        recipients = resolve_recipients(conn, selector, now=current)
+        _require_recipients(recipients)
+        policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
+        if selector.universe:
+            authorize_universe(conn, actor_id=actor_id, policies=policies.values())
+            required = any(
+                policy.broadcast_requires_confirmation for policy in policies.values()
+            )
+            expected = confirmation_token(selector, recipients)
+            if required and supplied_confirmation_token != expected:
+                raise SessionMessageError(
+                    "broadcast_confirmation_required",
+                    "universe broadcast requires the exact current preview token",
+                    jsonpath="$.payload.confirmation_token",
+                )
+        _validate_routes(recipients)
+        body_bytes = len(body.encode("utf-8"))
+        if body_bytes == 0:
+            raise SessionMessageError("body_empty", "message body must not be empty")
+        max_body_bytes = min(policy.max_body_bytes for policy in policies.values())
+        if body_bytes > max_body_bytes:
+            raise SessionMessageError(
+                "body_too_large",
+                f"message body is {body_bytes} bytes; maximum is {max_body_bytes}",
+                jsonpath="$.payload.body",
+            )
+        expires_at = current + timedelta(
+            hours=min(policy.expiry_hours for policy in policies.values())
+        )
+        wake_after_by_project = {
+            project_id: current + timedelta(minutes=policy.wake_after_idle_minutes)
+            for project_id, policy in policies.items()
+        }
+        details, created = insert_message(
+            conn,
+            sender_actor_id=actor_id,
+            sender_session_id=sender_session_id,
+            body=body,
+            selector_snapshot=selector.model_dump(mode="json"),
+            idempotency_key=idempotency_key,
+            created_at=current,
+            expires_at=expires_at,
+            recipients=recipients,
+            wake_after_by_project=wake_after_by_project,
+        )
+        conn.commit()
+        selected = (
+            _public_recipients(recipients) if created else public_recipients(details)
+        )
+        return {
+            "message_id": details["message_id"],
+            "recipients": selected,
+            "recipient_count": len(selected),
+            "deduplicated": not created,
+        }
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _visible(
+    conn: Any,
+    details: dict[str, Any],
+    *,
+    actor_id: int,
+    session_id: str | None,
+) -> bool:
+    if int(details["sender_actor_id"]) == actor_id:
+        return True
+    if session_id and any(
+        str(row["session_id"]) == session_id for row in details["recipients"]
+    ):
+        return True
+    project_ids = recipient_project_ids(details)
+    return bool(project_ids) and all(
+        can_read_project(conn, actor_id=actor_id, project_id=project_id)
+        for project_id in project_ids
+    )
+
+
+def get_message(
+    conn: Any,
+    *,
+    message_id: str,
+    actor_id: int,
+    session_id: str | None,
+) -> dict[str, Any]:
+    from yoke_core.domain.session_message_delivery import expire_due_recipients
+
+    expire_due_recipients(conn)
+    details = message_details(conn, message_id)
+    if not _visible(conn, details, actor_id=actor_id, session_id=session_id):
+        raise SessionMessageError(
+            "message_forbidden", "message is not visible to the calling actor"
+        )
+    return details
+
+
+def list_messages(
+    conn: Any,
+    *,
+    actor_id: int,
+    caller_session_id: str | None,
+    state: str | None = None,
+    session_id: str | None = None,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    from yoke_core.domain.session_message_delivery import expire_due_recipients
+
+    expire_due_recipients(conn)
+    ids = list_message_ids(
+        conn,
+        state=state,
+        session_id=session_id,
+        limit=min(500, max(limit * 4, limit)),
+    )
+    visible: list[dict[str, Any]] = []
+    for message_id in ids:
+        details = message_details(conn, message_id)
+        if _visible(
+            conn,
+            details,
+            actor_id=actor_id,
+            session_id=caller_session_id,
+        ):
+            visible.append(details)
+        if len(visible) >= limit:
+            break
+    return visible
+
+
+def acknowledge_message(
+    conn: Any,
+    *,
+    message_id: str,
+    session_id: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    from yoke_core.domain.session_message_delivery import expire_due_recipients
+
+    expire_due_recipients(conn, now=now)
+    details = acknowledge_recipient(
+        conn,
+        message_id=message_id,
+        session_id=session_id,
+        acknowledged_at=now or utc_now(),
+    )
+    conn.commit()
+    return details
+
+
+def cancel_message(
+    conn: Any,
+    *,
+    message_id: str,
+    actor_id: int,
+    reason: str = "cancelled_by_sender",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    details = message_details(conn, message_id)
+    if int(details["sender_actor_id"]) != actor_id:
+        raise SessionMessageError(
+            "cancel_forbidden", "only the authenticated sender may cancel"
+        )
+    cancelled = cancel_message_rows(
+        conn,
+        message_id=message_id,
+        actor_id=actor_id,
+        reason=reason,
+        cancelled_at=now or utc_now(),
+    )
+    conn.commit()
+    return cancelled
+
+
+__all__ = [
+    "acknowledge_message",
+    "cancel_message",
+    "get_message",
+    "list_messages",
+    "preview_message",
+    "send_message",
+]

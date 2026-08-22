@@ -1,8 +1,6 @@
 """Function-id → usage-line map for the ``yoke`` operations CLI.
 
-Split from the flag-adapter facade to keep its authored file within the line cap.
-Consumed by grouped CLI help, the manifest renderer, and Atlas audit; new
-families add one import and one mapping.
+Consumed by grouped CLI help, the manifest renderer, and Atlas audit.
 """
 
 from __future__ import annotations
@@ -33,7 +31,9 @@ from yoke_cli.commands.adapters.claims_path_override import (
     CLAIMS_PATH_OVERRIDE_USAGE,
 )
 from yoke_cli.commands.adapters.config import (
-    CONFIG_EXAMPLE_USAGE, CONFIG_STATUS_USAGE, STATUS_USAGE,
+    CONFIG_EXAMPLE_USAGE,
+    CONFIG_STATUS_USAGE,
+    STATUS_USAGE,
 )
 from yoke_cli.commands.adapters.dev import (
     DEV_PATH_SNAPSHOT_PREWARM_USAGE,
@@ -69,7 +69,6 @@ from yoke_cli.commands.adapters.ephemeral_env import (
     EPHEMERAL_ENV_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.usage_epic_ops import EPIC_USAGE
-from yoke_cli.commands.adapters import usage_composed_operations as _composed_usage
 from yoke_cli.commands.adapters.events import (
     EVENTS_ANOMALIES_USAGE,
     EVENTS_COUNT_USAGE,
@@ -122,11 +121,13 @@ from yoke_cli.commands.adapters.shepherd_dependency import (
     SHEPHERD_DEPENDENCY_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.misc import (
-    OUROBOROS_ENTRY_GET_USAGE, OUROBOROS_ENTRY_LIST_USAGE,
+    OUROBOROS_ENTRY_GET_USAGE,
+    OUROBOROS_ENTRY_LIST_USAGE,
     SCRATCH_DISPATCH_INPUTS_USAGE,
 )
 from yoke_cli.commands.adapters.ouroboros_field_note import (
-    OUROBOROS_FIELD_NOTE_GET_USAGE, OUROBOROS_FIELD_NOTE_LIST_USAGE,
+    OUROBOROS_FIELD_NOTE_GET_USAGE,
+    OUROBOROS_FIELD_NOTE_LIST_USAGE,
     OUROBOROS_USAGE,
 )
 from yoke_cli.commands.adapters.projects import (
@@ -139,7 +140,8 @@ from yoke_cli.commands.adapters.projects import (
 )
 from yoke_cli.commands.adapters.projects_write import (
     PROJECTS_CREATE_USAGE,
-    PROJECTS_ENVIRONMENT_CREATE_USAGE, PROJECTS_ENVIRONMENT_UPDATE_USAGE,
+    PROJECTS_ENVIRONMENT_CREATE_USAGE,
+    PROJECTS_ENVIRONMENT_UPDATE_USAGE,
     PROJECTS_SITE_CREATE_USAGE,
     PROJECTS_UPDATE_USAGE,
 )
@@ -158,7 +160,6 @@ from yoke_cli.commands.adapters.projects_capability_settings import (
 from yoke_cli.commands.adapters import (
     projects_environment_settings as _environment_settings_usage,
 )
-from yoke_cli.commands.adapters import usage_product_surfaces as _product_usage
 from yoke_cli.commands.adapters.projects_pulumi_state import (
     PULUMI_STATE_CHECKPOINT_IMPORT_USAGE,
     PULUMI_STATE_MIGRATE_USAGE,
@@ -172,9 +173,6 @@ from yoke_cli.commands.adapters.project_github_binding import (
     PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
     PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
 )
-from yoke_cli.commands.adapters import strategy_event_usage as _strategy_event_usage
-from yoke_cli.commands.adapters import qa as _qa_usage
-from yoke_cli.commands.adapters import shepherd_writes as _shepherd_writes
 from yoke_cli.commands.adapters.usage_qa import QA_ADAPTER_USAGE
 from yoke_cli.commands.adapters.board import BOARD_REBUILD_USAGE
 from yoke_cli.commands.adapters.render import (
@@ -184,7 +182,7 @@ from yoke_cli.commands.adapters.render import (
     PACKETS_CHECK_USAGE,
     PACKETS_RENDER_USAGE,
 )
-from yoke_cli.commands.adapters.usage_readiness import READINESS_USAGE_BY_ID
+from yoke_cli.commands.adapters.usage_extensions import extend_adapter_usage
 from yoke_cli.commands.adapters.strategy import (
     STRATEGY_DOC_ARCHIVE_USAGE,
     STRATEGY_DOC_GET_USAGE,
@@ -206,8 +204,11 @@ from yoke_cli.commands.adapters.packs import (
     PACKS_RELINK_USAGE,
     PACKS_UPDATE_USAGE,
 )
-from yoke_cli.commands.adapters import items_flags as _items_flags, usage_sessions as _session_usage
-from yoke_cli.commands.adapters import claims_coordination_lease as _lease_list
+from yoke_cli.commands.adapters import (
+    items_flags as _items_flags,
+    usage_sessions as _session_usage,
+)
+
 __all__ = ["ADAPTER_USAGE"]
 ADAPTER_USAGE: Dict[str, str] = {
     "items.create": ITEMS_CREATE_USAGE,
@@ -263,7 +264,8 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.create": PROJECTS_CREATE_USAGE,
     "projects.update": PROJECTS_UPDATE_USAGE,
     "projects.site.create": PROJECTS_SITE_CREATE_USAGE,
-    "projects.environment.create": PROJECTS_ENVIRONMENT_CREATE_USAGE, "projects.environment.update": PROJECTS_ENVIRONMENT_UPDATE_USAGE,
+    "projects.environment.create": PROJECTS_ENVIRONMENT_CREATE_USAGE,
+    "projects.environment.update": PROJECTS_ENVIRONMENT_UPDATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
@@ -340,11 +342,4 @@ ADAPTER_USAGE: Dict[str, str] = {
     "packs.relink.run": PACKS_RELINK_USAGE,
     "packs.update.run": PACKS_UPDATE_USAGE,
 }
-# Post-cap families export their own id -> usage maps; merge keeps one surface.
-ADAPTER_USAGE.update(READINESS_USAGE_BY_ID)
-ADAPTER_USAGE.update(_qa_usage.USAGE_BY_FUNCTION_ID)
-ADAPTER_USAGE.update(_shepherd_writes.USAGE_BY_FUNCTION_ID)
-ADAPTER_USAGE.update(_strategy_event_usage.USAGE_BY_FUNCTION_ID)
-ADAPTER_USAGE.update(_composed_usage.USAGE_BY_FUNCTION_ID)
-ADAPTER_USAGE.update(_product_usage.USAGE_BY_FUNCTION_ID)
-ADAPTER_USAGE.update(_lease_list.USAGE_BY_FUNCTION_ID)
+extend_adapter_usage(ADAPTER_USAGE)

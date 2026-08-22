@@ -88,3 +88,36 @@ def test_session_control_schema_is_additive_and_idempotent() -> None:
         ).fetchall()
     }
     assert set(SESSION_CONTROL_TABLES) <= present
+    relay_columns = {
+        row[1]: bool(row[3])
+        for row in conn.execute("PRAGMA table_info(session_relays)").fetchall()
+    }
+    assert relay_columns["actor_id"] is True
+    assert relay_columns["hostname"] is True
+
+
+def test_closed_function_vocabulary_is_fully_registered() -> None:
+    from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+    from yoke_core.domain.yoke_function_registry import (
+        list_entries,
+        reset_registry_for_tests,
+    )
+
+    reset_registry_for_tests()
+    register_all_handlers()
+
+    registered = {entry.function_id for entry in list_entries()}
+    assert set(SESSION_CONTROL_FUNCTION_IDS) <= registered
+
+
+def test_portability_classifies_every_session_control_table() -> None:
+    from yoke_core.domain.universe_portability_content_contract import (
+        ARCHIVE_OMITTABLE_TARGET_TABLES,
+        USER_CONTENT_TABLES,
+    )
+
+    portable = {"session_messages", "session_launches"}
+    operational = set(SESSION_CONTROL_TABLES) - portable
+    assert portable <= set(USER_CONTENT_TABLES)
+    assert operational <= set(ARCHIVE_OMITTABLE_TARGET_TABLES)
+    assert not (portable & set(ARCHIVE_OMITTABLE_TARGET_TABLES))

@@ -15,6 +15,7 @@ from rich.markup import escape
 from textual.widgets import Static
 
 from yoke_cli.config.onboard_terminal import RICH_GLYPHS, glyphs
+from yoke_cli.config.onboard_session_relay import RELAY_SETUP_COMPLETE_LINES
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 
 APPLY_FAILURE_ROWS = [
@@ -166,6 +167,8 @@ def apply_different_folder_body(
 def apply_success_body(
     report_path: str | None,
     hook_trust: Sequence[str] = (),
+    *,
+    relay_installed: bool = False,
 ) -> list[Static]:
     widgets = [
         Static("✓ Setup complete.", classes="onboard-title"),
@@ -175,6 +178,12 @@ def apply_success_body(
             classes="onboard-plan-line",
         ),
     ]
+    if relay_installed:
+        widgets.append(Static("", classes="onboard-spacer"))
+        widgets.extend(
+            Static(escape(line), classes="onboard-plan-line")
+            for line in RELAY_SETUP_COMPLETE_LINES
+        )
     # The one step the wizard wrote glue for but cannot perform itself.
     for teaching in hook_trust:
         widgets.append(Static("", classes="onboard-spacer"))
