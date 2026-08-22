@@ -10,7 +10,7 @@ import pytest
 
 from runtime.api.test_sessions import (
     _register,
-    conn,  # noqa: F401  (pytest fixture)
+    conn as conn,
 )
 
 

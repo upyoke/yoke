@@ -15,7 +15,7 @@ import os
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
-    session_offer_db,  # noqa: F401 — re-exported fixture
+    session_offer_db as session_offer_db,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
 

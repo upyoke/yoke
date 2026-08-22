@@ -14,7 +14,6 @@ parses. Each test class inherits the per-test DB lifecycle from
 from __future__ import annotations
 
 import contextlib
-import json
 import shutil
 import tempfile
 import unittest

@@ -93,9 +93,13 @@ def organizations_get(args: List[str]) -> int:
             "local universe carries); --slug addresses a specific org."
         ),
     )
-    parser.add_argument("--slug", default=None,
-                        help="Org slug (default: the universe's identity card).")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument(
+        "--slug",
+        default=None,
+        help="Org slug (default: the universe's identity card).",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ORGANIZATIONS_GET_USAGE)
     if parsed is None:
         return 2
