@@ -19,10 +19,7 @@ from typing import Sequence
 
 from yoke_core.tools.atlas_currency_inputs import staged_touches_currency_inputs
 from yoke_core.tools.atlas_integrity_audit import build_report
-from yoke_core.tools.atlas_render_docs import is_stale, render, write
-
-
-_ATLAS_RELPATH = "docs/atlas.md"
+from yoke_core.tools.atlas_render_docs import ATLAS_RELPATH, is_stale, render, write
 
 
 def refresh_if_stale(
@@ -57,7 +54,7 @@ def stage_atlas_if_refreshed(
     if written is None:
         return None
     subprocess.run(
-        ["git", "-C", str(target_root.resolve()), "add", "--", _ATLAS_RELPATH],
+        ["git", "-C", str(target_root.resolve()), "add", "--", ATLAS_RELPATH],
         check=False,
         capture_output=True,
         text=True,

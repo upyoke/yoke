@@ -20,6 +20,7 @@ from yoke_core.domain.agents_render_codex import (
 )
 from yoke_core.domain.agents_render_conditional import (
     detect_conditional_marker_drift,
+    rendered_agent_path,
 )
 from yoke_core.domain.agents_render_cursor import (
     render_cursor_agent,
@@ -93,6 +94,10 @@ AGENTS = [
 ROLES_WITH_INLINE_REFERENCES = {"architect", "tester"}
 
 
+def _agent_adapter_path(out_dir: Path, agent: str) -> Path:
+    return rendered_agent_path(out_dir.parent.name, agent)
+
+
 def _resolve_reader_root(target_root: Optional[Path]) -> Path:
     """Resolve ``target_root`` for reader helpers — see ``require_reader_root``."""
     return require_reader_root(target_root)
@@ -102,7 +107,7 @@ def write_all_claude(*, target_root: Path, dry_run: bool = False) -> dict[str, t
     results: dict[str, tuple[str, str]] = {}
     root = Path(target_root)
     outputs = [
-        (CLAUDE_OUT_DIR / f"yoke-{agent}.md", render_claude_agent(agent, target_root=root))
+        (_agent_adapter_path(CLAUDE_OUT_DIR, agent), render_claude_agent(agent, target_root=root))
         for agent in AGENTS
     ]
     outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
@@ -128,7 +133,7 @@ def detect_drift(*, target_root: Optional[Path] = None) -> list[str]:
     root = _resolve_reader_root(target_root)
     drift: list[str] = []
     for agent in AGENTS:
-        out_path = root / CLAUDE_OUT_DIR / f"yoke-{agent}.md"
+        out_path = root / _agent_adapter_path(CLAUDE_OUT_DIR, agent)
         rendered = render_claude_agent(agent, target_root=root)
         if not out_path.exists():
             drift.append(f"missing: {CLAUDE_OUT_DIR}/yoke-{agent}.md")
@@ -170,7 +175,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
     outputs: list[tuple[Path, str]] = []
     for agent in AGENTS:
         outputs.append(
-            (CLAUDE_OUT_DIR / f"yoke-{agent}.md", render_claude_agent(agent, target_root=root))
+            (_agent_adapter_path(CLAUDE_OUT_DIR, agent), render_claude_agent(agent, target_root=root))
         )
     outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
     outputs.append((CLAUDE_SETTINGS_PATH, render_claude_settings_json()))
@@ -179,7 +184,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
     for agent in AGENTS:
         outputs.append(
             (
-                CODEX_OUT_DIR / f"yoke-{agent}.toml",
+                _agent_adapter_path(CODEX_OUT_DIR, agent),
                 render_codex_agent(root / CANONICAL_DIR, agent),
             )
         )
@@ -188,7 +193,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
     for agent in AGENTS:
         outputs.append(
             (
-                CURSOR_OUT_DIR / f"yoke-{agent}.md",
+                _agent_adapter_path(CURSOR_OUT_DIR, agent),
                 render_cursor_agent(root / CANONICAL_DIR, agent),
             )
         )

@@ -1,16 +1,11 @@
-"""Bridge between the agents-render writer and the path-context families.
+"""Bridge between generated-file writers and the path-context families.
 
-Enumerates the rendered Yoke agent packet outputs and their seed
-sources, then registers each rendered file as a
+Enumerates generated Yoke outputs and their safe seed sources, then registers
+each output as a
 :data:`yoke_core.domain.path_context.FAMILY_RENDER_TARGET` with its
 seed-source list. The overlap classifier consults the resulting rows
 through :func:`read_render_source_for` to recognise false-positive
 overlap on deterministic rendered output.
-
-Scope (v0): Yoke agent packet outputs emitted by
-:mod:`yoke_core.domain.agents_render` for the canonical ``AGENTS``
-list. Non-packet generated surfaces (BOARD, event-catalog, function
-inventory) are not in scope for this slice.
 
 Public surface:
 
@@ -28,7 +23,7 @@ Public surface:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain.event_registry_seed_render_relationship import (
     EVENT_NAME_RENDER_RELATIONSHIP_RECORDED,
@@ -40,84 +35,9 @@ from yoke_core.domain.path_context import (
     put_context_value,
     read_context_value,
 )
-
-
-# Shared seed-source modules every rendered packet inherits. The
-# renderer's composition modules are the same for every output, so they
-# are part of every rendered packet's seed-source set.
-_CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
-_SHARED_RENDERER_SOURCES: Sequence[str] = (
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_claude.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_codex.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_conditional.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_context.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_field_note.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_hooks.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_manifests.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_subagent_hooks.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_workspace.py",
+from yoke_core.domain.render_relationship_inventory import (
+    render_relationship_map,
 )
-
-# Bash-capable agents inherit the schema/api context modules — their
-# packets carry the rendered DB-packet block expanded from these seeds.
-_BASH_CAPABLE_AGENTS: Sequence[str] = (
-    "architect",
-    "engineer",
-    "tester",
-    "simulator",
-    "boss",
-)
-
-_SCHEMA_API_CONTEXT_SOURCES: Sequence[str] = (
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_claims.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_core.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_core_epic_task.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_core_operational.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_project.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_qa.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_commands_watchers.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_json_schemas.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_render.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_seed.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_auth.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_claims.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_core.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_project.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_python_helpers.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_qa.py",
-)
-
-
-def _sources_for_agent(agent: str) -> List[str]:
-    """Return the sorted, deduped seed-source list for a single agent."""
-    sources = {f"runtime/agents/{agent}.md"}
-    sources.update(_SHARED_RENDERER_SOURCES)
-    if agent in _BASH_CAPABLE_AGENTS:
-        sources.update(_SCHEMA_API_CONTEXT_SOURCES)
-    return sorted(sources)
-
-
-def render_relationship_map() -> Dict[str, List[str]]:
-    """Return ``{rendered_path: [seed_source_paths]}`` for every agent packet.
-
-    Both the Claude ``.md`` and Codex ``.toml`` outputs of each agent
-    map to the same seed-source set — the renderer reads the same
-    canonical body and composition modules for both adapter formats.
-    """
-    # Imported lazily so importing this module does not pull in the full
-    # renderer surface (and its workspace anchor side effects).
-    from yoke_core.domain.agents_render import AGENTS
-
-    relationships: Dict[str, List[str]] = {}
-    for agent in AGENTS:
-        sources = _sources_for_agent(agent)
-        relationships[f"runtime/harness/claude/agents/yoke-{agent}.md"] = sources
-        relationships[f"runtime/harness/codex/agents/yoke-{agent}.toml"] = sources
-    return relationships
 
 
 def set_render_relationship(
@@ -126,7 +46,7 @@ def set_render_relationship(
     target_path: str,
     source_paths: Sequence[str],
     recorded_event_id: str,
-    project_id: str = "yoke",
+    project_id: str | int = "yoke",
 ) -> Optional[int]:
     """Record ``target_path`` as a render target with ``source_paths`` as seeds.
 
@@ -194,10 +114,25 @@ def read_render_source_for(
     return None
 
 
+def _tracked_file_paths(conn: Any, project_id: str | int) -> List[str]:
+    """Return every committed file identity observed for one project."""
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.project_identity import resolve_project_id
+
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    resolved_project_id = resolve_project_id(conn, project_id)
+    rows = conn.execute(
+        "SELECT DISTINCT path_string FROM path_targets "
+        f"WHERE project_id = {placeholder} AND kind = 'file'",
+        (resolved_project_id,),
+    ).fetchall()
+    return sorted({str(row[0]) for row in rows})
+
+
 def record_render_relationships(
     conn: Any,
     *,
-    project_id: str = "yoke",
+    project_id: str | int = "yoke",
     session_id: str = "",
 ) -> int:
     """Emit one batch event and write every render relationship row.
@@ -208,7 +143,7 @@ def record_render_relationships(
     emission is idempotent: existing rows are refreshed in place via
     the ``put_context_value`` upsert path.
     """
-    relationships = render_relationship_map()
+    relationships = render_relationship_map(_tracked_file_paths(conn, project_id))
     result = emit_event(
         EVENT_NAME_RENDER_RELATIONSHIP_RECORDED,
         event_kind="lifecycle",
@@ -239,7 +174,7 @@ def record_render_relationships(
 def record_render_relationships_to_canonical_db(
     *,
     db_path: Optional[str] = None,
-    project_id: str = "yoke",
+    project_id: str | int = "yoke",
     session_id: str = "",
 ) -> int:
     """Register relationships on the active local or relayed control plane.

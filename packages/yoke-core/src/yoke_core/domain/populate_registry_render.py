@@ -76,6 +76,7 @@ def _resolve_repo_root(repo_root: Optional[str] = None) -> Path:
 
 
 APPENDIX_SENTINEL = "<!-- catalog-appendix-start -->"
+EVENT_CATALOG_RELPATH = "docs/event-catalog.md"
 
 
 def _extract_appendix(catalog_path: Path) -> str:
@@ -95,7 +96,7 @@ def _extract_appendix(catalog_path: Path) -> str:
 
 def _render_catalog(db_path: Optional[str], repo_root: Path) -> Path:
     """Write ``docs/event-catalog.md`` and return the output path."""
-    catalog_path = repo_root / "docs" / "event-catalog.md"
+    catalog_path = repo_root / EVENT_CATALOG_RELPATH
     assert_target_under_session_work_authority(catalog_path)
     catalog_path.parent.mkdir(parents=True, exist_ok=True)
 

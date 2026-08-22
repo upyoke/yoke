@@ -108,6 +108,43 @@ def test_rejects_inconsistent_symlink_fact() -> None:
     )
 
 
+def test_head_snapshot_refreshes_yoke_render_relationships(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[object, str]] = []
+    monkeypatch.setattr(
+        "yoke_core.domain.project_identity.resolve_project_slug",
+        lambda _conn, _project_id: "yoke",
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_path_context.record_render_relationships",
+        lambda conn, *, project_id: calls.append((conn, project_id)) or 1055,
+    )
+    conn = object()
+    warnings: list[str] = []
+
+    result = handler._refresh_render_relationship_context(
+        conn, 1, [{"ref": "HEAD"}], warnings,
+    )
+
+    assert result == {"status": "ok", "written": 1055}
+    assert calls == [(conn, "yoke")]
+    assert warnings == []
+
+
+def test_snapshot_skips_render_relationships_for_other_projects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "yoke_core.domain.project_identity.resolve_project_slug",
+        lambda _conn, _project_id: "demo",
+    )
+
+    assert handler._refresh_render_relationship_context(
+        object(), 3, [{"ref": "HEAD"}], [],
+    ) is None
+
+
 def test_chunk_upload_materializes_only_after_finalize(tmp_path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
