@@ -83,14 +83,11 @@ def resolve_session_id(payload: str) -> str:
     Returns empty string when no source has a value.  Callers decide
     whether to short-circuit, emit a degraded-mode warning, etc.
 
-    Consulting the chain in its own order matters twice over: an
-    explicit ``YOKE_SESSION_ID`` pin outranks any harness variable, and
-    the Codex parent session outranks a subagent's own thread, which
-    names a session that was never registered.
+    Order matters twice over: an explicit ``YOKE_SESSION_ID`` pin
+    outranks any harness variable, and the Codex parent session outranks
+    a subagent's own thread, which names an unregistered session.
     """
-    return resolve_env_session_id(os.environ) or payload_field(
-        payload, "session_id",
-    )
+    return resolve_env_session_id(os.environ) or payload_field(payload, "session_id")
 
 
 def resolve_root(payload: str = "") -> str:
