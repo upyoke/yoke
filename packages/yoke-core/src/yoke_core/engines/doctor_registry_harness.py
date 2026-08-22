@@ -7,7 +7,8 @@ live here, in this order:
 Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
   ``stale-reclaim-collision``, ``session-cwd-binding``,
-  ``session-pre-implementing-activity``, ``session-lane-mismatch``.
+  ``session-pre-implementing-activity``, ``session-lane-mismatch``,
+  ``launcher-authority``, ``session-relay``.
 
 Project harness config:
   ``project-hook-config-validity``.

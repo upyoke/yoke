@@ -13,6 +13,9 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.adapters.session_control_common import compact_json
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.session_control.roster import (
+    SESSION_CONTROL_ROSTER_DISPLAY_FIELDS,
+)
 
 
 SESSION_ROSTER_USAGE = (
@@ -59,6 +62,8 @@ def session_control_roster_list(args: List[str]) -> int:
         del stderr
         result = response.result or {}
         fields = result.get("fields") or []
+        if set(SESSION_CONTROL_ROSTER_DISPLAY_FIELDS).issubset(fields):
+            fields = SESSION_CONTROL_ROSTER_DISPLAY_FIELDS
         for row in result.get("rows") or []:
             print(
                 "|".join(_cell(field, row.get(field)) for field in fields),

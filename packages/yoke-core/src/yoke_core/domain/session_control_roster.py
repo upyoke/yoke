@@ -5,24 +5,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
+from yoke_contracts.session_control.roster import (
+    SESSION_CONTROL_ROSTER_DISPLAY_FIELDS,
+)
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_message_routing import messageability
 
 
-SESSION_CONTROL_ROSTER_FIELDS = (
-    "session_id",
-    "project",
-    "claims",
-    "focus",
-    "role",
-    "worktree",
-    "executor",
-    "executor_surface",
-    "executor_version",
-    "machine_id",
-    "liveness",
-    "relay",
-    "messageability",
+SESSION_CONTROL_ROSTER_FIELDS = tuple(
+    dict.fromkeys((*SESSION_LIST_FIELDS, *SESSION_CONTROL_ROSTER_DISPLAY_FIELDS))
 )
 
 
@@ -138,17 +130,12 @@ def _project_row(
     if not role and claims:
         role = claims[0].get("target_kind")
     return {
-        "session_id": str(row.get("session_id") or ""),
-        "project": row.get("project"),
-        "claims": claims,
+        **row,
         "focus": _focus(row),
         "role": role,
         "worktree": worktree or row.get("workspace"),
-        "executor": row.get("executor"),
-        "executor_surface": row.get("executor_surface"),
         "executor_version": merged.get("executor_version"),
         "machine_id": merged.get("machine_id"),
-        "liveness": row.get("liveness"),
         "relay": "connected"
         if relay_connected
         else ("unavailable" if machine_id else ""),

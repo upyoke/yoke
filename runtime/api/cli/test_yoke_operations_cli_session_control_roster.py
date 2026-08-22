@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
+from runtime.api.test_constants import TEST_ITEM_REF
 from yoke_cli.commands.adapters import session_control_roster as roster
 from yoke_cli.commands.adapters.session_control_usage import (
     SESSION_CONTROL_USAGE_BY_FUNCTION_ID,
@@ -30,10 +31,10 @@ def test_roster_dispatches_existing_registered_read_and_renders_all_columns(
                     "session_id": "session-1",
                     "project": "yoke",
                     "claims": [
-                        {"target": "YOK-42"},
+                        {"target": TEST_ITEM_REF},
                         {"target": "feed"},
                     ],
-                    "focus": "YOK-42",
+                    "focus": TEST_ITEM_REF,
                     "role": "implementation",
                     "worktree": "/repo/.worktrees/item-42",
                     "executor": "codex",
@@ -78,7 +79,7 @@ def test_roster_dispatches_existing_registered_read_and_renders_all_columns(
         "limit": 5,
     }
     assert capsys.readouterr().out == (
-        "session-1|yoke|YOK-42,feed|YOK-42|implementation|"
+        f"session-1|yoke|{TEST_ITEM_REF},feed|{TEST_ITEM_REF}|implementation|"
         "/repo/.worktrees/item-42|codex|codex-desktop|26.814.41407|"
         "machine-1|active|connected|"
         '{"messageable":true,"relay_connected":true}\n'

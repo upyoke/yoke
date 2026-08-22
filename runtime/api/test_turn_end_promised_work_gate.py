@@ -44,7 +44,9 @@ def _patch_db(monkeypatch, *, claim, at_cap=False, emitted=None):
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
     monkeypatch.setattr(gate, "_live_claim", lambda conn, sid: claim)
     monkeypatch.setattr(
-        gate, "_at_reinjection_cap", lambda conn, sid, item_id: at_cap,
+        gate,
+        "_at_reinjection_cap",
+        lambda conn, sid, item_id: at_cap,
     )
 
     captured: list[dict] = emitted if emitted is not None else []
@@ -59,6 +61,7 @@ def _patch_db(monkeypatch, *, claim, at_cap=False, emitted=None):
 def test_stop_chain_registers_gate_before_dispatch() -> None:
     assert ordered_pipeline_for("Stop") == [
         "yoke_core.domain.turn_end_promised_work_gate",
+        "yoke_core.hooks.session_message_delivery",
         "yoke_core.hooks.session_dispatch",
     ]
 
@@ -85,7 +88,8 @@ def test_hold_for_live_mid_lifecycle_claim(monkeypatch) -> None:
 def test_hold_without_chain_checkpoint(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
     captured = _patch_db(
-        monkeypatch, claim={"item_id": 9, "status": "refined-idea"},
+        monkeypatch,
+        claim={"item_id": 9, "status": "refined-idea"},
     )
     decision = gate.evaluate(_ctx())
     assert decision.outcome is Outcome.DENY
@@ -96,7 +100,8 @@ def test_hold_without_chain_checkpoint(monkeypatch) -> None:
 def test_question_escape_allows(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _question())
     captured = _patch_db(
-        monkeypatch, claim={"item_id": 1, "status": "implementing"},
+        monkeypatch,
+        claim={"item_id": 1, "status": "implementing"},
     )
     decision = gate.evaluate(_ctx())
     assert decision.outcome is Outcome.ALLOW
@@ -146,7 +151,10 @@ def test_recent_hold_stays_capped_without_consulting_tool_use(monkeypatch) -> No
         raise AssertionError("tool use must not affect the reinjection cooldown")
 
     monkeypatch.setattr(
-        gate, "_completed_tool_use_since", _unexpected_tool_lookup, raising=False,
+        gate,
+        "_completed_tool_use_since",
+        _unexpected_tool_lookup,
+        raising=False,
     )
     assert gate._at_reinjection_cap(_Conn(), "sess-1", 5, now=_NOW) is True
 
@@ -207,7 +215,8 @@ def test_reinjection_history_query_filters_claim_item(monkeypatch) -> None:
             return _Rows()
 
     monkeypatch.setattr(
-        "yoke_core.domain.db_backend.connection_is_postgres", lambda conn: True,
+        "yoke_core.domain.db_backend.connection_is_postgres",
+        lambda conn: True,
     )
     assert gate._reinjection_history(_HistoryConn(), "sess-1", 6) == (
         _NOW.isoformat(),
@@ -221,7 +230,9 @@ def test_unavailable_evidence_fails_open(monkeypatch) -> None:
     emitted: list[str] = []
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: UNAVAILABLE)
     monkeypatch.setattr(
-        gate, "_emit_unavailable", lambda ctx: emitted.append(ctx.session_id or ""),
+        gate,
+        "_emit_unavailable",
+        lambda ctx: emitted.append(ctx.session_id or ""),
     )
     decision = gate.evaluate(_ctx())
     assert decision.outcome is Outcome.ALLOW
@@ -241,7 +252,9 @@ def test_remote_uses_payload_facts_only(monkeypatch) -> None:
         payload={
             "transcript_path": "/tmp/should-not-read.jsonl",
             "turn_end_evidence": {
-                "available": True, "present": True, "question": True,
+                "available": True,
+                "present": True,
+                "question": True,
             },
         },
     )
@@ -304,7 +317,10 @@ def test_remote_tail_skips_lifecycle_on_deny(monkeypatch) -> None:
     )
     deadline = SimpleNamespace(telemetry_allowed=lambda: True, budget_ms=1000)
     context = SimpleNamespace(
-        executor_family="claude", session_id="sess-1", item_id=1, tool_name="",
+        executor_family="claude",
+        session_id="sess-1",
+        item_id=1,
+        tool_name="",
     )
     kwargs = dict(
         event_name="Stop",

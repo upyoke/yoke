@@ -27,18 +27,16 @@ class OnboardSessionRelayError(RuntimeError):
 def is_supported(
     *,
     local_destination: bool,
-    platform: str = sys.platform,
+    platform: str | None = None,
 ) -> bool:
-    return platform == "darwin" and not local_destination
+    resolved_platform = sys.platform if platform is None else platform
+    return resolved_platform == "darwin" and not local_destination
 
 
 def plan_steps(*, local_destination: bool) -> list[dict[str, str]]:
     if not is_supported(local_destination=local_destination):
         return []
-    return [
-        {"action": action, "target": target}
-        for action, target in RELAY_PLAN_STEPS
-    ]
+    return [{"action": action, "target": target} for action, target in RELAY_PLAN_STEPS]
 
 
 def install(

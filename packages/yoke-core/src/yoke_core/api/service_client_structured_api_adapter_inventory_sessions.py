@@ -12,8 +12,7 @@ SESSION_ADAPTERS = [
     AdapterEntry(
         function_id="sessions.begin",
         cli_invocation=(
-            "yoke sessions begin --executor E --provider P --model M "
-            "--workspace W"
+            "yoke sessions begin --executor E --provider P --model M --workspace W"
         ),
     ),
     _read_entry(
@@ -27,8 +26,7 @@ SESSION_ADAPTERS = [
     AdapterEntry(
         function_id="sessions.checkpoint",
         cli_invocation=(
-            "yoke sessions checkpoint --step N --action ACTION "
-            "--chainable BOOL"
+            "yoke sessions checkpoint --step N --action ACTION --chainable BOOL"
         ),
     ),
     _read_entry(
@@ -37,9 +35,7 @@ SESSION_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="sessions.offer",
-        cli_invocation=(
-            "yoke sessions offer [--step N] [--project IDS]"
-        ),
+        cli_invocation=("yoke sessions offer [--step N] [--project IDS]"),
     ),
     AdapterEntry(
         function_id="sessions.end_if_empty",
@@ -61,6 +57,75 @@ SESSION_ADAPTERS = [
     _read_entry(
         function_id="sessions.ownership_guard",
         cli_invocation="yoke sessions ownership-guard --item YOK-N",
+    ),
+    _read_entry(
+        function_id="session_control.message.preview",
+        cli_invocation="yoke session-control message preview [selector] [--json]",
+    ),
+    AdapterEntry(
+        function_id="session_control.message.send",
+        cli_invocation=(
+            "yoke session-control message send --stdin [selector] "
+            "[--idempotency-key K] [--confirmation-token T] [--json]"
+        ),
+    ),
+    _read_entry(
+        function_id="session_control.message.list",
+        cli_invocation=(
+            "yoke messages list [--state STATE] [--recipient-session S] "
+            "[--limit N] [--json]"
+        ),
+    ),
+    _read_entry(
+        function_id="session_control.message.get",
+        cli_invocation="yoke messages get MESSAGE-ID [--json]",
+    ),
+    AdapterEntry(
+        function_id="session_control.message.acknowledge",
+        cli_invocation="yoke messages acknowledge MESSAGE-ID [--json]",
+    ),
+    AdapterEntry(
+        function_id="session_control.message.cancel",
+        cli_invocation="yoke messages cancel MESSAGE-ID [--json]",
+    ),
+    _read_entry(
+        function_id="session_control.launch.preview",
+        cli_invocation=(
+            "yoke session-control launch preview --project P --surface S [--json]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="session_control.launch.create",
+        cli_invocation=(
+            "yoke session-control launch create --project P --surface S "
+            "--stdin --idempotency-key K [--json]"
+        ),
+    ),
+    _read_entry(
+        function_id="session_control.launch.get",
+        cli_invocation="yoke session-control launch get LAUNCH-ID [--json]",
+    ),
+    _read_entry(
+        function_id="session_control.launch.list",
+        cli_invocation=(
+            "yoke session-control launch list --project P "
+            "[--state STATE] [--limit N] [--json]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="session_control.launch.cancel",
+        cli_invocation="yoke session-control launch cancel LAUNCH-ID [--json]",
+    ),
+    AdapterEntry(
+        function_id="session_control.launch.retry",
+        cli_invocation="yoke session-control launch retry LAUNCH-ID [--json]",
+    ),
+    AdapterEntry(
+        function_id="session_control.launch.reconcile",
+        cli_invocation=(
+            "yoke session-control launch reconcile LAUNCH-ID "
+            "[--observed-native-id ID] [--json]"
+        ),
     ),
     AdapterEntry(
         function_id="charge.schedule",

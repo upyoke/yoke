@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import sys
 
+from runtime.api.test_constants import TEST_ITEM_REF
 from yoke_cli.commands.adapters import session_control_messages as messages
 from yoke_cli.commands.registry_session_control import (
     SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY,
@@ -25,7 +26,7 @@ def test_say_preview_dispatches_semantic_selector(monkeypatch) -> None:
             [
                 "--preview",
                 "--item",
-                "YOK-42",
+                TEST_ITEM_REF,
                 "--project",
                 "platform",
                 "--surface",
@@ -43,7 +44,7 @@ def test_say_preview_dispatches_semantic_selector(monkeypatch) -> None:
     assert captured["target"].kind == "global"
     assert captured["payload"] == {
         "selector": {
-            "item_refs": ["YOK-42"],
+            "item_refs": [TEST_ITEM_REF],
             "projects": ["platform"],
             "executor_surfaces": ["codex-desktop"],
             "liveness": ["active"],

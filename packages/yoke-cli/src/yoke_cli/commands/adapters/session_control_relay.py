@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
+import importlib
 import json
 import sys
 from typing import Any, Callable, List
@@ -18,16 +19,12 @@ RELAY_SERVE_ONCE_USAGE = "yoke relay serve-once [--json]"
 
 
 def _plist_operation(action: str) -> Any:
-    from yoke_core.tools.session_relay_plist import (
-        install_relay_launchd,
-        relay_launchd_status,
-        uninstall_relay_launchd,
-    )
+    module = importlib.import_module("yoke_core.tools.session_relay_plist")
 
     operation: dict[str, Callable[[], Any]] = {
-        "install": install_relay_launchd,
-        "status": relay_launchd_status,
-        "uninstall": uninstall_relay_launchd,
+        "install": module.install_relay_launchd,
+        "status": module.relay_launchd_status,
+        "uninstall": module.uninstall_relay_launchd,
     }
     return operation[action]()
 

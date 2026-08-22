@@ -64,6 +64,13 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
         "compose session orientation from this machine's own git and files",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/session_control_relay.py",
+        "yoke_core.tools.session_relay_plist",
+    ): (
+        "client_local_machine_state",
+        "manage the machine-local relay login item without engine authority",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/lane_tree.py",
         "yoke_core.domain.verification_tree_binding",
     ): (

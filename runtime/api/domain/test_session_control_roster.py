@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import sqlite3
 
+from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
 from yoke_core.domain.session_control_roster import (
     SESSION_CONTROL_ROSTER_FIELDS,
     session_control_roster_result,
@@ -82,18 +83,34 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     )
     conn.execute(
         "INSERT INTO item_worktrees VALUES (?,?,?,?,?,?)",
-        (1, 42, "/repo/.worktrees/item-42", "item-42", "active", "worker"),
+        (
+            1,
+            TEST_ITEM_ID,
+            "/repo/.worktrees/item-42",
+            "item-42",
+            "active",
+            "worker",
+        ),
     )
     conn.execute(
         "INSERT INTO work_claims VALUES (?,?,?,?,?,?,?,?)",
-        (1, "session-1", "item", 42, None, None, "2026-08-22T11:00:00Z", None),
+        (
+            1,
+            "session-1",
+            "item",
+            TEST_ITEM_ID,
+            None,
+            None,
+            "2026-08-22T11:00:00Z",
+            None,
+        ),
     )
     base = [
         {
             "session_id": "session-1",
             "project": "yoke",
-            "claims": [{"target_kind": "item", "target": "YOK-42"}],
-            "current_item": "YOK-42",
+            "claims": [{"target_kind": "item", "target": TEST_ITEM_REF}],
+            "current_item": TEST_ITEM_REF,
             "work_role": "implementation",
             "workspace": "/repo",
             "executor": "codex",
@@ -111,7 +128,7 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
 
     assert result["fields"] == list(SESSION_CONTROL_ROSTER_FIELDS)
     row = result["rows"][0]
-    assert row["focus"] == "YOK-42"
+    assert row["focus"] == TEST_ITEM_REF
     assert row["role"] == "implementation"
     assert row["worktree"] == "/repo/.worktrees/item-42"
     assert row["executor_version"] == "26.814.41407"

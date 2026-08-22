@@ -136,6 +136,11 @@ def apply_fixture_ddl(conn: Any, ddl: str) -> None:
 def apply_fixture_schema(conn: Any) -> None:
     """Apply the composed fixture schema to *conn*."""
     apply_fixture_ddl(conn, _schema_ddl())
+    from yoke_core.domain.session_control_schema import (
+        create_session_control_tables,
+    )
+
+    create_session_control_tables(conn)
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
     from yoke_core.domain.decision_request_schema import (
@@ -198,9 +203,7 @@ def apply_fixture_schema(conn: Any) -> None:
     sync_machine_qa_pack_methods(conn)
     create_decision_request_tables(conn)
     conn.execute(
-        STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL.replace(
-            " REFERENCES projects(id)", ""
-        )
+        STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL.replace(" REFERENCES projects(id)", "")
     )
     ensure_strategy_execution_schema(conn)
 
