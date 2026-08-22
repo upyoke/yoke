@@ -30,7 +30,7 @@ Optional flags:
 
 - `--project <id>` — supply when the item targets a project other than `yoke` (the orchestrator otherwise resolves the project from the item row).
 - `--no-worktree` — evidence-only items: skip worktree creation but still resolve the work claim, activate path claims, and emit the envelope (with `semantic_scope=main`).
-- `--session-id <id>` — override the session id (defaults to the standard `YOKE_SESSION_ID` / `CLAUDE_SESSION_ID` / `CODEX_THREAD_ID` env chain).
+- `--session-id <id>` — override the session id (defaults to the canonical ambient chain, `yoke_contracts.session_identity`).
 
 Exit codes:
 

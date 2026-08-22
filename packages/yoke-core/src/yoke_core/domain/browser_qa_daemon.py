@@ -9,9 +9,9 @@ without rebinding sibling-local names.
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any, Dict, Optional
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 
 _DAEMON_MAX_RETRIES = 2  # additional attempts after the first failure
@@ -166,12 +166,7 @@ def _emit_daemon_startup_failed_event(
     """Emit a BrowserDaemonStartupFailed event via the runtime event platform."""
     from yoke_core.domain.events import emit_event as _native_emit
 
-    session_id = (
-        os.environ.get("YOKE_SESSION_ID")
-        or os.environ.get("CLAUDE_SESSION_ID")
-        or os.environ.get("CODEX_THREAD_ID")
-        or ""
-    )
+    session_id = resolve_ambient_session_id() or ""
     kwargs: Dict[str, Any] = {
         "event_kind": "system",
         "event_type": "browser_daemon",

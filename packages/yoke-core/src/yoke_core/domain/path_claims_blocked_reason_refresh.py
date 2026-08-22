@@ -35,10 +35,10 @@ two-axes pattern: this helper owns the wording axis, while
 
 from __future__ import annotations
 
-import os
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 
 def _p(conn: Any) -> str:
@@ -46,11 +46,7 @@ def _p(conn: Any) -> str:
 
 
 def _event_session_id() -> str:
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
-        value = os.environ.get(name)
-        if value:
-            return value
-    return ""
+    return resolve_ambient_session_id() or ""
 
 
 def _emit_refresh_event(

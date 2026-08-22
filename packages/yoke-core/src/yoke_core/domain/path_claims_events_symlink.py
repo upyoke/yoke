@@ -18,7 +18,6 @@ reconstruct the equivalence class without re-walking the filesystem.
 
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, Optional
 
 
@@ -30,13 +29,11 @@ _SOURCE_TYPE = "system"
 def _resolve_session_id(explicit: Optional[str]) -> str:
     if explicit:
         return explicit
-    for env_name in (
-        "YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
-    ):
-        value = os.environ.get(env_name)
-        if value:
-            return value
-    return ""
+    from yoke_core.domain.session_ambient_identity import (
+        resolve_ambient_session_id,
+    )
+
+    return resolve_ambient_session_id() or ""
 
 
 def _emit(

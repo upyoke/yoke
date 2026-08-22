@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any, Optional
 
 
@@ -20,18 +19,11 @@ def emit_blocked_reason_refreshed(
         from yoke_core.domain.events import emit_event as native_emit
     except ImportError:
         return
-    session_id = next(
-        (
-            os.environ[name]
-            for name in (
-                "YOKE_SESSION_ID",
-                "CLAUDE_SESSION_ID",
-                "CODEX_THREAD_ID",
-            )
-            if os.environ.get(name)
-        ),
-        "",
+    from yoke_core.domain.session_ambient_identity import (
+        resolve_ambient_session_id,
     )
+
+    session_id = resolve_ambient_session_id() or ""
     try:
         native_emit(
             "PathClaimBlockedReasonRefreshed",

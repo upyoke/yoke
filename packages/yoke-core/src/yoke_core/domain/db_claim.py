@@ -139,7 +139,7 @@ def amend(
             :func:`db_helpers.connect`.
         session_id: Optional session ID override. Falls back to
             ``YOKE_SESSION_ID`` / ``CLAUDE_SESSION_ID`` /
-            ``CODEX_THREAD_ID`` in that order.
+            ``CODEX_SESSION_ID`` / ``CODEX_THREAD_ID`` in that order.
         commit: Commit the amendment when true. With ``commit=False`` the
             caller owns commit/rollback so this write can compose atomically.
 

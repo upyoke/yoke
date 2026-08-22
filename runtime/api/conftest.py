@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import pathlib
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -192,7 +193,7 @@ def _ensure_test_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     if not any(
         os.environ.get(name)
-        for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID")
+        for name in AMBIENT_ENV_VARS
     ):
         monkeypatch.setenv("YOKE_SESSION_ID", "test-session-autouse")
 

@@ -65,15 +65,9 @@ class _NullTiming:
 
     @staticmethod
     def ambient_session_id(explicit):
-        import os
-
-        if explicit:
-            return explicit
-        for env_name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
-            value = os.environ.get(env_name)
-            if value:
-                return value
-        return ""
+        # Every consumer of this value is a no-op emitter below, so the
+        # null surface passes the explicit id through and resolves nothing.
+        return explicit or ""
 
     @staticmethod
     def new_trace_id():

@@ -3,12 +3,17 @@
 Shared fixture/helpers live in ``test_service_client_sessions_helpers.py``.
 """
 
+# ruff: noqa: F811 -- imported pytest fixtures are intentionally re-exported.
+
 from __future__ import annotations
 
 import json
 import os
 import subprocess
 
+import pytest
+
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import (
     _REPO_ROOT,
@@ -21,6 +26,11 @@ from runtime.api.test_service_client_sessions_helpers import (
 )
 
 
+def _clear_chain(monkeypatch):
+    for name in AMBIENT_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
+
 class TestResolveSessionId:
     """Unit tests for _resolve_session_id."""
 
@@ -30,35 +40,27 @@ class TestResolveSessionId:
         from yoke_core.api.service_client import _resolve_session_id
         assert _resolve_session_id("explicit-value") == "explicit-value"
 
-    def test_yoke_session_id_env(self, monkeypatch):
-        """YOKE_SESSION_ID is the first env fallback."""
-        monkeypatch.setenv("YOKE_SESSION_ID", "yoke-sid")
-        monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
-        monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    @pytest.mark.parametrize("var,value", list(zip(AMBIENT_ENV_VARS, (
+        "yoke-sid", "claude-sid", "codex-parent-sid", "codex-tid",
+    ))))
+    def test_each_chain_variable_resolves_alone(self, monkeypatch, var, value):
+        """Every chain variable resolves when it is the only one set."""
+        _clear_chain(monkeypatch)
+        monkeypatch.setenv(var, value)
         from yoke_core.api.service_client import _resolve_session_id
-        assert _resolve_session_id(None) == "yoke-sid"
+        assert _resolve_session_id(None) == value
 
-    def test_claude_session_id_fallback(self, monkeypatch):
-        """CLAUDE_SESSION_ID is the second env fallback."""
-        monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-        monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-sid")
-        monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    def test_codex_parent_outranks_subagent_thread(self, monkeypatch):
+        """A Codex subagent shell resolves to the parent, not its own thread."""
+        _clear_chain(monkeypatch)
+        monkeypatch.setenv("CODEX_SESSION_ID", "codex-parent")
+        monkeypatch.setenv("CODEX_THREAD_ID", "codex-child")
         from yoke_core.api.service_client import _resolve_session_id
-        assert _resolve_session_id(None) == "claude-sid"
-
-    def test_codex_thread_id_fallback(self, monkeypatch):
-        """CODEX_THREAD_ID is the third env fallback."""
-        monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-        monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
-        monkeypatch.setenv("CODEX_THREAD_ID", "codex-tid")
-        from yoke_core.api.service_client import _resolve_session_id
-        assert _resolve_session_id(None) == "codex-tid"
+        assert _resolve_session_id(None) == "codex-parent"
 
     def test_none_when_nothing_set(self, monkeypatch):
         """Returns None when no explicit value and no env vars."""
-        monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-        monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
-        monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+        _clear_chain(monkeypatch)
         from yoke_core.api.service_client import _resolve_session_id
         assert _resolve_session_id(None) is None
 
@@ -164,7 +166,7 @@ class TestSessionIdAutoResolutionIntegration:
         """Commands exit 2 with clear error when no session ID can be resolved."""
         # Clear all session env vars
         env = os.environ.copy()
-        for var in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+        for var in AMBIENT_ENV_VARS:
             env.pop(var, None)
 
         commands_requiring_session_id = [

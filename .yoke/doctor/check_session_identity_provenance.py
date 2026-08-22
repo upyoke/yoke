@@ -73,10 +73,14 @@ _LABEL_REMEDIATION = (
 
 _ACTOR_REMEDIATION = (
     "These ids acted without a harness_sessions row, so their work is "
-    "attributed to a session that was never registered. Registration is "
-    "the harness hook's job at session start; a gap here means the hook "
-    "did not run or its registration was refused. Check the session's "
-    "SessionStart hook delivery rather than registering the id by hand."
+    "attributed to a session that was never registered. Two causes "
+    "produce this. Either registration never happened — the harness "
+    "hook's job at session start, so check that session's SessionStart "
+    "hook delivery — or a resolver selected a child or otherwise "
+    "unregistered id in place of the registered one, which is what a "
+    "caller enumerating session env vars itself does instead of asking "
+    "yoke_contracts.session_identity. Fix the writer either way; never "
+    "register the id by hand."
 )
 
 

@@ -18,6 +18,7 @@ import json
 from contextlib import contextmanager
 from typing import Any
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 import yoke_core.hooks.registration as register_module
@@ -286,7 +287,7 @@ class TestRunnerArmsEnsureSession:
 
     def test_sessionless_payload_does_not_arm(self, monkeypatch, tmp_path):
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
-        for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
+        for name in (*AMBIENT_ENV_VARS,
                      "CURSOR_CONVERSATION_ID", "CURSOR_TRANSCRIPT_PATH"):
             monkeypatch.delenv(name, raising=False)
         captured = _run_runner(monkeypatch, {

@@ -67,7 +67,7 @@ WHERE session_id NOT LIKE 'test-%'
 | `sess-*` | Test suites (e.g., `sess-1`, `sess-A`, `sess-race-1`, `sess-envelope-1`) |
 | `dup` | Deduplication test fixture |
 
-**Real production sessions** may use several truthful shapes depending on the surface. Claude Code startup sessions follow the `claude-code-YYYYMMDDTHHMMSSZ-NNNNN` pattern, `/yoke do` offer sessions keep their Yoke-owned `{executor}-{timestamp}` ids, and Codex shell/manual hook paths may use the live `CODEX_THREAD_ID` UUID directly (for example `019d62e0-2c92-7a03-8d99-b18206cfa7e7`). Treat all of those as valid production identities when correlating events.
+**Real production sessions** may use several truthful shapes depending on the surface. Claude Code startup sessions follow the `claude-code-YYYYMMDDTHHMMSSZ-NNNNN` pattern, `/yoke do` offer sessions keep their Yoke-owned `{executor}-{timestamp}` ids, and Codex shell/manual hook paths may use the live Codex thread UUID directly (for example `019d62e0-2c92-7a03-8d99-b18206cfa7e7`) — the parent thread from `CODEX_SESSION_ID`, which in a top-level Codex session is also what `CODEX_THREAD_ID` holds. Treat all of those as valid production identities when correlating events.
 
 ## Synthetic-Row Cleanup Guidance
 

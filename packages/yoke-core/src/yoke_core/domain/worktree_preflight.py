@@ -33,6 +33,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.worktree_paths import _normalize_repo_root
 from yoke_core.domain.worktree_preflight_steps import (
     BLOCK_CREATE_FAILED,
@@ -292,10 +293,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--no-worktree", action="store_true")
     parser.add_argument(
         "--session-id",
-        default=os.environ.get("YOKE_SESSION_ID")
-        or os.environ.get("CLAUDE_SESSION_ID")
-        or os.environ.get("CODEX_THREAD_ID")
-        or "",
+        default=resolve_ambient_session_id() or "",
     )
     args = parser.parse_args(argv)
     try:

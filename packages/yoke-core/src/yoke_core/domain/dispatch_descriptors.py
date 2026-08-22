@@ -150,10 +150,16 @@ def _render_codex(descriptor: DispatchDescriptor) -> str:
 
     Codex spawns sub-agents by naming a `.codex/agents/<name>.toml` adapter
     file. The invocation shape is the adapter path plus a `prompt:` block
-    placeholder; the parent skill fills the prompt body. Codex `agent:`
-    dispatch runs in-process inside the parent harness session, so the
-    subagent inherits ``session_id`` / ``cwd`` / hook chain from the
-    parent without any auxiliary identity-propagation row.
+    placeholder; the parent skill fills the prompt body.
+
+    A Codex subagent runs on its own thread, and the two channels it
+    reaches Yoke through resolve identity differently. Hook telemetry
+    lands on the parent because Codex names the parent in the hook
+    payload. The subagent's own shell has only its environment, where
+    ``CODEX_THREAD_ID`` is the *child*; it resolves to the parent solely
+    because ``CODEX_SESSION_ID`` sits ahead of it in the canonical chain
+    (:mod:`yoke_contracts.session_identity`). Nothing here is inherited
+    in-process, and no auxiliary identity-propagation row is involved.
     """
     adapter_path = f".codex/agents/{descriptor.subagent_type}.toml"
     lines = [f"codex agent: {adapter_path}"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 from unittest import mock
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 from yoke_core.domain import db_backend
@@ -119,7 +120,7 @@ def seed_work_claim(
 
 
 def clear_session_env(monkeypatch) -> None:
-    for var in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for var in AMBIENT_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
 
 

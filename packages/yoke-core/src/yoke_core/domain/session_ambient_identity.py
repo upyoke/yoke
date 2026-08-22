@@ -4,7 +4,8 @@ Single owner of the ambient chain every Yoke surface uses to answer
 "which harness session is this process running under?":
 
 1. **Env chain (fast path):** ``YOKE_SESSION_ID`` →
-   ``CLAUDE_SESSION_ID`` → ``CODEX_THREAD_ID``. Populated by harnesses
+   ``CLAUDE_SESSION_ID`` → ``CODEX_SESSION_ID`` → ``CODEX_THREAD_ID``,
+   owned by :mod:`yoke_contracts.session_identity`. Populated by harnesses
    that stamp identity into the environment (the desktop harness
    prepends a per-command export; Codex exports at SessionStart).
 2. **Process-anchor ancestry walk:** the hook-written registry under
@@ -220,17 +221,24 @@ def contested_anchor_session_ids() -> List[str]:
 
 
 def _public_channel(channel: str) -> str:
-    """Agent-facing label that does not teach env-var self-bootstrap."""
+    """Agent-facing label that does not teach env-var self-bootstrap.
+
+    Derived from the variable rather than its position in the chain, so
+    a chain that grows relabels itself instead of silently shifting every
+    label one slot along. ``CODEX_SESSION_ID`` and ``CODEX_THREAD_ID``
+    stay distinguishable because parent-versus-child is the whole reason
+    a Codex subagent's diagnostics are worth reading.
+    """
     if not channel.startswith("env:"):
         return channel
     name = channel[4:]
-    if name == AMBIENT_ENV_VARS[0]:
+    if name not in AMBIENT_ENV_VARS:
+        return "env:other"
+    family, _, suffix = name.partition("_")
+    if family == "YOKE":
         return "env:session"
-    if name == AMBIENT_ENV_VARS[1]:
-        return "env:claude"
-    if name == AMBIENT_ENV_VARS[2]:
-        return "env:codex"
-    return "env:other"
+    label = f"env:{family.lower()}"
+    return label if suffix == "SESSION_ID" else f"{label}-thread"
 
 
 def format_actor_session_missing(function_id: str) -> str:

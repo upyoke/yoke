@@ -31,6 +31,7 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_ALREADY_TERMINAL,
     RELEASE_FAILURE_ITEM_NOT_FOUND,
@@ -45,11 +46,7 @@ _IDEMPOTENT_RELEASE_MISSES = frozenset({
 def _resolve_session_id(session_id: Optional[str] = None) -> Optional[str]:
     if session_id:
         return session_id
-    return (
-        os.environ.get("YOKE_SESSION_ID")
-        or os.environ.get("CLAUDE_SESSION_ID")
-        or os.environ.get("CODEX_THREAD_ID")
-    )
+    return resolve_ambient_session_id()
 
 
 def _release_conduct_claim(

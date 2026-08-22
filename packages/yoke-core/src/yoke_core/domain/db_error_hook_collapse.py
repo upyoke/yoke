@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 from yoke_core.domain import project_scratch_dir
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 
 DDL_PATTERNS = re.compile(
@@ -62,10 +63,7 @@ def check_row_count_collapse(
         return CollapseResult()
 
     if not session_id:
-        session_id = os.environ.get(
-            "YOKE_SESSION_ID",
-            os.environ.get("CLAUDE_SESSION_ID", "default"),
-        )
+        session_id = resolve_ambient_session_id() or "default"
 
     baseline_file = str(
         project_scratch_dir.storage_path(

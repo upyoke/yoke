@@ -22,7 +22,7 @@ from yoke_contracts import session_identity
 
 
 def _clear_session_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for name in session_identity.AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delenv("YOKE_ACTOR_ID", raising=False)
 

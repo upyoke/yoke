@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
 from yoke_core.hooks import runner as runner_module
 from yoke_contracts.cursor_session_map import (
@@ -89,7 +90,7 @@ def test_cursor_payload_without_transcript_is_unchanged(tmp_path, monkeypatch) -
 def test_stamp_folds_mapped_conversation_id(tmp_path, monkeypatch) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     conversation = "conv-remount"
     record_conversation_session(
@@ -157,7 +158,7 @@ def test_record_then_stamp_writes_remount_expect_on_main(
 ) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     conversation = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     payload = {
@@ -182,7 +183,7 @@ def test_record_then_stamp_skips_self_map_on_worktree_lane(
 ) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     conversation = "conv-remount-absent"
     payload = {
@@ -205,7 +206,7 @@ def test_record_then_stamp_skips_self_map_on_worktree_lane(
 def test_stamp_fills_from_cursor_session_map(tmp_path, monkeypatch) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     conversation = "conv-1"
     record_conversation_session(

@@ -6,6 +6,7 @@ import io
 from typing import Any
 from unittest.mock import patch
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 from runtime.api.backlog_github_sync_test_helpers import make_db as _make_db
@@ -76,7 +77,7 @@ def db_with_open_conn(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
-    for var in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for var in AMBIENT_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setattr(cli, "_dry_run", lambda: False)
 

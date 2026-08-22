@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
@@ -58,10 +59,7 @@ class TestNoSession:
         self, conn, monkeypatch, tmp_path,
     ):
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
-        for name in (
-            "YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
-            "CURSOR_CONVERSATION_ID",
-        ):
+        for name in (*AMBIENT_ENV_VARS, "CURSOR_CONVERSATION_ID"):
             monkeypatch.delenv(name, raising=False)
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "cwd": "/some/random/path",

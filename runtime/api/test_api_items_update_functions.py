@@ -14,6 +14,7 @@ import os
 import sys
 from unittest.mock import patch
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -129,7 +130,7 @@ def _seed_work_claim(db_path, item_id=1, session_id=_SESSION_ID):
 
 
 def _clear_process_session_env(monkeypatch):
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
 
 

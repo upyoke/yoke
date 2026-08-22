@@ -4,10 +4,13 @@ These cases exercise CLI validation and DB writes through
 ``yoke_core.domain.emit_event``.
 """
 
+# ruff: noqa: F811 -- imported pytest fixtures are intentionally re-exported.
+
 from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.domain import db_backend, emit_event
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_emit_event_test_helpers import (
@@ -153,15 +156,15 @@ def test_emit_uses_explicit_event_id(events_db):
     "env_var,sentinel",
     [
         ("CLAUDE_SESSION_ID", "claude-session-id"),
+        ("CODEX_SESSION_ID", "codex-session-id"),
         ("CODEX_THREAD_ID", "codex-thread-id"),
     ],
 )
 def test_emit_session_id_env_fallback(events_db, monkeypatch, env_var, sentinel):
     """Section 21: CLAUDE/CODEX env vars are used when no explicit session-id is given."""
     # Ensure only the env var under test is set.
-    monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-    monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
-    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    for name in AMBIENT_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(env_var, sentinel)
 
     event_id = f"sess-env-{env_var.lower()}"
@@ -186,9 +189,14 @@ def test_emit_session_id_env_fallback(events_db, monkeypatch, env_var, sentinel)
     assert session_id == sentinel
 
 
-def test_emit_session_id_timestamp_pid_fallback(events_db, monkeypatch):
-    """Section 21: when no session-id and no env vars, a non-empty fallback is generated."""
-    for var in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+def test_emit_session_id_empty_when_no_session_resolves(events_db, monkeypatch):
+    """Generic telemetry records an empty session rather than inventing one.
+
+    The emitter used to mint ``<epoch>-<pid>``, which looked like a
+    session id and joined to no ``harness_sessions`` row. Recording the
+    empty string keeps "no session" legible as exactly that.
+    """
+    for var in AMBIENT_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
 
     rc = emit_event.main(
@@ -207,4 +215,4 @@ def test_emit_session_id_timestamp_pid_fallback(events_db, monkeypatch):
         "SELECT session_id FROM events WHERE event_id='sess-env-fallback'"
     ).fetchone()[0]
     conn.close()
-    assert session_id, "expected non-empty fallback session_id"
+    assert session_id == ""

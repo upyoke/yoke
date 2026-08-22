@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
-import os
 from typing import Optional, TextIO
 
 
 def _resolve_session_id(session_id: Optional[str] = None) -> Optional[str]:
     if session_id:
         return session_id
-    return (
-        os.environ.get("YOKE_SESSION_ID")
-        or os.environ.get("CLAUDE_SESSION_ID")
-        or os.environ.get("CODEX_THREAD_ID")
-    )
+    return resolve_ambient_session_id()
 
 
 def _emit_skip_event(

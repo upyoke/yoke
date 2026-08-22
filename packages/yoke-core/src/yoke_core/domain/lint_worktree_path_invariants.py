@@ -28,14 +28,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.yok_n_parser import parse_item_argument
-
-
-_SESSION_ENV_VARS = (
-    "YOKE_SESSION_ID",
-    "CLAUDE_SESSION_ID",
-    "CODEX_THREAD_ID",
-)
 
 
 @dataclass(frozen=True)
@@ -55,12 +49,8 @@ class WorktreeInvariantContext:
 
 
 def _resolve_session_id() -> str:
-    """Return the first non-empty session id env var, or ``""``."""
-    for var in _SESSION_ENV_VARS:
-        value = os.environ.get(var) or ""
-        if value:
-            return value
-    return ""
+    """Return the ambient session id, or ``""`` when none resolves."""
+    return resolve_ambient_session_id() or ""
 
 
 def _normalize_item_id(

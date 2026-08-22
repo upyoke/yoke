@@ -7,6 +7,8 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from typing import Any, Dict
 
 from yoke_core.domain.events import emit_event
@@ -38,11 +40,7 @@ def new_trace_id() -> str:
 def ambient_session_id(explicit: str | None) -> str:
     if explicit:
         return explicit
-    for env_name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
-        value = os.environ.get(env_name)
-        if value:
-            return value
-    return ""
+    return resolve_ambient_session_id() or ""
 
 
 def _board_project(repo_root: Path, conn: Any | None = None) -> str:

@@ -4,7 +4,7 @@ Single owner of the chain every Yoke surface uses to answer "which
 harness session is this process running under?":
 
 1. **Env chain (fast path):** ``YOKE_SESSION_ID`` -> ``CLAUDE_SESSION_ID``
-   -> ``CODEX_THREAD_ID``.
+   -> ``CODEX_SESSION_ID`` -> ``CODEX_THREAD_ID``.
 2. **Process-anchor ancestry walk:** a hook-written registry under
    ``<machine-home>/session-anchors/`` maps the per-session harness agent
    pid to its session id, so any shell the harness spawns self-identifies
@@ -15,16 +15,13 @@ harness session is this process running under?":
    (:mod:`yoke_contracts.cursor_session_map`).
 
 Pure standard library; takes ``anchors_dir`` as an argument so BOTH sides
-of the contract share one body:
-
-- the engine core (server / in-process dispatch) via the thin
-  ``yoke_core.domain`` re-export shims, and
-- the product CLI client, which depends only on ``yoke-contracts`` and
-  MUST resolve identity client-side because, on the https transport, the
-  remote server cannot inspect the caller's process tree.
-
-Keeping one implementation here is what prevents the resolver drift that
-let an env-only client copy silently omit the ancestry fallback.
+of the contract share one body: the engine core (server / in-process
+dispatch) via the thin ``yoke_core.domain`` re-export shims, and the
+product CLI client, which depends only on ``yoke-contracts`` and MUST
+resolve identity client-side because, on the https transport, the remote
+server cannot inspect the caller's process tree. Keeping one
+implementation here is what prevents the resolver drift that let an
+env-only client copy silently omit the ancestry fallback.
 """
 
 from __future__ import annotations
@@ -56,9 +53,13 @@ from yoke_contracts.session_anchor_contention import (
 # Env chain
 # ---------------------------------------------------------------------------
 
+# Codex exports the *parent* thread as ``CODEX_SESSION_ID`` in every
+# process it starts and the subagent's own as ``CODEX_THREAD_ID``; parent
+# first, because a child-resolved thread names an unregistered session.
 AMBIENT_ENV_VARS: Tuple[str, ...] = (
     "YOKE_SESSION_ID",
     "CLAUDE_SESSION_ID",
+    "CODEX_SESSION_ID",
     "CODEX_THREAD_ID",
 )
 
