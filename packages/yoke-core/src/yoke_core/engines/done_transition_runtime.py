@@ -82,8 +82,8 @@ def _update_task_status_direct(
     claim-bypass / done-verified values the engine used to set as process env
     vars (``env_overrides``) travel as a typed payload and are posted on a
     request-scoped ContextVar server-side; ``os.environ`` is never mutated. The
-    The already-resolved internal epic id targets the relay and is carried to
-    the handler as typed numeric state.
+    already-resolved internal epic id targets the relay and is carried to the
+    handler as typed numeric state.
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
