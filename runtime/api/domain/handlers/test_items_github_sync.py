@@ -20,9 +20,9 @@ def _request(item_id: int = 71) -> FunctionCallRequest:
 
 
 def test_github_sync_reuses_allow_unclaimed_guard_and_rebuilds(monkeypatch):
-    sync_calls: list[str] = []
+    sync_calls: list[int] = []
     rebuild_calls: list[bool] = []
-    ownership_calls: list[tuple[str, str | None]] = []
+    ownership_calls: list[tuple[int, str | None]] = []
 
     monkeypatch.setattr(
         items_github_sync,
@@ -52,8 +52,11 @@ def test_github_sync_reuses_allow_unclaimed_guard_and_rebuilds(monkeypatch):
         "exit_code": 0,
         "board_rebuild_requested": True,
     }
-    assert ownership_calls == [("71", "session-A")]
-    assert sync_calls == ["71"]
+    # The guard and the sync entry point must receive the resolved internal
+    # id. A stringified id is re-read by the operator-argument parser as a
+    # project-local sequence, which resolves a different item.
+    assert ownership_calls == [(71, "session-A")]
+    assert sync_calls == [71]
     assert rebuild_calls == [True]
 
 

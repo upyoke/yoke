@@ -60,19 +60,18 @@ def handle_github_sync(request: FunctionCallRequest) -> HandlerOutcome:
         return _error_outcome("invalid_payload", f"payload invalid: {exc}")
 
     item_id = int(request.target.item_id)
-    item_ref = str(item_id)
     allowed, _reason, holder = check_ownership(
-        item_ref,
+        item_id,
         session_id=request.actor.session_id or None,
     )
     if not allowed:
         return _error_outcome(
             "claim_conflict",
-            f"Refusing to sync item for {item_ref}: "
+            f"Refusing to sync item for {item_ref_for_id(item_id)}: "
             f"work claim held by session {holder}",
         )
 
-    rc = backlog_github_sync.sync_item(item_ref)
+    rc = backlog_github_sync.sync_item(item_id)
     if rc != 0:
         return _error_outcome(
             "github_sync_failed",
@@ -111,19 +110,18 @@ def handle_github_done_sync(request: FunctionCallRequest) -> HandlerOutcome:
         return _error_outcome("invalid_payload", f"payload invalid: {exc}")
 
     item_id = int(request.target.item_id)
-    item_ref = str(item_id)
     allowed, _reason, holder = check_ownership(
-        item_ref,
+        item_id,
         session_id=request.actor.session_id or None,
     )
     if not allowed:
         return _error_outcome(
             "claim_conflict",
-            f"Refusing to sync item for {item_ref}: "
+            f"Refusing to sync item for {item_ref_for_id(item_id)}: "
             f"work claim held by session {holder}",
         )
 
-    rc = backlog_github_sync.sync_done_item(item_ref, payload.old_status)
+    rc = backlog_github_sync.sync_done_item(item_id, payload.old_status)
     if rc != 0:
         return _error_outcome(
             "github_sync_failed",

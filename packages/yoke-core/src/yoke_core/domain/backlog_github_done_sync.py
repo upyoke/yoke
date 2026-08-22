@@ -66,13 +66,13 @@ def _connect() -> Any:
     return conn
 
 
-def _done_sync_target(item_id: str):
+def _done_sync_target(item_id: str | int):
     """Address the item the way the caller named it.
 
-    Bare digits are internal ids on this surface — the same reading
-    :func:`_resolve_item_id` uses — so they go on ``item_id`` rather than
-    ``item_ref``, where the dispatcher would read them as project-local
-    sequence numbers and resolve a different item.
+    Bare digits are internal ids on this surface, so they go on
+    ``item_id`` rather than ``item_ref``: the dispatcher reads a bare
+    number under ``item_ref`` as a project-local sequence and would
+    resolve a different item.
     """
     from yoke_contracts.api.function_call import TargetRef
 
@@ -83,7 +83,7 @@ def _done_sync_target(item_id: str):
 
 
 def _relay_done_sync(
-    item_id: str,
+    item_id: str | int,
     old_status: str,
     *,
     stdout: TextIO,
@@ -104,7 +104,7 @@ def _relay_done_sync(
 
 
 def sync_done_item(
-    item_id: str,
+    item_id: str | int,
     old_status: str = "",
     *,
     conn: Optional[Any] = None,
