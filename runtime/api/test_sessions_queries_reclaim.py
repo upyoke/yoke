@@ -15,8 +15,8 @@ from runtime.api.test_sessions import (
     _ensure_active_session,  # plain helper
 )
 from runtime.api.sessions_api_stale_test_helpers import (
-    conn,  # noqa: F401 — backend-aware fixture import
-    ownership_conn,  # noqa: F401 — backend-aware fixture import
+    conn as conn,  # backend-aware fixture re-export
+    ownership_conn as ownership_conn,  # backend-aware fixture re-export
 )
 from yoke_core.domain.sessions import (
     session_offer_with_ownership,

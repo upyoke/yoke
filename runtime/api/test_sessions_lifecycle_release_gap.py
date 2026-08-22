@@ -142,7 +142,8 @@ class TestEvaluateReleasePrecondition(unittest.TestCase):
         )
         for label, chainable, outcome in cases:
             with self.subTest(branch=label):
-                conn = _make_db(); _seed_session(conn)
+                conn = _make_db()
+                _seed_session(conn)
                 _seed_checkpoint(conn, chainable=chainable, outcome=outcome)
                 self.assertTrue(_eval_item(conn).allowed)
 
@@ -227,7 +228,11 @@ def _capture_envelopes(target: callable) -> list[dict]:
             else:
                 os.environ[key] = val
     with open(cap, "r", encoding="utf-8") as handle:
-        envelopes = [json.loads(s) for s in (l.strip() for l in handle) if s]
+        envelopes = [
+            json.loads(serialized)
+            for serialized in (line.strip() for line in handle)
+            if serialized
+        ]
     os.unlink(cap)
     return envelopes
 
