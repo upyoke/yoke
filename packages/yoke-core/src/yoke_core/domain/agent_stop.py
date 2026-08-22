@@ -76,11 +76,13 @@ def run_hook(role: Optional[str] = None) -> None:
             return
 
         agent_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+        # Fail-open hook: when neither the ambient chain nor the payload
+        # names a session, the stop event carries the "unknown" sentinel
+        # the hook helpers already use. A minted id would have looked
+        # like a session and matched no row.
         session_id = get_session_id()
         if session_id in ("unknown", ""):
-            session_id = _read_session_id_from_hook_stdin()
-        if session_id in ("unknown", ""):
-            session_id = f"{int(os.times().elapsed)}-{os.getpid()}"
+            session_id = _read_session_id_from_hook_stdin() or "unknown"
 
         script_dir = os.environ.get("YOKE_SCRIPT_DIR") or os.path.join(
             project_root,

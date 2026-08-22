@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.session_identity import resolve_env_session_id
 from yoke_core.domain.project_scratch_dir import harness_runtime_cache_path, hook_marker_path
 
 GIT_TIMEOUT_S = 5
@@ -75,20 +76,21 @@ def resolve_session_id(payload: str) -> str:
     """Resolve Codex session identity.
 
     Resolution order:
-      1. ``CODEX_THREAD_ID``
-      2. ``YOKE_SESSION_ID``
-      3. payload ``session_id``
+      1. the canonical env chain
+         (:data:`yoke_contracts.session_identity.AMBIENT_ENV_VARS`)
+      2. payload ``session_id``
 
     Returns empty string when no source has a value.  Callers decide
     whether to short-circuit, emit a degraded-mode warning, etc.
+
+    Consulting the chain in its own order matters twice over: an
+    explicit ``YOKE_SESSION_ID`` pin outranks any harness variable, and
+    the Codex parent session outranks a subagent's own thread, which
+    names a session that was never registered.
     """
-    thread = os.environ.get("CODEX_THREAD_ID", "")
-    if thread:
-        return thread
-    yoke_sid = os.environ.get("YOKE_SESSION_ID", "")
-    if yoke_sid:
-        return yoke_sid
-    return payload_field(payload, "session_id")
+    return resolve_env_session_id(os.environ) or payload_field(
+        payload, "session_id",
+    )
 
 
 def resolve_root(payload: str = "") -> str:

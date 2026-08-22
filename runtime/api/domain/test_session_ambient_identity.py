@@ -34,6 +34,7 @@ class TestEnvChain:
         assert ambient.AMBIENT_ENV_VARS == (
             "YOKE_SESSION_ID",
             "CLAUDE_SESSION_ID",
+            "CODEX_SESSION_ID",
             "CODEX_THREAD_ID",
         )
 
@@ -51,12 +52,82 @@ class TestEnvChain:
             == "c-1"
         )
         assert (
+            ambient.resolve_env_session_id({"CODEX_SESSION_ID": "p-1"})
+            == "p-1"
+        )
+        assert (
             ambient.resolve_env_session_id({"CODEX_THREAD_ID": "x-1"})
             == "x-1"
         )
 
+    def test_every_chain_variable_resolves_alone(self):
+        """No variable in the chain is unreachable."""
+        for name in ambient.AMBIENT_ENV_VARS:
+            assert (
+                ambient.resolve_env_session_id({name: f"sid-{name}"})
+                == f"sid-{name}"
+            )
+
     def test_empty_env_yields_none(self):
         assert ambient.resolve_env_session_id({}) is None
+
+
+class TestCodexParentAndChild:
+    """A Codex subagent shell must resolve to the session Yoke registered.
+
+    Codex sets ``CODEX_SESSION_ID`` to the parent thread in both the
+    parent and the subagent process, and ``CODEX_THREAD_ID`` to whichever
+    thread is running. Resolving the child names a thread with no
+    ``harness_sessions`` row, which is what left subagent calls
+    unclaimed.
+    """
+
+    def test_subagent_env_resolves_to_the_parent(self):
+        env = {
+            "CODEX_SESSION_ID": "codex-parent",
+            "CODEX_THREAD_ID": "codex-child",
+        }
+        assert ambient.resolve_env_session_id(env) == "codex-parent"
+
+    def test_parent_env_resolves_unchanged(self):
+        env = {
+            "CODEX_SESSION_ID": "codex-parent",
+            "CODEX_THREAD_ID": "codex-parent",
+        }
+        assert ambient.resolve_env_session_id(env) == "codex-parent"
+
+    def test_explicit_pin_still_outranks_both(self):
+        env = {
+            "YOKE_SESSION_ID": "pinned",
+            "CODEX_SESSION_ID": "codex-parent",
+            "CODEX_THREAD_ID": "codex-child",
+        }
+        assert ambient.resolve_env_session_id(env) == "pinned"
+
+
+class TestPublicChannelLabels:
+    """Diagnostic labels track the chain instead of its old positions."""
+
+    def test_every_chain_variable_has_its_own_label(self):
+        labels = {
+            name: ambient._public_channel(f"env:{name}")
+            for name in ambient.AMBIENT_ENV_VARS
+        }
+        assert labels == {
+            "YOKE_SESSION_ID": "env:session",
+            "CLAUDE_SESSION_ID": "env:claude",
+            "CODEX_SESSION_ID": "env:codex",
+            "CODEX_THREAD_ID": "env:codex-thread",
+        }
+
+    def test_unknown_variable_and_non_env_channels(self):
+        assert ambient._public_channel("env:SOMETHING_ELSE") == "env:other"
+        assert ambient._public_channel("process_anchor") == "process_anchor"
+
+    def test_labels_never_name_a_chain_variable(self):
+        """The label exists so a denial never teaches self-bootstrap."""
+        for name in ambient.AMBIENT_ENV_VARS:
+            assert name not in ambient._public_channel(f"env:{name}")
 
 
 class TestAmbientChain:

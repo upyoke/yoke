@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import List
 from unittest.mock import ANY, patch
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 from yoke_cli.main import main as cli_main
@@ -300,7 +301,7 @@ class TestBoardRebuild:
 
         env = {
             key: value for key, value in os.environ.items()
-            if key not in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID")
+            if key not in AMBIENT_ENV_VARS
         }
         with patch.dict("os.environ", env, clear=True):
             with patch(

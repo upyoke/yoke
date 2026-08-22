@@ -251,13 +251,14 @@ and resume correlation without retroactive schema changes to the offer envelope.
 
 ### Codex runtime correlation
 
-When `executor="codex"` and `CODEX_THREAD_ID` is set, the underlying Codex thread
-UUID is also persisted in `harness_sessions.offer_envelope` under the
-`runtime_session_id` key. In the current Yoke-owned Codex adapter,
-`CODEX_THREAD_ID` is already the canonical `session_id` passed into
-`session-offer`; `runtime_session_id` is retained as auxiliary correlation data
-for legacy or diagnostic consumers, not as evidence of a second generated
-primary ID.
+When `executor="codex"` and `CODEX_THREAD_ID` is set, the UUID of the Codex
+thread *actually running* is also persisted in
+`harness_sessions.offer_envelope` under the `runtime_session_id` key. It is
+deliberately the running thread and not the session: in a top-level Codex
+session the two coincide, and inside a subagent the running thread is the
+child while the `session_id` remains the registered parent (see the canonical
+chain in `docs/session-identity-contract.md`). `runtime_session_id` is
+auxiliary correlation data for diagnostic consumers, not a second primary ID.
 
 ### Correlation flow
 
@@ -294,7 +295,7 @@ To implement a session-offer adapter:
 
 1. **Construct a `SessionOffer`** with all required fields. For supported
  harnesses such as `claude-code` and `codex`, pass the canonical harness
- session ID from the runtime (`CLAUDE_SESSION_ID`, `CODEX_THREAD_ID`, or the
+ session ID from the runtime (`CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, or the
  equivalent hook payload value) rather than inventing a second format.
  Unsupported/fallback executors may generate their own stable `session_id`.
  Set `executor` and `model` from your runtime context. Declare your

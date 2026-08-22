@@ -15,6 +15,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
+from yoke_contracts.session_identity import resolve_env_session_id
 from yoke_harness.hooks.identity_codex_runtime import (
     _codex_resolve_entrypoint,
     _codex_resolve_model,
@@ -152,9 +153,16 @@ def _in_cursor_process() -> bool:
 
 
 def resolve_session_id(stdin_data: str) -> str:
+    """Resolve this hook process's session: canonical env chain, then payload.
+
+    The order is the contract's rather than Codex-first: an explicit
+    ``YOKE_SESSION_ID`` pin outranks any harness variable, and within the
+    Codex pair the parent session outranks a subagent's own thread. A
+    Codex hook subprocess normally carries neither and falls through to
+    the payload, where Codex names the parent.
+    """
     return (
-        os.environ.get("CODEX_THREAD_ID", "")
-        or os.environ.get("YOKE_SESSION_ID", "")
+        resolve_env_session_id(os.environ)
         or _payload_field(stdin_data, "session_id")
     )
 

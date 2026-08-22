@@ -171,11 +171,14 @@ def parse_hook_event(
         agent_type = _payload_agent_type(data)
 
     if not session_id:
+        from yoke_core.domain.session_ambient_identity import (
+            resolve_ambient_session_id,
+        )
+
         session_id = (
             data.get("session_id", "")  # hook payload
-            or os.environ.get("YOKE_SESSION_ID", "")
-            or os.environ.get("CLAUDE_SESSION_ID", "")
-            or os.environ.get("CODEX_THREAD_ID", "")
+            or resolve_ambient_session_id()
+            or ""
         )
 
     if not item_id and db_path and project_dir:

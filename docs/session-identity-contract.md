@@ -7,7 +7,7 @@
 | Harness | Runtime source | Stable fallback source |
 |-------------|---------------------|------------------------|
 | Claude Code | `CLAUDE_SESSION_ID` | Hook payload `session_id` when available |
-| Codex | `CODEX_THREAD_ID` | Hook payload `session_id` when available |
+| Codex | `CODEX_SESSION_ID` (parent thread; `CODEX_THREAD_ID` names the *running* thread and is the child inside a subagent) | Hook payload `session_id` when available |
 | Cursor | conversation map (`<machine-home>/cursor-session-map/`) | not an env var (`CURSOR_CONVERSATION_ID` names the conversation, not the session) |
 
 The canonical session ID is the harness-provided stable conversation-level
@@ -149,7 +149,12 @@ identity survives a briefly unreachable control plane.
 Resolution is the second step of the canonical ambient chain owned by
 `yoke_core.domain.session_ambient_identity`:
 
-1. Env chain: `YOKE_SESSION_ID` → `CLAUDE_SESSION_ID` → `CODEX_THREAD_ID`.
+1. Env chain: `YOKE_SESSION_ID` → `CLAUDE_SESSION_ID` → `CODEX_SESSION_ID`
+   → `CODEX_THREAD_ID`. The Codex pair is ordered parent-before-child:
+   `CODEX_SESSION_ID` holds the parent thread in every process Codex starts
+   and only the parent is registered, so a subagent reading its own
+   `CODEX_THREAD_ID` would name a session that does not exist. That id is
+   still right wherever a Codex *runtime thread*, not a session, is meant.
 2. Ancestry walk: each ancestor pid of the calling process is tested
    against the registry; a record is trusted only when the live start
    time matches (stale records are pruned best-effort).
@@ -242,7 +247,7 @@ dispatcher event context).
 ## Backfill
 
 Codex `yoke hook evaluate UserPromptSubmit` (UserPromptSubmit hook)
-idempotently calls `session-begin` when `CODEX_THREAD_ID` or the hook payload
+idempotently calls `session-begin` when the Codex env chain or the hook payload
 `session_id` is available. This backfills
 registration if the session-start hook failed or was skipped. The call remains
 best-effort because prompt-submit runs on every turn and must not block the

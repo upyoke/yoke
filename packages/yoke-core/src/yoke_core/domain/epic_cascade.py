@@ -10,8 +10,6 @@ continue to intercept calls.
 from __future__ import annotations
 
 import json
-import os
-import time
 import uuid
 from typing import Optional
 
@@ -57,12 +55,18 @@ _CASCADE_MAP = {
 
 
 def _resolve_session_id() -> str:
-    return (
-        os.environ.get("YOKE_SESSION_ID")
-        or os.environ.get("CLAUDE_SESSION_ID")
-        or os.environ.get("CODEX_THREAD_ID")
-        or f"{int(time.time())}-{os.getpid()}"
+    """Return the ambient session for cascade events, or ``""``.
+
+    A cascade that cannot name its session records the empty string the
+    other domain emitters use. Inventing an id here produced rows that
+    looked like sessions and matched none, which is strictly worse than
+    an event that says plainly it had no session.
+    """
+    from yoke_core.domain.session_ambient_identity import (
+        resolve_ambient_session_id,
     )
+
+    return resolve_ambient_session_id() or ""
 
 
 def _cascade_project(conn, epic_id: str) -> str:

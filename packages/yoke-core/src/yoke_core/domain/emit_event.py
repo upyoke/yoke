@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend, events_crud
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.emit_event_context import (
     MAX_ENVELOPE_BYTES,
     _normalize_int,
@@ -67,13 +68,17 @@ def _db_path() -> Optional[str]:
 
 
 def _resolve_session_id(explicit: Optional[str]) -> str:
+    """Resolve the emitting session, or ``""`` when none can be resolved.
+
+    Generic telemetry neither refuses nor invents: an event with no
+    resolvable session records the empty string, exactly as the other
+    domain emitters do. A synthesised ``<epoch>-<pid>`` looked like a
+    session id, joined to no ``harness_sessions`` row, and made a missing
+    identity indistinguishable from a real one.
+    """
     if explicit:
         return explicit
-    for env_name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
-        value = os.environ.get(env_name)
-        if value:
-            return value
-    return f"{int(time.time())}-{os.getpid()}"
+    return resolve_ambient_session_id() or ""
 
 
 def _resolve_item_project(item_id: Optional[int]) -> Optional[str]:

@@ -20,6 +20,7 @@ operator/debug command surface.
 from __future__ import annotations
 
 from typing import List, Optional
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -30,7 +31,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     argument.
     """
     import argparse
-    import os
     import sys
 
     from yoke_core.domain import db_helpers
@@ -45,12 +45,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--item", required=True)
     parser.add_argument(
         "--session-id",
-        default=(
-            os.environ.get("YOKE_SESSION_ID")
-            or os.environ.get("CLAUDE_SESSION_ID")
-            or os.environ.get("CODEX_THREAD_ID")
-            or ""
-        ),
+        default=resolve_ambient_session_id() or "",
         help="Session id for the work-claim ownership check.",
     )
     args = parser.parse_args(argv)

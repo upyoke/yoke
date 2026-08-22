@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 from yoke_core.domain import check_path_claim_coverage_at_commit as mod
@@ -334,9 +335,7 @@ class TestMainOutsideWorktree:
     ):
         init_repo(tmp_path)
         monkeypatch.chdir(tmp_path)
-        for var in (
-            "YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
-        ):
+        for var in AMBIENT_ENV_VARS:
             monkeypatch.delenv(var, raising=False)
         assert mod.main([]) == 0
 

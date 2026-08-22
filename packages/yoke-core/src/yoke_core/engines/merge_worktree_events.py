@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 from typing import TYPE_CHECKING, Any, Optional
+
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 if TYPE_CHECKING:
     from yoke_core.engines.merge_worktree_context import MergeContext
@@ -48,9 +49,7 @@ def _emit_merge_event(
             source_type=_MERGE_EVENT_SOURCE_TYPE,
             severity=severity,
             outcome=outcome or None,
-            session_id=os.environ.get("YOKE_SESSION_ID", "")
-            or os.environ.get("CLAUDE_SESSION_ID", "")
-            or os.environ.get("CODEX_THREAD_ID", ""),
+            session_id=resolve_ambient_session_id() or "",
             event_id="",
             org_id="",
             request_id="",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_contracts.cursor_remount_expect import (
     REMOUNT_REFUSAL_PAYLOAD_FIELD,
     write_remount_expect,
@@ -47,7 +48,7 @@ def _prepare(tmp_path, monkeypatch):
     home = tmp_path / "home"
     map_dir = home / CURSOR_SESSION_MAP_DIR_NAME
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+    for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     write_remount_expect(map_dir, HOLDER, HOLDER)
     _install_holder_lookup(monkeypatch)

@@ -115,7 +115,8 @@ def get_session_id(workspace: Optional[str] = None) -> str:
 
     Resolution order (owned by
     :mod:`yoke_core.domain.session_ambient_identity`):
-      1. $YOKE_SESSION_ID → $CLAUDE_SESSION_ID → $CODEX_THREAD_ID
+      1. $YOKE_SESSION_ID → $CLAUDE_SESSION_ID → $CODEX_SESSION_ID →
+         $CODEX_THREAD_ID
       2. hook-written process-anchor registry (ancestry walk)
       3. "unknown" fallback
 

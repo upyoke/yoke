@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import yaml
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 
 _REGISTRY_REL_PATH = (
@@ -293,7 +294,6 @@ def _emit_resurrection_warn(
     """
     try:  # pragma: no cover - belt-and-braces isolation
         import json
-        import os
         import uuid
 
         from yoke_core.domain import events_writes
@@ -315,9 +315,7 @@ def _emit_resurrection_warn(
             separators=(",", ":"),
             sort_keys=True,
         )
-        session_id = os.environ.get(
-            "CLAUDE_SESSION_ID"
-        ) or os.environ.get("YOKE_SESSION_ID") or "system"
+        session_id = resolve_ambient_session_id() or "system"
         events_writes.cmd_insert(
             event_id=f"retired-schema-{uuid.uuid4().hex}",
             source_type="system",

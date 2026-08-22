@@ -33,7 +33,6 @@ no-op.
 
 from __future__ import annotations
 
-import os
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
@@ -55,18 +54,11 @@ def _emit_repair_event(
         from yoke_core.domain.events import emit_event as _native_emit
     except ImportError:
         return
-    session_id = next(
-        (
-            os.environ[n]
-            for n in (
-                "YOKE_SESSION_ID",
-                "CLAUDE_SESSION_ID",
-                "CODEX_THREAD_ID",
-            )
-            if os.environ.get(n)
-        ),
-        "",
+    from yoke_core.domain.session_ambient_identity import (
+        resolve_ambient_session_id,
     )
+
+    session_id = resolve_ambient_session_id() or ""
     try:
         _native_emit(
             "PathClaimCoordinationOnlyRepaired",

@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from typing import List, Set, Tuple
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.domain.lint_structured_field_transform_shell_messages import (
     RECIPE_RESIDUE_PATTERNS,
 )
@@ -31,8 +32,7 @@ from runtime.api.test_zero_shell_proof_test_helpers import (
 
 
 def test_no_session_id_fallback_chains_in_skills() -> None:
-    """Session-ID fallback chains (CLAUDE_SESSION_ID / CODEX_THREAD_ID ->
-    YOKE_SESSION_ID) must NOT appear in any skill file.
+    """Session-ID fallback chains must NOT appear in any skill file.
 
     Session-id resolution lives in exactly one place — the ambient chain
     in ``yoke_core.domain.session_ambient_identity``, which every session
@@ -40,12 +40,12 @@ def test_no_session_id_fallback_chains_in_skills() -> None:
     at all, so a fallback chain in one is both redundant and a way for a
     locally guessed value to reach the server.
     """
-    # The fallback pattern: checking CLAUDE_SESSION_ID or CODEX_THREAD_ID
-    # to set YOKE_SESSION_ID. We look for the executable assignment
-    # pattern, not documentation references.
-    fallback_pattern = re.compile(
-        r'YOKE_SESSION_ID="\$(?:CLAUDE_SESSION_ID|CODEX_THREAD_ID)"'
-    )
+    # The fallback pattern: assigning YOKE_SESSION_ID from another
+    # variable in the chain. Built from the chain itself so a variable
+    # added there is covered here without a second edit; we look for the
+    # executable assignment pattern, not documentation references.
+    others = "|".join(re.escape(name) for name in AMBIENT_ENV_VARS[1:])
+    fallback_pattern = re.compile(rf'YOKE_SESSION_ID="\$(?:{others})"')
     files_with_fallback: List[str] = []
     for skill in _skill_files():
         rel = _skill_relative(skill)
@@ -57,9 +57,8 @@ def test_no_session_id_fallback_chains_in_skills() -> None:
             files_with_fallback.append(rel)
 
     assert files_with_fallback == [], (
-        "Session-ID fallback chain (CLAUDE_SESSION_ID / CODEX_THREAD_ID -> "
-        "YOKE_SESSION_ID) is owned by the ambient identity chain and must "
-        "not appear in any skill file. Found in: "
+        "A session-ID fallback chain is owned by the ambient identity "
+        "chain and must not appear in any skill file. Found in: "
         + ", ".join(files_with_fallback)
     )
 

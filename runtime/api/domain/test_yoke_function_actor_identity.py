@@ -16,6 +16,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.domain.yoke_function_actor_identity import (
     ActorLookup,
     bind_actor_identity,
@@ -196,9 +197,7 @@ class TestMutatingBindings(unittest.TestCase):
         self.assertIn("field-note", message)
         self.assertIn("--session-id", message)
         self.assertIn("Operator-debug", message)
-        for env_name in (
-            "YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
-        ):
+        for env_name in AMBIENT_ENV_VARS:
             self.assertNotIn(env_name, message)
         self.assertNotIn("export", message)
 

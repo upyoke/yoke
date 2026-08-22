@@ -21,6 +21,7 @@ import json
 import os
 from typing import Optional
 
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.db_error_hook_collapse import (
     CRITICAL_TABLES,
     DDL_PATTERNS,
@@ -107,7 +108,7 @@ def run(stdin_data: str) -> None:
     repo_root = os.environ.get("YOKE_REPO_ROOT", "")
     db_path = os.environ.get("YOKE_DB_PATH", "")
     script_dir = os.environ.get("YOKE_SCRIPT_DIR", "")
-    session_id = os.environ.get("YOKE_SESSION_ID", os.environ.get("CLAUDE_SESSION_ID", ""))
+    session_id = resolve_ambient_session_id() or ""
 
     result = analyze_bash_output(
         command=command,
