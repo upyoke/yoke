@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import sys
+from typing import Callable, Optional
+
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.item_ref import format_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
+from yoke_core.engines import done_transition_github_sync
 from yoke_core.engines.done_transition_item_context import format_workflow_route
 
 
@@ -106,6 +110,29 @@ def _insert_release_note(
     return True
 
 
+def _report_closeout_failure(result, ref: str, old_status: str, exc: BaseException) -> None:
+    """Name a closeout failure without disowning the transition that landed.
+
+    Reporting the whole run as failed is what makes this dangerous: the
+    status write and any merge are already committed, so an operator
+    reading a non-zero exit reaches for a rollback that would desync the
+    item from git.
+    """
+    detail = f"{type(exc).__name__}: {exc}"
+    after = result.steps_completed[-1] if result.steps_completed else "6"
+    result.warnings.append(
+        {"kind": "closeout_incomplete", "after_step": after, "detail": detail}
+    )
+    print("\n=== Closeout incomplete ===", file=sys.stderr)
+    print(f"  Transition: {ref} {old_status} -> done (committed)", file=sys.stderr)
+    print(f"  Closeout: stopped after step {after} — {detail}", file=sys.stderr)
+    print(
+        "  The status write and any merge already landed. Re-run the done "
+        "transition to finish closeout; do not roll the item back.",
+        file=sys.stderr,
+    )
+
+
 def finish_done_transition(
     done_transition,
     result,
@@ -118,9 +145,64 @@ def finish_done_transition(
     repo_root,
     merge_ran: bool,
     item_ref: str | None = None,
+    prune_lane: Optional[Callable[[], object]] = None,
 ) -> int:
-    """Rebuild, persist, push, and report a successful done transition."""
+    """Close out a done transition that has already committed, and report it.
+
+    Every step here runs after the item's status reached ``done``, so the
+    transition can no longer fail — only its closeout can. The exit code
+    therefore names the transition, and a closeout that stops early is
+    reported and recorded as a warning rather than turned into a failed run.
+
+    ``prune_lane`` deletes the merged worktree and runs last, because this
+    process may be executing out of that lane: its interpreter, its
+    installed packages, and its import root all live there. Anything the
+    closeout still has to import or read has to happen while the tree is
+    still on disk.
+    """
     ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+    try:
+        _run_closeout(
+            done_transition,
+            result,
+            item_id=item_id,
+            title=title,
+            old_status=old_status,
+            workflow=workflow,
+            repo_root=repo_root,
+            merge_ran=merge_ran,
+            ref=ref,
+            prune_lane=prune_lane,
+        )
+    except Exception as exc:  # noqa: BLE001 - the transition already committed
+        _report_closeout_failure(result, ref, old_status, exc)
+    result.write(result_file)
+    print(f"RESULT_FILE={result_file}")
+    return 0
+
+
+def _run_closeout(
+    done_transition,
+    result,
+    *,
+    item_id: int,
+    title: str,
+    old_status: str,
+    workflow,
+    repo_root,
+    merge_ran: bool,
+    ref: str,
+    prune_lane: Optional[Callable[[], object]],
+) -> None:
+    """Run every step that follows the committed status write."""
+    print("\n=== Step 8: Sync done state to GitHub ===")
+    done_transition_github_sync.apply_step_8(
+        item_id, old_status, result, item_ref=ref,
+    )
+    done_transition._apply_discovery_scan(item_id, result)
+    for _s in ("9", "10"):
+        result.add_step(_s)
+
     print("\n=== Step 11: Rebuild board ===")
     done_transition._rebuild_board_direct()
     result.add_step("11")
@@ -164,9 +246,10 @@ def finish_done_transition(
     print("==========================================\n")
     print(format_workflow_route(workflow))
     result.add_step("14")
-    result.write(result_file)
-    print(f"RESULT_FILE={result_file}")
-    return 0
+
+    if prune_lane is not None:
+        prune_lane()
+    result.add_step("4a")
 
 
 __all__ = ["_finalize_done_local_side_effects", "finish_done_transition"]
