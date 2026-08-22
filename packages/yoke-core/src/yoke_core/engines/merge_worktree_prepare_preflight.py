@@ -256,7 +256,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                 target=TargetRef(kind="global"),
                 payload={
                     "project": project,
-                    "fields": ["id", "status", "db_mutation_profile"],
+                    "fields": ["internal_id", "status", "db_mutation_profile"],
                 },
             )
         except Exception:  # noqa: BLE001 - item-bound gate fails closed below.

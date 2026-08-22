@@ -26,6 +26,7 @@ def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
         [
             {
                 "id": "51",
+                "internal_id": 51,
                 "title": "Fix the footer",
                 "workflow_id": "dash",
                 "workflow_version_id": "11",

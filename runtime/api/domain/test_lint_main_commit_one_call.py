@@ -23,7 +23,7 @@ class TestOneCallAddCommit(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["42|Some item"],
+                return_value=["YOK-42|Some item"],
             ):
             reason = lint_main_commit.evaluate_payload(
                 _payload("git add runtime/api/domain/foo.py && git commit -m 'wip'")
@@ -43,7 +43,7 @@ class TestOneCallAddCommit(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["42|Some item"],
+                return_value=["YOK-42|Some item"],
             ):
             reason = lint_main_commit.evaluate_payload(
                 _payload("git add -A && git commit -m 'wip'")
@@ -58,7 +58,7 @@ class TestOneCallAddCommit(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["42|Some item"],
+                return_value=["YOK-42|Some item"],
             ):
             self.assertIsNone(
                 lint_main_commit.evaluate_payload(

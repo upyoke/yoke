@@ -137,7 +137,7 @@ class TestEvaluatePayload(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["42|Some item", "99|Another"],
+                return_value=["YOK-42|Some item", "YOK-99|Another"],
             ):
             reason = lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
             self.assertIsNotNone(reason)
@@ -163,7 +163,7 @@ class TestEvaluatePayload(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["1|Something"],
+                return_value=["YOK-1|Something"],
             ):
             reason = lint_main_commit.evaluate_payload(_payload("git commit -am 'x'"))
             self.assertIsNotNone(reason)
@@ -188,7 +188,7 @@ class TestEvaluate(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["7|thing"],
+                return_value=["YOK-7|thing"],
             ), \
              mock.patch.object(lint_main_commit, "_emit_denial") as emit_mock:
             decision = lint_main_commit.evaluate(_record_for(payload))
@@ -244,7 +244,7 @@ class TestMain(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["7|thing"],
+                return_value=["YOK-7|thing"],
             ), \
              mock.patch.object(lint_main_commit, "_emit_denial"), \
              mock.patch("sys.stdin", io.StringIO(json.dumps(payload))), \

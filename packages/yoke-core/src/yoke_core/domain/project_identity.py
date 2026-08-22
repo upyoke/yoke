@@ -284,14 +284,20 @@ def item_project_join_select(
     *,
     item_alias: str = "i",
 ) -> tuple[str, bool]:
-    """Build SELECT columns, mapping public ``project`` to ``projects.slug``."""
+    """Build SELECT columns, mapping public ``project`` to ``projects.slug``.
+
+    ``internal_id`` is the projected name for the numeric primary key;
+    ``id`` is reserved for the public ref the operator-facing handlers
+    render in Python.
+    """
     needs_project = "project" in fields
     parts: list[str] = []
     for field in fields:
+        column = f"{item_alias}.id" if field == "internal_id" else f"{item_alias}.{field}"
         if field == "project":
             parts.append("COALESCE(CAST(p.slug AS TEXT), '') AS project")
         else:
-            parts.append(f"COALESCE(CAST({item_alias}.{field} AS TEXT), '') AS {field}")
+            parts.append(f"COALESCE(CAST({column} AS TEXT), '') AS {field}")
     return ", ".join(parts), needs_project
 
 

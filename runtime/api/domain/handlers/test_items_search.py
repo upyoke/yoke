@@ -28,9 +28,9 @@ class TestItemsSearch:
         )
         assert outcome.primary_success
         matches = outcome.result_payload["matches"]
-        assert [m["id"] for m in matches] == [2, 1]
+        assert [m["id"] for m in matches] == ["YOK-2", "YOK-1"]
         assert set(matches[0].keys()) == {
-            "id", "public_ref", "title", "status", "project", "project_id",
+            "id", "internal_id", "title", "status", "project", "project_id",
         }
 
     def test_matches_a_bare_sequence_the_item_text_never_mentions(
@@ -51,7 +51,7 @@ class TestItemsSearch:
         matches = outcome.result_payload["matches"]
         # The referenced item leads, and is reachable at all only through the
         # reference arm — none of its authored text carries the number.
-        assert [m["id"] for m in matches] == [1, 2]
+        assert [m["id"] for m in matches] == ["YOK-1991", "YOK-2"]
 
     def test_matches_a_prefixed_public_ref(self, test_db):
         project_id = insert_prefixed_project(test_db, project_id=120, prefix="ABC")
@@ -67,8 +67,7 @@ class TestItemsSearch:
 
         assert outcome.primary_success
         matches = outcome.result_payload["matches"]
-        assert [m["id"] for m in matches] == [1]
-        assert matches[0]["public_ref"] == "ABC-1991"
+        assert [m["id"] for m in matches] == ["ABC-1991"]
 
     def test_prefixed_ref_ignores_the_same_sequence_in_another_project(
         self, test_db,
@@ -90,7 +89,7 @@ class TestItemsSearch:
         )
 
         assert outcome.primary_success
-        assert [m["id"] for m in outcome.result_payload["matches"]] == [1]
+        assert [m["id"] for m in outcome.result_payload["matches"]] == ["ABC-1991"]
 
     def test_limit_keeps_the_newest_matches(self, test_db):
         for item_id in (1, 2, 3):
@@ -102,7 +101,7 @@ class TestItemsSearch:
         )
 
         assert outcome.primary_success
-        assert [m["id"] for m in outcome.result_payload["matches"]] == [3, 2]
+        assert [m["id"] for m in outcome.result_payload["matches"]] == ["YOK-3", "YOK-2"]
 
     def test_rejects_limit_out_of_bounds(self):
         outcome = items_search.handle_items_search(
@@ -127,11 +126,11 @@ class TestItemsSearch:
         out_all = items_search.handle_items_search(
             request_for("items.search.run", {"keywords": "zorp"})
         )
-        assert [m["id"] for m in out_all.result_payload["matches"]] == [2, 1]
+        assert [m["id"] for m in out_all.result_payload["matches"]] == ["EXT-2", "YOK-1"]
         out_externalwebapp = items_search.handle_items_search(
             request_for("items.search.run", {"keywords": "zorp", "project": "externalwebapp"})
         )
-        assert [m["id"] for m in out_externalwebapp.result_payload["matches"]] == [2]
+        assert [m["id"] for m in out_externalwebapp.result_payload["matches"]] == ["EXT-2"]
 
     def test_numeric_actor_unscoped_search_sees_only_granted_projects(self, test_db):
         insert_item(test_db, id=1, title="shared zorp alpha", project="yoke")
@@ -143,7 +142,7 @@ class TestItemsSearch:
         )
 
         assert outcome.primary_success
-        assert [m["id"] for m in outcome.result_payload["matches"]] == [2]
+        assert [m["id"] for m in outcome.result_payload["matches"]] == ["EXT-2"]
 
     def test_numeric_actor_explicit_ungranted_project_sees_zero_matches(
         self, test_db
@@ -177,7 +176,7 @@ class TestItemsSearch:
         )
 
         assert outcome.primary_success
-        assert [m["id"] for m in outcome.result_payload["matches"]] == [2]
+        assert [m["id"] for m in outcome.result_payload["matches"]] == ["EXT-2"]
 
     def test_numeric_actor_explicit_duplicate_slug_searches_visible_project(
         self, test_db
@@ -194,4 +193,4 @@ class TestItemsSearch:
         )
 
         assert outcome.primary_success
-        assert [m["id"] for m in outcome.result_payload["matches"]] == [911]
+        assert [m["id"] for m in outcome.result_payload["matches"]] == ["OSH-911"]

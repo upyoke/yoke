@@ -1,10 +1,15 @@
 """Items roster handler: ``items.list.run``.
 
-Reuses the same filter/projection building blocks as the ``db_router items
-list`` operator-debug CLI (:class:`yoke_core.domain.queries.ItemFilter` +
-``build_where_clause`` + ``item_project_join_select``). Keyword and
-reference matching is a different read — see
-:mod:`yoke_core.domain.handlers.items_search`.
+Reuses the filter building blocks of the ``db_router items list``
+operator-debug CLI (:class:`yoke_core.domain.queries.ItemFilter` +
+``build_where_clause``). Keyword and reference matching is a different
+read — see :mod:`yoke_core.domain.handlers.items_search`.
+
+The projection is operator-facing and never emits an internal
+``items.id`` or a raw actor id: the ``id`` column renders the item's
+public ``PREFIX-N`` ref, ``source`` / ``owner`` render actor display
+labels, and the numeric primary key is reachable only through the
+explicit ``internal_id`` field for programmatic consumers.
 
 Virtual fields (``body``) are rejected — rendering every body server-side
 is the wrong shape for a list read; use ``items.get.run`` per item instead.
@@ -27,11 +32,7 @@ from yoke_core.domain.handlers.items_project_scope import (
     ambiguous_project_error,
     resolve_visible_project_id,
 )
-
-
-_DEFAULT_LIST_FIELDS = (
-    "id", "title", "status", "priority", "workflow_id", "source",
-)
+from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS, DEFAULT_LIST_FIELDS
 
 
 class ItemsListRequest(BaseModel):
@@ -45,7 +46,9 @@ class ItemsListRequest(BaseModel):
         default_factory=list,
         description=(
             "Column projection. Empty -> "
-            "id,title,status,priority,workflow_id,source."
+            "id,title,status,priority,workflow_id,source. ``id`` carries "
+            "the public PREFIX-N ref; ``source``/``owner`` carry actor "
+            "display labels; ``internal_id`` opts into the numeric key."
         ),
     )
     limit: Optional[int] = Field(default=None, ge=1, le=1000)
@@ -66,7 +69,19 @@ def _validated_list_fields(
 
     fields = [str(f).strip() for f in requested if str(f).strip()]
     if not fields:
-        return list(_DEFAULT_LIST_FIELDS), None
+        return list(DEFAULT_LIST_FIELDS), None
+    if len(set(fields)) != len(fields):
+        return [], HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=(
+                    f"duplicate field {fields!r}: each column may be "
+                    "requested once"
+                ),
+                jsonpath="$.payload.fields",
+            ),
+        )
     for field in fields:
         if field in _QI_VIRTUAL_FIELDS:
             return [], HandlerOutcome(
@@ -147,6 +162,7 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
         scoped = actor_visible_scope(conn, request)
         if scoped is not None and not scoped:
             rows = []
+            out_rows: List[Dict[str, Any]] = []
         else:
             try:
                 project_id = resolve_visible_project_id(
@@ -156,6 +172,7 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
                 return ambiguous_project_error(str(exc), "$.payload.project")
             if explicit_project is not None and project_id is None:
                 rows = []
+                out_rows = []
             else:
                 if project_id is not None:
                     where_clause, params = _append_project_id(
@@ -173,19 +190,130 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
                     sql += " LIMIT %s"
                     sql_params = (*sql_params, limit)
                 rows = conn.execute(sql, sql_params).fetchall()
+                out_rows = _render_rows(conn, fields=fields, rows=rows)
     finally:
         conn.close()
-    out_rows = [
-        {
-            field: ("" if value is None else str(value))
-            for field, value in zip(fields, tuple(row))
-        }
-        for row in rows
-    ]
     return HandlerOutcome(
         result_payload={"rows": out_rows, "count": len(out_rows)},
         primary_success=True,
     )
+
+
+_UNSET_LABEL_TOKENS = frozenset({"none", "null"})
+
+from yoke_core.domain.actors import ActorLabelAmbiguous, ActorLabelMissing, ActorNotFound  # noqa: E402
+
+#: The degrade policy for actor-label cells: any of these means "cannot
+#: render" -> empty cell. One orphan actor must not fail the page.
+_ACTOR_ERRORS = (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous)
+
+
+def _actor_label_batches(
+    conn: Any,
+    fields: List[str],
+    rows: list[tuple],
+) -> dict[int, str]:
+    """Resolve every distinct actor id on this page in one query.
+
+    Returns ``{actor_id: label}``; ids that cannot be rendered degrade to
+    an empty cell rather than failing the listing.
+    """
+    positions = [i for i, f in enumerate(fields) if f in ACTOR_LABEL_FIELDS]
+    actor_ids: set[int] = set()
+    for row in rows:
+        for position in positions:
+            raw = str(row[position] or "").strip()
+            if not raw or raw.lower() in _UNSET_LABEL_TOKENS:
+                continue
+            try:
+                actor_ids.add(int(raw))
+            except ValueError:
+                continue
+    if not actor_ids:
+        return {}
+    ordered = sorted(actor_ids)
+    markers = ", ".join("%s" for _ in ordered)
+    by_actor: dict[int, list[Any]] = {}
+    missing: set[int] = set(ordered)
+    for actor_id, *label_parts in conn.execute(
+        "SELECT a.id, al.label FROM actors a "
+        "LEFT JOIN actor_labels al ON al.actor_id = a.id "
+        f"AND al.surface = 'display' WHERE a.id IN ({markers})",
+        tuple(ordered),
+    ).fetchall():
+        missing.discard(int(actor_id))
+        by_actor.setdefault(int(actor_id), []).extend(label_parts)
+    resolved: dict[int, str] = {}
+    for actor_id in ordered:
+        labels = [
+            str(label) for label in by_actor.get(actor_id, [])
+            if label not in (None, "")
+        ]
+        if len(labels) == 1:
+            resolved[actor_id] = labels[0]
+            continue
+        if len(labels) > 1:
+            resolved[actor_id] = ""  # ambiguous display projection
+            continue
+        try:
+            from yoke_core.domain.actor_display import actor_display_name
+
+            resolved[actor_id] = actor_display_name(conn, actor_id)
+        except _ACTOR_ERRORS:
+            # Orphan/missing-label actor: degrade the cell, never the page.
+            resolved[actor_id] = ""
+    return resolved
+
+
+def _render_rows(
+    conn: Any,
+    fields: List[str],
+    rows: list[tuple],
+) -> List[Dict[str, Any]]:
+    """Project raw storage rows into operator-facing field maps.
+
+    ``id`` renders the item's public ref (batched through
+    :class:`ItemRefLookup`); actor-label fields resolve through one
+    batched label query per page; every other field passes as text.
+    Runs on the handler's already-open connection — no second connect.
+    """
+    from yoke_core.domain.item_ref_render import render_item_ref_lookup
+
+    ref_position = fields.index("id") if "id" in fields else None
+    internal_ids = (
+        [int(row[ref_position]) for row in rows]
+        if ref_position is not None else []
+    )
+    ref_lookup = (
+        render_item_ref_lookup(conn, internal_ids)
+        if ref_position is not None
+        else None
+    )
+    labels = _actor_label_batches(conn, fields, rows)
+
+    def _render_label(raw: Any) -> str:
+        text = str(raw or "").strip()
+        if not text or text.lower() in _UNSET_LABEL_TOKENS:
+            return ""
+        try:
+            actor_id = int(text)
+        except ValueError:
+            return text
+        return labels.get(actor_id, "")
+
+    out_rows: List[Dict[str, Any]] = []
+    for row in rows:
+        rendered: Dict[str, Any] = {}
+        for position, field in enumerate(fields):
+            value = row[position]
+            if position == ref_position:
+                rendered[field] = ref_lookup(int(value))
+            elif field in ACTOR_LABEL_FIELDS:
+                rendered[field] = _render_label(value)
+            else:
+                rendered[field] = "" if value is None else str(value)
+        out_rows.append(rendered)
+    return out_rows
 
 
 def _append_project_visibility(

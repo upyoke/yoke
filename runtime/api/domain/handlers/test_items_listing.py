@@ -99,7 +99,7 @@ class TestItemsList:
 
         assert outcome.primary_success
         assert outcome.result_payload["rows"] == [
-            {"id": "2", "project": "externalwebapp", "title": "ExternalWebapp only"}
+            {"id": "EXT-2", "project": "externalwebapp", "title": "ExternalWebapp only"}
         ]
 
     def test_numeric_actor_explicit_ungranted_project_sees_zero_rows(self, test_db):
@@ -133,7 +133,7 @@ class TestItemsList:
 
         assert outcome.primary_success
         assert outcome.result_payload["rows"] == [
-            {"id": "2", "project": "externalwebapp"}
+            {"id": "EXT-2", "project": "externalwebapp"}
         ]
 
     def test_numeric_actor_explicit_duplicate_slug_uses_visible_project(self, test_db):
@@ -150,7 +150,7 @@ class TestItemsList:
 
         assert outcome.primary_success
         assert outcome.result_payload["rows"] == [
-            {"id": "911", "title": "shared zorp other"}
+            {"id": "OSH-911", "title": "shared zorp other"}
         ]
 
     def test_numeric_actor_with_no_grants_sees_empty_list(self, test_db):
