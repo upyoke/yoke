@@ -19,6 +19,7 @@ from yoke_cli.config import onboard_credential_replacement
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_report
 from yoke_cli.config import onboard_reuse_state
+from yoke_cli.config import onboard_session_relay
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import writer
 from yoke_cli.config import secrets as machine_secrets
@@ -165,6 +166,12 @@ def build_report(
         "identity": {"checked": False, "ok": None},
         "machine_github": machine_github,
         "next_steps": onboard_report.next_steps(cfg_path, normalized_project_mode),
+        "session_relay": onboard_session_relay.report_fragment(
+            planned=onboard_session_relay.is_supported(
+                local_destination=local_destination
+            ),
+            installed=False,
+        ),
     }
     if normalized_project_mode != PROJECT_MODE_MACHINE_ONLY:
         report["project_onboarding"] = onboard_bridge.project_report(
@@ -213,6 +220,17 @@ def build_report(
         )
         _ensure_runtime_dirs(cfg_path)
         onboard_apply_progress.emit_many(progress, runtime_steps, "done")
+    relay_steps = tuple(onboard_session_relay.RELAY_PLAN_STEPS)
+    if onboard_session_relay.is_supported(local_destination=local_destination):
+        onboard_apply_progress.emit_many(progress, relay_steps, "running")
+        installed = onboard_session_relay.install(
+            local_destination=local_destination
+        )
+        onboard_apply_progress.emit_many(progress, relay_steps, "done")
+        report["session_relay"] = onboard_session_relay.report_fragment(
+            planned=True,
+            installed=installed,
+        )
     if reuse.get("machine_github"):
         report["machine_github"] = dict(machine_github)
     else:
