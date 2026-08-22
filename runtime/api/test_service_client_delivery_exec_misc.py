@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for service_client execute-structured-write, execute-create-cli,
 execute-batch-update-cli, and apply-approval commands."""
 
@@ -9,7 +10,7 @@ import sys
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_delivery import mutation_db  # noqa: F401
+from runtime.api.test_service_client_delivery import mutation_db  # noqa: F401,F811
 
 
 class TestExecuteStructuredWriteCli:
@@ -138,6 +139,7 @@ class TestExecuteBatchUpdateCli:
 
     def test_execute_batch_update_cli_parses_pair_and_ids(self, monkeypatch, capsys):
         import yoke_core.api.service_client as service_client
+        from yoke_core.api import service_client_backlog_batch_update
         from yoke_core.domain import backlog
 
         called: dict = {}
@@ -148,10 +150,15 @@ class TestExecuteBatchUpdateCli:
             return {"success": True, "updated_count": len(kwargs["item_ids"])}
 
         monkeypatch.setattr(backlog, "execute_batch_update", _record_execute_batch_update)
+        monkeypatch.setattr(
+            service_client_backlog_batch_update,
+            "_parse_item_id_arg",
+            lambda ref: {"YOK-1": 1, "YOK-2": 2}[ref],
+        )
 
-        # Bare internal ids: PREFIX-N per-project resolution is covered in
-        # test_parse_item_id_arg.py; this test exercises pair + id-list parsing.
-        rc = service_client.cmd_execute_batch_update_cli(["frozen=true", "1", "2"])
+        rc = service_client.cmd_execute_batch_update_cli(
+            ["frozen=true", "YOK-1", "YOK-2"]
+        )
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -165,6 +172,7 @@ class TestExecuteBatchUpdateCli:
 
     def test_execute_batch_update_cli_honors_no_rebuild(self, monkeypatch, capsys):
         import yoke_core.api.service_client as service_client
+        from yoke_core.api import service_client_backlog_batch_update
         from yoke_core.domain import backlog
 
         called: dict = {}
@@ -175,8 +183,15 @@ class TestExecuteBatchUpdateCli:
             return {"success": True, "updated_count": len(kwargs["item_ids"])}
 
         monkeypatch.setattr(backlog, "execute_batch_update", _record_execute_batch_update)
+        monkeypatch.setattr(
+            service_client_backlog_batch_update,
+            "_parse_item_id_arg",
+            lambda ref: {"YOK-1": 1, "YOK-2": 2}[ref],
+        )
 
-        rc = service_client.cmd_execute_batch_update_cli(["frozen=true", "1", "--no-rebuild", "2"])
+        rc = service_client.cmd_execute_batch_update_cli(
+            ["frozen=true", "YOK-1", "--no-rebuild", "YOK-2"]
+        )
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)

@@ -1,8 +1,7 @@
 """Item field-update command handlers for the service_client CLI surface.
 
-Owns ``execute-update`` (programmatic) and ``execute-update-cli`` (the public
-``backlog-registry update`` shape including multi-field, structured-field, and
-done-nonce paths).
+Owns ``execute-update`` (programmatic) and the public ``execute-update-cli``
+shape, including multi-field, structured-field, and done-nonce paths.
 """
 
 from __future__ import annotations
@@ -66,17 +65,23 @@ def cmd_execute_update(args: list[str]) -> int:
     i = 1
     while i < len(args):
         if args[i] == "--field" and i + 1 < len(args):
-            field = args[i + 1]; i += 2
+            field = args[i + 1]
+            i += 2
         elif args[i] == "--value" and i + 1 < len(args):
-            value = args[i + 1]; i += 2
+            value = args[i + 1]
+            i += 2
         elif args[i] == "--done-nonce-verified":
-            done_nonce_verified = True; i += 1
+            done_nonce_verified = True
+            i += 1
         elif args[i] == "--force":
-            force_flag = True; i += 1
+            force_flag = True
+            i += 1
         elif args[i] == "--qa-bypass":
-            qa_bypass = True; i += 1
+            qa_bypass = True
+            i += 1
         elif args[i] == "--dry-run":
-            dry_run = True; i += 1
+            dry_run = True
+            i += 1
         else:
             print(f"Unknown argument: {args[i]}", file=sys.stderr)
             return 2
@@ -174,20 +179,37 @@ def cmd_execute_update_cli(args: list[str]) -> int:
         )
         return 2
 
-    try:
-        item_id = _parse_item_id_arg(positional_args[0])
-    except ValueError:
+    item_ref = positional_args[0].strip()
+    from yoke_contracts.item_ref import parse_public_item_ref
+
+    if parse_public_item_ref(item_ref)[1] is None:
         return _emit_backlog_result(
             {
                 "success": False,
-                "error": f"Item ID must be integer or YOK-N ref, got '{positional_args[0]}'",
+                "error": f"Item ref must be PREFIX-N or bare N, got '{item_ref}'",
             }
         )
 
     update_args = positional_args[1:]
     session_id = _resolve_session_id(None)
+    is_structured = (
+        len(update_args) >= 2
+        and update_args[0] in backlog.VALID_STRUCTURED_FIELDS
+        and update_args[1] in ("--body-file", "--stdin")
+    )
+    is_raw_body = (
+        len(update_args) >= 2
+        and update_args[0] == "body"
+        and update_args[1] in ("--body-file", "--stdin")
+    )
+    item_id: Optional[int] = None
+    if not is_structured and not is_raw_body:
+        try:
+            item_id = _parse_item_id_arg(item_ref)
+        except ValueError as exc:
+            return _emit_backlog_result({"success": False, "error": str(exc)})
 
-    if not done_nonce_verified and _update_requests_done(update_args):
+    if item_id is not None and not done_nonce_verified and _update_requests_done(update_args):
         if os.environ.get("YOKE_DONE_RECOVERY") == "1":
             result = _run_done_recovery(item_id)
             return _emit_backlog_result(result, log=str(result.get("log", "") or ""))
@@ -198,11 +220,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
     captured = io.StringIO()
     result: dict
 
-    if (
-        len(update_args) >= 2
-        and update_args[0] == "body"
-        and update_args[1] in ("--body-file", "--stdin")
-    ):
+    if is_raw_body:
         result = {
             "success": False,
             "error": (
@@ -210,11 +228,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
                 "items.body is a rendered projection -- write to a structured field instead."
             ),
         }
-    elif (
-        len(update_args) >= 2
-        and update_args[0] in backlog.VALID_STRUCTURED_FIELDS
-        and update_args[1] in ("--body-file", "--stdin")
-    ):
+    elif is_structured:
         field = update_args[0]
         file_path: Optional[str] = None
         use_stdin = False
@@ -258,7 +272,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
             try:
                 with open(content_input.file_path or "", "r", encoding="utf-8") as fh:
                     content_str = fh.read()
-            except OSError as exc:
+            except OSError:
                 err = {
                     "success": False,
                     "error": f"file not found: {content_input.file_path}",
@@ -270,7 +284,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
                 return 1
 
         return _dispatch_structured_field_replace(
-            item_id=item_id,
+            item_ref=item_ref,
             field=field,
             content=content_str,
             force=force_flag,
@@ -329,7 +343,6 @@ def cmd_execute_update_cli(args: list[str]) -> int:
         )
 
     return _emit_backlog_result(dict(result), log=captured.getvalue())
-
 
 __all__ = [
     "cmd_execute_update",

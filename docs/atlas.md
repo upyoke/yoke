@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-22T01:18:45Z_
+_Audit generated_at: 2026-08-22T02:22:27Z_
 
 ## 1. Summary
 
@@ -10,7 +10,7 @@ _Audit generated_at: 2026-08-22T01:18:45Z_
 - Internal dispatch-only functions without CLI adapters: **78**
 - `yoke` CLI subcommands: **316** (316 carry usable `--help`)
 - Operation tracker: **294 wrapped**, 8 tool_cli, 117 permanent, 0 pending
-- Skill-body recipes: 288 total (225 template-skipped, 2 failing)
+- Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
@@ -485,9 +485,10 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 46 |
+| codex | 36 |
+| claude-code | 10 |
 | agent | 3 |
-| claude-code | 1 |
+| cursor | 1 |
 
 ## 8. Contradictions
 
@@ -498,7 +499,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 ## 9. Next-slice recommendation
 
-- **2 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
+_No outstanding follow-ups — the harness has nothing to recommend._
 
 ## 10. Curl floor — the envelope shape under every family
 

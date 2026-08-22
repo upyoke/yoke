@@ -245,6 +245,9 @@ def test_cli_discover_invalid_item():
 
 def test_cli_verify_blocks_when_matches_found(temp_project):
     with mock.patch(
+        "yoke_core.domain.stale_string_audit_cmds.parse_item_argument",
+        return_value=1,
+    ), mock.patch(
         "yoke_core.domain.stale_string_audit_discover._get_project_for_item",
         return_value=None,
     ), mock.patch(
@@ -255,12 +258,15 @@ def test_cli_verify_blocks_when_matches_found(temp_project):
             "body": "",
         }.get(field, ""),
     ):
-        exit_code = main(["verify", "1", temp_project])
+        exit_code = main(["verify", "YOK-1", temp_project])
     assert exit_code == 1
 
 
 def test_cli_verify_errors_when_candidates_missing(temp_project):
     with mock.patch(
+        "yoke_core.domain.stale_string_audit_cmds.parse_item_argument",
+        return_value=1,
+    ), mock.patch(
         "yoke_core.domain.stale_string_audit_discover._get_project_for_item",
         return_value=None,
     ), mock.patch(
@@ -271,5 +277,5 @@ def test_cli_verify_errors_when_candidates_missing(temp_project):
             "body": "",
         }.get(field, ""),
     ):
-        exit_code = main(["verify", "1", temp_project])
+        exit_code = main(["verify", "YOK-1", temp_project])
     assert exit_code == 2

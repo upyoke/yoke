@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Work-claim ownership checks for advance_path_claim_activation CLI."""
 
 from __future__ import annotations
@@ -6,7 +7,7 @@ from yoke_core.domain import advance_path_claim_activation as activation_mod
 from yoke_core.domain.advance_path_claim_activation import ActivationResult
 from runtime.api.advance_path_claim_activation_cli_test_support import (
     clear_session_env,
-    fake_db,
+    fake_db,  # noqa: F401,F811 - re-exported fixture
     seed_item,
     seed_work_claim,
     stub_run,
@@ -25,7 +26,7 @@ class TestWorkClaimOwnership:
             result=ActivationResult(item_id=1594, actor_id=42, outcomes=[]),
         )
         rc = activation_mod.main(
-            ["--item", "1594", "--session-id", "mine"]
+            ["--item", "YOK-1594", "--session-id", "mine"]
         )
         captured = capsys.readouterr()
         assert rc == 1
@@ -44,7 +45,7 @@ class TestWorkClaimOwnership:
             monkeypatch,
             result=ActivationResult(item_id=1700, actor_id=42, outcomes=[]),
         )
-        rc = activation_mod.main(["--item", "1700", "--session-id", "mine"])
+        rc = activation_mod.main(["--item", "YOK-1700", "--session-id", "mine"])
         assert rc == 0
 
     def test_proceeds_when_no_work_claim_yet(
@@ -56,7 +57,7 @@ class TestWorkClaimOwnership:
             monkeypatch,
             result=ActivationResult(item_id=1701, actor_id=42, outcomes=[]),
         )
-        rc = activation_mod.main(["--item", "1701", "--session-id", "mine"])
+        rc = activation_mod.main(["--item", "YOK-1701", "--session-id", "mine"])
         assert rc == 0
 
     def test_skips_check_when_session_id_empty(
@@ -69,7 +70,7 @@ class TestWorkClaimOwnership:
             monkeypatch,
             result=ActivationResult(item_id=1702, actor_id=42, outcomes=[]),
         )
-        rc = activation_mod.main(["--item", "1702"])
+        rc = activation_mod.main(["--item", "YOK-1702"])
         assert rc == 0
 
     def test_ignores_released_work_claims(
@@ -84,7 +85,7 @@ class TestWorkClaimOwnership:
             monkeypatch,
             result=ActivationResult(item_id=1703, actor_id=42, outcomes=[]),
         )
-        rc = activation_mod.main(["--item", "1703", "--session-id", "mine"])
+        rc = activation_mod.main(["--item", "YOK-1703", "--session-id", "mine"])
         assert rc == 0
 
     def test_uses_env_session_id_when_flag_absent(
@@ -98,7 +99,7 @@ class TestWorkClaimOwnership:
             monkeypatch,
             result=ActivationResult(item_id=1704, actor_id=42, outcomes=[]),
         )
-        rc = activation_mod.main(["--item", "1704"])
+        rc = activation_mod.main(["--item", "YOK-1704"])
         captured = capsys.readouterr()
         assert rc == 1
         assert "other" in captured.err

@@ -33,7 +33,6 @@ from yoke_core.api.service_client_path_claims import (
     PATH_CLAIMS_COMMANDS,
     cmd_path_claim_get,
     cmd_path_claim_override,
-    cmd_path_claim_register,
     cmd_path_claim_widen,
 )
 
@@ -248,7 +247,7 @@ class TestWidenItemRoutesThroughServiceClient:
         assert rc == 2
         payload = json.loads(output)
         assert payload["code"] == "USAGE"
-        assert "no non-terminal exclusive claim" in payload["message"]
+        assert "not found" in payload["message"]
 
     def test_widen_neither_arg_returns_usage_error(self, path_claims_db):
         rc, output = _capture(

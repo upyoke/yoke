@@ -30,7 +30,7 @@ def test_terminal_focus_cleanup_is_sorted_and_moves_matching_focus_to_recent(
 ) -> None:
     for session_id in ("terminal-focus-b", "terminal-focus-a"):
         _register(test_db, session_id=session_id)
-        set_current_item(test_db, session_id, "YOK-9811")
+        set_current_item(test_db, session_id, 9811)
 
     cleared = clear_terminal_item_focuses(
         test_db,
@@ -54,7 +54,7 @@ def test_terminal_focus_cleanup_preserves_concurrent_new_focus(test_db) -> None:
     """A newer focus wins while cleanup waits for the session-row lock."""
     session_id = "terminal-focus-race"
     _register(test_db, session_id=session_id)
-    set_current_item(test_db, session_id, "YOK-9821")
+    set_current_item(test_db, session_id, 9821)
     focus_conn = _connection(test_db)
     cleanup_conn = _connection(test_db)
     cleanup_started = threading.Event()
@@ -65,7 +65,7 @@ def test_terminal_focus_cleanup_preserves_concurrent_new_focus(test_db) -> None:
     set_current_item(
         focus_conn,
         session_id,
-        "YOK-9822",
+        9822,
         commit=False,
     )
 

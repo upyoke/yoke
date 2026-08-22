@@ -192,10 +192,10 @@ class TestMergeOfferEnvelope:
             assert merge_offer_envelope(existing, per) == per
 
     def test_preserves_chain_skip_memory(self):
-        existing = json.dumps({"chain_skip_memory": [{"item_id": "YOK-1"}]})
+        existing = json.dumps({"chain_skip_memory": [{"item_id": 1}]})
         per = {"session_id": "x", "step": 2}
         merged = merge_offer_envelope(existing, per)
-        assert merged["chain_skip_memory"] == [{"item_id": "YOK-1"}]
+        assert merged["chain_skip_memory"] == [{"item_id": 1}]
         assert merged["session_id"] == "x"
         assert merged["step"] == 2
 
@@ -251,7 +251,7 @@ class TestSessionOfferCrossCallPersistence:
         conn = connect_test_db(db)
         append_chain_skip_entry(
             conn, sid,
-            {"item_id": "YOK-10", "skip_reason": "recoverable_substrate"},
+            {"item_id": 10, "skip_reason": "recoverable_substrate"},
         )
         conn.close()
 
@@ -262,7 +262,7 @@ class TestSessionOfferCrossCallPersistence:
         memory_items = [
             e.get("item_id") for e in envelope.get("chain_skip_memory", [])
         ]
-        assert "YOK-10" in memory_items, (
+        assert 10 in memory_items, (
             "chain_skip_memory was wiped by the next session-offer write"
         )
 
@@ -281,7 +281,7 @@ class TestSessionOfferCrossCallPersistence:
         conn = connect_test_db(db)
         update_chain_checkpoint(
             conn, sid, step=1, action="charge", chainable=True,
-            handler_outcome="completed", item_id="YOK-10",
+            handler_outcome="completed", item_id=10,
         )
         conn.close()
 
@@ -292,7 +292,7 @@ class TestSessionOfferCrossCallPersistence:
         cp = envelope.get("chain_checkpoint")
         assert cp is not None, "chain_checkpoint was wiped by the next session-offer"
         assert cp["action"] == "charge"
-        assert cp["item_id"] == "YOK-10"
+        assert cp["item_id"] == 10
 
     def test_skipped_item_not_reselected_in_next_offer(self, session_offer_db):
         """Skipped item is deduplicated from the next offer's candidates."""
@@ -313,7 +313,7 @@ class TestSessionOfferCrossCallPersistence:
         conn = connect_test_db(db)
         append_chain_skip_entry(
             conn, sid,
-            {"item_id": first_selected, "skip_reason": "recoverable_substrate"},
+            {"item_id": 10, "skip_reason": "recoverable_substrate"},
         )
         conn.close()
 

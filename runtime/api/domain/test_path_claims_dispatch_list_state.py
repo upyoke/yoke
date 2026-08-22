@@ -78,7 +78,7 @@ def _register_planned(conn, capsys) -> int:
     seed_target(conn, path_string="runtime/api/domain")
     path_claims_dispatch.cmd_register(
         [
-            "--item", str(item_id),
+            "--item", f"YOK-{item_id}",
             "--integration-target", "main",
             "--paths", "runtime/api/domain",
             "--actor-id", str(actor),
@@ -95,7 +95,7 @@ class TestListStateFilter:
         item_id = _register_planned(patch_conn, capsys)
 
         rc = path_claims_dispatch.cmd_list(
-            ["--item", str(item_id), "--state", "planned,active,blocked"]
+            ["--item", f"YOK-{item_id}", "--state", "planned,active,blocked"]
         )
         out, _ = _capture(capsys)
         assert rc == 0
@@ -107,11 +107,11 @@ class TestListStateFilter:
         item_id = _register_planned(patch_conn, capsys)
 
         path_claims_dispatch.cmd_list(
-            ["--item", str(item_id), "--state", "planned,active"]
+            ["--item", f"YOK-{item_id}", "--state", "planned,active"]
         )
         comma_out, _ = _capture(capsys)
         path_claims_dispatch.cmd_list(
-            ["--item", str(item_id), "--state", "planned", "--state", "active"]
+            ["--item", f"YOK-{item_id}", "--state", "planned", "--state", "active"]
         )
         repeated_out, _ = _capture(capsys)
         assert json.loads(comma_out.strip()) == json.loads(repeated_out.strip())

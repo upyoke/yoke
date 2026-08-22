@@ -303,7 +303,7 @@ class TestHeartbeat:
     def test_heartbeat_updates_claim_timestamps(self, conn):
         _register(conn)
         _insert_claimable_item(conn, 9999)
-        claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        claim_work(conn, session_id="sess-1", item_id=9999)
         before_claim = conn.execute(
             "SELECT last_heartbeat FROM work_claims WHERE session_id='sess-1'"
         ).fetchone()["last_heartbeat"]

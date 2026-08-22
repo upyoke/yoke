@@ -18,7 +18,7 @@ from yoke_core.domain.events_select import (
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.events_query_usage import LIST_USAGE
 from yoke_core.domain.events_relative_time import parse_since
-from yoke_core.domain.yok_n_parser import parse_item_id
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 _COLUMN_FLAGS: dict[str, str] = {
@@ -78,7 +78,7 @@ def _build_where(
             if col == "item_id":
                 conn = connect(db_path)
                 try:
-                    value = str(parse_item_id(
+                    value = str(parse_item_argument(
                         value, project=project_context, conn=conn
                     ))
                 except ValueError as exc:

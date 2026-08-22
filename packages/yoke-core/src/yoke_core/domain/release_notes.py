@@ -59,11 +59,11 @@ def _current_version() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-def _parse_item_id(raw: str) -> int:
-    # PREFIX-N resolves via the project sequence; bare N = internal id.
-    from yoke_core.domain.yok_n_parser import parse_item_id
+def _parse_item_argument(raw: str, *, project: str | None, conn) -> int:
+    # PREFIX-N is self-describing; bare N uses the mapped checkout project.
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    return parse_item_id(raw, allow_bare_internal=True)
+    return parse_item_argument(raw, project=project, conn=conn)
 
 
 def _p(conn) -> str:
@@ -197,7 +197,9 @@ def main(argv: Optional[List[str]] = None) -> None:
                     "Usage: release insert <item_id> <category> <title> "
                     "[version] [--project <name>]"
                 )
-            item_id = _parse_item_id(positionals[0])
+            item_id = _parse_item_argument(
+                positionals[0], project=project, conn=conn,
+            )
             category = positionals[1]
             title = positionals[2]
             version = positionals[3] if len(positionals) > 3 else None
@@ -221,7 +223,9 @@ def main(argv: Optional[List[str]] = None) -> None:
                 _cli_usage_error(
                     "Usage: release exists <item_id> [version] [--project <name>]"
                 )
-            item_id = _parse_item_id(positionals[0])
+            item_id = _parse_item_argument(
+                positionals[0], project=project, conn=conn,
+            )
             version = positionals[1] if len(positionals) > 1 else None
 
             if cmd_exists(conn, item_id, version, project):

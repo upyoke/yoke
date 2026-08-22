@@ -19,6 +19,13 @@ import json
 import sys
 
 
+def _resolve_test_item(request):
+    assert request.target.item_ref == "YOK-1"
+    request.target.item_id = 1
+    request.target.project_id = None
+    return None
+
+
 class TestCmdExecuteUpdateCliDispatchParity:
     """Structured-field write routes through the function dispatcher."""
 
@@ -46,9 +53,12 @@ class TestCmdExecuteUpdateCliDispatchParity:
         monkeypatch.setattr(
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
+        monkeypatch.setattr(
+            dispatch_module, "resolve_target_item_ref", _resolve_test_item,
+        )
 
         rc = service_client.cmd_execute_update_cli(
-            ["1", "spec", "--body-file", str(spec_path), "--force", "--source", "tester"]
+            ["YOK-1", "spec", "--body-file", str(spec_path), "--force", "--source", "tester"]
         )
 
         captured = capsys.readouterr()
@@ -84,10 +94,13 @@ class TestCmdExecuteUpdateCliDispatchParity:
         monkeypatch.setattr(
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
+        monkeypatch.setattr(
+            dispatch_module, "resolve_target_item_ref", _resolve_test_item,
+        )
         monkeypatch.setattr(sys, "stdin", io.StringIO("# Spec\n"))
 
         rc = service_client.cmd_execute_update_cli(
-            ["1", "spec", "--stdin", "--force", "--source", "tester"]
+            ["YOK-1", "spec", "--stdin", "--force", "--source", "tester"]
         )
 
         captured = capsys.readouterr()
@@ -117,10 +130,13 @@ class TestCmdExecuteUpdateCliDispatchParity:
         monkeypatch.setattr(
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
+        monkeypatch.setattr(
+            dispatch_module, "resolve_target_item_ref", _resolve_test_item,
+        )
         monkeypatch.setattr(sys, "stdin", io.StringIO("x\n"))
 
         rc = service_client.cmd_execute_update_cli(
-            ["1", "spec", "--stdin", "--json"]
+            ["YOK-1", "spec", "--stdin", "--json"]
         )
 
         captured = capsys.readouterr()

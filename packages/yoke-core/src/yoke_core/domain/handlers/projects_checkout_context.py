@@ -5,9 +5,9 @@ The strategize/feed skill preambles pin ``$_project`` / ``$_project_id``
 adapter resolves the checkout→project mapping CLIENT-side (``--project``
 flag > ``$YOKE_PROJECT`` > the machine-config checkout→project map)
 and carries it on ``target.project_id``; this handler enriches that
-hint with DB truth via the shared project ladder (explicit hint →
-session inference → typed ``project_context_required`` teaching). The
-server never resolves an ambient cwd, so the same envelope works
+hint with DB truth via the shared project ladder (explicit hint or typed
+``project_context_required`` teaching). The server never resolves an
+ambient cwd or session focus, so the same envelope works
 in-process and over https from any checkout.
 """
 

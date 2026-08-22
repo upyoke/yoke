@@ -67,7 +67,7 @@ class TestSyncItem:
         ), patch(f"{GH_PATCH}.sync_labels", return_value=0) as mock_labels, patch(
             f"{GH_PATCH}.sync_body", return_value=0
         ) as mock_body:
-            rc = backlog_github_sync.sync_item("20", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-20", conn=db, stdout=stdout)
         assert rc == 0
         mock_labels.assert_called_once()
         mock_body.assert_called_once()
@@ -86,7 +86,7 @@ class TestSyncItem:
         ) as mock_body, patch(
             f"{GH_PATCH}.epic_task_sync.sync_epic_tasks", return_value=0
         ) as mock_task_sync:
-            rc = backlog_github_sync.sync_item("21", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-21", conn=db, stdout=stdout)
         assert rc == 0
         mock_labels.assert_called_once()
         mock_body.assert_called_once()
@@ -117,7 +117,7 @@ class TestSyncItem:
         ), patch(
             "yoke_core.domain.backlog_github_item_create._ensure_label",
         ):
-            rc = backlog_github_sync.sync_item("20", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-20", conn=db, stdout=stdout)
 
         assert rc == 0
         gh_issue = db.execute("SELECT github_issue FROM items WHERE id = 20").fetchone()[0]
@@ -149,7 +149,7 @@ class TestSyncItem:
         ), patch(
             "yoke_core.domain.backlog_github_item_create._ensure_label",
         ):
-            rc = backlog_github_sync.sync_item("20", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-20", conn=db, stdout=stdout)
         assert rc == 0
         output = stdout.getvalue()
         assert "\n#999\n" in output
@@ -183,7 +183,7 @@ class TestSyncItem:
         ), patch(
             f"{GH_PATCH}.epic_task_sync.sync_epic_tasks", return_value=0
         ) as mock_task_sync:
-            rc = backlog_github_sync.sync_item("22", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-22", conn=db, stdout=stdout)
 
         assert rc == 0
         gh_issue = db.execute("SELECT github_issue FROM items WHERE id = 22").fetchone()[0]
@@ -201,7 +201,7 @@ class TestSyncItem:
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
         ), patch.object(backlog_github_sync, "_dry_run", return_value=True):
-            rc = backlog_github_sync.sync_item("20", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-20", conn=db, stdout=stdout)
         assert rc == 0
         assert "DRY-RUN" in stdout.getvalue()
         db.close()
@@ -209,7 +209,7 @@ class TestSyncItem:
     def test_missing_item_returns_error(self):
         db = _make_db()
         stderr = io.StringIO()
-        rc = backlog_github_sync.sync_item("999", conn=db, stderr=stderr)
+        rc = backlog_github_sync.sync_item("EXT-999", conn=db, stderr=stderr)
         assert rc == 1
         assert "not found" in stderr.getvalue()
         db.close()
@@ -250,7 +250,7 @@ class TestSyncItem:
         ), patch(
             "yoke_core.domain.backlog_github_item_create._ensure_label",
         ):
-            rc = backlog_github_sync.sync_item("23", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-23", conn=db, stdout=stdout)
 
         assert rc == 0
         create_issue.assert_called_once()
@@ -291,7 +291,7 @@ class TestSyncItemCompactMirror:
         ), patch(
             "yoke_core.domain.backlog_github_item_create._ensure_label",
         ):
-            rc = backlog_github_sync.sync_item("30", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-30", conn=db, stdout=stdout)
 
         assert rc == 0
         create_issue.assert_called_once()
@@ -317,7 +317,7 @@ class TestSyncItemCompactMirror:
         ), patch(f"{GH_PATCH}.sync_labels", return_value=0), patch(
             f"{GH_PATCH}.sync_body", return_value=0,
         ) as mock_body:
-            rc = backlog_github_sync.sync_item("31", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item("EXT-31", conn=db, stdout=stdout)
 
         assert rc == 0
         mock_body.assert_called_once()
@@ -340,7 +340,7 @@ class TestSyncItemCompactMirror:
             item_create, "resolve_project_github_auth",
             side_effect=raise_missing_binding,
         ), patch(_DEDUP_PATCH) as dedup, patch(_CREATE_PATCH) as create_issue:
-            rc = backlog_github_sync.sync_item("32", conn=db, stderr=stderr)
+            rc = backlog_github_sync.sync_item("EXT-32", conn=db, stderr=stderr)
 
         assert rc == 1
         dedup.assert_not_called()

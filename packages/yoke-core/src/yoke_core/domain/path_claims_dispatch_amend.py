@@ -87,9 +87,9 @@ def _resolve_item_to_claim_id(conn, item_arg: str) -> tuple[Optional[int], Optio
     zero/multiple matches. Matches exclusive claims in planned /
     blocked / active states.
     """
-    from yoke_core.domain.path_claims_dispatch_io import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
     try:
-        item_id = parse_item_id(item_arg)
+        item_id = parse_item_argument(item_arg)
     except ValueError as exc:
         return None, str(exc)
     p = _p(conn)

@@ -1,10 +1,9 @@
+# ruff: noqa: F811
 """Tests for service_client.cmd_execute_update_cli — backlog-registry cutover parsing."""
 
 from __future__ import annotations
 
-import io
 import json
-import sys
 
 from runtime.api.backlog_mutations_test_helpers import (
     _conn,
@@ -13,7 +12,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     _seed_claim,
     _seed_item,
     _seed_session,
-    tmp_db,  # noqa: F401 - re-exported fixture
+    tmp_db,  # noqa: F401,F811 - re-exported fixture
 )
 
 
@@ -22,6 +21,7 @@ class TestExecuteUpdateCli:
 
     def test_execute_update_cli_multi_field_routes_to_backlog_execute_update(self, monkeypatch, capsys):
         import yoke_core.api.service_client as service_client
+        from yoke_core.api import service_client_backlog_update
         from yoke_core.domain import backlog
 
         calls: list[dict] = []
@@ -37,15 +37,16 @@ class TestExecuteUpdateCli:
 
         monkeypatch.setattr(backlog, "execute_update", _record_execute_update)
         monkeypatch.setattr(
+            service_client_backlog_update, "_parse_item_id_arg", lambda _ref: 7,
+        )
+        monkeypatch.setattr(
             backlog,
             "_maybe_rebuild_board",
             lambda rebuild_board, **_: rebuild_flags.append(rebuild_board),
         )
 
-        # Bare internal id: PREFIX-N per-project resolution is covered directly
-        # in test_parse_item_id_arg.py; this test exercises multi-field routing.
         rc = service_client.cmd_execute_update_cli(
-            ["7", "status=implementing", "priority=high", "--qa-bypass"]
+            ["YOK-7", "status=implementing", "priority=high", "--qa-bypass"]
         )
 
         captured = capsys.readouterr()
@@ -62,6 +63,7 @@ class TestExecuteUpdateCli:
 
     def test_execute_update_cli_honors_no_rebuild(self, monkeypatch, capsys):
         import yoke_core.api.service_client as service_client
+        from yoke_core.api import service_client_backlog_update
         from yoke_core.domain import backlog
 
         called: dict = {}
@@ -72,9 +74,12 @@ class TestExecuteUpdateCli:
             return {"success": True}
 
         monkeypatch.setattr(backlog, "execute_update", _record_execute_update)
+        monkeypatch.setattr(
+            service_client_backlog_update, "_parse_item_id_arg", lambda _ref: 7,
+        )
 
         rc = service_client.cmd_execute_update_cli(
-            ["7", "--no-rebuild", "status", "implementing"]
+            ["YOK-7", "--no-rebuild", "status", "implementing"]
         )
 
         captured = capsys.readouterr()
@@ -131,6 +136,7 @@ class TestExecuteUpdateCli:
 
     def test_execute_update_cli_shell_mode_prints_log_not_json(self, monkeypatch, capsys):
         import yoke_core.api.service_client as service_client
+        from yoke_core.api import service_client_backlog_update
         from yoke_core.domain import backlog
 
         called: dict = {}
@@ -141,9 +147,14 @@ class TestExecuteUpdateCli:
             return {"success": True}
 
         monkeypatch.setattr(backlog, "execute_update", _record_execute_update)
+        monkeypatch.setattr(
+            service_client_backlog_update, "_parse_item_id_arg", lambda _ref: 7,
+        )
         monkeypatch.setenv("YOKE_SERVICE_CLIENT_SHELL", "1")
 
-        rc = service_client.cmd_execute_update_cli(["7", "status", "implementing"])
+        rc = service_client.cmd_execute_update_cli(
+            ["YOK-7", "status", "implementing"]
+        )
 
         captured = capsys.readouterr()
         assert rc == 0

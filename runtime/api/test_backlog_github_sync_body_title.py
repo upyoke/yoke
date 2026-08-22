@@ -81,7 +81,7 @@ class TestSyncBody:
             body_title_sync, "resolve_project_github_auth",
             side_effect=_ok_resolver,
         ):
-            rc = backlog_github_sync.sync_body("60", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_body(60, conn=db, stdout=stdout)
 
         assert rc == 0
         assert "Synced body: EXT-60 → #80" in stdout.getvalue()
@@ -113,7 +113,7 @@ class TestSyncBody:
             body_title_sync, "resolve_project_github_auth",
             side_effect=_ok_resolver,
         ):
-            rc = backlog_github_sync.sync_body("60", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_body(60, conn=db, stdout=stdout)
 
         assert rc == 0
         body_sent = update_issue.call_args.kwargs["body"]
@@ -141,7 +141,7 @@ class TestSyncBody:
             side_effect=_ok_resolver,
         ):
             rc = backlog_github_sync.sync_body(
-                "60", conn=db, stdout=stdout, stderr=stderr,
+                60, conn=db, stdout=stdout, stderr=stderr,
             )
 
         assert rc == 0
@@ -176,7 +176,7 @@ class TestSyncBody:
         ), patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
-            rc = backlog_github_sync.sync_body("60", conn=db, stderr=stderr)
+            rc = backlog_github_sync.sync_body(60, conn=db, stderr=stderr)
 
         assert rc == 1
         # REST call MUST NOT be made on auth failure.
@@ -194,7 +194,7 @@ class TestSyncBody:
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
-            rc = backlog_github_sync.sync_body("60", conn=db)
+            rc = backlog_github_sync.sync_body(60, conn=db)
         assert rc == 0
         update_issue.assert_not_called()
         db.close()
@@ -204,7 +204,7 @@ class TestSyncBody:
         insert_item(db, id=60, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#80")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
-            rc = backlog_github_sync.sync_body("60", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_body(60, conn=db, stdout=stdout)
         assert rc == 0
         assert "DRY-RUN" in stdout.getvalue()
         db.close()
@@ -235,7 +235,7 @@ class TestSyncTitle:
             body_title_sync.github_rest, "update_issue",
             return_value=_fake_issue(number=90, title="[EXT-70] My test title"),
         ) as update_issue:
-            rc = backlog_github_sync.sync_title("70", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_title(70, conn=db, stdout=stdout)
 
         assert rc == 0
         assert "Synced title: EXT-70 → #90" in stdout.getvalue()
@@ -253,7 +253,7 @@ class TestSyncTitle:
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
-            rc = backlog_github_sync.sync_title("70", conn=db)
+            rc = backlog_github_sync.sync_title(70, conn=db)
         assert rc == 0
         update_issue.assert_not_called()
         db.close()

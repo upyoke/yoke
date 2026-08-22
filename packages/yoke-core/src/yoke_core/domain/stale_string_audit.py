@@ -51,24 +51,23 @@ from yoke_core.domain.stale_string_audit_cmds import (
     cmd_preflight,
     cmd_verify,
 )
-from yoke_core.domain.stale_string_audit_discover import (
+from yoke_core.domain.stale_string_audit_discover import (  # noqa: F401
     _extract_dirs_from_test_command,
     _extract_test_dirs_from_docs,
     _get_item_field,
     _get_project_for_item,
     _looks_like_test_surface,
-    _normalize_item_id,
     _scan_test_directories,
     discover_test_surfaces,
 )
-from yoke_core.domain.stale_string_audit_extract import (
+from yoke_core.domain.stale_string_audit_extract import (  # noqa: F401
     _collect_diff_strings,
     _normalize_candidate_string,
     extract_candidate_strings,
     extract_candidate_strings_from_git_diff,
     is_text_sensitive_item,
 )
-from yoke_core.domain.stale_string_audit_grep import (
+from yoke_core.domain.stale_string_audit_grep import (  # noqa: F401
     _python_grep,
     _run_rg,
     grep_surfaces,

@@ -84,7 +84,7 @@ def test_end_wins_session_lock_before_claim_without_resurrection(
                 outcomes["claim"] = claim_work(
                     claim_conn,
                     session_id=session_id,
-                    item_id=f"YOK-{item_id}",
+                    item_id=item_id,
                 )
             else:
                 outcomes["claim"] = runtime_claims.cmd_claim(
@@ -139,7 +139,7 @@ def test_target_end_wins_before_handoff_without_target_claim(
     claim = claim_work(
         test_db,
         session_id="handoff-source-active",
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
     )
     end_conn, handoff_conn = _connections(test_db)
     end_locked, continue_end = _pause_after_end_session_lock(monkeypatch)
@@ -229,7 +229,7 @@ def test_reclaim_wins_session_lock_before_claim_without_resurrection(
             outcomes["claim"] = claim_work(
                 claim_conn,
                 session_id=session_id,
-                item_id=f"YOK-{item_id}",
+                item_id=item_id,
             )
         except BaseException as exc:  # noqa: BLE001 - thread evidence
             outcomes["claim"] = exc
@@ -275,7 +275,7 @@ def test_end_failure_rolls_back_claim_release_focus_and_terminal_row(
     claim = claim_work(
         test_db,
         session_id=session_id,
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
     )
     emitted_events: list[str] = []
     monkeypatch.setattr(
@@ -319,7 +319,7 @@ def test_resume_notice_failure_rolls_back_reacquired_claim_and_notice(
     claim_work(
         test_db,
         session_id=session_id,
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
     )
     end_session(test_db, session_id)
     original_write = sessions_lifecycle_reactivation.write_pending_resume_notice

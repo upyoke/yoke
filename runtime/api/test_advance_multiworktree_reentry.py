@@ -23,7 +23,7 @@ class TestAdvanceSkillReentry:
         """A single implementation lane reads the canonical lane model."""
         text = self._read()
         assert 'if [ "$_worktree_policy" = "single_implementation_lane" ]; then' in text
-        assert "_wt_branch=$(yoke item-worktrees get PREFIX-{N}" in text
+        assert "_wt_branch=$(yoke item-worktrees get PREFIX-N" in text
         assert "--lane-role implementation --field branch" in text
         assert "yoke items get {N} worktree" not in text
 

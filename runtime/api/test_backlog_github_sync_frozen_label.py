@@ -38,7 +38,7 @@ class TestSyncFrozenLabel:
         ) as add, patch(
             f"{_LABEL_REST_STATE}.remove_label",
         ) as remove:
-            rc = backlog_github_sync.sync_frozen_label("7", "true", conn=db)
+            rc = backlog_github_sync.sync_frozen_label(7, "true", conn=db)
         assert rc == 0
         ensure.assert_not_called()
         add.assert_not_called()
@@ -67,7 +67,7 @@ class TestSyncFrozenLabel:
         ) as resolve_auth, patch(f"{_LABEL_REST_STATE}.ensure_label") as ensure, patch(
             f"{_LABEL_REST_STATE}.add_labels",
         ) as add_labels:
-            rc = backlog_github_sync.sync_frozen_label("7", "true", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_frozen_label(7, "true", conn=db, stdout=stdout)
 
         assert rc == 0
         assert resolve_auth.call_args.kwargs == {
@@ -101,7 +101,7 @@ class TestSyncFrozenLabel:
             f"{_LABEL_REST_STATE}.remove_label",
         ) as remove_label:
             rc = backlog_github_sync.sync_frozen_label(
-                "7", "false", conn=db, stdout=stdout,
+                7, "false", conn=db, stdout=stdout,
             )
 
         assert rc == 0
@@ -131,7 +131,7 @@ class TestSyncFrozenLabel:
             return_value=False,
         ):
             rc = backlog_github_sync.sync_frozen_label(
-                "8", "true", conn=db, stderr=stderr,
+                8, "true", conn=db, stderr=stderr,
             )
 
         assert rc == 1

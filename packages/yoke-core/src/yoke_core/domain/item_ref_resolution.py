@@ -10,12 +10,10 @@ input shapes still arrive from outside that currency:
   tokens that may be an internal int, a bare digit string, or a public
   ``PREFIX-N`` ref.
 
-Both resolvers here translate those tokens to internal ids canonically
-(prefix + project_sequence lookup) and fall back to the numeric tail
-only when the canonical lookup cannot answer — a missing ``projects``
-schema on minimal fixtures, or a ref with no matching item row. The
-fallback preserves behavior for refs that never had a backing row while
-divergent-sequence items resolve to the correct internal id.
+Both resolvers here translate those tokens to internal ids canonically.
+Public refs resolve only through prefix + project-sequence identity; a
+missing schema or row remains unresolved instead of being mistaken for an
+unrelated global ``items.id`` with the same numeric tail.
 """
 
 from __future__ import annotations
@@ -26,13 +24,6 @@ from typing import Any, Dict, Iterable, Optional
 from . import db_backend
 
 _PUBLIC_REF_RE = re.compile(r"^([A-Za-z][A-Za-z0-9]*)-(\d+)$")
-
-
-def _numeric_tail(text: str) -> Optional[int]:
-    match = _PUBLIC_REF_RE.match(text)
-    if match:
-        return int(match.group(2).lstrip("0") or "0")
-    return None
 
 
 def _rollback_if_postgres(conn: Any) -> None:
@@ -48,8 +39,7 @@ def resolve_internal_item_id(conn: Any, value: Any) -> Optional[int]:
 
     Accepts internal ints, bare digit strings (treated as internal ids —
     this is an internal surface, not operator input), and public
-    ``PREFIX-N`` refs (resolved via prefix + project_sequence, with a
-    numeric-tail fallback when the lookup cannot answer).
+    ``PREFIX-N`` refs resolved via prefix + project_sequence.
     """
     if value is None:
         return None
@@ -75,10 +65,7 @@ def internal_ids_for_refs(
     """Bulk-map public ``PREFIX-N`` refs to internal ``items.id`` values.
 
     One query resolves every ref via ``projects.public_item_prefix`` +
-    ``items.project_sequence``. Refs the canonical lookup cannot answer
-    (missing schema, no matching row) fall back to their numeric tail so
-    fixture-era refs without backing rows keep their prior meaning.
-    Unparseable tokens are omitted from the result.
+    ``items.project_sequence``. Unparseable and unresolved tokens are omitted.
     """
     wanted: Dict[str, tuple[str, int]] = {}
     result: Dict[str, int] = {}
@@ -121,12 +108,8 @@ def internal_ids_for_refs(
 
     for text, pair in wanted.items():
         internal = resolved_pairs.get(pair)
-        if internal is None:
-            fallback = _numeric_tail(text)
-            if fallback is None:
-                continue
-            internal = fallback
-        result[text] = internal
+        if internal is not None:
+            result[text] = internal
     return result
 
 

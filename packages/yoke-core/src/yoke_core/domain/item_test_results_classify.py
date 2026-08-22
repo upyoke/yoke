@@ -77,11 +77,10 @@ def read_item_test_results(
 ) -> str:
     """Return the ``items.test_results`` column for ``item_id``.
 
-    Accepts both the bare integer id and the ``YOK-N`` operator form so
-    callers hand through whichever shape they received. Returns ``""``
-    when the id is empty / unparseable, when the row is missing, or
-    when the column is NULL. Read-only; raises only on a genuine sqlite
-    error the caller cannot recover from.
+    ``item_id`` is an internal value. A digit string remains accepted only
+    because ``MergeContext.item_id`` is a resolved transport envelope field;
+    public refs must resolve before reaching this reader. Returns ``""`` for
+    invalid/missing rows or NULL content.
     """
     if item_id is None:
         return ""
@@ -91,10 +90,9 @@ def read_item_test_results(
         text = str(item_id).strip()
         if not text:
             return ""
-        try:
-            numeric_id = int(text.removeprefix("YOK-").lstrip("0") or "0")
-        except ValueError:
+        if not text.isdigit():
             return ""
+        numeric_id = int(text)
     if numeric_id <= 0:
         return ""
     conn: Any = db_helpers.connect(db_path)

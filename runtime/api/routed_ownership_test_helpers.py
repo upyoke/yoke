@@ -169,7 +169,7 @@ def build_release_gap_fixture(conn: Any) -> None:
         conn, SESSION_A, current_item_id=str(SYNTHETIC_ITEM_ID),
     )
     register_live_session(conn, SESSION_B)
-    claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_REF)
+    claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
     p = _p(conn)
     claim_id_row = conn.execute(
         f"SELECT id FROM work_claims WHERE session_id = {p} AND item_id = {p} "

@@ -60,7 +60,7 @@ def test_release_holds_source_session_before_handoff_parent_lock(
     claim = claim_work(
         test_db,
         session_id=source_session,
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
     )
     release_conn, handoff_conn = _connections(test_db)
     release_locked = threading.Event()
@@ -98,14 +98,14 @@ def test_release_holds_source_session_before_handoff_parent_lock(
             elif release_surface == "operator_by_id":
                 outcomes["release"] = operator_override_release_claim(
                     release_conn,
-                    f"YOK-{item_id}",
+                    item_id,
                     "lock-order regression",
                     claim_id=int(claim["id"]),
                 )
             else:
                 outcomes["release"] = operator_override_release_claim(
                     release_conn,
-                    f"YOK-{item_id}",
+                    item_id,
                     "lock-order regression",
                 )
         except BaseException as exc:  # noqa: BLE001 - thread evidence
@@ -175,7 +175,7 @@ def test_handoff_revalidates_target_after_terminal_transition_parent_lock(
     claim = claim_work(
         test_db,
         session_id=source_session,
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
     )
     transition_conn, handoff_conn = _connections(test_db)
     handoff_started = threading.Event()

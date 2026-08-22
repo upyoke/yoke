@@ -18,7 +18,7 @@ from yoke_core.api.service_client_shared import (
     plan_candidate_set,
 )
 from yoke_core.domain.project_identity import render_item_ref
-from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 def _blocker_detail_to_dict(b) -> dict:
@@ -46,14 +46,11 @@ def cmd_evaluate_gate(args: list[str]) -> int:
 
     conn = _get_db_readonly()
     try:
-        # Resolve the ref (PREFIX-N via project sequence; bare N =
-        # internal id) and re-render the canonical text ref the
-        # dependency rows store.
-        resolved = parse_item_id_or_none(
-            item_id, conn=conn, allow_bare_internal=True
-        )
-        if resolved is not None:
-            item_id = render_item_ref(conn, resolved)
+        # Resolve the ref (PREFIX-N via its own prefix; bare N via the mapped
+        # checkout project) and re-render the canonical text ref stored by the
+        # dependency rows.
+        resolved = parse_item_argument(item_id, conn=conn)
+        item_id = render_item_ref(conn, resolved)
         result = evaluate_item_gate(conn, item_id, gate_point)
         out = {
             "item_id": result.item_id,
@@ -94,12 +91,8 @@ def cmd_plan_candidates(args: list[str]) -> int:
     try:
         candidate_ids = []
         for raw in args[1:]:
-            resolved = parse_item_id_or_none(
-                raw, conn=conn, allow_bare_internal=True
-            )
-            candidate_ids.append(
-                raw if resolved is None else render_item_ref(conn, resolved)
-            )
+            resolved = parse_item_argument(raw, conn=conn)
+            candidate_ids.append(render_item_ref(conn, resolved))
         result = plan_candidate_set(conn, candidate_ids, gate_point)
         out = {
             "gate_point": result.gate_point,

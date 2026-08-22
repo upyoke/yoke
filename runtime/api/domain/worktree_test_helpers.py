@@ -15,7 +15,7 @@ from typing import Iterator
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
+from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import init_test_db
 
@@ -36,6 +36,7 @@ _YOKE_DB_DDL = textwrap.dedent("""\
         id INTEGER PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
+        emoji TEXT,
         default_branch TEXT DEFAULT 'main',
         github_repo TEXT,
         public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
@@ -91,31 +92,7 @@ def apply_yoke_db_schema() -> None:
         ensure_item_worktree_schema(conn)
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        conn.execute(
-            "INSERT INTO projects "
-            "(id, slug, name, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}) "
-            "ON CONFLICT(id) DO NOTHING",
-            (
-                SEED_PROJECT_IDS["yoke"],
-                "yoke",
-                "Yoke",
-                "2026-01-01T00:00:00Z",
-            ),
-        )
-        conn.execute(
-            "INSERT INTO projects "
-            "(id, slug, name, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}) "
-            "ON CONFLICT(id) DO NOTHING",
-            (
-                SEED_PROJECT_IDS["externalwebapp"],
-                "externalwebapp",
-                "ExternalWebapp",
-                "2026-01-01T00:00:00Z",
-            ),
-        )
+        seed_project_identities(conn)
         conn.commit()
     finally:
         conn.close()

@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Unit tests for handler-outcome classification helpers.
 
 Outcome classification, chain labels, and skip/handoff records at the helper
@@ -8,10 +9,9 @@ recoverable-substrate reproduction live in the sibling module
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
 
-from runtime.api.test_sessions import _create_schema, _register, conn  # noqa: F401  (Postgres-backed pytest fixture)
+from runtime.api.test_sessions import _create_schema, _register, conn  # noqa: F401,F811  (Postgres-backed pytest fixture)
 from yoke_core.domain.sessions_handler_outcome import (
     NON_USEFUL_STEP_OUTCOMES,
     OUTCOME_BLOCKED,
@@ -193,7 +193,7 @@ class TestRecordRecoverableSubstrateSkip:
                 session_id="sess-substrate-1",
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{1599}",
+                item_id=1599,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
@@ -228,7 +228,7 @@ class TestRecordRecoverableSubstrateSkip:
                 session_id="sess-substrate-2",
                 chain_step=2,
                 project="yoke",
-                item_id=f"YOK-{1599}",
+                item_id=1599,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
@@ -252,7 +252,7 @@ class TestRecordRecoverableSubstrateSkip:
                     session_id="sess-substrate-dedup",
                     chain_step=1,
                     project="yoke",
-                    item_id=f"YOK-{1599}",
+                    item_id=1599,
                     routed_action="advance",
                     failure_class="cwd_drift",
                     remediation_owner=f"YOK-{1599}",
@@ -294,7 +294,7 @@ class TestRecordRecoverableSubstrateSkip:
             with patch("yoke_core.domain.events.emit_event"):
                 record_recoverable_substrate_skip(
                     bare, session_id="sess-bare-row", chain_step=1,
-                    project="yoke", item_id=f"YOK-{1599}",
+                    project="yoke", item_id=1599,
                     routed_action="advance", failure_class="cwd_drift",
                     remediation_owner=f"YOK-{1599}",
                 )
@@ -326,7 +326,7 @@ class TestRecordInteractiveCheckpointHandoff:
                     session_id="sess-checkpoint",
                     step=1,
                     process_key="STRATEGIZE",
-                    item_id=f"YOK-{9000}",
+                    item_id=9000,
                     checkpoint_label="checkpoint-0",
                 )
         assert checkpoint["handler_outcome"] == OUTCOME_INTERACTIVE_CHECKPOINT
@@ -334,5 +334,5 @@ class TestRecordInteractiveCheckpointHandoff:
         # before the process resumes.
         assert checkpoint["chainable"] is False
         assert checkpoint["action"] == "STRATEGIZE"
-        assert checkpoint["item_id"] == f"YOK-{9000}"
+        assert checkpoint["item_id"] == 9000
         assert checkpoint["status"] == "checkpoint-0"

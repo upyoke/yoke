@@ -17,25 +17,6 @@ from runtime.api.domain._item_field_transform_test_helpers import (
 )
 
 
-class TestParseItemId(unittest.TestCase):
-    def test_bare_integer(self) -> None:
-        self.assertEqual(item_field_transform.parse_item_id("42"), 42)
-
-    def test_sun_prefix_padded(self) -> None:
-        self.assertEqual(item_field_transform.parse_item_id("007"), 7)
-
-    def test_lowercase_prefix(self) -> None:
-        self.assertEqual(item_field_transform.parse_item_id("9"), 9)
-
-    def test_empty_raises(self) -> None:
-        with self.assertRaises(ValueError):
-            item_field_transform.parse_item_id("")
-
-    def test_garbage_raises(self) -> None:
-        with self.assertRaises(ValueError):
-            item_field_transform.parse_item_id("YOK-abc")
-
-
 class TestAppendAddendum(unittest.TestCase):
     def setUp(self) -> None:
         self.db = _FakeDB()
@@ -211,6 +192,10 @@ class TestCli(unittest.TestCase):
     def test_append_addendum_via_cli(self) -> None:
         self.db.insert_item(301, spec="initial")
         with mock.patch("sys.stdin", StringIO("body content")), \
+             mock.patch(
+                 "yoke_core.domain.yok_n_parser.parse_item_argument",
+                 return_value=301,
+             ), \
              mock.patch("sys.stdout", new_callable=StringIO) as stdout:
             rc = item_field_transform.main([
                 "append-addendum", "--item", "301",
@@ -240,6 +225,10 @@ class TestCli(unittest.TestCase):
     def test_section_upsert_via_cli(self) -> None:
         self.db.insert_item(302)
         with mock.patch("sys.stdin", StringIO("first entry")), \
+             mock.patch(
+                 "yoke_core.domain.yok_n_parser.parse_item_argument",
+                 return_value=302,
+             ), \
              mock.patch("sys.stdout", new_callable=StringIO) as stdout:
             rc = item_field_transform.main([
                 "section-upsert", "--item", "302",

@@ -5,14 +5,31 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.discovery_scan import run_scan
+from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
 
 @pytest.fixture
-def seeded_repo(tmp_path):
+def seeded_repo(tmp_path, monkeypatch):
     with init_test_db(tmp_path) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            seed_project_identities(conn)
+            for item_id, sequence in ((42, 42), (2245, 1245), (9999, 9999)):
+                insert_item(
+                    conn,
+                    id=item_id,
+                    project_id=1,
+                    project_sequence=sequence,
+                )
+        finally:
+            conn.close()
+        from yoke_core.domain import machine_config
+
+        monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 1)
         yield tmp_path, db_path
 
 
@@ -149,4 +166,4 @@ def test_missing_args_returns_usage(tmp_path):
 
     rc = run_scan("", repo_root=str(tmp_path), stdout=_Writer(), stderr=_Writer())
     assert rc == 2
-    assert "python3 -m yoke_core.domain.discovery_scan" in "".join(output)
+    assert "expected PREFIX-N, or bare N with project context" in "".join(output)

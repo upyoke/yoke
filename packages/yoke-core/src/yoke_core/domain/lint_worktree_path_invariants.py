@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 _SESSION_ENV_VARS = (
@@ -68,14 +68,17 @@ def _normalize_item_id(
 ) -> Optional[int]:
     """Resolve ``raw`` to the bare internal ``items.id``, or ``None``.
 
-    Bare integers / digit strings pass through as internal ids; public
-    ``PREFIX-N`` refs resolve via the canonical parser (prefix +
-    ``items.project_sequence``) on *conn* when supplied (the parser
-    self-connects otherwise). Unparseable values yield ``None``.
+    Python integers pass through as internal ids. String digits resolve as
+    project-local sequences, and public ``PREFIX-N`` refs resolve through the
+    canonical parser on *conn* when supplied (the parser self-connects
+    otherwise). Unparseable values yield ``None``.
     """
     if raw is not None and not isinstance(raw, (int, str)):
         raw = str(raw)
-    return parse_item_id_or_none(raw, conn=conn, allow_bare_internal=True)
+    try:
+        return parse_item_argument(raw, conn=conn)
+    except ValueError:
+        return None
 
 
 def _fetch_current_item_id(
@@ -97,6 +100,11 @@ def _fetch_current_item_id(
         if row is None:
             return None
         raw = row["current_item_id"] if hasattr(row, "keys") else row[0]
+        # ``harness_sessions.current_item_id`` is a legacy textual
+        # internal-id column. Its digit strings are storage values, not
+        # operator-facing project sequences.
+        if isinstance(raw, str) and raw.strip().isdigit():
+            return int(raw.strip())
         # Ref resolution may query project tables; keep it inside the
         # swallow block so a minimal fixture schema stays a silent no-op.
         return _normalize_item_id(raw, conn)

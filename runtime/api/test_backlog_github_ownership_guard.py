@@ -94,7 +94,7 @@ class TestCheckOwnership:
         _seed_item(db_with_open_conn, 51)
         _seed_claim(db_with_open_conn, item_id=51, session_id="session-A")
         monkeypatch.setenv("YOKE_SESSION_ID", "session-A")
-        allow, reason, holder = cli.check_ownership("51")
+        allow, reason, holder = cli.check_ownership(51)
         assert allow is True
         assert reason == "self-owned"
         assert holder == "session-A"
@@ -105,7 +105,7 @@ class TestCheckOwnership:
         _seed_item(db_with_open_conn, 52)
         _seed_claim(db_with_open_conn, item_id=52, session_id="session-B")
         monkeypatch.setenv("YOKE_SESSION_ID", "session-A")
-        allow, reason, holder = cli.check_ownership("YOK-52")
+        allow, reason, holder = cli.check_ownership(52)
         assert allow is False
         assert reason == "other-holder"
         assert holder == "session-B"
@@ -119,7 +119,7 @@ class TestCheckOwnership:
             session_id="session-B", released=True,
         )
         monkeypatch.setenv("YOKE_SESSION_ID", "session-A")
-        allow, _reason, _holder = cli.check_ownership("53")
+        allow, _reason, _holder = cli.check_ownership(53)
         assert allow is True
 
     def test_allow_when_holder_session_ended(self, db_with_open_conn, monkeypatch):
@@ -129,14 +129,14 @@ class TestCheckOwnership:
             "UPDATE harness_sessions SET ended_at = '2026-05-17T13:10:00Z' WHERE session_id = 'session-B'"
         )
         monkeypatch.setenv("YOKE_SESSION_ID", "session-A")
-        assert cli.check_ownership("55") == (True, "holder-ended", "session-B")
+        assert cli.check_ownership(55) == (True, "holder-ended", "session-B")
 
     def test_dry_run_short_circuits(self, db_with_open_conn, monkeypatch):
         _seed_item(db_with_open_conn, 54)
         _seed_claim(db_with_open_conn, item_id=54, session_id="session-B")
         monkeypatch.setenv("YOKE_SESSION_ID", "session-A")
         monkeypatch.setattr(cli, "_dry_run", lambda: True)
-        allow, reason, _holder = cli.check_ownership("54")
+        allow, reason, _holder = cli.check_ownership(54)
         assert allow is True
         assert reason == "dry-run"
 
@@ -174,7 +174,7 @@ class TestDirectCliGuard:
             _bgs, "sync_title",
             side_effect=lambda *a, **k: (called.append("sync_title"), 0)[1],
         ):
-            rc = cli.main(["sync-title", "61"])
+            rc = cli.main(["sync-title", "EXT-61"])
 
         assert rc == 1
         assert called == []
@@ -192,10 +192,10 @@ class TestDirectCliGuard:
             _bgs, "sync_body",
             side_effect=lambda *args, **k: (called.append(args[0]), 0)[1],
         ):
-            rc = cli.main(["sync-body", "62"])
+            rc = cli.main(["sync-body", "EXT-62"])
 
         assert rc == 0
-        assert called == ["62"]
+        assert called == ["EXT-62"]
 
     def test_unclaimed_sync_item_proceeds(
         self, db_with_open_conn, monkeypatch
@@ -208,10 +208,10 @@ class TestDirectCliGuard:
             _bgs, "sync_item",
             side_effect=lambda *args, **k: (called.append(args[0]), 0)[1],
         ):
-            rc = cli.main(["sync-item", "63"])
+            rc = cli.main(["sync-item", "EXT-63"])
 
         assert rc == 0
-        assert called == ["63"]
+        assert called == ["EXT-63"]
 
     def test_dry_run_sync_body_skips_guard(
         self, db_with_open_conn, monkeypatch
@@ -226,10 +226,10 @@ class TestDirectCliGuard:
             _bgs, "sync_body",
             side_effect=lambda *args, **k: (called.append(args[0]), 0)[1],
         ):
-            rc = cli.main(["sync-body", "64"])
+            rc = cli.main(["sync-body", "EXT-64"])
 
         assert rc == 0
-        assert called == ["64"]
+        assert called == ["EXT-64"]
 
 
 class TestRelayGuard:
@@ -268,10 +268,10 @@ class TestRelayGuard:
             "yoke_core.domain.backlog._maybe_rebuild_board",
             return_value=None,
         ):
-            rc = relay.cmd_backlog_github(["sync-item", "71"])
+            rc = relay.cmd_backlog_github(["sync-item", "EXT-71"])
 
         assert rc == 0
-        assert called == ["71"]
+        assert called == ["EXT-71"]
 
 
 class TestBackfillOwnership:

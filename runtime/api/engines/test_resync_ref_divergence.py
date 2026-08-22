@@ -128,9 +128,9 @@ class TestStage1RefDivergence:
         ) as sync_item:
             ok, _, _ = resync_mod._repair_local_orphan_backlog(
                 orphan.item_id, orphan.project,
-            )
+        )
         assert ok is True
-        assert sync_item.call_args.args == ("4700",)
+        assert sync_item.call_args.args == (4700,)
 
 
 class TestStage2RefDivergence:

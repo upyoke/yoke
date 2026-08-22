@@ -310,7 +310,7 @@ class TestCli:
         rc = advance_skip.main(["polish", "not-a-number"])
         assert rc == 2
         err = capsys.readouterr().err
-        assert "invalid item id" in err
+        assert "expected PREFIX-N" in err
 
 # ---------------------------------------------------------------------------
 # Integration: real backlog.execute_update path for skip_polish

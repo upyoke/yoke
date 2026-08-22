@@ -14,10 +14,6 @@ from yoke_core.domain import epic
 from runtime.api.conftest import insert_epic_task, insert_item
 from runtime.api.fixtures.file_test_db import apply_sql_script
 
-TEST_EPIC_ID = 42
-TEST_EPIC_REF = f"YOK-{TEST_EPIC_ID}"
-
-
 class TestCascadeTaskStatus:
     def test_unknown_cascade_returns_zero(self, test_db):
         result = epic.cascade_task_status(test_db, "42", "idea", "done")
@@ -135,37 +131,18 @@ class TestMigrateTaskFiles:
         assert "already in place" in result
 
 
-class TestParseEpicId:
-    def test_bare_integer(self):
-        assert epic._parse_epic_id("42") == "42"
-
-    def test_sun_prefix(self):
-        assert epic._parse_epic_id(TEST_EPIC_REF) == str(TEST_EPIC_ID)
-
-    def test_sun_prefix_case_insensitive(self):
-        assert epic._parse_epic_id("yok-42") == "42"
-
-    def test_leading_zeros_stripped(self):
-        assert epic._parse_epic_id("042") == "42"
-
-    def test_empty_raises(self):
-        with pytest.raises(ValueError, match="epic ID is required"):
-            epic._parse_epic_id("")
-
-
 class TestValidateEpicExists:
-    def test_integer_always_passes(self, test_db):
-        """Pure integer IDs are assumed valid (no DB check)."""
-        epic._validate_epic_exists(test_db, "42")  # Should not raise
-
-    def test_nonexistent_slug_raises(self, test_db):
+    def test_integer_without_tasks_raises(self, test_db):
         with pytest.raises(LookupError, match="not found in epic_tasks"):
-            epic._validate_epic_exists(test_db, "implement-jwt-auth-middleware")
+            epic._validate_epic_exists(test_db, 42)
 
-    def test_existing_slug_passes(self, test_db):
+    def test_nonexistent_integer_raises(self, test_db):
+        with pytest.raises(LookupError, match="not found in epic_tasks"):
+            epic._validate_epic_exists(test_db, 999)
+
+    def test_existing_integer_passes(self, test_db):
         insert_epic_task(test_db, epic_id=42, task_num=1, title="Task 1")
-        # "42" is an integer string, so it passes without DB check
-        epic._validate_epic_exists(test_db, "42")
+        epic._validate_epic_exists(test_db, 42)
 
 
 class TestHistoryInsert:

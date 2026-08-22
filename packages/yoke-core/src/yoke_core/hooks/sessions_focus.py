@@ -2,9 +2,8 @@
 write paths.
 
 Owns the small private surface every harness_sessions writer reaches
-for: current/recent item rotation, active-session preconditions,
-``YOK-N``/integer item-id normalization, and the timestamp/format
-formatters used across the cmd functions.
+for: current/recent item rotation, active-session preconditions, and the
+timestamp/format formatters used across the cmd functions.
 """
 
 from __future__ import annotations
@@ -22,24 +21,9 @@ def _format_row(row) -> str:
     return "|".join("" if v is None else str(v) for v in tuple(row))
 
 
-def _normalize_item_id(raw: str, conn: object = None) -> str:
-    """Resolve an item ref to the bare internal id; preserve sentinels.
-
-    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
-    Non-ref sentinels pass through unchanged.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    resolved = parse_item_id_or_none(raw, conn=conn, allow_bare_internal=True)
-    if resolved is not None:
-        return str(resolved)
-    return raw
-
-
-def _set_current_item(conn, session_id: str, item_id: str) -> None:
+def _set_current_item(conn, session_id: str, item_id: int) -> None:
     """Mirror the harness session's current focus into harness_sessions."""
-    item_id = _normalize_item_id(item_id, conn)
+    item_id_text = str(int(item_id))
     row = query_one(
         conn,
         "SELECT current_item_id, current_item_set_at FROM harness_sessions WHERE session_id=%s",
@@ -54,7 +38,7 @@ def _set_current_item(conn, session_id: str, item_id: str) -> None:
         )
     conn.execute(
         "UPDATE harness_sessions SET current_item_id=%s, current_item_set_at=%s WHERE session_id=%s",
-        (item_id, _now_iso(), session_id),
+        (item_id_text, _now_iso(), session_id),
     )
 
 

@@ -1,19 +1,6 @@
-"""Cross-surface dedup regressions for chain_skip_memory item-id normalization.
-
-The recorder accepts ``YOK-N``, bare-numeric string, and bare-int input;
-the scheduler's candidate list carries bare internal ids. Coverage here
-pins the contract: every candidate-filter site canonicalises both sides
-via ``normalize_claim_item_id`` so all three skip-id formats
-``{<int>, '<int>', 'YOK-<int>'}`` filter the candidate out, and existing
-rows persisted in non-canonical form still filter correctly without a DB
-rewrite.
-"""
+"""Typed item-id dedup regressions for chain skip memory."""
 
 from __future__ import annotations
-
-from typing import Iterable
-
-import pytest
 
 from yoke_core.domain.scheduler_types import (
     ClaimState,
@@ -31,7 +18,6 @@ from yoke_core.api.service_client_sessions_frontier import (
 
 
 _ITEM_NUM = 1785
-_YOKE_ITEM_REF = f"YOK-{_ITEM_NUM}"
 
 
 def _make_step(item_id: int, rank: int) -> ScheduledStep:
@@ -62,18 +48,8 @@ def _schedule_with_two_candidates() -> SchedulerResult:
     )
 
 
-@pytest.mark.parametrize(
-    "skip_memory_item_ids",
-    [
-        {_YOKE_ITEM_REF},  # YOK-prefixed
-        {str(_ITEM_NUM)},  # bare-numeric string
-        {_ITEM_NUM},  # bare-int
-        {_YOKE_ITEM_REF, str(_ITEM_NUM)},  # mixed string forms
-        {str(_ITEM_NUM), _ITEM_NUM, _YOKE_ITEM_REF},  # all accepted forms
-    ],
-)
-def test_frontier_filter_canonicalizes_both_sides(skip_memory_item_ids):
-    """build_frontier_state_from_schedule filters all three skip-id formats."""
+def test_frontier_filter_uses_typed_internal_skip_ids():
+    """The frontier filter removes the typed internal item id."""
     schedule = _schedule_with_two_candidates()
 
     baseline = build_frontier_state_from_schedule(schedule)
@@ -81,7 +57,7 @@ def test_frontier_filter_canonicalizes_both_sides(skip_memory_item_ids):
     assert baseline.selected_item == str(_ITEM_NUM)
 
     filtered = build_frontier_state_from_schedule(
-        schedule, skip_memory_item_ids=skip_memory_item_ids,
+        schedule, skip_memory_item_ids={_ITEM_NUM},
     )
     assert str(_ITEM_NUM) not in filtered.runnable_items
     assert filtered.runnable_items == ["1786"]
@@ -95,44 +71,15 @@ def test_frontier_filter_no_skip_memory_runs_all_candidates():
     assert filtered.runnable_items == [str(_ITEM_NUM), "1786"]
 
 
-def test_historical_envelope_row_with_mixed_formats_filters():
-    """Historical chain_skip_memory rows with mixed formats still dedup
-    correctly. The compatibility contract is the read-side normalization
-    at the actual compare site; no DB rewrite is required.
-    """
-    schedule = _schedule_with_two_candidates()
-
-    # simulates an offer_envelope.chain_skip_memory list assembled
-    # from a recorder mix that predates the canonicalization slice.
-    historical_entries = [
-        {"item_id": str(_ITEM_NUM), "chain_step": 1},  # bare-numeric
-        {"item_id": _YOKE_ITEM_REF, "chain_step": 2},  # YOK-prefixed
-    ]
-    skip_memory_item_ids = {
-        str(e.get("item_id")) for e in historical_entries if e.get("item_id")
-    }
-    filtered = build_frontier_state_from_schedule(
-        schedule, skip_memory_item_ids=skip_memory_item_ids,
-    )
-    assert str(_ITEM_NUM) not in filtered.runnable_items
-
-
-@pytest.mark.parametrize(
-    "raw_item_id",
-    [_YOKE_ITEM_REF, str(_ITEM_NUM), _ITEM_NUM],
-)
-def test_summarise_skip_memory_canonicalizes_item_id(raw_item_id):
-    """The SessionOfferInvariantFailed summary renders canonical
-    bare-numeric item ids regardless of input shape, so post-mortem
-    queries don't have to dual-decode every entry.
-    """
-    skip_memory: Iterable[dict] = [
-        {"item_id": raw_item_id, "reason": "recoverable_substrate", "chain_step": 1},
+def test_summarise_skip_memory_preserves_typed_item_id():
+    """Invariant telemetry keeps the internal item id numeric."""
+    skip_memory = [
+        {"item_id": _ITEM_NUM, "reason": "recoverable_substrate", "chain_step": 1},
     ]
     summary = _summarise_skip_memory(skip_memory)
     assert summary == [
         {
-            "item_id": str(_ITEM_NUM),
+            "item_id": _ITEM_NUM,
             "reason": "recoverable_substrate",
             "chain_step": 1,
         }

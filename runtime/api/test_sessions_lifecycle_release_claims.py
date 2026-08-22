@@ -71,7 +71,7 @@ class TestSessionEndReleaseClaims:
     def test_release_claims_true_releases_and_ends(self, mock_emit, conn):
         """With release_claims=True and no chain pending, claims release and session ends."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
         mock_emit.reset_mock()
 
         result = end_session(conn, "sess-1", force=True, release_claims=True)
@@ -117,7 +117,7 @@ class TestSessionEndReleaseClaims:
         contract.
         """
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
 
         result = end_session(conn, "sess-1", force=True, release_claims=False)
 
@@ -156,7 +156,7 @@ class TestSessionEndReleaseClaims:
         remain untouched.
         """
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
         update_chain_checkpoint(
             conn,
             "sess-1",
@@ -188,8 +188,8 @@ class TestSessionEndReleaseClaims:
         path is target-kind-agnostic.
         """
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
-        claim_work(conn, session_id="sess-1", item_id=SECONDARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
+        claim_work(conn, session_id="sess-1", item_id=SECONDARY_ITEM_ID)
         mock_emit.reset_mock()
 
         result = end_session(conn, "sess-1", force=True, release_claims=True)
@@ -222,7 +222,7 @@ class TestSessionEndReleaseClaims:
         agent_presence_evidence.
         """
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
         update_chain_checkpoint(
             conn,
             "sess-1",

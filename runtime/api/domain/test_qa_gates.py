@@ -32,12 +32,12 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 class TestCheckVerificationEntry:
     def test_tc_passes_when_requirement_exists(self, qa_db):
         _add_requirement(qa_db)
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_verification_entry(target, qa_db)
         assert result.passed
 
     def test_tc_fails_when_no_requirements(self, qa_db):
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_verification_entry(target, qa_db)
         assert not result.passed
         assert any("no qa_requirements found" in e for e in result.errors)
@@ -47,7 +47,7 @@ class TestCheckVerificationEntry:
         )
 
     def test_epic_task_recovery_names_the_derived_transition(self, qa_db):
-        target = GateTarget.parse("833:5")
+        target = GateTarget(epic_id=833, task_num=5)
         with mock.patch(
             "yoke_core.domain.qa_gates.item_transition_for_gate",
             return_value="qa-review",
@@ -63,14 +63,14 @@ class TestCheckVerificationEntry:
 
     def test_tc_bypass_flag(self, qa_db, monkeypatch):
         monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_verification_entry(target, qa_db)
         assert result.passed
 
     def test_tc_graceful_without_qa_tables(self, tmp_path):
         # Gate passes gracefully if the qa_requirements table doesn't exist.
         with init_test_db(tmp_path, apply_schema=_apply_items_only) as db_path:
-            target = GateTarget.parse("42")
+            target = GateTarget(item_id=42)
             result = check_verification_entry(target, db_path)
             assert result.passed
 
@@ -85,13 +85,13 @@ class TestCheckDoneGate:
         _add_run(qa_db, req_id, "pass")
         req_id2 = _add_requirement(qa_db, qa_phase="post_deploy")
         _add_run(qa_db, req_id2, "pass")
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_done_gate(target, qa_db)
         assert result.passed
 
     def test_tc_fails_when_unsatisfied_any_phase(self, qa_db):
         _add_requirement(qa_db, qa_phase="post_deploy")
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_done_gate(target, qa_db)
         assert not result.passed
         assert any("done" in e for e in result.errors)
@@ -99,7 +99,7 @@ class TestCheckDoneGate:
     def test_tc_bypass_flag(self, qa_db, monkeypatch):
         monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")
         _add_requirement(qa_db)
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_done_gate(target, qa_db)
         assert result.passed
 
@@ -119,7 +119,7 @@ class TestCheckDoneGate:
             run_id,
             s3_handle("proj-prod-artifacts", "qa-artifacts/testproj/42/8/shot.png"),
         )
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_done_gate(target, qa_db)
         assert result.passed
 
@@ -142,7 +142,7 @@ class TestCheckDoneGate:
         art_file = tmp_path / "done-shot.png"
         art_file.write_bytes(b"PNG")
         _add_artifact(qa_db, run_id, str(art_file))
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         latest = LatestCodeRef(
             branch=TEST_ITEM_REF,
             sha="fresh999",

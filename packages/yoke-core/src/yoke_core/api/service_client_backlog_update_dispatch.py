@@ -18,12 +18,9 @@ from __future__ import annotations
 import io
 
 from yoke_core.api.service_client_shared import _emit_backlog_result
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-
-
 def _dispatch_structured_field_replace(
     *,
-    item_id: int,
+    item_ref: str,
     field: str,
     content: str,
     force: bool,
@@ -38,11 +35,17 @@ def _dispatch_structured_field_replace(
         call_dispatcher,
         emit_response,
     )
+    from yoke_core.domain.yok_n_parser import item_argument_project
 
     register_all_handlers()
+    project = item_argument_project()
     response = call_dispatcher(
         function_id="items.structured_field.replace",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=TargetRef(
+            kind="item",
+            item_ref=item_ref,
+            project_id=None if project is None else str(project),
+        ),
         payload={
             "field": field,
             "content": content,
@@ -59,7 +62,7 @@ def _dispatch_structured_field_replace(
         result_payload = response.result or {}
         legacy: dict = {
             "success": True,
-            "item_id": result_payload.get("item_id", item_id),
+            "item_id": result_payload.get("item_id"),
             "field": result_payload.get("field", field),
             "old_line_count": result_payload.get("old_line_count", 0),
             "new_line_count": result_payload.get("new_line_count", 0),
@@ -71,7 +74,7 @@ def _dispatch_structured_field_replace(
                 break
         if sync_warning:
             legacy["sync_warning"] = sync_warning
-        captured.write(f"Structured write complete: {item_ref_for_id(item_id)} {field}\n")
+        captured.write(f"Structured write complete: {item_ref} {field}\n")
         return _emit_backlog_result(legacy, log=captured.getvalue())
 
     err_msg = (

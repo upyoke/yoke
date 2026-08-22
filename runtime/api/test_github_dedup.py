@@ -178,7 +178,7 @@ class TestSyncItemDedup:
                 "yoke_core.domain.backlog_github_item_create._regenerate_md",
             ),
         ):
-            rc = backlog_github_sync.sync_item("20", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item(20, conn=db, stdout=stdout)
 
         assert rc == 0
         gh_issue = db.execute(
@@ -218,7 +218,7 @@ class TestSyncItemDedup:
                 return_value=0,
             ) as mock_task_sync,
         ):
-            rc = backlog_github_sync.sync_item("23", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item(23, conn=db, stdout=stdout)
 
         assert rc == 0
         gh_issue = db.execute(
@@ -268,7 +268,7 @@ class TestSyncItemDedup:
                 "yoke_core.domain.backlog_github_item_create._ensure_label",
             ),
         ):
-            rc = backlog_github_sync.sync_item("1500", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item(1500, conn=db, stdout=stdout)
 
         assert rc == 0
         gh_issue = db.execute(
@@ -316,7 +316,7 @@ class TestSyncItemDedup:
             ),
         ):
             rc = backlog_github_sync.sync_item(
-                "42", conn=db, stdout=stdout, stderr=stderr
+                42, conn=db, stdout=stdout, stderr=stderr
             )
 
         assert rc == 0

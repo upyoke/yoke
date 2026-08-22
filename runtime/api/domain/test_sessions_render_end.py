@@ -57,7 +57,7 @@ class TestReleaseSessionClaims:
 
     def test_item_claim_payload_carries_target_identifiers(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-501")
+        claim_work(conn, session_id="sess-1", item_id=501)
 
         rows = _claim_rows(conn, "sess-1")
         released = release_session_claims(
@@ -126,7 +126,7 @@ class TestEndSessionResponseEnvelope:
 
     def test_with_claims_released_claims_in_response(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-777")
+        claim_work(conn, session_id="sess-1", item_id=777)
         result = end_session(conn, "sess-1")
         assert "released_claims" in result
         assert len(result["released_claims"]) == 1

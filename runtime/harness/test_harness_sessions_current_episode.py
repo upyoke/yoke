@@ -96,7 +96,7 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
         with _build_conn() as conn:
             _insert_claim(conn, "sess-base", 10, "2026-05-01T00:00:00Z")
             out = cmd_who_claims(
-                conn, "10", caller_session_id="sess-base",
+                conn, 10, caller_session_id="sess-base",
             )
         # Baseline output (no flag) is unchanged — no episode_scope line.
         self.assertNotIn("episode_scope=", out)
@@ -107,7 +107,7 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
             _stamp_episode(conn, "sess-cur", "2026-05-01T00:00:00Z")
             _insert_claim(conn, "sess-cur", 11, "2026-05-02T00:00:00Z")
             out = cmd_who_claims(
-                conn, "11",
+                conn, 11,
                 caller_session_id="sess-cur",
                 current_episode=True,
             )
@@ -122,7 +122,7 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
             _insert_claim(conn, "sess-inh", 12, "2026-04-30T00:00:00Z")
             _stamp_episode(conn, "sess-inh", "2026-05-02T00:00:00Z")
             out = cmd_who_claims(
-                conn, "12",
+                conn, 12,
                 caller_session_id="sess-inh",
                 current_episode=True,
             )
@@ -137,7 +137,7 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
         with _build_conn() as conn:
             _insert_claim(conn, "sess-nb", 13, "2026-05-01T00:00:00Z")
             out = cmd_who_claims(
-                conn, "13",
+                conn, 13,
                 caller_session_id="sess-nb",
                 current_episode=True,
             )

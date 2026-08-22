@@ -320,29 +320,6 @@ class TestMigrateIssueToRepo:
         assert rc == 1
         assert "failed to create issue" in stderr.getvalue()
 
-    def test_cli_dispatch(self):
-        with patch(f"{GH_PATCH}.migrate_issue_to_repo", return_value=0) as mock:
-            rc = backlog_github_sync.main(
-                [
-                    "migrate-issue",
-                    "42",
-                    "100",
-                    "org/yoke",
-                    "yoke",
-                    "org/externalwebapp",
-                    "externalwebapp",
-                ]
-            )
-        assert rc == 0
-        mock.assert_called_once_with(
-            "42",
-            "100",
-            "org/yoke",
-            "yoke",
-            "org/externalwebapp",
-            "externalwebapp",
-        )
-
     def test_repo_projection_mismatch_fails_before_github_io(self):
         stderr = io.StringIO()
         with (

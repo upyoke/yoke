@@ -65,13 +65,6 @@ __all__ = [
 ]
 
 
-def _normalize_item_id(raw: str) -> int:
-    value = raw.strip()
-    if value.upper().startswith("YOK-"):
-        value = value[4:]
-    return int(value)
-
-
 def _usage_error(message: str) -> int:
     print(message, file=sys.stderr)
     return 1
@@ -280,9 +273,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         return _usage_error(usage)
 
     try:
-        item_id = _normalize_item_id(args[0])
-    except ValueError:
-        return _usage_error(usage)
+        from yoke_core.domain.yok_n_parser import parse_item_argument
+
+        item_id = parse_item_argument(args[0])
+    except ValueError as exc:
+        return _usage_error(f"Error: {exc}")
 
     output_file: Optional[str] = None
     section: Optional[str] = None

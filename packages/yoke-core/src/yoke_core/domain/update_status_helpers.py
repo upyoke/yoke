@@ -170,7 +170,7 @@ def _emit_event(
 # ---------------------------------------------------------------------------
 
 
-def _verify_claim(epic_id: str, task_num: str, *, stderr: TextIO) -> None:
+def _verify_claim(epic_id: int, task_num: str, *, stderr: TextIO) -> None:
     """In-process claim verification.
 
     Replaces the former ``verify-claim.sh`` subprocess dispatch with a direct
@@ -178,10 +178,7 @@ def _verify_claim(epic_id: str, task_num: str, *, stderr: TextIO) -> None:
     """
     from yoke_core.domain import verify_claim as _verify_claim_mod
 
-    try:
-        epic_id_int = int(str(epic_id).lstrip("#"))
-    except ValueError:
-        return
+    epic_id_int = int(epic_id)
     try:
         rc, result = _verify_claim_mod.verify(epic_id_int)
     except Exception:  # pragma: no cover - degrade open on domain errors

@@ -25,10 +25,6 @@ from runtime.api.sessions_api_stale_test_helpers import (
 )
 
 
-def _sun(item_id: int) -> str:
-    return f"YOK-{item_id}"
-
-
 def _seed_issue_workflow(conn) -> None:
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
@@ -45,7 +41,7 @@ class TestReleaseItemClaimForExecution:
         from yoke_core.domain.sessions import release_item_claim_for_execution
 
         _register(conn, session_id="exec-sess")
-        claim_work(conn, session_id="exec-sess", item_id=_sun(500))
+        claim_work(conn, session_id="exec-sess", item_id=500)
 
         # Precondition: current_item set by claim_work
         row = conn.execute(
@@ -54,7 +50,7 @@ class TestReleaseItemClaimForExecution:
         assert row["current_item_id"] == "500"
 
         result = release_item_claim_for_execution(
-            conn, "exec-sess", _sun(500), "finalize-exit",
+            conn, "exec-sess", 500, "finalize-exit",
         )
         assert result["released"] is True
         # Caller intent preserved
@@ -81,9 +77,9 @@ class TestReleaseItemClaimForExecution:
         from yoke_core.domain.sessions import release_item_claim_for_execution
 
         _register(conn, session_id="handoff-sess")
-        claim_work(conn, session_id="handoff-sess", item_id=_sun(510))
+        claim_work(conn, session_id="handoff-sess", item_id=510)
         result = release_item_claim_for_execution(
-            conn, "handoff-sess", _sun(510), "handoff-to-polish",
+            conn, "handoff-sess", 510, "handoff-to-polish",
         )
         assert result["reason_intent"] == "handoff-to-polish"
         assert result["reason_stored"] == "handed_off"
@@ -109,11 +105,11 @@ class TestReleaseItemClaimForExecution:
             (_ts, _ts),
         )
         _register(conn, session_id="active-status-sess")
-        claim_work(conn, session_id="active-status-sess", item_id=_sun(530))
+        claim_work(conn, session_id="active-status-sess", item_id=530)
 
         with pytest.raises(ValueError, match="polishing-implementation"):
             release_item_claim_for_execution(
-                conn, "active-status-sess", _sun(530), "completed",
+                conn, "active-status-sess", 530, "completed",
             )
 
         row = conn.execute(
@@ -142,10 +138,10 @@ class TestReleaseItemClaimForExecution:
             (_ts, _ts),
         )
         _register(conn, session_id="implemented-sess")
-        claim_work(conn, session_id="implemented-sess", item_id=_sun(531))
+        claim_work(conn, session_id="implemented-sess", item_id=531)
 
         result = release_item_claim_for_execution(
-            conn, "implemented-sess", _sun(531), "completed",
+            conn, "implemented-sess", 531, "completed",
         )
         assert result["released"] is True
         assert result["reason_stored"] == "completed"
@@ -158,7 +154,7 @@ class TestReleaseItemClaimForExecution:
 
         _register(conn, session_id="empty-sess")
         result = release_item_claim_for_execution(
-            conn, "empty-sess", _sun(999), "handoff-to-usher",
+            conn, "empty-sess", 999, "handoff-to-usher",
         )
         assert result["released"] is False
         # This fixture has no claim row for the requested item, so the
@@ -174,14 +170,14 @@ class TestReleaseItemClaimForExecution:
         )
 
         _register(conn, session_id="multi-sess")
-        claim_work(conn, session_id="multi-sess", item_id=_sun(700))
+        claim_work(conn, session_id="multi-sess", item_id=700)
         # Focus currently points at the claimed item because claim_work set it.
         # Move focus to a different item manually (simulating attribution
         # mutation path that points elsewhere).
-        set_current_item(conn, "multi-sess", _sun(800))
+        set_current_item(conn, "multi-sess", 800)
 
         release_item_claim_for_execution(
-            conn, "multi-sess", _sun(700), "finalize-exit",
+            conn, "multi-sess", 700, "finalize-exit",
         )
 
         # Focus on the earlier item stays -- we did not release a claim for it.
@@ -198,9 +194,9 @@ class TestReleaseItemClaimForExecution:
         )
 
         _register(conn, session_id="attr-sess")
-        claim_work(conn, session_id="attr-sess", item_id=_sun(900))
+        claim_work(conn, session_id="attr-sess", item_id=900)
         # set_current_item should not release the claim.
-        set_current_item(conn, "attr-sess", _sun(901))
+        set_current_item(conn, "attr-sess", 901)
         claim_row = conn.execute(
             "SELECT released_at FROM work_claims WHERE session_id='attr-sess' AND item_id='900'",
         ).fetchone()
@@ -218,9 +214,9 @@ class TestReleaseItemClaimForExecution:
         from yoke_core.domain.sessions import release_item_claim_for_execution
 
         _register(conn, session_id="offer-ovr-sess")
-        claim_work(conn, session_id="offer-ovr-sess", item_id=_sun(520))
+        claim_work(conn, session_id="offer-ovr-sess", item_id=520)
         result = release_item_claim_for_execution(
-            conn, "offer-ovr-sess", _sun(520), "offer-override",
+            conn, "offer-ovr-sess", 520, "offer-override",
         )
         assert result["released"] is True
         assert result["reason_intent"] == "offer-override"

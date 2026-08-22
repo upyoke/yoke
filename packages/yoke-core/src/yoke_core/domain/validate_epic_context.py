@@ -8,7 +8,6 @@ orchestrator and any future per-check carve-outs can share.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,7 +17,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 
 
-_NUMERIC_REF_RE = re.compile(r"^(?:[Yy][Oo][Kk]-)?([0-9]+)$")
 _ACTIVE_TASK_STATUSES = ("implementing", "reviewing-implementation")
 
 
@@ -54,36 +52,23 @@ def _int_scalar(conn: Any, sql: str, params: tuple = ()) -> int:
     return int(value)
 
 
-def _is_numeric_ref(epic_ref: str) -> bool:
-    return _NUMERIC_REF_RE.fullmatch(epic_ref) is not None
-
-
 def _resolve_epic(
     conn: Any, epic_ref: str
 ) -> tuple[str, str]:
     """Return ``(display_ref, canonical_epic_id)``.
 
     ``PREFIX-N`` resolves via the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
+    ``items.project_sequence``; a bare number uses the mapped checkout project.
     """
 
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
     display_ref = epic_ref
-    if not _is_numeric_ref(epic_ref):
-        return display_ref, epic_ref
-
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    item_id = parse_item_id_or_none(
-        epic_ref, conn=conn, allow_bare_internal=True
-    )
-    resolved = (
-        None
-        if item_id is None
-        else _query_scalar(
-            conn,
-            f"SELECT CAST(id AS TEXT) FROM items WHERE id={_p(conn)} LIMIT 1",
-            (item_id,),
-        )
+    item_id = parse_item_argument(epic_ref, conn=conn)
+    resolved = _query_scalar(
+        conn,
+        f"SELECT CAST(id AS TEXT) FROM items WHERE id={_p(conn)} LIMIT 1",
+        (item_id,),
     )
     if not resolved:
         raise ValueError(f"Item {epic_ref} does not exist")
@@ -124,7 +109,6 @@ __all__ = [
     "_connect",
     "_query_scalar",
     "_int_scalar",
-    "_is_numeric_ref",
     "_resolve_epic",
     "_parse_timestamp",
     "_p",

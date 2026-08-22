@@ -255,17 +255,17 @@ def _cli_main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.cmd == "check-item":
-        from yoke_core.domain.yok_n_parser import parse_item_id
+        from yoke_core.domain.yok_n_parser import parse_item_argument
 
         try:
-            item_id = parse_item_id(args.item, allow_bare_internal=True)
-        except ValueError:
+            item_id = parse_item_argument(args.item)
+        except ValueError as exc:
             print(
                 json.dumps(
                     {
                         "success": False,
                         "code": "USAGE",
-                        "message": f"invalid item id {args.item!r}",
+                        "message": str(exc),
                     }
                 ),
                 file=sys.stderr,

@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for the advance_path_claim_activation CLI entrypoint."""
 
 from __future__ import annotations
@@ -8,7 +9,7 @@ from yoke_core.domain.advance_path_claim_activation import (
     ActivationResult,
 )
 from runtime.api.advance_path_claim_activation_cli_test_support import (
-    fake_db,
+    fake_db,  # noqa: F401,F811
     seed_item,
     stub_run,
 )
@@ -30,7 +31,7 @@ def test_cli_activates_planned_claims(fake_db, monkeypatch, capsys):
     )
     stub = stub_run(monkeypatch, result=result)
 
-    rc = activation_mod.main(["--item", "9999"])
+    rc = activation_mod.main(["--item", "YOK-9999"])
 
     captured = capsys.readouterr()
     assert rc == 0
@@ -95,7 +96,7 @@ def test_cli_reports_blocked_claim(fake_db, monkeypatch, capsys):
     )
     stub_run(monkeypatch, result=blocked)
 
-    rc = activation_mod.main(["--item", "1234"])
+    rc = activation_mod.main(["--item", "YOK-1234"])
 
     captured = capsys.readouterr()
     assert rc == 1
@@ -113,7 +114,7 @@ def test_cli_reports_diverged_refs(fake_db, monkeypatch, capsys):
     )
     stub_run(monkeypatch, result=diverged)
 
-    rc = activation_mod.main(["--item", "4321"])
+    rc = activation_mod.main(["--item", "YOK-4321"])
 
     captured = capsys.readouterr()
     assert rc == 1
@@ -129,7 +130,7 @@ def test_cli_blocks_item_without_actor(fake_db, monkeypatch, capsys):
         result=ActivationResult(item_id=7777, actor_id=0, outcomes=[]),
     )
 
-    rc = activation_mod.main(["--item", "7777"])
+    rc = activation_mod.main(["--item", "YOK-7777"])
 
     captured = capsys.readouterr()
     assert rc == 1
@@ -143,11 +144,11 @@ def test_cli_returns_2_for_missing_item(fake_db, monkeypatch, capsys):
         result=ActivationResult(item_id=0, actor_id=0, outcomes=[]),
     )
 
-    rc = activation_mod.main(["--item", "404"])
+    rc = activation_mod.main(["--item", "YOK-404"])
 
     captured = capsys.readouterr()
     assert rc == 2
-    assert "ERROR: item 404 not found" in captured.err
+    assert "item ref 'YOK-404' not found" in captured.err
 
 
 def test_cli_returns_2_for_invalid_item(fake_db, monkeypatch, capsys):
@@ -155,4 +156,4 @@ def test_cli_returns_2_for_invalid_item(fake_db, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert rc == 2
-    assert "ERROR: invalid --item value" in captured.err
+    assert "expected PREFIX-N" in captured.err

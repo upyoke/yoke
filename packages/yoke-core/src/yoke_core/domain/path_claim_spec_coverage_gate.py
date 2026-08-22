@@ -288,12 +288,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
     try:
-        item_id = parse_item_id(args.item_id, allow_bare_internal=True)
-    except (TypeError, ValueError):
-        print(f"ERROR: cannot parse item id '{args.item_id}'", file=sys.stderr)
+        item_id = parse_item_argument(args.item_id)
+    except (TypeError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
     result = evaluate(item_id)

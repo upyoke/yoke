@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 if __name__ == "__main__":
     sys.modules.setdefault("yoke_core.domain.events_crud", sys.modules[__name__])
@@ -78,18 +78,9 @@ def normalize_event_item_id(item_id: Optional[str]) -> Optional[str]:
     text = str(item_id).strip()
     if not text:
         return None
-    bare = _ITEM_REF_PREFIX_RE.sub("", text)
-    if bare.isdigit():
-        return bare.lstrip("0") or "0"
+    if text.isdigit():
+        return text.lstrip("0") or "0"
     return None
-
-
-# Every project sets its own public item prefix, so strip whatever alphabetic
-# prefix a ref carries rather than one project's. Callers gate on the
-# remainder being all digits, which still rejects composite work units and
-# sentinels: ``epic-1318-task-3`` and ``run-20260417-002`` keep a non-numeric
-# tail once their prefix comes off, and a bare sentinel has no prefix at all.
-_ITEM_REF_PREFIX_RE = re.compile(r"^[A-Za-z]+-")
 
 
 _EPIC_TASK_RE = re.compile(r"^epic-(\d+)-task-(\d+)$", re.IGNORECASE)
@@ -101,7 +92,7 @@ def decompose_work_unit(
     """Split a work-unit identifier into ``(item_id, task_num, sentinel)``.
 
     - ``None`` / empty -> ``(None, None, None)``
-    - Bare integer or ``YOK-N`` -> ``(bare, None, None)``
+    - Resolved internal integer string -> ``(bare, None, None)``
     - ``epic-N-task-M`` -> ``(N, M, None)``
     - Anything else (lane sentinels like ``STRATEGIZE`` / ``DOCTOR``,
       deployment run IDs like ``run-20260417-002``) -> ``(None, None, raw)``
@@ -114,9 +105,8 @@ def decompose_work_unit(
     text = str(item_id).strip()
     if not text:
         return None, None, None
-    bare = _ITEM_REF_PREFIX_RE.sub("", text)
-    if bare.isdigit():
-        return bare.lstrip("0") or "0", None, None
+    if text.isdigit():
+        return text.lstrip("0") or "0", None, None
     epic_match = _EPIC_TASK_RE.match(text)
     if epic_match:
         epic_id = epic_match.group(1).lstrip("0") or "0"
@@ -160,7 +150,7 @@ def normalize_severity(sev: str) -> str:
 # Re-exports from child modules
 # ---------------------------------------------------------------------------
 
-from yoke_core.domain.events_writes import (  # noqa: E402
+from yoke_core.domain.events_writes import (  # noqa: E402,F401
     _create_events_table,
     check_severity,
     cmd_init,
@@ -171,7 +161,7 @@ from yoke_core.domain.events_writes import (  # noqa: E402
     cmd_severity_config_set,
 )
 
-from yoke_core.domain.events_queries import (  # noqa: E402
+from yoke_core.domain.events_queries import (  # noqa: E402,F401
     _build_where,
     cmd_anomalies,
     cmd_count,
@@ -180,7 +170,7 @@ from yoke_core.domain.events_queries import (  # noqa: E402
     cmd_tail,
 )
 
-from yoke_core.domain.events_reporting import (  # noqa: E402
+from yoke_core.domain.events_reporting import (  # noqa: E402,F401
     _discover_python_event_names,
     _extract_event_name_from_line,
     _join_continuation_lines,

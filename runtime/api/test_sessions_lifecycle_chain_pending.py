@@ -43,7 +43,6 @@ pytest_plugins = ("runtime.api.test_sessions",)
 
 
 ITEM_ID = "100"
-ITEM_REF = f"YOK-{ITEM_ID}"
 
 
 def _setup_chain_checkpoint(
@@ -54,14 +53,15 @@ def _setup_chain_checkpoint(
     chainable=True,
     max_chain_steps=3,
     handler_outcome="completed",
-    item_id=ITEM_REF,
+    item_id=int(ITEM_ID),
     with_claim=False,
 ):
     """Register a session with a chain checkpoint and optional active claim."""
     _register(conn, session_id=session_id)
     if with_claim:
-        _insert_claimable_item(conn, int(item_id.removeprefix("YOK-")))
-        claim_work(conn, session_id=session_id, item_id=item_id)
+        resolved_item_id = int(item_id)
+        _insert_claimable_item(conn, resolved_item_id)
+        claim_work(conn, session_id=session_id, item_id=resolved_item_id)
     update_chain_checkpoint(
         conn,
         session_id,

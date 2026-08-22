@@ -11,7 +11,7 @@ allowance. Empty => zero tolerance.
 from __future__ import annotations
 
 BASELINE: dict[str, dict[str, object]] = {
-    "packages/yoke-core/src/yoke_core/domain/_test_check_path_claim_helpers.py": {
+    "runtime/api/domain/_test_check_path_claim_helpers.py": {
         "count": 1,
         "reason": "branch_name_convention",
         "note": "synthetic worktree branch label in path-claim test helper",
@@ -22,24 +22,9 @@ BASELINE: dict[str, dict[str, object]] = {
         "note": "worktree dirname token recognition and commit label from basename",
     },
     "packages/yoke-core/src/yoke_core/domain/backlog_queries.py": {
-        "count": 3,
-        "reason": "parsed_back_to_internal_id",
-        "note": "public-ref parse and next-id allocation before project prefix is known",
-    },
-    "packages/yoke-core/src/yoke_core/domain/check_claim_boundary_audit.py": {
         "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "normalize audit correlation token to bare item id",
-    },
-    "packages/yoke-core/src/yoke_core/domain/check_claim_boundary_audit_correlation.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "normalize correlation token to bare item id",
-    },
-    "packages/yoke-core/src/yoke_core/domain/claim_chain_state.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "strip public prefix from epic token before int cast",
+        "reason": "next_id_display_fallback",
+        "note": "next-id output before a project-specific prefix is available",
     },
     "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_gates.py": {
         "count": 2,
@@ -56,30 +41,10 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "legacy_key_lookup",
         "note": "stop query matches historical YOK-{internal_id} environment labels",
     },
-    "packages/yoke-core/src/yoke_core/domain/epic_task_sync.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "normalize epic ref token before numeric compare",
-    },
     "packages/yoke-core/src/yoke_core/domain/handlers/shepherd_verdict_writes.py": {
         "count": 1,
         "reason": "legacy_key_lookup",
         "note": "shepherd_verdicts.item column stores legacy YOK-{items.id} keys",
-    },
-    "packages/yoke-core/src/yoke_core/domain/item_execution_status_helpers.py": {
-        "count": 1,
-        "reason": "token_recognition",
-        "note": "detect whether operator token already carries a public prefix",
-    },
-    "packages/yoke-core/src/yoke_core/domain/item_status_transitions.py": {
-        "count": 2,
-        "reason": "parsed_back_to_internal_id",
-        "note": "accept public-ref or bare numeric tokens at transition boundary",
-    },
-    "packages/yoke-core/src/yoke_core/domain/item_test_results_classify.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "strip prefix from classifier input before numeric parse",
     },
     "packages/yoke-core/src/yoke_core/domain/item_worktree_resolution.py": {
         "count": 1,
@@ -111,30 +76,15 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "doc_comment_only",
         "note": "documents dual public-ref and legacy resolver schemes",
     },
-    "packages/yoke-core/src/yoke_core/domain/path_claims_dispatch_io.py": {
-        "count": 1,
-        "reason": "token_recognition",
-        "note": "_YOKE_ITEM_PREFIX parsing constant for dispatch payloads",
-    },
     "packages/yoke-core/src/yoke_core/domain/project_scratch_dir.py": {
         "count": 2,
         "reason": "scratch_path_convention",
         "note": "per-dispatch scratch subtree uses stable YOK-{internal_id} segment",
     },
     "packages/yoke-core/src/yoke_core/domain/render_body.py": {
-        "count": 3,
+        "count": 2,
         "reason": "legacy_key_lookup",
         "note": "shepherd_verdicts and related tables keyed by legacy YOK-{items.id}",
-    },
-    "packages/yoke-core/src/yoke_core/domain/sessions_offer_revalidation.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "strip public prefix before session-offer numeric lookup",
-    },
-    "packages/yoke-core/src/yoke_core/domain/sessions_queries_base.py": {
-        "count": 3,
-        "reason": "parsed_back_to_internal_id",
-        "note": "normalize session query tokens to internal item ids",
     },
     "packages/yoke-core/src/yoke_core/domain/shepherd_gate.py": {
         "count": 2,
@@ -146,20 +96,10 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "token_recognition",
         "note": "filter quoted strings that look like item refs during audit extract",
     },
-    "packages/yoke-core/src/yoke_core/domain/strategize_carry_cli.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "detect carry-cli argv tokens that already include a public prefix",
-    },
     "packages/yoke-core/src/yoke_core/domain/worktree_lane_plan.py": {
         "count": 1,
         "reason": "doc_comment_only",
         "note": "documents fallback when public sequence cannot be read",
-    },
-    "packages/yoke-core/src/yoke_core/domain/worktree_preflight.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "strip known worktree branch prefixes before numeric parse",
     },
     "packages/yoke-core/src/yoke_core/domain/worktree_preflight_steps.py": {
         "count": 2,
@@ -182,7 +122,7 @@ BASELINE: dict[str, dict[str, object]] = {
         "note": "documents legacy branch naming beside public refs",
     },
     "packages/yoke-core/src/yoke_core/engines/done_transition_cleanup.py": {
-        "count": 2,
+        "count": 1,
         "reason": "branch_name_convention",
         "note": "trial branch glob and comment on legacy naming fallback",
     },
@@ -195,31 +135,6 @@ BASELINE: dict[str, dict[str, object]] = {
         "count": 1,
         "reason": "legacy_key_lookup",
         "note": "shepherd_verdicts row lookup uses legacy item key column value",
-    },
-    "packages/yoke-core/src/yoke_core/engines/done_transition_runtime.py": {
-        "count": 1,
-        "reason": "parsed_back_to_internal_id",
-        "note": "accept public-ref tokens at done-transition runtime boundary",
-    },
-    "runtime/api/domain/qa_gates_reviewed_impl_test_support.py": {
-        "count": 1,
-        "reason": "test_fixture_path",
-        "note": "synthetic TEST_ITEM_REF constant for QA gate fixtures",
-    },
-    "runtime/api/domain/qa_plan_execution_test_support.py": {
-        "count": 1,
-        "reason": "test_fixture_path",
-        "note": "synthetic TEST_ITEM_REF constant for QA plan fixtures",
-    },
-    "runtime/api/epic_cascade_dispatch_test_support.py": {
-        "count": 1,
-        "reason": "test_fixture_path",
-        "note": "synthetic TEST_ITEM_REF constant for epic cascade fixtures",
-    },
-    "runtime/api/epic_full_test_support.py": {
-        "count": 1,
-        "reason": "test_fixture_path",
-        "note": "synthetic TEST_EPIC_REF constant for epic integration fixtures",
     },
     "runtime/api/events_crud_test_fixtures.py": {
         "count": 1,

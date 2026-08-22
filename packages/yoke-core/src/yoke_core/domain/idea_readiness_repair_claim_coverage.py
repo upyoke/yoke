@@ -322,12 +322,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--item", required=True, help="YOK-N or N")
     args = parser.parse_args(argv)
     try:
-        from yoke_core.domain.yok_n_parser import parse_item_id
+        from yoke_core.domain.yok_n_parser import parse_item_argument
 
-        item_id = parse_item_id(args.item, allow_bare_internal=True)
-    except ValueError:
+        item_id = parse_item_argument(args.item)
+    except ValueError as exc:
         print(json.dumps({"success": False,
-                          "error": f"invalid item: {args.item!r}"}))
+                          "error": str(exc)}))
         return 1
     verdict, issues = _rerun_readiness(item_id)
     if verdict == "pass":

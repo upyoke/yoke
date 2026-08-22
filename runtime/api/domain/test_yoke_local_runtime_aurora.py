@@ -168,11 +168,11 @@ def test_github_sync_item_fields_casts_values_before_coalescing() -> None:
 
     conn = FakeConn()
 
-    assert backlog_github_fetch._item_fields("1897", ["blocked"], conn=conn) == {
+    assert backlog_github_fetch._item_fields(1897, ["blocked"], conn=conn) == {
         "blocked": "1"
     }
     assert "COALESCE(CAST(i.blocked AS TEXT), '')" in conn.sql
-    assert conn.params == ("1897",)
+    assert conn.params == (1897,)
 
 
 def test_migration_evidence_gate_resolves_connected_postgres_audit_target(

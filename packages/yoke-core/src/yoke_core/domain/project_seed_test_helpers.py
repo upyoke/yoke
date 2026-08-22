@@ -40,6 +40,10 @@ def seed_project_identities(conn) -> None:
             (project_id, slug, name, emoji, github_repo, prefix, iso8601_now()),
         )
         conn.execute(
+            f"UPDATE projects SET public_item_prefix={p} WHERE id={p}",
+            (prefix, project_id),
+        )
+        conn.execute(
             f"UPDATE projects SET emoji={p} "
             f"WHERE id={p} AND (emoji IS NULL OR emoji='')",
             (emoji, project_id),

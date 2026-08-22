@@ -30,13 +30,13 @@ class TestCheckReviewedImplementationGate:
     def test_tc_passes_when_all_satisfied(self, qa_db):
         req_id = _add_requirement(qa_db)
         _add_run(qa_db, req_id, "pass")
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert result.passed
 
     def test_tc_fails_when_unsatisfied(self, qa_db):
         _add_requirement(qa_db)
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
         assert any("unsatisfied" in e for e in result.errors)
@@ -44,7 +44,7 @@ class TestCheckReviewedImplementationGate:
     def test_tc_unsatisfied_remediation_points_to_advance(self, qa_db):
         """generic gate failures tell the operator which advance command to run."""
         _add_requirement(qa_db)
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
         joined = "\n".join(result.errors)
@@ -59,7 +59,7 @@ class TestCheckReviewedImplementationGate:
         )
         conn.commit()
         conn.close()
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert result.passed
 
@@ -72,7 +72,7 @@ class TestCheckReviewedImplementationGate:
         )
         # Only agent-executed run — should fail
         _add_run(qa_db, req_id, "pass", performed_by="agent")
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
         assert any("substrate evidence" in e for e in result.errors)
@@ -85,7 +85,7 @@ class TestCheckReviewedImplementationGate:
             method_id="browser-inspection",
         )
         _add_run(qa_db, req_id, "pass", performed_by="agent")
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
         joined = "\n".join(result.errors)
@@ -111,7 +111,7 @@ class TestCheckReviewedImplementationGate:
         art_file = tmp_path / "screenshot.png"
         art_file.write_bytes(b"PNG")
         _add_artifact(qa_db, run_id, str(art_file))
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert result.passed
 
@@ -150,7 +150,7 @@ class TestCheckReviewedImplementationGate:
         )
 
         result = check_reviewed_implementation_gate(
-            GateTarget.parse("42"),
+            GateTarget(item_id=42),
             qa_db,
         )
 
@@ -170,21 +170,21 @@ class TestCheckReviewedImplementationGate:
             qa_db, run_id,
             s3_handle("proj-prod-artifacts", "qa-artifacts/testproj/42/7/shot.png"),
         )
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert result.passed
 
     def test_tc_non_blocking_ignored(self, qa_db):
         """Non-blocking requirements don't block the gate."""
         _add_requirement(qa_db, blocking="non_blocking")
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert result.passed
 
     def test_tc_bypass_flag(self, qa_db, monkeypatch):
         monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")
         _add_requirement(qa_db)
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         result = check_reviewed_implementation_gate(target, qa_db)
         assert result.passed
 
@@ -206,7 +206,7 @@ class TestCheckReviewedImplementationGate:
         art_file = tmp_path / "screenshot.png"
         art_file.write_bytes(b"PNG")
         _add_artifact(qa_db, run_id, str(art_file))
-        target = GateTarget.parse("42")
+        target = GateTarget(item_id=42)
         with mock.patch(
             "yoke_core.domain.qa_gates._resolve_latest_code_ref",
             return_value=LatestCodeRef(

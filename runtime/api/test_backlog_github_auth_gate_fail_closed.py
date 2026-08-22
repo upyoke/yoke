@@ -28,7 +28,7 @@ SyncCall = Callable[[object, io.StringIO], int]
         (
             "post-comment",
             lambda conn, err: backlog_github_sync.post_comment(
-                "91",
+                91,
                 "idea",
                 "implementing",
                 conn=conn,
@@ -38,7 +38,7 @@ SyncCall = Callable[[object, io.StringIO], int]
         (
             "sync-labels",
             lambda conn, err: backlog_github_sync.sync_labels(
-                "91",
+                91,
                 conn=conn,
                 stderr=err,
             ),
@@ -46,7 +46,7 @@ SyncCall = Callable[[object, io.StringIO], int]
         (
             "sync-frozen-label",
             lambda conn, err: backlog_github_sync.sync_frozen_label(
-                "91",
+                91,
                 "true",
                 conn=conn,
                 stderr=err,
@@ -121,7 +121,7 @@ def test_done_closeout_auth_failure_leaves_the_issue_untouched() -> None:
             "yoke_core.domain.github_rest.set_issue_state"
         ) as close_issue:
             result = backlog_github_sync.sync_done_item(
-                "91", "reviewing-implementation", conn=conn, stderr=stderr,
+                91, "reviewing-implementation", conn=conn, stderr=stderr,
             )
     finally:
         conn.close()

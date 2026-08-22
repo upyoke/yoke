@@ -64,16 +64,8 @@ def _rebuild_board_direct() -> None:
     backlog._rebuild_board(out=sys.stderr)
 
 
-def _epic_numeric(epic_id: str) -> int:
-    """Return the numeric epic item id for a raw epic ref (``YOK-N`` or ``N``)."""
-    raw = str(epic_id).strip()
-    if raw.upper().startswith("YOK-"):
-        raw = raw[4:]
-    return int(raw.lstrip("#"))
-
-
 def _update_task_status_direct(
-    epic_id: str,
+    epic_id: int,
     task_num: str,
     new_status: str,
     note: str,
@@ -90,9 +82,8 @@ def _update_task_status_direct(
     claim-bypass / done-verified values the engine used to set as process env
     vars (``env_overrides``) travel as a typed payload and are posted on a
     request-scoped ContextVar server-side; ``os.environ`` is never mutated. The
-    epic ref is passed through unchanged so ``update_task_status`` queries it
-    exactly as the former direct call did; the numeric epic id targets the
-    relay for project-scoped authorization.
+    The already-resolved internal epic id targets the relay and is carried to
+    the handler as typed numeric state.
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -102,9 +93,9 @@ def _update_task_status_direct(
     overrides = env_overrides or {}
     resp = call_dispatcher(
         function_id="done_transition.epic_task_status_set",
-        target=TargetRef(kind="item", item_id=_epic_numeric(epic_id)),
+        target=TargetRef(kind="item", item_id=epic_id),
         payload={
-            "epic_id": str(epic_id),
+            "epic_id": epic_id,
             "task_num": str(task_num),
             "status": new_status,
             "note": note,

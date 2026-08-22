@@ -49,21 +49,21 @@ def _seed_claim_items(conn):
 class TestClaimWork:
     def test_claim_item_succeeds(self, conn):
         _register(conn)
-        result = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        result = claim_work(conn, session_id="sess-1", item_id=9999)
         assert result["session_id"] == "sess-1"
         assert result["item_id"] == 9999
         assert result["target_kind"] == "item"
         assert result["claim_type"] == "exclusive"
         assert result["released_at"] is None
 
-    def test_claim_numeric_item_is_normalized(self, conn):
+    def test_claim_accepts_resolved_integer_item(self, conn):
         _register(conn)
-        result = claim_work(conn, session_id="sess-1", item_id="09999")
+        result = claim_work(conn, session_id="sess-1", item_id=9999)
         assert result["item_id"] == 9999
 
     def test_claim_sets_current_item_attribution(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        claim_work(conn, session_id="sess-1", item_id=9999)
         row = conn.execute(
             "SELECT current_item_id, recent_item_id FROM harness_sessions WHERE session_id = 'sess-1'"
         ).fetchone()
@@ -87,9 +87,9 @@ class TestClaimWork:
     def test_claim_exclusive_conflict_rejected(self, conn):
         _register(conn, session_id="sess-1")
         _register(conn, session_id="sess-2")
-        claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        claim_work(conn, session_id="sess-1", item_id=9999)
         with pytest.raises(SessionError) as exc_info:
-            claim_work(conn, session_id="sess-2", item_id="YOK-9999")
+            claim_work(conn, session_id="sess-2", item_id=9999)
         assert exc_info.value.code == "ALREADY_CLAIMED"
 
     def test_claim_auto_reaps_stale_session_on_conflict(self, conn):
@@ -101,7 +101,7 @@ class TestClaimWork:
         apply_ddl_statements(conn, EVENTS_TABLE_FOR_STALE_DETECTION)
         _register(conn, session_id="sess-stale")
         _register(conn, session_id="sess-new")
-        claim_work(conn, session_id="sess-stale", item_id="YOK-99")
+        claim_work(conn, session_id="sess-stale", item_id=99)
         # Make the stale session's heartbeat old enough to be reaped
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s "
@@ -114,7 +114,7 @@ class TestClaimWork:
             (_STALE_TS_60, _STALE_TS_60),
         )
         # This should auto-reap sess-stale and succeed
-        result = claim_work(conn, session_id="sess-new", item_id="YOK-99")
+        result = claim_work(conn, session_id="sess-new", item_id=99)
         assert result["session_id"] == "sess-new"
         assert result["item_id"] == 99
         # Verify the stale session's claim was released
@@ -131,8 +131,8 @@ class TestClaimWork:
         re-run claim during long workflows should not see DUPLICATE_CLAIM.
         """
         _register(conn)
-        first = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
-        second = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        first = claim_work(conn, session_id="sess-1", item_id=9999)
+        second = claim_work(conn, session_id="sess-1", item_id=9999)
         assert second["id"] == first["id"]
         assert second["released_at"] is None
 
@@ -140,25 +140,25 @@ class TestClaimWork:
         _register(conn)
         end_session(conn, "sess-1")
         with pytest.raises(SessionError) as exc_info:
-            claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+            claim_work(conn, session_id="sess-1", item_id=9999)
         assert exc_info.value.code == "SESSION_ENDED"
 
     def test_claim_nonexistent_session_fails(self, conn):
         with pytest.raises(SessionError) as exc_info:
-            claim_work(conn, session_id="ghost", item_id="YOK-9999")
+            claim_work(conn, session_id="ghost", item_id=9999)
         assert exc_info.value.code == "NOT_FOUND"
 
     def test_claim_after_release_succeeds(self, conn):
         _register(conn, session_id="sess-1")
         _register(conn, session_id="sess-2")
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         release_claim(conn, c["id"], reason="completed")
-        result = claim_work(conn, session_id="sess-2", item_id="YOK-9999")
+        result = claim_work(conn, session_id="sess-2", item_id=9999)
         assert result["session_id"] == "sess-2"
 
     def test_end_session_moves_current_item_to_recent(self, conn):
         _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         release_claim(conn, c["id"], reason="completed")
         end_session(conn, "sess-1")
         row = conn.execute(
@@ -218,9 +218,9 @@ class TestClaimWork:
             conn = _RaceConn(connect_test_db(db_path), db_path)
             try:
                 with pytest.raises(SessionError) as exc_info:
-                    claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+                    claim_work(conn, session_id="sess-1", item_id=9999)
                 assert exc_info.value.code == "ALREADY_CLAIMED"
-                claim = get_claim_for_work_unit(conn, item_id="YOK-9999")
+                claim = get_claim_for_work_unit(conn, item_id=9999)
                 assert claim is not None
                 assert claim["session_id"] == "sess-2"
             finally:
@@ -241,14 +241,14 @@ class TestClaimWork:
 class TestClaimRelease:
     def test_release_sets_released_at_and_reason(self, conn):
         _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         result = release_claim(conn, c["id"], reason="completed")
         assert result["released_at"] is not None
         assert result["release_reason"] == "completed"
 
     def test_release_already_released_fails(self, conn):
         _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         release_claim(conn, c["id"])
         with pytest.raises(SessionError) as exc_info:
             release_claim(conn, c["id"])
@@ -261,8 +261,8 @@ class TestClaimRelease:
 
     def test_release_all_releases_multiple(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-1")
-        claim_work(conn, session_id="sess-1", item_id="YOK-2")
+        claim_work(conn, session_id="sess-1", item_id=1)
+        claim_work(conn, session_id="sess-1", item_id=2)
         count = release_all_claims(conn, "sess-1", reason="released")
         assert count == 2
         claims = list_claims_for_session(conn, "sess-1", active_only=True)
@@ -277,8 +277,8 @@ class TestClaimRelease:
         success response carries the per-claim release payload.
         """
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-1")
-        claim_work(conn, session_id="sess-1", item_id="YOK-2")
+        claim_work(conn, session_id="sess-1", item_id=1)
+        claim_work(conn, session_id="sess-1", item_id=2)
         result = end_session(conn, "sess-1")
         assert result["ended_at"] is not None
         active = conn.execute(
@@ -291,8 +291,8 @@ class TestClaimRelease:
     def test_end_session_succeeds_after_claims_released(self, conn):
         """end_session works when all claims are pre-released."""
         _register(conn)
-        c1 = claim_work(conn, session_id="sess-1", item_id="YOK-1")
-        c2 = claim_work(conn, session_id="sess-1", item_id="YOK-2")
+        c1 = claim_work(conn, session_id="sess-1", item_id=1)
+        c2 = claim_work(conn, session_id="sess-1", item_id=2)
         release_claim(conn, c1["id"], reason="completed")
         release_claim(conn, c2["id"], reason="completed")
         result = end_session(conn, "sess-1")

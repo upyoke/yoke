@@ -29,8 +29,6 @@ pytest_plugins = ("runtime.api.test_sessions",)
 
 PRIMARY_ITEM_ID = 9999
 SECONDARY_ITEM_ID = 7777
-PRIMARY_ITEM_REF = f"YOK-{PRIMARY_ITEM_ID}"
-SECONDARY_ITEM_REF = f"YOK-{SECONDARY_ITEM_ID}"
 
 
 def _seed_claim_targets(conn, *item_ids: int) -> None:
@@ -56,7 +54,7 @@ class TestNoFlagsAutoRelease:
     def test_ac1_no_flags_releases_active_claim_and_ends(self, conn):
         """No-flags end_session auto-releases active claims and ends."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
 
         result = end_session(conn, "sess-1")
 
@@ -87,7 +85,7 @@ class TestNoFlagsAutoRelease:
     def test_force_does_not_change_no_flags_behavior(self, conn):
         """force=True still auto-releases (no longer a guard-bypass primitive)."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
 
         result = end_session(conn, "sess-1", force=True)
 
@@ -123,7 +121,7 @@ class TestNoFlagsAutoRelease:
     def test_no_flags_emits_released_claims_event(self, mock_emit, conn):
         """No-flags auto-release emits HarnessSessionEndReleasedClaims with via=no_flags."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
         mock_emit.reset_mock()
 
         end_session(conn, "sess-1")
@@ -152,8 +150,8 @@ class TestNoFlagsAutoRelease:
     def test_ac12_multiple_claims_all_released(self, conn):
         """Multiple claims (item targets) all release on no-flags end."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
-        claim_work(conn, session_id="sess-1", item_id=SECONDARY_ITEM_REF)
+        claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_ID)
+        claim_work(conn, session_id="sess-1", item_id=SECONDARY_ITEM_ID)
 
         result = end_session(conn, "sess-1")
 
@@ -174,7 +172,7 @@ class TestNoFlagsAutoRelease:
         for i in range(6):
             sid = f"ghost-{i}"
             _register(conn, session_id=sid)
-            claim_work(conn, session_id=sid, item_id=f"YOK-{100 + i}")
+            claim_work(conn, session_id=sid, item_id=100 + i)
 
         for i in range(6):
             sid = f"ghost-{i}"

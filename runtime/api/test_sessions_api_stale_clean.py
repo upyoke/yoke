@@ -52,7 +52,7 @@ class TestCleanStaleHarnessSessions:
             (_ts30, _ts30),
         )
         conn.commit()
-        claim_work(conn, session_id="stale-offer", item_id="YOK-100")
+        claim_work(conn, session_id="stale-offer", item_id=100)
         conn.execute(
             """UPDATE work_claims
                SET claimed_at = %s, last_heartbeat = %s
@@ -89,7 +89,7 @@ class TestCleanStaleHarnessSessions:
             (_ts30, _ts30),
         )
         conn.commit()
-        claim_work(conn, session_id="dead-worker", item_id="YOK-200")
+        claim_work(conn, session_id="dead-worker", item_id=200)
         conn.execute(
             """UPDATE work_claims
                SET claimed_at = %s, last_heartbeat = %s
@@ -114,7 +114,7 @@ class TestCleanStaleHarnessSessions:
         conn = conn_with_events
         _register(conn, session_id="wedged-sess")
         # Heartbeat is fresh (just now), but tool events are old
-        claim_work(conn, session_id="wedged-sess", item_id="YOK-300")
+        claim_work(conn, session_id="wedged-sess", item_id=300)
 
         _stamp_tool_activity(conn, 'wedged-sess', 120)
         conn.commit()
@@ -133,7 +133,7 @@ class TestCleanStaleHarnessSessions:
         """Fresh heartbeat + recent tool events = not stale."""
         conn = conn_with_events
         _register(conn, session_id="healthy-sess")
-        claim_work(conn, session_id="healthy-sess", item_id="YOK-400")
+        claim_work(conn, session_id="healthy-sess", item_id=400)
 
         _stamp_tool_activity(conn, 'healthy-sess', 5)
         conn.commit()
@@ -232,7 +232,7 @@ class TestCleanStaleHarnessSessions:
             (_ts30, _ts30),
         )
         c.commit()
-        claim_work(c, session_id="racy-sess", item_id="YOK-700")
+        claim_work(c, session_id="racy-sess", item_id=700)
         # With latest_activity centralizing liveness, the cleanup sweep uses
         # ``session_reclaim_activity.latest_activity`` for the snapshot,
         # which MAX-es harness + work_claims + tool-event signals. Age

@@ -23,19 +23,33 @@ count, never grows it.
 from __future__ import annotations
 
 import io
-import json
 import sys
 from contextlib import redirect_stdout, redirect_stderr
 from types import SimpleNamespace
 
-import pytest
-
 
 def _silence_claim(monkeypatch):
+    from yoke_core.domain import yok_n_parser
     from yoke_core.domain import yoke_function_dispatch as dispatch_module
+
+    item_ids = {"YOK-1": 1, "YOK-3": 3, "YOK-9": 9, "YOK-42": 42}
+
+    def _resolve_target(request):
+        if request.target.item_ref is not None:
+            request.target.item_id = item_ids[request.target.item_ref]
+            request.target.project_id = None
+        return None
 
     monkeypatch.setattr(
         dispatch_module, "verify_claim", lambda *a, **kw: None,
+    )
+    monkeypatch.setattr(
+        dispatch_module, "resolve_target_item_ref", _resolve_target,
+    )
+    monkeypatch.setattr(
+        yok_n_parser,
+        "parse_item_argument",
+        lambda ref, **_kwargs: item_ids[str(ref)],
     )
 
 
@@ -73,7 +87,7 @@ class TestRealCliParityMatrix:
         out = io.StringIO()
         with redirect_stdout(out):
             rc_cli = service_client.cmd_execute_update_cli(
-                ["1", "spec", "--stdin", "--source", "test"]
+                ["YOK-1", "spec", "--stdin", "--source", "test"]
             )
         assert rc_cli == 0, out.getvalue()
 
@@ -169,7 +183,7 @@ class TestRealCliParityMatrix:
              ):
             out = io.StringIO()
             with redirect_stdout(out):
-                epic.main(["task-update-body", "42", "1"])
+                epic.main(["task-update-body", "YOK-42", "1"])
 
         # --- Direct dispatch path
         from yoke_core.domain.handlers.__init_register__ import (
@@ -225,7 +239,7 @@ class TestRealCliParityMatrix:
         err = io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             rc = cmd_db_claim_amend([
-                "--item", "9", "--state", "none", "--reason", "none-ok",
+                "--item", "YOK-9", "--state", "none", "--reason", "none-ok",
             ])
         assert rc == 0, (out.getvalue(), err.getvalue())
 
@@ -289,7 +303,7 @@ class TestRealCliParityMatrix:
         out = io.StringIO()
         with redirect_stdout(out):
             rc = item_field_transform.main([
-                "append-addendum", "--item", "3", "--field", "spec",
+                "append-addendum", "--item", "YOK-3", "--field", "spec",
                 "--heading", "H", "--source", "tester", "--stdin", "--json",
             ])
         assert rc == 0, out.getvalue()

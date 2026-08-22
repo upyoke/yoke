@@ -102,7 +102,7 @@ class TestPostDecisionTelemetry:
             actual_lane="DARIUS",
             project="externalwebapp",
             context={
-                "item_id": "YOK-100",
+                "item_id": 100,
                 "status": "refined-idea",
             },
         )

@@ -266,9 +266,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
-    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    item_id = parse_item_id(args.item, allow_bare_internal=True)
+    try:
+        item_id = parse_item_argument(args.item)
+    except ValueError as exc:
+        print(json.dumps({"verdict": "error", "error": str(exc)}))
+        return 2
     if args.skip_readiness_check:
         print(json.dumps({
             "verdict": "skipped",

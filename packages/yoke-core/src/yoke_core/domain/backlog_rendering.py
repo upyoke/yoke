@@ -136,8 +136,7 @@ def _sync_item(item_id: int, out: TextIO = sys.stderr) -> None:
         return
     try:
         from yoke_core.domain import backlog_github_sync
-        # backlog_github_sync functions accept item_id as str, conn as kwarg
-        backlog_github_sync.sync_item(str(item_id), stdout=out, stderr=out)
+        backlog_github_sync.sync_item(item_id, stdout=out, stderr=out)
     except Exception as exc:
         print(f"Note: GitHub sync skipped (non-fatal): {exc}", file=out)
 
@@ -149,7 +148,7 @@ def _sync_labels(item_id: int, out: TextIO = sys.stderr) -> bool:
         return True
     try:
         from yoke_core.domain import backlog_github_sync
-        rc = backlog_github_sync.sync_labels(str(item_id), stdout=out, stderr=out)
+        rc = backlog_github_sync.sync_labels(item_id, stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
         print(f"Warning: sync_labels failed for {item_ref_for_id(item_id)}: {exc}", file=out)
@@ -170,7 +169,7 @@ def _close_issue(item_id: int, out: TextIO = sys.stderr) -> bool:
         return True
     try:
         from yoke_core.domain import backlog_github_sync
-        rc = backlog_github_sync.close_issue(str(item_id), stdout=out, stderr=out)
+        rc = backlog_github_sync.close_issue(item_id, stdout=out, stderr=out)
     except Exception as exc:
         print(f"Warning: close_issue failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         _record_sync_failure(item_id, "state", f"close_issue raised: {exc}")
@@ -188,7 +187,7 @@ def _sync_title(item_id: int, out: TextIO = sys.stderr) -> bool:
         return True
     try:
         from yoke_core.domain import backlog_github_sync
-        rc = backlog_github_sync.sync_title(str(item_id), stdout=out, stderr=out)
+        rc = backlog_github_sync.sync_title(item_id, stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
         print(f"Warning: sync_title failed for {item_ref_for_id(item_id)}: {exc}", file=out)
@@ -199,7 +198,7 @@ def _sync_frozen_label(item_id: int, value: str, out: TextIO = sys.stderr) -> bo
     """Sync frozen label to GitHub."""
     try:
         from yoke_core.domain import backlog_github_sync
-        rc = backlog_github_sync.sync_frozen_label(str(item_id), value, stdout=out, stderr=out)
+        rc = backlog_github_sync.sync_frozen_label(item_id, value, stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
         print(f"Warning: sync_frozen_label failed for {item_ref_for_id(item_id)}: {exc}", file=out)
@@ -210,7 +209,7 @@ def _sync_blocked_label(item_id: int, value: str, out: TextIO = sys.stderr) -> b
     """Sync blocked label to GitHub."""
     try:
         from yoke_core.domain import backlog_github_sync
-        rc = backlog_github_sync.sync_blocked_label(str(item_id), value, stdout=out, stderr=out)
+        rc = backlog_github_sync.sync_blocked_label(item_id, value, stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
         print(f"Warning: sync_blocked_label failed for {item_ref_for_id(item_id)}: {exc}", file=out)
@@ -227,7 +226,7 @@ def _post_comment(
     try:
         from yoke_core.domain import backlog_github_sync
         rc = backlog_github_sync.post_comment(
-            str(item_id),
+            item_id,
             old_status,
             new_status,
             stdout=out,
@@ -273,7 +272,7 @@ def _sync_body(
     try:
         from yoke_core.domain import backlog_github_sync
         rc = backlog_github_sync.sync_body(
-            str(item_id),
+            item_id,
             stdout=out,
             stderr=out,
             github_timeout_seconds=github_timeout_seconds,

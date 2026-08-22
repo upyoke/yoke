@@ -57,6 +57,6 @@ def test_backlog_rendering_forwards_github_budget_to_sync_body():
 
     assert ok is True
     assert mode == "full"
-    assert captured["item_id"] == "1902"
+    assert captured["item_id"] == 1902
     assert captured["github_timeout_seconds"] == 5.0
     assert captured["github_max_attempts"] == 1

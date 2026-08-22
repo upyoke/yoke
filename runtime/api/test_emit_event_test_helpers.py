@@ -11,7 +11,7 @@ from runtime.api.fixtures.file_test_db import init_test_db
 
 # Synthetic test item ID — not a real backlog item reference.
 TEST_ITEM_ID = 4242
-TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+TEST_ITEM_REF = f"EXT-{TEST_ITEM_ID}"
 
 
 def _apply_emit_event_schema() -> None:

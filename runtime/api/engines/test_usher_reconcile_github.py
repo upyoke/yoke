@@ -263,33 +263,35 @@ def test_no_action_when_deploy_stage_not_failed_shape(wired, monkeypatch):
     assert "<stage>-failed" in result.message
     assert wired.dispatched == []
 
-def test_parse_item_id_accepts_bare_int():
+def test_parse_item_argument_accepts_typed_internal_id():
     # PREFIX-N resolution (project sequence -> internal id) is covered by
     # the canonical parser tests; here only the DB-free shapes.
-    assert mod._parse_item_id("42") == 42
-    assert mod._parse_item_id("0042") == 42
+    assert mod._parse_item_argument(42) == 42
 
 
-def test_parse_item_id_rejects_empty():
+def test_parse_item_argument_rejects_empty():
     with pytest.raises(ValueError):
-        mod._parse_item_id("")
+        mod._parse_item_argument("")
     with pytest.raises(ValueError):
-        mod._parse_item_id("   ")
+        mod._parse_item_argument("   ")
 
 
 def test_main_exits_with_usage_code_on_bad_arg(wired, capsys):
     rc = mod.main(["not-an-id"])
     assert rc == mod.EXIT_USAGE
-    assert "cannot parse item id" in capsys.readouterr().err
+    assert "expected PREFIX-N" in capsys.readouterr().err
 
 
-def test_main_returns_zero_on_alignment(wired, capsys):
+def test_main_returns_zero_on_alignment(wired, monkeypatch, capsys):
+    monkeypatch.setattr(mod, "_parse_item_argument", lambda _arg: 42)
     rc = mod.main(["42"])
     assert rc == mod.EXIT_OK
     assert "Resume usher with: /yoke usher YOK-42 --resume" in capsys.readouterr().out
 
 
 def test_main_returns_running_code_when_gh_in_progress(wired, monkeypatch, capsys):
+    monkeypatch.setattr(mod, "_parse_item_argument", lambda _arg: 42)
+
     def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
         assert project == "yoke"

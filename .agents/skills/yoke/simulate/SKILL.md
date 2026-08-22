@@ -26,7 +26,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Blast radius via discovery.** When gathering context for the Simulator, include grep-based discovery of actual consumers and callers — not just the file lists from the Architect's plan. The Simulator's value is finding what the plan missed.
 
-**Events table for forensic context.** For integration simulations, the events table captures tool call history, anomaly patterns, and timing from task execution. Include `yoke events query --item {N}` in investigation when diagnosing cross-task gaps against actual code.
+**Events table for forensic context.** For integration simulations, the events table captures tool call history, anomaly patterns, and timing from task execution. Include `yoke events query --item PREFIX-N` in investigation when diagnosing cross-task gaps against actual code.
 
 **Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. The simulation report is the cold-start for the Architect's autofix pass. Every gap must include verified file paths, the specific mismatch, severity, and concrete fix guidance so the Architect can fix each gap mechanically.
 

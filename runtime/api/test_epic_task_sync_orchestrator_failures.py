@@ -53,7 +53,7 @@ class TestSyncEpicTasks:
                 "yoke_core.domain.epic_task_sync_github_create.github_rest.create_issue",
             ) as create_issue,
         ):
-            rc = epic_task_sync.sync_epic_tasks("YOK-10", conn=db, stderr=stderr)
+            rc = epic_task_sync.sync_epic_tasks(10, conn=db, stderr=stderr)
 
         assert rc == 1
         err_text = stderr.getvalue()
@@ -111,7 +111,7 @@ class TestSyncEpicTasks:
             side_effect=fake_create_issue,
         ):
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-10",
+                10,
                 conn=db,
                 stdout=stdout,
                 stderr=stderr,

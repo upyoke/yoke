@@ -30,14 +30,13 @@ from yoke_core.domain.sessions import (
 
 
 ITEM_ID = "100"
-ITEM_REF = f"YOK-{ITEM_ID}"
 
 
 def _setup_chain_pending(conn, session_id="sess-chain"):
     """Register a session with a chainable checkpoint at step 1/3 + claim."""
     _register(conn, session_id=session_id)
     _insert_claimable_item(conn, int(ITEM_ID))
-    claim_work(conn, session_id=session_id, item_id=ITEM_REF)
+    claim_work(conn, session_id=session_id, item_id=int(ITEM_ID))
     update_chain_checkpoint(
         conn,
         session_id,
@@ -45,7 +44,7 @@ def _setup_chain_pending(conn, session_id="sess-chain"):
         action="charge",
         chainable=True,
         handler_outcome="completed",
-        item_id=ITEM_REF,
+        item_id=int(ITEM_ID),
     )
     row = conn.execute(
         "SELECT offer_envelope FROM harness_sessions WHERE session_id=%s",

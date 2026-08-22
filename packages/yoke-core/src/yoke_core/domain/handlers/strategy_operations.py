@@ -87,10 +87,12 @@ def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome
     )
 
 
-def _parse_item_ids(raw: List[str]) -> List[int]:
+def _parse_item_ids(
+    raw: List[str], *, project: str, conn: Any,
+) -> List[int]:
     from yoke_core.domain.strategize_carry_cli import _parse_item_ids
 
-    return _parse_item_ids(raw)
+    return _parse_item_ids(raw, project=project, conn=conn)
 
 
 def handle_strategy_carry_register_new(
@@ -186,13 +188,18 @@ def handle_strategy_carry_mark(request: FunctionCallRequest) -> HandlerOutcome:
         payload = StrategyCarryMarkRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _bad_request(f"payload invalid: {exc}")
-    item_ids = _parse_item_ids(payload.items)
-    if not item_ids:
-        return _bad_request("items must contain at least one valid item id")
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.strategize_carry_state import mark_items
 
     with connect() as conn:
+        try:
+            item_ids = _parse_item_ids(
+                payload.items, project=payload.project, conn=conn,
+            )
+        except ValueError as exc:
+            return _bad_request(str(exc), jsonpath="$.payload.items")
+        if not item_ids:
+            return _bad_request("items must contain at least one valid item id")
         changed = mark_items(
             conn,
             project=payload.project,

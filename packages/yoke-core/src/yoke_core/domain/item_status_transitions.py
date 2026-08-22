@@ -21,7 +21,6 @@ from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_activity import touch_item_activity
-from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
 _TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS item_status_transitions (
@@ -93,9 +92,9 @@ def _resolve_identity(conn: Any, session_id: Optional[str]) -> tuple:
 def _internal_item_id(conn: Any, item_id: Any) -> Optional[int]:
     """Resolve *item_id* to ``items.id``.
 
-    Python ints and digit strings are already-internal ids. Public
-    ``PREFIX-N`` refs resolve through the parser so a sequence number is
-    never stored as ``item_id``.
+    Python ints are internal ids. Digit strings remain accepted for the
+    legacy numeric ``epic_tasks.epic_id`` call chain; public refs resolve at
+    the command boundary and never reach this recorder.
     """
     if isinstance(item_id, bool) or item_id is None:
         return None
@@ -106,7 +105,7 @@ def _internal_item_id(conn: Any, item_id: Any) -> Optional[int]:
         return None
     if text.isdigit():
         return int(text)
-    return parse_item_id_or_none(text, conn=conn)
+    return None
 
 
 def _record(

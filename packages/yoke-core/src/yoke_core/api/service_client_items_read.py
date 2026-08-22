@@ -60,7 +60,11 @@ def cmd_item_get(args: list[str]) -> int:
 
     conn = _get_db_readonly()
     try:
-        item_id = _resolve_item_ref(conn, args[0])
+        try:
+            item_id = _resolve_item_ref(conn, args[0])
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         if item_id is None:
             return 1
         # Resolution confirms existence for refs; verify the bare-id path too.
@@ -149,7 +153,11 @@ def cmd_item_row(args: list[str]) -> int:
 
     conn = _get_db_readonly()
     try:
-        item_id = _resolve_item_ref(conn, args[0])
+        try:
+            item_id = _resolve_item_ref(conn, args[0])
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         if item_id is None:
             return 1
         row = conn.execute(sql, (item_id,)).fetchone()
@@ -193,7 +201,11 @@ def cmd_item_progress(args: list[str]) -> int:
 
     conn = _get_db_readonly()
     try:
-        item_id = _resolve_item_ref(conn, args[0])
+        try:
+            item_id = _resolve_item_ref(conn, args[0])
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         if item_id is None:
             return 1
         if not _view_exists(conn, "item_progress_view"):
@@ -238,7 +250,11 @@ def cmd_item_render(args: list[str]) -> int:
 
     conn = _get_db_readonly()
     try:
-        item_id = _resolve_item_ref(conn, args[0])
+        try:
+            item_id = _resolve_item_ref(conn, args[0])
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
     finally:
         conn.close()
     if item_id is None:

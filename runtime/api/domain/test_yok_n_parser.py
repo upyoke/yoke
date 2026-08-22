@@ -218,7 +218,7 @@ class TestDispatcherItemRefResolution:
         assert response.error.code == "item_ref_unresolved"
         assert "project-local" in response.error.message
 
-    def test_bare_number_uses_session_item_project_context(
+    def test_bare_number_does_not_guess_session_item_project_context(
         self,
         ref_db: str,
         monkeypatch: pytest.MonkeyPatch,
@@ -242,8 +242,11 @@ class TestDispatcherItemRefResolution:
         monkeypatch.setattr(db_helpers, "connect", lambda: connect_test_db(ref_db))
 
         request = self._request("42", session_id="sess-beta")
-        assert resolve_target_item_ref(request) is None
-        assert request.target.item_id == 2001
+        response = resolve_target_item_ref(request)
+        assert response is not None and not response.success
+        assert response.error is not None
+        assert "project-local" in response.error.message
+        assert request.target.item_id is None
 
     def test_explicit_prefix_overrides_session_item_project_context(
         self,

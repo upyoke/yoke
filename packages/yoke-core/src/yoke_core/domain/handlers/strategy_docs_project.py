@@ -7,11 +7,9 @@ The relay contract: the CLI resolves project context client-side
 (``--project`` flag > ``$YOKE_PROJECT`` > the machine-config
 checkout→project map) and carries it on ``target.project_id``; the
 server resolves that raw ref (numeric id or slug) into the canonical
-``projects`` row here. When the client sent nothing, the dispatcher's
-session-context inference (the bound session's current/recent item's
-project) is the fallback; with no context at all the typed
-``project_context_required`` error teaches the ``--project`` recipe.
-The server never resolves an ambient cwd.
+``projects`` row here. When the client sent nothing, the typed
+``project_context_required`` error teaches the ``--project`` recipe. The
+server never resolves an ambient cwd or guesses from session state.
 """
 
 from __future__ import annotations
@@ -19,9 +17,6 @@ from __future__ import annotations
 from typing import Any, Optional, Tuple
 
 from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
-from yoke_core.domain.yoke_function_dispatch_target import (
-    _session_project_context,
-)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -43,17 +38,14 @@ def resolve_request_project(
     """Return ``(project, None)`` or ``(None, typed_error_outcome)``."""
     raw = request.target.project_id
     if raw is None or not str(raw).strip():
-        inferred = _session_project_context(conn, request.actor.session_id)
-        if inferred is None:
-            return None, _error(
-                "project_context_required",
-                "no project context: pass --project <slug-or-id> (or run "
-                "from a checkout mapped in machine config — `yoke project "
-                "register` records the mapping). The command is "
-                "project-scoped; the server never guesses.",
-                jsonpath="$.target.project_id",
-            )
-        raw = inferred
+        return None, _error(
+            "project_context_required",
+            "no project context: pass --project <slug-or-id> (or run "
+            "from a checkout mapped in machine config — `yoke project "
+            "register` records the mapping). The command is "
+            "project-scoped; the server never guesses.",
+            jsonpath="$.target.project_id",
+        )
     try:
         project = resolve_project(conn, raw, required=True)
     except LookupError:

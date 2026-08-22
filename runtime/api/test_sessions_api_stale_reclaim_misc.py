@@ -176,7 +176,7 @@ class TestStaleReclaimYOK1350:
             (_ago_minutes(30),),
         )
         conn.commit()
-        claim_work(conn, session_id="stale-ev", item_id="YOK-777")
+        claim_work(conn, session_id="stale-ev", item_id=777)
         stale_claim_ts = _ago_minutes(30)
         conn.execute(
             """UPDATE work_claims

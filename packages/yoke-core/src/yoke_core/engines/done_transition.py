@@ -80,11 +80,12 @@ def main(argv: list[str] | None = None) -> int:
         elif arg == "--skip-qa":
             skip_qa = True
         elif item_id is None:
-            from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+            from yoke_core.domain.yok_n_parser import parse_item_argument
 
-            item_id = parse_item_id_or_none(arg, allow_bare_internal=True)
-            if item_id is None:
-                print(f"Error: unexpected argument: {arg}", file=sys.stderr)
+            try:
+                item_id = parse_item_argument(arg)
+            except ValueError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
                 return 2
         else:
             print(f"Error: unexpected argument: {arg}", file=sys.stderr)

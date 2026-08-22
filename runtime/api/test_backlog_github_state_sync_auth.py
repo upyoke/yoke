@@ -49,7 +49,7 @@ class TestCloseIssueAuthTranslation:
                 "externalwebapp", "project 'externalwebapp' has no GitHub App repository binding",
             ),
         ):
-            rc = backlog_github_sync.close_issue("40", conn=db, stderr=stderr)
+            rc = backlog_github_sync.close_issue(40, conn=db, stderr=stderr)
 
         assert rc == 1  # non-zero — no silent swallow
         text = stderr.getvalue()
@@ -75,7 +75,7 @@ class TestReopenIssueAuthTranslation:
             backlog_github_state_sync, "_get_issue_state",
             side_effect=MissingCapability("externalwebapp", "no github capability for project 'externalwebapp'"),
         ):
-            rc = backlog_github_sync.reopen_issue("50", conn=db, stderr=stderr)
+            rc = backlog_github_sync.reopen_issue(50, conn=db, stderr=stderr)
 
         assert rc == 1
         text = stderr.getvalue()
@@ -100,7 +100,7 @@ class TestFlagLabelAuthTranslation:
             side_effect=MissingRepoBinding("externalwebapp", "repository is not bound"),
         ):
             rc = backlog_github_sync.sync_frozen_label(
-                "60", "true", conn=db, stderr=stderr,
+                60, "true", conn=db, stderr=stderr,
             )
 
         assert rc == 1
@@ -119,7 +119,7 @@ class TestFlagLabelAuthTranslation:
             side_effect=MissingRepoBinding("externalwebapp", "repository is not bound"),
         ):
             rc = backlog_github_sync.sync_blocked_label(
-                "70", "true", conn=db, stderr=stderr,
+                70, "true", conn=db, stderr=stderr,
             )
 
         assert rc == 1

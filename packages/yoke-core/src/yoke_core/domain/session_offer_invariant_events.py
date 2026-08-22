@@ -25,9 +25,7 @@ def _summarise_skip_memory(skip_memory: Iterable[Any]) -> List[Dict[str, Any]]:
         if not isinstance(entry, dict):
             continue
         raw_item_id = entry.get("item_id")
-        normalized_item_id = (
-            normalize_claim_item_id(str(raw_item_id)) if raw_item_id else raw_item_id
-        )
+        normalized_item_id = raw_item_id if isinstance(raw_item_id, int) else None
         summary.append(
             {
                 "item_id": normalized_item_id,
@@ -50,7 +48,7 @@ def _summarise_new_claim(new_claim: Optional[Dict[str, Any]]) -> Optional[Dict[s
 def _resolve_item_id_for_index(
     new_claim_payload: Optional[Dict[str, Any]],
     selected_item: Any,
-) -> Optional[str]:
+) -> Optional[int]:
     """Pick the indexed item id for the event row.
 
     Prefer the new_claim's item_id (numeric, authoritative). Fall back to
@@ -58,11 +56,12 @@ def _resolve_item_id_for_index(
     invariant-failure shape).
     """
     if new_claim_payload and new_claim_payload.get("item_id") is not None:
-        return str(new_claim_payload["item_id"])
+        raw_item_id = new_claim_payload["item_id"]
+        return raw_item_id if isinstance(raw_item_id, int) else None
     if not selected_item:
         return None
     normalized = normalize_claim_item_id(str(selected_item))
-    return normalized if normalized.isdigit() else None
+    return int(normalized) if normalized.isdigit() else None
 
 
 def emit_session_offer_invariant_failed(

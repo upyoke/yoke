@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import re
 import sys
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -21,14 +20,17 @@ report to that epic/item id. The command does not mutate DB state, git
 state, or GitHub state."""
 
 
-def _parse_optional_epic(raw: Optional[str]) -> Optional[int]:
+def _parse_optional_epic(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
-    text = re.sub(r"^[Yy][Oo][Kk]-", "", raw.strip())
-    try:
-        return int(text)
-    except (TypeError, ValueError):
-        raise ValueError(f"invalid epic ID: {raw}")
+    from yoke_contracts.item_ref import parse_public_item_ref
+
+    token = raw.strip()
+    if parse_public_item_ref(token)[1] is None:
+        raise ValueError(
+            "invalid epic ID: expected PREFIX-N, or bare N with project context"
+        )
+    return token
 
 
 def merge_audit(args: List[str]) -> int:

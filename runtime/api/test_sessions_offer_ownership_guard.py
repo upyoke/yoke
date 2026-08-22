@@ -35,7 +35,6 @@ from runtime.api.routed_ownership_test_helpers import (
     SESSION_A,
     SESSION_B,
     SYNTHETIC_ITEM_ID,
-    SYNTHETIC_ITEM_REF,
     _ReleaseGapDbCase,
     build_release_gap_fixture,
     register_live_session,
@@ -53,7 +52,7 @@ class TestEvaluateOwnershipGuard(_ReleaseGapDbCase):
         register_live_session(
             conn, SESSION_A, current_item_id=str(SYNTHETIC_ITEM_ID),
         )
-        claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_REF)
+        claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
 
         result = evaluate_ownership_guard(
             conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID,
@@ -118,7 +117,7 @@ class TestEvaluateOwnershipGuard(_ReleaseGapDbCase):
         register_live_session(
             conn, SESSION_B, current_item_id=str(SYNTHETIC_ITEM_ID),
         )
-        claim_work(conn, session_id=SESSION_B, item_id=SYNTHETIC_ITEM_REF)
+        claim_work(conn, session_id=SESSION_B, item_id=SYNTHETIC_ITEM_ID)
 
         result = evaluate_ownership_guard(
             conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID,

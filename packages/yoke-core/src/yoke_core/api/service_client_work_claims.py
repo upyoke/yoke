@@ -16,9 +16,6 @@ import sys
 from typing import Optional
 
 from yoke_core.domain.work_claim_targets import (
-    TARGET_KIND_EPIC_TASK,
-    TARGET_KIND_ITEM,
-    TARGET_KIND_PROCESS,
     TargetValidationError,
     WorkClaimTarget,
     make_epic_task_target,
@@ -28,11 +25,7 @@ from yoke_core.domain.work_claim_targets import (
 from yoke_core.domain.work_processes import (
     UnknownProcessError,
 )
-from yoke_core.api.service_client_shared import (
-    _get_db_readonly,
-    _get_db_readwrite,
-    normalize_claim_item_id,
-)
+from yoke_core.api.service_client_shared import _get_db_readonly, _get_db_readwrite
 from yoke_core.api.service_client_sessions_lifecycle_touch import (
     _validate_active_session,
 )
@@ -44,6 +37,7 @@ from yoke_core.api.service_client_work_claim_reason_help import render_reason_he
 from yoke_core.api.service_client_work_claims_identity import (
     check_self_only_session_identity,
 )
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 DEFAULT_PROCESS_PROJECT = "yoke"
 
@@ -79,14 +73,17 @@ def _require_self_session(explicit: Optional[str]) -> Optional[str]:
 
 def _parse_target_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--item", default=None,
-                        help="Item target (YOK-N or bare numeric)")
+                        help="Item target (PREFIX-N or project-local bare N)")
     parser.add_argument("--epic-task", default=None, dest="epic_task",
-                        help="Epic-task target epic id (YOK-EPIC); pair with --task-num")
+                        help="Epic-task parent (PREFIX-N); pair with --task-num")
     parser.add_argument("--task-num", default=None, type=int, dest="task_num")
     parser.add_argument("--process", default=None,
                         help="Recurring process key (e.g. STRATEGIZE, FEED, DOCTOR)")
-    parser.add_argument("--project", default=DEFAULT_PROCESS_PROJECT,
-                        help="Project scope for process target conflict groups")
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project context for bare item refs or process conflict scope",
+    )
 
 
 def _resolve_target(parsed: argparse.Namespace) -> WorkClaimTarget:
@@ -110,18 +107,22 @@ def _resolve_target(parsed: argparse.Namespace) -> WorkClaimTarget:
             f"cannot declare multiple targets in one call: {populated}"
         )
     if parsed.item:
-        return make_item_target(int(normalize_claim_item_id(parsed.item)))
+        return make_item_target(
+            parse_item_argument(parsed.item, project=parsed.project)
+        )
     if parsed.epic_task:
         if parsed.task_num is None:
             raise TargetValidationError(
                 "--epic-task requires --task-num"
             )
         return make_epic_task_target(
-            int(normalize_claim_item_id(parsed.epic_task)),
+            parse_item_argument(parsed.epic_task, project=parsed.project),
             parsed.task_num,
         )
     # process — make_process_target raises UnknownProcessError with known keys
-    return make_process_target(parsed.process, parsed.project)
+    return make_process_target(
+        parsed.process, parsed.project or DEFAULT_PROCESS_PROJECT
+    )
 
 
 def cmd_claim_work(args: list[str]) -> int:
@@ -156,7 +157,7 @@ def cmd_claim_work(args: list[str]) -> int:
 
     try:
         target = _resolve_target(parsed)
-    except (TargetValidationError, UnknownProcessError) as exc:
+    except (TargetValidationError, UnknownProcessError, ValueError) as exc:
         print(json.dumps({"success": False, "error": str(exc)}), file=sys.stderr)
         return CLAIM_EXIT_USAGE
 

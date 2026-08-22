@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Regression coverage for the claim-release side of recoverable substrate skips.
 
 When ``/yoke do`` records a ``recoverable_substrate`` chain-skip
@@ -18,9 +19,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
-from runtime.api.test_sessions import _register, conn  # noqa: F401  (Postgres-backed pytest fixture)
+from runtime.api.test_sessions import _register, conn  # noqa: F401,F811  (Postgres-backed pytest fixture)
 from yoke_core.domain.sessions import claim_work
 from yoke_core.domain.sessions_handler_outcome import (
     RELEASE_REASON_RECOVERABLE_SUBSTRATE_SKIP,
@@ -62,7 +61,7 @@ class TestReleasesActiveClaim:
         session_id = "substrate-release-session"
         _seed_item(conn, item_id=item_id)
         _register(conn, session_id=session_id)
-        claim_work(conn, session_id=session_id, item_id=f"YOK-{item_id}")
+        claim_work(conn, session_id=session_id, item_id=item_id)
 
         before = _active_item_claim(conn, session_id=session_id, item_id=item_id)
         assert before is not None
@@ -78,7 +77,7 @@ class TestReleasesActiveClaim:
                 session_id=session_id,
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{item_id}",
+                item_id=item_id,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
@@ -111,7 +110,7 @@ class TestReleasesActiveClaim:
         session_id = "substrate-bare-int-session"
         _seed_item(conn, item_id=item_id)
         _register(conn, session_id=session_id)
-        claim_work(conn, session_id=session_id, item_id=f"YOK-{item_id}")
+        claim_work(conn, session_id=session_id, item_id=item_id)
 
         captured: list[dict] = []
         with patch(
@@ -149,7 +148,7 @@ class TestReleaseConstantSingleSource:
         session_id = "substrate-constant-session"
         _seed_item(conn, item_id=item_id)
         _register(conn, session_id=session_id)
-        claim_work(conn, session_id=session_id, item_id=f"YOK-{item_id}")
+        claim_work(conn, session_id=session_id, item_id=item_id)
 
         with patch(
             "yoke_core.domain.sessions_lifecycle_release.release_item_claim_for_execution",
@@ -159,7 +158,7 @@ class TestReleaseConstantSingleSource:
                 session_id=session_id,
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{item_id}",
+                item_id=item_id,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
@@ -193,7 +192,7 @@ class TestReleaseFailureIsNonBlocking:
                 session_id=session_id,
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{item_id}",
+                item_id=item_id,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",
@@ -209,7 +208,7 @@ class TestReleaseFailureIsNonBlocking:
         session_id = "substrate-release-raises-session"
         _seed_item(conn, item_id=item_id)
         _register(conn, session_id=session_id)
-        claim_work(conn, session_id=session_id, item_id=f"YOK-{item_id}")
+        claim_work(conn, session_id=session_id, item_id=item_id)
 
         captured: list[dict] = []
         with patch(
@@ -224,7 +223,7 @@ class TestReleaseFailureIsNonBlocking:
                 session_id=session_id,
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{item_id}",
+                item_id=item_id,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{item_id}",

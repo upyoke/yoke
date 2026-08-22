@@ -12,18 +12,17 @@ import json
 import os
 import sys
 
-from yoke_core.domain.stale_string_audit_discover import (
-    _normalize_item_id,
-    discover_test_surfaces,
-)
+from yoke_core.domain.stale_string_audit_discover import discover_test_surfaces
 from yoke_core.domain.stale_string_audit_grep import grep_surfaces
 from yoke_core.domain.stale_string_audit_summary import build_audit_summary
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 def cmd_discover_surfaces(args: argparse.Namespace) -> int:
-    item_id = _normalize_item_id(args.item_id)
-    if item_id is None:
-        print("Error: invalid item ID: %s" % args.item_id, file=sys.stderr)
+    try:
+        item_id = parse_item_argument(args.item_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
 
     result = discover_test_surfaces(item_id)
@@ -32,9 +31,10 @@ def cmd_discover_surfaces(args: argparse.Namespace) -> int:
 
 
 def cmd_preflight(args: argparse.Namespace) -> int:
-    item_id = _normalize_item_id(args.item_id)
-    if item_id is None:
-        print("Error: invalid item ID: %s" % args.item_id, file=sys.stderr)
+    try:
+        item_id = parse_item_argument(args.item_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
     if not os.path.isdir(args.search_root):
         print("Error: search root not a directory: %s" % args.search_root, file=sys.stderr)
@@ -45,9 +45,10 @@ def cmd_preflight(args: argparse.Namespace) -> int:
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
-    item_id = _normalize_item_id(args.item_id)
-    if item_id is None:
-        print("Error: invalid item ID: %s" % args.item_id, file=sys.stderr)
+    try:
+        item_id = parse_item_argument(args.item_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
     if not os.path.isdir(args.search_root):
         print("Error: search root not a directory: %s" % args.search_root, file=sys.stderr)

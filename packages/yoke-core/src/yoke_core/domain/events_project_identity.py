@@ -147,7 +147,13 @@ def resolve_item_id_for_event(
     """Resolve public item refs to internal ids; leave work-unit sentinels alone."""
     if item_id is None:
         return None
-    if project is None or str(project).strip().lower() in GLOBAL_EVENT_PROJECT_TOKENS:
+    from yoke_contracts.item_ref import parse_public_item_ref
+
+    prefix, _ = parse_public_item_ref(item_id)
+    if (
+        project is None
+        or str(project).strip().lower() in GLOBAL_EVENT_PROJECT_TOKENS
+    ) and prefix is None:
         return normalize_event_item_id(item_id)
     if conn is not None:
         try:

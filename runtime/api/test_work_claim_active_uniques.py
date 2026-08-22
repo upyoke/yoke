@@ -64,7 +64,7 @@ def test_fresh_schema_creates_active_uniques(conn):
 
 
 @pytest.mark.parametrize("claim_kwargs", [
-    {"item_id": "YOK-777"}, {"target": make_epic_task_target(88, 2)},
+    {"item_id": 777}, {"target": make_epic_task_target(88, 2)},
 ])
 def test_claim_work_translates_integrity_error_with_holder(
     monkeypatch,

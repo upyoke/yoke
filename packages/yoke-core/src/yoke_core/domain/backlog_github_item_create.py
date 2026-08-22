@@ -51,7 +51,7 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 def sync_item(
-    item_id: str,
+    item_id: str | int,
     *,
     conn: Optional[Any] = None,
     stdout: Optional[TextIO] = None,

@@ -15,6 +15,7 @@ from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 from yoke_cli.commands.usher_reconcile import usher_reconcile_github
 from yoke_cli.main import main as cli_main
 from yoke_cli.product_boundary_teaching import generate_teaching_audit
+from runtime.api.test_constants import TEST_ITEM_REF
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -24,27 +25,27 @@ USHER_COLLECT = ".agents/skills/yoke/usher/collect.md"
 
 
 def test_merge_audit_token_resolves() -> None:
-    resolved = resolve_tool_shaped(["merge", "audit", "YOK-42"])
+    resolved = resolve_tool_shaped(["merge", "audit", TEST_ITEM_REF])
 
     assert resolved is not None
     adapter, rest = resolved
     assert adapter is merge_audit
-    assert rest == ["YOK-42"]
+    assert rest == [TEST_ITEM_REF]
 
 
 def test_usher_reconcile_token_resolves() -> None:
     resolved = resolve_tool_shaped(
-        ["usher", "reconcile-github", "YOK-42", "--workflow-run-id", "99"]
+        ["usher", "reconcile-github", TEST_ITEM_REF, "--workflow-run-id", "99"]
     )
 
     assert resolved is not None
     adapter, rest = resolved
     assert adapter is usher_reconcile_github
-    assert rest == ["YOK-42", "--workflow-run-id", "99"]
+    assert rest == [TEST_ITEM_REF, "--workflow-run-id", "99"]
 
 
 def test_merge_audit_forwards_filter_to_engine(capsys) -> None:
-    calls: list[int | None] = []
+    calls: list[str | None] = []
 
     def fake_generate_report(epic_filter=None):
         calls.append(epic_filter)
@@ -55,10 +56,10 @@ def test_merge_audit_forwards_filter_to_engine(capsys) -> None:
         "yoke_cli.commands.merge_audit.importlib.import_module",
         return_value=module,
     ):
-        assert cli_main(["merge", "audit", "YOK-42"]) == 0
+        assert cli_main(["merge", "audit", TEST_ITEM_REF]) == 0
 
-    assert calls == [42]
-    assert capsys.readouterr().out == "report:42\n"
+    assert calls == [TEST_ITEM_REF]
+    assert capsys.readouterr().out == f"report:{TEST_ITEM_REF}\n"
 
 
 def test_merge_audit_help_uses_yoke_surface() -> None:
@@ -115,10 +116,10 @@ def test_usher_reconcile_forwards_to_engine_main() -> None:
         return_value=module,
     ):
         assert cli_main(
-            ["usher", "reconcile-github", "YOK-42", "--workflow-run-id", "99"]
+            ["usher", "reconcile-github", TEST_ITEM_REF, "--workflow-run-id", "99"]
         ) == 7
 
-    assert calls == [["YOK-42", "--workflow-run-id", "99"]]
+    assert calls == [[TEST_ITEM_REF, "--workflow-run-id", "99"]]
 
 
 def test_usher_reconcile_help_uses_yoke_surface() -> None:

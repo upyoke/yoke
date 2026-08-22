@@ -72,15 +72,15 @@ class TestQuerySurface:
 
     def test_list_claims_for_session(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-1")
-        claim_work(conn, session_id="sess-1", item_id="YOK-2")
+        claim_work(conn, session_id="sess-1", item_id=1)
+        claim_work(conn, session_id="sess-1", item_id=2)
         claims = list_claims_for_session(conn, "sess-1")
         assert len(claims) == 2
 
     def test_list_claims_active_only(self, conn):
         _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-1")
-        claim_work(conn, session_id="sess-1", item_id="YOK-2")
+        c = claim_work(conn, session_id="sess-1", item_id=1)
+        claim_work(conn, session_id="sess-1", item_id=2)
         release_claim(conn, c["id"])
         active = list_claims_for_session(conn, "sess-1", active_only=True)
         all_claims = list_claims_for_session(conn, "sess-1", active_only=False)
@@ -89,21 +89,21 @@ class TestQuerySurface:
 
     def test_get_claim_for_item(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-9999")
-        result = get_claim_for_work_unit(conn, item_id="YOK-9999")
+        claim_work(conn, session_id="sess-1", item_id=9999)
+        result = get_claim_for_work_unit(conn, item_id=9999)
         assert result is not None
         assert result["session_id"] == "sess-1"
 
     def test_get_claim_for_epic_parent_item(self, conn):
         """epic task ownership uses parent item claim."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-100")
-        result = get_claim_for_work_unit(conn, item_id="YOK-100")
+        claim_work(conn, session_id="sess-1", item_id=100)
+        result = get_claim_for_work_unit(conn, item_id=100)
         assert result is not None
         assert result["session_id"] == "sess-1"
 
     def test_get_claim_for_unclaimed_item(self, conn):
-        result = get_claim_for_work_unit(conn, item_id="YOK-99")
+        result = get_claim_for_work_unit(conn, item_id=99)
         assert result is None
 
     def test_get_claim_returns_none_for_no_spec(self, conn):

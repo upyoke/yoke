@@ -21,7 +21,6 @@ from yoke_core.domain.item_worktree_resolution import (
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.worktree_paths import (
-    _parse_item_id,
     _resolve_config_path,
     _resolve_repo_root_from_cwd,
     is_git_worktree,
@@ -53,7 +52,7 @@ def _placeholder(conn) -> str:
 
 
 def resolve_item_worktree(
-    item_ref: str,
+    item_ref: str | int,
     *,
     db_path: Optional[str] = None,
     scripts_dir: Optional[str] = None,
@@ -80,19 +79,20 @@ def resolve_item_worktree(
     """
     from yoke_core.domain.db_helpers import connect, query_scalar
 
-    item_num = _parse_item_id(item_ref)
-    if item_num is None:
-        raise ValueError(f"invalid item ID '{item_ref}'")
-
-    if scripts_dir is None:
-        from yoke_core.api.repo_root import find_repo_root
-
-        scripts_dir = str(
-            find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
-        )
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
     conn = connect(path=db_path)
     try:
+        item_num = parse_item_argument(item_ref, conn=conn)
+
+        if scripts_dir is None:
+            from yoke_core.api.repo_root import find_repo_root
+
+            scripts_dir = str(
+                find_repo_root(Path(__file__))
+                / ".agents" / "skills" / "yoke" / "scripts"
+            )
+
         p = _placeholder(conn)
         status = query_scalar(
             conn, f"SELECT status FROM items WHERE id = {p}", (item_num,)

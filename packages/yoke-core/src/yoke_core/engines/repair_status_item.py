@@ -40,16 +40,16 @@ def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason:
     # partial-load failure when a sibling is imported before the front door
     # (e.g. via a direct ``from yoke_core.engines.repair_status_item import ...``).
     from yoke_core.domain.project_identity import render_item_ref
-    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
     from yoke_core.engines.repair_status import _connect
 
     with _connect() as conn:
         # Resolve the operator ref to the internal id through the canonical
         # parser: ``PREFIX-N`` maps to its project ``public_item_prefix`` +
         # ``project_sequence`` (not a stripped global id), while a bare number
-        # stays an internal ``items.id`` for operator break-glass use.
+        # uses the mapped checkout project.
         try:
-            item_id = parse_item_id(item_ref, conn=conn, allow_bare_internal=True)
+            item_id = parse_item_argument(item_ref, conn=conn)
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1

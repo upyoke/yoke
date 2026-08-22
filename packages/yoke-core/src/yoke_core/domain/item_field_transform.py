@@ -50,17 +50,6 @@ from yoke_core.domain.db_helpers import connect
 _APPEND_ADDENDUM = "append-addendum"
 
 
-def parse_item_id(raw: str) -> int:
-    """Delegate to :mod:`yoke_core.domain.yok_n_parser`.
-
-    Kept as a re-export so call sites that import ``parse_item_id`` from
-    this module continue to work without churn.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id as _shared
-
-    return _shared(raw, allow_bare_internal=True)
-
-
 @dataclass(frozen=True)
 class TransformResult:
     """Structured evidence returned by every transform operation."""
@@ -283,7 +272,6 @@ __all__ = [
     "TransformResult",
     "append_addendum",
     "main",
-    "parse_item_id",
     "section_append",
     "section_upsert",
 ]

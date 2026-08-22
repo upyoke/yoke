@@ -33,7 +33,6 @@ from yoke_core.hooks.sessions_event_emit import (
 from yoke_core.hooks.sessions_focus import (
     _clear_current_item,
     _format_row,
-    _normalize_item_id,
     _now_iso,
     _require_active_session,
 )
@@ -269,9 +268,9 @@ def cmd_who_claims(
     classification uses the boundary helper in
     :mod:`yoke_core.domain.events_current_episode`.
     """
-    normalized = _normalize_item_id(item_id, conn)
-    if not normalized.isdigit():
-        return ""
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    normalized = str(parse_item_argument(item_id, conn=conn))
     rows = query_rows(
         conn,
         "SELECT wc.id, wc.session_id, wc.item_id, wc.claim_type, wc.claimed_at "

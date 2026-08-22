@@ -64,7 +64,7 @@ def _registered_claim_id(conn, capsys) -> int:
     path_claims_dispatch.cmd_register(
         [
             "--item",
-            str(item_id),
+            f"YOK-{item_id}",
             "--integration-target",
             "main",
             "--paths",

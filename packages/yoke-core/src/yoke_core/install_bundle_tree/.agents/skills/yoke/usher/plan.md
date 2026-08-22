@@ -12,8 +12,8 @@ If `--dry-run`:
 
 For each item in merge order, read deployment flow and project:
 ```bash
-yoke items get PREFIX-{N} deployment_flow
-yoke items get PREFIX-{N} project
+yoke items get PREFIX-N deployment_flow
+yoke items get PREFIX-N project
 ```
 
 Group by `(project, deployment_flow)`. Resolve target env per group:
@@ -47,15 +47,15 @@ Merge order: {listed above}
 Dependencies (hard-block edges from item_dependencies — authoritative source):
  {for each edge in _dep_edges: " PREFIX-X depends-on PREFIX-Y (hard-block)"}
  {or " (none)"}
- Inspect: yoke shepherd dependency-list PREFIX-{N}
+ Inspect: yoke shepherd dependency-list PREFIX-N
 
 Deployment routing:
  Route A (internal -- no run):
- PREFIX-{id}: {flow or 'no deployment flow'} -> watch_merge done-transition --skip-deploy
+ PREFIX-N: {flow or 'no deployment flow'} -> watch_merge done-transition --skip-deploy
 
  Route B (deployment runs):
  Run 1: project={project}, flow={flow}, target={environment-name-or-tier}
- PREFIX-{id}, PREFIX-{id}
+ PREFIX-N, PREFIX-N
 
 Approval gates expected:
  {list any flows with approval stages, or "None"}

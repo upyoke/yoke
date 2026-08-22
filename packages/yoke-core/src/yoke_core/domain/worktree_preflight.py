@@ -280,22 +280,14 @@ def run_preflight(
     return out
 
 
-def _parse_item_id(value: str) -> int:
-    raw = value.strip()
-    for prefix in ("YOK-", "yok-"):
-        if raw.startswith(prefix):
-            raw = raw[len(prefix) :]
-            break
-    raw = raw.lstrip("0") or "0"
-    return int(raw)
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke dev run -- python3 -m yoke_core.domain.worktree_preflight",
         description="Harness-universal /yoke advance worktree re-entry primitive.",
     )
-    parser.add_argument("--item", required=True, help="YOK-N or numeric item id")
+    parser.add_argument(
+        "--item", required=True, help="PREFIX-N or project-local sequence",
+    )
     parser.add_argument("--project", default=None)
     parser.add_argument("--no-worktree", action="store_true")
     parser.add_argument(
@@ -307,9 +299,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        item_id = _parse_item_id(args.item)
-    except (TypeError, ValueError):
-        print(f"Invalid --item: {args.item!r}", file=sys.stderr)
+        from yoke_core.domain.yok_n_parser import parse_item_argument
+
+        item_id = parse_item_argument(args.item, project=args.project)
+    except ValueError as exc:
+        print(f"Invalid --item: {exc}", file=sys.stderr)
         return 2
     outcome = run_preflight(
         item_id=item_id,

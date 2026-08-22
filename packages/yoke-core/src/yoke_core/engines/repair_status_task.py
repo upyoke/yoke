@@ -31,7 +31,7 @@ def repair_task_status(
     # also imports this module at top level. Importing at call time avoids
     # the bidirectional partial-load failure when this sibling is imported
     # before the front door.
-    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
     from yoke_core.engines.repair_status import (
         _connect,
         _normalize_task_num,
@@ -46,9 +46,9 @@ def repair_task_status(
     with _connect() as conn:
         # Resolve the epic ref through the canonical parser so ``PREFIX-N``
         # maps to its project sequence rather than being stripped and treated
-        # as the internal id; a bare number stays an internal id for operators.
+        # as an internal id; bare numbers use the mapped checkout project.
         try:
-            epic_id = parse_item_id(epic_ref, conn=conn, allow_bare_internal=True)
+            epic_id = parse_item_argument(epic_ref, conn=conn)
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1

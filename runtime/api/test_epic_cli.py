@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for the epic CLI (``main()``).
 
 Covers argv dispatch into the epic domain handlers plus exit-code mapping.
@@ -20,7 +21,7 @@ import pytest
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic
 from runtime.api.test_epic_cascade_dispatch import db_with_chain  # noqa: F401
-from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401
+from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401,F811
 
 # Synthetic test epic ID — not a real backlog item reference.
 TEST_ITEM_ID = 42
@@ -28,6 +29,14 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 class TestCLI:
+    @pytest.fixture(autouse=True)
+    def _resolved_epic_argument(self, monkeypatch):
+        monkeypatch.setattr(
+            epic,
+            "_parse_epic_id",
+            lambda _value, conn=None: TEST_ITEM_ID,
+        )
+
     def test_no_args_exits_with_2_and_lists_proceed_handoff(self, capsys):
         with pytest.raises(SystemExit) as exc:
             epic.main([])
@@ -49,55 +58,55 @@ class TestCLI:
     @pytest.mark.parametrize(
         ("argv", "handler_name", "expected_args", "expected_kwargs"),
         [
-            (["task-upsert", "42", "1", "CLI Title"], "task_upsert", ("42", 1, "CLI Title", "", "", ""), {}),
-            (["task-get", "42", "1"], "task_get", ("42", 1), {}),
+            (["task-upsert", "42", "1", "CLI Title"], "task_upsert", (TEST_ITEM_ID, 1, "CLI Title", "", "", ""), {}),
+            (["task-get", "42", "1"], "task_get", (TEST_ITEM_ID, 1), {}),
             (
                 ["task-update-status", "42", "1", "implementing"],
                 "task_update_status",
-                ("42", 1, "implementing"),
+                (TEST_ITEM_ID, 1, "implementing"),
                 {"pipeline": False, "scripts_dir": None},
             ),
-            (["task-get-body", "42", "1"], "task_get_body", ("42", 1), {}),
+            (["task-get-body", "42", "1"], "task_get_body", (TEST_ITEM_ID, 1), {}),
             (
                 ["task-update-field", "42", "1", "github_issue", "123"],
                 "task_update_field",
-                ("42", 1, "github_issue", "123"),
+                (TEST_ITEM_ID, 1, "github_issue", "123"),
                 {"pipeline": False},
             ),
-            (["file-add", "42", "1", "README.md", "modify"], "file_add", ("42", 1, "README.md", "modify"), {}),
+            (["file-add", "42", "1", "README.md", "modify"], "file_add", (TEST_ITEM_ID, 1, "README.md", "modify"), {}),
             (
                 ["history-insert", "42", "1", "planning", "implementing", "note"],
                 "history_insert",
-                ("42", 1, "planning", "implementing", "note"),
+                (TEST_ITEM_ID, 1, "planning", "implementing", "note"),
                 {},
             ),
-            (["dispatch-chain-get", "42", "wt-1"], "dispatch_chain_get", ("42", "wt-1"), {}),
+            (["dispatch-chain-get", "42", "wt-1"], "dispatch_chain_get", (TEST_ITEM_ID, "wt-1"), {}),
             (
                 ["dispatch-chain-update", "42", "wt-1", "current_task", "2"],
                 "dispatch_chain_update",
-                ("42", "wt-1", "current_task", "2"),
+                (TEST_ITEM_ID, "wt-1", "current_task", "2"),
                 {},
             ),
-            (["dispatch-chain-advance", "42", "wt-1"], "dispatch_chain_advance", ("42", "wt-1"), {}),
+            (["dispatch-chain-advance", "42", "wt-1"], "dispatch_chain_advance", (TEST_ITEM_ID, "wt-1"), {}),
             (
                 ["dispatch-chain-refresh-activation", "42", "wt-1", "3"],
                 "dispatch_chain_refresh_for_activation",
-                ("42", "wt-1", "3"),
+                (TEST_ITEM_ID, "wt-1", "3"),
                 {},
             ),
-            (["review-seed", "42", "1"], "review_seed", ("42", 1), {}),
-            (["review-get", "42", "1"], "review_get", ("42", 1), {}),
+            (["review-seed", "42", "1"], "review_seed", (TEST_ITEM_ID, 1), {}),
+            (["review-get", "42", "1"], "review_get", (TEST_ITEM_ID, 1), {}),
             (
                 ["progress-note-mark-synced", "42", "1", "2"],
                 "progress_note_mark_synced",
-                ("42", 1, 2),
+                (TEST_ITEM_ID, 1, 2),
                 {},
             ),
-            (["simulation-get", "42", "plan"], "simulation_get", ("42", "plan"), {}),
+            (["simulation-get", "42", "plan"], "simulation_get", (TEST_ITEM_ID, "plan"), {}),
             (
                 ["cascade-task-status", "42", "planning", "plan-drafted"],
                 "cascade_task_status",
-                ("42", "planning", "plan-drafted"),
+                (TEST_ITEM_ID, "planning", "plan-drafted"),
                 {},
             ),
             (["orphan-check"], "orphan_check", tuple(), {}),
@@ -122,13 +131,13 @@ class TestCLI:
     @pytest.mark.parametrize(
         ("argv", "handler_name", "expected_args"),
         [
-            (["task-list", "42"], "task_list", ("42",)),
-            (["file-list", "42", "1"], "file_list", ("42", 1)),
-            (["dispatch-chain-list", "42"], "dispatch_chain_list", ("42",)),
+            (["task-list", "42"], "task_list", (TEST_ITEM_ID,)),
+            (["file-list", "42", "1"], "file_list", (TEST_ITEM_ID, 1)),
+            (["dispatch-chain-list", "42"], "dispatch_chain_list", (TEST_ITEM_ID,)),
             (
                 ["progress-note-list-unsynced", "42"],
                 "progress_note_list_unsynced",
-                ("42",),
+                (TEST_ITEM_ID,),
             ),
         ],
     )
@@ -177,6 +186,8 @@ class TestCLI:
     )
     def test_cli_maps_handler_exceptions_to_expected_exit_codes(self, db, exc_value, expected_code):
         with patch("yoke_core.domain.epic.connect", return_value=db), patch(
+            "yoke_core.domain.epic._validate_epic_exists"
+        ), patch(
             "yoke_core.domain.epic.task_get", side_effect=exc_value
         ):
             with pytest.raises(SystemExit) as exc:

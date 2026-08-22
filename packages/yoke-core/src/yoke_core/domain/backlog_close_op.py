@@ -74,7 +74,7 @@ def execute_close(
 
         item = dict(row)
         status = item["status"]
-        normalized_resolution_ref = _normalize_item_ref(resolution_ref)
+        normalized_resolution_ref = _normalize_item_ref(conn, resolution_ref)
 
         if status == "cancelled" and (item.get("resolution") or "") == reason:
             print(

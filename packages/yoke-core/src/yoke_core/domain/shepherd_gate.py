@@ -52,17 +52,6 @@ class GateResult:
     reason: str
 
 
-def _normalize_item_id(raw: str) -> Optional[int]:
-    """Resolve an item ref to the internal ``items.id``.
-
-    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    return parse_item_id_or_none(raw, allow_bare_internal=True)
-
-
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -154,12 +143,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.cmd == "check":
-        number = _normalize_item_id(args.item_id)
-        if number is None:
-            print(
-                f"Error: could not parse item ID from {args.item_id}",
-                file=sys.stderr,
-            )
+        from yoke_core.domain.yok_n_parser import parse_item_argument
+
+        try:
+            number = parse_item_argument(args.item_id)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
             return 2
         try:
             result = check_gate(number)

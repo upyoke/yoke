@@ -95,7 +95,7 @@ def test_evidence_only_recovery_releases_active_lane_records(
     for relative_path in ("advance/SKILL.md", "usher/deploy.md"):
         text = (root / relative_path).read_text()
         clean_check = text.find('git -C "$_wt_path" status --porcelain')
-        release = text.find("yoke item-worktrees release PREFIX-{N} --all-active")
+        release = text.find("yoke item-worktrees release PREFIX-N --all-active")
         assert clean_check != -1
         assert release != -1
         assert clean_check < release

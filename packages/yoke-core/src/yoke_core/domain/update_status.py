@@ -108,7 +108,7 @@ def _p(conn: Any) -> str:
 
 def update_task_status(
     conn: Any,
-    epic_id: str,
+    epic_id: int,
     task_num: str,
     new_status: str,
     note: str = "",
@@ -321,12 +321,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     new_status = positionals[2]
     note = positionals[3] if len(positionals) > 3 else ""
 
-    # Parse epic ref
-    import re
-    epic_id = re.sub(r"^[Yy][Oo][Kk]-", "", epic_ref).lstrip("0") or "0"
-
     conn = connect()
     try:
+        from yoke_core.domain.yok_n_parser import parse_item_argument
+
+        try:
+            epic_id = parse_item_argument(epic_ref, conn=conn)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
         return update_task_status(
             conn, epic_id, task_num, new_status, note,
             no_rebuild=no_rebuild,

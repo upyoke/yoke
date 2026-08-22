@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Regression coverage for session-offer charge-invariant cleanup."""
 
 from __future__ import annotations
@@ -157,7 +158,7 @@ def test_mismatched_claim_releases_exact_claim_and_emits_event(invariant_db):
     assert ctx["surface"] == CLI_SURFACE
     assert ctx["invariant_message"] == err
     assert ctx["retry_skip_summary"] == [
-        {"item_id": str(held_item_id), "reason": "irrelevant", "chain_step": 1},
+        {"item_id": held_item_id, "reason": "irrelevant", "chain_step": 1},
     ]
     assert ctx["release_outcome"]["released"] is True
     assert ctx["release_outcome"]["reason_intent"] == OFFER_INVARIANT_FAILED_REASON

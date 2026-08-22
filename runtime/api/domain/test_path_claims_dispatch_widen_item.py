@@ -73,7 +73,7 @@ def _register_claim(conn, *, item_id: int) -> int:
     seed_target(conn, path_string="src/foo.py")
     rc = path_claims_dispatch.cmd_register(
         [
-            "--item", str(item_id),
+            "--item", f"YOK-{item_id}",
             "--integration-target", "main",
             "--paths", "src/foo.py",
             "--actor-id", str(actor),

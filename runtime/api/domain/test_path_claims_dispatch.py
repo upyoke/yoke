@@ -156,7 +156,7 @@ class TestRegisterCmd:
         item_id = _seed_item(patch_conn)
         rc = path_claims_dispatch.cmd_register(
             [
-                "--item", str(item_id),
+                "--item", f"YOK-{item_id}",
                 "--integration-target", "main",
                 "--paths", "no/such/path",
                 "--actor-id", str(actor),
@@ -191,7 +191,7 @@ class TestGetCmd:
         seed_target(patch_conn, path_string="runtime/api/domain")
         rc = path_claims_dispatch.cmd_register(
             [
-                "--item", str(item_id),
+                "--item", f"YOK-{item_id}",
                 "--integration-target", "main",
                 "--paths", "runtime/api/domain",
                 "--actor-id", str(actor),
@@ -225,7 +225,7 @@ class TestListCmd:
 
         path_claims_dispatch.cmd_register(
             [
-                "--item", str(item_id),
+                "--item", f"YOK-{item_id}",
                 "--integration-target", "main",
                 "--paths", "runtime/api/domain",
                 "--actor-id", str(actor),
@@ -234,7 +234,7 @@ class TestListCmd:
         capsys.readouterr()
         path_claims_dispatch.cmd_register(
             [
-                "--item", str(item_id),
+                "--item", f"YOK-{item_id}",
                 "--integration-target", "main",
                 "--paths", "docs/path-claims.md",
                 "--actor-id", str(actor),
@@ -242,7 +242,7 @@ class TestListCmd:
         )
         capsys.readouterr()
 
-        rc = path_claims_dispatch.cmd_list(["--item", str(item_id)])
+        rc = path_claims_dispatch.cmd_list(["--item", f"YOK-{item_id}"])
         out, _ = _capture(capsys)
         assert rc == 0
         claims = json.loads(out.strip())
@@ -261,7 +261,7 @@ class TestListCmd:
 
         path_claims_dispatch.cmd_register(
             [
-                "--item", str(item_id),
+                "--item", f"YOK-{item_id}",
                 "--integration-target", "main",
                 "--paths", "runtime/api/domain",
                 "--actor-id", str(actor),
@@ -270,7 +270,7 @@ class TestListCmd:
         capsys.readouterr()
 
         rc = path_claims_dispatch.cmd_list(
-            ["--item", str(item_id), "--state", "active"]
+            ["--item", f"YOK-{item_id}", "--state", "active"]
         )
         out, _ = _capture(capsys)
         assert rc == 0
@@ -320,7 +320,7 @@ class TestMainEntry:
         rc = path_claims_dispatch.main(
             [
                 "register",
-                "--item", str(item_id),
+                "--item", f"YOK-{item_id}",
                 "--integration-target", "main",
                 "--paths", "runtime/api/domain",
                 "--actor-id", str(actor),

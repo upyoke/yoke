@@ -95,7 +95,7 @@ class TestYok1599SubstrateReentry:
                 session_id="dispatcher-session",
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{1599}",
+                item_id=1599,
                 routed_action="advance",
                 failure_class="cwd_drift_after_scope_bind",
                 remediation_owner=f"YOK-{1599}",
@@ -119,7 +119,7 @@ class TestYok1599SubstrateReentry:
                 session_id="chain-dedup-session",
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{1599}",
+                item_id=1599,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
@@ -146,7 +146,7 @@ class TestYok1599SubstrateReentry:
                 session_id="terminal-session",
                 chain_step=1,
                 project="yoke",
-                item_id=f"YOK-{1599}",
+                item_id=1599,
                 routed_action="advance",
                 failure_class="cwd_drift",
                 remediation_owner=f"YOK-{1599}",
@@ -177,9 +177,9 @@ class TestYok1599HolderViaCanonicalSurface:
         _seed_item(conn, item_id=1599, status="implementing")
         _register(conn, session_id="other-live-session")
         claim = claim_work(
-            conn, session_id="other-live-session", item_id=f"YOK-{1599}"
+            conn, session_id="other-live-session", item_id=1599
         )
-        ctx = holder_session_for_item(conn, f"YOK-{1599}")
+        ctx = holder_session_for_item(conn, 1599)
         # The rendered context contains all five canonical facts.
         assert ctx["claim_id"] == claim["id"]
         assert ctx["holder_session_id"] == "other-live-session"
@@ -190,7 +190,7 @@ class TestYok1599HolderViaCanonicalSurface:
 
     def test_holder_unknown_when_no_live_claim(self, conn):
         _seed_item(conn, item_id=1599, status="implementing")
-        ctx = holder_session_for_item(conn, f"YOK-{1599}")
+        ctx = holder_session_for_item(conn, 1599)
         # When the lookup genuinely fails, the rendered context
         # surfaces ``holder_unknown=True`` instead of inventing values.
         assert ctx == {"holder_unknown": True}
@@ -216,7 +216,7 @@ class TestYok1599HolderViaCanonicalSurface:
             ("legacy-shape-session",),
         )
         conn.commit()
-        ctx = holder_session_for_item(conn, f"YOK-{1599}")
+        ctx = holder_session_for_item(conn, 1599)
         # No item-target claim exists, so the holder lookup honestly
         # reports holder_unknown rather than the process-target row.
         assert ctx == {"holder_unknown": True}

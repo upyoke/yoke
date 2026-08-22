@@ -14,9 +14,8 @@ from __future__ import annotations
 
 import io
 import os
+from contextlib import contextmanager
 from unittest import mock
-
-import pytest
 
 from yoke_core.api import service_client_backlog_update
 from yoke_core.api.service_client_backlog_update_args import (
@@ -79,6 +78,7 @@ def test_normalize_tail_named_flag_without_value_passes_through():
 # ---------- cmd_execute_update_cli integration ------------------------------
 
 
+@contextmanager
 def _patched_backlog():
     """Patch the underlying ``backlog.execute_update``.
 
@@ -86,10 +86,12 @@ def _patched_backlog():
     the patch must target the canonical domain module rather than a
     re-export on the CLI module.
     """
-    return mock.patch(
-        "yoke_core.domain.backlog.execute_update",
-        autospec=True,
-    )
+    with mock.patch(
+        "yoke_core.domain.backlog.execute_update", autospec=True,
+    ) as execute_update, mock.patch.object(
+        service_client_backlog_update, "_parse_item_id_arg", return_value=42,
+    ):
+        yield execute_update
 
 
 def _set_mock_success(m):
@@ -162,6 +164,6 @@ def test_cli_structured_field_write_routes_to_dispatcher():
     assert rc == 0
     dispatch_mock.assert_called_once()
     call = dispatch_mock.call_args
-    assert call.kwargs["item_id"] == 42
+    assert call.kwargs["item_ref"] == "42"
     assert call.kwargs["field"] == "spec"
     assert call.kwargs["content"] == "# spec content"

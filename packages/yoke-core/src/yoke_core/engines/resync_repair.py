@@ -78,9 +78,9 @@ def _repair_local_orphan_backlog(
 ) -> Tuple[bool, bool, Optional[str]]:
     """Create or reuse a GitHub issue; returns ``(success, reused, issue_num)``.
 
-    ``item_id`` is the internal ``items.id``; the digit-string form is a
-    bare internal-id token to the domain sync surface. The engine
-    switches the FIXED log wording between "created" and "reused
+    ``item_id`` is the internal ``items.id`` and stays typed when passed
+    to the domain sync surface. The engine switches the FIXED log wording
+    between "created" and "reused
     existing" using ``reused``. :class:`ProjectGithubAuthError`
     propagates to the engine boundary.
     """
@@ -88,7 +88,7 @@ def _repair_local_orphan_backlog(
     captured = io.StringIO()
     try:
         rc = _parent().backlog_github_sync.sync_item(
-            str(int(item_id)), stdout=captured, stderr=io.StringIO(),
+            int(item_id), stdout=captured, stderr=io.StringIO(),
         )
     except Exception:
         return (False, False, None)

@@ -23,8 +23,8 @@ from yoke_core.api.service_client_shared import (
     _resolve_session_id,
     _subprocess_service_env,
     domain_release_done_claims,
-    normalize_claim_item_id,
 )
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 def cmd_release_all_claims(args: list[str]) -> int:
@@ -120,6 +120,7 @@ def cmd_claim_release(args: list[str]) -> int:
     )
     parser.add_argument("--session-id", default=None)
     parser.add_argument("--claim-id", type=int, default=None)
+    parser.add_argument("--project", default=None)
 
     try:
         parsed = parser.parse_args(args)
@@ -138,9 +139,12 @@ def cmd_claim_release(args: list[str]) -> int:
 
     conn = _get_db_readwrite()
     try:
+        item_id = parse_item_argument(
+            parsed.item_id, project=parsed.project, conn=conn
+        )
         result = operator_override_release_claim(
             conn,
-            parsed.item_id,
+            item_id,
             parsed.reason,
             session_id=parsed.session_id,
             claim_id=parsed.claim_id,
@@ -152,6 +156,13 @@ def cmd_claim_release(args: list[str]) -> int:
             "success": False,
             "code": exc.code,
             "message": exc.message,
+        }))
+        return 1
+    except ValueError as exc:
+        print(json.dumps({
+            "success": False,
+            "code": "INVALID_ITEM",
+            "message": str(exc),
         }))
         return 1
     finally:
@@ -169,18 +180,28 @@ def cmd_release_done_claims(args: list[str]) -> int:
 
     parser = argparse.ArgumentParser(prog="release-done-claims", add_help=False)
     parser.add_argument("--item-id", required=True)
+    parser.add_argument("--project", default=None)
 
     try:
         parsed = parser.parse_args(args)
     except SystemExit:
         print("Usage: release-done-claims --item-id YOK-N", file=sys.stderr)
         return 2
-    parsed.item_id = normalize_claim_item_id(parsed.item_id)
-
     conn = _get_db_readwrite()
     try:
-        released = domain_release_done_claims(conn, parsed.item_id)
-        print(json.dumps({"success": True, "released": released, "item_id": parsed.item_id}))
+        try:
+            item_id = parse_item_argument(
+                parsed.item_id, project=parsed.project, conn=conn
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        released = domain_release_done_claims(conn, item_id)
+        print(json.dumps({
+            "success": True,
+            "released": released,
+            "item_id": str(item_id),
+        }))
         return 0
     finally:
         conn.close()

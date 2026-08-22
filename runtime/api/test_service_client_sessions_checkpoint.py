@@ -44,7 +44,7 @@ class TestSessionCheckpointCommand:
                 "--step", "1",
                 "--action", "charge",
                 "--chainable", "true",
-                "--item-id", "YOK-9999",
+                "--item-id", "YOK-10",
             ],
             db_path=db,
         )
@@ -53,7 +53,7 @@ class TestSessionCheckpointCommand:
         assert cp["step"] == 1
         assert cp["action"] == "charge"
         assert cp["chainable"] is True
-        assert cp["item_id"] == "YOK-9999"
+        assert cp["item_id"] == 10
 
         # Read checkpoint
         r_read = _run_client(
@@ -150,7 +150,7 @@ class TestSessionCheckpointCommand:
         assert checkpoint["step"] == 1
         assert checkpoint["action"] == "charge"
         assert checkpoint["chainable"] is True
-        assert checkpoint["item_id"] == selected_item
+        assert checkpoint["item_id"] == 10
 
         r_offer_2 = _run_client(
             [
@@ -193,4 +193,4 @@ class TestSessionCheckpointCommand:
         assert chain_ctx["step"] == 1
         assert chain_ctx["action"] == "charge"
         assert chain_ctx["chainable"] is True
-        assert chain_ctx["item_id"] == selected_item.removeprefix("YOK-")
+        assert chain_ctx["item_id"] == "10"

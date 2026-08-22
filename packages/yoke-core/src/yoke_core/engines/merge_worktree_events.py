@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from yoke_core.engines.merge_worktree_context import MergeContext
 
 _MERGE_EVENT_SERVICE = "merge_worktree"
 _MERGE_EVENT_KIND = "lifecycle"
@@ -27,13 +29,17 @@ def _emit_merge_event(
     *,
     severity: str = "INFO",
     outcome: str = "",
-    item_id: Optional[str] = None,
+    item_id: Optional[str | int] = None,
     context: Optional[dict[str, Any]] = None,
 ) -> None:
     """Emit a structured merge lifecycle event.  Never raises."""
     try:
         from yoke_core.domain import emit_event as _emit_module  # local import to avoid cycles
         import argparse as _argparse
+
+        normalized_item_id = item_id
+        if isinstance(item_id, str) and item_id.isdigit():
+            normalized_item_id = int(item_id)
 
         ns = _argparse.Namespace(
             name=event_name,
@@ -52,7 +58,7 @@ def _emit_merge_event(
             environment="",
             service=_MERGE_EVENT_SERVICE,
             project="",
-            item_id=(item_id or "") if item_id else "",
+            item_id=normalized_item_id if normalized_item_id is not None else "",
             task_num=None,
             agent="",
             tool_name="",
