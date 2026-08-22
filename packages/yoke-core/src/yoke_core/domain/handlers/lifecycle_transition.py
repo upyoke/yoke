@@ -168,6 +168,9 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         WORKFLOW_STATUS_PRECONDITION_FAILED,
     )
     from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
+    from yoke_core.domain.backlog_db_mutation_gate_runner import (
+        capture_db_mutation_gate_warnings,
+    )
 
     current, item_ref = _read_current_status(item_id)
     if current is None:
@@ -188,12 +191,17 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
     if payload.target_status == "cancelled":
         from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
 
-        cancellation_reason, reason_error = normalize_cancellation_reason(payload.reason)
+        cancellation_reason, reason_error = normalize_cancellation_reason(
+            payload.reason
+        )
         if reason_error:
             return _error_outcome("invalid_payload", reason_error)
 
     captured = io.StringIO()
-    with acting_item_ref_bound(target.item_ref):
+    with (
+        acting_item_ref_bound(target.item_ref),
+        capture_db_mutation_gate_warnings() as gate_warnings,
+    ):
         result = backlog.execute_update(
             item_id=item_id,
             field="status",
@@ -229,13 +237,16 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         item_id=item_id,
         from_status=current,
         to_status=payload.target_status,
-        reason=cancellation_reason if payload.target_status == "cancelled" else payload.reason,
+        reason=cancellation_reason
+        if payload.target_status == "cancelled"
+        else payload.reason,
         rework_count=result.get("rework_count"),
         log=captured.getvalue(),
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),
         primary_success=True,
+        warnings=gate_warnings,
     )
 
 

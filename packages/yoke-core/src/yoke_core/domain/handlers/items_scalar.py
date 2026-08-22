@@ -175,9 +175,15 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import backlog
     from yoke_core.domain.actor_project_visibility import numeric_actor_id
     from yoke_core.domain.db_mutation_gate_loaders import acting_item_ref_bound
+    from yoke_core.domain.backlog_db_mutation_gate_runner import (
+        capture_db_mutation_gate_warnings,
+    )
 
     captured = io.StringIO()
-    with acting_item_ref_bound(target.item_ref):
+    with (
+        acting_item_ref_bound(target.item_ref),
+        capture_db_mutation_gate_warnings() as gate_warnings,
+    ):
         result = backlog.execute_update(
             item_id=int(target.item_id),
             field=payload.field,
@@ -207,6 +213,7 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload=response.model_dump(),
         primary_success=True,
+        warnings=gate_warnings,
     )
 
 
