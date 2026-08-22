@@ -4,6 +4,8 @@ These cases exercise CLI validation and DB writes through
 ``yoke_core.domain.emit_event``.
 """
 
+# ruff: noqa: F811 -- imported pytest fixtures are intentionally re-exported.
+
 from __future__ import annotations
 
 import pytest

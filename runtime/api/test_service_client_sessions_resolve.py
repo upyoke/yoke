@@ -3,6 +3,8 @@
 Shared fixture/helpers live in ``test_service_client_sessions_helpers.py``.
 """
 
+# ruff: noqa: F811 -- imported pytest fixtures are intentionally re-exported.
+
 from __future__ import annotations
 
 import json

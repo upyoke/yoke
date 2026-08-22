@@ -6,6 +6,8 @@ explicit value is never authority, and ``--allow-non-terminal`` cannot
 bypass the check.
 """
 
+# ruff: noqa: F811 -- imported pytest fixtures are intentionally re-exported.
+
 from __future__ import annotations
 
 import json
@@ -29,7 +31,6 @@ from runtime.api.test_service_client_sessions_helpers import session_offer_db  #
 
 
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-_SESSION_VAR_CHAIN = AMBIENT_ENV_VARS
 
 
 def _run_with_ambient(
@@ -46,7 +47,7 @@ def _run_with_ambient(
     tests need full control over both axes.
     """
     env = os.environ.copy()
-    for var in _SESSION_VAR_CHAIN:
+    for var in AMBIENT_ENV_VARS:
         env.pop(var, None)
     if ambient_session is not None:
         env["YOKE_SESSION_ID"] = ambient_session
