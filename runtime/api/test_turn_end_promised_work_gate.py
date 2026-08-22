@@ -71,6 +71,8 @@ def test_hold_for_live_mid_lifecycle_claim(monkeypatch) -> None:
     assert decision.block is True
     assert decision.next is Next.STOP
     assert decision.message == gate.DIRECTIVE
+    assert "release the claim" in gate.DIRECTIVE
+    assert "stop deliberately" in gate.DIRECTIVE
 
 
 def test_hold_without_chain_checkpoint(monkeypatch) -> None:
@@ -94,9 +96,9 @@ def test_question_escape_allows(monkeypatch) -> None:
     assert captured == []
 
 
-def test_terminal_and_blocked_allow(monkeypatch) -> None:
+def test_terminal_and_wait_allow(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
-    for status in ("done", "blocked"):
+    for status in ("done", "blocked", "cancelled", "stopped", "failed"):
         captured = _patch_db(monkeypatch, claim={"item_id": 3, "status": status})
         decision = gate.evaluate(_ctx())
         assert decision.outcome is Outcome.ALLOW

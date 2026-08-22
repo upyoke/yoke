@@ -46,6 +46,11 @@ class TurnEndEvidence:
 UNAVAILABLE = TurnEndEvidence(available=False, present=False, question=False)
 
 
+def _looks_like_question(text: str) -> bool:
+    """True when any stripped line ends with ``?``, not only the whole text."""
+    return any(line.strip().endswith("?") for line in text.splitlines())
+
+
 def _as_mapping(value: Any) -> Mapping[str, Any] | None:
     return value if isinstance(value, Mapping) else None
 
@@ -67,7 +72,7 @@ def from_payload_facts(payload: Mapping[str, Any]) -> TurnEndEvidence | None:
             return TurnEndEvidence(
                 available=True,
                 present=True,
-                question=text.endswith("?"),
+                question=_looks_like_question(text),
             )
     return None
 
@@ -157,7 +162,7 @@ def extract_from_jsonl(text: str) -> TurnEndEvidence:
     return TurnEndEvidence(
         available=True,
         present=True,
-        question=last.endswith("?"),
+        question=_looks_like_question(last),
     )
 
 
