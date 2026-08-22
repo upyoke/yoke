@@ -36,6 +36,7 @@ class ProjectSnapshotSyncResponse(BaseModel):
     snapshots: List[Dict[str, Any]]
     warnings: List[str]
     architecture_refresh: Optional[Dict[str, Any]] = None
+    render_relationship_refresh: Optional[Dict[str, Any]] = None
 
 
 def handle_project_snapshot_sync(
@@ -222,11 +223,18 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
         architecture_refresh = _refresh_architecture_context(
             conn, project_id, rows,
         )
+        render_relationship_refresh = _refresh_render_relationship_context(
+            conn,
+            project_id,
+            rows,
+            warnings,
+        )
     return {
         "project_id": project_id,
         "snapshots": rows,
         "warnings": warnings,
         "architecture_refresh": architecture_refresh,
+        "render_relationship_refresh": render_relationship_refresh,
     }
 
 
@@ -262,6 +270,35 @@ def _refresh_architecture_context(
         "removed_rows": seed.removed_rows,
         "operator_rows_kept": seed.operator_rows_kept,
     }
+
+
+def _refresh_render_relationship_context(
+    conn: Any,
+    project_id: int,
+    rows: List[Dict[str, Any]],
+    warnings: List[str],
+) -> Optional[Dict[str, Any]]:
+    """Refresh Yoke's generated-file provenance after a HEAD snapshot."""
+    if not any(row.get("ref") == "HEAD" for row in rows):
+        return None
+    from yoke_core.domain.project_identity import resolve_project_slug
+
+    project_slug = resolve_project_slug(conn, project_id)
+    if project_slug != "yoke":
+        return None
+    try:
+        from yoke_core.domain.agents_render_path_context import (
+            record_render_relationships,
+        )
+
+        written = record_render_relationships(conn, project_id=project_slug)
+    except Exception as exc:
+        warnings.append(
+            "generated-file render relationship refresh was advisory and "
+            f"did not complete: {exc}"
+        )
+        return {"status": "degraded", "written": 0}
+    return {"status": "ok", "written": written}
 
 
 __all__ = [

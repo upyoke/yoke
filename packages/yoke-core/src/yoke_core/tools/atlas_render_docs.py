@@ -27,7 +27,7 @@ from yoke_core.tools.atlas_render_docs_sections import (
 from yoke_core.tools.atlas_render_docs_tables import _md_table
 
 
-_ATLAS_RELPATH = "docs/atlas.md"
+ATLAS_RELPATH = "docs/atlas.md"
 _TIMESTAMP_LINE_RE = re.compile(
     r"^_Audit generated_at: .*_$", re.MULTILINE
 )
@@ -257,7 +257,7 @@ def render(report: Dict[str, Any]) -> str:
 
 def write(target_root: Path, *, body: str, output: Path | None = None) -> Path:
     """Write ``body`` to ``docs/atlas.md`` under ``target_root``."""
-    out = output if output is not None else target_root / _ATLAS_RELPATH
+    out = output if output is not None else target_root / ATLAS_RELPATH
     assert_target_under_session_work_authority(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(body, encoding="utf-8")
@@ -280,7 +280,7 @@ def is_stale(target_root: Path, *, body: str) -> bool:
     The audit timestamp is normalised out so re-rendering with a new
     ``generated_at`` does not flap the check.
     """
-    out = target_root / _ATLAS_RELPATH
+    out = target_root / ATLAS_RELPATH
     if not out.exists():
         return True
     existing = out.read_text(encoding="utf-8")

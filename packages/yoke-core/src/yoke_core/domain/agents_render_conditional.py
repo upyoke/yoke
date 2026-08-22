@@ -37,10 +37,28 @@ HARNESS_IDS: frozenset[str] = frozenset(
     {CLAUDE_HARNESS_ID, CODEX_HARNESS_ID, CURSOR_HARNESS_ID}
 )
 
+# The renderer owns adapter filename formats. Consumers deriving generated-file
+# provenance use this same map so a harness cannot render one suffix while the
+# path-context registry guesses another.
+AGENT_ADAPTER_SUFFIXES: dict[str, str] = {
+    CLAUDE_HARNESS_ID: ".md",
+    CODEX_HARNESS_ID: ".toml",
+    CURSOR_HARNESS_ID: ".md",
+}
+
 
 def rendered_agents_dir(harness_id: str) -> Path:
     """Return the repo-relative directory holding *harness_id*'s adapters."""
     return Path("runtime") / "harness" / harness_id / "agents"
+
+
+def rendered_agent_path(harness_id: str, agent: str) -> Path:
+    """Return the canonical output path for one harness agent adapter."""
+    try:
+        suffix = AGENT_ADAPTER_SUFFIXES[harness_id]
+    except KeyError as exc:
+        raise ValueError(f"unknown harness id {harness_id!r}") from exc
+    return rendered_agents_dir(harness_id) / f"yoke-{agent}{suffix}"
 
 
 #: Every rendered per-harness adapter directory. Consumers that must treat all
