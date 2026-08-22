@@ -66,7 +66,6 @@ def run(
     _cascade_epic_tasks_to_done = mw._cascade_epic_tasks_to_done
     _finalize_done_local_side_effects = mw._finalize_done_local_side_effects
     _sync_done_item_direct = mw._sync_done_item_direct
-    _apply_discovery_scan = mw._apply_discovery_scan
 
     # The public item ref is resolved once, server-side, by the transport
     # context relay (project-sequence aware, no local connection). Until that
@@ -308,32 +307,19 @@ def run(
         return result.fail(result_file, 1)
     result.new_status = "done"
     result.add_step("6")
-    _cleanup_stale_branches(
-        item_id, lane_branch, project_repo, base_branch,
-        authority_block=("another or unknown claim was active" if cleanup_foreign_claim else ""),
+    lane_authority_block = (
+        "another or unknown claim was active" if cleanup_foreign_claim else ""
     )
-    result.add_step("4a")
     result.add_step("6a")  # reserved result slot
 
     _finalize_done_local_side_effects(
-        item_id,
-        release_note_category(workflow),
-        title,
-        item_project,
-        env_name,
+        item_id, release_note_category(workflow), title, item_project, env_name,
     )
     result.add_step("6c")
 
     if has_task_graph and task_parent_ref:
         _cascade_epic_tasks_to_done(item_id, task_parent_ref, item_ref=item_ref)
     for _s in ("6b", "6d", "7"):
-        result.add_step(_s)
-    print("\n=== Step 8: Sync done state to GitHub ===")
-    from yoke_core.engines.done_transition_github_sync import apply_step_8
-
-    apply_step_8(item_id, old_status, result, item_ref=item_ref)
-    _apply_discovery_scan(item_id, result)
-    for _s in ("9", "10"):
         result.add_step(_s)
     return finish_done_transition(
         mw,
@@ -346,4 +332,8 @@ def run(
         repo_root=repo_root,
         merge_ran=merge_ran,
         item_ref=item_ref,
+        prune_lane=lambda: _cleanup_stale_branches(
+            item_id, lane_branch, project_repo, base_branch,
+            authority_block=lane_authority_block,
+        ),
     )
