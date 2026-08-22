@@ -4,14 +4,15 @@ Two proofs, one per connection mode:
 
 * In-process: the ``direct_workflow.conflict_survey.status`` handler run
   directly against a seeded Postgres ``test_db`` returns the recorded
-  survey plus a fresh conflict re-check (found / not-found / blocked).
+  survey plus a fresh conflict re-check (found / not-found / contacts).
   This is the local-Postgres in-process dispatch path.
 
 * Relay routing: ``direct_workflow_worktree_preflight.run`` drives its
   control-plane reads through ``call_dispatcher`` (``items.detail.get``
-  then ``direct_workflow.conflict_survey.status``) and rebuilds the same
-  block outcomes -- with no bare ``connect()`` on the hot path. This is
-  the https relay path that the local ``connect()`` used to break.
+  then ``direct_workflow.conflict_survey.status``) and rebuilds missing
+  or incomplete survey refusals -- with no bare ``connect()`` on the hot
+  path. Overlap-contact advisories live in
+  ``test_conflict_survey_claim_advisory``.
 """
 
 from __future__ import annotations
@@ -299,36 +300,6 @@ def test_run_blocks_incomplete_durable_state(monkeypatch, capsys, durable_state)
     assert preflight_calls == []
     emitted = json.loads(capsys.readouterr().out.strip())
     assert emitted["block_kind"] == f"conflict-survey-{durable_state}"
-
-
-def test_run_rebuilds_blocked_outcome_with_blockers(monkeypatch, capsys):
-    blocker = {
-        "kind": "path_claim",
-        "owner_item_id": 4200,
-        "path": "src/contended.py",
-        "state": "active",
-        "detail": "uncoordinated path claim 9",
-    }
-    dispatcher = _RoutedDispatcher(
-        item_id=4103,
-        workflow="dash",
-        status_result={
-            "found": True,
-            "clear": False,
-            "touch_paths": ["src/contended.py"],
-            "integration_target": "main",
-            "blockers": [blocker],
-        },
-    )
-    preflight_calls = _install_relay(monkeypatch, dispatcher)
-
-    rc = preflight.run(["YOK-4103", "--workflow", "dash"])
-
-    assert rc == 1
-    assert preflight_calls == []
-    emitted = json.loads(capsys.readouterr().out.strip())
-    assert emitted["block_kind"] == "conflict-survey-blocked"
-    assert emitted["blockers"] == [blocker]
 
 
 def test_run_errors_on_workflow_mismatch(monkeypatch):

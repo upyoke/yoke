@@ -106,7 +106,7 @@ files and prints the item; it does not execute it.
   there and linked by an `item_dependencies` edge — a scope judgment
   the operator owns, so follow **Escalate** below rather than writing
   into that repo from here.
-- Registered work and path claims always win over claim-less Dash work.
+- Survey contacts are advisories: proceed or yield after reading each one.
 - Do not create child items. If the instruction has grown into planning or
   multi-slice work, halt and discuss escalation with the operator. Escalation
   files one Issue through normal intake and cancels the Dash, so the decision
@@ -222,9 +222,12 @@ their enumerations. When budget is on and claims are off, use the budget for
 sizing and conflict evidence without registering a claim. When both are off,
 the stored instruction and survey define scope without either artifact.
 
-For every reported contact:
+For every reported contact, read the advisory and choose:
 
-- yield to active or planned registered claims;
+- proceed when the edits are independent; same-file collisions resolve at merge;
+- yield when the work is order-dependent: author an activation dependency from
+  this item to the holder, drop this claim, and re-offer. A planned claim is
+  not a stronger reason to yield than an active one;
 - when a directory survey was only a discovery aid, narrow it to the complete
   concrete file set before preparation, repeating every required file in the
   replacement survey;
@@ -232,8 +235,9 @@ For every reported contact:
   contact an addressable holder with the harness task-messaging tool
   (`send_message_to_thread` in Codex). When the holder is not addressable in
   the current harness, give the operator its session id and wait;
-- when effective path claims are enabled, keep the inferred set complete;
-  worktree preparation registers or widens the real claim from this survey;
+- when effective path claims are enabled, keep the inferred set complete and
+  register or widen it through `claims.path.register` / `claims.path.widen`
+  before preparation; preparation only validates that coverage;
 - if contact repeats or the required work is no longer instruction-sized,
   stop and follow **Escalate** below, which halts for operator agreement
   before anything is filed.
@@ -263,8 +267,8 @@ removed, leaves Shell stuck on a deleted cwd (`ENOENT`). Pass an explicit
 live `working_directory` when Shell would inherit a worktree or deleted
 path. The preparation call reuses the item work claim already held
 since step 1 (reporting `work-claim:already-owned`, or acquiring it if
-absent), registers or widens selected path claims from the non-empty
-survey, activates them, and creates or reuses the registered worktree.
+absent), validates selected path-claim coverage against the survey,
+activates those claims, and creates or reuses the registered worktree.
 
 Activate through the shared lifecycle interpreter:
 

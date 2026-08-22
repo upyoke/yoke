@@ -49,16 +49,15 @@ def _prepare_dash_path_claim(
     touch_paths: tuple[str, ...],
     integration_target: str,
 ) -> Optional[str]:
-    """Ensure the selected-Dash path claim reflects the live survey.
+    """Validate already-registered selected-Dash path-claim coverage.
 
-    Routes both the work-claim-holder read and the register/widen
-    through the transport-aware dispatcher so an https-connected session
-    relays them to the control plane instead of opening a local Postgres
-    connection. The holder read (``claims.work.holder_get``) preserves
-    the "no live item work claim" refusal; the register-or-widen decision
-    stays server-side behind ``claims.path.survey_ensure`` (the register
-    function alone cannot express the widen case). Returns an error
-    string to block preparation, or ``None`` on success / no-op.
+    Routes the work-claim-holder read and the coverage check through the
+    transport-aware dispatcher so an https-connected session relays them
+    to the control plane. The holder read (``claims.work.holder_get``)
+    preserves the "no live item work claim" refusal;
+    ``claims.path.survey_ensure`` confirms coverage without registering
+    or widening. Returns an error string to block preparation, or
+    ``None`` on success / no-op.
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -194,29 +193,12 @@ def run(args: List[str]) -> int:
         }))
         return 1
     blockers = list(survey.get("blockers") or [])
-    survey_blockers = [
-        blocker for blocker in blockers if blocker.get("kind") == "survey_scope"
-    ]
-    hard_blockers = [
-        blocker for blocker in blockers if blocker.get("kind") != "survey_scope"
-    ]
-    if not survey.get("clear") and (not survey_blockers or hard_blockers):
-        print(json.dumps({
-            "ok": False,
-            "block_kind": "conflict-survey-blocked",
-            "narrative": (
-                "Resolve the listed coordination conflict before continuing."
-            ),
-            "item_id": item_id,
-            "blockers": blockers,
-        }))
-        return 1
-
-    advisory_by_item: dict[int, dict] = {}
-    for blocker in survey_blockers:
+    advisory_by_contact: dict[tuple[int, str], dict] = {}
+    for blocker in blockers:
         owner_item_id = int(blocker["owner_item_id"])
-        advisory = advisory_by_item.setdefault(owner_item_id, {
-            "kind": "survey_scope",
+        kind = str(blocker.get("kind") or "unknown")
+        advisory = advisory_by_contact.setdefault((owner_item_id, kind), {
+            "kind": kind,
             "item_ref": f"item {owner_item_id}",
             "status": str(blocker.get("state") or "unknown"),
             "shared_paths": [],
@@ -228,7 +210,7 @@ def run(args: List[str]) -> int:
         path = str(blocker.get("path") or "")
         if path and path not in advisory["shared_paths"]:
             advisory["shared_paths"].append(path)
-    for owner_item_id, advisory in advisory_by_item.items():
+    for (owner_item_id, _kind), advisory in advisory_by_contact.items():
         other_detail = call_dispatcher(
             function_id="items.detail.get",
             target=TargetRef(kind="item", item_id=owner_item_id),
@@ -238,8 +220,10 @@ def run(args: List[str]) -> int:
         advisory["item_ref"] = str(
             other_item.get("public_ref") or advisory["item_ref"]
         )
+        if other_item.get("status"):
+            advisory["status"] = str(other_item["status"])
         advisory["shared_paths"].sort()
-    advisories = list(advisory_by_item.values())
+    advisories = list(advisory_by_contact.values())
     touch_paths = tuple(survey.get("touch_paths") or ())
     integration_target = str(survey.get("integration_target") or "main")
 
