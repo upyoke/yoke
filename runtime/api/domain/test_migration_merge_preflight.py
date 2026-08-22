@@ -65,7 +65,8 @@ def _profile(identifier: str) -> str:
 
 def _row(item_id: int, status: str, identifier: str) -> dict[str, str]:
     return {
-        "id": str(item_id),
+        "internal_id": str(item_id),
+        "id": f"YOK-{item_id}",
         "status": status,
         "db_mutation_profile": _profile(identifier),
     }

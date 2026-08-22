@@ -50,7 +50,7 @@ class TestItemListCLI:
         assert len(lines) == 1
         parts = lines[0].split("|")
         assert len(parts) == 3
-        assert parts[0] == "1"
+        assert parts[0] == "YOK-1"
         assert parts[1] == "implementing"
         assert parts[2] == "yoke"
 

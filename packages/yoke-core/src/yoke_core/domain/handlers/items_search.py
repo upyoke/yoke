@@ -6,6 +6,13 @@ query as an item reference and matches ``items.project_sequence``, so a
 number finds its item whether or not that number appears anywhere in the
 item's prose.
 
+The projection is operator-facing and never emits an internal
+``items.id`` or a raw actor id: the ``id`` key renders the item's public
+``PREFIX-N`` ref, built from the row's own project columns (no extra
+lookup), and ``internal_id`` carries the numeric key for programmatic
+consumers. ``public_ref`` is deliberately not duplicated here — ``id``
+is the ref; consumers wanting the alias can read ``id``.
+
 The read is uncapped unless the caller passes a ``limit``; a surface that
 renders a short result list should pass its own cap so a broad keyword does
 not ship the whole backlog. Carries ``claim_required_kind=None`` (a read).
@@ -173,12 +180,12 @@ def _search_items(
     rows = conn.execute(sql, tuple(params)).fetchall()
     return [
         {
-            "id": int(row["id"]),
-            "public_ref": format_item_ref(
+            "id": format_item_ref(
                 row["project"],
                 row["public_item_prefix"],
                 int(row["project_sequence"]),
             ),
+            "internal_id": int(row["id"]),
             "title": row["title"],
             "status": row["status"],
             "project": row["project"],

@@ -11,6 +11,8 @@ from unittest import mock
 from yoke_core.domain import lint_main_commit, lint_staged_union
 from yoke_core.hooks.types import HookContext, Next, Outcome
 
+TEST_ITEM_REF = "YOK-42"
+
 
 def _payload(command: str) -> dict:
     return {
@@ -137,14 +139,14 @@ class TestEvaluatePayload(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["42|Some item", "99|Another"],
+                return_value=[f"{TEST_ITEM_REF}|Some item", "YOK-99|Another"],
             ):
             reason = lint_main_commit.evaluate_payload(_payload("git commit -m 'foo'"))
             self.assertIsNotNone(reason)
             assert reason is not None
             self.assertIn("BLOCKED", reason)
             self.assertIn("runtime/api/domain/foo.py", reason)
-            self.assertIn("YOK-42", reason)
+            self.assertIn(TEST_ITEM_REF, reason)
 
     def test_master_branch_also_blocks(self) -> None:
         # `git commit -a` self-stages, so the effective set widens to the
@@ -163,7 +165,7 @@ class TestEvaluatePayload(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["1|Something"],
+                return_value=["YOK-1|Something"],
             ):
             reason = lint_main_commit.evaluate_payload(_payload("git commit -am 'x'"))
             self.assertIsNotNone(reason)
@@ -188,7 +190,7 @@ class TestEvaluate(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["7|thing"],
+                return_value=["YOK-7|thing"],
             ), \
              mock.patch.object(lint_main_commit, "_emit_denial") as emit_mock:
             decision = lint_main_commit.evaluate(_record_for(payload))
@@ -244,7 +246,7 @@ class TestMain(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["7|thing"],
+                return_value=["YOK-7|thing"],
             ), \
              mock.patch.object(lint_main_commit, "_emit_denial"), \
              mock.patch("sys.stdin", io.StringIO(json.dumps(payload))), \

@@ -26,9 +26,22 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
 def enrich_item_overview_rows(
     rows: Iterable[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Add stored owner, public reference, and active-claim facts."""
+    """Add stored owner label, public reference, and active-claim facts.
+
+    ``id`` stays whatever the underlying list projection emitted (its
+    public ref); the numeric key is mirrored onto ``internal_id``. The
+    owner cell degrades to empty when its actor cannot be rendered — an
+    orphan actor never fails the roster.
+    """
+    from yoke_core.domain.actors import (
+        ActorLabelAmbiguous,
+        ActorLabelMissing,
+        ActorNotFound,
+    )
+    from yoke_core.domain.actor_display import actor_display_name
+
     base_rows = [dict(row) for row in rows]
-    ids = [int(row["id"]) for row in base_rows]
+    ids = [int(row["internal_id"]) for row in base_rows]
     if not ids:
         return []
     conn = db_helpers.connect()
@@ -44,6 +57,26 @@ def enrich_item_overview_rows(
             tuple(ids),
         )
         facts = {int(row["id"]): row for row in _dict_rows(cursor)}
+        owner_labels: dict[int, str] = {}
+        for item_id, fact in facts.items():
+            owner_raw = str(fact.get("owner") or "").strip()
+            if (
+                not owner_raw
+                or owner_raw.lower() in ("none", "null")
+            ):
+                owner_labels[item_id] = ""
+                continue
+            try:
+                actor_id = int(owner_raw)
+            except ValueError:
+                owner_labels[item_id] = owner_raw
+                continue
+            try:
+                owner_labels[item_id] = actor_display_name(
+                    conn, actor_id,
+                )
+            except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
+                owner_labels[item_id] = ""
         lane_cursor = conn.execute(
             "SELECT id, item_id, branch, path, lane_role, state, "
             "created_at, updated_at, released_at "
@@ -93,7 +126,7 @@ def enrich_item_overview_rows(
 
     result: list[dict[str, Any]] = []
     for row in base_rows:
-        item_id = int(row["id"])
+        item_id = int(row["internal_id"])
         fact = facts[item_id]
         runtime = runtimes[int(row["workflow_version_id"])]
         row.update(
@@ -106,7 +139,7 @@ def enrich_item_overview_rows(
                 "project_id": int(fact["project_id"]),
                 "project": str(fact["project"]),
                 "project_name": str(fact["project_name"]),
-                "owner": str(fact.get("owner") or ""),
+                "owner": owner_labels.get(item_id, ""),
                 "claimed_by": claims.get(item_id),
                 "worktrees": worktrees.get(item_id, []),
                 "stage_label": runtime.stage_label(str(row["status"])),

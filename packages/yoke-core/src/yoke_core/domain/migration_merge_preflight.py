@@ -97,9 +97,14 @@ def _collision_errors(
 ) -> list[str]:
     errors: list[str] = []
     for row in rows:
-        try:
-            other_id = int(row.get("id") or 0)
-        except (TypeError, ValueError):
+        other_id = _row_item_id(row)
+        if other_id is None:
+            errors.append(
+                "items.list returned a row without internal_id "
+                f"(id={row.get('id')!r}); the serving control plane predates "
+                "the internal-id projection - deploy it before merging "
+                "migration-bearing lanes"
+            )
             continue
         if other_id == item_id or str(row.get("status") or "") not in _NON_TERMINAL_STATUSES:
             continue
@@ -129,14 +134,38 @@ def _collision_errors(
     return errors
 
 
+def _row_item_id(row: Mapping[str, Any]) -> int | None:
+    """Return the row's numeric internal item id from ``internal_id``.
+
+    ``internal_id`` is the projection's contract for the numeric key; a row
+    without it is a legacy listing and carries no usable identity.
+    """
+    raw = str(row.get("internal_id") or "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _row_for_item(
+    rows: Iterable[Mapping[str, Any]], item_id: int,
+) -> Mapping[str, Any] | None:
+    return next(
+        (
+            row for row in rows
+            if _row_item_id(row) == item_id
+        ),
+        None,
+    )
+
+
 def migration_merge_applicable(
     rows: Iterable[Mapping[str, Any]], item_id: int,
 ) -> bool:
     """Whether *item_id* declares at least one numbered apply module."""
-    current_row = next(
-        (row for row in rows if str(row.get("id") or "") == str(item_id)),
-        None,
-    )
+    current_row = _row_for_item(rows, item_id)
     profile = _profile(
         current_row.get("db_mutation_profile") if current_row is not None else None
     )
@@ -160,10 +189,7 @@ def evaluate_migration_merge(
 ) -> MigrationMergeGate:
     """Evaluate history extension, next-ordinal, and live-item collisions."""
     materialized = tuple(rows)
-    current_row = next(
-        (row for row in materialized if str(row.get("id") or "") == str(item_id)),
-        None,
-    )
+    current_row = _row_for_item(materialized, item_id)
     if current_row is None:
         return MigrationMergeGate(True, (f"item {item_id} is absent from items.list",))
     current_profile = _profile(current_row.get("db_mutation_profile"))

@@ -61,8 +61,8 @@ def handle_items_overview_list(request: FunctionCallRequest) -> HandlerOutcome:
         "function": "items.list.run",
         "payload": {
             "fields": [
-                "id", "title", "workflow_id", "workflow_version_id",
-                "status", "project",
+                "id", "internal_id", "title", "workflow_id",
+                "workflow_version_id", "status", "project",
             ],
             **({"project": payload.project} if payload.project else {}),
             **({"limit": payload.limit} if payload.limit else {}),

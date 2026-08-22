@@ -84,7 +84,7 @@ def _staged_files() -> Optional[list[str]]:
 
 
 def _active_worktree_items() -> Optional[list[str]]:
-    """Return ``id|title`` rows for in-flight items with active lanes."""
+    """Return ``ref|title`` rows for in-flight items with active lanes."""
     try:
         from yoke_contracts.api.function_call import TargetRef
         from yoke_core.api.service_client_structured_api_adapter import (
@@ -103,12 +103,13 @@ def _active_worktree_items() -> Optional[list[str]]:
     except Exception:
         return None
     terminal = {"done", "cancelled"}
-    return [
-        f"{row['id']}|{row['title']}"
-        for row in rows
-        if row.get("worktrees")
-        and row.get("status") not in terminal
-    ]
+    rendered = []
+    for row in rows:
+        if not row.get("worktrees") or row.get("status") in terminal:
+            continue
+        ref = str(row.get("public_ref") or "")
+        rendered.append(f"{ref}|{row.get('title') or ''}")
+    return rendered
 
 
 def _format_reason(
@@ -122,11 +123,8 @@ def _format_reason(
 
     active_list = ""
     for item in list(active_items)[:5]:
-        parts = item.split("|", 1)
-        if len(parts) == 2:
-            active_list += "\n  - YOK-%s: %s" % (parts[0], parts[1])
-        else:
-            active_list += "\n  - %s" % item
+        ref, _, title = item.partition("|")
+        active_list += f"\n  - {ref}: {title}"
 
     body = (
         "BLOCKED: Implementation commit on main branch.\n\n"

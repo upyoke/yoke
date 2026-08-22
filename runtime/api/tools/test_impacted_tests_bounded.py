@@ -128,6 +128,19 @@ def test_product_cli_change_keeps_boundary_contracts_when_selection_is_deferred(
     assert set(impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS) <= set(selection.files)
 
 
+def test_service_client_projection_change_keeps_cli_contracts(tmp_path) -> None:
+    root = _tiny_repo(tmp_path)
+    changed = (
+        "packages/yoke-core/src/yoke_core/api/service_client_items_listing.py"
+    )
+    for test_path in impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS:
+        _write(root, test_path, "def test_product_boundary(): pass\n")
+
+    selection = select([changed], build_import_index(root), bounded=True)
+
+    assert set(impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS) <= set(selection.files)
+
+
 def test_standalone_merge_change_keeps_close_out_contracts_when_deferred(
     tmp_path,
 ) -> None:

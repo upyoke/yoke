@@ -156,18 +156,17 @@ class TestApproveCheck:
 
 class TestActiveQueue:
     """Regression tests for active-queue (query path via domain layer)."""
-
     def test_excludes_done_cancelled_frozen(self, test_db):
         result = _run_client(["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"])
         assert result.returncode == 0
         lines = [line for line in result.stdout.strip().split("\n") if line]
-        # Items 1 (active), 5 (active/externalwebapp) included; 2 (done), 3 (cancelled), 4 (frozen) excluded.
+        # Public refs for active rows are included; terminal/frozen refs are excluded.
         ids = [line.split("|")[0] for line in lines]
-        assert "1" in ids, "Active item should be in queue"
-        assert "5" in ids, "ExternalWebapp active item should be in queue"
-        assert "2" not in ids, "Done item should be excluded"
-        assert "3" not in ids, "Cancelled item should be excluded"
-        assert "4" not in ids, "Frozen item should be excluded"
+        assert "YOK-1" in ids, "Active item should be in queue"
+        assert "EXT-1" in ids, "ExternalWebapp active item should be in queue"
+        assert "YOK-2" not in ids, "Done item should be excluded"
+        assert "YOK-3" not in ids, "Cancelled item should be excluded"
+        assert "YOK-4" not in ids, "Frozen item should be excluded"
 
     def test_project_filter(self, test_db):
         result = _run_client(["active-queue", "--project", "externalwebapp", "--fields", "id,title"], db_path=test_db["db_path"])

@@ -8,6 +8,7 @@ with field selection, and ``item-count`` for filter-driven counting.
 from __future__ import annotations
 
 import sys
+from typing import Any
 
 from yoke_core.api.service_client_shared import (
     _get_db_readonly,
@@ -58,8 +59,58 @@ def cmd_active_queue(args: list[str]) -> int:
     conn = _get_db_readonly()
     try:
         rows = conn.execute(sql, params).fetchall()
+        from yoke_core.domain.item_ref_render import (
+            render_item_ref_lookup,
+        )
+        from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS
+
+        ref_positions = [
+            i for i, f in enumerate(field_list) if f == "id"
+        ]
+        label_positions = [
+            i for i, f in enumerate(field_list) if f in ACTOR_LABEL_FIELDS
+        ]
+        ref_lookup = render_item_ref_lookup(
+            conn,
+            [
+                int(row[i])
+                for row in rows
+                for i in ref_positions
+                if str(row[i] or "").strip().isdigit()
+            ],
+        )
+
+        def _cell(position: int, value: Any) -> str:
+            text = "" if value is None else str(value)
+            if position in ref_positions:
+                stripped = text.strip()
+                return (
+                    ref_lookup(int(stripped))
+                    if stripped.isdigit()
+                    else stripped
+                )
+            if position in label_positions:
+                stripped = text.strip()
+                if not stripped or stripped.lower() in ("none", "null"):
+                    return ""
+                if stripped.isdigit():
+                    from yoke_core.domain.actor_display import (
+                        actor_display_name,
+                    )
+
+                    try:
+                        return actor_display_name(conn, int(stripped))
+                    except Exception:
+                        return ""
+                return stripped
+            return text
+
         for row in rows:
-            print("|".join(str(v) for v in row))
+            print(
+                "|".join(
+                    _cell(i, row[i]) for i in range(len(field_list))
+                )
+            )
         return 0
     finally:
         conn.close()
@@ -109,13 +160,68 @@ def cmd_item_list(args: list[str]) -> int:
         rows = conn.execute(sql, sql_params).fetchall()
         if not rows:
             return 1
+        from yoke_core.domain.item_ref_render import (
+            render_item_ref_lookup,
+        )
+        from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS
+        ref_positions = [
+            i for i, f in enumerate(field_list) if f == "id"
+        ]
+        label_positions = [
+            i for i, f in enumerate(field_list) if f in ACTOR_LABEL_FIELDS
+        ]
+        id_column = "id" if "id" in field_list else "__item_id"
+
+        def _lookup_ids():
+            ids = []
+            for row in rows:
+                raw = str(row[id_column] or "").strip()
+                try:
+                    ids.append(int(raw))
+                except ValueError:
+                    continue
+            return ids
+
+        ref_lookup = render_item_ref_lookup(conn, _lookup_ids())
+
+        def _cell(position: int, value: Any) -> str:
+            text = "" if value is None else str(value)
+            if position in ref_positions:
+                stripped = text.strip()
+                if stripped.isdigit():
+                    return ref_lookup(int(stripped))
+                return stripped
+            if position in label_positions:
+                stripped = text.strip()
+                if (
+                    not stripped
+                    or stripped.lower() in ("none", "null")
+                ):
+                    return ""
+                if stripped.isdigit():
+                    from yoke_core.domain.actor_display import (
+                        actor_display_name,
+                    )
+
+                    try:
+                        return actor_display_name(conn, int(stripped))
+                    except Exception:
+                        return ""
+                return stripped
+            return text
+
         if not virtual_positions:
             for row in rows:
-                print("|".join(str(v) for v in row))
+                print(
+                    "|".join(
+                        _cell(i, row[i])
+                        for i in range(len(field_list))
+                    )
+                )
         else:
             from yoke_core.domain.render_body import build_body
             for row in rows:
-                db_vals = list(str(v) for v in row)
+                db_vals = list(row)
                 if needs_hidden_id:
                     item_id = row["__item_id"]
                     db_vals = db_vals[1:]
@@ -131,7 +237,7 @@ def cmd_item_list(args: list[str]) -> int:
                         else:
                             out_vals.append("")
                     else:
-                        out_vals.append(db_vals[db_idx])
+                        out_vals.append(_cell(i, db_vals[db_idx]))
                         db_idx += 1
                 print("|".join(out_vals))
         return 0
