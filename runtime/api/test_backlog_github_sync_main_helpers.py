@@ -5,11 +5,14 @@ from __future__ import annotations
 import io
 from unittest.mock import patch
 
+import pytest
+
 from runtime.api.backlog_github_sync_test_helpers import (
     GH_PATCH,
     make_db as _make_db,
 )
 from runtime.api.conftest import insert_item
+from runtime.api.test_constants import TEST_ITEM_REF
 from yoke_core.domain import backlog_github_label_sync, backlog_github_sync
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
@@ -32,6 +35,13 @@ def _ok_resolver(*args, **kwargs):
 
 
 class TestMain:
+    @pytest.fixture(autouse=True)
+    def _allow_dispatch(self, monkeypatch):
+        monkeypatch.setattr(
+            "yoke_core.domain.backlog_github_sync_cli._guard_or_print",
+            lambda *_a: 0,
+        )
+
     def test_update_repo_labels_dispatch(self):
         with patch(f"{GH_PATCH}.update_repo_labels", return_value=0) as mock:
             rc = backlog_github_sync.main(["update-repo-labels"])
@@ -46,53 +56,53 @@ class TestMain:
 
     def test_sync_labels_dispatch(self):
         with patch(f"{GH_PATCH}.sync_labels", return_value=0) as mock:
-            rc = backlog_github_sync.main(["sync-labels", "42"])
+            rc = backlog_github_sync.main(["sync-labels", TEST_ITEM_REF])
         assert rc == 0
-        mock.assert_called_once_with("42")
+        mock.assert_called_once_with(TEST_ITEM_REF)
 
     def test_sync_item_dispatch(self):
         with patch(f"{GH_PATCH}.sync_item", return_value=0) as mock:
-            rc = backlog_github_sync.main(["sync-item", "42"])
+            rc = backlog_github_sync.main(["sync-item", TEST_ITEM_REF])
         assert rc == 0
-        mock.assert_called_once_with("42")
+        mock.assert_called_once_with(TEST_ITEM_REF)
 
     def test_post_comment_dispatch(self):
         with patch(f"{GH_PATCH}.post_comment", return_value=0) as mock:
             rc = backlog_github_sync.main(
-                ["post-comment", "42", "idea", "implementing"]
+                ["post-comment", TEST_ITEM_REF, "idea", "implementing"]
             )
         assert rc == 0
-        mock.assert_called_once_with("42", "idea", "implementing")
+        mock.assert_called_once_with(TEST_ITEM_REF, "idea", "implementing")
 
     def test_close_issue_dispatch(self):
         with patch(f"{GH_PATCH}.close_issue", return_value=0) as mock:
-            rc = backlog_github_sync.main(["close-issue", "42"])
+            rc = backlog_github_sync.main(["close-issue", TEST_ITEM_REF])
         assert rc == 0
-        mock.assert_called_once_with("42")
+        mock.assert_called_once_with(TEST_ITEM_REF)
 
     def test_reopen_issue_dispatch(self):
         with patch(f"{GH_PATCH}.reopen_issue", return_value=0) as mock:
-            rc = backlog_github_sync.main(["reopen-issue", "42"])
+            rc = backlog_github_sync.main(["reopen-issue", TEST_ITEM_REF])
         assert rc == 0
-        mock.assert_called_once_with("42")
+        mock.assert_called_once_with(TEST_ITEM_REF)
 
     def test_sync_body_dispatch(self):
         with patch(f"{GH_PATCH}.sync_body", return_value=0) as mock:
-            rc = backlog_github_sync.main(["sync-body", "42"])
+            rc = backlog_github_sync.main(["sync-body", TEST_ITEM_REF])
         assert rc == 0
-        mock.assert_called_once_with("42")
+        mock.assert_called_once_with(TEST_ITEM_REF)
 
     def test_sync_title_dispatch(self):
         with patch(f"{GH_PATCH}.sync_title", return_value=0) as mock:
-            rc = backlog_github_sync.main(["sync-title", "42"])
+            rc = backlog_github_sync.main(["sync-title", TEST_ITEM_REF])
         assert rc == 0
-        mock.assert_called_once_with("42")
+        mock.assert_called_once_with(TEST_ITEM_REF)
 
     def test_frozen_label_dispatch(self):
         with patch(f"{GH_PATCH}.sync_frozen_label", return_value=0) as mock:
-            rc = backlog_github_sync.main(["frozen-label", "42", "true"])
+            rc = backlog_github_sync.main(["frozen-label", TEST_ITEM_REF, "true"])
         assert rc == 0
-        mock.assert_called_once_with("42", "true")
+        mock.assert_called_once_with(TEST_ITEM_REF, "true")
 
     def test_unknown_mode_returns_error(self):
         rc = backlog_github_sync.main(["bogus-mode"])
@@ -119,7 +129,7 @@ class TestHelpers:
             project="externalwebapp",
             github_issue="#100",
         )
-        result = backlog_github_sync._item_context("80", conn=db)
+        result = backlog_github_sync._item_context(80, conn=db)
         assert result == ("#100", "externalwebapp", "org/externalwebapp")
         db.close()
 
@@ -133,7 +143,7 @@ class TestHelpers:
             project="yoke",
             github_issue="#100",
         )
-        result = backlog_github_sync._item_context("80", conn=db)
+        result = backlog_github_sync._item_context(80, conn=db)
         assert result is not None
         assert result[0] == "#100"
         assert result[1] == "yoke"
@@ -141,7 +151,7 @@ class TestHelpers:
 
     def test_item_context_missing_item(self):
         db = _make_db()
-        result = backlog_github_sync._item_context("9999", conn=db)
+        result = backlog_github_sync._item_context(9999, conn=db)
         assert result is None
         db.close()
 
@@ -157,7 +167,7 @@ class TestHelpers:
             title="Test",
         )
         result = backlog_github_sync._item_fields(
-            "80", ["title", "status", "priority"], conn=db
+            80, ["title", "status", "priority"], conn=db
         )
         assert result == {"title": "Test", "status": "idea", "priority": "high"}
         db.close()

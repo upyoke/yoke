@@ -17,6 +17,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from types import SimpleNamespace
 
+from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
+
 
 class TestDbClaimAmendDispatch:
     """``db-claim-amend`` routes through ``db_claim.amend`` dispatcher."""
@@ -29,7 +31,6 @@ class TestDbClaimAmendDispatch:
         the domain owner.
         """
         calls: list[dict] = []
-        from yoke_core.domain.handlers import db_claim as db_claim_handler
 
         def _record(item_id, claim, *, reason, session_id=None):
             calls.append({
@@ -62,6 +63,18 @@ class TestDbClaimAmendDispatch:
         monkeypatch.setattr(
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
+        from yoke_core.domain import yok_n_parser
+
+        monkeypatch.setattr(
+            yok_n_parser,
+            "parse_item_id",
+            lambda value, **_kwargs: {
+                TEST_ITEM_REF: TEST_ITEM_ID,
+                "YOK-7": 7,
+                "5": 5,
+                "1": 1,
+            }[str(value)],
+        )
         return calls
 
     def test_state_none_routes_through_dispatcher(self, monkeypatch):
@@ -73,17 +86,17 @@ class TestDbClaimAmendDispatch:
         err = StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             rc = cmd_db_claim_amend([
-                "--item", "YOK-42", "--state", "none",
+                "--item", TEST_ITEM_REF, "--state", "none",
                 "--reason", "no governed DB work",
             ])
         assert rc == 0, (out.getvalue(), err.getvalue())
         assert len(calls) == 1
-        assert calls[0]["item_id"] == 42
+        assert calls[0]["item_id"] == TEST_ITEM_ID
         assert calls[0]["claim"] == {"state": "none"}
         assert calls[0]["reason"] == "no governed DB work"
         data = json.loads(out.getvalue())
         assert data["success"] is True
-        assert data["item_id"] == 42
+        assert data["item_id"] == TEST_ITEM_ID
         assert data["reason"] == "no governed DB work"
 
     def test_json_mode_emits_function_call_response_envelope(self, monkeypatch):

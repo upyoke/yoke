@@ -79,17 +79,6 @@ def _release_conduct_claim(
         return {"released": False, "reason": "exception", "error": str(exc)}
 
 
-def _normalize_item_id(raw: str) -> Optional[int]:
-    """Resolve an item ref to the internal ``items.id``.
-
-    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    return parse_item_id_or_none(raw, allow_bare_internal=True)
-
-
 def _fetch_status(epic_id: int) -> Optional[str]:
     from yoke_core.domain import db_backend, db_helpers
 
@@ -274,12 +263,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    epic_id = _normalize_item_id(args.epic_id)
-    if epic_id is None:
-        print(
-            "Error: invalid epic ID: %s" % args.epic_id,
-            file=sys.stderr,
-        )
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    try:
+        epic_id = parse_item_argument(args.epic_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
     return run(epic_id, session_id=args.session_id)
 

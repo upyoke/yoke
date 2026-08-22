@@ -95,7 +95,7 @@ class TestSyncSurfacesSkip:
             "yoke_core.domain.backlog_github_item_create.github_rest.create_issue",
             side_effect=AssertionError("issue created for disabled project"),
         ):
-            rc = backlog_github_sync.sync_item("71", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_item(71, conn=db, stdout=stdout)
 
         assert rc == 0
         assert (
@@ -118,7 +118,7 @@ class TestSyncSurfacesSkip:
             "update_issue",
             side_effect=AssertionError("REST reached for disabled project"),
         ):
-            rc = backlog_github_sync.sync_body("72", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_body(72, conn=db, stdout=stdout)
 
         assert rc == 0
         assert (
@@ -133,7 +133,7 @@ class TestSyncSurfacesSkip:
         )
         stdout = io.StringIO()
 
-        rc = backlog_github_sync.sync_title("73", conn=db, stdout=stdout)
+        rc = backlog_github_sync.sync_title(73, conn=db, stdout=stdout)
 
         assert rc == 0
         assert (
@@ -149,7 +149,7 @@ class TestSyncSurfacesSkip:
         stdout = io.StringIO()
 
         rc = backlog_github_sync.post_comment(
-            "74",
+            74,
             "idea",
             "refining-idea",
             conn=db,
@@ -174,7 +174,7 @@ class TestSyncSurfacesSkip:
         )
         stdout = io.StringIO()
 
-        rc = backlog_github_sync.close_issue("75", conn=db, stdout=stdout)
+        rc = backlog_github_sync.close_issue(75, conn=db, stdout=stdout)
 
         assert rc == 0
         assert (
@@ -195,7 +195,7 @@ class TestSyncSurfacesSkip:
             return_value=False,
         ) as pat:
             rc = backlog_github_sync.sync_body(
-                "76",
+                76,
                 conn=db,
                 stdout=stdout,
                 stderr=stderr,

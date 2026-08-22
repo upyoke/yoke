@@ -35,15 +35,15 @@ IMPLEMENTATION_PHASE_STATUSES = frozenset({
 })
 
 
-def _parse_item_id(raw: Any) -> int:
+def _parse_item_argument(raw: Any) -> int:
     """Resolve an item ref to the internal ``items.id``.
 
     ``PREFIX-N`` resolves through the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
+    ``items.project_sequence``; a bare number is a project-local sequence.
     """
-    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    return parse_item_id(raw, allow_bare_internal=True)
+    return parse_item_argument(raw)
 
 
 def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
@@ -183,9 +183,9 @@ def run(
 ) -> int:
     """Orchestrate the implementation-entry phases. Returns CLI exit code."""
     try:
-        item_id_int = _parse_item_id(item_id)
-    except ValueError:
-        print(f"ERROR: invalid item id {item_id!r}", file=sys.stderr)
+        item_id_int = _parse_item_argument(item_id)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
     resolved_session, identity_kind, identity_narrative = (

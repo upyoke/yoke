@@ -91,9 +91,7 @@ def touch_item_activity(
         # bare integers are internal ids. Resolution runs under the
         # savepoint so a missing-table failure on a minimal fixture DB
         # never poisons the caller's open transaction.
-        numeric_item = parse_item_id_or_none(
-            item_id, conn=conn, allow_bare_internal=True
-        )
+        numeric_item = parse_item_id_or_none(item_id, conn=conn)
         if numeric_item is None:
             conn.execute("ROLLBACK TO SAVEPOINT item_activity_touch")
             conn.execute("RELEASE SAVEPOINT item_activity_touch")

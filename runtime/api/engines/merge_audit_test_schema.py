@@ -23,10 +23,21 @@ from yoke_core.domain.item_worktrees import (
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
 MERGE_AUDIT_SCHEMA_DDL = """\
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    public_item_prefix TEXT NOT NULL
+);
+INSERT INTO projects (id, slug, name, public_item_prefix)
+VALUES (1, 'yoke', 'Yoke', 'YOK')
+ON CONFLICT(id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'idea'
+    status TEXT NOT NULL DEFAULT 'idea',
+    project_id INTEGER REFERENCES projects(id),
+    project_sequence INTEGER
 );
 CREATE TABLE IF NOT EXISTS item_worktrees (
     id INTEGER PRIMARY KEY,

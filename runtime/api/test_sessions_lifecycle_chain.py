@@ -173,7 +173,7 @@ class TestEndSessionChainPendingGuard:
     def _setup_chain_pending(self, conn, session_id="sess-chain"):
         """Register a session with a chainable checkpoint at step 1/3."""
         _register(conn, session_id=session_id)
-        claim_work(conn, session_id=session_id, item_id=_sun(100))
+        claim_work(conn, session_id=session_id, item_id=100)
         # Persist a chainable checkpoint
         update_chain_checkpoint(
             conn, session_id,
@@ -222,7 +222,7 @@ class TestEndSessionChainPendingGuard:
     def test_not_chainable_allows_end(self, mock_emit, conn):
         """Non-chainable checkpoint allows normal end (claims pre-released)."""
         _register(conn, session_id="sess-nc")
-        c = claim_work(conn, session_id="sess-nc", item_id=_sun(200))
+        c = claim_work(conn, session_id="sess-nc", item_id=200)
         release_claim(conn, c["id"], reason="completed")
         update_chain_checkpoint(
             conn, "sess-nc",

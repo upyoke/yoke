@@ -30,6 +30,7 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 # Re-export public command surface — direct from the canonical owner of
 # each name (no two-hop indirection sim-gap rule).
@@ -61,7 +62,7 @@ Subcommands:
   touch <session-id> [--mode M]
   end <session-id> [--force]
   claim <session-id> --target-kind {item|epic_task|process}
-        --item-id N | --epic-id N --task-num K |
+        --item-id PREFIX-N | --epic-id PREFIX-N --task-num K |
         --process-key KEY --conflict-group GROUP [--reason R]
   release <claim-id> [reason]
   release-all <session-id> [reason]
@@ -172,7 +173,7 @@ def main(argv: Optional[List[str]] = None) -> None:
                 _cli_usage_error(
                     "Usage: harness-sessions claim <session-id> "
                     "--target-kind {item|epic_task|process} "
-                    "[--item-id N | --epic-id N --task-num K | "
+                    "[--item-id PREFIX-N | --epic-id PREFIX-N --task-num K | "
                     "--process-key KEY --conflict-group GROUP] "
                     "[--reason R]"
                 )
@@ -187,10 +188,10 @@ def main(argv: Optional[List[str]] = None) -> None:
                     kind = rest[i + 1]
                     i += 2
                 elif rest[i] == "--item-id" and i + 1 < len(rest):
-                    item_id = int(rest[i + 1])
+                    item_id = parse_item_argument(rest[i + 1], conn=conn)
                     i += 2
                 elif rest[i] == "--epic-id" and i + 1 < len(rest):
-                    epic_id = int(rest[i + 1])
+                    epic_id = parse_item_argument(rest[i + 1], conn=conn)
                     i += 2
                 elif rest[i] == "--task-num" and i + 1 < len(rest):
                     task_num = int(rest[i + 1])

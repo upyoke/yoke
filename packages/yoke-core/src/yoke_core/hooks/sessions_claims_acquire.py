@@ -240,7 +240,7 @@ def _claim_typed(
     )
     new_claim_id = int(cursor.fetchone()[0])
     if target.kind == TARGET_KIND_ITEM:
-        _set_current_item(conn, session_id, str(target.item_id))
+        _set_current_item(conn, session_id, int(target.item_id))
     from yoke_core.domain.claim_chain_state import (
         record_claim_reason,
         touch_epic_task_activity,

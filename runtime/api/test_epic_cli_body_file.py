@@ -14,7 +14,13 @@ from unittest.mock import patch
 import pytest
 
 from yoke_core.domain import epic
-from runtime.api.test_epic_tasks import db  # noqa: F401
+from runtime.api.test_epic_tasks import TEST_ITEM_ID, TEST_ITEM_REF, db  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def _resolve_epic_argument(monkeypatch):
+    """Keep body-file tests focused on CLI parsing, not identity lookup."""
+    monkeypatch.setattr(epic, "_parse_epic_id", lambda *_a, **_k: TEST_ITEM_ID)
 
 
 class TestReviewInsertBodyFile:
@@ -27,18 +33,22 @@ class TestReviewInsertBodyFile:
             "yoke_core.domain.epic.review_insert", return_value="ok"
         ) as handler:
             epic.main([
-                "review-insert", "42", "1", "PASS",
+                "review-insert", TEST_ITEM_REF, "1", "PASS",
                 "--body-file", str(body_file),
             ])
 
-        handler.assert_called_once_with(db, "42", 1, "PASS", "Reviewed from file")
+        handler.assert_called_once_with(
+            db, TEST_ITEM_ID, 1, "PASS", "Reviewed from file",
+        )
 
     def test_body_file_missing_path_exits_with_2(self, db):  # noqa: F811
         with patch("yoke_core.domain.epic.connect", return_value=db), patch(
             "yoke_core.domain.epic._validate_epic_exists"
         ):
             with pytest.raises(SystemExit) as exc:
-                epic.main(["review-insert", "42", "1", "PASS", "--body-file"])
+                epic.main([
+                    "review-insert", TEST_ITEM_REF, "1", "PASS", "--body-file",
+                ])
 
         assert exc.value.code == 2
 
@@ -51,7 +61,7 @@ class TestReviewInsertBodyFile:
         ) as handler:
             with pytest.raises(SystemExit) as exc:
                 epic.main([
-                    "review-insert", "42", "1", "PASS",
+                    "review-insert", TEST_ITEM_REF, "1", "PASS",
                     "--body-file", str(missing),
                 ])
 
@@ -67,12 +77,12 @@ class TestHistoryInsertBodyFile:
             "yoke_core.domain.epic.history_insert", return_value="ok"
         ) as handler:
             epic.main([
-                "history-insert", "42", "1",
+                "history-insert", TEST_ITEM_REF, "1",
                 "planning", "implementing", "note text",
             ])
 
         handler.assert_called_once_with(
-            db, "42", 1, "planning", "implementing", "note text",
+            db, TEST_ITEM_ID, 1, "planning", "implementing", "note text",
         )
 
     def test_body_file(self, db, tmp_path):  # noqa: F811
@@ -84,13 +94,13 @@ class TestHistoryInsertBodyFile:
             "yoke_core.domain.epic.history_insert", return_value="ok"
         ) as handler:
             epic.main([
-                "history-insert", "42", "1",
+                "history-insert", TEST_ITEM_REF, "1",
                 "planning", "implementing",
                 "--body-file", str(body_file),
             ])
 
         handler.assert_called_once_with(
-            db, "42", 1, "planning", "implementing", "history note from file",
+            db, TEST_ITEM_ID, 1, "planning", "implementing", "history note from file",
         )
 
     def test_body_file_missing_path_exits_with_2(self, db):  # noqa: F811
@@ -99,7 +109,7 @@ class TestHistoryInsertBodyFile:
         ):
             with pytest.raises(SystemExit) as exc:
                 epic.main([
-                    "history-insert", "42", "1",
+                    "history-insert", TEST_ITEM_REF, "1",
                     "planning", "implementing", "--body-file",
                 ])
 
@@ -114,7 +124,7 @@ class TestHistoryInsertBodyFile:
         ) as handler:
             with pytest.raises(SystemExit) as exc:
                 epic.main([
-                    "history-insert", "42", "1",
+                    "history-insert", TEST_ITEM_REF, "1",
                     "planning", "implementing",
                     "--body-file", str(missing),
                 ])

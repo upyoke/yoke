@@ -10,6 +10,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import worktree as worktree_cli
+from yoke_core.domain import yok_n_parser
 from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.worktree import create_worktree
 from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
@@ -265,7 +266,12 @@ class TestCreateWorktreeMultiWorktree:
             return original(item_num, **kwargs)
 
         monkeypatch.setattr(worktree_cli, "create_worktree", patched_create)
-        monkeypatch.setattr(sys, "argv", ["worktree", "create", "99206"])
+        monkeypatch.setattr(
+            yok_n_parser,
+            "parse_item_argument",
+            lambda *_args, **_kwargs: 99206,
+        )
+        monkeypatch.setattr(sys, "argv", ["worktree", "create", "YOK-99206"])
 
         rc = worktree_cli.main_create()
         assert rc == 0, capsys.readouterr().err
@@ -293,7 +299,12 @@ class TestCreateWorktreeMultiWorktree:
             return original(item_num, **kwargs)
 
         monkeypatch.setattr(worktree_cli, "create_worktree", patched_create)
-        monkeypatch.setattr(sys, "argv", ["worktree", "create", "99207"])
+        monkeypatch.setattr(
+            yok_n_parser,
+            "parse_item_argument",
+            lambda *_args, **_kwargs: 99207,
+        )
+        monkeypatch.setattr(sys, "argv", ["worktree", "create", "YOK-99207"])
 
         rc = worktree_cli.main_create()
         assert rc == 0, capsys.readouterr().err

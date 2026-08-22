@@ -321,7 +321,11 @@ class TestGenerateReport:
     def test_exit_code_always_zero(self, tmp_db, fake_repo):
         """CLI exits 0 even when there are warnings."""
         conn = connect_test_db(tmp_db)
-        conn.execute("INSERT INTO items (id, title, status) VALUES (800, 'Ex', 'implementing')")
+        conn.execute(
+            "INSERT INTO items "
+            "(id, title, status, project_id, project_sequence) "
+            "VALUES (800, 'Ex', 'implementing', 1, 800)"
+        )
         seed_merge_audit_task(
             conn,
             epic_id=800,
@@ -336,7 +340,7 @@ class TestGenerateReport:
         _add_branch(fake_repo, "YOK-800")
 
         result = subprocess.run(
-            [sys.executable, "-m", "yoke_core.engines.merge_audit", "800"],
+            [sys.executable, "-m", "yoke_core.engines.merge_audit", "YOK-800"],
             capture_output=True, text=True,
             cwd=str(fake_repo),
             env={**os.environ, "YOKE_DB": tmp_db, "MERGE_AUDIT_REPO_ROOT": fake_repo,

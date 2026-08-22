@@ -138,21 +138,30 @@ def _check_conflict(repo_root: str, left_branch: str, right_branch: str) -> List
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-from yoke_core.engines.merge_audit_report import generate_report  # noqa: E402,F401
+from yoke_core.engines.merge_audit_report import (  # noqa: E402
+    generate_report as _generate_report,
+)
+
+
+def generate_report(epic_filter: str | int | None = None) -> str:
+    """Render a report after resolving an optional public item argument."""
+    resolved = epic_filter
+    if isinstance(epic_filter, str):
+        from yoke_core.domain.yok_n_parser import parse_item_argument
+
+        resolved = parse_item_argument(epic_filter)
+    return _generate_report(None if resolved is None else int(resolved))
 
 def main() -> None:
     """CLI: ``python3 -m yoke_core.engines.merge_audit [epic-id]``."""
-    epic_filter: Optional[int] = None
+    epic_filter: str | int | None = None
     if len(sys.argv) > 1:
-        from yoke_core.domain.yok_n_parser import parse_item_id
-
-        try:
-            epic_filter = parse_item_id(sys.argv[1], allow_bare_internal=True)
-        except ValueError:
-            print(f"Error: invalid epic ID: {sys.argv[1]}", file=sys.stderr)
-            sys.exit(1)
-
-    print(generate_report(epic_filter), end="")
+        epic_filter = sys.argv[1]
+    try:
+        print(generate_report(epic_filter), end="")
+    except ValueError as exc:
+        print(f"Error: invalid epic ID: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

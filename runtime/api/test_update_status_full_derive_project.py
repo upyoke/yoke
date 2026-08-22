@@ -102,7 +102,7 @@ class TestCrossProject:
         self._setup_externalwebapp_project(env)
         env.insert_task("planned")
         env.init_git()
-        r = env.run("42", "003", "implementing")
+        r = env.run("EXT-42", "003", "implementing")
         assert r.returncode == 0
         log = env.gh_log.read_text()
         assert "/repos/example-org/externalwebapp/" in log
@@ -141,7 +141,10 @@ class TestCrossProject:
             }),
         )
 
-        r = env.run("42", "003", "done", extra_env={"YOKE_TASK_DONE_VERIFIED": "1"})
+        r = env.run(
+            "EXT-42", "003", "done",
+            extra_env={"YOKE_TASK_DONE_VERIFIED": "1"},
+        )
         assert r.returncode == 0
         log = env.gh_log.read_text()
         # GET parent + PATCH issue both target the externalwebapp repo URL.

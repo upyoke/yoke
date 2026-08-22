@@ -77,7 +77,7 @@ class TestExecuteClose:
         patched["_close_issue"].assert_called_once_with(10, out)
         patched["_rebuild_board"].assert_called_once_with(out)
 
-    def test_basic_close_normalizes_numeric_resolution_ref(self, tmp_db):
+    def test_basic_close_preserves_context_free_numeric_resolution_ref(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")
         out = io.StringIO()
 
@@ -90,7 +90,7 @@ class TestExecuteClose:
             )
 
         assert result["success"] is True
-        assert _item_field(tmp_db, 10, "resolution_ref") == "YOK-33"
+        assert _item_field(tmp_db, 10, "resolution_ref") == "33"
 
     def test_close_idempotent_same_reason(self, tmp_db):
         _seed_item(tmp_db, id=10, status="cancelled", resolution="obsolete")

@@ -55,8 +55,8 @@ def _age_session(conn, session_id: str) -> None:
 def test_running_command_survives_while_dead_session_is_reclaimed(conn):
     _register(conn, session_id="running-command")
     _register(conn, session_id="dead-command")
-    claim_work(conn, session_id="running-command", item_id="YOK-810")
-    claim_work(conn, session_id="dead-command", item_id="YOK-811")
+    claim_work(conn, session_id="running-command", item_id=810)
+    claim_work(conn, session_id="dead-command", item_id=811)
     _age_session(conn, "running-command")
     _age_session(conn, "dead-command")
     clock = Clock()
@@ -101,8 +101,8 @@ def test_running_command_survives_while_dead_session_is_reclaimed(conn):
 def test_client_poll_loop_outlives_the_stale_ttl_without_losing_claim(conn):
     _register(conn, session_id="client-poll")
     _register(conn, session_id="abandoned-poll")
-    claim_work(conn, session_id="client-poll", item_id="YOK-810")
-    claim_work(conn, session_id="abandoned-poll", item_id="YOK-811")
+    claim_work(conn, session_id="client-poll", item_id=810)
+    claim_work(conn, session_id="abandoned-poll", item_id=811)
     _age_session(conn, "client-poll")
     _age_session(conn, "abandoned-poll")
     clock = Clock()

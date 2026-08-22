@@ -292,7 +292,7 @@ class TestResolveItemWorktree:
         conn.commit()
         conn.close()
 
-        result = resolve_item_worktree("YOK-77", db_path=yoke_db)
+        result = resolve_item_worktree("EXT-77", db_path=yoke_db)
 
         assert result.project == "externalwebapp"
         assert result.exists is True
@@ -300,7 +300,7 @@ class TestResolveItemWorktree:
 
     def test_missing_item(self, yoke_db):
         with pytest.raises(LookupError, match="not found"):
-            resolve_item_worktree("YOK-999", db_path=yoke_db)
+            resolve_item_worktree(999, db_path=yoke_db)
 
     def test_invalid_id(self):
         with pytest.raises(ValueError, match="invalid"):

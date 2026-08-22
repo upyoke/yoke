@@ -36,7 +36,6 @@ from yoke_core.domain.prd_validate_extract import (
     extract_section,
     extract_section_fuzzy,
     has_content,
-    normalize_item_ref,
 )
 from yoke_core.domain.prd_validate_render import print_report
 
@@ -77,13 +76,12 @@ def resolve_body(item_ref: Optional[str], body_text: Optional[str]) -> tuple[str
             "       echo \"$body\" | python3 -m yoke_core.domain.prd_validate --body-text -"
         )
 
-    num = normalize_item_ref(item_ref)
-
     conn = db_helpers.connect()
     try:
-        item_label = (
-            render_item_ref(conn, int(num)) if str(num).isdigit() else str(item_ref)
-        )
+        from yoke_core.domain.yok_n_parser import parse_item_argument
+
+        num = parse_item_argument(item_ref, conn=conn)
+        item_label = render_item_ref(conn, num)
         spec_row = conn.execute(
             "SELECT spec FROM items WHERE id=%s", (num,),
         ).fetchone()

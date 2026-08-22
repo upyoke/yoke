@@ -87,7 +87,7 @@ def test_sync_done_item_batches_body_labels_and_close():
         f"{_DONE_GH_REST}.set_issue_state",
     ) as set_state, patch(f"{GH_PATCH}._ensure_label"):
         rc = backlog_github_sync.sync_done_item(
-            "70", "release", conn=db, stdout=stdout,
+            70, "release", conn=db, stdout=stdout,
         )
 
     assert rc == 0
@@ -167,7 +167,7 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         f"{_DONE_GH_REST}.set_issue_state",
     ), patch(f"{GH_PATCH}._ensure_label"):
         rc = backlog_github_sync.sync_done_item(
-            "72", "release", conn=db, stdout=stdout, stderr=stderr,
+            72, "release", conn=db, stdout=stdout, stderr=stderr,
         )
 
     assert rc == 0

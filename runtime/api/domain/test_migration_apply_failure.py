@@ -68,7 +68,7 @@ class TestUnresolvableItemReference:
     ) -> None:
         monkeypatch.setattr(
             migration_apply,
-            "_parse_item_id",
+            "_parse_item_argument",
             lambda _raw: (_ for _ in ()).throw(
                 ValueError("item ref 'YOK-2218' not found")
             ),
@@ -85,7 +85,7 @@ class TestUnresolvableItemReference:
     ) -> None:
         monkeypatch.setattr(
             migration_apply,
-            "_parse_item_id",
+            "_parse_item_argument",
             lambda _raw: (_ for _ in ()).throw(ValueError("unresolvable")),
         )
         monkeypatch.setattr(

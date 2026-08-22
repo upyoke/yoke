@@ -126,17 +126,16 @@ def _epic_ref_name(
     conn: Any,
     stderr: TextIO,
 ) -> Optional[str]:
-    if epic_ref.lower().startswith("yok-") or epic_ref.isdigit():
-        normalized = epic_ref.removeprefix("YOK-").removeprefix("yok-").lstrip("0") or "0"
-        row = conn.execute(
-            f"SELECT COALESCE(CAST(id AS TEXT), '') FROM items WHERE id = {_placeholder(conn)} LIMIT 1",
-            (int(normalized),),
-        ).fetchone()
-        epic_name = str(row[0] or "") if row else ""
-        if not epic_name or epic_name == "null":
-            print(f"Error: Item {epic_ref} does not exist", file=stderr)
+    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    _, sequence = parse_public_item_ref(epic_ref)
+    if sequence is not None:
+        try:
+            return str(parse_item_argument(epic_ref, conn=conn))
+        except ValueError as exc:
+            print(f"Error: {exc}", file=stderr)
             return None
-        return epic_name
     return epic_ref
 
 

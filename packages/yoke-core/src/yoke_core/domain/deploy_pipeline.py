@@ -1,11 +1,4 @@
-"""Deployment pipeline orchestration — stage iteration, step_runner dispatch, CI gates.
-
-CLI usage::
-
-    python3 -m yoke_core.domain.deploy_pipeline <run-id|item-id> [--product-repo-path PATH --image-tag TAG] [--timeout M] [--from-stage S] [--fresh]
-
-Exit codes: 0 = success, 1 = stage failed, 2 = awaiting approval, 3 = usage/setup error.
-"""
+"""Deployment pipeline orchestration for stages, runners, and CI gates."""
 
 from __future__ import annotations
 
@@ -17,6 +10,7 @@ from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain import deploy_qa_recorder
+from yoke_core.domain.claim_recovery import canonical_item_ref
 from yoke_core.domain.deploy_pipeline_step_runners import (
     _dispatch_step_runner,
 )
@@ -186,13 +180,17 @@ def run_pipeline(
             )
             # Transition member items to release
             for sri_item in member_items:
-                sri_status = _yoke_db("items", "get", str(sri_item), "status", sd=sd)
+                sri_ref = canonical_item_ref(int(sri_item))
+                if sri_ref is None:
+                    print(f"Error: cannot render deployment member items.id={sri_item}", file=sys.stderr)
+                    return EXIT_USAGE
+                sri_status = _yoke_db("items", "get", sri_ref, "status", sd=sd)
                 if sri_status == "implemented":
                     env = dict(os.environ)
                     env["YOKE_CLAIM_BYPASS"] = f"deploy-pipeline:run-{run_id}"
                     subprocess.run(
                         [sys.executable, "-m", "yoke_core.cli.db_router",
-                         "items", "update", sri_item, "status", "release"],
+                         "items", "update", sri_ref, "status", "release"],
                         capture_output=True, env=env,
                     )
             run_started = True

@@ -1,12 +1,16 @@
+# ruff: noqa: F811
 """Tests for service_client release-work-claim command."""
 
 from __future__ import annotations
 
 import json
 
+import pytest
+
+from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
+from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
 
 
 def _sun(item_id: int) -> str:
@@ -15,6 +19,12 @@ def _sun(item_id: int) -> str:
 
 class TestReleaseItemClaim:
     """Tests for release-work-claim command."""
+
+    @pytest.fixture(autouse=True)
+    def _seed_public_item_identity(self, session_offer_db):
+        conn = connect_test_db(session_offer_db["db_path"])
+        insert_item(conn, id=99, status="implemented")
+        conn.close()
 
     def test_release_item_claim_active_claim(self, session_offer_db):
         """Release-work-claim releases an active item claim."""
@@ -68,8 +78,10 @@ class TestReleaseItemClaim:
         assert row[0] is not None  # released_at is set
         assert row[1] == "completed"
 
-    def test_release_item_claim_normalizes_bare_numeric_id(self, session_offer_db):
-        """Bare numeric release requests match canonical bare-numeric claim storage."""
+    def test_release_item_claim_resolves_project_scoped_bare_sequence(
+        self, session_offer_db,
+    ):
+        """An explicitly project-scoped bare sequence resolves before release."""
         db_path = session_offer_db["db_path"]
         sid = "release-bare-numeric-test"
 
@@ -92,7 +104,8 @@ class TestReleaseItemClaim:
 
         result = _run_client(
             ["release-work-claim", "--session-id", sid,
-             "--item", "0099", "--reason", "completed"],
+             "--item", "0099", "--project", "yoke",
+             "--reason", "completed"],
             db_path=db_path,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -269,9 +282,7 @@ class TestReleaseItemClaim:
 
         conn = connect_test_db(db_path)
         conn.execute(
-            "INSERT INTO items (id, title, status, created_at, updated_at) "
-            "VALUES (99, 'Polish item', 'polishing-implementation', "
-            "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')"
+            "UPDATE items SET status='polishing-implementation' WHERE id=99"
         )
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "

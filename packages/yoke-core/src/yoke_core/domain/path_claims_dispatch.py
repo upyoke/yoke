@@ -28,12 +28,12 @@ from yoke_core.domain.path_claims_dispatch_override import cmd_override
 from yoke_core.domain.path_claims_dispatch_ownership import deny_if_not_owner
 from yoke_core.domain.path_claims_dispatch_io import (
     open_conn as _open_conn,
-    parse_item_id as _parse_item_id,
     parse_paths as _parse_paths,
     print_error as _print_error,
     print_json as _print_json,
     split_states as _split_states,
 )
+from yoke_core.domain.yok_n_parser import parse_item_argument
 from yoke_core.domain.path_claims_dispatch_state import (
     cmd_activate,
     cmd_cancel,
@@ -93,7 +93,7 @@ def cmd_register(argv: Sequence[str]) -> int:
         _print_error("USAGE", "see --help for path-claims register")
         return 2
     try:
-        item_id = _parse_item_id(args.item)
+        item_id = parse_item_argument(args.item)
     except ValueError as exc:
         _print_error("USAGE", str(exc))
         return 2
@@ -235,7 +235,7 @@ def cmd_list(argv: Sequence[str]) -> int:
         _print_error("USAGE", "see --help for path-claims list")
         return 2
     try:
-        item_id = _parse_item_id(args.item)
+        item_id = parse_item_argument(args.item)
     except ValueError as exc:
         _print_error("USAGE", str(exc))
         return 2

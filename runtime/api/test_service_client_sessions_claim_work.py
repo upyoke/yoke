@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for service_client claim-work command."""
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
+from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
 
 
 def _fresh_ts() -> str:
@@ -65,8 +66,8 @@ class TestClaimItem:
         assert row[2] == "exclusive"
         assert attribution[0] == "10"
 
-    def test_claim_item_normalizes_bare_numeric_id(self, session_offer_db):
-        """Bare numeric item IDs are canonicalized to bare numeric at claim time."""
+    def test_claim_item_resolves_project_scoped_bare_sequence(self, session_offer_db):
+        """An explicitly project-scoped bare sequence resolves before claiming."""
         db_path = session_offer_db["db_path"]
         sid = "claim-test-bare-numeric"
 
@@ -82,7 +83,15 @@ class TestClaimItem:
         conn.close()
 
         result = _run_client(
-            ["claim-work", "--session-id", sid, "--item", "0010"],
+            [
+                "claim-work",
+                "--session-id",
+                sid,
+                "--item",
+                "0010",
+                "--project",
+                "yoke",
+            ],
             db_path=db_path,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"

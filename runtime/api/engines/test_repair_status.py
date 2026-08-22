@@ -140,7 +140,7 @@ def test_prefix_ref_resolves_project_sequence_not_internal_id(
 
 
 def test_issue_rejects_epic_only_status(repair_db, capsys):
-    rc = repair_status.main(["9", "planning"])
+    rc = repair_status.main(["YOK-9", "planning"])
 
     captured = capsys.readouterr()
     assert rc == 2
@@ -173,7 +173,7 @@ def test_item_happy_path_calls_backlog_execute_update(repair_db, capsys):
         "yoke_core.domain.backlog_github_sync.sync_body",
         side_effect=fake_sync_body,
     ):
-        rc = repair_status.main(["9", "implementing", "--reason", "test-repair"])
+        rc = repair_status.main(["YOK-9", "implementing", "--reason", "test-repair"])
 
     captured = capsys.readouterr()
     assert rc == 0
@@ -209,7 +209,7 @@ def test_item_done_repair_asserts_done_nonce_verified(repair_db, capsys):
         "yoke_core.domain.backlog_github_sync.sync_body",
         return_value=0,
     ):
-        rc = repair_status.main(["9", "done", "--reason", "manual-recovery"])
+        rc = repair_status.main(["YOK-9", "done", "--reason", "manual-recovery"])
 
     captured = capsys.readouterr()
     assert rc == 0
@@ -230,7 +230,7 @@ def test_item_update_failure_returns_nonzero(repair_db, capsys):
         "yoke_core.domain.backlog_github_sync.sync_body",
         return_value=0,
     ):
-        rc = repair_status.main(["9", "implementing", "--reason", "failtest"])
+        rc = repair_status.main(["YOK-9", "implementing", "--reason", "failtest"])
 
     captured = capsys.readouterr()
     assert rc == 1
@@ -302,7 +302,7 @@ def test_task_happy_path_calls_update_task_status(repair_db, capsys):
 
 
 def test_task_invalid_status_is_rejected(repair_db, capsys):
-    rc = repair_status.main(["--task", "42", "1", "bogus-status"])
+    rc = repair_status.main(["--task", "YOK-42", "1", "bogus-status"])
 
     captured = capsys.readouterr()
     assert rc == 2

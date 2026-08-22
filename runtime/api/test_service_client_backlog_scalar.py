@@ -7,6 +7,7 @@ adapter pattern in :mod:`service_client_backlog_update_dispatch`.
 
 from __future__ import annotations
 
+import importlib
 from contextlib import ExitStack, contextmanager
 from typing import Any, Dict, Iterator, List
 from unittest.mock import patch
@@ -14,6 +15,10 @@ from unittest.mock import patch
 import pytest
 
 from yoke_core.api import service_client_backlog_scalar as scalar
+
+_register_module = importlib.import_module(
+    "yoke_core.domain.handlers.__init_register__"
+)
 
 
 class _FakeError:
@@ -51,12 +56,7 @@ def _capture_envelopes() -> tuple[List[Dict[str, Any]], Any]:
 
 @contextmanager
 def _dispatch_stack(fake: Any, *, session_id: str = "sid") -> Iterator[None]:
-    """Isolate scalar adapters from live control-plane ref rendering.
-
-    ``item_ref_for_id`` opens a real DB connection; under CI that can map an
-    internal id to a different public sequence than the bare number the test
-    typed, so success-line assertions must not depend on ambient rows.
-    """
+    """Isolate scalar adapters from the ambient checkout project mapping."""
     with ExitStack() as stack:
         stack.enter_context(
             patch(
@@ -64,11 +64,7 @@ def _dispatch_stack(fake: Any, *, session_id: str = "sid") -> Iterator[None]:
                 side_effect=fake,
             )
         )
-        stack.enter_context(
-            patch(
-                "yoke_core.domain.handlers.__init_register__.register_all_handlers",
-            )
-        )
+        stack.enter_context(patch.object(_register_module, "register_all_handlers"))
         stack.enter_context(
             patch(
                 "yoke_core.api.service_client_shared_session_resolver.current_session_id",
@@ -76,22 +72,12 @@ def _dispatch_stack(fake: Any, *, session_id: str = "sid") -> Iterator[None]:
             )
         )
         stack.enter_context(
-            patch.object(scalar, "item_ref_for_id", side_effect=lambda i: f"YOK-{i}")
+            patch(
+                "yoke_core.domain.yok_n_parser.item_argument_project",
+                return_value="yoke",
+            )
         )
         yield
-
-
-@pytest.mark.parametrize("raw,expected", [
-    ("1685", 1685),
-    (" 42 ", 42),
-])
-def test_parse_item_id_accepts_variants(raw: str, expected: int) -> None:
-    assert scalar._parse_item_id(raw) == expected
-
-
-@pytest.mark.parametrize("raw", ["", "abc", "YOK-x", "YOK-1685", "yok-1685", "YOK-05", None])
-def test_parse_item_id_rejects_garbage(raw: Any) -> None:
-    assert scalar._parse_item_id(raw) is None
 
 
 def test_freeze_dispatches_frozen_true(capsys: pytest.CaptureFixture[str]) -> None:
@@ -104,13 +90,17 @@ def test_freeze_dispatches_frozen_true(capsys: pytest.CaptureFixture[str]) -> No
     assert len(seen) == 1
     envelope = seen[0]
     assert envelope["function"] == "items.scalar.update"
-    assert envelope["target"] == {"kind": "item", "item_id": 1685}
+    assert envelope["target"] == {
+        "kind": "item",
+        "item_ref": "1685",
+        "project_id": "yoke",
+    }
     assert envelope["payload"] == {"field": "frozen", "value": True}
     assert envelope["intent"] == "freeze"
     assert envelope["actor"]["session_id"] == "test-sid"
     assert envelope["options"]["rebuild_board"] is True
     out = capsys.readouterr().out
-    assert "YOK-1685: frozen" in out
+    assert "1685: frozen" in out
 
 
 def test_thaw_dispatches_frozen_false(capsys: pytest.CaptureFixture[str]) -> None:
@@ -118,10 +108,14 @@ def test_thaw_dispatches_frozen_false(capsys: pytest.CaptureFixture[str]) -> Non
     with _dispatch_stack(fake):
         rc = scalar.cmd_thaw(["42"])
     assert rc == 0
-    assert seen[0]["target"] == {"kind": "item", "item_id": 42}
+    assert seen[0]["target"] == {
+        "kind": "item",
+        "item_ref": "42",
+        "project_id": "yoke",
+    }
     assert seen[0]["payload"] == {"field": "frozen", "value": False}
     assert seen[0]["intent"] == "thaw"
-    assert "YOK-42: thawed" in capsys.readouterr().out
+    assert "42: thawed" in capsys.readouterr().out
 
 
 def test_block_dispatches_two_writes_in_order(capsys: pytest.CaptureFixture[str]) -> None:
@@ -133,7 +127,7 @@ def test_block_dispatches_two_writes_in_order(capsys: pytest.CaptureFixture[str]
     assert seen[0]["payload"] == {"field": "blocked", "value": True}
     assert seen[1]["payload"] == {"field": "blocked_reason", "value": "needs design review"}
     out = capsys.readouterr().out
-    assert "YOK-100: blocked" in out
+    assert "100: blocked" in out
     assert "needs design review" in out
 
 
@@ -145,7 +139,7 @@ def test_unblock_dispatches_two_clears(capsys: pytest.CaptureFixture[str]) -> No
     assert len(seen) == 2
     assert seen[0]["payload"] == {"field": "blocked", "value": False}
     assert seen[1]["payload"] == {"field": "blocked_reason", "value": None}
-    assert "YOK-7: unblocked" in capsys.readouterr().out
+    assert "7: unblocked" in capsys.readouterr().out
 
 
 def test_freeze_reports_failure_nonzero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -200,6 +194,6 @@ def test_block_rejects_wrong_arity(capsys: pytest.CaptureFixture[str]) -> None:
     assert "block" in err
 
 
-def test_invalid_id_returns_2(capsys: pytest.CaptureFixture[str]) -> None:
-    assert scalar.cmd_freeze(["not-an-id"]) == 2
-    assert "invalid item id" in capsys.readouterr().err
+def test_invalid_id_reports_dispatch_refusal(capsys: pytest.CaptureFixture[str]) -> None:
+    assert scalar.cmd_freeze(["not-an-id"]) == 1
+    assert "expected PREFIX-N" in capsys.readouterr().err

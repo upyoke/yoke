@@ -37,7 +37,7 @@ def test_backlog_rendering_bounds_status_comment_sync(monkeypatch):
     )
 
     assert ok is True
-    assert captured["item_id"] == "1902"
+    assert captured["item_id"] == 1902
     assert captured["github_timeout_seconds"] == (
         backlog_rendering.STATUS_COMMENT_GITHUB_TIMEOUT_SECONDS
     )

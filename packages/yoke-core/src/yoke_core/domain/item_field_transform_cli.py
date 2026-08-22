@@ -122,11 +122,12 @@ def _resolve_content(args, operation: str) -> tuple[Optional[str], Optional[int]
         return (None, exc.exit_code)
 
 
-def _parse_item_id(raw: str, operation: str) -> tuple[Optional[int], int]:
-    from yoke_core.domain.item_field_transform import _fail, parse_item_id
+def _resolve_item_argument(raw: str, operation: str) -> tuple[Optional[int], int]:
+    from yoke_core.domain.item_field_transform import _fail
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
     try:
-        return (parse_item_id(raw), 0)
+        return (parse_item_argument(raw), 0)
     except ValueError as exc:
         print(_fail(operation, str(exc)).to_json())
         return (None, 1)
@@ -226,7 +227,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if content is None:
         return exit_code or 1
 
-    item_id, parse_exit = _parse_item_id(args.item, operation)
+    item_id, parse_exit = _resolve_item_argument(args.item, operation)
     if item_id is None:
         return parse_exit
 

@@ -7,13 +7,10 @@ item reference (``PREFIX-N`` or a bare project-local number) on
 on ``target.project_id``, and the dispatcher resolves the internal
 ``items.id`` here — identically for in-process and HTTPS callers.
 
-Resolution ladder for bare numeric refs:
-
-1. ``target.project_id`` — explicit client context (``--project`` flag,
-   ``YOKE_PROJECT``, or the machine checkout->project map).
-2. The calling session's current/recent item's project
-   (``harness_sessions`` keyed on the bound ``actor.session_id``).
-3. No context -> the parser's loud bare-ref usage error.
+Bare numeric refs resolve only from ``target.project_id`` — the explicit
+``--project`` flag or the machine checkout-to-project map supplied by the
+client. Missing context produces the parser's loud bare-ref usage error;
+session state is not item-identity authority.
 
 ``PREFIX-N`` refs resolve through the unique public-prefix ladder in
 :func:`yoke_core.domain.yok_n_parser.parse_item_id` regardless of
@@ -22,57 +19,13 @@ context.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Optional
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
     FunctionError,
 )
-
-
-def _session_project_context(
-    conn: Any, session_id: str
-) -> Optional[int]:
-    """Infer project context from the session's current/recent item."""
-    if not session_id:
-        return None
-    from yoke_core.domain import db_backend
-
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    try:
-        row = conn.execute(
-            "SELECT current_item_id, recent_item_id FROM harness_sessions "
-            f"WHERE session_id = {p}",
-            (session_id,),
-        ).fetchone()
-    except db_backend.database_error_types():
-        return None
-    if row is None:
-        return None
-    candidates = (
-        row["current_item_id"] if hasattr(row, "keys") else row[0],
-        row["recent_item_id"] if hasattr(row, "keys") else row[1],
-    )
-    for raw in candidates:
-        if raw is None or str(raw).strip() == "":
-            continue
-        try:
-            item_id = int(str(raw).strip())
-        except ValueError:
-            continue
-        item_row = conn.execute(
-            f"SELECT project_id FROM items WHERE id = {p}",
-            (item_id,),
-        ).fetchone()
-        if item_row is None:
-            continue
-        value = (
-            item_row["project_id"] if hasattr(item_row, "keys") else item_row[0]
-        )
-        if value is not None:
-            return int(value)
-    return None
 
 
 def resolve_target_item_ref(
@@ -94,14 +47,9 @@ def resolve_target_item_ref(
 
     try:
         with db_helpers.connect() as conn:
-            context: Optional[Union[str, int]] = target.project_id or None
-            if context is None:
-                context = _session_project_context(
-                    conn, request.actor.session_id
-                )
             resolved = parse_item_id(
                 target.item_ref,
-                project=context,
+                project=target.project_id or None,
                 conn=conn,
                 allow_bare_internal=False,
             )

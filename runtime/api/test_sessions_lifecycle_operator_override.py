@@ -34,11 +34,11 @@ class TestOperatorOverrideReleaseClaim:
     def test_ac7_release_targeted_claim(self, conn):
         """Override releases only the targeted claim atomically."""
         _register(conn)
-        c1 = claim_work(conn, session_id="sess-1", item_id="YOK-10")
-        claim_work(conn, session_id="sess-1", item_id="YOK-20")
+        c1 = claim_work(conn, session_id="sess-1", item_id=10)
+        claim_work(conn, session_id="sess-1", item_id=20)
         result = operator_override_release_claim(
             conn,
-            "YOK-10",
+            10,
             "stranded after crash",
         )
         assert result["released"] is True
@@ -59,9 +59,9 @@ class TestOperatorOverrideReleaseClaim:
     def test_ac7_emits_both_events(self, mock_emit, conn):
         """Override emits WorkReleased + OperatorClaimOverride."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-10")
+        claim_work(conn, session_id="sess-1", item_id=10)
         mock_emit.reset_mock()
-        operator_override_release_claim(conn, "YOK-10", "test override")
+        operator_override_release_claim(conn, 10, "test override")
         event_names = [c[0][0] for c in mock_emit.call_args_list]
         assert EVENT_WORK_RELEASED in event_names
         assert EVENT_OPERATOR_CLAIM_OVERRIDE in event_names
@@ -74,24 +74,24 @@ class TestOperatorOverrideReleaseClaim:
     def test_ac7_rejects_hook_context(self, conn):
         """Override rejects when YOKE_HOOK_EVENT is set."""
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-10")
+        claim_work(conn, session_id="sess-1", item_id=10)
         with patch.dict(os.environ, {"YOKE_HOOK_EVENT": "SessionEnd"}):
             with pytest.raises(SessionError) as exc_info:
-                operator_override_release_claim(conn, "YOK-10", "sneaky hook")
+                operator_override_release_claim(conn, 10, "sneaky hook")
             assert exc_info.value.code == "HOOK_CONTEXT"
 
     def test_not_found_raises(self, conn):
         _register(conn)
         with pytest.raises(SessionError) as exc_info:
-            operator_override_release_claim(conn, "YOK-999", "no such claim")
+            operator_override_release_claim(conn, 999, "no such claim")
         assert exc_info.value.code == "NOT_FOUND"
 
     def test_by_claim_id(self, conn):
         _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-10")
+        c = claim_work(conn, session_id="sess-1", item_id=10)
         result = operator_override_release_claim(
             conn,
-            "YOK-10",
+            10,
             "by claim id",
             claim_id=c["id"],
         )

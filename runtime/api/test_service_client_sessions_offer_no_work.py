@@ -219,7 +219,7 @@ class TestSessionOfferNoWork:
         # selected_item / scheduler_context so /yoke do charge dispatch
         # keeps working when the scheduler's top pick is filtered.
         filtered = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={"YOK-10"},
+            schedule, skip_memory_item_ids={10},
         )
         assert filtered.runnable_items == ["13"]
         assert filtered.selected_item == "13"
@@ -237,7 +237,7 @@ class TestNoWorkWaitContextHelper:
 
         skip_memory = [
             {
-                "item_id": "YOK-1627",
+                "item_id": 1627,
                 "skip_reason": "live_claim_conflict",
                 "chain_step": 1,
                 "claim_holder_session_id": "holder-a",
@@ -303,21 +303,19 @@ class TestChargeClaimInvariant:
         )
 
         ok, err = validate_charge_claim_invariant(
-            self._charge_action("YOK-10"), {"item_id": 99},
+            self._charge_action("10"), {"item_id": 99},
         )
         assert ok is False
         assert err is not None
         assert "does not match" in err
 
-    def test_charge_with_matching_claim_passes_across_id_formats(self):
+    def test_charge_with_matching_typed_claim_passes(self):
         from yoke_core.api.service_client_sessions_offer_helpers import (
             validate_charge_claim_invariant,
         )
 
-        # selected_item arrives as ``YOK-N`` from the scheduler; new_claim
-        # stores the bare integer. The invariant must accept the match.
         ok, err = validate_charge_claim_invariant(
-            self._charge_action("YOK-10"), {"item_id": 10},
+            self._charge_action("10"), {"item_id": 10},
         )
         assert ok is True
         assert err is None

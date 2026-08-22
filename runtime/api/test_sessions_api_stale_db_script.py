@@ -25,6 +25,13 @@ _STALE_DB_SCHEMA = """
             );
             INSERT INTO projects (id, slug, name, public_item_prefix, created_at)
             VALUES (1, 'yoke', 'Yoke', 'YOK', '2026-01-01T00:00:00Z');
+            CREATE TABLE items (
+                id INTEGER PRIMARY KEY,
+                project_id INTEGER NOT NULL,
+                project_sequence INTEGER NOT NULL
+            );
+            INSERT INTO items (id, project_id, project_sequence)
+            VALUES (99, 1, 99), (9999, 1, 9999);
             CREATE TABLE harness_sessions (
                 session_id TEXT PRIMARY KEY,
                 executor TEXT NOT NULL,
@@ -166,10 +173,10 @@ class TestSessionsDbScript:
             "/tmp/work",
         )
         assert first.returncode == 0
-        claim = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "9999")
+        claim = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-9999")
         assert claim.returncode == 0
 
-        duplicate = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "9999")
+        duplicate = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-9999")
 
         assert duplicate.returncode == 0
         assert "already owned" in duplicate.stdout
@@ -188,7 +195,7 @@ class TestSessionsDbScript:
         end = self._run_script(db_path, "end", "sess-1")
         assert end.returncode == 0
 
-        claim = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "99")
+        claim = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-99")
 
         assert claim.returncode != 0
         assert "already ended" in claim.stderr
@@ -237,7 +244,7 @@ class TestSessionsDbScript:
                          "anthropic", TEST_MODEL_ID, "/tmp/work")
 
         # Claim an item so the session holds an active claim
-        self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "99")
+        self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-99")
 
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=120)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"

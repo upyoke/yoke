@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """CLI regression for session-end-if-empty's chain-pending decline branch.
 
 Sibling of ``test_service_client_sessions_end_command.py`` per the
@@ -23,7 +24,7 @@ from datetime import datetime, timezone
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import (  # noqa: F401
+from runtime.api.test_service_client_sessions_helpers import (  # noqa: F401,F811
     session_offer_db,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
@@ -31,7 +32,6 @@ from runtime.api.test_constants import TEST_MODEL_ID
 
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 ITEM_ID = 10
-ITEM_REF = f"YOK-{ITEM_ID}"
 
 
 class TestSessionEndIfEmptyChainPending:
@@ -54,7 +54,7 @@ class TestSessionEndIfEmptyChainPending:
             "action": "charge",
             "chainable": True,
             "handler_outcome": "completed",
-            "item_id": ITEM_REF,
+            "item_id": ITEM_ID,
             "status": "reviewed-implementation",
             "required_path": "advance",
         }
@@ -135,7 +135,7 @@ class TestSessionEndIfEmptyChainPending:
         sid = "end-if-empty-chain-exhausted"
         checkpoint = {
             "step": 3, "action": "charge", "chainable": True,
-            "handler_outcome": "completed", "item_id": ITEM_REF,
+            "handler_outcome": "completed", "item_id": ITEM_ID,
         }
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(

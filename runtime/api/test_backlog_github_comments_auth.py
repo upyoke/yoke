@@ -44,7 +44,7 @@ class TestPostCommentAuthTranslation:
             ),
         ):
             rc = backlog_github_sync.post_comment(
-                "30", "idea", "implementing", conn=db, stderr=stderr,
+                30, "idea", "implementing", conn=db, stderr=stderr,
             )
 
         assert rc == 1  # non-zero — no silent swallow
@@ -65,7 +65,7 @@ class TestPostCommentAuthTranslation:
             side_effect=MissingCapability("externalwebapp", "no github capability for project 'externalwebapp'"),
         ):
             rc = backlog_github_sync.post_comment(
-                "31", "idea", "implementing", conn=db, stderr=stderr,
+                31, "idea", "implementing", conn=db, stderr=stderr,
             )
 
         assert rc == 1

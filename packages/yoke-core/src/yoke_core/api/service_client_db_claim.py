@@ -27,26 +27,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from typing import Any, Dict
 
 from yoke_core.domain.cli_text_file import add_text_file_pair, resolve_text_file
-
-
-_YOKE_OR_BARE_ID_RE = re.compile(r"^(?:YOK-)?(\d+)$", re.IGNORECASE)
-
-
-def _parse_item_id(raw: str) -> int:
-    """Parse ``YOK-N`` or a bare integer into the numeric item id."""
-    if raw is None:
-        raise ValueError("item id is required")
-    match = _YOKE_OR_BARE_ID_RE.match(raw.strip())
-    if not match:
-        raise ValueError(
-            f"invalid item id {raw!r}; expected 'YOK-N' or a bare integer"
-        )
-    return int(match.group(1))
 
 
 def _load_payload(raw: str) -> Dict[str, Any]:
@@ -138,14 +122,18 @@ def cmd_db_claim_amend(args: list[str]) -> int:
         )
         return 2
 
-    try:
-        item_id = _parse_item_id(parsed.item)
-    except ValueError as exc:
+    from yoke_contracts.item_ref import parse_public_item_ref
+
+    _, sequence = parse_public_item_ref(parsed.item)
+    if sequence is None:
         print(
             json.dumps({
                 "success": False,
                 "code": "USAGE",
-                "message": str(exc),
+                "message": (
+                    f"invalid item ref {parsed.item!r}; expected PREFIX-N, "
+                    "or bare N with project context"
+                ),
             }),
             file=sys.stderr,
         )
@@ -176,6 +164,7 @@ def cmd_db_claim_amend(args: list[str]) -> int:
     # Route through the function dispatcher (``db_claim.amend``).
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
     from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.domain.yok_n_parser import item_argument_project
     from yoke_core.api.service_client_structured_api_adapter import (
         build_actor,
         call_dispatcher,
@@ -184,9 +173,14 @@ def cmd_db_claim_amend(args: list[str]) -> int:
 
     register_all_handlers()
     actor = build_actor(session_id=parsed.session_id)
+    project = item_argument_project()
     response = call_dispatcher(
         function_id="db_claim.amend",
-        target=TargetRef(kind="item", item_id=item_id),
+        target=TargetRef(
+            kind="item",
+            item_ref=parsed.item.strip(),
+            project_id=None if project is None else str(project),
+        ),
         payload={"claim": payload, "reason": reason},
         actor=actor,
     )

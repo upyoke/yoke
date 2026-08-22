@@ -25,6 +25,7 @@ import pytest
 from yoke_core.domain import epic
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
 
 
 @pytest.fixture
@@ -35,9 +36,12 @@ def db():
     behavior expectations.
     """
     with test_database() as conn:
-        insert_item(conn, id=42, workflow_id="epic", status="planning", title="Epic Title")
+        insert_item(
+            conn, id=TEST_ITEM_ID, workflow_id="epic",
+            status="planning", title="Epic Title",
+        )
         insert_epic_task(
-            conn, epic_id=42, task_num=1, title="Task One",
+            conn, epic_id=TEST_ITEM_ID, task_num=1, title="Task One",
             status="planning", body="",
         )
         yield conn
@@ -59,7 +63,10 @@ class TestTaskUpdateBodyDispatchParity:
         ) as handler, patch.object(
             dispatch_module, "verify_claim", return_value=None,
         ):
-            epic.main(["task-update-body", "42", "1", "--body-file", str(body_file)])
+            epic.main([
+                "task-update-body", TEST_ITEM_REF, "1",
+                "--body-file", str(body_file),
+            ])
 
         assert handler.called
         args = handler.call_args[0]
@@ -79,7 +86,7 @@ class TestTaskUpdateBodyDispatchParity:
         ) as handler, patch.object(
             dispatch_module, "verify_claim", return_value=None,
         ):
-            epic.main(["task-update-body", "42", "1"])
+            epic.main(["task-update-body", TEST_ITEM_REF, "1"])
 
         assert handler.called
         args = handler.call_args[0]
@@ -100,7 +107,7 @@ class TestTaskUpdateBodyDispatchParity:
         ), patch.object(
             dispatch_module, "verify_claim", return_value=None,
         ), redirect_stdout(out):
-            epic.main(["task-update-body", "42", "1", "--json"])
+            epic.main(["task-update-body", TEST_ITEM_REF, "1", "--json"])
 
         envelope = json.loads(out.getvalue())
         assert envelope["success"] is True

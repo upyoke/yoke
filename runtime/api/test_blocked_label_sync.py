@@ -59,7 +59,7 @@ def test_sync_blocked_label_adds_label_when_true():
         f"{_LABEL_REST_STATE}.remove_label",
     ):
         rc = backlog_github_sync.sync_blocked_label(
-            "30", "true", conn=db, stdout=stdout,
+            30, "true", conn=db, stdout=stdout,
         )
 
     assert rc == 0
@@ -91,7 +91,7 @@ def test_sync_blocked_label_removes_label_when_false():
         f"{_LABEL_REST_STATE}.remove_label",
     ) as remove_label:
         rc = backlog_github_sync.sync_blocked_label(
-            "31", "false", conn=db, stdout=stdout,
+            31, "false", conn=db, stdout=stdout,
         )
 
     assert rc == 0
@@ -122,7 +122,7 @@ def test_full_sync_labels_adds_blocked_label_when_flagged():
     ) as add_labels, patch(
         f"{_LABEL_REST_LABELS}.remove_label",
     ):
-        rc = backlog_github_sync.sync_labels("34", conn=db)
+        rc = backlog_github_sync.sync_labels(34, conn=db)
 
     assert rc == 0
     added = [label for call in add_labels.call_args_list for label in call.args[2]]
@@ -148,7 +148,7 @@ def test_full_sync_labels_removes_blocked_and_legacy_status_labels_when_unblocke
     ), patch(
         f"{_LABEL_REST_LABELS}.remove_label",
     ) as remove_label:
-        rc = backlog_github_sync.sync_labels("35", conn=db)
+        rc = backlog_github_sync.sync_labels(35, conn=db)
 
     assert rc == 0
     removed = {call.args[2] for call in remove_label.call_args_list}
@@ -170,7 +170,7 @@ def test_sync_blocked_label_dry_run():
         f"{_LABEL_REST_STATE}.remove_label",
     ) as remove:
         rc = backlog_github_sync.sync_blocked_label(
-            "32", "true", conn=db, stdout=stdout,
+            32, "true", conn=db, stdout=stdout,
         )
 
     assert rc == 0
@@ -192,7 +192,7 @@ def test_sync_blocked_label_noop_without_github_issue():
     ) as add, patch(
         f"{_LABEL_REST_STATE}.remove_label",
     ) as remove:
-        rc = backlog_github_sync.sync_blocked_label("33", "true", conn=db)
+        rc = backlog_github_sync.sync_blocked_label(33, "true", conn=db)
     assert rc == 0
     ensure.assert_not_called()
     add.assert_not_called()
@@ -208,8 +208,10 @@ def test_blocked_label_color_matches_constant():
 def test_cli_blocked_label_dispatch():
     from yoke_core.domain.backlog_github_sync_cli import main
 
-    with patch("yoke_core.domain.backlog_github_sync.sync_blocked_label") as mock:
+    with patch(
+        "yoke_core.domain.backlog_github_sync_cli._guard_or_print", return_value=0,
+    ), patch("yoke_core.domain.backlog_github_sync.sync_blocked_label") as mock:
         mock.return_value = 0
-        rc = main(["blocked-label", "30", "true"])
+        rc = main(["blocked-label", "YOK-30", "true"])
     assert rc == 0
-    mock.assert_called_once_with("30", "true")
+    mock.assert_called_once_with("YOK-30", "true")

@@ -36,26 +36,26 @@ class TestClaimCleanupCommands:
         conn.execute(
             """INSERT INTO work_claims
                (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('stale-sess', 'item', 9999, 'exclusive', %s, %s)""",
+               VALUES ('stale-sess', 'item', 10, 'exclusive', %s, %s)""",
             (_STALE_TS, _STALE_TS),
         )
         conn.commit()
         conn.close()
 
         result = _run_client(
-            ["release-done-claims", "--item-id", "YOK-9999"],
+            ["release-done-claims", "--item-id", "YOK-10"],
             db_path=db,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
         assert data["success"] is True
         assert data["released"] == 1
-        assert data["item_id"] == "9999"
+        assert data["item_id"] == "10"
 
         conn = connect_test_db(db)
         row = conn.execute(
             "SELECT released_at, release_reason FROM work_claims "
-            "WHERE target_kind='item' AND item_id = 9999",
+            "WHERE target_kind='item' AND item_id = 10",
         ).fetchone()
         assert row["released_at"] is not None
         assert row["release_reason"] == "completed"

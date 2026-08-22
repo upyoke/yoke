@@ -291,7 +291,7 @@ class TestRenderSection:
             import os as _os
             from unittest import mock as _mock
             with _mock.patch.dict(_os.environ, {"YOKE_DB": db_path}):
-                rc = render_body.main(["23", "--section", "## File Budget"])
+                rc = render_body.main(["YOK-23", "--section", "## File Budget"])
             assert rc == 0
 
 

@@ -1,7 +1,7 @@
-"""Shared CLI item-ref resolver + bare-number ladder, on real Postgres.
+"""Shared CLI item-ref resolver at the public identity boundary.
 
 Item-ref resolution is control-plane authority behavior (it reads projects,
-items, and the actor's org/project grants), so it is proven against a disposable
+items and project identities), so it is proven against a disposable
 real-Postgres database (``test_db``; conftest binds the local cluster) rather
 than an in-memory SQLite double.
 """
@@ -11,17 +11,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import machine_config
-from yoke_core.domain.actor_permissions import (
-    ROLE_OWNER,
-    grant_actor_project_role,
-    seed_roles_and_permissions,
-)
-from yoke_core.domain.actors import seed_human_actor
-from yoke_core.domain.org_schema import seed_default_org
-from yoke_core.domain.project_identity_item_ref import (
-    AmbiguousItemProjectContext,
-    resolve_cli_item_ref,
-)
+from yoke_core.domain.project_identity_item_ref import resolve_cli_item_ref
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from runtime.api.fixtures.backlog import insert_item
 
@@ -34,8 +24,6 @@ SEQ = 5
 def conn(test_db):
     c = test_db
     seed_project_identities(c)
-    seed_roles_and_permissions(c)
-    seed_default_org(c)
     # Distinct public prefixes so PREFIX-N resolves unambiguously.
     c.execute("UPDATE projects SET public_item_prefix = 'EXT' WHERE slug = 'externalwebapp'")
     c.execute("UPDATE projects SET public_item_prefix = 'YOK' WHERE slug = 'yoke'")
@@ -57,13 +45,10 @@ def test_prefix_ref_resolves_by_prefix(conn):
     assert resolve_cli_item_ref(conn, "EXT-5") == EXT_ITEM_ID
 
 
-def test_qualified_slug_prefix_ref(conn):
-    assert resolve_cli_item_ref(conn, "yoke/YOK-5") == YOKE_ITEM_ID
-    assert resolve_cli_item_ref(conn, "externalwebapp/EXT-5") == EXT_ITEM_ID
-
-
-def test_qualified_slug_bare_sequence(conn):
-    assert resolve_cli_item_ref(conn, "externalwebapp/5") == EXT_ITEM_ID
+@pytest.mark.parametrize("raw", ["yoke/YOK-5", "externalwebapp/5"])
+def test_retired_qualified_forms_are_refused(conn, raw):
+    with pytest.raises(ValueError, match="project-qualified item refs are retired"):
+        resolve_cli_item_ref(conn, raw)
 
 
 def test_bare_sequence_with_explicit_context(conn):
@@ -80,22 +65,18 @@ def test_bare_sequence_via_cwd_checkout(conn, monkeypatch):
     assert resolve_cli_item_ref(conn, "5") == EXT_ITEM_ID
 
 
-def test_bare_sequence_ambiguous_fails_loudly(conn, monkeypatch):
+def test_bare_sequence_without_mapped_context_fails_loudly(conn, monkeypatch):
     monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: None)
-    monkeypatch.setattr(machine_config, "installed_project_ids", lambda *_a, **_k: {1, 2})
-    with pytest.raises(AmbiguousItemProjectContext):
+    with pytest.raises(ValueError, match="bare numeric item refs are project-local"):
         resolve_cli_item_ref(conn, "5")
 
 
-def test_actor_access_narrows_ambiguity(conn, monkeypatch):
-    actor_id = seed_human_actor(conn)
-    grant_actor_project_role(
-        conn, actor_id=actor_id, project_id=1, role_name=ROLE_OWNER
+def test_explicit_context_wins_over_mapped_checkout(conn, monkeypatch):
+    monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: 1)
+    assert (
+        resolve_cli_item_ref(conn, "5", project_context="externalwebapp")
+        == EXT_ITEM_ID
     )
-    monkeypatch.setattr(machine_config, "project_id", lambda *_a, **_k: None)
-    monkeypatch.setattr(machine_config, "installed_project_ids", lambda *_a, **_k: {1, 2})
-    # Two installed, but actor can only reach yoke -> unambiguous.
-    assert resolve_cli_item_ref(conn, "5", actor_id=actor_id) == YOKE_ITEM_ID
 
 
 def test_int_passthrough_is_internal_row_id(conn):

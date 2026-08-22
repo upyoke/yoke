@@ -101,7 +101,7 @@ class TestWhoClaimsHolderConcise:
     def test_holder_caller_sees_only_canonical_row(self, conflicting_claim):
         out = cmd_who_claims(
             conflicting_claim,
-            str(ITEM_ID),
+            ITEM_ID,
             caller_session_id=HOLDER_SESSION_ID,
         )
         lines = out.splitlines()
@@ -118,7 +118,7 @@ class TestWhoClaimsNonHolderWarning:
     def test_non_holder_caller_sees_warning(self, conflicting_claim):
         out = cmd_who_claims(
             conflicting_claim,
-            str(ITEM_ID),
+            ITEM_ID,
             caller_session_id=OTHER_SESSION_ID,
         )
         lines = out.splitlines()
@@ -141,7 +141,7 @@ class TestWhoClaimsNonHolderWarning:
     def test_unknown_caller_session_sees_warning(self, conflicting_claim):
         out = cmd_who_claims(
             conflicting_claim,
-            str(ITEM_ID),
+            ITEM_ID,
             caller_session_id="",
         )
         lines = out.splitlines()
@@ -153,7 +153,7 @@ class TestWhoClaimsNonHolderWarning:
         _register(conn, session_id=OTHER_SESSION_ID)
         out = cmd_who_claims(
             conn,
-            "424242",
+            424242,
             caller_session_id=OTHER_SESSION_ID,
         )
         # Boundary case: probing an unclaimed item must stay quiet so

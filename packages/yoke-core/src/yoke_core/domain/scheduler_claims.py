@@ -81,9 +81,7 @@ def _evaluate_claim_states(
         # rows may still hold ``YOK-N`` TEXT, which resolves through the
         # canonical parser (prefix + project_sequence). The bare internal
         # id matches the scheduler's caller-provided item keys.
-        resolved_item = parse_item_id_or_none(
-            raw_item_id, conn=conn, allow_bare_internal=True
-        )
+        resolved_item = parse_item_id_or_none(raw_item_id, conn=conn)
         if resolved_item is None:
             continue
         item_id = int(resolved_item)

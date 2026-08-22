@@ -19,5 +19,10 @@ from __future__ import annotations
 TEST_MODEL_ID: str = "claude-opus-4-7"
 """Canonical opaque model id for fixture data."""
 
+TEST_ITEM_ID: int = 42
+"""Canonical opaque internal item id for fixture data."""
 
-__all__ = ["TEST_MODEL_ID"]
+TEST_ITEM_REF: str = f"YOK-{TEST_ITEM_ID}"
+"""Canonical public reference paired with :data:`TEST_ITEM_ID`."""
+
+__all__ = ["TEST_ITEM_ID", "TEST_ITEM_REF", "TEST_MODEL_ID"]

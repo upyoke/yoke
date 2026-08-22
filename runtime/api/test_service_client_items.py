@@ -333,7 +333,7 @@ class TestItemProgressStaleView:
 
     def test_item_progress_fails_against_stale_view(self, test_db):
         self._install_stale_view(test_db["db_path"])
-        result = _run_client(["item-progress", "1"], db_path=test_db["db_path"])
+        result = _run_client(["item-progress", "YOK-1"], db_path=test_db["db_path"])
         assert result.returncode != 0
         assert "pipeline_blocked_reason" in result.stderr
 
@@ -345,6 +345,6 @@ class TestItemProgressStaleView:
             create_or_replace_item_progress_view(conn)
         finally:
             conn.close()
-        result = _run_client(["item-progress", "1"], db_path=test_db["db_path"])
+        result = _run_client(["item-progress", "YOK-1"], db_path=test_db["db_path"])
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() != ""

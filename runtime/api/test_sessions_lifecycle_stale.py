@@ -75,7 +75,7 @@ class TestStaleDetection:
 
     def test_reclaim_stale_session(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        claim_work(conn, session_id="sess-1", item_id=9999)
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = '2020-01-01T00:00:00Z' WHERE session_id='sess-1'"
         )
@@ -127,7 +127,7 @@ class TestHandoff:
     def test_handoff_transfers_claim(self, conn):
         _register(conn, session_id="sess-1")
         _register(conn, session_id="sess-2")
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         new_claim = handoff_claim(conn, c["id"], "sess-2")
         assert new_claim["session_id"] == "sess-2"
         assert new_claim["item_id"] == 9999
@@ -140,7 +140,7 @@ class TestHandoff:
     def test_handoff_to_ended_session_fails(self, conn):
         _register(conn, session_id="sess-1")
         _register(conn, session_id="sess-2")
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         end_session(conn, "sess-2")
         with pytest.raises(SessionError) as exc_info:
             handoff_claim(conn, c["id"], "sess-2")
@@ -149,7 +149,7 @@ class TestHandoff:
     def test_handoff_released_claim_fails(self, conn):
         _register(conn, session_id="sess-1")
         _register(conn, session_id="sess-2")
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         release_claim(conn, c["id"])
         with pytest.raises(SessionError) as exc_info:
             handoff_claim(conn, c["id"], "sess-2")
@@ -157,7 +157,7 @@ class TestHandoff:
 
     def test_handoff_nonexistent_target_fails(self, conn):
         _register(conn, session_id="sess-1")
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        c = claim_work(conn, session_id="sess-1", item_id=9999)
         with pytest.raises(SessionError) as exc_info:
             handoff_claim(conn, c["id"], "ghost")
         assert exc_info.value.code == "NOT_FOUND"
@@ -177,15 +177,15 @@ class TestTransactionSafety:
 
     def test_claim_is_committed(self, conn):
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-9999")
+        claim_work(conn, session_id="sess-1", item_id=9999)
         row = conn.execute("SELECT COUNT(*) as cnt FROM work_claims").fetchone()
         assert row["cnt"] == 1
 
     def test_end_session_atomicity_no_claims(self, conn):
         """End session with no active claims marks session ended."""
         _register(conn)
-        c1 = claim_work(conn, session_id="sess-1", item_id="YOK-1")
-        c2 = claim_work(conn, session_id="sess-1", item_id="YOK-2")
+        c1 = claim_work(conn, session_id="sess-1", item_id=1)
+        c2 = claim_work(conn, session_id="sess-1", item_id=2)
         release_claim(conn, c1["id"], reason="completed")
         release_claim(conn, c2["id"], reason="completed")
         end_session(conn, "sess-1")
@@ -203,8 +203,8 @@ class TestTransactionSafety:
         same successful response.
         """
         _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-1")
-        claim_work(conn, session_id="sess-1", item_id="YOK-2")
+        claim_work(conn, session_id="sess-1", item_id=1)
+        claim_work(conn, session_id="sess-1", item_id=2)
         result = end_session(conn, "sess-1")
         session = conn.execute(
             "SELECT ended_at FROM harness_sessions WHERE session_id='sess-1'"

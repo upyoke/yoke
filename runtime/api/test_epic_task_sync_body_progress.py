@@ -47,7 +47,7 @@ class TestSyncTaskBody:
             ) as update_issue,
         ):
             rc = epic_task_sync.sync_task_body(
-                "1246", 1, conn=db, stdout=stdout, stderr=stderr
+                1246, 1, conn=db, stdout=stdout, stderr=stderr
             )
         assert rc == 0
         assert "Synced task body: 1246/1 -> #77" in stdout.getvalue()
@@ -84,7 +84,7 @@ class TestSyncTaskBody:
             autospec=True,
             return_value=False,
         ):
-            rc = epic_task_sync.sync_task_body("1246", 1, conn=db, stderr=stderr)
+            rc = epic_task_sync.sync_task_body(1246, 1, conn=db, stderr=stderr)
         assert rc == 1
         assert "issue validation failed" in stderr.getvalue()
         assert "repo mismatch" not in stderr.getvalue()
@@ -118,7 +118,7 @@ class TestSyncProgress:
         )
         stdout = io.StringIO()
         with patch("yoke_core.domain.github_rest.post_comment") as post_comment:
-            rc = epic_task_sync.sync_progress_notes("YOK-1246", conn=db, stdout=stdout)
+            rc = epic_task_sync.sync_progress_notes(1246, conn=db, stdout=stdout)
         assert rc == 0
         assert post_comment.call_args.kwargs == {
             "project": "externalwebapp",
@@ -164,7 +164,7 @@ class TestSyncProgress:
             ),
             patch("yoke_core.domain.github_rest.post_comment") as post_comment,
         ):
-            rc = epic_task_sync.sync_progress_notes("YOK-1246", stdout=stdout)
+            rc = epic_task_sync.sync_progress_notes(1246, stdout=stdout)
         assert rc == 0
         open_conn.assert_called_once_with()
         post_comment.assert_called_once()

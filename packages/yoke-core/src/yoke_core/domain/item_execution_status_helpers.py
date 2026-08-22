@@ -48,10 +48,10 @@ def age_seconds(ts: Optional[str], *, now: datetime) -> Optional[int]:
 
 
 def normalize_item_id(raw: str) -> int:
-    text = str(raw).strip()
-    if text.upper().startswith("YOK-"):
-        text = text.split("-", 1)[1]
-    return int(text)
+    """Resolve the status command's operator-facing item argument."""
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    return parse_item_argument(raw)
 
 
 def worktree_state(
@@ -66,9 +66,8 @@ def worktree_state(
             resolve_item_worktree,
         )
 
-        # ``item_id`` is already the internal id; pass it bare rather than
-        # reconstructing a ``YOK-N`` token for the resolver to strip back off.
-        resolved = resolve_item_worktree(str(item_id), db_path=db_path)
+        # ``item_id`` is already the typed internal id.
+        resolved = resolve_item_worktree(item_id, db_path=db_path)
         paths = list(resolved.paths)
         branches = list(resolved.branches)
         if not paths:

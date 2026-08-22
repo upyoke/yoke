@@ -74,6 +74,15 @@ def cmd_session_checkpoint(args: list[str]) -> int:
     conn = _get_db_readwrite()
     try:
         from yoke_core.domain.sessions import SessionError
+        item_id = None
+        if parsed.item_id is not None:
+            from yoke_core.domain.yok_n_parser import parse_item_argument
+
+            try:
+                item_id = parse_item_argument(parsed.item_id, conn=conn)
+            except ValueError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                return 2
         try:
             checkpoint = domain_update_checkpoint(
                 conn,
@@ -82,7 +91,7 @@ def cmd_session_checkpoint(args: list[str]) -> int:
                 action=parsed.action,
                 chainable=chainable,
                 handler_outcome=outcome,
-                item_id=parsed.item_id,
+                item_id=item_id,
                 task_num=parsed.task_num,
                 status=parsed.status,
                 required_path=parsed.required_path,

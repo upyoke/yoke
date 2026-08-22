@@ -11,6 +11,7 @@ an internal/debug caller explicitly opts into ``allow_bare_internal``.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any, Union
 
 from yoke_core.domain import control_plane_transport
@@ -74,6 +75,40 @@ def parse_item_id(
             raise ValueError(_NOT_FOUND_MESSAGE.format(value=value))
         return resolved
     raise ValueError(_TEACHING_MESSAGE.format(value=value))
+
+
+def item_argument_project(
+    explicit: str | int | None = None,
+    *,
+    cwd: str | Path | None = None,
+) -> str | int | None:
+    """Return the project context for an operator-facing item argument.
+
+    Explicit context wins. Otherwise only the registered checkout containing
+    *cwd* may supply context; installed-project and session-item guessing are
+    intentionally excluded.
+    """
+    if explicit is not None:
+        return explicit
+    from yoke_core.domain import machine_config
+
+    return machine_config.project_id(Path.cwd() if cwd is None else Path(cwd))
+
+
+def parse_item_argument(
+    value: Union[str, int, None],
+    *,
+    project: str | int | None = None,
+    conn: Any | None = None,
+    cwd: str | Path | None = None,
+) -> int:
+    """Resolve one operator-facing item argument through public identity."""
+    return parse_item_id(
+        value,
+        project=item_argument_project(project, cwd=cwd),
+        conn=conn,
+        allow_bare_internal=False,
+    )
 
 
 def _resolve_over_open_path(
@@ -151,4 +186,9 @@ def parse_item_id_or_none(
         return None
 
 
-__all__ = ["parse_item_id", "parse_item_id_or_none"]
+__all__ = [
+    "item_argument_project",
+    "parse_item_argument",
+    "parse_item_id",
+    "parse_item_id_or_none",
+]

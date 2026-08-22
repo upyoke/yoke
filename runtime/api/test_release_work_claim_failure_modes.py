@@ -41,10 +41,6 @@ _FAILED_EVENT = "ItemClaimReleaseFailed"
 _RELEASED_EVENT = "WorkReleased"
 
 
-def _sun(item_id: int) -> str:
-    return f"YOK-{item_id}"
-
-
 def _emitted_events(mock_emit) -> list[str]:
     """Return the ordered list of event_names the mock saw."""
     return [
@@ -74,13 +70,13 @@ class TestReleaseFailureModes:
         item_id = 700
         _register(conn, session_id=owner_sid)
         _register(conn, session_id=intruder_sid)
-        claim_work(conn, session_id=owner_sid, item_id=_sun(item_id))
+        claim_work(conn, session_id=owner_sid, item_id=item_id)
 
         with patch(
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             result = release_item_claim_for_execution(
-                conn, intruder_sid, _sun(item_id), "handoff-to-polish",
+                conn, intruder_sid, item_id, "handoff-to-polish",
             )
 
         assert result["released"] is False
@@ -111,10 +107,10 @@ class TestReleaseFailureModes:
         owner_sid = "owner-already-terminal"
         item_id = 710
         _register(conn, session_id=owner_sid)
-        claim_work(conn, session_id=owner_sid, item_id=_sun(item_id))
+        claim_work(conn, session_id=owner_sid, item_id=item_id)
         # First release succeeds.
         first = release_item_claim_for_execution(
-            conn, owner_sid, _sun(item_id), "finalize-exit",
+            conn, owner_sid, item_id, "finalize-exit",
         )
         assert first["released"] is True
 
@@ -122,7 +118,7 @@ class TestReleaseFailureModes:
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             second = release_item_claim_for_execution(
-                conn, owner_sid, _sun(item_id), "finalize-exit",
+                conn, owner_sid, item_id, "finalize-exit",
             )
 
         assert second["released"] is False
@@ -142,7 +138,7 @@ class TestReleaseFailureModes:
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             result = release_item_claim_for_execution(
-                conn, sid, _sun(item_id), "handoff-to-usher",
+                conn, sid, item_id, "handoff-to-usher",
             )
 
         assert result["released"] is False
@@ -157,13 +153,13 @@ class TestReleaseFailureModes:
         owner_sid = "happy-sess"
         item_id = 720
         _register(conn, session_id=owner_sid)
-        claim_work(conn, session_id=owner_sid, item_id=_sun(item_id))
+        claim_work(conn, session_id=owner_sid, item_id=item_id)
 
         with patch(
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             result = release_item_claim_for_execution(
-                conn, owner_sid, _sun(item_id), "handoff-to-polish",
+                conn, owner_sid, item_id, "handoff-to-polish",
             )
 
         assert result["released"] is True
@@ -200,12 +196,12 @@ class TestReleaseNewestActiveClaim:
                 (owner_sid, item_id),
             ).fetchone()[0]
         )
-        active = claim_work(conn, session_id=owner_sid, item_id=_sun(item_id))
+        active = claim_work(conn, session_id=owner_sid, item_id=item_id)
         newer_id = int(active["id"])
         assert newer_id > older_id
 
         result = release_item_claim_for_execution(
-            conn, owner_sid, _sun(item_id), "handoff-to-polish",
+            conn, owner_sid, item_id, "handoff-to-polish",
         )
 
         assert result["released"] is True

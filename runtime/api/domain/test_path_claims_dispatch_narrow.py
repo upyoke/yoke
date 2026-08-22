@@ -112,7 +112,7 @@ def _register_two_path_claim(conn, *, repo_path: str) -> tuple[int, int, int]:
     tb = seed_target(conn, path_string="src/bar.py")
     rc = path_claims_dispatch.cmd_register(
         [
-            "--item", str(item_id),
+            "--item", f"YOK-{item_id}",
             "--integration-target", "main",
             "--paths", "src/foo.py,src/bar.py",
             "--actor-id", str(actor),

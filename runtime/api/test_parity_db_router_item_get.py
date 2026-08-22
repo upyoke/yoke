@@ -73,12 +73,12 @@ class TestItemGetCLI:
         result = _run_db_router(db_path, "item-get", "YOK-1")
         assert result.returncode == 2
 
-    def test_get_plain_integer_id(self, item_query_env):
-        """item-get accepts plain integer IDs."""
+    def test_get_plain_integer_without_context_is_refused(self, item_query_env):
+        """item-get refuses a bare sequence without project context."""
         db_path = item_query_env["db_path"]
         result = _run_db_router(db_path, "item-get", "1", "status")
-        assert result.returncode == 0
-        assert result.stdout.strip() == "implementing"
+        assert result.returncode == 1
+        assert "bare numeric item refs are project-local" in result.stderr
 
 
 class TestItemRowCLI:

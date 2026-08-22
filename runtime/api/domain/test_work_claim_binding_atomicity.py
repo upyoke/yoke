@@ -47,7 +47,7 @@ def test_cross_item_stale_cleanup_does_not_invert_target_locks(
         claim_work(
             test_db,
             session_id="stale-holder",
-            item_id=f"YOK-{item_id}",
+            item_id=item_id,
         )
     stale_at = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -83,7 +83,7 @@ def test_cross_item_stale_cleanup_does_not_invert_target_locks(
             outcomes[name] = claim_work(
                 conn,
                 session_id=name,
-                item_id=f"YOK-{item_id}",
+                item_id=item_id,
             )
         except BaseException as exc:  # noqa: BLE001 - thread evidence
             outcomes[name] = exc
@@ -134,7 +134,7 @@ def test_release_wins_before_handoff_fetch_without_resurrection(
     claim = claim_work(
         test_db,
         session_id="source-session",
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
     )
     release_conn, handoff_conn = _connections(test_db)
     release_locked = threading.Event()
@@ -230,7 +230,7 @@ def test_claim_reason_failure_rolls_back_claim_and_session_focus(
         claim_work(
             test_db,
             session_id="claim-focus-session",
-            item_id=f"YOK-{item_id}",
+            item_id=item_id,
         )
 
     row = test_db.execute(
@@ -255,7 +255,7 @@ def test_handoff_focus_failure_rolls_back_both_claim_sides(
     claim = claim_work(
         test_db,
         session_id="handoff-source-session",
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
     )
 
     def fail_target_focus(*_args, **_kwargs):

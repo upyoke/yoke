@@ -93,8 +93,8 @@ class TestNormalizeItemId:
     def test_passes_int_through(self):
         assert mod._normalize_item_id(42) == 42
 
-    def test_parses_bare_digit_string_as_internal_id(self):
-        assert mod._normalize_item_id("42") == 42
+    def test_bare_digit_string_without_project_context_is_unresolved(self):
+        assert mod._normalize_item_id("42") is None
 
     def test_returns_none_for_garbage(self):
         assert mod._normalize_item_id("garbage") is None

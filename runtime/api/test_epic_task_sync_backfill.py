@@ -141,7 +141,7 @@ class TestBackfillTaskTitles:
             ) as update_issue,
         ):
             rc = epic_task_sync.backfill_task_titles(
-                "YOK-1246",
+                1246,
                 conn=db,
                 stdout=stdout,
             )
@@ -194,7 +194,7 @@ class TestBackfillTaskTitles:
             ) as update_issue,
         ):
             rc = epic_task_sync.backfill_task_titles(
-                "YOK-1246",
+                1246,
                 conn=db,
                 stdout=stdout,
             )
@@ -244,7 +244,7 @@ class TestBackfillTaskTitles:
                 "yoke_core.domain.github_rest.update_issue",
             ) as update_issue,
         ):
-            rc = epic_task_sync.backfill_task_titles("YOK-1246", stdout=stdout)
+            rc = epic_task_sync.backfill_task_titles(1246, stdout=stdout)
 
         assert rc == 0
         open_conn.assert_called_once_with()
@@ -299,7 +299,7 @@ class TestBackfillTaskLabels:
             ) as remove_label,
         ):
             rc = epic_task_sync.backfill_task_labels(
-                "YOK-1246",
+                1246,
                 conn=db,
                 stdout=stdout,
             )

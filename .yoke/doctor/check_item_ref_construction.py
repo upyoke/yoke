@@ -19,11 +19,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.item_ref_construction_baseline import baseline_counts
 from yoke_core.domain.lint_item_ref_construction import (
     counts_by_relpath,
     resolve_project_prefixes,
     scan,
+    scan_parser_policy,
+    stale_parser_policy_allowances,
 )
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -43,13 +46,13 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
 
     prefixes = resolve_project_prefixes(conn)
     if not prefixes:
-        # Minimal-schema fixtures / no projects: nothing to enforce against.
-        rec.record(_SLUG, _TITLE, "SKIP", "No project prefixes resolved.")
-        return
+        prefixes = [DEFAULT_PUBLIC_ITEM_PREFIX]
 
     repo_root = Path(repo_root_str)
     hits = scan(repo_root, prefixes)
     counts = counts_by_relpath(repo_root, hits)
+    policy_hits = scan_parser_policy(repo_root)
+    stale_policy = stale_parser_policy_allowances(repo_root)
 
     offenders: list[str] = []
     allowed_counts = baseline_counts()
@@ -58,20 +61,12 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         if count > allowed:
             offenders.append(rel)
 
-    # Surface stale baseline entries (file cleaned up but still listed) so the
-    # map keeps shrinking, but do not fail on them.
     stale = sorted(
         rel for rel, allowed in allowed_counts.items() if counts.get(rel, 0) < allowed
     )
 
-    if not offenders:
-        detail = ""
-        if stale:
-            detail = (
-                "Baseline can shrink — fewer occurrences than recorded in: "
-                + ", ".join(stale)
-            )
-        rec.record(_SLUG, _TITLE, "PASS", detail)
+    if not offenders and not stale and not policy_hits and not stale_policy:
+        rec.record(_SLUG, _TITLE, "PASS", "")
         return
 
     offender_lines = []
@@ -87,12 +82,21 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         got = counts[rel]
         offender_lines.append(f"- {rel}: {got} occurrence(s), baseline {allowed}")
         offender_lines.extend(f"    {ln}" for ln in hit_by_rel.get(rel, [])[:5])
+    if stale:
+        offender_lines.append("- stale baseline entries: " + ", ".join(stale))
+    if stale_policy:
+        offender_lines.append(
+            "- stale parser-policy allowances: " + ", ".join(stale_policy)
+        )
+    for hit in policy_hits:
+        rel = hit.path.relative_to(repo_root.resolve()).as_posix()
+        offender_lines.append(f"- {rel}:{hit.line}: {hit.snippet}")
 
     rec.record(
         _SLUG,
         _TITLE,
         "FAIL",
-        "New or over-baseline item-ref prefix literals. Use render_item_ref / "
+        "Item-ref parser policy drift. Use render_item_ref / "
         "format_item_ref for display and resolve_item_id for lookups; never "
         "build or parse a ref inline:\n" + "\n".join(offender_lines),
     )

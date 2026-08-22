@@ -173,7 +173,7 @@ class TestSyncEpicTasksDedup:
         )
         with patches[0], patches[1]:
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-10",
+                10,
                 conn=epic_db,
                 stdout=stdout,
             )
@@ -220,7 +220,7 @@ class TestSyncEpicTasksDedup:
         patches = _patches(dedup_results=[fuzzy], create_response=created)
         with patches[0], patches[1]:
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-1500",
+                1500,
                 conn=epic_db,
                 stdout=stdout,
             )
@@ -275,7 +275,7 @@ class TestSyncEpicTasksDedup:
             ),
         ):
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-10",
+                10,
                 conn=epic_db,
                 stdout=stdout,
             )
@@ -332,7 +332,7 @@ class TestSyncEpicTasksDedup:
             ),
         ):
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-1500",
+                1500,
                 conn=epic_db,
                 stdout=stdout,
             )

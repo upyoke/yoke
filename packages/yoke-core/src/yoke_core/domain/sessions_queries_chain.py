@@ -24,7 +24,7 @@ def update_chain_checkpoint(
     action: str,
     chainable: bool,
     handler_outcome: str = "completed",
-    item_id: Optional[str] = None,
+    item_id: Optional[int] = None,
     task_num: Optional[int] = None,
     status: Optional[str] = None,
     required_path: Optional[str] = None,

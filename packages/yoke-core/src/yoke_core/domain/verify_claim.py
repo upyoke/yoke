@@ -42,17 +42,6 @@ from yoke_core.domain.claim_recovery import canonical_item_ref
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
 
 
-def _normalize_item_id(raw: str) -> Optional[int]:
-    """Resolve an item ref to the internal ``items.id``.
-
-    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    return parse_item_id_or_none(raw, allow_bare_internal=True)
-
-
 def _resolve_session_id() -> str:
     from yoke_core.domain.session_ambient_identity import (
         resolve_ambient_session_id,
@@ -292,9 +281,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--item-id", dest="item_id", required=True)
     args = parser.parse_args(argv)
 
-    item_num = _normalize_item_id(args.item_id)
-    if item_num is None:
-        print("Error: invalid --item-id value: %s" % args.item_id, file=sys.stderr)
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    try:
+        item_num = parse_item_argument(args.item_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
 
     exit_code, payload = verify(item_num)

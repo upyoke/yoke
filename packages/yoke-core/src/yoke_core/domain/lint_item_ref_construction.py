@@ -1,4 +1,4 @@
-"""Scanner: item-ref prefix literals belong only in the canonical formatter.
+"""Scanners: item refs are formatted and parsed only by the canonical helpers.
 
 A public item ref is display-only — ``{public_item_prefix}-{project_sequence}``
 — and is produced solely by the canonical helpers
@@ -13,10 +13,15 @@ projects) and, when built from an internal id, prints the wrong number
 (``items.id`` instead of ``project_sequence``). Those two shapes are exactly
 what let a fabricated ref like ``YOK-1915`` reach the operator.
 
-This scanner flags any *literal* ref-prefix token in Python source outside the
-canonical formatter/resolver and tests, so the anti-pattern cannot re-enter the
-tree. The canonical helpers format from a *variable* prefix
-(``f"{prefix}-{seq}"``) and so never trip it.
+Two scans keep both directions closed. :func:`scan` flags any *literal*
+ref-prefix token in Python source outside the canonical formatter/resolver and
+tests; the canonical helpers format from a *variable* prefix
+(``f"{prefix}-{seq}"``) and so never trip it. :func:`scan_parser_policy` flags
+the read direction: an implicit ``allow_bare_internal=True`` opt-out, a
+project-blind prefix regex, or a numeric-tail coercion, each of which reads an
+operator's token as an internal id. Both carry exact-path allowances, and
+:func:`stale_parser_policy_allowances` reports the ones whose legacy read is
+gone so the allowances shrink with the code.
 """
 
 from __future__ import annotations
@@ -48,6 +53,7 @@ _EXEMPT_RELPATHS: frozenset[str] = frozenset(
         "packages/yoke-contracts/src/yoke_contracts/item_ref.py",
         "packages/yoke-core/src/yoke_core/domain/project_identity.py",
         "packages/yoke-core/src/yoke_core/domain/project_identity_item_ref.py",
+        "packages/yoke-core/src/yoke_core/domain/yok_n_parser.py",
         "packages/yoke-core/src/yoke_core/domain/worktree_naming.py",
         "packages/yoke-core/src/yoke_core/domain/lint_item_ref_construction.py",
         "packages/yoke-core/src/yoke_core/domain/item_ref_construction_baseline.py",
@@ -58,6 +64,36 @@ _EXEMPT_RELPATHS: frozenset[str] = frozenset(
     }
 )
 
+_IMPLICIT_INTERNAL_RE = re.compile(r"\ballow_bare_internal\s*=\s*True\b")
+_PREFIX_CLASS_STRIP_RE = re.compile(r"(?:\[[A-Za-z]{2}\]){2,}[^'\"]*-")
+_GENERIC_PREFIX_PARSE_RE = re.compile(
+    r"\^\[A-Za-z\]\[A-Za-z0-9\]\*?-"
+)
+_NUMERIC_TAIL_ACCESS_PATTERN = (
+    r"\.(?:r?split)\(\s*['\"]-['\"]\s*,\s*1\s*\)\s*\[\s*-?1\s*\]"
+)
+_NUMERIC_TAIL_ACCESS_RE = re.compile(_NUMERIC_TAIL_ACCESS_PATTERN)
+_NUMERIC_TAIL_COERCION_RE = re.compile(
+    rf"(?:\bint\([^#\n]*{_NUMERIC_TAIL_ACCESS_PATTERN}[^#\n]*\)"
+    rf"|{_NUMERIC_TAIL_ACCESS_PATTERN}\s*\.isdigit\(\))"
+)
+
+# These modules consume stored pre-cutover item tokens, not operator input.
+# Each path stays visible here so removing its legacy read also removes a stale
+# allowance enforced by ``stale_parser_policy_allowances``.
+_NUMERIC_TAIL_ALLOWLIST: dict[str, str] = {
+    "packages/yoke-core/src/yoke_core/domain/item_ref_columns.py": (
+        "legacy dependency-column compatibility on incomplete schemas"
+    ),
+    "packages/yoke-core/src/yoke_core/domain/migrations/"
+    "_numeric_item_dependency_ids.py": "frozen migration of stored item tokens",
+}
+_IMPLICIT_INTERNAL_ALLOWLIST: dict[str, str] = {
+    "packages/yoke-core/src/yoke_core/domain/item_ref_columns.py": (
+        "legacy textual dependency-column reader"
+    ),
+}
+
 
 def _is_test_file(rel_posix: str) -> bool:
     name = rel_posix.rsplit("/", 1)[-1]
@@ -66,6 +102,7 @@ def _is_test_file(rel_posix: str) -> bool:
         or name.endswith("_test.py")
         or name == "conftest.py"
         or name.endswith("_test_helpers.py")
+        or name.endswith("_test_support.py")
     )
 
 
@@ -141,6 +178,68 @@ def scan(
                         )
                     )
     return hits
+
+
+def scan_parser_policy(repo_root: Path) -> List[RefLiteralHit]:
+    """Return implicit-internal opt-outs and project-blind regex parsers."""
+    root = repo_root.resolve()
+    hits: List[RefLiteralHit] = []
+    for scan_root in _SCAN_ROOTS:
+        base = root / scan_root
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*.py")):
+            try:
+                rel = path.resolve().relative_to(root).as_posix()
+            except ValueError:
+                continue
+            if _is_exempt(rel):
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for lineno, raw in enumerate(lines, start=1):
+                implicit_internal = _IMPLICIT_INTERNAL_RE.search(raw)
+                numeric_tail = _NUMERIC_TAIL_COERCION_RE.search(raw)
+                if (
+                    (
+                        implicit_internal
+                        and rel not in _IMPLICIT_INTERNAL_ALLOWLIST
+                    )
+                    or _PREFIX_CLASS_STRIP_RE.search(raw)
+                    or _GENERIC_PREFIX_PARSE_RE.search(raw)
+                    or (numeric_tail and rel not in _NUMERIC_TAIL_ALLOWLIST)
+                ):
+                    hits.append(
+                        RefLiteralHit(path.resolve(), lineno, raw.strip()[:160])
+                    )
+    return hits
+
+
+def stale_parser_policy_allowances(repo_root: Path) -> List[str]:
+    """Return allowances whose exact legacy read has disappeared."""
+    root = repo_root.resolve()
+    stale: List[str] = []
+    allowed_paths = _NUMERIC_TAIL_ALLOWLIST.keys() | _IMPLICIT_INTERNAL_ALLOWLIST.keys()
+    for rel in sorted(allowed_paths):
+        path = root / rel
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            stale.append(rel)
+            continue
+        numeric_stale = (
+            rel in _NUMERIC_TAIL_ALLOWLIST
+            and _NUMERIC_TAIL_ACCESS_RE.search(text) is None
+        )
+        internal_stale = (
+            rel in _IMPLICIT_INTERNAL_ALLOWLIST
+            and _IMPLICIT_INTERNAL_RE.search(text) is None
+        )
+        if numeric_stale or internal_stale:
+            stale.append(rel)
+    return stale
 
 
 def counts_by_relpath(

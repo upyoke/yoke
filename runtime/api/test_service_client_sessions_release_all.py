@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for service_client release-all-claims, claim-release override, and
 release-command registration."""
 
@@ -8,8 +9,9 @@ import json
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
+from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
 
 
 class TestReleaseAllClaims:
@@ -82,6 +84,7 @@ class TestReleaseAllClaims:
         sid = "release-last-claim-test"
 
         conn = connect_test_db(db_path)
+        insert_item(conn, id=77, status="implemented")
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, model, "
             "execution_lane, workspace, mode, offered_at, last_heartbeat) "

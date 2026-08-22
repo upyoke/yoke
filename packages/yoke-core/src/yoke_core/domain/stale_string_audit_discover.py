@@ -9,8 +9,8 @@ Owns:
 * Surface-discovery internal helpers: ``_extract_test_dirs_from_docs``,
   ``_extract_dirs_from_test_command``, ``_looks_like_test_surface``,
   ``_scan_test_directories``.
-* Item / project lookup helpers: ``_get_project_for_item``,
-  ``_get_item_field``, ``_normalize_item_id``.
+* Item / project lookup helpers: ``_get_project_for_item`` and
+  ``_get_item_field``.
 
 Candidate-string extraction lives in ``stale_string_audit_extract``.
 """
@@ -25,13 +25,6 @@ from yoke_core.domain._stale_string_audit_constants import DEFAULT_TEST_DIRS
 
 
 # ── Item / project lookup helpers ───────────────────────────────────────
-
-
-def _normalize_item_id(raw: str) -> Optional[int]:
-    # PREFIX-N resolves via the project sequence; bare N = internal id.
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    return parse_item_id_or_none(raw, allow_bare_internal=True)
 
 
 def _get_project_for_item(item_id: int) -> Optional[str]:

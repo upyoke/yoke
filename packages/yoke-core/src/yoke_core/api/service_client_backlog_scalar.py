@@ -27,24 +27,9 @@ from __future__ import annotations
 
 import sys
 from typing import Any, List, Optional
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
-def _parse_item_id(raw: str) -> Optional[int]:
-    """Parse prefixed, zero-padded, or bare numeric refs. Return None on error.
-
-    Delegates to :mod:`yoke_core.domain.yok_n_parser` for the canonical
-    vocabulary.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id
-
-    try:
-        return parse_item_id(raw, allow_bare_internal=True)
-    except ValueError:
-        return None
-
-
-def _dispatch_scalar(item_id: int, field: str, value: Any, intent: str) -> Any:
+def _dispatch_scalar(item_ref: str, field: str, value: Any, intent: str) -> Any:
     """Dispatch one ``items.scalar.update`` call. Returns the FunctionCallResponse."""
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
     from yoke_core.api.service_client_shared_session_resolver import current_session_id
@@ -52,10 +37,16 @@ def _dispatch_scalar(item_id: int, field: str, value: Any, intent: str) -> Any:
 
     register_all_handlers()
     sid = current_session_id() or "operator-cli"
+    from yoke_core.domain.yok_n_parser import item_argument_project
+
+    target: dict[str, Any] = {"kind": "item", "item_ref": item_ref}
+    project = item_argument_project()
+    if project is not None:
+        target["project_id"] = str(project)
     return dispatch({
         "function": "items.scalar.update",
         "actor": {"session_id": sid},
-        "target": {"kind": "item", "item_id": int(item_id)},
+        "target": target,
         "intent": intent,
         "payload": {"field": field, "value": value},
         "options": {"rebuild_board": True},
@@ -79,92 +70,85 @@ def _emit_outcome(response: Any, success_line: str) -> int:
     return 1
 
 
-def _parse_single_id_args(args: List[str], verb: str) -> Optional[int]:
+def _single_item_ref_arg(args: List[str], verb: str) -> Optional[str]:
     if len(args) != 1:
-        print(f"Usage: db_router items {verb} <YOK-N>", file=sys.stderr)
+        print(f"Usage: db_router items {verb} <PREFIX-N>", file=sys.stderr)
         return None
-    item_id = _parse_item_id(args[0])
-    if item_id is None:
-        print(f"Error: invalid item id {args[0]!r}", file=sys.stderr)
-        return None
-    return item_id
+    return str(args[0]).strip()
 
 
 def cmd_freeze(args: List[str]) -> int:
-    """``db_router items freeze <YOK-N>`` — set frozen=true via items.scalar.update."""
-    item_id = _parse_single_id_args(args, "freeze")
-    if item_id is None:
+    """``db_router items freeze <PREFIX-N>`` — set frozen=true via items.scalar.update."""
+    item_ref = _single_item_ref_arg(args, "freeze")
+    if item_ref is None:
         return 2
-    response = _dispatch_scalar(item_id, "frozen", True, "freeze")
-    return _emit_outcome(response, f"{item_ref_for_id(item_id)}: frozen")
+    response = _dispatch_scalar(item_ref, "frozen", True, "freeze")
+    return _emit_outcome(response, f"{item_ref}: frozen")
 
 
 def cmd_thaw(args: List[str]) -> int:
-    """``db_router items thaw <YOK-N>`` — set frozen=false via items.scalar.update."""
-    item_id = _parse_single_id_args(args, "thaw")
-    if item_id is None:
+    """``db_router items thaw <PREFIX-N>`` — set frozen=false via items.scalar.update."""
+    item_ref = _single_item_ref_arg(args, "thaw")
+    if item_ref is None:
         return 2
-    response = _dispatch_scalar(item_id, "frozen", False, "thaw")
-    return _emit_outcome(response, f"{item_ref_for_id(item_id)}: thawed")
+    response = _dispatch_scalar(item_ref, "frozen", False, "thaw")
+    return _emit_outcome(response, f"{item_ref}: thawed")
 
 
 def cmd_block(args: List[str]) -> int:
-    """``db_router items block <YOK-N> "<reason>"`` — set blocked=true + reason."""
+    """``db_router items block <PREFIX-N> "<reason>"`` — set blocked=true + reason."""
     if len(args) != 2:
-        print('Usage: db_router items block <YOK-N> "<reason>"', file=sys.stderr)
+        print('Usage: db_router items block <PREFIX-N> "<reason>"', file=sys.stderr)
         return 2
-    item_id = _parse_item_id(args[0])
-    if item_id is None:
-        print(f"Error: invalid item id {args[0]!r}", file=sys.stderr)
-        return 2
+    item_ref = str(args[0]).strip()
     reason = args[1]
     if not reason.strip():
         print("Error: reason must be a non-empty string", file=sys.stderr)
         return 2
 
-    flag_response = _dispatch_scalar(item_id, "blocked", True, "block")
+    flag_response = _dispatch_scalar(item_ref, "blocked", True, "block")
     if not flag_response.success:
         return _emit_outcome(flag_response, "")
-    reason_response = _dispatch_scalar(item_id, "blocked_reason", reason, "block")
+    reason_response = _dispatch_scalar(item_ref, "blocked_reason", reason, "block")
     if not reason_response.success:
         # Flag was set but reason write failed — partial state. Report both.
         err = reason_response.error
         code = getattr(err, "code", None) or (err.get("code") if isinstance(err, dict) else "")
         msg = getattr(err, "message", None) or (err.get("message") if isinstance(err, dict) else str(err))
         print(
-            f"PARTIAL: {item_ref_for_id(item_id)} blocked=true set but reason write failed "
+            f"PARTIAL: {item_ref} blocked=true set but reason write failed "
             f"({code}: {msg}). Recover with: "
-            f"python3 -m yoke_core.cli.db_router items update {item_id} "
+            f"python3 -m yoke_core.cli.db_router items update {item_ref} "
             f"blocked_reason '<reason>'",
             file=sys.stderr,
         )
         return 1
-    return _emit_outcome(reason_response, f'{item_ref_for_id(item_id)}: blocked (reason: {reason})')
+    return _emit_outcome(reason_response, f'{item_ref}: blocked (reason: {reason})')
 
 
 def cmd_unblock(args: List[str]) -> int:
-    """``db_router items unblock <YOK-N>`` — clear blocked flag and reason."""
-    item_id = _parse_single_id_args(args, "unblock")
-    if item_id is None:
+    """``db_router items unblock <PREFIX-N>`` — clear blocked flag and reason."""
+    item_ref = _single_item_ref_arg(args, "unblock")
+    if item_ref is None:
         return 2
 
-    flag_response = _dispatch_scalar(item_id, "blocked", False, "unblock")
+    flag_response = _dispatch_scalar(item_ref, "blocked", False, "unblock")
     if not flag_response.success:
         return _emit_outcome(flag_response, "")
-    reason_response = _dispatch_scalar(item_id, "blocked_reason", None, "unblock")
+    reason_response = _dispatch_scalar(item_ref, "blocked_reason", None, "unblock")
     if not reason_response.success:
         err = reason_response.error
         code = getattr(err, "code", None) or (err.get("code") if isinstance(err, dict) else "")
         msg = getattr(err, "message", None) or (err.get("message") if isinstance(err, dict) else str(err))
         print(
-            f"PARTIAL: {item_ref_for_id(item_id)} blocked=false set but reason clear failed "
+            f"PARTIAL: {item_ref} blocked=false set but reason clear failed "
             f"({code}: {msg}). Recover with: "
-            f"python3 -m yoke_core.cli.db_router items update {item_id} "
+            f"python3 -m yoke_core.cli.db_router items update {item_ref} "
             f"blocked_reason ''",
             file=sys.stderr,
         )
         return 1
-    return _emit_outcome(reason_response, f"{item_ref_for_id(item_id)}: unblocked")
+    return _emit_outcome(reason_response, f"{item_ref}: unblocked")
 
 
 __all__ = [

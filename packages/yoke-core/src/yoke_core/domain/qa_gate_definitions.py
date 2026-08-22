@@ -22,10 +22,16 @@ class GateTarget:
 
     @classmethod
     def parse(cls, raw: str) -> "GateTarget":
+        """Resolve an operator gate target into typed internal ids."""
+        from yoke_core.domain.yok_n_parser import parse_item_argument
+
         if ":" in raw:
-            parts = raw.split(":", 1)
-            return cls(epic_id=int(parts[0]), task_num=int(parts[1]))
-        return cls(item_id=int(raw))
+            epic_ref, task_num = raw.split(":", 1)
+            return cls(
+                epic_id=parse_item_argument(epic_ref),
+                task_num=int(task_num),
+            )
+        return cls(item_id=parse_item_argument(raw))
 
     def where_clause(self) -> Tuple[str, tuple]:
         """Return (SQL fragment, params) for WHERE filtering."""

@@ -148,14 +148,14 @@ class TestReader:
         )
         assert read_item_test_results(7002, db_path=db_path) == ""
 
-    def test_accepts_yok_n_prefix(self, fixture_db) -> None:
+    def test_accepts_resolved_digit_string(self, fixture_db) -> None:
         conn, db_path = fixture_db
         insert_item(
             conn, id=7003, project="yoke", status="polishing-implementation",
             test_results=_PYTEST_PASS_OUTPUT,
         )
-        assert read_item_test_results("YOK-7003", db_path=db_path) == _PYTEST_PASS_OUTPUT
-        assert read_item_test_results("YOK-07003", db_path=db_path) == _PYTEST_PASS_OUTPUT
+        assert read_item_test_results("7003", db_path=db_path) == _PYTEST_PASS_OUTPUT
+        assert read_item_test_results("07003", db_path=db_path) == _PYTEST_PASS_OUTPUT
 
     def test_unparseable_id_returns_empty(self, fixture_db) -> None:
         _conn, db_path = fixture_db

@@ -17,20 +17,20 @@ from .workflow_runtime import WorkflowRuntime, load_item_workflow_runtime
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
-def normalize_claim_item_id(item_id: str) -> str:
-    """Canonicalize numeric item IDs to bare numeric while preserving sentinels."""
-    bare = item_id[4:] if item_id.upper().startswith("YOK-") else item_id
-    if bare.isdigit():
-        return bare.lstrip("0") or "0"
-    return item_id
+def normalize_claim_item_id(item_id: Any) -> str:
+    """Normalize the typed ``work_claims.item_id`` column for comparisons."""
+    text = str(item_id)
+    if text.isdigit():
+        return text.lstrip("0") or "0"
+    return text
 
 
-def normalize_session_item_id(item_id: str) -> str:
-    """Canonicalize session-attribution item IDs to bare numeric when possible."""
-    bare = item_id[4:] if item_id.upper().startswith("YOK-") else item_id
-    if bare.isdigit():
-        return bare.lstrip("0") or "0"
-    return item_id
+def normalize_session_item_id(item_id: Any) -> str:
+    """Normalize typed session item-id columns for comparisons."""
+    text = str(item_id)
+    if text.isdigit():
+        return text.lstrip("0") or "0"
+    return text
 
 
 def display_claim_item_id(
@@ -131,8 +131,8 @@ def resolve_claimed_work_context(
     lookup_id: Optional[int] = None
     if item_id:
         try:
-            lookup_id = int(str(item_id).upper().replace("YOK-", ""))
-        except ValueError:
+            lookup_id = int(item_id)
+        except (TypeError, ValueError):
             lookup_id = None
     elif epic_id is not None:
         lookup_id = int(epic_id)

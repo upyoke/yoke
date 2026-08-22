@@ -261,7 +261,7 @@ def _evaluate_qa_verification(
     try:
         from yoke_core.domain import qa_gates
 
-        gate_target = qa_gates.GateTarget.parse(str(item_id))
+        gate_target = qa_gates.GateTarget(item_id=int(item_id))
         if target_status == "done":
             gate_result = qa_gates.check_done_gate(gate_target, db_path)
             error_code = "GATE_QA_DONE"

@@ -66,11 +66,11 @@ class TestRecordItemTransition:
         finally:
             conn.close()
 
-    def test_accepts_sun_prefixed_ref(self, db_path):
+    def test_rejects_public_ref_at_internal_boundary(self, db_path):
         conn = connect_test_db(db_path)
         try:
             _seed_item(conn, 42)
-            assert item_status_transitions.record_item_transition(
+            assert not item_status_transitions.record_item_transition(
                 conn, item_id="YOK-42", from_status=None, to_status="done",
             )
             conn.commit()
@@ -78,16 +78,16 @@ class TestRecordItemTransition:
                 "SELECT COUNT(*) FROM item_status_transitions "
                 "WHERE item_id = 42 AND to_status = 'done'"
             ).fetchone()[0]
-            assert int(count) == 1
+            assert int(count) == 0
         finally:
             conn.close()
 
-    def test_public_ref_records_internal_id_not_sequence_tail(self, db_path):
+    def test_typed_internal_id_does_not_use_public_sequence(self, db_path):
         conn = connect_test_db(db_path)
         try:
             _seed_item(conn, 901, project_sequence=777)
             assert item_status_transitions.record_item_transition(
-                conn, item_id="YOK-777", from_status=None, to_status="done",
+                conn, item_id=901, from_status=None, to_status="done",
             )
             conn.commit()
             row = conn.execute(

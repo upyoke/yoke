@@ -52,7 +52,6 @@ was defined in, not the module it was re-exported from.
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -204,8 +203,8 @@ def _auto_init(repo_root: Path, *, forced: bool = False) -> None:
 # Shared public-ref normalization for delegated domains. Canonical parser:
 # ``yoke_core.domain.yok_n_parser``. Helper rewrites a PREFIX-N token at
 # the configured positional index for known (domain, subcommand) pairs
-# so downstream surfaces see a bare integer. Falls through unchanged on
-# any parse failure — downstream diagnostics stay the single error path.
+# so downstream surfaces see a resolved internal integer. Parse failures
+# fall through unchanged for the downstream command's single error path.
 
 _DOMAIN_YOK_N_NORMALIZE: Dict[str, Dict[str, int]] = {
     "sections": {"upsert": 0, "get": 0, "list": 0, "delete": 0},
@@ -224,18 +223,13 @@ def _normalize_yok_n_arg(domain: str, remaining: List[str]) -> List[str]:
     if pos >= len(args):
         return remaining
     token = args[pos]
-    if not isinstance(token, str) or not re.match(
-        r"^[A-Za-z][A-Za-z0-9]*-\d+$", token.strip()
-    ):
+    from yoke_contracts.item_ref import parse_public_item_ref
+
+    if parse_public_item_ref(token)[1] is None:
         return remaining
-    try:
-        from yoke_core.domain.yok_n_parser import parse_item_id
-        normalized = str(parse_item_id(token))
-    except ValueError:
-        match = re.match(r"^[A-Za-z][A-Za-z0-9]*-0*(\d+)$", token.strip())
-        if not match:
-            return remaining
-        normalized = str(int(match.group(1)))
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    normalized = str(parse_item_argument(token))
     rewritten = list(args)
     rewritten[pos] = normalized
     return [remaining[0], *rewritten]
@@ -325,7 +319,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     py_module = _DOMAIN_PY_MODULES.get(domain)
     if py_module:
-        remaining = _normalize_yok_n_arg(domain, remaining)
+        try:
+            remaining = _normalize_yok_n_arg(domain, remaining)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
         if emit_unknown_domain_subcmd_hint(domain, py_module, remaining):
             return 2
         return _dispatch_python_module(py_module, remaining)

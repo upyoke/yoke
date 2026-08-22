@@ -59,7 +59,6 @@ from runtime.api.routed_ownership_test_helpers import (
     SESSION_A,
     SESSION_B,
     SYNTHETIC_ITEM_ID,
-    SYNTHETIC_ITEM_REF,
     WORKSPACE,
     _ReleaseGapDbCase,
     build_release_gap_fixture,
@@ -297,7 +296,7 @@ class TestRefineCheckpointBeforeReleaseSequence(_ReleaseGapDbCase):
         seed_item(conn)
         register_live_session(
             conn, SESSION_A, current_item_id=str(SYNTHETIC_ITEM_ID))
-        claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_REF)
+        claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
 
         checkpoint = update_chain_checkpoint(
             conn, SESSION_A, step=1, action="refine",

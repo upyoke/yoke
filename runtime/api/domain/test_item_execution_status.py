@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import subprocess
 
-import pytest
-
 from runtime.api.domain.item_execution_status_test_support import (
     NOW,
     add_item as _add_item,
@@ -14,7 +12,7 @@ from runtime.api.domain.item_execution_status_test_support import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
-from yoke_core.domain import item_execution_status
+from yoke_core.domain import item_execution_status, yok_n_parser
 from yoke_core.domain.item_execution_status import (
     build_projection,
     main,
@@ -44,12 +42,16 @@ def test_helpers_handle_z_naive_garbage_and_clamp() -> None:
     assert age_seconds(None, now=NOW) is None
 
 
-def test_normalize_item_id_strips_sun_prefix() -> None:
+def test_normalize_item_id_delegates_to_canonical_parser(monkeypatch) -> None:
+    seen = []
+    monkeypatch.setattr(
+        yok_n_parser,
+        "parse_item_argument",
+        lambda raw: seen.append(raw) or 7,
+    )
+
     assert normalize_item_id("YOK-7") == 7
-    assert normalize_item_id("yok-007") == 7
-    assert normalize_item_id("42") == 42
-    with pytest.raises(ValueError):
-        normalize_item_id("not-an-int")
+    assert seen == ["YOK-7"]
 
 
 def test_latest_progress_entry_handles_no_headline_separator() -> None:
@@ -287,7 +289,8 @@ def test_text_and_json_render_from_same_projection(core_db, tmp_path) -> None:
 
 def test_main_unknown_item_returns_nonzero(core_db, monkeypatch, capsys):
     monkeypatch.setenv("YOKE_DB", core_db)
-    rc = main(["999", "--json"])
+    monkeypatch.setattr(item_execution_status, "normalize_item_id", lambda _raw: 999)
+    rc = main(["YOK-999", "--json"])
     captured = capsys.readouterr()
     assert rc == 1
     body = json.loads(captured.out)

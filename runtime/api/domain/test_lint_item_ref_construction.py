@@ -13,6 +13,8 @@ from pathlib import Path
 from yoke_core.domain.lint_item_ref_construction import (
     counts_by_relpath,
     scan,
+    scan_parser_policy,
+    stale_parser_policy_allowances,
 )
 
 _PREFIXES = ["YOK", "BUZ", "PLAT"]
@@ -102,6 +104,72 @@ def test_no_prefixes_means_no_hits(tmp_path: Path) -> None:
     assert scan(tmp_path, []) == []
 
 
+def test_flags_implicit_internal_opt_out(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/parse.py",
+        "parse_item_id(raw, allow_bare_internal=True)\n",
+    )
+    hits = scan_parser_policy(tmp_path)
+    assert [(hit.path.name, hit.line) for hit in hits] == [("parse.py", 1)]
+
+
+def test_flags_project_blind_prefix_regex(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/parse.py",
+        'PREFIX = re.compile(r"^[Yy][Oo][Kk]-")\n',
+    )
+    assert len(scan_parser_policy(tmp_path)) == 1
+
+
+def test_flags_optional_project_blind_prefix_regex(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/parse.py",
+        'REF = re.compile(r"^(?:[Yy][Oo][Kk]-)?([0-9]+)$")\n',
+    )
+    assert len(scan_parser_policy(tmp_path)) == 1
+
+
+def test_flags_generic_prefix_tail_parser(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/parse.py",
+        'REF = re.compile(r"^[A-Za-z][A-Za-z0-9]*-0*(\\d+)$")\n',
+    )
+    assert len(scan_parser_policy(tmp_path)) == 1
+
+
+def test_flags_numeric_tail_item_ref_coercion(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/parse.py",
+        'item_id = int(raw.rsplit("-", 1)[-1])\n',
+    )
+    hits = scan_parser_policy(tmp_path)
+    assert [(hit.path.name, hit.line) for hit in hits] == [("parse.py", 1)]
+
+
+def test_numeric_tail_allowances_are_exact_and_stale_checked(
+    tmp_path: Path,
+) -> None:
+    allowed = (
+        "packages/yoke-core/src/yoke_core/domain/item_ref_columns.py"
+    )
+    _write(
+        tmp_path,
+        allowed,
+        'tail = raw.rsplit("-", 1)[-1]\n'
+        'parse_item_id(raw, allow_bare_internal=True)\n',
+    )
+
+    assert scan_parser_policy(tmp_path) == []
+    stale = stale_parser_policy_allowances(tmp_path)
+    assert allowed not in stale
+    assert len(stale) == 1
+
+
 def test_baseline_counts_matches_classified_entries() -> None:
     from yoke_core.domain.item_ref_construction_baseline import (
         BASELINE,
@@ -116,4 +184,28 @@ def test_baseline_counts_matches_classified_entries() -> None:
     assert baseline_counts() == {
         path: int(entry["count"]) for path, entry in BASELINE.items()
     }
-    assert sum(baseline_counts().values()) == 62
+
+
+def test_repository_item_ref_policy_has_no_stale_allowances() -> None:
+    from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX
+    from yoke_core.domain.item_ref_construction_baseline import baseline_counts
+
+    root = Path(__file__).resolve().parents[3]
+    counts = counts_by_relpath(root, scan(root, [DEFAULT_PUBLIC_ITEM_PREFIX]))
+    allowed = baseline_counts()
+    offenders = {
+        path: count
+        for path, count in counts.items()
+        if count > allowed.get(path, 0)
+    }
+    stale = {
+        path: (counts.get(path, 0), count)
+        for path, count in allowed.items()
+        if counts.get(path, 0) < count
+    }
+    policy = [
+        (str(hit.path.relative_to(root)), hit.line, hit.snippet)
+        for hit in scan_parser_policy(root)
+    ]
+    stale_policy = stale_parser_policy_allowances(root)
+    assert (offenders, stale, policy, stale_policy) == ({}, {}, [], [])

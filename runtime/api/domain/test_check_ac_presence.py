@@ -13,21 +13,6 @@ TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
-class TestNormalizeId(unittest.TestCase):
-    # PREFIX-N resolution (project sequence -> internal id) is covered by
-    # the canonical parser tests; here only the DB-free shapes.
-    def test_zero_padded(self) -> None:
-        self.assertEqual(mod._normalize_item_id("0042"), 42)
-
-    def test_plain_number(self) -> None:
-        self.assertEqual(mod._normalize_item_id("42"), 42)
-
-    def test_invalid(self) -> None:
-        self.assertIsNone(mod._normalize_item_id(""))
-        self.assertIsNone(mod._normalize_item_id("abc"))
-        self.assertIsNone(mod._normalize_item_id("YOK-"))
-
-
 class TestExtractAcSection(unittest.TestCase):
     def test_basic_section(self) -> None:
         text = (
@@ -160,17 +145,22 @@ class TestMain(unittest.TestCase):
     def test_invalid_id_exits_2(self) -> None:
         rc, _, err = self._run(["abc"])
         self.assertEqual(rc, 2)
-        self.assertIn("invalid item ID", err)
+        self.assertIn("expected PREFIX-N", err)
 
     def test_missing_item_exits_2(self) -> None:
-        with mock.patch.object(mod, "_fetch_item_row", return_value=None):
+        with mock.patch(
+            "yoke_core.domain.yok_n_parser.parse_item_argument",
+            return_value=TEST_ITEM_ID,
+        ), mock.patch.object(mod, "_fetch_item_row", return_value=None):
             rc, _, err = self._run([str(TEST_ITEM_ID)])
         self.assertEqual(rc, 2)
         self.assertIn("not found", err)
 
     def test_canonical_acs_exits_0_prints_count(self) -> None:
         spec = "## Acceptance Criteria\n- [ ] AC-1: foo\n- [ ] AC-2: bar\n"
-        with mock.patch.object(
+        with mock.patch(
+            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
+        ), mock.patch.object(
             mod,
             "_fetch_item_row",
             return_value=("My Item", spec, ""),
@@ -182,7 +172,9 @@ class TestMain(unittest.TestCase):
 
     def test_unlabeled_acs_exit_0_with_advisory(self) -> None:
         spec = "## Acceptance Criteria\n- [ ] foo\n- [ ] bar\n"
-        with mock.patch.object(
+        with mock.patch(
+            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
+        ), mock.patch.object(
             mod,
             "_fetch_item_row",
             return_value=("My Item", spec, ""),
@@ -193,7 +185,9 @@ class TestMain(unittest.TestCase):
         self.assertIn("unlabeled", err)
 
     def test_no_acs_exits_1(self) -> None:
-        with mock.patch.object(
+        with mock.patch(
+            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
+        ), mock.patch.object(
             mod,
             "_fetch_item_row",
             return_value=("My Item", "No checkboxes here", ""),
@@ -204,7 +198,9 @@ class TestMain(unittest.TestCase):
 
     def test_falls_back_to_body_when_spec_empty(self) -> None:
         body = "## Acceptance Criteria\n- [ ] AC-1: From body\n"
-        with mock.patch.object(
+        with mock.patch(
+            "yoke_core.domain.yok_n_parser.parse_item_argument", return_value=5,
+        ), mock.patch.object(
             mod,
             "_fetch_item_row",
             return_value=("My Item", "", body),

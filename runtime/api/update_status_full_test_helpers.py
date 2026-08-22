@@ -9,6 +9,7 @@ can stay under the authored-file line limit.
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import stat
 import subprocess
@@ -33,6 +34,7 @@ from runtime.api.update_status_environment_test_config import (
 from runtime.api.update_status_schema_test_helpers import _apply_update_status_schema
 from runtime.api.update_status_github_auth_test_support import seed_github_app_auth
 from yoke_core.domain import db_backend
+from yoke_contracts.machine_config import schema as machine_config_contract
 
 
 def _p(conn) -> str:
@@ -49,6 +51,7 @@ class UpdateStatusEnv:
         self.gh_log = tmp_path / "gh.log"
         self.session_id = session_id
         self.db_path = self.root / "data" / "yoke.db"
+        self.machine_config_file = tmp_path / "machine-config.json"
 
         (self.root / "data").mkdir(parents=True)
         (self.root / "ouroboros").mkdir(parents=True)
@@ -70,6 +73,11 @@ class UpdateStatusEnv:
 
         self.mock_dir.mkdir()
         self._write_mock_gh(_MOCK_GH_DEFAULT)
+        self.machine_config_file.write_text(json.dumps({
+            "projects": machine_config_contract.upsert_project_entry(
+                None, checkout=str(self.root), project_id=1,
+            ),
+        }))
 
         # The path token is legacy; the backend resolves the per-test DSN.
         self._stack = contextlib.ExitStack()
@@ -112,6 +120,8 @@ class UpdateStatusEnv:
                 f" ON CONFLICT (id) DO UPDATE SET {_PROJECT_UPSERT_SET}",
                 row,
             )
+        conn.execute("UPDATE projects SET public_item_prefix='YOK' WHERE id=1")
+        conn.execute("UPDATE projects SET public_item_prefix='EXT' WHERE id=2")
         now = "2026-01-01T00:00:00Z"
         seed_github_app_auth(conn, p, now)
         _ts = "2026-04-20T00:00:00Z"
@@ -280,6 +290,7 @@ class UpdateStatusEnv:
             if os.environ.get(key):
                 env[key] = os.environ[key]
         env["YOKE_DB_INIT_DONE"] = "1"
+        env["YOKE_MACHINE_CONFIG_FILE"] = str(self.machine_config_file)
         return env
 
     def run(

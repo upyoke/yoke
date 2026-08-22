@@ -26,12 +26,7 @@ Refine always advances status on successful completion, whether invoked directly
 
 ### Lifecycle transitions
 
-Resolve the active `refine` segment from the item's immutable workflow pin.
-Interpret `skill_bindings` against the ordered `stages` with the runtime's
-half-open interval (`from_stage_id <= current < through_stage_id`). This skill
-supports the refine skill's three-rung contract: binding source → one
-in-progress stage → binding handoff. Use those served stage ids for entry,
-re-entry, and completion; never select a branch from a literal workflow id.
+Resolve the active `refine` segment from the item's immutable workflow pin. Interpret `skill_bindings` against the ordered `stages` with the runtime's half-open interval (`from_stage_id <= current < through_stage_id`). This skill supports the refine skill's three-rung contract: binding source → one in-progress stage → binding handoff. Use those served stage ids for entry, re-entry, and completion; never select a branch from a literal workflow id.
 
 If refine fails or is interrupted, the item must not advance past its current
 served stage.
@@ -44,25 +39,12 @@ served stage.
   document linked through `strategy.execution.link`. Refine links metadata
   only; `/yoke blitz` owns atomic document-claim acquisition and execution.
 - Artifact writes are work writes: work item/spec/body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state; hold the item claim before mutating them, and treat `who-claims` session ids as identifiers, not authority.
-- Full-field rewrites go through the `items.structured_field.replace`
-  function call; additive transforms (preserve existing content, append
-  a `## heading`-led block) go through
-  `items.structured_field.append_addendum` /
-  `items.structured_field.section_upsert` /
-  `items.structured_field.section_append`; see
-  [`update-protocol.md`](update-protocol.md) step 6 for the full
-  surface contract and
-  [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)
-  for the envelope shape.
+- Full-field rewrites go through the `items.structured_field.replace` function call; additive transforms (preserve existing content, append a `## heading`-led block) go through `items.structured_field.append_addendum` / `items.structured_field.section_upsert` / `items.structured_field.section_append`; see [`update-protocol.md`](update-protocol.md) step 6 for the full surface contract and [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md) for the envelope shape.
 - Both standalone and routed modes advance status on successful completion.
 
 ## QA Preparation
 
-Refine does not derive QA requirements from an item's selected workflow or
-Browser posture. Project-default and item-attached plans materialize at their
-declared lifecycle transitions. Add an explicit item-specific requirement through
-`qa.requirement.add` only when the refined verification contract calls for
-coverage outside those attached plans.
+Refine does not derive QA requirements from an item's selected workflow or Browser posture. Project-default and item-attached plans materialize at their declared lifecycle transitions. Add an explicit item-specific requirement through `qa.requirement.add` only when the refined verification contract calls for coverage outside those attached plans.
 
 ## Philosophy
 
@@ -102,7 +84,7 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 **No such thing as "agent error."** When the critique reveals a bad artifact, the cause is systemic: insufficient dispatch context, ambiguous instructions, or upstream gaps. Frame every issue as what the SYSTEM should change to prevent it.
 
-**Events table for investigation.** When critiquing artifacts, query the events table for diagnostic context: `yoke events query --item {N}`. Anomaly flags and envelope data reveal whether the artifact was produced under context pressure.
+**Events table for investigation.** When critiquing artifacts, query the events table for diagnostic context: `yoke events query --item PREFIX-N`. Anomaly flags and envelope data reveal whether the artifact was produced under context pressure.
 
 **File work items for root causes.** When refinement surfaces a systemic issue, note the root cause for work item filing.
 
@@ -184,7 +166,7 @@ EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_NUM" 2>/dev/null) || true
 ```
 
 If all fields are empty or trivial, emit:
-> **Advisory:** PREFIX-{N} has minimal content. Consider populating the body first or running `/yoke shepherd PREFIX-{N}` before refining.
+> **Advisory:** PREFIX-N has minimal content. Consider populating the body first or running `/yoke shepherd PREFIX-N` before refining.
 
 Proceed anyway — refinement can still add structure to sparse items.
 
@@ -264,7 +246,7 @@ The universal 350-line authored-file limit remains enforced in every posture.
 Run the path-claim gate only when effective path claims are enabled:
 
 ```bash
-yoke claims path required-gate PREFIX-{N}
+yoke claims path required-gate PREFIX-N
 ```
 
 Branch on the result:

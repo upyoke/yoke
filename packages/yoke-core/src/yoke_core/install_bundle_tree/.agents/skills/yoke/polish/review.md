@@ -43,7 +43,7 @@ Before planning fixes, complete this required verification checklist. **Incorpor
 - **Blast-radius discovery:** Run real grep/search discovery for renamed, removed, or signature-changed behavior. Do not trust the diff or the spec's remembered file list by itself.
 - **Residue grep:** After any rename/removal/refactor, run a residue grep for the old identifier/pattern/value and treat non-zero matches as unfinished work.
 - **Test co-modification audit:** For every modified script or module, inspect corresponding `test-{module}.sh` files and any tests that reference the changed path. Missing test updates are a first-class bug.
-- **Events forensics when debugging:** If a failure or behavior mismatch is unclear, inspect `yoke events query --item {N}` or `yoke events tail --limit 20` before guessing at the cause.
+- **Events forensics when debugging:** If a failure or behavior mismatch is unclear, inspect `yoke events query --item PREFIX-N` or `yoke events tail --limit 20` before guessing at the cause.
 - **Prompt/file-size awareness:** If you touch agent definitions, skill prompts, or large shell/markdown surfaces, measure line counts (`wc -l`) and flag any P-50/readability risk in the review or fix plan.
 - **Codebase-reader naming audit:** Check new or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments for planning-artifact provenance. Anything named after the work item, strategy doc, plan, initiative, phase, task, AC/FR label, branch, worktree, or implementation batch must be renamed to current function/purpose/mechanics unless the identifier is itself runtime/domain language.
 
@@ -81,7 +81,7 @@ Test review dimensions:
 Emit a structured review:
 
 ```
-## Polish Review — PREFIX-{N}
+## Polish Review — PREFIX-N
 
 ### Implementation Status
 - {AC-1}: {covered/partial/missing} — {brief evidence}

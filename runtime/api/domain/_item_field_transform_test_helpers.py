@@ -155,3 +155,9 @@ def _patched_db(test: unittest.TestCase, db: _FakeDB) -> None:
         patcher = mock.patch.object(module, name, return_value=value)
         patcher.start()
         test.addCleanup(patcher.stop)
+    resolver = mock.patch(
+        "yoke_core.domain.yok_n_parser.parse_item_argument",
+        side_effect=lambda raw: int(raw),
+    )
+    resolver.start()
+    test.addCleanup(resolver.stop)

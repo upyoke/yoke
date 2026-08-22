@@ -8,8 +8,7 @@ Foundation module for the worktree subsystem. Owns:
 * the git-context helpers that path resolution depends on
   (``_normalize_repo_root``, ``_resolve_repo_root_from_cwd``,
   ``_strip_worktree_path``);
-* the low-level primitives shared by every worktree sibling — the
-  subprocess wrapper ``_run`` and the item-ID parser ``_parse_item_id``.
+* the low-level subprocess primitive shared by every worktree sibling.
   Keeping these here (rather than in the front door) keeps the front
   door free of a sibling-imports-back-into-front-door cycle when
   ``python3 -m yoke_core.domain.worktree`` runs.
@@ -21,7 +20,6 @@ The front-door module re-exports every public name defined here so
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 from pathlib import Path
 from typing import List, Optional
@@ -53,18 +51,6 @@ def is_git_worktree(path: str) -> bool:
         return False
     check = _run(["git", "rev-parse", "--is-inside-work-tree"], cwd=path)
     return check.returncode == 0 and check.stdout.strip() == "true"
-
-
-def _parse_item_id(raw: str) -> Optional[int]:
-    """Strip ``YOK-`` prefix (case-insensitive) and leading zeros, return int."""
-    cleaned = re.sub(r"^[Yy][Oo][Kk]-", "", raw.strip())
-    if not cleaned:
-        return None
-    cleaned = cleaned.lstrip("0") or "0"
-    try:
-        return int(cleaned)
-    except ValueError:
-        return None
 
 
 # ---------------------------------------------------------------------------

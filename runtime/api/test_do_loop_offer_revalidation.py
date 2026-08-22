@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Focused regressions for offer revalidation, skip memory, and chain accounting.
 
 This module reproduces the three concrete failure shapes the work-item spec
@@ -15,10 +16,12 @@ so they do not depend on the full HTTP/CLI offer path or scheduler fixtures.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
 
-from runtime.api.test_sessions import _register, conn  # noqa: F401  (Postgres-backed pytest fixture)
+from runtime.api.test_sessions import (
+    _register,
+    conn,  # noqa: F401  (Postgres-backed pytest fixture)
+)
 from yoke_core.domain.sessions import (
     append_chain_skip_entry,
     claim_work,
@@ -92,8 +95,8 @@ class TestHolderSessionForItem:
     def test_returns_holder_context_when_claimed(self, conn):
         _seed_item(conn, item_id=3001, status="implementing")
         _register(conn, session_id="holder-sess")
-        claim = claim_work(conn, session_id="holder-sess", item_id=f"YOK-{3001}")
-        ctx = holder_session_for_item(conn, f"YOK-{3001}")
+        claim = claim_work(conn, session_id="holder-sess", item_id=3001)
+        ctx = holder_session_for_item(conn, 3001)
         assert ctx["holder_session_id"] == "holder-sess"
         assert ctx["claim_id"] == claim["id"]
         assert ctx.get("claimed_at")

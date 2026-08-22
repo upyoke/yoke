@@ -16,18 +16,6 @@ TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
-class TestNormalizeId(unittest.TestCase):
-    # PREFIX-N resolution (project sequence -> internal id) is covered by
-    # the canonical parser tests; here only the DB-free shapes.
-    def test_bare_internal_passthrough(self) -> None:
-        self.assertEqual(mod._normalize_item_id("007"), 7)
-        self.assertEqual(mod._normalize_item_id(str(TEST_ITEM_ID)), TEST_ITEM_ID)
-
-    def test_invalid(self) -> None:
-        self.assertIsNone(mod._normalize_item_id(""))
-        self.assertIsNone(mod._normalize_item_id("abc"))
-
-
 class TestSessionAndBypass(unittest.TestCase):
     def test_resolve_session_id_prefers_yoke(self) -> None:
         with mock.patch.dict(
@@ -298,10 +286,13 @@ class TestMain(unittest.TestCase):
     def test_invalid_id_exits_2(self) -> None:
         rc, _, err = self._run(["--item-id", ""])
         self.assertEqual(rc, 2)
-        self.assertIn("invalid --item-id", err)
+        self.assertIn("expected PREFIX-N", err)
 
     def test_emits_json_envelope(self) -> None:
-        with mock.patch.object(
+        with mock.patch(
+            "yoke_core.domain.yok_n_parser.parse_item_argument",
+            return_value=TEST_ITEM_ID,
+        ), mock.patch.object(
             mod,
             "verify",
             return_value=(

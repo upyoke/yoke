@@ -15,24 +15,6 @@ from typing import List, Optional, Sequence
 from yoke_core.domain.db_helpers import connect
 
 
-_YOKE_ITEM_PREFIX = "YOK-"
-
-
-def parse_item_id(raw: str) -> int:
-    text = (raw or "").strip()
-    if not text:
-        raise ValueError("item id is required")
-    upper = text.upper()
-    if upper.startswith(_YOKE_ITEM_PREFIX):
-        text = text[len(_YOKE_ITEM_PREFIX):]
-    try:
-        return int(text)
-    except ValueError as exc:
-        raise ValueError(
-            f"invalid item id {raw!r}; expected YOK-N or a bare integer"
-        ) from exc
-
-
 def parse_paths(raw: str) -> List[str]:
     return [p.strip() for p in (raw or "").split(",") if p.strip()]
 
@@ -85,7 +67,6 @@ def open_conn():
 
 __all__ = [
     "open_conn",
-    "parse_item_id",
     "parse_paths",
     "print_error",
     "print_json",

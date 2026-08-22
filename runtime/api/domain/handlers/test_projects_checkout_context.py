@@ -1,9 +1,9 @@
 """Tests for the ``projects.checkout_context.run`` handler.
 
 Covers the server-side project ladder (explicit client hint on
-``target.project_id`` — numeric or slug — then session inference, then
-the typed ``project_context_required`` teaching), payload/target
-validation, and the registration + adapter-inventory shape.
+``target.project_id`` — numeric or slug — or the typed
+``project_context_required`` teaching), payload/target validation, and
+the registration + adapter-inventory shape.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ class TestResolutionLadder:
         assert outcome.result_payload["id"] == OTHER_PROJECT_ID
         assert outcome.result_payload["slug"] == OTHER_PROJECT_SLUG
 
-    def test_session_inference_when_no_hint(self, tmp_db: str) -> None:
+    def test_session_focus_is_not_project_identity(self, tmp_db: str) -> None:
         conn = connect_test_db(tmp_db)
         try:
             _seed_session_on_item(
@@ -96,8 +96,9 @@ class TestResolutionLadder:
         outcome = handlers.handle_projects_checkout_context(
             _request(project=None, session_id="session-on-externalwebapp-item")
         )
-        assert outcome.primary_success is True
-        assert outcome.result_payload["slug"] == OTHER_PROJECT_SLUG
+        assert outcome.primary_success is False
+        assert outcome.error.code == "project_context_required"
+        assert "--project" in outcome.error.message
 
     def test_no_context_returns_typed_teaching(self, tmp_db: str) -> None:
         outcome = handlers.handle_projects_checkout_context(

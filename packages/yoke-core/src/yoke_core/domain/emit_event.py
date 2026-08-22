@@ -35,7 +35,10 @@ from yoke_core.domain.emit_event_parser import (
     build_parser,
 )
 from yoke_core.domain.events import isolation_gate_blocks
-from yoke_core.domain.yok_n_parser import parse_item_id
+from yoke_core.domain.yok_n_parser import (
+    item_argument_project,
+    parse_item_argument,
+)
 
 
 __all__ = [
@@ -63,21 +66,6 @@ def _db_path() -> Optional[str]:
         return None
 
 
-def _item_lookup_id(
-    value: Optional[str],
-    *,
-    project: Optional[str] = None,
-    conn: Optional[Any] = None,
-) -> Optional[str]:
-    """Resolve an event item reference to the numeric ``items.id`` form."""
-    if value is None:
-        return None
-    try:
-        return str(parse_item_id(value, project=project, conn=conn))
-    except Exception:
-        return events_crud.normalize_event_item_id(value)
-
-
 def _resolve_session_id(explicit: Optional[str]) -> str:
     if explicit:
         return explicit
@@ -88,16 +76,13 @@ def _resolve_session_id(explicit: Optional[str]) -> str:
     return f"{int(time.time())}-{os.getpid()}"
 
 
-def _resolve_item_project(item_id: Optional[str]) -> Optional[str]:
+def _resolve_item_project(item_id: Optional[int]) -> Optional[str]:
     if not item_id:
         return None
     conn = None
     try:
         conn = db_backend.connect()
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        lookup_id = _item_lookup_id(item_id, conn=conn)
-        if lookup_id is None:
-            return None
         row = conn.execute(
             f"""
             SELECT p.slug
@@ -106,7 +91,7 @@ def _resolve_item_project(item_id: Optional[str]) -> Optional[str]:
             WHERE i.id = {p}
             LIMIT 1
             """,
-            (int(lookup_id),),
+            (item_id,),
         ).fetchone()
     except db_backend.operational_error_types():
         return None
@@ -234,8 +219,24 @@ def emit(args: argparse.Namespace) -> int:
 
     event_id = args.event_id or str(uuid.uuid4())
     session_id = _resolve_session_id(args.session_id)
-    project = args.project or _resolve_item_project(args.item_id or None) or "yoke"
-    args.item_id = _item_lookup_id(args.item_id or None, project=project) or args.item_id
+    resolved_item_id: Optional[int] = None
+    if args.item_id:
+        from yoke_contracts.item_ref import parse_public_item_ref
+
+        _, sequence = parse_public_item_ref(args.item_id)
+        if sequence is not None:
+            resolved_item_id = parse_item_argument(
+                args.item_id,
+                project=item_argument_project(args.project),
+            )
+            args.item_id = str(resolved_item_id)
+    project = (
+        _resolve_item_project(resolved_item_id)
+        or args.project
+        or item_argument_project()
+        or "yoke"
+    )
+    project = str(project)
     envelope = _build_envelope(
         args,
         event_id=event_id,

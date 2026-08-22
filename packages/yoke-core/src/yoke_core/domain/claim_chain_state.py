@@ -167,7 +167,9 @@ def touch_epic_task_activity(
     task recency from state instead of scanning the events ledger.
     """
     try:
-        numeric_epic = int(str(epic_id).strip().upper().replace("YOK-", ""))
+        # ``epic_tasks.epic_id`` is a legacy numeric column whose callers may
+        # expose as a digit string; public refs resolve before this writer.
+        numeric_epic = int(epic_id)
         numeric_task = int(task_num)
     except (TypeError, ValueError):
         return

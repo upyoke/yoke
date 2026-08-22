@@ -54,17 +54,17 @@ def current_session_id() -> str:
 def _parse_item_id_arg(raw: str) -> int:
     """Resolve an item-id argument to the internal ``items.id``.
 
-    Accepts a bare internal id, ``PREFIX-N`` (resolved per-project via the
-    project's ``public_item_prefix`` + ``project_sequence``), or a project-local
-    bare sequence when project context is known. Delegates to the shared
+    Accepts ``PREFIX-N`` (resolved per-project via the project's
+    ``public_item_prefix`` + ``project_sequence``), or a project-local bare
+    sequence when project context is known. Delegates to the shared
     ``yok_n_parser`` so project-local prefixes resolve correctly and a
     ``PREFIX-N`` ref maps to its project sequence rather than being treated as
     the bare global id — which only coincided while ``project_sequence`` was
     backfilled equal to ``items.id``.
     """
-    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    return parse_item_id(raw, allow_bare_internal=True)
+    return parse_item_argument(raw)
 
 
 def _shell_wrapper_mode() -> bool:

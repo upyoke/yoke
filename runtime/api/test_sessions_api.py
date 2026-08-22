@@ -89,7 +89,7 @@ class TestEventEmission:
     def test_claim_emits_event(self, mock_emit, conn):
         _register(conn, session_id="ev-2")
         mock_emit.reset_mock()
-        claim_work(conn, session_id="ev-2", item_id="YOK-100")
+        claim_work(conn, session_id="ev-2", item_id=100)
         mock_emit.assert_called_once()
         args, kwargs = mock_emit.call_args
         assert args[0] == EVENT_WORK_CLAIMED
@@ -100,7 +100,7 @@ class TestEventEmission:
     def test_release_emits_event(self, mock_emit, conn):
         _register(conn, session_id="ev-3")
         mock_emit.reset_mock()
-        claim = claim_work(conn, session_id="ev-3", item_id="YOK-101")
+        claim = claim_work(conn, session_id="ev-3", item_id=101)
         mock_emit.reset_mock()
         release_claim(conn, claim["id"], reason="completed")
         mock_emit.assert_called_once()
@@ -114,7 +114,7 @@ class TestEventEmission:
     ):
         """No-flags end_session auto-releases and emits HarnessSessionEndReleasedClaims."""
         _register(conn, session_id="ev-4")
-        claim_a = claim_work(conn, session_id="ev-4", item_id="YOK-201")
+        claim_a = claim_work(conn, session_id="ev-4", item_id=201)
         mock_emit.reset_mock()
 
         result = end_session(conn, "ev-4")
@@ -152,7 +152,7 @@ class TestEventEmission:
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_reclaim_emits_event(self, mock_emit, conn):
         _register(conn, session_id="ev-5")
-        claim = claim_work(conn, session_id="ev-5", item_id="YOK-500")
+        claim = claim_work(conn, session_id="ev-5", item_id=500)
         # Manually set stale heartbeat
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s WHERE session_id = 'ev-5'",
@@ -172,7 +172,7 @@ class TestEventEmission:
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_reclaim_stale_item_claims_emits_offer_reclaim_event(self, mock_emit, conn):
         _register(conn, session_id="ev-5b")
-        claim = claim_work(conn, session_id="ev-5b", item_id="YOK-501")
+        claim = claim_work(conn, session_id="ev-5b", item_id=501)
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s WHERE session_id = 'ev-5b'",
             (_STALE_TS,),
@@ -184,7 +184,7 @@ class TestEventEmission:
         conn.commit()
         mock_emit.reset_mock()
 
-        released = reclaim_stale_item_claims(conn, "YOK-501")
+        released = reclaim_stale_item_claims(conn, 501)
 
         assert released == 1
         mock_emit.assert_called_once()
@@ -201,7 +201,7 @@ class TestEventEmission:
         _register(conn, session_id="ev-6")
         _register(conn, session_id="ev-7")
         mock_emit.reset_mock()
-        claim = claim_work(conn, session_id="ev-6", item_id="YOK-200")
+        claim = claim_work(conn, session_id="ev-6", item_id=200)
         mock_emit.reset_mock()
         handoff_claim(conn, claim["id"], "ev-7")
         mock_emit.assert_called_once()
@@ -227,11 +227,11 @@ class TestEmitSessionEventHelper:
         _emit_session_event(
             EVENT_WORK_CLAIMED,
             session_id="sess-idx",
-            item_id="YOK-9999",
+            item_id=9999,
             task_num=3,
         )
         kwargs = mock_emit.call_args.kwargs
-        assert kwargs["item_id"] == "YOK-9999"
+        assert kwargs["item_id"] == 9999
         assert kwargs["task_num"] == 3
 
     @patch("yoke_core.domain.events.emit_event")

@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """stdin/body-file tests for the epic CLI."""
 
 from __future__ import annotations
@@ -8,7 +9,12 @@ from unittest.mock import patch
 import pytest
 
 from yoke_core.domain import epic
-from runtime.api.test_epic_tasks import db  # noqa: F401
+from runtime.api.test_epic_tasks import db  # noqa: F401,F811
+
+
+@pytest.fixture(autouse=True)
+def _resolve_epic_argument(monkeypatch):
+    monkeypatch.setattr(epic, "_parse_epic_id", lambda *_a, **_k: 42)
 
 
 class TestCLIStreams:
@@ -22,7 +28,7 @@ class TestCLIStreams:
         ), patch("yoke_core.domain.epic.dispatch_chain_upsert", return_value="ok") as handler:
             epic.main(["dispatch-chain-upsert", "42", "wt-1"])
 
-        handler.assert_called_once_with(db, "42", "wt-1", {"queue": [1, 2]})
+        handler.assert_called_once_with(db, 42, "wt-1", {"queue": [1, 2]})
 
     def test_review_insert_reads_stdin(self, db):
         with patch("yoke_core.domain.epic.connect", return_value=db), patch(
@@ -32,7 +38,7 @@ class TestCLIStreams:
         ) as handler:
             epic.main(["review-insert", "42", "1", "PASS"])
 
-        handler.assert_called_once_with(db, "42", 1, "PASS", "Review body")
+        handler.assert_called_once_with(db, 42, 1, "PASS", "Review body")
 
     def test_progress_note_insert_reads_stdin_and_git_hash(self, db):
         git_proc = subprocess.CompletedProcess(
@@ -48,7 +54,7 @@ class TestCLIStreams:
         ), patch("yoke_core.domain.epic.progress_note_insert", return_value="ok") as handler:
             epic.main(["progress-note-insert", "42", "1", "2"])
 
-        handler.assert_called_once_with(db, "42", 1, 2, "Progress body", "abc123")
+        handler.assert_called_once_with(db, 42, 1, 2, "Progress body", "abc123")
 
     def test_simulation_upsert_reads_stdin(self, db):
         with patch("yoke_core.domain.epic.connect", return_value=db), patch(
@@ -56,7 +62,7 @@ class TestCLIStreams:
         ), patch("yoke_core.domain.epic.simulation_upsert", return_value="ok") as handler:
             epic.main(["simulation-upsert", "42", "plan"])
 
-        handler.assert_called_once_with(db, "42", "plan", "SIMULATION: CLEAN")
+        handler.assert_called_once_with(db, 42, "plan", "SIMULATION: CLEAN")
 
     def test_progress_note_insert_body_file(self, db, tmp_path):
         body_file = tmp_path / "note.md"
@@ -74,7 +80,7 @@ class TestCLIStreams:
         ), patch("yoke_core.domain.epic.progress_note_insert", return_value="ok") as handler:
             epic.main(["progress-note-insert", "42", "1", "2", "--body-file", str(body_file)])
 
-        handler.assert_called_once_with(db, "42", 1, 2, "Progress from file", "def456")
+        handler.assert_called_once_with(db, 42, 1, 2, "Progress from file", "def456")
 
     def test_progress_note_insert_uses_empty_hash_when_git_lookup_times_out(self, db):
         with patch("yoke_core.domain.epic.connect", return_value=db), patch(
@@ -85,7 +91,7 @@ class TestCLIStreams:
         ), patch("yoke_core.domain.epic.progress_note_insert", return_value="ok") as handler:
             epic.main(["progress-note-insert", "42", "1", "2"])
 
-        handler.assert_called_once_with(db, "42", 1, 2, "Progress body", "")
+        handler.assert_called_once_with(db, 42, 1, 2, "Progress body", "")
 
     def test_dispatch_chain_upsert_invalid_json_exits_with_1(self, db):
         with patch("yoke_core.domain.epic.connect", return_value=db), patch(
@@ -114,7 +120,7 @@ class TestCLIStreams:
         ) as handler:
             epic.main(["task-get-body", "42", "1", "--output-file", str(out_path)])
 
-        handler.assert_called_once_with(db, "42", 1)
+        handler.assert_called_once_with(db, 42, 1)
         assert out_path.read_text(encoding="utf-8") == "TASK BODY CONTENT"
         assert capsys.readouterr().out == ""
 

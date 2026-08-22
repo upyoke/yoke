@@ -206,16 +206,11 @@ class TestLocalDoneFinalization:
 class TestCLIParsing:
     """TC-cli-parsing: CLI argument parsing."""
 
-    def test_plain_number(self, dt_db):
+    def test_plain_number_without_project_context_is_refused(self, dt_db):
         with mock.patch.object(done_transition, "run", return_value=0) as mock_run:
-            done_transition.main(["42"])
-        mock_run.assert_called_once_with(
-            42,
-            env_name="",
-            skip_simulation=False,
-            skip_deploy=False,
-            skip_qa=False,
-        )
+            rc = done_transition.main(["42"])
+        assert rc == 2
+        mock_run.assert_not_called()
 
     def test_prefix_ref_resolves_project_sequence(self, dt_db):
         db_path, _ = dt_db
@@ -231,10 +226,12 @@ class TestCLIParsing:
         )
 
     def test_all_flags(self, dt_db):
+        db_path, _ = dt_db
+        _insert_item(db_path, 99)
         with mock.patch.object(done_transition, "run", return_value=0) as mock_run:
             done_transition.main(
                 [
-                    "99",
+                    "YOK-99",
                     "--env",
                     "stage",
                     "--skip-simulation",

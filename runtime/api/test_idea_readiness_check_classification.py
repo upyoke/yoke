@@ -35,10 +35,14 @@ def _run_main_and_capture(item_id: int, *, issues, advisories):
          patch(
              "yoke_core.domain.schema_common._resolve_db_path",
              return_value="",
+         ), \
+         patch(
+             "yoke_core.domain.yok_n_parser.parse_item_argument",
+             return_value=item_id,
          ):
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = idea_readiness_check.main([str(item_id)])
+            rc = idea_readiness_check.main([f"YOK-{item_id}"])
     return rc, json.loads(buf.getvalue())
 
 

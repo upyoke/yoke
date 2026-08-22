@@ -39,7 +39,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         resolve_item_actor,
         run_activation_phase,
     )
-    from yoke_core.domain.project_identity import resolve_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
     parser = argparse.ArgumentParser(prog="advance_path_claim_activation")
     parser.add_argument("--item", required=True)
@@ -54,16 +54,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Session id for the work-claim ownership check.",
     )
     args = parser.parse_args(argv)
-    raw = str(args.item).strip()
-
     conn = db_helpers.connect()
     try:
         try:
-            item_id: Optional[int] = int(raw)
-        except ValueError:
-            item_id = resolve_item_id(conn, raw)
-        if item_id is None:
-            print(f"ERROR: invalid --item value: {args.item!r}", file=sys.stderr)
+            item_id = parse_item_argument(args.item, conn=conn)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
             return 2
         actor_id, actor_error = resolve_item_actor(conn, item_id)
         if actor_error is not None:

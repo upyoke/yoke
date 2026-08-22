@@ -32,7 +32,7 @@ with `target = {kind: "item", item_id: <id>}` and
 `payload = {field: "<spec|design_spec|technical_plan|worktree_plan>",
 content: "<updated field content>", source: "feed"}`.
 Operator/debug adapter:
-`printf '%s\n' "<updated field content>" | yoke items structured-field replace PREFIX-{id} --field <field> --source feed --stdin`
+`printf '%s\n' "<updated field content>" | yoke items structured-field replace PREFIX-N --field <field> --source feed --stdin`
 (`items structured-field replace` dispatches through
 `items.structured_field.replace`).
 

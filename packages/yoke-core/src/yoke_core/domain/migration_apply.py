@@ -74,11 +74,11 @@ from yoke_core.domain.migration_apply_rehearse import rehearse
 from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
 
 
-def _parse_item_id(raw: str) -> int:
-    # PREFIX-N resolves via the project sequence; bare N = internal id.
-    from yoke_core.domain.yok_n_parser import parse_item_id
+def _parse_item_argument(raw: str) -> int:
+    # PREFIX-N is self-describing; bare N uses the mapped checkout project.
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    return parse_item_id(raw, allow_bare_internal=True)
+    return parse_item_argument(raw)
 
 
 # _resolve_item_worktree_path moved to migration_apply_resolve so both
@@ -109,7 +109,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     item_id: Optional[int] = None
     if args.command == "rehearse":
         try:
-            item_id = _parse_item_id(args.item_id)
+            item_id = _parse_item_argument(args.item_id)
         except ValueError as exc:
             # The ref resolves against the SELECTED connection's universe, so
             # "not found" usually means the wrong universe rather than a typo.

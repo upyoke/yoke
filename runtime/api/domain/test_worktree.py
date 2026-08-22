@@ -25,32 +25,9 @@ from yoke_core.domain.worktree import (
 from yoke_core.domain import runtime_settings
 from yoke_core.domain.worktree_create import _count_active_worktrees
 from yoke_core.domain.worktree_deps import _find_nested
-from yoke_core.domain.worktree_paths import _parse_item_id
 from runtime.api.domain.worktree_test_helpers import (  # noqa: F401 — fixtures
-    TEST_ITEM_ID,
-    TEST_ITEM_REF,
     git_repo,
 )
-
-
-class TestParseItemId:
-    def test_numeric(self):
-        assert _parse_item_id(str(TEST_ITEM_ID)) == TEST_ITEM_ID
-
-    def test_sun_prefix(self):
-        assert _parse_item_id(TEST_ITEM_REF) == TEST_ITEM_ID
-
-    def test_sun_prefix_lowercase(self):
-        assert _parse_item_id("yok-55") == 55
-
-    def test_leading_zeros(self):
-        assert _parse_item_id("042") == 42
-
-    def test_invalid(self):
-        assert _parse_item_id("abc") is None
-
-    def test_empty(self):
-        assert _parse_item_id("") is None
 
 
 class TestReadConfig:

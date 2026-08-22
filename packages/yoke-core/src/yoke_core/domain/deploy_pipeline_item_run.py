@@ -3,11 +3,10 @@
 The pipeline's primary argument is normally a ``run-*`` id; the legacy
 shape passes an item ref instead. This module resolves that ref to the
 internal ``items.id`` (``PREFIX-N`` via the project's
-``public_item_prefix`` + ``items.project_sequence``; a bare number stays
-an internal id), auto-creates a deployment run for the item's assigned
-flow, and returns the run context. Adapter calls pass the bare internal
-id so no re-resolution happens downstream; operator-facing messages echo
-the caller's original ref.
+``public_item_prefix`` + ``items.project_sequence``; a bare number uses the
+mapped checkout project), auto-creates a deployment run for the item's assigned
+flow, and returns the run context. Nested item CLI reads keep the public token;
+only the typed deployment-run membership write receives the resolved id.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from yoke_core.domain.deploy_pipeline_reporting import _yoke_db
-from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 @dataclass(frozen=True)
@@ -35,9 +34,11 @@ def create_run_for_item_ref(
 
     Failure paths print their own operator-facing error to stderr.
     """
-    resolved_item = parse_item_id_or_none(primary_arg, allow_bare_internal=True)
-    if resolved_item is None:
-        print(f"Error: cannot parse item ref '{primary_arg}'", file=sys.stderr)
+    item_ref = str(primary_arg).strip()
+    try:
+        resolved_item = parse_item_argument(item_ref)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return None
     item_num = str(resolved_item)
     print(
@@ -46,8 +47,8 @@ def create_run_for_item_ref(
         file=sys.stderr,
     )
 
-    flow_id = _yoke_db("items", "get", item_num, "deployment_flow", sd=sd)
-    project = _yoke_db("items", "get", item_num, "project", sd=sd)
+    flow_id = _yoke_db("items", "get", item_ref, "deployment_flow", sd=sd)
+    project = _yoke_db("items", "get", item_ref, "project", sd=sd)
 
     if not flow_id:
         print(

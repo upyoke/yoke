@@ -99,18 +99,20 @@ def _is_dry_run() -> bool:
     return os.environ.get("YOKE_DRY_RUN", "0") == "1"
 
 
-def _normalize_item_ref(raw: Optional[str]) -> Optional[str]:
-    """Canonicalize item-like refs to ``YOK-N`` while preserving free text."""
+def _normalize_item_ref(conn: Any, raw: Optional[str]) -> Optional[str]:
+    """Canonicalize item-like refs while preserving free text."""
     if raw is None:
         return None
     text = str(raw).strip()
     if not text:
         return None
-    candidate = text
-    if text.upper().startswith("YOK-"):
-        candidate = text[4:]
-    if candidate.isdigit():
-        return f"YOK-{int(candidate)}"
+    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    try:
+        return render_item_ref(conn, parse_item_argument(text, conn=conn))
+    except ValueError:
+        pass
     return text
 
 

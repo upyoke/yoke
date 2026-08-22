@@ -34,17 +34,6 @@ CANONICAL_AC_RE = re.compile(r"(?m)^[ \t]*- \[ \] AC-\d+")
 UNLABELED_CHECKBOX_RE = re.compile(r"(?m)^[ \t]*- \[ \] ")
 
 
-def _normalize_item_id(raw: str) -> Optional[int]:
-    """Resolve an item ref to the internal ``items.id``.
-
-    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    return parse_item_id_or_none(raw, allow_bare_internal=True)
-
-
 def extract_ac_section(text: str) -> str:
     """Return the body of the ``## Acceptance Criteria`` section, if any.
 
@@ -130,9 +119,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("item_id", help="Item ID (YOK-N, N, or padded form)")
     args = parser.parse_args(argv)
 
-    number = _normalize_item_id(args.item_id)
-    if number is None:
-        print("Error: invalid item ID: %s" % args.item_id, file=sys.stderr)
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    try:
+        number = parse_item_argument(args.item_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
 
     canonical, unlabeled, title = evaluate_item(number)
@@ -144,10 +136,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(canonical)
         return 0
     if unlabeled > 0:
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+        item_ref = item_ref_for_id(number)
         print(unlabeled)
         print(
-            "Warning: YOK-%d has %d unlabeled checkbox AC(s) under ## Acceptance Criteria."
-            % (number, unlabeled),
+            "Warning: %s has %d unlabeled checkbox AC(s) under ## Acceptance Criteria."
+            % (item_ref, unlabeled),
             file=sys.stderr,
         )
         print(
@@ -155,8 +150,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             file=sys.stderr,
         )
         print(
-            "Run /yoke shepherd YOK-%d or normalize manually to canonical AC-N labels."
-            % number,
+            "Run /yoke shepherd %s or normalize manually to canonical AC-N labels."
+            % item_ref,
             file=sys.stderr,
         )
         return 0

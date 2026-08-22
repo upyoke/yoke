@@ -191,13 +191,13 @@ def test_numeric_epic_validation_passes_with_github_auth_missing(tmp_path, monke
     assert err.getvalue() == ""
 
 
-def test_missing_numeric_item_fails(tmp_path, capsys):
+def test_missing_public_item_fails(tmp_path, capsys):
     with _seed_repo(tmp_path):
         out = io.StringIO()
         err = io.StringIO()
-        rc = run_validation(tmp_path, "42", out=out, err=err)
+        rc = run_validation(tmp_path, TEST_EPIC_REF, out=out, err=err)
     assert rc == 1
-    assert "Item 42 does not exist" in err.getvalue()
+    assert f"item ref '{TEST_EPIC_REF}' not found" in err.getvalue()
 
 
 def test_reports_missing_worktree_and_stale_heartbeat(tmp_path, monkeypatch, capsys):
@@ -256,7 +256,9 @@ def test_reports_missing_worktree_and_stale_heartbeat(tmp_path, monkeypatch, cap
             lambda cmd, cwd, text, capture_output, env=None: CompletedProcess(cmd, 0, stdout="", stderr=""),
         )
 
-        rc = run_validation(tmp_path, "42", out=_Writer(out), err=_Writer(err))
+        rc = run_validation(
+            tmp_path, TEST_EPIC_REF, out=_Writer(out), err=_Writer(err)
+        )
     assert rc == 1, "".join(out)
     text = "".join(out)
     assert (
@@ -323,6 +325,6 @@ def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
         )
         monkeypatch.setattr("yoke_core.domain.validate_epic.subprocess.run", fake_run)
 
-        rc = run_validation(tmp_path, "42", out=_Writer(), err=_Writer())
+        rc = run_validation(tmp_path, TEST_EPIC_ID, out=_Writer(), err=_Writer())
     assert rc == 0
     assert rest_calls == [("verified-owner/acme", "123", "ghs_test")]

@@ -23,7 +23,7 @@ from yoke_core.domain.project_identity import (
     item_project_join_select,
     render_item_ref,
 )
-from yoke_core.domain.yok_n_parser import parse_item_id
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 # Label color policy is single-sourced in the shared contracts package and
 # re-exported here as the canonical read-side hub for the GitHub-sync cluster
@@ -72,9 +72,9 @@ def _rollback_quietly(conn: Any) -> None:
         pass
 
 
-def _resolve_item_id(item_id: str, *, conn: Any) -> str:
+def _resolve_item_id(item_id: str | int, *, conn: Any) -> int:
     """Resolve a CLI/API item token to the internal global ``items.id``."""
-    return str(parse_item_id(item_id, conn=conn, allow_bare_internal=True))
+    return parse_item_argument(item_id, conn=conn)
 
 
 def _item_ref(item_id: str | int, *, conn: Any) -> str:

@@ -48,19 +48,17 @@ _QI_LARGE_TEXT_FIELDS = {
 def _parse_item_id(raw: str) -> str | None:
     """Shape-validate an item reference token, returning it normalized.
 
-    Accepts a bare integer (internal id), ``PREFIX-seq``, or the qualified
-    ``slug/PREFIX-seq`` / ``slug/seq`` form. Returns the stripped token, or
-    ``None`` when it is syntactically not an item reference. Resolution to an
-    internal id happens against the DB in :func:`_resolve_item_ref` —
-    per-project prefix resolution needs a connection.
+    Accepts a project-local bare sequence or a self-describing ``PREFIX-seq``.
+    Returns the stripped token, or ``None`` when it is syntactically not an
+    item reference. Resolution to an internal id happens against the DB in
+    :func:`_resolve_item_ref`.
     """
     from yoke_contracts.item_ref import parse_public_item_ref
 
     raw = raw.strip()
     if not raw:
         return None
-    body = raw.rsplit("/", 1)[-1]
-    _, sequence = parse_public_item_ref(body)
+    _, sequence = parse_public_item_ref(raw)
     if sequence is not None:
         return raw
     return None
@@ -69,15 +67,13 @@ def _parse_item_id(raw: str) -> str | None:
 def _resolve_item_ref(conn, raw: str) -> int | None:
     """Resolve a validated item-ref token to the internal ``items.id``.
 
-    A bare integer is the internal row id (back-compat); a ``PREFIX-seq`` /
-    ``slug/PREFIX-seq`` ref resolves per-project via the shared resolver.
-    Returns ``None`` when the ref does not resolve to a known item.
+    Bare strings resolve as project-local sequences; ``PREFIX-seq`` refs are
+    self-describing. Returns ``None`` when the ref does not resolve.
     """
     from yoke_core.domain.project_identity_item_ref import resolve_cli_item_ref
 
     arg = str(raw).strip()
-    token: str | int = int(arg) if arg.isdigit() else arg
-    return resolve_cli_item_ref(conn, token, actor_id=None)
+    return resolve_cli_item_ref(conn, arg)
 
 
 def _parse_item_filters(

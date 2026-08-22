@@ -23,7 +23,11 @@ from yoke_core.domain.strategize_carry_state import (
 from yoke_core.domain.strategize_carry_summary import format_summary
 
 
-def _parse_item_ids(raw: Sequence[str]) -> List[int]:
+def _parse_item_ids(
+    raw: Sequence[str], *, project: str, conn: object,
+) -> List[int]:
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
     result: List[int] = []
     for token in raw:
         if not token:
@@ -32,12 +36,7 @@ def _parse_item_ids(raw: Sequence[str]) -> List[int]:
             part = part.strip()
             if not part:
                 continue
-            if part.upper().startswith("YOK-"):
-                part = part[4:]
-            try:
-                result.append(int(part))
-            except ValueError:
-                continue
+            result.append(parse_item_argument(part, project=project, conn=conn))
     return result
 
 
@@ -61,13 +60,16 @@ def _cmd_register_new(args: argparse.Namespace) -> int:
 
 def _cmd_candidate_set(args: argparse.Namespace) -> int:
     with connect() as conn:
+        new_ids = _parse_item_ids(
+            args.new_ids or [], project=args.project, conn=conn,
+        )
         candidate_set = get_candidate_set(
             conn,
             project=args.project,
             horizon_days=args.horizon_days,
             carry_limit=args.carry_limit,
             now_iso=args.now,
-            new_ids=_parse_item_ids(args.new_ids or []),
+            new_ids=new_ids,
         )
     json.dump(candidate_set, sys.stdout, indent=2 if args.pretty else None)
     sys.stdout.write("\n")
@@ -76,7 +78,9 @@ def _cmd_candidate_set(args: argparse.Namespace) -> int:
 
 def _cmd_summary(args: argparse.Namespace) -> int:
     with connect() as conn:
-        new_ids: List[int] = _parse_item_ids(args.new_ids or [])
+        new_ids: List[int] = _parse_item_ids(
+            args.new_ids or [], project=args.project, conn=conn,
+        )
         if args.register:
             registered = register_new_landings(
                 conn,
@@ -103,11 +107,13 @@ def _cmd_summary(args: argparse.Namespace) -> int:
 
 
 def _cmd_mark(args: argparse.Namespace) -> int:
-    item_ids = _parse_item_ids(args.items or [])
-    if not item_ids:
-        sys.stderr.write("error: no item ids provided\n")
-        return 2
     with connect() as conn:
+        item_ids = _parse_item_ids(
+            args.items or [], project=args.project, conn=conn,
+        )
+        if not item_ids:
+            sys.stderr.write("error: no item ids provided\n")
+            return 2
         changed = mark_items(
             conn,
             project=args.project,
@@ -195,4 +201,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except ValueError as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2

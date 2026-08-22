@@ -35,21 +35,6 @@ __all__ = [
 ]
 
 
-def _normalize_item_id(raw: str) -> Optional[int]:
-    """Resolve an operator item ref to the internal ``items.id``.
-
-    ``PREFIX-N`` resolves through the project's ``public_item_prefix`` +
-    ``items.project_sequence`` (not a stripped global id); a bare number
-    stays an internal id for operator break-glass use.
-    """
-    from yoke_core.domain.yok_n_parser import parse_item_id
-
-    try:
-        return parse_item_id(raw, allow_bare_internal=True)
-    except ValueError:
-        return None
-
-
 def _run_cli_skip(
     mode: str,
     item_id: int,
@@ -126,9 +111,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
-    item_id = _normalize_item_id(args.item_id)
-    if item_id is None:
-        print(f"Error: invalid item id: {args.item_id}", file=sys.stderr)
+    from yoke_core.domain.yok_n_parser import parse_item_argument
+
+    try:
+        item_id = parse_item_argument(args.item_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
 
     return _run_cli_skip(args.mode, item_id, args.session_id)

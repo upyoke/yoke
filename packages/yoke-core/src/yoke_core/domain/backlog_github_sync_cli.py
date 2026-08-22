@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 from typing import Any, Iterable, Optional, TextIO
 
@@ -20,7 +19,7 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 from yoke_core.domain.render_body import build_body
-from yoke_core.domain.yok_n_parser import parse_item_id
+from yoke_core.domain.yok_n_parser import parse_item_argument
 
 
 _MUTATING_MODES = {
@@ -64,22 +63,12 @@ def _resolve_session_id() -> str:
     return resolve_ambient_session_id() or ""
 
 
-def _normalize_item_id(raw: str, *, conn: Optional[Any] = None) -> Optional[int]:
-    try:
-        return parse_item_id(raw, conn=conn, allow_bare_internal=True)
-    except ValueError:
-        match = re.match(r"^[A-Za-z][A-Za-z0-9]*-0*(\d+)$", str(raw).strip())
-        if match:
-            return int(match.group(1))
-        return None
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def check_ownership(
-    item_id_raw: str,
+    item_id_raw: str | int,
     *,
     conn: Optional[Any] = None,
     session_id: Optional[str] = None,
@@ -97,9 +86,10 @@ def check_ownership(
                 conn, own_conn = _open_conn(None)
             except FileNotFoundError:
                 return True, "no-db", ""
-        item_id = _normalize_item_id(item_id_raw, conn=conn)
-        if item_id is None:
-            return True, "unparseable-item-id", ""
+        try:
+            item_id = parse_item_argument(item_id_raw, conn=conn)
+        except ValueError as exc:
+            return False, str(exc), ""
         p = _p(conn)
         try:
             row = conn.execute(
@@ -132,10 +122,13 @@ def check_ownership(
     return False, "other-holder", holder
 
 
-def _guard_or_print(item_id_raw: str, mode_label: str) -> int:
+def _guard_or_print(item_id_raw: str | int, mode_label: str) -> int:
     allow, reason, holder = check_ownership(item_id_raw)
     if allow:
         return 0
+    if not holder:
+        print(f"Error: {reason}", file=sys.stderr)
+        return 2
     print(
         f"Refusing to {mode_label} for item {item_id_raw}: "
         f"work claim held by session {holder}",
@@ -242,7 +235,7 @@ def backfill_oversized_bodies(
         ]
         for item_id, body_bytes in candidates:
             item_ref = _item_ref(item_id, conn=conn)
-            allow, _reason, holder = check_ownership(str(item_id), conn=conn)
+            allow, _reason, holder = check_ownership(item_id, conn=conn)
             if not allow:
                 skipped_claimed += 1
                 print(
@@ -253,7 +246,7 @@ def backfill_oversized_bodies(
                 continue
 
             # Auth precedence. Catch typed errors per-item and log.
-            context = _item_context(str(item_id), conn=conn)
+            context = _item_context(item_id, conn=conn)
             project = (context[1] if context else "") or "yoke"
             try:
                 resolve_project_github_auth(project)
@@ -266,7 +259,7 @@ def backfill_oversized_bodies(
                 )
                 continue
 
-            rc = _bgs().sync_body(str(item_id), conn=conn, stderr=stderr)
+            rc = _bgs().sync_body(item_id, conn=conn, stderr=stderr)
             if rc != 0:
                 sync_failures += 1
                 print(

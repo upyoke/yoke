@@ -41,17 +41,17 @@ class ReconcileResult:
     message: str = ""
 
 
-def _parse_item_id(arg: str) -> int:
+def _parse_item_argument(arg: str | int) -> int:
     """Resolve an item ref to the internal ``items.id``.
 
     ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
-    ``items.project_sequence``; a bare number stays an internal id.
+    ``items.project_sequence``; a bare number uses the mapped checkout project.
     """
-    if not arg or not arg.strip():
+    if arg is None or (isinstance(arg, str) and not arg.strip()):
         raise ValueError("missing item id")
-    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    return parse_item_id(arg, allow_bare_internal=True)
+    return parse_item_argument(arg)
 
 
 def _resolve_run_for_item(item_id: int) -> str:
@@ -165,10 +165,10 @@ def reconcile_item(
     *,
     workflow_run_id_override: str = "",
 ) -> ReconcileResult:
-    # Display ref renders from the item's project prefix + sequence; the
-    # adapter call passes the bare internal id so no re-resolution happens.
+    # The nested item CLI boundary receives the canonical public ref, never a
+    # stringified internal id that it could reinterpret as a public sequence.
     item_ref = _display_item_ref(item_id)
-    deploy_stage = (_yoke_db("items", "get", str(item_id), "deploy_stage") or "").strip()
+    deploy_stage = (_yoke_db("items", "get", item_ref, "deploy_stage") or "").strip()
     if not deploy_stage:
         return ReconcileResult(
             outcome="no-action", item_id=item_id,
@@ -314,9 +314,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        item_id = _parse_item_id(args.item)
-    except (ValueError, TypeError):
-        print(f"Error: cannot parse item id '{args.item}'", file=sys.stderr)
+        item_id = _parse_item_argument(args.item)
+    except (ValueError, TypeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
     result = reconcile_item(item_id, workflow_run_id_override=args.workflow_run_id)

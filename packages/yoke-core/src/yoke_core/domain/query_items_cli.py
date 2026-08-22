@@ -38,7 +38,7 @@ Field matrix for `get` (canonical YOKE backlog item columns):
            NEVER stored — raw body writes are unsupported)
 
 Notes:
-  - `YOK-N` accepts a `YOK-`-prefixed or bare-integer item id.
+  - Item arguments accept `PREFIX-N` or a bare sequence in the mapped project.
   - `--section "## H"` restricts output to one named section of a structured field.
   - `--json` emits one JSON object per row for machine consumers.
 

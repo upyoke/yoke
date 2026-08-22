@@ -50,12 +50,12 @@ def _p(conn: Any) -> str:
 
 
 def normalize_item_id(item_id: Any) -> Optional[int]:
-    """Return the bare integer form of an item id, or None when unparseable."""
+    """Read a typed scheduler/work-claim item id, or return ``None``."""
     if isinstance(item_id, int):
         return item_id
     text = str(item_id or "").strip()
-    if text.upper().startswith("YOK-"):
-        text = text[4:]
+    if not text.isdigit():
+        return None
     try:
         return int(text)
     except ValueError:

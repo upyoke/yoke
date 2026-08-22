@@ -16,6 +16,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.adapters.strategy import strategy_target
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_ref import parse_public_item_ref
 from yoke_contracts.work_processes import is_known_process, list_processes
 
 
@@ -231,9 +232,8 @@ def strategy_claim_release(args: List[str]) -> int:
         )
     # Non-item-shaped tokens (e.g. CURRENT-PLAN) get a process-key hint
     # instead of the opaque item_ref_unresolved dispatcher error.
-    looks_like_item = raw.isdigit() or (
-        "-" in raw and raw.rsplit("-", 1)[-1].isdigit()
-    )
+    _, item_sequence = parse_public_item_ref(raw)
+    looks_like_item = item_sequence is not None
     if not looks_like_item:
         known = ", ".join(list_processes())
         print(

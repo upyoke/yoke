@@ -39,7 +39,6 @@ from runtime.api.routed_ownership_test_helpers import (
     SESSION_A,
     SESSION_B,
     SYNTHETIC_ITEM_ID,
-    SYNTHETIC_ITEM_REF,
     _ReleaseGapDbCase,
     register_live_session,
     seed_item,
@@ -57,7 +56,7 @@ class TestOwnershipGuardEndToEnd(_ReleaseGapDbCase):
         register_live_session(
             conn, SESSION_A, current_item_id=str(SYNTHETIC_ITEM_ID))
         register_live_session(conn, SESSION_B)
-        claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_REF)
+        claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
 
         before = evaluate_ownership_guard(
             conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
@@ -66,7 +65,7 @@ class TestOwnershipGuardEndToEnd(_ReleaseGapDbCase):
         # Mid-chain: session A's claim is reclaimed; session B takes it.
         release_work_claim_for_execution(
             conn, SESSION_A, make_item_target(SYNTHETIC_ITEM_ID), "reclaimed")
-        claim_work(conn, session_id=SESSION_B, item_id=SYNTHETIC_ITEM_REF)
+        claim_work(conn, session_id=SESSION_B, item_id=SYNTHETIC_ITEM_ID)
 
         after = evaluate_ownership_guard(
             conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)

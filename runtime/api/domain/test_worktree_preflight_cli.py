@@ -11,13 +11,6 @@ from runtime.api.domain.test_worktree_preflight import (
 from yoke_core.domain import worktree_preflight as wp
 
 
-def test_parse_item_id_strips_public_prefix() -> None:
-    assert wp._parse_item_id("YOK-1599") == 1599
-    assert wp._parse_item_id("yok-9001") == 9001
-    assert wp._parse_item_id("0042") == 42
-    assert wp._parse_item_id("9001") == 9001
-
-
 def test_main_returns_2_on_invalid_item(capsys) -> None:
     result = wp.main(["--item", "not-a-number"])
 
@@ -44,6 +37,10 @@ def test_main_emits_envelope_json_on_success(
     monkeypatch.setattr(
         "yoke_core.domain.worktree_paths._resolve_repo_root_from_cwd",
         lambda: repo_layout.root,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.yok_n_parser.parse_item_argument",
+        lambda *_args, **_kwargs: 9001,
     )
     monkeypatch.chdir(repo_layout.root)
 

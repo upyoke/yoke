@@ -17,12 +17,6 @@ def has_content(text: str) -> bool:
     return any(line.strip() for line in text.splitlines())
 
 
-def normalize_item_ref(item_ref: str) -> str:
-    stripped = re.sub(r"^[Yy][Oo][Kk]-", "", item_ref)
-    stripped = stripped.lstrip("0")
-    return stripped or "0"
-
-
 def _word_match(heading: str, term: str) -> bool:
     lh = heading.lower()
     lt = term.lower()

@@ -22,7 +22,7 @@ def test_ends_claimless_active_session(conn):
 def test_skips_session_with_active_claims(conn):
     _register(conn, session_id="claimed-end")
     _insert_claimable_item(conn, 9999)
-    claim_work(conn, session_id="claimed-end", item_id="YOK-9999")
+    claim_work(conn, session_id="claimed-end", item_id=9999)
 
     result = end_session_if_empty(conn, "claimed-end")
 

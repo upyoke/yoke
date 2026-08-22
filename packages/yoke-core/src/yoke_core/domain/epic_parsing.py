@@ -79,42 +79,22 @@ def _pipe_rows(rows, columns: List[str]) -> str:
 # Epic ID parsing and validation
 # ---------------------------------------------------------------------------
 
-def _parse_epic_id(ref: str) -> str:
-    """Parse an epic reference (YOK-N or bare int) to an ID string.
+def _parse_epic_id(ref: str | int, *, conn: Any = None) -> int:
+    """Resolve an epic command item argument through public identity."""
+    from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    Only accepts numeric epic IDs (with optional YOK- prefix).
-    """
-    if not ref:
-        raise ValueError("epic ID is required")
-    # Strip YOK- prefix (case-insensitive)
-    eid = re.sub(r"^[Yy][Oo][Kk]-", "", ref).lstrip("0") or "0"
-    if not eid.isdigit():
-        raise ValueError(
-            f"invalid epic ID '{ref}': only numeric IDs are accepted"
-        )
-    return eid
+    return parse_item_argument(ref, conn=conn)
 
 
-def _validate_epic_exists(conn, epic_id: str) -> None:
-    """Validate that an epic ID exists in epic_tasks.
-
-    Pure integers are assumed valid (lightweight check skipped);
-    any non-digit string is rejected outright.
-    """
-    if epic_id.isdigit():
-        return
-    # ``epic_id`` is an INTEGER column; comparing it to a non-numeric slug raises
-    # a type error on Postgres. Cast to TEXT so the doomed comparison yields zero
-    # rows on both backends rather than aborting the transaction.
+def _validate_epic_exists(conn, epic_id: int) -> None:
+    """Validate that a resolved internal epic id has task rows."""
     count = query_scalar(
         conn,
-        f"SELECT COUNT(*) FROM epic_tasks WHERE CAST(epic_id AS TEXT)={_placeholder(conn)}",
+        f"SELECT COUNT(*) FROM epic_tasks WHERE epic_id={_placeholder(conn)}",
         (epic_id,),
     )
     if count == 0:
-        raise LookupError(
-            f"epic '{epic_id}' not found in epic_tasks table (possible hallucinated slug)"
-        )
+        raise LookupError(f"epic item {epic_id} not found in epic_tasks table")
 
 
 def _require_task_exists(conn, epic_id: str, task_num: int) -> None:

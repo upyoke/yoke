@@ -59,7 +59,11 @@ def resolve_column_item_ref(conn: Any, value: Any) -> Optional[int]:
         return _numeric_tail(value)
     from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
-    return parse_item_id_or_none(value, conn=conn, allow_bare_internal=True)
+    # This exact compatibility reader consumes a legacy textual storage column,
+    # not an operator argument; digit strings in that column are internal ids.
+    return parse_item_id_or_none(
+        value, conn=conn, allow_bare_internal=True,
+    )
 
 
 def render_column_item_ref(conn: Any, value: Any) -> str:

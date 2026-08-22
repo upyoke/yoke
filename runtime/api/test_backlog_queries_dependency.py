@@ -89,10 +89,10 @@ class TestExecuteCloseDependencyReconciliation:
         ]
         assert recon["preserved_ambiguous"] == []
 
-    def test_close_removes_absorbed_inbound_rows_with_numeric_resolution_ref(
+    def test_close_matches_absorbed_inbound_row_with_numeric_resolution_ref(
         self, tmp_db
     ):
-        """Numeric refs should normalize to YOK-N before absorbed-row matching."""
+        """Numeric stored refs stay unchanged while typed ids drive matching."""
         _seed_item(tmp_db, id=1218, status="refined-idea")
         _seed_item(tmp_db, id=1185, status="implementing")
         _seed_dependency(
@@ -110,7 +110,7 @@ class TestExecuteCloseDependencyReconciliation:
             )
 
         assert result["success"] is True
-        assert _item_field(tmp_db, 1218, "resolution_ref") == "YOK-1185"
+        assert _item_field(tmp_db, 1218, "resolution_ref") == "1185"
         assert _dependency_rows(tmp_db, blocking="YOK-1218") == []
         recon = result["dependency_reconciliation"]
         assert recon["absorbed_inbound_removed"] == [

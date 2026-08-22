@@ -56,7 +56,7 @@ class TestSyncEpicTasks:
         declare_no_file_tasks(db, 10)
 
         rc = epic_task_sync.sync_epic_tasks(
-            "YOK-10",
+            10,
             conn=db,
             stdout=stdout,
             stderr=stderr,
@@ -115,7 +115,7 @@ class TestSyncEpicTasks:
             ),
         ):
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-10",
+                10,
                 stdout=stdout,
                 stderr=stderr,
             )
@@ -153,7 +153,7 @@ class TestSyncEpicTasks:
         stdout = io.StringIO()
         declare_no_file_tasks(db, 10)
 
-        rc = epic_task_sync.sync_epic_tasks("YOK-10", conn=db, stdout=stdout)
+        rc = epic_task_sync.sync_epic_tasks(10, conn=db, stdout=stdout)
 
         assert rc == 0
         output = stdout.getvalue()
@@ -183,7 +183,7 @@ class TestSyncEpicTasks:
         with patch(
             "yoke_core.domain.epic_task_sync_github._is_dry_run", return_value=True
         ):
-            rc = epic_task_sync.sync_epic_tasks("YOK-10", conn=db, stdout=stdout)
+            rc = epic_task_sync.sync_epic_tasks(10, conn=db, stdout=stdout)
 
         assert rc == 0
         output = stdout.getvalue()
@@ -210,7 +210,7 @@ class TestSyncEpicTasks:
         stdout = io.StringIO()
         declare_no_file_tasks(db, 10)
 
-        rc = epic_task_sync.sync_epic_tasks("YOK-10", conn=db, stdout=stdout)
+        rc = epic_task_sync.sync_epic_tasks(10, conn=db, stdout=stdout)
 
         assert rc == 0
         row = db.execute(
@@ -243,7 +243,7 @@ class TestSyncEpicTasks:
         declare_no_file_tasks(db, 10)
 
         rc = epic_task_sync.sync_epic_tasks(
-            "YOK-10",
+            10,
             conn=db,
             stdout=stdout,
             stderr=stderr,
@@ -279,7 +279,7 @@ class TestSyncEpicTasks:
             "yoke_core.domain.epic_task_sync_github_create.github_rest.create_issue",
         ) as create_issue:
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-10",
+                10,
                 conn=db,
                 stderr=stderr,
             )

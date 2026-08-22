@@ -49,8 +49,8 @@ _YOKE_LINE_RE = re.compile(r"^\s*yoke\s+\S+")
 # Skill bodies use template syntax that the smoke harness cannot
 # dispatch literally — placeholders (``{N}`` / ``<requirement-id>``
 # and the ``[CHECKOUT]`` square-bracket notation), shell variable interpolation (``$VAR`` / ``$_VAR`` /
-# ``${VAR}``), the literal ``YOK-N`` doc convention (where ``N`` is just
-# an example letter), and shell composition (redirection, ``||``, ``&&``,
+# ``${VAR}``), the literal ``PREFIX-N`` / ``YOK-N`` doc conventions (where
+# ``N`` is just an example letter), and shell composition (redirection, ``||``, ``&&``,
 # pipes). Any of these flags the recipe as ``is_template`` and the harness
 # records it as a successful skip rather than dispatching with garbage.
 _TEMPLATE_INDICATORS_RE = re.compile(
@@ -59,7 +59,7 @@ _TEMPLATE_INDICATORS_RE = re.compile(
     r"|\[[^\]]+\]"          # [PLACEHOLDER] / [optional-arg] notation
     r"|\$[A-Za-z_][\w]*"     # $VAR
     r"|\$\{[^}]+\}"          # ${VAR}
-    r"|\bYOK-N\b"            # doc convention
+    r"|\b(?:PREFIX|YOK)-N\b" # doc convention
     r"|2>&1"                 # stderr redirection
     r"|>/?\S+"               # output redirection (>file, >/dev/null, etc.)
     r"|\|\|"                 # shell or-list

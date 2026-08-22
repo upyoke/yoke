@@ -43,7 +43,7 @@ class TestSyncLabels:
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_LABEL_REST_LABELS}.fetch_issue_labels",
         ) as fetch:
-            rc = backlog_github_sync.sync_labels("10", conn=db)
+            rc = backlog_github_sync.sync_labels(10, conn=db)
         assert rc == 0
         fetch.assert_not_called()
         db.close()
@@ -53,7 +53,7 @@ class TestSyncLabels:
         insert_item(db, id=10, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#5")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
-            rc = backlog_github_sync.sync_labels("10", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_labels(10, conn=db, stdout=stdout)
         assert rc == 0
         assert "DRY-RUN" in stdout.getvalue()
         db.close()
@@ -94,7 +94,7 @@ class TestSyncLabels:
         ), patch(
             f"{_LABEL_REST_LABELS}.remove_label", side_effect=fake_remove_label,
         ):
-            rc = backlog_github_sync.sync_labels("10", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_labels(10, conn=db, stdout=stdout)
 
         assert rc == 0
         assert "Labels synced: EXT-10 → #55" in stdout.getvalue()
@@ -116,7 +116,7 @@ class TestSyncLabels:
             autospec=True,
             return_value=False,
         ):
-            rc = backlog_github_sync.sync_labels("10", conn=db, stderr=stderr)
+            rc = backlog_github_sync.sync_labels(10, conn=db, stderr=stderr)
         assert rc == 1
         assert "issue validation failed" in stderr.getvalue()
         assert "repo mismatch" not in stderr.getvalue()
@@ -201,7 +201,7 @@ class TestSyncLabels:
         ), patch(f"{_LABEL_REST_LABELS}.ensure_label"), patch(
             f"{_LABEL_REST_LABELS}.add_labels", side_effect=fake_add_labels,
         ), patch(f"{_LABEL_REST_LABELS}.remove_label"):
-            rc = backlog_github_sync.sync_labels("11", conn=db, stdout=stdout)
+            rc = backlog_github_sync.sync_labels(11, conn=db, stdout=stdout)
 
         assert rc == 0
         added_flat = [label for _, _, labels in added for label in labels]

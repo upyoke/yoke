@@ -115,15 +115,16 @@ def main(argv: Optional[List[str]] = None) -> None:
         "cascade-task-status", "proceed-triage-handoff",
     }
 
+    conn = _epic.connect()
+
     epic_id = None
     if subcmd in _EPIC_CMDS and rest:
         try:
-            epic_id = _epic._parse_epic_id(rest[0])
+            epic_id = _epic._parse_epic_id(rest[0], conn=conn)
         except ValueError as e:
+            conn.close()
             _cli_error(str(e))
         rest = rest[1:]
-
-    conn = _epic.connect()
 
     # Validate epic exists for read/update commands
     _VALIDATE_EPIC_CMDS = {

@@ -21,8 +21,8 @@ from yoke_core.domain.sessions import claim_work, release_all_claims
 def test_release_all_clears_current_item_id(conn):
     _insert_claimable_items(conn, 1, 2)
     _register(conn)
-    claim_work(conn, session_id="sess-1", item_id="YOK-1")
-    claim_work(conn, session_id="sess-1", item_id="YOK-2")
+    claim_work(conn, session_id="sess-1", item_id=1)
+    claim_work(conn, session_id="sess-1", item_id=2)
 
     before = conn.execute(
         "SELECT current_item_id FROM harness_sessions WHERE session_id='sess-1'"
