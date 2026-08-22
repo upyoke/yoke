@@ -43,11 +43,11 @@ ACTIVE_SESSIONS_SCHEMA = """
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     executor TEXT NOT NULL,
-    executor_display_name TEXT DEFAULT NULL,
+    executor_surface TEXT DEFAULT NULL,
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
     execution_lane TEXT NOT NULL DEFAULT 'DARIUS',
-    capabilities TEXT DEFAULT '[]',
+    executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL,
     project_id INTEGER NOT NULL REFERENCES projects(id),
     mode TEXT DEFAULT 'wait',

@@ -12,8 +12,9 @@ upstream) and answers "which actor is signing in?" by walking four rungs:
    existing actor; otherwise a new human actor is created (label from
    the email local part, then the ``name`` claim). The invite's
    ``role_id``, when set, grants that org role.
-3. **Auto-join domain.** The email's domain equals the org's
-   ``auto_join_domain`` -> create actor + link, no role grant.
+3. **Verified-domain admission.** The org policy enables verified-domain
+   membership and the email's domain equals ``organizations.domain`` ->
+   create actor + link, no role grant.
 4. **Refusal** with an operator-facing reason kind.
 
 Email trust is strict by default: rungs 2-3 only consider the email when
@@ -41,9 +42,9 @@ from yoke_core.domain.actors import (
     set_actor_label,
 )
 from yoke_core.domain.external_identities import (
-    auto_join_domain,
     default_org_id,
     link_external_identity,
+    organization_domain,
     resolve_external_identity,
 )
 from yoke_core.domain.external_identity_events import (
@@ -249,10 +250,15 @@ def resolve_sign_in(
             f"invite {invite.invite_id} accepted for actor {actor_id}",
         )
 
-    # Rung 3 — the org's auto-join domain admits this email.
+    # Rung 3 — enabled verified-domain membership admits this email.
     org_id = default_org_id(conn)
-    join_domain = auto_join_domain(conn, org_id=org_id)
-    if join_domain and _email_domain(email) == join_domain:
+    from yoke_core.domain.organization_settings import read_organization_setting
+
+    domain = organization_domain(conn, org_id=org_id)
+    admission_enabled, _ = read_organization_setting(
+        conn, org_id, "membership.auto_join_domain_verified",
+    )
+    if admission_enabled and domain and _email_domain(email) == domain:
         actor_id = _create_labelled_actor(
             conn, email=email, name_claim=name_claim,
         )
@@ -261,7 +267,7 @@ def resolve_sign_in(
         )
         return _succeed(
             issuer, actor_id, OUTCOME_AUTO_JOINED,
-            f"email domain {join_domain!r} auto-joined actor {actor_id}",
+            f"verified email domain {domain!r} admitted actor {actor_id}",
         )
 
     # Rung 4 — refuse.
@@ -269,7 +275,7 @@ def resolve_sign_in(
         issuer,
         REFUSAL_NO_ADMISSION_MATCH,
         f"{email!r} has no linked identity, no pending invite, and does "
-        "not match the org auto-join domain; an operator can invite it "
+        "not match enabled organization-domain admission; an operator can invite it "
         "with the identity invite admin surface",
     )
 

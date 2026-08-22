@@ -31,6 +31,8 @@ class BeginRequest(BaseModel):
     project_id: int
     mode: str = "wait"
     entrypoint: Optional[str] = None
+    executor_version: Optional[str] = None
+    machine_id: Optional[str] = None
 
 
 class BeginResponse(BaseModel):
@@ -69,6 +71,8 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 project_id=body.project_id,
                 mode=body.mode,
                 entrypoint=body.entrypoint,
+                executor_version=body.executor_version,
+                machine_id=body.machine_id,
             )
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)

@@ -33,13 +33,13 @@ CREATE TABLE harness_sessions (
     provider TEXT NOT NULL DEFAULT 'anthropic',
     model TEXT NOT NULL DEFAULT 'claude-opus-4-7',
     execution_lane TEXT NOT NULL DEFAULT 'primary',
-    capabilities TEXT DEFAULT '[]',
+    executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '/tmp',
     mode TEXT DEFAULT 'wait',
     offered_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
     ended_at TEXT,
-    executor_display_name TEXT
+    executor_surface TEXT
 );
 """
 
@@ -64,18 +64,18 @@ def _seed_session(
     *,
     session_id: str,
     executor: str,
-    executor_display_name: Optional[str] = None,
+    executor_surface: Optional[str] = None,
     ended_at: Optional[str] = None,
     offered_at: str = "2026-05-20T00:00:00+00:00",
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id, executor, executor_display_name, offered_at, "
+        "(session_id, executor, executor_surface, offered_at, "
         "last_heartbeat, ended_at) VALUES (%s, %s, %s, %s, %s, %s)",
         (
             session_id,
             executor,
-            executor_display_name,
+            executor_surface,
             offered_at,
             offered_at,
             ended_at,
@@ -100,19 +100,19 @@ def test_pass_when_only_canonical_rows(db_conn):
         db_conn,
         session_id="s-1",
         executor="claude-code",
-        executor_display_name="claude-desktop",
+        executor_surface="claude-desktop",
     )
     _seed_session(
         db_conn,
         session_id="s-2",
         executor="codex",
-        executor_display_name=None,
+        executor_surface=None,
     )
     _seed_session(
         db_conn,
         session_id="s-3",
         executor="claude-code",
-        executor_display_name=None,
+        executor_surface=None,
     )
 
     result = _only_result(_run_hc(db_conn))
@@ -130,7 +130,7 @@ def test_warn_when_leaked_with_null_display_name(db_conn):
         db_conn,
         session_id="s-leak-null",
         executor="claude-desktop",
-        executor_display_name=None,
+        executor_surface=None,
     )
 
     result = _only_result(_run_hc(db_conn))
@@ -148,7 +148,7 @@ def test_warn_when_leaked_with_populated_display_name(db_conn):
         db_conn,
         session_id="s-leak-populated",
         executor="claude-desktop",
-        executor_display_name="claude-desktop",
+        executor_surface="claude-desktop",
     )
 
     result = _only_result(_run_hc(db_conn))

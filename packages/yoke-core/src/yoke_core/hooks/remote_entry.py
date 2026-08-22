@@ -58,6 +58,8 @@ def evaluate_remote(
     model: Optional[str] = None,
     execution_lane: Optional[str] = None,
     project_id: Optional[int] = None,
+    executor_version: Optional[str] = None,
+    machine_id: Optional[str] = None,
     payload_extra: Optional[dict] = None,
     actor_id: Optional[int] = None,
 ) -> RemoteEvaluation:
@@ -85,6 +87,10 @@ def evaluate_remote(
         controls.payload_extra["execution_lane"] = execution_lane.strip()
     if project_id is not None:
         controls.payload_extra["project_id"] = int(project_id)
+    if executor_version and executor_version.strip():
+        controls.payload_extra["executor_version"] = executor_version.strip()
+    if machine_id and machine_id.strip():
+        controls.payload_extra["machine_id"] = machine_id.strip()
     capability = resolve_capability(executor)
 
     started = time.monotonic()

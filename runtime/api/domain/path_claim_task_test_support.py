@@ -157,10 +157,10 @@ def seed_session(
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, project_id, execution_lane, "
-        "capabilities, workspace, mode, offered_at, last_heartbeat, actor_id, "
+        "executor_version, machine_id, workspace, mode, offered_at, last_heartbeat, actor_id, "
         "current_item_id) "
-        "VALUES (%s, 'test', 'test', 'test', "
-        "(SELECT project_id FROM items WHERE id = %s), 'primary', '[]', "
+        "VALUES (%s, 'claude-code', 'test', 'test', "
+        "(SELECT project_id FROM items WHERE id = %s), 'primary', NULL, NULL, "
         "'/tmp', 'active', %s, %s, %s, %s)",
         (
             session_id,

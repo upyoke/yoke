@@ -166,7 +166,7 @@ class TestSessionOfferCharge:
                     f"""INSERT INTO harness_sessions
                        (session_id, executor, provider, model, workspace,
                         offered_at, last_heartbeat)
-                       VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}',
+                       VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}',
                                '/tmp', %s, %s)""",
                     (owner_session, now, now),
                 )

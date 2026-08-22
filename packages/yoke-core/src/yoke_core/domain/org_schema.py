@@ -38,6 +38,8 @@ def create_org_tables(conn: Any) -> None:
             id INTEGER PRIMARY KEY,
             slug TEXT NOT NULL UNIQUE,
             name TEXT NOT NULL,
+            domain TEXT DEFAULT NULL,
+            settings TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL
         );
 
@@ -59,6 +61,12 @@ def create_org_tables(conn: Any) -> None:
     if not _column_exists(conn, "projects", "org_id"):
         conn.execute(
             "ALTER TABLE projects ADD COLUMN org_id INTEGER REFERENCES organizations(id)"
+        )
+    if not _column_exists(conn, "organizations", "domain"):
+        conn.execute("ALTER TABLE organizations ADD COLUMN domain TEXT DEFAULT NULL")
+    if not _column_exists(conn, "organizations", "settings"):
+        conn.execute(
+            "ALTER TABLE organizations ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'"
         )
     conn.commit()
 

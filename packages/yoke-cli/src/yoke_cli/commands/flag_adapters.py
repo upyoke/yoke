@@ -55,7 +55,6 @@ from yoke_cli.commands.adapters.projects_pulumi_stack_config import (
     projects_pulumi_stack_config_get,
 )
 from yoke_cli.commands.adapters.identity import (
-    identity_autojoin_set,
     identity_invite_create,
     identity_invite_list,
     identity_invite_revoke,
@@ -416,7 +415,6 @@ __all__ = [
     "identity_invite_list",
     "identity_invite_revoke",
     "identity_link_set",
-    "identity_autojoin_set",
     "project_structure_patch_apply",
     "project_structure_deploy_defaults_get",
     "events_emit",

@@ -41,7 +41,7 @@ def _insert_session(
     session_id: str,
     *,
     executor: str = "claude-code",
-    executor_display_name: str | None = "claude-desktop",
+    executor_surface: str | None = "claude-desktop",
     provider: str = "anthropic",
     model: str = "claude-opus-5",
     lane: str = "DARIUS",
@@ -51,14 +51,14 @@ def _insert_session(
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions ("
-        "session_id, executor, executor_display_name, provider, model, "
+        "session_id, executor, executor_surface, provider, model, "
         "execution_lane, workspace, project_id, mode, offered_at, "
         "last_heartbeat, ended_at"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             session_id,
             executor,
-            executor_display_name,
+            executor_surface,
             provider,
             model,
             lane,
@@ -79,7 +79,7 @@ class TestResolveSessionIdentity:
         identity = resolve_session_identity(test_db, "identity-stored")
         assert isinstance(identity, SessionIdentity)
         assert identity.executor == "claude-code"
-        assert identity.executor_display_name == "claude-desktop"
+        assert identity.executor_surface == "claude-desktop"
         assert identity.provider == "anthropic"
         assert identity.model == "claude-opus-5"
         assert identity.execution_lane == "DARIUS"
@@ -103,7 +103,7 @@ class TestHandleIdentity:
             test_db,
             "identity-handler",
             executor="cursor",
-            executor_display_name="cursor-desktop",
+            executor_surface="cursor-desktop",
             provider="cursor",
             model="composer-1",
             lane="MUSKY",
@@ -117,7 +117,7 @@ class TestHandleIdentity:
         payload = outcome.result_payload
         assert payload["session_id"] == "identity-handler"
         assert payload["executor"] == "cursor"
-        assert payload["executor_display_name"] == "cursor-desktop"
+        assert payload["executor_surface"] == "cursor-desktop"
         assert payload["provider"] == "cursor"
         assert payload["model"] == "composer-1"
         assert payload["execution_lane"] == "MUSKY"

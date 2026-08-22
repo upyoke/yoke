@@ -218,8 +218,7 @@ identity by the first matching rule:
 2. **Pending invite** — a pending invite matches the verified email
    (case-insensitive); accepting it links the identity and grants the
    invite's org role, if one was set.
-3. **Auto-join domain** — the verified email's domain equals the org's
-   auto-join domain; a new member actor is created with no role grant.
+3. **Verified-domain membership** — a verified email matching the enabled org domain creates a member actor without a role grant.
 4. Otherwise the sign-in is **refused** with an operator-facing reason.
 
 Admission administration is org-admin surface on the `yoke` CLI:
@@ -228,12 +227,13 @@ Admission administration is org-admin surface on the `yoke` CLI:
 yoke identity invite create pat@corp.example --role admin
 yoke identity invite list --status pending
 yoke identity invite revoke <invite-id>
-yoke identity autojoin set corp.example      # or: --clear
+yoke organizations domain set corp.example  # or: --clear
+yoke organizations settings merge --set membership.auto_join_domain_verified=true
 yoke identity link set --actor <actor-id> --issuer <iss> --subject <sub>
 yoke identity link set --actor <actor-id> --email pat@corp.example
 ```
 
-Email trust is strict by default: invites and auto-join match only when
+Email trust is strict by default: invites and domain membership match only when
 the provider marks the email verified. For providers that omit the
 `email_verified` claim entirely, opt in with
 `YOKE_OIDC_ALLOW_UNVERIFIED_EMAIL=true` (an explicit `false` from the

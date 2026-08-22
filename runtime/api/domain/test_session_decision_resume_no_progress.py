@@ -43,7 +43,7 @@ _SESSION_ID = "resume-no-progress-test-session"
 def _make_offer(*, step: int = 2) -> SessionOffer:
     return SessionOffer(
         session_id=_SESSION_ID,
-        executor="DARIUS",
+        executor="claude-code",
         provider="anthropic",
         model="test-model",
         workspace="/tmp/yoke",
@@ -164,7 +164,7 @@ def _seed_session(conn, session_id: str) -> None:
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model,"
         " workspace, offered_at, last_heartbeat, offer_envelope, mode) VALUES"
-        " (%s, 'DARIUS', 'anthropic', 'test-model', '/tmp/yoke', %s, %s, '{}', 'charge')",
+        " (%s, 'claude-code', 'anthropic', 'test-model', '/tmp/yoke', %s, %s, '{}', 'charge')",
         (session_id, now, now),
     )
     conn.commit()

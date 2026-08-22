@@ -22,7 +22,7 @@ CREATE TABLE harness_sessions (
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
     execution_lane TEXT NOT NULL DEFAULT 'primary',
-    capabilities TEXT,
+    executor_version TEXT, machine_id TEXT,
     workspace TEXT,
     mode TEXT NOT NULL DEFAULT 'wait',
     offered_at TEXT NOT NULL,

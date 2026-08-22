@@ -1,7 +1,6 @@
 """Schema DDL for external sign-in identity.
 
-Owns the three additive tables behind the self-host OIDC sign-in door,
-plus the org auto-join column:
+Owns the three additive tables behind the self-host OIDC sign-in door:
 
 * ``actor_external_identities`` — one row per verified external identity
   (``issuer`` + ``subject`` from a verified id_token) bound to an
@@ -18,9 +17,6 @@ plus the org auto-join column:
   the ``api_tokens`` shape (SHA-256 of a random token; the raw value is
   returned once and never persisted).
 
-``organizations.auto_join_domain`` (nullable TEXT) admits any verified
-email under the named domain without an invite.
-
 All shapes are additive: the schema-init chain applies them idempotently
 on every server boot, so every born universe converges on next start.
 """
@@ -29,7 +25,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -87,13 +82,6 @@ def create_external_identity_tables(conn: Any) -> None:
         CREATE INDEX IF NOT EXISTS idx_web_sessions_actor
             ON web_sessions(actor_id);
     """)
-    conn.commit()
-    # organizations always precedes this module in the init chain
-    # (create_auth_tables -> create_org_tables), so the auto-join column
-    # ALTER is safe here and both fresh-init and re-init converge.
-    _add_column_if_not_exists(
-        conn, "organizations", "auto_join_domain", "TEXT DEFAULT NULL",
-    )
     conn.commit()
 
 

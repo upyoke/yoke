@@ -30,6 +30,7 @@ from yoke_cli.commands.registry_claims import (
     CLAIMS_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_organizations import ORGANIZATION_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_items_flags import ITEMS_FLAGS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
@@ -141,7 +142,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "doctor.last_run.get",
         _adapters.doctor_last_run_get,
     ),
-    ("organizations", "get"): ("organizations.get", _adapters.organizations_get),
     ("events", "query"): ("events.query.run", _adapters.events_query),
     ("events", "tail"): ("events.tail.run", _adapters.events_tail),
     ("events", "count"): ("events.count.run", _adapters.events_count),
@@ -234,6 +234,7 @@ SUBCOMMAND_REGISTRY.update(DB_CLAIM_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(READINESS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(STRATEGY_EVENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(ORGANIZATION_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(CLAIMS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)

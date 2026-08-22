@@ -129,7 +129,7 @@ def seed_session(
         "(session_id, executor, provider, model, workspace, offered_at, "
         "last_heartbeat, current_item_id, current_item_set_at, recent_item_id, "
         "recent_item_recorded_at) "
-        f"VALUES ({p}, 'test', 'test', 'test', '/tmp', {p}, {p}, {p}, {p}, {p}, {p})",
+        f"VALUES ({p}, 'claude-code', 'test', 'test', '/tmp', {p}, {p}, {p}, {p}, {p}, {p})",
         (
             session_id,
             now,

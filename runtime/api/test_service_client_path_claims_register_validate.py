@@ -110,7 +110,7 @@ def path_claims_db_real_repo(tmp_path, monkeypatch):
                 "INSERT INTO harness_sessions (session_id, executor, "
                 "provider, model, project_id, workspace, offered_at, "
                 "last_heartbeat) "
-                f"VALUES ({p}, 'test', 'test', 'test', 1, {p}, "
+                f"VALUES ({p}, 'claude-code', 'test', 'test', 1, {p}, "
                 "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
                 (session_id, str(repo_root)),
             )

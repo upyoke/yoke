@@ -6,6 +6,7 @@ names the machine-global default. Per-command routing (``--env`` /
 (decision record: ``docs/archive/decisions/machine-config-env-connections.md``).
 """
 from __future__ import annotations
+import uuid
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_projects import (
@@ -61,6 +62,7 @@ from yoke_contracts.machine_config.schema_connections import (
 )
 
 SCHEMA_VERSION = 1
+MACHINE_ID_KEY = "machine_id"
 DEFAULT_CONFIG_NAME = "config.json"
 DEFAULT_BOARD_PATH = ".yoke/BOARD.md"
 DEFAULT_CACHE_DIR_NAME = "cache"
@@ -175,6 +177,18 @@ def validate_payload(
     )
     issues.extend(validate_projects(
         raw.get("projects"), connection_labels=connection_labels))
+    machine_id = raw.get(MACHINE_ID_KEY)
+    if machine_id is not None:
+        try:
+            parsed_machine_id = uuid.UUID(str(machine_id))
+        except (ValueError, TypeError, AttributeError):
+            parsed_machine_id = None
+        if parsed_machine_id is None or str(parsed_machine_id) != str(machine_id):
+            issues.append(_error(
+                "machine_id_invalid",
+                "machine_id must be a canonical UUID",
+                path=MACHINE_ID_KEY,
+            ))
     settings = raw.get("settings", {})
     if settings is not None and not isinstance(settings, Mapping):
         issues.append(_error(

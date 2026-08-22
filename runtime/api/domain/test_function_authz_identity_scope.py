@@ -1,4 +1,4 @@
-"""Dispatch authorization for the identity.* admin family.
+"""Dispatch authorization for identity and organization-admin functions.
 
 Every identity function (reads included — invite listings expose member
 emails) is org-scoped and requires ``org.admin`` on the target org. A
@@ -112,10 +112,11 @@ def _default_org(conn) -> int:
         ("identity.invite.list", False),
         ("identity.invite.revoke", True),
         ("identity.link.set", True),
-        ("identity.autojoin.set", True),
+        ("organizations.settings.merge", True),
+        ("organizations.domain.set", True),
     ],
 )
-def test_identity_family_requires_org_admin(conn, function_id, side_effects):
+def test_org_administration_requires_org_admin(conn, function_id, side_effects):
     org_id = _default_org(conn)
     admin = _new_actor(conn)
     grant_actor_org_role(

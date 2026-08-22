@@ -117,8 +117,12 @@ class TestSessionOfferPersistence:
         """Two concurrent offers never both get same item."""
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
-        _pre_register_session(db, "sess-concur-A", executor="A", workspace=ws)
-        _pre_register_session(db, "sess-concur-B", executor="B", workspace=ws)
+        _pre_register_session(
+            db, "sess-concur-A", executor="claude-code", workspace=ws,
+        )
+        _pre_register_session(
+            db, "sess-concur-B", executor="codex", workspace=ws,
+        )
         r1 = _run_client(
             [
                 "session-offer",

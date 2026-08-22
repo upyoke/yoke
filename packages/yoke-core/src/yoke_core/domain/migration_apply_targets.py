@@ -124,6 +124,56 @@ def connect_db_target(target: DbTarget):
     )
 
 
+def _database_target_identity(target: DbTarget) -> tuple[str, ...]:
+    """Return a credential-free identity for one concrete database target."""
+
+    if target.kind == "sqlite_file":
+        return (target.kind, str(Path(target.target).resolve()))
+    if target.kind != "postgres":
+        raise MigrationApplyError(
+            f"database target kind {target.kind!r} has no identity verifier"
+        )
+    conn = connect_db_target(target)
+    try:
+        row = conn.execute(
+            "SELECT current_database() AS database_name, "
+            "system_identifier::text AS system_identifier "
+            "FROM pg_control_system()"
+        ).fetchone()
+    except Exception as exc:  # noqa: BLE001 - redact connection details
+        raise MigrationApplyError(
+            f"could not verify database identity for {target.display}: "
+            f"{type(exc).__name__}"
+        ) from exc
+    finally:
+        conn.close()
+    if row is None:
+        raise MigrationApplyError(
+            f"database identity query returned no row for {target.display}"
+        )
+    if hasattr(row, "keys"):
+        return (
+            target.kind,
+            str(row["system_identifier"]),
+            str(row["database_name"]),
+        )
+    return (target.kind, str(row[1]), str(row[0]))
+
+
+def assert_distinct_database_targets(
+    authoritative: DbTarget, validation: DbTarget
+) -> None:
+    """Refuse when two bindings reach the same physical database."""
+
+    if _database_target_identity(authoritative) == _database_target_identity(
+        validation
+    ):
+        raise MigrationApplyError(
+            "validation database identity matches the authoritative database; "
+            "refusing to rehearse"
+        )
+
+
 def ensure_migration_audit_table_for_target(target: DbTarget, conn) -> None:
     """Ensure ``migration_audit`` exists using the target's native dialect."""
     if target.kind == "postgres":
@@ -271,6 +321,7 @@ def _dsn_dbname(dsn: str) -> Optional[str]:
 
 __all__ = [
     "DbTarget",
+    "assert_distinct_database_targets",
     "connect_db_target",
     "create_rollback_backup",
     "dump_postgres_to_directory",

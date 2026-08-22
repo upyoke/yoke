@@ -47,7 +47,8 @@ class TestRegisterInProcess:
         monkeypatch.setattr(
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
-            actor_id=None, execution_lane=None, project_id=None:
+            actor_id=None, execution_lane=None, project_id=None,
+            executor_version=None, machine_id=None:
                 seen.append({
                     "sid": sid, "executor": executor, "workspace": workspace,
                     "lane": execution_lane, "project_id": project_id,
@@ -72,7 +73,8 @@ class TestRegisterInProcess:
         monkeypatch.setattr(
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
-            actor_id=None, execution_lane=None, project_id=None:
+            actor_id=None, execution_lane=None, project_id=None,
+            executor_version=None, machine_id=None:
                 seen.append(workspace) or "",
         )
         register_module._register_from_hook(
@@ -98,7 +100,8 @@ class TestRegisterInProcess:
         monkeypatch.setattr(
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
-            actor_id=None, execution_lane=None, project_id=None:
+            actor_id=None, execution_lane=None, project_id=None,
+            executor_version=None, machine_id=None:
                 seen.append(actor_id) or "",
         )
         register_module._register_from_hook(
@@ -113,7 +116,8 @@ class TestRegisterInProcess:
         monkeypatch.setattr(
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
-            actor_id=None, execution_lane=None, project_id=None:
+            actor_id=None, execution_lane=None, project_id=None,
+            executor_version=None, machine_id=None:
                 seen.append(execution_lane) or "",
         )
         register_module._register_from_hook(
@@ -136,7 +140,8 @@ def test_in_process_payload_entrypoint_preferred(monkeypatch):
     monkeypatch.setattr(
         register_module, "_register_in_process",
         lambda sid, executor, provider, model, workspace, entrypoint,
-        actor_id=None, execution_lane=None, project_id=None:
+        actor_id=None, execution_lane=None, project_id=None,
+        executor_version=None, machine_id=None:
             seen.append((model, entrypoint)) or "",
     )
     register_module._register_from_hook(

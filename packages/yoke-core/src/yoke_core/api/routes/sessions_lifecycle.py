@@ -7,7 +7,7 @@ patches take effect.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import Query
 from fastapi.responses import JSONResponse
@@ -45,7 +45,8 @@ class RegisterSessionRequest(BaseModel):
     provider: str
     model: str
     execution_lane: str = UNRESOLVED_EXECUTION_LANE
-    capabilities: Optional[List[str]] = None
+    executor_version: Optional[str] = None
+    machine_id: Optional[str] = None
     workspace: str
     project_id: int
     mode: str = "wait"
@@ -80,7 +81,8 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
             provider=req.provider,
             model=req.model,
             execution_lane=execution_lane,
-            capabilities=req.capabilities,
+            executor_version=req.executor_version,
+            machine_id=req.machine_id,
             workspace=req.workspace,
             project_id=req.project_id,
             mode=req.mode,

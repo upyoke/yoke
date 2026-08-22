@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.session_identity import resolve_env_session_id
+from yoke_contracts.executor_labels import (
+    canonical_harness_id as _contract_canonical_harness_id,
+)
 from yoke_harness.hooks.identity_codex_runtime import (
     _codex_resolve_entrypoint,
     _codex_resolve_model,
@@ -84,16 +87,7 @@ def is_claude(executor: Optional[str]) -> bool:
 
 
 def canonical_harness_id(executor: Optional[str]) -> str:
-    if not executor or not executor.strip():
-        raise ValueError("canonical_harness_id requires a non-empty executor")
-    e = executor.strip().lower()
-    if is_codex(e):
-        return _CODEX_COARSE
-    if is_cursor(e):
-        return _CURSOR_COARSE
-    if is_claude(e):
-        return _CLAUDE_COARSE
-    raise ValueError(f"unknown harness executor: {executor!r}")
+    return _contract_canonical_harness_id(executor)
 
 
 def _normalize_surface_token(value: str) -> str:
@@ -133,7 +127,7 @@ def cursor_surface_entrypoint() -> str:
     does NOT consult ``CURSOR_TRANSCRIPT_PATH``: that variable is absent for
     a session's first hook events, which is exactly when session
     registration runs, so keying the surface on it loses the alias on the
-    IDE surface and leaves ``executor_display_name`` NULL.
+    IDE surface and leaves ``executor_surface`` NULL.
 
     Callers that must first decide whether this is a Cursor process at all
     still gate on the env vars; this resolver only answers *which surface*.

@@ -141,7 +141,7 @@ def _codex_resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
     The env originator is per-subprocess and the transcript's is
     session-level, so an invocation-context token in the environment yields
     to the thread's own identity: one physical surface must resolve to one
-    ``executor_display_name`` whether the session registers through a hook,
+    ``executor_surface`` whether the session registers through a hook,
     the CLI's ensure-register probe, or session self-repair.
     """
     env_entrypoint = surface_alias(_normalize_entrypoint(

@@ -21,6 +21,10 @@ from yoke_harness.hooks.identity_runtime import (
     is_cursor,
     resolve_session_id,
 )
+from yoke_harness.hooks.identity_observed import (
+    client_executor_version,
+    client_machine_id,
+)
 
 
 REGISTRATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
@@ -158,7 +162,15 @@ def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
             return _codex_resolve_entrypoint(thread_id=sid or None) or None
         if is_cursor(executor):
             return cursor_surface_entrypoint()
-        return detect_entrypoint() or None
+        detected = detect_entrypoint()
+        if detected:
+            return detected
+        # Claude Code's terminal surface does not consistently export an
+        # entrypoint. Desktop and VS Code do, so the signal-free Claude case
+        # is the CLI surface rather than an unknown surface.
+        if executor == "claude-code" or executor == "claude":
+            return "claude-cli"
+        return None
     except Exception:
         return None
 
@@ -203,13 +215,17 @@ def relay_identity_payload(
         "model": client_model(event_name, payload, executor),
         "execution_lane": client_lane(event_name, executor),
         "project_id": client_project_id(payload),
+        "executor_version": client_executor_version(executor),
+        "machine_id": client_machine_id(),
     }
 
 
 __all__ = [
     "REGISTRATION_EVENTS",
     "client_entrypoint",
+    "client_executor_version",
     "client_lane",
+    "client_machine_id",
     "client_model",
     "client_project_id",
     "relay_identity_payload",

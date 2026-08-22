@@ -26,12 +26,13 @@ from yoke_core.domain.external_identities import (
     default_org_id,
     link_external_identity,
     resolve_external_identity,
-    set_auto_join_domain,
+    set_organization_domain,
 )
 from yoke_core.domain.external_identity_schema import (
     create_external_identity_tables,
 )
 from yoke_core.domain.org_schema import seed_default_org
+from yoke_core.domain.organization_settings import merge_organization_settings
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_path_claim_tables,
@@ -90,6 +91,15 @@ def _admin(conn) -> int:
     actor_id = seed_human_actor(conn)
     set_actor_label(conn, actor_id, f"inviter-{actor_id}")
     return actor_id
+
+
+def _enable_domain_admission(conn, *, org_id: int, domain: str) -> None:
+    set_organization_domain(conn, org_id=org_id, domain=domain)
+    merge_organization_settings(
+        conn,
+        org_id,
+        {"membership.auto_join_domain_verified": True},
+    )
 
 
 def test_rung_one_linked_identity_wins(conn):
@@ -159,9 +169,9 @@ def test_rung_two_pre_link_invite_binds_existing_actor(conn):
     assert int(after) == int(before)  # no new actor created
 
 
-def test_rung_three_auto_join_domain_creates_actor_without_role(conn):
+def test_domain_verified_membership_creates_actor_without_role(conn):
     org_id = default_org_id(conn)
-    set_auto_join_domain(conn, org_id=org_id, domain="@Example.com")
+    _enable_domain_admission(conn, org_id=org_id, domain="@Example.com")
     result = resolve_sign_in(conn, _claims())
     assert result.outcome == OUTCOME_AUTO_JOINED
     assert result.actor_id is not None
@@ -173,6 +183,16 @@ def test_rung_three_auto_join_domain_creates_actor_without_role(conn):
     assert resolve_external_identity(
         conn, issuer=_ISSUER, subject="sub-1",
     ) == result.actor_id
+
+
+def test_domain_alone_does_not_enable_membership_admission(conn):
+    org_id = default_org_id(conn)
+    set_organization_domain(conn, org_id=org_id, domain="example.com")
+
+    result = resolve_sign_in(conn, _claims())
+
+    assert result.outcome == OUTCOME_REFUSED
+    assert result.refusal_reason == REFUSAL_NO_ADMISSION_MATCH
 
 
 def test_rung_four_refuses_with_reason(conn):
@@ -190,7 +210,7 @@ def test_unverified_email_never_matches_invite_or_domain(conn):
         conn, email="casey@example.com", org_id=org_id,
         invited_by_actor_id=inviter,
     )
-    set_auto_join_domain(conn, org_id=org_id, domain="example.com")
+    _enable_domain_admission(conn, org_id=org_id, domain="example.com")
     result = resolve_sign_in(conn, _claims(email_verified=False))
     assert result.outcome == OUTCOME_REFUSED
     assert result.refusal_reason == REFUSAL_EMAIL_UNVERIFIED
@@ -198,7 +218,7 @@ def test_unverified_email_never_matches_invite_or_domain(conn):
 
 def test_omitted_email_verified_claim_is_strict_by_default(conn):
     org_id = default_org_id(conn)
-    set_auto_join_domain(conn, org_id=org_id, domain="example.com")
+    _enable_domain_admission(conn, org_id=org_id, domain="example.com")
     claims = _claims()
     del claims["email_verified"]
     result = resolve_sign_in(conn, claims)
@@ -221,7 +241,7 @@ def test_string_typed_email_verified_is_read_by_value_not_truthiness(conn):
     # "false". A naive bool("false") is truthy and would admit an
     # unverified email; the claim must be read by value.
     org_id = default_org_id(conn)
-    set_auto_join_domain(conn, org_id=org_id, domain="example.com")
+    _enable_domain_admission(conn, org_id=org_id, domain="example.com")
     refused = resolve_sign_in(
         conn, _claims(subject="sub-str-false", email_verified="false"),
     )
@@ -249,7 +269,7 @@ def test_label_collision_appends_numeric_suffix(conn):
     taken = seed_human_actor(conn)
     set_actor_label(conn, taken, "casey")
     org_id = default_org_id(conn)
-    set_auto_join_domain(conn, org_id=org_id, domain="example.com")
+    _enable_domain_admission(conn, org_id=org_id, domain="example.com")
     result = resolve_sign_in(conn, _claims())
     assert result.outcome == OUTCOME_AUTO_JOINED
     label_row = conn.execute(

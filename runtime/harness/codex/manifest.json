@@ -31,6 +31,56 @@
       "stop_hook"
     ]
   },
+  "session_control": {
+    "source": "yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES",
+    "surfaces": {
+      "codex-cli": {
+        "minimum_version": "0.148.0-alpha.15",
+        "inject_events": [
+          "SessionStart",
+          "UserPromptSubmit",
+          "PreToolUse",
+          "PermissionRequest",
+          "PostToolUse",
+          "Stop"
+        ],
+        "create": "supported",
+        "message_active": "none",
+        "message_idle": "none",
+        "message_stopped": "supported"
+      },
+      "codex-desktop": {
+        "minimum_version": "26.814.41407",
+        "inject_events": [
+          "SessionStart",
+          "UserPromptSubmit",
+          "PreToolUse",
+          "PermissionRequest",
+          "PostToolUse",
+          "Stop"
+        ],
+        "create": "supported",
+        "message_active": "supported",
+        "message_idle": "supported",
+        "message_stopped": "supported"
+      },
+      "codex-vscode": {
+        "minimum_version": "0.148.0-alpha.15",
+        "inject_events": [
+          "SessionStart",
+          "UserPromptSubmit",
+          "PreToolUse",
+          "PermissionRequest",
+          "PostToolUse",
+          "Stop"
+        ],
+        "create": "none",
+        "message_active": "supported",
+        "message_idle": "none",
+        "message_stopped": "none"
+      }
+    }
+  },
   "worktree_hook_enablement": {
     "config_path": ".codex/hooks.json",
     "operations": [

@@ -12,6 +12,15 @@ is caught by the doctor check ``HC-harness-substrate-drift`` (lane R / task 10).
 
 from __future__ import annotations
 
+from yoke_contracts.session_control import capabilities_for_harness
+
+
+def _session_control(harness_id: str) -> dict:
+    return {
+        "source": "yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES",
+        "surfaces": capabilities_for_harness(harness_id),
+    }
+
 
 # Claude manifest — runtime/harness/claude/manifest.json
 CLAUDE_MANIFEST: dict = {
@@ -46,6 +55,7 @@ CLAUDE_MANIFEST: dict = {
             "stop_hook",
         ],
     },
+    "session_control": _session_control("claude-code"),
     "worktree_hook_enablement": {
         "config_path": ".claude/settings.json",
         "operations": [
@@ -106,6 +116,7 @@ CODEX_MANIFEST: dict = {
             "stop_hook",
         ],
     },
+    "session_control": _session_control("codex"),
     "worktree_hook_enablement": {
         "config_path": ".codex/hooks.json",
         "operations": [
@@ -173,6 +184,7 @@ CURSOR_MANIFEST: dict = {
             "stop_hook",
         ],
     },
+    "session_control": _session_control("cursor"),
     "worktree_hook_enablement": {
         "config_path": ".cursor/hooks.json",
         "operations": [

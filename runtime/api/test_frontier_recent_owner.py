@@ -28,7 +28,7 @@ _SCHEMA_TEMPLATE = """
 CREATE TABLE IF NOT EXISTS harness_sessions (
     session_id TEXT PRIMARY KEY, executor TEXT NOT NULL,
     provider TEXT NOT NULL, model TEXT NOT NULL DEFAULT '',
-    execution_lane TEXT NOT NULL DEFAULT 'primary', capabilities TEXT,
+    execution_lane TEXT NOT NULL DEFAULT 'primary', executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT 'wait',
     offered_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
     ended_at TEXT, offer_envelope TEXT, actor_id INTEGER

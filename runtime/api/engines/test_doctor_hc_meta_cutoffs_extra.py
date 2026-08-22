@@ -116,7 +116,7 @@ CREATE TABLE harness_sessions (
     provider TEXT NOT NULL DEFAULT 'anthropic',
     model TEXT NOT NULL DEFAULT '',
     execution_lane TEXT NOT NULL DEFAULT 'primary',
-    capabilities TEXT,
+    executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL DEFAULT '',
     mode TEXT NOT NULL DEFAULT 'wait',
     offered_at TEXT NOT NULL DEFAULT '',

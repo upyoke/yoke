@@ -8,8 +8,11 @@ authority surface.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -23,6 +26,7 @@ DEFAULT_BOARD_PATH = contract.DEFAULT_BOARD_PATH
 DEFAULT_CACHE_DIR_NAME = contract.DEFAULT_CACHE_DIR_NAME
 DEFAULT_TEMP_ROOT = contract.DEFAULT_TEMP_ROOT
 SCRATCH_ROOT_ENV = "YOKE_SCRATCH_ROOT"
+MACHINE_ID_KEY = contract.MACHINE_ID_KEY
 
 
 class MachineConfigError(RuntimeError):
@@ -90,6 +94,72 @@ def normalized_config(path: str | Path | None = None) -> dict[str, Any]:
     """Load machine config and fill contract defaults."""
 
     return contract.normalize_payload(load_config(path))
+
+
+def machine_id(path: str | Path | None = None) -> str | None:
+    """Return the stable machine UUID, or ``None`` before it is initialized."""
+    value = load_config(path).get(MACHINE_ID_KEY)
+    try:
+        parsed = uuid.UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return None
+    rendered = str(parsed)
+    return rendered if rendered == value else None
+
+
+def ensure_machine_id(path: str | Path | None = None) -> str:
+    """Create the machine UUID once under an inter-process file lock."""
+    current = machine_id(path)
+    if current is not None:
+        return current
+    selected = config_path(path)
+    if not selected.is_file():
+        raise MachineConfigError(
+            f"{selected} must be configured before assigning a machine id"
+        )
+    selected.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = selected.with_name(f"{selected.name}.lock")
+    lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        current = machine_id(path)
+        if current is not None:
+            return current
+        payload = load_config(path)
+        generated = str(uuid.uuid4())
+        payload[MACHINE_ID_KEY] = generated
+        _replace_config(selected, payload)
+        return generated
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+def _replace_config(selected: Path, payload: Mapping[str, Any]) -> None:
+    """Atomically publish a private machine-config document."""
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=selected.parent,
+        prefix=f".{selected.name}.",
+        delete=False,
+    )
+    temp_path = Path(handle.name)
+    try:
+        os.chmod(temp_path, 0o600)
+        json.dump(dict(payload), handle, indent=2, sort_keys=True)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+        handle.close()
+        os.replace(temp_path, selected)
+    finally:
+        if not handle.closed:
+            handle.close()
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def active_connection(

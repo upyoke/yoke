@@ -39,6 +39,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_test_machine 
 from yoke_core.api.service_client_structured_api_adapter_inventory_ops import (
     OPS_ADAPTERS,
 )
+from yoke_core.api.service_client_structured_api_adapter_inventory_organizations import (
+    ORGANIZATION_ADAPTERS,
+)
 from yoke_core.api.service_client_structured_api_adapter_inventory_project_structure import (
     PROJECT_STRUCTURE_ADAPTERS,
 )
@@ -96,7 +99,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     _read_entry(function_id="ouroboros.field_note.get", cli_invocation="yoke ouroboros field-note get NOTE_ID"),
     _read_entry(function_id="projects.list", cli_invocation="yoke projects list"),
     *PROJECT_ADAPTERS,
-    _read_entry(function_id="organizations.get", cli_invocation="yoke organizations get"),
+    *ORGANIZATION_ADAPTERS,
     # Sign-in admission admin family (org-admin-gated at dispatch).
     AdapterEntry(
         function_id="identity.invite.create",
@@ -110,7 +113,6 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke identity link set --actor ACTOR --issuer I --subject S",
         notes="issuer+subject links directly; --email alone pre-links a future sign-in",
     ),
-    AdapterEntry(function_id="identity.autojoin.set", cli_invocation="yoke identity autojoin set DOMAIN"),
     _read_entry(function_id="items.list.run", cli_invocation="yoke items list --status STATUS"),
     _read_entry(function_id="items.search.run", cli_invocation="yoke items search KEYWORDS"),
     _read_entry(function_id="db.read.run", cli_invocation='yoke db read "SELECT ..."'),

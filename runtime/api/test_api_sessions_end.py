@@ -67,7 +67,7 @@ class TestSessionEndEndpoint:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, project_id,
                 offer_envelope, offered_at, last_heartbeat)
-               VALUES ({p}, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}',
+               VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}',
                        '/tmp/test', 1, {p}, {p}, {p})""",
             (
                 session_id,
@@ -138,7 +138,7 @@ class TestSessionEndEndpoint:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, project_id,
                 offer_envelope, offered_at, last_heartbeat)
-               VALUES ({p}, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}',
+               VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}',
                        '/tmp/test', 1, {p}, {p}, {p})""",
             (
                 "api-override-noclaim",
@@ -179,7 +179,7 @@ class TestServiceClientSessionOffer:
         register_session(
             conn,
             session_id="DARIUS-test-session",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model=TEST_MODEL_ID,
             workspace=session_offer_db["tmp_dir"],

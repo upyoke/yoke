@@ -46,11 +46,10 @@ def list_harness_sessions(
     result = []
     for r in rows:
         d = _row_to_dict(r)
-        if d.get("capabilities"):
-            try:
-                d["capabilities"] = json.loads(d["capabilities"])
-            except (json.JSONDecodeError, TypeError):
-                pass
+        derived = resolve_harness_capabilities(
+            str(d.get("executor") or ""), str(d.get("workspace") or ""),
+        )
+        d["capabilities"] = list(derived["downstream_paths"])
         result.append(d)
     return result
 
@@ -152,6 +151,7 @@ def resolve_harness_capabilities(
         "manifest_executor": manifest_executor,
         "manifest_directory": manifest_directory,
         "downstream_paths": [],
+        "host_capability_kinds": [],
         "source": "shared_registry",
     }
     try:
@@ -160,6 +160,13 @@ def resolve_harness_capabilities(
         if not isinstance(manifest, dict):
             raise ValueError("manifest root must be an object")
         result["downstream_paths"] = downstream_paths_for_manifest(manifest)
+        supports = manifest.get("supports")
+        if isinstance(supports, dict):
+            host_capabilities = supports.get("host_capability_kinds", [])
+            if isinstance(host_capabilities, list):
+                result["host_capability_kinds"] = [
+                    str(value) for value in host_capabilities
+                ]
     except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError):
         result["source"] = "empty_fallback"
 

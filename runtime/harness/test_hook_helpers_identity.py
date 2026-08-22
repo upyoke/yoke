@@ -119,9 +119,8 @@ class TestDetectExecutor:
                 assert detect_executor() == "codex-desktop"
                 resolver.assert_called_once_with()
 
-    def test_codex_bare_surface_gets_family_prefix(self):
-        # Originator that doesn't already start with `codex` gets the prefix
-        # added — e.g. a hypothetical future origin `jetbrains` -> `codex-jetbrains`.
+    def test_codex_unknown_surface_falls_back_to_family(self):
+        # Unknown originator values do not mint persisted surface labels.
         with mock.patch.dict(
             os.environ,
             {
@@ -130,7 +129,7 @@ class TestDetectExecutor:
             },
             clear=True,
         ):
-            assert detect_executor() == "codex-jetbrains"
+            assert detect_executor() == "codex"
 
 
 # ---------------------------------------------------------------------------

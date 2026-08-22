@@ -74,6 +74,8 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
     "strategy_docs": frozenset({"parent_slug"}),
 }
 ARCHIVE_COLUMN_RENAMES = {
+    ("harness_sessions", "executor_display_name"): "executor_surface",
+    ("organizations", "auto_join_domain"): "domain",
     ("qa_artifacts", "storage_path"): "artifact_handle",
 }
 

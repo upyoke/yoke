@@ -175,7 +175,7 @@ def test_hooks_evaluate_wire_identity_registers_full_metadata(client, hooks_db) 
     conn = db_helpers.connect()
     try:
         row = conn.execute(
-            "SELECT model, executor_display_name FROM harness_sessions "
+            "SELECT model, executor_surface FROM harness_sessions "
             "WHERE session_id = %s",
             (session_id,),
         ).fetchone()
@@ -220,13 +220,13 @@ def test_hooks_evaluate_wire_identity_registers_full_metadata(client, hooks_db) 
         ))
         assert response3.status_code == 200
         row = conn.execute(
-            "SELECT model, executor_display_name FROM harness_sessions "
+            "SELECT model, executor_surface FROM harness_sessions "
             "WHERE session_id = %s",
             (fresh,),
         ).fetchone()
         assert row is not None
         assert row["model"] == "claude-fable-5[1m]"
-        assert "desktop" in (row["executor_display_name"] or ""), (
+        assert "desktop" in (row["executor_surface"] or ""), (
             "wire entrypoint must drive the display name"
         )
     finally:

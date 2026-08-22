@@ -58,7 +58,7 @@ class TestSessionOffer:
         self,
         session_id: str,
         *,
-        executor: str = "DARIUS",
+        executor: str = "claude-code",
         provider: str = "anthropic",
         model: str = TEST_MODEL_ID,
         workspace: str = "/tmp/test-workspace",
@@ -165,7 +165,7 @@ class TestSessionOffer:
                 f"""INSERT INTO harness_sessions
                    (session_id, executor, provider, model, workspace, project_id,
                     offered_at, last_heartbeat)
-                   VALUES ({p}, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}',
+                   VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}',
                            '/tmp', 1, {p}, {p})""",
                 (owner, now_iso, now_iso),
             )

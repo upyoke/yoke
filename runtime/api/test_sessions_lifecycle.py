@@ -36,7 +36,7 @@ class TestRegisterSession:
     def test_register_creates_record(self, conn):
         result = _register(conn)
         assert result["session_id"] == "sess-1"
-        assert result["executor"] == "DARIUS"
+        assert result["executor"] == "claude-code"
         assert result["provider"] == "anthropic"
         assert result["model"] == TEST_MODEL_ID
         assert result["execution_lane"] == "primary"
@@ -45,10 +45,6 @@ class TestRegisterSession:
         assert result["ended_at"] is None
         assert result["offered_at"] is not None
         assert result["last_heartbeat"] is not None
-
-    def test_register_stores_capabilities_as_json(self, conn):
-        result = _register(conn, capabilities=["browser", "shell"])
-        assert result["capabilities"] == ["browser", "shell"]
 
     def test_register_stores_offer_envelope(self, conn):
         envelope = {"session_id": "sess-1", "extra": "data"}
@@ -194,7 +190,7 @@ class TestRegisterSession:
         # The original surface alias "claude-desktop" canonicalized to
         # "claude-code" and the surface is preserved in display_name.
         assert result["executor"] == "claude-code"
-        assert result["executor_display_name"] == "claude-desktop"
+        assert result["executor_surface"] == "claude-desktop"
         assert result["provider"] == "openai"
         assert result["workspace"] == "/tmp/reopened"
         assert result["execution_lane"] == "ALTMAN"
@@ -214,12 +210,12 @@ class TestRegisterSession:
         assert exc_info.value.code == "SESSION_EXISTS"
 
         row = conn.execute(
-            "SELECT executor, executor_display_name "
+            "SELECT executor, executor_surface "
             f"FROM harness_sessions WHERE session_id = {_p(conn)}",
             ("write-once",),
         ).fetchone()
         assert row["executor"] == "claude-code"
-        assert row["executor_display_name"] == "claude-desktop"
+        assert row["executor_surface"] == "claude-desktop"
 
     # YOK-1771 executor canonicalization + display-alias coverage lives
     # in ``test_sessions_lifecycle_executor.py`` so this module stays
@@ -259,7 +255,7 @@ class TestRegisterSession:
         ctx = register_events[-1]["context"]
         # Event reflects the canonical stored executor + preserved display.
         assert ctx["executor"] == "claude-code"
-        assert ctx["executor_display_name"] == "claude-desktop"
+        assert ctx["executor_surface"] == "claude-desktop"
 
     def test_register_returns_all_identity_fields(self, conn):
         """All identity fields from the session-identity contract."""
@@ -267,10 +263,12 @@ class TestRegisterSession:
         for field in (
             "session_id",
             "executor",
+            "executor_surface",
+            "executor_version",
+            "machine_id",
             "provider",
             "model",
             "execution_lane",
-            "capabilities",
             "workspace",
             "mode",
             "offered_at",

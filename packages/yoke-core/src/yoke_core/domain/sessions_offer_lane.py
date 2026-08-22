@@ -239,7 +239,7 @@ def build_offer_envelope(
         "project_scope": list(project_scope or []),
     }
     if display_name:
-        envelope["executor_display_name"] = display_name
+        envelope["executor_surface"] = display_name
     if is_codex(canonical_executor):
         codex_thread = os.environ.get("CODEX_THREAD_ID", "")
         if codex_thread:
@@ -276,7 +276,7 @@ def emit_session_offered_event(
         "project_scope": list(project_scope or []),
     }
     if display_name:
-        context["executor_display_name"] = display_name
+        context["executor_surface"] = display_name
     _sa._emit_event(
         "HarnessSessionOffered",
         event_kind="system",

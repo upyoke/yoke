@@ -66,7 +66,7 @@ def _seed_stale_holder_with_recent_activity(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, project_id, workspace,
                 offered_at, last_heartbeat)
-               VALUES ({p}, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', 1,
+               VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', 1,
                        '/tmp', {p}, {p})""",
             (holder_session, _iso(old), _iso(old)),
         )

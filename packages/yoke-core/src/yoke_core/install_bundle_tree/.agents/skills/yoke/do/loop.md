@@ -26,7 +26,7 @@ It resolves the calling session ambiently and returns the stored identity
 the authority holds:
 
 - `session_id` — the resolved session id
-- `executor` / `executor_display_name` — canonical harness id and its surface alias
+- `executor` / `executor_surface` — canonical harness id and its surface alias
 - `provider`, `model` — as registration recorded them
 - `execution_lane` and `lane_allowed_paths` — the lane the project's
   session-routing policy assigned this executor, and the downstream paths

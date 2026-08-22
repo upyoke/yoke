@@ -6,6 +6,7 @@ from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
+from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.field_note_dash_promotion import (
     ensure_field_note_dash_promotion_schema,
 )
@@ -192,6 +193,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     create_actor_path_claim_tables(conn)
     create_auth_tables(conn)
     create_external_identity_tables(conn)
+    create_session_control_tables(conn)
     create_decision_request_tables(conn)
     create_github_app_tables(conn)
     # QA plans bind to a concrete environment, so site/environment authority

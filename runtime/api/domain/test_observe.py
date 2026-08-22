@@ -113,7 +113,7 @@ class TestNewColumns(unittest.TestCase):
                 "INSERT INTO harness_sessions "
                 "(session_id, executor, provider, model, workspace, project_id, "
                 "offered_at, last_heartbeat) "
-                f"VALUES ({p}, 'test', 'test', 'test', '/tmp/externalwebapp', {p}, {p}, {p})",
+                f"VALUES ({p}, 'claude-code', 'test', 'test', '/tmp/externalwebapp', {p}, {p}, {p})",
                 (
                     "sess_externalwebapp",
                     2,

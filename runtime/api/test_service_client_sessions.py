@@ -15,7 +15,7 @@ import os
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
-    session_offer_db,  # noqa: F401 — re-exported fixture
+    session_offer_db as session_offer_db,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
 
@@ -85,8 +85,8 @@ class TestSessionBeginLane:
         assert row is not None
         assert row[0] == "DARIUS"
 
-    def test_session_begin_falls_back_to_primary_without_config(self, session_offer_db):
-        """Unknown executor with no config mapping falls back to primary."""
+    def test_session_begin_uses_project_default_without_local_config(self, session_offer_db):
+        """A known executor still receives the project routing default."""
         config_path = os.path.join(os.path.dirname(session_offer_db["db_path"]), "config")
         with open(config_path, "w", encoding="utf-8") as handle:
             handle.write("")  # no lane mappings
@@ -96,7 +96,7 @@ class TestSessionBeginLane:
             [
                 "session-begin",
                 "--session-id", sid,
-                "--executor", "unknown-exec",
+                "--executor", "codex",
                 "--provider", "test",
                 "--model", "test-model",
                 "--workspace", session_offer_db["tmp_dir"],
@@ -114,7 +114,7 @@ class TestSessionBeginLane:
         conn.close()
 
         assert row is not None
-        assert row[0] == "primary"
+        assert row[0] == "ALTMAN"
 
     def test_session_begin_accepts_entrypoint_and_emits_it(self, session_offer_db):
         sid = "reg-entrypoint"
@@ -139,7 +139,7 @@ class TestSessionBeginLane:
             (sid,),
         ).fetchone()
         session_row = conn.execute(
-            "SELECT executor, executor_display_name "
+            "SELECT executor, executor_surface "
             "FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
@@ -152,7 +152,7 @@ class TestSessionBeginLane:
         assert session_row[1] == "codex-desktop"
         envelope = json.loads(row[0])
         assert envelope["context"]["executor"] == "codex"
-        assert envelope["context"]["executor_display_name"] == "codex-desktop"
+        assert envelope["context"]["executor_surface"] == "codex-desktop"
         assert envelope["context"]["entrypoint"] == "codex-desktop"
 
     def test_session_begin_promotes_claude_executor_from_entrypoint_and_uses_project_lane(self, session_offer_db):
@@ -179,7 +179,7 @@ class TestSessionBeginLane:
 
         conn = connect_test_db(session_offer_db["db_path"])
         row = conn.execute(
-            "SELECT executor, executor_display_name, execution_lane "
+            "SELECT executor, executor_surface, execution_lane "
             "FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
@@ -191,7 +191,7 @@ class TestSessionBeginLane:
 
         assert row is not None
         # Canonical executor stored; entrypoint-composed surface alias
-        # lands in executor_display_name. The local config asks for
+        # lands in executor_surface. The local config asks for
         # claude-vscode -> ALTMAN, but DB project routing is authoritative
         # once a project id is known.
         assert row[0] == "claude-code"
@@ -200,7 +200,7 @@ class TestSessionBeginLane:
         assert event_row is not None
         envelope = json.loads(event_row[0])
         assert envelope["context"]["executor"] == "claude-code"
-        assert envelope["context"]["executor_display_name"] == "claude-vscode"
+        assert envelope["context"]["executor_surface"] == "claude-vscode"
         assert envelope["context"]["entrypoint"] == "claude-vscode"
 
     def test_session_begin_promotes_legacy_claude_alias_from_entrypoint(self, session_offer_db):
@@ -226,7 +226,7 @@ class TestSessionBeginLane:
 
         conn = connect_test_db(session_offer_db["db_path"])
         row = conn.execute(
-            "SELECT executor, executor_display_name, execution_lane "
+            "SELECT executor, executor_surface, execution_lane "
             "FROM harness_sessions WHERE session_id = %s",
             (sid,),
         ).fetchone()
@@ -243,7 +243,7 @@ class TestSessionBeginLane:
         assert event_row is not None
         envelope = json.loads(event_row[0])
         assert envelope["context"]["executor"] == "claude-code"
-        assert envelope["context"]["executor_display_name"] == "claude-desktop"
+        assert envelope["context"]["executor_surface"] == "claude-desktop"
         assert envelope["context"]["entrypoint"] == "claude-desktop"
 
     def test_session_begin_idempotent_on_existing_session(self, session_offer_db):

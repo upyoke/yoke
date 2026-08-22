@@ -53,6 +53,8 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
         "/Users/x/externalwebapp",
         "codex-desktop",
         1,
+        None,
+        None,
     )]
 
 
@@ -92,6 +94,8 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
         "/Users/x/externalwebapp",
         "claude-desktop",
         1,
+        None,
+        None,
     )]
 
 
@@ -204,6 +208,11 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
         "yoke_core.hooks.helpers.detect_entrypoint",
         lambda: "claude-desktop",
     )
+    monkeypatch.setattr(
+        hook_runner_register,
+        "enrich_local_observed_facts",
+        lambda *_args: ("0.1.0", "00000000-0000-4000-8000-000000000123"),
+    )
     monkeypatch.setattr(hook_runner_register, "register_harness_session", fake_register)
 
     err, executor, provider, model, entrypoint = hook_runner_register._register_from_hook(
@@ -225,4 +234,6 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
         "provider": "anthropic",
         "model": "claude-opus-4-8[1m]",
         "entrypoint": "claude-desktop",
+        "executor_version": "0.1.0",
+        "machine_id": "00000000-0000-4000-8000-000000000123",
     }]

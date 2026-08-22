@@ -39,7 +39,7 @@ def _seed_session(conn: Any, session_id: str) -> None:
         """INSERT INTO harness_sessions
             (session_id, executor, provider, model, workspace,
              offered_at, last_heartbeat)
-            VALUES (%s, 'DARIUS', 'anthropic', %s, '/tmp/offer-invariant', %s, %s)""",
+            VALUES (%s, 'claude-code', 'anthropic', %s, '/tmp/offer-invariant', %s, %s)""",
         (session_id, TEST_MODEL_ID, now, now),
     )
     conn.commit()

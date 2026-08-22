@@ -1,4 +1,4 @@
-"""Handler-level coverage for the identity.* admin family.
+"""Handler-level coverage for identity links and organization admission.
 
 Handlers ride the ambient connection (``db_helpers.connect``), which the
 test session pins to the per-worker canonical-schema DB; emails carry a
@@ -25,8 +25,12 @@ from yoke_core.domain.handlers.identity_invites import (
     handle_identity_invite_revoke,
 )
 from yoke_core.domain.handlers.identity_links import (
-    handle_identity_autojoin_set,
     handle_identity_link_set,
+)
+from yoke_core.domain.handlers.organizations_settings import (
+    handle_organization_domain_set,
+    handle_organization_settings_get,
+    handle_organization_settings_merge,
 )
 
 
@@ -172,16 +176,68 @@ def test_link_set_requires_exactly_one_shape(unique):
     assert not half_identity.primary_success
 
 
-def test_autojoin_set_and_clear(unique):
+def test_organization_domain_set_and_clear(unique):
     domain = f"auto-{unique}.example.com"
-    set_outcome = handle_identity_autojoin_set(
-        _request("identity.autojoin.set", {"domain": f"@{domain.upper()}"}),
+    set_outcome = handle_organization_domain_set(
+        _request("organizations.domain.set", {"domain": f"@{domain.upper()}"}),
     )
     assert set_outcome.primary_success, set_outcome.error
     assert set_outcome.result_payload["domain"] == domain
 
-    clear_outcome = handle_identity_autojoin_set(
-        _request("identity.autojoin.set", {"domain": None}),
+    clear_outcome = handle_organization_domain_set(
+        _request("organizations.domain.set", {"domain": None}),
     )
     assert clear_outcome.primary_success
     assert clear_outcome.result_payload["domain"] is None
+
+
+def test_organization_settings_default_merge_and_projection():
+    defaulted = handle_organization_settings_get(
+        _request(
+            "organizations.settings.get",
+            {"path": "fleet.relay_poll_seconds"},
+        ),
+    )
+    assert defaulted.primary_success, defaulted.error
+    assert defaulted.result_payload["value"] == 60
+    assert defaulted.result_payload["defaulted"] is True
+
+    merged = handle_organization_settings_merge(
+        _request(
+            "organizations.settings.merge",
+            {"assignments": {"fleet.relay_poll_seconds": 30}},
+        ),
+    )
+    assert merged.primary_success, merged.error
+    assert merged.result_payload["changed_paths"] == [
+        "fleet.relay_poll_seconds",
+    ]
+
+    projected = handle_organization_settings_get(
+        _request(
+            "organizations.settings.get",
+            {"path": "fleet.relay_poll_seconds"},
+        ),
+    )
+    assert projected.result_payload["value"] == 30
+    assert projected.result_payload["defaulted"] is False
+
+
+def test_organization_settings_reject_unknown_or_invalid_assignments():
+    unknown = handle_organization_settings_merge(
+        _request(
+            "organizations.settings.merge",
+            {"assignments": {"fleet.invented": True}},
+        ),
+    )
+    assert not unknown.primary_success
+    assert unknown.error.code == "validation_error"
+
+    invalid = handle_organization_settings_merge(
+        _request(
+            "organizations.settings.merge",
+            {"assignments": {"fleet.relay_poll_seconds": 1}},
+        ),
+    )
+    assert not invalid.primary_success
+    assert invalid.error.code == "validation_error"

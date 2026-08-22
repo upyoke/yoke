@@ -38,7 +38,7 @@ class IdentityRequest(BaseModel):
 class IdentityResponse(BaseModel):
     session_id: str
     executor: str
-    executor_display_name: Optional[str] = None
+    executor_surface: Optional[str] = None
     provider: Optional[str] = None
     model: Optional[str] = None
     execution_lane: Optional[str] = None
@@ -134,7 +134,7 @@ def handle_identity(request: FunctionCallRequest) -> HandlerOutcome:
         payload: Dict[str, Any] = {
             "session_id": identity.session_id,
             "executor": identity.executor,
-            "executor_display_name": identity.executor_display_name,
+            "executor_surface": identity.executor_surface,
             "provider": identity.provider,
             "model": identity.model,
             "execution_lane": identity.execution_lane,

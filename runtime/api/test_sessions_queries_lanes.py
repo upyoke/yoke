@@ -25,8 +25,8 @@ class TestSessionOfferLanes:
     def test_claim_race_retries_next_candidate(self, ownership_conn):
         """Lost claim race retries with next candidate."""
         conn, ws = ownership_conn
-        _ensure_active_session(conn, "sess-race-1", ws, executor="A", model="opus")
-        _ensure_active_session(conn, "sess-race-2", ws, executor="B", model="opus")
+        _ensure_active_session(conn, "sess-race-1", ws, executor="claude-code", model="opus")
+        _ensure_active_session(conn, "sess-race-2", ws, executor="codex", model="opus")
         # Add a second runnable item
         conn.execute(
             """INSERT INTO items
@@ -39,7 +39,7 @@ class TestSessionOfferLanes:
 
         # First session claims
         r1 = session_offer_with_ownership(
-            conn, session_id="sess-race-1", executor="A",
+            conn, session_id="sess-race-1", executor="claude-code",
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r1["action_hint"] == "charge"
@@ -47,7 +47,7 @@ class TestSessionOfferLanes:
 
         # Second session should get the other item
         r2 = session_offer_with_ownership(
-            conn, session_id="sess-race-2", executor="B",
+            conn, session_id="sess-race-2", executor="codex",
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r2["action_hint"] == "charge"
@@ -271,7 +271,7 @@ class TestSessionOfferLanes:
         result = session_offer_with_ownership(
             conn,
             session_id="sess-paths-1",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace=ws,
@@ -286,7 +286,7 @@ class TestSessionOfferLanes:
         result = session_offer_with_ownership(
             conn,
             session_id="sess-paths-2",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model="opus",
             workspace=ws,

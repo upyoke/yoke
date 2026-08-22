@@ -153,6 +153,8 @@ def register_session(
     workspace: str,
     entrypoint: Optional[str] = None,
     project_id: Optional[int] = None,
+    executor_version: Optional[str] = None,
+    machine_id: Optional[str] = None,
 ) -> Optional[str]:
     """Register/touch a session via service_client.py session-begin.
 
@@ -184,6 +186,10 @@ def register_session(
         cmd.extend(["--project-id", str(project_id)])
     if entrypoint:
         cmd.extend(["--entrypoint", entrypoint])
+    if executor_version:
+        cmd.extend(["--executor-version", executor_version])
+    if machine_id:
+        cmd.extend(["--machine-id", machine_id])
 
     try:
         cwd = _target_cwd(workspace, service_client_path)

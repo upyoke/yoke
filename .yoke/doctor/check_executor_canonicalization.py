@@ -6,7 +6,7 @@ value is a Yoke-family surface alias (``claude-desktop``,
 not a canonical harness id). Surface-specific writers must route through
 :func:`yoke_core.domain.sessions_lifecycle_canonicalize.canonicalize_executor`,
 which stores the canonical id in ``executor`` and the alias in
-``executor_display_name``. A leaked label silently degrades lane routing
+``executor_surface``. A leaked label silently degrades lane routing
 (``sessions_offer_lane``), event attribution
 (``sessions_lifecycle_registry`` writes ``executor`` into events), and
 harness-conditional rendering (``agents_render_conditional`` matches on
@@ -24,7 +24,7 @@ Verdicts:
   :data:`CANONICAL_HARNESS_IDS` in ``executor``.
 * **WARN** — at least one active row carries a surface-specific
   ``claude-*`` / ``codex-*`` value. The HC lists the offending tuples
-  (``session_id`` / ``executor`` / ``executor_display_name`` /
+  (``session_id`` / ``executor`` / ``executor_surface`` /
   ``offered_at``) plus the canonical remediation note.
 * **SKIP** — the ``harness_sessions`` table is not present (minimal-
   schema fixture install) or the leak query fails.
@@ -64,13 +64,13 @@ def _harness_sessions_table_exists(conn: Any) -> bool:
 def _scan_for_leaks(
     conn: Any,
 ) -> List[Tuple[str, str, object, str]]:
-    """Return ``(session_id, executor, executor_display_name, offered_at)``
+    """Return ``(session_id, executor, executor_surface, offered_at)``
     rows for active sessions whose ``executor`` is a Yoke-family
     surface alias instead of a canonical harness id."""
     p = _p(conn)
     placeholders = ",".join(p for _ in CANONICAL_HARNESS_IDS)
     sql = (
-        "SELECT session_id, executor, executor_display_name, offered_at "
+        "SELECT session_id, executor, executor_surface, offered_at "
         "FROM harness_sessions "
         f"WHERE executor NOT IN ({placeholders}) "
         f"AND (executor LIKE {p} OR executor LIKE {p} OR executor LIKE {p}) "
@@ -124,7 +124,7 @@ def hc_executor_canonicalization(
         display_repr = "<NULL>" if display_name is None else repr(display_name)
         lines.append(
             f"- session={session_id!s} executor={executor!r} "
-            f"executor_display_name={display_repr} offered_at={offered_at!s}"
+            f"executor_surface={display_repr} offered_at={offered_at!s}"
         )
     if len(findings) > _MAX_OFFENDERS_REPORTED:
         lines.append(

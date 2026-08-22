@@ -27,11 +27,11 @@ _SESSION_OFFER_SCHEMA_DDL = """
     CREATE TABLE harness_sessions (
         session_id TEXT PRIMARY KEY,
         executor TEXT NOT NULL,
-        executor_display_name TEXT DEFAULT NULL,
+        executor_surface TEXT DEFAULT NULL,
         provider TEXT NOT NULL,
         model TEXT NOT NULL,
         execution_lane TEXT NOT NULL DEFAULT 'DARIUS',
-        capabilities TEXT,
+        executor_version TEXT, machine_id TEXT,
         workspace TEXT,
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
         mode TEXT NOT NULL DEFAULT 'wait',
@@ -244,7 +244,7 @@ def session_offer_db(tmp_path, monkeypatch):
         yield {"db_path": db_path, "tmp_dir": workspace}
 
 
-def _pre_register_session(db_path: str, session_id: str, executor: str = "DARIUS",
+def _pre_register_session(db_path: str, session_id: str, executor: str = "claude-code",
                           provider: str = "anthropic", model: str = TEST_MODEL_ID,
                           workspace: str = "/tmp", lane: str = "primary"):
     """Pre-register a session in the DB so session-offer can find it.

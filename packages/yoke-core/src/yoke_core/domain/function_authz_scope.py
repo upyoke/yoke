@@ -62,7 +62,6 @@ from yoke_core.domain.function_authz_types import (
     AuthzSpec,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
-
 # function_id -> (scope, permission). PROJECT families are handled by
 # permission_key_for and need no entry here.
 _BY_ID: dict[str, AuthzSpec] = {
@@ -84,6 +83,9 @@ _BY_ID: dict[str, AuthzSpec] = {
     # The org identity card (slug/name/created_at) is instance identity, not
     # tenant content — readable by any authenticated actor.
     "organizations.get": AuthzSpec(ACTOR_SESSION, None),
+    "organizations.settings.get": AuthzSpec(ACTOR_SESSION, None),
+    "organizations.settings.merge": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "organizations.domain.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Note: ouroboros.entry.* writes are deliberately absent here. Review and
     # archive mutate one project's queue, so they take the PROJECT scope
     # permission_key_for assigns; a session scope would expose every project.

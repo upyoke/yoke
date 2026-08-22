@@ -284,10 +284,10 @@ class TestRecordRecoverableSubstrateSkip:
             now = "2026-01-01T00:00:00Z"
             bare.execute(
                 "INSERT INTO harness_sessions (session_id, executor, provider,"
-                " model, execution_lane, capabilities, workspace, mode,"
+                " model, execution_lane, executor_version, machine_id, workspace, mode,"
                 " offered_at, last_heartbeat, ended_at, offer_envelope) VALUES"
-                " (%s, 'DARIUS', 'anthropic', 'claude-opus-4-7', 'primary',"
-                " '[]', '/tmp/work', 'wait', %s, %s, NULL, NULL)",
+                " (%s, 'claude-code', 'anthropic', 'claude-opus-4-7', 'primary',"
+                " NULL, NULL, '/tmp/work', 'wait', %s, %s, NULL, NULL)",
                 ("sess-bare-row", now, now),
             )
             bare.commit()

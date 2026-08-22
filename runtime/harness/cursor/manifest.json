@@ -31,6 +31,33 @@
       "stop_hook"
     ]
   },
+  "session_control": {
+    "source": "yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES",
+    "surfaces": {
+      "cursor-cli": {
+        "minimum_version": "2026.08.11",
+        "inject_events": [
+          "SessionStart",
+          "PostToolUse"
+        ],
+        "create": "supported",
+        "message_active": "none",
+        "message_idle": "supported",
+        "message_stopped": "supported"
+      },
+      "cursor-desktop": {
+        "minimum_version": "3.17.8",
+        "inject_events": [
+          "SessionStart",
+          "PostToolUse"
+        ],
+        "create": "none",
+        "message_active": "none",
+        "message_idle": "none",
+        "message_stopped": "none"
+      }
+    }
+  },
   "worktree_hook_enablement": {
     "config_path": ".cursor/hooks.json",
     "operations": [

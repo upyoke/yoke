@@ -68,7 +68,9 @@ class TestSessionEndCommand:
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
         # Create session without claims (just register, don't offer which may claim)
-        _pre_register_session(db, sid, executor="D", provider="a", model="o", workspace=ws)
+        _pre_register_session(
+            db, sid, executor="claude-code", provider="a", model="o", workspace=ws,
+        )
         # End first time
         r1 = _run_client(["session-end", "--session-id", sid], db_path=db)
         assert r1.returncode == 0
@@ -107,7 +109,7 @@ class TestSessionEndCommand:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offer_envelope,
                 offered_at, last_heartbeat)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
             (
                 sid,
                 session_offer_db["tmp_dir"],
@@ -148,7 +150,7 @@ class TestSessionEndCommand:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offer_envelope,
                 offered_at, last_heartbeat)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
             (
                 sid,
                 session_offer_db["tmp_dir"],
@@ -187,7 +189,7 @@ class TestSessionEndCommand:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offer_envelope,
                 offered_at, last_heartbeat)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
             (
                 sid,
                 session_offer_db["tmp_dir"],
@@ -223,7 +225,7 @@ class TestSessionEndCommand:
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offer_envelope,
                 offered_at, last_heartbeat)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', %s, %s, %s, %s)""",
             (
                 sid,
                 session_offer_db["tmp_dir"],

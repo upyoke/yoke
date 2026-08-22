@@ -35,11 +35,11 @@ _STALE_DB_SCHEMA = """
             CREATE TABLE harness_sessions (
                 session_id TEXT PRIMARY KEY,
                 executor TEXT NOT NULL,
-                executor_display_name TEXT DEFAULT NULL,
+                executor_surface TEXT DEFAULT NULL,
                 provider TEXT NOT NULL,
                 model TEXT NOT NULL,
                 execution_lane TEXT NOT NULL DEFAULT 'primary',
-                capabilities TEXT DEFAULT '[]',
+                executor_version TEXT, machine_id TEXT,
                 workspace TEXT NOT NULL,
                 mode TEXT DEFAULT 'wait',
                 offered_at TEXT NOT NULL,
@@ -167,7 +167,7 @@ class TestSessionsDbScript:
             db_path,
             "begin",
             "sess-1",
-            "DARIUS",
+            "claude-code",
             "anthropic",
             TEST_MODEL_ID,
             "/tmp/work",
@@ -186,7 +186,7 @@ class TestSessionsDbScript:
             db_path,
             "begin",
             "sess-1",
-            "DARIUS",
+            "claude-code",
             "anthropic",
             TEST_MODEL_ID,
             "/tmp/work",
@@ -211,7 +211,7 @@ class TestSessionsDbScript:
             db_path,
             "begin",
             "sess-1",
-            "DARIUS",
+            "claude-code",
             "anthropic",
             TEST_MODEL_ID,
             "/tmp/work",
@@ -240,7 +240,7 @@ class TestSessionsDbScript:
 
     def test_stale_excludes_sessions_with_active_claims(self, db_path):
         """A session holding an active work claim is never stale."""
-        self._run_script(db_path, "begin", "sess-1", "DARIUS",
+        self._run_script(db_path, "begin", "sess-1", "claude-code",
                          "anthropic", TEST_MODEL_ID, "/tmp/work")
 
         # Claim an item so the session holds an active claim
@@ -268,7 +268,7 @@ class TestSessionsDbScript:
 
     def test_stale_excludes_sessions_with_recent_tool_activity(self, db_path):
         """Recent tool activity keeps a session non-stale despite old heartbeat."""
-        self._run_script(db_path, "begin", "sess-1", "DARIUS",
+        self._run_script(db_path, "begin", "sess-1", "claude-code",
                          "anthropic", TEST_MODEL_ID, "/tmp/work")
 
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=120)).strftime(

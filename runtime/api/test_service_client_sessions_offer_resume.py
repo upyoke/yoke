@@ -31,7 +31,7 @@ class TestSessionOfferResume:
         conn.execute(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('stale-offer', 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s)""",
+               VALUES ('stale-offer', 'claude-code', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s)""",
             (stale_iso, stale_iso),
         )
         conn.execute(
@@ -81,7 +81,7 @@ class TestSessionOfferResume:
         conn.execute(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
-               VALUES ('sess-epic-task', 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s)""",
+               VALUES ('sess-epic-task', 'claude-code', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s)""",
             (fresh_iso, fresh_iso),
         )
         conn.execute(
@@ -191,7 +191,7 @@ class TestSessionOfferResume:
         conn.execute(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat, offer_envelope)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s, %s)""",
             (
                 "sess-resume-loop",
                 fresh_iso,
@@ -260,7 +260,7 @@ class TestSessionOfferResume:
         conn.execute(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat, offer_envelope)
-               VALUES (%s, 'DARIUS', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s, %s)""",
+               VALUES (%s, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', '/tmp/test', %s, %s, %s)""",
             (
                 "sess-resume-progress",
                 fresh_iso,

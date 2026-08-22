@@ -12,6 +12,10 @@ import os
 import re
 from typing import Optional
 
+from yoke_contracts.executor_labels import (
+    canonical_harness_id as _contract_canonical_harness_id,
+)
+
 
 # Coarse executor families. Surface-specific values are formed as
 # ``{family}-{surface}`` (e.g. ``claude-desktop``, ``codex-vscode``); the
@@ -64,16 +68,7 @@ def canonical_harness_id(executor: Optional[str]) -> str:
     route the row through the explicit refuse-or-report policy instead of
     substituting a guess.
     """
-    if not executor or not executor.strip():
-        raise ValueError("canonical_harness_id requires a non-empty executor")
-    e = executor.strip().lower()
-    if is_codex(e):
-        return _CODEX_COARSE
-    if is_cursor(e):
-        return _CURSOR_COARSE
-    if is_claude(e):
-        return _CLAUDE_COARSE
-    raise ValueError(f"unknown harness executor: {executor!r}")
+    return _contract_canonical_harness_id(executor)
 
 
 def _normalize_surface_token(value: str) -> str:
@@ -108,7 +103,7 @@ def cursor_surface_entrypoint() -> str:
     does NOT consult ``CURSOR_TRANSCRIPT_PATH``: that variable is absent for
     a session's first hook events, which is exactly when session
     registration runs, so keying the surface on it loses the alias on the
-    IDE surface and leaves ``executor_display_name`` NULL.
+    IDE surface and leaves ``executor_surface`` NULL.
 
     Callers that must first decide whether this is a Cursor process at all
     still gate on the env vars; this resolver only answers *which surface*.

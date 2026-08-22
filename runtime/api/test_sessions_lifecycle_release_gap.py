@@ -66,9 +66,9 @@ def _seed_session(conn) -> None:
     now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, model,"
-        " execution_lane, capabilities, workspace, mode, offered_at,"
+        " execution_lane, executor_version, machine_id, workspace, mode, offered_at,"
         " last_heartbeat) VALUES (%s, 'claude-code', 'anthropic',"
-        f" '{TEST_MODEL_ID}', 'primary', '[]', '/tmp/yok1674', 'wait', %s, %s)",
+        f" '{TEST_MODEL_ID}', 'primary', NULL, NULL, '/tmp/yok1674', 'wait', %s, %s)",
         (SESSION_ID, now, now))
     conn.commit()
 
@@ -142,7 +142,8 @@ class TestEvaluateReleasePrecondition(unittest.TestCase):
         )
         for label, chainable, outcome in cases:
             with self.subTest(branch=label):
-                conn = _make_db(); _seed_session(conn)
+                conn = _make_db()
+                _seed_session(conn)
                 _seed_checkpoint(conn, chainable=chainable, outcome=outcome)
                 self.assertTrue(_eval_item(conn).allowed)
 
@@ -227,7 +228,11 @@ def _capture_envelopes(target: callable) -> list[dict]:
             else:
                 os.environ[key] = val
     with open(cap, "r", encoding="utf-8") as handle:
-        envelopes = [json.loads(s) for s in (l.strip() for l in handle) if s]
+        envelopes = [
+            json.loads(serialized)
+            for serialized in (line.strip() for line in handle)
+            if serialized
+        ]
     os.unlink(cap)
     return envelopes
 

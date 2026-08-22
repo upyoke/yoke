@@ -1,8 +1,7 @@
-"""External identity links and org auto-join admission.
+"""External identity links and organization identity domains.
 
 Read/write path for ``actor_external_identities`` and the
-``organizations.auto_join_domain`` column (both created in
-:mod:`yoke_core.domain.external_identity_schema`).
+``organizations.domain`` column.
 
 An external identity is the pair ``(issuer, subject)`` from a *verified*
 id_token; this module never verifies tokens itself — callers pass claims
@@ -18,7 +17,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.external_identity_events import (
-    EVENT_AUTO_JOIN_DOMAIN_CHANGED,
+    EVENT_ORGANIZATION_DOMAIN_CHANGED,
     EVENT_EXTERNAL_IDENTITY_LINKED,
     emit_identity_event,
 )
@@ -139,11 +138,11 @@ def normalize_email_domain(value: Optional[str]) -> Optional[str]:
     return text or None
 
 
-def auto_join_domain(conn: Any, *, org_id: int) -> Optional[str]:
-    """Return the org's auto-join email domain, or None when unset."""
+def organization_domain(conn: Any, *, org_id: int) -> Optional[str]:
+    """Return the org's normalized identity domain, or None when unset."""
     p = _p(conn)
     row = conn.execute(
-        f"SELECT auto_join_domain FROM organizations WHERE id = {p}",
+        f"SELECT domain FROM organizations WHERE id = {p}",
         (int(org_id),),
     ).fetchone()
     if row is None:
@@ -152,29 +151,29 @@ def auto_join_domain(conn: Any, *, org_id: int) -> Optional[str]:
     return normalize_email_domain(value) if value else None
 
 
-def set_auto_join_domain(
+def set_organization_domain(
     conn: Any,
     *,
     org_id: int,
     domain: Optional[str],
     changed_by_actor_id: Optional[int] = None,
 ) -> Optional[str]:
-    """Set (or clear, with ``domain=None``/empty) the org's auto-join domain.
+    """Set (or clear, with ``domain=None``/empty) the org's identity domain.
 
-    Returns the normalized stored value. Emits ``AutoJoinDomainChanged``
+    Returns the normalized stored value. Emits ``OrganizationDomainChanged``
     naming both the previous and the new value so the audit trail shows
     every widening or narrowing of the admission surface.
     """
-    previous = auto_join_domain(conn, org_id=org_id)
+    previous = organization_domain(conn, org_id=org_id)
     normalized = normalize_email_domain(domain)
     p = _p(conn)
     conn.execute(
-        f"UPDATE organizations SET auto_join_domain = {p} WHERE id = {p}",
+        f"UPDATE organizations SET domain = {p} WHERE id = {p}",
         (normalized, int(org_id)),
     )
     conn.commit()
     emit_identity_event(
-        EVENT_AUTO_JOIN_DOMAIN_CHANGED,
+        EVENT_ORGANIZATION_DOMAIN_CHANGED,
         severity="STATUS",
         context={
             "org_id": int(org_id),
@@ -189,10 +188,10 @@ def set_auto_join_domain(
 __all__ = [
     "ExternalIdentityConflict",
     "ExternalIdentityError",
-    "auto_join_domain",
     "default_org_id",
     "link_external_identity",
     "normalize_email_domain",
+    "organization_domain",
     "resolve_external_identity",
-    "set_auto_join_domain",
+    "set_organization_domain",
 ]

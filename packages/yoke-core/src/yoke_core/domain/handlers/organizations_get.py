@@ -28,6 +28,7 @@ class OrganizationsGetRequest(BaseModel):
 class OrganizationsGetResponse(BaseModel):
     slug: str
     name: str
+    domain: Optional[str] = None
     created_at: str
 
 
@@ -52,14 +53,14 @@ def handle_organizations_get(request: FunctionCallRequest) -> HandlerOutcome:
             placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
             row = query_one(
                 conn,
-                "SELECT slug, name, created_at FROM organizations "
+                "SELECT slug, name, domain, created_at FROM organizations "
                 f"WHERE slug = {placeholder}",
                 (parsed.slug,),
             )
         else:
             row = query_one(
                 conn,
-                "SELECT slug, name, created_at FROM organizations "
+                "SELECT slug, name, domain, created_at FROM organizations "
                 "ORDER BY id LIMIT 1",
             )
     finally:
@@ -78,6 +79,7 @@ def handle_organizations_get(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={
             "slug": str(row["slug"]),
             "name": str(row["name"]),
+            "domain": str(row["domain"]) if row["domain"] else None,
             "created_at": str(row["created_at"]),
         },
         primary_success=True,

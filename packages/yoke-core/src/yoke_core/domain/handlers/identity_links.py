@@ -1,4 +1,4 @@
-"""``identity.link.set`` and ``identity.autojoin.set`` handlers.
+"""``identity.link.set`` handler.
 
 ``identity.link.set`` has two shapes, both binding sign-in admission to
 an EXISTING actor:
@@ -10,8 +10,7 @@ an EXISTING actor:
   actor, so the next verified sign-in with that email binds its identity
   to that actor instead of creating a new one.
 
-``identity.autojoin.set`` sets or clears ``organizations.auto_join_domain``.
-Both are org-admin-gated at dispatch (``identity.`` prefix -> ORG scope).
+The handler is org-admin-gated at dispatch (``identity.`` prefix -> ORG scope).
 """
 
 from __future__ import annotations
@@ -46,16 +45,6 @@ class LinkSetResponse(BaseModel):
     link_kind: str  # "external_identity" | "email_pre_link"
     link_id: Optional[int] = None
     invite_id: Optional[int] = None
-
-
-class AutojoinSetRequest(BaseModel):
-    domain: Optional[str] = None
-    org: Optional[str] = None
-
-
-class AutojoinSetResponse(BaseModel):
-    org_id: int
-    domain: Optional[str] = None
 
 
 def handle_identity_link_set(request: FunctionCallRequest) -> HandlerOutcome:
@@ -143,47 +132,8 @@ def handle_identity_link_set(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 
-def handle_identity_autojoin_set(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.external_identities import (
-        ExternalIdentityError,
-        set_auto_join_domain,
-    )
-
-    try:
-        parsed = AutojoinSetRequest(**(request.payload or {}))
-    except Exception as exc:
-        return HandlerOutcome(primary_success=False, error=payload_error(str(exc)))
-    conn = connect()
-    try:
-        org_id, org_error = resolve_org_ref(conn, parsed.org)
-        if org_error is not None:
-            return HandlerOutcome(primary_success=False, error=org_error)
-        try:
-            stored = set_auto_join_domain(
-                conn,
-                org_id=org_id,
-                domain=parsed.domain,
-                changed_by_actor_id=caller_actor_id(conn, request),
-            )
-        except ExternalIdentityError as exc:
-            return HandlerOutcome(
-                primary_success=False,
-                error=payload_error(str(exc), "$.payload.domain"),
-            )
-    finally:
-        conn.close()
-    return HandlerOutcome(
-        result_payload={"org_id": org_id, "domain": stored},
-        primary_success=True,
-    )
-
-
 __all__ = [
-    "AutojoinSetRequest",
-    "AutojoinSetResponse",
     "LinkSetRequest",
     "LinkSetResponse",
-    "handle_identity_autojoin_set",
     "handle_identity_link_set",
 ]

@@ -17,7 +17,6 @@ post-transient-end revival must not depend on lifecycle events firing.
 
 from __future__ import annotations
 
-import json
 from typing import Any, Optional
 
 from yoke_core.hooks.session_lifecycle_client import (
@@ -26,6 +25,10 @@ from yoke_core.hooks.session_lifecycle_client import (
 from yoke_core.hooks.registration_identity import (
     placeholder_identity_can_upgrade,
     project_lane_for_executor,
+)
+from yoke_core.hooks.registration_observed import (
+    enrich_local_observed_facts,
+    parse_hook_registration_facts,
 )
 from yoke_core.hooks.ended_session_terminal_read import (
     skip_ended_session_revival,
@@ -91,39 +94,26 @@ def _register_from_hook(
         detect_provider,
     )
 
-    payload_model = ""
-    payload_entrypoint = ""
-    payload_lane = ""
-    payload_project_id: Optional[int] = project_id
-    effective_transcript_path = transcript_path
-    if payload_json:
-        try:
-            payload = json.loads(payload_json)
-        except (json.JSONDecodeError, TypeError):
-            payload = None
-        if isinstance(payload, dict):
-            m = payload.get("model", "")
-            if isinstance(m, str) and m and not _is_placeholder_model(m):
-                payload_model = m
-            ep = payload.get("entrypoint", "")
-            if isinstance(ep, str):
-                payload_entrypoint = ep
-            lane = payload.get("execution_lane", "")
-            if isinstance(lane, str):
-                payload_lane = lane.strip()
-            if payload_project_id is None:
-                payload_project_id = _payload_project_id(payload.get("project_id"))
-            if not effective_transcript_path:
-                tp = payload.get("transcript_path", "")
-                if isinstance(tp, str):
-                    effective_transcript_path = tp
+    facts = parse_hook_registration_facts(
+        payload_json,
+        project_id=project_id,
+        transcript_path=transcript_path,
+        is_placeholder_model=_is_placeholder_model,
+    )
 
     executor = executor_hint or detect_executor()
     provider = detect_provider(executor)
-    model = payload_model or detect_model(executor, transcript_path=effective_transcript_path)
+    model = facts.model or detect_model(
+        executor, transcript_path=facts.transcript_path,
+    )
     # Relayed payloads carry the CLIENT's entrypoint (merged from the wire);
     # local payloads never carry one, so local detection is unchanged.
-    entrypoint = payload_entrypoint or detect_entrypoint()
+    entrypoint = facts.entrypoint or detect_entrypoint()
+    if not entrypoint and executor in {"claude", "claude-code"}:
+        entrypoint = "claude-cli"
+    executor_version, machine_id = enrich_local_observed_facts(
+        executor, facts.executor_version, facts.machine_id,
+    )
 
     # Process-anchor registry write: hooks run as children of the
     # per-session harness agent process, so this is the one place the
@@ -134,7 +124,7 @@ def _register_from_hook(
     # evaluation passes record_anchor=False: the server's process tree is
     # not the caller's, so the hook relay writes the anchor client-side.
     if record_anchor:
-        _record_process_anchor(session_id, effective_transcript_path)
+        _record_process_anchor(session_id, facts.transcript_path)
 
     if register_in_process:
         # Server runtime: the checkout-layout subprocess wrapper cannot
@@ -142,18 +132,12 @@ def _register_from_hook(
         # domain registrar directly (SESSION_EXISTS semantics included).
         # The verified bearer-token actor binds here — the relayed
         # mirror of the machine actor local registration resolves.
-        payload_cwd = ""
-        if payload_json:
-            try:
-                parsed = json.loads(payload_json)
-                if isinstance(parsed, dict) and isinstance(parsed.get("cwd"), str):
-                    payload_cwd = parsed["cwd"]
-            except (json.JSONDecodeError, TypeError):
-                pass
         err = _register_in_process(
-            session_id, executor, provider, model, payload_cwd, entrypoint,
-            actor_id=actor_id, execution_lane=payload_lane or None,
-            project_id=payload_project_id,
+            session_id, executor, provider, model, facts.cwd, entrypoint,
+            actor_id=actor_id, execution_lane=facts.execution_lane or None,
+            project_id=facts.project_id,
+            executor_version=executor_version or None,
+            machine_id=machine_id or None,
         )
         return (err, executor, provider, model, entrypoint)
 
@@ -167,6 +151,8 @@ def _register_from_hook(
         provider=provider,
         model=model,
         entrypoint=entrypoint,
+        executor_version=executor_version or None,
+        machine_id=machine_id or None,
     )
     return (err, executor, provider, model, entrypoint)
 
@@ -182,6 +168,8 @@ def _register_in_process(
     actor_id: Optional[int] = None,
     execution_lane: Optional[str] = None,
     project_id: Optional[int] = None,
+    executor_version: Optional[str] = None,
+    machine_id: Optional[str] = None,
 ) -> str:
     """Direct domain registration for server-side (remote) contexts.
 
@@ -212,6 +200,8 @@ def _register_in_process(
                 entrypoint=entrypoint,
                 actor_id=actor_id,
                 project_id=project_id,
+                executor_version=executor_version,
+                machine_id=machine_id,
                 **lane_kwargs,
             )
         finally:
@@ -233,14 +223,6 @@ def _record_process_anchor(session_id: str, transcript_path: str) -> None:
         record_session_anchor(session_id, transcript_path=transcript_path)
     except Exception:  # noqa: BLE001 — anchor recording must never break hooks
         return
-
-
-def _payload_project_id(value: Any) -> Optional[int]:
-    try:
-        project_id = int(value)
-    except (TypeError, ValueError):
-        return None
-    return project_id if project_id > 0 else None
 
 
 def ensure_registered_from_hook(

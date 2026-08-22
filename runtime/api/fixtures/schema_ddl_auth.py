@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS organizations (
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    auto_join_domain TEXT
+    domain TEXT,
+    settings TEXT NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE IF NOT EXISTS actor_org_roles (

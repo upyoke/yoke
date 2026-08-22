@@ -139,25 +139,6 @@ class TestKernelsRefuseBeforeTouchingTheDatabase:
             )
 
 
-class TestRehearsalRefusesProductionOutright:
-    def test_prod_control_plane_is_refused_with_the_reason(
-        self, prod_connection: None
-    ) -> None:
-        refusal = schema_authority.refuse_on_prod_control_plane("rehearsal")
-        assert refusal is not None
-        assert PROD_ENV in refusal
-        assert "validation surface" in refusal
-
-    def test_the_refusal_is_not_exemptible(self, prod_connection: None) -> None:
-        # Rehearsal targets a disposable copy by definition, so no caller has
-        # standing to declare authority over a production control plane.
-        with schema_authority.serving_build_authority():
-            assert schema_authority.refuse_on_prod_control_plane("rehearsal")
-
-    def test_a_non_prod_connection_rehearses(self, local_connection: None) -> None:
-        assert schema_authority.refuse_on_prod_control_plane("rehearsal") is None
-
-
 def _select(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

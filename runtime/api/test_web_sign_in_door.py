@@ -42,8 +42,9 @@ from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.external_identities import (
     default_org_id,
     resolve_external_identity,
-    set_auto_join_domain,
+    set_organization_domain,
 )
+from yoke_core.domain.organization_settings import merge_organization_settings
 
 
 _OIDC_ENV_KEYS = (
@@ -123,11 +124,19 @@ def _sign_in(
     return _callback(client, code=code, state=query["state"])
 
 
+def _enable_domain_admission(conn, *, domain: str) -> None:
+    org_id = default_org_id(conn)
+    set_organization_domain(conn, org_id=org_id, domain=domain)
+    merge_organization_settings(
+        conn,
+        org_id,
+        {"membership.auto_join_domain_verified": True},
+    )
+
+
 class TestFullFlow:
     def test_auto_join_flow_lands_signed_in(self, db_conn, client, door_env, provider):
-        set_auto_join_domain(
-            db_conn, org_id=default_org_id(db_conn), domain="example.com",
-        )
+        _enable_domain_admission(db_conn, domain="example.com")
         query = _start(client)
         assert query["redirect_uri"] == "http://testserver/v1/auth/oidc/callback"
         assert query["scope"] == "openid email profile"
@@ -233,9 +242,7 @@ class TestFlowTamper:
 
 class TestAdmissionRefusals:
     def test_unverified_email_refused(self, db_conn, client, door_env, provider):
-        set_auto_join_domain(
-            db_conn, org_id=default_org_id(db_conn), domain="example.com",
-        )
+        _enable_domain_admission(db_conn, domain="example.com")
         resp = _sign_in(client, provider, email_verified=False)
         assert resp.status_code == 403
         assert WEB_SESSION_COOKIE_NAME not in client.cookies
@@ -273,9 +280,7 @@ class TestDisabledDoor:
 
 class TestCookieAuthorizationBoundary:
     def _signed_in_client(self, db_conn, client, provider):
-        set_auto_join_domain(
-            db_conn, org_id=default_org_id(db_conn), domain="example.com",
-        )
+        _enable_domain_admission(db_conn, domain="example.com")
         assert _sign_in(client, provider).status_code == 303
         return client
 

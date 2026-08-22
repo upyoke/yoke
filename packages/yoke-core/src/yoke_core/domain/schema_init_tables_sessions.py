@@ -10,18 +10,30 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_contracts.executor_labels import (
+    CANONICAL_HARNESS_IDS,
+    KNOWN_SURFACE_LABELS,
+)
 
 
 def create_session_tables(conn: Any) -> None:
-    execute_schema_script(conn, """
+    executor_values = ", ".join(
+        f"'{executor}'" for executor in sorted(CANONICAL_HARNESS_IDS)
+    )
+    surface_values = ", ".join(
+        f"'{surface}'" for surface in sorted(KNOWN_SURFACE_LABELS)
+    )
+    execute_schema_script(conn, f"""
         CREATE TABLE IF NOT EXISTS harness_sessions (
           session_id TEXT PRIMARY KEY,
-          executor TEXT NOT NULL,
-          executor_display_name TEXT DEFAULT NULL,
+          executor TEXT NOT NULL CHECK(executor IN ({executor_values})),
+          executor_surface TEXT DEFAULT NULL
+            CHECK(executor_surface IS NULL OR executor_surface IN ({surface_values})),
+          executor_version TEXT DEFAULT NULL,
+          machine_id TEXT DEFAULT NULL,
           provider TEXT NOT NULL,
           model TEXT NOT NULL,
           execution_lane TEXT NOT NULL DEFAULT 'primary',
-          capabilities TEXT DEFAULT '[]',
           workspace TEXT NOT NULL,
           project_id INTEGER NOT NULL REFERENCES projects(id),
           mode TEXT DEFAULT 'wait',

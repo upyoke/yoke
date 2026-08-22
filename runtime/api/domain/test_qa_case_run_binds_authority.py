@@ -109,6 +109,10 @@ def test_begin_pins_the_sessions_claim_onto_the_contract() -> None:
             return_value=_case(None),
         ),
         mock.patch(
+            "yoke_core.domain.qa_case_execution_context.execution_host_capability_kinds",
+            return_value=(),
+        ),
+        mock.patch(
             "yoke_core.domain.qa_start_bound_authority.resolve_start_bound_claim_id",
             return_value=_CLAIM,
         ) as resolve,
