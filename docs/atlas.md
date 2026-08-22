@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-22T20:11:48Z_
+_Audit generated_at: 2026-08-22T23:10:32Z_
 
 ## 1. Summary
 
-- Function ids registered: **395**
-- Internal dispatch-only functions without CLI adapters: **78**
-- `yoke` CLI subcommands: **318** (318 carry usable `--help`)
-- Operation tracker: **296 wrapped**, 8 tool_cli, 117 permanent, 0 pending
+- Function ids registered: **411**
+- Internal dispatch-only functions without CLI adapters: **81**
+- `yoke` CLI subcommands: **339** (339 carry usable `--help`)
+- Operation tracker: **317 wrapped**, 8 tool_cli, 121 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **296** (operation tracker confirms 296 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **317** (operation tracker confirms 317 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -224,6 +224,27 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **296** (operation track
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |
 | readiness | `yoke readiness repair-stale-count` | `readiness.repair_stale_count` | ok |
 | release_pin | `yoke release-pin record` | `release_pin.record` | ok |
+| session_control | `yoke session-control launch cancel` | `session_control.launch.cancel` | ok |
+| session_control | `yoke session-control launch create` | `session_control.launch.create` | ok |
+| session_control | `yoke sessions create` | `session_control.launch.create` | ok |
+| session_control | `yoke session-control launch get` | `session_control.launch.get` | ok |
+| session_control | `yoke session-control launch list` | `session_control.launch.list` | ok |
+| session_control | `yoke session-control launch preview` | `session_control.launch.preview` | ok |
+| session_control | `yoke session-control launch reconcile` | `session_control.launch.reconcile` | ok |
+| session_control | `yoke session-control launch retry` | `session_control.launch.retry` | ok |
+| session_control | `yoke session-control message acknowledge` | `session_control.message.acknowledge` | ok |
+| session_control | `yoke messages ack` | `session_control.message.acknowledge` | ok |
+| session_control | `yoke messages acknowledge` | `session_control.message.acknowledge` | ok |
+| session_control | `yoke session-control message cancel` | `session_control.message.cancel` | ok |
+| session_control | `yoke messages cancel` | `session_control.message.cancel` | ok |
+| session_control | `yoke session-control message get` | `session_control.message.get` | ok |
+| session_control | `yoke messages get` | `session_control.message.get` | ok |
+| session_control | `yoke messages status` | `session_control.message.get` | ok |
+| session_control | `yoke session-control message list` | `session_control.message.list` | ok |
+| session_control | `yoke messages list` | `session_control.message.list` | ok |
+| session_control | `yoke session-control message preview` | `session_control.message.preview` | ok |
+| session_control | `yoke session-control message send` | `session_control.message.send` | ok |
+| session_control | `yoke say` | `session_control.message.send` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
@@ -430,6 +451,10 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | self_host | `yoke self-host init` | tool_shaped | — |
 | self_host.connect | `yoke connect` | tool_shaped | — |
 | self_host.import | `yoke self-host import` | tool_shaped | — |
+| session_control.relay | `yoke relay install` | tool_shaped | — |
+| session_control.relay | `yoke relay serve-once` | tool_shaped | — |
+| session_control.relay | `yoke relay status` | tool_shaped | — |
+| session_control.relay | `yoke relay uninstall` | tool_shaped | — |
 | source_authority.export | `yoke source-authority export` | tool_shaped | — |
 | source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped | — |
 | status | `yoke status` | tool_shaped | — |
@@ -487,9 +512,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 31 |
-| claude-code | 17 |
-| cursor | 2 |
+| codex | 47 |
+| claude-code | 3 |
 
 ## 8. Contradictions
 

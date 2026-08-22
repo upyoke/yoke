@@ -48,9 +48,7 @@ def test_apply_executes_native_postgres_ddl(scratch_db) -> None:
     ).fetchone()
     assert row[0] == 1
     with pytest.raises(psycopg.errors.CheckViolation):
-        scratch_db.execute(
-            "INSERT INTO fixture_probe (envelope) VALUES ('not json')"
-        )
+        scratch_db.execute("INSERT INTO fixture_probe (envelope) VALUES ('not json')")
     scratch_db.rollback()
 
 
@@ -94,6 +92,15 @@ def test_composed_fixture_schema_includes_auth_foundation_tables(scratch_db) -> 
     assert set(REQUIRED_AUTH_TABLES) <= tables
 
 
+def test_composed_fixture_schema_includes_session_control_tables(scratch_db) -> None:
+    from yoke_core.domain.schema_common import _get_tables
+    from yoke_core.domain.session_control_schema import required_tables
+
+    apply_fixture_schema(scratch_db)
+    tables = set(_get_tables(scratch_db))
+    assert set(required_tables()) <= tables
+
+
 def test_composed_fixture_schema_stamps_migration_history_as_birth(
     scratch_db,
 ) -> None:
@@ -108,8 +115,7 @@ def test_composed_fixture_schema_stamps_migration_history_as_birth(
     assert history
     assert pending_entries(scratch_db, history, YOKE_LEDGER_CONTRACT) == ()
     rows = scratch_db.execute(
-        "SELECT applied_by FROM applied_migrations "
-        "ORDER BY migration_name LIMIT 1"
+        "SELECT applied_by FROM applied_migrations ORDER BY migration_name LIMIT 1"
     ).fetchone()
     assert rows is not None
     assert rows[0] == "fixture-birth"

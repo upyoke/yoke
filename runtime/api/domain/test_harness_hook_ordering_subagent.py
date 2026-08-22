@@ -37,6 +37,7 @@ class TestPreToolUseSubagentLint(unittest.TestCase):
             chain,
             [
                 "yoke_core.domain.lint_subagent_background",
+                "yoke_core.hooks.session_message_delivery",
                 "yoke_core.domain.observe_pre",
             ],
         )

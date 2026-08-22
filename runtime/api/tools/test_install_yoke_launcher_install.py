@@ -17,22 +17,19 @@ def _fake_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "yoke-repo"
     repo.mkdir()
     (repo / "pyproject.toml").write_text(
-        '[project]\n'
+        "[project]\n"
         'name = "yoke"\n'
         'version = "0.1.0"\n'
-        'dependencies = [\n'
+        "dependencies = [\n"
         '    "fastapi==0.128.8",\n'
-        ']\n'
+        "]\n"
     )
     return repo
 
 
 def _fake_source(repo: Path) -> Path:
     src = repo / "_fake_launcher.py"
-    src.write_text(
-        "#!/usr/bin/env python3\n"
-        "from yoke_cli.main import main\n"
-    )
+    src.write_text("#!/usr/bin/env python3\nfrom yoke_cli.main import main\n")
     return src
 
 
@@ -43,6 +40,11 @@ def install_env(monkeypatch):
     monkeypatch.setattr(isl, "cleanup_stale_editable_yoke_metadata", lambda *a, **kw: 0)
     monkeypatch.setattr(isl.subprocess, "check_call", lambda *a, **kw: 0)
     return monkeypatch
+
+
+@pytest.fixture(autouse=True)
+def _relay_install_noop(monkeypatch):
+    monkeypatch.setattr(isl, "configure_session_relay", lambda **_kwargs: False)
 
 
 def test_install_skip_claude_config_propagates(tmp_path: Path, install_env):
@@ -89,12 +91,36 @@ def test_install_happy_path_writes_launcher(tmp_path: Path, install_env):
     install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
     target_dir = tmp_path / "bin"
     choice = isl.install(
-        cwd=repo, home=repo, target_dir=str(target_dir), stream=io.StringIO(),
+        cwd=repo,
+        home=repo,
+        target_dir=str(target_dir),
+        stream=io.StringIO(),
     )
     assert choice.label == "override"
     written = target_dir / isl.LAUNCHER_FILENAME
     assert written.is_file()
     assert (written.stat().st_mode & 0o777) == 0o755
+
+
+def test_install_converges_relay_with_installed_launcher(tmp_path: Path, install_env):
+    repo = _fake_repo(tmp_path)
+    install_env.setattr(isl, "LAUNCHER_SOURCE", _fake_source(repo))
+    observed = []
+    install_env.setattr(
+        isl,
+        "configure_session_relay",
+        lambda **kwargs: observed.append(kwargs["executable"]) or True,
+    )
+    target_dir = tmp_path / "bin"
+
+    isl.install(
+        cwd=repo,
+        home=repo,
+        target_dir=str(target_dir),
+        stream=io.StringIO(),
+    )
+
+    assert observed == [target_dir / isl.LAUNCHER_FILENAME]
 
 
 def test_install_is_idempotent(tmp_path: Path, install_env):
@@ -116,7 +142,9 @@ def test_install_refuses_foreign_binary_without_force(tmp_path: Path, install_en
     target_dir.mkdir()
     (target_dir / isl.LAUNCHER_FILENAME).write_text("#!/bin/bash\necho foreign\n")
     with pytest.raises(isl.InstallError, match="not a python interpreter"):
-        isl.install(cwd=repo, home=repo, target_dir=str(target_dir), stream=io.StringIO())
+        isl.install(
+            cwd=repo, home=repo, target_dir=str(target_dir), stream=io.StringIO()
+        )
 
 
 def test_install_force_overwrites_foreign_binary(tmp_path: Path, install_env):

@@ -1,0 +1,93 @@
+"""Typed contracts for one machine-relay poll and its leased job."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal, Mapping, Sequence
+
+
+RelayJobKind = Literal["launch", "wake"]
+WAKE_LEASE_SECONDS = 90
+MAX_RELAY_LONG_POLL_SECONDS = 55
+RELAY_LONG_POLL_STEP_SECONDS = 1
+
+
+class SessionRelayError(ValueError):
+    """A relay heartbeat, claim, or report was refused with a typed code."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+@dataclass(frozen=True)
+class RelayHeartbeat:
+    relay_id: str
+    actor_id: int
+    machine_id: str
+    hostname: str
+    relay_version: str
+    surface_versions: Mapping[str, str]
+    project_ids: Sequence[int]
+
+
+@dataclass(frozen=True)
+class RelayPolicy:
+    poll_seconds: int
+    idle_after_minutes: int
+    idle_poll_minutes: int
+    max_wake_attempts: int
+
+    @property
+    def idle_poll_seconds(self) -> int:
+        return self.idle_poll_minutes * 60
+
+
+@dataclass(frozen=True)
+class RelayJob:
+    job_kind: RelayJobKind
+    job_id: str
+    lease_id: str
+    machine_id: str
+    surface: str
+    project_id: int
+    native_instruction: str
+    message_id: str | None = None
+    target_session_id: str | None = None
+    launch_attestation: str | None = field(default=None, repr=False)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class RelayClaimOutcome:
+    relay_id: str
+    machine_id: str
+    state: Literal["active", "idle"]
+    connected_until: str
+    next_poll_seconds: int
+    job: RelayJob | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "relay_id": self.relay_id,
+            "machine_id": self.machine_id,
+            "state": self.state,
+            "connected_until": self.connected_until,
+            "next_poll_seconds": self.next_poll_seconds,
+            "job": self.job.to_dict() if self.job else None,
+        }
+
+
+__all__ = [
+    "MAX_RELAY_LONG_POLL_SECONDS",
+    "RELAY_LONG_POLL_STEP_SECONDS",
+    "RelayClaimOutcome",
+    "RelayHeartbeat",
+    "RelayJob",
+    "RelayJobKind",
+    "RelayPolicy",
+    "SessionRelayError",
+    "WAKE_LEASE_SECONDS",
+]

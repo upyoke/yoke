@@ -36,6 +36,9 @@ from yoke_cli.operation_inventory_shepherd_qa_writes import (
 from yoke_cli.operation_inventory_strategy_event import (
     WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS,
 )
+from yoke_cli.operation_inventory_session_control import (
+    WRAPPED_ROWS as SESSION_CONTROL_WRAPPED_ROWS,
+)
 
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Baseline wrapped item and claim operations.
@@ -104,6 +107,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions ownership-guard", "sessions"),
     _w("yoke sessions end-if-empty", "sessions"),
     _w("yoke sessions reclaim-stale", "sessions"),
+    *SESSION_CONTROL_WRAPPED_ROWS,
     *WORKFLOW_WRAPPED_ROWS,
     *PRODUCT_SURFACE_WRAPPED_ROWS,
     _w("yoke charge schedule", "charge"),

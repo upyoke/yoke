@@ -14,6 +14,10 @@ from yoke_contracts.executor_labels import (
 from yoke_contracts.organization_contract.fleet_keys import merge_fleet_settings
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
+from yoke_core.domain.migration_session_relay_identity import (
+    assert_relay_identity,
+    converge_relay_identity,
+)
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _column_exists,
@@ -279,6 +283,7 @@ def apply(conn: Any) -> None:
         _enforce_surface_check(conn)
     _migrate_organization_policy(conn)
     create_session_control_tables(conn)
+    converge_relay_identity(conn)
 
 
 def invariants(conn: Any) -> None:
@@ -324,6 +329,7 @@ def invariants(conn: Any) -> None:
     for table in SESSION_CONTROL_TABLES:
         if not _table_exists(conn, table):
             raise AssertionError(f"{table} is required")
+    assert_relay_identity(conn)
 
 
 __all__ = [

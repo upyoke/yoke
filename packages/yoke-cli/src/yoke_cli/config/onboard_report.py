@@ -8,6 +8,7 @@ from typing import Any
 from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_project_modes
+from yoke_cli.config import onboard_session_relay
 from yoke_cli.config.onboard_report_render import render_human
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
@@ -100,6 +101,9 @@ def build_plan(
         steps.append({"action": "create-runtime-dir", "target": "temp_root"})
     if not reuse.get("cache_dir"):
         steps.append({"action": "create-runtime-dir", "target": "cache_dir"})
+    steps.extend(
+        onboard_session_relay.plan_steps(local_destination=local_destination)
+    )
     if project_mode == PROJECT_MODE_MACHINE_ONLY:
         steps.append({"action": "stop-before-project-or-github", "target": mode})
     else:

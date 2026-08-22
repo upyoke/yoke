@@ -50,6 +50,8 @@ _MACHINE_ACTIONS = {
     "store-token-reference", "machine-github-connection", "create-runtime-dir",
     "project-checkout-register",
     "install-cursor-user-lifecycle-hooks",
+    "install-session-relay-plist", "load-session-relay-login-item",
+    "reuse-session-relay-token",
     aws_admin_capability.HOSTING_CAPABILITY_ACTION,
 }
 _REPO_ACTIONS = {

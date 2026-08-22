@@ -19,10 +19,13 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Chain members that are not deniers (liveness + observation) and therefore
 # carry no enforcement-mode knob.
-_NON_DENIERS = frozenset({
-    "yoke_core.hooks.heartbeat",
-    "yoke_core.domain.observe_pre",
-})
+_NON_DENIERS = frozenset(
+    {
+        "yoke_core.hooks.heartbeat",
+        "yoke_core.hooks.session_message_delivery",
+        "yoke_core.domain.observe_pre",
+    }
+)
 
 
 def _write_config(tmp_path: Path, text: str, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -36,8 +39,7 @@ def test_catalog_covers_every_pretooluse_bash_denier() -> None:
     chain = chain_for("PreToolUse", "Bash")
     assert chain, "PreToolUse:Bash chain resolved empty"
     uncatalogued = [
-        m for m in chain
-        if m not in _NON_DENIERS and not lint_config.is_registered(m)
+        m for m in chain if m not in _NON_DENIERS and not lint_config.is_registered(m)
     ]
     assert not uncatalogued, (
         f"Bash-chain deniers missing from GUARD_CATALOG (add a catalog entry so "
@@ -88,7 +90,9 @@ def test_resolve_mode_explicit_root_ignores_ambient_workspace(
     lint_config.reset_cache()
 
     assert lint_config.resolve_mode("lint_tc_label") == lint_config.DENY
-    assert lint_config.resolve_mode("lint_tc_label", root=str(target)) == lint_config.WARN
+    assert (
+        lint_config.resolve_mode("lint_tc_label", root=str(target)) == lint_config.WARN
+    )
 
 
 def test_reset_cache_clears_root_specific_cache(tmp_path: Path) -> None:
@@ -98,24 +102,44 @@ def test_reset_cache_clears_root_specific_cache(tmp_path: Path) -> None:
     config.write_text("lint_tc_label=warn\n", encoding="utf-8")
     lint_config.reset_cache()
 
-    assert lint_config.resolve_mode("lint_tc_label", root=str(target)) == lint_config.WARN
+    assert (
+        lint_config.resolve_mode("lint_tc_label", root=str(target)) == lint_config.WARN
+    )
     config.write_text("lint_tc_label=deny\n", encoding="utf-8")
-    assert lint_config.resolve_mode("lint_tc_label", root=str(target / ".")) == lint_config.WARN
+    assert (
+        lint_config.resolve_mode("lint_tc_label", root=str(target / "."))
+        == lint_config.WARN
+    )
     lint_config.reset_cache()
-    assert lint_config.resolve_mode("lint_tc_label", root=str(target)) == lint_config.DENY
+    assert (
+        lint_config.resolve_mode("lint_tc_label", root=str(target)) == lint_config.DENY
+    )
 
 
-def test_default_and_unknown_resolve_to_deny(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_default_and_unknown_resolve_to_deny(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write_config(tmp_path, "lint_db_cmd=deny\n", monkeypatch)
     assert lint_config.resolve_mode("lint_db_cmd") == lint_config.DENY
     assert lint_config.resolve_mode("yoke_core.domain.lint_db_cmd") == lint_config.DENY
-    assert lint_config.resolve_mode("lint_tc_label") == lint_config.DENY  # absent -> default
-    assert lint_config.resolve_mode("not_a_real_guard") == lint_config.DENY  # unknown -> fail safe
+    assert (
+        lint_config.resolve_mode("lint_tc_label") == lint_config.DENY
+    )  # absent -> default
+    assert (
+        lint_config.resolve_mode("not_a_real_guard") == lint_config.DENY
+    )  # unknown -> fail safe
 
 
-def test_remote_claude_cli_subguard_resolves(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _write_config(tmp_path, f"{lint_config.REMOTE_CLAUDE_CLI_GUARD}=warn\n", monkeypatch)
-    assert lint_config.resolve_mode(lint_config.REMOTE_CLAUDE_CLI_GUARD) == lint_config.WARN
+def test_remote_claude_cli_subguard_resolves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_config(
+        tmp_path, f"{lint_config.REMOTE_CLAUDE_CLI_GUARD}=warn\n", monkeypatch
+    )
+    assert (
+        lint_config.resolve_mode(lint_config.REMOTE_CLAUDE_CLI_GUARD)
+        == lint_config.WARN
+    )
 
 
 def test_payload_snapshot_overrides_server_local_config(
@@ -134,20 +158,32 @@ def test_payload_snapshot_overrides_server_local_config(
     )
 
 
-def test_warn_honored_for_unprotected_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_warn_honored_for_unprotected_guard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write_config(tmp_path, "lint_tc_label=warn\n", monkeypatch)
     assert lint_config.resolve_mode("lint_tc_label") == lint_config.WARN
     # resolvable by full module path too
-    assert lint_config.resolve_mode("yoke_core.domain.lint_tc_label") == lint_config.WARN
+    assert (
+        lint_config.resolve_mode("yoke_core.domain.lint_tc_label") == lint_config.WARN
+    )
 
 
-def test_protected_guard_warn_clamped_without_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_protected_guard_warn_clamped_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write_config(tmp_path, "lint_destructive_git=warn\n", monkeypatch)
     assert lint_config.resolve_mode("lint_destructive_git") == lint_config.DENY
 
 
-def test_protected_guard_warn_allowed_with_override_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _write_config(tmp_path, f"lint_destructive_git=warn  {lint_config.ALLOW_WARN_TOKEN}\n", monkeypatch)
+def test_protected_guard_warn_allowed_with_override_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_config(
+        tmp_path,
+        f"lint_destructive_git=warn  {lint_config.ALLOW_WARN_TOKEN}\n",
+        monkeypatch,
+    )
     assert lint_config.resolve_mode("lint_destructive_git") == lint_config.WARN
 
 

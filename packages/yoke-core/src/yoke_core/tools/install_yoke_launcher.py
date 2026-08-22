@@ -131,6 +131,18 @@ def configure_macos_path_for_homebrew(
     )
 
 
+def configure_session_relay(*, executable: Path, stream=None) -> bool:
+    """Converge the launchd relay around the newly installed launcher."""
+    if sys.platform != "darwin":
+        return False
+    from yoke_core.tools.session_relay_plist import install_relay_launchd
+
+    status = install_relay_launchd(executable=executable)
+    if stream is not None:
+        stream.write(f"Machine relay installed: {status.plist_path}\n")
+    return True
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="install_yoke_launcher",
@@ -141,9 +153,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Install-target directory (overrides auto-detect).",
     )
     group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        "--user", action="store_true", help="Force ~/.local/bin target."
-    )
+    group.add_argument("--user", action="store_true", help="Force ~/.local/bin target.")
     group.add_argument(
         "--system",
         action="store_true",
@@ -236,8 +246,10 @@ def install(
     verify_repo_root(cwd)
     if repair:
         from yoke_core.tools.install_yoke_launcher_sweep import converge_machine
+
         home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
         report = converge_machine(cwd, home=home, force=force, stream=out)
+        configure_session_relay(executable=report.canonical, stream=out)
         return TargetChoice(report.canonical.parent, "canonical_user_local")
     if not skip_pip:
         run_pip_install_deps(
@@ -262,10 +274,17 @@ def install(
         configure_claude_app_bypass_permissions(stream=out)
     if not skip_macos_path_fix:
         configure_macos_path_for_homebrew(stream=out)
+    relay_launcher = target_path
     if write_canonical and not repair:
-        from yoke_core.tools.install_yoke_launcher_sweep import repair_canonical_launcher
+        from yoke_core.tools.install_yoke_launcher_sweep import (
+            repair_canonical_launcher,
+        )
+
         home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
-        repair_canonical_launcher(cwd, home=home, force=force, stream=out)
+        relay_launcher = repair_canonical_launcher(
+            cwd, home=home, force=force, stream=out
+        )
+    configure_session_relay(executable=relay_launcher, stream=out)
     py_version = ".".join(str(x) for x in sys.version_info[:3])
     deps_dir = sysconfig.get_path("purelib")
     out.write(

@@ -7,7 +7,8 @@ live here, in this order:
 Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
   ``stale-reclaim-collision``, ``session-cwd-binding``,
-  ``session-pre-implementing-activity``, ``session-lane-mismatch``.
+  ``session-pre-implementing-activity``, ``session-lane-mismatch``,
+  ``launcher-authority``, ``session-relay``.
 
 Project harness config:
   ``project-hook-config-validity``.
@@ -62,6 +63,10 @@ from yoke_core.engines.doctor_hc_launcher_authority import (
 from yoke_core.engines.doctor_hc_session_lane_mismatch import (
     hc_session_lane_mismatch,
 )
+from yoke_core.engines.doctor_hc_session_relay import (
+    TITLE as RELAY_TITLE,
+    hc_session_relay,
+)
 from yoke_core.engines.doctor_registry_types import HealthCheck
 
 
@@ -105,6 +110,7 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         LAUNCHER_AUTHORITY_TITLE,
         hc_launcher_authority,
     ),
+    HealthCheck("session-relay", RELAY_TITLE, hc_session_relay),
     HealthCheck(
         "project-hook-config-validity",
         "Project Cursor-scanned hook configs are regular and schema-valid",

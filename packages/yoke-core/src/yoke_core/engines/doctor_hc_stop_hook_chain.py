@@ -25,6 +25,7 @@ _MEMBER_NAME = "HC-stop-hook-chain-membership"
 _MEMBER_DESC = "Stop chain registers the promised-work gate before dispatch"
 _EXPECTED_STOP = [
     "yoke_core.domain.turn_end_promised_work_gate",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.session_dispatch",
 ]
 
@@ -97,7 +98,9 @@ def _resolution_sql(conn) -> str:
 
 
 def hc_stop_hook_chain_end_deferred(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     _record_membership(rec)
     if not _base._table_exists(conn, "events"):
@@ -130,9 +133,7 @@ def hc_stop_hook_chain_end_deferred(
     for row in rows[:10]:
         sid = row["session_id"] or "(none)"
         item = row["item_id"] or "(none)"
-        issues.append(
-            f"  - session={sid} item={item} created_at={row['created_at']}"
-        )
+        issues.append(f"  - session={sid} item={item} created_at={row['created_at']}")
     if len(rows) > 10:
         issues.append(f"  ... and {len(rows) - 10} more")
     issues.append(

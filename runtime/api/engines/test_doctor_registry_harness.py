@@ -26,7 +26,11 @@ _ENGINE_SESSION_SLUGS = (
     "session-pre-implementing-activity",
     "session-lane-mismatch",
 )
-_ENGINE_CONFIG_SLUGS = ("launcher-authority", "project-hook-config-validity")
+_ENGINE_CONFIG_SLUGS = (
+    "launcher-authority",
+    "session-relay",
+    "project-hook-config-validity",
+)
 
 # Session/harness substrate checks that read this repo's own hook wiring and
 # machine browser runtime, so this project keeps them in ``.yoke/doctor/``.
@@ -115,9 +119,7 @@ def test_self_scoped_harness_slugs_registered_as_project_checks():
     slugs = [hc.slug for hc in _project_checks()]
     engine_slugs = {hc.slug for hc in HARNESS_HEALTH_CHECKS}
     self_scoped = (
-        _PROJECT_SESSION_SLUGS
-        + _PROJECT_LEDGER_AUDIT_SLUGS
-        + _PROJECT_REFLECTION_SLUGS
+        _PROJECT_SESSION_SLUGS + _PROJECT_LEDGER_AUDIT_SLUGS + _PROJECT_REFLECTION_SLUGS
     )
     for slug in self_scoped:
         assert slugs.count(slug) == 1, (
@@ -160,8 +162,7 @@ def test_full_registry_slugs_remain_unique():
 
     slugs = [hc.slug for hc in HEALTH_CHECKS]
     assert len(set(slugs)) == len(slugs), (
-        "duplicate slugs in HEALTH_CHECKS: "
-        f"{[s for s in slugs if slugs.count(s) > 1]}"
+        f"duplicate slugs in HEALTH_CHECKS: {[s for s in slugs if slugs.count(s) > 1]}"
     )
 
 
@@ -179,7 +180,7 @@ def test_bundle_appends_after_existing_checks():
 
     slugs = [hc.slug for hc in HEALTH_CHECKS]
     bundle_slugs = [hc.slug for hc in HARNESS_HEALTH_CHECKS]
-    last_n = slugs[-len(bundle_slugs):]
+    last_n = slugs[-len(bundle_slugs) :]
     assert last_n == bundle_slugs
 
 
