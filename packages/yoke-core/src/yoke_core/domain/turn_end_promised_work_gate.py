@@ -2,7 +2,8 @@
 
 Eligible only for a live work claim on a non-terminal, non-wait item.
 Consumes ``chain_pending_state()`` for audit context and does not recompute
-chain budget. One reinjection without intervening tool-use is the cap.
+chain budget. Reinjections are rate-limited and capped independently for
+each claimed item.
 
 Channel: keep that single soft hold. Claude Stop can deliver
 ``hookSpecificOutput.additionalContext`` as turn-continuing feedback, but
@@ -16,6 +17,7 @@ plus the widened allow set.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from yoke_contracts.turn_end_evidence import (
@@ -29,10 +31,12 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     ENGINE_WAIT_STAGE_IDS,
 )
+from yoke_core.domain.time_parse import parse_timestamp_utc
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
-REINJECTION_LIMIT = 1
+REINJECTION_COOLDOWN = timedelta(minutes=30)
+REINJECTION_CEILING = 3
 REASON_REINJECTED = "promised_work_reinjected"
 REASON_CAP_REACHED = "reinjection_cap_reached"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
@@ -110,48 +114,51 @@ def _item_blocks_hold(status: Any) -> bool:
     return value in _HOLD_EXEMPT_STATUSES
 
 
-def _envelope_reason(conn: Any, session_id: str, reason: str) -> Optional[str]:
+def _reinjection_history(
+    conn: Any,
+    session_id: str,
+    item_id: Any,
+) -> tuple[Optional[str], int]:
     from yoke_core.domain import db_backend
 
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        f"""SELECT created_at
+        f"""SELECT MAX(created_at) AS last_hold_at,
+                    COUNT(*) AS hold_count
               FROM events
              WHERE session_id = {placeholder}
                AND event_name = 'ChainEndDeferred'
                AND (envelope)::jsonb #>> '{{context,reason}}' = {placeholder}
-             ORDER BY created_at DESC
-             LIMIT 1""",
-        (session_id, reason),
+               AND (envelope)::jsonb #>> '{{context,item_id}}' = {placeholder}""",
+        (session_id, REASON_REINJECTED, str(item_id)),
     ).fetchone()
-    if row is None or not row["created_at"]:
-        return None
-    return str(row["created_at"])
+    if row is None:
+        return None, 0
+    stamped = str(row["last_hold_at"]) if row["last_hold_at"] else None
+    return stamped, int(row["hold_count"] or 0)
 
 
-def _completed_tool_use_since(conn: Any, session_id: str, since: str) -> bool:
-    from yoke_core.domain import db_backend
-
-    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"""SELECT 1 AS ok
-              FROM events
-             WHERE session_id = {placeholder}
-               AND created_at > {placeholder}
-               AND hook_event_name IN ('PreToolUse', 'PostToolUse')
-             LIMIT 1""",
-        (session_id, since),
-    ).fetchone()
-    return row is not None
-
-
-def _at_reinjection_cap(conn: Any, session_id: str) -> bool:
-    if REINJECTION_LIMIT < 1:
+def _at_reinjection_cap(
+    conn: Any,
+    session_id: str,
+    item_id: Any,
+    *,
+    now: Optional[datetime] = None,
+) -> bool:
+    if REINJECTION_CEILING < 1:
         return True
-    stamped = _envelope_reason(conn, session_id, REASON_REINJECTED)
-    if stamped is None:
+    stamped, hold_count = _reinjection_history(conn, session_id, item_id)
+    if hold_count < 1:
         return False
-    return not _completed_tool_use_since(conn, session_id, stamped)
+    if hold_count >= REINJECTION_CEILING:
+        return True
+    last_hold_at = parse_timestamp_utc(stamped)
+    if last_hold_at is None:
+        return True
+    anchor = now or datetime.now(timezone.utc)
+    if anchor.tzinfo is None:
+        anchor = anchor.replace(tzinfo=timezone.utc)
+    return anchor.astimezone(timezone.utc) < last_hold_at + REINJECTION_COOLDOWN
 
 
 def _emit_deferred(
@@ -210,7 +217,7 @@ def evaluate(record: HookContext) -> HookDecision:
         if _item_blocks_hold(claim["status"]):
             return _allow()
         # Snapshot is consumed for the deferred event, never recomputed here.
-        if _at_reinjection_cap(conn, session_id):
+        if _at_reinjection_cap(conn, session_id, claim["item_id"]):
             _emit_deferred(
                 conn=conn,
                 session_id=session_id,
@@ -241,6 +248,7 @@ __all__ = [
     "EVIDENCE_UNAVAILABLE_REASON",
     "REASON_CAP_REACHED",
     "REASON_REINJECTED",
-    "REINJECTION_LIMIT",
+    "REINJECTION_CEILING",
+    "REINJECTION_COOLDOWN",
     "evaluate",
 ]
