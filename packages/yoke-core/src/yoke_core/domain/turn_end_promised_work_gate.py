@@ -1,8 +1,17 @@
-"""Stop-hook gate that holds a turn open when promised work is still uncalled.
+"""Stop-hook reminder that a live work claim may still need a next step.
 
-Eligible only for a live work claim on a non-terminal, unblocked item.
+Eligible only for a live work claim on a non-terminal, non-wait item.
 Consumes ``chain_pending_state()`` for audit context and does not recompute
 chain budget. One reinjection without intervening tool-use is the cap.
+
+Channel: keep that single soft hold. Claude Stop can deliver
+``hookSpecificOutput.additionalContext`` as turn-continuing feedback, but
+Codex Stop continuation is only ``decision/block`` (additionalContext is
+not a Stop field / not model-visible) and Cursor Stop continuation is only
+``followup_message`` (``additional_context`` is not a Stop output). A
+passive additional-context envelope therefore cannot be the cross-harness
+reminder, so the hold channel stays and the reminder lives in the message
+plus the widened allow set.
 """
 
 from __future__ import annotations
@@ -16,6 +25,10 @@ from yoke_contracts.turn_end_evidence import (
     extract_turn_end_evidence,
     read_transcript_tail,
 )
+from yoke_core.domain.workflow_runtime import (
+    ENGINE_TERMINAL_STAGE_IDS,
+    ENGINE_WAIT_STAGE_IDS,
+)
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -24,11 +37,14 @@ REASON_REINJECTED = "promised_work_reinjected"
 REASON_CAP_REACHED = "reinjection_cap_reached"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
 DIRECTIVE = (
-    "This session still holds a live work claim on a mid-lifecycle item. "
-    "Perform the promised work now; do not end the turn."
+    "This session still holds a live work claim. Finish the current step "
+    "if work remains; or release the claim if the work is finished or "
+    "handed off; or stop deliberately and say why (blocked, waiting on "
+    "the operator, parked)."
 )
-_TERMINAL_STATUSES = frozenset({"done"})
-_BLOCKED_STATUSES = frozenset({"blocked"})
+_HOLD_EXEMPT_STATUSES = (
+    ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS | frozenset({"done"})
+)
 
 
 def _allow() -> HookDecision:
@@ -91,7 +107,7 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
 
 def _item_blocks_hold(status: Any) -> bool:
     value = str(status or "").strip()
-    return value in _TERMINAL_STATUSES or value in _BLOCKED_STATUSES
+    return value in _HOLD_EXEMPT_STATUSES
 
 
 def _envelope_reason(conn: Any, session_id: str, reason: str) -> Optional[str]:

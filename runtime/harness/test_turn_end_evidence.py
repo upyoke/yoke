@@ -28,6 +28,14 @@ def test_final_response_field_normalizes() -> None:
     assert evidence.question is True
 
 
+def test_question_on_earlier_line_is_detected() -> None:
+    evidence = from_payload_facts(
+        {"final_response": "Should I continue?\nI will wait for your answer."}
+    )
+    assert evidence is not None
+    assert evidence.question is True
+
+
 def test_missing_evidence_is_unavailable() -> None:
     assert extract_turn_end_evidence(payload={}) is UNAVAILABLE
 
@@ -52,6 +60,14 @@ def test_claude_question_is_detected() -> None:
     text = (
         '{"type":"assistant","message":{"role":"assistant","content":'
         '[{"type":"text","text":"Should I continue?"}]}}\n'
+    )
+    assert extract_from_jsonl(text).question is True
+
+
+def test_claude_question_before_closing_line_is_detected() -> None:
+    text = (
+        '{"type":"assistant","message":{"role":"assistant","content":'
+        '[{"type":"text","text":"Should I continue?\\nStopping here."}]}}\n'
     )
     assert extract_from_jsonl(text).question is True
 
