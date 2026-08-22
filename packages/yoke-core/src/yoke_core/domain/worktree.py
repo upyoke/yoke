@@ -12,8 +12,8 @@ Thin top-level surface for the worktree subsystem. Owns:
 Heavy implementation lives in three responsibility-named siblings:
 
 * :mod:`yoke_core.domain.worktree_paths` — repo / state / DB / named-path
-  resolution. Also owns the low-level primitives (``_run``,
-  ``_parse_item_id``) shared with the other siblings. Imported eagerly
+  resolution. Also owns the low-level ``_run`` primitive shared with the
+  other siblings. Imported eagerly
   because it is the lightweight foundation every caller (including
   path-only readers like ``db_helpers.resolve_db_path()``) depends on.
 * :mod:`yoke_core.domain.worktree_create` — ``create_worktree`` and provisioning

@@ -1,4 +1,4 @@
-"""Scanner: item-ref prefix literals belong only in the canonical formatter.
+"""Scanners: item refs are formatted and parsed only by the canonical helpers.
 
 A public item ref is display-only — ``{public_item_prefix}-{project_sequence}``
 — and is produced solely by the canonical helpers
@@ -13,10 +13,15 @@ projects) and, when built from an internal id, prints the wrong number
 (``items.id`` instead of ``project_sequence``). Those two shapes are exactly
 what let a fabricated ref like ``YOK-1915`` reach the operator.
 
-This scanner flags any *literal* ref-prefix token in Python source outside the
-canonical formatter/resolver and tests, so the anti-pattern cannot re-enter the
-tree. The canonical helpers format from a *variable* prefix
-(``f"{prefix}-{seq}"``) and so never trip it.
+Two scans keep both directions closed. :func:`scan` flags any *literal*
+ref-prefix token in Python source outside the canonical formatter/resolver and
+tests; the canonical helpers format from a *variable* prefix
+(``f"{prefix}-{seq}"``) and so never trip it. :func:`scan_parser_policy` flags
+the read direction: an implicit ``allow_bare_internal=True`` opt-out, a
+project-blind prefix regex, or a numeric-tail coercion, each of which reads an
+operator's token as an internal id. Both carry exact-path allowances, and
+:func:`stale_parser_policy_allowances` reports the ones whose legacy read is
+gone so the allowances shrink with the code.
 """
 
 from __future__ import annotations
@@ -213,7 +218,7 @@ def scan_parser_policy(repo_root: Path) -> List[RefLiteralHit]:
 
 
 def stale_parser_policy_allowances(repo_root: Path) -> List[str]:
-    """Return numeric-tail allowances whose exact legacy read disappeared."""
+    """Return allowances whose exact legacy read has disappeared."""
     root = repo_root.resolve()
     stale: List[str] = []
     allowed_paths = _NUMERIC_TAIL_ALLOWLIST.keys() | _IMPLICIT_INTERNAL_ALLOWLIST.keys()

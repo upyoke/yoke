@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from yoke_core.domain import db_backend, db_helpers
 
@@ -22,7 +22,11 @@ def _discovery_file(item_num: int) -> Path:
     return Path("/tmp") / f"discovery-scan.YOK-{item_num}.{os.getpid()}"
 
 
-def _context_matches_item(context: str, item_ref: str) -> bool:
+def _item_context_matcher(item_ref: str) -> Callable[[str], bool]:
+    """Return a predicate matching one item's public ref or bare sequence.
+
+    Compiled once per scan rather than once per candidate entry.
+    """
     from yoke_contracts.item_ref import parse_public_item_ref
 
     _, sequence = parse_public_item_ref(item_ref)
@@ -33,14 +37,29 @@ def _context_matches_item(context: str, item_ref: str) -> bool:
     bare_pattern = re.compile(
         rf"(^|[\s(/_-])0*{escaped}(?=$|[\s/)_-])"
     )
-    return bool(public_pattern.search(context) or bare_pattern.search(context))
+
+    def matches(context: str) -> bool:
+        return bool(
+            public_pattern.search(context) or bare_pattern.search(context)
+        )
+
+    return matches
 
 
 def _format_ouroboros_row(row: Any) -> str:
     return "|".join("" if value is None else str(value) for value in tuple(row))
 
 
-def _read_ouroboros_unreviewed(repo_root: Path, item_num: int) -> tuple[str, int]:
+def _read_ouroboros_unreviewed(
+    repo_root: Path,
+    item_num: int,
+) -> tuple[str, int, str]:
+    """Return the item's unreviewed entries, their count, and its public ref.
+
+    The ref is rendered from the same connection that reads the entries. An
+    unreachable control plane degrades to an empty ref so the caller can fall
+    back to the token the operator typed.
+    """
     del repo_root  # DB authority comes from the active Postgres binding.
     try:
         conn = db_helpers.connect()
@@ -60,16 +79,14 @@ def _read_ouroboros_unreviewed(repo_root: Path, item_num: int) -> tuple[str, int
         finally:
             conn.close()
     except db_backend.operational_error_types() + (RuntimeError,):
-        return "(none)\n", 0
-    scoped_rows = [
-        row for row in rows
-        if _context_matches_item(str(row[3] or ""), item_ref)
-    ]
+        return "(none)\n", 0, ""
+    matches = _item_context_matcher(item_ref)
+    scoped_rows = [row for row in rows if matches(str(row[3] or ""))]
     output = "\n".join(_format_ouroboros_row(row) for row in scoped_rows)
     if not output.strip():
-        return "(none)\n", 0
+        return "(none)\n", 0, item_ref
     count = len([line for line in output.splitlines() if line.strip()])
-    return output.rstrip("\n") + "\n", count
+    return output.rstrip("\n") + "\n", count, item_ref
 
 
 def run_scan(item_ref: str, *, repo_root: Optional[str] = None, stdout=None, stderr=None) -> int:
@@ -87,14 +104,10 @@ def run_scan(item_ref: str, *, repo_root: Optional[str] = None, stdout=None, std
 
     discovery_file = _discovery_file(item_num)
 
-    ouro_text, ouro_count = _read_ouroboros_unreviewed(root, item_num)
+    ouro_text, ouro_count, item_label = _read_ouroboros_unreviewed(root, item_num)
 
-    with db_helpers.connect() as conn:
-        from yoke_core.domain.project_identity import render_item_ref
-
-        item_label = render_item_ref(conn, item_num)
     scan_output = (
-        f"--- Unreviewed ouroboros entries for {item_label} ---\n"
+        f"--- Unreviewed ouroboros entries for {item_label or item_ref.strip()} ---\n"
         f"{ouro_text}\n"
         "=== END DISCOVERY SCAN ===\n"
     )

@@ -70,16 +70,16 @@ def _emit_outcome(response: Any, success_line: str) -> int:
     return 1
 
 
-def _parse_single_id_args(args: List[str], verb: str) -> Optional[str]:
+def _single_item_ref_arg(args: List[str], verb: str) -> Optional[str]:
     if len(args) != 1:
-        print(f"Usage: db_router items {verb} <YOK-N>", file=sys.stderr)
+        print(f"Usage: db_router items {verb} <PREFIX-N>", file=sys.stderr)
         return None
     return str(args[0]).strip()
 
 
 def cmd_freeze(args: List[str]) -> int:
-    """``db_router items freeze <YOK-N>`` — set frozen=true via items.scalar.update."""
-    item_ref = _parse_single_id_args(args, "freeze")
+    """``db_router items freeze <PREFIX-N>`` — set frozen=true via items.scalar.update."""
+    item_ref = _single_item_ref_arg(args, "freeze")
     if item_ref is None:
         return 2
     response = _dispatch_scalar(item_ref, "frozen", True, "freeze")
@@ -87,8 +87,8 @@ def cmd_freeze(args: List[str]) -> int:
 
 
 def cmd_thaw(args: List[str]) -> int:
-    """``db_router items thaw <YOK-N>`` — set frozen=false via items.scalar.update."""
-    item_ref = _parse_single_id_args(args, "thaw")
+    """``db_router items thaw <PREFIX-N>`` — set frozen=false via items.scalar.update."""
+    item_ref = _single_item_ref_arg(args, "thaw")
     if item_ref is None:
         return 2
     response = _dispatch_scalar(item_ref, "frozen", False, "thaw")
@@ -96,9 +96,9 @@ def cmd_thaw(args: List[str]) -> int:
 
 
 def cmd_block(args: List[str]) -> int:
-    """``db_router items block <YOK-N> "<reason>"`` — set blocked=true + reason."""
+    """``db_router items block <PREFIX-N> "<reason>"`` — set blocked=true + reason."""
     if len(args) != 2:
-        print('Usage: db_router items block <YOK-N> "<reason>"', file=sys.stderr)
+        print('Usage: db_router items block <PREFIX-N> "<reason>"', file=sys.stderr)
         return 2
     item_ref = str(args[0]).strip()
     reason = args[1]
@@ -127,8 +127,8 @@ def cmd_block(args: List[str]) -> int:
 
 
 def cmd_unblock(args: List[str]) -> int:
-    """``db_router items unblock <YOK-N>`` — clear blocked flag and reason."""
-    item_ref = _parse_single_id_args(args, "unblock")
+    """``db_router items unblock <PREFIX-N>`` — clear blocked flag and reason."""
+    item_ref = _single_item_ref_arg(args, "unblock")
     if item_ref is None:
         return 2
 

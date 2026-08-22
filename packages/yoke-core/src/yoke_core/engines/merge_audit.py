@@ -160,7 +160,7 @@ def main() -> None:
     try:
         print(generate_report(epic_filter), end="")
     except ValueError as exc:
-        print(f"Error: invalid epic ID: {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
