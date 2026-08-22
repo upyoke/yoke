@@ -32,7 +32,6 @@ Do NOT pass a full pytest command-shape after ``--``. The wrapper rejects
 
 from __future__ import annotations
 
-import argparse
 import os
 import time
 import sys
@@ -82,83 +81,6 @@ def _pytest_argv(args: Sequence[str]) -> list[str]:
     return pytest_argv(args)
 
 
-def _parse_args(
-    argv: Sequence[str],
-    prog: str = DEFAULT_PROG,
-) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog=prog,
-        description="Run pytest under a shared raw+progress watcher wrapper.",
-        epilog=(
-            "Full-suite shape: pass the three anchors 'runtime/api/ "
-            "runtime/harness/ tests/' — never bare 'runtime/', which "
-            "demotes runtime/api/conftest.py from initial-conftest status "
-            "and fails collection. The wrapper refuses bare 'runtime/'."
-        ),
-        # We rely on the explicit ``--`` separator to split wrapper flags
-        # from pytest pass-through, so disable argparse's own abbrev.
-        allow_abbrev=False,
-    )
-    parser.add_argument(
-        _watch_runner.PRINT_STREAMING_PAIR_FLAG,
-        dest="print_streaming_pair",
-        action="store_true",
-        help="Print a ready-to-paste background command + progress-tail pair "
-        "and exit. Mints fresh capture paths.",
-    )
-    parser.add_argument(
-        "--raw-capture",
-        type=Path,
-        default=None,
-        help="Explicit raw capture file path. Defaults to a helper-resolved "
-        "path under the project scratch root.",
-    )
-    parser.add_argument(
-        "--progress-capture",
-        type=Path,
-        default=None,
-        help="Explicit progress capture file path. Defaults to a helper-"
-        "resolved path under the project scratch root.",
-    )
-    parser.add_argument(
-        "--impacted",
-        nargs="?",
-        const="main",
-        default=None,
-        metavar="BASE",
-        help="Run only the tests reachable from this branch's changes "
-        "(default base: main). Falls back to the full sweep whenever "
-        "reachability cannot bound the change. An accelerator for "
-        "iteration — merge still runs the full sweep.",
-    )
-    parser.add_argument(
-        "--bounded",
-        action="store_true",
-        help="With --impacted, never widen to the full sweep: run the "
-        "subset reachability can still compute and report why coverage "
-        "is partial. The iteration shape when a QA case run will be the "
-        "one full execution for this tree.",
-    )
-    parser.add_argument(
-        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
-        dest="allow_tree_mismatch",
-        action="store_true",
-        help="Run even when this tree is outside the session's claimed "
-        "worktree. For a deliberate cross-tree run; the wrapper names both "
-        "trees so the green is attributable.",
-    )
-    parser.add_argument(
-        "passthrough",
-        nargs=argparse.REMAINDER,
-        help=(
-            "Bare pytest arguments. Use ``--`` to separate wrapper flags "
-            "from pytest flags when ambiguous. Do NOT include "
-            "``python3 -m pytest``; the wrapper supplies that prefix."
-        ),
-    )
-    return parser.parse_args(list(argv))
-
-
 def _strip_separator(passthrough: list[str]) -> list[str]:
     """Drop a leading ``--`` argparse left in the REMAINDER list."""
     if passthrough and passthrough[0] == "--":
@@ -206,24 +128,38 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw,
         verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
     )
-    ns = _parse_args(raw, prog)
+    raw, widen_flag = _extract_wrapper_flag(raw, _watch_pytest_args.WIDEN_FLAG)
+    raw, bounded_flag = _extract_wrapper_flag(raw, _watch_pytest_args.BOUNDED_FLAG)
+    ns = _watch_pytest_args.parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
     if allow_tree_mismatch_flag:
         ns.allow_tree_mismatch = True
+    if widen_flag:
+        ns.widen = True
+    if bounded_flag:
+        ns.bounded = True
     pytest_args = _strip_separator(list(ns.passthrough))
 
     selection = None
     if ns.impacted is not None:
-        selection = _impacted_selection(ns.impacted, bounded=ns.bounded)
+        selection = _impacted_selection(ns.impacted, bounded=not ns.widen)
         if selection is None:
             return 0
+        if getattr(selection, "bounded_deferral", False):
+            print(
+                _watch_pytest_args.format_would_widen_advisory(
+                    rule=selection.fallback_rule,
+                    trigger_paths=selection.trigger_paths,
+                ),
+                flush=True,
+            )
         pytest_args = [*selection.pytest_paths(), *pytest_args]
+    elif ns.widen:
+        print(_watch_pytest_args.WIDEN_WITHOUT_IMPACTED, file=sys.stderr)
+        return 2
     elif ns.bounded:
-        print(
-            "watch_pytest: --bounded only applies with --impacted",
-            file=sys.stderr,
-        )
+        print(_watch_pytest_args.BOUNDED_WITHOUT_IMPACTED, file=sys.stderr)
         return 2
 
     if _watch_pytest_args.is_nested_pytest_invocation(pytest_args):

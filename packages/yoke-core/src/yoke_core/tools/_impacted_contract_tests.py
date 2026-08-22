@@ -46,6 +46,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_engineer.py",
     "runtime/api/test_skill_doc_regressions_file_budget.py",
     "runtime/api/test_skill_doc_regressions_file_budget_agents.py",
+    "runtime/api/test_skill_doc_regressions_impacted_bounded.py",
     "runtime/api/test_skill_doc_regressions_misc.py",
     "runtime/api/test_skill_doc_regressions_onboard.py",
     "runtime/api/test_skill_doc_regressions_path_claim_coordination.py",

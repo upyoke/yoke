@@ -202,8 +202,8 @@ uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -
   - `yoke check file-line --staged`
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and a project overrides it with a `file_line_limit=N` key in `.yoke/project.config` (checked in, read off disk, so the offline hook agrees); comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `file_line_exception` entries are for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
 - _Run pytest with background watcher (main session)_
-  - `yoke watch pytest --impacted main
-# Default local check. Full sweep (CI's job; local CI-outage fallback) — pass your project's test anchors:
+  - `yoke watch pytest --impacted main --bounded
+# Default local check (--bounded is a no-op). Full sweep (CI's job; local --widen / CI-outage fallback) — pass your project's test anchors:
 yoke watch pytest --print-streaming-pair -- <project test anchors>
 # Paste the printed pair into the harness's background + progress-tail surfaces.
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`

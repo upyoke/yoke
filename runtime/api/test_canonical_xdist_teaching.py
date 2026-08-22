@@ -6,7 +6,7 @@ from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 
 
 CANONICAL_WATCH_PYTEST = "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
-IMPACTED_WATCH_PYTEST = "yoke watch pytest --impacted main"
+IMPACTED_WATCH_PYTEST = "yoke watch pytest --impacted main --bounded"
 
 
 def test_agents_testing_section_teaches_watcher_not_raw_pytest() -> None:

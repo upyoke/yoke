@@ -7,7 +7,7 @@ from pathlib import Path
 from yoke_core.hooks.bootstrap import load_spec, render_compact, render_full
 
 
-IMPACTED_LOCAL_CHECK = "yoke watch pytest --impacted main"
+IMPACTED_LOCAL_CHECK = "yoke watch pytest --impacted main --bounded"
 # This repo's own test anchors. They are deliberately absent from every
 # surface the install bundle ships to other projects — a target project's
 # anchors are its own — so they reach the bootstrap only through AGENTS.md,

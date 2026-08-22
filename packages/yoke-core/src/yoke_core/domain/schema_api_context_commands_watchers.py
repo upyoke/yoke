@@ -42,9 +42,10 @@ WATCHERS_COMMANDS: list[dict] = [
         "purpose": "Run pytest with background watcher (main session)",
         "recipe": (
             "yoke watch pytest "
-            "--impacted main\n"
-            "# Default local check. Full sweep (CI's job; local CI-outage "
-            "fallback) — pass your project's test anchors:\n"
+            "--impacted main --bounded\n"
+            "# Default local check (--bounded is a no-op). Full sweep "
+            "(CI's job; local --widen / CI-outage fallback) — pass your "
+            "project's test anchors:\n"
             "yoke watch pytest "
             "--print-streaming-pair -- <project test anchors>\n"
             "# Paste the printed pair into the harness's "
