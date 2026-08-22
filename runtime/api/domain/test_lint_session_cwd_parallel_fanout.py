@@ -138,13 +138,12 @@ class TestParallelFanoutLint:
         assert "YOK-1684-rogue" in verdict.offending_target
         assert len(verdict.claims) == 3
 
-    def test_item_level_claim_does_not_grant_sibling_worktrees(
+    def test_item_level_claim_covers_every_registered_lane(
         self, conn, tmp_path,
     ):
-        """After the hotfix rollback, an item-level claim on an
-        epic with sibling-branch task worktrees no longer authorises
-        the sibling paths. Only explicit ``target_kind='epic_task'``
-        claims grant per-task authority.
+        """An item-level claim on an epic authorises every lane recorded
+        under the epic's item id — its own lane and the task worker
+        lanes alike — while a path no lane records stays refused.
         """
         repo = tmp_path / "repo"
         (repo / ".worktrees").mkdir(parents=True)
@@ -163,7 +162,7 @@ class TestParallelFanoutLint:
         seed_item_claim(conn, "sid-orch", item_id=1872)
 
         # Target outside the free-path allowlist so the claim gate
-        # is the decisive surface.
+        # is the decisive surface: no lane records this path.
         rogue_target = "/opt/elsewhere/.worktrees/YOK-1872-substrate/x.py"
         verdict = validate_targets(
             conn,
@@ -171,13 +170,20 @@ class TestParallelFanoutLint:
             targets=(rogue_target,),
         )
         assert verdict.allow is False
-        # The session's only resolved authority is the primary item lane:
-        # exactly one row, with no sibling inheritance.
-        assert len(verdict.claims) == 1
-        assert verdict.claims[0].task_num is None
-        assert verdict.claims[0].worktree_path == str(
-            repo / ".worktrees" / "YOK-1872"
+        # One item claim, every lane recorded under the item, lane order.
+        assert [c.task_num for c in verdict.claims] == [None, None, None]
+        assert [c.worktree_path for c in verdict.claims] == [
+            str(repo / ".worktrees" / "YOK-1872"),
+            str(repo / ".worktrees" / "YOK-1872-substrate"),
+            str(repo / ".worktrees" / "YOK-1872-propagation"),
+        ]
+        # The recorded task lane itself is writable through that claim.
+        allowed = validate_targets(
+            conn,
+            session_id="sid-orch",
+            targets=(str(repo / ".worktrees" / "YOK-1872-propagation" / "x.py"),),
         )
+        assert allowed.allow is True
 
 
 class TestUnclaimedSessionLint:
