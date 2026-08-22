@@ -7,16 +7,15 @@ from dataclasses import dataclass
 
 REPO_CLEANLINESS_TESTS = (
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
+    "runtime/api/test_doc_hygiene.py",
 )
-
 _ALWAYS_RUN_CONTRACTS = (
     (
         "core_contract_floor",
         (
             "runtime/api/cli/test_adapter_inventory_usage_contract.py",
             "runtime/api/cli/test_yoke_operation_inventory.py",
-            # Losing the ability to create a database is the worst thing the
-            # engine can do and reaches no test by import, so it runs always.
+            # Database creation is a reachability-blind critical contract.
             "runtime/api/domain/test_engine_artifact_universe_birth.py",
             "runtime/api/test_service_client_structured_api_adapter.py",
             "runtime/api/tools/test_atlas_currency_contract.py",
@@ -30,8 +29,7 @@ ALWAYS_RUN_TESTS = tuple(
 )
 
 AGENT_SKILL_CONTRACT_TESTS = (
-    # Skill prose is scanned for the `yoke` commands it teaches, so editing a
-    # skill can break this check with no import edge to reveal it.
+    # Skill command prose has no import edge to its contract checks.
     "runtime/api/engines/test_doctor_hc_atlas.py",
     "runtime/api/test_agent_authored_filing_instruction_resolution.py",
     "runtime/api/test_direct_workflow_skills.py",
@@ -119,7 +117,9 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_inventory.py",
     "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
     "runtime/api/test_installer_package_boundaries.py",
+    "runtime/api/test_parity_db_router_item_list.py",
     "runtime/api/test_parity_render.py",
+    "runtime/api/test_service_client_item_list.py",
     "runtime/api/test_service_client_items.py",
     "tests/import_graph/test_skeletons_importable.py",
 )

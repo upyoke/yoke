@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_main_commit, lint_staged_union
-from runtime.api.domain.test_lint_main_commit import _payload
+from runtime.api.domain.test_lint_main_commit import TEST_ITEM_REF, _payload
 
 
 class TestOneCallAddCommit(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestOneCallAddCommit(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["YOK-42|Some item"],
+                return_value=[f"{TEST_ITEM_REF}|Some item"],
             ):
             reason = lint_main_commit.evaluate_payload(
                 _payload("git add runtime/api/domain/foo.py && git commit -m 'wip'")
@@ -43,7 +43,7 @@ class TestOneCallAddCommit(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["YOK-42|Some item"],
+                return_value=[f"{TEST_ITEM_REF}|Some item"],
             ):
             reason = lint_main_commit.evaluate_payload(
                 _payload("git add -A && git commit -m 'wip'")
@@ -58,7 +58,7 @@ class TestOneCallAddCommit(unittest.TestCase):
              mock.patch.object(
                 lint_main_commit,
                 "_active_worktree_items",
-                return_value=["YOK-42|Some item"],
+                return_value=[f"{TEST_ITEM_REF}|Some item"],
             ):
             self.assertIsNone(
                 lint_main_commit.evaluate_payload(

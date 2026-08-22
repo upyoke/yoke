@@ -42,8 +42,8 @@ def test_item_list_limit_caps_rows(monkeypatch, capsys, canonical_items_db) -> N
     assert rc == 0
     rows = capsys.readouterr().out.strip().splitlines()
     assert rows == [
-        "1|Item 1|idea|medium|issue|user",
-        "2|Item 2|idea|medium|issue|user",
+        "YOK-1|Item 1|idea|medium|issue|user",
+        "YOK-2|Item 2|idea|medium|issue|user",
     ]
 
 
