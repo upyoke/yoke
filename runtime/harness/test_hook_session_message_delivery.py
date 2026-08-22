@@ -90,14 +90,14 @@ def test_tool_event_returns_delimited_additional_context(
     assert "untrusted operational context" in rendered
     assert port.body in rendered
     assert "yoke messages acknowledge message-1" in rendered
-    assert decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD] == {
-        "lease_id": "lease-1",
-        "render_token": "YOKE_SESSION_MESSAGE_LEASE:lease-1",
-        "output_field": "additionalContext",
-    }
+    audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
+    assert audit["lease_id"] == "lease-1"
+    assert audit["render_token"] == "YOKE_SESSION_MESSAGE_LEASE:lease-1"
+    assert audit["output_field"] == "additionalContext"
+    assert audit["rendered_text"] == rendered
 
 
-def test_lifecycle_event_uses_existing_stdout_path(
+def test_lifecycle_event_defers_stdout_until_aggregate_settlement(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     port = FakePort()
@@ -105,9 +105,11 @@ def test_lifecycle_event_uses_existing_stdout_path(
 
     decision = delivery.evaluate(_context("SessionStart"))
 
-    assert "stdout" in decision.audit_fields
+    assert "stdout" not in decision.audit_fields
     assert "additionalContext" not in decision.audit_fields
-    assert "YOKE_SESSION_MESSAGE_LEASE:lease-1" in decision.audit_fields["stdout"]
+    audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
+    assert audit["output_field"] == "stdout"
+    assert "YOKE_SESSION_MESSAGE_LEASE:lease-1" in audit["rendered_text"]
 
 
 def test_surface_event_gate_fails_open_without_leasing(
@@ -184,9 +186,7 @@ def test_sibling_denial_releases_lease_as_not_injected(
     )
 
     assert "YOKE_SESSION_MESSAGE_LEASE" not in stdout
-    assert port.completed == [
-        ("lease-1", False, "dropped_by_sibling_denial")
-    ]
+    assert port.completed == [("lease-1", False, "dropped_by_sibling_denial")]
 
 
 def test_missing_render_token_does_not_claim_injection(
@@ -196,9 +196,7 @@ def test_missing_render_token_does_not_claim_injection(
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
     decision = delivery.evaluate(_context())
 
-    delivery.settle_after_render(
-        [decision], rendered_text="", denied=False, port=port
-    )
+    delivery.settle_after_render([decision], rendered_text="", denied=False, port=port)
 
     assert port.completed == [("lease-1", False, "render_output_missing")]
 

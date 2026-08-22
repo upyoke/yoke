@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
-
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -13,43 +11,19 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.session_control.models import (
     LaunchCreateRequest,
+    LaunchListRequest,
+    LaunchListResponse,
     LaunchMutationRequest,
     LaunchPreviewRequest,
+    LaunchPreviewResponse,
     LaunchReconcileRequest,
+    LaunchResponse,
 )
 from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     LaunchRequest,
     SessionLaunchError,
 )
-
-
-class LaunchListRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    project: str
-    state: Optional[str] = None
-    limit: int = Field(default=50, ge=1, le=500)
-
-
-class LaunchResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    launch: dict[str, Any]
-    preview: Optional[dict[str, Any]] = None
-    deduplicated: bool = False
-
-
-class LaunchListResponse(BaseModel):
-    launches: list[dict[str, Any]]
-    count: int
-
-
-class LaunchPreviewResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    outcome: str
-    requested_surface: str
-    launchable: bool
-    eligible_relays: list[dict[str, Any]]
-    selected_relay: Optional[dict[str, Any]] = None
 
 
 def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome:
@@ -117,7 +91,8 @@ def _fleet_policy(conn: Any, project_id: int, path: str) -> Any:
 
     p = marker(conn)
     row = conn.execute(
-        f"SELECT org_id FROM projects WHERE id = {p}", (project_id,),
+        f"SELECT org_id FROM projects WHERE id = {p}",
+        (project_id,),
     ).fetchone()
     if row is None:
         raise SessionLaunchError("project_not_found", "project does not exist")
@@ -171,9 +146,9 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
     conn = _open()
     try:
         project_id = _resolve_project(conn, parsed.project)
-        deadline_seconds = int(
-            _fleet_policy(conn, project_id, "fleet.launch_deadline_minutes")
-        ) * 60
+        deadline_seconds = (
+            int(_fleet_policy(conn, project_id, "fleet.launch_deadline_minutes")) * 60
+        )
         max_body_bytes = int(_fleet_policy(conn, project_id, "fleet.max_body_bytes"))
         outcome = create_launch(
             conn,
@@ -241,7 +216,10 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
             raise SessionLaunchError("permission_denied", "project operator required")
         rows = rows_to_dicts(
             list_launches(
-                conn, project_id=project_id, state=parsed.state, limit=parsed.limit,
+                conn,
+                project_id=project_id,
+                state=parsed.state,
+                limit=parsed.limit,
             )
         )
         return HandlerOutcome(result_payload={"launches": rows, "count": len(rows)})

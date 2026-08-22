@@ -88,7 +88,9 @@ def _active_worktrees(
         "AND task_lane.state='active' "
         "LEFT JOIN item_worktrees item_lane ON item_lane.id=("
         "SELECT iw.id FROM item_worktrees iw WHERE wc.target_kind='item' "
-        "AND iw.item_id=wc.item_id AND iw.state='active' ORDER BY iw.id LIMIT 1) "
+        "AND iw.item_id=wc.item_id AND iw.state='active' "
+        "ORDER BY CASE iw.lane_role WHEN 'integration' THEN 0 ELSE 1 END,"
+        "iw.id LIMIT 1) "
         "WHERE wc.released_at IS NULL AND wc.session_id IN ("
         + ",".join(marker for _ in ids)
         + ") ORDER BY wc.claimed_at,wc.id",

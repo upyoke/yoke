@@ -71,8 +71,9 @@ def test_registered_adapter_receives_attestation_only_in_dedicated_field(
     seen = []
     runtime.register_relay_adapter(
         "codex-cli",
-        lambda context: seen.append(context) or RelayAdapterResult(
-            "native_created", native_session_id="native-1"
+        lambda context: (
+            seen.append(context)
+            or RelayAdapterResult("native_created", native_session_id="native-1")
         ),
     )
 
@@ -125,7 +126,12 @@ def test_serve_once_reports_sanitized_result_and_honors_server_backoff(
             "native_created",
             native_session_id="native-1",
             adapter_revision="adapter-1",
-            evidence={"duration_ms": 12},
+            evidence={
+                "duration_ms": 12,
+                "surface": "codex-cli",
+                "token": "must-not-cross-wire",
+                "nested": {"body": "must-not-cross-wire"},
+            },
         ),
         clock=lambda: 1000.0,
     )
@@ -141,9 +147,11 @@ def test_serve_once_reports_sanitized_result_and_honors_server_backoff(
     assert len(calls) == 2
     report = calls[1]["payload"]
     assert report["native_id"] == "native-1"
+    assert report["evidence"] == {"duration_ms": 12, "surface": "codex-cli"}
     assert "native_instruction" not in report
     assert "launch_attestation" not in report
     assert "secret-attestation" not in repr(report)
+    assert "must-not-cross-wire" not in repr(report)
 
 
 def test_relay_lock_is_non_overlapping(tmp_path: Path) -> None:

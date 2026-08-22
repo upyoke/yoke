@@ -14,13 +14,14 @@ from yoke_core.domain.session_relay_jobs import (
 )
 from yoke_core.domain.session_relay_policy import effective_relay_policy
 from yoke_core.domain.session_relay_storage import (
-    expire_message_recipients,
     heartbeat_relay,
     machine_is_idle,
     relay_has_live_lease,
     utc_now,
     validate_heartbeat,
 )
+from yoke_core.domain.session_message_delivery import expire_due_recipients
+from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_relay_types import (
     MAX_RELAY_LONG_POLL_SECONDS,
     RELAY_LONG_POLL_STEP_SECONDS,
@@ -52,7 +53,7 @@ def claim_relay_job(
         now=current,
     )
     settle_expired_relay_leases(conn, now=current)
-    expire_message_recipients(conn, now=current)
+    expire_due_recipients(conn, now=parse_timestamp(current))
     conn.commit()
 
     if relay_has_live_lease(conn, relay_id=heartbeat.relay_id, now=current):
@@ -79,7 +80,6 @@ def claim_relay_job(
             job = claim_wake_job(
                 conn,
                 heartbeat,
-                max_attempts=policy.max_wake_attempts,
                 now=current,
             )
         if job is not None:
@@ -98,6 +98,8 @@ def claim_relay_job(
                 next_poll_seconds=policy.poll_seconds,
                 job=job,
             )
+        # Never hold a read transaction open across the long-poll sleep.
+        conn.commit()
         elapsed = monotonic() - started
         if elapsed >= wait_seconds:
             break
@@ -130,6 +132,7 @@ def claim_relay_job(
 def report_relay_job(
     conn: Any,
     *,
+    actor_id: int,
     relay_id: str,
     job_kind: str,
     job_id: str,
@@ -141,6 +144,9 @@ def report_relay_job(
     now: str | None = None,
 ) -> dict[str, Any]:
     """Persist one bounded native result without logging job payloads."""
+    from yoke_core.domain.session_relay_storage import require_relay_actor
+
+    require_relay_actor(conn, relay_id=relay_id, actor_id=actor_id)
     current = now or utc_now()
     if job_kind == "launch":
         return report_launch_job(

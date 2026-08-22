@@ -2,63 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
-
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.session_control.models import (
+    RelayClaimRequest,
+    RelayClaimResponse,
+    RelayReportRequest,
+    RelayReportResponse,
+)
 from yoke_core.domain.session_relay_types import (
-    MAX_RELAY_LONG_POLL_SECONDS,
     RelayHeartbeat,
     SessionRelayError,
 )
-
-
-class RelayClaimPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    relay_id: str
-    machine_id: str
-    hostname: str
-    relay_version: str
-    projects: list[int]
-    surfaces: Dict[str, str]
-    wait_seconds: int = Field(
-        default=MAX_RELAY_LONG_POLL_SECONDS,
-        ge=0,
-        le=MAX_RELAY_LONG_POLL_SECONDS,
-    )
-
-
-class RelayClaimResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    relay_id: str
-    machine_id: str
-    state: Literal["active", "idle"]
-    connected_until: str
-    next_poll_seconds: int
-    job: Dict[str, Any] | None = None
-
-
-class RelayReportPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    relay_id: str
-    job_kind: Literal["launch", "wake"]
-    job_id: str
-    lease_id: str
-    result: str
-    native_id: str | None = None
-    adapter_revision: str | None = None
-    evidence: Dict[str, Any] = Field(default_factory=dict)
-
-
-class RelayReportResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    job_kind: Literal["launch", "wake"]
-    result: Dict[str, Any]
 
 
 def _failure(code: str, message: str) -> HandlerOutcome:
@@ -68,9 +26,24 @@ def _failure(code: str, message: str) -> HandlerOutcome:
     )
 
 
+def _actor_id(request: FunctionCallRequest) -> int:
+    raw = str(request.actor.actor_id or "").strip()
+    if not raw.isdigit():
+        raise SessionRelayError("actor_required", "verified numeric actor is required")
+    return int(raw)
+
+
+def _target_failure(request: FunctionCallRequest) -> HandlerOutcome | None:
+    if request.target.kind == "global":
+        return None
+    return _failure("target_invalid", "relay functions require target.kind='global'")
+
+
 def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
+    if invalid := _target_failure(request):
+        return invalid
     try:
-        payload = RelayClaimPayload.model_validate(request.payload or {})
+        payload = RelayClaimRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain.db_helpers import connect
@@ -83,6 +56,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 RelayHeartbeat(
                     relay_id=payload.relay_id,
+                    actor_id=_actor_id(request),
                     machine_id=payload.machine_id,
                     hostname=payload.hostname,
                     relay_version=payload.relay_version,
@@ -99,8 +73,10 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_relay_report(request: FunctionCallRequest) -> HandlerOutcome:
+    if invalid := _target_failure(request):
+        return invalid
     try:
-        payload = RelayReportPayload.model_validate(request.payload or {})
+        payload = RelayReportRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain.db_helpers import connect
@@ -111,6 +87,7 @@ def handle_relay_report(request: FunctionCallRequest) -> HandlerOutcome:
         try:
             result = report_relay_job(
                 conn,
+                actor_id=_actor_id(request),
                 relay_id=payload.relay_id,
                 job_kind=payload.job_kind,
                 job_id=payload.job_id,
@@ -131,9 +108,7 @@ def handle_relay_report(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "RelayClaimPayload",
     "RelayClaimResponse",
-    "RelayReportPayload",
     "RelayReportResponse",
     "handle_relay_claim",
     "handle_relay_report",

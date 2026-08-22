@@ -1,9 +1,6 @@
 """Tests for the ``sessions.list`` read handler and its domain read.
 
-Real-DB coverage on the ``test_db`` fixture: liveness derivation
-(active / stale / ended), the executor-aware activity timestamp, the
-active-claims join with typed-target display, the project and liveness
-filters, actor attribution facts, and registration.
+Real-DB coverage includes liveness, claims, filters, attribution, and roster.
 """
 
 from __future__ import annotations
@@ -18,9 +15,10 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
+from yoke_core.domain.session_control_roster import SESSION_CONTROL_ROSTER_FIELDS
+from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.sessions_list_read import (
     LIVENESS_STATES,
-    SESSION_LIST_FIELDS,
     list_sessions,
 )
 
@@ -117,8 +115,7 @@ class TestLivenessDerivation:
         self,
         test_db,
     ):
-        # Activity is MAX(last_heartbeat, last_tool_call_at) — the same
-        # combined stamp the stale-session reclaim sweep consults.
+        # Tool activity keeps the session live even with an old heartbeat.
         recent_tool_call = _iso()
         _insert_session(
             test_db,
@@ -211,8 +208,6 @@ class TestClaimsAndAttribution:
         rows = list_sessions()
         assert rows[0]["actor_kind"] == "system"
         assert rows[0]["actor_id"] == system_actor_id
-        # The label is the engine's display derivation: the system
-        # component name, never something person-shaped.
         assert rows[0]["actor_label"]
 
     def test_current_item_renders_display_form(self, test_db):
@@ -281,14 +276,18 @@ class TestClaimsAndAttribution:
 
 class TestHandler:
     def test_handler_returns_fields_and_rows(self, test_db):
+        create_session_control_tables(test_db)
+        test_db.commit()
         _insert_session(test_db, "s-1", last_heartbeat=_iso())
         outcome = handle_sessions_list(_request())
         assert outcome.primary_success
-        assert outcome.result_payload["fields"] == list(SESSION_LIST_FIELDS)
+        assert outcome.result_payload["fields"] == list(SESSION_CONTROL_ROSTER_FIELDS)
         rows = outcome.result_payload["rows"]
         assert [row["session_id"] for row in rows] == ["s-1"]
 
     def test_handler_project_filter_scopes_rows(self, test_db):
+        create_session_control_tables(test_db)
+        test_db.commit()
         test_db.execute(
             "INSERT INTO projects (id, slug, name, created_at) VALUES (%s, %s, %s, %s)",
             (77, "other", "Other", _iso()),
@@ -330,6 +329,8 @@ class TestHandler:
         )
         assert not outcome.primary_success
         assert outcome.error.code == "target_invalid"
+
+
 class TestRegistration:
     def test_sessions_list_is_a_registered_claimless_read(self):
         from yoke_core.domain.handlers.__init_register__ import (

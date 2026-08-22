@@ -11,6 +11,7 @@ from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
+from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.function_ids import RELAY_FUNCTION_IDS
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
@@ -62,7 +63,7 @@ def _report_payload(
         "result": result.result_code,
         "native_id": result.native_session_id,
         "adapter_revision": result.adapter_revision,
-        "evidence": dict(result.evidence),
+        "evidence": redacted_evidence_document(result.evidence),
     }
 
 

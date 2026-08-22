@@ -23,10 +23,14 @@ from yoke_cli.operation_inventory_product_surfaces import (
 from yoke_cli.operation_inventory_strategy_event import (
     PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS,
 )
+from yoke_cli.operation_inventory_session_control import (
+    PERMANENT_ROWS as SESSION_CONTROL_PERMANENT_ROWS,
+)
 
 
 PERMANENT_ROWS: Tuple[_Row, ...] = (
     *PRODUCT_SURFACE_PERMANENT_ROWS,
+    *SESSION_CONTROL_PERMANENT_ROWS,
     # Coordination-lease family — operator break-glass.
     _p(
         "python3 -m yoke_core.api.service_client coordination-lease-acquire",

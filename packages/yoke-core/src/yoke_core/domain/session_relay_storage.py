@@ -42,6 +42,11 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
         raise SessionRelayError(
             "machine_id_invalid", "machine_id must be a canonical UUID"
         )
+    actor_id = int(heartbeat.actor_id)
+    if actor_id <= 0:
+        raise SessionRelayError(
+            "relay_actor_invalid", "relay actor must be a positive integer"
+        )
     unknown = sorted(set(heartbeat.surface_versions) - set(KNOWN_SURFACE_LABELS))
     if unknown:
         raise SessionRelayError(
@@ -69,6 +74,7 @@ def validate_heartbeat(heartbeat: RelayHeartbeat) -> RelayHeartbeat:
         )
     return RelayHeartbeat(
         relay_id=heartbeat.relay_id.strip(),
+        actor_id=actor_id,
         machine_id=machine_id,
         hostname=hostname,
         relay_version=relay_version,
@@ -92,10 +98,15 @@ def heartbeat_relay(
     heartbeat = validate_heartbeat(heartbeat)
     p = marker(conn)
     existing = conn.execute(
-        f"SELECT machine_id FROM session_relays WHERE relay_id={p}",
+        f"SELECT actor_id,machine_id FROM session_relays WHERE relay_id={p}",
         (heartbeat.relay_id,),
     ).fetchone()
-    if existing is not None and str(existing[0]) != heartbeat.machine_id:
+    if existing is not None and int(existing[0]) != heartbeat.actor_id:
+        raise SessionRelayError(
+            "relay_actor_mismatch",
+            "an existing relay id belongs to a different authenticated actor",
+        )
+    if existing is not None and str(existing[1]) != heartbeat.machine_id:
         raise SessionRelayError(
             "relay_machine_mismatch",
             "an existing relay id cannot move to a different machine",
@@ -105,18 +116,21 @@ def heartbeat_relay(
     projects = json_helper.dumps_compact(list(heartbeat.project_ids))
     conn.execute(
         "INSERT INTO session_relays "
-        "(relay_id,machine_id,relay_version,surface_versions,project_checkouts,"
+        "(relay_id,actor_id,machine_id,hostname,relay_version,surface_versions,project_checkouts,"
         "first_seen_at,last_seen_at,connected_until,state) "
-        f"VALUES ({','.join(p for _ in range(9))}) "
+        f"VALUES ({','.join(p for _ in range(11))}) "
         "ON CONFLICT(relay_id) DO UPDATE SET "
-        "machine_id=excluded.machine_id,relay_version=excluded.relay_version,"
+        "actor_id=excluded.actor_id,machine_id=excluded.machine_id,"
+        "hostname=excluded.hostname,relay_version=excluded.relay_version,"
         "surface_versions=excluded.surface_versions,"
         "project_checkouts=excluded.project_checkouts,"
         "last_seen_at=excluded.last_seen_at,"
         "connected_until=excluded.connected_until,state=excluded.state",
         (
             heartbeat.relay_id,
+            heartbeat.actor_id,
             heartbeat.machine_id,
+            heartbeat.hostname,
             heartbeat.relay_version or None,
             surfaces,
             projects,
@@ -130,17 +144,21 @@ def heartbeat_relay(
     return connected_until
 
 
-def expire_message_recipients(conn: Any, *, now: str) -> int:
+def require_relay_actor(conn: Any, *, relay_id: str, actor_id: int) -> None:
     p = marker(conn)
-    cursor = conn.execute(
-        "UPDATE session_message_recipients SET state='expired',expired_at=" + p + " "
-        "WHERE state IN ('pending','injected') AND EXISTS ("
-        "SELECT 1 FROM session_messages m "
-        "WHERE m.message_id=session_message_recipients.message_id "
-        f"AND m.expires_at<={p})",
-        (now, now),
-    )
-    return max(int(cursor.rowcount or 0), 0)
+    row = conn.execute(
+        f"SELECT actor_id FROM session_relays WHERE relay_id={p}",
+        (relay_id,),
+    ).fetchone()
+    if row is None:
+        raise SessionRelayError(
+            "relay_missing", f"relay {relay_id!r} is not registered"
+        )
+    if int(row[0]) != int(actor_id):
+        raise SessionRelayError(
+            "relay_actor_mismatch",
+            "relay report actor does not own the registered relay",
+        )
 
 
 def machine_is_idle(
@@ -184,7 +202,9 @@ def mark_relay_job(
         (lease_id, lease_expires_at, now, relay_id),
     )
     if cursor.rowcount != 1:
-        raise SessionRelayError("relay_missing", f"relay {relay_id!r} is not registered")
+        raise SessionRelayError(
+            "relay_missing", f"relay {relay_id!r} is not registered"
+        )
 
 
 def clear_relay_job(conn: Any, *, relay_id: str, lease_id: str) -> None:
@@ -198,11 +218,14 @@ def clear_relay_job(conn: Any, *, relay_id: str, lease_id: str) -> None:
 
 def relay_has_live_lease(conn: Any, *, relay_id: str, now: str) -> bool:
     p = marker(conn)
-    return conn.execute(
-        "SELECT 1 FROM session_relays "
-        f"WHERE relay_id={p} AND lease_id IS NOT NULL AND lease_expires_at>{p}",
-        (relay_id, now),
-    ).fetchone() is not None
+    return (
+        conn.execute(
+            "SELECT 1 FROM session_relays "
+            f"WHERE relay_id={p} AND lease_id IS NOT NULL AND lease_expires_at>{p}",
+            (relay_id, now),
+        ).fetchone()
+        is not None
+    )
 
 
 def require_relay_lease(
@@ -230,12 +253,12 @@ def require_relay_lease(
 
 __all__ = [
     "clear_relay_job",
-    "expire_message_recipients",
     "heartbeat_relay",
     "machine_is_idle",
     "mark_relay_job",
     "marker",
     "relay_has_live_lease",
+    "require_relay_actor",
     "require_relay_lease",
     "shifted",
     "utc_now",

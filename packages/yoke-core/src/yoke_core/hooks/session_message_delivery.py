@@ -77,16 +77,19 @@ def render_lease(lease: SessionMessageLease) -> tuple[str, str]:
 def _decision_for_event(lease: SessionMessageLease, event_name: str) -> HookDecision:
     rendered, token = render_lease(lease)
     output_field = "stdout" if event_name in _STDOUT_EVENTS else "additionalContext"
+    fields = {
+        DELIVERY_AUDIT_FIELD: {
+            "lease_id": lease.lease_id,
+            "render_token": token,
+            "output_field": output_field,
+            "rendered_text": rendered,
+        }
+    }
+    if output_field != "stdout":
+        fields[output_field] = rendered
     return HookDecision(
         outcome=Outcome.AUDIT_ONLY,
-        audit_fields={
-            output_field: rendered,
-            DELIVERY_AUDIT_FIELD: {
-                "lease_id": lease.lease_id,
-                "render_token": token,
-                "output_field": output_field,
-            },
-        },
+        audit_fields=fields,
         next=Next.CONTINUE,
     )
 
@@ -99,7 +102,11 @@ def evaluate(context: HookContext) -> HookDecision:
     the renderer to drop this advisory.
     """
     session_id = str(context.session_id or "").strip()
-    if not session_id or session_id == "unknown" or not _event_is_model_visible(context):
+    if (
+        not session_id
+        or session_id == "unknown"
+        or not _event_is_model_visible(context)
+    ):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     port = _delivery_port()
     try:

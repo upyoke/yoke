@@ -18,9 +18,7 @@ runs only that subset with ``flush_tail=False``.
 
 from __future__ import annotations
 
-import os
 import time
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 from yoke_contracts.hook_runner.chain_registry import chain_for
@@ -33,15 +31,16 @@ from yoke_core.domain.hook_runner_deadline import (
 )
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks import mode_gate as _mode_gate
+from yoke_core.hooks.context import build_context
 from yoke_core.hooks.remote_policy import RunControls
+
 # The telemetry patch seam: the flush itself happens in run_tail, but the
 # module attribute patched here is the same object run_tail resolves.
 from yoke_core.hooks import telemetry as _telemetry  # noqa: F401
 from yoke_core.hooks.skipped_guards import record_skipped_guards
 from yoke_core.hooks.subprocess_policy import run_subprocess_policy
-from yoke_core.hooks.target import resolve_context_target_root
 from yoke_core.hooks.typed_dispatch import audit_only_synthetic, dispatch_typed
-from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next
 
 
 __all__ = ["run_event"]
@@ -76,49 +75,6 @@ def _apply_omissions(
     return [m for m in chain if m not in omitted]
 
 
-def _str_or(value: Any, default: Optional[str] = None) -> Optional[str]:
-    return value if isinstance(value, str) else default
-
-
-def _build_context(
-    *,
-    event_name: str,
-    capability: AdapterCapability,
-    payload: dict[str, Any],
-    remote: bool = False,
-) -> HookContext:
-    tool_input = payload.get("tool_input")
-    command_body = (
-        _str_or(tool_input.get("command")) if isinstance(tool_input, dict) else None
-    )
-    session_id = _str_or(payload.get("session_id"))
-    if not session_id and not remote:
-        from yoke_core.domain.session_ambient_identity import (
-            session_id_from_hook_payload,
-        )
-        session_id = session_id_from_hook_payload(payload) or None
-        if session_id:
-            payload["session_id"] = session_id
-    payload_cwd = _str_or(payload.get("cwd"))
-    # Remote evaluation must not adopt the SERVER process's cwd as the
-    # client's: cwd stays payload-borne (possibly None) when remote.
-    cwd = payload_cwd if remote else (payload_cwd or os.getcwd())
-    return HookContext(
-        event_name=event_name,
-        executor_family=capability.family,
-        executor_surface=os.environ.get("YOKE_EXECUTOR", capability.family),
-        payload=payload,
-        tool_name=_str_or(payload.get("tool_name")),
-        command_body=command_body,
-        cwd=cwd,
-        target_root=resolve_context_target_root(payload, payload_cwd),
-        session_id=session_id,
-        item_id=None,
-        now=datetime.now(timezone.utc),
-        remote=remote,
-    )
-
-
 def _dispatch_subprocess(
     module_id: str,
     *,
@@ -128,7 +84,10 @@ def _dispatch_subprocess(
 ) -> tuple[Optional[HookDecision], Optional[str], str]:
     """Run a subprocess policy via ``python3 -m <module_id>``."""
     failure, captured = run_subprocess_policy(
-        module_id, context=context, stdin_data=stdin_data, timeout_ms=timeout_ms,
+        module_id,
+        context=context,
+        stdin_data=stdin_data,
+        timeout_ms=timeout_ms,
     )
     if failure:
         return None, failure, captured
@@ -167,7 +126,9 @@ def _render_dry_run(
                 sections.append(f"# {event_name}:{tool}\n{body.rstrip()}")
         return "\n\n".join(sections) + "\n" if sections else ""
     chain = _apply_omissions(
-        chain_for(event_name, matcher), event_name=event_name, capability=capability,
+        chain_for(event_name, matcher),
+        event_name=event_name,
+        capability=capability,
     )
     return _format_chain(chain, capability)
 
@@ -190,12 +151,16 @@ def _invoke_module(
     started = time.monotonic()
     if module_id in capability.subprocess_modules:
         decision, failure, captured = _dispatch_subprocess(
-            module_id, context=context, stdin_data=stdin_data,
+            module_id,
+            context=context,
+            stdin_data=stdin_data,
             timeout_ms=timeout_ms,
         )
     else:
         decision, failure = dispatch_typed(
-            module_id, context=context, timeout_ms=timeout_ms,
+            module_id,
+            context=context,
+            timeout_ms=timeout_ms,
         )
         captured = ""
     duration_ms = int((time.monotonic() - started) * 1000)
@@ -209,12 +174,24 @@ def _invoke_module(
         "duration_ms": duration_ms,
     }
     if failure is not None:
-        return audit_only_synthetic(), captured, failure, (
-            "failed", {**common, "failure": failure},
+        return (
+            audit_only_synthetic(),
+            captured,
+            failure,
+            (
+                "failed",
+                {**common, "failure": failure},
+            ),
         )
     assert decision is not None
-    return decision, captured, None, (
-        "guardrail", {**common, "decision_outcome": decision.outcome.value},
+    return (
+        decision,
+        captured,
+        None,
+        (
+            "guardrail",
+            {**common, "decision_outcome": decision.outcome.value},
+        ),
     )
 
 
@@ -236,7 +213,9 @@ def run_event(
     """
     module_timeout_ms = _resolve_timeout_ms()
     if controls is not None and controls.budget_ms is not None:
-        deadline = HookDeadline(budget_ms=controls.budget_ms, started_at=time.monotonic())
+        deadline = HookDeadline(
+            budget_ms=controls.budget_ms, started_at=time.monotonic()
+        )
     else:
         deadline = start_hook_deadline()
     payload = capability.payload_parser(stdin_data) if stdin_data else {}
@@ -254,7 +233,7 @@ def run_event(
         event_name=event_name,
         capability=capability,
     )
-    context = _build_context(
+    context = build_context(
         event_name=event_name,
         capability=capability,
         payload=payload,
@@ -290,9 +269,7 @@ def run_event(
         decisions.append(decision)
         telem_records.append(record)
         if failure is not None and controls is not None:
-            controls.degraded.append(
-                f"{FAILURE_PREFIX}{module_id}:{failure}"
-            )
+            controls.degraded.append(f"{FAILURE_PREFIX}{module_id}:{failure}")
         if captured:
             extra_stdout_parts.append(captured)
         decision_stdout = decision.audit_fields.get("stdout")
@@ -300,13 +277,13 @@ def run_event(
             extra_stdout_parts.append(decision_stdout)
         if failure and failure.startswith("timeout_") and deadline.expired():
             timed_out = True
-            skipped_guards = chain[index + 1:]
+            skipped_guards = chain[index + 1 :]
             break
         if decision.next is Next.STOP:
             break
         if deadline.expired():
             timed_out = True
-            skipped_guards = chain[index + 1:]
+            skipped_guards = chain[index + 1 :]
             break
     if skipped_guards:
         record_skipped_guards(skipped_guards, controls)
@@ -316,9 +293,9 @@ def run_event(
         joined = "".join(extra_stdout_parts)
         rendered_text = f"{rendered_text}{joined}" if rendered_text else joined
 
-    final_outcome = (
-        "deny" if any(d.outcome is Outcome.DENY or d.block for d in decisions) else "allow"
-    )
+    from yoke_core.hooks.hook_delivery_settlement import settle_model_deliveries
+
+    rendered_text, final_outcome = settle_model_deliveries(decisions, rendered_text)
     if timed_out and final_outcome == "allow":
         final_outcome = "timeout_allow"
     if controls is not None:
@@ -329,7 +306,6 @@ def run_event(
         # The relay's client-side local-state subset: the server's run owns
         # the telemetry/ensure-register/lifecycle tail for the event.
         return rendered_text, exit_code
-    # Batched telemetry flush + ensure-register + remote lifecycle: one
     # budget-gated tail step (the decision is already rendered, so a slow
     # or skipped tail can never suppress a deny) — see run_tail.
     from yoke_core.hooks.run_tail import flush_run_tail

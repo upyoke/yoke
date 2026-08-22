@@ -15,9 +15,7 @@ Every registered function is sorted by *blast radius*; the dispatch
                        confer control-plane authority.
 * ``ACTOR_SESSION``  — own-session and global learning-channel operations;
                        allowed for any authenticated actor without a tenant target.
-* ``CLIENT_LOCAL``   — machine-local op that writes the *caller's own* ``~/.yoke``
-                       config or local checkout; gated by machine possession, not
-                       a control-plane permission.
+* ``CLIENT_LOCAL``   — machine-local work gated by machine possession.
 * ``DENY``           — fail-closed: an unclassified *side-effecting* function.
 
 This table is the security spec. The safe default for anything not classified here
@@ -62,6 +60,7 @@ from yoke_core.domain.function_authz_types import (
     AuthzSpec,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
+
 # function_id -> (scope, permission). PROJECT families are handled by
 # permission_key_for and need no entry here.
 _BY_ID: dict[str, AuthzSpec] = {
@@ -226,6 +225,7 @@ _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     ("project.refresh", AuthzSpec(CLIENT_LOCAL, None)),
     ("project.uninstall", AuthzSpec(CLIENT_LOCAL, None)),
     ("harness.machine_report.", AuthzSpec(ACTOR_SESSION, None)),
+    ("session_control.", AuthzSpec(ACTOR_SESSION, None)),
 )
 
 

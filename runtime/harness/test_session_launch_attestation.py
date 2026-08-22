@@ -47,7 +47,8 @@ def test_tool_event_uses_existing_additional_context_path(monkeypatch) -> None:
 
     monkeypatch.setattr(launch_hook, "prepare_launch_registration", prepare)
     decision = launch_hook.evaluate_launch_attestation(
-        _record(), connect=_Connection,
+        _record(),
+        connect=_Connection,
     )
 
     assert decision.outcome == Outcome.AUDIT_ONLY
@@ -61,17 +62,21 @@ def test_tool_event_uses_existing_additional_context_path(monkeypatch) -> None:
     assert "one-time-secret" not in repr(decision.audit_fields)
 
 
-def test_lifecycle_event_uses_existing_stdout_path(monkeypatch) -> None:
+def test_lifecycle_event_defers_stdout_until_aggregate_settlement(monkeypatch) -> None:
     monkeypatch.setattr(
         launch_hook,
         "prepare_launch_registration",
         lambda conn, **kwargs: _injection(),
     )
     decision = launch_hook.evaluate_launch_attestation(
-        _record("SessionStart"), connect=_Connection,
+        _record("SessionStart"),
+        connect=_Connection,
     )
-    assert "Inspect the assigned work." in decision.audit_fields["stdout"]
+    assert "stdout" not in decision.audit_fields
     assert "additionalContext" not in decision.audit_fields
+    audit = decision.audit_fields[launch_hook.LAUNCH_DELIVERY_AUDIT_FIELD]
+    assert audit["output_field"] == "stdout"
+    assert "Inspect the assigned work." in audit["rendered_text"]
 
 
 def test_instruction_framing_denies_inherited_authority() -> None:
@@ -108,11 +113,14 @@ def test_finalize_records_only_actual_render_delivery(monkeypatch) -> None:
                 "launch_id": "launch-1",
                 "message_id": "message-1",
                 "session_id": "session-1",
+                "render_token": "launch-token",
             }
         },
     )
     launch_hook.finalize_launch_attestation(
-        decision, delivered=False, connect=_Connection,
+        decision,
+        delivered=False,
+        connect=_Connection,
     )
     assert calls == [
         {

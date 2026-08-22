@@ -70,14 +70,19 @@ def add_relay(
     last_seen_at: str = NOW,
     connected_until: str = "2026-08-22T12:20:00Z",
     projects: list[Any] | None = None,
+    actor_id: int = 1,
+    hostname: str = "relay-host",
 ) -> None:
     conn.execute(
         "INSERT INTO session_relays "
-        "(relay_id, machine_id, surface_versions, project_checkouts, first_seen_at, "
-        "last_seen_at, connected_until, state) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')",
+        "(relay_id, actor_id, machine_id, hostname, surface_versions, "
+        "project_checkouts, first_seen_at, last_seen_at, connected_until, state) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')",
         (
             relay_id,
+            actor_id,
             machine_id,
+            hostname,
             json.dumps({surface: version}),
             json.dumps(projects or [10]),
             NOW,

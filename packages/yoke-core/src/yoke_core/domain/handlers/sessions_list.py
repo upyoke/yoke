@@ -145,7 +145,6 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
 
     from yoke_core.domain.sessions_list_read import (
         DEFAULT_SESSIONS_LIST_LIMIT,
-        SESSION_LIST_FIELDS,
         list_sessions,
     )
 
@@ -158,17 +157,20 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
     except ValueError as exc:
         return _error(
-            "payload_invalid", str(exc), jsonpath="$.payload.liveness",
+            "payload_invalid",
+            str(exc),
+            jsonpath="$.payload.liveness",
         )
     except LookupError as exc:
         return _error(
-            "not_found", str(exc), jsonpath="$.payload.project",
+            "not_found",
+            str(exc),
+            jsonpath="$.payload.project",
         )
+    from yoke_core.domain.session_control_roster import session_control_roster_result
+
     return HandlerOutcome(
-        result_payload={
-            "fields": list(SESSION_LIST_FIELDS),
-            "rows": rows,
-        },
+        result_payload=session_control_roster_result(rows),
         primary_success=True,
     )
 

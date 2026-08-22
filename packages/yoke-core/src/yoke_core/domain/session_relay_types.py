@@ -23,6 +23,7 @@ class SessionRelayError(ValueError):
 @dataclass(frozen=True)
 class RelayHeartbeat:
     relay_id: str
+    actor_id: int
     machine_id: str
     hostname: str
     relay_version: str

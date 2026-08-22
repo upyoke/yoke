@@ -36,9 +36,7 @@ WAKE_REPORT_CODES = frozenset(
         "version_mismatch",
     }
 )
-LAUNCH_REPORT_CODES = frozenset(
-    {"native_created", "not_created", "outcome_unknown"}
-)
+LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
 
 
 def _lock(conn: Any, alias: str) -> str:
@@ -125,43 +123,32 @@ def _wake_candidates(
     conn: Any,
     heartbeat: RelayHeartbeat,
     *,
-    max_attempts: int,
     now: str,
-) -> Sequence[Any]:
-    p = marker(conn)
+) -> Sequence[Mapping[str, Any]]:
+    from yoke_core.domain.session_message_types import parse_timestamp
+    from yoke_core.domain.session_message_wake import wake_eligible_recipients
+
     projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
     if not projects:
         return ()
-    project_slots = ",".join(p for _ in projects)
-    return conn.execute(
-        "SELECT r.message_id,r.session_id,r.project_id,r.executor_surface,"
-        "r.executor_version FROM session_message_recipients r "
-        "JOIN session_messages m ON m.message_id=r.message_id "
-        "JOIN harness_sessions s ON s.session_id=r.session_id "
-        "WHERE r.state='pending' AND r.machine_id=" + p + " "
-        f"AND r.project_id IN ({project_slots}) AND r.wake_after<={p} "
-        f"AND r.wake_attempt_count<{p} AND m.expires_at>{p} "
-        "AND m.cancelled_at IS NULL "
-        "AND (s.last_tool_call_at IS NULL OR s.last_tool_call_at<r.created_at) "
-        "ORDER BY r.created_at,r.message_id,r.session_id LIMIT 25"
-        + _lock(conn, "r"),
-        (heartbeat.machine_id, *projects, now, max_attempts, now),
-    ).fetchall()
+    return tuple(
+        row
+        for row in wake_eligible_recipients(conn, now=parse_timestamp(now))
+        if row.get("machine_id") == heartbeat.machine_id
+        and int(row["project_id"]) in projects
+    )[:25]
 
 
 def claim_wake_job(
     conn: Any,
     heartbeat: RelayHeartbeat,
     *,
-    max_attempts: int,
     now: str,
 ) -> RelayJob | None:
     selected = None
-    for row in _wake_candidates(
-        conn, heartbeat, max_attempts=max_attempts, now=now
-    ):
-        surface = str(row[3] or "")
-        target_version = str(row[4] or "")
+    for row in _wake_candidates(conn, heartbeat, now=now):
+        surface = str(row.get("executor_surface") or "")
+        target_version = str(row.get("executor_version") or "")
         relay_version = heartbeat.surface_versions.get(surface)
         if not surface_operation_supported(surface, target_version, "message_stopped"):
             continue
@@ -171,7 +158,10 @@ def claim_wake_job(
         break
     if selected is None:
         return None
-    message_id, session_id, project_id, surface, _version = selected
+    message_id = str(selected["message_id"])
+    session_id = str(selected["session_id"])
+    project_id = int(selected["project_id"])
+    surface = str(selected["executor_surface"])
     attempt_id = str(uuid.uuid4())
     lease_id = str(uuid.uuid4())
     lease_expires_at = shifted(now, seconds=WAKE_LEASE_SECONDS)
@@ -255,8 +245,14 @@ def report_wake_job(
         now=now,
     )
     conn.execute(
-        "UPDATE session_message_attempts SET completed_at=" + p + ",result_code="
-        + p + ",adapter_revision=" + p + ",evidence=" + p
+        "UPDATE session_message_attempts SET completed_at="
+        + p
+        + ",result_code="
+        + p
+        + ",adapter_revision="
+        + p
+        + ",evidence="
+        + p
         + f" WHERE attempt_id={p}",
         (
             now,
@@ -302,10 +298,11 @@ def report_launch_job(
                 "report_conflict", "launch attempt was already reported"
             )
         launch = conn.execute(
-            "SELECT state,result_code FROM session_launches "
-            f"WHERE launch_id={p}",
+            f"SELECT state,result_code FROM session_launches WHERE launch_id={p}",
             (launch_id,),
         ).fetchone()
+        clear_relay_job(conn, relay_id=relay_id, lease_id=lease_id)
+        conn.commit()
         return {
             "launch_id": launch_id,
             "state": str(launch[0]),

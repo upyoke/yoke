@@ -27,42 +27,8 @@ PreToolUse Bash chain order rationale:
 3. ``lint_main_commit`` — block ``git commit`` on main.
 4. ``lint_tc_label`` — TC-label hygiene.
 5. ``lint_long_command_polling`` — same-capture polling discipline.
-5b. ``lint_pipe_to_truncator`` — block piping a live long command
-   (watcher wrappers, pytest, run_tests, doctor/deploy engines) into
-   ``tail``/``head``. Owns the pipe-to-truncator clause of the AGENTS.md
-   Command Output rule: the truncator both discards failure context and
-   masks the command's exit code. Pure shape parse; runs beside the
-   polling lint because both protect long-command output discipline.
-5b-ii. ``lint_raw_pytest_full_suite`` — steer a bare ``pytest`` sweep into
-    the watcher wrapper, which arbitrates for the machine-wide test-gate
-    admission slot. Denies the whole-surface shape, advises any other
-    directory sweep. Pure shape parse; sits beside the sibling above
-    because both keep heavy runs on paths that stay observable and bounded.
-5b-iii. ``lint_watcher_module_form`` — retire the module spelling for
-    watcher wrappers that have a first-class ``yoke watch`` adapter.
-    Runs after the pytest sweep guard so legacy long-command forms
-    converge on the same canonical CLI surface.
-5c. ``lint_if_status_capture`` — block ``fi`` followed by ``rc=$?``.
-   Owns the shell status-capture footgun where the status of the ``if``
-   compound masks the command that failed in the condition.
-6. ``lint_subagent_background`` — subagent context deny for background
-   watcher flows and wake-loss-prone tools. Runs right after the polling
-   lint because the rules are architecturally adjacent (both protect
-   long-command discipline); subagent context fails open by default so
-   main sessions never see the deny path.
-7. ``lint_session_cwd`` — broadest cwd-mismatch gate; runs first among
-   the new entries because it scopes the rest.
-7b. ``lint_lane_main_write`` — refuse tracked source writes to the main
-   checkout while the session holds an implementation-lane work claim.
-   Runs immediately after ``lint_session_cwd`` on write-shaped tools
-   because ``lint_session_cwd`` still authorises control-plane targets
-   for reads and orchestration; this guard closes the cwd-flip write
-   hole for lane holders.
-8. ``lint_workspace_cwd_match`` — deny writer-class commands (pytest, the
-   renderer CLI, run_tests) when the ambient session has active worktree
-   claims and the cwd is outside those claims. Runs after lint_session_cwd
-   because both guards consult cwd; this one is verb-scoped (writer-class
-   only) where lint_session_cwd is universal.
+6–8. Shell-shape, subagent, cwd, lane, and workspace guards establish the
+   caller's safe execution boundary before claim-aware mutations run.
 9. ``path_claim_bash_guard`` — claim-aware Bash guard runs after cwd check.
 10. ``lint_structured_field_transform_shell`` — block brittle structured-field
     transform choreography (``items get`` -> tmp/var -> ``items update --stdin``).
@@ -175,6 +141,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_claim_ownership_mutations",
     "yoke_core.domain.lint_git_stash_arg_order",
     "yoke_core.domain.lint_destructive_git",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
@@ -184,6 +151,7 @@ _PRE_EDIT: tuple[str, ...] = (
     "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
@@ -196,22 +164,26 @@ _PRE_WRITE: tuple[str, ...] = (
     "yoke_core.domain.lint_python_runtime_import_in_tmp",
     "yoke_core.domain.hint_file_line_limit_approach",
     "yoke_core.domain.lint_tc_label",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
 _PRE_READ: tuple[str, ...] = (
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
 _PRE_SCHEDULE_WAKEUP: tuple[str, ...] = (
     "yoke_core.domain.lint_subagent_background",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.domain.observe_pre",
 )
 
 _PRE_TASK_OUTPUT: tuple[str, ...] = (
     "yoke_core.domain.lint_subagent_background",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.domain.observe_pre",
 )
 
@@ -220,6 +192,7 @@ _PRE_MONITOR: tuple[str, ...] = (
     "yoke_core.domain.lint_long_command_polling",
     "yoke_core.domain.lint_subagent_background",
     "yoke_core.domain.hint_monitor_relay",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.domain.observe_pre",
 )
 
@@ -232,6 +205,7 @@ _PRE_APPLY_PATCH: tuple[str, ...] = (
     "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
@@ -239,6 +213,7 @@ _PRE_APPLY_PATCH: tuple[str, ...] = (
 _POST_DEFAULT: tuple[str, ...] = (
     "yoke_core.domain.db_error_hook",
     "yoke_core.domain.hint_posttool_field_note",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
@@ -249,22 +224,31 @@ _POST_DEFAULT: tuple[str, ...] = (
 # tool-call completion event.
 _POST_AGENT: tuple[str, ...] = (
     "yoke_core.domain.reflection_capture_hook",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
 
 _POST_FAILURE_DEFAULT: tuple[str, ...] = (
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
 
 _PERMISSION_REQUEST: tuple[str, ...] = (
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.domain.observe_pre",
 )
 
 _LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
+_FIRST_HOOK_DISPATCH: tuple[str, ...] = (
+    *_LIFECYCLE_DISPATCH,
+    "yoke_core.hooks.session_message_delivery",
+    "yoke_core.hooks.session_launch_attestation",
+)
 _STOP_CHAIN: tuple[str, ...] = (
     "yoke_core.domain.turn_end_promised_work_gate",
+    "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.session_dispatch",
 )
 
@@ -294,13 +278,13 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
         "_default": _PERMISSION_REQUEST,
     },
     "SessionStart": {
-        "_default": _LIFECYCLE_DISPATCH,
+        "_default": _FIRST_HOOK_DISPATCH,
     },
     "SessionEnd": {
         "_default": _LIFECYCLE_DISPATCH,
     },
     "UserPromptSubmit": {
-        "_default": _LIFECYCLE_DISPATCH,
+        "_default": _FIRST_HOOK_DISPATCH,
     },
     "Stop": {
         "_default": _STOP_CHAIN,
@@ -316,7 +300,10 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
 # Public read-only view. Inner dicts are also wrapped so consumers cannot
 # mutate the chain registry by accident.
 HOOK_ORDERING: Mapping[str, Mapping[str, Sequence[str]]] = MappingProxyType(
-    {event: MappingProxyType(dict(matchers)) for event, matchers in _HOOK_ORDERING.items()}
+    {
+        event: MappingProxyType(dict(matchers))
+        for event, matchers in _HOOK_ORDERING.items()
+    }
 )
 
 

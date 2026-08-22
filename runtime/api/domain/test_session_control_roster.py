@@ -50,7 +50,8 @@ def _connection() -> sqlite3.Connection:
             item_id INTEGER,
             path TEXT,
             branch TEXT,
-            state TEXT
+            state TEXT,
+            lane_role TEXT
         );
         """
     )
@@ -80,8 +81,8 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
         ),
     )
     conn.execute(
-        "INSERT INTO item_worktrees VALUES (?,?,?,?,?)",
-        (1, 42, "/repo/.worktrees/item-42", "item-42", "active"),
+        "INSERT INTO item_worktrees VALUES (?,?,?,?,?,?)",
+        (1, 42, "/repo/.worktrees/item-42", "item-42", "active", "worker"),
     )
     conn.execute(
         "INSERT INTO work_claims VALUES (?,?,?,?,?,?,?,?)",

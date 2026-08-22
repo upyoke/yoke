@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 from yoke_core.domain.session_launch_registration import (
     complete_launch_injection,
@@ -14,6 +14,9 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
+
+
+LAUNCH_DELIVERY_AUDIT_FIELD = "session_launch_delivery"
 
 
 @dataclass(frozen=True)
@@ -39,7 +42,9 @@ def parse_launch_attestation(payload: dict[str, Any]) -> LaunchAttestation | Non
 
 
 def render_launch_instructions(injection: LaunchRegistrationInjection) -> str:
+    token = f"YOKE_SESSION_LAUNCH:{injection.launch_id}:{injection.message_id}"
     return (
+        f"=== BEGIN YOKE LAUNCH DELIVERY {token} ===\n"
         "## Yoke launch instructions\n\n"
         f"Sender actor: {injection.sender_actor_id}\n"
         f"Message ID: {injection.message_id}\n"
@@ -48,6 +53,7 @@ def render_launch_instructions(injection: LaunchRegistrationInjection) -> str:
         "--- begin instructions ---\n"
         f"{injection.body}\n"
         "--- end instructions ---\n"
+        f"=== END YOKE LAUNCH DELIVERY {token} ===\n"
     )
 
 
@@ -62,7 +68,9 @@ def evaluate_launch_attestation(
         if attestation is None:
             return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
         if not record.session_id:
-            raise SessionLaunchError("session_required", "launch hook has no session id")
+            raise SessionLaunchError(
+                "session_required", "launch hook has no session id"
+            )
         conn = connect()
         try:
             injection = prepare_launch_registration(
@@ -82,23 +90,33 @@ def evaluate_launch_attestation(
         )
 
     rendered = render_launch_instructions(injection)
+    render_token = f"YOKE_SESSION_LAUNCH:{injection.launch_id}:{injection.message_id}"
     output_key = (
         "stdout"
         if record.event_name.casefold() in {"sessionstart", "userpromptsubmit"}
         else "additionalContext"
     )
+    fields = {
+        LAUNCH_DELIVERY_AUDIT_FIELD: {
+            "launch_id": injection.launch_id,
+            "message_id": injection.message_id,
+            "session_id": injection.session_id,
+            "render_token": render_token,
+            "output_field": output_key,
+            "rendered_text": rendered,
+        }
+    }
+    if output_key != "stdout":
+        fields[output_key] = rendered
     return HookDecision(
-        outcome=Outcome.AUDIT_ONLY,
-        audit_fields={
-            output_key: rendered,
-            "session_launch_delivery": {
-                "launch_id": injection.launch_id,
-                "message_id": injection.message_id,
-                "session_id": injection.session_id,
-            },
-        },
-        next=Next.CONTINUE,
+        outcome=Outcome.AUDIT_ONLY, audit_fields=fields, next=Next.CONTINUE
     )
+
+
+def evaluate(context: HookContext) -> HookDecision:
+    from yoke_core.domain.db_helpers import connect
+
+    return evaluate_launch_attestation(context, connect=connect)
 
 
 def finalize_launch_attestation(
@@ -108,7 +126,7 @@ def finalize_launch_attestation(
     connect: Callable[[], Any],
 ) -> None:
     """Close the launch only after the combined hook output carried the body."""
-    delivery = decision.audit_fields.get("session_launch_delivery")
+    delivery = decision.audit_fields.get(LAUNCH_DELIVERY_AUDIT_FIELD)
     if not isinstance(delivery, dict):
         return
     launch_id = delivery.get("launch_id")
@@ -127,10 +145,39 @@ def finalize_launch_attestation(
         conn.close()
 
 
+def settle_after_render(
+    decisions: Iterable[HookDecision],
+    *,
+    rendered_text: str,
+    denied: bool,
+    connect: Callable[[], Any] | None = None,
+) -> None:
+    """Finalize prepared launches only when aggregate output carried the token."""
+    if connect is None:
+        from yoke_core.domain.db_helpers import connect as connection_factory
+    else:
+        connection_factory = connect
+    for decision in decisions:
+        delivery = decision.audit_fields.get(LAUNCH_DELIVERY_AUDIT_FIELD)
+        if not isinstance(delivery, dict):
+            continue
+        token = str(delivery.get("render_token") or "")
+        delivered = bool(not denied and token and token in rendered_text)
+        try:
+            finalize_launch_attestation(
+                decision, delivered=delivered, connect=connection_factory
+            )
+        except Exception:
+            pass
+
+
 __all__ = [
     "LaunchAttestation",
+    "LAUNCH_DELIVERY_AUDIT_FIELD",
+    "evaluate",
     "evaluate_launch_attestation",
     "finalize_launch_attestation",
     "parse_launch_attestation",
     "render_launch_instructions",
+    "settle_after_render",
 ]

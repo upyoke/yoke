@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 
@@ -123,6 +123,24 @@ class MessageLeaseCompleteRequest(BaseModel):
     result: str
 
 
+class MessageListResponse(BaseModel):
+    messages: List[Dict[str, Any]]
+    count: int
+
+
+class MessageGetResponse(BaseModel):
+    message: Dict[str, Any]
+
+
+class MessageMutationResponse(MessageGetResponse):
+    pass
+
+
+class MessageLeaseResponse(BaseModel):
+    lease_id: str
+    messages: List[Dict[str, Any]]
+
+
 class LaunchPreviewRequest(BaseModel):
     project: str
     executor_surface: str
@@ -145,37 +163,93 @@ class LaunchReconcileRequest(LaunchMutationRequest):
     observed_native_id: Optional[str] = None
 
 
-class RelayPollRequest(BaseModel):
-    relay_id: str
-    machine_id: str
-    projects: List[str]
-    surfaces: Dict[str, str]
+class LaunchListRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project: str
+    state: Optional[str] = None
+    limit: int = Field(default=50, ge=1, le=500)
+
+
+class LaunchResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    launch: Dict[str, Any]
+    preview: Optional[Dict[str, Any]] = None
+    deduplicated: bool = False
+
+
+class LaunchListResponse(BaseModel):
+    launches: List[Dict[str, Any]]
+    count: int
+
+
+class LaunchPreviewResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    outcome: str
+    requested_surface: str
+    launchable: bool
+    eligible_relays: List[Dict[str, Any]]
+    selected_relay: Optional[Dict[str, Any]] = None
 
 
 class RelayClaimRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    relay_id: str
+    machine_id: str
+    hostname: str
+    relay_version: str
+    projects: List[int]
+    surfaces: Dict[str, str]
+    wait_seconds: int = Field(default=55, ge=0, le=55)
+
+
+class RelayClaimResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    relay_id: str
+    machine_id: str
+    state: Literal["active", "idle"]
+    connected_until: str
+    next_poll_seconds: int
+    job: Optional[Dict[str, Any]] = None
+
+
+class RelayReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     relay_id: str
     job_kind: Literal["wake", "launch"]
     job_id: str
-
-
-class RelayReportRequest(RelayClaimRequest):
+    lease_id: str
     result: str
     native_id: Optional[str] = None
+    adapter_revision: Optional[str] = None
     evidence: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RelayReportResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    job_kind: Literal["wake", "launch"]
+    result: Dict[str, Any]
 
 
 __all__ = [
     "LaunchCreateRequest",
+    "LaunchListRequest",
+    "LaunchListResponse",
     "LaunchMutationRequest",
     "LaunchPreviewRequest",
+    "LaunchPreviewResponse",
     "LaunchReconcileRequest",
+    "LaunchResponse",
     "LaunchState",
     "MessageAcknowledgeRequest",
     "MessageCancelRequest",
     "MessageGetRequest",
+    "MessageGetResponse",
     "MessageLeaseCompleteRequest",
     "MessageLeaseRequest",
+    "MessageLeaseResponse",
     "MessageListRequest",
+    "MessageListResponse",
+    "MessageMutationResponse",
     "MessagePreviewRequest",
     "MessagePreviewResponse",
     "MessageRecipient",
@@ -184,6 +258,7 @@ __all__ = [
     "MessageState",
     "RecipientSelector",
     "RelayClaimRequest",
-    "RelayPollRequest",
+    "RelayClaimResponse",
     "RelayReportRequest",
+    "RelayReportResponse",
 ]
