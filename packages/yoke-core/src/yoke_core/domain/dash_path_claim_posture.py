@@ -73,7 +73,8 @@ def ensure_survey_path_claim(
     touch_paths: Iterable[str],
     integration_target: str,
 ) -> Optional[int]:
-    """Register or widen the selected Dash claim from its live survey."""
+    """Return the selected Dash claim when it already covers the survey."""
+    del session_id, integration_target
     item = item_row(conn, item_id)
     selected = posture(item)
     if str(item["workflow_id"]) != "dash" or selected.get("path_claims") is not True:
@@ -86,56 +87,29 @@ def ensure_survey_path_claim(
     rows = _claim_rows(conn, item_id)
     claim_ids, states, declared = _claim_coverage(rows)
     missing = files_outside_coverage(paths, declared)
-    actor_value = item.get("actor_id")
-    actor_id = (
-        int(actor_value)
-        if actor_value is not None and str(actor_value).isdigit()
-        else None
-    )
     if not claim_ids:
-        from yoke_core.domain.path_claims_register import register_for_item
-
-        return register_for_item(
-            conn,
-            item_id=int(item_id),
-            integration_target=str(integration_target),
-            paths=paths,
-            actor_id=actor_id,
-            session_id=session_id,
-            allow_planned=True,
+        joined = ",".join(paths)
+        raise ValueError(
+            "Selected Dash path-claims posture has no registered coverage. "
+            f"Register it first: yoke claims path register --item {item_id} "
+            f"--paths {joined}"
         )
-    if not missing:
-        return claim_ids[0]
-    candidate = next(
-        (
-            claim_id
-            for claim_id, state in zip(claim_ids, states)
-            if state in {"active", "planned"}
-        ),
-        None,
-    )
-    if candidate is None:
-        raise ValueError("Dash path claim is blocked and cannot absorb surveyed paths")
-    from yoke_core.domain.path_claims_amend import widen
-    from yoke_core.domain.path_claims_resolve import (
-        resolve_or_plan_paths_to_target_ids,
-    )
-
-    target_ids = resolve_or_plan_paths_to_target_ids(
-        conn,
-        int(item["project_id"]),
-        missing,
-        item_id=int(item_id),
-        claim_id=int(candidate),
-        session_id=session_id,
-    )
-    widen(
-        conn,
-        claim_id=int(candidate),
-        add_target_ids=target_ids,
-        reason="Align the Dash path claim with its live conflict survey.",
-    )
-    return int(candidate)
+    if missing:
+        joined = ",".join(missing)
+        candidate = next(
+            (
+                claim_id
+                for claim_id, state in zip(claim_ids, states)
+                if state in {"active", "planned"}
+            ),
+            claim_ids[0],
+        )
+        raise ValueError(
+            "Selected Dash path-claims coverage is missing surveyed paths: "
+            f"{joined}. Widen it: yoke claims path widen --claim-id "
+            f"{candidate} --add-paths {joined}"
+        )
+    return claim_ids[0]
 
 
 def activation_gate(

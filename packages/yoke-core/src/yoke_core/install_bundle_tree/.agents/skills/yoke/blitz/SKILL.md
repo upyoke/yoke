@@ -69,8 +69,8 @@ use them verbatim; do not invent function ids for them. Contract:
   `Live Status` coordination surface.
 - The default Blitz has File Budget and path claims off. It still obeys the
   universal 350-line authored-file limit, surveys before activation and every
-  slice merge, yields to registered claims, and runs every write in a
-  registered isolated worktree.
+  slice merge, judges each survey contact (proceed or yield), and runs every
+  write in a registered isolated worktree.
 - The main session owns slice boundaries, integration order, full
   verification, document completion, and parent reconciliation.
 - Core invariants run on every action. A continuous delivery model never
@@ -119,10 +119,13 @@ paths and record them:
 yoke direct-workflow blitz survey ITEM --path <path> [--path <path> ...] --json
 ```
 
-Registered claims always win. Coordinate every collision in the execution
-document's append-only surfaces. Wait, reorder slices, or enable and
-register path claims when the document needs stronger serialization.
-Never omit a required area to obtain a clear survey.
+Survey contacts are advisories: proceed when edits are independent, or
+yield by authoring a dependency and dropping this claim. Coordinate
+every collision in the execution document's append-only surfaces. Wait,
+reorder slices, or enable and register path claims when the document
+needs stronger serialization. A planned claim is not a stronger reason
+to yield than an active one. Never omit a required area to obtain a
+clear survey.
 
 Apply the two axes as a four-state matrix:
 
@@ -213,9 +216,12 @@ For each slice:
    yoke direct-workflow blitz survey ITEM --path <actual-file> [--path <actual-file> ...] --json
    ```
 
-6. Yield on contact with registered claims. Coordinate through `Slice Log`,
-   reorder work, or tighten the Blitz with complete path claims. Do not
-   silently resolve another owner's semantic changes.
+6. Read each survey advisory and choose proceed or yield. Independent edits
+   resolve at merge; order-dependent work authors a dependency, drops the
+   claim, and re-offers. A planned claim is not a stronger reason to yield
+   than an active one. Coordinate through `Slice Log`, reorder work, or
+   register complete path claims before the next prepare. Do not silently
+   resolve another owner's semantic changes.
 7. When an integration lane is registered, it is the only merge source.
    Fold completed worker commits into it with `git merge` from inside the
    integration worktree; worker lanes keep building but never land on their

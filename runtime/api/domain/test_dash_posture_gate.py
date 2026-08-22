@@ -15,7 +15,7 @@ from runtime.api.fixtures.backlog_inserts import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.dash_execution import record_dash_evidence
-from yoke_core.domain.dash_path_claim_posture import ensure_survey_path_claim
+from yoke_core.domain.path_claims_register import register_for_item
 from yoke_core.domain.dash_posture_gate import evaluate
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.item_posture_bindings import (
@@ -77,12 +77,13 @@ def test_selected_path_claims_register_activate_and_check_coverage(
     try:
         _insert_dash(conn, item_id=2301, posture={"path_claims": True})
         _insert_session(conn, "dash-session")
-        claim_id = ensure_survey_path_claim(
+        claim_id = register_for_item(
             conn,
             item_id=2301,
             session_id="dash-session",
-            touch_paths=["ui/workflows.js"],
+            paths=["ui/workflows.js"],
             integration_target="main",
+            allow_planned=True,
         )
         assert claim_id is not None
         claim = conn.execute(

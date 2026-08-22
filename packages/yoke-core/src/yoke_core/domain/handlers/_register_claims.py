@@ -210,8 +210,8 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind="item",
     )
-    # claims.path.survey_ensure — register/widen a Dash path claim from
-    # its live survey. Internal: the transport-aware worktree preflight
+    # claims.path.survey_ensure — validate selected-Dash coverage against
+    # the live survey. Internal: the transport-aware worktree preflight
     # calls it after resolving the work-claim holder; not an agent CLI
     # surface, so it carries no adapter inventory row.
     registry.register(
@@ -220,12 +220,8 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path_activation",
         target_kinds=["item"],
-        side_effects=[
-            "path_claims_insert",
-            "path_claim_targets_insert",
-            "path_claim_amendments_insert",
-        ],
-        emitted_event_names=["PathClaimRegistered", "PathClaimAmended"],
+        side_effects=[],
+        emitted_event_names=[],
         guardrails=["actor_holds_item_claim"],
         adapter_status="internal",
         claim_required_kind="item",

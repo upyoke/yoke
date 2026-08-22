@@ -2,11 +2,9 @@
 
 Exercises the server side of the transport-aware path-claim activation
 against a seeded Postgres authority: ``run_activation_phase`` consuming a
-client-resolved integration head (so the server never reads a checkout it
-lacks over https), the ``claims.path.activation_run`` handler guards
-(``COALESCE(owner, source)`` actor resolution + work-claim ownership
-refusal), and the ``claims.path.survey_ensure`` handler registering a
-selected-Dash path claim. Client-side relay routing is covered in
+client-resolved integration head, the ``claims.path.activation_run``
+handler guards, and ``claims.path.survey_ensure`` validating selected-Dash
+coverage without registering. Client-side relay routing is covered in
 ``test_worktree_preflight_steps`` and ``test_worktree_create_policy_lanes``.
 """
 
@@ -94,9 +92,7 @@ def _envelope(function, *, item_id, session_id="s-1", payload=None):
 
 class TestRunActivationPhaseResolvedHead:
     def test_supplied_head_activates_without_checkout_lookup(self, db, monkeypatch):
-        # Make BOTH the checkout resolver and the git head resolver fail
-        # loudly; a successful activation can then only have used the head
-        # supplied in ``resolved_heads``.
+        # Activation must use supplied resolved_heads, not checkout/git lookups.
         from yoke_core.domain import advance_path_claim_activation_retry as _retry
 
         monkeypatch.setattr(
@@ -272,7 +268,7 @@ class TestSurveyEnsureHandler:
         )
         conn.commit()
 
-    def test_registers_dash_survey_claim_in_process(self, db):
+    def test_missing_coverage_fails_without_inserting(self, db):
         conn = connect_test_db(db)
         try:
             actor = seed_human_actor(conn)
@@ -293,24 +289,46 @@ class TestSurveyEnsureHandler:
                 },
             )
         )
-        assert outcome.primary_success, outcome.error
-        claim_id = outcome.result_payload["claim_id"]
-        assert claim_id is not None
+        assert outcome.primary_success is False
+        assert outcome.error.code == "survey_ensure_failed"
+        assert "yoke claims path register --item 7130" in outcome.error.message
         conn = connect_test_db(db)
         try:
-            row = conn.execute(
-                "SELECT state FROM path_claims WHERE id = %s", (claim_id,)
-            ).fetchone()
-            assert row[0] == "planned"
-            declared = conn.execute(
-                "SELECT pt.path_string FROM path_claim_targets pct "
-                "JOIN path_targets pt ON pt.id = pct.target_id "
-                "WHERE pct.claim_id = %s",
-                (claim_id,),
-            ).fetchall()
-            assert [r[0] for r in declared] == ["ui/workflows.js"]
+            assert conn.execute(
+                "SELECT COUNT(*) FROM path_claims WHERE owner_item_id = 7130"
+            ).fetchone()[0] == 0
         finally:
             conn.close()
+
+    def test_complete_coverage_returns_existing_claim(self, db):
+        conn = connect_test_db(db)
+        try:
+            actor = seed_human_actor(conn)
+            insert_item(
+                conn, id=7132, workflow_id="dash", source=str(actor),
+                workflow_posture=json.dumps({"path_claims": True}),
+            )
+            self._insert_session(conn, "dash-cover", actor)
+            target_id = _seed_target(
+                conn, _project_id(conn, 7132), "ui/workflows.js",
+            )
+            claim_id = _seed_planned_claim(
+                conn, item_id=7132, actor_id=actor, target_id=target_id,
+            )
+        finally:
+            conn.close()
+        outcome = handle_survey_ensure(
+            _envelope(
+                "claims.path.survey_ensure", item_id=7132,
+                session_id="dash-cover",
+                payload={
+                    "touch_paths": ["ui/workflows.js"],
+                    "integration_target": "main",
+                },
+            )
+        )
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload["claim_id"] == claim_id
 
     def test_non_dash_item_is_a_noop(self, db):
         conn = connect_test_db(db)

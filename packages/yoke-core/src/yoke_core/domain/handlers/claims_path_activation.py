@@ -5,8 +5,8 @@ Separated from :mod:`claims_path` so each handler module stays under the
 
 - ``claims.path.required_gate`` — evaluate the idea/refine coverage gate.
 - ``claims.path.activation_run`` — run the activation phase for an item.
-- ``claims.path.survey_ensure`` — register/widen a selected-Dash path
-  claim from its live conflict survey.
+- ``claims.path.survey_ensure`` — validate selected-Dash path-claim
+  coverage against its live conflict survey.
 - ``claims.path.coordination_decision.build`` — build the LLM evidence
   packet for an authored coordination decision (read-only).
 
@@ -180,17 +180,15 @@ def handle_activation_run(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_survey_ensure(request: FunctionCallRequest) -> HandlerOutcome:
-    """Register or widen a selected-Dash path claim from its live survey.
+    """Return the selected-Dash claim when it already covers the survey.
 
-    Server side of the transport-aware Dash worktree preparation: wraps
+    Server side of transport-aware Dash worktree preparation: wraps
     :func:`yoke_core.domain.dash_path_claim_posture.ensure_survey_path_claim`
-    unchanged so the register-vs-widen decision (which the ``register``
-    function alone cannot express) stays in one place. The caller
-    verifies the item work-claim holder via ``claims.work.holder_get``
-    first; here the claim is attributed to the calling session, which
-    the dispatcher's item-claim gate has already confirmed is the
-    holder. Non-Dash items and Dash items without the path_claims
-    posture no-op (``claim_id=None``).
+    as a side-effect-free coverage check. The caller verifies the item
+    work-claim holder via ``claims.work.holder_get`` first. Missing or
+    incomplete coverage fails with the register/widen recovery; it never
+    inserts or amends a claim. Non-Dash items and Dash items without the
+    path_claims posture no-op (``claim_id=None``).
     """
     try:
         body = SurveyEnsureRequest.model_validate(request.payload)
@@ -201,11 +199,6 @@ def handle_survey_ensure(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.dash_path_claim_posture import (
         ensure_survey_path_claim,
     )
-    from yoke_core.domain.path_claims import PathClaimError
-    from yoke_core.domain.path_claims_register import (
-        PathClaimRegistrationError,
-    )
-    from yoke_core.domain.path_claims_resolve import PathResolveError
 
     with _connect_rw() as conn:
         try:
@@ -216,12 +209,7 @@ def handle_survey_ensure(request: FunctionCallRequest) -> HandlerOutcome:
                 touch_paths=list(body.touch_paths),
                 integration_target=str(body.integration_target),
             )
-        except (
-            PathClaimError,
-            PathClaimRegistrationError,
-            PathResolveError,
-            ValueError,
-        ) as exc:
+        except ValueError as exc:
             return _err("survey_ensure_failed", str(exc))
 
     return HandlerOutcome(

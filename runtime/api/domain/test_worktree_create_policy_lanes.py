@@ -200,8 +200,8 @@ class _DashRelay:
 
     Routes ``claims.work.holder_get`` and ``claims.path.survey_ensure``
     and records the routed function ids + payloads so the test can prove
-    the preparation relays both reads/writes instead of opening a local
-    Postgres connection.
+    the preparation relays the holder read and coverage check instead of
+    opening a local Postgres connection.
     """
 
     def __init__(self, *, holder: dict | None, ensure_success: bool = True):

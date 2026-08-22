@@ -36,7 +36,7 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         "reviewing-implementation",
         "direct-workflow dash evidence",
         "direct-workflow dash escalate",
-        "Registered work and path claims always win",
+        "Survey contacts are advisories",
         "`work_claim_activation` gate",
         "may already release the item work claim",
         "registered Dash worktree lane",
