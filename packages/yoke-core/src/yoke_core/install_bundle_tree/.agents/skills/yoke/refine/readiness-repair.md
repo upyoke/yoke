@@ -231,7 +231,7 @@ the prior unrecoverable branch).
 ```bash
 yoke readiness check PREFIX-N
 yoke readiness repair-stale-count --item PREFIX-N
-uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main
+yoke watch pytest --impacted main --bounded
 ```
 
 Plus your project's registered verification command for the paths this repair

@@ -1,4 +1,4 @@
-"""Pass-through arg-shape guards for ``watch_pytest``.
+"""Pass-through arg-shape guards and wrapper flags for ``watch_pytest``.
 
 Split out of :mod:`yoke_core.tools.watch_pytest` to keep that module
 under the authored-file line cap. Owns the rejection guards that repair
@@ -6,14 +6,19 @@ a doomed invocation before the underlying pytest run launches: the
 nested ``python3 -m pytest`` shape and the bare ``runtime/`` path shape
 (which demotes ``runtime/api/conftest.py`` from initial-conftest status
 and fails collection — ``pytest_plugins`` in a non-top-level conftest).
+Also owns wrapper-flag parsing so ``--impacted`` stays bounded by default.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 from pathlib import Path
 from typing import Sequence
+
+from yoke_core.domain import verification_tree_binding
+from yoke_core.tools import _watch_runner
 
 NESTED_PYTEST_REJECTION_MESSAGE = (
     "watch_pytest expects bare pytest args after --; "
@@ -32,6 +37,100 @@ BARE_RUNTIME_REJECTION_MESSAGE = (
 )
 
 PYTEST_USAGE_ERROR_EXIT_STATUS = 4
+BOUNDED_FLAG = "--bounded"
+WIDEN_FLAG = "--widen"
+BOUNDED_WITHOUT_IMPACTED = "watch_pytest: --bounded only applies with --impacted"
+WIDEN_WITHOUT_IMPACTED = "watch_pytest: --widen only applies with --impacted"
+WOULD_WIDEN_ADVISORY = (
+    "watch_pytest: selection would widen (rule={rule}, triggers={triggers}) "
+    "— the final QA case run covers the rest"
+)
+
+
+def format_would_widen_advisory(*, rule: str, trigger_paths: Sequence[str]) -> str:
+    """One-line advisory when ``--impacted`` declines a full-sweep widen."""
+    return WOULD_WIDEN_ADVISORY.format(
+        rule=rule or "none",
+        triggers=",".join(trigger_paths) or "none",
+    )
+
+
+def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
+    """Parse wrapper flags; pytest pass-through stays in ``passthrough``."""
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description="Run pytest under a shared raw+progress watcher wrapper.",
+        epilog=(
+            "Full-suite shape: pass the three anchors 'runtime/api/ "
+            "runtime/harness/ tests/' — never bare 'runtime/', which "
+            "demotes runtime/api/conftest.py from initial-conftest status "
+            "and fails collection. The wrapper refuses bare 'runtime/'."
+        ),
+        allow_abbrev=False,
+    )
+    parser.add_argument(
+        _watch_runner.PRINT_STREAMING_PAIR_FLAG,
+        dest="print_streaming_pair",
+        action="store_true",
+        help="Print a ready-to-paste background command + progress-tail pair "
+        "and exit. Mints fresh capture paths.",
+    )
+    parser.add_argument(
+        "--raw-capture",
+        type=Path,
+        default=None,
+        help="Explicit raw capture file path. Defaults to a helper-resolved "
+        "path under the project scratch root.",
+    )
+    parser.add_argument(
+        "--progress-capture",
+        type=Path,
+        default=None,
+        help="Explicit progress capture file path. Defaults to a helper-"
+        "resolved path under the project scratch root.",
+    )
+    parser.add_argument(
+        "--impacted",
+        nargs="?",
+        const="main",
+        default=None,
+        metavar="BASE",
+        help="Run only the tests reachable from this branch's changes "
+        "(default base: main). Bounded by default: an unbounded change "
+        "runs the computable subset and prints an advisory. Pass "
+        "--widen for the local full sweep (CI-outage fallback).",
+    )
+    parser.add_argument(
+        BOUNDED_FLAG,
+        dest="bounded",
+        action="store_true",
+        help="Accepted no-op; --impacted is already bounded by default.",
+    )
+    parser.add_argument(
+        WIDEN_FLAG,
+        dest="widen",
+        action="store_true",
+        help="With --impacted, take the local full sweep instead of the "
+        "bounded subset (CI-outage fallback only).",
+    )
+    parser.add_argument(
+        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
+        dest="allow_tree_mismatch",
+        action="store_true",
+        help="Run even when this tree is outside the session's claimed "
+        "worktree. For a deliberate cross-tree run; the wrapper names both "
+        "trees so the green is attributable.",
+    )
+    parser.add_argument(
+        "passthrough",
+        nargs=argparse.REMAINDER,
+        help=(
+            "Bare pytest arguments. Use ``--`` to separate wrapper flags "
+            "from pytest flags when ambiguous. Do NOT include "
+            "``python3 -m pytest``; the wrapper supplies that prefix."
+        ),
+    )
+    return parser.parse_args(list(argv))
 
 # Match the bare interpreter names operators most commonly retype, plus
 # the literal ``sys.executable`` token (sometimes copied from the wrapper
