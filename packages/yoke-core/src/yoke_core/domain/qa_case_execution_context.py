@@ -30,22 +30,23 @@ def execution_host_capability_kinds(
     *,
     session_id: str,
 ) -> tuple[str, ...]:
-    """Read the capability set declared by one harness session."""
+    """Derive the capability set from the session's harness manifest."""
     marker = _p(conn)
     session = query_one(
         conn,
-        f"SELECT capabilities FROM harness_sessions WHERE session_id={marker}",
+        f"SELECT executor, workspace FROM harness_sessions WHERE session_id={marker}",
         (str(session_id),),
     )
     if session is None:
         return ()
-    try:
-        return capability_kinds(
-            session["capabilities"],
-            subject=f"execution session {session_id!r}",
-        )
-    except (QaMethodCapabilityError, KeyError, TypeError):
-        return ()
+    from yoke_core.domain.sessions_queries_lookup import (
+        resolve_harness_capabilities,
+    )
+
+    projection = resolve_harness_capabilities(
+        str(session["executor"] or ""), str(session["workspace"] or ""),
+    )
+    return tuple(projection.get("host_capability_kinds") or ())
 
 
 def _json_object(raw: Any) -> dict:

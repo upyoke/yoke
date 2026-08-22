@@ -48,9 +48,6 @@ from yoke_contracts.machine_config.schema import (
     connection_is_prod,
     same_universe_https_env,
 )
-from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
-
-
 class SchemaAuthorityRefused(BaseException):
     """A schema change was attempted where this process holds no authority.
 
@@ -133,27 +130,6 @@ def refuse_without_serving_build_authority(operation: str) -> None:
     )
 
 
-def refuse_on_prod_control_plane(operation: str) -> Optional[str]:
-    """Return a refusal message when the selected control plane is prod, else None.
-
-    Distinct from :func:`refuse_without_serving_build_authority` and
-    deliberately not exemptible: rehearsal targets a disposable validation
-    surface by definition, so pointing it at a production control plane is
-    never the intent, whoever is running it.
-    """
-    env = prod_flagged_connection()
-    if not env:
-        return None
-    return (
-        f"{operation} refused on connection {env!r}: that connection is flagged "
-        "prod. Rehearsal executes an unreleased migration and must target the "
-        "model's disposable validation surface, never a production control "
-        "plane. Rerun under a non-prod local-postgres or db-admin connection; "
-        f"`{CONNECTION_READER}` names every registered connection with its "
-        "transport and prod flag."
-    )
-
-
 def environment_without_administering_selection() -> dict[str, str]:
     """Return this environment with a prod-flagged selection swapped for served.
 
@@ -190,7 +166,6 @@ __all__ = [
     "SchemaAuthorityRefused",
     "environment_without_administering_selection",
     "prod_flagged_connection",
-    "refuse_on_prod_control_plane",
     "refuse_without_serving_build_authority",
     "serving_build_authority",
     "serving_build_authority_declared",

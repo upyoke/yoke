@@ -14,7 +14,7 @@ SESSION_LIST_FIELDS = (
     "project_id",
     "project",
     "executor",
-    "executor_display_name",
+    "executor_surface",
     "executor_mark",
     "executor_class_name",
     "model",

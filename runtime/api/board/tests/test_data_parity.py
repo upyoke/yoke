@@ -113,7 +113,7 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
             CREATE TABLE IF NOT EXISTS harness_sessions (
                 session_id TEXT PRIMARY KEY,
                 executor TEXT NOT NULL,
-                executor_display_name TEXT DEFAULT NULL,
+                executor_surface TEXT DEFAULT NULL,
                 provider TEXT,
                 model TEXT,
                 execution_lane TEXT DEFAULT 'primary',
@@ -177,7 +177,7 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
         """)
         conn.execute("""
             INSERT INTO harness_sessions
-                (session_id, executor, executor_display_name, provider, model,
+                (session_id, executor, executor_surface, provider, model,
                  execution_lane, mode, workspace, project_id, offered_at,
                  last_heartbeat)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)

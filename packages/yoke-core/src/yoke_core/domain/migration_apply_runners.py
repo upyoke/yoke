@@ -33,7 +33,10 @@ from yoke_core.domain.migration_apply_contract import (
 from yoke_core.domain.migration_apply_resolve import (
     _load_migration_module,
 )
-from yoke_core.domain.migration_history import validate_psycopg_migration_sql
+from yoke_core.domain.migration_history import (
+    resolve_migration_path,
+    validate_psycopg_migration_sql,
+)
 from yoke_core.domain.migration_model_capability_validation import (
     RUNNER_KIND_GOVERNED_MODULE,
 )
@@ -161,7 +164,7 @@ def _dispatch_governed_module(
                 f"`{YOKE_SOURCE_REHEARSAL_RECIPE}`."
             )
         raise ModuleResolutionError(detail) from exc
-    source_path = modules_dir / f"{identifier}.py"
+    source_path = resolve_migration_path(modules_dir, identifier)
     invariants = getattr(module, "invariants", None)
     if not callable(invariants):
         invariants = None

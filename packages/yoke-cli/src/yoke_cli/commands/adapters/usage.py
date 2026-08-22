@@ -19,7 +19,7 @@ from yoke_cli.commands.adapters.claims_path_change import (
     CLAIM_PATH_WIDEN_USAGE,
 )
 from yoke_cli.commands.adapters.lint_config import LINT_CONFIG_SHOW_USAGE
-from yoke_cli.commands.adapters.organizations import ORGANIZATIONS_GET_USAGE
+from yoke_cli.commands.adapters.organizations import ORGANIZATION_USAGE
 from yoke_cli.commands.adapters.identity import IDENTITY_USAGE
 from yoke_cli.commands.adapters.claims_read import (
     CLAIM_WORK_HOLDER_GET_USAGE,
@@ -280,7 +280,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.github_binding.unbind": PROJECTS_GITHUB_BINDING_UNBIND_USAGE,
     "projects.github_binding.status": PROJECTS_GITHUB_BINDING_STATUS_USAGE,
     "projects.github_sync_mode.repair": PROJECTS_GITHUB_SYNC_MODE_REPAIR_USAGE,
-    "organizations.get": ORGANIZATIONS_GET_USAGE,
+    **ORGANIZATION_USAGE,
     **IDENTITY_USAGE,
     "project_structure.patch.apply": PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
     **PROJECT_STRUCTURE_READ_USAGE,

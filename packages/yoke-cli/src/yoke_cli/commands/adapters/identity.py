@@ -8,7 +8,6 @@ Function ids handled here (all org-admin-gated at dispatch):
 * ``identity.invite.revoke`` — revoke a pending invite.
 * ``identity.link.set`` — bind an external identity (issuer+subject) or
   pre-link an email to an existing actor.
-* ``identity.autojoin.set`` — set or clear the org auto-join email domain.
 """
 
 from __future__ import annotations
@@ -28,7 +27,6 @@ from yoke_contracts.api.function_call import TargetRef
 
 __all__ = [
     "IDENTITY_USAGE",
-    "identity_autojoin_set",
     "identity_invite_create",
     "identity_invite_list",
     "identity_invite_revoke",
@@ -48,16 +46,11 @@ IDENTITY_LINK_SET_USAGE = (
     "yoke identity link set --actor ACTOR (--issuer I --subject S [--email E] "
     "| --email E) [--org ORG] [--json]"
 )
-IDENTITY_AUTOJOIN_SET_USAGE = (
-    "yoke identity autojoin set [DOMAIN] [--clear] [--org ORG] [--json]"
-)
-
 IDENTITY_USAGE: Dict[str, str] = {
     "identity.invite.create": IDENTITY_INVITE_CREATE_USAGE,
     "identity.invite.list": IDENTITY_INVITE_LIST_USAGE,
     "identity.invite.revoke": IDENTITY_INVITE_REVOKE_USAGE,
     "identity.link.set": IDENTITY_LINK_SET_USAGE,
-    "identity.autojoin.set": IDENTITY_AUTOJOIN_SET_USAGE,
 }
 
 
@@ -188,38 +181,3 @@ def identity_link_set(args: List[str]) -> int:
         if value:
             payload[key] = value
     return _dispatch("identity.link.set", payload, parsed)
-
-
-def identity_autojoin_set(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke identity autojoin set",
-        description=(
-            "Set the org's auto-join email domain: any verified OIDC "
-            "sign-in whose email is under the domain is admitted without "
-            "an invite. Pass --clear to turn auto-join off."
-        ),
-    )
-    parser.add_argument(
-        "domain", nargs="?", default=None,
-        help="Email domain to admit (e.g. example.com).",
-    )
-    parser.add_argument(
-        "--clear", action="store_true",
-        help="Clear the auto-join domain (no domain-based admission).",
-    )
-    _add_org_arg(parser)
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, IDENTITY_AUTOJOIN_SET_USAGE)
-    if parsed is None:
-        return 2
-    if bool(parsed.domain) == bool(parsed.clear):
-        print(
-            f"Usage: {IDENTITY_AUTOJOIN_SET_USAGE}\n"
-            "supply exactly one of DOMAIN or --clear",
-        )
-        return 2
-    payload: Dict[str, Any] = {"domain": parsed.domain if not parsed.clear else None}
-    if parsed.org:
-        payload["org"] = parsed.org
-    return _dispatch("identity.autojoin.set", payload, parsed)

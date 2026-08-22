@@ -10,11 +10,6 @@ from yoke_cli.commands import migration_rehearse as subject
 from yoke_contracts.migration_rehearsal_teaching import PROVISION_RECIPE
 
 
-@pytest.fixture(autouse=True)
-def _non_prod_control_plane(monkeypatch) -> None:
-    monkeypatch.setattr(subject, "refuse_on_prod_control_plane", lambda _op: None)
-
-
 def test_https_connection_is_refused_before_import(monkeypatch, capsys) -> None:
     monkeypatch.setattr(subject, "local_authority_is_pinned", lambda: False)
     monkeypatch.setattr(
@@ -108,30 +103,22 @@ def test_aggregate_tool_registry_routes_public_command() -> None:
     assert remaining == ["YOK-9"]
 
 
-def test_prod_control_plane_is_refused_before_anything_opens(
-    monkeypatch, capsys
-) -> None:
-    """Rehearsal executes an unreleased migration; production is never its target.
+def test_prod_db_admin_delegates_to_validation_runner(monkeypatch) -> None:
+    """The durable authority records receipts but never receives migration DDL."""
 
-    The refusal has to land ahead of the HTTPS check and ahead of the import,
-    because a prod-flagged db-admin connection passes both — that is exactly
-    the connection an unreleased entry once reached production through.
-    """
     monkeypatch.setattr(
         subject,
-        "refuse_on_prod_control_plane",
-        lambda operation: f"{operation} refused on connection 'prod-db-admin'",
+        "local_authority_is_pinned",
+        lambda: False,
     )
     monkeypatch.setattr(
-        subject,
-        "remote_without_admin_authority",
-        lambda: (_ for _ in ()).throw(AssertionError("must not reach transport")),
+        subject.machine_config,
+        "active_connection",
+        lambda **_kwargs: {"transport": "local-postgres", "prod": True},
     )
-    monkeypatch.setattr(
-        subject.importlib,
-        "import_module",
-        lambda _name: (_ for _ in ()).throw(AssertionError("must not import")),
-    )
+    calls: list[list[str]] = []
+    module = SimpleNamespace(main=lambda argv: calls.append(argv) or 0)
+    monkeypatch.setattr(subject.importlib, "import_module", lambda _name: module)
 
-    assert subject.migration_rehearse(["YOK-1"]) == 1
-    assert "prod-db-admin" in capsys.readouterr().err
+    assert subject.migration_rehearse(["YOK-1"]) == 0
+    assert calls == [["rehearse", "YOK-1"]]

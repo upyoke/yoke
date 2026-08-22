@@ -150,7 +150,7 @@ When a harness connects to Yoke, Yoke needs to know certain facts about the sess
 
 | Field | Description | Source |
 |-------|-------------|--------|
-| `executor` | The harness identity declared at registration (`sessions begin`) time — the offer surface does not accept it and reads this row instead. Surface-specific values such as `claude-desktop`, `codex-vscode`, or `codex-cli` are accepted as input; Yoke canonicalizes the value at write time so `harness_sessions.executor` stores only `claude-code` or `codex`, and the original surface alias is preserved in `harness_sessions.executor_display_name` for operator-facing rendering. Surface-specific input continues to drive lane resolution via `executor_default_lane_<surface>` overrides. | Harness self-declaration |
+| `executor` | The harness identity declared at registration (`sessions begin`) time — the offer surface does not accept it and reads this row instead. Surface-specific values such as `claude-desktop`, `codex-vscode`, or `codex-cli` are accepted as input; Yoke canonicalizes the value at write time so `harness_sessions.executor` stores only `claude-code` or `codex`, and the original surface alias is preserved in `harness_sessions.executor_surface` for operator-facing rendering. Surface-specific input continues to drive lane resolution via `executor_default_lane_<surface>` overrides. | Harness self-declaration |
 | `provider` | The model provider (e.g., `anthropic`, `openai`) | Runtime or harness configuration |
 | `model` | The specific model identifier (e.g., `claude-opus-4-7`, `o3-pro`) | Runtime or harness configuration |
 | `workspace` | The git repository root path | `git rev-parse --show-toplevel` |

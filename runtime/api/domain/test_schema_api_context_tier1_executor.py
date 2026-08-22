@@ -15,9 +15,9 @@ def _main_body() -> str:
 
 def test_harness_sessions_executor_canonical_only_taught() -> None:
     """``harness_sessions.executor`` is documented as canonical-only and
-    the surface-specific alias lives in ``executor_display_name``."""
+    the surface-specific alias lives in ``executor_surface``."""
 
     body = _main_body()
     assert "executor stores only the canonical harness_id enum values" in body
-    assert "executor_display_name" in body
+    assert "executor_surface" in body
     assert "canonical_harness_id" in body

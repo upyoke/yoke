@@ -24,7 +24,7 @@ CLAIMS_TABLES: dict[str, dict] = {
         "columns": [
             ("session_id", "TEXT"),
             ("executor", "TEXT"),
-            ("executor_display_name", "TEXT"),
+            ("executor_surface", "TEXT"),
             ("provider", "TEXT"),
             ("model", "TEXT"),
             ("mode", "TEXT"),
@@ -54,8 +54,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             "the surface-specific alias (claude-desktop, codex-vscode, "
             "claude-vscode, codex-cli, codex-desktop, cursor-desktop, "
             "cursor-cli, etc.) lives in "
-            "executor_display_name when known and is NULL otherwise. "
-            "Board/session rendering prefers executor_display_name and "
+            "executor_surface when known and is NULL otherwise. "
+            "Board/session rendering prefers executor_surface and "
             "falls back to executor; event-envelope executor fields are "
             "canonical-only. The primary key is `session_id` — there is "
             "NO `id` column on this table (stale guess). Primary "

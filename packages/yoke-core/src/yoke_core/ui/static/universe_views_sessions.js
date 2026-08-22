@@ -32,7 +32,7 @@ function statRow(documentNode, facts) {
   return row;
 }
 function harnessIdentity(row) {
-  const executor = String(row.executor_display_name || row.executor || "unreported");
+  const executor = String(row.executor_surface || row.executor || "unreported");
   const normalized = executor.toLowerCase();
   if (row.actor_kind === "system" && normalized.includes("ci")) {
     return { mark: "⚙", className: "h-machine", label: executor };

@@ -81,7 +81,7 @@ def read_signals(conn: Any) -> Dict[str, Any]:
     # last_tool_call_at.
     harness_identities = session_identities(
         conn.execute(
-            "SELECT executor, COALESCE(executor_display_name, ''), "
+            "SELECT executor, COALESCE(executor_surface, ''), "
             "CASE WHEN tool_call_count > 0 OR last_tool_call_at IS NOT NULL "
             "THEN 1 ELSE 0 END, episode_started_at, last_tool_call_at "
             "FROM harness_sessions"

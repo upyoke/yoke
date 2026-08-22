@@ -31,8 +31,8 @@ def _display_session_id(session_id: Optional[str]) -> str:
     return f"{session_id[:8]}...{session_id[-4:]}"
 
 
-def _render_executor(executor: str, executor_display_name: Optional[str]) -> str:
-    display_value = executor_display_name or executor
+def _render_executor(executor: str, executor_surface: Optional[str]) -> str:
+    display_value = executor_surface or executor
     exec_emoji = _resolve_executor_emoji(display_value or "")
     return (
         f"{exec_emoji} {display_value}"
@@ -45,13 +45,13 @@ def session_common_cells(
     db: BoardDBLike,
     sid: str,
     executor: str,
-    executor_display_name: Optional[str],
+    executor_surface: Optional[str],
     model: Optional[str],
     project_id: object,
 ) -> list[str]:
     return [
         f"`{_display_session_id(sid)}`",
         session_project_label(db, project_id),
-        _render_executor(executor, executor_display_name),
+        _render_executor(executor, executor_surface),
         model or "?",
     ]

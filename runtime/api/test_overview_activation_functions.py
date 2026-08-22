@@ -54,7 +54,7 @@ def _seed_session(conn, session_id, *, executor="claude-code", display=None,
     at = at or iso8601_now()
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, "
-        "executor_display_name, provider, model, workspace, project_id, "
+        "executor_surface, provider, model, workspace, project_id, "
         "mode, offered_at, last_heartbeat) "
         "VALUES (%s, %s, %s, 'anthropic', 'test-model', %s, %s, 'wait', "
         "%s, %s)",

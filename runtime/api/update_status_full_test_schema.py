@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
     execution_lane TEXT NOT NULL DEFAULT 'primary',
-    capabilities TEXT DEFAULT '[]',
+    executor_version TEXT, machine_id TEXT,
     workspace TEXT NOT NULL,
     mode TEXT DEFAULT 'wait',
     offered_at TEXT NOT NULL,

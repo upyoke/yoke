@@ -64,9 +64,6 @@ def test_registry_maps_identity_tokens_to_function_ids() -> None:
     assert SUBCOMMAND_REGISTRY[("identity", "link", "set")][0] == (
         "identity.link.set"
     )
-    assert SUBCOMMAND_REGISTRY[("identity", "autojoin", "set")][0] == (
-        "identity.autojoin.set"
-    )
 
 
 def test_invite_create_dispatches_email_role_actor_org() -> None:
@@ -113,22 +110,3 @@ def test_link_set_identity_shape_dispatches() -> None:
         "subject": "sub-1",
         "email": "dev@example.com",
     }
-
-
-def test_autojoin_set_domain_and_clear_are_exclusive() -> None:
-    rc, _out, _err = _run_capture(
-        "identity", "autojoin", "set", "example.com",
-    )
-    assert rc == 0
-    assert _CAPTURED_REQUESTS[-1].payload == {"domain": "example.com"}
-
-    rc, _out, _err = _run_capture("identity", "autojoin", "set", "--clear")
-    assert rc == 0
-    assert _CAPTURED_REQUESTS[-1].payload == {"domain": None}
-
-    rc, _out, _err = _run_capture("identity", "autojoin", "set")
-    assert rc == 2
-    rc, _out, _err = _run_capture(
-        "identity", "autojoin", "set", "example.com", "--clear",
-    )
-    assert rc == 2

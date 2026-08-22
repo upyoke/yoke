@@ -159,7 +159,7 @@ class TestDoLoopContract:
         assert "yoke sessions identity" in text
         for field in (
             "execution_lane", "lane_allowed_paths", "max_chain_steps",
-            "executor_display_name",
+            "executor_surface",
         ):
             assert field in text, f"loop does not name {field}"
 

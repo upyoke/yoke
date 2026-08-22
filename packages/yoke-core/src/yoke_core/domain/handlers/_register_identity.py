@@ -50,13 +50,3 @@ def register(registry) -> None:
         guardrails=[], adapter_status="live", claim_required_kind=None,
         ambient_session_required=False,
     )
-    registry.register(
-        "identity.autojoin.set", _links.handle_identity_autojoin_set,
-        _links.AutojoinSetRequest, _links.AutojoinSetResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.identity_links",
-        target_kinds=["global"], side_effects=["organizations_update"],
-        emitted_event_names=["AutoJoinDomainChanged", "YokeFunctionCalled"],
-        guardrails=[], adapter_status="live", claim_required_kind=None,
-        ambient_session_required=False,
-    )

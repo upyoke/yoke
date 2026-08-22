@@ -21,7 +21,6 @@ unreachable.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
@@ -50,7 +49,9 @@ class SessionIdentity:
 
     session_id: str
     executor: str
-    executor_display_name: Optional[str]
+    executor_surface: Optional[str]
+    executor_version: Optional[str]
+    machine_id: Optional[str]
     provider: str
     model: str
     workspace: str
@@ -64,20 +65,6 @@ class SessionIdentity:
 
 def _text(value: Any) -> str:
     return "" if value is None else str(value)
-
-
-def _capabilities(raw: Any) -> List[str]:
-    if isinstance(raw, list):
-        return [str(entry) for entry in raw]
-    if not raw:
-        return []
-    try:
-        parsed = json.loads(raw)
-    except (json.JSONDecodeError, TypeError, ValueError):
-        return []
-    if isinstance(parsed, list):
-        return [str(entry) for entry in parsed]
-    return []
 
 
 def _optional_int(value: Any) -> Optional[int]:
@@ -100,8 +87,9 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
     from yoke_core.domain.sessions import SessionError
 
     row = conn.execute(
-        "SELECT executor, executor_display_name, provider, model, workspace, "
-        "execution_lane, capabilities, project_id, actor_id, mode, ended_at "
+        "SELECT executor, executor_surface, executor_version, machine_id, "
+        "provider, model, workspace, execution_lane, project_id, actor_id, "
+        "mode, ended_at "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
     ).fetchone()
@@ -111,21 +99,28 @@ def resolve_session_identity(conn: Any, session_id: str) -> SessionIdentity:
             f"No session row for '{session_id}' on this control plane. "
             f"{UNREGISTERED_RECOVERY}",
         )
+    from yoke_core.domain.sessions_queries_lookup import (
+        resolve_harness_capabilities,
+    )
+
+    derived = resolve_harness_capabilities(_text(row[0]), _text(row[6]))
     return SessionIdentity(
         session_id=session_id,
         executor=_text(row[0]),
-        executor_display_name=(
+        executor_surface=(
             str(row[1]) if row[1] is not None else None
         ),
-        provider=_text(row[2]),
-        model=_text(row[3]),
-        workspace=_text(row[4]),
-        execution_lane=_text(row[5]),
-        capabilities=_capabilities(row[6]),
-        project_id=_optional_int(row[7]),
-        actor_id=_optional_int(row[8]),
-        mode=(str(row[9]) if row[9] is not None else None),
-        ended_at=(str(row[10]) if row[10] is not None else None),
+        executor_version=(str(row[2]) if row[2] is not None else None),
+        machine_id=(str(row[3]) if row[3] is not None else None),
+        provider=_text(row[4]),
+        model=_text(row[5]),
+        workspace=_text(row[6]),
+        execution_lane=_text(row[7]),
+        capabilities=[str(value) for value in derived["downstream_paths"]],
+        project_id=_optional_int(row[8]),
+        actor_id=_optional_int(row[9]),
+        mode=(str(row[10]) if row[10] is not None else None),
+        ended_at=(str(row[11]) if row[11] is not None else None),
     )
 
 

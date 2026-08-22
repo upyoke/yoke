@@ -10,7 +10,7 @@ while belonging to no conversation at all.
 Two independent signatures of invented identity, each cheap enough to run
 on every doctor pass:
 
-* **Unrecognized surface label.** ``executor_display_name`` is written from
+* **Unrecognized surface label.** ``executor_surface`` is written from
   a closed vocabulary (:data:`yoke_contracts.executor_labels.KNOWN_EXECUTOR_LABELS`,
   plus ``NULL`` when the surface is unknown). A value outside it means the
   registering caller supplied free text rather than a detected surface.
@@ -89,7 +89,7 @@ def _p(conn: Any) -> str:
 
 
 def scan_unknown_surface_labels(conn: Any) -> List[Tuple[str, Any, Any]]:
-    """Return ``(session_id, executor_display_name, offered_at)`` rows.
+    """Return ``(session_id, executor_surface, offered_at)`` rows.
 
     Active sessions only, and only where the display name is present but
     outside the known vocabulary — ``NULL`` is the legitimate "surface not
@@ -98,12 +98,12 @@ def scan_unknown_surface_labels(conn: Any) -> List[Tuple[str, Any, Any]]:
     p = _p(conn)
     placeholders = ",".join(p for _ in KNOWN_EXECUTOR_LABELS)
     sql = (
-        "SELECT session_id, executor_display_name, offered_at "
+        "SELECT session_id, executor_surface, offered_at "
         "FROM harness_sessions "
         "WHERE ended_at IS NULL "
-        "AND executor_display_name IS NOT NULL "
-        "AND executor_display_name <> '' "
-        f"AND executor_display_name NOT IN ({placeholders}) "
+        "AND executor_surface IS NOT NULL "
+        "AND executor_surface <> '' "
+        f"AND executor_surface NOT IN ({placeholders}) "
         "ORDER BY offered_at DESC "
         f"LIMIT {_MAX_SCANNED}"
     )
@@ -184,9 +184,9 @@ def hc_session_identity_provenance(
     if unknown_labels:
         detail.extend(_render(
             f"{len(unknown_labels)} active session(s) carry an "
-            "unrecognized executor_display_name:",
+            "unrecognized executor_surface:",
             [
-                f"- session={sid!s} executor_display_name={label!r} "
+                f"- session={sid!s} executor_surface={label!r} "
                 f"offered_at={offered_at!s}"
                 for sid, label, offered_at in unknown_labels
             ],

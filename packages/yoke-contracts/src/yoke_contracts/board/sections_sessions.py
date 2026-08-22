@@ -59,7 +59,7 @@ def render_sessions_section(
             (
                 sid,
                 executor,
-                executor_display_name,
+                executor_surface,
                 model,
                 mode,
                 lane,
@@ -100,7 +100,7 @@ def render_sessions_section(
                 db,
                 sid,
                 executor,
-                executor_display_name,
+                executor_surface,
                 model,
                 project_id,
             )
@@ -146,7 +146,7 @@ def render_sessions_section(
             (
                 sid,
                 executor,
-                executor_display_name,
+                executor_surface,
                 model,
                 mode,
                 lane,
@@ -199,7 +199,7 @@ def render_sessions_section(
                 db,
                 sid,
                 executor,
-                executor_display_name,
+                executor_surface,
                 model,
                 project_id,
             )

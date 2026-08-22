@@ -36,18 +36,21 @@ def cmd_begin(
     workspace: str,
     lane: str = "primary",
     mode: str = "wait",
+    executor_version: Optional[str] = None,
+    machine_id: Optional[str] = None,
 ) -> str:
     now = _now_iso()
     p = _placeholder(conn)
     canonical_executor, display_name = canonicalize_executor(executor, None)
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id, executor, executor_display_name, provider, model, "
-        "execution_lane, capabilities, workspace, mode, offered_at, "
+        "(session_id, executor, executor_surface, executor_version, machine_id, "
+        "provider, model, execution_lane, workspace, mode, offered_at, "
         "last_heartbeat) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, '[]', {p}, {p}, {p}, {p})",
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
         (
-            session_id, canonical_executor, display_name, provider, model,
+            session_id, canonical_executor, display_name, executor_version,
+            machine_id, provider, model,
             lane, workspace, mode, now, now,
         ),
     )
@@ -59,7 +62,11 @@ def cmd_begin(
         "workspace": workspace,
     }
     if display_name:
-        event_payload["executor_display_name"] = display_name
+        event_payload["executor_surface"] = display_name
+    if executor_version:
+        event_payload["executor_version"] = executor_version
+    if machine_id:
+        event_payload["machine_id"] = machine_id
     _emit_event(
         conn,
         session_id,
@@ -107,8 +114,9 @@ def cmd_get(conn, session_id: str) -> str:
     p = _placeholder(conn)
     row = query_one(
         conn,
-        "SELECT session_id, executor, provider, model, execution_lane, "
-        "capabilities, workspace, mode, offered_at, last_heartbeat, "
+        "SELECT session_id, executor, executor_surface, executor_version, "
+        "machine_id, provider, model, execution_lane, workspace, mode, "
+        "offered_at, last_heartbeat, "
         "COALESCE(ended_at, '') "
         f"FROM harness_sessions WHERE session_id={p}",
         (session_id,),

@@ -7,7 +7,7 @@ A one-time, out-of-band additive schema convergence applied directly to the
 governed exception pathway, adding surfaces that a plain deploy never propagated:
 
 - `projects.github_sync_mode` (`TEXT DEFAULT NULL`)
-- `organizations.auto_join_domain` (`TEXT`)
+- `organizations.domain` (`TEXT` identity domain)
 - the three external sign-in identity tables — `actor_external_identities`,
   `actor_invites`, `web_sessions` — and their indexes.
 

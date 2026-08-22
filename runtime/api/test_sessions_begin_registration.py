@@ -2,7 +2,7 @@
 
 Exercises the shared registration core against a real backend: idempotent
 re-registration, and the executor/entrypoint split that decides what lands
-in ``harness_sessions.executor`` versus ``executor_display_name``.
+in ``harness_sessions.executor`` versus ``executor_surface``.
 
 Split from the ``sessions.begin`` function-surface tests, which cover
 registration/authz coherence, request parsing, and the adapter's
@@ -85,7 +85,7 @@ class TestBeginSessionIntegration:
                 entrypoint="dash",
             )
             row = conn.execute(
-                "SELECT executor, executor_display_name FROM harness_sessions "
+                "SELECT executor, executor_surface FROM harness_sessions "
                 "WHERE session_id = %s",
                 ("sid-surface",),
             ).fetchone()
@@ -115,7 +115,7 @@ class TestBeginSessionIntegration:
                 entrypoint="vscode",
             )
             row = conn.execute(
-                "SELECT executor, executor_display_name FROM harness_sessions "
+                "SELECT executor, executor_surface FROM harness_sessions "
                 "WHERE session_id = %s",
                 ("sid-coarse",),
             ).fetchone()

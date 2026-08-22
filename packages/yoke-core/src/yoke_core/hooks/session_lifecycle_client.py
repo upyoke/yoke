@@ -30,6 +30,8 @@ def register_harness_session(
     provider: str,
     model: str,
     entrypoint: Optional[str] = None,
+    executor_version: Optional[str] = None,
+    machine_id: Optional[str] = None,
 ) -> str:
     """Register a harness session through the target-aware service client.
 
@@ -57,6 +59,8 @@ def register_harness_session(
             root,
             entrypoint,
             project_id=project_id,
+            executor_version=executor_version,
+            machine_id=machine_id,
         )
     return service_client.register_session(
         service_client_path(root),
@@ -67,6 +71,8 @@ def register_harness_session(
         root,
         entrypoint,
         project_id,
+        executor_version,
+        machine_id,
     ) or ""
 
 
@@ -130,6 +136,8 @@ def session_begin_recovery_command(
     provider: str,
     model: str,
     entrypoint: Optional[str] = None,
+    executor_version: Optional[str] = None,
+    machine_id: Optional[str] = None,
 ) -> str:
     """Render an operator recovery command for the target-aware service client."""
     parts = [
@@ -152,4 +160,8 @@ def session_begin_recovery_command(
         parts.extend(["--project-id", str(project_id)])
     if entrypoint:
         parts.extend(["--entrypoint", entrypoint])
+    if executor_version:
+        parts.extend(["--executor-version", executor_version])
+    if machine_id:
+        parts.extend(["--machine-id", machine_id])
     return " ".join(shlex.quote(part) for part in parts)

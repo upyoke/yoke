@@ -30,7 +30,7 @@ def session_rows(
     ended_col = "" if active_only else ", hs.ended_at"
     return db.query_quiet(
         f"""
-        SELECT hs.session_id, hs.executor, hs.executor_display_name, hs.model,
+        SELECT hs.session_id, hs.executor, hs.executor_surface, hs.model,
                hs.mode, hs.execution_lane, hs.offered_at, hs.last_heartbeat,
                hs.workspace, hs.project_id
                {ended_col}

@@ -46,9 +46,9 @@ VALUES (1, 'yoke', 'Yoke', '', 'YOK');
 _CREATE_SESSIONS = """
 CREATE TABLE IF NOT EXISTS harness_sessions (
     session_id TEXT PRIMARY KEY, executor TEXT NOT NULL,
-    executor_display_name TEXT DEFAULT NULL, provider TEXT NOT NULL,
+    executor_surface TEXT DEFAULT NULL, provider TEXT NOT NULL,
     model TEXT NOT NULL DEFAULT '', execution_lane TEXT NOT NULL DEFAULT 'primary',
-    capabilities TEXT, workspace TEXT NOT NULL DEFAULT '',
+    executor_version TEXT, machine_id TEXT, workspace TEXT NOT NULL DEFAULT '',
     project_id INTEGER NOT NULL,
     mode TEXT NOT NULL DEFAULT 'wait', offered_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL, ended_at TEXT, offer_envelope TEXT,

@@ -7,7 +7,9 @@ from yoke_harness.hooks.identity_anchor import (
 from yoke_harness.hooks.identity_relay import (
     REGISTRATION_EVENTS,
     client_entrypoint,
+    client_executor_version,
     client_lane,
+    client_machine_id,
     client_model,
     relay_identity_payload,
 )
@@ -36,7 +38,9 @@ __all__ = [
     "_normalize_surface_token",
     "canonical_harness_id",
     "client_entrypoint",
+    "client_executor_version",
     "client_lane",
+    "client_machine_id",
     "client_model",
     "compose_executor_from_entrypoint",
     "cursor_surface_entrypoint",

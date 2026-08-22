@@ -296,11 +296,11 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "STATUS",
     ),
     (
-        "AutoJoinDomainChanged",
+        "OrganizationDomainChanged",
         "lifecycle",
         "org_settings",
         "yoke_core.domain.external_identities",
-        "Operator set or cleared the org auto-join email domain; context carries previous and new values",
+        "Operator set or cleared the org identity domain; context carries previous and new values",
         "STATUS",
     ),
     # --- relay transport (spooled machine-side, emitted once a call lands) ---

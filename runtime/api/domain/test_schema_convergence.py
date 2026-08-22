@@ -36,7 +36,8 @@ def _regress_to_pre_additive(conn) -> None:
     conn.execute("ALTER TABLE projects DROP COLUMN IF EXISTS breakage_policy")
     for name in ("resolution", "resolution_ref", "resolution_comment"):
         conn.execute(f"ALTER TABLE items DROP COLUMN IF EXISTS {name}")
-    conn.execute("ALTER TABLE organizations DROP COLUMN IF EXISTS auto_join_domain")
+    for name in ("domain", "settings"):
+        conn.execute(f"ALTER TABLE organizations DROP COLUMN IF EXISTS {name}")
     for tbl in reversed(_RECENT_ADDITIVE_TABLES):
         conn.execute(f"DROP TABLE IF EXISTS {tbl}")
     conn.commit()
@@ -62,14 +63,14 @@ def test_converge_adds_missing_columns_and_tables(tmp_path: Path) -> None:
             assert _table_exists(conn, "actor_external_identities") is False
             assert _table_exists(conn, "github_app_installations") is False
             assert _table_exists(conn, "project_github_repo_bindings") is False
-
             converge_core_schema(conn)
-
             assert _column_exists(conn, "projects", "github_sync_mode") is True
             assert _column_exists(conn, "projects", "breakage_policy") is True
             for name in ("resolution", "resolution_ref", "resolution_comment"):
                 assert _column_exists(conn, "items", name) is True
-            assert _column_exists(conn, "organizations", "auto_join_domain") is True
+            assert all(
+                _column_exists(conn, "organizations", name) for name in ("domain", "settings")
+            )
             for tbl in _RECENT_ADDITIVE_TABLES:
                 assert _table_exists(conn, tbl) is True
         finally:
@@ -87,7 +88,6 @@ def test_converge_is_non_destructive(tmp_path: Path) -> None:
             conn.execute("CREATE TABLE epic_reviews (id INTEGER)")
             conn.execute("INSERT INTO epic_reviews (id) VALUES (1)")
             conn.commit()
-
             converge_core_schema(conn)
 
             assert _table_exists(conn, "epic_reviews") is True

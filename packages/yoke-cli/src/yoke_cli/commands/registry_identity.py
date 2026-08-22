@@ -19,8 +19,6 @@ IDENTITY_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("identity.invite.revoke", _adapters.identity_invite_revoke),
     ("identity", "link", "set"):
         ("identity.link.set", _adapters.identity_link_set),
-    ("identity", "autojoin", "set"):
-        ("identity.autojoin.set", _adapters.identity_autojoin_set),
 }
 
 

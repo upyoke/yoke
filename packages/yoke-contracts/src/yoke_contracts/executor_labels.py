@@ -4,7 +4,7 @@ Single source of truth for the executor vocabulary two surfaces have to
 agree on:
 
 * ``harness_sessions.executor`` stores a canonical harness id
-  (:data:`CANONICAL_HARNESS_IDS`), and ``executor_display_name`` stores
+  (:data:`CANONICAL_HARNESS_IDS`), and ``executor_surface`` stores
   the surface-specific alias the session actually ran on, or ``NULL``
   when no surface was known. The split is produced by
   ``yoke_core.domain.sessions_lifecycle_canonicalize.canonicalize_executor``.
@@ -38,6 +38,21 @@ Active rows must carry one of these. Any other ``claude-*``, ``codex-*``,
 or ``cursor-*`` value in that column indicates a writer that bypassed
 ``canonicalize_executor``.
 """
+
+LEGACY_HARNESS_ALIASES: Mapping[str, str] = {"claude": "claude-code"}
+
+
+def canonical_harness_id(executor: Optional[str]) -> str:
+    """Map a canonical, legacy, or surface value to its harness family."""
+    normalized = str(executor or "").strip().lower().replace("_", "-")
+    if not normalized:
+        raise ValueError("canonical_harness_id requires a non-empty executor")
+    normalized = LEGACY_HARNESS_ALIASES.get(normalized, normalized)
+    for harness_id in CANONICAL_HARNESS_IDS:
+        prefix = "claude" if harness_id == "claude-code" else harness_id
+        if normalized == harness_id or normalized.startswith(f"{prefix}-"):
+            return harness_id
+    raise ValueError(f"unknown harness executor: {executor!r}")
 
 
 EXECUTOR_EMOJI: Dict[str, str] = {
@@ -84,7 +99,9 @@ def executor_presentation(executor: str) -> Dict[str, str]:
     return dict(presentation)
 
 
-INVOCATION_CONTEXT_ORIGINATORS: FrozenSet[str] = frozenset({"skill"})
+INVOCATION_CONTEXT_ORIGINATORS: FrozenSet[str] = frozenset(
+    {"skill", "dash", "goal", "blitz"}
+)
 """Harness-reported tokens naming how a run started, not where it runs.
 
 Codex Desktop exports ``skill`` as the originator into subprocess env for a
@@ -94,19 +111,22 @@ a skill, ``codex-desktop`` when the same thread registers any other way.
 Only the second is a surface, and only the second is in
 :data:`EXECUTOR_EMOJI`. Every entrypoint resolver drops these tokens through
 :func:`surface_alias`, so one thread resolves one
-``executor_display_name`` whatever path registered it.
+``executor_surface`` whatever path registered it.
 """
 
 
 def surface_alias(candidate: Optional[str]) -> Optional[str]:
-    """Keep a resolved entrypoint token only when it names a surface."""
-    if not candidate or candidate in INVOCATION_CONTEXT_ORIGINATORS:
+    """Return a closed-vocabulary surface alias, or ``None`` when unknown."""
+    normalized = str(candidate or "").strip().lower().replace("_", "-")
+    if not normalized or normalized in INVOCATION_CONTEXT_ORIGINATORS:
         return None
-    return candidate
+    if normalized in CANONICAL_HARNESS_IDS:
+        return None
+    return normalized if normalized in EXECUTOR_EMOJI else None
 
 
 KNOWN_EXECUTOR_LABELS: Tuple[str, ...] = tuple(EXECUTOR_EMOJI)
-"""Every value that may legitimately appear in ``executor_display_name``.
+"""Every value that may legitimately appear in ``executor_surface``.
 
 ``NULL`` is also legitimate (no surface-specific information was known).
 Anything else is an unrecognized identity a writer invented rather than
@@ -125,8 +145,10 @@ __all__ = [
     "EXECUTOR_EMOJI",
     "EXECUTOR_PRESENTATION",
     "INVOCATION_CONTEXT_ORIGINATORS",
+    "LEGACY_HARNESS_ALIASES",
     "KNOWN_EXECUTOR_LABELS",
     "KNOWN_SURFACE_LABELS",
+    "canonical_harness_id",
     "executor_presentation",
     "surface_alias",
 ]

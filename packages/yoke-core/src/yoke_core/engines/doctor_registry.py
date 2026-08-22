@@ -124,6 +124,7 @@ from yoke_core.engines.doctor_hc_oneshot_migration import (  # noqa: F401
 from yoke_core.engines.doctor_hc_path_integrity import hc_path_integrity  # noqa: F401
 from yoke_core.engines.doctor_hc_qa_runs import hc_qa_runs_mutated  # noqa: F401
 from yoke_core.engines.doctor_hc_pending_migrations import hc_pending_migrations  # noqa: F401
+from yoke_core.engines.doctor_hc_organization_settings import hc_organization_settings  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_project_migration_ledger import (  # noqa: F401
     hc_project_migration_ledger_contract,
 )
@@ -240,6 +241,11 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("epic-task-scope-state", "Generated task scope state", hc_epic_task_scope_state),
     # DB-only: schema / integrity
     HealthCheck("schema-drift", "Schema drift detection", hc_schema_drift),
+    HealthCheck(
+        "organization-settings",
+        "Organization fleet settings registry validity",
+        hc_organization_settings,
+    ),
     HealthCheck("migration-audit", "Migration audit evidence", hc_migration_audit),
     # DB-only: events
     HealthCheck("event-registry-coverage", "Event registry coverage", hc_event_registry_coverage),

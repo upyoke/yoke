@@ -7,7 +7,6 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional
 
-from yoke_contracts.schema_authority import refuse_on_prod_control_plane
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_compatibility_attestation import (
     _safe_parse_dict as _safe_parse_attestation,
@@ -22,7 +21,8 @@ from yoke_core.domain.migration_apply_audit import (
     _insert_audit_row, _update_audit_state,
 )
 from yoke_core.domain.migration_apply_targets import (
-    connect_db_target, ensure_migration_audit_table_for_target,
+    assert_distinct_database_targets, connect_db_target,
+    ensure_migration_audit_table_for_target,
     fingerprint_db_target, resolve_authoritative_db_target,
     resolve_connection_env_var, resolve_validation_db_target,
 )
@@ -63,12 +63,10 @@ def rehearse(
     ``None`` and the canonical YOKE_DB wins.  *worktree_path* is the
     checkout root; defaults to the current working directory.
 
-    Refuses a prod-flagged connection outright, before opening anything:
-    rehearsal executes an unreleased migration somewhere disposable.
+    The selected authority owns durable lease and audit receipts. Migration
+    code executes only against a separately bound database whose live identity
+    is verified as distinct from that authority.
     """
-    prod_refusal = refuse_on_prod_control_plane("governed migration rehearsal")
-    if prod_refusal is not None:
-        raise MigrationApplyError(prod_refusal)
     control_conn = db_helpers.connect(control_db_path)
     try:
         return _rehearse_inner(
@@ -125,11 +123,6 @@ def _rehearse_inner(
         integration_target=resolved.integration_target,
         migration_modules=profile["migration_modules"],
     )
-    # Held past this call on purpose -- see migration_territory_lease.
-    lease = migration_territory_lease.enter(
-        control_conn, project=project, model_name=profile["model_name"],
-        item_id=int(item_id), session_id=session_id,
-    )
     authoritative_db = resolve_authoritative_db_target(repo_path, model)
     env_var = resolve_connection_env_var(model)
 
@@ -140,6 +133,12 @@ def _rehearse_inner(
         model=model,
         authoritative_target=authoritative_db,
         control_db_path=control_conn_db_path(control_conn),
+    )
+    assert_distinct_database_targets(authoritative_db, validation_target)
+    # Held past this call on purpose -- see migration_territory_lease.
+    lease = migration_territory_lease.enter(
+        control_conn, project=project, model_name=profile["model_name"],
+        item_id=int(item_id), session_id=session_id,
     )
 
     affected_tables = sorted({

@@ -51,7 +51,7 @@ class TestSessionOfferLanes:
         self,
         session_id: str,
         *,
-        executor: str = "DARIUS",
+        executor: str = "claude-code",
         provider: str = "anthropic",
         model: str = TEST_MODEL_ID,
         workspace: str = "/tmp/test-workspace",

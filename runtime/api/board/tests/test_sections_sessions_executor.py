@@ -28,7 +28,7 @@ _RENDER_SCHEMA = """
     CREATE TABLE harness_sessions (
         session_id TEXT PRIMARY KEY,
         executor TEXT NOT NULL,
-        executor_display_name TEXT DEFAULT NULL,
+        executor_surface TEXT DEFAULT NULL,
         provider TEXT,
         model TEXT,
         execution_lane TEXT DEFAULT 'primary',
@@ -115,14 +115,14 @@ def _insert_render_session(db, **kwargs) -> None:
     try:
         raw.execute(
             """INSERT INTO harness_sessions
-               (session_id, executor, executor_display_name, provider, model,
+               (session_id, executor, executor_surface, provider, model,
                 execution_lane, mode, workspace, project_id, offered_at, last_heartbeat,
                 ended_at)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (
                 kwargs["session_id"],
                 kwargs["executor"],
-                kwargs.get("executor_display_name"),
+                kwargs.get("executor_surface"),
                 kwargs.get("provider", "anthropic"),
                 kwargs.get("model", "claude-opus-4-7[1m]"),
                 kwargs.get("execution_lane", "primary"),
@@ -161,13 +161,13 @@ def _insert_render_item_claim(db, *, session_id: str, item_id: int, project: str
 
 
 class TestExecutorDisplayRendering:
-    """Board prefers ``executor_display_name`` and falls back to ``executor``."""
+    """Board prefers ``executor_surface`` and falls back to ``executor``."""
 
     def test_display_alias_preferred_when_present(self, tmp_path: Path) -> None:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="surface-claude",
-                executor="claude-code", executor_display_name="claude-desktop",
+                executor="claude-code", executor_surface="claude-desktop",
             )
             section = render(db)
         assert "claude-desktop" in section
@@ -178,7 +178,7 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="coarse-codex",
-                executor="codex", executor_display_name=None,
+                executor="codex", executor_surface=None,
             )
             section = render(db)
         assert "codex" in section
@@ -187,7 +187,7 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="ended-codex",
-                executor="codex", executor_display_name="codex-vscode",
+                executor="codex", executor_surface="codex-vscode",
                 ended_at="2026-05-19T20:30:00Z",
             )
             section = render(db)
@@ -197,12 +197,12 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="externalwebappsess", executor="codex",
-                executor_display_name="codex-vscode",
+                executor_surface="codex-vscode",
                 project_id=2,
             )
             _insert_render_session(
                 db, session_id="yokesess", executor="codex",
-                executor_display_name="codex-desktop",
+                executor_surface="codex-desktop",
                 project_id=1,
             )
             _insert_render_item_claim(
@@ -221,13 +221,13 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="externalwebappdir", executor="codex",
-                executor_display_name="codex-desktop",
+                executor_surface="codex-desktop",
                 workspace="/some/other/machine/externalwebapp",
                 project_id=2,
             )
             _insert_render_session(
                 db, session_id="yokedir", executor="codex",
-                executor_display_name="codex-desktop",
+                executor_surface="codex-desktop",
                 workspace="/tmp/externalwebapp",
                 project_id=1,
             )
@@ -241,7 +241,7 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="mac-externalwebapp", executor="claude-code",
-                executor_display_name="claude-desktop",
+                executor_surface="claude-desktop",
                 workspace="/Users/testy/code/externalwebapp",
                 project_id=2,
             )
@@ -255,7 +255,7 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="mac-externalwebapp", executor="claude-code",
-                executor_display_name="claude-desktop",
+                executor_surface="claude-desktop",
                 workspace="/Users/testy/code/externalwebapp",
                 project_id=1,
             )
@@ -268,7 +268,7 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="externalwebappdir", executor="codex",
-                executor_display_name="codex-desktop",
+                executor_surface="codex-desktop",
                 workspace="/tmp/externalwebapp/app",
                 project_id=2,
             )
@@ -283,7 +283,7 @@ class TestExecutorDisplayRendering:
         with _make_render_db(tmp_path) as (db, render):
             _insert_render_session(
                 db, session_id="yokedir", executor="claude-code",
-                executor_display_name="claude-desktop",
+                executor_surface="claude-desktop",
                 execution_lane="ALTMAN",
                 workspace="/tmp/yoke",
                 project_id=1,

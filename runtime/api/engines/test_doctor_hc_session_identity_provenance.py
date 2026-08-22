@@ -33,7 +33,7 @@ CREATE TABLE harness_sessions (
     offered_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
     ended_at TEXT,
-    executor_display_name TEXT
+    executor_surface TEXT
 );
 """
 
@@ -81,14 +81,14 @@ def _seed_session(
     *,
     session_id: str,
     executor: str = "codex",
-    executor_display_name: Optional[str] = None,
+    executor_surface: Optional[str] = None,
     ended_at: Optional[str] = None,
 ) -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
-        "(session_id, executor, executor_display_name, offered_at, "
+        "(session_id, executor, executor_surface, offered_at, "
         "last_heartbeat, ended_at) VALUES (%s, %s, %s, %s, %s, %s)",
-        (session_id, executor, executor_display_name, _WHEN, _WHEN, ended_at),
+        (session_id, executor, executor_surface, _WHEN, _WHEN, ended_at),
     )
 
 
@@ -126,15 +126,15 @@ def test_skips_when_sessions_table_absent():
 def test_passes_on_known_labels_and_null(sessions_only):
     _seed_session(
         sessions_only, session_id="s-1", executor="codex",
-        executor_display_name="codex-desktop",
+        executor_surface="codex-desktop",
     )
     _seed_session(
         sessions_only, session_id="s-2", executor="claude-code",
-        executor_display_name=None,
+        executor_surface=None,
     )
     _seed_session(
         sessions_only, session_id="s-3", executor="claude-code",
-        executor_display_name="claude-cli",
+        executor_surface="claude-cli",
     )
     result = _run(sessions_only)
     assert result.check_id == HC_SLUG
@@ -144,7 +144,7 @@ def test_passes_on_known_labels_and_null(sessions_only):
 def test_warns_on_unrecognized_display_name(sessions_only):
     _seed_session(
         sessions_only, session_id="s-bad", executor="codex",
-        executor_display_name="codex-dash",
+        executor_surface="codex-dash",
     )
     result = _run(sessions_only)
     assert result.result == "WARN"
@@ -157,7 +157,7 @@ def test_ended_sessions_are_left_alone(sessions_only):
     # about writers still producing bad identity, not rows already written.
     _seed_session(
         sessions_only, session_id="s-old", executor="codex",
-        executor_display_name="codex-goal", ended_at=_WHEN,
+        executor_surface="codex-goal", ended_at=_WHEN,
     )
     assert _run(sessions_only).result == "PASS"
 
@@ -165,7 +165,7 @@ def test_ended_sessions_are_left_alone(sessions_only):
 def test_warns_on_uuid_actor_with_no_session_row(sessions_and_events):
     _seed_session(
         sessions_and_events, session_id=_REAL_UUID,
-        executor_display_name="codex-desktop",
+        executor_surface="codex-desktop",
     )
     _seed_event(sessions_and_events, session_id=_REAL_UUID)
     _seed_event(sessions_and_events, session_id=_OTHER_UUID)
@@ -186,7 +186,7 @@ def test_service_pseudo_sessions_are_not_flagged(sessions_and_events):
 def test_passes_when_every_actor_is_registered(sessions_and_events):
     _seed_session(
         sessions_and_events, session_id=_REAL_UUID,
-        executor_display_name="codex-desktop",
+        executor_surface="codex-desktop",
     )
     _seed_event(sessions_and_events, session_id=_REAL_UUID)
     assert _run(sessions_and_events).result == "PASS"

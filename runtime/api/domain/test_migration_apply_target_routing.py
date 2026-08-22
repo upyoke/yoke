@@ -26,6 +26,25 @@ def _postgres_model(connection_env_var: str) -> dict:
     }
 
 
+class _IdentityConnection:
+    def __init__(self, database: str, system_identifier: str) -> None:
+        self.row = {
+            "database_name": database,
+            "system_identifier": system_identifier,
+        }
+        self.closed = False
+
+    def execute(self, statement: str):
+        assert "pg_control_system" in statement
+        return self
+
+    def fetchone(self) -> dict[str, str]:
+        return self.row
+
+    def close(self) -> None:
+        self.closed = True
+
+
 def test_custom_model_binding_wins_without_ambient_fallback(
     tmp_path: Path,
     monkeypatch,
@@ -128,6 +147,50 @@ def test_validation_compares_with_the_resolved_model_authority(
     )
     assert target.target == validation
     assert target.display == "postgres-validation:external_app_validation"
+
+
+def test_live_database_identity_refuses_equivalent_dsn_aliases(monkeypatch) -> None:
+    authority = migration_apply_targets.DbTarget(
+        "postgres", "host=db dbname=app", "postgres:app"
+    )
+    validation = migration_apply_targets.DbTarget(
+        "postgres", "postgresql://db/app", "postgres-validation:app"
+    )
+    connections = [_IdentityConnection("app", "cluster-1") for _ in range(2)]
+    monkeypatch.setattr(
+        migration_apply_targets,
+        "connect_db_target",
+        lambda _target: connections.pop(0),
+    )
+
+    with pytest.raises(MigrationApplyError, match="identity matches"):
+        migration_apply_targets.assert_distinct_database_targets(
+            authority, validation
+        )
+
+
+def test_live_database_identity_accepts_distinct_validation_database(
+    monkeypatch,
+) -> None:
+    authority = migration_apply_targets.DbTarget(
+        "postgres", "dbname=app", "postgres:app"
+    )
+    validation = migration_apply_targets.DbTarget(
+        "postgres", "dbname=app_validation", "postgres-validation:app_validation"
+    )
+    connections = [
+        _IdentityConnection("app", "cluster-1"),
+        _IdentityConnection("app_validation", "cluster-1"),
+    ]
+    monkeypatch.setattr(
+        migration_apply_targets,
+        "connect_db_target",
+        lambda _target: connections.pop(0),
+    )
+
+    migration_apply_targets.assert_distinct_database_targets(
+        authority, validation
+    )
 
 
 def test_unbound_validation_names_the_binding_and_the_recipe_home(

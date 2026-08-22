@@ -1,10 +1,12 @@
-"""Executor canonicalization + display-alias coverage for ``register_session``.
+"""Executor canonicalization + surface-alias coverage for ``register_session``.
 
 Companion to ``test_sessions_lifecycle.py``; split out to keep both
 files under the 350-line authored cap.
 """
 
 from __future__ import annotations
+
+import pytest
 
 from runtime.api.test_sessions import (
     _register,
@@ -13,11 +15,11 @@ from runtime.api.test_sessions import (
 
 
 class TestRegisterCanonicalizesExecutor:
-    """Surface-specific inputs become ``(canonical, display_name)`` splits.
+    """Surface-specific inputs become ``(canonical, surface)`` splits.
 
     The contract: ``harness_sessions.executor`` stores only ``claude-code``
     or ``codex`` after register; the surface-specific input (when known) is
-    preserved in ``executor_display_name``. Custom values pass through.
+    preserved in ``executor_surface``. Custom values pass through.
     """
 
     def test_register_canonical_executor_stored_with_display_alias(self, conn):
@@ -30,24 +32,46 @@ class TestRegisterCanonicalizesExecutor:
             session_id = f"canonical-{surface}"
             result = _register(conn, session_id=session_id, executor=surface)
             assert result["executor"] == canonical
-            assert result["executor_display_name"] == surface
+            assert result["executor_surface"] == surface
 
     def test_register_coarse_executor_stores_no_display_alias(self, conn):
         """Coarse executor inputs (no surface specificity) store NULL display."""
         result = _register(conn, session_id="legacy-claude", executor="claude")
         assert result["executor"] == "claude-code"
-        assert result["executor_display_name"] is None
+        assert result["executor_surface"] is None
 
         result = _register(conn, session_id="coarse-claude", executor="claude-code")
         assert result["executor"] == "claude-code"
-        assert result["executor_display_name"] is None
+        assert result["executor_surface"] is None
 
         result = _register(conn, session_id="coarse-codex", executor="codex")
         assert result["executor"] == "codex"
-        assert result["executor_display_name"] is None
+        assert result["executor_surface"] is None
 
-    def test_register_custom_executor_passes_through(self, conn):
-        """YOKE_EXECUTOR override values (unrecognized families) pass through."""
-        result = _register(conn, session_id="custom", executor="DARIUS")
-        assert result["executor"] == "DARIUS"
-        assert result["executor_display_name"] is None
+    def test_register_unknown_executor_is_refused(self, conn):
+        """An override cannot invent a persisted executor family."""
+        with pytest.raises(ValueError, match="unknown harness executor family"):
+            _register(conn, session_id="custom", executor="DARIUS")
+
+    def test_register_persists_valid_observed_machine_facts(self, conn):
+        machine_id = "00000000-0000-4000-8000-000000000123"
+        result = _register(
+            conn,
+            session_id="observed",
+            executor="codex-cli",
+            executor_version="0.148.0-alpha.15",
+            machine_id=machine_id,
+        )
+        assert result["executor_version"] == "0.148.0-alpha.15"
+        assert result["machine_id"] == machine_id
+
+    def test_register_refuses_noncanonical_machine_id(self, conn):
+        from yoke_core.domain.sessions import SessionError
+
+        with pytest.raises(SessionError) as caught:
+            _register(
+                conn,
+                session_id="invalid-machine",
+                machine_id="machine-one",
+            )
+        assert caught.value.code == "MACHINE_ID_INVALID"

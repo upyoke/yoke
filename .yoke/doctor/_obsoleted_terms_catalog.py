@@ -18,6 +18,7 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_browser as _browser_terms
 from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
+from yoke_core.engines import doctor_hc_obsoleted_terms_session_control as _session_terms
 
 _RETIRED_PARENT_EPIC_SYMBOL_PATTERN = r"items" + r"\." + "epic"
 _RETIRED_PARENT_EPIC_CLI_PATTERN = r"items\s+(get|update|set)\s+\S+\s+" + "epic" + r"\b"
@@ -110,7 +111,6 @@ _RETIRED_QA_EXECUTOR_TYPE_PATTERN = r"\b" + "executor" + r"_type\b"
 _RETIRED_QA_EXECUTOR_GLOSS_PATTERN = r"\b" + "executor" + r"_gloss\b"
 _RETIRED_QA_EXECUTOR_CLI_PATTERN = r"--" + "executor" + r"-type\b"
 _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN = r"\bhost_control_" + "executor" + r"\b"
-
 _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN = (
     r"yoke_core\.domain\.(?:migration_auto_retire|migration_install_topology"
     r"|migration_retire_record|migration_apply_manifest|migration_source_checkout"
@@ -187,6 +187,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_QA_EXECUTOR_GLOSS_PATTERN,
     _RETIRED_QA_EXECUTOR_CLI_PATTERN,
     _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN,
+    *_session_terms.SESSION_CONTROL_RETIREMENT_PATTERNS,
     # Migrations became permanent ordered history applied by the boot
     # converge. Everything that existed only to compensate for their being
     # ephemeral -- auto-retire, install topology, retire records, the
@@ -273,6 +274,7 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN: (
         "host_control_executor (retired module — renamed to host_control_runner)"
     ),
+    **_session_terms.SESSION_CONTROL_RETIREMENT_LABELS,
     **_browser_terms.BROWSER_RETIREMENT_LABELS,
     **_pack_terms.PACK_RETIREMENT_LABELS,
 }
@@ -328,6 +330,7 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
         "packages/yoke-core/src/yoke_core/domain/lint_db_rules_lifecycle.py",
     ),
     _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
+    **_session_terms.SESSION_CONTROL_RETIREMENT_ALLOWLIST,
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS

@@ -17,7 +17,7 @@ control plane by resolving the project through its durable slug, never an
 installation-local numeric id:
 
 ```bash
-YOKE_ENV=stage yoke db read "SELECT hs.session_id, hs.project_id, hs.actor_id, hs.executor, hs.executor_display_name, hs.model, hs.execution_lane, hs.workspace, hs.ended_at FROM harness_sessions hs JOIN projects p ON p.id = hs.project_id WHERE p.slug = '<external-project-slug>' ORDER BY hs.offered_at DESC LIMIT 5"
+YOKE_ENV=stage yoke db read "SELECT hs.session_id, hs.project_id, hs.actor_id, hs.executor, hs.executor_surface, hs.model, hs.execution_lane, hs.workspace, hs.ended_at FROM harness_sessions hs JOIN projects p ON p.id = hs.project_id WHERE p.slug = '<external-project-slug>' ORDER BY hs.offered_at DESC LIMIT 5"
 YOKE_ENV=stage yoke events query --project <external-project-slug> --since '20 minutes ago' --limit 50
 ```
 

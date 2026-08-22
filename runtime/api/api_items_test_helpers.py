@@ -101,8 +101,8 @@ CREATE TABLE item_sections (
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY, actor_id INTEGER,
     project_id INTEGER NOT NULL DEFAULT 1,
-    executor TEXT, executor_display_name TEXT, provider TEXT, model TEXT,
-    execution_lane TEXT, capabilities TEXT, workspace TEXT, mode TEXT,
+    executor TEXT, executor_surface TEXT, provider TEXT, model TEXT,
+    execution_lane TEXT, executor_version TEXT, machine_id TEXT, workspace TEXT, mode TEXT,
     offered_at TEXT, last_heartbeat TEXT, ended_at TEXT, offer_envelope TEXT,
     current_item_id TEXT, current_item_set_at TEXT,
     recent_item_id TEXT, recent_item_status TEXT, recent_item_recorded_at TEXT,

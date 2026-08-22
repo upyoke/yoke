@@ -14,7 +14,7 @@ _ACTIVITY = "GREATEST(COALESCE(s.last_tool_call_at, ''), s.last_heartbeat)"
 
 #: Row shape shared by both query shapes.
 _SELECT = (
-    "SELECT s.session_id, s.executor, s.executor_display_name, s.model, "
+    "SELECT s.session_id, s.executor, s.executor_surface, s.model, "
     "s.execution_lane, "
     "s.mode, s.workspace, s.project_id, pr.slug AS project, "
     "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "

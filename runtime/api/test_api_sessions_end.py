@@ -179,7 +179,7 @@ class TestServiceClientSessionOffer:
         register_session(
             conn,
             session_id="DARIUS-test-session",
-            executor="DARIUS",
+            executor="claude-code",
             provider="anthropic",
             model=TEST_MODEL_ID,
             workspace=session_offer_db["tmp_dir"],

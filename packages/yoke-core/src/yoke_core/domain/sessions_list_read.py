@@ -268,7 +268,7 @@ def list_sessions(
             work_role = next(iter(task_roles or item_roles), None)
             if not work_role and current_item_display:
                 work_role = "item" if owns_current_item else "attached"
-            executor_display_name = row.get("executor_display_name")
+            executor_surface = row.get("executor_surface")
             presentation = session_presentation(conn, row)
             result.append(
                 {
@@ -289,7 +289,7 @@ def list_sessions(
                     "project_id": row.get("project_id"),
                     "project": row.get("project"),
                     "executor": row.get("executor"),
-                    "executor_display_name": executor_display_name,
+                    "executor_surface": executor_surface,
                     "executor_mark": presentation["executor_mark"],
                     "executor_class_name": presentation["executor_class_name"],
                     "model": row.get("model"),

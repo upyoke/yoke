@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
@@ -54,11 +53,6 @@ def find_stale_sessions(
             base_ttl_minutes=stale_threshold_minutes,
         ):
             continue
-        if d.get("capabilities"):
-            try:
-                d["capabilities"] = json.loads(d["capabilities"])
-            except (json.JSONDecodeError, TypeError):
-                pass
         result.append(d)
     return result
 

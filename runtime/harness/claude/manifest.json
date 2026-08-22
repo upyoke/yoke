@@ -31,6 +31,47 @@
       "stop_hook"
     ]
   },
+  "session_control": {
+    "source": "yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES",
+    "surfaces": {
+      "claude-cli": {
+        "minimum_version": "2.1.238",
+        "inject_events": [
+          "UserPromptSubmit",
+          "PreToolUse",
+          "PostToolUse"
+        ],
+        "create": "supported",
+        "message_active": "private",
+        "message_idle": "private",
+        "message_stopped": "private"
+      },
+      "claude-desktop": {
+        "minimum_version": "1.32885.1",
+        "inject_events": [
+          "UserPromptSubmit",
+          "PreToolUse",
+          "PostToolUse"
+        ],
+        "create": "none",
+        "message_active": "private",
+        "message_idle": "private",
+        "message_stopped": "none"
+      },
+      "claude-vscode": {
+        "minimum_version": "2.1.238",
+        "inject_events": [
+          "UserPromptSubmit",
+          "PreToolUse",
+          "PostToolUse"
+        ],
+        "create": "none",
+        "message_active": "supported",
+        "message_idle": "private",
+        "message_stopped": "none"
+      }
+    }
+  },
   "worktree_hook_enablement": {
     "config_path": ".claude/settings.json",
     "operations": [

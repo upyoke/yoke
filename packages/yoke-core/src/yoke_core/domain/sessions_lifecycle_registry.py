@@ -13,8 +13,11 @@ from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
 from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_canonicalize import canonicalize_executor as _canonicalize_executor
 from .sessions_lifecycle_identity import (
+    normalize_observed_identity,
     refresh_active_duplicate_identity,
     resolve_reactivation_identity,
+    resolve_session_actor_id,
+    resolve_session_project_id,
 )
 from .sessions_lifecycle_reactivation import emit_reactivated_with_released_claims
 from .sessions_queries import _now_iso, _row_to_dict
@@ -32,11 +35,6 @@ def _get_session(conn: Any, session_id: str) -> Dict[str, Any]:
     if row is None:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
     d = _row_to_dict(row)
-    if d.get("capabilities"):
-        try:
-            d["capabilities"] = json.loads(d["capabilities"])
-        except (json.JSONDecodeError, TypeError):
-            pass
     if d.get("offer_envelope"):
         try:
             d["offer_envelope"] = json.loads(d["offer_envelope"])
@@ -60,69 +58,6 @@ def _get_claim(conn: Any, claim_id: int) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_session_actor_id(
-    conn: Any,
-    explicit: Optional[int],
-) -> Optional[int]:
-    """Validate an explicit actor id for ``harness_sessions.actor_id``.
-
-    Actor identity is session/auth-bound: callers that know the actor
-    (the token-auth boundary, operator tooling) pass it explicitly and
-    it is honoured after a presence check on the ``actors`` table.
-    Without an explicit actor the row stores NULL — the shape
-    https-registered sessions already carry — and downstream readers
-    resolve actors through their own session/auth ladders.
-    """
-    if explicit is None:
-        return None
-    try:
-        from yoke_core.domain.actors import validate_actor_id
-        if validate_actor_id(conn, int(explicit)):
-            return int(explicit)
-    except db_backend.operational_error_types(conn) + (ValueError,):
-        return None
-    return None
-
-
-def _resolve_session_project_id(
-    conn: Any,
-    explicit: int,
-) -> int:
-    if explicit is None:
-        raise SessionError(
-            "PROJECT_ID_REQUIRED",
-            "Session registration requires a resolved project_id.",
-        )
-    try:
-        project_id = int(explicit)
-    except (TypeError, ValueError):
-        raise SessionError(
-            "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer.",
-        )
-    if project_id <= 0:
-        raise SessionError(
-            "PROJECT_ID_INVALID",
-            "Session registration project_id must be a positive integer.",
-        )
-    try:
-        found = conn.execute(
-            f"SELECT 1 FROM projects WHERE id = {_p(conn)}",
-            (project_id,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn):
-        raise SessionError(
-            "PROJECTS_TABLE_REQUIRED",
-            "Session registration requires the projects table.",
-        )
-    if not found:
-        raise SessionError(
-            "PROJECT_NOT_FOUND",
-            f"Session registration project_id {project_id} was not found.",
-        )
-    return project_id
-
-
 def register_session(
     conn: Any,
     *,
@@ -131,33 +66,36 @@ def register_session(
     provider: str,
     model: str,
     execution_lane: str = UNRESOLVED_EXECUTION_LANE,
-    capabilities: Optional[List[str]] = None,
     workspace: str,
     project_id: int,
     mode: str = "wait",
     offer_envelope: Optional[Dict[str, Any]] = None,
     entrypoint: Optional[str] = None,
     actor_id: Optional[int] = None,
+    executor_version: Optional[str] = None,
+    machine_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Register a new active session."""
     now = _now_iso()
-    caps_json = json.dumps(capabilities or [])
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
-    resolved_actor_id = _resolve_session_actor_id(conn, actor_id)
-    resolved_project_id = _resolve_session_project_id(conn, project_id)
+    resolved_actor_id = resolve_session_actor_id(conn, actor_id)
+    resolved_project_id = resolve_session_project_id(conn, project_id)
+    executor_version, machine_id = normalize_observed_identity(
+        executor_version, machine_id,
+    )
     canonical_executor, display_name = _canonicalize_executor(executor, entrypoint)
     p = _p(conn)
     # episode_started_at marks the current-episode boundary (fresh start
     # AND reactivation); introspection tolerates minimal fixtures.
     has_episode_col = episode_column_present(conn)
     insert_cols = (
-        "session_id, executor, executor_display_name, provider, model, "
-        "execution_lane, capabilities, workspace, mode, offered_at, "
+        "session_id, executor, executor_surface, executor_version, machine_id, "
+        "provider, model, execution_lane, workspace, mode, offered_at, "
         "last_heartbeat, ended_at, offer_envelope, actor_id, project_id"
     )
     insert_values: List[Any] = [
-        session_id, canonical_executor, display_name, provider, model,
-        execution_lane, caps_json, workspace, mode, now, now,
+        session_id, canonical_executor, display_name, executor_version, machine_id,
+        provider, model, execution_lane, workspace, mode, now, now,
         None, envelope_json, resolved_actor_id, resolved_project_id,
     ]
     if has_episode_col:
@@ -178,7 +116,8 @@ def register_session(
         if db_backend.connection_is_postgres(conn):
             conn.rollback()
         existing = conn.execute(
-            f"SELECT ended_at, model, actor_id, execution_lane, project_id "
+            f"SELECT ended_at, model, actor_id, execution_lane, project_id, "
+            f"executor_version, machine_id "
             f"FROM harness_sessions WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
@@ -192,6 +131,8 @@ def register_session(
                 execution_lane=execution_lane,
                 actor_id=actor_id,
                 resolved_actor_id=resolved_actor_id,
+                executor_version=executor_version,
+                machine_id=machine_id,
             )
             raise SessionError(
                 "SESSION_EXISTS",
@@ -218,11 +159,12 @@ def register_session(
             provider,
             resolved_model,
             resolved_lane,
-            caps_json,
             workspace,
             mode,
             now,
             envelope_json,
+            executor_version,
+            machine_id,
         ]
         if episode_clause:
             params.append(now)
@@ -237,12 +179,13 @@ def register_session(
                SET provider = {p},
                    model = {p},
                    execution_lane = {p},
-                   capabilities = {p},
                    workspace = {p},
                    mode = {p},
                    last_heartbeat = {p},
                    ended_at = NULL,
-                   offer_envelope = {p}{episode_clause}{actor_clause}{project_clause}
+                   offer_envelope = {p},
+                   executor_version = {p},
+                   machine_id = {p}{episode_clause}{actor_clause}{project_clause}
                WHERE session_id = {p} AND ended_at IS NOT NULL""",
             tuple(params),
         )
@@ -264,11 +207,11 @@ def register_session(
     # Report the stored executor value (which may differ from
     # the call argument when re-registering a closed session under the same
     # session_id, since executor is write-once).  Executor stores the
-    # canonical harness_id enum; executor_display_name carries the
+    # canonical harness_id enum; executor_surface carries the
     # surface-specific alias when known.  Both fields are write-once on
     # re-register so attribution stays stable across the session.
     stored_row = conn.execute(
-        "SELECT executor, executor_display_name FROM harness_sessions "
+        "SELECT executor, executor_surface FROM harness_sessions "
         f"WHERE session_id = {p}",
         (session_id,),
     ).fetchone()
@@ -276,7 +219,7 @@ def register_session(
         stored_row["executor"] if stored_row is not None else canonical_executor
     )
     stored_display = (
-        stored_row["executor_display_name"]
+        stored_row["executor_surface"]
         if stored_row is not None
         else display_name
     )
@@ -290,7 +233,11 @@ def register_session(
         "mode": mode,
     }
     if stored_display:
-        event_context["executor_display_name"] = stored_display
+        event_context["executor_surface"] = stored_display
+    if executor_version:
+        event_context["executor_version"] = executor_version
+    if machine_id:
+        event_context["machine_id"] = machine_id
     event_context["project_id"] = resolved_project_id
     if entrypoint:
         event_context["entrypoint"] = entrypoint

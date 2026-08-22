@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import json
+import stat
+import uuid
 
 import pytest
 
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config import schema_connections
+from yoke_contracts.machine_config import runtime as machine_runtime
 
 
 def test_canonical_example_is_valid_machine_config() -> None:
     payload = contract.canonical_example_payload()
 
     assert payload["schema_version"] == 1
+    assert str(uuid.UUID(payload["machine_id"])) == payload["machine_id"]
     assert payload["active_env"] == "prod"
     assert payload["connections"]["prod"]["transport"] == "https"
     assert payload["connections"]["prod"][contract.PROD_FLAG_KEY] is True
@@ -27,6 +31,32 @@ def test_canonical_example_is_valid_machine_config() -> None:
     assert "board" not in entry
     assert contract.validate_payload(payload) == []
     assert json.loads(contract.canonical_example_text()) == payload
+
+
+def test_machine_id_contract_rejects_noncanonical_values() -> None:
+    payload = contract.canonical_example_payload()
+    payload["machine_id"] = "NOT-A-UUID"
+
+    issues = contract.validate_payload(payload)
+
+    assert any(issue.code == "machine_id_invalid" for issue in issues)
+
+
+def test_machine_id_is_created_once_and_written_privately(tmp_path) -> None:
+    config = tmp_path / "config.json"
+    config.write_text('{"schema_version": 1}\n', encoding="utf-8")
+
+    first = machine_runtime.ensure_machine_id(config)
+    second = machine_runtime.ensure_machine_id(config)
+
+    assert first == second == machine_runtime.machine_id(config)
+    assert str(uuid.UUID(first)) == first
+    assert stat.S_IMODE(config.stat().st_mode) == 0o600
+
+
+def test_machine_id_initialization_requires_existing_config(tmp_path) -> None:
+    with pytest.raises(machine_runtime.MachineConfigError, match="configured"):
+        machine_runtime.ensure_machine_id(tmp_path / "missing.json")
 
 
 def test_env_override_routes_to_configured_connection(

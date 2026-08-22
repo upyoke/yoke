@@ -49,7 +49,7 @@ NEW_HARNESS_SESSION_COLUMNS = (
     "recent_item_recorded_at",
     "offer_envelope",
     "mode",
-    "executor_display_name",
+    "executor_surface",
 )
 
 

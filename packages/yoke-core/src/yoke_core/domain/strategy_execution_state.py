@@ -74,7 +74,7 @@ def _active_item_claim(
     return _row(
         conn.execute(
             "SELECT wc.id, wc.session_id, wc.claimed_at, "
-            "hs.executor_display_name, hs.executor "
+            "hs.executor_surface, hs.executor "
             "FROM work_claims wc "
             "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id "
             "WHERE wc.target_kind = 'item' "

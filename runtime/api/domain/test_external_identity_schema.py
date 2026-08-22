@@ -48,13 +48,15 @@ def test_fresh_create_then_rerun_is_idempotent(conn):
     create_external_identity_tables(conn)
     for table in REQUIRED_EXTERNAL_IDENTITY_TABLES:
         assert _table_exists(conn, table), f"missing table {table}"
-    assert _column_exists(conn, "organizations", "auto_join_domain")
+    assert _column_exists(conn, "organizations", "domain")
+    assert _column_exists(conn, "organizations", "settings")
 
     # Re-run against the already-initialized DB: no error, same shape.
     create_external_identity_tables(conn)
     for table in REQUIRED_EXTERNAL_IDENTITY_TABLES:
         assert _table_exists(conn, table)
-    assert _column_exists(conn, "organizations", "auto_join_domain")
+    assert _column_exists(conn, "organizations", "domain")
+    assert _column_exists(conn, "organizations", "settings")
 
 
 def test_external_identity_unique_on_issuer_subject(conn):

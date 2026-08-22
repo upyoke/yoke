@@ -210,6 +210,22 @@ def ordinal_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
     return _entries(directory, strict_names=False)
 
 
+def resolve_migration_path(directory: Path, identifier: str) -> Path:
+    """Resolve an exact stem or a slug within the permanent ordered history."""
+
+    exact = directory / f"{identifier}.py"
+    if exact.is_file():
+        return exact
+    suffix = f"_{identifier}"
+    matches = [entry.path for entry in ordinal_entries(directory) if entry.name.endswith(suffix)]
+    if len(matches) > 1:
+        names = ", ".join(path.name for path in matches)
+        raise ModuleResolutionError(
+            f"migration identifier {identifier!r} is ambiguous: {names}"
+        )
+    return matches[0] if matches else exact
+
+
 def load_migration_module(
     path: Path,
     identifier: str,
@@ -276,5 +292,6 @@ __all__ = [
     "load_migration_module",
     "ordinal_entries",
     "ordered_entries",
+    "resolve_migration_path",
     "validate_psycopg_migration_sql",
 ]

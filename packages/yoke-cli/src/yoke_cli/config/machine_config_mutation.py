@@ -6,6 +6,7 @@ from functools import wraps
 import json
 from pathlib import Path
 from typing import Any, Callable, TypeVar
+import uuid
 
 from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
@@ -49,6 +50,7 @@ def load_payload(path: str | Path | None) -> tuple[dict[str, Any], Path]:
 
 def write_payload(payload: dict[str, Any], cfg_path: Path) -> None:
     """Validate and atomically replace one machine-config payload."""
+    payload.setdefault(contract.MACHINE_ID_KEY, str(uuid.uuid4()))
     errors = [
         issue for issue in contract.validate_payload(payload)
         if issue.severity == "error"

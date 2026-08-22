@@ -38,11 +38,14 @@ PROVISION_RECIPE = (
 PREFLIGHT_HELP = f"""\
 preflight -- rehearsal needs three bindings, in this order:
 
-1. Authority. Rehearsal executes project-local code against a local
-   database, so it is never relayed over HTTPS. `{CONNECTION_READER}` names
-   every registered connection with its transport and prod flag, and prints
-   no credentials; pick a local-postgres one and rerun as
-   `yoke --env <name> migration rehearse ITEM`.
+1. Authority. Rehearsal executes project-local code, so it is never relayed
+   over HTTPS. `{CONNECTION_READER}` names every registered connection with
+   its transport and prod flag, and prints no credentials; pick the direct
+   local-postgres or db-admin authority that owns the item and its durable
+   lease/audit receipts, then rerun as
+   `yoke --env <name> migration rehearse ITEM`. A prod flag is valid for that
+   metadata authority: migration code still runs only against the distinct
+   validation database verified in step 3.
 
 2. Item universe. Rehearsal is item-bound: it reads the item's mutation
    profile and compatibility attestation from the selected connection's
@@ -51,7 +54,9 @@ preflight -- rehearsal needs three bindings, in this order:
    than merely any non-HTTPS connection.
 
 3. Validation database. Each module is applied to a separate disposable
-   database of the same shape, never to the authority. The model's declared
+   database of the same shape, never to the authority. Rehearsal compares the
+   live Postgres cluster and database identities and refuses an alias that
+   resolves back to the authority. The model's declared
    `runner.config.connection_env_var` plus `_VALIDATION` names that binding
    (Yoke: YOKE_PG_DSN_VALIDATION); rehearsal reads it from the environment,
    otherwise from the machine-local binding file under ~/.yoke/secrets. In

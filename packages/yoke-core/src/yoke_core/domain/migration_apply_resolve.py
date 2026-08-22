@@ -25,7 +25,10 @@ from yoke_core.domain.migration_apply_contract import (
     ProfileNotApplyError,
     _safe_parse_json_dict,
 )
-from yoke_core.domain.migration_history import load_migration_module
+from yoke_core.domain.migration_history import (
+    load_migration_module,
+    resolve_migration_path,
+)
 from yoke_core.domain.project_identity import (
     format_item_ref,
     render_item_ref,
@@ -122,7 +125,9 @@ def default_worktree_path(
 
 
 def _load_migration_module(modules_dir: Path, identifier: str) -> ModuleType:
-    return load_migration_module(modules_dir / f"{identifier}.py", identifier)
+    return load_migration_module(
+        resolve_migration_path(modules_dir, identifier), identifier
+    )
 
 
 def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:

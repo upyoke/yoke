@@ -131,7 +131,7 @@ class TestHarnessSessions:
 class TestCmdBeginCanonicalizesExecutor:
     def _stored_executor(self, conn, session_id):
         row = conn.execute(
-            "SELECT executor, executor_display_name "
+            "SELECT executor, executor_surface "
             f"FROM harness_sessions WHERE session_id = {_p(conn)}",
             (session_id,),
         ).fetchone()
@@ -160,13 +160,18 @@ class TestCmdBeginCanonicalizesExecutor:
         assert executor == "claude-code"
         assert display is None
 
-    def test_unknown_executor_passes_through_with_null_display(self, test_db):
+    def test_unknown_executor_is_refused(self, test_db):
         from yoke_core.hooks.sessions_cli import cmd_begin
 
-        cmd_begin(test_db, "sess-custom", "my-custom-tool", "anthropic", "opus", "/ws")
-        executor, display = self._stored_executor(test_db, "sess-custom")
-        assert executor == "my-custom-tool"
-        assert display is None
+        with pytest.raises(ValueError, match="unknown harness executor family"):
+            cmd_begin(
+                test_db,
+                "sess-custom",
+                "my-custom-tool",
+                "anthropic",
+                "opus",
+                "/ws",
+            )
 
     @patch("yoke_core.hooks.sessions_lifecycle._emit_event")
     def test_event_payload_includes_display_name(self, mock_emit, test_db):
@@ -176,7 +181,7 @@ class TestCmdBeginCanonicalizesExecutor:
         cmd_begin(test_db, "sess-evt", "claude-desktop", "anthropic", "opus", "/ws")
         payload = json.loads(mock_emit.call_args.args[3])
         assert payload["executor"] == "claude-code"
-        assert payload["executor_display_name"] == "claude-desktop"
+        assert payload["executor_surface"] == "claude-desktop"
 
     @patch("yoke_core.hooks.sessions_lifecycle._emit_event")
     def test_event_payload_omits_display_when_null(self, mock_emit, test_db):
@@ -188,4 +193,4 @@ class TestCmdBeginCanonicalizesExecutor:
         )
         payload = json.loads(mock_emit.call_args.args[3])
         assert payload["executor"] == "claude-code"
-        assert "executor_display_name" not in payload
+        assert "executor_surface" not in payload

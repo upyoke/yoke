@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-22T02:22:27Z_
+_Audit generated_at: 2026-08-22T20:11:48Z_
 
 ## 1. Summary
 
-- Function ids registered: **393**
+- Function ids registered: **395**
 - Internal dispatch-only functions without CLI adapters: **78**
-- `yoke` CLI subcommands: **316** (316 carry usable `--help`)
-- Operation tracker: **294 wrapped**, 8 tool_cli, 117 permanent, 0 pending
+- `yoke` CLI subcommands: **318** (318 carry usable `--help`)
+- Operation tracker: **296 wrapped**, 8 tool_cli, 117 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **294** (operation tracker confirms 294 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **296** (operation tracker confirms 296 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -103,7 +103,6 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **294** (operation track
 | github_actions | `yoke github-actions find-run` | `github_actions.workflow.find_run` | ok |
 | harness | `yoke harness machine-report upsert` | `harness.machine_report.upsert` | ok |
 | hook | `yoke hook evaluate` | `hook.evaluate.run` | ok |
-| identity | `yoke identity autojoin set` | `identity.autojoin.set` | ok |
 | identity | `yoke identity invite create` | `identity.invite.create` | ok |
 | identity | `yoke identity invite list` | `identity.invite.list` | ok |
 | identity | `yoke identity invite revoke` | `identity.invite.revoke` | ok |
@@ -141,7 +140,10 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **294** (operation track
 | lifecycle | `yoke lifecycle transition` | `lifecycle.transition.execute` | ok |
 | onboard | `yoke onboard checklist init` | `onboard.checklist.init` | ok |
 | onboard | `yoke onboard checklist` | `onboard.checklist.run` | ok |
+| organizations | `yoke organizations domain set` | `organizations.domain.set` | ok |
 | organizations | `yoke organizations get` | `organizations.get` | ok |
+| organizations | `yoke organizations settings get` | `organizations.settings.get` | ok |
+| organizations | `yoke organizations settings merge` | `organizations.settings.merge` | ok |
 | ouroboros | `yoke ouroboros entry get` | `ouroboros.entry.get` | ok |
 | ouroboros | `yoke ouroboros entry insert` | `ouroboros.entry.insert` | ok |
 | ouroboros | `yoke ouroboros entry list` | `ouroboros.entry.list` | ok |
@@ -485,10 +487,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 36 |
-| claude-code | 10 |
-| agent | 3 |
-| cursor | 1 |
+| codex | 31 |
+| claude-code | 17 |
+| cursor | 2 |
 
 ## 8. Contradictions
 

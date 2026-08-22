@@ -24,6 +24,7 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 | `bootstrap` | object | Yes | Bootstrap mechanism configuration. See [Bootstrap](#bootstrap). |
 | `identity` | object | Yes | Session-identity sources for `executor`, `provider`, `model`, `workspace`. See [Identity](#identity). |
 | `supports` | object | Yes | Affordance and command-source posture. See [Supports](#supports). |
+| `session_control` | object | Yes | Versioned per-surface facts used to compute session messaging and launch routes. See [Session control](#session-control). |
 | `worktree_hook_enablement` | object | Yes | Operations that make the harness hook chain live and workspace-bound in linked worktree lanes. See [Worktree hook enablement](#worktree-hook-enablement). |
 | `telemetry` | object | Yes | Telemetry source posture. See [Telemetry](#telemetry). |
 | `fallback` | object | Yes | Behavior when affordances or paths are unsupported. See [Fallback](#fallback). |
@@ -71,6 +72,25 @@ The bootstrap spec is harness-neutral; the manifest names which delivery mechani
 | `optional_local_affordances` | list[string] | Tool-neutral hook affordances the harness optionally exposes when the runtime floor is met. Canonical names: `session_start_hook`, `user_prompt_submit_hook`, `pre_tool_use_hook`, `post_tool_use_hook`, `stop_hook`. |
 
 The affordance list is **tool-neutral**. Names like `bash_pre_tool_hook` or `bash_post_tool_hook` are obsolete — the universal hook ordering and policy pipeline matches across `Bash`, `Edit`, `Write`, and `apply_patch`, and the manifest must not encode a tool-specific shape.
+
+## Session control
+
+The object is rendered from
+`yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES`; manifests do
+not author a second capability matrix.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `source` | string | Canonical Python contract that owns the facts. |
+| `surfaces` | object | Closed mapping for only this harness family's known surfaces. |
+
+Each surface value carries `minimum_version`, `inject_events`, `create`,
+`message_active`, `message_idle`, and `message_stopped`. Route fields use the
+closed interface vocabulary `supported | private | none`. Private routes fail
+closed unless the observed executor version exactly satisfies their pinned
+adapter contract. `inject_events` names the model-visible hook events that can
+lease and render a pending message; it is independent of native wake/create
+support.
 
 ## Worktree hook enablement
 

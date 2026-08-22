@@ -48,6 +48,8 @@ class HookEvaluateRequest(BaseModel):
     model: Optional[str] = None
     execution_lane: Optional[str] = None
     project_id: Optional[int] = None
+    executor_version: Optional[str] = None
+    machine_id: Optional[str] = None
     payload_extra: dict[str, Any] = Field(default_factory=dict)
     deadline_ms: Optional[int] = None
 
@@ -106,6 +108,8 @@ def post_hooks_evaluate(
         model=request.model,
         execution_lane=request.execution_lane,
         project_id=request.project_id,
+        executor_version=request.executor_version,
+        machine_id=request.machine_id,
         payload_extra=request.payload_extra,
         deadline_ms=deadline_ms,
         actor_id=auth.actor_id,

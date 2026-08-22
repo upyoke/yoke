@@ -176,7 +176,7 @@ def conn(tmp_path):
 def _register(conn, session_id="sess-1", **kwargs):
     """Helper to register a session with defaults."""
     defaults = dict(
-        executor="DARIUS",
+        executor="claude-code",
         provider="anthropic",
         model=TEST_MODEL_ID,
         workspace="/tmp/work",

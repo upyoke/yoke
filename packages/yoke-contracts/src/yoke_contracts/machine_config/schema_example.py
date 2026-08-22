@@ -19,6 +19,7 @@ def canonical_example_payload() -> dict[str, Any]:
     """Return the code-owned example payload for ``yoke config example``."""
     return copy.deepcopy({
         "schema_version": _contract().SCHEMA_VERSION,
+        _contract().MACHINE_ID_KEY: "00000000-0000-4000-8000-000000000001",
         "active_env": "prod",
         "connections": {
             "prod": {

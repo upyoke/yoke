@@ -167,12 +167,14 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # https and from any cwd.
     _w("yoke projects checkout-context", "projects"),
     _w("yoke organizations get", "organizations"),
-    # Sign-in admission admin: invites, identity links, auto-join domain.
+    _w("yoke organizations settings get", "organizations.settings"),
+    _w("yoke organizations settings merge", "organizations.settings"),
+    _w("yoke organizations domain set", "organizations.domain"),
+    # Sign-in admission admin: invites and identity links.
     _w("yoke identity invite create", "identity.invite"),
     _w("yoke identity invite list", "identity.invite"),
     _w("yoke identity invite revoke", "identity.invite"),
     _w("yoke identity link set", "identity.link"),
-    _w("yoke identity autojoin set", "identity.autojoin"),
     _w("yoke project-structure patch apply", "project_structure"),
     _w("yoke project-structure get", "project_structure"),
     _w(

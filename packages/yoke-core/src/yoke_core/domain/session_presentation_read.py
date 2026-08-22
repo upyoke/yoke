@@ -32,7 +32,7 @@ def _lane_display(conn: Any, project_id: Any, lane: Any) -> dict[str, str]:
 
 def session_presentation(conn: Any, row: dict[str, Any]) -> dict[str, str]:
     """Return lane and executor metadata for a session query row."""
-    display_name = str(row.get("executor_display_name") or row.get("executor") or "")
+    display_name = str(row.get("executor_surface") or row.get("executor") or "")
     executor = executor_presentation(display_name)
     lane = _lane_display(conn, row.get("project_id"), row.get("execution_lane"))
     return {
