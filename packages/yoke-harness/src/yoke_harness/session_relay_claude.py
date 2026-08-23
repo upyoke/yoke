@@ -127,6 +127,23 @@ def _operation_supported(
         return False
 
 
+def _operation_authorized(
+    context: RelayExecutionContext,
+    operation: str,
+    gate: SurfaceVersionGate | None,
+) -> bool:
+    if _operation_supported(context, operation, gate):
+        return True
+    try:
+        from yoke_harness.session_relay_private_qualification import (
+            private_route_qualification_allows,
+        )
+
+        return private_route_qualification_allows(context, operation=operation)
+    except Exception:
+        return False
+
+
 def _evidence(
     context: RelayExecutionContext,
     code: str,
@@ -226,7 +243,7 @@ def run_claude_cli_adapter(
         )
         if operation is None:
             return _result(context, "failed", "wake_mode_invalid")
-    if not _operation_supported(context, operation, version_gate):
+    if not _operation_authorized(context, operation, version_gate):
         result = "not_created" if context.job_kind == "launch" else "version_mismatch"
         return _result(context, result, "version_mismatch")
     expected = _expected_instruction(context)

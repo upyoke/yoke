@@ -20,9 +20,13 @@ from yoke_cli.commands.adapters.session_control_messages import (
     MESSAGE_SEND_USAGE,
 )
 from yoke_cli.commands.adapters.session_control_roster import SESSION_ROSTER_USAGE
+from yoke_cli.commands.adapters.session_control_qualification import (
+    QUALIFICATION_OPEN_USAGE,
+)
 
 
 SESSION_CONTROL_USAGE_BY_FUNCTION_ID = {
+    "session_control.qualification.open": QUALIFICATION_OPEN_USAGE,
     "session_control.message.preview": MESSAGE_PREVIEW_USAGE,
     "session_control.message.send": MESSAGE_SEND_USAGE,
     "session_control.message.list": MESSAGE_LIST_USAGE,

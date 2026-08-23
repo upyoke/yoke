@@ -12,6 +12,7 @@ from typing import Sequence
 from runtime.api.tools.session_control_live_acceptance_client import YokeCliClient
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
+    load_candidate_matrix,
     load_matrix,
     validate_deployed_release,
     validate_run_id,
@@ -19,7 +20,14 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_driver import (
     LiveAcceptanceDriver,
 )
+from runtime.api.tools.session_control_live_acceptance_qualification import (
+    QualificationCoordinator,
+)
+from yoke_contracts.session_control.private_route_qualification import (
+    QUALIFICATION_TTL_SECONDS,
+)
 from yoke_cli.config import machine_config
+from yoke_contracts.machine_config.schema import connection_is_prod
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -52,11 +60,19 @@ def _parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("--matrix", type=Path, required=True)
+    parser.add_argument(
+        "--qualification-candidate",
+        action="store_true",
+        help=(
+            "Run a stage-only subset of unproven private-route candidates. "
+            "Without this flag the full pinned acceptance matrix is required."
+        ),
+    )
     parser.add_argument("--run-id", required=True)
     parser.add_argument(
         "--release-sha",
         required=True,
-        help="Full 40-character commit expected to be serving in prod.",
+        help="Full 40-character commit expected in the deployed environment.",
     )
     parser.add_argument("--timeout-seconds", type=float, default=900.0)
     parser.add_argument("--poll-seconds", type=float, default=5.0)
@@ -77,6 +93,16 @@ def _caller_session_id() -> str:
     if not isinstance(value, str) or not value.strip():
         raise AcceptanceContractError("caller_identity_unresolved")
     return value.strip()
+
+
+def _require_stage_qualification_environment() -> None:
+    try:
+        environment = str(machine_config.active_env() or "").strip()
+        connection = machine_config.active_connection()
+    except Exception as exc:
+        raise AcceptanceContractError("qualification_environment_unresolved") from exc
+    if environment != "stage" or connection_is_prod(connection):
+        raise AcceptanceContractError("qualification_stage_required")
 
 
 def _refusal(exc: AcceptanceContractError) -> dict[str, object]:
@@ -101,12 +127,32 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise AcceptanceContractError("poll_window_invalid")
         if args.unsupported_observation_seconds < 0:
             raise AcceptanceContractError("observation_window_invalid")
+        if (
+            args.qualification_candidate
+            and args.timeout_seconds > QUALIFICATION_TTL_SECONDS / 2
+        ):
+            raise AcceptanceContractError("qualification_window_invalid")
         caller = _caller_session_id()
-        matrix = load_matrix(args.matrix)
+        if args.qualification_candidate:
+            _require_stage_qualification_environment()
+            matrix = load_candidate_matrix(args.matrix)
+        else:
+            matrix = load_matrix(args.matrix)
         client = YokeCliClient()
         release = client.deployed_release()
         release_sha, server_build = validate_deployed_release(
             args.release_sha, release.get("server_build", "")
+        )
+        qualification = (
+            QualificationCoordinator(
+                client,
+                matrix,
+                run_id=run_id,
+                release_sha=release_sha,
+                caller_session_id=caller,
+            )
+            if args.qualification_candidate
+            else None
         )
         report = LiveAcceptanceDriver(client).run(
             matrix,
@@ -118,7 +164,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout_seconds=args.timeout_seconds,
             poll_seconds=args.poll_seconds,
             unsupported_observation_seconds=args.unsupported_observation_seconds,
+            qualification=qualification,
         )
+        if qualification is not None:
+            report["qualification_grants"] = qualification.evidence()
+            report["qualification_grants_consumed"] = qualification.all_consumed
+            if not qualification.all_consumed:
+                report["status"] = "failed"
+                report["failure_code"] = "qualification_not_consumed"
         code = 0 if report["status"] == "passed" else 1
     except AcceptanceContractError as exc:
         report = _refusal(exc)

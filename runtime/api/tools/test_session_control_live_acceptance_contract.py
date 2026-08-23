@@ -14,6 +14,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
     parse_candidate_matrix,
     parse_matrix,
+    parse_readiness_matrix,
     validate_deployed_release,
     validate_run_id,
 )
@@ -134,6 +135,11 @@ def test_candidate_matrix_preserves_shape_but_defers_private_version_proof() -> 
     for cell in raw["cells"]:
         if cell["surface"] in versions:
             cell["expected_version"] = versions[cell["surface"]]
+    raw["cells"] = [
+        cell
+        for cell in raw["cells"]
+        if cell["acceptance_role"] == "surface" and cell["surface"] in versions
+    ]
 
     candidate = parse_candidate_matrix(raw)
 
@@ -144,6 +150,66 @@ def test_candidate_matrix_preserves_shape_but_defers_private_version_proof() -> 
     assert raised.value.code == "expected_version_unproven"
 
 
+def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells() -> None:
+    raw = _matrix()
+    candidate = next(cell for cell in raw["cells"] if cell["surface"] == "claude-cli")
+    candidate["expected_version"] = "2.1.241"
+    raw["cells"] = [candidate]
+    assert parse_candidate_matrix(raw).cells[0].surface == "claude-cli"
+
+    for cells, code in (
+        ([], "candidate_cells_empty"),
+        ([candidate, dict(candidate)], "candidate_cell_duplicate"),
+        (
+            [{**candidate, "expected_version": "2.1.238"}],
+            "candidate_version_already_proven",
+        ),
+    ):
+        changed = {**raw, "cells": cells}
+        with pytest.raises(AcceptanceContractError) as raised:
+            parse_candidate_matrix(changed)
+        assert raised.value.code == code
+
+
+def test_candidate_matrix_keeps_surface_before_broker_for_same_surface() -> None:
+    surface = {
+        "surface": "claude-cli",
+        "expected_version": "2.1.241",
+        "mode": "create",
+        "acceptance_role": "surface",
+        "wake_route": "direct",
+    }
+    broker = {
+        **surface,
+        "mode": "identify",
+        "session_id": "broker-target",
+        "machine_id": "machine-1",
+        "acceptance_role": "broker",
+        "wake_route": "broker",
+        "broker_session_id": "broker-peer",
+    }
+
+    parsed = parse_candidate_matrix(
+        {"schema": 2, "project": "yoke", "cells": [broker, surface]}
+    )
+
+    assert tuple(cell.acceptance_role for cell in parsed.cells) == (
+        "surface",
+        "broker",
+    )
+
+
+def test_readiness_matrix_retains_complete_deferred_contract() -> None:
+    raw = _matrix()
+    for cell in raw["cells"]:
+        if cell["surface"] == "claude-cli":
+            cell["expected_version"] = "2.1.241"
+
+    parsed = parse_readiness_matrix(raw)
+
+    assert len(parsed.cells) == 6
+
+
 def test_run_id_is_bounded_for_repeatable_idempotency_keys() -> None:
     assert validate_run_id("release-20260823.1") == "release-20260823.1"
     for value in ("", "has spaces", "x" * 65, ":starts-with-colon"):
@@ -152,13 +218,14 @@ def test_run_id_is_bounded_for_repeatable_idempotency_keys() -> None:
         assert raised.value.code == "run_id_invalid"
 
 
-def test_deployed_release_requires_the_expected_commit_prefix() -> None:
+def test_deployed_release_requires_the_exact_full_commit() -> None:
     release = "a" * 40
-    assert validate_deployed_release(release, "a" * 12) == (release, "a" * 12)
+    assert validate_deployed_release(release, release) == (release, release)
     for expected, observed, code in (
-        ("short", "a" * 12, "release_sha_invalid"),
+        ("short", release, "release_sha_invalid"),
         (release, "unknown", "server_build_unresolved"),
-        (release, "b" * 12, "deployed_release_mismatch"),
+        (release, "b" * 40, "deployed_release_mismatch"),
+        (release, "a" * 12, "server_build_unresolved"),
     ):
         with pytest.raises(AcceptanceContractError) as raised:
             validate_deployed_release(expected, observed)

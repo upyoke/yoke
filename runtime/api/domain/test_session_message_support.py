@@ -21,6 +21,33 @@ NOW = datetime(2026, 8, 22, 16, 0, tzinfo=timezone.utc)
 NOW_TEXT = "2026-08-22T16:00:00Z"
 
 
+def add_coordination_lease_schema(conn: sqlite3.Connection) -> None:
+    conn.executescript(
+        """
+        CREATE TABLE coordination_leases (
+            id INTEGER PRIMARY KEY,
+            project_id INTEGER NOT NULL REFERENCES projects(id),
+            lease_key TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            actor_id TEXT,
+            acquired_at TEXT NOT NULL,
+            heartbeat_at TEXT,
+            released_at TEXT,
+            release_reason TEXT,
+            owner_kind TEXT NOT NULL DEFAULT 'session',
+            owner_item_id INTEGER,
+            owner_session_id TEXT,
+            owner_work_claim_id INTEGER,
+            released_by_session_id TEXT,
+            released_by_actor_id TEXT
+        );
+        CREATE UNIQUE INDEX idx_coordination_leases_live
+            ON coordination_leases(project_id, lease_key)
+            WHERE released_at IS NULL;
+        """
+    )
+
+
 def message_connection(path: str = ":memory:") -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=5, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -139,4 +166,10 @@ def selector(**values: object) -> RecipientSelector:
     return RecipientSelector.model_validate(values)
 
 
-__all__ = ["NOW", "NOW_TEXT", "message_connection", "selector"]
+__all__ = [
+    "NOW",
+    "NOW_TEXT",
+    "add_coordination_lease_schema",
+    "message_connection",
+    "selector",
+]

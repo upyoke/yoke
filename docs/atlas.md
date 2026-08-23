@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-23T06:09:10Z_
+_Audit generated_at: 2026-08-23T19:23:45Z_
 
 ## 1. Summary
 
-- Function ids registered: **414**
+- Function ids registered: **415**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **340** (340 carry usable `--help`)
-- Operation tracker: **318 wrapped**, 8 tool_cli, 121 permanent, 0 pending
+- `yoke` CLI subcommands: **341** (341 carry usable `--help`)
+- Operation tracker: **319 wrapped**, 8 tool_cli, 121 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **318** (operation tracker confirms 318 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **319** (operation tracker confirms 319 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -246,6 +246,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **318** (operation track
 | session_control | `yoke session-control message preview` | `session_control.message.preview` | ok |
 | session_control | `yoke session-control message send` | `session_control.message.send` | ok |
 | session_control | `yoke say` | `session_control.message.send` | ok |
+| session_control | `yoke session-control qualification open` | `session_control.qualification.open` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
@@ -513,8 +514,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 49 |
-| cursor | 1 |
+| codex | 50 |
 
 ## 8. Contradictions
 

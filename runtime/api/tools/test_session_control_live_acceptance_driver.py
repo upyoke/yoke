@@ -18,7 +18,7 @@ from yoke_contracts.session_control.wake_instruction import (
 
 
 RELEASE_SHA = "a" * 40
-SERVER_BUILD = "a" * 12
+SERVER_BUILD = RELEASE_SHA
 
 
 class _Clock:

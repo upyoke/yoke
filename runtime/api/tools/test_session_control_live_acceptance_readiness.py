@@ -7,7 +7,7 @@ import json
 from runtime.api.tools import session_control_live_acceptance_readiness as readiness
 from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACES,
-    parse_candidate_matrix,
+    parse_readiness_matrix,
 )
 
 
@@ -61,7 +61,7 @@ def _matrix(versions: dict[str, str]) -> dict:
 
 def test_current_claude_versions_name_exact_missing_evidence_and_action() -> None:
     report = readiness.readiness_report(
-        parse_candidate_matrix(_matrix(CURRENT_VERSIONS))
+        parse_readiness_matrix(_matrix(CURRENT_VERSIONS))
     )
     cells = {cell["surface"]: cell for cell in report["cells"]}
 
@@ -108,7 +108,7 @@ def test_current_claude_versions_name_exact_missing_evidence_and_action() -> Non
 
 def test_existing_exact_private_pins_remain_qualified() -> None:
     report = readiness.readiness_report(
-        parse_candidate_matrix(_matrix(QUALIFIED_VERSIONS))
+        parse_readiness_matrix(_matrix(QUALIFIED_VERSIONS))
     )
 
     assert report["status"] == "ready"

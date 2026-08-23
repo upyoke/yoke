@@ -33,6 +33,9 @@ from yoke_cli.commands.adapters.session_control_relay import (
     relay_status,
     relay_uninstall,
 )
+from yoke_cli.commands.adapters.session_control_qualification import (
+    session_qualification_open,
+)
 from yoke_cli.commands.adapters.session_control_roster import (
     session_control_roster_list,
 )
@@ -43,6 +46,10 @@ RegisteredRoute = Tuple[str, AdapterFn]
 
 
 SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
+    ("session-control", "qualification", "open"): (
+        "session_control.qualification.open",
+        session_qualification_open,
+    ),
     ("session-control", "message", "preview"): (
         "session_control.message.preview",
         session_message_preview,

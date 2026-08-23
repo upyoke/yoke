@@ -92,6 +92,7 @@ def _err(code: str, message: str) -> HandlerOutcome:
 
 def _connect_rw() -> Any:
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
@@ -104,6 +105,15 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         body = AcquireRequest.model_validate(request.payload)
     except Exception as exc:
         return _err("payload_invalid", f"acquire payload invalid: {exc}")
+    from yoke_contracts.session_control.private_route_qualification import (
+        QUALIFICATION_LEASE_PREFIX,
+    )
+
+    if body.lease_key.startswith(QUALIFICATION_LEASE_PREFIX):
+        return _err(
+            "lease_key_reserved",
+            "reserved qualification leases open only through session-control",
+        )
 
     from yoke_core.domain.coordination_leases import (
         LeaseHeldError,
@@ -114,8 +124,11 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
     with _connect_rw() as conn:
         try:
             lease = acquire_lease(
-                conn, body.project_id, body.lease_key,
-                request.actor.session_id, actor_id=body.actor_id,
+                conn,
+                body.project_id,
+                body.lease_key,
+                request.actor.session_id,
+                actor_id=body.actor_id,
             )
         except LeaseStaleHolderError as exc:
             return _err("lease_stale_holder", str(exc))
@@ -134,11 +147,22 @@ def handle_heartbeat(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.coordination_leases import (
         LeaseNotFoundError,
         LeaseReleasedError,
+        get_lease,
         heartbeat_lease,
+    )
+    from yoke_contracts.session_control.private_route_qualification import (
+        QUALIFICATION_LEASE_PREFIX,
     )
 
     with _connect_rw() as conn:
         try:
+            if get_lease(conn, int(body.lease_id)).lease_key.startswith(
+                QUALIFICATION_LEASE_PREFIX
+            ):
+                return _err(
+                    "lease_key_reserved",
+                    "reserved qualification leases cannot be heartbeated generically",
+                )
             lease = heartbeat_lease(conn, int(body.lease_id))
         except LeaseNotFoundError as exc:
             return _err("lease_not_found", str(exc))
@@ -156,11 +180,22 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
 
     from yoke_core.domain.coordination_leases import (
         LeaseNotFoundError,
+        get_lease,
         release_lease,
+    )
+    from yoke_contracts.session_control.private_route_qualification import (
+        QUALIFICATION_LEASE_PREFIX,
     )
 
     with _connect_rw() as conn:
         try:
+            if get_lease(conn, int(body.lease_id)).lease_key.startswith(
+                QUALIFICATION_LEASE_PREFIX
+            ):
+                return _err(
+                    "lease_key_reserved",
+                    "reserved qualification leases cannot be released generically",
+                )
             lease = release_lease(conn, int(body.lease_id), body.reason)
         except LeaseNotFoundError as exc:
             return _err("lease_not_found", str(exc))

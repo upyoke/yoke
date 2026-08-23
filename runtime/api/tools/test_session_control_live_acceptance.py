@@ -12,7 +12,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 
 
 RELEASE_SHA = "a" * 40
-SERVER_BUILD = "a" * 12
+SERVER_BUILD = RELEASE_SHA
 
 
 def test_subagent_refuses_before_loading_matrix_or_calling_cli(
@@ -80,6 +80,13 @@ def test_top_level_entrypoint_emits_machine_readable_report(
     monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
     monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
     monkeypatch.setattr(acceptance, "load_matrix", lambda _path: matrix)
+    monkeypatch.setattr(
+        acceptance,
+        "QualificationCoordinator",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("default acceptance must not open qualification")
+        ),
+    )
     monkeypatch.setattr(acceptance, "YokeCliClient", lambda: sentinel)
     monkeypatch.setattr(acceptance, "LiveAcceptanceDriver", _Driver)
 
@@ -114,6 +121,7 @@ def test_top_level_entrypoint_emits_machine_readable_report(
         "timeout_seconds": 12.0,
         "poll_seconds": 2.0,
         "unsupported_observation_seconds": 4.0,
+        "qualification": None,
     }
 
 
@@ -143,6 +151,33 @@ def test_entrypoint_refuses_invalid_windows_without_cli(monkeypatch, capsys) -> 
     assert report["failure_code"] == "poll_window_invalid"
 
 
+def test_entrypoint_bounds_each_grant_consumption_window(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
+    monkeypatch.setattr(
+        acceptance,
+        "YokeCliClient",
+        lambda: (_ for _ in ()).throw(AssertionError("CLI constructed")),
+    )
+
+    code = acceptance.main(
+        [
+            "--matrix",
+            "matrix.json",
+            "--run-id",
+            "release-window",
+            "--release-sha",
+            RELEASE_SHA,
+            "--timeout-seconds",
+            "901",
+            "--qualification-candidate",
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert report["failure_code"] == "qualification_window_invalid"
+
+
 def test_entrypoint_refuses_release_mismatch_before_mutating_cli(
     monkeypatch, capsys
 ) -> None:
@@ -153,7 +188,7 @@ def test_entrypoint_refuses_release_mismatch_before_mutating_cli(
 
     class _Client:
         def deployed_release(self):
-            return {"server_build": "b" * 12, "engine_version": "0.1.1"}
+            return {"server_build": "b" * 40, "engine_version": "0.1.1"}
 
         def call(self, *_args, **_kwargs):
             raise AssertionError("mutating CLI called")
@@ -182,6 +217,45 @@ def test_entrypoint_refuses_release_mismatch_before_mutating_cli(
     report = json.loads(capsys.readouterr().out)
     assert code == 2
     assert report["failure_code"] == "deployed_release_mismatch"
+
+
+def test_candidate_mode_refuses_prod_before_loading_or_constructing_cli(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
+    monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
+    monkeypatch.setattr(acceptance.machine_config, "active_env", lambda: "prod")
+    monkeypatch.setattr(
+        acceptance.machine_config,
+        "active_connection",
+        lambda: {"transport": "https", "prod": True},
+    )
+    monkeypatch.setattr(
+        acceptance,
+        "load_candidate_matrix",
+        lambda _path: (_ for _ in ()).throw(AssertionError("matrix loaded")),
+    )
+    monkeypatch.setattr(
+        acceptance,
+        "YokeCliClient",
+        lambda: (_ for _ in ()).throw(AssertionError("CLI constructed")),
+    )
+
+    code = acceptance.main(
+        [
+            "--qualification-candidate",
+            "--matrix",
+            "matrix.json",
+            "--run-id",
+            "stage-only-proof",
+            "--release-sha",
+            RELEASE_SHA,
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert report["failure_code"] == "qualification_stage_required"
 
 
 def test_execution_guard_recognizes_a_codex_child(monkeypatch) -> None:

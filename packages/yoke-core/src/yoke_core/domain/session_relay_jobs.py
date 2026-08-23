@@ -25,7 +25,9 @@ from yoke_core.domain.session_relay_types import (
     SessionRelayError,
     WakeMode,
 )
-from yoke_core.domain.session_relay_versions import wake_candidate_supported
+from yoke_core.domain.session_relay_private_qualification import (
+    authorize_wake_candidate,
+)
 
 
 WAKE_REPORT_CODES = frozenset(
@@ -162,9 +164,13 @@ def claim_wake_job(
         return brokered
     if broker_only:
         return None
-    selected = None
+    selected: Mapping[str, Any] | None = None
+    qualification = None
     for row in _wake_candidates(conn, heartbeat, now=now):
-        if not wake_candidate_supported(row, heartbeat.surface_versions):
+        authorized, qualification = authorize_wake_candidate(
+            conn, row, heartbeat, route="direct"
+        )
+        if not authorized:
             continue
         selected = row
         break
@@ -177,6 +183,12 @@ def claim_wake_job(
     claim = claim_wake_attempt(conn, candidate=selected, now=now)
     if claim is None:
         return None
+    if qualification is not None:
+        from yoke_core.domain.session_private_route_qualification import (
+            consume_qualification_grant,
+        )
+
+        consume_qualification_grant(conn, qualification, now=now)
     mark_relay_job(
         conn,
         relay_id=heartbeat.relay_id,
@@ -198,6 +210,8 @@ def claim_wake_job(
         target_session_id=str(session_id),
         wake_mode=WakeMode(str(selected["wake_mode"])),
         target_liveness=str(selected["liveness"]),
+        wake_route="direct",
+        private_route_qualification=qualification,
     )
 
 

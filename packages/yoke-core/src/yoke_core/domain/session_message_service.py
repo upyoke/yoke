@@ -242,6 +242,36 @@ def acknowledge_message(
         session_id=session_id,
         acknowledged_at=now or utc_now(),
     )
+    recipient = next(
+        (
+            row
+            for row in details.get("recipients", [])
+            if str(row.get("session_id") or "") == session_id
+        ),
+        None,
+    )
+    if recipient is not None:
+        from yoke_core.domain.session_private_route_qualification import (
+            PrivateRouteQualificationError,
+            consume_qualification_grant,
+            qualification_for_message,
+        )
+
+        try:
+            grant = qualification_for_message(
+                conn,
+                {"message_id": message_id, **recipient},
+                operation="message_active",
+                route="hook",
+                now=now,
+            )
+            if grant is not None:
+                consume_qualification_grant(conn, grant)
+        except PrivateRouteQualificationError:
+            # Qualification is acceptance evidence, never product ack authority.
+            # A raced, expired, or revoked grant stays unproven without making
+            # an otherwise valid delivered message impossible to acknowledge.
+            pass
     conn.commit()
     return details
 

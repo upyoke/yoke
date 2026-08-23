@@ -17,6 +17,7 @@ from runtime.api.tools.session_control_live_acceptance_evidence import (
     native_wake_evidence,
     one_recipient,
     receipt_count,
+    wait_for_ack,
 )
 from runtime.api.tools.session_control_live_acceptance_launch import create_and_bind
 from runtime.api.tools import session_control_live_acceptance_roster as roster
@@ -46,6 +47,7 @@ class LiveAcceptanceDriver:
         timeout_seconds: float,
         poll_seconds: float,
         unsupported_observation_seconds: float,
+        qualification: Any | None = None,
     ) -> dict[str, Any]:
         reports: list[dict[str, Any]] = []
         for cell in matrix.cells:
@@ -58,6 +60,7 @@ class LiveAcceptanceDriver:
                         timeout=timeout_seconds,
                         poll=poll_seconds,
                         unsupported_observation=unsupported_observation_seconds,
+                        qualification=qualification,
                     )
                 )
             except AcceptanceContractError as exc:
@@ -107,6 +110,7 @@ class LiveAcceptanceDriver:
         timeout: float,
         poll: float,
         unsupported_observation: float,
+        qualification: Any | None = None,
     ) -> dict[str, Any]:
         if cell.mode == "create":
             session_id, initial_id, launch, baseline = create_and_bind(
@@ -126,17 +130,30 @@ class LiveAcceptanceDriver:
         else:
             session_id = str(cell.session_id)
             baseline = self._roster(project, cell, session_id)
-            initial_id, initial_deduplicated = self._send_twice(
-                cell,
-                session_id,
-                key=f"fleet-live:{run_id}:{cell.acceptance_key}:initial",
-                phase="initial delivery",
+            grant = (
+                qualification.open(cell, "message_active")
+                if qualification is not None
+                else None
             )
+            try:
+                initial_id, initial_deduplicated = self._send_twice(
+                    cell,
+                    session_id,
+                    key=f"fleet-live:{run_id}:{cell.acceptance_key}:initial",
+                    phase="initial delivery",
+                )
+                initial = self._wait_ack(
+                    cell, session_id, initial_id, timeout=timeout, poll=poll
+                )
+            finally:
+                if qualification is not None:
+                    qualification.verify(grant)
             launch = None
         baseline_mode = roster.registration_mode(baseline, cell=cell)
-        initial = self._wait_ack(
-            cell, session_id, initial_id, timeout=timeout, poll=poll
-        )
+        if cell.mode == "create":
+            initial = self._wait_ack(
+                cell, session_id, initial_id, timeout=timeout, poll=poll
+            )
         waiting = roster.wait_for_waiting_registration(
             self.client,
             project=project,
@@ -148,52 +165,61 @@ class LiveAcceptanceDriver:
             sleep=self.sleep,
             monotonic=self.monotonic,
         )
-        wake_id, wake_deduplicated = self._send_twice(
-            cell,
-            session_id,
-            key=f"fleet-live:{run_id}:{cell.acceptance_key}:wake",
-            phase="stopped-session wake",
+        grant = (
+            qualification.open(cell, "message_stopped")
+            if qualification is not None
+            else None
         )
-        if cell.route != "none":
-            wake = self._wait_ack(
+        try:
+            wake_id, wake_deduplicated = self._send_twice(
                 cell,
                 session_id,
-                wake_id,
-                timeout=timeout,
-                poll=poll,
-                require_wake=True,
+                key=f"fleet-live:{run_id}:{cell.acceptance_key}:wake",
+                phase="stopped-session wake",
             )
-            wake_outcome = "acknowledged"
-        else:
-            self.sleep(unsupported_observation)
-            wake = self._receipt(cell, session_id, wake_id)
-            if (
-                wake["state"] != "pending"
-                or wake["injection_count"] != 0
-                or wake["wake_attempt_count"] != 0
-                or wake["acknowledged_at"]
-            ):
-                raise AcceptanceContractError(
-                    "unsupported_wake_not_pending", surface=cell.surface
+            if cell.route != "none":
+                wake = self._wait_ack(
+                    cell,
+                    session_id,
+                    wake_id,
+                    timeout=timeout,
+                    poll=poll,
+                    require_wake=True,
                 )
-            wake["native_wake"] = native_wake_evidence(
-                wake.pop("attempt_evidence"),
-                cell=cell,
-                session_id=session_id,
-                message_id=wake_id,
-            )
-            roster.wait_for_waiting_registration(
-                self.client,
-                project=project,
-                cell=cell,
-                session_id=session_id,
-                baseline_mode=baseline_mode,
-                timeout=timeout,
-                poll=poll,
-                sleep=self.sleep,
-                monotonic=self.monotonic,
-            )
-            wake_outcome = "expected_pending"
+                wake_outcome = "acknowledged"
+            else:
+                self.sleep(unsupported_observation)
+                wake = self._receipt(cell, session_id, wake_id)
+                if (
+                    wake["state"] != "pending"
+                    or wake["injection_count"] != 0
+                    or wake["wake_attempt_count"] != 0
+                    or wake["acknowledged_at"]
+                ):
+                    raise AcceptanceContractError(
+                        "unsupported_wake_not_pending", surface=cell.surface
+                    )
+                wake["native_wake"] = native_wake_evidence(
+                    wake.pop("attempt_evidence"),
+                    cell=cell,
+                    session_id=session_id,
+                    message_id=wake_id,
+                )
+                roster.wait_for_waiting_registration(
+                    self.client,
+                    project=project,
+                    cell=cell,
+                    session_id=session_id,
+                    baseline_mode=baseline_mode,
+                    timeout=timeout,
+                    poll=poll,
+                    sleep=self.sleep,
+                    monotonic=self.monotonic,
+                )
+                wake_outcome = "expected_pending"
+        finally:
+            if qualification is not None:
+                qualification.verify(grant)
         report: dict[str, Any] = {
             "surface": cell.surface,
             "expected_version": cell.expected_version,
@@ -308,34 +334,14 @@ class LiveAcceptanceDriver:
         poll: float,
         require_wake: bool = False,
     ) -> dict[str, Any]:
-        deadline = self.monotonic() + timeout
-        while True:
-            receipt = self._receipt(cell, session_id, message_id)
-            if receipt["state"] == "acknowledged":
-                if receipt["injection_count"] < 1 or not receipt["acknowledged_at"]:
-                    raise AcceptanceContractError(
-                        "ack_evidence_invalid", surface=cell.surface
-                    )
-                if require_wake and (
-                    receipt["wake_attempt_count"] < 1 or not receipt["last_wake_at"]
-                ):
-                    raise AcceptanceContractError(
-                        "wake_evidence_missing", surface=cell.surface
-                    )
-                if require_wake:
-                    receipt["native_wake"] = native_wake_evidence(
-                        receipt.pop("attempt_evidence"),
-                        cell=cell,
-                        session_id=session_id,
-                        message_id=message_id,
-                    )
-                else:
-                    receipt.pop("attempt_evidence")
-                return receipt
-            if receipt["state"] in {"expired", "cancelled"}:
-                raise AcceptanceContractError(
-                    "receipt_terminal_without_ack", surface=cell.surface
-                )
-            if self.monotonic() >= deadline:
-                raise AcceptanceContractError("ack_timeout", surface=cell.surface)
-            self.sleep(poll)
+        return wait_for_ack(
+            self._receipt,
+            cell=cell,
+            session_id=session_id,
+            message_id=message_id,
+            timeout=timeout,
+            poll=poll,
+            sleep=self.sleep,
+            monotonic=self.monotonic,
+            require_wake=require_wake,
+        )

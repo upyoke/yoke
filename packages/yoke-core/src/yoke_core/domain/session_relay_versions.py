@@ -15,6 +15,18 @@ _WAKE_OPERATION_BY_LIVENESS = {
 }
 
 
+def wake_operation(wake_mode: str, liveness: str) -> str | None:
+    try:
+        mode = WakeMode(wake_mode)
+    except ValueError:
+        return None
+    return (
+        "message_stopped"
+        if mode is WakeMode.WAITING
+        else _WAKE_OPERATION_BY_LIVENESS.get(liveness)
+    )
+
+
 def wake_versions_supported(
     surface: str,
     target_version: str | None,
@@ -22,15 +34,7 @@ def wake_versions_supported(
     wake_mode: str,
     liveness: str,
 ) -> bool:
-    try:
-        mode = WakeMode(wake_mode)
-    except ValueError:
-        return False
-    operation = (
-        "message_stopped"
-        if mode is WakeMode.WAITING
-        else _WAKE_OPERATION_BY_LIVENESS.get(liveness)
-    )
+    operation = wake_operation(wake_mode, liveness)
     return bool(
         operation
         and surface_operation_supported(surface, target_version, operation)
@@ -55,5 +59,6 @@ def wake_candidate_supported(
 __all__ = [
     "surface_operation_supported",
     "wake_candidate_supported",
+    "wake_operation",
     "wake_versions_supported",
 ]

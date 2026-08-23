@@ -18,10 +18,10 @@ from yoke_core.domain.session_message_types import (
 )
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_evidence import redacted_evidence
+from yoke_core.domain.session_relay_private_qualification import authorize_wake_versions
 from yoke_core.domain.session_relay_storage import (
     marker,
 )
-from yoke_core.domain.session_relay_versions import wake_candidate_supported
 
 
 BROKER_HOOK_LEASE_SECONDS = 30
@@ -116,7 +116,7 @@ def _direct_relay_available(conn: Any, candidate: Mapping[str, Any], now: str) -
             continue
         if str(candidate["project_id"]) not in {str(value) for value in projects}:
             continue
-        if wake_candidate_supported(candidate, versions):
+        if authorize_wake_versions(conn, candidate, versions, route="direct")[0]:
             return True
     return False
 

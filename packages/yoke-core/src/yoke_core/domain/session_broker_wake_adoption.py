@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.private_route_qualification import (
+    PrivateRouteQualificationGrant,
+)
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction,
     native_wake_instruction_sha256,
@@ -26,7 +29,9 @@ from yoke_core.domain.session_relay_types import (
     WAKE_LEASE_SECONDS,
     WakeMode,
 )
-from yoke_core.domain.session_relay_versions import wake_candidate_supported
+from yoke_core.domain.session_relay_private_qualification import (
+    authorize_wake_candidate,
+)
 
 
 def _lock(conn: Any, alias: str) -> str:
@@ -68,6 +73,7 @@ def _adopt_attempt(
     candidate: Mapping[str, Any],
     heartbeat: RelayHeartbeat,
     now: str,
+    qualification: PrivateRouteQualificationGrant | None,
 ) -> RelayJob | None:
     p = marker(conn)
     _begin(conn)
@@ -135,6 +141,12 @@ def _adopt_attempt(
             lease_expires_at=shifted(now, seconds=WAKE_LEASE_SECONDS),
             now=now,
         )
+        if qualification is not None:
+            from yoke_core.domain.session_private_route_qualification import (
+                consume_qualification_grant,
+            )
+
+            consume_qualification_grant(conn, qualification, now=now)
         conn.commit()
         surface = str(candidate["executor_surface"])
         return RelayJob(
@@ -150,6 +162,8 @@ def _adopt_attempt(
             target_session_id=str(candidate["session_id"]),
             wake_mode=WakeMode(str(candidate["wake_mode"])),
             target_liveness=str(candidate["liveness"]),
+            wake_route="broker",
+            private_route_qualification=qualification,
         )
     except Exception:
         conn.rollback()
@@ -192,8 +206,12 @@ def claim_broker_wake_job(
             continue
         if int(candidate["project_id"]) not in projects:
             continue
-        if not wake_candidate_supported(candidate, heartbeat.surface_versions):
-            if str(candidate["executor_surface"]) in heartbeat.surface_versions:
+        authorized, qualification = authorize_wake_candidate(
+            conn, candidate, heartbeat, route="broker"
+        )
+        if not authorized:
+            surface = str(candidate["executor_surface"])
+            if surface in heartbeat.surface_versions:
                 _close_with_code(conn, str(attempt_id), "version_mismatch", now)
             continue
         claimed = _adopt_attempt(
@@ -202,6 +220,7 @@ def claim_broker_wake_job(
             candidate=candidate,
             heartbeat=heartbeat,
             now=now,
+            qualification=qualification,
         )
         if claimed is not None:
             return claimed

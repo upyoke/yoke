@@ -27,6 +27,7 @@ def _context(command: str, *, payload: dict | None = None) -> HookContext:
         "yoke session-control message send --stdin --session peer",
         "yoke messages acknowledge message-id",
         "yoke messages ack message-id",
+        "yoke session-control qualification open --project yoke",
     ],
 )
 def test_subagent_fleet_send_and_ack_are_denied(command: str) -> None:

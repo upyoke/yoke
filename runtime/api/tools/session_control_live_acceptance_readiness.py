@@ -13,7 +13,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
     AcceptanceMatrix,
     acceptance_operation,
-    load_candidate_matrix,
+    load_readiness_matrix,
 )
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
@@ -114,7 +114,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        report = readiness_report(load_candidate_matrix(args.matrix))
+        report = readiness_report(load_readiness_matrix(args.matrix))
         code = 0 if report["status"] == "ready" else 1
     except AcceptanceContractError as exc:
         report = {

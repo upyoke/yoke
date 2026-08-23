@@ -6,6 +6,10 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any, Literal, Mapping, Sequence
 
+from yoke_contracts.session_control.private_route_qualification import (
+    PrivateRouteQualificationGrant,
+)
+
 
 RelayJobKind = Literal["launch", "wake"]
 WAKE_LEASE_SECONDS = 90
@@ -67,12 +71,21 @@ class RelayJob:
     presentation: str | None = None
     wake_mode: WakeMode | None = None
     target_liveness: str | None = None
+    wake_route: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
+    private_route_qualification: PrivateRouteQualificationGrant | None = field(
+        default=None,
+        repr=False,
+    )
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         if self.wake_mode is not None:
             payload["wake_mode"] = str(self.wake_mode)
+        if self.private_route_qualification is not None:
+            payload["private_route_qualification"] = (
+                self.private_route_qualification.model_dump(mode="json")
+            )
         return payload
 
 

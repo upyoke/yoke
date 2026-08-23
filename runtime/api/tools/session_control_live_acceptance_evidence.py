@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from runtime.api.tools.session_control_live_acceptance_contract import (
@@ -144,4 +145,54 @@ def native_wake_evidence(
     }
 
 
-__all__ = ["native_wake_evidence", "one_recipient", "receipt_count"]
+def wait_for_ack(
+    receipt: Callable[[AcceptanceCell, str, str], dict[str, Any]],
+    *,
+    cell: AcceptanceCell,
+    session_id: str,
+    message_id: str,
+    timeout: float,
+    poll: float,
+    sleep: Callable[[float], None],
+    monotonic: Callable[[], float],
+    require_wake: bool = False,
+) -> dict[str, Any]:
+    deadline = monotonic() + timeout
+    while True:
+        observed = receipt(cell, session_id, message_id)
+        if observed["state"] == "acknowledged":
+            if observed["injection_count"] < 1 or not observed["acknowledged_at"]:
+                raise AcceptanceContractError(
+                    "ack_evidence_invalid", surface=cell.surface
+                )
+            if require_wake and (
+                observed["wake_attempt_count"] < 1 or not observed["last_wake_at"]
+            ):
+                raise AcceptanceContractError(
+                    "wake_evidence_missing", surface=cell.surface
+                )
+            if require_wake:
+                observed["native_wake"] = native_wake_evidence(
+                    observed.pop("attempt_evidence"),
+                    cell=cell,
+                    session_id=session_id,
+                    message_id=message_id,
+                )
+            else:
+                observed.pop("attempt_evidence")
+            return observed
+        if observed["state"] in {"expired", "cancelled"}:
+            raise AcceptanceContractError(
+                "receipt_terminal_without_ack", surface=cell.surface
+            )
+        if monotonic() >= deadline:
+            raise AcceptanceContractError("ack_timeout", surface=cell.surface)
+        sleep(poll)
+
+
+__all__ = [
+    "native_wake_evidence",
+    "one_recipient",
+    "receipt_count",
+    "wait_for_ack",
+]

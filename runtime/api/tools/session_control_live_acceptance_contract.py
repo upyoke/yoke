@@ -8,7 +8,11 @@ from pathlib import Path
 import re
 from typing import Any
 
-from yoke_contracts.session_control.surface_versions import surface_operation_supported
+from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.surface_versions import (
+    surface_operation_supported,
+    surface_version_supported,
+)
 
 
 SCHEMA_VERSION = 2
@@ -22,7 +26,7 @@ ACCEPTANCE_SURFACES = (
 _IDENTIFY_ONLY_SURFACES = frozenset({"claude-desktop"})
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _RELEASE_SHA = re.compile(r"^[0-9a-f]{40}$")
-_SERVER_BUILD = re.compile(r"^[0-9a-f]{7,40}$")
+_SERVER_BUILD = re.compile(r"^[0-9a-f]{40}$")
 _MATRIX_KEYS = frozenset({"schema", "project", "cells"})
 _CELL_KEYS = frozenset(
     {
@@ -111,7 +115,7 @@ def validate_deployed_release(release_sha: str, server_build: str) -> tuple[str,
         raise AcceptanceContractError("release_sha_invalid")
     if not _SERVER_BUILD.fullmatch(observed):
         raise AcceptanceContractError("server_build_unresolved")
-    if not expected.startswith(observed):
+    if expected != observed:
         raise AcceptanceContractError("deployed_release_mismatch")
     return expected, observed
 
@@ -210,7 +214,9 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
     )
 
 
-def _parse_matrix(raw: Any, *, evidence_required: bool) -> AcceptanceMatrix:
+def _parse_matrix(
+    raw: Any, *, evidence_required: bool, complete_required: bool
+) -> AcceptanceMatrix:
     if not isinstance(raw, dict) or set(raw) - _MATRIX_KEYS:
         raise AcceptanceContractError("matrix_shape_invalid")
     if raw.get("schema") != SCHEMA_VERSION:
@@ -222,6 +228,40 @@ def _parse_matrix(raw: Any, *, evidence_required: bool) -> AcceptanceMatrix:
     cells = tuple(
         _cell(value, evidence_required=evidence_required) for value in raw_cells
     )
+    if not complete_required:
+        if not cells:
+            raise AcceptanceContractError("candidate_cells_empty")
+        keys = tuple(cell.acceptance_key for cell in cells)
+        if len(keys) != len(set(keys)):
+            raise AcceptanceContractError("candidate_cell_duplicate")
+        for cell in cells:
+            operation = acceptance_operation(cell.surface)
+            capability = capability_for_surface(cell.surface)
+            interface = getattr(capability, operation, "none")
+            if not surface_version_supported(cell.surface, cell.expected_version):
+                raise AcceptanceContractError(
+                    "candidate_version_unsupported", surface=cell.surface
+                )
+            if interface != "private":
+                raise AcceptanceContractError(
+                    "candidate_route_not_private", surface=cell.surface
+                )
+            if surface_operation_supported(
+                cell.surface, cell.expected_version, operation
+            ):
+                raise AcceptanceContractError(
+                    "candidate_version_already_proven", surface=cell.surface
+                )
+        ordered = tuple(
+            sorted(
+                cells,
+                key=lambda cell: (
+                    ACCEPTANCE_SURFACES.index(cell.surface),
+                    0 if cell.acceptance_role == "surface" else 1,
+                ),
+            )
+        )
+        return AcceptanceMatrix(project=project, cells=ordered)
     surface_cells = tuple(cell for cell in cells if cell.acceptance_role == "surface")
     surfaces = tuple(cell.surface for cell in surface_cells)
     if len(surfaces) != len(set(surfaces)):
@@ -239,12 +279,17 @@ def _parse_matrix(raw: Any, *, evidence_required: bool) -> AcceptanceMatrix:
 
 
 def parse_matrix(raw: Any) -> AcceptanceMatrix:
-    return _parse_matrix(raw, evidence_required=True)
+    return _parse_matrix(raw, evidence_required=True, complete_required=True)
 
 
 def parse_candidate_matrix(raw: Any) -> AcceptanceMatrix:
-    """Validate matrix shape while leaving private-version proof for readiness."""
-    return _parse_matrix(raw, evidence_required=False)
+    """Validate a nonempty subset of exact unproven private-route cells."""
+    return _parse_matrix(raw, evidence_required=False, complete_required=False)
+
+
+def parse_readiness_matrix(raw: Any) -> AcceptanceMatrix:
+    """Validate the full matrix while deferring exact private-version proof."""
+    return _parse_matrix(raw, evidence_required=False, complete_required=True)
 
 
 def _read_matrix(path: Path) -> Any:
@@ -262,6 +307,10 @@ def load_candidate_matrix(path: Path) -> AcceptanceMatrix:
     return parse_candidate_matrix(_read_matrix(path))
 
 
+def load_readiness_matrix(path: Path) -> AcceptanceMatrix:
+    return parse_readiness_matrix(_read_matrix(path))
+
+
 __all__ = [
     "ACCEPTANCE_SURFACES",
     "AcceptanceCell",
@@ -270,8 +319,10 @@ __all__ = [
     "acceptance_operation",
     "load_candidate_matrix",
     "load_matrix",
+    "load_readiness_matrix",
     "parse_candidate_matrix",
     "parse_matrix",
+    "parse_readiness_matrix",
     "require_text",
     "validate_deployed_release",
     "validate_run_id",

@@ -14,6 +14,7 @@ _BLOCKED_PATHS = (
     ("yoke", "say"),
     ("yoke", "session-control", "message", "send"),
     ("yoke", "session-control", "message", "acknowledge"),
+    ("yoke", "session-control", "qualification", "open"),
     ("yoke", "messages", "acknowledge"),
     ("yoke", "messages", "ack"),
 )
@@ -35,7 +36,7 @@ def _command_uses_fleet_mutation(command: str) -> bool:
 
 
 def evaluate(context: HookContext) -> HookDecision:
-    """Deny child send/ack commands before the shell can dispatch them."""
+    """Deny child message or qualification mutations before dispatch."""
     if not is_subagent_execution(context.payload, env={}):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     if not _command_uses_fleet_mutation(context.command_body or ""):
