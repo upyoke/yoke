@@ -85,13 +85,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Find or request the CLI adapter for a function id",
-        "recipe": (
-            "yoke <family> --help\n"
-            "yoke ouroboros field-note append --kind new "
-            "--evidence "
-            "'Missing CLI adapter for items.foo.bar; agent surface "
-            "boundary forbids HTTP/direct runtime import shapes'"
-        ),
+        "recipe": "yoke <family> --help",
         "notes": (
             "`.yoke/docs/reference/db-reference/functions.md` lists the registered "
             "function ids per family, and the matching `yoke <subcommand> "
@@ -164,9 +158,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "yoke ouroboros field-note append --kind failed "
             "--evidence "
             "'R-CL-03 path-claim-narrow recipe used --remove; "
-            "actual flag is --drop-paths'\n"
-            "yoke ouroboros field-note append --kind new "
-            "--evidence 'missing recipe: claim widen examples omit --item' "
+            "actual flag is --drop-paths' "
             "--correlation-id polish-run-2026-05-20"
         ),
         "notes": (
@@ -194,45 +186,26 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Discover registered Fleet sessions",
-        "roles": ("main_agent",),
-        "recipe": "yoke sessions list",
-        "notes": (
-            "Copy the full session id and check MESSAGEABLE before selecting a peer."
-        ),
-    },
-    {
-        "topic": "core",
-        "purpose": "Preview and send one exact Fleet message",
+        "purpose": "Top-level Fleet messaging: discover, send, receive, acknowledge",
         "roles": ("main_agent",),
         "recipe": (
+            "yoke sessions list\n"
             "yoke say --preview --session SESSION-ID\n"
-            "printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin"
-        ),
-        "notes": "Run each line separately. Message bodies enter only through stdin.",
-    },
-    {
-        "topic": "core",
-        "purpose": "List and inspect messages for this top-level session",
-        "roles": ("main_agent",),
-        "recipe": (
+            "printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin\n"
             "yoke messages list --recipient-session CURRENT-SESSION-ID "
             "--state injected\n"
-            "yoke messages get MESSAGE-ID"
+            "yoke messages get MESSAGE-ID\n"
+            "yoke messages acknowledge MESSAGE-ID"
         ),
         "notes": (
-            "CURRENT-SESSION-ID is the registered top-level session running this "
-            "packet. Run each line separately and inspect the addressed recipient."
-        ),
-    },
-    {
-        "topic": "core",
-        "purpose": "Acknowledge an addressed Fleet message after acting",
-        "roles": ("main_agent",),
-        "recipe": "yoke messages acknowledge MESSAGE-ID",
-        "notes": (
+            "Run each line separately; copy the full session id, check MESSAGEABLE, "
+            "and pass bodies only through stdin. "
             "Acknowledge only after `yoke messages get` confirms this top-level "
-            "session is the recipient; caller identity resolves ambiently."
+            "session is the recipient. This top-level session alone sends and "
+            "acknowledges Fleet messages. Forward relevant content to in-process "
+            "subagents through the harness-native parent/subagent channel; they "
+            "reply there and never send or acknowledge Fleet messages directly. "
+            "Independently launched top-level workers remain Fleet participants."
         ),
     },
     {

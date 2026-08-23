@@ -40,7 +40,6 @@ else:
 
 #: Where a checkout exposes its Codex hooks, relative to the checkout root.
 HOOKS_RELATIVE_PATH = os.path.join(".codex", "hooks.json")
-
 _TRUSTED_HASH_KEY = "trusted_hash"
 
 REASON_NO_CONFIG = "Codex config not present"
