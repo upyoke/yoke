@@ -7,7 +7,7 @@ import sys
 from typing import Any, Callable
 
 
-RELAY_PLIST_TARGET = "~/Library/LaunchAgents/com.upyoke.relay.plist"
+RELAY_PLIST_TARGET = "~/Library/LaunchAgents/com.upyoke.relay[.<environment-id>].plist"
 RELAY_PLAN_STEPS = (
     ("install-session-relay-plist", RELAY_PLIST_TARGET),
     ("load-session-relay-login-item", "com.upyoke.relay"),
@@ -15,7 +15,7 @@ RELAY_PLAN_STEPS = (
 )
 RELAY_SETUP_COMPLETE_LINES = (
     f"Machine relay plist: {RELAY_PLIST_TARGET}",
-    "Machine relay runs as a login item.",
+    "Machine relay runs as an environment-pinned login item.",
     "Machine relay reuses your existing Yoke API token.",
 )
 

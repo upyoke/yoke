@@ -6,7 +6,6 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import plistlib
-import shutil
 import subprocess
 import sys
 from typing import Callable, Mapping, Sequence
@@ -18,19 +17,21 @@ from yoke_cli.config.session_relay_instance import (
     resolve_relay_instance,
 )
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
-from yoke_core.tools.install_yoke_launcher_core import TARGET_PRIORITY
 from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
+from yoke_core.tools.session_relay_executable import relay_executable_search_path
+from yoke_core.tools.session_relay_legacy import (
+    LegacyRelayError,
+    retire_unpinned_legacy_relay,
+)
 
 
 RELAY_LAUNCHD_LABEL = PROD_RELAY_LABEL
-RELAY_PLIST_NAME = f"{RELAY_LAUNCHD_LABEL}.plist"
 _RELAY_POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
 # launchd must wake frequently enough to honor every valid server cadence. The
 # relay's disk-backed due time still prevents calls before the server asks.
 RELAY_START_INTERVAL_SECONDS = int(
     _RELAY_POLL_POLICY.minimum or _RELAY_POLL_POLICY.default
 )
-_RELAY_CLI_EXECUTABLES = ("claude", "codex", "cursor-agent")
 
 
 class RelayInstallError(RuntimeError):
@@ -125,34 +126,8 @@ def relay_plist_document(
     }
 
 
-def relay_executable_search_path(
-    *,
-    executable: Path,
-    environ: Mapping[str, str],
-) -> str:
-    """Build a stable, bounded launchd path for Yoke and native CLIs."""
-    candidates = [executable.expanduser().parent]
-    ambient_path = environ.get("PATH", "")
-    for command in _RELAY_CLI_EXECUTABLES:
-        resolved = shutil.which(command, path=ambient_path)
-        if resolved:
-            candidates.append(Path(resolved).expanduser().parent)
-    candidates.extend(Path(raw).expanduser() for raw, _label in TARGET_PRIORITY)
-    candidates.extend(Path(raw) for raw in os.defpath.split(os.pathsep) if raw)
-    unique: list[str] = []
-    for candidate in candidates:
-        value = str(candidate)
-        if candidate.is_absolute() and value not in unique:
-            unique.append(value)
-    return os.pathsep.join(unique)
-
-
 def _launchd_target(label: str, uid: int | None = None) -> str:
     return f"gui/{os.getuid() if uid is None else uid}/{label}"
-
-
-def _launchd_domain(uid: int | None = None) -> str:
-    return f"gui/{os.getuid() if uid is None else uid}"
 
 
 def _run(
@@ -264,6 +239,12 @@ def install_relay_launchd(
         raise RelayInstallError(
             f"canonical yoke launcher is missing at {launcher}; repair it first"
         )
+    try:
+        retire_unpinned_legacy_relay(
+            instance=selected, home=home, runner=runner, uid=uid
+        )
+    except LegacyRelayError as exc:
+        raise RelayInstallError(str(exc)) from exc
     paths.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     _run(
         ["launchctl", "bootout", _launchd_target(paths.label, uid)],
@@ -278,7 +259,12 @@ def install_relay_launchd(
         ),
     )
     result = _run(
-        ["launchctl", "bootstrap", _launchd_domain(uid), str(paths.plist)],
+        [
+            "launchctl",
+            "bootstrap",
+            f"gui/{os.getuid() if uid is None else uid}",
+            str(paths.plist),
+        ],
         runner=runner,
     )
     if result.returncode != 0:
@@ -320,6 +306,16 @@ def uninstall_relay_launchd(
         ["launchctl", "bootout", _launchd_target(paths.label, uid)],
         runner=runner,
     )
+    if (
+        _run(
+            ["launchctl", "print", _launchd_target(paths.label, uid)],
+            runner=runner,
+        ).returncode
+        == 0
+    ):
+        raise RelayInstallError(
+            "launchctl kept the exact machine relay loaded after bootout"
+        )
     try:
         paths.plist.unlink()
     except FileNotFoundError:
@@ -335,7 +331,6 @@ def uninstall_relay_launchd(
 
 __all__ = [
     "RELAY_LAUNCHD_LABEL",
-    "RELAY_PLIST_NAME",
     "RELAY_START_INTERVAL_SECONDS",
     "RelayInstallError",
     "RelayLaunchdPaths",

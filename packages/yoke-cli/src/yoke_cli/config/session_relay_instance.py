@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path
@@ -42,6 +43,23 @@ def _digest(config_path: Path, environment: str) -> str:
     return hashlib.sha256(identity).hexdigest()[:_INSTANCE_DIGEST_LENGTH]
 
 
+def prod_https_environments(payload: Mapping[str, object]) -> tuple[str, ...]:
+    """Return the sole connection class eligible for the legacy prod relay."""
+    connections = payload.get("connections")
+    if not isinstance(connections, Mapping):
+        return ()
+    return tuple(
+        sorted(
+            str(environment)
+            for environment, connection in connections.items()
+            if isinstance(connection, Mapping)
+            and machine_schema.connection_is_prod(connection)
+            and str(connection.get("transport") or "").strip()
+            == machine_schema.TRANSPORT_HTTPS
+        )
+    )
+
+
 def resolve_relay_instance(
     *,
     config_path: str | Path | None = None,
@@ -75,17 +93,28 @@ def resolve_relay_instance(
     except Exception as exc:
         raise RelayInstanceError(str(exc)) from exc
 
+    transport = str(connection.get("transport") or "").strip()
+    if transport != machine_schema.TRANSPORT_HTTPS:
+        raise RelayInstanceError(
+            "machine relay requires an https control-plane connection; "
+            f"env {selected_environment!r} uses {transport!r}"
+        )
+
     selected_home = _canonical(yoke_home or machine_config.yoke_home())
     is_prod = machine_schema.connection_is_prod(connection)
     if is_prod:
+        prod_environments = prod_https_environments(payload)
+        if prod_environments != (selected_environment,):
+            raise RelayInstanceError(
+                "machine relay requires exactly one prod https connection; "
+                f"configured prod https envs: {list(prod_environments)}"
+            )
         label = PROD_RELAY_LABEL
         state_dir = selected_home / PROD_RELAY_STATE_DIR_NAME
     else:
         instance_digest = _digest(selected_config, selected_environment)
         label = f"{NON_PROD_RELAY_LABEL_PREFIX}{instance_digest}"
-        state_dir = (
-            selected_home / NON_PROD_RELAY_STATE_ROOT_NAME / instance_digest
-        )
+        state_dir = selected_home / NON_PROD_RELAY_STATE_ROOT_NAME / instance_digest
     return RelayInstance(
         environment=selected_environment,
         config_path=selected_config,
@@ -103,5 +132,6 @@ __all__ = [
     "PROD_RELAY_STATE_DIR_NAME",
     "RelayInstance",
     "RelayInstanceError",
+    "prod_https_environments",
     "resolve_relay_instance",
 ]

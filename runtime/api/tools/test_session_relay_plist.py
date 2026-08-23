@@ -109,10 +109,17 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
     executable.parent.mkdir()
     executable.touch()
     calls: list[list[str]] = []
+    loaded = False
 
     def runner(command, **_kwargs):
+        nonlocal loaded
         calls.append(list(command))
-        return subprocess.CompletedProcess(command, 0, "", "")
+        if command[1] == "bootout":
+            loaded = False
+        elif command[1] == "bootstrap":
+            loaded = True
+        returncode = 0 if command[1] != "print" or loaded else 3
+        return subprocess.CompletedProcess(command, returncode, "", "")
 
     installed = install_relay_launchd(
         home=tmp_path,
@@ -143,6 +150,7 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
         uid=501,
     )
     assert not removed.plist_present
+    assert not removed.loaded
     assert not installed.plist_path.exists()
     assert calls[3][:2] == ["launchctl", "bootout"]
 
@@ -203,6 +211,16 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
         environment="stage",
         yoke_home=tmp_path / ".yoke",
     )
+    prod = resolve_relay_instance(
+        config_path=config_path,
+        environment="prod",
+        yoke_home=tmp_path / ".yoke",
+    )
+    prod_paths = relay_launchd_paths(home=tmp_path, instance=prod)
+    prod_paths.plist.parent.mkdir(parents=True)
+    prod_paths.plist.write_bytes(
+        plistlib.dumps(relay_plist_document(executable=executable, paths=prod_paths))
+    )
     calls: list[list[str]] = []
 
     def runner(command, **_kwargs):
@@ -227,6 +245,7 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
     assert installed.loaded and installed.plist_current
     assert calls[0] == ["launchctl", "bootout", f"gui/501/{stage.label}"]
     assert calls[0][-1] != f"gui/501/{RELAY_LAUNCHD_LABEL}"
+    assert prod_paths.plist.is_file()
     prod_status = relay_launchd_status(
         home=tmp_path,
         yoke_home=tmp_path / ".yoke",
@@ -237,7 +256,8 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
         platform="darwin",
         uid=501,
     )
-    assert not prod_status.plist_present
+    assert prod_status.plist_present
+    assert prod_status.plist_current
     assert not prod_status.loaded
     assert prod_status.label == RELAY_LAUNCHD_LABEL
 
