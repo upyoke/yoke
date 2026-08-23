@@ -175,6 +175,9 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
         }, {
           session_id: "session-2", project_id: 1, state: "acknowledged",
           wake_attempt_count: 0, wake_after: "2026-08-23T01:06:00Z",
+        }, {
+          session_id: "session-3", project_id: 1, state: "acknowledged",
+          wake_attempt_count: 1, last_wake_at: "2026-08-23T01:07:00Z",
         }],
       }],
       count: 1,
@@ -187,7 +190,10 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("session-1 · pending · 2 wake attempts"));
   assert.ok(text.includes(
-    "session-2 · acknowledged · delivery acknowledged; no wake needed",
+    "session-2 · acknowledged · delivery acknowledged without a wake",
+  ));
+  assert.ok(text.includes(
+    "session-3 · acknowledged · delivery acknowledged after 1 wake attempt",
   ));
   assert.equal(text.includes("wake eligible"), false);
   button(root, "Cancel").dispatchEvent(new Event("click"));

@@ -10,6 +10,7 @@ import {
 import {
   FakeDocument,
   allNodes,
+  byClass,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -69,6 +70,7 @@ test("typed session-control errors redact storage detail and retain recovery", a
 
 test("uncertain launches require reconciliation before retry", async (t) => {
   const requests = [];
+  let reconciled = false;
   const client = {
     async call(request) {
       requests.push(request);
@@ -80,13 +82,17 @@ test("uncertain launches require reconciliation before retry", async (t) => {
         return ok({
           launches: [{
             launch_id: "launch-uncertain",
-            state: "outcome_unknown",
-            result_code: "outcome_unknown",
+            state: reconciled ? "failed" : "outcome_unknown",
+            result_code: reconciled ? "late_native_reconciled" : "outcome_unknown",
             executor_surface: "codex-desktop",
             machine_id: "machine-1",
           }],
           count: 1,
         });
+      }
+      if (request.function === "session_control.launch.reconcile") {
+        reconciled = true;
+        return ok({ launch: { launch_id: "launch-uncertain", state: "failed" } });
       }
       throw new Error(`unexpected function ${request.function}`);
     },
@@ -101,5 +107,19 @@ test("uncertain launches require reconciliation before retry", async (t) => {
   assert.equal(requests.some(
     (request) => request.function === "session_control.launch.retry",
   ), false);
+  const nativeId = byClass(root, "session-launch-reconcile-id")[0];
+  nativeId.value = "native-session-1";
+  button(root, "Reconcile").dispatchEvent(new Event("click"));
+  await settle();
+  const reconcile = requests.find(
+    (request) => request.function === "session_control.launch.reconcile",
+  );
+  assert.deepEqual(reconcile.payload, {
+    launch_id: "launch-uncertain", observed_native_id: "native-session-1",
+  });
+  assert.equal(button(root, "Retry").disabled, false);
+  assert.equal(requests.filter(
+    (request) => request.function === "session_control.launch.list",
+  ).length, 2);
   mounted.unmount();
 });

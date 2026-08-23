@@ -62,7 +62,7 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
     )
     columns: tuple[Column, ...] = (
         ("RELAY", lambda row: row.get("relay_id"), 24),
-        ("MACHINE", lambda row: row.get("machine_id"), 18),
+        ("MACHINE", lambda row: row.get("machine_id"), None),
         ("SURFACE", lambda row: row.get("surface"), 20),
         ("VERSION", lambda row: row.get("version"), 18),
         ("LAST SEEN (UTC)", lambda row: utc_time(row.get("last_seen_at")), 22),
@@ -79,7 +79,7 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
 def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
     if "launches" in result:
         columns: tuple[Column, ...] = (
-            ("LAUNCH", lambda row: row.get("launch_id"), 28),
+            ("LAUNCH", lambda row: row.get("launch_id"), None),
             ("STATE / RESULT", _launch_status, 28),
             ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
             ("SURFACE", lambda row: row.get("requested_surface"), 20),
@@ -88,7 +88,7 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
                 lambda row: (
                     row.get("assigned_machine_id") or row.get("requested_machine_id")
                 ),
-                18,
+                None,
             ),
             ("CREATED (UTC)", lambda row: utc_time(row.get("created_at")), 22),
             ("DEADLINE (UTC)", lambda row: utc_time(row.get("deadline_at")), 22),

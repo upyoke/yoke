@@ -19,6 +19,10 @@ from yoke_core.domain.session_control_roster import (
 )
 
 
+FULL_SESSION_ID = "11111111-1111-4111-8111-111111111111"
+FULL_MACHINE_ID = "22222222-2222-4222-8222-222222222222"
+
+
 def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
     monkeypatch,
     capsys,
@@ -29,7 +33,7 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
             "fields": list(SESSION_CONTROL_ROSTER_FIELDS),
             "rows": [
                 {
-                    "session_id": "session-1",
+                    "session_id": FULL_SESSION_ID,
                     "project": "yoke",
                     "claims": [
                         {"target": TEST_ITEM_REF},
@@ -41,7 +45,7 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
                     "executor": "codex",
                     "executor_surface": "codex-desktop",
                     "executor_version": "26.814.41407",
-                    "machine_id": "machine-1",
+                    "machine_id": FULL_MACHINE_ID,
                     "liveness": "active",
                     "relay": "connected",
                     "messageability": {
@@ -85,7 +89,8 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
     assert "SESSION" in lines[1]
     assert "PROJECT" in lines[1]
     assert "MESSAGEABLE" in lines[1]
-    assert "session-1" in rendered
+    assert FULL_SESSION_ID in rendered
+    assert FULL_MACHINE_ID in rendered
     assert TEST_ITEM_REF in rendered
     assert "codex / codex-desktop" in rendered
     assert "connected" in rendered

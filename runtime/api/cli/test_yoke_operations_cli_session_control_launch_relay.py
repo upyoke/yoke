@@ -17,6 +17,10 @@ from yoke_cli.commands.registry_session_control import (
 )
 
 
+FULL_LAUNCH_ID = "44444444-4444-4444-8444-444444444444"
+FULL_MACHINE_ID = "22222222-2222-4222-8222-222222222222"
+
+
 def test_sessions_create_preview_and_create_use_registered_functions(
     monkeypatch,
 ) -> None:
@@ -128,12 +132,12 @@ def test_launch_lifecycle_adapters_build_typed_payloads(monkeypatch) -> None:
 
 def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     launch = {
-        "launch_id": "launch-1",
+        "launch_id": FULL_LAUNCH_ID,
         "project_id": 1,
         "state": "outcome_unknown",
         "result_code": "native_create_timed_out",
         "requested_surface": "codex-desktop",
-        "requested_machine_id": "machine-1",
+        "requested_machine_id": FULL_MACHINE_ID,
         "assigned_machine_id": None,
         "requested_model": "gpt-5.6",
         "allow_surface_fallback": False,
@@ -153,6 +157,8 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     assert rendered_list.splitlines()[0] == "LAUNCHES"
     assert "STATE / RESULT" in rendered_list
     assert "CREATED (UTC)" in rendered_list
+    assert FULL_LAUNCH_ID in rendered_list
+    assert FULL_MACHINE_ID in rendered_list
     assert "outcome unknown (native cre" in rendered_list
     assert "…" in rendered_list
 

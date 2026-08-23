@@ -2,6 +2,7 @@ import { el } from "./universe_view_support.js";
 import { appendLaunchTimeline } from "./session_launch_timeline.js";
 import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
 import {
+  labelledControl,
   presentSessionControlFailure,
   renderSessionControlFailure,
   scopedProjectRefs,
@@ -45,6 +46,7 @@ function launchCard(documentNode, launch, mutate) {
     link.href = "#/sessions/roster";
     body.appendChild(link);
   }
+  const actions = el(documentNode, "div", "session-control-actions");
   if (RECONCILE_FIRST_STATES.has(launch.state)) {
     body.appendChild(el(
       documentNode,
@@ -52,8 +54,26 @@ function launchCard(documentNode, launch, mutate) {
       "session-launch-guidance",
       "Native session creation is uncertain. Reconcile whether a session exists before retrying or creating another one.",
     ));
+    const observedNativeId = el(
+      documentNode, "input", "session-control-input session-launch-reconcile-id",
+    );
+    observedNativeId.type = "text";
+    observedNativeId.placeholder = "Leave blank only if no native session was created";
+    body.appendChild(labelledControl(
+      documentNode,
+      "Observed native session ID (optional)",
+      observedNativeId,
+    ));
+    const reconcile = el(documentNode, "button", "item-button", "Reconcile");
+    reconcile.type = "button";
+    reconcile.addEventListener("click", () => {
+      const nativeId = String(observedNativeId.value || "").trim();
+      mutate("reconcile", launch.launch_id, reconcile, nativeId
+        ? { observed_native_id: nativeId }
+        : {});
+    });
+    actions.appendChild(reconcile);
   }
-  const actions = el(documentNode, "div", "session-control-actions");
   appendAction(
     documentNode, actions, "Cancel",
     !CANCELLABLE_STATES.has(launch.state),
@@ -120,19 +140,30 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       );
     }
   };
-  const mutate = async (operation, launchId, button) => {
+  const mutate = async (operation, launchId, button, extraPayload = {}) => {
     button.disabled = true;
     status.hidden = false;
-    status.textContent = `${operation === "retry" ? "Retrying" : "Cancelling"} ${launchId}…`;
+    const progress = {
+      cancel: "Cancelling", reconcile: "Reconciling", retry: "Retrying",
+    };
+    status.textContent = `${progress[operation]} ${launchId}…`;
     try {
       await sessionControlCall(
-        context, `session_control.launch.${operation}`, { launch_id: launchId },
+        context,
+        `session_control.launch.${operation}`,
+        { launch_id: launchId, ...extraPayload },
       );
-      status.textContent = `${launchId} ${operation === "retry" ? "retried" : "cancelled"}.`;
+      const completed = {
+        cancel: "cancelled", reconcile: "reconciled", retry: "retried",
+      };
+      status.textContent = `${launchId} ${completed[operation]}.`;
       await load();
     } catch (error) {
+      const failureAction = {
+        cancel: "cancelled", reconcile: "reconciled", retry: "retried",
+      };
       status.textContent = presentSessionControlFailure(
-        error, `The launch could not be ${operation === "retry" ? "retried" : "cancelled"}.`,
+        error, `The launch could not be ${failureAction[operation]}.`,
       );
       button.disabled = false;
     }

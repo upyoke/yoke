@@ -30,7 +30,9 @@ function receiptList(documentNode, message) {
     const wakes = Number(recipient.wake_attempt_count || 0);
     let delivery = "waiting for a supported delivery hook";
     if (recipient.state === "acknowledged") {
-      delivery = "delivery acknowledged; no wake needed";
+      delivery = wakes
+        ? `delivery acknowledged after ${wakes} wake attempt${wakes === 1 ? "" : "s"}`
+        : "delivery acknowledged without a wake";
     } else if (recipient.state === "injected") {
       delivery = "injected; awaiting acknowledgement";
     } else if (recipient.state === "expired") {

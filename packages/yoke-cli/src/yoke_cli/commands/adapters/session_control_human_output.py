@@ -9,7 +9,7 @@ from typing import Any, TextIO
 
 BODY_EXCERPT_CHARACTERS = 72
 EMPTY_VALUE = "—"
-Column = tuple[str, Callable[[Mapping[str, Any]], Any], int]
+Column = tuple[str, Callable[[Mapping[str, Any]], Any], int | None]
 
 
 def _plain(value: Any) -> str:
@@ -20,8 +20,10 @@ def _plain(value: Any) -> str:
     return " ".join(str(value).split()) or EMPTY_VALUE
 
 
-def _fit(value: Any, width: int) -> str:
+def _fit(value: Any, width: int | None) -> str:
     text = _plain(value)
+    if width is None:
+        return text
     if len(text) <= width:
         return text
     return f"{text[: width - 1]}…"
@@ -129,19 +131,19 @@ def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
     rows = result.get("rows") or []
     if "activity_at" in fields and "project" not in fields:
         columns: tuple[Column, ...] = (
-            ("SESSION", lambda row: row.get("session_id"), 30),
+            ("SESSION", lambda row: row.get("session_id"), None),
             ("LIVENESS", lambda row: humanize(row.get("liveness")), 12),
             ("ACTIVITY (UTC)", lambda row: utc_time(row.get("activity_at")), 22),
             ("ENDED (UTC)", lambda row: utc_time(row.get("ended_at")), 22),
         )
     else:
         columns = (
-            ("SESSION", lambda row: row.get("session_id"), 28),
+            ("SESSION", lambda row: row.get("session_id"), None),
             ("PROJECT", lambda row: row.get("project"), 14),
             ("FOCUS", _roster_focus, 20),
             ("ROLE", lambda row: humanize(row.get("role")), 16),
             ("RUNNER", _runner, 28),
-            ("MACHINE", lambda row: row.get("machine_id"), 18),
+            ("MACHINE", lambda row: row.get("machine_id"), None),
             ("LIVENESS", lambda row: humanize(row.get("liveness")), 10),
             ("RELAY", lambda row: humanize(row.get("relay")), 12),
             ("MESSAGEABLE", _messageable, 18),
@@ -168,11 +170,11 @@ def _recipient_status(row: Mapping[str, Any]) -> str:
 def _write_recipients(recipients: Iterable[Mapping[str, Any]], stdout: TextIO) -> None:
     rows = [_recipient(recipient) for recipient in recipients]
     columns: tuple[Column, ...] = (
-        ("SESSION", lambda row: row.get("session_id"), 28),
+        ("SESSION", lambda row: row.get("session_id"), None),
         ("PROJECT", _recipient_project, 14),
         ("STATE", _recipient_status, 14),
         ("SURFACE", lambda row: row.get("executor_surface"), 20),
-        ("MACHINE", lambda row: row.get("machine_id"), 18),
+        ("MACHINE", lambda row: row.get("machine_id"), None),
         ("MESSAGEABLE", _messageable, 18),
     )
     write_table(
@@ -242,7 +244,7 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         return
     if "messages" in result:
         columns: tuple[Column, ...] = (
-            ("MESSAGE", lambda row: row.get("message_id"), 28),
+            ("MESSAGE", lambda row: row.get("message_id"), None),
             ("STATE / REASON", _message_state, 28),
             ("TO", lambda row: len(row.get("recipients") or []), 4),
             ("CREATED (UTC)", lambda row: utc_time(row.get("created_at")), 22),

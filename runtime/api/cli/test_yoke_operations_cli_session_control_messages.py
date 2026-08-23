@@ -13,6 +13,11 @@ from yoke_cli.commands.registry_session_control import (
 )
 
 
+FULL_MESSAGE_ID = "33333333-3333-4333-8333-333333333333"
+FULL_SESSION_ID = "11111111-1111-4111-8111-111111111111"
+FULL_MACHINE_ID = "22222222-2222-4222-8222-222222222222"
+
+
 def test_say_preview_dispatches_semantic_selector(monkeypatch) -> None:
     captured = {}
 
@@ -138,11 +143,11 @@ def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
                 "confirmation_token": "confirm-1",
                 "recipients": [
                     {
-                        "session_id": "session-1",
+                        "session_id": FULL_SESSION_ID,
                         "project": "yoke",
                         "executor": "codex",
                         "executor_surface": "codex-desktop",
-                        "machine_id": "machine-1",
+                        "machine_id": FULL_MACHINE_ID,
                         "liveness": "active",
                         "messageability": {"messageable": True},
                     }
@@ -160,7 +165,8 @@ def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
     assert "RECIPIENTS" in rendered
     assert "SESSION" in rendered
     assert "MESSAGEABLE" in rendered
-    assert "session-1" in rendered
+    assert FULL_SESSION_ID in rendered
+    assert FULL_MACHINE_ID in rendered
     assert "codex-desktop" in rendered
     assert "yes" in rendered
     assert "|" not in rendered
@@ -170,7 +176,7 @@ def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
 def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
     body = "Operator context " + ("private detail " * 10) + "DO-NOT-LEAK"
     message = {
-        "message_id": "message-1",
+        "message_id": FULL_MESSAGE_ID,
         "sender_actor_id": 7,
         "sender_session_id": "session-sender",
         "body": body,
@@ -203,6 +209,7 @@ def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
         assert rendered.splitlines()[0] == heading
         assert "BODY" in rendered.upper()
         assert "CREATED (UTC)" in rendered.upper()
+        assert FULL_MESSAGE_ID in rendered
         assert "…" in rendered
         assert body not in rendered
         assert "DO-NOT-LEAK" not in rendered
