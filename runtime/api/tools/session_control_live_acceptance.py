@@ -95,14 +95,15 @@ def _caller_session_id() -> str:
     return value.strip()
 
 
-def _require_stage_qualification_environment() -> None:
+def _require_stage_qualification_environment() -> str:
     try:
         environment = str(machine_config.active_env() or "").strip()
-        connection = machine_config.active_connection()
+        connection = machine_config.active_connection(explicit_env=environment)
     except Exception as exc:
         raise AcceptanceContractError("qualification_environment_unresolved") from exc
     if environment != "stage" or connection_is_prod(connection):
         raise AcceptanceContractError("qualification_stage_required")
+    return environment
 
 
 def _refusal(exc: AcceptanceContractError) -> dict[str, object]:
@@ -133,12 +134,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         ):
             raise AcceptanceContractError("qualification_window_invalid")
         caller = _caller_session_id()
+        qualification_environment: str | None = None
         if args.qualification_candidate:
-            _require_stage_qualification_environment()
+            qualification_environment = _require_stage_qualification_environment()
             matrix = load_candidate_matrix(args.matrix)
         else:
             matrix = load_matrix(args.matrix)
-        client = YokeCliClient()
+        client = (
+            YokeCliClient(explicit_env=qualification_environment)
+            if qualification_environment is not None
+            else YokeCliClient()
+        )
         release = client.deployed_release()
         release_sha, server_build = validate_deployed_release(
             args.release_sha, release.get("server_build", "")

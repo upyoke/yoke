@@ -21,11 +21,24 @@ class CommandClient(Protocol):
 class YokeCliClient:
     """Call product-owned CLI surfaces without reflecting raw failures."""
 
+    def __init__(self, *, explicit_env: str | None = None) -> None:
+        self.explicit_env = str(explicit_env or "").strip() or None
+
+    def _command(self, args: Sequence[str]) -> list[str]:
+        prefix = ["yoke"]
+        if self.explicit_env:
+            prefix.extend(("--env", self.explicit_env))
+        return [*prefix, *args]
+
     def call(self, args: Sequence[str], *, stdin: str | None = None) -> dict[str, Any]:
-        if "--session-id" in args:
+        if (
+            "--session-id" in args
+            or "--env" in args
+            or any(str(token).startswith("--env=") for token in args)
+        ):
             raise AcceptanceContractError("caller_override_forbidden")
         completed = subprocess.run(
-            ["yoke", *args, "--json"],
+            self._command([*args, "--json"]),
             input=stdin,
             text=True,
             capture_output=True,
@@ -54,7 +67,7 @@ class YokeCliClient:
     def deployed_release(self) -> dict[str, str]:
         """Return only safe release identity fields from local status."""
         completed = subprocess.run(
-            ["yoke", "status", "--json"],
+            self._command(["status", "--json"]),
             text=True,
             capture_output=True,
             check=False,

@@ -225,10 +225,15 @@ def test_candidate_mode_refuses_prod_before_loading_or_constructing_cli(
     monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
     monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
     monkeypatch.setattr(acceptance.machine_config, "active_env", lambda: "prod")
+
+    def _prod_connection(*, explicit_env=None):
+        assert explicit_env == "prod"
+        return {"transport": "https", "prod": True}
+
     monkeypatch.setattr(
         acceptance.machine_config,
         "active_connection",
-        lambda: {"transport": "https", "prod": True},
+        _prod_connection,
     )
     monkeypatch.setattr(
         acceptance,

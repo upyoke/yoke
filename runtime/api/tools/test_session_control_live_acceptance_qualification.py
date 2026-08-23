@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
 
 import pytest
 
+from runtime.api.tools import session_control_live_acceptance as acceptance
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
@@ -238,3 +240,89 @@ def test_forged_release_identity_cannot_prove_consumption(client: _Client) -> No
         coordinator.verify(opened)
 
     assert raised.value.code == "qualification_not_consumed"
+
+
+def test_candidate_runner_keeps_stage_pinned_after_active_env_switch(
+    monkeypatch,
+    capsys,
+) -> None:
+    selected = {"environment": "stage"}
+    matrix = AcceptanceMatrix(
+        project="yoke",
+        cells=(
+            AcceptanceCell(
+                "claude-cli",
+                "2.1.241",
+                "create",
+                acceptance_role="surface",
+                wake_route="direct",
+            ),
+        ),
+    )
+    captured: dict[str, object] = {}
+
+    class _PinnedClient:
+        def __init__(self, *, explicit_env: str) -> None:
+            self.explicit_env = explicit_env
+            captured["explicit_env"] = explicit_env
+
+        def deployed_release(self) -> dict[str, str]:
+            selected["environment"] = "prod"
+            return {"server_build": RELEASE_SHA, "engine_version": "0.1.1"}
+
+        def call(self, args, *, stdin=None):
+            captured["mutating_call"] = (self.explicit_env, tuple(args), stdin)
+            return {}
+
+    class _Driver:
+        def __init__(self, client) -> None:
+            self.client = client
+
+        def run(self, _matrix, **_kwargs):
+            assert selected["environment"] == "prod"
+            self.client.call(["sessions", "create"])
+            return {
+                "schema": 1,
+                "kind": "fleet_session_control_live_acceptance",
+                "status": "passed",
+                "cells": [],
+            }
+
+    monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
+    monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
+    monkeypatch.setattr(
+        acceptance.machine_config,
+        "active_env",
+        lambda: selected["environment"],
+    )
+
+    def _connection(*, explicit_env=None):
+        assert explicit_env == "stage"
+        return {"transport": "https", "prod": False}
+
+    monkeypatch.setattr(acceptance.machine_config, "active_connection", _connection)
+    monkeypatch.setattr(acceptance, "load_candidate_matrix", lambda _path: matrix)
+    monkeypatch.setattr(acceptance, "YokeCliClient", _PinnedClient)
+    monkeypatch.setattr(acceptance, "LiveAcceptanceDriver", _Driver)
+
+    code = acceptance.main(
+        [
+            "--qualification-candidate",
+            "--matrix",
+            "candidate.json",
+            "--run-id",
+            "stage-env-pin",
+            "--release-sha",
+            RELEASE_SHA,
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert report["status"] == "passed"
+    assert captured["explicit_env"] == "stage"
+    assert captured["mutating_call"] == (
+        "stage",
+        ("sessions", "create"),
+        None,
+    )

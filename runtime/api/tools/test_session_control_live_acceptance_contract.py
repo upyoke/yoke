@@ -258,10 +258,46 @@ def test_cli_keeps_message_body_out_of_argv(monkeypatch) -> None:
     assert captured["input"] == secret
 
 
+def test_cli_pins_every_candidate_call_to_the_selected_environment(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def _run(argv, **_kwargs):
+        calls.append(list(argv))
+        if "status" in argv:
+            payload = {
+                "server": {
+                    "reachable": True,
+                    "build": "a" * 40,
+                    "engine_version": "0.1.1",
+                }
+            }
+        else:
+            payload = {"success": True, "result": {"rows": []}}
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(client_module.subprocess, "run", _run)
+    client = YokeCliClient(explicit_env="stage")
+
+    client.deployed_release()
+    client.call(["sessions", "list"])
+    client.call(["session-control", "qualification", "open"])
+
+    assert calls
+    assert all(argv[:3] == ["yoke", "--env", "stage"] for argv in calls)
+
+
 def test_cli_refuses_caller_spoof_and_never_reflects_raw_failure(monkeypatch) -> None:
-    with pytest.raises(AcceptanceContractError) as spoofed:
-        YokeCliClient().call(["messages", "get", "m1", "--session-id", "parent"])
-    assert spoofed.value.code == "caller_override_forbidden"
+    for forbidden in (
+        ["messages", "get", "m1", "--session-id", "parent"],
+        ["messages", "get", "m1", "--env=prod"],
+    ):
+        with pytest.raises(AcceptanceContractError) as spoofed:
+            YokeCliClient().call(forbidden)
+        assert spoofed.value.code == "caller_override_forbidden"
 
     envelope = {
         "success": False,
