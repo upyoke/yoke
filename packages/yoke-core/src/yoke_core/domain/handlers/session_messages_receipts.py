@@ -65,6 +65,9 @@ def handle_message_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parsed(request, MessageCancelRequest)
     if isinstance(parsed, HandlerOutcome):
         return parsed
+    invalid = require_top_level_message_actor(request)
+    if invalid:
+        return invalid
     from yoke_core.domain.session_message_service import cancel_message
 
     conn = open_connection()

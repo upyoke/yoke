@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_core.hooks import session_broker_wake
 from yoke_core.hooks.decision_render import render_codex_decision
 from yoke_core.hooks.session_broker_wake_port import BrokerWakeLease
@@ -16,6 +18,19 @@ from yoke_harness.session_relay_runtime import RelayAdapterResult
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
+_CHILD_ENV_KEYS = (
+    "CODEX_SESSION_ID",
+    "CODEX_THREAD_ID",
+    "CURSOR_CONVERSATION_ID",
+    "CURSOR_TRANSCRIPT_PATH",
+    "YOKE_HOOK_AGENT_TYPE",
+)
+
+
+@pytest.fixture(autouse=True)
+def _top_level_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key in _CHILD_ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
 
 
 @dataclass
@@ -80,7 +95,17 @@ def test_stop_event_never_creates_a_broker_job(monkeypatch) -> None:
     assert port.leases == []
 
 
-def test_subagent_hook_never_creates_a_broker_job(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"agent_type": "yoke-engineer"},
+        {"subagent_execution": True},
+        {"is_subagent_session": True},
+        {"subagent_session_id": "child-session"},
+        {"parent_conversation_id": "parent-conversation"},
+    ],
+)
+def test_subagent_hook_never_creates_a_broker_job(monkeypatch, payload) -> None:
     port = FakePort()
     monkeypatch.setattr(session_broker_wake, "_broker_port", lambda: port)
     context = _context()
@@ -88,14 +113,48 @@ def test_subagent_hook_never_creates_a_broker_job(monkeypatch) -> None:
         event_name=context.event_name,
         executor_family=context.executor_family,
         executor_surface=context.executor_surface,
-        payload={"agent_type": "yoke-engineer"},
+        payload=payload,
         session_id=context.session_id,
     )
 
     decision = session_broker_wake.evaluate(context)
+    session_broker_wake.settle_after_render(
+        [decision], rendered_text="", denied=False, port=port
+    )
 
     assert decision.outcome is Outcome.NOOP
     assert port.leases == []
+    assert port.completed == []
+
+
+@pytest.mark.parametrize(
+    "child_environment",
+    [
+        {"YOKE_HOOK_AGENT_TYPE": "yoke-engineer"},
+        {"CODEX_SESSION_ID": "parent", "CODEX_THREAD_ID": "child"},
+        {
+            "CURSOR_CONVERSATION_ID": "child",
+            "CURSOR_TRANSCRIPT_PATH": "/workspace/subagents/child/transcript.jsonl",
+        },
+    ],
+)
+def test_subagent_environment_never_creates_a_broker_job(
+    monkeypatch: pytest.MonkeyPatch,
+    child_environment: dict[str, str],
+) -> None:
+    for key, value in child_environment.items():
+        monkeypatch.setenv(key, value)
+    port = FakePort()
+    monkeypatch.setattr(session_broker_wake, "_broker_port", lambda: port)
+
+    decision = session_broker_wake.evaluate(_context())
+    session_broker_wake.settle_after_render(
+        [decision], rendered_text="", denied=False, port=port
+    )
+
+    assert decision.outcome is Outcome.NOOP
+    assert port.leases == []
+    assert port.completed == []
 
 
 def test_sibling_denial_reports_dropped_broker_instruction(monkeypatch) -> None:

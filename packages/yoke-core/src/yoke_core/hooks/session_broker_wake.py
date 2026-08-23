@@ -8,6 +8,7 @@ from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
 )
+from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.session_broker_wake_port import (
     BrokerWakeLease,
     CoreSessionBrokerWakePort,
@@ -25,7 +26,7 @@ def _broker_port() -> SessionBrokerWakePort:
 
 
 def _event_is_model_visible(context: HookContext) -> bool:
-    if context.payload.get("agent_type") or context.payload.get("is_subagent_session"):
+    if is_subagent_execution(context.payload):
         return False
     if context.event_name in {"Stop", "SessionEnd"}:
         return False

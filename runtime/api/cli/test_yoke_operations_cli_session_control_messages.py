@@ -134,6 +134,20 @@ def test_subagent_cannot_acknowledge(monkeypatch, capsys) -> None:
     assert "cannot acknowledge Fleet messages" in capsys.readouterr().err
 
 
+def test_subagent_cannot_cancel(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(messages, "is_subagent_execution", lambda: True)
+    dispatched = []
+    monkeypatch.setattr(
+        messages, "dispatch_and_emit", lambda **kwargs: dispatched.append(kwargs)
+    )
+
+    result = messages.session_message_cancel(["message-1", "--session-id", "parent"])
+
+    assert result == 2
+    assert dispatched == []
+    assert "cannot cancel Fleet messages" in capsys.readouterr().err
+
+
 def test_message_list_get_acknowledge_and_cancel_payloads(monkeypatch) -> None:
     calls = []
 

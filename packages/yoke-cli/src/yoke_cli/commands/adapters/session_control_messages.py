@@ -254,8 +254,8 @@ def _message_by_id(args: List[str], operation: str) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    if operation == "acknowledge":
-        refused = _refuse_subagent_message_operation("acknowledge")
+    if operation in {"acknowledge", "cancel"}:
+        refused = _refuse_subagent_message_operation(operation)
         if refused is not None:
             return refused
     return dispatch_and_emit(

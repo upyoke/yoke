@@ -227,6 +227,19 @@ def test_acknowledge_handler_refuses_subagent_attestation() -> None:
     assert outcome.error and outcome.error.code == "subagent_message_forbidden"
 
 
+def test_cancel_handler_refuses_subagent_attestation() -> None:
+    outcome = session_messages_receipts.handle_message_cancel(
+        _request(
+            "session_control.message.cancel",
+            {"message_id": "message-1"},
+            options={"subagent_execution": True},
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "subagent_message_forbidden"
+
+
 def test_acknowledge_handler_requires_registered_recipient(monkeypatch) -> None:
     conn = message_connection()
     monkeypatch.setattr(session_messages_receipts, "open_connection", lambda: conn)
