@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.qa_capture_settlement import stamp_reviewed_capture
 from yoke_core.domain.qa_constants import (
     UNDETERMINED_VERDICT,
     case_outcome_for_verdict,
@@ -118,17 +119,12 @@ def _record_verdict(
             created_at,
         ),
     )
-    # The capture is the thing being reviewed; a completed review that
-    # leaves its verdict NULL freezes the item at every terminal gate.
-    # Stamp only verdict columns in place: browser-evidence gates match
-    # reviewed captures on execution_status='captured' plus
-    # case_outcome='needs_review', and the immutability trigger refuses
-    # writes only once a verdict already exists.
-    conn.execute(
-        "UPDATE qa_runs SET verdict="
-        f"{p},verdict_reason={p},completed_at=COALESCE(completed_at, {p}) "
-        f"WHERE id={p} AND verdict IS NULL",
-        (verdict, rationale, created_at, int(case["capture_run_id"])),
+    stamp_reviewed_capture(
+        conn,
+        case,
+        verdict=verdict,
+        rationale=rationale,
+        created_at=created_at,
     )
     from yoke_core.domain.item_activity import touch_for_qa_requirement
 
@@ -249,6 +245,13 @@ def submit_plan_review(
                 if prior["verdict"] != verdict or prior["rationale"] != rationale:
                     raise QaPlanReviewError("agent review replay changed a verdict")
                 run_ids[requirement_id] = int(prior["review_run_id"])
+                stamp_reviewed_capture(
+                    conn,
+                    case,
+                    verdict=verdict,
+                    rationale=rationale,
+                    created_at=now,
+                )
             else:
                 run_id = _record_verdict(
                     conn,
