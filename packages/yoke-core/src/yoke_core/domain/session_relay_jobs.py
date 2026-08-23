@@ -20,6 +20,7 @@ from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     RelayJob,
     SessionRelayError,
+    WakeMode,
 )
 from yoke_core.domain.session_relay_versions import wake_candidate_supported
 
@@ -180,6 +181,7 @@ def claim_wake_job(
         native_instruction=f"Yoke message {message_id}: check your Yoke messages.",
         message_id=str(message_id),
         target_session_id=str(session_id),
+        wake_mode=WakeMode(str(selected["wake_mode"])),
         target_liveness=str(selected["liveness"]),
     )
 

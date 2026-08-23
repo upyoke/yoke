@@ -12,7 +12,7 @@ from yoke_core.domain.migration_history import (
     load_migration_module,
     ordered_entries,
 )
-from yoke_core.domain.migration_serving_version import NEXT_RELEASE, declared_minimum
+from yoke_core.domain.migration_serving_version import declared_minimum
 
 
 ENTRY_NAME = "0017_session_turn_posture"
@@ -54,5 +54,33 @@ def test_invariants_reject_missing_harness_session_table() -> None:
         entry.invariants(sqlite3.connect(":memory:"))
 
 
-def test_unreleased_entry_uses_next_release_floor() -> None:
-    assert declared_minimum(entry) == NEXT_RELEASE
+@pytest.mark.parametrize(
+    ("posture_ddl", "message"),
+    (
+        (
+            "TEXT DEFAULT 'unknown' "
+            "CHECK(turn_posture IN ('running','waiting','unknown'))",
+            "NOT NULL",
+        ),
+        (
+            "TEXT NOT NULL CHECK(turn_posture IN ('running','waiting','unknown'))",
+            "default to unknown",
+        ),
+        ("TEXT NOT NULL DEFAULT 'unknown'", "constrain the supported domain"),
+    ),
+)
+def test_invariants_reject_relaxed_posture_contract(
+    posture_ddl: str, message: str
+) -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE harness_sessions (session_id TEXT PRIMARY KEY,"
+        f"turn_posture {posture_ddl},turn_posture_at TEXT)"
+    )
+
+    with pytest.raises(AssertionError, match=message):
+        entry.invariants(conn)
+
+
+def test_additive_entry_does_not_raise_the_serving_floor() -> None:
+    assert declared_minimum(entry) is None

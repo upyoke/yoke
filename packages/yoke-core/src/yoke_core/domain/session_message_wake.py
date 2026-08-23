@@ -1,4 +1,4 @@
-"""Liveness-keyed wake eligibility for durable message receipts."""
+"""Posture- and idle-keyed wake eligibility for durable message receipts."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from yoke_core.domain.session_message_types import (
     timestamp,
     utc_now,
 )
+from yoke_core.domain.session_relay_types import WakeMode
 
 
 def _p(conn: Any) -> str:
@@ -30,7 +31,7 @@ def _p(conn: Any) -> str:
 def wake_eligible_recipients(
     conn: Any, *, now: datetime | None = None
 ) -> list[dict[str, Any]]:
-    """Return redacted wake routes after liveness-keyed policy checks."""
+    """Return redacted wake routes with their scheduler authority."""
     from yoke_core.hooks.session_message_delivery import wake_eligible
 
     current = now or utc_now()
@@ -41,7 +42,8 @@ def wake_eligible_recipients(
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
-            "hs.last_tool_call_at,hs.ended_at,hs.turn_posture "
+            "hs.last_tool_call_at,hs.ended_at,hs.turn_posture,"
+            "hs.turn_posture_at "
             "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
@@ -82,21 +84,31 @@ def wake_eligible_recipients(
             activity = latest_hook_activity(row)
             if activity is not None and activity <= created_at:
                 activity = None
-            waiting_immediate = (
-                row["state"] == "pending"
-                and row.get("turn_posture") == "waiting"
-                and row.get("injection_lease_id") is None
+            waiting_pending = (
+                row["state"] == "pending" and row.get("turn_posture") == "waiting"
             )
-            if not waiting_immediate and not wake_eligible(
-                recipient_state=str(row["state"]),
-                liveness=liveness,
-                recipient_created_at=created_at,
-                wake_after=wake_after,
-                last_hook_activity_at=activity,
-                idle_window=timedelta(minutes=policy.wake_after_idle_minutes),
-                now=current,
-            ):
-                continue
+            idle_window = timedelta(minutes=policy.wake_after_idle_minutes)
+            if waiting_pending:
+                if row.get("injection_lease_id") is not None:
+                    continue
+                previous_wake = parse_timestamp(row.get("last_wake_at"))
+                if int(row["wake_attempt_count"] or 0) > 0 and (
+                    previous_wake is None or previous_wake + idle_window > current
+                ):
+                    continue
+                wake_mode = WakeMode.WAITING
+            else:
+                if not wake_eligible(
+                    recipient_state=str(row["state"]),
+                    liveness=liveness,
+                    recipient_created_at=created_at,
+                    wake_after=wake_after,
+                    last_hook_activity_at=activity,
+                    idle_window=idle_window,
+                    now=current,
+                ):
+                    continue
+                wake_mode = WakeMode.IDLE_TIMEOUT
             eligible.append(
                 {
                     "message_id": str(row["message_id"]),
@@ -106,7 +118,12 @@ def wake_eligible_recipients(
                     "executor_surface": row["executor_surface"],
                     "executor_version": row["executor_version"],
                     "state": str(row["state"]),
+                    "wake_mode": wake_mode.value,
                     "liveness": liveness,
+                    "turn_posture": str(row["turn_posture"]),
+                    "turn_posture_at": row["turn_posture_at"],
+                    "injection_lease_id": row["injection_lease_id"],
+                    "injection_lease_expires_at": row["injection_lease_expires_at"],
                     "wake_attempt_count": int(row["wake_attempt_count"] or 0),
                     "last_wake_at": row["last_wake_at"],
                 }

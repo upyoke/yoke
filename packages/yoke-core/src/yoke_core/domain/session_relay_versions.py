@@ -5,6 +5,7 @@ from typing import Mapping
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
+from yoke_core.domain.session_relay_types import WakeMode
 
 
 _WAKE_OPERATION_BY_LIVENESS = {
@@ -18,9 +19,18 @@ def wake_versions_supported(
     surface: str,
     target_version: str | None,
     relay_version: str | None,
+    wake_mode: str,
     liveness: str,
 ) -> bool:
-    operation = _WAKE_OPERATION_BY_LIVENESS.get(liveness)
+    try:
+        mode = WakeMode(wake_mode)
+    except ValueError:
+        return False
+    operation = (
+        "message_stopped"
+        if mode is WakeMode.WAITING
+        else _WAKE_OPERATION_BY_LIVENESS.get(liveness)
+    )
     return bool(
         operation
         and surface_operation_supported(surface, target_version, operation)
@@ -37,6 +47,7 @@ def wake_candidate_supported(
         surface,
         str(candidate.get("executor_version") or ""),
         relay_versions.get(surface),
+        str(candidate.get("wake_mode") or ""),
         str(candidate.get("liveness") or ""),
     )
 
