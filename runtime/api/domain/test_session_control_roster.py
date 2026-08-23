@@ -23,7 +23,9 @@ def _connection() -> sqlite3.Connection:
             machine_id TEXT,
             last_heartbeat TEXT,
             last_tool_call_at TEXT,
-            ended_at TEXT
+            ended_at TEXT,
+            turn_posture TEXT,
+            turn_posture_at TEXT
         );
         CREATE TABLE session_relays (
             relay_id TEXT PRIMARY KEY,
@@ -62,7 +64,7 @@ def _connection() -> sqlite3.Connection:
 def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     conn = _connection()
     conn.execute(
-        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?)",
+        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?)",
         (
             "session-1",
             "26.814.41407",
@@ -70,6 +72,8 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
             "2026-08-22T12:00:00Z",
             "2026-08-22T12:00:00Z",
             None,
+            "running",
+            "2026-08-22T12:00:00Z",
         ),
     )
     conn.execute(
@@ -134,9 +138,90 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     assert row["executor_version"] == "26.814.41407"
     assert row["machine_id"] == "machine-1"
     assert row["relay"] == "connected"
+    assert row["turn_posture"] == "running"
     assert row["messageability"]["messageable"] is True
     assert row["messageability"]["relay_connected"] is True
     assert row["messageability"]["wake_available"] is True
+
+
+def test_waiting_posture_uses_stopped_wake_capability() -> None:
+    conn = _connection()
+    conn.execute(
+        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?)",
+        (
+            "session-1",
+            "0.148.0-alpha.15",
+            "machine-1",
+            "2026-08-22T12:00:00Z",
+            "2026-08-22T12:00:00Z",
+            None,
+            "waiting",
+            "2026-08-22T12:01:00Z",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO session_relays VALUES (?,?,?,?)",
+        ("relay-1", "machine-1", "2026-08-22T12:05:00Z", "active"),
+    )
+    base = [
+        {
+            "session_id": "session-1",
+            "executor": "codex",
+            "executor_surface": "codex-cli",
+            "liveness": "active",
+        }
+    ]
+
+    row = session_control_roster_result(
+        base,
+        conn=conn,
+        now=datetime(2026, 8, 22, 12, 1, tzinfo=timezone.utc),
+    )["rows"][0]
+
+    assert row["turn_posture"] == "waiting"
+    assert row["messageability"]["wake_operation"] == "message_stopped"
+    assert row["messageability"]["wake_interface"] == "supported"
+    assert row["messageability"]["wake_available"] is True
+
+
+def test_private_wake_route_requires_the_exact_pinned_version() -> None:
+    conn = _connection()
+    conn.execute(
+        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?)",
+        (
+            "session-1",
+            "1.34493.1",
+            "machine-1",
+            "2026-08-22T12:00:00Z",
+            "2026-08-22T12:00:00Z",
+            None,
+            "unknown",
+            None,
+        ),
+    )
+    conn.execute(
+        "INSERT INTO session_relays VALUES (?,?,?,?)",
+        ("relay-1", "machine-1", "2026-08-22T12:05:00Z", "active"),
+    )
+    base = [
+        {
+            "session_id": "session-1",
+            "executor": "claude-code",
+            "executor_surface": "claude-desktop",
+            "liveness": "stale",
+        }
+    ]
+
+    routing = session_control_roster_result(
+        base,
+        conn=conn,
+        now=datetime(2026, 8, 22, 12, 1, tzinfo=timezone.utc),
+    )["rows"][0]["messageability"]
+
+    assert routing["hook_injection"] is True
+    assert routing["wake_operation"] == "message_idle"
+    assert routing["wake_interface"] == "none"
+    assert routing["wake_available"] is False
 
 
 def test_empty_roster_has_the_complete_stable_field_contract() -> None:

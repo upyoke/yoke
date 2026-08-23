@@ -137,3 +137,16 @@ def test_version_qualified_messageability_fails_closed() -> None:
         "reason": "version_below_floor_or_unknown",
         "minimum_version": "26.814.41407",
     }
+
+
+def test_cursor_hashed_build_remains_hook_messageable() -> None:
+    conn = message_connection()
+    conn.execute(
+        "UPDATE harness_sessions SET executor_version='2026.08.11-e8db854' "
+        "WHERE session_id='s3'"
+    )
+
+    recipient = resolve_recipients(conn, selector(session_ids=["s3"]), now=NOW)[0]
+
+    assert recipient.messageability["messageable"] is True
+    assert recipient.messageability["hook_injection"] is True

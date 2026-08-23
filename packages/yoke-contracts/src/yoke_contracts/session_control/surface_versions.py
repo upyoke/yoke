@@ -58,13 +58,23 @@ def surface_operation_supported(
     interface = getattr(capability, operation)
     if interface == "none" or not version:
         return False
+    if not surface_version_supported(surface, version):
+        return False
     observed = _version_key(surface, version)
     floor = _version_key(surface, capability.minimum_version)
-    if observed is None or floor is None:
-        return False
     if interface == "private":
         return observed == floor
-    return observed >= floor
+    return True
 
 
-__all__ = ["surface_operation_supported"]
+def surface_version_supported(surface: str | None, version: str | None) -> bool:
+    """Return whether an observed surface meets its capability version floor."""
+    capability = capability_for_surface(surface)
+    if capability is None or not version:
+        return False
+    observed = _version_key(surface, version)
+    floor = _version_key(surface, capability.minimum_version)
+    return bool(observed is not None and floor is not None and observed >= floor)
+
+
+__all__ = ["surface_operation_supported", "surface_version_supported"]

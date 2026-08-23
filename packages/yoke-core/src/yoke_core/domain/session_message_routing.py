@@ -5,9 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from packaging.version import InvalidVersion, Version
-
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.surface_versions import (
+    surface_operation_supported,
+    surface_version_supported,
+)
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_message_types import parse_timestamp
 
@@ -33,15 +35,6 @@ def session_liveness(row: dict[str, Any], *, now: datetime) -> str:
     return "active"
 
 
-def _version_at_floor(observed: str | None, minimum: str) -> bool:
-    if not observed:
-        return False
-    try:
-        return Version(observed) >= Version(minimum)
-    except InvalidVersion:
-        return False
-
-
 def messageability(row: dict[str, Any], *, liveness: str) -> dict[str, Any]:
     surface = str(row.get("executor_surface") or "")
     capability = capability_for_surface(surface)
@@ -52,10 +45,8 @@ def messageability(row: dict[str, Any], *, liveness: str) -> dict[str, Any]:
             "wake_interface": "none",
             "reason": "unknown_surface",
         }
-    version_ok = _version_at_floor(
-        str(row.get("executor_version") or "") or None,
-        capability.minimum_version,
-    )
+    version = str(row.get("executor_version") or "") or None
+    version_ok = surface_version_supported(surface, version)
     if not version_ok:
         return {
             "messageable": False,
@@ -64,17 +55,28 @@ def messageability(row: dict[str, Any], *, liveness: str) -> dict[str, Any]:
             "reason": "version_below_floor_or_unknown",
             "minimum_version": capability.minimum_version,
         }
-    wake_interface = {
-        "active": capability.message_active,
-        "stale": capability.message_idle,
-        "ended": capability.message_stopped,
-    }.get(liveness, "none")
+    wake_operation = (
+        "message_stopped"
+        if row.get("turn_posture") == "waiting"
+        else {
+            "active": "message_active",
+            "stale": "message_idle",
+            "ended": "message_stopped",
+        }.get(liveness)
+    )
+    wake_interface = (
+        str(getattr(capability, wake_operation))
+        if wake_operation
+        and surface_operation_supported(surface, version, wake_operation)
+        else "none"
+    )
     hook_injection = bool(capability.inject_events)
     return {
         "messageable": hook_injection,
         "hook_injection": hook_injection,
         "inject_events": list(capability.inject_events),
         "wake_interface": wake_interface,
+        "wake_operation": wake_operation,
         "minimum_version": capability.minimum_version,
         "reason": "hook_delivery" if hook_injection else "unsupported_surface",
     }

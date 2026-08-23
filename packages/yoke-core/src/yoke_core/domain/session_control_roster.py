@@ -43,7 +43,8 @@ def _identity_facts(
     marker = _marker(conn)
     rows = conn.execute(
         "SELECT session_id,executor_version,machine_id,last_heartbeat,"
-        "last_tool_call_at,ended_at FROM harness_sessions WHERE session_id IN ("
+        "last_tool_call_at,ended_at,turn_posture,turn_posture_at "
+        "FROM harness_sessions WHERE session_id IN ("
         + ",".join(marker for _ in ids)
         + ")",
         ids,
@@ -136,6 +137,7 @@ def _project_row(
         "worktree": worktree or row.get("workspace"),
         "executor_version": merged.get("executor_version"),
         "machine_id": merged.get("machine_id"),
+        "turn_posture": merged.get("turn_posture") or "unknown",
         "relay": "connected"
         if relay_connected
         else ("unavailable" if machine_id else ""),
