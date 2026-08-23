@@ -155,6 +155,7 @@ class LiveAcceptanceDriver:
             initial = self._wait_ack(
                 cell, session_id, initial_id, timeout=timeout, poll=poll
             )
+        candidate = qualification is not None and not cell.wake_supported
         waiting = roster.wait_for_waiting_registration(
             self.client,
             project=project,
@@ -165,12 +166,9 @@ class LiveAcceptanceDriver:
             poll=poll,
             sleep=self.sleep,
             monotonic=self.monotonic,
+            one_shot_private_wake_candidate=candidate and cell.route == "direct",
         )
-        grant = (
-            qualification.open(cell, "message_stopped")
-            if qualification is not None
-            else None
-        )
+        grant = qualification.open(cell, "message_stopped") if candidate else None
         try:
             wake_id, wake_deduplicated = self._send_twice(
                 cell,
