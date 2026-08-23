@@ -77,16 +77,6 @@ class TestKindAndStateDerivation:
         )
         now = _iso()
         test_db.execute(
-            "CREATE TABLE coordination_leases("
-            "project_id INTEGER NOT NULL,"
-            "lease_key TEXT NOT NULL,"
-            "session_id TEXT NOT NULL,"
-            "acquired_at TEXT NOT NULL,"
-            "heartbeat_at TEXT,"
-            "released_at TEXT"
-            ")"
-        )
-        test_db.execute(
             "INSERT INTO harness_sessions("
             "session_id,executor,provider,model,workspace,project_id,"
             "offered_at,last_heartbeat"
