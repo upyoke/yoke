@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from yoke_core.domain.migration_history import HistoryError
+from yoke_core.domain.migration_content_identity import raw_content_sha256
 from yoke_core.domain.migration_history_integration import (
+    RELEASED_DIGESTS_NAME,
     require_merge_history_extension,
     require_rehearsal_history_extension,
 )
@@ -88,6 +91,48 @@ def test_rehearsal_refuses_replaced_target_entry(lane: Path) -> None:
 
 def test_rehearsal_refuses_changed_permanent_bytes(lane: Path) -> None:
     _entry(lane, "0013_existing", marker="rewritten")
+
+    with pytest.raises(HistoryError, match="different permanent bytes"):
+        _rehearsal(lane, "0013_existing")
+
+
+def test_rehearsal_accepts_restoration_to_a_bootstrap_frozen_digest(
+    lane: Path,
+) -> None:
+    entry = lane / MODULES_DIR / "0013_existing.py"
+    released_bytes = entry.read_bytes()
+    released_digest = raw_content_sha256(released_bytes)
+    _git(lane, "checkout", "main")
+    _entry(lane, "0013_existing", marker="edited-after-release")
+    _git(lane, "add", "-A")
+    _git(lane, "commit", "-q", "-m", "edit released entry")
+    _git(lane, "checkout", "lane")
+    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
+        json.dumps({"0013_existing": released_digest}),
+        encoding="utf-8",
+    )
+
+    _rehearsal(lane, "0013_existing")
+
+
+def test_target_manifest_cannot_be_rewritten_to_authorize_lane_bytes(
+    lane: Path,
+) -> None:
+    entry = lane / MODULES_DIR / "0013_existing.py"
+    released_digest = raw_content_sha256(entry.read_bytes())
+    _git(lane, "checkout", "main")
+    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
+        json.dumps({"0013_existing": released_digest}),
+        encoding="utf-8",
+    )
+    _git(lane, "add", "-A")
+    _git(lane, "commit", "-q", "-m", "pin released history")
+    _git(lane, "checkout", "lane")
+    rewritten = _entry(lane, "0013_existing", marker="rewritten")
+    (lane / MODULES_DIR / RELEASED_DIGESTS_NAME).write_text(
+        json.dumps({"0013_existing": raw_content_sha256(rewritten.read_bytes())}),
+        encoding="utf-8",
+    )
 
     with pytest.raises(HistoryError, match="different permanent bytes"):
         _rehearsal(lane, "0013_existing")

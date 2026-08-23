@@ -21,12 +21,17 @@ from runtime.api.tools.migration_rehearsal_release_surfaces import (
 )
 
 
-def history_names() -> Tuple[str, ...]:
-    """Return the names in Yoke's packaged ordered history."""
+def history_entries() -> Tuple[Any, ...]:
+    """Return Yoke's packaged ordered migration entries."""
     from yoke_core.domain import migrations as history_package
     from yoke_core.domain.migration_history import history_dir, ordered_entries
 
-    return tuple(entry.name for entry in ordered_entries(history_dir(history_package)))
+    return tuple(ordered_entries(history_dir(history_package)))
+
+
+def history_names() -> Tuple[str, ...]:
+    """Return the names in Yoke's packaged ordered history."""
+    return tuple(entry.name for entry in history_entries())
 
 
 def pending_names(conn: Any, history: Sequence[str]) -> Tuple[str, ...]:
@@ -104,6 +109,7 @@ __all__ = [
     "PLATFORM_DATABASE",
     "TENANT_DATABASE_PATTERN",
     "converge",
+    "history_entries",
     "history_names",
     "load_module",
     "migration_content_ownership_detail",
