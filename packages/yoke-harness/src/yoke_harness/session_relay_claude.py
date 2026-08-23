@@ -19,11 +19,12 @@ from yoke_harness.session_relay_claude_process import (
 from yoke_harness.session_relay_runtime import (
     RelayAdapterResult,
     RelayExecutionContext,
+    wake_operation,
 )
 from yoke_harness.session_relay_environment import native_session_environment
 
 
-CLAUDE_ADAPTER_REVISION = "claude-native-v1"
+CLAUDE_ADAPTER_REVISION = "claude-native-v2"
 CLAUDE_CLI_SURFACE = "claude-cli"
 CLAUDE_NATIVE_TIMEOUT_SECONDS = 20
 
@@ -218,9 +219,13 @@ def run_claude_cli_adapter(
         return unsupported_claude_route(context)
     if context.job_kind not in {"launch", "wake"}:
         return _result(context, "failed", "job_kind_invalid")
-    if context.job_kind == "wake" and context.target_liveness != "ended":
-        return _result(context, "unsupported_surface", "liveness_unsupported")
-    operation = "create" if context.job_kind == "launch" else "message_stopped"
+    operation = "create"
+    if context.job_kind == "wake":
+        operation = wake_operation(
+            getattr(context, "wake_mode", None), context.target_liveness
+        )
+        if operation is None:
+            return _result(context, "failed", "wake_mode_invalid")
     if not _operation_supported(context, operation, version_gate):
         result = "not_created" if context.job_kind == "launch" else "version_mismatch"
         return _result(context, result, "version_mismatch")

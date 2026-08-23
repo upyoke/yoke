@@ -45,14 +45,16 @@ def _context(**overrides):
         "requested_model": "claude-opus-4-1",
         "presentation": "focused",
         "target_liveness": None,
+        "wake_mode": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
 
 
 def _allow(surface, version, operation):
-    assert (surface, version) == ("claude-cli", "2.1.238")
-    assert operation in {"create", "message_stopped"}
+    assert surface == "claude-cli"
+    assert version == "2.1.238"
+    assert operation in {"create", "message_active", "message_idle", "message_stopped"}
     return True
 
 
@@ -237,55 +239,29 @@ def test_native_commands_use_private_collector_without_launch_secret(
     assert "private" not in repr((created, agents))
 
 
-def test_wake_resumes_exact_stopped_session_without_identity_lookup() -> None:
-    invocations = []
-    lookups = []
+def test_create_failure_after_handoff_is_unknown_and_redacted() -> None:
     result = run_claude_cli_adapter(
-        _context(
-            job_kind="wake",
-            job_id="attempt-1",
-            native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
-            launch_attestation=None,
-            target_liveness="ended",
+        _context(),
+        process_runner=lambda _invocation: ClaudeProcessResult(
+            23,
+            81,
+            stdout="message body",
+            stderr="bearer token",
         ),
-        process_runner=lambda invocation: (
-            invocations.append(invocation) or ClaudeProcessResult(0, 9)
-        ),
-        session_lookup=lookups.append,
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
+        attestation_handoff=lambda _launch_id, _secret: True,
     )
 
-    assert invocations[0].argv == (
-        CLAUDE,
-        "--resume",
-        ACTUAL_ID,
-        "--bg",
-        CHECK_INBOX,
-    )
-    assert result.result_code == "accepted"
-    assert result.native_session_id is None
-    assert lookups == []
-
-
-def test_private_wake_version_mismatch_never_invokes_native_process() -> None:
-    calls = []
-    result = run_claude_cli_adapter(
-        _context(
-            job_kind="wake",
-            native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
-            target_liveness="ended",
-            surface_version="2.1.239",
-        ),
-        process_runner=calls.append,
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=lambda *_args: False,
-    )
-
-    assert result.result_code == "version_mismatch"
-    assert calls == []
+    assert result.result_code == "outcome_unknown"
+    assert result.evidence == {
+        "result_code": "native_exit",
+        "surface": "claude-cli",
+        "duration_ms": 81,
+        "exit_code": 23,
+    }
+    assert "message body" not in repr(result)
+    assert "bearer token" not in repr(result)
 
 
 @pytest.mark.parametrize(
@@ -301,6 +277,34 @@ def test_desktop_and_vscode_routes_remain_typed(surface, job_kind, expected) -> 
     result = unsupported_claude_route(_context(surface=surface, job_kind=job_kind))
     assert result.result_code == expected
     assert result.evidence["result_code"] == "unsupported_surface"
+
+
+@pytest.mark.parametrize(
+    ("job_kind", "expected"),
+    [("launch", "not_created"), ("wake", "failed")],
+)
+def test_missing_cli_is_discovered_before_native_invocation(
+    job_kind,
+    expected,
+) -> None:
+    invocations = []
+    result = run_claude_cli_adapter(
+        _context(
+            job_kind=job_kind,
+            native_instruction=BOOTSTRAP if job_kind == "launch" else CHECK_INBOX,
+            target_session_id="native-session-1" if job_kind == "wake" else None,
+            target_liveness="ended" if job_kind == "wake" else None,
+            wake_mode="waiting" if job_kind == "wake" else None,
+        ),
+        process_runner=invocations.append,
+        executable_finder=lambda _name: None,
+        version_gate=_allow,
+        attestation_handoff=lambda _launch_id, _secret: True,
+    )
+
+    assert result.result_code == expected
+    assert result.evidence["result_code"] == "executable_unavailable"
+    assert invocations == []
 
 
 @pytest.mark.parametrize(

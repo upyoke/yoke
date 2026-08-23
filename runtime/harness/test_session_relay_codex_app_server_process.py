@@ -28,6 +28,7 @@ def _request(tmp_path: Path) -> CodexNativeRequest:
         presentation=None,
         target_liveness=None,
         target_session_id=None,
+        wake_mode=None,
         instruction_id="launch:12345678-1234-4234-8234-123456789abc",
         native_instruction=INSTRUCTION,
         launch_attestation=SECRET,

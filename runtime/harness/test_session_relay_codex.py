@@ -47,11 +47,13 @@ def context(
     *,
     surface: str = "codex-cli",
     job_kind: str = "launch",
+    job_id: str | None = None,
     target_liveness: str | None = None,
+    wake_mode: str | None = "waiting",
 ) -> SimpleNamespace:
     return SimpleNamespace(
         job_kind=job_kind,
-        job_id="launch-1" if job_kind == "launch" else "attempt-1",
+        job_id=job_id or ("launch-1" if job_kind == "launch" else "attempt-1"),
         lease_id="lease-1",
         surface=surface,
         surface_version=(
@@ -66,6 +68,7 @@ def context(
         requested_model="gpt-5.6",
         presentation="focused",
         target_liveness=target_liveness,
+        wake_mode=wake_mode,
     )
 
 
@@ -97,19 +100,24 @@ def test_launch_uses_injected_gate_and_keeps_secret_out_of_result(
 
 
 @pytest.mark.parametrize(
-    "surface,liveness,operation",
+    "surface,wake_mode,liveness,operation",
     [
-        ("codex-cli", "ended", "message_stopped"),
-        ("codex-desktop", "active", "message_active"),
-        ("codex-desktop", "stale", "message_idle"),
-        ("codex-desktop", "ended", "message_stopped"),
+        ("codex-cli", "waiting", "active", "message_stopped"),
+        ("codex-cli", "idle_timeout", "ended", "message_stopped"),
+        ("codex-desktop", "waiting", "active", "message_stopped"),
+        ("codex-desktop", "idle_timeout", "active", "message_active"),
+        ("codex-desktop", "idle_timeout", "stale", "message_idle"),
+        ("codex-desktop", "idle_timeout", "ended", "message_stopped"),
     ],
 )
-def test_wake_selects_only_the_authorized_liveness_primitive(
+@pytest.mark.parametrize("scenario", ["claim-held-stopped", "chain-pending-stopped"])
+def test_wake_mode_authorizes_and_liveness_selects_idle_timeout_primitive(
     tmp_path: Path,
     surface: str,
+    wake_mode: str,
     liveness: str,
     operation: str,
+    scenario: str,
 ) -> None:
     cli = FakeTransport()
     desktop = FakeTransport()
@@ -125,7 +133,9 @@ def test_wake_selects_only_the_authorized_liveness_primitive(
             tmp_path,
             surface=surface,
             job_kind="wake",
+            job_id=scenario,
             target_liveness=liveness,
+            wake_mode=wake_mode,
         )
     )
 
@@ -159,8 +169,10 @@ def test_missing_shared_context_and_rejected_version_fail_closed(
     assert cli.calls == []
 
 
-def test_unknown_liveness_and_uncorrelated_identity_never_claim_success(
+@pytest.mark.parametrize("wake_mode", [None, "invented"])
+def test_invalid_wake_mode_and_uncorrelated_identity_never_claim_success(
     tmp_path: Path,
+    wake_mode: str | None,
 ) -> None:
     uncorrelated = FakeTransport(
         CodexNativeOutcome("accepted", "native-1", identity_correlated=False)
@@ -172,10 +184,9 @@ def test_unknown_liveness_and_uncorrelated_identity_never_claim_success(
     )
 
     launch = adapter(context(tmp_path))
-    wake = adapter(context(tmp_path, job_kind="wake", target_liveness="invented"))
+    wake = adapter(context(tmp_path, job_kind="wake", wake_mode=wake_mode))
 
-    assert launch.result_code == "outcome_unknown"
-    assert launch.native_session_id is None
+    assert (launch.result_code, launch.native_session_id) == ("outcome_unknown", None)
     assert wake.result_code == "failed"
     assert len(uncorrelated.calls) == 1
 
@@ -263,17 +274,17 @@ class FakeAppClient:
 
 
 @pytest.mark.parametrize(
-    "liveness,status,mutation",
+    "wake_mode,status,mutation",
     [
-        ("active", "active", "turn/steer"),
-        ("stale", "idle", "turn/start"),
-        ("ended", "notLoaded", "turn/start"),
+        ("waiting", "active", "turn/steer"),
+        ("idle_timeout", "idle", "turn/start"),
+        ("waiting", "notLoaded", "turn/start"),
     ],
 )
 def test_app_server_uses_exact_status_and_id_with_fake_transport(
     monkeypatch,
     tmp_path: Path,
-    liveness: str,
+    wake_mode: str,
     status: str,
     mutation: str,
 ) -> None:
@@ -286,7 +297,8 @@ def test_app_server_uses_exact_status_and_id_with_fake_transport(
             tmp_path,
             surface="codex-desktop",
             job_kind="wake",
-            target_liveness=liveness,
+            target_liveness="active",
+            wake_mode=wake_mode,
         )
     )[0]
 

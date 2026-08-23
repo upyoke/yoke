@@ -15,6 +15,7 @@ from typing import Callable
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_environment import native_session_environment
+from yoke_harness.session_relay_runtime import wake_operation
 
 
 _MAX_LINE_BYTES = 1024 * 1024
@@ -199,7 +200,11 @@ class CodexCliTransport:
         return self._await_identity(process, request)
 
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome:
-        if request.target_liveness != "ended" or not request.target_session_id:
+        if (
+            wake_operation(request.wake_mode, request.target_liveness)
+            != "message_stopped"
+            or not request.target_session_id
+        ):
             return CodexNativeOutcome("unsupported_surface")
         process = self._spawn(request, resume=True)
         if process is None:

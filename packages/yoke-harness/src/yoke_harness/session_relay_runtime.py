@@ -4,9 +4,35 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Literal, Mapping, cast
 
 from yoke_cli.config import machine_config
+
+
+WakeMode = Literal["waiting", "idle_timeout"]
+WAITING_WAKE_MODE: WakeMode = "waiting"
+IDLE_TIMEOUT_WAKE_MODE: WakeMode = "idle_timeout"
+_WAKE_MODES = frozenset({WAITING_WAKE_MODE, IDLE_TIMEOUT_WAKE_MODE})
+_LIVENESS_OPERATION = {
+    "active": "message_active",
+    "stale": "message_idle",
+    "ended": "message_stopped",
+}
+
+
+def normalize_wake_mode(value: object) -> WakeMode | None:
+    if not isinstance(value, str) or value not in _WAKE_MODES:
+        return None
+    return cast(WakeMode, value)
+
+
+def wake_operation(value: object, target_liveness: object) -> str | None:
+    mode = normalize_wake_mode(value)
+    if mode == WAITING_WAKE_MODE:
+        return "message_stopped"
+    if mode == IDLE_TIMEOUT_WAKE_MODE:
+        return _LIVENESS_OPERATION.get(str(target_liveness or ""))
+    return None
 
 
 @dataclass(frozen=True)
@@ -24,6 +50,7 @@ class RelayExecutionContext:
     requested_model: str | None = None
     presentation: str | None = None
     target_liveness: str | None = None
+    wake_mode: WakeMode | None = None
     launch_attestation: str | None = field(default=None, repr=False)
 
 
@@ -83,6 +110,7 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         target_liveness=(
             str(job["target_liveness"]) if job.get("target_liveness") else None
         ),
+        wake_mode=normalize_wake_mode(job.get("wake_mode")),
         launch_attestation=(
             str(job["launch_attestation"]) if job.get("launch_attestation") else None
         ),
@@ -130,8 +158,13 @@ __all__ = [
     "RelayAdapter",
     "RelayAdapterResult",
     "RelayExecutionContext",
+    "IDLE_TIMEOUT_WAKE_MODE",
+    "WAITING_WAKE_MODE",
+    "WakeMode",
     "execution_context",
+    "normalize_wake_mode",
     "register_relay_adapter",
     "reset_relay_adapters_for_tests",
     "run_registered_job",
+    "wake_operation",
 ]

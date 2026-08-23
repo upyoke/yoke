@@ -9,7 +9,8 @@ from uuid import UUID
 import pytest
 
 from yoke_harness import session_relay_codex_app_server as app_server
-from yoke_harness.session_relay_codex import CodexNativeRequest
+from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_relay_codex_cli import CodexCliTransport
 
 
 SESSION_ID = "01a02ee1-a421-7520-81d5-a085feeac471"
@@ -76,6 +77,7 @@ def _request(
         presentation=None,
         target_liveness=target_liveness,
         target_session_id=SESSION_ID,
+        wake_mode="waiting",
         instruction_id=INSTRUCTION_ID,
         native_instruction=INSTRUCTION,
     )
@@ -85,7 +87,33 @@ def _methods(client: NativeStateClient) -> list[str]:
     return [method for method, _params in client.calls]
 
 
-@pytest.mark.parametrize("scenario", ["claimed-stopped", "chain-pending-stopped"])
+@pytest.mark.parametrize("scenario", ["claim-held-stopped", "chain-pending-stopped"])
+def test_cli_waiting_wake_resumes_active_labeled_session(
+    monkeypatch,
+    tmp_path: Path,
+    scenario: str,
+) -> None:
+    calls = []
+    process = object()
+    transport = CodexCliTransport()
+    monkeypatch.setattr(
+        transport,
+        "_spawn",
+        lambda request, *, resume: calls.append((request, resume)) or process,
+    )
+    monkeypatch.setattr(
+        transport,
+        "_await_identity",
+        lambda *_: CodexNativeOutcome("accepted", SESSION_ID, True),
+    )
+
+    outcome = transport.wake(_request(tmp_path, job_id=scenario))
+
+    assert outcome.state == "accepted"
+    assert calls[0][1] is True
+
+
+@pytest.mark.parametrize("scenario", ["claim-held-stopped", "chain-pending-stopped"])
 def test_active_yoke_session_resumes_native_not_loaded_task(
     monkeypatch,
     tmp_path: Path,

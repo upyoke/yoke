@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_cli.config.machine_config import ConfiguredProject
 from yoke_harness import session_relay
 from yoke_harness import session_relay_inventory as inventory_module
@@ -15,6 +17,33 @@ from yoke_harness.session_relay_schedule import relay_run_lock
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("waiting", "waiting"),
+        ("idle_timeout", "idle_timeout"),
+        (" waiting ", None),
+        ("other", None),
+        (None, None),
+    ],
+)
+def test_execution_context_parses_only_authorized_wake_modes(
+    monkeypatch,
+    tmp_path: Path,
+    raw,
+    expected,
+) -> None:
+    monkeypatch.setattr(
+        runtime.machine_config,
+        "configured_projects",
+        lambda **_kwargs: [ConfiguredProject(tmp_path, 10, {})],
+    )
+
+    context = runtime.execution_context({"project_id": 10, "wake_mode": raw})
+
+    assert context.wake_mode == expected
 
 
 def _inventory() -> RelayInventory:

@@ -44,6 +44,7 @@ def _wake_request(tmp_path: Path) -> CursorWakeRequest:
         target_session_id=SESSION_ID,
         surface_version="2026.08.11-e8db854",
         target_liveness="ended",
+        wake_mode="waiting",
         native_instruction=CHECK_INBOX,
     )
 
@@ -105,6 +106,7 @@ def test_cli_wake_refuses_an_inexact_session_before_spawn(
         target_session_id="not-an-id",
         surface_version=request.surface_version,
         target_liveness=request.target_liveness,
+        wake_mode=request.wake_mode,
         native_instruction=request.native_instruction,
     )
 

@@ -13,17 +13,15 @@ from typing import Any, Callable, Literal, Protocol
 from yoke_harness.session_relay_runtime import (
     RelayAdapter,
     RelayAdapterResult,
+    WakeMode,
+    normalize_wake_mode,
     register_relay_adapter,
+    wake_operation,
 )
 
 
-ADAPTER_REVISION = "codex-relay-v3"
+ADAPTER_REVISION = "codex-relay-v4"
 CODEX_SURFACES = ("codex-cli", "codex-desktop")
-_LIVENESS_OPERATION = {
-    "active": "message_active",
-    "stale": "message_idle",
-    "ended": "message_stopped",
-}
 _MISSING = object()
 
 VersionGate = Callable[[str | None, str | None, str], bool]
@@ -50,9 +48,14 @@ class CodexNativeRequest:
     presentation: str | None
     target_liveness: str | None
     target_session_id: str | None
+    wake_mode: WakeMode | None
     instruction_id: str
     native_instruction: str = field(repr=False)
     launch_attestation: str | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.job_kind == "wake" and normalize_wake_mode(self.wake_mode) is None:
+            raise ValueError("wake instruction has no authorized mode")
 
 
 @dataclass(frozen=True)
@@ -105,21 +108,23 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
         raise ValueError("relay context has no surface version")
     requested_model = _text(_extended(context, "requested_model"))
     presentation = _text(_extended(context, "presentation"))
-    liveness = _text(_extended(context, "target_liveness"))
+    liveness = _text(getattr(context, "target_liveness", None))
     target_session_id = _text(context.target_session_id)
     instruction = str(context.native_instruction or "").strip()
     if not instruction:
         raise ValueError("relay context has no native instruction")
     if context.job_kind == "launch":
         operation = "create"
+        wake_mode = None
         instruction_id = f"launch:{context.job_id}"
         if not _text(context.launch_attestation):
             raise ValueError("launch context has no attestation side channel")
     elif context.job_kind == "wake":
-        operation = _LIVENESS_OPERATION.get(str(liveness or ""), "")
+        wake_mode = normalize_wake_mode(_extended(context, "wake_mode"))
+        operation = wake_operation(wake_mode, liveness)
         message_id = _text(_extended(context, "message_id"))
         if not operation or not target_session_id or not message_id:
-            raise ValueError("wake context has no exact target or liveness")
+            raise ValueError("wake context lacks target, message, or authorized mode")
         instruction_id = f"message:{message_id}:recipient:{target_session_id}"
     else:
         raise ValueError("Codex relay job must be launch or wake")
@@ -134,6 +139,7 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
             presentation=presentation,
             target_liveness=liveness,
             target_session_id=target_session_id,
+            wake_mode=wake_mode,
             instruction_id=instruction_id,
             native_instruction=instruction,
             launch_attestation=_text(context.launch_attestation),
