@@ -194,17 +194,45 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Fleet session discovery, exact peer messaging, and acknowledgment",
+        "purpose": "Discover registered Fleet sessions",
+        "roles": ("main_agent",),
+        "recipe": "yoke sessions list",
+        "notes": (
+            "Copy the full session id and check MESSAGEABLE before selecting a peer."
+        ),
+    },
+    {
+        "topic": "core",
+        "purpose": "Preview and send one exact Fleet message",
         "roles": ("main_agent",),
         "recipe": (
-            "yoke sessions list ; printf '%s\\n' 'MESSAGE' | "
-            "yoke say --session SESSION-ID --stdin ; "
-            "yoke messages acknowledge MESSAGE-ID"
+            "yoke say --preview --session SESSION-ID\n"
+            "printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin"
+        ),
+        "notes": "Run each line separately. Message bodies enter only through stdin.",
+    },
+    {
+        "topic": "core",
+        "purpose": "List and inspect messages for this top-level session",
+        "roles": ("main_agent",),
+        "recipe": (
+            "yoke messages list --recipient-session CURRENT-SESSION-ID "
+            "--state injected\n"
+            "yoke messages get MESSAGE-ID"
         ),
         "notes": (
-            "Use the full copyable session and message IDs. Message bodies enter "
-            "only through stdin. Acknowledge only a message addressed to your "
-            "current top-level session; caller identity resolves ambiently."
+            "CURRENT-SESSION-ID is the registered top-level session running this "
+            "packet. Run each line separately and inspect the addressed recipient."
+        ),
+    },
+    {
+        "topic": "core",
+        "purpose": "Acknowledge an addressed Fleet message after acting",
+        "roles": ("main_agent",),
+        "recipe": "yoke messages acknowledge MESSAGE-ID",
+        "notes": (
+            "Acknowledge only after `yoke messages get` confirms this top-level "
+            "session is the recipient; caller identity resolves ambiently."
         ),
     },
     {

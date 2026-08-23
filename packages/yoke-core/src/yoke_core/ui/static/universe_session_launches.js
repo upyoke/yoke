@@ -28,10 +28,13 @@ function launchCard(documentNode, launch, mutate) {
   const card = el(documentNode, "article", "panel session-launch-card");
   const header = el(documentNode, "div", "panel-header");
   header.appendChild(el(
-    documentNode, "h3", null, launch.launch_id || "session launch",
+    documentNode, "h3", null, "Session launch",
   ));
   card.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
+  body.appendChild(el(
+    documentNode, "code", "session-control-id", launch.launch_id || "—",
+  ));
   body.appendChild(el(
     documentNode,
     "p",
@@ -41,7 +44,10 @@ function launchCard(documentNode, launch, mutate) {
   appendLaunchTimeline(documentNode, body, launch);
   if (launch.registered_session_id) {
     const link = el(
-      documentNode, "a", "session-result-link", launch.registered_session_id,
+      documentNode,
+      "a",
+      "session-result-link",
+      `Open registered session ${launch.registered_session_id}`,
     );
     link.href = "#/sessions/roster";
     body.appendChild(link);
@@ -73,6 +79,13 @@ function launchCard(documentNode, launch, mutate) {
         : {});
     });
     actions.appendChild(reconcile);
+  } else if (RETRYABLE_STATES.has(launch.state)) {
+    body.appendChild(el(
+      documentNode,
+      "p",
+      "session-launch-guidance",
+      "This attempt stopped before registration. Retry starts a new attempt with the same exact request.",
+    ));
   }
   appendAction(
     documentNode, actions, "Cancel",
@@ -168,9 +181,15 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       button.disabled = false;
     }
   };
+  const launchCreated = async (result) => {
+    const launchId = result?.launch?.launch_id || "Session launch";
+    status.hidden = false;
+    status.textContent = `${launchId} created. Tracking registration below.`;
+    await load();
+  };
   create.addEventListener("click", async () => {
     try {
-      await openSessionLaunchDialog(context, dialogHost, projects, load);
+      await openSessionLaunchDialog(context, dialogHost, projects, launchCreated);
     } catch (error) {
       status.hidden = false;
       status.textContent = presentSessionControlFailure(

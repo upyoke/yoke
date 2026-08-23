@@ -21,20 +21,30 @@ SESSION_ROSTER_USAGE = (
     "yoke sessions list [--project P] [--liveness active|stale|ended] "
     "[--limit N] [--session S] [--json]"
 )
+SESSION_ROSTER_HELP = """Find registered top-level sessions and their delivery readiness.
+
+Examples:
+  yoke sessions list --liveness active
+  yoke sessions list --session SESSION-ID
+
+Next: run `yoke say --help` to preview and send a Fleet message."""
 
 
 def session_control_roster_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions list",
-        description=SESSION_ROSTER_USAGE,
+        usage=SESSION_ROSTER_USAGE,
+        description=SESSION_ROSTER_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument(
         "--liveness",
         choices=("active", "stale", "ended"),
         default=None,
+        help="Only show sessions in this liveness state.",
     )
-    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--limit", type=int, default=None, help="Maximum rows.")
     parser.add_argument(
         "--session",
         dest="session_filter",

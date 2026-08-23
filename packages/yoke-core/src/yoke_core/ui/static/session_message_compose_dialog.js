@@ -13,11 +13,11 @@ import {
 } from "./universe_session_control_data.js";
 
 const SELECTOR_FIELDS = [
-  { key: "sessions", wire: "session_ids", label: "Session IDs", group: "anchor" },
-  { key: "items", wire: "item_refs", label: "Item references", group: "anchor" },
-  { key: "epicTasks", wire: "epic_tasks", label: "Epic tasks (ITEM:TASK)", group: "advancedAnchor" },
-  { key: "processes", wire: "process_keys", label: "Process keys", group: "advancedAnchor" },
-  { key: "projects", wire: "projects", label: "Projects", group: "anchor" },
+  { key: "sessions", wire: "session_ids", label: "Session IDs", group: "anchor", example: "One ID per line" },
+  { key: "items", wire: "item_refs", label: "Item references", group: "anchor", example: "For example, PROJECT-123" },
+  { key: "epicTasks", wire: "epic_tasks", label: "Epic tasks (ITEM:TASK)", group: "advancedAnchor", example: "For example, PROJECT-123:4" },
+  { key: "processes", wire: "process_keys", label: "Process keys", group: "advancedAnchor", example: "For example, release-coordination" },
+  { key: "projects", wire: "projects", label: "Projects", group: "anchor", example: "For example, yoke" },
   { key: "executors", wire: "executor_families", label: "Executors", group: "filter" },
   { key: "surfaces", wire: "executor_surfaces", label: "Surfaces", group: "filter" },
   { key: "roles", wire: "work_roles", label: "Work roles", group: "filter" },
@@ -49,7 +49,7 @@ function selectorInput(documentNode, field) {
     `session-control-input session-message-selector-${field.key}`,
   );
   if (tag === "textarea") control.setAttribute("rows", "3");
-  control.placeholder = "Comma, space, or line separated";
+  control.placeholder = field.example || "Comma, space, or line separated";
   return control;
 }
 
@@ -65,17 +65,31 @@ function appendSelectorGroup(documentNode, dialog, fields, group, heading) {
 function renderRecipients(documentNode, host, recipients) {
   host.replaceChildren();
   if (!recipients.length) {
-    host.appendChild(el(documentNode, "p", "sessions-empty", "No recipients resolved."));
+    host.appendChild(el(
+      documentNode,
+      "p",
+      "sessions-empty",
+      "No sessions matched. Check the IDs and filters, then preview again.",
+    ));
     return;
   }
+  host.appendChild(el(
+    documentNode,
+    "p",
+    "session-control-preview-heading",
+    `Exact recipients (${recipients.length})`,
+  ));
   const list = el(documentNode, "ul", "session-message-preview-list");
   for (const recipient of recipients) {
     const resolution = (recipient.resolution || []).join(", ") || "exact";
+    const route = recipient.messageability?.messageable === false
+      ? " · not messageable"
+      : "";
     list.appendChild(el(
       documentNode,
       "li",
       null,
-      `${recipient.session_id} · ${recipient.project} · ${recipient.liveness} · ${resolution}`,
+      `${recipient.session_id} · ${recipient.project} · ${recipient.liveness} · matched by ${resolution}${route}`,
     ));
   }
   host.appendChild(list);
@@ -87,6 +101,14 @@ export function openSessionMessageCompose(context, host, {
   const documentNode = context.document;
   const close = () => clearWorkflowDialog(host);
   const shell = workflowDialogShell(documentNode, host, "Message sessions", close);
+  const help = el(
+    documentNode,
+    "p",
+    "session-control-help",
+    "Choose recipients, preview the exact sessions, then send. Editing anything requires a new preview.",
+  );
+  help.id = "session-message-compose-help";
+  shell.dialog.appendChild(help);
   const fields = {
     universe: el(
       documentNode, "input", "session-control-check session-message-selector-universe",
@@ -99,10 +121,17 @@ export function openSessionMessageCompose(context, host, {
   fields.sessions.value = seedSessionId ? String(seedSessionId) : "";
   fields.universe.type = "checkbox";
   fields.body.setAttribute("rows", "8");
+  fields.body.placeholder = "What should the recipient do?";
+  fields.sessions.setAttribute("aria-describedby", help.id);
+  fields.body.setAttribute("aria-describedby", help.id);
   appendSelectorGroup(
     documentNode, shell.dialog, fields, "anchor", "Recipients",
   );
-  shell.dialog.appendChild(labelledControl(documentNode, "Universe broadcast", fields.universe));
+  shell.dialog.appendChild(labelledControl(
+    documentNode,
+    "Every visible session (exact preview required)",
+    fields.universe,
+  ));
   const advanced = el(documentNode, "details", "session-selector-advanced");
   advanced.appendChild(el(documentNode, "summary", null, "More targeting options"));
   appendSelectorGroup(
@@ -142,7 +171,7 @@ export function openSessionMessageCompose(context, host, {
     const selector = recipientSelector(fields);
     if (!selectorHasAnchor(selector) || !String(fields.body.value || "").trim()) {
       status.hidden = false;
-      status.textContent = "Add at least one recipient anchor and a message.";
+      status.textContent = "Choose at least one recipient and add a message before previewing.";
       return;
     }
     preview.disabled = true;
@@ -157,9 +186,18 @@ export function openSessionMessageCompose(context, host, {
         body: String(fields.body.value),
         confirmationToken: result.confirmation_token || null,
       };
-      renderRecipients(documentNode, recipients, result.recipients || []);
-      status.textContent = `${result.recipient_count || 0} exact recipient(s) resolved.`;
-      send.disabled = Number(result.recipient_count || 0) === 0;
+      const exactRecipients = result.recipients || [];
+      const unroutable = exactRecipients.filter(
+        (recipient) => recipient.messageability?.messageable === false,
+      );
+      const recipientLabel = exactRecipients.length === 1 ? "recipient" : "recipients";
+      const blockedLabel = unroutable.length === 1 ? "session" : "sessions";
+      renderRecipients(documentNode, recipients, exactRecipients);
+      status.textContent = unroutable.length
+        ? `${exactRecipients.length} exact ${recipientLabel} resolved; ${unroutable.length} ${blockedLabel} cannot receive Fleet messages. Choose a session marked Messageable in the roster.`
+        : `${result.recipient_count || 0} exact ${recipientLabel} resolved.`;
+      send.disabled = Number(result.recipient_count || 0) === 0
+        || unroutable.length > 0;
     } catch (error) {
       status.textContent = presentSessionControlFailure(
         error, "Recipients could not be previewed.",

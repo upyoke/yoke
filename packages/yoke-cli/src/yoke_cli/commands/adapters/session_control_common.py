@@ -40,13 +40,23 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         "process_keys": "Claimed process key (repeatable).",
         "projects": "Project slug or id (repeatable).",
     }
+    filter_help = {
+        "executor_families": "Keep recipients from this executor family (repeatable).",
+        "executor_surfaces": "Keep recipients on this exact surface (repeatable).",
+        "work_roles": "Keep recipients with this work role (repeatable).",
+        "execution_lanes": "Keep recipients in this execution lane (repeatable).",
+        "worktree_lanes": "Keep recipients on this worktree or branch (repeatable).",
+        "machine_ids": "Keep recipients on this machine (repeatable).",
+        "liveness": "Keep recipients in this liveness state (repeatable).",
+        "exclude_session_ids": "Remove this exact session from the result (repeatable).",
+    }
     for dest, flag in SELECTOR_ARGUMENTS:
         parser.add_argument(
             flag,
             dest=dest,
             action="append",
             default=[],
-            help=anchor_help.get(dest, "Recipient filter (repeatable)."),
+            help=anchor_help.get(dest) or filter_help[dest],
         )
     parser.add_argument(
         "--universe",

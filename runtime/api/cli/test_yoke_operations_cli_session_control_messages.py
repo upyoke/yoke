@@ -254,6 +254,41 @@ def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
         assert body not in rendered
         assert "DO-NOT-LEAK" not in rendered
         assert "body_sha256" not in rendered
+        if heading == "MESSAGE":
+            assert (
+                f"Recipient next step: yoke messages acknowledge {FULL_MESSAGE_ID}"
+                in rendered
+            )
+
+
+def test_say_help_teaches_the_complete_top_level_workflow(capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        messages.say(["--help"])
+
+    assert exit_info.value.code == 0
+    rendered = capsys.readouterr().out
+    assert "yoke sessions list --liveness active" in rendered
+    assert "yoke say --preview --session SESSION-ID" in rendered
+    assert "yoke say --session SESSION-ID --stdin" in rendered
+    assert "yoke messages acknowledge MESSAGE-ID" in rendered
+    assert "subagents report through their harness-native parent channel" in rendered
+
+
+def test_sent_message_output_points_to_its_delivery_receipt() -> None:
+    response = type(
+        "Response",
+        (),
+        {
+            "result": {
+                "message_id": FULL_MESSAGE_ID,
+                "recipient_count": 0,
+                "recipients": [],
+            }
+        },
+    )()
+    output = io.StringIO()
+    messages.write_message_result(response, output, io.StringIO())
+    assert f"Track delivery: yoke messages get {FULL_MESSAGE_ID}" in output.getvalue()
 
 
 def test_message_list_has_an_explicit_empty_state() -> None:

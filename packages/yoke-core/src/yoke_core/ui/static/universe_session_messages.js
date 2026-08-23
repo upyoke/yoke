@@ -2,12 +2,23 @@ import { el } from "./universe_view_support.js";
 import { pillFamilyForState } from "./universe_state_pills.js";
 import { openSessionMessageCompose } from "./session_message_compose_dialog.js";
 import {
+  formatSessionControlTime,
   presentSessionControlFailure,
   renderSessionControlFailure,
   scopedProjectRefs,
   sessionControlCall,
   statusRegion,
 } from "./universe_session_control_data.js";
+
+const MESSAGE_EXCERPT_CHARACTERS = 90;
+
+function messageExcerpt(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "Message body unavailable";
+  return text.length <= MESSAGE_EXCERPT_CHARACTERS
+    ? text
+    : `${text.slice(0, MESSAGE_EXCERPT_CHARACTERS - 1)}…`;
+}
 
 function messageState(message) {
   if (message.cancelled_at) return "cancelled";
@@ -40,7 +51,7 @@ function receiptList(documentNode, message) {
     } else if (wakes) {
       delivery = `${wakes} wake attempt${wakes === 1 ? "" : "s"}`;
     } else if (recipient.wake_after) {
-      delivery = `wake scheduled ${recipient.wake_after}`;
+      delivery = `wake scheduled ${formatSessionControlTime(recipient.wake_after)}`;
     }
     list.appendChild(el(
       documentNode,
@@ -55,6 +66,38 @@ function receiptList(documentNode, message) {
     ));
   }
   return list;
+}
+
+function messageIdentityCell(documentNode, message) {
+  const cell = el(documentNode, "td", "session-message-summary");
+  cell.appendChild(el(
+    documentNode, "strong", "session-message-excerpt", messageExcerpt(message.body),
+  ));
+  if (message.sender_session_id) {
+    cell.appendChild(el(
+      documentNode,
+      "span",
+      "session-message-sender",
+      `From ${message.sender_session_id}`,
+    ));
+  }
+  cell.appendChild(el(
+    documentNode, "code", "session-control-id", String(message.message_id || "—"),
+  ));
+  return cell;
+}
+
+function appendMessageGuide(documentNode, host) {
+  const guide = el(documentNode, "details", "session-control-guide");
+  guide.appendChild(el(documentNode, "summary", null, "How Fleet messaging works"));
+  const steps = el(documentNode, "ol");
+  for (const step of [
+    "Find a registered session in the roster and confirm it is Messageable.",
+    "Compose the message and preview the exact recipients before sending.",
+    "The recipient acts, then acknowledges; this page records delivery and wake attempts.",
+  ]) steps.appendChild(el(documentNode, "li", null, step));
+  guide.appendChild(steps);
+  host.appendChild(guide);
 }
 
 function inProjectScope(message, projects) {
@@ -72,14 +115,25 @@ function renderMessages(documentNode, host, messages, cancelMessage) {
     return;
   }
   const table = el(documentNode, "table", "items session-control-table");
+  table.appendChild(el(
+    documentNode,
+    "caption",
+    "session-control-table-caption",
+    "Message delivery and acknowledgement receipts",
+  ));
+  const tableHead = el(documentNode, "thead");
   const heading = el(documentNode, "tr");
   for (const label of ["Message", "State", "Receipts", "Created", "Action"]) {
-    heading.appendChild(el(documentNode, "th", null, label));
+    const header = el(documentNode, "th", null, label);
+    header.setAttribute("scope", "col");
+    heading.appendChild(header);
   }
-  table.appendChild(heading);
+  tableHead.appendChild(heading);
+  table.appendChild(tableHead);
+  const tableBody = el(documentNode, "tbody");
   for (const message of messages) {
     const row = el(documentNode, "tr");
-    row.appendChild(el(documentNode, "td", "session-control-id", message.message_id));
+    row.appendChild(messageIdentityCell(documentNode, message));
     const stateCell = el(documentNode, "td");
     const state = messageState(message);
     stateCell.appendChild(statePill(documentNode, state));
@@ -87,16 +141,20 @@ function renderMessages(documentNode, host, messages, cancelMessage) {
     const receipt = el(documentNode, "td");
     receipt.appendChild(receiptList(documentNode, message));
     row.appendChild(receipt);
-    row.appendChild(el(documentNode, "td", null, String(message.created_at || "")));
+    row.appendChild(el(
+      documentNode, "td", null, formatSessionControlTime(message.created_at),
+    ));
     const action = el(documentNode, "td");
     const cancel = el(documentNode, "button", "item-button", "Cancel");
     cancel.type = "button";
     cancel.disabled = state === "cancelled" || state === "expired";
+    cancel.setAttribute("aria-label", `Cancel message ${message.message_id}`);
     cancel.addEventListener("click", () => cancelMessage(message.message_id, cancel));
     action.appendChild(cancel);
     row.appendChild(action);
-    table.appendChild(row);
+    tableBody.appendChild(row);
   }
+  table.appendChild(tableBody);
   host.appendChild(table);
 }
 
@@ -112,6 +170,7 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
   const actions = el(documentNode, "div", "session-control-actions");
   actions.appendChild(compose);
   view.appendChild(actions);
+  appendMessageGuide(documentNode, view);
   view.appendChild(status);
   view.appendChild(content);
   view.appendChild(dialogHost);
