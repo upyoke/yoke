@@ -134,7 +134,9 @@ def test_wake_selects_only_the_authorized_liveness_primitive(
     assert selected.calls[0][1].target_session_id == "native-1"
 
 
-def test_missing_shared_context_and_rejected_version_fail_closed(tmp_path: Path) -> None:
+def test_missing_shared_context_and_rejected_version_fail_closed(
+    tmp_path: Path,
+) -> None:
     cli = FakeTransport()
     adapter = build_codex_relay_adapter(
         cli_transport=cli,
@@ -178,7 +180,9 @@ def test_unknown_liveness_and_uncorrelated_identity_never_claim_success(
 def test_transport_exception_is_bounded_and_redacted(tmp_path: Path) -> None:
     class ExplodingTransport(FakeTransport):
         def create(self, request: CodexNativeRequest) -> CodexNativeOutcome:
-            raise RuntimeError(f"{request.native_instruction} {request.launch_attestation}")
+            raise RuntimeError(
+                f"{request.native_instruction} {request.launch_attestation}"
+            )
 
     adapter = build_codex_relay_adapter(
         cli_transport=ExplodingTransport(),
@@ -194,11 +198,25 @@ def test_transport_exception_is_bounded_and_redacted(tmp_path: Path) -> None:
     assert INSTRUCTION not in repr(result)
 
 
-def test_cli_side_channel_never_places_attestation_in_argv(tmp_path: Path) -> None:
+def test_cli_side_channel_never_inherits_parent_session(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("YOKE_SESSION_ID", "parent-yoke-session")
+    monkeypatch.setenv("CODEX_SESSION_ID", "parent-codex-session")
+    monkeypatch.setenv("CODEX_THREAD_ID", "parent-codex-thread")
+    monkeypatch.setenv("YOKE_EXECUTOR_VERSION", "parent-version")
     request = adapter_module._request(context(tmp_path))[0]
     env = _launch_environment(request)
     command = _base_command("/opt/codex", request) + [request.native_instruction]
 
+    assert "YOKE_SESSION_ID" not in env
+    assert "CODEX_SESSION_ID" not in env
+    assert "CODEX_THREAD_ID" not in env
+    assert env["YOKE_EXECUTOR"] == "codex"
+    assert env["YOKE_EXECUTOR_VERSION"] == "0.148.0-alpha.15"
+    assert env["YOKE_PROVIDER"] == "openai"
+    assert env["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"] == "codex-cli"
     assert json.loads(env[LAUNCH_CONTEXT_ENV]) == {
         "launch_id": "launch-1",
         "attestation": SECRET,
@@ -257,7 +275,9 @@ def test_app_server_uses_exact_status_and_id_with_fake_transport(
     mutation: str,
 ) -> None:
     client = FakeAppClient(status)
-    monkeypatch.setattr(app_module.CodexAppServerTransport, "_client", lambda *_: client)
+    monkeypatch.setattr(
+        app_module.CodexAppServerTransport, "_client", lambda *_: client
+    )
     request = adapter_module._request(
         context(
             tmp_path,
@@ -272,7 +292,9 @@ def test_app_server_uses_exact_status_and_id_with_fake_transport(
     assert outcome.state == "accepted"
     assert outcome.identity_correlated is True
     assert mutation in [method for method, _params in client.calls]
-    mutation_params = next(params for method, params in client.calls if method == mutation)
+    mutation_params = next(
+        params for method, params in client.calls if method == mutation
+    )
     assert INSTRUCTION in repr(mutation_params)
     assert SECRET not in repr(mutation_params)
 
@@ -282,10 +304,10 @@ def test_app_server_create_requires_vendor_thread_session_equality(
     tmp_path: Path,
 ) -> None:
     client = FakeAppClient("idle", exact_identity=False)
-    monkeypatch.setattr(app_module.CodexAppServerTransport, "_client", lambda *_: client)
-    request = adapter_module._request(
-        context(tmp_path, surface="codex-desktop")
-    )[0]
+    monkeypatch.setattr(
+        app_module.CodexAppServerTransport, "_client", lambda *_: client
+    )
+    request = adapter_module._request(context(tmp_path, surface="codex-desktop"))[0]
 
     outcome = app_module.CodexAppServerTransport().create(request)
 

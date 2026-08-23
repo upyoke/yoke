@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +15,7 @@ from yoke_harness.session_relay_claude import (
     run_claude_process,
     unsupported_claude_route,
 )
+from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness import session_relay_claude as claude_module
 
 
@@ -295,11 +297,17 @@ def test_native_process_runner_discards_stdout_and_stderr(monkeypatch) -> None:
     monotonic = iter((10.0, 10.012))
     monkeypatch.setattr(claude_module.subprocess, "run", fake_run)
     monkeypatch.setattr(claude_module.time, "monotonic", lambda: next(monotonic))
+    monkeypatch.setenv("CODEX_SESSION_ID", "parent-session")
+    monkeypatch.setenv("CODEX_THREAD_ID", "parent-thread")
+    monkeypatch.setenv("YOKE_EXECUTOR", "codex")
     invocation = ClaudeNativeInvocation(
         CLAUDE,
         Path("/project"),
         LAUNCH_ID,
+        "2.1.238",
         BOOTSTRAP,
+        launch_id=LAUNCH_ID,
+        launch_attestation="secret-attestation",
     )
 
     result = run_claude_process(invocation)
@@ -308,5 +316,16 @@ def test_native_process_runner_discards_stdout_and_stderr(monkeypatch) -> None:
     assert calls[0][1]["stdin"] is claude_module.subprocess.DEVNULL
     assert calls[0][1]["stdout"] is claude_module.subprocess.DEVNULL
     assert calls[0][1]["stderr"] is claude_module.subprocess.DEVNULL
+    environment = calls[0][1]["env"]
+    assert "CODEX_SESSION_ID" not in environment
+    assert "CODEX_THREAD_ID" not in environment
+    assert environment["YOKE_EXECUTOR"] == "claude-code"
+    assert environment["YOKE_EXECUTOR_VERSION"] == "2.1.238"
+    assert environment["YOKE_PROVIDER"] == "anthropic"
+    assert environment["CLAUDE_CODE_ENTRYPOINT"] == "cli"
+    assert json.loads(environment[LAUNCH_CONTEXT_ENV]) == {
+        "launch_id": LAUNCH_ID,
+        "attestation": "secret-attestation",
+    }
     assert result.returncode == 0
     assert result.duration_ms == 12

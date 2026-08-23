@@ -54,6 +54,9 @@ def test_cli_create_uses_empty_chat_then_exact_headless_resume(
 ) -> None:
     calls = []
     spawns = []
+    monkeypatch.setenv("CODEX_SESSION_ID", "parent-session")
+    monkeypatch.setenv("CODEX_THREAD_ID", "parent-thread")
+    monkeypatch.setenv("YOKE_EXECUTOR", "codex")
     monkeypatch.setattr(cli_module.shutil, "which", lambda _name: "/opt/cursor-agent")
 
     def run(command, **kwargs):
@@ -77,6 +80,12 @@ def test_cli_create_uses_empty_chat_then_exact_headless_resume(
     assert command[-1] == BOOTSTRAP
     assert "--model" in command
     assert ATTESTATION not in repr(command)
+    assert "CODEX_SESSION_ID" not in calls[0][1]["env"]
+    assert "CODEX_THREAD_ID" not in options["env"]
+    assert options["env"]["YOKE_EXECUTOR"] == "cursor"
+    assert options["env"]["YOKE_EXECUTOR_VERSION"] == "2026.08.11-e8db854"
+    assert options["env"]["YOKE_PROVIDER"] == "cursor"
+    assert options["env"]["CURSOR_INVOKED_AS"] == "cursor-agent"
     assert json.loads(options["env"][LAUNCH_CONTEXT_ENV]) == {
         "launch_id": LAUNCH_ID,
         "attestation": ATTESTATION,
@@ -129,7 +138,7 @@ def test_acp_idle_wake_loads_and_prompts_the_exact_session(
 ) -> None:
     client = FakeAcpClient()
     transport = CursorAcpTransport()
-    monkeypatch.setattr(transport, "_client", lambda _checkout: client)
+    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
 
     result = transport.prompt_session(_wake_request(tmp_path))
 

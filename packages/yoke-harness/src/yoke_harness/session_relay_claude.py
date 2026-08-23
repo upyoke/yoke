@@ -14,6 +14,7 @@ from yoke_harness.session_relay_runtime import (
     RelayAdapterResult,
     RelayExecutionContext,
 )
+from yoke_harness.session_relay_environment import native_session_environment
 
 
 CLAUDE_ADAPTER_REVISION = "claude-native-v1"
@@ -29,9 +30,12 @@ class ClaudeNativeInvocation:
     executable: str
     cwd: Path
     session_id: str
+    surface_version: str
     instruction: str = field(repr=False)
     resume: bool = False
     model: str | None = None
+    launch_id: str | None = None
+    launch_attestation: str | None = field(default=None, repr=False)
 
     @property
     def argv(self) -> tuple[str, ...]:
@@ -73,9 +77,18 @@ def discover_claude_cli(
 def run_claude_process(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
     """Run one documented background command without retaining native output."""
     started = time.monotonic()
+    environment = native_session_environment(
+        executor="claude-code",
+        executor_version=invocation.surface_version,
+        provider="anthropic",
+        markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
+        launch_id=invocation.launch_id,
+        launch_attestation=invocation.launch_attestation,
+    )
     completed = subprocess.run(
         list(invocation.argv),
         cwd=invocation.cwd,
+        env=environment,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -195,8 +208,11 @@ def _launch_invocation(
         executable,
         context.checkout,
         native_session_id,
+        str(context.surface_version),
         instruction,
         model=model,
+        launch_id=context.job_id,
+        launch_attestation=attestation,
     )
 
 
@@ -212,6 +228,7 @@ def _wake_invocation(
         executable,
         context.checkout,
         session_id,
+        str(context.surface_version),
         instruction,
         resume=True,
     )

@@ -14,6 +14,7 @@ from typing import Callable
 
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
+from yoke_harness.session_relay_environment import native_session_environment
 
 
 _MAX_LINE_BYTES = 1024 * 1024
@@ -30,18 +31,14 @@ def _default_identity_resolver(
 
 
 def _launch_environment(request: CodexNativeRequest) -> dict[str, str]:
-    env = dict(os.environ)
-    env["YOKE_EXECUTOR"] = "codex"
-    env["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"] = request.surface
-    if request.job_kind == "launch" and request.launch_attestation:
-        env[LAUNCH_CONTEXT_ENV] = json.dumps(
-            {
-                "launch_id": request.job_id,
-                "attestation": request.launch_attestation,
-            },
-            separators=(",", ":"),
-        )
-    return env
+    return native_session_environment(
+        executor="codex",
+        executor_version=request.surface_version,
+        provider="openai",
+        markers={"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": request.surface},
+        launch_id=request.job_id if request.job_kind == "launch" else None,
+        launch_attestation=request.launch_attestation,
+    )
 
 
 def _base_command(binary: str, request: CodexNativeRequest) -> list[str]:

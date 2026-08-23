@@ -13,12 +13,12 @@ import time
 from typing import Any
 from uuid import UUID
 
-from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import (
     CursorCreateRequest,
     CursorNativeResult,
     CursorWakeRequest,
 )
+from yoke_harness.session_relay_environment import native_session_environment
 
 
 CURSOR_ACP_TIMEOUT_SECONDS = 20.0
@@ -30,19 +30,18 @@ class CursorAcpError(RuntimeError):
     """The closed ACP exchange could not prove its requested boundary."""
 
 
-def _environment(request: CursorCreateRequest | None = None) -> dict[str, str]:
-    env = dict(os.environ)
-    env["YOKE_EXECUTOR"] = "cursor"
-    env["CURSOR_INVOKED_AS"] = "cursor-agent"
-    if request is not None:
-        env[LAUNCH_CONTEXT_ENV] = json.dumps(
-            {
-                "launch_id": request.launch_id,
-                "attestation": request.launch_attestation,
-            },
-            separators=(",", ":"),
-        )
-    return env
+def _environment(
+    request: CursorCreateRequest | CursorWakeRequest,
+) -> dict[str, str]:
+    launch = request if isinstance(request, CursorCreateRequest) else None
+    return native_session_environment(
+        executor="cursor",
+        executor_version=request.surface_version,
+        provider="cursor",
+        markers={"CURSOR_INVOKED_AS": "cursor-agent"},
+        launch_id=launch.launch_id if launch else None,
+        launch_attestation=launch.launch_attestation if launch else None,
+    )
 
 
 def _session_id(value: object) -> str | None:
@@ -240,7 +239,7 @@ class CursorAcpTransport:
     def _client(
         self,
         checkout: Path,
-        request: CursorCreateRequest | None = None,
+        request: CursorCreateRequest | CursorWakeRequest,
     ) -> _Client:
         client = _Client(self.binary, checkout, _environment(request), self.timeout)
         try:
@@ -292,7 +291,7 @@ class CursorAcpTransport:
         client: _Client | None = None
         loaded = False
         try:
-            client = self._client(request.checkout)
+            client = self._client(request.checkout, request)
             params = _session_params(request.checkout)
             params["sessionId"] = request.target_session_id
             client.request("session/load", params)
