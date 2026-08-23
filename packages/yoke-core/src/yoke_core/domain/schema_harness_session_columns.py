@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.schema_common import _add_column_if_not_exists
+from yoke_core.domain.session_turn_posture import (
+    TURN_POSTURE_AT_COLUMN_DDL,
+    TURN_POSTURE_COLUMN_DDL,
+)
 
 
 def apply_harness_session_columns(conn: Any) -> None:
@@ -27,6 +31,8 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("pending_resume_notice", "TEXT DEFAULT NULL"),
         ("last_chain_step", "INTEGER DEFAULT NULL"),
         ("last_checkpoint_at", "TEXT DEFAULT NULL"),
+        ("turn_posture", TURN_POSTURE_COLUMN_DDL),
+        ("turn_posture_at", TURN_POSTURE_AT_COLUMN_DDL),
     ):
         _add_column_if_not_exists(conn, "harness_sessions", column, ddl)
     conn.commit()

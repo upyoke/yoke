@@ -3,25 +3,23 @@
 from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
-import uuid
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_relay_evidence import (
     redacted_evidence,
     redacted_evidence_document,
 )
+from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from yoke_core.domain.session_relay_storage import (
     clear_relay_job,
     mark_relay_job,
     marker,
     require_relay_lease,
-    shifted,
 )
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     RelayJob,
     SessionRelayError,
-    WAKE_LEASE_SECONDS,
 )
 from yoke_core.domain.session_relay_versions import wake_candidate_supported
 
@@ -160,46 +158,21 @@ def claim_wake_job(
     session_id = str(selected["session_id"])
     project_id = int(selected["project_id"])
     surface = str(selected["executor_surface"])
-    attempt_id = str(uuid.uuid4())
-    lease_id = str(uuid.uuid4())
-    lease_expires_at = shifted(now, seconds=WAKE_LEASE_SECONDS)
-    p = marker(conn)
-    updated = conn.execute(
-        "UPDATE session_message_recipients SET wake_attempt_count="
-        "wake_attempt_count+1,last_wake_at=" + p + " "
-        f"WHERE message_id={p} AND session_id={p} AND state='pending'",
-        (now, message_id, session_id),
-    )
-    if updated.rowcount != 1:
-        conn.rollback()
+    claim = claim_wake_attempt(conn, candidate=selected, now=now)
+    if claim is None:
         return None
-    conn.execute(
-        "INSERT INTO session_message_attempts "
-        "(attempt_id,message_id,target_session_id,attempt_kind,lease_id,"
-        "started_at,evidence) "
-        f"VALUES ({','.join(p for _ in range(7))})",
-        (
-            attempt_id,
-            message_id,
-            session_id,
-            "wake_relay",
-            lease_id,
-            now,
-            redacted_evidence(None),
-        ),
-    )
     mark_relay_job(
         conn,
         relay_id=heartbeat.relay_id,
-        lease_id=lease_id,
-        lease_expires_at=lease_expires_at,
+        lease_id=claim.lease_id,
+        lease_expires_at=claim.lease_expires_at,
         now=now,
     )
     conn.commit()
     return RelayJob(
         job_kind="wake",
-        job_id=attempt_id,
-        lease_id=lease_id,
+        job_id=claim.attempt_id,
+        lease_id=claim.lease_id,
         machine_id=heartbeat.machine_id,
         surface=str(surface),
         surface_version=str(heartbeat.surface_versions[surface]),

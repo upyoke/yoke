@@ -78,6 +78,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             executor TEXT, executor_surface TEXT, executor_version TEXT,
             machine_id TEXT, execution_lane TEXT, last_heartbeat TEXT,
             last_tool_call_at TEXT, offered_at TEXT, ended_at TEXT,
+            turn_posture TEXT NOT NULL DEFAULT 'unknown', turn_posture_at TEXT,
             model TEXT
         );
         CREATE TABLE work_claims (

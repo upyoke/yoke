@@ -14,6 +14,7 @@ from yoke_core.domain.session_message_delivery import (
 )
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.domain.session_turn_posture import stamp_turn_posture
 from runtime.api.domain.test_session_message_support import (
     NOW,
     NOW_TEXT,
@@ -203,6 +204,62 @@ def test_wake_eligibility_keys_off_hook_activity_and_excludes_live_injected() ->
 
     stale = wake_eligible_recipients(conn, now=NOW + timedelta(hours=3))
     assert [row["message_id"] for row in stale] == [message_id]
+
+
+def test_waiting_pending_receipt_bypasses_idle_grace_without_an_injection_lease() -> (
+    None
+):
+    conn = message_connection()
+    stamp_turn_posture(
+        conn,
+        session_id="s1",
+        posture="waiting",
+        observed_at=NOW - timedelta(seconds=1),
+    )
+    conn.commit()
+    message_id = _send(conn)
+
+    rows = wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1))
+
+    assert [row["message_id"] for row in rows] == [message_id]
+
+
+def test_running_unknown_and_injected_receipts_keep_existing_idle_grace() -> None:
+    for posture in ("running", "unknown"):
+        conn = message_connection()
+        _send(conn)
+        conn.execute(
+            "UPDATE harness_sessions SET turn_posture=? WHERE session_id='s1'",
+            (posture,),
+        )
+        conn.commit()
+        assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
+
+    conn = message_connection()
+    _send(conn)
+    conn.execute("UPDATE harness_sessions SET turn_posture='waiting'")
+    conn.execute("UPDATE session_message_recipients SET state='injected'")
+    conn.commit()
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
+
+
+def test_waiting_receipt_with_injection_lease_does_not_wake_immediately() -> None:
+    conn = message_connection()
+    _send(conn)
+    conn.execute("UPDATE harness_sessions SET turn_posture='waiting'")
+    conn.execute(
+        "UPDATE session_message_recipients SET injection_lease_id='hook-lease',"
+        "injection_lease_expires_at='2026-08-22T16:01:00Z'"
+    )
+    conn.commit()
+
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
+    conn.execute(
+        "UPDATE session_message_recipients SET "
+        "injection_lease_expires_at='2026-08-22T15:59:59Z'"
+    )
+    conn.commit()
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
 
 
 def test_reinjection_policy_disables_both_repeat_hook_and_injected_wake() -> None:

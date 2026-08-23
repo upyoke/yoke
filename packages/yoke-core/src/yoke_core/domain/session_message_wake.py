@@ -41,19 +41,25 @@ def wake_eligible_recipients(
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
-            "hs.last_tool_call_at,hs.ended_at FROM session_message_recipients r "
+            "hs.last_tool_call_at,hs.ended_at,hs.turn_posture "
+            "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
             "WHERE r.state IN ('pending','injected') AND m.cancelled_at IS NULL "
-            "AND r.wake_after<="
+            "AND (r.wake_after<="
             + marker
-            + " AND m.expires_at>"
+            + " OR (r.state='pending' AND hs.turn_posture='waiting' "
+            "AND r.injection_lease_id IS NULL)) AND m.expires_at>"
             + marker
             + " AND (r.injection_lease_id IS NULL OR ("
             "r.injection_lease_expires_at IS NOT NULL "
             "AND r.injection_lease_expires_at<="
             + marker
-            + "))"
+            + ")) AND NOT EXISTS (SELECT 1 FROM session_message_attempts a "
+            "WHERE a.message_id=r.message_id "
+            "AND a.target_session_id=r.session_id "
+            "AND a.attempt_kind IN ('wake_relay','wake_broker') "
+            "AND a.completed_at IS NULL)"
             + " ORDER BY r.wake_after,r.message_id,r.session_id",
             (timestamp(current), timestamp(current), timestamp(current)),
         ).fetchall()
@@ -76,7 +82,12 @@ def wake_eligible_recipients(
             activity = latest_hook_activity(row)
             if activity is not None and activity <= created_at:
                 activity = None
-            if not wake_eligible(
+            waiting_immediate = (
+                row["state"] == "pending"
+                and row.get("turn_posture") == "waiting"
+                and row.get("injection_lease_id") is None
+            )
+            if not waiting_immediate and not wake_eligible(
                 recipient_state=str(row["state"]),
                 liveness=liveness,
                 recipient_created_at=created_at,
@@ -96,6 +107,8 @@ def wake_eligible_recipients(
                     "executor_version": row["executor_version"],
                     "state": str(row["state"]),
                     "liveness": liveness,
+                    "wake_attempt_count": int(row["wake_attempt_count"] or 0),
+                    "last_wake_at": row["last_wake_at"],
                 }
             )
         conn.commit()

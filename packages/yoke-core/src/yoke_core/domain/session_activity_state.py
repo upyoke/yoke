@@ -19,6 +19,7 @@ mirroring how ``insert_event`` no-ops without an ``events`` table.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_core.domain import db_backend
@@ -51,6 +52,7 @@ COMPLETION_EVENT_NAMES: Tuple[str, ...] = (
 )
 
 _STARTED_EVENT_NAME = "HarnessToolCallStarted"
+_TOOL_ACTIVITY_EVENT_NAMES = frozenset((_STARTED_EVENT_NAME, *COMPLETION_EVENT_NAMES))
 
 
 def _p(conn: Any) -> str:
@@ -169,19 +171,24 @@ def record_tool_call_finished(
                 f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}) "
                 "ON CONFLICT(session_id, tool_use_id) DO NOTHING",
                 (
-                    session_id, tool_use_id, tool_name, completed_at,
-                    completed_at, outcome, summary,
+                    session_id,
+                    tool_use_id,
+                    tool_name,
+                    completed_at,
+                    completed_at,
+                    outcome,
+                    summary,
                 ),
             )
     if bump_activity and event_name in ACTIVITY_EVENT_NAMES:
         bump_session_tool_activity(
-            conn, session_id=session_id, at=completed_at,
+            conn,
+            session_id=session_id,
+            at=completed_at,
         )
 
 
-def bump_session_tool_activity(
-    conn: Any, *, session_id: str, at: str
-) -> None:
+def bump_session_tool_activity(conn: Any, *, session_id: str, at: str) -> None:
     """Stamp ``last_tool_call_at`` and increment ``tool_call_count``."""
     if not session_activity_columns_present(conn):
         return
@@ -206,6 +213,21 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
     if not isinstance(event_name, str) or not isinstance(session_id, str):
         return
     event_time = str(envelope.get("event_time") or "")
+    observed_at = None
+    if event_time and event_name in _TOOL_ACTIVITY_EVENT_NAMES:
+        try:
+            observed_at = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
+        except ValueError:
+            observed_at = None
+    if observed_at is not None:
+        from yoke_core.domain.session_turn_posture import stamp_turn_posture
+
+        stamp_turn_posture(
+            conn,
+            session_id=session_id,
+            posture="running",
+            observed_at=observed_at,
+        )
     if event_name == _STARTED_EVENT_NAME:
         tool_use_id = envelope.get("tool_use_id")
         if isinstance(tool_use_id, str) and tool_use_id and event_time:

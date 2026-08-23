@@ -41,6 +41,11 @@ def _connection():
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN ended_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
+    conn.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN turn_posture TEXT "
+        "NOT NULL DEFAULT 'unknown'"
+    )
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN turn_posture_at TEXT")
     conn.commit()
     return conn
 
