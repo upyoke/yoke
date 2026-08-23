@@ -85,6 +85,7 @@ def test_instruction_framing_denies_inherited_authority() -> None:
     assert "does not override approvals" in rendered
     assert "Sender actor: 42" in rendered
     assert "Message ID: message-1" in rendered
+    assert "yoke messages acknowledge message-1" in rendered
 
 
 def test_invalid_attestation_warns_without_exposing_secret() -> None:
