@@ -32,8 +32,27 @@ def _one_session(
     return matches[0]
 
 
+def _read_session(
+    client: CommandClient,
+    *,
+    project: str,
+    session_id: str,
+    surface: str,
+    missing_code: str,
+) -> dict[str, Any]:
+    result = client.call(
+        ["sessions", "list", "--project", project, "--session", session_id]
+    )
+    return _one_session(
+        result.get("rows"),
+        session_id=session_id,
+        surface=surface,
+        missing_code=missing_code,
+    )
+
+
 def _validate_broker(
-    rows: Any,
+    client: CommandClient,
     *,
     project: str,
     cell: AcceptanceCell,
@@ -41,8 +60,9 @@ def _validate_broker(
 ) -> None:
     if cell.route != "broker":
         return
-    broker = _one_session(
-        rows,
+    broker = _read_session(
+        client,
+        project=project,
         session_id=str(cell.broker_session_id),
         surface=cell.surface,
         missing_code="broker_registration_missing",
@@ -64,11 +84,11 @@ def validated_registration(
     project: str,
     cell: AcceptanceCell,
     session_id: str,
+    allow_ended: bool = False,
 ) -> dict[str, Any]:
-    result = client.call(["sessions", "list", "--project", project, "--limit", "500"])
-    rows = result.get("rows")
-    row = _one_session(
-        rows,
+    row = _read_session(
+        client,
+        project=project,
         session_id=session_id,
         surface=cell.surface,
         missing_code="registration_missing",
@@ -89,10 +109,40 @@ def validated_registration(
         raise AcceptanceContractError(
             "registration_model_mismatch", surface=cell.surface
         )
-    if row.get("liveness") != "active":
+    liveness = row.get("liveness")
+    if liveness != "active" and not (allow_ended and liveness == "ended"):
         raise AcceptanceContractError("registration_not_active", surface=cell.surface)
-    _validate_broker(rows, project=project, cell=cell, target=row)
+    _validate_broker(client, project=project, cell=cell, target=row)
     return row
 
 
-__all__ = ["validated_registration"]
+def waiting_registration_ready(row: dict[str, Any], *, cell: AcceptanceCell) -> bool:
+    """Accept the narrow CLI Stop terminal shape after an active observation."""
+    if row.get("liveness") == "active":
+        return row.get("turn_posture") == "waiting"
+    if row.get("liveness") != "ended":
+        raise AcceptanceContractError("waiting_liveness_invalid", surface=cell.surface)
+    if not cell.surface.endswith("-cli"):
+        raise AcceptanceContractError(
+            "ended_waiting_cli_required", surface=cell.surface
+        )
+    if row.get("mode") != "wait":
+        raise AcceptanceContractError(
+            "ended_waiting_mode_invalid", surface=cell.surface
+        )
+    if not row.get("ended_at"):
+        raise AcceptanceContractError(
+            "ended_waiting_stamp_missing", surface=cell.surface
+        )
+    if "claims" not in row or row["claims"] != []:
+        raise AcceptanceContractError(
+            "ended_waiting_claims_present", surface=cell.surface
+        )
+    if "current_item" not in row or row["current_item"] is not None:
+        raise AcceptanceContractError(
+            "ended_waiting_item_present", surface=cell.surface
+        )
+    return row.get("turn_posture") == "waiting"
+
+
+__all__ = ["validated_registration", "waiting_registration_ready"]

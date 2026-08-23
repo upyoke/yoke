@@ -19,9 +19,7 @@ from runtime.api.tools.session_control_live_acceptance_evidence import (
     receipt_count,
 )
 from runtime.api.tools.session_control_live_acceptance_launch import create_and_bind
-from runtime.api.tools.session_control_live_acceptance_roster import (
-    validated_registration,
-)
+from runtime.api.tools import session_control_live_acceptance_roster as roster
 
 
 class LiveAcceptanceDriver:
@@ -198,13 +196,19 @@ class LiveAcceptanceDriver:
         return report
 
     def _roster(
-        self, project: str, cell: AcceptanceCell, session_id: str
+        self,
+        project: str,
+        cell: AcceptanceCell,
+        session_id: str,
+        *,
+        allow_ended: bool = False,
     ) -> dict[str, Any]:
-        return validated_registration(
+        return roster.validated_registration(
             self.client,
             project=project,
             cell=cell,
             session_id=session_id,
+            allow_ended=allow_ended,
         )
 
     def _wait_waiting(
@@ -218,8 +222,8 @@ class LiveAcceptanceDriver:
     ) -> dict[str, Any]:
         deadline = self.monotonic() + timeout
         while True:
-            row = self._roster(project, cell, session_id)
-            if row.get("turn_posture") == "waiting":
+            row = self._roster(project, cell, session_id, allow_ended=True)
+            if roster.waiting_registration_ready(row, cell=cell):
                 routing = row.get("messageability")
                 if (
                     not isinstance(routing, dict)

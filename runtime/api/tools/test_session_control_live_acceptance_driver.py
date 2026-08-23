@@ -66,7 +66,7 @@ class _ScenarioClient:
         argv = list(args)
         self.calls.append((argv, stdin))
         if argv[:2] == ["sessions", "list"]:
-            return self._roster()
+            return self._roster(argv)
         if argv[:2] == ["sessions", "create"]:
             return self._create(argv)
         if argv[:4] == ["session-control", "launch", "get", "launch-1"]:
@@ -88,7 +88,7 @@ class _ScenarioClient:
             "model": self.cell.model,
         }
 
-    def _roster(self) -> dict[str, Any]:
+    def _roster(self, argv: list[str] | None = None) -> dict[str, Any]:
         rows = [
             {
                 **self._recipient(),
@@ -120,6 +120,9 @@ class _ScenarioClient:
                     "messageability": {"hook_injection": True},
                 }
             )
+        if argv and "--session" in argv:
+            requested = argv[argv.index("--session") + 1]
+            rows = [row for row in rows if row["session_id"] == requested]
         return {
             "fields": [],
             "rows": rows,
