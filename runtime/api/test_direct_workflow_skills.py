@@ -17,8 +17,7 @@ from yoke_core.domain.yoke_function_registry import lookup
 
 ROOT = Path(__file__).parents[2]
 BUNDLE = (
-    ROOT
-    / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
+    ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
 )
 CANONICAL = ROOT / ".agents/skills/yoke"
 
@@ -81,6 +80,21 @@ def test_dash_commits_before_every_sha_bound_case():
     assert "rerun every affected SHA-bound case" in content
 
 
+def test_dash_rechecks_keep_survey_contacts_advisory():
+    skill = (CANONICAL / "dash/SKILL.md").read_text()
+    close = (CANONICAL / "dash/verification-and-close.md").read_text()
+    corpus = f"{skill}\n{close}"
+    for retired_stop in (
+        "If the survey is blocked, do not commit or run the case.",
+        "A stale or newly-blocked survey is a coordination stop",
+        "If the result is blocked, do not merge.",
+    ):
+        assert retired_stop not in corpus
+    assert "A reported overlap remains advisory" in close
+    assert "does not block the transition" in skill
+    assert "Dash never authors a `coordination_only` edge" in skill
+
+
 def test_blitz_skill_carries_slice_and_document_completion_contract():
     content = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
     for required in (
@@ -111,14 +125,19 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
 
     monkeypatch.setattr(items_create, "dispatch_and_emit", _dispatch)
 
-    assert items_create.items_create([
-        "Reconcile the document-led rollout",
-        "blitz",
-        "--entry-surface",
-        "harness_skill",
-        "--project",
-        "yoke",
-    ]) == 0
+    assert (
+        items_create.items_create(
+            [
+                "Reconcile the document-led rollout",
+                "blitz",
+                "--entry-surface",
+                "harness_skill",
+                "--project",
+                "yoke",
+            ]
+        )
+        == 0
+    )
     assert captured["function_id"] == "items.create"
     assert captured["target"].kind == "global"
     assert captured["target"].project_id == "yoke"
@@ -146,9 +165,7 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
     ]
 
     idea = (ROOT / ".agents/skills/yoke/idea/SKILL.md").read_text()
-    infer = (
-        ROOT / ".agents/skills/yoke/idea/infer-and-create.md"
-    ).read_text()
+    infer = (ROOT / ".agents/skills/yoke/idea/infer-and-create.md").read_text()
     # Install/dogfood corpus (stub at docs/workflows.md only points here).
     workflows = (ROOT / ".yoke/docs/workflows.md").read_text()
     for content in (idea, infer):
@@ -169,10 +186,7 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
         assert "--workflow" in content
         assert "blitz" in content
 
-    registered = {
-        row["function_id"]: row
-        for row in DIRECT_WORKFLOW_REGISTRATIONS
-    }
+    registered = {row["function_id"]: row for row in DIRECT_WORKFLOW_REGISTRATIONS}
     dash_ids = {
         "direct_workflow.dash.survey",
         "direct_workflow.dash.evidence",
@@ -187,18 +201,10 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
     blitz = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
     for function_id in blitz_ids:
         assert function_id in blitz
-    assert registered["direct_workflow.dash.survey"][
-        "claim_required_kind"
-    ] is None
-    assert registered["direct_workflow.blitz.survey"][
-        "claim_required_kind"
-    ] is None
-    assert registered["direct_workflow.dash.evidence"][
-        "claim_required_kind"
-    ] == "item"
-    assert registered["direct_workflow.dash.escalate"][
-        "claim_required_kind"
-    ] == "item"
+    assert registered["direct_workflow.dash.survey"]["claim_required_kind"] is None
+    assert registered["direct_workflow.blitz.survey"]["claim_required_kind"] is None
+    assert registered["direct_workflow.dash.evidence"]["claim_required_kind"] == "item"
+    assert registered["direct_workflow.dash.escalate"]["claim_required_kind"] == "item"
     for content in (dash, blitz):
         assert "retained tool-shaped operation" in content
         assert "has no registered" in content
@@ -207,9 +213,7 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
 
 def test_refine_blitz_path_links_one_document_and_hands_off():
     refine = (ROOT / ".agents/skills/yoke/refine/SKILL.md").read_text()
-    protocol = (
-        ROOT / ".agents/skills/yoke/refine/update-protocol.md"
-    ).read_text()
+    protocol = (ROOT / ".agents/skills/yoke/refine/update-protocol.md").read_text()
     handoff = (
         ROOT / ".agents/skills/yoke/refine/blitz-execution-document.md"
     ).read_text()
@@ -238,32 +242,22 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
             "items.create": "yoke dash ",
             "items.detail.get": "yoke items detail get",
             "claims.work.acquire": "yoke claims work acquire",
-            "direct_workflow.dash.survey": (
-                "yoke direct-workflow dash survey"
-            ),
+            "direct_workflow.dash.survey": ("yoke direct-workflow dash survey"),
             "claims.path.register": "yoke claims path register",
             "lifecycle.transition.execute": "yoke lifecycle transition",
-            "direct_workflow.dash.evidence": (
-                "yoke direct-workflow dash evidence"
-            ),
+            "direct_workflow.dash.evidence": ("yoke direct-workflow dash evidence"),
             "sessions.identity": "yoke sessions identity",
             "events.query.run": "yoke events query",
             "claims.work.release": "yoke claims work release",
-            "direct_workflow.dash.escalate": (
-                "yoke direct-workflow dash escalate"
-            ),
+            "direct_workflow.dash.escalate": ("yoke direct-workflow dash escalate"),
         },
         blitz: {
             "items.detail.get": "yoke items detail get",
             "strategy.execution.get": "yoke strategy execution get",
             "strategy.doc.get": "yoke strategy doc get",
-            "direct_workflow.blitz.survey": (
-                "yoke direct-workflow blitz survey"
-            ),
+            "direct_workflow.blitz.survey": ("yoke direct-workflow blitz survey"),
             "lifecycle.transition.execute": "yoke lifecycle transition",
-            "strategy.coordination.append": (
-                "yoke strategy coordination append"
-            ),
+            "strategy.coordination.append": ("yoke strategy coordination append"),
             "strategy.doc.replace": "yoke strategy doc replace",
             "strategy.claim.release": "yoke strategy claim release",
             "claims.work.release": "yoke claims work release",
@@ -285,7 +279,7 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
 
 def test_dash_close_out_surfaces_session_guardrail_denials():
     content = (CANONICAL / "dash/verification-and-close.md").read_text()
-    step = content[content.index("### 7."):]
+    step = content[content.index("### 7.") :]
     for required in (
         "HarnessToolCallDenied",
         "sessions.identity",
@@ -299,9 +293,7 @@ def test_dash_close_out_surfaces_session_guardrail_denials():
         "field-note",
     ):
         assert required in step
-    assert "does not correlate" in step.lower() or (
-        "Do not correlate denials" in step
-    )
+    assert "does not correlate" in step.lower() or ("Do not correlate denials" in step)
 
 
 def test_direct_workflow_skills_match_install_bundle():
@@ -310,10 +302,12 @@ def test_direct_workflow_skills_match_install_bundle():
         mirrored_root = BUNDLE / skill
         canonical = {
             path.relative_to(canonical_root): path.read_bytes()
-            for path in canonical_root.rglob("*") if path.is_file()
+            for path in canonical_root.rglob("*")
+            if path.is_file()
         }
         mirrored = {
             path.relative_to(mirrored_root): path.read_bytes()
-            for path in mirrored_root.rglob("*") if path.is_file()
+            for path in mirrored_root.rglob("*")
+            if path.is_file()
         }
         assert mirrored == canonical

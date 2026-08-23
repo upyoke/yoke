@@ -225,6 +225,8 @@ the stored instruction and survey define scope without either artifact.
 For every reported contact, read the advisory and choose:
 
 - proceed when the edits are independent; same-file collisions resolve at merge;
+- Dash never authors a `coordination_only` edge; independent work proceeds
+  without one, while authoring-phase agents own that attestation;
 - yield when the work is order-dependent: author an activation dependency from
   this item to the holder, drop this claim, and re-offer. A planned claim is
   not a stronger reason to yield than an active one;
@@ -235,6 +237,9 @@ For every reported contact, read the advisory and choose:
   contact an addressable holder with the harness task-messaging tool
   (`send_message_to_thread` in Codex). When the holder is not addressable in
   the current harness, give the operator its session id and wait;
+- when a genuine overlap cannot be classified or resolved, release the work
+  claim and present the holder, paths, and evidence to the operator; do not
+  invent an attestation or continue editing through uncertainty;
 - when effective path claims are enabled, keep the inferred set complete and
   register or widen it through `claims.path.register` / `claims.path.widen`
   before preparation; preparation only validates that coverage;
@@ -276,11 +281,11 @@ Activate through the shared lifecycle interpreter:
 yoke lifecycle transition ITEM --from idea --to implementing --reason "Dash execution started"
 ```
 
-The transition must pass the live `conflict_survey` gate and the
-`work_claim_activation` gate, which verifies that this session owns the
+The live `conflict_survey` gate requires a recorded, readable touch set and
+re-evaluates current contacts, but an overlap does not block the transition.
+The `work_claim_activation` gate still verifies that this session owns the
 active item claim and that the item has its registered implementation
-worktree. A stale or newly-blocked survey is a coordination stop, not a
-bypass candidate.
+worktree. Read and resolve every survey advisory through the choices above.
 
 ### 4-7. Execute, verify, and close
 

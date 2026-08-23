@@ -17,6 +17,7 @@ from yoke_core.domain.conflict_survey_declared_paths import (
     matching_scope,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.path_render_overlap import is_render_target_only_overlap
 
 SURVEY_ADVISORY_PROCEED = (
     "Proceed when the edits are independent; same-file collisions resolve at merge."
@@ -57,8 +58,7 @@ def _schema_supports_survey_coordination(conn: Any) -> bool:
     if not _column_exists(conn, "path_targets", "path_string"):
         return False
     return all(
-        _column_exists(conn, "items", column)
-        for column in _REQUIRED_ITEM_COLUMNS
+        _column_exists(conn, "items", column) for column in _REQUIRED_ITEM_COLUMNS
     )
 
 
@@ -114,7 +114,12 @@ def survey_overlaps(
         exclude_item_id=candidate_item_id,
     ):
         matched = matching_scope(survey.paths, paths)
-        if matched:
+        if matched and not is_render_target_only_overlap(
+            conn,
+            candidate_paths=paths,
+            other_paths=survey.paths,
+            project_id=project_id,
+        ):
             matches.append((survey, matched))
     return matches
 

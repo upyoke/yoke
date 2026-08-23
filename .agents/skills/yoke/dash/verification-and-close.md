@@ -33,14 +33,17 @@ executing a case:
 yoke direct-workflow dash survey ITEM --path <actual-file> [--path <actual-file> ...] --json
 ```
 
-If the survey is blocked, do not commit or run the case. Coordinate, wait,
-tighten with claims, or escalate. When it is clear, commit the coherent change
-in the worktree. Both the local `worktree_run` runner and the remote `ci_run`
-runner record `verification_tree.head_sha`; the merge and done gates compare
-that SHA to the committed tree. A local case can execute dirty working-tree
-content while still recording the older HEAD, so running it before the commit
-creates a passing but stale verdict. If the tree changes after a case passes,
-re-survey, commit, and rerun every affected SHA-bound case.
+A reported overlap remains advisory. Read the overlapping path, holding item,
+and sanctioned routes; proceed when the edits are independent, and yield under
+the contact rules in the main skill when they are order-dependent or unresolved.
+The re-survey itself remains mandatory, but its contacts do not prevent the
+commit or case. Commit the coherent change in the worktree. Both the local
+`worktree_run` runner and the remote `ci_run` runner record
+`verification_tree.head_sha`; the merge and done gates compare that SHA to the
+committed tree. A local case can execute dirty working-tree content while still
+recording the older HEAD, so running it before the commit creates a passing but
+stale verdict. If the tree changes after a case passes, re-survey, commit, and
+rerun every affected SHA-bound case.
 
 **The QA case run is the one full execution.** Do not run the project's
 full sweep by hand and then hand the same tree to QA — the case executor
@@ -138,12 +141,12 @@ survey with every actual file:
 yoke direct-workflow dash survey ITEM --path <actual-file> [--path <actual-file> ...] --json
 ```
 
-If the result is blocked, do not merge. Coordinate, wait, tighten with claims,
-or escalate. When clear, require a clean worktree whose HEAD is the tree named
-by every passing SHA-bound verdict. Any intervening edit, commit, amend, or
-rebase invalidates the old verdict: commit the final tree and rerun the affected
-case. Do not merge by hand, force-push, bypass CI, or merge around a registered
-claim.
+Read any reported contacts as advisories here too; a recorded overlap does not
+itself prevent merge. Proceed or yield under the main skill's contact rules,
+then require a clean worktree whose HEAD is the tree named by every passing
+SHA-bound verdict. Any intervening edit, commit, amend, or rebase invalidates
+the old verdict: commit the final tree and rerun the affected case. Do not merge
+by hand, force-push, bypass CI, or merge around a registered claim.
 
 ### 7. Merge, record evidence, and finish
 
