@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import sys
 
+import pytest
+
 from runtime.api.test_constants import TEST_ITEM_REF
 from yoke_cli.commands.adapters import session_control_messages as messages
 from yoke_cli.commands.registry_session_control import (
@@ -16,6 +18,11 @@ from yoke_cli.commands.registry_session_control import (
 FULL_MESSAGE_ID = "33333333-3333-4333-8333-333333333333"
 FULL_SESSION_ID = "11111111-1111-4111-8111-111111111111"
 FULL_MACHINE_ID = "22222222-2222-4222-8222-222222222222"
+
+
+@pytest.fixture(autouse=True)
+def _top_level_execution(monkeypatch) -> None:
+    monkeypatch.setattr(messages, "is_subagent_execution", lambda: False)
 
 
 def test_say_preview_dispatches_semantic_selector(monkeypatch) -> None:
@@ -92,6 +99,39 @@ def test_say_send_reads_body_only_from_stdin(monkeypatch) -> None:
 def test_say_refuses_a_message_body_in_process_arguments(capsys) -> None:
     assert messages.say(["body-in-argv", "--stdin", "--session", "session-1"]) == 2
     assert "unrecognized arguments: body-in-argv" in capsys.readouterr().err
+
+
+def test_subagent_cannot_send_even_with_parent_session_override(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(messages, "is_subagent_execution", lambda: True)
+    monkeypatch.setattr(sys, "stdin", io.StringIO("act now"))
+    dispatched = []
+    monkeypatch.setattr(
+        messages, "dispatch_and_emit", lambda **kwargs: dispatched.append(kwargs)
+    )
+
+    result = messages.say(["--stdin", "--session", "peer", "--session-id", "parent"])
+
+    assert result == 2
+    assert dispatched == []
+    assert "harness-native subagent channel" in capsys.readouterr().err
+
+
+def test_subagent_cannot_acknowledge(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(messages, "is_subagent_execution", lambda: True)
+    dispatched = []
+    monkeypatch.setattr(
+        messages, "dispatch_and_emit", lambda **kwargs: dispatched.append(kwargs)
+    )
+
+    result = messages.session_message_acknowledge(
+        ["message-1", "--session-id", "parent"]
+    )
+
+    assert result == 2
+    assert dispatched == []
+    assert "cannot acknowledge Fleet messages" in capsys.readouterr().err
 
 
 def test_message_list_get_acknowledge_and_cancel_payloads(monkeypatch) -> None:

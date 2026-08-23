@@ -20,6 +20,7 @@ from yoke_cli.commands.adapters.session_control_common import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import MessageState
+from yoke_contracts.session_execution import is_subagent_execution
 
 
 SAY_USAGE = (
@@ -38,6 +39,15 @@ MESSAGE_LIST_USAGE = (
 MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [--json]"
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
+
+
+def _refuse_subagent_message_operation(operation: str) -> int | None:
+    if not is_subagent_execution():
+        return None
+    return usage_error(
+        f"in-process subagents cannot {operation} Fleet messages; "
+        "report to the parent through the harness-native subagent channel"
+    )
 
 
 def _selector_parser(prog: str, usage: str) -> argparse.ArgumentParser:
@@ -107,6 +117,9 @@ def session_message_send(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, MESSAGE_SEND_USAGE)
     if parsed is None:
         return 2
+    refused = _refuse_subagent_message_operation("send")
+    if refused is not None:
+        return refused
     body = read_stdin_payload(parsed)
     if body is None:
         return usage_error("message send requires non-empty content on --stdin")
@@ -140,6 +153,9 @@ def say(args: List[str]) -> int:
             parsed,
             function_id="session_control.message.preview",
         )
+    refused = _refuse_subagent_message_operation("send")
+    if refused is not None:
+        return refused
     body = read_stdin_payload(parsed)
     if body is None:
         return usage_error("yoke say requires non-empty content on --stdin")
@@ -199,6 +215,10 @@ def _message_by_id(args: List[str], operation: str) -> int:
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    if operation == "acknowledge":
+        refused = _refuse_subagent_message_operation("acknowledge")
+        if refused is not None:
+            return refused
     return dispatch_and_emit(
         function_id=f"session_control.message.{operation}",
         target=TargetRef(kind="global"),

@@ -352,9 +352,9 @@ yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim wi
 - _Apply a structural patch without duplicate or stale hunks_
   - `Use one `*** Update File:` operation per path per patch; consolidate every hunk for that path under the same operation.`
   - Re-read a hook-mutated file before composing a follow-up patch. Commit hooks may reformat the lane and invalidate earlier context.
-- _Fleet session discovery, exact peer messaging, and acknowledgment_
-  - `yoke sessions list ; printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin ; yoke messages acknowledge MESSAGE-ID`
-  - Use the full copyable session and message IDs. Message bodies enter only through stdin. Acknowledge only a message addressed to your current top-level session; caller identity resolves ambiently.
+- _Subagent communication through its registered parent_
+  - `Use the harness-native parent/subagent channel; do not run `yoke say`, `yoke session-control message send`, or `yoke messages acknowledge`.`
+  - Fleet messages belong to the registered top-level session. Return relevant results to the parent, which owns forwarding and explicit acknowledgment. An independently launched top-level worker remains a normal Fleet participant.
 - _Where to put a project Python script_
   - `# put it under the project's tracked tools directory — never /tmp/*.py`
   - Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, not cwd, so project imports may fail. Use a tracked project path or the project's environment runner. Prefer the canonical `yoke` CLI adapter (`yoke items structured-field replace --stdin`) for one-off structured-field writes.

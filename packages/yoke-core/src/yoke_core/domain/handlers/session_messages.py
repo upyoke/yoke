@@ -17,6 +17,7 @@ from yoke_core.domain.handlers.session_messages_common import (
     open_connection,
     parse,
     require_global,
+    require_top_level_message_actor,
 )
 
 
@@ -61,21 +62,35 @@ def handle_message_send(request: FunctionCallRequest) -> HandlerOutcome:
         registered_request_session_id,
     )
 
-    return _handle(
-        request,
-        MessageSendRequest,
-        lambda conn, body, actor_id: send_message(
+    invalid = require_top_level_message_actor(request)
+    if invalid:
+        return invalid
+
+    def _send(conn: Any, body: Any, actor_id: int) -> dict[str, Any]:
+        raw_session_id = str(request.actor.session_id or "").strip()
+        sender_session_id = registered_request_session_id(conn, raw_session_id)
+        if raw_session_id and sender_session_id is None:
+            from yoke_core.domain.session_message_types import SessionMessageError
+
+            raise SessionMessageError(
+                "sender_session_unregistered",
+                "Fleet message senders must name a registered top-level session",
+                jsonpath="$.actor.session_id",
+            )
+        return send_message(
             conn,
             actor_id=actor_id,
-            sender_session_id=registered_request_session_id(
-                conn,
-                request.actor.session_id,
-            ),
+            sender_session_id=sender_session_id,
             selector=body.selector,
             body=body.body,
             idempotency_key=body.idempotency_key,
             supplied_confirmation_token=body.confirmation_token,
-        ),
+        )
+
+    return _handle(
+        request,
+        MessageSendRequest,
+        _send,
     )
 
 

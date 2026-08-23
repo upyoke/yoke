@@ -57,6 +57,59 @@ def test_stamp_fills_empty_payload_from_env(tmp_path, monkeypatch) -> None:
     assert json.loads(stdin)["session_id"] == "sid-env"
 
 
+def test_stamp_normalizes_claude_subagent_execution(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("YOKE_HOOK_AGENT_TYPE", "engineer")
+    payload = {"session_id": "parent"}
+
+    stamped = json.loads(stamp_hook_stdin(json.dumps(payload), payload))
+
+    assert stamped["subagent_execution"] is True
+
+
+def test_stamp_normalizes_codex_child_without_replacing_parent(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("YOKE_HOOK_AGENT_TYPE", raising=False)
+    monkeypatch.setenv("CODEX_SESSION_ID", "parent")
+    monkeypatch.setenv("CODEX_THREAD_ID", "child")
+    payload = {"session_id": "parent"}
+
+    stamped = json.loads(stamp_hook_stdin(json.dumps(payload), payload, "codex"))
+
+    assert stamped["session_id"] == "parent"
+    assert stamped["subagent_execution"] is True
+
+
+def test_stamp_marks_independent_top_level_worker_as_parent(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("YOKE_HOOK_AGENT_TYPE", raising=False)
+    monkeypatch.setenv("CODEX_SESSION_ID", "worker")
+    monkeypatch.setenv("CODEX_THREAD_ID", "worker")
+    payload = {"session_id": "worker"}
+
+    stamped = json.loads(stamp_hook_stdin(json.dumps(payload), payload, "codex"))
+
+    assert stamped["subagent_execution"] is False
+
+
+def test_stamp_normalizes_cursor_parent_metadata(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("YOKE_HOOK_AGENT_TYPE", raising=False)
+    payload = {
+        "session_id": "child",
+        "conversation_id": "child",
+        "parent_conversation_id": "parent",
+    }
+
+    stamped = json.loads(stamp_hook_stdin(json.dumps(payload), payload, "cursor"))
+
+    assert stamped["subagent_execution"] is True
+
+
 def test_stamp_preserves_claude_and_codex_session_ids(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "sid-env")

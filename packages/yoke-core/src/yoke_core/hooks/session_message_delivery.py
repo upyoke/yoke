@@ -9,6 +9,7 @@ from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
 )
+from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
     LeasedSessionMessage,
@@ -105,6 +106,7 @@ def evaluate(context: HookContext) -> HookDecision:
     if (
         not session_id
         or session_id == "unknown"
+        or is_subagent_execution(context.payload, env={})
         or not _event_is_model_visible(context)
     ):
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
