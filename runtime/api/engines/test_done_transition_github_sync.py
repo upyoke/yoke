@@ -52,7 +52,7 @@ def test_run_step_8_records_step_marker_8_on_success(monkeypatch):
     assert result.returncode == 0
     assert result.step_marker == "8"
     assert result.is_degraded is False
-    assert stub.called_with == [("1234", "release")]
+    assert stub.called_with == [(1234, "release")]
 
 
 def test_run_step_8_records_step_marker_8_degraded_on_nonzero(monkeypatch):
@@ -66,7 +66,7 @@ def test_run_step_8_records_step_marker_8_degraded_on_nonzero(monkeypatch):
     assert result.step_marker == "8-degraded"
     assert result.is_degraded is True
     err = stderr.getvalue()
-    assert "YOK-1704" in err
+    assert "items.id=1704" in err
     assert "degraded" in err
     assert "sync_done_item returned 1" in err
 
@@ -103,7 +103,7 @@ def test_run_step_8_skipped_on_import_failure(monkeypatch):
 
     assert result.returncode == 0
     assert result.step_marker == "8-skipped"
-    assert "YOK-42" in stderr.getvalue()
+    assert "items.id=42" in stderr.getvalue()
 
 
 def test_step_8_result_contract():

@@ -144,22 +144,40 @@ def _resolve_script_dir() -> str:
     return str(find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts")
 
 
-def _yoke_db(*args: str, sd: Optional[str] = None) -> str:
-    # Route through the Python db_router entrypoint.
-    r = _run_cmd([sys.executable, "-m", "yoke_core.cli.db_router"] + list(args))
+class DeployPipelineCommandError(RuntimeError):
+    """A pipeline db_router / flow / project command exited non-zero."""
+
+
+def _require_cmd_ok(
+    r: subprocess.CompletedProcess, *, argv: List[str],
+) -> str:
+    if r.returncode != 0:
+        detail = (r.stderr or r.stdout or "").strip() or "(no output)"
+        raise DeployPipelineCommandError(
+            f"pipeline command {argv!r} failed (exit {r.returncode}): {detail}"
+        )
     return r.stdout.strip()
+
+
+def _yoke_db(*args: str, sd: Optional[str] = None) -> str:
+    # Route through the Python db_router entrypoint. A non-zero exit is a
+    # hard failure — swallowing stderr here is how a missed item stamp
+    # used to print as success.
+    del sd
+    argv = [sys.executable, "-m", "yoke_core.cli.db_router", *args]
+    return _require_cmd_ok(_run_cmd(argv), argv=argv)
 
 
 def _flow_db(*args: str, sd: Optional[str] = None) -> str:
-    # route through Python owner (replaces flow-db.sh shim).
-    r = _run_cmd([sys.executable, "-m", "yoke_core.domain.flow"] + list(args))
-    return r.stdout.strip()
+    del sd
+    argv = [sys.executable, "-m", "yoke_core.domain.flow", *args]
+    return _require_cmd_ok(_run_cmd(argv), argv=argv)
 
 
 def _project_db(*args: str, sd: Optional[str] = None) -> str:
-    # route through Python owner (replaces project-db.sh shim).
-    r = _run_cmd([sys.executable, "-m", "yoke_core.domain.projects"] + list(args))
-    return r.stdout.strip()
+    del sd
+    argv = [sys.executable, "-m", "yoke_core.domain.projects", *args]
+    return _require_cmd_ok(_run_cmd(argv), argv=argv)
 
 
 def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
@@ -191,10 +209,18 @@ def _set_deploy_stage(
     *,
     sd: Optional[str] = None,
 ) -> None:
-    """Update run's current_stage + each member item's deploy_stage (dual-write)."""
+    """Update each member item's deploy_stage, then the run's current_stage.
+
+    Member stamps go through ``deployment_item_stamp.record`` addressed by
+    integer ``items.id``. They run first so a missed item write cannot leave
+    the run ahead of the items. A failed stamp raises
+    :class:`yoke_core.domain.deployment_item_stamp.DeploymentItemStampError`.
+    """
+    from yoke_core.domain.deployment_item_stamp import stamp_item_field
+
+    for raw in member_items:
+        stamp_item_field(int(raw), "deploy_stage", stage)
     _yoke_db("runs", "update", run_id, "current_stage", stage, sd=sd)
-    for item_id in member_items:
-        _yoke_db("items", "update", item_id, "deploy_stage", stage, sd=sd)
 
 
 # ---------------------------------------------------------------------------

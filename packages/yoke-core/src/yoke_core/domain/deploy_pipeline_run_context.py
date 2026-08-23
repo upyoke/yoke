@@ -68,7 +68,21 @@ def finalize_run_success(
     environment_name: str,
     sd: Optional[str] = None,
 ) -> None:
-    """Mark the run succeeded and stamp member items' delivery environment."""
+    """Stamp member items' delivery environment, then mark the run succeeded.
+
+    Item stamps run first so a missed write cannot leave the run marked
+    succeeded while the members stay unstamped.
+    """
+    # Auto-set deployed_to (item-bound; no-op for item-less runs). A
+    # persistent run stamps the environment name; an ephemeral run has no
+    # registered environment, so the tier is the delivery label.
+    delivered_to = environment_name or target_tier
+    if delivered_to and member_items:
+        from yoke_core.domain.deployment_item_stamp import stamp_item_field
+
+        for raw in member_items:
+            stamp_item_field(int(raw), "deployed_to", delivered_to)
+        print(f"Auto-set deployed_to={delivered_to} from flow {flow_id}")
     _yoke_db("runs", "update", run_id, "status", "succeeded", sd=sd)
     _emit_run_event(
         "DeploymentRunSucceeded", "completed",
@@ -80,17 +94,6 @@ def finalize_run_success(
         },
         member_items=member_items, project=project, sd=sd,
     )
-    # Auto-set deployed_to (item-bound; no-op for item-less runs). A
-    # persistent run stamps the environment name; an ephemeral run has no
-    # registered environment, so the tier is the delivery label.
-    delivered_to = environment_name or target_tier
-    if delivered_to and member_items:
-        for item_id in member_items:
-            _yoke_db(
-                "items", "update", item_id, "deployed_to",
-                delivered_to, sd=sd,
-            )
-        print(f"Auto-set deployed_to={delivered_to} from flow {flow_id}")
 
 
 __all__ = [

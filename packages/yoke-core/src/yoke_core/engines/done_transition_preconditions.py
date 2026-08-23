@@ -67,16 +67,17 @@ def _query_item_scalar(conn: Any, item_id: int, field: str) -> str:
     return text
 
 
-def _latest_run_status(conn: Any, item_id: int) -> str:
+def _latest_run(conn: Any, item_id: int) -> Tuple[str, str]:
+    """Return ``(status, current_stage)`` for the item's newest deploy run."""
     row = conn.execute(
-        "SELECT dr.status FROM deployment_runs dr "
+        "SELECT dr.status, dr.current_stage FROM deployment_runs dr "
         "JOIN deployment_run_items dri ON dr.id = dri.run_id "
         f"WHERE dri.item_id = {_p(conn)} ORDER BY dr.created_at DESC LIMIT 1",
         (item_id,),
     ).fetchone()
     if not row:
-        return ""
-    return str(row[0] or "")
+        return "", ""
+    return str(row[0] or ""), str(row[1] or "")
 
 
 def _has_refined_idea_to_planning_verdict(
@@ -113,10 +114,16 @@ def evaluate_done_preconditions(
         is_no_run_delivery or _is_registered_flow(conn, deploy_flow)
     )
 
+    run_status = _latest_run(conn, item_id)[0]
+    # A succeeded run is delivery evidence even when the item stamps never
+    # landed (the historic bare-id router miss). Failed-run refusal stays
+    # below; an in-flight or missing run does not attest.
+    run_attests_delivery = run_status == "succeeded"
+
     # deployed_to non-empty for any registered, non-bypass flow.
     if registered and not is_no_run_delivery:
         deployed_to = _query_item_scalar(conn, item_id, "deployed_to")
-        if not deployed_to:
+        if not deployed_to and not run_attests_delivery:
             return False, (
                 f"deployed_to is empty for deployment_flow={deploy_flow}"
             )
@@ -124,13 +131,12 @@ def evaluate_done_preconditions(
     # deploy_stage non-null for any registered flow (incl. no-run-delivery).
     if registered:
         deploy_stage = _query_item_scalar(conn, item_id, "deploy_stage")
-        if not deploy_stage:
+        if not deploy_stage and not run_attests_delivery:
             return False, (
                 f"deploy_stage is null for deployment_flow={deploy_flow}"
             )
 
     # Latest deploy_run for the item must not be failed.
-    run_status = _latest_run_status(conn, item_id)
     if run_status == "failed":
         return False, (
             f"latest deploy_run for {render_item_ref(conn, item_id)} has status=failed"
