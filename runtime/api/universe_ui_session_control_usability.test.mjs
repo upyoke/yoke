@@ -87,6 +87,11 @@ test("message history leads with readable content and accessible receipts", asyn
     byClass(root, "session-message-excerpt")[0].textContent,
     "Please verify the production delivery receipt.",
   );
+  assert.equal(
+    allNodes(root).find((node) => node.tagName === "TBODY")
+      ?.children[0].getAttribute("data-message-id"),
+    "message-opaque-id",
+  );
   assert.equal(byClass(root, "session-message-sender")[0].textContent, "From sender-1");
   assert.ok(allNodes(root).some(
     (node) => node._textContent === "2026-08-23 01:02 UTC",
@@ -160,6 +165,10 @@ test("launch and relay views explain unavailable machine capability", async (t) 
     }),
   });
   const relayText = allNodes(relay.root).map((node) => node._textContent).join(" ");
+  assert.equal(
+    byClass(relay.root, "session-relay-card")[0].getAttribute("data-relay-id"),
+    "relay-1",
+  );
   assert.ok(relayText.includes("relay state: inactive"));
   assert.equal(relayText.includes("poll cadence"), false);
   assert.ok(relayText.includes("2026-08-23 04:30 UTC"));

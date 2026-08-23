@@ -9,6 +9,7 @@ import {
 
 function relayCard(documentNode, relay) {
   const card = el(documentNode, "article", "panel session-relay-card");
+  card.setAttribute("data-relay-id", String(relay.relay_id || ""));
   const header = el(documentNode, "div", "panel-header");
   header.appendChild(el(
     documentNode, "h3", null, relay.hostname || relay.machine_id,

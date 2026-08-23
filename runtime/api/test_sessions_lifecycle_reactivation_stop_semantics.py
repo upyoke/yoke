@@ -13,14 +13,19 @@ Proves the four semantic branches of the Stop cleanup contract:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.domain.test_session_turn_posture_migration import (
+    entry as turn_posture_migration,
+)
 from yoke_core.domain.sessions import end_session_if_empty
 from yoke_core.domain.sessions_lifecycle_registry import register_session
-from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
+
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 def _now_iso() -> str:
@@ -31,6 +36,7 @@ def _insert_session(
     db_path: str, session_id: str, workspace: str,
     *, claim_item: int | None = None,
     chain_checkpoint: dict | None = None,
+    mode: str = "charge",
 ) -> None:
     conn = connect_test_db(db_path)
     try:
@@ -42,8 +48,8 @@ def _insert_session(
                 workspace, project_id, mode, offered_at, last_heartbeat, ended_at,
                 offer_envelope)
                VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary',
-                       %s, 1, 'charge', %s, %s, NULL, %s)""",
-            (session_id, workspace, now, now, envelope),
+                       %s, 1, %s, %s, %s, NULL, %s)""",
+            (session_id, workspace, mode, now, now, envelope),
         )
         if claim_item is not None:
             conn.execute(
@@ -97,6 +103,48 @@ class TestStopSemanticsBranches:
         assert result["ended"] is False
         assert result["active_claim_count"] == 1
         assert _ended_at(db, "sess-busy") is None
+
+    def test_wait_mode_unclaimed_stop_ends_and_records_waiting_posture(
+        self, session_offer_db
+    ) -> None:
+        posture = pytest.importorskip("yoke_core.domain.session_turn_posture")
+        db = session_offer_db["db_path"]
+        _insert_session(
+            db,
+            "sess-waiting",
+            session_offer_db["tmp_dir"],
+            mode="wait",
+        )
+        conn = connect_test_db(db)
+        try:
+            turn_posture_migration.apply(conn)
+            result = end_session_if_empty(conn, "sess-waiting")
+            accepted = posture.accepted_hook_posture(
+                "Stop",
+                final_outcome="allow",
+                timed_out=False,
+                failed=False,
+            )
+            assert accepted == "waiting"
+            assert posture.stamp_turn_posture(
+                conn,
+                session_id="sess-waiting",
+                posture=accepted,
+                observed_at=datetime.now(timezone.utc),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT mode,ended_at,turn_posture FROM harness_sessions "
+                "WHERE session_id=%s",
+                ("sess-waiting",),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        assert result["status"] == "ended"
+        assert row["mode"] == "wait"
+        assert row["ended_at"] is not None
+        assert row["turn_posture"] == "waiting"
 
     def test_chain_pending_when_chainable_budget_remains(
         self, session_offer_db,

@@ -45,7 +45,13 @@ function renderEligible(documentNode, host, relays) {
       documentNode,
       "li",
       null,
-      `${relay.hostname || relay.machine_id || "unknown machine"} · ${relay.machine_id || "unknown id"} · ${relay.surface || "unknown surface"} · ${relay.liveness || relay.state || "unknown"}`,
+      [
+        relay.hostname
+          ? `${relay.hostname} · ${relay.machine_id || "unknown id"}`
+          : (relay.machine_id || "unknown machine"),
+        relay.surface || "unknown surface",
+        relay.liveness || relay.state,
+      ].filter(Boolean).join(" · "),
     ));
   }
   if (!list.children.length) {

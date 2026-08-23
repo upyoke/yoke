@@ -133,6 +133,7 @@ function renderMessages(documentNode, host, messages, cancelMessage) {
   const tableBody = el(documentNode, "tbody");
   for (const message of messages) {
     const row = el(documentNode, "tr");
+    row.setAttribute("data-message-id", String(message.message_id || ""));
     row.appendChild(messageIdentityCell(documentNode, message));
     const stateCell = el(documentNode, "td");
     const state = messageState(message);

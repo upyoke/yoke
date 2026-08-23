@@ -49,6 +49,15 @@ def test_identified_peer_cell_proves_one_hop_broker_identity_and_dedupe() -> Non
     assert wake["attempt_deduplicated"] is True
     assert wake["native_traffic_body_free"] is True
     assert "MUST-NOT-ENTER-REPORT" not in json.dumps(report)
+    roster_calls = [
+        argv for argv, _body in client.calls if argv[:2] == ["sessions", "list"]
+    ]
+    assert roster_calls
+    assert all("--session" in argv and "--limit" not in argv for argv in roster_calls)
+    assert {argv[argv.index("--session") + 1] for argv in roster_calls} == {
+        "broker-target-session",
+        "broker-peer-session",
+    }
 
 
 def test_broker_cell_fails_closed_on_wrong_peer_duplicate_or_missing_digest() -> None:

@@ -49,7 +49,7 @@ def session_control_roster_list(args: List[str]) -> int:
         "--session",
         dest="session_filter",
         default=None,
-        help="Return the point liveness projection for exactly this session.",
+        help="Return the complete roster row for exactly this session.",
     )
     add_session_arg(parser)
     add_json_arg(parser)

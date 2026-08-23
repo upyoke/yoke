@@ -56,8 +56,13 @@ test("launch fallback requires a visible opt-in and shows the selected surface",
       outcome: "assigned_fallback", requested_surface: "codex-vscode",
       selected_surface: "codex-cli", fallback_used: true,
       launchable: true,
-      eligible_relays: [{ ...relay, surface: "codex-cli" }],
-      selected_relay: { ...relay, surface: "codex-cli" },
+      eligible_relays: [
+        {
+          machine_id: "m1", surface: "codex-cli", version: "0.148.0-alpha.15",
+        },
+        { ...relay, surface: "codex-cli", liveness: "active" },
+      ],
+      selected_relay: { machine_id: "m1", surface: "codex-cli" },
     }),
     "session_control.launch.create": () => ok({
       launch: {
@@ -91,7 +96,12 @@ test("launch fallback requires a visible opt-in and shows the selected surface",
 
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("Fallback selected codex-cli."));
-  assert.ok(text.includes("m1 · codex-cli"));
+  assert.deepEqual(
+    byClass(root, "session-launch-eligible")[0].children.map(
+      (node) => node.textContent,
+    ),
+    ["m1 · codex-cli", "studio · m1 · codex-cli · active"],
+  );
   lastButton(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
   const create = requests.find(
