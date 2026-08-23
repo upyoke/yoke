@@ -24,8 +24,10 @@ AUTH_TABLES: dict[str, dict] = {
             "role can dispatch workflows, read their run/routing state, and "
             "record only capability-routed release pins; "
             "the infrastructure role carries only project.render.read. "
-            "Neither carries project.install. Org roles: admin, "
-            "viewer (granted via actor_org_roles). The all-access role is admin "
+            "Neither carries project.install. Org roles: admin, viewer, and "
+            "migration_verification_ci (granted via actor_org_roles). The narrow "
+            "CI role can only compare candidate migration digests with the "
+            "control-plane ledger. The all-access role is admin "
             "(renamed from the retired 'system'); it lives at org scope, never "
             "on a project."
         ),
@@ -41,10 +43,10 @@ AUTH_TABLES: dict[str, dict] = {
             "Permission catalog keyed by dotted key (items.read, claims.acquire, "
             "...). project.render.read belongs to infrastructure_ci; the "
             "three github_actions.* relay permissions and release_pin.record "
-            "belong to deployment_ci. Org-scoped permissions org.admin "
-            "(renamed from the retired "
-            "'system.admin') and project.create are never carried by a project "
-            "role — only the org admin role holds them."
+            "belong to deployment_ci. Org-scoped permissions are "
+            "migration.content_identity.verify, project.create, and org.admin "
+            "(renamed from the retired 'system.admin'). They are never carried "
+            "by a project role; only org roles hold them."
         ),
     },
     "role_permissions": {

@@ -14,12 +14,17 @@ from __future__ import annotations
 
 from typing import List
 
+from yoke_contracts.migration_content_identity import FUNCTION_ID
 from yoke_core.api.service_client_structured_api_adapter_inventory_types import (
     AdapterEntry,
     read_entry as _read_entry,
 )
 
 OPS_ADAPTERS: List[AdapterEntry] = [
+    _read_entry(
+        function_id=FUNCTION_ID,
+        cli_invocation=("yoke migration content-identity verify --entries-json JSON"),
+    ),
     # Deployment flow/run reads + the run-row update writer.
     _read_entry(
         function_id="deployment_flows.list",

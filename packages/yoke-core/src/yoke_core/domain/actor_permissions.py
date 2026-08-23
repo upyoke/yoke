@@ -7,6 +7,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_permission_exports import ACTOR_PERMISSION_EXPORTS
+from yoke_core.domain.migration_content_identity_authority import (
+    PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,
+    ROLE_MIGRATION_VERIFICATION_CI,
+)
+
 # Project-scoped roles (grantable via ``actor_project_roles``).
 ROLE_OWNER = "owner"
 ROLE_OPERATOR = "operator"
@@ -40,10 +46,14 @@ PERM_ORG_ADMIN = "org.admin"  # renamed from "system.admin"
 PERM_PROJECT_CREATE = "project.create"
 
 # Permissions that may only be granted at org scope.
-ORG_SCOPED_PERMISSIONS = (PERM_ORG_ADMIN, PERM_PROJECT_CREATE)
+ORG_SCOPED_PERMISSIONS = (
+    PERM_ORG_ADMIN,
+    PERM_PROJECT_CREATE,
+    PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,
+)
 
 # Roles grantable at each scope.
-ORG_ROLES = (ROLE_ADMIN, ROLE_VIEWER)
+ORG_ROLES = (ROLE_ADMIN, ROLE_VIEWER, ROLE_MIGRATION_VERIFICATION_CI)
 PROJECT_ROLES = (
     ROLE_OWNER,
     ROLE_OPERATOR,
@@ -60,6 +70,9 @@ ROLE_DESCRIPTIONS = {
         "read status; record capability-routed pins after successful delivery."
     ),
     ROLE_INFRASTRUCTURE_CI: "Read exact infrastructure render inputs for previews.",
+    ROLE_MIGRATION_VERIFICATION_CI: (
+        "Verify candidate migration content against the control-plane ledger."
+    ),
     ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
 }
 PERMISSION_DESCRIPTIONS = {
@@ -78,6 +91,9 @@ PERMISSION_DESCRIPTIONS = {
     ),
     PERM_PROJECT_ADMIN: "Administer project settings and grants.",
     PERM_DB_READ_RAW: "Run bounded raw diagnostic DB reads.",
+    PERM_MIGRATION_CONTENT_IDENTITY_VERIFY: (
+        "Compare candidate migration digests with the control-plane ledger."
+    ),
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH: (
         "Dispatch a GitHub Actions workflow for the project repository."
     ),
@@ -140,6 +156,7 @@ ROLE_PERMISSION_KEYS = {
         PERM_RELEASE_PIN_RECORD,
     ),
     ROLE_INFRASTRUCTURE_CI: (PERM_PROJECT_RENDER_READ,),
+    ROLE_MIGRATION_VERIFICATION_CI: (PERM_MIGRATION_CONTENT_IDENTITY_VERIFY,),
     # Org role — every permission, incl. org-scoped ones.
     ROLE_ADMIN: tuple(PERMISSION_DESCRIPTIONS),
 }
@@ -296,7 +313,7 @@ def grant_actor_org_role(
 # Permission decisions live in the sibling module to keep this file below the
 # line cap; re-export them here so callers retain their existing import path.
 # The checks module only pulls back the constants and dataclasses defined above.
-from yoke_core.domain.actor_permission_checks import (  # noqa: E402
+from yoke_core.domain.actor_permission_checks import (  # noqa: E402, F401
     org_permission_decision,
     permission_decision,
     require_org_permission,
@@ -304,45 +321,4 @@ from yoke_core.domain.actor_permission_checks import (  # noqa: E402
 )
 
 
-__all__ = [
-    "PermissionDecision",
-    "PermissionDenied",
-    "ROLE_OWNER",
-    "ROLE_OPERATOR",
-    "ROLE_VIEWER",
-    "ROLE_DEPLOYMENT_CI",
-    "ROLE_INFRASTRUCTURE_CI",
-    "ROLE_ADMIN",
-    "ORG_ROLES",
-    "PROJECT_ROLES",
-    "ORG_SCOPED_PERMISSIONS",
-    "PERM_ITEMS_READ",
-    "PERM_ITEMS_WRITE",
-    "PERM_CLAIMS_ACQUIRE",
-    "PERM_CLAIMS_RELEASE",
-    "PERM_EVENTS_READ",
-    "PERM_EVENTS_WRITE",
-    "PERM_HOOKS_EVALUATE",
-    "PERM_BOARD_REBUILD",
-    "PERM_PROJECT_INSTALL",
-    "PERM_PROJECT_RENDER_READ",
-    "PERM_PROJECT_ADMIN",
-    "PERM_DB_READ_RAW",
-    "PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH",
-    "PERM_GITHUB_ACTIONS_RUN_READ",
-    "PERM_GITHUB_ACTIONS_VARIABLE_READ",
-    "PERM_GITHUB_RELEASE_CREATE",
-    "PERM_RELEASE_PIN_RECORD",
-    "PERM_ORG_ADMIN",
-    "PERM_PROJECT_CREATE",
-    "grant_actor_org_role",
-    "grant_actor_project_role",
-    "revoke_actor_project_role",
-    "org_permission_decision",
-    "permission_decision",
-    "permission_id_by_key",
-    "require_org_permission",
-    "require_permission",
-    "role_id_by_name",
-    "seed_roles_and_permissions",
-]
+__all__ = ACTOR_PERMISSION_EXPORTS

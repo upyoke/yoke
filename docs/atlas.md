@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-23T01:46:53Z_
+_Audit generated_at: 2026-08-23T03:09:53Z_
 
 ## 1. Summary
 
-- Function ids registered: **411**
+- Function ids registered: **412**
 - Internal dispatch-only functions without CLI adapters: **81**
-- `yoke` CLI subcommands: **339** (339 carry usable `--help`)
-- Operation tracker: **317 wrapped**, 8 tool_cli, 121 permanent, 0 pending
+- `yoke` CLI subcommands: **340** (340 carry usable `--help`)
+- Operation tracker: **318 wrapped**, 8 tool_cli, 121 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **317** (operation tracker confirms 317 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **318** (operation tracker confirms 318 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -138,6 +138,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **317** (operation track
 | lifecycle | `yoke lifecycle repair-status` | `lifecycle.repair_status.execute` | ok |
 | lifecycle | `yoke lifecycle skip record-recoverable-substrate` | `lifecycle.skip.record_recoverable_substrate` | ok |
 | lifecycle | `yoke lifecycle transition` | `lifecycle.transition.execute` | ok |
+| migration | `yoke migration content-identity verify` | `migration.content_identity.verify` | ok |
 | onboard | `yoke onboard checklist init` | `onboard.checklist.init` | ok |
 | onboard | `yoke onboard checklist` | `onboard.checklist.run` | ok |
 | organizations | `yoke organizations domain set` | `organizations.domain.set` | ok |
@@ -512,9 +513,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 43 |
-| claude-code | 6 |
-| cursor | 1 |
+| codex | 47 |
+| cursor | 2 |
+| claude-code | 1 |
 
 ## 8. Contradictions
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Dict
 
+from yoke_contracts.migration_content_identity import FUNCTION_ID as MIGRATION_ID
 from yoke_cli.commands.adapters.claims import (
     CLAIM_PATH_REGISTER_USAGE,
     CLAIM_WORK_ACQUIRE_USAGE,
@@ -59,6 +60,7 @@ from yoke_cli.commands.adapters.db_claim import (
     DB_CLAIM_PROSE_CHECK_USAGE,
 )
 from yoke_cli.commands.adapters.db import DB_READ_USAGE
+from yoke_cli.commands.adapters import migration_content_identity as migration_cli
 from yoke_cli.commands.adapters.doctor import (
     DOCTOR_LAST_RUN_GET_USAGE,
     DOCTOR_RUN_USAGE,
@@ -241,6 +243,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "db_claim.amend": DB_CLAIM_AMEND_USAGE,
     "db_claim.prose_check": DB_CLAIM_PROSE_CHECK_USAGE,
     "db.read.run": DB_READ_USAGE,
+    MIGRATION_ID: migration_cli.VERIFY_USAGE,
     **_session_usage.USAGE_BY_FUNCTION_ID,
     "agents.render.run": AGENTS_RENDER_USAGE,
     "agents.render.check": AGENTS_RENDER_CHECK_USAGE,

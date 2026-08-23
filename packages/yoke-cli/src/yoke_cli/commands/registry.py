@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Tuple
 
+from yoke_contracts.migration_content_identity import (
+    FUNCTION_ID as MIGRATION_CONTENT_IDENTITY_FUNCTION_ID,
+)
 from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.items_merge_provenance import (
     items_merge_provenance_operator_correct,
 )
 from yoke_cli.commands.adapters.lifecycle_repair import lifecycle_repair_status
+from yoke_cli.commands.adapters.migration_content_identity import (
+    migration_content_identity_verify,
+)
 from yoke_cli.commands.adapters.claims_path_change import claims_path_amend
 from yoke_cli.commands.adapters.config import env_list
 from yoke_cli.commands.registry_token_normalization import expanded_hyphen_routes
@@ -119,6 +125,10 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         _adapters.path_claims_conflicts_list,
     ),
     ("db", "read"): ("db.read.run", _adapters.db_read),
+    ("migration", "content-identity", "verify"): (
+        MIGRATION_CONTENT_IDENTITY_FUNCTION_ID,
+        migration_content_identity_verify,
+    ),
     ("charge", "schedule"): ("charge.schedule", _adapters.charge_schedule),
     ("frontier", "list"): ("frontier.list", _adapters.frontier_list),
     ("agents", "render"): ("agents.render.run", _adapters.agents_render),
