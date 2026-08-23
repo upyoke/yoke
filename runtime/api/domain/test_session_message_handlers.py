@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 from yoke_contracts.api.function_call import FunctionCallRequest
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_core.domain.handlers import session_messages
 from yoke_core.domain.handlers import session_messages_receipts
 from yoke_core.domain.session_message_service import send_message
@@ -130,6 +131,7 @@ def test_send_handler_refuses_subagent_attestation() -> None:
 
     assert outcome.primary_success is False
     assert outcome.error and outcome.error.code == "subagent_message_forbidden"
+    assert outcome.error.message == FLEET_OWNERSHIP_GUIDANCE
 
 
 def test_list_and_get_handlers_use_stable_envelopes(monkeypatch) -> None:

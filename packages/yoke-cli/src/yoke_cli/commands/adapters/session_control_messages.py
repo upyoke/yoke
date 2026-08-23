@@ -20,6 +20,10 @@ from yoke_cli.commands.adapters.session_control_common import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import MessageState
+from yoke_contracts.session_control.teaching import (
+    FLEET_MESSAGE_WORKFLOW_HELP,
+    FLEET_OWNERSHIP_GUIDANCE,
+)
 from yoke_contracts.session_execution import is_subagent_execution
 
 
@@ -39,13 +43,7 @@ MESSAGE_LIST_USAGE = (
 MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [--json]"
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
-MESSAGE_WORKFLOW_HELP = """Top-level session workflow:
-  1. Discover:    yoke sessions list --liveness active
-  2. Preview:     yoke say --preview --session SESSION-ID
-  3. Send:        printf '%s' 'message' | yoke say --session SESSION-ID --stdin
-  4. Acknowledge: yoke messages acknowledge MESSAGE-ID
-
-In-process subagents report through their harness-native parent channel instead."""
+MESSAGE_WORKFLOW_HELP = FLEET_MESSAGE_WORKFLOW_HELP
 
 
 def _refuse_subagent_message_operation(operation: str) -> int | None:
@@ -53,7 +51,7 @@ def _refuse_subagent_message_operation(operation: str) -> int | None:
         return None
     return usage_error(
         f"in-process subagents cannot {operation} Fleet messages; "
-        "report to the parent through the harness-native subagent channel"
+        f"{FLEET_OWNERSHIP_GUIDANCE}"
     )
 
 

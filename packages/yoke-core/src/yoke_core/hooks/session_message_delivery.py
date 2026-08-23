@@ -9,6 +9,7 @@ from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
 )
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
@@ -92,11 +93,7 @@ def _render_child_view(messages: tuple[LeasedSessionMessage, ...]) -> str:
     blocks = [
         _render_message(
             message,
-            acknowledgement=(
-                "Acknowledgment owner: the registered top-level session. "
-                "Notify it through the harness-native parent channel; do not send "
-                "or acknowledge Fleet messages from this child."
-            ),
+            acknowledgement=FLEET_OWNERSHIP_GUIDANCE,
         )
         for message in messages
     ]

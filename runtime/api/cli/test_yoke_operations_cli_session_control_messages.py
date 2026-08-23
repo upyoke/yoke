@@ -115,7 +115,7 @@ def test_subagent_cannot_send_even_with_parent_session_override(
 
     assert result == 2
     assert dispatched == []
-    assert "harness-native subagent channel" in capsys.readouterr().err
+    assert "harness-native parent/subagent channel" in capsys.readouterr().err
 
 
 def test_subagent_cannot_acknowledge(monkeypatch, capsys) -> None:
@@ -284,8 +284,12 @@ def test_say_help_teaches_the_complete_top_level_workflow(capsys) -> None:
     assert "yoke sessions list --liveness active" in rendered
     assert "yoke say --preview --session SESSION-ID" in rendered
     assert "yoke say --session SESSION-ID --stdin" in rendered
+    assert "yoke messages get MESSAGE-ID" in rendered
     assert "yoke messages acknowledge MESSAGE-ID" in rendered
-    assert "subagents report through their harness-native parent channel" in rendered
+    assert "Top-level sender recovery for an undelivered message" in rendered
+    assert "yoke messages cancel MESSAGE-ID" in rendered
+    assert "receipts shared with their parent read-only" in rendered
+    assert "handle Fleet wake requests" in rendered
 
 
 def test_sent_message_output_points_to_its_delivery_receipt() -> None:

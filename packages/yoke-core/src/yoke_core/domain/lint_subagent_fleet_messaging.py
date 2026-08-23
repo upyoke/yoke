@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import shlex
 
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -17,6 +18,8 @@ _BLOCKED_PATHS = (
     ("yoke", "session-control", "qualification", "open"),
     ("yoke", "messages", "acknowledge"),
     ("yoke", "messages", "ack"),
+    ("yoke", "messages", "cancel"),
+    ("yoke", "session-control", "message", "cancel"),
 )
 
 
@@ -43,11 +46,7 @@ def evaluate(context: HookContext) -> HookDecision:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     return HookDecision(
         outcome=Outcome.DENY,
-        message=(
-            "Fleet messages belong to the registered top-level session. "
-            "Return the information to your parent through the harness-native "
-            "subagent channel; only the parent sends or acknowledges."
-        ),
+        message=FLEET_OWNERSHIP_GUIDANCE,
         block=True,
         next=Next.STOP,
     )

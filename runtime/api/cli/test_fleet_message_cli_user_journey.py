@@ -305,7 +305,8 @@ def test_subagent_send_and_ack_stop_before_engine_dispatch(monkeypatch) -> None:
 
     assert send_result == ack_result == 2
     assert broker.requests == []
-    assert "harness-native subagent channel" in send_error
+    assert "harness-native parent/subagent channel" in send_error
+    assert "receipts shared with their parent read-only" in send_error
     assert "cannot acknowledge Fleet messages" in ack_error
 
 

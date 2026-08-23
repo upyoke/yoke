@@ -27,21 +27,26 @@ def _context(command: str, *, payload: dict | None = None) -> HookContext:
         "yoke session-control message send --stdin --session peer",
         "yoke messages acknowledge message-id",
         "yoke messages ack message-id",
+        "yoke messages cancel message-id",
+        "yoke session-control message cancel message-id",
         "yoke session-control qualification open --project yoke",
     ],
 )
-def test_subagent_fleet_send_and_ack_are_denied(command: str) -> None:
+def test_subagent_fleet_mutations_are_denied(command: str) -> None:
     decision = lint.evaluate(_context(command, payload={"agent_type": "engineer"}))
 
     assert decision.outcome is Outcome.DENY
     assert decision.block is True
-    assert "harness-native subagent channel" in decision.message
+    assert "receipts shared with their parent read-only" in decision.message
+    assert "harness-native parent/subagent channel" in decision.message
+    assert "cancel Fleet messages or handle Fleet wake requests" in decision.message
 
 
-def test_parent_can_send_and_acknowledge() -> None:
+def test_parent_can_mutate_fleet_messages() -> None:
     for command in (
         "printf message | yoke say --session peer --stdin",
         "yoke messages acknowledge message-id",
+        "yoke messages cancel message-id",
     ):
         assert lint.evaluate(_context(command)).outcome is Outcome.NOOP
 

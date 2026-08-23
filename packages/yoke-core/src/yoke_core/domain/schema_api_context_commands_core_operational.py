@@ -23,10 +23,17 @@ Recipe shape doctrine (current):
     Atlas tooling, and the `db_router query` module form retain their
     multi-module shape as source-dev/operator-debug fallbacks.
 
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Pure data only — no I/O or DB connections.
 """
 
 from __future__ import annotations
+
+from yoke_contracts.session_control.teaching import (
+    FLEET_MESSAGE_BOOTSTRAP_RECIPE,
+    FLEET_OWNERSHIP_GUIDANCE,
+    SUBAGENT_FLEET_GUIDANCE,
+    TOP_LEVEL_FLEET_OWNERSHIP,
+)
 
 
 OPERATIONAL_COMMANDS: list[dict] = [
@@ -188,40 +195,22 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Top-level Fleet messaging: discover, send, receive, acknowledge",
         "roles": ("main_agent",),
-        "recipe": (
-            "yoke sessions list\n"
-            "yoke say --preview --session SESSION-ID\n"
-            "printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin\n"
-            "yoke messages list --recipient-session CURRENT-SESSION-ID "
-            "--state injected\n"
-            "yoke messages get MESSAGE-ID\n"
-            "yoke messages acknowledge MESSAGE-ID"
-        ),
+        "recipe": FLEET_MESSAGE_BOOTSTRAP_RECIPE,
         "notes": (
             "Run each line separately; copy the full session id, check MESSAGEABLE, "
             "and pass bodies only through stdin. "
             "Acknowledge only after `yoke messages get` confirms this top-level "
-            "session is the recipient. This top-level session alone sends and "
-            "acknowledges Fleet messages. Forward relevant content to in-process "
-            "subagents through the harness-native parent/subagent channel; they "
-            "reply there and never send or acknowledge Fleet messages directly. "
-            "Independently launched top-level workers remain Fleet participants."
+            f"session is the recipient. {FLEET_OWNERSHIP_GUIDANCE}"
         ),
     },
     {
         "topic": "core",
         "purpose": "Subagent communication through its registered parent",
         "exclude_roles": ("main_agent",),
-        "recipe": (
-            "Use the harness-native parent/subagent channel; do not run "
-            "`yoke say`, `yoke session-control message send`, or "
-            "`yoke messages acknowledge`."
-        ),
+        "recipe": SUBAGENT_FLEET_GUIDANCE,
         "notes": (
-            "Fleet messages belong to the registered top-level session. Return "
-            "relevant results to the parent, which owns forwarding and explicit "
-            "acknowledgment. An independently launched top-level worker remains "
-            "a normal Fleet participant."
+            "Fleet messages belong to the registered top-level session. "
+            f"{TOP_LEVEL_FLEET_OWNERSHIP}"
         ),
     },
     {

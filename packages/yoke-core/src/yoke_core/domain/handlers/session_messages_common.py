@@ -9,6 +9,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_contracts.session_execution import SUBAGENT_EXECUTION_PAYLOAD_KEY
 from yoke_core.domain.session_message_types import SessionMessageError
 
@@ -45,8 +46,7 @@ def require_top_level_message_actor(
         return None
     return failure(
         "subagent_message_forbidden",
-        "in-process subagents use their harness-native parent channel; "
-        "only the registered top-level session sends or acknowledges Fleet messages",
+        FLEET_OWNERSHIP_GUIDANCE,
         f"$.options.{SUBAGENT_EXECUTION_PAYLOAD_KEY}",
     )
 

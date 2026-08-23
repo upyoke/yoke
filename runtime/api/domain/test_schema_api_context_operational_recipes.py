@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
 from yoke_core.domain import schema_api_context as sac
 
 
@@ -24,11 +25,13 @@ def test_main_agent_packet_teaches_fleet_session_basics() -> None:
     )
     assert "yoke messages get MESSAGE-ID" in body
     assert "yoke messages acknowledge MESSAGE-ID" in body
+    assert "Top-level sender recovery for an undelivered message" in body
+    assert "yoke messages cancel MESSAGE-ID" in body
     assert "pass bodies only through stdin" in body
     assert "Acknowledge only after `yoke messages get` confirms" in body
-    assert "This top-level session alone sends and acknowledges Fleet messages" in body
-    assert "Forward relevant content to in-process subagents" in body
-    assert "they reply there and never send or acknowledge Fleet messages" in body
+    assert FLEET_OWNERSHIP_GUIDANCE in body
+    assert "receipts shared with their parent read-only" in body
+    assert "cancel Fleet messages or handle Fleet wake requests" in body
     assert "Independently launched top-level workers remain Fleet participants" in body
     assert " ; " not in body
 
@@ -38,5 +41,7 @@ def test_subagent_packets_use_native_parent_communication() -> None:
         body = sac.render_role_packet(role)
         assert "harness-native parent/subagent channel" in body
         assert "Fleet messages belong to the registered top-level session" in body
+        assert "receipts shared with their parent read-only" in body
+        assert "cancel Fleet messages or handle Fleet wake requests" in body
         assert "yoke say --session SESSION-ID --stdin" not in body
         assert "yoke messages acknowledge MESSAGE-ID" not in body

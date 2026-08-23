@@ -215,7 +215,9 @@ def test_child_hook_renders_parent_receipt_without_leasing_or_completing_it(
     assert "message-1" in rendered
     assert port.body in rendered
     assert "READ-ONLY CHILD VIEW" in rendered
-    assert "harness-native parent channel" in rendered
+    assert "receipts shared with their parent read-only" in rendered
+    assert "harness-native parent/subagent channel" in rendered
+    assert "cancel Fleet messages or handle Fleet wake requests" in rendered
     assert "yoke messages acknowledge" not in rendered
 
     parent = delivery.evaluate(_context())
