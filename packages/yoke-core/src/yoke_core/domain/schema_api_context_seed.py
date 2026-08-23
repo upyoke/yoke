@@ -53,7 +53,7 @@ STALE_TERMS: tuple[str, ...] = (
     "work_claims.target_id",
     "qa_kind='review'",
     "--qa-kind review",
-    ".agents/skills/yoke/scripts/python3 -m yoke_core.cli.db_router qa",
+    ".agents/skills/yoke/scripts/python3 -m " + "yoke_core.cli.db_router qa",
     "blocker_item_id",
 )
 
