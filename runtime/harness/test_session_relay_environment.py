@@ -26,6 +26,10 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
         "CURSOR_INVOKED_AS": "cursor",
         "CURSOR_CONVERSATION_ID": "parent-cursor-session",
         "CURSOR_TRANSCRIPT_PATH": "/tmp/parent-transcript",
+        "SHELL": "/bin/zsh",
+        "BASH_ENV": "/tmp/parent-bash-env",
+        "ENV": "/tmp/parent-sh-env",
+        "ZDOTDIR": "/tmp/parent-zdotdir",
         LAUNCH_CONTEXT_ENV: '{"launch_id":"parent"}',
     }
 
@@ -45,6 +49,10 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     assert environment["YOKE_EXECUTOR"] == "claude-code"
     assert environment["YOKE_EXECUTOR_VERSION"] == "2.1.238"
     assert environment["YOKE_PROVIDER"] == "anthropic"
+    assert environment["SHELL"] == "/bin/sh"
+    assert "BASH_ENV" not in environment
+    assert "ENV" not in environment
+    assert "ZDOTDIR" not in environment
     assert environment["CLAUDE_CODE_ENTRYPOINT"] == "cli"
     assert "YOKE_MODEL" not in environment
     assert "CODEX_INTERNAL_ORIGINATOR_OVERRIDE" not in environment

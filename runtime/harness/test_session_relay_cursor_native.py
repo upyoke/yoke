@@ -77,6 +77,7 @@ def test_cli_create_uses_empty_chat_then_exact_headless_resume(
     assert result.native_session_id == SESSION_ID
     command, options = spawns[0]
     assert command[:3] == ["/opt/cursor-agent", "--resume", SESSION_ID]
+    assert "--trust" in command
     assert command[-1] == BOOTSTRAP
     assert "--model" in command
     assert ATTESTATION not in repr(command)
