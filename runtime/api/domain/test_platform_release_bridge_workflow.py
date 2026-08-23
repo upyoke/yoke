@@ -101,7 +101,7 @@ def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch(
 def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
     text = _text()
     preflight = text.split(
-        "- name: Refuse a release carrying an unrehearsed migration entry", 1
+        "- name: Refuse a release with unsafe migration history", 1
     )[1].split("      - name: ", 1)[0]
     record = text.split(
         "- name: Record desired pin after successful Platform release", 1

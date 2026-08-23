@@ -85,6 +85,7 @@ where = ["src"]
 "yoke_core.domain" = [
     "retired_schema_surfaces.yaml",
     "builtin_workflow_canon/*.json",
+    "migrations/*.json",
 ]
 "yoke_core.ui" = ["static/*", "contracts/*"]
 "yoke_core.install_bundle_tree" = [

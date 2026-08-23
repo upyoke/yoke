@@ -1,4 +1,4 @@
-"""Refuse a release carrying a migration entry no fleet preflight has covered.
+"""Refuse a release whose migration history is unsafe to publish.
 
 Run this before the release train allocates its annotated tag. The tag is the
 first irreversible act, and a release refused after it leaves a tag naming a
@@ -17,12 +17,14 @@ reference. An admin connection name is also accepted and normalized. The
 optional *product-sha* only enriches the refusal, since coverage is a question
 about history entries rather than about which commit carries them.
 
-This reads the receipt store and the checked-out history. It does not rehearse
-anything, so it runs anywhere the control plane is reachable — which is what
-lets it sit in a release job that could never host the rehearsal itself.
+This reads the connected control plane's applied ledger, the receipt store,
+and the checked-out history. It does not rehearse anything, so it runs
+anywhere the control plane is reachable — which is what lets it sit in a
+release job that could never host the rehearsal itself.
 
-Exits 0 when every entry is covered, 1 when any is not or when the receipts
-could not be read.
+Exits 0 when permanent packaged bytes match the live ledger and every entry is
+covered. Exits 1 on a content mismatch, missing coverage, or an unreadable
+ledger or receipt query.
 """
 
 from __future__ import annotations
@@ -40,6 +42,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 _RECEIPT_QUERY_LIMIT = 500
 _QUERY_TIMEOUT_SECONDS = 120
 _BUILD_ARTIFACTS_WORKFLOW = "yoke-build-artifacts.yml"
+_LEDGER_QUERY = (
+    "SELECT migration_name, content_sha256 "
+    "FROM applied_migrations ORDER BY migration_name"
+)
 
 
 def _yoke_fleet_rehearse_command(
@@ -106,6 +112,55 @@ def _query_receipts(event_name: str, project: str) -> Tuple[List[Dict[str, Any]]
     return rows, ""
 
 
+def _query_applied_migrations() -> Tuple[List[Tuple[Any, Any]], str]:
+    """Applied migration content rows, or why they could not be read."""
+    argv = ["yoke", "db", "read", _LEDGER_QUERY, "--json"]
+    try:
+        result = subprocess.run(
+            argv, capture_output=True, text=True, timeout=_QUERY_TIMEOUT_SECONDS
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [], f"{' '.join(argv[:3])} could not run: {exc}"
+    if result.returncode != 0:
+        details = []
+        if result.stderr.strip():
+            details.append(f"stderr: {result.stderr.strip()}")
+        if result.stdout.strip():
+            details.append(f"stdout: {result.stdout.strip()}")
+        detail = "\n".join(details) or "no output"
+        return [], f"applied migration query exited {result.returncode}: {detail}"
+    try:
+        payload = json.loads(result.stdout)
+    except ValueError as exc:
+        return [], f"applied migration query returned unreadable output: {exc}"
+    if not payload.get("success", False):
+        return [], f"applied migration query refused: {payload.get('error')}"
+    result_payload = payload.get("result", {})
+    if result_payload.get("truncated"):
+        return [], "applied migration query was truncated"
+    columns = result_payload.get("columns")
+    if columns != ["migration_name", "content_sha256"]:
+        return [], f"applied migration query returned unexpected columns: {columns!r}"
+    rows = result_payload.get("rows")
+    if not isinstance(rows, list) or any(
+        not isinstance(row, list) or len(row) != 2 for row in rows
+    ):
+        return [], "applied migration query returned malformed rows"
+    return [(row[0], row[1]) for row in rows], ""
+
+
+def _content_identity_refusal(status: Any) -> str:
+    detail = "; ".join(
+        f"{item.entry_name}: ledger={item.recorded_sha256} "
+        f"packaged={item.packaged_sha256}"
+        for item in status.mismatches
+    )
+    return (
+        "release refused before tag: packaged migration content differs from "
+        f"the connected applied ledger: {detail}"
+    )
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help"}:
@@ -113,6 +168,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0 if args else 2
 
     from yoke_core.domain import migration_preflight_receipt as receipt
+    from yoke_core.domain.migration_content_identity import (
+        compare_content_identities,
+    )
     from runtime.api.tools import yoke_migration_fleet
 
     environment = receipt.target_environment_for_admin_env(args[0])
@@ -124,6 +182,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     history = yoke_migration_fleet.history_names()
     print(f"target environment: {environment}")
     print(f"history entries carried by this build: {len(history)}")
+
+    ledger_rows, ledger_unreadable = _query_applied_migrations()
+    if ledger_unreadable:
+        print(
+            "release refused before tag: the connected applied migration "
+            f"ledger could not be read: {ledger_unreadable}",
+            file=sys.stderr,
+        )
+        return 1
+    content_status = compare_content_identities(
+        yoke_migration_fleet.history_entries(), ledger_rows
+    )
+    if content_status.mismatches:
+        print(_content_identity_refusal(content_status), file=sys.stderr)
+        return 1
+    print(
+        "packaged migration content matches the connected applied ledger: "
+        f"{len(content_status.verified)} verified"
+    )
 
     rows, unreadable = _query_receipts(receipt.EVENT_NAME, project)
     if unreadable:

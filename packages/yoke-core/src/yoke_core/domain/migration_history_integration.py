@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -13,6 +14,9 @@ from yoke_core.domain.migration_history import (
     HistoryError,
     ordinal_entries,
 )
+
+
+RELEASED_DIGESTS_NAME = "released_history_digests.json"
 
 
 @dataclass(frozen=True)
@@ -141,6 +145,61 @@ def _lane_history(repo: Path, modules_dir: str) -> tuple[HistoryIdentity, ...]:
     )
 
 
+def _digest_pins(
+    repo: Path,
+    *,
+    target_ref: str,
+    modules_dir: str,
+) -> dict[str, str]:
+    """Return frozen pins, preferring the integration target's manifest.
+
+    A lane manifest is considered only while bootstrapping the manifest into
+    a target that has none. After that first merge, a lane cannot rewrite a
+    pin to authorize its own history edit because the target copy wins.
+    """
+    manifest_path = f"{modules_dir}/{RELEASED_DIGESTS_NAME}"
+    target = _git(
+        repo,
+        "show",
+        f"{target_ref}:{manifest_path}",
+        required=False,
+    )
+    if target.returncode == 0:
+        raw = target.stdout
+        source = f"{target_ref}:{manifest_path}"
+    else:
+        lane_path = repo / modules_dir / RELEASED_DIGESTS_NAME
+        if not lane_path.is_file():
+            return {}
+        raw = lane_path.read_bytes()
+        source = str(lane_path)
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HistoryError(f"released migration digest manifest {source} is invalid: {exc}") from exc
+    if not isinstance(payload, dict) or any(
+        not isinstance(name, str) or not isinstance(digest, str)
+        for name, digest in payload.items()
+    ):
+        raise HistoryError(
+            f"released migration digest manifest {source} must map names to digests"
+        )
+    return payload
+
+
+def _is_frozen_content_restoration(
+    target: HistoryIdentity,
+    lane: HistoryIdentity,
+    pins: dict[str, str],
+) -> bool:
+    """Whether *lane* restores one target entry to its released raw bytes."""
+    return (
+        lane.sequence == target.sequence
+        and lane.name == target.name
+        and pins.get(lane.name) == lane.content_sha256
+    )
+
+
 def _extension(
     *,
     worktree_path: Path,
@@ -155,6 +214,11 @@ def _extension(
     target_ref = _target_ref(worktree_path, integration_target)
     target = _target_history(worktree_path, target_ref, relative_dir)
     lane = _lane_history(worktree_path, relative_dir)
+    pins = _digest_pins(
+        worktree_path,
+        target_ref=target_ref,
+        modules_dir=relative_dir,
+    )
     lane_names = {entry.name for entry in lane}
     missing = [name for name in declared if name not in lane_names]
     if missing:
@@ -168,7 +232,11 @@ def _extension(
         )
     for index, target_entry in enumerate(target):
         lane_entry = lane[index]
-        if lane_entry != target_entry:
+        if lane_entry != target_entry and not _is_frozen_content_restoration(
+            target_entry,
+            lane_entry,
+            pins,
+        ):
             raise HistoryError(
                 f"lane migration history does not extend {target_ref}: target "
                 f"entry {target_entry.name!r} is replaced by {lane_entry.name!r} "
@@ -221,6 +289,7 @@ def require_merge_history_extension(
 
 __all__ = [
     "HistoryIdentity",
+    "RELEASED_DIGESTS_NAME",
     "migration_ordinal",
     "require_merge_history_extension",
     "require_rehearsal_history_extension",
