@@ -178,6 +178,7 @@ def wait_for_waiting_registration(
     poll: float,
     sleep: Callable[[float], None],
     monotonic: Callable[[], float],
+    one_shot_private_wake_candidate: bool = False,
 ) -> dict[str, Any]:
     deadline = monotonic() + timeout
     while True:
@@ -198,7 +199,12 @@ def wait_for_waiting_registration(
                     "waiting_route_missing", surface=cell.surface
                 )
             available = routing.get("wake_available") is True
-            if available != (cell.route == "direct"):
+            availability_relaxed = (
+                one_shot_private_wake_candidate
+                and cell.route == "direct"
+                and not available
+            )
+            if available != (cell.route == "direct") and not availability_relaxed:
                 raise AcceptanceContractError(
                     "waiting_wake_mismatch", surface=cell.surface
                 )
