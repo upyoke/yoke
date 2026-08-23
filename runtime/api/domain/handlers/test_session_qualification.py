@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_cli.commands.adapters.session_control_qualification import (
+    QUALIFICATION_OPEN_USAGE,
+)
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_LEASE_PREFIX,
@@ -11,6 +14,7 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     grant_actor_project_role,
 )
+from yoke_core.api.service_client_structured_api_adapter import adapter_for
 from yoke_core.domain.handlers import (
     _register_session_control,
     claims_coordination_lease,
@@ -90,6 +94,10 @@ def test_registration_is_operator_override_and_stage_guarded() -> None:
         assert entry.side_effects == ("coordination_leases_insert",)
         assert entry.target_kinds == ("global",)
         assert "stage_only_exact_release" in entry.guardrails
+        adapter = adapter_for("session_control.qualification.open")
+        assert adapter is not None
+        assert adapter.cli_invocation == QUALIFICATION_OPEN_USAGE
+        assert adapter.agent_path == "operator-only"
         acknowledge = yoke_function_registry.lookup(
             "session_control.message.acknowledge"
         )

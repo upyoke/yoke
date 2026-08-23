@@ -8,20 +8,9 @@ from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import FunctionCallResponse
-from yoke_core.api.service_client_structured_api_adapter import adapter_for
-
-from .session_control_qualification import QUALIFICATION_OPEN_USAGE
 
 
 RELEASE_SHA = "a" * 40
-
-
-def test_open_inventory_is_operator_only_and_names_the_real_cli() -> None:
-    entry = adapter_for("session_control.qualification.open")
-
-    assert entry is not None
-    assert entry.cli_invocation == QUALIFICATION_OPEN_USAGE
-    assert entry.agent_path == "operator-only"
 
 
 @patch(
