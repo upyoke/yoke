@@ -10,6 +10,7 @@ from yoke_core.domain.lint_lane_main_write_derivation import (
     format_derivation,
     format_derivation_guidance,
 )
+from yoke_core.domain.lint_session_cwd_target_extract import APPLY_PATCH_TOOL_NAMES
 
 RULE_ID = "lint-lane-main-write"
 SUPPRESSION_TOKEN = "# lint:no-lane-main-write-check"
@@ -26,6 +27,7 @@ def format_denial(
     suppression_seen: bool,
     config_note: str = "",
     derivation: Optional[TargetDerivation] = None,
+    tool_name: str = "",
 ) -> str:
     """Render the refusal, showing how the refused path was derived.
 
@@ -63,12 +65,32 @@ def format_denial(
         f"Attempted:     {attempted_path}\n"
         f"Use instead:   {lane_equivalent}\n\n"
         f"{guidance}\n\n"
-        f"Deliberate main-targeted work: add `{ESCAPE_TOKEN}` to the command "
-        "or tool call body (records an audit event; use only when main is "
-        "intentionally the write target)."
+        f"{escape_guidance(tool_name)}"
         f"{config_line}{suffix}"
     )
     return append_field_note_footer(body, rule_id=RULE_ID)
+
+
+def escape_guidance(tool_name: str = "") -> str:
+    """How to make a deliberate main write with *tool_name*.
+
+    A patch body must begin with ``*** Begin Patch``, so the escape token
+    has no place in an ``apply_patch`` call; pointing that tool at the
+    token would only teach a shape its parser rejects.
+    """
+    if tool_name in APPLY_PATCH_TOOL_NAMES:
+        return (
+            f"Deliberate main-targeted work: `{tool_name}` cannot carry the "
+            f"`{ESCAPE_TOKEN}` escape (a patch must begin with *** Begin "
+            "Patch), so make the deliberate main write through Edit/Write or "
+            "a Bash command whose body includes the token (records an audit "
+            "event; use only when main is intentionally the write target)."
+        )
+    return (
+        f"Deliberate main-targeted work: add `{ESCAPE_TOKEN}` to the command "
+        "or tool call body (records an audit event; use only when main is "
+        "intentionally the write target)."
+    )
 
 
 def format_stranded_advisory(*, item_label: str, lane_path: str) -> str:
@@ -85,6 +107,7 @@ __all__ = [
     "ESCAPE_TOKEN",
     "RULE_ID",
     "SUPPRESSION_TOKEN",
+    "escape_guidance",
     "format_denial",
     "format_stranded_advisory",
 ]

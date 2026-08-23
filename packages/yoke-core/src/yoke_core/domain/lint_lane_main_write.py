@@ -36,10 +36,10 @@ from yoke_core.domain.lint_lane_main_write_classify import (
     collect_main_write_targets,
     command_has_suppression_token,
     item_label,
-    lane_equivalent_path,
     lane_path_exists_on_disk,
     payload_has_escape_token,
 )
+from yoke_core.domain.lint_lane_main_write_lanes import lane_equivalent_path
 from yoke_core.domain.lint_lane_main_write_derivation import (
     TargetDerivation,
     first_hit_fields,
@@ -201,6 +201,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         suppression_seen=suppression_seen,
         config_note=_config_note(mode),
         derivation=derivation,
+        tool_name=tool_name,
     )
     emit_denied(
         session_id=session_id,

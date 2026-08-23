@@ -6,11 +6,12 @@ import os
 import re
 import shlex
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 from yoke_core.domain import lint_lane_main_write_derivation as derivation
 from yoke_core.domain.file_line_check import classify_path
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, SUPPRESSION_TOKEN
+from yoke_core.domain.lint_lane_main_write_lanes import matching_claim_for_main_target
 from yoke_core.domain.lint_session_cwd_path_authority import (
     is_free_path,
     is_inside,
@@ -111,48 +112,6 @@ def _is_scratch_free_path(
         if is_inside_control_plane(target, root):
             return False
     return True
-
-
-def _is_lane_escape(target: str, claim: ClaimedWorktree, repo_root: str) -> bool:
-    """True when *target* is under ``.worktrees`` but outside *claim*'s lane."""
-    if is_inside(target, claim.worktree_path):
-        return False
-    worktrees = str(Path(repo_root).resolve() / ".worktrees")
-    resolved = resolve_for_display(target)
-    return resolved == worktrees or resolved.startswith(worktrees + os.sep)
-
-
-def matching_claim_for_main_target(
-    target: str,
-    claims: Sequence[ClaimedWorktree],
-    repo_roots: Sequence[str],
-) -> Optional[ClaimedWorktree]:
-    for claim in claims:
-        root = repo_root_from_worktree_path(claim.worktree_path)
-        if root and (
-            is_inside_control_plane(target, root)
-            or _is_lane_escape(target, claim, root)
-        ):
-            return claim
-    for root in repo_roots:
-        if is_inside_control_plane(target, root):
-            for claim in claims:
-                if repo_root_from_worktree_path(claim.worktree_path) == root:
-                    return claim
-            if claims:
-                return claims[0]
-    return None
-
-
-def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
-    root = repo_root_from_worktree_path(claim.worktree_path)
-    if not root:
-        return claim.worktree_path
-    try:
-        rel = Path(main_target).resolve().relative_to(Path(root).resolve())
-        return str((Path(claim.worktree_path) / rel).resolve())
-    except (OSError, ValueError):
-        return claim.worktree_path
 
 
 def item_label(claim: ClaimedWorktree) -> str:
@@ -339,9 +298,7 @@ __all__ = [
     "is_write_tool_name",
     "is_yoke_adapter_command",
     "item_label",
-    "lane_equivalent_path",
     "lane_path_exists_on_disk",
-    "matching_claim_for_main_target",
     "payload_has_escape_token",
     "_is_scratch_free_path",
 ]
