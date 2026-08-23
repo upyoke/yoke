@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json
 from pathlib import Path
-import re
 import shutil
-import subprocess
-import time
 from typing import Callable
 from uuid import UUID
 
+from yoke_harness.session_relay_claude_identity import (
+    background_agent_id,
+    resolve_background_session,
+)
+from yoke_harness.session_relay_claude_process import (
+    ClaudeProcessResult,
+    run_bounded_claude_process,
+)
 from yoke_harness.session_relay_runtime import (
     RelayAdapterResult,
     RelayExecutionContext,
@@ -22,10 +26,6 @@ from yoke_harness.session_relay_environment import native_session_environment
 CLAUDE_ADAPTER_REVISION = "claude-native-v1"
 CLAUDE_CLI_SURFACE = "claude-cli"
 CLAUDE_NATIVE_TIMEOUT_SECONDS = 20
-_MAX_NATIVE_OUTPUT_BYTES = 64 * 1024
-_BACKGROUND_ID_PATTERN = re.compile(
-    r"(?im)^\s*backgrounded\s*[·:]\s*([A-Za-z0-9_-]{4,64})\s*$"
-)
 
 
 @dataclass(frozen=True)
@@ -48,14 +48,6 @@ class ClaudeNativeInvocation:
         return tuple(arguments)
 
 
-@dataclass(frozen=True)
-class ClaudeProcessResult:
-    returncode: int
-    duration_ms: int
-    stdout: str = field(default="", repr=False)
-    stderr: str = field(default="", repr=False)
-
-
 ClaudeProcessRunner = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
 ClaudeSessionLookup = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
 ExecutableFinder = Callable[[str], str | None]
@@ -74,38 +66,21 @@ def discover_claude_cli(
     return str(discovered).strip() if discovered else None
 
 
-def _bounded_text(value: object) -> str:
-    raw = value if isinstance(value, bytes) else str(value or "").encode()
-    return raw[:_MAX_NATIVE_OUTPUT_BYTES].decode("utf-8", errors="replace")
-
-
 def _run_claude_command(
     invocation: ClaudeNativeInvocation,
     argv: tuple[str, ...],
 ) -> ClaudeProcessResult:
-    started = time.monotonic()
     environment = native_session_environment(
         executor="claude-code",
         executor_version=invocation.surface_version,
         provider="anthropic",
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
     )
-    completed = subprocess.run(
-        list(argv),
+    return run_bounded_claude_process(
+        argv,
         cwd=invocation.cwd,
-        env=environment,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=CLAUDE_NATIVE_TIMEOUT_SECONDS,
-        check=False,
-    )
-    duration_ms = max(0, int((time.monotonic() - started) * 1000))
-    return ClaudeProcessResult(
-        completed.returncode,
-        duration_ms,
-        _bounded_text(completed.stdout),
-        _bounded_text(completed.stderr),
+        environment=environment,
+        timeout_seconds=CLAUDE_NATIVE_TIMEOUT_SECONDS,
     )
 
 
@@ -115,7 +90,10 @@ def run_claude_process(invocation: ClaudeNativeInvocation) -> ClaudeProcessResul
 
 
 def lookup_claude_session(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
-    return _run_claude_command(invocation, (invocation.executable, "agents", "--json"))
+    return _run_claude_command(
+        invocation,
+        (invocation.executable, "agents", "--all", "--json"),
+    )
 
 
 def _contract_version_gate(
@@ -226,34 +204,6 @@ def _native_invocation(
     )
 
 
-def _short_background_id(process: ClaudeProcessResult) -> str | None:
-    matched = _BACKGROUND_ID_PATTERN.search(f"{process.stdout}\n{process.stderr}")
-    return matched.group(1) if matched else None
-
-
-def _actual_session_id(short_id: str, output: str) -> str | None:
-    try:
-        document = json.loads(output)
-    except (TypeError, ValueError):
-        return None
-    if isinstance(document, dict):
-        document = document.get("agents", document.get("sessions"))
-    if not isinstance(document, list):
-        return None
-    matches = set()
-    for row in document:
-        if not isinstance(row, dict):
-            continue
-        row_id = row.get("id") or row.get("agentId") or row.get("shortId")
-        if str(row_id or "") != short_id:
-            continue
-        try:
-            matches.add(str(UUID(str(row.get("sessionId") or ""))))
-        except (TypeError, ValueError, AttributeError):
-            continue
-    return matches.pop() if len(matches) == 1 else None
-
-
 def run_claude_cli_adapter(
     context: RelayExecutionContext,
     *,
@@ -304,25 +254,25 @@ def run_claude_cli_adapter(
         result = "outcome_unknown" if context.job_kind == "launch" else "failed"
         return _result(context, result, "native_exit", process=process)
     if context.job_kind == "launch":
-        short_id = _short_background_id(process)
+        short_id = background_agent_id(process)
         if short_id is None:
             return _result(context, "outcome_unknown", "identity_parse_failed")
-        try:
-            lookup = session_lookup(invocation)
-        except Exception:  # lookup output and errors are private native material
-            return _result(context, "outcome_unknown", "identity_lookup_failed")
-        combined = ClaudeProcessResult(
-            lookup.returncode,
-            min(process.duration_ms + lookup.duration_ms, 3_600_000),
+        resolution = resolve_background_session(
+            short_id,
+            lambda: session_lookup(invocation),
         )
-        actual_id = _actual_session_id(short_id, lookup.stdout)
-        if lookup.returncode != 0 or actual_id is None:
-            code = (
-                "identity_lookup_failed"
-                if lookup.returncode
-                else "identity_parse_failed"
+        combined = ClaudeProcessResult(
+            resolution.returncode,
+            min(process.duration_ms + resolution.duration_ms, 3_600_000),
+        )
+        actual_id = resolution.session_id
+        if actual_id is None:
+            return _result(
+                context,
+                "outcome_unknown",
+                resolution.result_code,
+                process=combined,
             )
-            return _result(context, "outcome_unknown", code, process=combined)
         try:
             staged = attestation_handoff(
                 context.job_id,

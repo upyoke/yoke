@@ -154,7 +154,7 @@ def test_create_identity_failures_are_unknown_and_private(
     assert result.native_session_id is None
     assert result.evidence["result_code"] == code
     assert handoffs == []
-    assert len(lookup_calls) == (0 if created.stdout == "no background identity" else 1)
+    assert len(lookup_calls) == (0 if created.stdout == "no background identity" else 4)
     assert "private" not in repr(result.evidence)
 
 
@@ -207,22 +207,16 @@ def test_missing_sidecar_refuses_before_native_create() -> None:
     assert calls == []
 
 
-def test_native_commands_capture_bounded_private_output_without_launch_secret(
+def test_native_commands_use_private_collector_without_launch_secret(
     monkeypatch,
 ) -> None:
     calls = []
 
     def fake_run(argv, **kwargs):
         calls.append((argv, kwargs))
-        return SimpleNamespace(
-            returncode=0,
-            stdout=b"x" * 70_000,
-            stderr=b"secret-native-output",
-        )
+        return ClaudeProcessResult(0, 12, "private-stdout", "private-stderr")
 
-    monotonic = iter((10.0, 10.012, 20.0, 20.009))
-    monkeypatch.setattr(claude_module.subprocess, "run", fake_run)
-    monkeypatch.setattr(claude_module.time, "monotonic", lambda: next(monotonic))
+    monkeypatch.setattr(claude_module, "run_bounded_claude_process", fake_run)
     monkeypatch.setenv("CODEX_SESSION_ID", "parent-session")
     invocation = ClaudeNativeInvocation(
         CLAUDE,
@@ -235,14 +229,12 @@ def test_native_commands_capture_bounded_private_output_without_launch_secret(
     created = run_claude_process(invocation)
     agents = lookup_claude_session(invocation)
 
-    assert calls[0][0] == list(invocation.argv)
-    assert calls[1][0] == [CLAUDE, "agents", "--json"]
-    assert calls[0][1]["stdout"] is claude_module.subprocess.PIPE
-    assert calls[0][1]["stderr"] is claude_module.subprocess.PIPE
-    assert "CODEX_SESSION_ID" not in calls[0][1]["env"]
-    assert LAUNCH_CONTEXT_ENV not in calls[0][1]["env"]
-    assert len(created.stdout.encode()) == 64 * 1024
-    assert "secret-native-output" not in repr((created, agents))
+    assert calls[0][0] == invocation.argv
+    assert calls[1][0] == (CLAUDE, "agents", "--all", "--json")
+    assert "CODEX_SESSION_ID" not in calls[0][1]["environment"]
+    assert LAUNCH_CONTEXT_ENV not in calls[0][1]["environment"]
+    assert calls[0][1]["timeout_seconds"] == 20
+    assert "private" not in repr((created, agents))
 
 
 def test_wake_resumes_exact_stopped_session_without_identity_lookup() -> None:
