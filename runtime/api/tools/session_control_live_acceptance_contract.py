@@ -256,8 +256,8 @@ def _parse_matrix(
             sorted(
                 cells,
                 key=lambda cell: (
-                    ACCEPTANCE_SURFACES.index(cell.surface),
                     0 if cell.acceptance_role == "surface" else 1,
+                    ACCEPTANCE_SURFACES.index(cell.surface),
                 ),
             )
         )

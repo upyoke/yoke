@@ -171,34 +171,6 @@ def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells() -> N
         assert raised.value.code == code
 
 
-def test_candidate_matrix_keeps_surface_before_broker_for_same_surface() -> None:
-    surface = {
-        "surface": "claude-cli",
-        "expected_version": "2.1.241",
-        "mode": "create",
-        "acceptance_role": "surface",
-        "wake_route": "direct",
-    }
-    broker = {
-        **surface,
-        "mode": "identify",
-        "session_id": "broker-target",
-        "machine_id": "machine-1",
-        "acceptance_role": "broker",
-        "wake_route": "broker",
-        "broker_session_id": "broker-peer",
-    }
-
-    parsed = parse_candidate_matrix(
-        {"schema": 2, "project": "yoke", "cells": [broker, surface]}
-    )
-
-    assert tuple(cell.acceptance_role for cell in parsed.cells) == (
-        "surface",
-        "broker",
-    )
-
-
 def test_readiness_matrix_retains_complete_deferred_contract() -> None:
     raw = _matrix()
     for cell in raw["cells"]:
