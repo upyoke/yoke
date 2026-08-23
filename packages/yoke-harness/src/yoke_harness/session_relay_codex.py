@@ -17,7 +17,7 @@ from yoke_harness.session_relay_runtime import (
 )
 
 
-ADAPTER_REVISION = "codex-relay-v1"
+ADAPTER_REVISION = "codex-relay-v2"
 CODEX_SURFACES = ("codex-cli", "codex-desktop")
 _LIVENESS_OPERATION = {
     "active": "message_active",

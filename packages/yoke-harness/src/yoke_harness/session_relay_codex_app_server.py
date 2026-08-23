@@ -275,20 +275,26 @@ class CodexAppServerTransport:
         mutated = False
         try:
             client = self._client(request)
-            current = _thread(
-                client.request(
-                    "thread/read",
-                    {"threadId": request.target_session_id, "includeTurns": True},
+            target_session_id = str(request.target_session_id)
+            if request.target_liveness == "ended":
+                # Resume is the vendor's stopped-thread load primitive. An
+                # unloaded thread must not depend on a successful pre-read.
+                identity = (target_session_id, target_session_id)
+            else:
+                current = _thread(
+                    client.request(
+                        "thread/read",
+                        {"threadId": target_session_id, "includeTurns": True},
+                    )
                 )
-            )
-            identity = _identity(current)
-            if identity != (request.target_session_id, request.target_session_id):
-                raise CodexAppServerError("thread/session identity mismatch")
-            status = current.get("status")
-            status_type = status.get("type") if isinstance(status, dict) else None
-            if status_type != _STATUS_BY_LIVENESS[request.target_liveness]:
-                client.close()
-                return CodexNativeOutcome("outcome_unknown")
+                identity = _identity(current)
+                if identity != (target_session_id, target_session_id):
+                    raise CodexAppServerError("thread/session identity mismatch")
+                status = current.get("status")
+                status_type = status.get("type") if isinstance(status, dict) else None
+                if status_type != _STATUS_BY_LIVENESS[request.target_liveness]:
+                    client.close()
+                    return CodexNativeOutcome("outcome_unknown")
             if request.target_liveness == "active":
                 active = [
                     turn
