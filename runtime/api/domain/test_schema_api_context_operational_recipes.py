@@ -24,8 +24,12 @@ def test_main_agent_packet_teaches_fleet_session_basics() -> None:
     )
     assert "yoke messages get MESSAGE-ID" in body
     assert "yoke messages acknowledge MESSAGE-ID" in body
-    assert "Message bodies enter only through stdin" in body
+    assert "pass bodies only through stdin" in body
     assert "Acknowledge only after `yoke messages get` confirms" in body
+    assert "This top-level session alone sends and acknowledges Fleet messages" in body
+    assert "Forward relevant content to in-process subagents" in body
+    assert "they reply there and never send or acknowledge Fleet messages" in body
+    assert "Independently launched top-level workers remain Fleet participants" in body
     assert " ; " not in body
 
 
