@@ -26,6 +26,7 @@ on:
       - ".github/workflows/yoke-build-artifacts.yml"
       - "packages/**"
       - "packaging/**"
+      - "runtime/**"
       - "pyproject.toml"
       - "uv.lock"
   push:
@@ -34,6 +35,7 @@ on:
       - ".github/workflows/yoke-build-artifacts.yml"
       - "packages/**"
       - "packaging/**"
+      - "runtime/**"
       - "pyproject.toml"
       - "uv.lock"
   workflow_dispatch:
