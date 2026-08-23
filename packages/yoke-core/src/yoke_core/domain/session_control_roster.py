@@ -8,9 +8,11 @@ from typing import Any, Iterable
 from yoke_contracts.session_control.roster import (
     SESSION_CONTROL_ROSTER_DISPLAY_FIELDS,
 )
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_relay_types import WakeMode
+from yoke_core.domain.session_relay_versions import wake_candidate_supported
 
 
 SESSION_CONTROL_ROSTER_FIELDS = tuple(
@@ -42,8 +44,8 @@ def _identity_facts(
         return {}
     marker = _marker(conn)
     rows = conn.execute(
-        "SELECT session_id,executor_version,machine_id,last_heartbeat,"
-        "last_tool_call_at,ended_at,turn_posture,turn_posture_at "
+        "SELECT session_id,project_id,executor_surface,executor_version,machine_id,"
+        "last_heartbeat,last_tool_call_at,ended_at,turn_posture,turn_posture_at "
         "FROM harness_sessions WHERE session_id IN ("
         + ",".join(marker for _ in ids)
         + ")",
@@ -52,14 +54,62 @@ def _identity_facts(
     return {str(row["session_id"]): _row_dict(row) for row in rows}
 
 
-def _connected_machines(conn: Any, *, now: str) -> set[str]:
+def _document(raw: Any, default: Any) -> Any:
+    if isinstance(raw, (dict, list)):
+        return raw
+    try:
+        return json_helper.loads_text(str(raw))
+    except (TypeError, ValueError):
+        return default
+
+
+def _connected_relays(conn: Any, *, now: str) -> dict[str, tuple[dict[str, Any], ...]]:
     marker = _marker(conn)
     rows = conn.execute(
-        "SELECT DISTINCT machine_id FROM session_relays "
+        "SELECT machine_id,surface_versions,project_checkouts FROM session_relays "
         f"WHERE state IN ('active','idle') AND connected_until>{marker}",
         (now,),
     ).fetchall()
-    return {str(row["machine_id"]) for row in rows}
+    relays: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        relays.setdefault(str(row["machine_id"]), []).append(
+            {
+                "surface_versions": _document(row["surface_versions"], {}),
+                "project_checkouts": _document(row["project_checkouts"], []),
+            }
+        )
+    return {machine: tuple(routes) for machine, routes in relays.items()}
+
+
+def _wake_route_available(
+    merged: dict[str, Any],
+    *,
+    liveness: str,
+    routes: tuple[dict[str, Any], ...],
+) -> bool:
+    project_id = merged.get("project_id")
+    if project_id is None:
+        return False
+    candidate = {
+        "executor_surface": str(merged.get("executor_surface") or ""),
+        "executor_version": str(merged.get("executor_version") or ""),
+        "wake_mode": (
+            WakeMode.WAITING.value
+            if merged.get("turn_posture") == "waiting"
+            else WakeMode.IDLE_TIMEOUT.value
+        ),
+        "liveness": liveness,
+    }
+    for route in routes:
+        projects = route.get("project_checkouts")
+        if not isinstance(projects, list) or str(project_id) not in {
+            str(value) for value in projects
+        }:
+            continue
+        versions = route.get("surface_versions")
+        if isinstance(versions, dict) and wake_candidate_supported(candidate, versions):
+            return True
+    return False
 
 
 def _active_worktrees(
@@ -112,19 +162,22 @@ def _project_row(
     row: dict[str, Any],
     *,
     identity: dict[str, Any],
-    connected_machines: set[str],
+    connected_relays: dict[str, tuple[dict[str, Any], ...]],
     worktree: str | None,
 ) -> dict[str, Any]:
     merged = {**row, **identity}
     machine_id = str(merged.get("machine_id") or "")
-    relay_connected = bool(machine_id and machine_id in connected_machines)
+    routes = connected_relays.get(machine_id, ())
+    relay_connected = bool(machine_id and routes)
+    liveness = str(row.get("liveness") or "ended")
     routing = messageability(
         merged,
-        liveness=str(row.get("liveness") or "ended"),
+        liveness=liveness,
     )
     routing["relay_connected"] = relay_connected
     routing["wake_available"] = bool(
-        relay_connected and routing.get("wake_interface") != "none"
+        routing.get("wake_interface") != "none"
+        and _wake_route_available(merged, liveness=liveness, routes=routes)
     )
     role = row.get("work_role")
     claims = row.get("claims") or []
@@ -168,12 +221,12 @@ def session_control_roster_result(
             conn,
             (str(row.get("session_id") or "") for row in rows),
         )
-        connected = _connected_machines(conn, now=_now_text(now))
+        connected = _connected_relays(conn, now=_now_text(now))
         projected = [
             _project_row(
                 row,
                 identity=identities.get(str(row.get("session_id") or ""), {}),
-                connected_machines=connected,
+                connected_relays=connected,
                 worktree=worktrees.get(str(row.get("session_id") or "")),
             )
             for row in rows
