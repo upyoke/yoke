@@ -82,7 +82,9 @@ def test_render_codex_agent_tree_present(repo_root: Path) -> None:
         assert out.exists(), f"missing rendered Codex adapter for {agent}: {out}"
 
 
-def test_codex_agent_runtime_path_is_surfaced_to_native_location(repo_root: Path) -> None:
+def test_codex_agent_runtime_path_is_surfaced_to_native_location(
+    repo_root: Path,
+) -> None:
     """Codex dispatch descriptors name the native ``.codex/agents`` path."""
     native_dir = repo_root / CODEX_NATIVE_AGENTS_DIR
     rendered_dir = repo_root / CODEX_OUT_DIR
@@ -102,7 +104,9 @@ def test_render_codex_agent_body_includes_unconditional_references(
     """Always-needed role references are embedded into the prompt."""
     canonical = repo_root / CANONICAL_DIR
     for role in ROLES_WITH_INLINE_REFERENCES:
-        with patch("yoke_core.domain.schema_api_context._try_live_schema", return_value=None):
+        with patch(
+            "yoke_core.domain.schema_api_context._try_live_schema", return_value=None
+        ):
             body = render_codex_agent_body(canonical, role)
         fragments = inline_fragment_paths(canonical, role)
         assert fragments, f"{role}: expected inline references"
@@ -128,9 +132,14 @@ def test_no_codex_canonical_md_exists(repo_root: Path) -> None:
 def test_render_emits_eight_codex_agents() -> None:
     """AGENTS contains exactly the eight primary Yoke agents."""
     expected = {
-        "architect", "boss", "engineer",
-        "product-designer", "product-manager",
-        "qa-walker", "simulator", "tester",
+        "architect",
+        "boss",
+        "engineer",
+        "product-designer",
+        "product-manager",
+        "qa-walker",
+        "simulator",
+        "tester",
     }
     assert set(AGENTS) == expected
     assert len(AGENTS) == 8
@@ -147,9 +156,18 @@ def test_render_codex_hooks_json_matches_strict_schema_and_matchers() -> None:
     payload = json.loads(rendered)
     assert set(payload) == {"hooks"}
     hooks = payload["hooks"]
-    assert any(e.get("matcher") == "apply_patch|Write|Edit" for e in hooks.get("PreToolUse", []))
-    assert any(e.get("matcher") == "apply_patch|Write|Edit" for e in hooks.get("PermissionRequest", []))
-    assert any(e.get("matcher") == "apply_patch|Write|Edit" for e in hooks.get("PostToolUse", []))
+    assert any(
+        e.get("matcher") == "apply_patch|Write|Edit"
+        for e in hooks.get("PreToolUse", [])
+    )
+    assert any(
+        e.get("matcher") == "apply_patch|Write|Edit"
+        for e in hooks.get("PermissionRequest", [])
+    )
+    assert any(
+        e.get("matcher") == "apply_patch|Write|Edit"
+        for e in hooks.get("PostToolUse", [])
+    )
 
 
 def test_render_claude_settings_json_has_generated_marker_and_hooks() -> None:
@@ -168,31 +186,9 @@ def test_render_claude_settings_json_has_generated_marker_and_hooks() -> None:
     # runner behind that boundary, not enumerated in the manifest.
     pre = payload["hooks"].get("PreToolUse", [])
     cmds = [h["command"] for e in pre for h in e.get("hooks", [])]
-    assert cmds and all("yoke hook evaluate PreToolUse" in c for c in cmds), f"expected yoke hook evaluate PreToolUse on every entry, got: {cmds}"
-
-
-def test_claude_hook_commands_wrap_in_login_zsh_for_path_loading() -> None:
-    """macOS GUI apps (Claude.app) launch with launchd's minimal PATH, which
-    omits /opt/homebrew/bin. Hook commands must wrap CLI invocations in a
-    login shell so the operator's ~/.zprofile loads brew shellenv before
-    yoke resolves.
-    """
-    payload = json.loads(render_claude_settings_json())
-    for event_name, entries in payload["hooks"].items():
-        commands = [h["command"] for e in entries for h in e.get("hooks", [])]
-        for cmd in commands:
-            assert cmd.startswith("/bin/zsh -lc '"), (
-                f"event={event_name} command must be wrapped in /bin/zsh -lc "
-                f"so .zprofile loads PATH; got: {cmd!r}"
-            )
-            assert cmd.endswith("'"), (
-                f"event={event_name} command must end with closing quote; "
-                f"got: {cmd!r}"
-            )
-            assert "yoke hook evaluate" in cmd, (
-                f"event={event_name} wrapped command must still invoke "
-                f"the Yoke hook CLI; got: {cmd!r}"
-            )
+    assert cmds and all("yoke hook evaluate PreToolUse" in c for c in cmds), (
+        f"expected yoke hook evaluate PreToolUse on every entry, got: {cmds}"
+    )
 
 
 def test_render_claude_manifest_has_generated_marker_and_schema_keys() -> None:
@@ -329,9 +325,7 @@ def test_bash_capable_actors_have_packet_markers(repo_root: Path) -> None:
         if "Bash" not in _tools_set(spec):
             continue
         body = (canonical / f"{agent}.md").read_text("utf-8")
-        assert marker in body, (
-            f"Bash-capable agent {agent!r} has no packet markers"
-        )
+        assert marker in body, f"Bash-capable agent {agent!r} has no packet markers"
 
 
 def test_drift_detection_reports_missing_codex_native_symlink(tmp_path: Path) -> None:

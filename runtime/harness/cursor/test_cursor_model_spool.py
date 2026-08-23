@@ -15,6 +15,7 @@ import pytest
 
 from yoke_core.domain.agents_render_hooks import render_cursor_hooks_block
 from yoke_harness.hooks import cursor_model_spool
+from yoke_harness.hooks.shell_command import hook_shell_command
 
 SESSION = "3f2b1c88-0000-4000-8000-abcdefabcdef"
 OTHER_SESSION = "99999999-0000-4000-8000-abcdefabcdef"
@@ -30,7 +31,7 @@ def _fire_capture_hook(payload: dict, home) -> int:
     """Run the real shell fragment Cursor's hook runs.
 
     Executes ``capture_command()`` itself rather than the rendered
-    ``/bin/zsh -lc '...'`` wrapper, so the assertions cover the fragment's
+    non-login shell wrapper, so the assertions cover the fragment's
     quoting and paths on any POSIX shell — CI runners have no zsh. The
     wrapper's own shape is asserted separately, without executing it.
     """
@@ -39,17 +40,21 @@ def _fire_capture_hook(payload: dict, home) -> int:
         input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env={"HOME": str(home), "YOKE_MACHINE_HOME": str(home), "PATH": "/bin:/usr/bin"},
+        env={
+            "HOME": str(home),
+            "YOKE_MACHINE_HOME": str(home),
+            "PATH": "/bin:/usr/bin",
+        },
     )
     assert completed.stdout.strip() == "{}", completed
     return completed.returncode
 
 
-def test_rendered_command_runs_the_fragment_under_a_login_shell() -> None:
+def test_rendered_command_runs_the_fragment_under_a_non_login_shell() -> None:
     """The fragment is executed above; this pins the wrapper around it, which
     is what Cursor actually invokes."""
     command = render_cursor_hooks_block()["hooks"]["afterAgentThought"][0]["command"]
-    assert command == f"/bin/zsh -lc '{cursor_model_spool.capture_command()}'"
+    assert command == hook_shell_command(cursor_model_spool.capture_command())
 
 
 def test_rendered_shell_hook_spools_where_the_reader_looks(spool_home) -> None:

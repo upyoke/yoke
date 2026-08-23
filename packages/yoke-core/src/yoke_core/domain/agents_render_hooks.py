@@ -22,6 +22,7 @@ from yoke_core.domain.agents_render_manifests import (
     CURSOR_MANIFEST,
 )
 from yoke_harness.hooks import cursor_model_spool
+from yoke_harness.hooks.shell_command import hook_shell_command
 
 from yoke_contracts.hook_runner.hook_ordering import (
     HOOK_ORDERING,
@@ -47,9 +48,7 @@ from yoke_contracts.hook_runner.config_owner import (
 # dispatch happens behind the CLI via the loaded ``AdapterCapability``.
 
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
-_CLAUDE_CONFIG_OWNER_ENV = (
-    f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER}"
-)
+_CLAUDE_CONFIG_OWNER_ENV = f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER}"
 
 
 def _environment_export(manifest: dict) -> str:
@@ -59,18 +58,11 @@ def _environment_export(manifest: dict) -> str:
 
 
 def _claude_command(event: str) -> str:
-    # Wrap in a zsh login shell so the operator's ``~/.zprofile`` (or system
-    # equivalent) loads the brew shellenv before ``yoke`` runs. macOS GUI
-    # apps like Claude.app are launched with the minimal launchd PATH that
-    # omits ``/opt/homebrew/bin``, so an unwrapped CLI can miss the operator's
-    # installed entrypoint before any Yoke code runs. ``-l`` is required to
-    # source ``~/.zprofile``; ``-c`` keeps the shell non-interactive so it exits
-    # after the command. Stdin is forwarded through the shell to the CLI
-    # child, so Claude's hook event JSON payload still reaches the runner.
-    return (
-        "/bin/zsh -lc '"
+    # GUI apps may omit the launcher directories from PATH. Use the bounded,
+    # deterministic hook PATH without reading operator shell startup files.
+    return hook_shell_command(
         f"env {_environment_export(CLAUDE_MANIFEST)} {_CLAUDE_CONFIG_OWNER_ENV} "
-        f"{_YOKE_HOOK_EVALUATE} {event}'"
+        f"{_YOKE_HOOK_EVALUATE} {event}"
     )
 
 
@@ -179,12 +171,11 @@ _CODEX_IDENTITY_ENV = "YOKE_EXECUTOR=codex YOKE_PROVIDER=openai"
 
 
 def _codex_command(event_name: str) -> str:
-    return (
-        "/bin/zsh -lc '"
+    return hook_shell_command(
         f"env {_environment_export(CODEX_MANIFEST)} {_CODEX_IDENTITY_ENV} "
         f"{_YOKE_HOOK_EVALUATE} {event_name}"
-        "'"
     )
+
 
 # Codex matcher composition: PreToolUse and PostToolUse fan out into the
 # Bash matcher plus the apply_patch|Write|Edit composite matcher. Other
@@ -230,7 +221,9 @@ def render_codex_hooks_block() -> dict:
     ]
     # PermissionRequest — apply_patch|Write|Edit composite only.
     block["PermissionRequest"] = [
-        _codex_entry(_CODEX_PERMISSION_MATCHER, _CODEX_VERB_BY_EVENT["PermissionRequest"])
+        _codex_entry(
+            _CODEX_PERMISSION_MATCHER, _CODEX_VERB_BY_EVENT["PermissionRequest"]
+        )
     ]
     # PostToolUse — Bash + apply_patch|Write|Edit composite.
     block["PostToolUse"] = [
@@ -251,8 +244,7 @@ def render_codex_hooks_block() -> dict:
 # family the same way the Codex command pins its identity. Provider stays
 # payload-derived.
 _CURSOR_IDENTITY_ENV = (
-    "YOKE_EXECUTOR=cursor "
-    f"{CONFIG_OWNER_ENV_VAR}={CURSOR_PROJECT_CONFIG_OWNER}"
+    f"YOKE_EXECUTOR=cursor {CONFIG_OWNER_ENV_VAR}={CURSOR_PROJECT_CONFIG_OWNER}"
 )
 
 # Cursor-native event -> canonical runner verb. The runner receives the
@@ -301,11 +293,9 @@ def _cursor_command(event_verb: str) -> str:
         )
 
         return cursor_lifecycle_hook_command(event_verb)
-    return (
-        "/bin/zsh -lc '"
+    return hook_shell_command(
         f"env {_environment_export(CURSOR_MANIFEST)} {_CURSOR_IDENTITY_ENV} "
         f"{_YOKE_HOOK_EVALUATE} {event_verb}"
-        "'"
     )
 
 
@@ -329,8 +319,10 @@ def render_cursor_hooks_block() -> dict:
         if matcher is not None:
             entry["matcher"] = matcher
         hooks.setdefault(cursor_event, []).append(entry)
-    hooks[_CURSOR_MODEL_CAPTURE_EVENT] = [{
-        "command": f"/bin/zsh -lc '{cursor_model_spool.capture_command()}'",
-        "timeout": _CURSOR_HOOK_TIMEOUT_S,
-    }]
+    hooks[_CURSOR_MODEL_CAPTURE_EVENT] = [
+        {
+            "command": hook_shell_command(cursor_model_spool.capture_command()),
+            "timeout": _CURSOR_HOOK_TIMEOUT_S,
+        }
+    ]
     return {"version": 1, "hooks": hooks}
