@@ -52,6 +52,7 @@ ACTOR = ActorContext(actor_id="2", session_id="session-agent-mission")
 class _CommandHostControl(FakeHostControl):
     def __init__(self) -> None:
         super().__init__()
+        self.commands: list[list[str]] = []
         self.session_contexts: list[str | None] = []
 
     def run_command(
@@ -61,6 +62,7 @@ class _CommandHostControl(FakeHostControl):
         required_session_context: str | None = None,
         timeout: int = 60,
     ) -> subprocess.CompletedProcess[str]:
+        self.commands.append(list(argv))
         self.session_contexts.append(required_session_context)
         return subprocess.CompletedProcess(
             args=argv,
@@ -249,6 +251,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     )
     assert gui_result["session_context_error_code"] is None
     assert command_control.session_contexts == [None, "gui"]
+    assert command_control.commands == [["credential", "status"]] * 2
 
     resumed = handle_agent_mission_access(
         _request(

@@ -49,8 +49,6 @@ def test_qa_case_run_delegates_to_engine_module() -> None:
         "41",
         "--base-url",
         "https://preview.example",
-        "--session-id",
-        "case-session",
     ]
     assert popen.call_args.kwargs["start_new_session"] is True
     assert popen.call_args.kwargs["env"]["YOKE_SESSION_ID"] == "case-session"
@@ -151,8 +149,6 @@ def test_qa_plan_run_delegates_to_engine_module() -> None:
         TEST_ITEM_REF,
         "--transition",
         "implemented",
-        "--session-id",
-        "plan-session",
     ]
     assert popen.call_args.kwargs["start_new_session"] is True
     assert popen.call_args.kwargs["env"]["YOKE_SESSION_ID"] == "plan-session"
