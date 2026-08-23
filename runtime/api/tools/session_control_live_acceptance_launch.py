@@ -47,9 +47,10 @@ def create_and_bind(
             "launch_preview_unqualified", surface=cell.surface
         )
     instruction = (
-        f"Fleet live acceptance launch for {cell.surface}. Acknowledge the "
-        "injected launch message using its model-visible wrapper, then finish "
-        "the top-level turn and wait. Do not delegate Fleet communication."
+        f"Fleet live acceptance launch for {cell.surface}. First injection: do "
+        "not acknowledge; finish the top-level turn and wait. Only on "
+        "reinjection, acknowledge this receipt with its wrapper command. Do not "
+        "delegate Fleet communication."
     )
     args = [
         "sessions",

@@ -29,6 +29,27 @@ class _PrematureAckClient(_ScenarioClient):
         return result
 
 
+def test_live_create_launch_message_requires_reinjection_before_ack() -> None:
+    cell = AcceptanceCell("codex-desktop", "26.818.31338", "create")
+    client = _ScenarioClient(cell)
+
+    report = _driver(client)._run_cell(
+        "yoke",
+        cell,
+        run_id="launch-reinjection-proof",
+        timeout=10,
+        poll=1,
+        unsupported_observation=2,
+    )
+
+    assert report["status"] == "passed"
+    assert client.message_reads["launch-message"] == 2
+    assert report["initial_message"]["injection_count"] == 2
+    bodies = [body for argv, body in client.calls if argv[:2] == ["sessions", "create"]]
+    assert "First injection: do not acknowledge" in str(bodies[-1])
+    assert "Only on reinjection" in str(bodies[-1])
+
+
 def test_live_initial_delivery_requires_reinjection_before_ack() -> None:
     cell = AcceptanceCell(
         "codex-cli",
