@@ -64,12 +64,13 @@ def _context(
     family: str = "codex",
     surface: str = "codex-desktop",
     session_id: str | None = "session-top",
+    payload: dict | None = None,
 ) -> HookContext:
     return HookContext(
         event_name=event_name,
         executor_family=family,
         executor_surface=surface,
-        payload={},
+        payload=payload or {},
         session_id=session_id,
         now=NOW,
     )
@@ -150,6 +151,29 @@ def test_missing_session_fails_open_without_leasing(
 
     assert decision.outcome is Outcome.NOOP
     assert port.leased == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"agent_type": "engineer"},
+        {"subagent_execution": True},
+        {"is_subagent_session": True, "subagent_session_id": "cursor-child"},
+    ],
+)
+def test_child_hook_cannot_consume_or_hide_parent_message(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: dict,
+) -> None:
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    child = delivery.evaluate(_context(payload=payload))
+    parent = delivery.evaluate(_context())
+
+    assert child.outcome is Outcome.NOOP
+    assert port.leased == [("session-top", "PreToolUse", 10)]
+    assert "message-1" in parent.audit_fields["additionalContext"]
 
 
 def test_successful_render_marks_injected_only_after_output_contains_token(

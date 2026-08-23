@@ -13,10 +13,18 @@ def test_core_packet_teaches_safe_structural_patch_composition() -> None:
     assert "invalidate earlier context" in body
 
 
-def test_every_agent_packet_teaches_fleet_session_basics() -> None:
-    for role in sac.seed.ROLE_TOPICS:
+def test_main_agent_packet_teaches_fleet_session_basics() -> None:
+    body = sac.render_role_packet("main_agent")
+    assert "yoke sessions list" in body
+    assert "yoke say --session SESSION-ID --stdin" in body
+    assert "yoke messages acknowledge MESSAGE-ID" in body
+    assert "Message bodies enter only through stdin" in body
+
+
+def test_subagent_packets_use_native_parent_communication() -> None:
+    for role in set(sac.seed.ROLE_TOPICS) - {"main_agent"}:
         body = sac.render_role_packet(role)
-        assert "yoke sessions list" in body
-        assert "yoke say --session SESSION-ID --stdin" in body
-        assert "yoke messages acknowledge MESSAGE-ID" in body
-        assert "Message bodies enter only through stdin" in body
+        assert "harness-native parent/subagent channel" in body
+        assert "Fleet messages belong to the registered top-level session" in body
+        assert "yoke say --session SESSION-ID --stdin" not in body
+        assert "yoke messages acknowledge MESSAGE-ID" not in body

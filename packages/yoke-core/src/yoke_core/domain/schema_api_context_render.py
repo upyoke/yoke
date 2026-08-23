@@ -144,8 +144,14 @@ def render_json_nested_schema_block(topic: str) -> list[str]:
     return out
 
 
-def render_command_block(topic: str) -> list[str]:
-    rows = [c for c in seed.WRAPPER_COMMANDS if c["topic"] == topic]
+def render_command_block(topic: str, *, role: str = "main_agent") -> list[str]:
+    rows = [
+        command
+        for command in seed.WRAPPER_COMMANDS
+        if command["topic"] == topic
+        and role in command.get("roles", (role,))
+        and role not in command.get("exclude_roles", ())
+    ]
     if not rows:
         return []
     out: list[str] = ["**Wrapper commands (prefer over raw SQL):**", ""]

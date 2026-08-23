@@ -195,6 +195,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Fleet session discovery, exact peer messaging, and acknowledgment",
+        "roles": ("main_agent",),
         "recipe": (
             "yoke sessions list ; printf '%s\\n' 'MESSAGE' | "
             "yoke say --session SESSION-ID --stdin ; "
@@ -204,6 +205,22 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "Use the full copyable session and message IDs. Message bodies enter "
             "only through stdin. Acknowledge only a message addressed to your "
             "current top-level session; caller identity resolves ambiently."
+        ),
+    },
+    {
+        "topic": "core",
+        "purpose": "Subagent communication through its registered parent",
+        "exclude_roles": ("main_agent",),
+        "recipe": (
+            "Use the harness-native parent/subagent channel; do not run "
+            "`yoke say`, `yoke session-control message send`, or "
+            "`yoke messages acknowledge`."
+        ),
+        "notes": (
+            "Fleet messages belong to the registered top-level session. Return "
+            "relevant results to the parent, which owns forwarding and explicit "
+            "acknowledgment. An independently launched top-level worker remains "
+            "a normal Fleet participant."
         ),
     },
     {

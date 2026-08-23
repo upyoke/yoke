@@ -22,6 +22,7 @@ def _request(
     actor_id: str | None = "10",
     session_id: str = "s1",
     target_kind: str = "global",
+    options: dict | None = None,
 ) -> FunctionCallRequest:
     return FunctionCallRequest.model_validate(
         {
@@ -29,6 +30,7 @@ def _request(
             "actor": {"actor_id": actor_id, "session_id": session_id},
             "target": {"kind": target_kind},
             "payload": payload,
+            "options": options or {},
         }
     )
 
@@ -66,7 +68,7 @@ def test_send_handler_returns_message_and_dedupe_shape(monkeypatch) -> None:
     assert outcome.result_payload["message_id"]
 
 
-def test_send_handler_does_not_persist_synthetic_service_session(
+def test_send_handler_refuses_unregistered_non_browser_session(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -86,13 +88,48 @@ def test_send_handler_does_not_persist_synthetic_service_session(
         )
     )
 
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "sender_session_unregistered"
+    with sqlite3.connect(database) as verification:
+        stored = verification.execute(
+            "SELECT COUNT(*) FROM session_messages"
+        ).fetchone()
+    assert stored[0] == 0
+
+
+def test_send_handler_preserves_browser_operator_surface(monkeypatch, tmp_path) -> None:
+    database = tmp_path / "messages.db"
+    conn = message_connection(str(database))
+    monkeypatch.setattr(session_messages, "open_connection", lambda: conn)
+
+    outcome = session_messages.handle_message_send(
+        _request(
+            "session_control.message.send",
+            {"selector": {"session_ids": ["s1"]}, "body": "Workbench body"},
+            session_id="",
+        )
+    )
+
     assert outcome.primary_success is True
     with sqlite3.connect(database) as verification:
         stored = verification.execute(
-            "SELECT sender_session_id FROM session_messages WHERE message_id = ?",
+            "SELECT sender_session_id FROM session_messages WHERE message_id=?",
             (outcome.result_payload["message_id"],),
         ).fetchone()
     assert stored[0] is None
+
+
+def test_send_handler_refuses_subagent_attestation() -> None:
+    outcome = session_messages.handle_message_send(
+        _request(
+            "session_control.message.send",
+            {"selector": {"session_ids": ["s1"]}, "body": "Child body"},
+            options={"subagent_execution": True},
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "subagent_message_forbidden"
 
 
 def test_list_and_get_handlers_use_stable_envelopes(monkeypatch) -> None:
@@ -177,6 +214,35 @@ def test_acknowledge_handler_binds_recipient_to_actor_session(monkeypatch) -> No
     assert outcome.error and outcome.error.code == "acknowledge_self_only"
 
 
+def test_acknowledge_handler_refuses_subagent_attestation() -> None:
+    outcome = session_messages_receipts.handle_message_acknowledge(
+        _request(
+            "session_control.message.acknowledge",
+            {"message_id": "message-1"},
+            options={"subagent_execution": True},
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "subagent_message_forbidden"
+
+
+def test_acknowledge_handler_requires_registered_recipient(monkeypatch) -> None:
+    conn = message_connection()
+    monkeypatch.setattr(session_messages_receipts, "open_connection", lambda: conn)
+
+    outcome = session_messages_receipts.handle_message_acknowledge(
+        _request(
+            "session_control.message.acknowledge",
+            {"message_id": "message-1"},
+            session_id="unregistered",
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "recipient_session_unregistered"
+
+
 def test_internal_lease_handler_is_self_only() -> None:
     outcome = session_messages_receipts.handle_message_lease(
         _request(
@@ -187,6 +253,39 @@ def test_internal_lease_handler_is_self_only() -> None:
     )
     assert outcome.primary_success is False
     assert outcome.error and outcome.error.code == "lease_self_only"
+
+
+def test_internal_lease_handler_refuses_subagent_attestation() -> None:
+    outcome = session_messages_receipts.handle_message_lease(
+        _request(
+            "session_control.message.lease",
+            {"session_id": "s1", "hook_event": "Stop", "limit": 10},
+            options={"subagent_execution": True},
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "subagent_message_forbidden"
+
+
+def test_internal_lease_handler_requires_registered_recipient(monkeypatch) -> None:
+    conn = message_connection()
+    monkeypatch.setattr(session_messages_receipts, "open_connection", lambda: conn)
+
+    outcome = session_messages_receipts.handle_message_lease(
+        _request(
+            "session_control.message.lease",
+            {
+                "session_id": "unregistered",
+                "hook_event": "Stop",
+                "limit": 10,
+            },
+            session_id="unregistered",
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "recipient_session_unregistered"
 
 
 def test_invalid_payload_preserves_payload_invalid_outcome() -> None:

@@ -32,6 +32,10 @@ from yoke_contracts.session_identity import (
     CURSOR_SESSION_MAP_DIR_NAME,
     resolve_ambient_session_id,
 )
+from yoke_contracts.session_execution import (
+    SUBAGENT_EXECUTION_PAYLOAD_KEY,
+    is_subagent_execution,
+)
 from yoke_harness.hooks.identity_runtime import is_cursor
 
 
@@ -93,6 +97,10 @@ def stamp_hook_stdin(
     an omitted id.
     """
     changed = False
+    subagent_execution = is_subagent_execution(payload)
+    if payload.get(SUBAGENT_EXECUTION_PAYLOAD_KEY) is not subagent_execution:
+        payload[SUBAGENT_EXECUTION_PAYLOAD_KEY] = subagent_execution
+        changed = True
     container_session_id = (
         forced_container_session_id
         if forced_container_session_id is not None

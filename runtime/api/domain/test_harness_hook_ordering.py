@@ -44,6 +44,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_watcher_module_form",
                 "yoke_core.domain.lint_if_status_capture",
                 "yoke_core.domain.lint_subagent_background",
+                "yoke_core.domain.lint_subagent_fleet_messaging",
                 "yoke_core.domain.lint_session_cwd",
                 "yoke_core.domain.lint_lane_main_write",
                 "yoke_core.domain.lint_workspace_cwd_match",

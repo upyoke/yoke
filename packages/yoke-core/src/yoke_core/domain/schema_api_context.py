@@ -247,8 +247,8 @@ _TOPIC_HEADERS = {
 }
 
 
-def render_topic_packet(topic: str) -> str:
-    """Return the markdown body for a single (topic) packet.
+def render_topic_packet(topic: str, *, role: str = "main_agent") -> str:
+    """Return the role-aware markdown body for a single topic packet.
 
     The body is what lives between the marker pair in the canonical
     agent prompts. Caller wraps with ``agents_render_context`` if marker
@@ -256,6 +256,8 @@ def render_topic_packet(topic: str) -> str:
     """
     if topic not in seed.TOPICS:
         raise ValueError(f"unknown topic: {topic}")
+    if role not in seed.ROLE_TOPICS:
+        raise ValueError(f"unknown role: {role}")
     header = _TOPIC_HEADERS[topic]
     parts: list[str] = [f"### {header}", ""]
     if topic == "core":
@@ -267,7 +269,7 @@ def render_topic_packet(topic: str) -> str:
         parts.append("")
         parts.extend(render_function_call_surface_block())
         parts.append("")
-    parts.extend(render_command_block(topic))
+    parts.extend(render_command_block(topic, role=role))
     parts.append("")
     parts.extend(render_table_block(topic, _resolve_columns))
     json_block = render_json_nested_schema_block(topic)
@@ -281,7 +283,7 @@ def render_role_packet(role: str) -> str:
     """Return the concatenated packet body for *role*'s assigned topics."""
     if role not in seed.ROLE_TOPICS:
         raise ValueError(f"unknown role: {role}")
-    chunks = [render_topic_packet(t) for t in seed.ROLE_TOPICS[role]]
+    chunks = [render_topic_packet(t, role=role) for t in seed.ROLE_TOPICS[role]]
     if role == "main_agent":
         chunks[-1] = chunks[-1].rstrip() + "\n" + (
             "**Deployment-run raw-query hint:** "
