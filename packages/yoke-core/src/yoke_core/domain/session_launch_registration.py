@@ -33,7 +33,8 @@ def _session_facts(conn: Any, session_id: str) -> dict[str, Any]:
     ).fetchone()
     if row is None:
         raise SessionLaunchError(
-            "session_not_registered", "launch binding requires a registered session",
+            "session_not_registered",
+            "launch binding requires a registered session",
         )
     return {
         "project_id": int(value(row, "project_id", 0)),
@@ -44,8 +45,13 @@ def _session_facts(conn: Any, session_id: str) -> dict[str, Any]:
     }
 
 
-def _require_exact_binding(launch: LaunchRecord, session_id: str, facts: dict[str, Any]) -> None:
-    if launch.native_session_id != session_id:
+def _require_exact_binding(
+    launch: LaunchRecord, session_id: str, facts: dict[str, Any]
+) -> None:
+    if (
+        launch.native_session_id != session_id
+        and launch.requested_surface != "claude-cli"
+    ):
         raise SessionLaunchError(
             "native_session_mismatch",
             "registered session does not equal the native binding id",
@@ -119,10 +125,13 @@ def prepare_launch_registration(
         launch = get_launch(conn, launch_id, for_update=True)
         if launch.state != "awaiting_registration":
             raise SessionLaunchError(
-                "invalid_state", f"launch is {launch.state!r}, not awaiting registration",
+                "invalid_state",
+                f"launch is {launch.state!r}, not awaiting registration",
             )
         if launch.attestation_consumed_at:
-            raise SessionLaunchError("attestation_consumed", "attestation is single-use")
+            raise SessionLaunchError(
+                "attestation_consumed", "attestation is single-use"
+            )
         if parse_time(current) >= parse_time(launch.deadline_at):
             update_launch(
                 conn,
@@ -133,21 +142,39 @@ def prepare_launch_registration(
                 result_code="late_registration",
             )
             conn.commit()
-            raise SessionLaunchError("late_registration", "registration deadline passed")
+            raise SessionLaunchError(
+                "late_registration", "registration deadline passed"
+            )
         expected = str(launch.attestation_hash or "")
-        if not expected or not hmac.compare_digest(expected, attestation_digest(attestation)):
-            raise SessionLaunchError("attestation_invalid", "launch attestation is invalid")
+        if not expected or not hmac.compare_digest(
+            expected, attestation_digest(attestation)
+        ):
+            raise SessionLaunchError(
+                "attestation_invalid", "launch attestation is invalid"
+            )
         facts = _session_facts(conn, session_id)
         _require_exact_binding(launch, session_id, facts)
         _insert_pending_recipient(
-            conn, launch=launch, session_id=session_id, facts=facts, now=current,
+            conn,
+            launch=launch,
+            session_id=session_id,
+            facts=facts,
+            now=current,
         )
+        registration_fields: dict[str, Any] = {
+            "registered_session_id": session_id,
+            "attestation_consumed_at": current,
+            "result_code": "registration_bound",
+        }
+        if launch.requested_surface == "claude-cli":
+            # Claude's background launcher allocates the addressable session id
+            # after native create. The single-use attestation binds that actual
+            # id at its first hook; other surfaces retain exact reported ids.
+            registration_fields["native_session_id"] = session_id
         update_launch(
             conn,
             launch_id,
-            registered_session_id=session_id,
-            attestation_consumed_at=current,
-            result_code="registration_bound",
+            **registration_fields,
         )
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()
@@ -183,7 +210,9 @@ def complete_launch_injection(
             conn.commit()
             return launch
         if launch.state != "awaiting_registration":
-            raise SessionLaunchError("invalid_state", "launch cannot complete injection")
+            raise SessionLaunchError(
+                "invalid_state", "launch cannot complete injection"
+            )
         p = marker(conn)
         if injected:
             cursor = conn.execute(
@@ -194,7 +223,9 @@ def complete_launch_injection(
                 (current, launch.message_id, session_id),
             )
             if not cursor.rowcount:
-                raise SessionLaunchError("receipt_missing", "instruction receipt is missing")
+                raise SessionLaunchError(
+                    "receipt_missing", "instruction receipt is missing"
+                )
             result = update_launch(
                 conn,
                 launch_id,
@@ -251,7 +282,8 @@ def complete_launch_for_message(
         ).fetchone()
         if receipt is None or value(receipt, "state", 0) != "injected":
             raise SessionLaunchError(
-                "receipt_not_injected", "message delivery has not proven injection",
+                "receipt_not_injected",
+                "message delivery has not proven injection",
             )
         completed = update_launch(
             conn,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 import shutil
@@ -12,12 +11,12 @@ import time
 from typing import Callable
 from uuid import UUID
 
-from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import (
     CursorCreateRequest,
     CursorNativeResult,
     CursorWakeRequest,
 )
+from yoke_harness.session_relay_environment import native_session_environment
 
 
 CURSOR_AGENT_EXECUTABLE = "cursor-agent"
@@ -41,18 +40,18 @@ def _session_id(value: str) -> str | None:
 
 def _environment(
     *,
+    surface_version: str,
     launch_id: str | None = None,
     attestation: str | None = None,
 ) -> dict[str, str]:
-    env = dict(os.environ)
-    env["YOKE_EXECUTOR"] = "cursor"
-    env["CURSOR_INVOKED_AS"] = "cursor-agent"
-    if launch_id and attestation:
-        env[LAUNCH_CONTEXT_ENV] = json.dumps(
-            {"launch_id": launch_id, "attestation": attestation},
-            separators=(",", ":"),
-        )
-    return env
+    return native_session_environment(
+        executor="cursor",
+        executor_version=surface_version,
+        provider="cursor",
+        markers={"CURSOR_INVOKED_AS": "cursor-agent"},
+        launch_id=launch_id,
+        launch_attestation=attestation,
+    )
 
 
 def _reap(process: subprocess.Popen[bytes]) -> None:
@@ -84,12 +83,17 @@ class CursorCliTransport:
             return self.binary if Path(self.binary).is_file() else None
         return shutil.which(self.binary)
 
-    def _create_empty_chat(self, binary: str, checkout: Path) -> str | None:
+    def _create_empty_chat(
+        self,
+        binary: str,
+        checkout: Path,
+        surface_version: str,
+    ) -> str | None:
         try:
             completed = self.command_runner(
                 [binary, "create-chat"],
                 cwd=checkout,
-                env=_environment(),
+                env=_environment(surface_version=surface_version),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
@@ -110,6 +114,7 @@ class CursorCliTransport:
         checkout: Path,
         session_id: str,
         instruction: str,
+        surface_version: str,
         model: str | None = None,
         launch_id: str | None = None,
         attestation: str | None = None,
@@ -131,7 +136,11 @@ class CursorCliTransport:
             process = self.process_factory(
                 command,
                 cwd=checkout,
-                env=_environment(launch_id=launch_id, attestation=attestation),
+                env=_environment(
+                    surface_version=surface_version,
+                    launch_id=launch_id,
+                    attestation=attestation,
+                ),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -151,7 +160,11 @@ class CursorCliTransport:
         binary = self._binary()
         if binary is None or not request.checkout.is_dir():
             return CursorNativeResult("not_created")
-        session_id = self._create_empty_chat(binary, request.checkout)
+        session_id = self._create_empty_chat(
+            binary,
+            request.checkout,
+            request.surface_version,
+        )
         if session_id is None:
             return CursorNativeResult("not_created", duration_ms=_elapsed_ms(started))
         process, returncode = self._start_turn(
@@ -159,6 +172,7 @@ class CursorCliTransport:
             checkout=request.checkout,
             session_id=session_id,
             instruction=request.native_instruction,
+            surface_version=request.surface_version,
             model=request.requested_model,
             launch_id=request.launch_id,
             attestation=request.launch_attestation,
@@ -188,6 +202,7 @@ class CursorCliTransport:
             checkout=request.checkout,
             session_id=session_id,
             instruction=request.native_instruction,
+            surface_version=request.surface_version,
         )
         if process is None:
             return CursorNativeResult("failed", duration_ms=_elapsed_ms(started))
