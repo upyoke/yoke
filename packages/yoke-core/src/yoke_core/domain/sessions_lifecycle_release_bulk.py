@@ -1,14 +1,15 @@
 """Bulk release of every active claim for a session.
 
 Sibling of :mod:`sessions_lifecycle_release`. The typed per-claim
-release path (``release_work_claim_for_execution``) clears
+release path (``release_work_claim_for_execution``) re-focuses
 ``harness_sessions.current_item_id`` when the released claim's item
 matches focus; the by-claim-id sibling (``release_claim_by_id``) was
 brought to parity earlier. This bulk path is the third member of the
 family: callers ask "release every claim this session holds" without
 ending the session (HTTP ``POST /sessions/{id}/release-all``, the legacy
-``release-all-claims`` CLI). After such a release, any retained item
-focus is structurally stale, so we clear it before commit. The
+``release-all-claims`` CLI). After such a release no item claim remains,
+so the shared focus release degrades to its clear-and-archive shape —
+the retained focus would otherwise be structurally stale. The
 destructive ``--release-claims`` SessionEnd branch is unaffected —
 ``end_session`` follows the bulk release with a session-wide clear at
 the wrapper layer.
@@ -21,7 +22,7 @@ from typing import Any
 from .claim_chain_state import record_release_intent_for_session
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_queries import _now_iso
-from .sessions_render_attribution import clear_current_item
+from .sessions_render_attribution import release_current_item_focus
 from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -58,7 +59,7 @@ def release_all_claims(
         released_at=now,
         intent=reason,
     )
-    clear_current_item(conn, session_id, commit=False)
+    release_current_item_focus(conn, session_id, commit=False)
     conn.commit()
     return released
 

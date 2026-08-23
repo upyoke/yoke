@@ -4,8 +4,43 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from . import db_backend
 from .sessions_analytics import SessionError
-from .sessions_queries import _now_iso, normalize_session_item_id
+from .sessions_queries import _now_iso, normalize_claim_item_id, normalize_session_item_id
+
+
+def _p(conn: Any) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def focus_fallback_item_id(
+    conn: Any,
+    session_id: str,
+    *,
+    excluding_item_id: Optional[str] = None,
+) -> Optional[str]:
+    """Return the newest still-active item claim's id for a session.
+
+    The fallback candidate is the most recently claimed item whose claim
+    has not been released, optionally skipping one item (the claim being
+    released right now). Epic-task and process claims never feed the
+    item-focus fallback. Returns ``None`` when nothing remains.
+    """
+    params: list[Any] = [session_id]
+    sql = (
+        "SELECT item_id FROM work_claims "
+        f"WHERE session_id = {_p(conn)} AND target_kind = 'item' "
+        "AND released_at IS NULL AND item_id IS NOT NULL"
+    )
+    if excluding_item_id is not None:
+        excluded = normalize_claim_item_id(str(excluding_item_id))
+        sql += f" AND item_id <> {_p(conn)}"
+        params.append(int(excluded) if excluded.isdigit() else excluded)
+    sql += " ORDER BY claimed_at DESC, id DESC LIMIT 1"
+    row = conn.execute(sql, tuple(params)).fetchone()
+    if row is None or row["item_id"] is None:
+        return None
+    return normalize_claim_item_id(str(row["item_id"]))
 
 
 def set_current_item(
@@ -123,3 +158,58 @@ def clear_current_item(
     )
     if commit:
         conn.commit()
+
+
+def release_current_item_focus(
+    conn: Any,
+    session_id: str,
+    *,
+    commit: bool = True,
+) -> None:
+    """Archive current focus to recent, then fall back to another claim.
+
+    The claim-release counterpart of :func:`clear_current_item`: instead
+    of leaving the session with no focus, it re-focuses the newest
+    still-active item claim (if any), so a session holding several item
+    claims keeps pointing at real work when the focused claim is
+    released. No-op when the session has no focus; a missing fallback
+    clears focus the same way :func:`clear_current_item` does.
+    """
+    row = conn.execute(
+        "SELECT current_item_id, current_item_set_at "
+        "FROM harness_sessions WHERE session_id = %s",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
+    current = row[0]
+    if current is None:
+        return
+    conn.execute(
+        "UPDATE harness_sessions SET "
+        "recent_item_id = %s, recent_item_recorded_at = %s "
+        "WHERE session_id = %s",
+        (current, row[1], session_id),
+    )
+    fallback = focus_fallback_item_id(
+        conn,
+        session_id,
+        excluding_item_id=str(current),
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET "
+        "current_item_id = %s, current_item_set_at = %s "
+        "WHERE session_id = %s",
+        (fallback, _now_iso() if fallback is not None else None, session_id),
+    )
+    if commit:
+        conn.commit()
+
+
+__all__ = [
+    "clear_current_item",
+    "focus_fallback_item_id",
+    "get_session_attribution",
+    "release_current_item_focus",
+    "set_current_item",
+]

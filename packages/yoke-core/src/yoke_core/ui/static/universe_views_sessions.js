@@ -1,4 +1,7 @@
-import { itemDrillInHref } from "./universe_item_routes.js";
+import {
+  appendHoldings,
+  ownsFocusedItem,
+} from "./universe_sessions_holdings.js";
 import {
   callFunction,
   el,
@@ -8,19 +11,11 @@ import {
   scopeBuckets,
   sessionModePill,
   settledScopedCalls,
-  statePill,
   whoColumn,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 const LIVE_STATES = new Set(["active", "stale"]);
 const WORKTREE_ROLES = new Set(["integration", "worker"]);
-function sessionItemHref(row) {
-  return itemDrillInHref({
-    projectId: row.current_item_project_id,
-    projectSequence: row.current_item_project_sequence,
-    publicRef: row.current_item,
-  });
-}
 function statRow(documentNode, facts) {
   const row = el(documentNode, "div", "stat-row sessions-stats");
   for (const [value, label] of facts) {
@@ -50,50 +45,6 @@ function harnessIdentity(row) {
     label: executor,
   };
 }
-function appendAssignment(documentNode, body, row) {
-  const work = el(documentNode, "div", "session-work");
-  if (!row.current_item) {
-    work.appendChild(el(
-      documentNode,
-      "span",
-      "session-unassigned",
-      row.current_item_title || "No actionable work right now",
-    ));
-    body.appendChild(work);
-    return;
-  }
-
-  const marker = el(
-    documentNode,
-    "span",
-    `session-lock${row.owns_current_item ? "" : " attached"}`,
-    row.owns_current_item ? "🔒" : "↳",
-  );
-  marker.title = row.owns_current_item
-    ? "this session owns the item claim"
-    : "worktree lane on the owning session's item; holds no item claim";
-  work.appendChild(marker);
-  const href = sessionItemHref(row);
-  const item = el(documentNode, href ? "a" : "span", "session-item-link");
-  item.textContent = String(row.current_item);
-  if (href) item.href = href;
-  work.appendChild(item);
-  if (row.current_item_title) {
-    work.appendChild(el(
-      documentNode,
-      "span",
-      "session-item-title",
-      `· ${row.current_item_title}`,
-    ));
-  }
-  work.appendChild(el(
-    documentNode,
-    "span",
-    "session-work-role",
-    row.work_role || (row.owns_current_item ? "item" : "attached"),
-  ));
-  body.appendChild(work);
-}
 function appendRuntime(documentNode, body, row) {
   const runtime = el(documentNode, "div", "session-runtime");
   const laneLabel = row.lane_label || row.execution_lane || "no lane";
@@ -118,7 +69,7 @@ function appendAge(documentNode, body, row) {
   const age = el(documentNode, "div", "session-age");
   let lead = "idle ";
   let timestamp = row.activity_at;
-  if (row.current_item && row.owns_current_item) {
+  if (row.current_item && ownsFocusedItem(row)) {
     lead = "claim held ";
     timestamp = row.claim_started_at || row.activity_at;
   } else if (row.current_item) {
@@ -192,7 +143,7 @@ function sessionCard(documentNode, row, who, mode) {
   card.appendChild(top);
 
   const body = el(documentNode, "div", "session-card-body");
-  appendAssignment(documentNode, body, row);
+  appendHoldings(documentNode, body, row);
   appendRuntime(documentNode, body, row);
   appendAge(documentNode, body, row);
   card.appendChild(body);
@@ -200,15 +151,30 @@ function sessionCard(documentNode, row, who, mode) {
   return card;
 }
 
-function metricFacts(rows) {
-  const claimedItems = new Set(rows.filter(
-    (row) => row.owns_current_item && row.current_item,
-  ).map((row) => row.current_item));
-  const worktreeLanes = rows.filter(
+function blitzWorktreeLaneCount(rows) {
+  const ids = new Set();
+  let sawIds = false;
+  for (const row of rows) {
+    const listed = row.claimed_blitz_worktree_ids;
+    if (!Array.isArray(listed)) continue;
+    sawIds = true;
+    for (const id of listed) ids.add(String(id));
+  }
+  if (sawIds) return ids.size;
+  return rows.filter(
     (row) =>
       String(row.current_item_workflow_id || "").toLowerCase() === "blitz"
       && WORKTREE_ROLES.has(String(row.work_role || "").toLowerCase()),
   ).length;
+}
+
+function metricFacts(rows) {
+  const claimedItems = new Set(rows.flatMap(
+    (row) => (Array.isArray(row.claims) ? row.claims : [])
+      .filter((claim) => claim.target_kind === "item")
+      .map((claim) => String(claim.target)),
+  ).filter(Boolean));
+  const worktreeLanes = blitzWorktreeLaneCount(rows);
   const actors = new Set(rows.map(
     (row) => row.actor_id ?? row.actor_label,
   ).filter((value) => value !== null && value !== undefined && value !== ""));

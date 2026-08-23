@@ -72,6 +72,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         claim_started_at: "2026-07-26T12:00:00Z",
         activity_at: "2026-07-26T12:04:00Z",
         claims: [{ target_kind: "item", target: "YOK-2228" }],
+        claimed_blitz_worktree_ids: [101, 102],
       },
       {
         session_id: "v8c2qa", liveness: "stale",
@@ -90,6 +91,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         claim_started_at: null,
         activity_at: "2026-07-26T11:40:00Z",
         claims: [],
+        claimed_blitz_worktree_ids: [],
       },
     ];
     return reclaimed ? result.slice(0, 1) : result;
@@ -203,7 +205,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "sessions-stats")[0].children.map(
       (tile) => tile.children[0].textContent,
     ),
-    ["1", "1", "1", "1"],
+    ["1", "1", "2", "1"],
   );
   assert.equal(reclaim.disabled, true);
   assert.equal(

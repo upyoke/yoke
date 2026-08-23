@@ -85,6 +85,8 @@
 
 .universe-app-root .session-item-link,
 .universe-app-root .session-model,
+.universe-app-root .session-lease-key,
+.universe-app-root .session-hold-target,
 .universe-app-root .session-id {
   font-family: var(--yoke-font-mono);
 }
