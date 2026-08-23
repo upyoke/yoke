@@ -12,10 +12,14 @@ def _pin_local_transport(monkeypatch) -> None:
     bypasses — pin local transport so they stay hermetic on an
     https-default dev machine."""
     monkeypatch.setattr(
-        session_lifecycle_client, "_relay_owns_registration", lambda: False,
+        session_lifecycle_client,
+        "_relay_owns_registration",
+        lambda: False,
     )
     monkeypatch.setattr(
-        session_lifecycle_client, "_project_id_for_root", lambda _root: 1,
+        session_lifecycle_client,
+        "_project_id_for_root",
+        lambda _root: 1,
     )
 
 
@@ -44,18 +48,20 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
     )
 
     assert err == ""
-    assert calls == [(
-        "/Users/x/yoke/runtime/api/service_client.py",
-        "sid-codex",
-        "codex",
-        "openai",
-        "gpt-5.5",
-        "/Users/x/externalwebapp",
-        "codex-desktop",
-        1,
-        None,
-        None,
-    )]
+    assert calls == [
+        (
+            "/Users/x/yoke/runtime/api/service_client.py",
+            "sid-codex",
+            "codex",
+            "openai",
+            "gpt-5.5",
+            "/Users/x/externalwebapp",
+            "codex-desktop",
+            1,
+            None,
+            None,
+        )
+    ]
 
 
 def test_universal_register_uses_target_service_client_path(monkeypatch) -> None:
@@ -85,18 +91,20 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
     )
 
     assert err == ""
-    assert calls == [(
-        "/Users/x/yoke/runtime/api/service_client.py",
-        "sid-any",
-        "claude",
-        "anthropic",
-        "opus",
-        "/Users/x/externalwebapp",
-        "claude-desktop",
-        1,
-        None,
-        None,
-    )]
+    assert calls == [
+        (
+            "/Users/x/yoke/runtime/api/service_client.py",
+            "sid-any",
+            "claude",
+            "anthropic",
+            "opus",
+            "/Users/x/externalwebapp",
+            "claude-desktop",
+            1,
+            None,
+            None,
+        )
+    ]
 
 
 def test_codex_touch_uses_target_service_client_path(monkeypatch) -> None:
@@ -116,11 +124,13 @@ def test_codex_touch_uses_target_service_client_path(monkeypatch) -> None:
     )
 
     assert session_dispatch._touch("/Users/x/externalwebapp", "sid-codex") == 0
-    assert calls == [(
-        "/Users/x/yoke/runtime/api/service_client.py",
-        "/Users/x/externalwebapp",
-        "sid-codex",
-    )]
+    assert calls == [
+        (
+            "/Users/x/yoke/runtime/api/service_client.py",
+            "/Users/x/externalwebapp",
+            "sid-codex",
+        )
+    ]
 
 
 def test_universal_touch_uses_target_service_client_path(monkeypatch) -> None:
@@ -139,15 +149,20 @@ def test_universal_touch_uses_target_service_client_path(monkeypatch) -> None:
         fake_touch,
     )
 
-    assert session_lifecycle_client.touch_harness_session(
-        "/Users/x/externalwebapp",
-        "sid-any",
-    ) == 0
-    assert calls == [(
-        "/Users/x/yoke/runtime/api/service_client.py",
-        "/Users/x/externalwebapp",
-        "sid-any",
-    )]
+    assert (
+        session_lifecycle_client.touch_harness_session(
+            "/Users/x/externalwebapp",
+            "sid-any",
+        )
+        == 0
+    )
+    assert calls == [
+        (
+            "/Users/x/yoke/runtime/api/service_client.py",
+            "/Users/x/externalwebapp",
+            "sid-any",
+        )
+    ]
 
 
 def test_codex_recovery_command_uses_target_service_client_path(monkeypatch) -> None:
@@ -211,13 +226,18 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
     monkeypatch.setattr(
         hook_runner_register,
         "enrich_local_observed_facts",
-        lambda *_args: ("0.1.0", "00000000-0000-4000-8000-000000000123"),
+        lambda *_args, **_kwargs: (
+            "0.1.0",
+            "00000000-0000-4000-8000-000000000123",
+        ),
     )
     monkeypatch.setattr(hook_runner_register, "register_harness_session", fake_register)
 
-    err, executor, provider, model, entrypoint = hook_runner_register._register_from_hook(
-        '{"model":"claude-opus-4-8[1m]"}',
-        "sid-claude",
+    err, executor, provider, model, entrypoint = (
+        hook_runner_register._register_from_hook(
+            '{"model":"claude-opus-4-8[1m]"}',
+            "sid-claude",
+        )
     )
 
     assert err == ""
@@ -227,13 +247,15 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
         "claude-opus-4-8[1m]",
         "claude-desktop",
     )
-    assert calls == [{
-        "root": "/Users/x/externalwebapp",
-        "session_id": "sid-claude",
-        "executor": "claude",
-        "provider": "anthropic",
-        "model": "claude-opus-4-8[1m]",
-        "entrypoint": "claude-desktop",
-        "executor_version": "0.1.0",
-        "machine_id": "00000000-0000-4000-8000-000000000123",
-    }]
+    assert calls == [
+        {
+            "root": "/Users/x/externalwebapp",
+            "session_id": "sid-claude",
+            "executor": "claude",
+            "provider": "anthropic",
+            "model": "claude-opus-4-8[1m]",
+            "entrypoint": "claude-desktop",
+            "executor_version": "0.1.0",
+            "machine_id": "00000000-0000-4000-8000-000000000123",
+        }
+    ]

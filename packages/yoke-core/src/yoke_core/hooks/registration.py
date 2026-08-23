@@ -104,7 +104,8 @@ def _register_from_hook(
     executor = executor_hint or detect_executor()
     provider = detect_provider(executor)
     model = facts.model or detect_model(
-        executor, transcript_path=facts.transcript_path,
+        executor,
+        transcript_path=facts.transcript_path,
     )
     # Relayed payloads carry the CLIENT's entrypoint (merged from the wire);
     # local payloads never carry one, so local detection is unchanged.
@@ -112,7 +113,10 @@ def _register_from_hook(
     if not entrypoint and executor in {"claude", "claude-code"}:
         entrypoint = "claude-cli"
     executor_version, machine_id = enrich_local_observed_facts(
-        executor, facts.executor_version, facts.machine_id,
+        executor,
+        facts.executor_version,
+        facts.machine_id,
+        executor_surface=entrypoint,
     )
 
     # Process-anchor registry write: hooks run as children of the
@@ -133,8 +137,14 @@ def _register_from_hook(
         # The verified bearer-token actor binds here — the relayed
         # mirror of the machine actor local registration resolves.
         err = _register_in_process(
-            session_id, executor, provider, model, facts.cwd, entrypoint,
-            actor_id=actor_id, execution_lane=facts.execution_lane or None,
+            session_id,
+            executor,
+            provider,
+            model,
+            facts.cwd,
+            entrypoint,
+            actor_id=actor_id,
+            execution_lane=facts.execution_lane or None,
             project_id=facts.project_id,
             executor_version=executor_version or None,
             machine_id=machine_id or None,
@@ -186,9 +196,15 @@ def _register_in_process(
             return "session registration requires project_id"
         conn = db_helpers.connect()
         try:
-            resolved_lane = project_lane_for_executor(
-                conn, project_id, executor, explicit_lane=execution_lane,
-            ) or execution_lane
+            resolved_lane = (
+                project_lane_for_executor(
+                    conn,
+                    project_id,
+                    executor,
+                    explicit_lane=execution_lane,
+                )
+                or execution_lane
+            )
             lane_kwargs = {"execution_lane": resolved_lane} if resolved_lane else {}
             register_session(
                 conn,
@@ -271,13 +287,12 @@ def ensure_registered_from_hook(
                 session_registration_state,
             )
 
-            found, stored_actor_id, ended = session_registration_state(
-                conn, session_id
-            )
+            found, stored_actor_id, ended = session_registration_state(conn, session_id)
             # Transient ends still revive: this hook is proof of life.
             # Leftover Cursor terminal Reads after an empty closeout are not.
             if ended and skip_ended_session_revival(
-                payload_json, executor_hint=executor_hint,
+                payload_json,
+                executor_hint=executor_hint,
             ):
                 return False
             needs_reactivation = ended
@@ -299,7 +314,10 @@ def ensure_registered_from_hook(
                 and not needs_reactivation
                 and not needs_actor_backfill
                 and placeholder_identity_can_upgrade(
-                    conn, payload_json, session_id, project_id,
+                    conn,
+                    payload_json,
+                    session_id,
+                    project_id,
                 )
             )
             if (
@@ -313,9 +331,13 @@ def ensure_registered_from_hook(
         # registrar's SESSION_EXISTS path upgrades a stored placeholder
         # model from the wire-carried real one and never downgrades.
         _register_from_hook(
-            payload_json, session_id, transcript_path=transcript_path,
-            record_anchor=record_anchor, executor_hint=executor_hint,
-            register_in_process=register_in_process, actor_id=actor_id,
+            payload_json,
+            session_id,
+            transcript_path=transcript_path,
+            record_anchor=record_anchor,
+            executor_hint=executor_hint,
+            register_in_process=register_in_process,
+            actor_id=actor_id,
             project_id=project_id,
         )
         return True

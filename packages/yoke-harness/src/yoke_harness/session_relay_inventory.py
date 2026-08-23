@@ -86,6 +86,15 @@ def probe_app_version(path: Path) -> str | None:
     return _version_token(value)
 
 
+def probe_surface_version(surface: str) -> str | None:
+    """Return one locally observed surface version without full inventory."""
+    if surface in _APP_PROBES:
+        return probe_app_version(_APP_PROBES[surface])
+    if surface in _CLI_PROBES:
+        return probe_cli_version(_CLI_PROBES[surface])
+    return None
+
+
 def collect_inventory(
     *,
     cli_probe: Callable[[tuple[str, ...]], str | None] = probe_cli_version,
@@ -124,4 +133,5 @@ __all__ = [
     "collect_inventory",
     "probe_app_version",
     "probe_cli_version",
+    "probe_surface_version",
 ]

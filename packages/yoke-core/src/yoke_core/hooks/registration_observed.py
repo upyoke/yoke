@@ -71,6 +71,8 @@ def enrich_local_observed_facts(
     executor: str,
     executor_version: str,
     machine_id: str,
+    *,
+    executor_surface: str | None = None,
 ) -> tuple[str, str]:
     """Fill absent wire facts using client-safe probes, best effort."""
     if executor_version and machine_id:
@@ -82,7 +84,12 @@ def enrich_local_observed_facts(
         )
 
         return (
-            executor_version or client_executor_version(executor) or "",
+            executor_version
+            or client_executor_version(
+                executor,
+                executor_surface=executor_surface,
+            )
+            or "",
             machine_id or client_machine_id() or "",
         )
     except Exception:  # noqa: BLE001 - registration enrichment is best effort

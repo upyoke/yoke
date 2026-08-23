@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.handlers import session_messages
 from yoke_core.domain.handlers import session_messages_receipts
@@ -62,6 +64,35 @@ def test_send_handler_returns_message_and_dedupe_shape(monkeypatch) -> None:
     assert outcome.result_payload["recipient_count"] == 1
     assert outcome.result_payload["deduplicated"] is False
     assert outcome.result_payload["message_id"]
+
+
+def test_send_handler_does_not_persist_synthetic_service_session(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    database = tmp_path / "messages.db"
+    conn = message_connection(str(database))
+    monkeypatch.setattr(session_messages, "open_connection", lambda: conn)
+
+    outcome = session_messages.handle_message_send(
+        _request(
+            "session_control.message.send",
+            {
+                "selector": {"session_ids": ["s1"]},
+                "body": "Workbench body",
+                "idempotency_key": "service-sender",
+            },
+            session_id="doorman-ui",
+        )
+    )
+
+    assert outcome.primary_success is True
+    with sqlite3.connect(database) as verification:
+        stored = verification.execute(
+            "SELECT sender_session_id FROM session_messages WHERE message_id = ?",
+            (outcome.result_payload["message_id"],),
+        ).fetchone()
+    assert stored[0] is None
 
 
 def test_list_and_get_handlers_use_stable_envelopes(monkeypatch) -> None:

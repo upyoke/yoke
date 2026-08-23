@@ -56,7 +56,10 @@ def _wire_lane(payload_json: str) -> str:
 
 
 def _lane_can_upgrade(
-    conn: Any, payload_json: str, session_id: str, project_id: Any,
+    conn: Any,
+    payload_json: str,
+    session_id: str,
+    project_id: Any,
 ) -> bool:
     """True when a stored lane left unresolved can heal to a real one.
 
@@ -99,7 +102,9 @@ def _lane_can_upgrade(
 
 
 def _placeholder_model_can_upgrade(
-    conn: Any, payload_json: str, session_id: str,
+    conn: Any,
+    payload_json: str,
+    session_id: str,
 ) -> bool:
     """True when wire model can heal a placeholder stored row."""
     try:
@@ -132,8 +137,39 @@ def _placeholder_model_can_upgrade(
         return False
 
 
+def _executor_version_can_upgrade(
+    conn: Any,
+    payload_json: str,
+    session_id: str,
+) -> bool:
+    """True when a wire-observed version can fill an unqualified row."""
+    try:
+        payload = json.loads(payload_json) if payload_json else {}
+        if not isinstance(payload, dict):
+            return False
+        wire_version = payload.get("executor_version", "")
+        if not isinstance(wire_version, str) or not wire_version.strip():
+            return False
+        from yoke_core.domain import db_backend
+
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        row = conn.execute(
+            f"SELECT executor_version FROM harness_sessions WHERE session_id = {p}",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        stored = row.get("executor_version") if hasattr(row, "get") else row[0]
+        return not str(stored or "").strip()
+    except Exception:  # noqa: BLE001 - probe must never break dispatch
+        return False
+
+
 def placeholder_identity_can_upgrade(
-    conn: Any, payload_json: str, session_id: str, project_id: Any = None,
+    conn: Any,
+    payload_json: str,
+    session_id: str,
+    project_id: Any = None,
 ) -> bool:
     """True when identity resolution can heal a placeholder stored row.
 
@@ -141,9 +177,19 @@ def placeholder_identity_can_upgrade(
     from the client that can read the transcript, while the lane's last word
     is project routing policy, which only the control plane can read.
     """
-    return _placeholder_model_can_upgrade(
-        conn, payload_json, session_id,
-    ) or _lane_can_upgrade(conn, payload_json, session_id, project_id)
+    return (
+        _placeholder_model_can_upgrade(
+            conn,
+            payload_json,
+            session_id,
+        )
+        or _executor_version_can_upgrade(
+            conn,
+            payload_json,
+            session_id,
+        )
+        or _lane_can_upgrade(conn, payload_json, session_id, project_id)
+    )
 
 
 __all__ = ["placeholder_identity_can_upgrade", "project_lane_for_executor"]

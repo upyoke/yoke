@@ -5,7 +5,9 @@ from __future__ import annotations
 from yoke_harness.hooks import identity_observed, identity_relay
 
 
-def test_executor_version_uses_explicit_then_family_specific_environment() -> None:
+def test_executor_version_uses_explicit_then_family_specific_environment(
+    monkeypatch,
+) -> None:
     assert (
         identity_observed.client_executor_version(
             "codex",
@@ -29,6 +31,18 @@ def test_executor_version_uses_explicit_then_family_specific_environment() -> No
             environ={},
         )
         is None
+    )
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_inventory.probe_surface_version",
+        lambda surface: "26.818.31338" if surface == "codex-desktop" else None,
+    )
+    assert (
+        identity_observed.client_executor_version(
+            "codex",
+            executor_surface="codex-desktop",
+            environ={},
+        )
+        == "26.818.31338"
     )
 
 
@@ -55,7 +69,7 @@ def test_relay_identity_payload_includes_observed_fields(monkeypatch) -> None:
     monkeypatch.setattr(
         identity_relay,
         "client_executor_version",
-        lambda *_: "0.148.0",
+        lambda *_args, **_kwargs: "0.148.0",
     )
     monkeypatch.setattr(
         identity_relay,
