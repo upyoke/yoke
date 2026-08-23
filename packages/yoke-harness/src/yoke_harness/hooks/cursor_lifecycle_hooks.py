@@ -21,6 +21,7 @@ from yoke_contracts.hook_runner.config_owner import (
     CURSOR_PROJECT_CONFIG_OWNER,
     CURSOR_USER_LIFECYCLE_OWNER,
 )
+from yoke_harness.hooks.shell_command import hook_shell_command
 
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
 _CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
@@ -47,30 +48,30 @@ def cursor_lifecycle_hook_command(
     ``yoke hook evaluate``. Pair with Cursor decision rendering that emits
     ``{}`` on these events so the vendor stop contract stays satisfied.
     """
-    # Single-quoted -lc body: no single quotes inside.
+    # The shared wrapper rejects single quotes in this trusted shell body.
     body = (
         'root=""; '
         'for c in "$YOKE_ROOT" "$CURSOR_PROJECT_DIR" "$PWD"; do '
         '[ -n "$c" ] && [ -d "$c" ] && root="$c" && break; '
-        'done; '
+        "done; "
         'if [ -z "$root" ]; then '
         'for c in "$CURSOR_PROJECT_DIR" "$YOKE_ROOT"; do '
         'case "$c" in '
-        '*/.worktrees/*|*/.claude/worktrees/*) '
+        "*/.worktrees/*|*/.claude/worktrees/*) "
         'p="${c%%/.worktrees/*}"; '
         'p="${p%%/.claude/worktrees/*}"; '
         '[ -d "$p" ] && root="$p" && break;; '
-        'esac; '
-        'done; '
-        'fi; '
+        "esac; "
+        "done; "
+        "fi; "
         '[ -n "$root" ] || root="${HOME:-/tmp}"; '
         'cd "$root" 2>/dev/null || cd "${HOME:-/tmp}" 2>/dev/null || cd /; '
         f'env YOKE_ROOT="$root" {_CURSOR_IDENTITY_ENV} '
-        f'{CURSOR_LIFECYCLE_COMMAND_MARKER} '
-        f'{CONFIG_OWNER_ENV_VAR}={config_owner} '
-        f'{_YOKE_HOOK_EVALUATE} {event_verb}'
+        f"{CURSOR_LIFECYCLE_COMMAND_MARKER} "
+        f"{CONFIG_OWNER_ENV_VAR}={config_owner} "
+        f"{_YOKE_HOOK_EVALUATE} {event_verb}"
     )
-    return f"/bin/zsh -lc '{body}'"
+    return hook_shell_command(body)
 
 
 def _lifecycle_entry(event_verb: str) -> dict[str, Any]:
@@ -87,9 +88,8 @@ def _is_yoke_lifecycle_entry(entry: Any) -> bool:
     if not isinstance(entry, dict):
         return False
     command = entry.get("command")
-    return (
-        isinstance(command, str)
-        and any(marker in command for marker in CURSOR_LIFECYCLE_COMMAND_MARKERS)
+    return isinstance(command, str) and any(
+        marker in command for marker in CURSOR_LIFECYCLE_COMMAND_MARKERS
     )
 
 
@@ -122,7 +122,8 @@ def ensure_user_lifecycle_hooks(
             if not isinstance(existing, list):
                 existing = []
             kept = [
-                e for e in existing
+                e
+                for e in existing
                 if not _is_yoke_lifecycle_entry(e)
                 and not (
                     isinstance(e, dict)

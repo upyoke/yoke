@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate SessionStart'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate SessionStart'"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate UserPromptSubmit'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate UserPromptSubmit'"
           }
         ]
       }
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
           }
         ]
       },
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
           }
         ]
       }
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PreToolUse'"
           }
         ]
       }
@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse'"
           }
         ]
       },
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse'"
           }
         ]
       }
@@ -77,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate Stop'"
+            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${YOKE_ROOT:-$PWD}\" YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate Stop'"
           }
         ]
       }

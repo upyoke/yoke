@@ -17,6 +17,7 @@ from yoke_contracts.hook_runner.config_owner import (
 from yoke_core.domain.agents_render_hooks import (
     _CURSOR_HOOK_TIMEOUT_S,
     render_claude_hooks_block,
+    render_codex_hooks_block,
     render_cursor_hooks_block,
 )
 
@@ -73,6 +74,24 @@ def test_claude_commands_mark_their_config_owner() -> None:
     assert all("YOKE_HOOK_CONFIG_OWNER=claude" in command for command in commands)
 
 
+def test_generated_hook_commands_use_non_login_shell_with_launcher_path() -> None:
+    claude = render_claude_hooks_block()
+    codex = render_codex_hooks_block()
+    cursor = render_cursor_hooks_block()["hooks"]
+    commands = [
+        hook["command"]
+        for block in (claude, codex)
+        for entries in block.values()
+        for entry in entries
+        for hook in entry["hooks"]
+    ] + [entry["command"] for entries in cursor.values() for entry in entries]
+
+    assert commands
+    assert all(command.startswith("/bin/sh -c '") for command in commands)
+    assert all("/bin/zsh" not in command for command in commands)
+    assert all("${XDG_BIN_HOME:-$HOME/.local/bin}" in command for command in commands)
+
+
 def test_model_capture_hook_never_starts_the_interpreter() -> None:
     """``afterAgentThought`` fires inside the token stream, where starting
     Python already exceeds what Cursor tolerates — a 0.25s hook carrying no
@@ -126,8 +145,7 @@ def test_cursor_runner_commands_mark_the_project_config_owner() -> None:
     ]
     assert commands
     assert all(
-        "YOKE_HOOK_CONFIG_OWNER=cursor-project" in command
-        for command in commands
+        "YOKE_HOOK_CONFIG_OWNER=cursor-project" in command for command in commands
     )
     for native_event, runner_event in CURSOR_NATIVE_RUNNER_EVENTS:
         assert any(
