@@ -247,7 +247,9 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         relay,
         "_serve_once",
-        lambda: _Outcome("reported", 60, "launch", "launch-1", "native_created"),
+        lambda **_kwargs: _Outcome(
+            "reported", 60, "launch", "launch-1", "native_created"
+        ),
     )
     assert relay.relay_serve_once(["--json"]) == 0
     assert json.loads(capsys.readouterr().out) == {
@@ -264,3 +266,15 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
         ("relay", "status"),
         ("relay", "serve-once"),
     }
+
+
+def test_relay_broker_flag_forces_the_reserved_work_path(monkeypatch) -> None:
+    seen = []
+    monkeypatch.setattr(
+        relay,
+        "_serve_once",
+        lambda **kwargs: seen.append(kwargs) or _Outcome("active", 60),
+    )
+
+    assert relay.relay_serve_once(["--broker", "--json"]) == 0
+    assert seen == [{"broker_only": True}]

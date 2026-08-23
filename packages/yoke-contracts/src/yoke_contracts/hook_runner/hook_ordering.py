@@ -118,6 +118,7 @@ from typing import Mapping, Sequence
 _MODEL_DELIVERY: tuple[str, ...] = (
     "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.session_launch_attestation",
+    "yoke_core.hooks.session_broker_wake",
 )
 
 _PRE_BASH: tuple[str, ...] = (

@@ -27,6 +27,13 @@ from runtime.api.domain.test_session_message_support import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _fixed_delivery_clock(monkeypatch) -> None:
+    from yoke_core.domain import session_message_delivery
+
+    monkeypatch.setattr(session_message_delivery, "utc_now", lambda: NOW)
+
+
 def _send(conn, *, target=None, body="Act on this.", key=None, actor_id=10):
     return send_message(
         conn,

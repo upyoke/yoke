@@ -42,8 +42,12 @@ class _Connection:
 def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None:
     seen = {}
 
-    def claim(conn, heartbeat, *, wait_seconds):
-        seen.update(actor_id=heartbeat.actor_id, wait_seconds=wait_seconds)
+    def claim(conn, heartbeat, *, wait_seconds, broker_only):
+        seen.update(
+            actor_id=heartbeat.actor_id,
+            wait_seconds=wait_seconds,
+            broker_only=broker_only,
+        )
         return RelayClaimOutcome(
             relay_id=heartbeat.relay_id,
             machine_id=heartbeat.machine_id,
@@ -62,7 +66,7 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
     )
 
     assert outcome.primary_success is True
-    assert seen == {"actor_id": 41, "wait_seconds": 0}
+    assert seen == {"actor_id": 41, "wait_seconds": 0, "broker_only": False}
 
 
 def test_report_forwards_verified_actor_and_never_accepts_payload_actor(

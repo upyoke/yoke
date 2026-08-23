@@ -200,6 +200,7 @@ class RelayClaimRequest(BaseModel):
     projects: List[int]
     surfaces: Dict[str, str]
     wait_seconds: int = Field(default=55, ge=0, le=55)
+    broker_only: bool = False
 
 
 class RelayListRequest(BaseModel):

@@ -29,13 +29,22 @@ def _p(conn: Any) -> str:
 
 
 def wake_eligible_recipients(
-    conn: Any, *, now: datetime | None = None
+    conn: Any,
+    *,
+    now: datetime | None = None,
+    bypass_waiting_retry_cooldown: bool = False,
+    ignore_attempt_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return redacted wake routes with their scheduler authority."""
     from yoke_core.hooks.session_message_delivery import wake_eligible
 
     current = now or utc_now()
     marker = _p(conn)
+    open_attempt_filter = ""
+    open_attempt_params: tuple[Any, ...] = ()
+    if ignore_attempt_id:
+        open_attempt_filter = f"AND a.attempt_id<>{marker} "
+        open_attempt_params = (ignore_attempt_id,)
     _begin_mutation(conn)
     try:
         _expire_rows(conn, now=current)
@@ -61,9 +70,16 @@ def wake_eligible_recipients(
             "WHERE a.message_id=r.message_id "
             "AND a.target_session_id=r.session_id "
             "AND a.attempt_kind IN ('wake_relay','wake_broker') "
-            "AND a.completed_at IS NULL)"
+            "AND a.completed_at IS NULL "
+            + open_attempt_filter
+            + ")"
             + " ORDER BY r.wake_after,r.message_id,r.session_id",
-            (timestamp(current), timestamp(current), timestamp(current)),
+            (
+                timestamp(current),
+                timestamp(current),
+                timestamp(current),
+                *open_attempt_params,
+            ),
         ).fetchall()
         eligible: list[dict[str, Any]] = []
         for raw in rows:
@@ -92,8 +108,10 @@ def wake_eligible_recipients(
                 if row.get("injection_lease_id") is not None:
                     continue
                 previous_wake = parse_timestamp(row.get("last_wake_at"))
-                if int(row["wake_attempt_count"] or 0) > 0 and (
-                    previous_wake is None or previous_wake + idle_window > current
+                if (
+                    not bypass_waiting_retry_cooldown
+                    and int(row["wake_attempt_count"] or 0) > 0
+                    and (previous_wake is None or previous_wake + idle_window > current)
                 ):
                     continue
                 wake_mode = WakeMode.WAITING

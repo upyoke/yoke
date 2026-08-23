@@ -36,13 +36,18 @@ def claim_relay_job(
     heartbeat: RelayHeartbeat,
     *,
     wait_seconds: int = MAX_RELAY_LONG_POLL_SECONDS,
+    broker_only: bool = False,
     now_provider: Callable[[], str] = utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
     """Heartbeat, long-poll, lease at most one job, and return server cadence."""
     heartbeat = validate_heartbeat(heartbeat)
-    wait_seconds = max(0, min(int(wait_seconds), MAX_RELAY_LONG_POLL_SECONDS))
+    wait_seconds = (
+        0
+        if broker_only
+        else max(0, min(int(wait_seconds), MAX_RELAY_LONG_POLL_SECONDS))
+    )
     policy = effective_relay_policy(conn, heartbeat.project_ids)
     current = now_provider()
     heartbeat_relay(
@@ -75,12 +80,13 @@ def claim_relay_job(
     started = monotonic()
     while True:
         current = now_provider()
-        job = claim_launch_job(conn, heartbeat, now=current)
+        job = None if broker_only else claim_launch_job(conn, heartbeat, now=current)
         if job is None:
             job = claim_wake_job(
                 conn,
                 heartbeat,
                 now=current,
+                broker_only=broker_only,
             )
         if job is not None:
             connected = heartbeat_relay(

@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_broker_wake import direct_wake_waits_for_broker
+from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
 from yoke_core.domain.session_relay_evidence import (
     redacted_evidence,
     redacted_evidence_document,
@@ -138,6 +140,12 @@ def _wake_candidates(
         for row in wake_eligible_recipients(conn, now=parse_timestamp(now))
         if row.get("machine_id") == heartbeat.machine_id
         and int(row["project_id"]) in projects
+        and not direct_wake_waits_for_broker(
+            conn,
+            message_id=str(row["message_id"]),
+            session_id=str(row["session_id"]),
+            now=now,
+        )
     )[:25]
 
 
@@ -146,7 +154,13 @@ def claim_wake_job(
     heartbeat: RelayHeartbeat,
     *,
     now: str,
+    broker_only: bool = False,
 ) -> RelayJob | None:
+    brokered = claim_broker_wake_job(conn, heartbeat, now=now)
+    if brokered is not None:
+        return brokered
+    if broker_only:
+        return None
     selected = None
     for row in _wake_candidates(conn, heartbeat, now=now):
         if not wake_candidate_supported(row, heartbeat.surface_versions):
@@ -202,7 +216,7 @@ def report_wake_job(
     p = marker(conn)
     row = conn.execute(
         "SELECT lease_id,completed_at,result_code FROM session_message_attempts "
-        f"WHERE attempt_id={p} AND attempt_kind='wake_relay'",
+        f"WHERE attempt_id={p} AND attempt_kind IN ('wake_relay','wake_broker')",
         (attempt_id,),
     ).fetchone()
     if row is None:

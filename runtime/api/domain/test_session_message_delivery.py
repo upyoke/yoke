@@ -7,6 +7,9 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
+import pytest
+
+import yoke_core.domain.session_message_delivery as message_delivery
 from yoke_core.domain.session_message_delivery import (
     complete_hook_lease,
     expire_due_recipients,
@@ -21,6 +24,11 @@ from runtime.api.domain.test_session_message_support import (
     message_connection,
     selector,
 )
+
+
+@pytest.fixture(autouse=True)
+def _fixed_message_clock(monkeypatch):
+    monkeypatch.setattr(message_delivery, "utc_now", lambda: NOW)
 
 
 def _send(conn, *, body="Persistent instructions.") -> str:

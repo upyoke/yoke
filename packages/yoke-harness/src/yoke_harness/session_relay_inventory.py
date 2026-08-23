@@ -38,7 +38,12 @@ class RelayInventory:
     project_ids: tuple[int, ...]
     surface_versions: dict[str, str]
 
-    def claim_payload(self, *, wait_seconds: int | None = None) -> dict[str, object]:
+    def claim_payload(
+        self,
+        *,
+        wait_seconds: int | None = None,
+        broker_only: bool = False,
+    ) -> dict[str, object]:
         payload: dict[str, object] = {
             "relay_id": self.relay_id,
             "machine_id": self.machine_id,
@@ -49,6 +54,8 @@ class RelayInventory:
         }
         if wait_seconds is not None:
             payload["wait_seconds"] = wait_seconds
+        if broker_only:
+            payload["broker_only"] = True
         return payload
 
 

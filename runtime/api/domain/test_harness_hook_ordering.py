@@ -13,6 +13,7 @@ from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 _POST_HEARTBEAT_OBSERVE = [
     "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.session_launch_attestation",
+    "yoke_core.hooks.session_broker_wake",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 ]
@@ -58,6 +59,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_destructive_git",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
+                "yoke_core.hooks.session_broker_wake",
                 "yoke_core.hooks.heartbeat",
                 "yoke_core.domain.observe_pre",
             ],
@@ -84,6 +86,10 @@ class TestPreToolUseBash(unittest.TestCase):
         )
         self.assertEqual(
             chain[chain.index("yoke_core.hooks.session_launch_attestation") + 1],
+            "yoke_core.hooks.session_broker_wake",
+        )
+        self.assertEqual(
+            chain[chain.index("yoke_core.hooks.session_broker_wake") + 1],
             "yoke_core.hooks.heartbeat",
         )
         self.assertEqual(
@@ -219,6 +225,7 @@ class TestPreToolUseMonitor(unittest.TestCase):
                 "yoke_core.domain.hint_monitor_relay",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
+                "yoke_core.hooks.session_broker_wake",
                 "yoke_core.domain.observe_pre",
             ],
         )
@@ -280,6 +287,7 @@ class TestNonPreEvents(unittest.TestCase):
                 "yoke_core.hooks.session_dispatch",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
+                "yoke_core.hooks.session_broker_wake",
             ],
         )
 
@@ -295,6 +303,7 @@ class TestNonPreEvents(unittest.TestCase):
                 "yoke_core.hooks.session_dispatch",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
+                "yoke_core.hooks.session_broker_wake",
             ],
         )
 
@@ -306,6 +315,7 @@ class TestNonPreEvents(unittest.TestCase):
                 "yoke_core.domain.turn_end_promised_work_gate",
                 "yoke_core.hooks.session_message_delivery",
                 "yoke_core.hooks.session_launch_attestation",
+                "yoke_core.hooks.session_broker_wake",
                 "yoke_core.hooks.session_dispatch",
             ],
         )

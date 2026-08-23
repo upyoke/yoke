@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from yoke_core.hooks import hook_delivery_settlement as settlement
-from yoke_core.hooks import session_launch_attestation, session_message_delivery
+from yoke_core.hooks import (
+    session_broker_wake,
+    session_launch_attestation,
+    session_message_delivery,
+)
 from yoke_core.hooks.types import HookDecision, Outcome
 
 
@@ -34,6 +38,11 @@ def test_allowed_lifecycle_delivery_is_appended_then_settled(monkeypatch) -> Non
         "launch-token",
         "launch-token\n",
     )
+    broker = _delivery(
+        session_broker_wake.BROKER_AUDIT_FIELD,
+        "broker-token",
+        "broker-token\n",
+    )
     calls: list[tuple[str, bool]] = []
     monkeypatch.setattr(
         session_message_delivery,
@@ -49,14 +58,21 @@ def test_allowed_lifecycle_delivery_is_appended_then_settled(monkeypatch) -> Non
             (rendered_text, denied)
         ),
     )
+    monkeypatch.setattr(
+        session_broker_wake,
+        "settle_after_render",
+        lambda decisions, *, rendered_text, denied: calls.append(
+            (rendered_text, denied)
+        ),
+    )
 
     rendered, outcome = settlement.settle_model_deliveries(
-        [message, launch], "orientation\n"
+        [message, launch, broker], "orientation\n"
     )
 
     assert outcome == "allow"
-    assert rendered == "orientation\nmessage-token\nlaunch-token\n"
-    assert calls == [(rendered, False), (rendered, False)]
+    assert rendered == "orientation\nmessage-token\nlaunch-token\nbroker-token\n"
+    assert calls == [(rendered, False), (rendered, False), (rendered, False)]
 
 
 def test_sibling_denial_suppresses_provisional_stdout(monkeypatch) -> None:
@@ -76,6 +92,11 @@ def test_sibling_denial_suppresses_provisional_stdout(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         session_launch_attestation,
+        "settle_after_render",
+        lambda decisions, *, rendered_text, denied: None,
+    )
+    monkeypatch.setattr(
+        session_broker_wake,
         "settle_after_render",
         lambda decisions, *, rendered_text, denied: None,
     )

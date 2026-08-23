@@ -18,7 +18,7 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
 RELAY_INSTALL_USAGE = "yoke relay install [--json]"
 RELAY_UNINSTALL_USAGE = "yoke relay uninstall [--json]"
 RELAY_STATUS_USAGE = "yoke relay status [--json]"
-RELAY_SERVE_ONCE_USAGE = "yoke relay serve-once [--json]"
+RELAY_SERVE_ONCE_USAGE = "yoke relay serve-once [--broker] [--json]"
 
 
 def _plist_operation(action: str) -> Any:
@@ -32,10 +32,10 @@ def _plist_operation(action: str) -> Any:
     return operation[action]()
 
 
-def _serve_once() -> Any:
+def _serve_once(*, broker_only: bool = False) -> Any:
     from yoke_harness.session_relay import serve_once
 
-    return serve_once()
+    return serve_once(broker_only=broker_only)
 
 
 def _parser(prog: str, usage: str) -> argparse.ArgumentParser:
@@ -103,15 +103,21 @@ def relay_status(args: List[str]) -> int:
 
 
 def relay_serve_once(args: List[str]) -> int:
+    parser = _parser("yoke relay serve-once", RELAY_SERVE_ONCE_USAGE)
+    parser.add_argument(
+        "--broker",
+        action="store_true",
+        help="bypass local cadence and claim only a reserved peer wake",
+    )
     parsed = parse_or_usage_error(
-        _parser("yoke relay serve-once", RELAY_SERVE_ONCE_USAGE),
+        parser,
         args,
         RELAY_SERVE_ONCE_USAGE,
     )
     if parsed is None:
         return 2
     try:
-        outcome = _serve_once()
+        outcome = _serve_once(broker_only=parsed.broker)
     except Exception as exc:
         print(
             json.dumps(
