@@ -13,20 +13,13 @@ from yoke_cli.config.path_doctor import (
 )
 
 from yoke_harness.ssh_mac_full_reset_contract import (
-    EVIDENCE_SOURCE_PATH,
-    FULL_RESET_MARKER,
     FULL_RESET_REMOTE_PATH,
-    FullResetPathContract,
-    HOMEBREW_PATH,
-    RESET_FAILURE_PREFIX,
-    RESET_PHASES,
-    RESET_RECOVERY_FAILURE_MARKER,
-    RESET_RELATIVE_DIRECTORIES,
-    RESET_TEMP_FILES,
-    RETAINED_EVIDENCE_DIRECTORY,
-    TOKEN_BACKUP_DIRECTORY,
-    TOKEN_LOCATIONS,
     resolve_full_reset_path_contract,
+)
+from yoke_harness.ssh_mac_full_reset_receipt import (
+    closed_outcomes,
+    failure_outcome,
+    success_evidence,
 )
 from yoke_harness.ssh_mac_full_reset_script import render_full_reset_script
 from yoke_harness.test_machine_types import HostActionResult
@@ -74,145 +67,6 @@ def _command(*argv: str) -> str:
     return shlex.join(argv)
 
 
-def _closed_outcomes(stdout: str) -> dict[str, str] | None:
-    lines = tuple(line.strip() for line in stdout.splitlines() if line.strip())
-    token_outcomes: dict[str, str] = {}
-    evidence_outcome: str | None = None
-    expected_prefixes = {
-        f"YOKE_TOKEN_{label}_": label for _source, _backup, label in TOKEN_LOCATIONS
-    }
-    for line in lines:
-        if line == FULL_RESET_MARKER:
-            continue
-        if line in {
-            "YOKE_INSTALLER_EVIDENCE_MOVED",
-            "YOKE_INSTALLER_EVIDENCE_RETAINED",
-            "YOKE_INSTALLER_EVIDENCE_ABSENT",
-        }:
-            evidence_outcome = line.removeprefix("YOKE_INSTALLER_EVIDENCE_").lower()
-            continue
-        matched = False
-        for prefix, label in expected_prefixes.items():
-            if line in {prefix + "RESTORED", prefix + "ABSENT"}:
-                token_outcomes[label] = line.removeprefix(prefix).lower()
-                matched = True
-                break
-        if not matched:
-            return None
-    if (
-        len(lines) != 4
-        or lines.count(FULL_RESET_MARKER) != 1
-        or evidence_outcome is None
-        or set(token_outcomes) != set(expected_prefixes.values())
-    ):
-        return None
-    return {**token_outcomes, "evidence": evidence_outcome}
-
-
-def _failure_outcome(stdout: str) -> tuple[str, bool] | None:
-    lines = tuple(line.strip() for line in stdout.splitlines() if line.strip())
-    if len(lines) not in {1, 2} or not lines[0].startswith(RESET_FAILURE_PREFIX):
-        return None
-    phase = lines[0].removeprefix(RESET_FAILURE_PREFIX)
-    phase_names = {value: name for name, value in RESET_PHASES.items()}
-    if phase not in phase_names:
-        return None
-    recovery_failed = len(lines) == 2
-    if recovery_failed and lines[1] != RESET_RECOVERY_FAILURE_MARKER:
-        return None
-    return phase_names[phase], recovery_failed
-
-
-def _success_evidence(
-    contract: FullResetPathContract,
-    outcomes: dict[str, str],
-) -> dict[str, object]:
-    home = contract.home
-    rows: list[dict[str, str]] = [
-        {"path": f"{home}/.yoke", "outcome": "removed"},
-        {
-            "path": f"{home}/{EVIDENCE_SOURCE_PATH}",
-            "outcome": "moved" if outcomes["evidence"] == "moved" else "absent",
-        },
-        {
-            "path": f"{home}/{RETAINED_EVIDENCE_DIRECTORY}",
-            "outcome": (
-                "preserved"
-                if outcomes["evidence"] in {"moved", "retained"}
-                else "absent"
-            ),
-        },
-    ]
-    rows.extend(
-        {"path": f"{home}/{suffix}", "outcome": "removed"}
-        for suffix in RESET_RELATIVE_DIRECTORIES
-    )
-    rows.extend(
-        {"path": path, "outcome": "removed"} for path in contract.tool_file_paths
-    )
-    rows.extend({"path": path, "outcome": "removed"} for path in RESET_TEMP_FILES)
-    rows.append(
-        {
-            "path": f"{home}/{TOKEN_BACKUP_DIRECTORY}",
-            "outcome": "mode-0700",
-        }
-    )
-    for source, backup_name, label in TOKEN_LOCATIONS:
-        outcome = outcomes[label]
-        rows.extend(
-            (
-                {
-                    "path": f"{home}/{TOKEN_BACKUP_DIRECTORY}/{backup_name}",
-                    "outcome": (
-                        "preserved-mode-0600" if outcome == "restored" else "not-copied"
-                    ),
-                },
-                {
-                    "path": source,
-                    "outcome": (
-                        "restored-mode-0600" if outcome == "restored" else "absent"
-                    ),
-                },
-            )
-        )
-    rows.extend(
-        (
-            {"path": f"{home}/code", "outcome": "children-removed"},
-            {"path": HOMEBREW_PATH, "outcome": "uv-absent"},
-        )
-    )
-    rows.extend(
-        {
-            "path": path,
-            "outcome": "cleaned-or-absent",
-        }
-        for path in contract.startup_files
-    )
-    rows.extend(
-        (
-            {
-                "path": contract.shell_path,
-                "outcome": "login-and-ssh-resolution-clean",
-            },
-            {
-                "path": contract.tool_bin_dir,
-                "outcome": "absent-from-login-and-ssh-path",
-            },
-            {"path": FULL_RESET_REMOTE_PATH, "outcome": "removed"},
-        )
-    )
-    return {
-        "paths": rows,
-        "path_state": {
-            "launcher": contract.launcher_path,
-            "launcher_present": False,
-            "tool_bin_dir": contract.tool_bin_dir,
-            "login_path_present": False,
-            "ssh_path_present": False,
-        },
-    }
-
-
 def execute_full_test_mac_reset(
     *,
     run_remote: ResetRunner,
@@ -248,8 +102,8 @@ def execute_full_test_mac_reset(
 
     reset_ok = False
     error_code = "test_mac_reset_failed"
-    outcomes: dict[str, str] | None = None
-    failure_outcome: tuple[str, bool] | None = None
+    outcomes: dict[str, str | int | float] | None = None
+    parsed_failure: tuple[str, bool, str | None] | None = None
     try:
         preclean = run_remote(
             _command("/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH),
@@ -269,15 +123,15 @@ def execute_full_test_mac_reset(
                     timeout=300,
                 )
                 if int(result.returncode) == 0:
-                    outcomes = _closed_outcomes(str(result.stdout))
+                    outcomes = closed_outcomes(str(result.stdout))
                     if outcomes is not None:
                         reset_ok = True
                     else:
                         error_code = "test_mac_reset_output_invalid"
                 else:
-                    failure_outcome = _failure_outcome(str(result.stdout))
-                    if failure_outcome is not None:
-                        phase, recovery_failed = failure_outcome
+                    parsed_failure = failure_outcome(str(result.stdout))
+                    if parsed_failure is not None:
+                        phase, recovery_failed, _reap_detail = parsed_failure
                         error_code = (
                             "test_mac_reset_recovery_failed"
                             if recovery_failed
@@ -299,7 +153,7 @@ def execute_full_test_mac_reset(
         error_code = "test_mac_reset_script_cleanup_failed"
 
     if reset_ok and outcomes is not None:
-        return HostActionResult(True, _success_evidence(reset_contract, outcomes))
+        return HostActionResult(True, success_evidence(reset_contract, outcomes))
     failure_evidence: dict[str, object] = {
         "paths": [
             {"path": home, "outcome": "reset-failed"},
@@ -309,14 +163,21 @@ def execute_full_test_mac_reset(
             },
         ]
     }
-    if failure_outcome is not None:
-        phase, recovery_failed = failure_outcome
+    if parsed_failure is not None:
+        phase, recovery_failed, reap_detail = parsed_failure
         failure_evidence.update(
             {
                 "reset_phase": phase,
                 "recovery_cleanup": "failed" if recovery_failed else "completed",
             }
         )
+        if reap_detail is not None:
+            reap_parts = reap_detail.split()
+            failure_evidence["process_state"] = {
+                "surviving_reap_failures": int(reap_parts[0]),
+                "surviving_matches": int(reap_parts[1]),
+                "load_average": float(reap_parts[2]),
+            }
     return HostActionResult(
         False,
         failure_evidence,

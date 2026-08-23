@@ -193,7 +193,12 @@ class FakeHostControl:
                     },
                     {"path": evidence, "outcome": "moved"},
                     {"path": retained_evidence, "outcome": "preserved"},
-                ]
+                ],
+                "process_state": {
+                    "reaped_processes": 0,
+                    "surviving_matches": 0,
+                    "load_average": 1.0,
+                },
             },
         )
 

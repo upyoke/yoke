@@ -7,7 +7,12 @@ import shutil
 import subprocess
 from types import SimpleNamespace
 
-from yoke_core.domain.ssh_mac_full_reset_contract import FULL_RESET_REMOTE_PATH
+from yoke_core.domain.ssh_mac_full_reset_contract import (
+    FULL_RESET_MARKER,
+    FULL_RESET_REMOTE_PATH,
+    RESET_LOAD_AVERAGE_PREFIX,
+    RESET_PROCESS_REAPED_PREFIX,
+)
 
 
 class FakeResetTransport:
@@ -37,6 +42,27 @@ class FakeResetTransport:
         return SimpleNamespace(returncode=0, stdout="")
 
 
+def closed_reset_stdout(
+    *,
+    stage: str = "RESTORED",
+    prod: str = "ABSENT",
+    evidence: str = "MOVED",
+    reaped: int = 0,
+    load_average: str = "1.20",
+) -> str:
+    """Return the six-line success receipt the reset parser accepts."""
+    return "\n".join(
+        (
+            f"YOKE_TOKEN_STAGE_{stage}",
+            f"YOKE_TOKEN_PROD_{prod}",
+            f"YOKE_INSTALLER_EVIDENCE_{evidence}",
+            f"{RESET_PROCESS_REAPED_PREFIX}{reaped}",
+            f"{RESET_LOAD_AVERAGE_PREFIX}{load_average}",
+            FULL_RESET_MARKER,
+        )
+    )
+
+
 def zsh_binary() -> str | None:
     """Return an available zsh interpreter for macOS-program checks."""
     return shutil.which("zsh")
@@ -58,6 +84,7 @@ def run_zsh_syntax_if_available(script: str) -> subprocess.CompletedProcess | No
 
 __all__ = [
     "FakeResetTransport",
+    "closed_reset_stdout",
     "run_zsh_syntax_if_available",
     "zsh_binary",
 ]

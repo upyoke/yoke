@@ -6,6 +6,7 @@ import shlex
 
 from yoke_cli.config.path_doctor import resolve_path_state_contract
 
+from yoke_harness._ssh_mac_full_reset_reap_body import REAP_FUNCTIONS
 from yoke_harness._ssh_mac_full_reset_script_body import SCRIPT_BODY
 from yoke_harness.ssh_mac_full_reset_contract import (
     EVIDENCE_SOURCE_PATH,
@@ -15,7 +16,12 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     LEGACY_BASELINE_BEGIN,
     LEGACY_BASELINE_END,
     RESET_FAILURE_PREFIX,
+    RESET_LOAD_AVERAGE_PREFIX,
     RESET_PHASES,
+    RESET_PROCESS_REAPED_PREFIX,
+    RESET_REAP_MARKER_ANCHOR,
+    RESET_REAP_MARKER_SUFFIX,
+    RESET_REAP_ONBOARD_ANCHOR,
     RESET_RECOVERY_FAILURE_MARKER,
     RESET_RELATIVE_DIRECTORIES,
     RESET_TEMP_FILES,
@@ -55,6 +61,11 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"reset_failure_prefix={shlex.quote(RESET_FAILURE_PREFIX)}",
             "reset_recovery_failure_marker="
             + shlex.quote(RESET_RECOVERY_FAILURE_MARKER),
+            f"reap_marker_anchor={shlex.quote(RESET_REAP_MARKER_ANCHOR)}",
+            f"reap_marker_suffix={shlex.quote(RESET_REAP_MARKER_SUFFIX)}",
+            f"reap_onboard_anchor={shlex.quote(RESET_REAP_ONBOARD_ANCHOR)}",
+            f"reset_process_reaped_prefix={shlex.quote(RESET_PROCESS_REAPED_PREFIX)}",
+            f"reset_load_average_prefix={shlex.quote(RESET_LOAD_AVERAGE_PREFIX)}",
             *(
                 f"reset_phase_{name}={shlex.quote(value)}"
                 for name, value in RESET_PHASES.items()
@@ -68,6 +79,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"stage_backup_name={shlex.quote(TOKEN_LOCATIONS[0][1])}",
             f"prod_source={shlex.quote(TOKEN_LOCATIONS[1][0])}",
             f"prod_backup_name={shlex.quote(TOKEN_LOCATIONS[1][1])}",
+            REAP_FUNCTIONS.lstrip(),
             SCRIPT_BODY.lstrip(),
         )
     )

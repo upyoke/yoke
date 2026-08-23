@@ -6,6 +6,7 @@ from pathlib import Path
 
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
     FakeResetTransport,
+    closed_reset_stdout,
     run_zsh_syntax_if_available,
 )
 from yoke_cli.config import path_doctor
@@ -54,6 +55,17 @@ def test_remote_program_matches_mac_reset_contract_without_system_wipe() -> None
     assert ".ssh" not in FULL_RESET_SCRIPT
     assert "CommandLineTools" not in FULL_RESET_SCRIPT
     assert "yoke*.log" not in FULL_RESET_SCRIPT
+    reap_step = 'run_reset_step "$reset_phase_reap_processes" reap_processes'
+    remove_step = (
+        'run_reset_step "$reset_phase_remove_registered_state" remove_registered_state'
+    )
+    assert FULL_RESET_SCRIPT.index(reap_step) < FULL_RESET_SCRIPT.index(remove_step)
+    assert "/bin/kill" in FULL_RESET_SCRIPT
+    assert "sleep 600" not in FULL_RESET_SCRIPT
+    assert "IFS= read -r pid command_line" not in FULL_RESET_SCRIPT
+    assert "/bin/ps -ww -u" in FULL_RESET_SCRIPT
+    assert "while read -r pid command_line; do" in FULL_RESET_SCRIPT
+    assert '(( pid != $$ && ! ${+reaped_seen[$pid]} )) || continue' in FULL_RESET_SCRIPT
 
 
 def test_reset_rejects_xdg_tool_paths_outside_explicit_test_mac_home() -> None:
@@ -81,14 +93,7 @@ def test_reset_rejects_xdg_tool_paths_outside_explicit_test_mac_home() -> None:
 
 def test_reset_renders_contained_xdg_and_bash_shell_contract() -> None:
     transport = FakeResetTransport(
-        "\n".join(
-            (
-                "YOKE_TOKEN_STAGE_ABSENT",
-                "YOKE_TOKEN_PROD_ABSENT",
-                "YOKE_INSTALLER_EVIDENCE_ABSENT",
-                FULL_RESET_MARKER,
-            )
-        )
+        closed_reset_stdout(stage="ABSENT", prod="ABSENT", evidence="ABSENT")
     )
     xdg_bin_home = "/Users/tester/Library/Yoke Bin"
     path_state = path_doctor.resolve_path_state_contract(
