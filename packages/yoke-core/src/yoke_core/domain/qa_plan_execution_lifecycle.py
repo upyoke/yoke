@@ -14,6 +14,55 @@ from yoke_core.domain.qa_plan_execution_store import (
 
 _TERMINAL_EXECUTION_STATES = frozenset({"completed", "aborted", "error"})
 
+_SETTLE_CAPTURE_FALLBACK_VERDICT = "error"
+_SETTLE_CAPTURE_FALLBACK_REASON = (
+    "execution ended without a review verdict; capture settled by "
+    "execution termination"
+)
+_CAPTURE_RUNNERS = ("browser_substrate", "host_control", "agent_mission")
+
+
+def _settle_unreviewed_capture_runs(conn: Any, execution: dict[str, Any]) -> None:
+    """Settle still-unsettled capture runs for this execution's cases.
+
+    A capture that never reached review (abort, error, or a case that ended
+    blocked-on-precondition) would otherwise keep a NULL verdict and block
+    every terminal transition forever. The execution's terminal state is the
+    authoritative end of each capture's story, so the settlement names that
+    honestly rather than attributing any reviewed quality signal.
+    """
+    requirement_ids = sorted(
+        {
+            int(case["requirement_id"])
+            for case in execution.get("roster") or []
+            if case.get("requirement_id") is not None
+        }
+    )
+    if not requirement_ids:
+        return
+    placeholder = marker(conn)
+    runners = ", ".join(placeholder for _ in _CAPTURE_RUNNERS)
+    req_placeholders = ", ".join(placeholder for _ in requirement_ids)
+    conn.execute(
+        "UPDATE qa_runs SET verdict="
+        f"{placeholder},verdict_reason={placeholder},"
+        "completed_at=COALESCE(completed_at, "
+        f"{placeholder}) "
+        f"WHERE qa_requirement_id IN ({req_placeholders}) "
+        f"AND performed_by IN ({runners}) "
+        "AND verdict IS NULL",
+        (
+            _SETTLE_CAPTURE_FALLBACK_VERDICT,
+            _SETTLE_CAPTURE_FALLBACK_REASON,
+            iso8601_now(),
+            *requirement_ids,
+            *_CAPTURE_RUNNERS,
+        ),
+    )
+
+
+_TERMINAL_EXECUTION_STATES = frozenset({"completed", "aborted", "error"})
+
 
 def _mission_needs_retained_lease(execution: dict[str, Any]) -> bool:
     return any(
@@ -99,6 +148,9 @@ def finish_plan_execution(
         raise QaPlanExecutionStateError(
             "QA plan execution cannot complete before every case advances"
         )
+    terminal_settlement = state in _TERMINAL_EXECUTION_STATES
+    if terminal_settlement:
+        _settle_unreviewed_capture_runs(conn, execution)
     retain_lease = (
         state == "awaiting_agent_review"
         and _mission_needs_retained_lease(execution)

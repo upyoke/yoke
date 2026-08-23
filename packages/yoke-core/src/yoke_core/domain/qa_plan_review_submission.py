@@ -118,6 +118,18 @@ def _record_verdict(
             created_at,
         ),
     )
+    # The capture is the thing being reviewed; a completed review that
+    # leaves its verdict NULL freezes the item at every terminal gate.
+    # Stamp only verdict columns in place: browser-evidence gates match
+    # reviewed captures on execution_status='captured' plus
+    # case_outcome='needs_review', and the immutability trigger refuses
+    # writes only once a verdict already exists.
+    conn.execute(
+        "UPDATE qa_runs SET verdict="
+        f"{p},verdict_reason={p},completed_at=COALESCE(completed_at, {p}) "
+        f"WHERE id={p} AND verdict IS NULL",
+        (verdict, rationale, created_at, int(case["capture_run_id"])),
+    )
     from yoke_core.domain.item_activity import touch_for_qa_requirement
 
     touch_for_qa_requirement(conn, int(case["requirement_id"]))
