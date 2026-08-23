@@ -25,12 +25,17 @@ class NativeStateClient:
         self.detached_turn: str | None = None
 
     def _thread(self, status: str) -> dict:
+        turns = (
+            [{"id": "turn-1", "status": "inProgress"}]
+            if status == "active"
+            else []
+        )
         return {
             "thread": {
                 "id": SESSION_ID,
                 "sessionId": SESSION_ID,
                 "status": {"type": status},
-                "turns": [],
+                "turns": turns,
             }
         }
 
@@ -44,6 +49,8 @@ class NativeStateClient:
             return self._thread("idle")
         if method == "turn/start":
             return {"turn": {"id": "turn-1"}}
+        if method == "turn/steer":
+            return {}
         raise AssertionError(f"unexpected method: {method}")
 
     def detach_until_turn_completed(self, turn_id: str) -> None:
@@ -139,6 +146,34 @@ def test_retry_uses_stable_client_message_identity(
 
     message_ids = [
         next(params for method, params in client.calls if method == "turn/start")[
+            "clientUserMessageId"
+        ]
+        for client in clients
+    ]
+    assert message_ids[0] == message_ids[1]
+    assert str(UUID(message_ids[0])) == message_ids[0]
+
+
+def test_active_steer_retry_uses_stable_client_message_identity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    clients = [NativeStateClient("active"), NativeStateClient("active")]
+    pending = list(clients)
+    monkeypatch.setattr(
+        app_server.CodexAppServerTransport,
+        "_client",
+        lambda *_: pending.pop(0),
+    )
+    first = _request(tmp_path, job_id="attempt-1")
+    second = replace(first, job_id="attempt-2")
+    transport = app_server.CodexAppServerTransport(worker=True)
+
+    assert transport.wake(first).state == "accepted"
+    assert transport.wake(second).state == "accepted"
+
+    message_ids = [
+        next(params for method, params in client.calls if method == "turn/steer")[
             "clientUserMessageId"
         ]
         for client in clients

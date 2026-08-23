@@ -193,26 +193,25 @@ def _turn_id(result: dict[str, Any]) -> str:
     return value
 
 
-def _start_turn(
-    client: _Client,
-    thread_id: str,
-    request: CodexNativeRequest,
-) -> str:
+def _client_message_id(request: CodexNativeRequest, thread_id: str) -> str:
     if not request.instruction_id:
         raise CodexAppServerError("instruction identity missing")
-    client_message_id = str(
+    return str(
         uuid.uuid5(
             _CLIENT_MESSAGE_NAMESPACE,
             f"{request.instruction_id}:thread:{thread_id}",
         )
     )
+
+
+def _start_turn(client: _Client, thread_id: str, request: CodexNativeRequest) -> str:
     return _turn_id(
         client.request(
             "turn/start",
             {
                 "threadId": thread_id,
                 "input": _text_input(request.native_instruction),
-                "clientUserMessageId": client_message_id,
+                "clientUserMessageId": _client_message_id(request, thread_id),
             },
         )
     )
@@ -322,6 +321,7 @@ class CodexAppServerTransport:
                         "threadId": identity[0],
                         "expectedTurnId": turn_id,
                         "input": _text_input(request.native_instruction),
+                        "clientUserMessageId": _client_message_id(request, identity[0]),
                     },
                 )
             elif native_status in _RESUMABLE_NATIVE_STATUSES:
