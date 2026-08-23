@@ -38,6 +38,14 @@ their own complete App profile. An HTTPS hosted or team-server connection uses
 the complete public profile advertised by that service and ignores ambient App
 metadata.
 
+An owner-only `<env>-db-admin` connection administers that same https
+universe rather than standing for a local one, so it proves the machine
+authorization against the https plane it administers — the selection a local
+merge child pins before it switches its engine to the admin connection, and
+the one `yoke github status` reports. A process that has bound that authority
+keeps it across every in-process dispatch it makes; nothing inside the process
+re-derives a weaker one from the ambient connection.
+
 ## 2. GitHub App installation
 
 This answers: **which account or organization installed the App, and which

@@ -27,7 +27,11 @@ Optional during `yoke onboard` Account/GitHub steps.
 Status reports one verdict per binding: user authorization for the merge path
 (`ok` / `busy` / `broken`, proven through the same connection and token read a
 local merge uses) and App installation access (`ok` / `broken`). `ready` is
-true only when both are `ok`; see `yoke github status --help`.
+true only when both are `ok`; see `yoke github status --help`. Under an
+owner-only `<env>-db-admin` connection, status and a local merge both prove
+through the https plane that connection administers, so
+`yoke --env prod-db-admin github status` answers the same as
+`yoke github status` on a machine connected to `prod`.
 
 ## Sync modes
 

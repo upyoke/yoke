@@ -46,7 +46,14 @@ def access_token(
     local_connection_selected: bool = False,
     now: datetime | None = None,
 ) -> github_user_tokens.LocalUserAccessToken:
-    """Validate the saved public profile, then refresh locally against GitHub."""
+    """Validate the saved public profile, then refresh locally against GitHub.
+
+    A caller naming no connection gets the selected one resolved here, once,
+    and carried through both the profile proof and the credential store, so
+    every reader proves the binding the merge child and ``yoke github status``
+    pin explicitly — a reader under an owner-only admin connection included,
+    which proves against the https plane that connection administers.
+    """
     try:
         with github_machine_operation.operation_lock(config_path):
             github = machine_config.github_config(config_path)
@@ -54,6 +61,13 @@ def access_token(
                 raise GitHubLocalUserAccessError(
                     "machine GitHub App authorization is not configured"
                 )
+            if service_api_url is None and not local_connection_selected:
+                service_api_url = (
+                    github_app_public_profile.selected_https_service_api_url(
+                        config_path
+                    )
+                )
+                local_connection_selected = service_api_url is None
             github_app_public_profile.resolve_selected_and_match(
                 github,
                 config_path=config_path,

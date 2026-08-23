@@ -54,7 +54,10 @@ def call_with_machine_github_authorization(
 ) -> FunctionCallResponse:
     """Bind a lazy user-token provider around in-process core dispatch.
 
-    The machine operation lock is taken only when a handler reads the
+    A provider the caller already bound is inherited, never replaced: the
+    caller pinned the connection its authorization is proven against, and a
+    second provider derived from the ambient connection would shadow that
+    proof. The machine operation lock is taken only when a handler reads the
     token. Credential-free reads must not hold it for the whole call.
     """
     try:
@@ -72,6 +75,8 @@ def call_with_machine_github_authorization(
         return local_dispatch(request)
 
     try:
+        if auth_module.bound_local_github_user_token_provider() is not None:
+            return local_dispatch(request)
         config_error = ""
         try:
             github = machine_config.github_config()

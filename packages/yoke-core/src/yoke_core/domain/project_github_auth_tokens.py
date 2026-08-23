@@ -72,6 +72,19 @@ def bind_local_github_user_token_provider(
         LOCAL_USER_TOKEN_PROVIDER.reset(reset_token)
 
 
+def bound_local_github_user_token_provider() -> Callable[[], str] | None:
+    """Return the user-token provider bound in this context, if any.
+
+    A caller that binds one has pinned the connection its authorization is
+    proven against. An in-process dispatch running inside that context reads
+    this before binding a provider of its own, because one derived from the
+    ambient connection would shadow the caller's proof: a merge child proves
+    against its https plane and then selects the owner-only admin connection
+    for its engine.
+    """
+    return LOCAL_USER_TOKEN_PROVIDER.get()
+
+
 def resolve_local_user_token(
     state: ProjectGithubState,
     *,
@@ -286,6 +299,7 @@ def _bound_api_url(state: ProjectGithubState) -> str:
 
 __all__ = [
     "bind_local_github_user_token_provider",
+    "bound_local_github_user_token_provider",
     "installation_contract_permissions",
     "mint_bound_installation_token",
     "read_app_credentials",
