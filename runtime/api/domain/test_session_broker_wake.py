@@ -6,6 +6,7 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_core.domain.session_broker_wake import lease_broker_wake_for_hook
 from yoke_core.domain.session_broker_wake_settlement import (
     complete_broker_hook_lease,
@@ -122,6 +123,7 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
 
     assert claimed.job and claimed.job.job_id == lease.attempt_id
     assert claimed.job.message_id == message_id
+    assert claimed.job.native_instruction == native_wake_instruction(message_id)
     assert "Secret body" not in claimed.job.native_instruction
     assert (
         conn.execute(

@@ -5,7 +5,14 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 
-_TEXT_FIELDS = frozenset({"adapter_revision", "result_code", "surface"})
+_TEXT_FIELDS = frozenset(
+    {
+        "adapter_revision",
+        "native_instruction_sha256",
+        "result_code",
+        "surface",
+    }
+)
 _INTEGER_FIELDS = frozenset({"duration_ms", "exit_code"})
 _MAX_TEXT_LENGTH = 128
 

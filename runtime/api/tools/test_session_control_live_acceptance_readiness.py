@@ -27,13 +27,15 @@ CURRENT_VERSIONS = {
 
 def _matrix(versions: dict[str, str]) -> dict:
     return {
-        "schema": 1,
+        "schema": 2,
         "project": "yoke",
         "cells": [
             {
                 "surface": surface,
                 "expected_version": versions[surface],
                 "mode": "identify" if surface == "claude-desktop" else "create",
+                "acceptance_role": "surface",
+                "wake_route": "none" if surface == "claude-desktop" else "direct",
                 **(
                     {"session_id": "active-claude-desktop"}
                     if surface == "claude-desktop"
@@ -41,6 +43,18 @@ def _matrix(versions: dict[str, str]) -> dict:
                 ),
             }
             for surface in ACCEPTANCE_SURFACES
+        ]
+        + [
+            {
+                "surface": "codex-cli",
+                "expected_version": versions["codex-cli"],
+                "mode": "identify",
+                "session_id": "broker-target-session",
+                "machine_id": "machine-1",
+                "acceptance_role": "broker",
+                "wake_route": "broker",
+                "broker_session_id": "broker-peer-session",
+            }
         ],
     }
 

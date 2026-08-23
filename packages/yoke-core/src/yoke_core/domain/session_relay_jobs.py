@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake import direct_wake_waits_for_broker
 from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
 from yoke_core.domain.session_relay_evidence import (
-    redacted_evidence,
+    merge_redacted_evidence,
     redacted_evidence_document,
 )
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
@@ -192,7 +193,7 @@ def claim_wake_job(
         surface=str(surface),
         surface_version=str(heartbeat.surface_versions[surface]),
         project_id=int(project_id),
-        native_instruction=f"Yoke message {message_id}: check your Yoke messages.",
+        native_instruction=native_wake_instruction(message_id),
         message_id=str(message_id),
         target_session_id=str(session_id),
         wake_mode=WakeMode(str(selected["wake_mode"])),
@@ -215,7 +216,8 @@ def report_wake_job(
         raise SessionRelayError("result_invalid", "unknown wake relay result code")
     p = marker(conn)
     row = conn.execute(
-        "SELECT lease_id,completed_at,result_code FROM session_message_attempts "
+        "SELECT lease_id,completed_at,result_code,evidence "
+        "FROM session_message_attempts "
         f"WHERE attempt_id={p} AND attempt_kind IN ('wake_relay','wake_broker')",
         (attempt_id,),
     ).fetchone()
@@ -247,7 +249,7 @@ def report_wake_job(
             now,
             result_code,
             str(adapter_revision or "").strip()[:128] or None,
-            redacted_evidence(evidence),
+            merge_redacted_evidence(row[3], evidence),
             attempt_id,
         ),
     )

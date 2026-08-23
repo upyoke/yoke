@@ -87,7 +87,9 @@ def _cell_report(cell: AcceptanceCell) -> dict[str, Any]:
 
 
 def readiness_report(matrix: AcceptanceMatrix) -> dict[str, Any]:
-    cells = [_cell_report(cell) for cell in matrix.cells]
+    cells = [
+        _cell_report(cell) for cell in matrix.cells if cell.acceptance_role == "surface"
+    ]
     ready = all(cell["status"] == "qualified" for cell in cells)
     return {
         "schema": 1,
