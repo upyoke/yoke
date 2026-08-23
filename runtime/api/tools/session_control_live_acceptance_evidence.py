@@ -156,12 +156,16 @@ def wait_for_ack(
     sleep: Callable[[float], None],
     monotonic: Callable[[], float],
     require_wake: bool = False,
+    minimum_injections: int = 1,
 ) -> dict[str, Any]:
     deadline = monotonic() + timeout
     while True:
         observed = receipt(cell, session_id, message_id)
         if observed["state"] == "acknowledged":
-            if observed["injection_count"] < 1 or not observed["acknowledged_at"]:
+            if (
+                observed["injection_count"] < minimum_injections
+                or not observed["acknowledged_at"]
+            ):
                 raise AcceptanceContractError(
                     "ack_evidence_invalid", surface=cell.surface
                 )

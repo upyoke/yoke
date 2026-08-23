@@ -61,6 +61,7 @@ class _ScenarioClient:
         self.calls: list[tuple[list[str], str | None]] = []
         self.create_count = 0
         self.send_counts: dict[str, int] = {}
+        self.message_reads: dict[str, int] = {}
 
     def call(self, args, *, stdin: str | None = None) -> dict[str, Any]:
         argv = list(args)
@@ -168,13 +169,16 @@ class _ScenarioClient:
         }
 
     def _message(self, message_id: str) -> dict[str, Any]:
+        self.message_reads[message_id] = self.message_reads.get(message_id, 0) + 1
         wake = message_id == "wake-message"
         supported_wake = wake and self.cell.route != "none"
-        pending = wake and self.cell.route == "none"
+        pending = (wake and self.cell.route == "none") or (
+            not wake and self.message_reads[message_id] == 1
+        )
         wake_count: Any = 1 if supported_wake else 0
         if supported_wake and self.wake_evidence_missing:
             wake_count = 0
-        injection_count: Any = 0 if pending else 1
+        injection_count: Any = 0 if pending and wake else 1 if pending or wake else 2
         if self.malformed_count:
             injection_count = "not-a-count"
         recipient = {
@@ -248,7 +252,7 @@ def test_create_cell_requires_binding_ack_wait_wake_and_dedupe() -> None:
 
     assert report["status"] == "passed"
     assert report["registration_identity_matched"] is True
-    assert report["initial_message"]["injection_count"] == 1
+    assert report["initial_message"]["injection_count"] == 2
     assert report["wake_message"]["wake_attempt_count"] == 1
     assert report["wake_message"]["native_wake"]["attempt_kind"] == "wake_relay"
     assert report["wake_message"]["native_wake"]["native_traffic_body_free"] is True

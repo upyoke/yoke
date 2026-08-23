@@ -272,11 +272,13 @@ class LiveAcceptanceDriver:
         one_recipient(
             preview.get("recipients"), session_id=session_id, surface=cell.surface
         )
-        body = (
-            f"Fleet live acceptance {phase} for {cell.surface}. "
-            "Acknowledge this exact Fleet receipt using the command in its "
-            "model-visible wrapper, then finish the top-level turn and wait."
+        ack_protocol = (
+            "First injection: do not acknowledge; finish the top-level turn and wait. "
+            "Only on reinjection, acknowledge this receipt with its wrapper command."
+            if phase == "initial delivery"
+            else "Use its wrapper command to acknowledge, then finish and wait."
         )
+        body = f"Fleet live acceptance {phase} for {cell.surface}. {ack_protocol}"
         args = ["say", "--stdin", "--session", session_id, "--idempotency-key", key]
         first = self.client.call(args, stdin=body)
         second = self.client.call(args, stdin=body)
@@ -344,4 +346,5 @@ class LiveAcceptanceDriver:
             sleep=self.sleep,
             monotonic=self.monotonic,
             require_wake=require_wake,
+            minimum_injections=1 if require_wake else 2,
         )
