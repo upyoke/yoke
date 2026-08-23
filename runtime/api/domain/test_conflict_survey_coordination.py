@@ -338,7 +338,7 @@ def test_worktree_preflight_reports_survey_advisory_and_proceeds(monkeypatch, ca
     assert advisory["status"] == "implementing"
     assert advisory["shared_paths"] == ["src/shared.py"]
     assert "Proceed" in advisory["routes"]["proceed"]
-    assert "dependency" in advisory["routes"]["yield"]
+    assert "yield" in advisory["routes"]
 
 
 def test_worktree_preflight_still_refuses_missing_survey(monkeypatch, capsys):

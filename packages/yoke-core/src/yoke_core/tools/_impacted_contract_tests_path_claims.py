@@ -12,11 +12,22 @@ PATH_CLAIM_SOURCE_PATHS = frozenset(
     }
 )
 
+SURVEY_ADVISORY_TESTS = ("runtime/api/domain/test_conflict_survey_coordination.py",)
+
+SURVEY_ADVISORY_SOURCE_PATHS = frozenset(
+    {"packages/yoke-core/src/yoke_core/domain/path_claims_overlap_survey.py"}
+)
+
 PATH_CLAIM_CONTRACTS = (
     (
         "path_claim_feasibility_contract",
         PATH_CLAIM_SOURCE_PATHS,
         PATH_CLAIM_FEASIBILITY_TESTS,
+    ),
+    (
+        "survey_advisory_contract",
+        SURVEY_ADVISORY_SOURCE_PATHS,
+        SURVEY_ADVISORY_TESTS,
     ),
 )
 
@@ -24,4 +35,6 @@ __all__ = [
     "PATH_CLAIM_CONTRACTS",
     "PATH_CLAIM_FEASIBILITY_TESTS",
     "PATH_CLAIM_SOURCE_PATHS",
+    "SURVEY_ADVISORY_SOURCE_PATHS",
+    "SURVEY_ADVISORY_TESTS",
 ]
