@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_contracts import schema_authority
 from yoke_core.domain import db_backend
 from yoke_core.domain import runtime_settings
 from yoke_core.domain.db_compatibility_attestation import (
@@ -19,6 +19,7 @@ from yoke_core.domain.migration_apply_contract import _now
 
 REHEARSAL_COMMAND_TIMEOUT_CONFIG = "migration_rehearsal_command_timeout_seconds"
 DEFAULT_REHEARSAL_COMMAND_TIMEOUT_SECONDS = 600
+
 
 def _quote_identifier(raw: str) -> str:
     return '"' + raw.replace('"', '""') + '"'
@@ -168,7 +169,7 @@ def run_rehearsal_commands(
     (truncated) so the audit row carries a full trail.
     """
     outcomes: List[Dict[str, Any]] = []
-    env = os.environ.copy()
+    env = schema_authority.environment_without_administering_selection()
     env[env_var] = validation_db_path
     env["YOKE_DB"] = validation_db_path
     timeout_seconds = _rehearsal_command_timeout_seconds()
@@ -176,13 +177,20 @@ def run_rehearsal_commands(
     for cmd in commands:
         try:
             proc = subprocess.run(
-                cmd, shell=True, cwd=str(cwd), env=env, capture_output=True,
-                text=True, timeout=timeout_seconds,
+                cmd,
+                shell=True,
+                cwd=str(cwd),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
             )
         except subprocess.TimeoutExpired:
             outcome = {
-                "command": cmd, "returncode": -1,
-                "stdout": "", "stderr": f"timeout after {timeout_seconds}s",
+                "command": cmd,
+                "returncode": -1,
+                "stdout": "",
+                "stderr": f"timeout after {timeout_seconds}s",
                 "ran_at": _now(),
             }
             outcomes.append(outcome)
@@ -198,9 +206,7 @@ def run_rehearsal_commands(
         }
         outcomes.append(outcome)
         if proc.returncode != 0 and first_error is None:
-            first_error = (
-                f"rehearsal command failed (exit {proc.returncode}): {cmd}"
-            )
+            first_error = f"rehearsal command failed (exit {proc.returncode}): {cmd}"
     return outcomes, first_error
 
 
@@ -237,8 +243,7 @@ def _append_rehearsal_outcomes(
     except Exception:  # noqa: BLE001 — best-effort audit append
         return
     control_conn.execute(
-        "UPDATE items SET db_compatibility_attestation = "
-        f"{p} WHERE id = {p}",
+        f"UPDATE items SET db_compatibility_attestation = {p} WHERE id = {p}",
         (attestation_canonical_json(normalized), item_id),
     )
     control_conn.commit()
@@ -249,9 +254,7 @@ def _append_rehearsal_outcomes(
 # ---------------------------------------------------------------------------
 
 
-def _run_module_invariants(
-    module: ModuleType, conn: Any
-) -> Optional[str]:
+def _run_module_invariants(module: ModuleType, conn: Any) -> Optional[str]:
     fn = getattr(module, "invariants", None)
     if fn is None or not callable(fn):
         return None
