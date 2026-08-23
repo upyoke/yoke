@@ -41,6 +41,9 @@ lint_if_status_capture=deny
 # Refuse background/Monitor backgrounding tools in subagent context.
 lint_subagent_background=deny
 
+# Refuse Fleet send/ack commands from subagent execution contexts. [protected]
+lint_subagent_fleet_messaging=deny
+
 # Confine writes to the session's claimed worktree / allowlist.
 lint_session_cwd=deny
 

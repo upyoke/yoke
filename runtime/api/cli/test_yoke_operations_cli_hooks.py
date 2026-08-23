@@ -139,16 +139,17 @@ def test_hook_evaluate_https_posts_contract_and_relays(
         }).encode("utf-8"))
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
     rc = cli_main(["hook", "evaluate", "PreToolUse"])
-
     request = captured["request"]
     assert request.full_url == "https://env.example/v1/hooks/evaluate"
     assert request.get_header("Authorization") == "Bearer tok"
     body = json.loads(request.data.decode("utf-8"))
     assert body["hook_schema"] == 1
     assert body["event_name"] == "PreToolUse"
-    assert json.loads(body["stdin"]) == {**json.loads(raw_stdin), "session_id": "sid-stamped", "identity_stamped": True}
+    assert json.loads(body["stdin"]) == dict(
+        json.loads(raw_stdin), session_id="sid-stamped",
+        identity_stamped=True, subagent_execution=True,
+    )
     assert body["executor"] == "claude-code"
     assert body["agent_type"] == "engineer"
     assert body["payload_extra"] == {}
