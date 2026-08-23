@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, TextIO
 
+from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_cli.commands.adapters.session_control_human_output import (
     Column,
     EMPTY_VALUE,
@@ -19,6 +20,28 @@ def _launch_status(launch: Mapping[str, Any]) -> str:
     state = humanize(launch.get("state"))
     result = humanize(launch.get("result_code"))
     return f"{state} ({result})" if result != EMPTY_VALUE else state
+
+
+def _launch_identity(launch: Mapping[str, Any]) -> str:
+    native = str(launch.get("native_session_id") or "").strip()
+    registered = str(launch.get("registered_session_id") or "").strip()
+    if native and registered:
+        return "matched" if native == registered else "mismatch"
+    if native:
+        return "awaiting registration"
+    if registered:
+        return "native identity not reported"
+    return "waiting for native session"
+
+
+def _result_evidence(launch: Mapping[str, Any]) -> str | None:
+    evidence = launch.get("result_evidence")
+    safe_evidence = redacted_evidence_document(
+        evidence if isinstance(evidence, Mapping) else None
+    )
+    if not safe_evidence:
+        return None
+    return "; ".join(f"{humanize(key)}={value}" for key, value in safe_evidence.items())
 
 
 def _write_launch_detail(
@@ -44,7 +67,10 @@ def _write_launch_detail(
         ("Assigned machine", launch.get("assigned_machine_id")),
         ("Model", launch.get("requested_model")),
         ("Fallback allowed", bool(launch.get("allow_surface_fallback"))),
+        ("Native session", launch.get("native_session_id")),
         ("Registered session", launch.get("registered_session_id")),
+        ("Identity correlation", _launch_identity(launch)),
+        ("Result evidence", _result_evidence(launch)),
         ("Created (UTC)", utc_time(launch.get("created_at"))),
         ("Deadline (UTC)", utc_time(launch.get("deadline_at"))),
         ("Completed (UTC)", utc_time(launch.get("completed_at"))),
@@ -100,6 +126,9 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
             ("REQUESTED", lambda row: row.get("requested_surface"), 18),
             ("SELECTED", lambda row: row.get("selected_surface"), 18),
+            ("NATIVE", lambda row: row.get("native_session_id"), 24),
+            ("REGISTERED", lambda row: row.get("registered_session_id"), 24),
+            ("CORRELATION", _launch_identity, 24),
             (
                 "MACHINE",
                 lambda row: (

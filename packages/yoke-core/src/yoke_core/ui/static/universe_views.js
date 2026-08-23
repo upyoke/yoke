@@ -47,6 +47,7 @@ import {
 import { renderSessionsView } from "./universe_views_sessions.js";
 import { renderSessionMessagesView } from "./universe_session_messages.js";
 import { renderSessionLaunchesView } from "./universe_session_launches.js";
+import { renderRegisteredSessionDetail } from "./universe_session_detail.js";
 import { renderSessionRelaysView } from "./universe_session_relays.js";
 import {
   renderStrategyDocDetailView,
@@ -93,6 +94,9 @@ export const TAB_RENDERERS = {
 // selected facet and replace that facet's list chrome with their own page
 // heading, exactly like non-tabbed detail views.
 export const TAB_DETAIL_RENDERERS = {
+  sessions: {
+    roster: renderRegisteredSessionDetail,
+  },
   qa: {
     methods: renderQaMethodDetail,
     plans: renderQaPlanDetail,

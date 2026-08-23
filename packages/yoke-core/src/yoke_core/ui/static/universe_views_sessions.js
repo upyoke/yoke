@@ -134,7 +134,7 @@ function appendFooter(documentNode, card, row, who, mode) {
   ));
   card.appendChild(footer);
 }
-function sessionCard(documentNode, row, who, mode, onMessage) {
+export function sessionCard(documentNode, row, who, mode, onMessage) {
   const card = el(documentNode, "article", "session-card");
   card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", row.liveness || "unknown");

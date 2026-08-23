@@ -1,4 +1,5 @@
 import { el } from "./universe_view_support.js";
+import { buildUniverseRoute } from "./universe_navigation.js";
 import { appendLaunchTimeline } from "./session_launch_timeline.js";
 import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
 import {
@@ -15,6 +16,83 @@ const RECONCILE_FIRST_STATES = new Set(["outcome_unknown"]);
 const CANCELLABLE_STATES = new Set([
   "queued", "assigned", "launching", "awaiting_registration",
 ]);
+const RESULT_EVIDENCE_FIELDS = Object.freeze([
+  ["adapter_revision", "text"],
+  ["native_instruction_sha256", "text"],
+  ["result_code", "text"],
+  ["surface", "text"],
+  ["duration_ms", "integer"],
+  ["exit_code", "integer"],
+]);
+
+export function launchIdentityPresentation(launch) {
+  const nativeSessionId = String(launch.native_session_id || "").trim();
+  const registeredSessionId = String(launch.registered_session_id || "").trim();
+  if (nativeSessionId && registeredSessionId) {
+    return nativeSessionId === registeredSessionId
+      ? {
+        state: "matched", label: "Identity matched",
+        nativeSessionId, registeredSessionId,
+      }
+      : {
+        state: "mismatch",
+        label: "Identity mismatch: native and registered sessions differ",
+        nativeSessionId, registeredSessionId,
+      };
+  }
+  if (nativeSessionId) {
+    return {
+      state: "awaiting-registration", label: "Awaiting registration",
+      nativeSessionId, registeredSessionId: null,
+    };
+  }
+  if (registeredSessionId) {
+    return {
+      state: "native-unreported",
+      label: "Registered; native identity not reported",
+      nativeSessionId: null, registeredSessionId,
+    };
+  }
+  return {
+    state: "pending", label: "Waiting for native session",
+    nativeSessionId: null, registeredSessionId: null,
+  };
+}
+
+function appendLaunchIdentity(documentNode, body, launch) {
+  const identity = launchIdentityPresentation(launch);
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-launch-identity",
+    `Launch ${launch.launch_id || "unreported"} → native ${identity.nativeSessionId || "pending"} → registered ${identity.registeredSessionId || "pending"}`,
+  ));
+  body.appendChild(el(
+    documentNode,
+    "p",
+    `session-launch-correlation ${identity.state}`,
+    identity.label,
+  ));
+  const evidence = launch.result_evidence;
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return;
+  const facts = [];
+  for (const [key, kind] of RESULT_EVIDENCE_FIELDS) {
+    const value = evidence[key];
+    if (kind === "text" && typeof value === "string" && value.trim()) {
+      facts.push(`${key.replaceAll("_", " ")}: ${value.trim().slice(0, 128)}`);
+    } else if (kind === "integer" && Number.isInteger(value)) {
+      facts.push(`${key.replaceAll("_", " ")}: ${value}`);
+    }
+  }
+  if (facts.length) {
+    body.appendChild(el(
+      documentNode,
+      "p",
+      "fact-line session-launch-result-evidence",
+      `Result evidence · ${facts.join(" · ")}`,
+    ));
+  }
+}
 
 function appendAction(documentNode, actions, label, disabled, invoke) {
   const button = el(documentNode, "button", "item-button", label);
@@ -51,6 +129,7 @@ function launchCard(documentNode, launch, mutate) {
     ));
   }
   appendLaunchTimeline(documentNode, body, launch);
+  appendLaunchIdentity(documentNode, body, launch);
   if (launch.registered_session_id) {
     const link = el(
       documentNode,
@@ -58,7 +137,12 @@ function launchCard(documentNode, launch, mutate) {
       "session-result-link",
       `Open registered session ${launch.registered_session_id}`,
     );
-    link.href = "#/sessions/roster";
+    link.href = buildUniverseRoute(
+      "sessions",
+      launch.project_id == null ? null : String(launch.project_id),
+      "roster",
+      String(launch.registered_session_id),
+    );
     body.appendChild(link);
   }
   const actions = el(documentNode, "div", "session-control-actions");

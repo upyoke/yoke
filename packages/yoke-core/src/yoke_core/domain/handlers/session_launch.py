@@ -24,6 +24,10 @@ from yoke_core.domain.session_launch_types import (
     LaunchRequest,
     SessionLaunchError,
 )
+from yoke_core.domain.session_launch_projection import (
+    public_launch_record,
+    public_launch_records,
+)
 
 
 def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome:
@@ -189,7 +193,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
         )
         return HandlerOutcome(
             result_payload={
-                "launch": outcome.launch.to_dict(),
+                "launch": public_launch_record(outcome.launch),
                 "preview": outcome.preview.to_dict(),
                 "deduplicated": outcome.deduplicated,
             }
@@ -218,7 +222,7 @@ def handle_launch_get(request: FunctionCallRequest) -> HandlerOutcome:
         launch, auth = _launch_and_auth(conn, request, parsed.launch_id)
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
-        return HandlerOutcome(result_payload={"launch": launch.to_dict()})
+        return HandlerOutcome(result_payload={"launch": public_launch_record(launch)})
     except Exception as exc:
         return _domain_error(exc)
     finally:
@@ -230,7 +234,7 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(parsed, HandlerOutcome):
         return parsed
     from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
-    from yoke_core.domain.session_launch_store import list_launches, rows_to_dicts
+    from yoke_core.domain.session_launch_store import list_launches
 
     conn = _open()
     try:
@@ -239,7 +243,7 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
         settle_launch_deadlines(conn, project_id=project_id)
-        rows = rows_to_dicts(
+        rows = public_launch_records(
             list_launches(
                 conn,
                 project_id=project_id,
@@ -304,7 +308,7 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
                 auth=auth,
                 observed_native_id=parsed.observed_native_id,
             )
-        return HandlerOutcome(result_payload={"launch": launch.to_dict()})
+        return HandlerOutcome(result_payload={"launch": public_launch_record(launch)})
     except Exception as exc:
         return _domain_error(exc)
     finally:
