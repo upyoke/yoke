@@ -13,8 +13,10 @@ from pathlib import Path
 from typing import Callable
 
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_environment import native_session_environment
+from yoke_harness.session_relay_runtime import wake_operation
 
 
 _MAX_LINE_BYTES = 1024 * 1024
@@ -46,8 +48,6 @@ def _base_command(binary: str, request: CodexNativeRequest) -> list[str]:
         binary,
         "exec",
         "--json",
-        "--sandbox",
-        "read-only",
         "--skip-git-repo-check",
     ]
     if request.requested_model:
@@ -72,7 +72,7 @@ def _discard_and_reap(process: subprocess.Popen[bytes]) -> None:
         except (OSError, subprocess.SubprocessError):
             return
 
-    threading.Thread(target=drain, daemon=True, name="yoke-codex-relay-reap").start()
+    threading.Thread(target=drain, daemon=False, name="yoke-codex-relay-reap").start()
 
 
 def _stop(process: subprocess.Popen[bytes]) -> None:
@@ -95,10 +95,20 @@ class CodexCliTransport:
         binary: str = "codex",
         startup_timeout: float = 30.0,
         identity_resolver: ThreadIdentityResolver = _default_identity_resolver,
+        worker: bool = False,
     ) -> None:
         self.binary = binary
         self.startup_timeout = startup_timeout
         self.identity_resolver = identity_resolver
+        self.worker = worker
+
+    @staticmethod
+    def _detached(request: CodexNativeRequest) -> CodexNativeOutcome:
+        from yoke_harness.session_relay_codex_cli_process import (
+            run_detached_operation,
+        )
+
+        return run_detached_operation(request)
 
     def _binary(self) -> str | None:
         return shutil.which(self.binary) if os.sep not in self.binary else self.binary
@@ -112,18 +122,31 @@ class CodexCliTransport:
         command = _base_command(binary, request)
         if resume:
             command.extend(["resume", str(request.target_session_id)])
-        command.append(request.native_instruction)
+        command.append("-")
+        instruction = request.native_instruction.encode()
+        if not instruction or len(instruction) > MAX_HANDOFF_BYTES:
+            return None
+        process: subprocess.Popen[bytes] | None = None
         try:
-            return subprocess.Popen(
+            process = subprocess.Popen(
                 command,
                 cwd=request.checkout,
                 env=_launch_environment(request),
-                stdin=subprocess.DEVNULL,
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
-        except OSError:
+            if process.stdin is None:
+                _stop(process)
+                return None
+            process.stdin.write(instruction)
+            process.stdin.flush()
+            process.stdin.close()
+            return process
+        except (OSError, subprocess.SubprocessError):
+            if process is not None:
+                _stop(process)
             return None
 
     def _await_identity(
@@ -193,13 +216,21 @@ class CodexCliTransport:
         )
 
     def create(self, request: CodexNativeRequest) -> CodexNativeOutcome:
+        if not self.worker:
+            return self._detached(request)
         process = self._spawn(request, resume=False)
         if process is None:
             return CodexNativeOutcome("not_created")
         return self._await_identity(process, request)
 
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome:
-        if request.target_liveness != "ended" or not request.target_session_id:
+        if not self.worker:
+            return self._detached(request)
+        if (
+            wake_operation(request.wake_mode, request.target_liveness)
+            != "message_stopped"
+            or not request.target_session_id
+        ):
             return CodexNativeOutcome("unsupported_surface")
         process = self._spawn(request, resume=True)
         if process is None:

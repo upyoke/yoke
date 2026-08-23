@@ -17,10 +17,13 @@ from yoke_harness.session_relay_runtime import (
     RelayAdapter,
     RelayAdapterResult,
     RelayExecutionContext,
+    WakeMode,
+    normalize_wake_mode,
+    wake_operation,
 )
 
 
-CURSOR_ADAPTER_REVISION = "cursor-native-v1"
+CURSOR_ADAPTER_REVISION = "cursor-native-v2"
 CURSOR_CLI_SURFACE = "cursor-cli"
 CursorCreateInterface = Literal["cli", "acp"]
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
@@ -57,8 +60,13 @@ class CursorWakeRequest:
     checkout: Path
     target_session_id: str
     surface_version: str
-    target_liveness: str
+    target_liveness: str | None
+    wake_mode: WakeMode
     native_instruction: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if normalize_wake_mode(self.wake_mode) is None:
+            raise ValueError("wake instruction has no authorized mode")
 
 
 @dataclass(frozen=True)
@@ -154,14 +162,11 @@ def _validated(
     if context.job_kind == "launch":
         operation = "create"
     else:
-        operation = {
-            "stale": "message_idle",
-            "ended": "message_stopped",
-        }.get(str(context.target_liveness or ""))
+        operation = wake_operation(context.wake_mode, context.target_liveness)
         if not context.target_session_id:
             return _result("failed", native=CursorNativeResult("target_missing"))
         if operation is None:
-            return _result("unsupported_surface")
+            return _result("failed", native=CursorNativeResult("wake_mode_invalid"))
     if not version or not version_gate(context.surface, version, operation):
         code = "not_created" if context.job_kind == "launch" else "version_mismatch"
         return _result(code, native=CursorNativeResult("version_mismatch"))
@@ -220,18 +225,23 @@ def build_cursor_adapter(
                 "not_created", native=CursorNativeResult("native_framing_unavailable")
             )
 
+        wake_mode = normalize_wake_mode(context.wake_mode)
+        if wake_mode is None:
+            return _result("failed", native=CursorNativeResult("wake_mode_invalid"))
         request = CursorWakeRequest(
             checkout=context.checkout,
             target_session_id=str(context.target_session_id),
             surface_version=str(context.surface_version),
-            target_liveness=str(context.target_liveness),
+            target_liveness=context.target_liveness,
+            wake_mode=wake_mode,
             native_instruction=context.native_instruction,
         )
-        if context.target_liveness == "stale" and acp_port is None:
+        operation = wake_operation(request.wake_mode, request.target_liveness)
+        if operation == "message_idle" and acp_port is None:
             return _result(
                 "failed", native=CursorNativeResult("native_framing_unavailable")
             )
-        if context.target_liveness == "stale" and acp_port is not None:
+        if operation == "message_idle" and acp_port is not None:
             try:
                 idle = acp_port.prompt_session(request)
             except Exception:

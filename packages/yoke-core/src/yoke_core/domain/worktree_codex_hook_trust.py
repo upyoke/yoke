@@ -14,11 +14,9 @@ Codex thread working inside a worktree fires no hooks at all: no session
 registration, no telemetry, no guardrails. Worktree provisioning closes that
 gap by mirroring trust onto the worktree's path.
 
-Trust is mirrored, never minted. An entry is written only when the worktree's
-hooks file is byte-identical to the source checkout's, and the value written
-is the hash the operator already granted to that exact content. Hook content
-that differs from the trusted original gets no entry — that needs the
-operator's own trust decision, made through Codex.
+Trust is mirrored, never minted: only byte-identical content receives a hash
+the operator already granted. Changed content needs the operator's own Codex
+trust decision.
 """
 
 from __future__ import annotations
@@ -29,6 +27,11 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+from yoke_core.domain.codex_hook_trust_identity import (
+    CodexHookIdentityError,
+    codex_hook_hashes,
+)
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:
@@ -37,7 +40,6 @@ else:
 
 #: Where a checkout exposes its Codex hooks, relative to the checkout root.
 HOOKS_RELATIVE_PATH = os.path.join(".codex", "hooks.json")
-
 _TRUSTED_HASH_KEY = "trusted_hash"
 
 REASON_NO_CONFIG = "Codex config not present"
@@ -55,9 +57,9 @@ REASON_CONTENT_DIFFERS = (
 class HookTrustResult:
     """Codex hook-trust standing for one worktree.
 
-    ``missing`` and ``stale`` are ``event:group:hook`` suffixes: entries the
-    source checkout has trusted that the worktree either lacks entirely or
-    holds under a different hash. ``mirrored`` is what this call wrote.
+    ``missing`` and ``stale`` are ``event:group:hook`` suffixes for absent
+    worktree trust and hashes that no longer match a normalized handler.
+    ``mirrored`` is what this call wrote.
     """
 
     target_hooks_path: str
@@ -84,8 +86,6 @@ class HookTrustResult:
 
     def summary(self) -> str:
         """One-line human account of this worktree's standing."""
-        if self.blocked_reason:
-            return self.blocked_reason
         if self.write_error:
             return self.write_error
         if self.hooks_fire:
@@ -94,8 +94,10 @@ class HookTrustResult:
         if self.missing:
             parts.append(f"{len(self.missing)} untrusted: {', '.join(self.missing)}")
         if self.stale:
-            parts.append(f"{len(self.stale)} stale: {', '.join(self.stale)}")
-        return "; ".join(parts)
+            parts.append(f"{len(self.stale)} modified: {', '.join(self.stale)}")
+        if parts:
+            return "; ".join(parts)
+        return self.blocked_reason
 
 
 def codex_config_path() -> Path:
@@ -150,8 +152,9 @@ def trust_entries_for(
 
     Codex does not resolve symlinks before keying, so callers must pass
     the path Codex would see — never ``Path.resolve()`` of a tracked
-    ``.codex/hooks.json`` symlink. Presence only: an empty map means
-    this path has never been trusted. This does not hash file bytes.
+    ``.codex/hooks.json`` symlink. The returned suffix-to-hash map is
+    compared with the normalized current handlers by machine inventory;
+    an empty map means this path has never been trusted.
     """
     state, reason = _read_trust_state(config_path or codex_config_path())
     if reason:
@@ -165,6 +168,26 @@ def _same_content(left: Path, right: Path) -> Tuple[bool, str]:
         return left.read_bytes() == right.read_bytes(), ""
     except OSError as exc:
         return False, f"{REASON_UNREADABLE_HOOKS}: {exc}"
+
+
+def _current_trust(
+    entries: Dict[str, str],
+    expected: Dict[str, str],
+) -> Tuple[Dict[str, str], Tuple[str, ...]]:
+    """Split persisted entries into current trust and modified hashes."""
+    current = {
+        suffix: trusted_hash
+        for suffix, trusted_hash in entries.items()
+        if expected.get(suffix) == trusted_hash
+    }
+    stale = tuple(
+        sorted(
+            suffix
+            for suffix, trusted_hash in entries.items()
+            if suffix in expected and expected[suffix] != trusted_hash
+        )
+    )
+    return current, stale
 
 
 def inspect_hook_trust(
@@ -188,8 +211,19 @@ def inspect_hook_trust(
         return _blocked(result, f"{REASON_NO_SOURCE_HOOKS}: {source_hooks}")
 
     source_entries = _entries_for(state, source_hooks)
-    result = _with(result, source_trusted=tuple(sorted(source_entries)))
     if not source_entries:
+        return _blocked(result, REASON_SOURCE_UNTRUSTED)
+    try:
+        source_hashes = codex_hook_hashes(source_hooks)
+    except CodexHookIdentityError as exc:
+        return _blocked(result, f"{REASON_UNREADABLE_HOOKS}: {exc}")
+    source_trusted, source_stale = _current_trust(source_entries, source_hashes)
+    result = _with(
+        result,
+        source_trusted=tuple(sorted(source_trusted)),
+        stale=source_stale,
+    )
+    if not source_trusted and not source_stale:
         return _blocked(result, REASON_SOURCE_UNTRUSTED)
     if not target_hooks.exists():
         return _blocked(result, f"{REASON_NO_TARGET_HOOKS}: {target_hooks}")
@@ -199,17 +233,25 @@ def inspect_hook_trust(
         return _blocked(result, read_error)
 
     target_entries = _entries_for(state, target_hooks)
-    already = tuple(sorted(set(source_entries) & set(target_entries)))
-    missing = tuple(sorted(set(source_entries) - set(target_entries)))
-    stale = tuple(
+    try:
+        target_hashes = codex_hook_hashes(target_hooks)
+    except CodexHookIdentityError as exc:
+        return _blocked(result, f"{REASON_UNREADABLE_HOOKS}: {exc}")
+    target_trusted, target_stale = _current_trust(target_entries, target_hashes)
+    already = tuple(
         sorted(
             suffix
-            for suffix in already
-            if target_entries[suffix] != source_entries[suffix]
+            for suffix, trusted_hash in source_trusted.items()
+            if target_trusted.get(suffix) == trusted_hash
         )
     )
+    missing = tuple(sorted(set(source_trusted) - set(target_entries)))
+    stale = tuple(sorted(set(source_stale) | set(target_stale)))
     result = _with(
-        result, already_trusted=already, missing=missing, stale=stale,
+        result,
+        already_trusted=already,
+        missing=missing,
+        stale=stale,
     )
     if not identical:
         return _blocked(result, REASON_CONTENT_DIFFERS)
@@ -230,7 +272,7 @@ def mirror_hook_trust(
     """
     path = config_path or codex_config_path()
     result = inspect_hook_trust(source_checkout, worktree, config_path=path)
-    if result.blocked_reason or not result.missing:
+    if result.blocked_reason or result.stale or not result.missing:
         return result
 
     state, reason = _read_trust_state(path)

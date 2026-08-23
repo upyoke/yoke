@@ -41,27 +41,41 @@ def flush_run_tail(
 ) -> None:
     """Append the dispatch record, flush telemetry, run remote lifecycle."""
     from yoke_core.hooks import telemetry as _telemetry
+    from yoke_core.hooks.session_turn_posture_tail import (
+        persist_accepted_hook_turn_posture,
+    )
 
+    failed = any(kind == "failed" for kind, _record in telem_records)
     if not deadline.telemetry_allowed():
+        persist_accepted_hook_turn_posture(
+            event_name=event_name,
+            session_id=context.session_id or "",
+            observed_at=getattr(context, "now", None),
+            final_outcome=final_outcome,
+            timed_out=timed_out,
+            failed=failed,
+        )
         return
-    telem_records.append((
-        "dispatch",
-        {
-            "hook_event": event_name,
-            "executor": context.executor_family,
-            "chain_length": chain_length,
-            "decision_outcome": final_outcome,
-            "session_id": context.session_id or "",
-            "item_id": context.item_id,
-            "tool_name": context.tool_name or "",
-            "duration_ms": hook_wait_ms,
-            "extra": {
-                "hook_wait_ms": hook_wait_ms,
-                "timed_out": timed_out,
-                "total_timeout_ms": deadline.budget_ms,
+    telem_records.append(
+        (
+            "dispatch",
+            {
+                "hook_event": event_name,
+                "executor": context.executor_family,
+                "chain_length": chain_length,
+                "decision_outcome": final_outcome,
+                "session_id": context.session_id or "",
+                "item_id": context.item_id,
+                "tool_name": context.tool_name or "",
+                "duration_ms": hook_wait_ms,
+                "extra": {
+                    "hook_wait_ms": hook_wait_ms,
+                    "timed_out": timed_out,
+                    "total_timeout_ms": deadline.budget_ms,
+                },
             },
-        },
-    ))
+        )
+    )
     ensure_session = None
     # Cursor folds Task/subagent and linked-worktree remount activity onto
     # the container session_id; the container row already exists from the
@@ -73,9 +87,7 @@ def flush_run_tail(
         is_folded_cursor_session,
     )
 
-    is_folded = (
-        isinstance(payload, dict) and is_folded_cursor_session(payload)
-    )
+    is_folded = isinstance(payload, dict) and is_folded_cursor_session(payload)
     if context.session_id and not is_folded:
         remote = controls is not None and controls.remote
         ensure_session = (  # merged payload: wire extras included
@@ -92,7 +104,17 @@ def flush_run_tail(
             payload.get("project_id") if isinstance(payload, dict) else None,
         )
     _telemetry.flush_hook_telemetry(
-        telem_records, deadline=deadline, ensure_session=ensure_session,
+        telem_records,
+        deadline=deadline,
+        ensure_session=ensure_session,
+    )
+    persist_accepted_hook_turn_posture(
+        event_name=event_name,
+        session_id=context.session_id or "",
+        observed_at=getattr(context, "now", None),
+        final_outcome=final_outcome,
+        timed_out=timed_out,
+        failed=failed,
     )
     if (
         controls is not None

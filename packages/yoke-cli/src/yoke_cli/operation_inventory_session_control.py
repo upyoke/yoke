@@ -6,6 +6,7 @@ from yoke_cli.operation_inventory_model import REASON_TOOL_SHAPED, _p, _Row, _w
 
 
 WRAPPED_ROWS: tuple[_Row, ...] = (
+    _w("yoke session-control qualification open", "session_control.qualification"),
     _w("yoke session-control message preview", "session_control.message"),
     _w("yoke session-control message send", "session_control.message"),
     _w("yoke session-control message list", "session_control.message"),

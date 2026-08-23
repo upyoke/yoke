@@ -9,7 +9,8 @@ silence is indistinguishable from a quiet session.
 
 Worktree preparation mirrors that trust (see
 ``yoke_core.domain.worktree_codex_hook_trust``). This check is the backstop
-for lanes created before the mirroring step ran, or whose entries were lost.
+for lanes created before the mirroring step ran, whose entries were lost, or
+whose persisted hashes no longer match Codex's normalized handler identity.
 """
 
 from __future__ import annotations
@@ -36,7 +37,8 @@ _WORKTREES_DIR = ".worktrees"
 def _linked_worktrees(repo_root: str) -> List[str]:
     """Return the managed lane paths git currently knows about."""
     result = _run(
-        ["git", "-C", repo_root, "worktree", "list", "--porcelain"], timeout=30,
+        ["git", "-C", repo_root, "worktree", "list", "--porcelain"],
+        timeout=30,
     )
     if result.returncode != 0:
         return []
@@ -50,7 +52,9 @@ def _linked_worktrees(repo_root: str) -> List[str]:
 
 
 def hc_worktree_hook_trust(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Linked worktrees carry the checkout's Codex hook trust."""
     name = "HC-worktree-hook-trust"
@@ -63,7 +67,9 @@ def hc_worktree_hook_trust(
     config = codex_config_path()
     if not config.exists():
         rec.record(
-            name, desc, "PASS",
+            name,
+            desc,
+            "PASS",
             f"no Codex config at {config} — no hook trust to mirror",
         )
         return
@@ -79,12 +85,17 @@ def hc_worktree_hook_trust(
     for worktree in worktrees:
         result = inspect_hook_trust(str(repo_root), worktree, config_path=config)
         label = Path(worktree).name
+        if result.stale:
+            partial.append(f"{label}: {result.summary()}")
+            continue
         if not result.source_trusted:
             # A checkout-wide condition, identical for every lane: there is
             # no trust to mirror, so there is no checkout-vs-lane delta to
             # report — Codex may simply be unused against this checkout.
             rec.record(
-                name, desc, "PASS",
+                name,
+                desc,
+                "PASS",
                 result.blocked_reason or "no trusted Codex hook entries to mirror",
             )
             return
@@ -97,7 +108,9 @@ def hc_worktree_hook_trust(
 
     if dead or partial:
         rec.record(
-            name, desc, "FAIL",
+            name,
+            desc,
+            "FAIL",
             "\n".join(
                 ["Codex hooks will not fire in these worktrees:"]
                 + [f"  - {row}" for row in dead + partial]
@@ -114,7 +127,9 @@ def hc_worktree_hook_trust(
         rec.record(name, desc, "WARN", "\n".join(f"  - {row}" for row in blocked))
         return
     rec.record(
-        name, desc, "PASS",
+        name,
+        desc,
+        "PASS",
         f"{len(worktrees)} linked worktrees carry the checkout's hook trust",
     )
 
@@ -125,7 +140,7 @@ from yoke_project_checks._declare import (  # noqa: E402
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
     (
-        'worktree-hook-trust',
+        "worktree-hook-trust",
         "Linked worktrees carry the checkout's Codex hook trust",
         hc_worktree_hook_trust,
     ),

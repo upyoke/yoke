@@ -19,11 +19,11 @@ from yoke_harness.session_relay_codex_cli import _launch_environment
 
 _MAX_LINE_BYTES = 4 * 1024 * 1024
 _TURN_OWNER_SECONDS = 24 * 60 * 60
-_STATUS_BY_LIVENESS = {
-    "active": "active",
-    "stale": "idle",
-    "ended": "notLoaded",
-}
+_RESUMABLE_NATIVE_STATUSES = frozenset({"idle", "notLoaded"})
+_CLIENT_MESSAGE_NAMESPACE = uuid.uuid5(
+    uuid.NAMESPACE_URL,
+    "https://upyoke.com/session-relay/codex-client-message",
+)
 
 
 class CodexAppServerError(RuntimeError):
@@ -193,14 +193,25 @@ def _turn_id(result: dict[str, Any]) -> str:
     return value
 
 
-def _start_turn(client: _Client, thread_id: str, instruction: str) -> str:
+def _client_message_id(request: CodexNativeRequest, thread_id: str) -> str:
+    if not request.instruction_id:
+        raise CodexAppServerError("instruction identity missing")
+    return str(
+        uuid.uuid5(
+            _CLIENT_MESSAGE_NAMESPACE,
+            f"{request.instruction_id}:thread:{thread_id}",
+        )
+    )
+
+
+def _start_turn(client: _Client, thread_id: str, request: CodexNativeRequest) -> str:
     return _turn_id(
         client.request(
             "turn/start",
             {
                 "threadId": thread_id,
-                "input": _text_input(instruction),
-                "clientUserMessageId": str(uuid.uuid4()),
+                "input": _text_input(request.native_instruction),
+                "clientUserMessageId": _client_message_id(request, thread_id),
             },
         )
     )
@@ -245,8 +256,6 @@ class CodexAppServerTransport:
             client = self._client(request)
             params: dict[str, Any] = {
                 "cwd": str(request.checkout.resolve()),
-                "approvalPolicy": "never",
-                "sandbox": "read-only",
                 "serviceName": request.presentation or "yoke_session_relay",
             }
             if request.requested_model:
@@ -255,7 +264,7 @@ class CodexAppServerTransport:
             created = True
             if identity[0] != identity[1]:
                 raise CodexAppServerError("thread/session identity mismatch")
-            turn_id = _start_turn(client, identity[0], request.native_instruction)
+            turn_id = _start_turn(client, identity[0], request)
             client.detach_until_turn_completed(turn_id)
             return CodexNativeOutcome("accepted", identity[0], identity_correlated=True)
         except CodexAppServerError:
@@ -264,10 +273,7 @@ class CodexAppServerTransport:
             return CodexNativeOutcome("outcome_unknown" if created else "not_created")
 
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome:
-        if (
-            not request.target_session_id
-            or request.target_liveness not in _STATUS_BY_LIVENESS
-        ):
+        if not request.target_session_id:
             return CodexNativeOutcome("unsupported_surface")
         if not self.worker:
             return self._detached(request)
@@ -275,21 +281,28 @@ class CodexAppServerTransport:
         mutated = False
         try:
             client = self._client(request)
-            current = _thread(
-                client.request(
-                    "thread/read",
-                    {"threadId": request.target_session_id, "includeTurns": True},
+            target_session_id = str(request.target_session_id)
+            try:
+                current = _thread(
+                    client.request(
+                        "thread/read",
+                        {"threadId": target_session_id, "includeTurns": True},
+                    )
                 )
-            )
-            identity = _identity(current)
-            if identity != (request.target_session_id, request.target_session_id):
-                raise CodexAppServerError("thread/session identity mismatch")
-            status = current.get("status")
-            status_type = status.get("type") if isinstance(status, dict) else None
-            if status_type != _STATUS_BY_LIVENESS[request.target_liveness]:
-                client.close()
-                return CodexNativeOutcome("outcome_unknown")
-            if request.target_liveness == "active":
+            except CodexAppServerError:
+                # Resume is also the exact existence check when an unloaded
+                # thread cannot be read by a fresh app-server process.
+                current = None
+            if current is None:
+                identity = (target_session_id, target_session_id)
+                native_status = "notLoaded"
+            else:
+                identity = _identity(current)
+                if identity != (target_session_id, target_session_id):
+                    raise CodexAppServerError("thread/session identity mismatch")
+                status = current.get("status")
+                native_status = status.get("type") if isinstance(status, dict) else None
+            if native_status == "active":
                 active = [
                     turn
                     for turn in current.get("turns", [])
@@ -306,16 +319,20 @@ class CodexAppServerTransport:
                         "threadId": identity[0],
                         "expectedTurnId": turn_id,
                         "input": _text_input(request.native_instruction),
+                        "clientUserMessageId": _client_message_id(request, identity[0]),
                     },
                 )
-            else:
+            elif native_status in _RESUMABLE_NATIVE_STATUSES:
                 resumed = _identity(
                     _thread(client.request("thread/resume", {"threadId": identity[0]}))
                 )
                 if resumed != identity:
                     raise CodexAppServerError("resumed identity mismatch")
                 mutated = True
-                turn_id = _start_turn(client, identity[0], request.native_instruction)
+                turn_id = _start_turn(client, identity[0], request)
+            else:
+                client.close()
+                return CodexNativeOutcome("outcome_unknown")
             client.detach_until_turn_completed(turn_id)
             return CodexNativeOutcome("accepted", identity[0], identity_correlated=True)
         except CodexAppServerError:

@@ -8,6 +8,7 @@ from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain import session_relay as relay_domain
 from yoke_core.domain.handlers import session_relay as relay_handlers
 from yoke_core.domain.session_relay_types import RelayClaimOutcome
+from yoke_core.domain.actor_permissions import ROLE_OPERATOR, grant_actor_project_role
 from runtime.api.domain.test_session_message_support import message_connection
 
 
@@ -39,11 +40,29 @@ class _Connection:
         pass
 
 
+class _NoCloseConnection:
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def close(self) -> None:
+        pass
+
+
 def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None:
     seen = {}
 
-    def claim(conn, heartbeat, *, wait_seconds):
-        seen.update(actor_id=heartbeat.actor_id, wait_seconds=wait_seconds)
+    def authorize(_conn, *, actor_id, project_ids):
+        seen.update(authorized_actor=actor_id, project_ids=tuple(project_ids))
+
+    def claim(conn, heartbeat, *, wait_seconds, broker_only):
+        seen.update(
+            actor_id=heartbeat.actor_id,
+            wait_seconds=wait_seconds,
+            broker_only=broker_only,
+        )
         return RelayClaimOutcome(
             relay_id=heartbeat.relay_id,
             machine_id=heartbeat.machine_id,
@@ -53,6 +72,10 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
         )
 
     monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
+    monkeypatch.setattr(
+        "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
+        authorize,
+    )
     from yoke_core.domain import db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", _Connection)
@@ -62,7 +85,83 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
     )
 
     assert outcome.primary_success is True
-    assert seen == {"actor_id": 41, "wait_seconds": 0}
+    assert seen == {
+        "actor_id": 41,
+        "authorized_actor": 41,
+        "project_ids": (10,),
+        "wait_seconds": 0,
+        "broker_only": False,
+    }
+
+
+def test_claim_refuses_cross_project_advertisement_before_heartbeat(
+    monkeypatch,
+) -> None:
+    conn = message_connection()
+    grant_actor_project_role(
+        conn,
+        actor_id=13,
+        project_id=1,
+        role_name=ROLE_OPERATOR,
+    )
+    from yoke_core.domain import db_helpers
+
+    monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
+    payload = _claim_payload()
+    payload["projects"] = [1, 2]
+
+    outcome = relay_handlers.handle_relay_claim(
+        _request("session_control.relay.claim", payload, actor_id="13")
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "permission_denied"
+    assert conn.execute("SELECT COUNT(*) FROM session_relays").fetchone()[0] == 0
+
+
+def test_authorized_claim_stamps_actor_and_only_advertised_projects(
+    monkeypatch,
+) -> None:
+    conn = message_connection()
+    grant_actor_project_role(
+        conn,
+        actor_id=13,
+        project_id=1,
+        role_name=ROLE_OPERATOR,
+    )
+    from yoke_core.domain import db_helpers
+
+    monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
+    payload = _claim_payload()
+    payload["projects"] = [1]
+
+    outcome = relay_handlers.handle_relay_claim(
+        _request("session_control.relay.claim", payload, actor_id="13")
+    )
+
+    assert outcome.primary_success is True
+    row = conn.execute(
+        "SELECT actor_id,project_checkouts FROM session_relays WHERE relay_id='relay-1'"
+    ).fetchone()
+    assert row["actor_id"] == 13
+    assert json.loads(row["project_checkouts"]) == [1]
+
+
+def test_claim_refuses_viewer_advertisement(monkeypatch) -> None:
+    conn = message_connection()
+    from yoke_core.domain import db_helpers
+
+    monkeypatch.setattr(db_helpers, "connect", lambda: _NoCloseConnection(conn))
+    payload = _claim_payload()
+    payload["projects"] = [1]
+
+    outcome = relay_handlers.handle_relay_claim(
+        _request("session_control.relay.claim", payload, actor_id="11")
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error and outcome.error.code == "permission_denied"
+    assert conn.execute("SELECT COUNT(*) FROM session_relays").fetchone()[0] == 0
 
 
 def test_report_forwards_verified_actor_and_never_accepts_payload_actor(

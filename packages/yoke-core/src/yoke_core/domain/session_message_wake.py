@@ -1,4 +1,4 @@
-"""Liveness-keyed wake eligibility for durable message receipts."""
+"""Posture- and idle-keyed wake eligibility for durable message receipts."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from yoke_core.domain.session_message_types import (
     timestamp,
     utc_now,
 )
+from yoke_core.domain.session_relay_types import WakeMode
 
 
 def _p(conn: Any) -> str:
@@ -28,34 +29,57 @@ def _p(conn: Any) -> str:
 
 
 def wake_eligible_recipients(
-    conn: Any, *, now: datetime | None = None
+    conn: Any,
+    *,
+    now: datetime | None = None,
+    bypass_waiting_retry_cooldown: bool = False,
+    ignore_attempt_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return redacted wake routes after liveness-keyed policy checks."""
+    """Return redacted wake routes with their scheduler authority."""
     from yoke_core.hooks.session_message_delivery import wake_eligible
 
     current = now or utc_now()
     marker = _p(conn)
+    open_attempt_filter = ""
+    open_attempt_params: tuple[Any, ...] = ()
+    if ignore_attempt_id:
+        open_attempt_filter = f"AND a.attempt_id<>{marker} "
+        open_attempt_params = (ignore_attempt_id,)
     _begin_mutation(conn)
     try:
         _expire_rows(conn, now=current)
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
-            "hs.last_tool_call_at,hs.ended_at FROM session_message_recipients r "
+            "hs.last_tool_call_at,hs.ended_at,hs.turn_posture,"
+            "hs.turn_posture_at "
+            "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
             "WHERE r.state IN ('pending','injected') AND m.cancelled_at IS NULL "
-            "AND r.wake_after<="
+            "AND (r.wake_after<="
             + marker
-            + " AND m.expires_at>"
+            + " OR (r.state='pending' AND hs.turn_posture='waiting' "
+            "AND r.injection_lease_id IS NULL)) AND m.expires_at>"
             + marker
             + " AND (r.injection_lease_id IS NULL OR ("
             "r.injection_lease_expires_at IS NOT NULL "
             "AND r.injection_lease_expires_at<="
             + marker
-            + "))"
+            + ")) AND NOT EXISTS (SELECT 1 FROM session_message_attempts a "
+            "WHERE a.message_id=r.message_id "
+            "AND a.target_session_id=r.session_id "
+            "AND a.attempt_kind IN ('wake_relay','wake_broker') "
+            "AND a.completed_at IS NULL "
+            + open_attempt_filter
+            + ")"
             + " ORDER BY r.wake_after,r.message_id,r.session_id",
-            (timestamp(current), timestamp(current), timestamp(current)),
+            (
+                timestamp(current),
+                timestamp(current),
+                timestamp(current),
+                *open_attempt_params,
+            ),
         ).fetchall()
         eligible: list[dict[str, Any]] = []
         for raw in rows:
@@ -76,16 +100,33 @@ def wake_eligible_recipients(
             activity = latest_hook_activity(row)
             if activity is not None and activity <= created_at:
                 activity = None
-            if not wake_eligible(
-                recipient_state=str(row["state"]),
-                liveness=liveness,
-                recipient_created_at=created_at,
-                wake_after=wake_after,
-                last_hook_activity_at=activity,
-                idle_window=timedelta(minutes=policy.wake_after_idle_minutes),
-                now=current,
-            ):
-                continue
+            waiting_pending = (
+                row["state"] == "pending" and row.get("turn_posture") == "waiting"
+            )
+            idle_window = timedelta(minutes=policy.wake_after_idle_minutes)
+            if waiting_pending:
+                if row.get("injection_lease_id") is not None:
+                    continue
+                previous_wake = parse_timestamp(row.get("last_wake_at"))
+                if (
+                    not bypass_waiting_retry_cooldown
+                    and int(row["wake_attempt_count"] or 0) > 0
+                    and (previous_wake is None or previous_wake + idle_window > current)
+                ):
+                    continue
+                wake_mode = WakeMode.WAITING
+            else:
+                if not wake_eligible(
+                    recipient_state=str(row["state"]),
+                    liveness=liveness,
+                    recipient_created_at=created_at,
+                    wake_after=wake_after,
+                    last_hook_activity_at=activity,
+                    idle_window=idle_window,
+                    now=current,
+                ):
+                    continue
+                wake_mode = WakeMode.IDLE_TIMEOUT
             eligible.append(
                 {
                     "message_id": str(row["message_id"]),
@@ -95,7 +136,14 @@ def wake_eligible_recipients(
                     "executor_surface": row["executor_surface"],
                     "executor_version": row["executor_version"],
                     "state": str(row["state"]),
+                    "wake_mode": wake_mode.value,
                     "liveness": liveness,
+                    "turn_posture": str(row["turn_posture"]),
+                    "turn_posture_at": row["turn_posture_at"],
+                    "injection_lease_id": row["injection_lease_id"],
+                    "injection_lease_expires_at": row["injection_lease_expires_at"],
+                    "wake_attempt_count": int(row["wake_attempt_count"] or 0),
+                    "last_wake_at": row["last_wake_at"],
                 }
             )
         conn.commit()

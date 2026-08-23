@@ -39,6 +39,34 @@
   font-size: 12px;
 }
 
+.universe-app-root .session-control-help,
+.universe-app-root .session-control-guide,
+.universe-app-root .session-launch-guidance {
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.universe-app-root .session-control-guide {
+  margin: 10px 0 14px;
+}
+
+.universe-app-root .session-control-guide summary {
+  cursor: pointer;
+  color: var(--yoke-ink);
+  font-weight: 650;
+}
+
+.universe-app-root .session-control-preview-heading,
+.universe-app-root .session-control-table-caption,
+.universe-app-root .session-relay-surfaces-heading {
+  margin: 8px 0 4px;
+  color: var(--yoke-ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
 .universe-app-root .session-message-preview,
 .universe-app-root .session-launch-preview {
   max-height: 180px;
@@ -62,6 +90,17 @@
 
 .universe-app-root .session-control-table {
   width: 100%;
+}
+
+.universe-app-root .session-message-summary {
+  display: grid;
+  min-width: 220px;
+  gap: 4px;
+}
+
+.universe-app-root .session-message-sender {
+  color: var(--yoke-muted);
+  font-size: 11px;
 }
 
 .universe-app-root .session-control-id {
@@ -89,6 +128,11 @@
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+.universe-app-root .session-filter-clear {
+  align-self: end;
+  min-height: 34px;
 }
 
 .universe-app-root .session-result-link {

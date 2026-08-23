@@ -53,8 +53,7 @@ STALE_TERMS: tuple[str, ...] = (
     "work_claims.target_id",
     "qa_kind='review'",
     "--qa-kind review",
-    ".agents/skills/yoke/scripts/python3 -m yoke_core.cli."
-    "db_router qa",
+    ".agents/skills/yoke/scripts/python3 -m " + "yoke_core.cli.db_router qa",
     "blocker_item_id",
 )
 
@@ -187,7 +186,8 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # catalog/report projection so Pack-status audits do not guess its schema.
 # These caps therefore follow the complete registered recipes and table facts
 # rendered today rather than an arbitrary prose target. The claims topic now
-# also names harness_machine_reports (install-glue presence; no hashing)
+# also names harness_machine_reports (install-glue presence plus exact Codex
+# normalized-handler trust hashes)
 # and coordination_leases typed-owner / release-provenance columns. The core
 # topic additionally carries the declared package roots, so every role learns
 # where a module physically lives instead of guessing a repo-root directory

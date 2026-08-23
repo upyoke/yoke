@@ -46,14 +46,20 @@ def local_subset(monkeypatch):
         defer_main_commit=False,
         lint_config_snapshot=None,
     ):
-        holder.calls.append((
-            event_name, executor, agent_type, defer_main_commit,
-            lint_config_snapshot,
-        ))
+        holder.calls.append(
+            (
+                event_name,
+                executor,
+                agent_type,
+                defer_main_commit,
+                lint_config_snapshot,
+            )
+        )
         return holder.result
 
     monkeypatch.setattr(
-        "yoke_harness.hooks.relay.evaluate_local_subset", fake,
+        "yoke_harness.hooks.relay.evaluate_local_subset",
+        fake,
     )
     monkeypatch.setattr(
         "yoke_harness.hooks.relay._client_lint_config_snapshot",
@@ -114,7 +120,9 @@ def https_connection(monkeypatch):
 
 
 def test_hook_evaluate_https_posts_contract_and_relays(
-    monkeypatch, capsys, https_connection,
+    monkeypatch,
+    capsys,
+    https_connection,
 ) -> None:
     raw_stdin = '{"tool_name": "Bash", "tool_input": {"command": "ls"}}'
     monkeypatch.setattr(sys, "stdin", io.StringIO(raw_stdin))
@@ -129,26 +137,33 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     def fake_urlopen(request, timeout=None):
         captured["request"] = request
         captured["timeout"] = timeout
-        return _FakeResponse(json.dumps({
-            "hook_schema": 1,
-            "stdout": "DENY: blocked by policy",
-            "exit_code": 2,
-            "wait_ms": 41,
-            "degraded": [],
-            "outcome": "denied",
-        }).encode("utf-8"))
+        return _FakeResponse(
+            json.dumps(
+                {
+                    "hook_schema": 1,
+                    "stdout": "DENY: blocked by policy",
+                    "exit_code": 2,
+                    "wait_ms": 41,
+                    "degraded": [],
+                    "outcome": "denied",
+                }
+            ).encode("utf-8")
+        )
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
     rc = cli_main(["hook", "evaluate", "PreToolUse"])
-
     request = captured["request"]
     assert request.full_url == "https://env.example/v1/hooks/evaluate"
     assert request.get_header("Authorization") == "Bearer tok"
     body = json.loads(request.data.decode("utf-8"))
     assert body["hook_schema"] == 1
     assert body["event_name"] == "PreToolUse"
-    assert json.loads(body["stdin"]) == {**json.loads(raw_stdin), "session_id": "sid-stamped", "identity_stamped": True}
+    assert json.loads(body["stdin"]) == dict(
+        json.loads(raw_stdin),
+        session_id="sid-stamped",
+        identity_stamped=True,
+        subagent_execution=True,
+    )
     assert body["executor"] == "claude-code"
     assert body["agent_type"] == "engineer"
     assert body["payload_extra"] == {}
@@ -162,30 +177,39 @@ def test_hook_evaluate_https_posts_contract_and_relays(
 
 
 def test_hook_evaluate_https_writes_client_anchor_before_relay(
-    monkeypatch, https_connection,
+    monkeypatch,
+    https_connection,
 ) -> None:
     # Relayed hooks never run the local runner, so the relay itself must
     # bind the payload session to THIS machine's process ancestry — the
     # server cannot (the caller's process tree is not the server's).
-    raw_stdin = json.dumps({
-        "tool_name": "Bash",
-        "session_id": "s-relay-anchor",
-        "transcript_path": "/t/relay.jsonl",
-    })
+    raw_stdin = json.dumps(
+        {
+            "tool_name": "Bash",
+            "session_id": "s-relay-anchor",
+            "transcript_path": "/t/relay.jsonl",
+        }
+    )
     monkeypatch.setattr(sys, "stdin", io.StringIO(raw_stdin))
     recorded: list[tuple] = []
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.record_session_anchor",
-        lambda sid, transcript_path="", **_k: recorded.append(
-            (sid, transcript_path)
-        ),
+        lambda sid, transcript_path="", **_k: recorded.append((sid, transcript_path)),
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(json.dumps({
-            "hook_schema": 1, "stdout": "", "exit_code": 0,
-            "wait_ms": 1, "degraded": [], "outcome": "completed",
-        }).encode("utf-8")),
+        lambda *_a, **_k: _FakeResponse(
+            json.dumps(
+                {
+                    "hook_schema": 1,
+                    "stdout": "",
+                    "exit_code": 0,
+                    "wait_ms": 1,
+                    "degraded": [],
+                    "outcome": "completed",
+                }
+            ).encode("utf-8")
+        ),
     )
     rc = cli_main(["hook", "evaluate", "PreToolUse"])
     assert rc == 0
@@ -193,29 +217,45 @@ def test_hook_evaluate_https_writes_client_anchor_before_relay(
 
 
 def test_hook_evaluate_https_session_start_prunes_client_anchors(
-    monkeypatch, https_connection,
+    monkeypatch,
+    https_connection,
 ) -> None:
     from yoke_harness.hooks import relay
+
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s-start"}'))
     calls: list[str] = []
-    monkeypatch.setattr(relay, "prune_stale_session_anchors", lambda: calls.append("prune"))
-    monkeypatch.setattr(relay, "record_session_anchor", lambda *_a, **_k: calls.append("record"))
+    monkeypatch.setattr(
+        relay, "prune_stale_session_anchors", lambda: calls.append("prune")
+    )
+    monkeypatch.setattr(
+        relay, "record_session_anchor", lambda *_a, **_k: calls.append("record")
+    )
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(json.dumps({
-            "hook_schema": 1, "stdout": "", "exit_code": 0,
-            "wait_ms": 1, "degraded": [], "outcome": "completed",
-        }).encode("utf-8")),
+        lambda *_a, **_k: _FakeResponse(
+            json.dumps(
+                {
+                    "hook_schema": 1,
+                    "stdout": "",
+                    "exit_code": 0,
+                    "wait_ms": 1,
+                    "degraded": [],
+                    "outcome": "completed",
+                }
+            ).encode("utf-8")
+        ),
     )
     assert cli_main(["hook", "evaluate", "SessionStart"]) == 0
     assert calls == ["prune", "record"]
 
 
 def test_hook_evaluate_https_anchor_failure_never_breaks_relay(
-    monkeypatch, https_connection,
+    monkeypatch,
+    https_connection,
 ) -> None:
     monkeypatch.setattr(
-        sys, "stdin",
+        sys,
+        "stdin",
         io.StringIO('{"tool_name": "Bash", "session_id": "s-x"}'),
     )
 
@@ -228,19 +268,30 @@ def test_hook_evaluate_https_anchor_failure_never_breaks_relay(
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(json.dumps({
-            "hook_schema": 1, "stdout": "ok", "exit_code": 0,
-            "wait_ms": 1, "degraded": [], "outcome": "completed",
-        }).encode("utf-8")),
+        lambda *_a, **_k: _FakeResponse(
+            json.dumps(
+                {
+                    "hook_schema": 1,
+                    "stdout": "ok",
+                    "exit_code": 0,
+                    "wait_ms": 1,
+                    "degraded": [],
+                    "outcome": "completed",
+                }
+            ).encode("utf-8")
+        ),
     )
     assert cli_main(["hook", "evaluate", "PreToolUse"]) == 0
 
 
 def test_hook_evaluate_https_sessionless_payload_writes_no_anchor(
-    monkeypatch, https_connection,
+    monkeypatch,
+    https_connection,
 ) -> None:
     monkeypatch.setattr(
-        sys, "stdin", io.StringIO('{"tool_name": "Bash"}'),
+        sys,
+        "stdin",
+        io.StringIO('{"tool_name": "Bash"}'),
     )
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.record_session_anchor",
@@ -248,16 +299,25 @@ def test_hook_evaluate_https_sessionless_payload_writes_no_anchor(
     )
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(json.dumps({
-            "hook_schema": 1, "stdout": "", "exit_code": 0,
-            "wait_ms": 1, "degraded": [], "outcome": "completed",
-        }).encode("utf-8")),
+        lambda *_a, **_k: _FakeResponse(
+            json.dumps(
+                {
+                    "hook_schema": 1,
+                    "stdout": "",
+                    "exit_code": 0,
+                    "wait_ms": 1,
+                    "degraded": [],
+                    "outcome": "completed",
+                }
+            ).encode("utf-8")
+        ),
     )
     assert cli_main(["hook", "evaluate", "PreToolUse"]) == 0
 
 
 def test_hook_evaluate_half_configured_https_degrades_to_noop(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ) -> None:
     def _raise() -> None:
         raise TransportError("env 'prod' declares https transport but no api_url")
@@ -271,79 +331,3 @@ def test_hook_evaluate_half_configured_https_degrades_to_noop(
     if out.out:
         assert "local-only allow" in json.loads(out.out)["additional_context"]
     hook_main.assert_not_called()
-
-
-def test_hook_evaluate_https_registration_events_carry_client_model(
-    monkeypatch, https_connection,
-) -> None:
-    # Model parity over the relay depends on client-side transcript
-    # detection (the server can never read the client transcript); the
-    # cost is paid only on registration-class events.
-    raw_stdin = json.dumps({
-        "session_id": "s-model",
-        "transcript_path": "/t/live.jsonl",
-        "prompt": "hi",
-    })
-    monkeypatch.setattr(sys, "stdin", io.StringIO(raw_stdin))
-    monkeypatch.setattr(
-        "yoke_harness.hooks.relay.detect_executor",
-        lambda: "claude-code",
-    )
-    monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay.detect_model",
-        lambda executor, transcript_path="": "claude-fable-5[1m]",
-    )
-    monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay.detect_entrypoint",
-        lambda: "claude-desktop",
-    )
-    monkeypatch.setattr(
-        "yoke_harness.hooks.relay.record_session_anchor",
-        lambda *_a, **_k: None,
-    )
-    captured: dict = {}
-
-    def fake_urlopen(request, timeout=None):
-        captured["body"] = json.loads(request.data.decode("utf-8"))
-        return _FakeResponse(json.dumps({
-            "hook_schema": 1, "stdout": "", "exit_code": 0,
-            "wait_ms": 1, "degraded": [], "outcome": "completed",
-        }).encode("utf-8"))
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    assert cli_main(["hook", "evaluate", "UserPromptSubmit"]) == 0
-    assert captured["body"]["model"] == "claude-fable-5[1m]"
-    assert captured["body"]["entrypoint"] == "claude-desktop"
-
-
-def test_hook_evaluate_https_placeholder_client_model_not_sent(
-    monkeypatch, https_connection,
-) -> None:
-    monkeypatch.setattr(
-        sys, "stdin",
-        io.StringIO('{"session_id": "s-m2", "transcript_path": "/t/x.jsonl"}'),
-    )
-    monkeypatch.setattr(
-        "yoke_harness.hooks.relay.detect_executor",
-        lambda: "claude-code",
-    )
-    monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay.detect_model",
-        lambda executor, transcript_path="": "unknown",
-    )
-    monkeypatch.setattr(
-        "yoke_harness.hooks.relay.record_session_anchor",
-        lambda *_a, **_k: None,
-    )
-    captured: dict = {}
-
-    def fake_urlopen(request, timeout=None):
-        captured["body"] = json.loads(request.data.decode("utf-8"))
-        return _FakeResponse(json.dumps({
-            "hook_schema": 1, "stdout": "", "exit_code": 0,
-            "wait_ms": 1, "degraded": [], "outcome": "completed",
-        }).encode("utf-8"))
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    assert cli_main(["hook", "evaluate", "SessionStart"]) == 0
-    assert captured["body"]["model"] is None

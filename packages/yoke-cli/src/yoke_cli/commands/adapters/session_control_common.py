@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from typing import Any, Iterable, TextIO
+from typing import Any, TextIO
+
+from yoke_cli.commands.adapters.session_control_human_output import (
+    write_message_result as write_human_message_result,
+)
+from yoke_cli.commands.adapters.session_control_launch_output import (
+    write_launch_result as write_human_launch_result,
+)
 
 
 SELECTOR_ARGUMENTS = (
@@ -34,13 +40,23 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         "process_keys": "Claimed process key (repeatable).",
         "projects": "Project slug or id (repeatable).",
     }
+    filter_help = {
+        "executor_families": "Keep recipients from this executor family (repeatable).",
+        "executor_surfaces": "Keep recipients on this exact surface (repeatable).",
+        "work_roles": "Keep recipients with this work role (repeatable).",
+        "execution_lanes": "Keep recipients in this execution lane (repeatable).",
+        "worktree_lanes": "Keep recipients on this worktree or branch (repeatable).",
+        "machine_ids": "Keep recipients on this machine (repeatable).",
+        "liveness": "Keep recipients in this liveness state (repeatable).",
+        "exclude_session_ids": "Remove this exact session from the result (repeatable).",
+    }
     for dest, flag in SELECTOR_ARGUMENTS:
         parser.add_argument(
             flag,
             dest=dest,
             action="append",
             default=[],
-            help=anchor_help.get(dest, "Recipient filter (repeatable)."),
+            help=anchor_help.get(dest) or filter_help[dest],
         )
     parser.add_argument(
         "--universe",
@@ -68,72 +84,20 @@ def read_stdin_payload(parsed: argparse.Namespace) -> str | None:
     return value if value.strip() else None
 
 
-def compact_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-
-def write_recipient_rows(
-    recipients: Iterable[dict[str, Any]],
-    stdout: TextIO,
-) -> None:
-    for recipient in recipients:
-        print(
-            "recipient|"
-            + "|".join(
-                str(recipient.get(field) or "")
-                for field in (
-                    "session_id",
-                    "project",
-                    "executor",
-                    "executor_surface",
-                    "machine_id",
-                    "liveness",
-                )
-            )
-            + "|"
-            + compact_json(recipient.get("messageability") or {}),
-            file=stdout,
-        )
-
-
 def write_message_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     del stderr
-    result = response.result or {}
-    if "recipients" in result:
-        identity = result.get("message_id") or "preview"
-        print(
-            f"message|{identity}|{result.get('recipient_count', 0)}|"
-            f"{str(bool(result.get('deduplicated'))).lower()}",
-            file=stdout,
-        )
-        token = result.get("confirmation_token")
-        if token:
-            print(f"confirmation|{token}", file=stdout)
-        write_recipient_rows(result.get("recipients") or [], stdout)
-        return
-    if "messages" in result:
-        for message in result.get("messages") or []:
-            print(compact_json(message), file=stdout)
-        return
-    print(compact_json(result.get("message", result)), file=stdout)
+    write_human_message_result(response.result or {}, stdout)
 
 
 def write_launch_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     del stderr
-    result = response.result or {}
-    if "launches" in result:
-        for launch in result.get("launches") or []:
-            print(compact_json(launch), file=stdout)
-        return
-    print(compact_json(result), file=stdout)
+    write_human_launch_result(response.result or {}, stdout)
 
 
 __all__ = [
     "add_selector_arguments",
-    "compact_json",
     "read_stdin_payload",
     "selector_payload",
     "write_launch_result",
     "write_message_result",
-    "write_recipient_rows",
 ]

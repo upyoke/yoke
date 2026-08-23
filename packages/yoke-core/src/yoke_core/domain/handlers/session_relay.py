@@ -85,15 +85,24 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.session_relay import claim_relay_job
+    from yoke_core.domain.session_relay_authorization import (
+        require_relay_project_authority,
+    )
 
     conn = connect()
     try:
         try:
+            actor_id = _actor_id(request)
+            require_relay_project_authority(
+                conn,
+                actor_id=actor_id,
+                project_ids=payload.projects,
+            )
             outcome = claim_relay_job(
                 conn,
                 RelayHeartbeat(
                     relay_id=payload.relay_id,
-                    actor_id=_actor_id(request),
+                    actor_id=actor_id,
                     machine_id=payload.machine_id,
                     hostname=payload.hostname,
                     relay_version=payload.relay_version,
@@ -101,6 +110,7 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                     project_ids=payload.projects,
                 ),
                 wait_seconds=payload.wait_seconds,
+                broker_only=payload.broker_only,
             )
         except (SessionRelayError, ValueError) as exc:
             return _failure(getattr(exc, "code", "relay_claim_failed"), str(exc))

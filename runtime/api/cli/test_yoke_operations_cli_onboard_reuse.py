@@ -20,6 +20,7 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    monkeypatch.setattr("yoke_cli.config.onboard_session_relay.sys.platform", "linux")
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     config = home / "config.json"

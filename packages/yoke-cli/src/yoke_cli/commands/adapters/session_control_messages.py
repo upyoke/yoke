@@ -20,6 +20,11 @@ from yoke_cli.commands.adapters.session_control_common import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.models import MessageState
+from yoke_contracts.session_control.teaching import (
+    FLEET_MESSAGE_WORKFLOW_HELP,
+    FLEET_OWNERSHIP_GUIDANCE,
+)
+from yoke_contracts.session_execution import is_subagent_execution
 
 
 SAY_USAGE = (
@@ -38,10 +43,26 @@ MESSAGE_LIST_USAGE = (
 MESSAGE_GET_USAGE = "yoke messages get MESSAGE-ID [--json]"
 MESSAGE_ACKNOWLEDGE_USAGE = "yoke messages acknowledge MESSAGE-ID [--json]"
 MESSAGE_CANCEL_USAGE = "yoke messages cancel MESSAGE-ID [--json]"
+MESSAGE_WORKFLOW_HELP = FLEET_MESSAGE_WORKFLOW_HELP
+
+
+def _refuse_subagent_message_operation(operation: str) -> int | None:
+    if not is_subagent_execution():
+        return None
+    return usage_error(
+        f"in-process subagents cannot {operation} Fleet messages; "
+        f"{FLEET_OWNERSHIP_GUIDANCE}"
+    )
 
 
 def _selector_parser(prog: str, usage: str) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        usage=usage,
+        description="Preview or send a durable Fleet message to exact top-level sessions.",
+        epilog=MESSAGE_WORKFLOW_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     add_selector_arguments(parser)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -88,14 +109,26 @@ def session_message_preview(args: List[str]) -> int:
     )
 
 
+def _add_delivery_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--idempotency-key",
+        default=None,
+        help="Reuse a caller-generated key to avoid duplicate sends.",
+    )
+    parser.add_argument(
+        "--confirmation-token",
+        default=None,
+        help="Exact token returned by a required universe preview.",
+    )
+
+
 def _add_send_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--stdin",
         action="store_true",
         help="Read the message body from stdin so it never appears in argv.",
     )
-    parser.add_argument("--idempotency-key", default=None)
-    parser.add_argument("--confirmation-token", default=None)
+    _add_delivery_arguments(parser)
 
 
 def session_message_send(args: List[str]) -> int:
@@ -107,6 +140,9 @@ def session_message_send(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, MESSAGE_SEND_USAGE)
     if parsed is None:
         return 2
+    refused = _refuse_subagent_message_operation("send")
+    if refused is not None:
+        return refused
     body = read_stdin_payload(parsed)
     if body is None:
         return usage_error("message send requires non-empty content on --stdin")
@@ -130,8 +166,7 @@ def say(args: List[str]) -> int:
         action="store_true",
         help="Send the message body read from stdin.",
     )
-    parser.add_argument("--idempotency-key", default=None)
-    parser.add_argument("--confirmation-token", default=None)
+    _add_delivery_arguments(parser)
     parsed = parse_or_usage_error(parser, args, SAY_USAGE)
     if parsed is None:
         return 2
@@ -140,6 +175,9 @@ def say(args: List[str]) -> int:
             parsed,
             function_id="session_control.message.preview",
         )
+    refused = _refuse_subagent_message_operation("send")
+    if refused is not None:
+        return refused
     body = read_stdin_payload(parsed)
     if body is None:
         return usage_error("yoke say requires non-empty content on --stdin")
@@ -153,15 +191,23 @@ def say(args: List[str]) -> int:
 def session_message_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke messages list",
-        description=MESSAGE_LIST_USAGE,
+        usage=MESSAGE_LIST_USAGE,
+        description="List durable Fleet messages and their delivery receipts.",
+        epilog=MESSAGE_WORKFLOW_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--state",
         choices=get_args(MessageState),
         default=None,
+        help="Only show messages with this recipient state.",
     )
-    parser.add_argument("--recipient-session", default=None)
-    parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument(
+        "--recipient-session",
+        default=None,
+        help="Only show messages addressed to this exact session.",
+    )
+    parser.add_argument("--limit", type=int, default=50, help="Maximum rows.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, MESSAGE_LIST_USAGE)
@@ -191,14 +237,25 @@ def _message_by_id(args: List[str], operation: str) -> int:
     usage = usage_by_operation[operation]
     parser = argparse.ArgumentParser(
         prog=f"yoke messages {operation}",
-        description=usage,
+        usage=usage,
+        description={
+            "get": "Show one message and its recipient receipts.",
+            "acknowledge": "Record that this recipient session acted on a message.",
+            "cancel": "Cancel an undelivered message as its sender.",
+        }[operation],
+        epilog=MESSAGE_WORKFLOW_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("message_id")
+    parser.add_argument("message_id", help="Durable message id.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    if operation in {"acknowledge", "cancel"}:
+        refused = _refuse_subagent_message_operation(operation)
+        if refused is not None:
+            return refused
     return dispatch_and_emit(
         function_id=f"session_control.message.{operation}",
         target=TargetRef(kind="global"),

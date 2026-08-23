@@ -73,9 +73,13 @@ test("message compose previews and sends the identical recipient snapshot", asyn
     t, "#/sessions/messages?project=1", client,
   );
   button(root, "Compose message").dispatchEvent(new Event("click"));
-  const inputs = byClass(root, "session-control-input");
-  inputs[0].value = "session-1";
-  inputs[3].value = "Please check the durable message plane.";
+  const sessions = byClass(root, "session-message-selector-sessions")[0];
+  const projects = byClass(root, "session-message-selector-projects")[0];
+  const body = byClass(root, "session-message-body")[0];
+  assert.equal(sessions.value, "");
+  assert.equal(projects.value, "");
+  sessions.value = "session-1";
+  body.value = "Please check the durable message plane.";
   button(root, "Preview recipients").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(button(root, "Send message").disabled, false);
@@ -88,6 +92,7 @@ test("message compose previews and sends the identical recipient snapshot", asyn
     (request) => request.function === "session_control.message.send",
   );
   assert.deepEqual(send.payload.selector, preview.payload.selector);
+  assert.deepEqual(preview.payload.selector.projects, []);
   assert.equal(send.payload.confirmation_token, "confirmed-1");
   assert.equal(send.payload.body, "Please check the durable message plane.");
   assert.ok(send.payload.idempotency_key.startsWith("workbench-message:"));
@@ -105,7 +110,8 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     "session_control.launch.list": () => ok({
       launches: [{
         launch_id: "launch-existing", state: "awaiting_registration",
-        executor_surface: "codex-desktop", machine_id: "m1",
+        requested_surface: "codex-desktop", selected_surface: "codex-desktop",
+        assigned_machine_id: "m1",
         created_at: "2026-08-23T01:00:00Z",
         assigned_at: "2026-08-23T01:01:00Z",
         launching_at: "2026-08-23T01:02:00Z",
@@ -116,7 +122,8 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     "sessions.list": () => ok({ rows: [{ model: "gpt-5.6-sol" }] }),
     "session_control.relay.list": () => ok({ relays: [relay], count: 1 }),
     "session_control.launch.preview": () => ok({
-      outcome: "eligible", requested_surface: "codex-desktop",
+      outcome: "assigned", requested_surface: "codex-desktop", requested_model: "gpt-5.6-sol",
+      selected_surface: "codex-desktop", fallback_used: false,
       launchable: true, eligible_relays: [relay], selected_relay: relay,
     }),
     "session_control.launch.create": () => ok({
@@ -128,8 +135,16 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     t, "#/sessions/launches?project=1", client,
   );
   const timelineText = allNodes(root).map((node) => node._textContent).join(" ");
+  assert.ok(timelineText.includes(
+    "codex-desktop requested · codex-desktop selected · m1",
+  ));
+  assert.equal(
+    byClass(root, "session-launch-card")[0].getAttribute("data-launch-id"),
+    "launch-existing",
+  );
   assert.ok(timelineText.includes("launching:"));
   assert.ok(timelineText.includes("awaiting registration:"));
+  assert.ok(timelineText.includes("2026-08-23 01:02 UTC"));
   button(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
   const inputs = byClass(root, "session-control-input");
@@ -142,6 +157,10 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   assert.equal(lastButton(root, "Create session").disabled, false);
   lastButton(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
+  assert.equal(
+    byClass(root, "session-control-status")[0].textContent,
+    "launch-1 created. Tracking registration below.",
+  );
   const preview = requests.find(
     (request) => request.function === "session_control.launch.preview",
   );
@@ -169,6 +188,12 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
         recipients: [{
           session_id: "session-1", project_id: 1, state: "pending",
           wake_attempt_count: 2, last_wake_at: "2026-08-23T01:05:00Z",
+        }, {
+          session_id: "session-2", project_id: 1, state: "acknowledged",
+          wake_attempt_count: 0, wake_after: "2026-08-23T01:06:00Z",
+        }, {
+          session_id: "session-3", project_id: 1, state: "acknowledged",
+          wake_attempt_count: 1, last_wake_at: "2026-08-23T01:07:00Z",
         }],
       }],
       count: 1,
@@ -180,6 +205,13 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   );
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("session-1 · pending · 2 wake attempts"));
+  assert.ok(text.includes(
+    "session-2 · acknowledged · delivery acknowledged without a wake",
+  ));
+  assert.ok(text.includes(
+    "session-3 · acknowledged · delivery acknowledged after 1 wake attempt",
+  ));
+  assert.equal(text.includes("wake eligible"), false);
   button(root, "Cancel").dispatchEvent(new Event("click"));
   await settle();
   assert.ok(requests.some(
@@ -247,10 +279,12 @@ test("organization Fleet edits only changed registry-backed settings", async (t)
   mounted.unmount();
 });
 
-test("roster filters computed messageability and relay-backed wake", async (t) => {
+test("roster includes ended sessions with exact message actions", async (t) => {
   const requests = [];
   const base = {
     execution_lane: "DARIUS", mode: "wait", executor: "codex",
+    executor_surface: "codex-desktop", executor_version: "26.814.41407",
+    machine_id: "machine-1", relay: "connected",
     model: "gpt-5", actor_id: 2, actor_kind: "human", actor_label: "Ben",
     project_id: 1, project: "yoke", current_item: null, claims: [],
     activity_at: "2026-07-26T12:00:00Z",
@@ -262,24 +296,55 @@ test("roster filters computed messageability and relay-backed wake", async (t) =
     }, {
       ...base, session_id: "wakeable", liveness: "stale",
       messageability: { messageable: false, wake_available: true },
+    }, {
+      ...base, session_id: "ended-wakeable", liveness: "ended",
+      messageability: { messageable: true, wake_available: true },
     }] }),
   });
   const { root, mounted } = await mountAt(
     t, "#/sessions/roster?project=1", client,
   );
   const filters = byClass(root, "session-roster-filter");
+  const text = allNodes(root).map((node) => node._textContent).join(" ");
+  assert.ok(text.includes("Executor version: 26.814.41407"));
+  assert.ok(text.includes("Machine: machine-1 · relay connected"));
+  assert.ok(text.includes(
+    "Messageable: durable delivery and automatic restart are available.",
+  ));
+  const endedCard = byClass(root, "session-card").find(
+    (card) => byClass(card, "session-id")[0]?.textContent === "ended-wakeable",
+  );
+  button(endedCard, "Message").dispatchEvent(new Event("click"));
+  assert.equal(
+    byClass(root, "session-message-selector-sessions")[0].value,
+    "ended-wakeable",
+  );
+  assert.equal(
+    byClass(root, "session-message-selector-projects")[0].value,
+    "",
+  );
+  for (const key of [
+    "items", "epicTasks", "processes", "executors", "surfaces", "roles",
+    "executionLanes", "worktrees", "machines", "liveness", "exclusions",
+  ]) {
+    assert.equal(byClass(root, `session-message-selector-${key}`)[0].value, "");
+  }
+  assert.equal(
+    Boolean(byClass(root, "session-message-selector-universe")[0].checked),
+    false,
+  );
   const route = filters.at(-1).children[1];
   route.value = "message";
   route.dispatchEvent(new Event("change"));
   assert.deepEqual(
     byClass(root, "session-id").map((node) => node.textContent),
-    ["messageable"],
+    ["messageable", "ended-wakeable"],
   );
   route.value = "wake";
   route.dispatchEvent(new Event("change"));
   assert.deepEqual(
     byClass(root, "session-id").map((node) => node.textContent),
-    ["wakeable"],
+    ["wakeable", "ended-wakeable"],
   );
   mounted.unmount();
 });

@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 from typing import Any, Literal, Mapping, Sequence
+
+from yoke_contracts.session_control.private_route_qualification import (
+    PrivateRouteQualificationGrant,
+)
 
 
 RelayJobKind = Literal["launch", "wake"]
 WAKE_LEASE_SECONDS = 90
 MAX_RELAY_LONG_POLL_SECONDS = 55
 RELAY_LONG_POLL_STEP_SECONDS = 1
+
+
+class WakeMode(str, Enum):
+    """Scheduler authority for one native wake operation."""
+
+    WAITING = "waiting"
+    IDLE_TIMEOUT = "idle_timeout"
 
 
 class SessionRelayError(ValueError):
@@ -57,11 +69,24 @@ class RelayJob:
     target_session_id: str | None = None
     requested_model: str | None = None
     presentation: str | None = None
+    wake_mode: WakeMode | None = None
     target_liveness: str | None = None
+    wake_route: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
+    private_route_qualification: PrivateRouteQualificationGrant | None = field(
+        default=None,
+        repr=False,
+    )
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if self.wake_mode is not None:
+            payload["wake_mode"] = self.wake_mode.value
+        if self.private_route_qualification is not None:
+            payload["private_route_qualification"] = (
+                self.private_route_qualification.model_dump(mode="json")
+            )
+        return payload
 
 
 @dataclass(frozen=True)
@@ -94,4 +119,5 @@ __all__ = [
     "RelayPolicy",
     "SessionRelayError",
     "WAKE_LEASE_SECONDS",
+    "WakeMode",
 ]

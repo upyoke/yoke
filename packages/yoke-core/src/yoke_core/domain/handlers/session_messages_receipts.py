@@ -15,6 +15,7 @@ from yoke_core.domain.handlers.session_messages_common import (
     open_connection,
     parse,
     require_global,
+    require_top_level_message_actor,
 )
 
 
@@ -27,6 +28,9 @@ def handle_message_acknowledge(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parsed(request, MessageAcknowledgeRequest)
     if isinstance(parsed, HandlerOutcome):
         return parsed
+    invalid = require_top_level_message_actor(request)
+    if invalid:
+        return invalid
     from yoke_core.domain.session_message_service import acknowledge_message
 
     session_id = str(request.actor.session_id or "").strip()
@@ -36,6 +40,16 @@ def handle_message_acknowledge(request: FunctionCallRequest) -> HandlerOutcome:
         )
     conn = open_connection()
     try:
+        from yoke_core.domain.session_control_request_identity import (
+            registered_request_session_id,
+        )
+
+        if registered_request_session_id(conn, session_id) is None:
+            return failure(
+                "recipient_session_unregistered",
+                "Fleet acknowledgments require a registered top-level session",
+                "$.actor.session_id",
+            )
         message = acknowledge_message(
             conn, message_id=parsed.message_id, session_id=session_id
         )
@@ -51,6 +65,9 @@ def handle_message_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parsed(request, MessageCancelRequest)
     if isinstance(parsed, HandlerOutcome):
         return parsed
+    invalid = require_top_level_message_actor(request)
+    if invalid:
+        return invalid
     from yoke_core.domain.session_message_service import cancel_message
 
     conn = open_connection()
@@ -72,6 +89,9 @@ def handle_message_lease(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parsed(request, MessageLeaseRequest)
     if isinstance(parsed, HandlerOutcome):
         return parsed
+    invalid = require_top_level_message_actor(request)
+    if invalid:
+        return invalid
     from yoke_core.domain.session_message_delivery import lease_for_hook
 
     session_id = str(request.actor.session_id or "").strip()
@@ -83,6 +103,16 @@ def handle_message_lease(request: FunctionCallRequest) -> HandlerOutcome:
         )
     conn = open_connection()
     try:
+        from yoke_core.domain.session_control_request_identity import (
+            registered_request_session_id,
+        )
+
+        if registered_request_session_id(conn, session_id) is None:
+            return failure(
+                "recipient_session_unregistered",
+                "Fleet hook leases require a registered top-level session",
+                "$.actor.session_id",
+            )
         lease = lease_for_hook(
             conn,
             session_id=session_id,

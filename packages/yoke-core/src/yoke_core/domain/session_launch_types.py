@@ -10,9 +10,9 @@ from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 
 LAUNCH_LEASE_SECONDS = 120
 MAX_LAUNCH_LEASE_SECONDS = 300
-DEFAULT_LAUNCH_DEADLINE_SECONDS = int(
-    FLEET_KEY_SPECS["fleet.launch_deadline_minutes"].default
-) * 60
+DEFAULT_LAUNCH_DEADLINE_SECONDS = (
+    int(FLEET_KEY_SPECS["fleet.launch_deadline_minutes"].default) * 60
+)
 DEFAULT_MAX_BODY_BYTES = int(FLEET_KEY_SPECS["fleet.max_body_bytes"].default)
 MAX_LAUNCH_DEADLINE_SECONDS = 3600
 
@@ -92,10 +92,22 @@ class LaunchPreview:
     def launchable(self) -> bool:
         return self.selected_relay is not None
 
+    @property
+    def selected_surface(self) -> str | None:
+        return self.selected_relay.surface if self.selected_relay else None
+
+    @property
+    def fallback_used(self) -> bool:
+        return bool(
+            self.selected_surface and self.selected_surface != self.requested_surface
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "outcome": self.outcome,
             "requested_surface": self.requested_surface,
+            "selected_surface": self.selected_surface,
+            "fallback_used": self.fallback_used,
             "launchable": self.launchable,
             "eligible_relays": [relay.to_dict() for relay in self.eligible_relays],
             "selected_relay": (
@@ -111,6 +123,7 @@ class LaunchRecord:
     requester_session_id: str | None
     project_id: int
     requested_surface: str
+    selected_surface: str
     requested_machine_id: str | None
     requested_model: str | None
     presentation_preference: str | None
@@ -178,6 +191,8 @@ def choose_relay(
     *,
     surface: str,
     machine_id: str | None,
+    fallback: bool = False,
+    auto_select_machine: bool = False,
 ) -> LaunchPreview:
     relays: Sequence[EligibleRelay] = snapshot.relays
     if not relays:
@@ -188,7 +203,15 @@ def choose_relay(
         )
         return LaunchPreview(outcome, surface, tuple(relays))
     if len(relays) == 1:
-        return LaunchPreview("assigned", surface, tuple(relays), relays[0])
+        outcome = "assigned_fallback" if fallback else "assigned"
+        return LaunchPreview(outcome, surface, tuple(relays), relays[0])
+    if not machine_id and auto_select_machine:
+        selected = min(
+            relays,
+            key=lambda relay: (relay.machine_id, relay.relay_id, relay.surface),
+        )
+        outcome = "assigned_fallback" if fallback else "assigned"
+        return LaunchPreview(outcome, surface, tuple(relays), selected)
     outcome = "relay_ambiguous" if machine_id else "machine_required"
     return LaunchPreview(outcome, surface, tuple(relays))
 

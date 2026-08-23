@@ -41,8 +41,7 @@
           "UserPromptSubmit",
           "PreToolUse",
           "PermissionRequest",
-          "PostToolUse",
-          "Stop"
+          "PostToolUse"
         ],
         "create": "supported",
         "message_active": "none",
@@ -56,8 +55,7 @@
           "UserPromptSubmit",
           "PreToolUse",
           "PermissionRequest",
-          "PostToolUse",
-          "Stop"
+          "PostToolUse"
         ],
         "create": "supported",
         "message_active": "supported",
@@ -71,8 +69,7 @@
           "UserPromptSubmit",
           "PreToolUse",
           "PermissionRequest",
-          "PostToolUse",
-          "Stop"
+          "PostToolUse"
         ],
         "create": "none",
         "message_active": "supported",

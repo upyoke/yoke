@@ -23,6 +23,46 @@ from yoke_core.domain.standalone_item_merge_lane import (
 )
 
 
+_DONE_TRANSITION = "done"
+
+
+def item_for_merge_phase(
+    item: dict[str, Any],
+    *,
+    leaves_status_unchanged: bool,
+) -> dict[str, Any]:
+    """Return the QA view applicable to this merge lifecycle phase.
+
+    A checkpoint merge must not require proof that can only be produced
+    after deployment. Only requirements and attached plans explicitly bound
+    to the terminal ``done`` transition are deferred; unbound, review-bound,
+    and unknown transition rows remain fail-closed at the merge boundary.
+    """
+    if not leaves_status_unchanged:
+        return item
+
+    def before_done(
+        rows: list[dict[str, Any]], transition_key: str
+    ) -> list[dict[str, Any]]:
+        return [
+            row
+            for row in rows
+            if str(row.get(transition_key) or "").strip() != _DONE_TRANSITION
+        ]
+
+    return {
+        **item,
+        "qa_requirements": before_done(
+            list(item.get("qa_requirements") or []),
+            "workflow_transition_id",
+        ),
+        "qa_plan_attachments": before_done(
+            list(item.get("qa_plan_attachments") or []),
+            "transition_id",
+        ),
+    }
+
+
 def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
     """Read raw run proof through the deployed, backward-compatible API."""
     if requirement.get("recorded_head_sha") or requirement.get("run_id") is None:
@@ -32,7 +72,8 @@ def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
         lambda: call_dispatcher(
             function_id="qa.run.list",
             target=TargetRef(
-                kind="qa_requirement", qa_requirement_id=requirement_id,
+                kind="qa_requirement",
+                qa_requirement_id=requirement_id,
             ),
             payload={"requirement_id": requirement_id},
         )
@@ -56,16 +97,19 @@ def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
 
 
 def evaluate(
-    item: dict[str, Any], *, item_ref: str, repo_root: Path, branch: str,
+    item: dict[str, Any],
+    *,
+    item_ref: str,
+    repo_root: Path,
+    branch: str,
 ) -> tuple[str, list[BlockingRequirementIssue], str]:
     """Return the merging commit, blocking issues, and any hard error."""
     source_error = lane_resolution_error(item)
     if source_error:
         return "", [], source_error
     lane = merge_source_lane(item) or {}
-    commit_sha = (
-        str(lane.get("commit_sha") or "").strip()
-        or git.head_of(str(repo_root), branch)
+    commit_sha = str(lane.get("commit_sha") or "").strip() or git.head_of(
+        str(repo_root), branch
     )
     if not commit_sha:
         return "", [], f"cannot resolve the commit carried by branch {branch!r}"
@@ -78,25 +122,38 @@ def evaluate(
     require_any = bool(requirements) or any(
         int(attachment.get("case_count") or 0) > 0 for attachment in attachments
     )
-    return commit_sha, blocking_requirement_issues(
-        requirements,
-        accepted_shas=(commit_sha,),
-        item_ref=item_ref,
-        require_any=require_any,
-    ), ""
+    return (
+        commit_sha,
+        blocking_requirement_issues(
+            requirements,
+            accepted_shas=(commit_sha,),
+            item_ref=item_ref,
+            require_any=require_any,
+        ),
+        "",
+    )
 
 
 def preflight(
-    item: dict[str, Any], *, item_ref: str, repo_root: Path, branch: str,
+    item: dict[str, Any],
+    *,
+    item_ref: str,
+    repo_root: Path,
+    branch: str,
 ) -> tuple[str, str]:
     """Return the merging commit and any terminal-QA refusal before landing."""
     commit_sha, issues, error = evaluate(
-        item, item_ref=item_ref, repo_root=repo_root, branch=branch,
+        item,
+        item_ref=item_ref,
+        repo_root=repo_root,
+        branch=branch,
     )
     if error:
         return commit_sha, error
     errors = requirement_issue_errors(
-        issues, item_ref=item_ref, target_status="done",
+        issues,
+        item_ref=item_ref,
+        target_status="done",
     )
     if errors:
         return commit_sha, (
@@ -105,4 +162,4 @@ def preflight(
     return commit_sha, ""
 
 
-__all__ = ["evaluate", "preflight"]
+__all__ = ["evaluate", "item_for_merge_phase", "preflight"]

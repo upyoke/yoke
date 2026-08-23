@@ -44,6 +44,7 @@ def _wake_request(tmp_path: Path) -> CursorWakeRequest:
         target_session_id=SESSION_ID,
         surface_version="2026.08.11-e8db854",
         target_liveness="ended",
+        wake_mode="waiting",
         native_instruction=CHECK_INBOX,
     )
 
@@ -105,6 +106,7 @@ def test_cli_wake_refuses_an_inexact_session_before_spawn(
         target_session_id="not-an-id",
         surface_version=request.surface_version,
         target_liveness=request.target_liveness,
+        wake_mode=request.wake_mode,
         native_instruction=request.native_instruction,
     )
 
@@ -138,7 +140,7 @@ def test_acp_idle_wake_loads_and_prompts_the_exact_session(
     tmp_path: Path,
 ) -> None:
     client = FakeAcpClient()
-    transport = CursorAcpTransport()
+    transport = CursorAcpTransport(worker=True)
     monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
 
     result = transport.prompt_session(_wake_request(tmp_path))

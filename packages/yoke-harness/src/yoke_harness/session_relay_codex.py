@@ -13,17 +13,15 @@ from typing import Any, Callable, Literal, Protocol
 from yoke_harness.session_relay_runtime import (
     RelayAdapter,
     RelayAdapterResult,
+    WakeMode,
+    normalize_wake_mode,
     register_relay_adapter,
+    wake_operation,
 )
 
 
-ADAPTER_REVISION = "codex-relay-v1"
+ADAPTER_REVISION = "codex-relay-v4"
 CODEX_SURFACES = ("codex-cli", "codex-desktop")
-_LIVENESS_OPERATION = {
-    "active": "message_active",
-    "stale": "message_idle",
-    "ended": "message_stopped",
-}
 _MISSING = object()
 
 VersionGate = Callable[[str | None, str | None, str], bool]
@@ -50,8 +48,14 @@ class CodexNativeRequest:
     presentation: str | None
     target_liveness: str | None
     target_session_id: str | None
+    wake_mode: WakeMode | None
+    instruction_id: str
     native_instruction: str = field(repr=False)
     launch_attestation: str | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.job_kind == "wake" and normalize_wake_mode(self.wake_mode) is None:
+            raise ValueError("wake instruction has no authorized mode")
 
 
 @dataclass(frozen=True)
@@ -70,7 +74,9 @@ class CodexNativeTransport(Protocol):
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome: ...
 
 
-def _shared_version_gate(surface: str | None, version: str | None, operation: str) -> bool:
+def _shared_version_gate(
+    surface: str | None, version: str | None, operation: str
+) -> bool:
     """Load the contracts comparator lazily so mixed-version installs close."""
     try:
         from yoke_contracts.session_control.surface_versions import (
@@ -102,18 +108,24 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
         raise ValueError("relay context has no surface version")
     requested_model = _text(_extended(context, "requested_model"))
     presentation = _text(_extended(context, "presentation"))
-    liveness = _text(_extended(context, "target_liveness"))
+    liveness = _text(getattr(context, "target_liveness", None))
+    target_session_id = _text(context.target_session_id)
     instruction = str(context.native_instruction or "").strip()
     if not instruction:
         raise ValueError("relay context has no native instruction")
     if context.job_kind == "launch":
         operation = "create"
+        wake_mode = None
+        instruction_id = f"launch:{context.job_id}"
         if not _text(context.launch_attestation):
             raise ValueError("launch context has no attestation side channel")
     elif context.job_kind == "wake":
-        operation = _LIVENESS_OPERATION.get(str(liveness or ""), "")
-        if not operation or not _text(context.target_session_id):
-            raise ValueError("wake context has no exact target or liveness")
+        wake_mode = normalize_wake_mode(_extended(context, "wake_mode"))
+        operation = wake_operation(wake_mode, liveness)
+        message_id = _text(_extended(context, "message_id"))
+        if not operation or not target_session_id or not message_id:
+            raise ValueError("wake context lacks target, message, or authorized mode")
+        instruction_id = f"message:{message_id}:recipient:{target_session_id}"
     else:
         raise ValueError("Codex relay job must be launch or wake")
     return (
@@ -126,7 +138,9 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
             requested_model=requested_model,
             presentation=presentation,
             target_liveness=liveness,
-            target_session_id=_text(context.target_session_id),
+            target_session_id=target_session_id,
+            wake_mode=wake_mode,
+            instruction_id=instruction_id,
             native_instruction=instruction,
             launch_attestation=_text(context.launch_attestation),
         ),
@@ -141,7 +155,9 @@ def _evidence(surface: str, state: str, exit_code: int | None = None) -> dict[st
     return payload
 
 
-def _translate(request: CodexNativeRequest, outcome: CodexNativeOutcome) -> RelayAdapterResult:
+def _translate(
+    request: CodexNativeRequest, outcome: CodexNativeOutcome
+) -> RelayAdapterResult:
     evidence = _evidence(request.surface, outcome.state, outcome.exit_code)
     if outcome.state == "accepted" and not outcome.identity_correlated:
         return RelayAdapterResult(
@@ -158,14 +174,18 @@ def _translate(request: CodexNativeRequest, outcome: CodexNativeOutcome) -> Rela
                 evidence=evidence,
             )
         code = "not_created" if outcome.state == "not_created" else "outcome_unknown"
-        return RelayAdapterResult(code, adapter_revision=ADAPTER_REVISION, evidence=evidence)
+        return RelayAdapterResult(
+            code, adapter_revision=ADAPTER_REVISION, evidence=evidence
+        )
     code = {
         "accepted": "accepted",
         "not_found": "not_found",
         "unsupported_surface": "unsupported_surface",
         "outcome_unknown": "outcome_unknown",
     }.get(outcome.state, "failed")
-    return RelayAdapterResult(code, adapter_revision=ADAPTER_REVISION, evidence=evidence)
+    return RelayAdapterResult(
+        code, adapter_revision=ADAPTER_REVISION, evidence=evidence
+    )
 
 
 def build_codex_relay_adapter(
@@ -194,7 +214,9 @@ def build_codex_relay_adapter(
                 adapter_revision=ADAPTER_REVISION,
                 evidence=_evidence(request.surface, "version_mismatch"),
             )
-        transport = cli_transport if request.surface == "codex-cli" else desktop_transport
+        transport = (
+            cli_transport if request.surface == "codex-cli" else desktop_transport
+        )
         try:
             outcome = (
                 transport.create(request)

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from yoke_core.hooks import session_launch_attestation, session_message_delivery
+from yoke_core.hooks import (
+    session_broker_wake,
+    session_launch_attestation,
+    session_message_delivery,
+)
 from yoke_core.hooks.types import HookDecision, Outcome
 
 
@@ -14,6 +18,7 @@ def _provisional_stdout(decisions: Iterable[HookDecision]) -> str:
         for field in (
             session_message_delivery.DELIVERY_AUDIT_FIELD,
             session_launch_attestation.LAUNCH_DELIVERY_AUDIT_FIELD,
+            session_broker_wake.BROKER_AUDIT_FIELD,
         ):
             delivery = decision.audit_fields.get(field)
             if not isinstance(delivery, dict):
@@ -41,6 +46,9 @@ def settle_model_deliveries(
         decision_list, rendered_text=final_text, denied=denied
     )
     session_launch_attestation.settle_after_render(
+        decision_list, rendered_text=final_text, denied=denied
+    )
+    session_broker_wake.settle_after_render(
         decision_list, rendered_text=final_text, denied=denied
     )
     return final_text, "deny" if denied else "allow"

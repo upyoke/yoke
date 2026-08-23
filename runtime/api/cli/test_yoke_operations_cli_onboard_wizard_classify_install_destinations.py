@@ -45,7 +45,8 @@ def test_build_plan_clone_make_it_mine_lists_post_checkout_repo_steps() -> None:
     assert "Clone the project into /home/code/widget" in repo
     assert "Re-home onto the new repo and push" in repo
     assert_post_checkout_install_destinations(
-        plan, onboard_project.PROJECT_MODE_CLONE_REMOTE,
+        plan,
+        onboard_project.PROJECT_MODE_CLONE_REMOTE,
     )
     assert "Write your board art and initial BOARD.md" in repo
 
@@ -63,12 +64,16 @@ def test_build_plan_clone_just_clone_has_no_remote_rehome_step() -> None:
     assert "Re-home onto the new repo and push" not in repo
     assert "Point origin at your fork and track the source as upstream" not in repo
     assert_post_checkout_install_destinations(
-        plan, onboard_project.PROJECT_MODE_CLONE_REMOTE,
+        plan,
+        onboard_project.PROJECT_MODE_CLONE_REMOTE,
     )
     assert "Write your board art and initial BOARD.md" in repo
 
 
-def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
+def test_build_plan_reused_existing_project_lists_missing_art_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("yoke_cli.config.onboard_session_relay.sys.platform", "linux")
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
         "checkout": "/home/code/externalwebapp",

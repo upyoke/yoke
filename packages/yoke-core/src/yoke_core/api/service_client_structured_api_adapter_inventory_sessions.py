@@ -58,6 +58,16 @@ SESSION_ADAPTERS = [
         function_id="sessions.ownership_guard",
         cli_invocation="yoke sessions ownership-guard --item YOK-N",
     ),
+    AdapterEntry(
+        function_id="session_control.qualification.open",
+        cli_invocation=(
+            "yoke session-control qualification open --project P "
+            "--release-sha SHA --run-id RUN --surface S --version V "
+            "--operation OP --route ROUTE [--json]"
+        ),
+        notes="stage-only exact-release private-route proof",
+        agent_path="operator-only",
+    ),
     _read_entry(
         function_id="session_control.message.preview",
         cli_invocation="yoke session-control message preview [selector] [--json]",

@@ -23,10 +23,17 @@ Recipe shape doctrine (current):
     Atlas tooling, and the `db_router query` module form retain their
     multi-module shape as source-dev/operator-debug fallbacks.
 
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Pure data only — no I/O or DB connections.
 """
 
 from __future__ import annotations
+
+from yoke_contracts.session_control.teaching import (
+    FLEET_MESSAGE_BOOTSTRAP_RECIPE,
+    FLEET_OWNERSHIP_GUIDANCE,
+    SUBAGENT_FLEET_GUIDANCE,
+    TOP_LEVEL_FLEET_OWNERSHIP,
+)
 
 
 OPERATIONAL_COMMANDS: list[dict] = [
@@ -71,7 +78,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "yoke claims work acquire --item PREFIX-N "
             "--reason progress-log-append\n"
             "yoke items progress-log append PREFIX-N "
-            "--headline \"dispatched engineer\" --source orchestrator "
+            '--headline "dispatched engineer" --source orchestrator '
             "--content-file PATH\n"
             "yoke claims work release --item PREFIX-N "
             "--reason progress-log-append-complete"
@@ -85,13 +92,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Find or request the CLI adapter for a function id",
-        "recipe": (
-            "yoke <family> --help\n"
-            "yoke ouroboros field-note append --kind new "
-            "--evidence "
-            "'Missing CLI adapter for items.foo.bar; agent surface "
-            "boundary forbids HTTP/direct runtime import shapes'"
-        ),
+        "recipe": "yoke <family> --help",
         "notes": (
             "`.yoke/docs/reference/db-reference/functions.md` lists the registered "
             "function ids per family, and the matching `yoke <subcommand> "
@@ -164,9 +165,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "yoke ouroboros field-note append --kind failed "
             "--evidence "
             "'R-CL-03 path-claim-narrow recipe used --remove; "
-            "actual flag is --drop-paths'\n"
-            "yoke ouroboros field-note append --kind new "
-            "--evidence 'missing recipe: claim widen examples omit --item' "
+            "actual flag is --drop-paths' "
             "--correlation-id polish-run-2026-05-20"
         ),
         "notes": (
@@ -194,29 +193,26 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Current session_id / actor_id from a script",
-        "recipe": (
-            'echo "$YOKE_SESSION_ID" ; '
-            'yoke db read '
-            '"SELECT actor_id FROM harness_sessions WHERE session_id=\'$YOKE_SESSION_ID\'"'
-        ),
+        "purpose": "Top-level Fleet messaging: discover, send, receive, acknowledge",
+        "roles": ("main_agent",),
+        "recipe": FLEET_MESSAGE_BOOTSTRAP_RECIPE,
         "notes": (
-            "`$YOKE_SESSION_ID` is the fast path; when it is unset, "
-            "ambient identity still resolves automatically (hook-written "
-            "process-anchor registry, walked by every `yoke` CLI / "
-            "dispatch call) — do NOT export session env vars to "
-            "self-bootstrap, and treat `actor_session_missing` as an "
-            "infrastructure bug to report. No `get_active_session_id` "
-            "helper exists. The function-call surface resolves actor_id "
-            "server-side from session_id — agents do not need to look it "
-            "up themselves before dispatch. The actor_id SQL above is a "
-            "diagnostic read, not a dispatch prerequisite; `db_router "
-            "query` is only the source-dev/operator-debug fallback. "
-            "`--session-id` flags are operator-debug overrides, recorded "
-            "as `session_override`."
+            "Run each line separately; copy the full session id, check MESSAGEABLE, "
+            "and pass bodies only through stdin. "
+            "Acknowledge only after `yoke messages get` confirms this top-level "
+            f"session is the recipient. {FLEET_OWNERSHIP_GUIDANCE}"
         ),
     },
-
+    {
+        "topic": "core",
+        "purpose": "Subagent communication through its registered parent",
+        "exclude_roles": ("main_agent",),
+        "recipe": SUBAGENT_FLEET_GUIDANCE,
+        "notes": (
+            "Fleet messages belong to the registered top-level session. "
+            f"{TOP_LEVEL_FLEET_OWNERSHIP}"
+        ),
+    },
     {
         "topic": "core",
         "purpose": "Where to put a project Python script",

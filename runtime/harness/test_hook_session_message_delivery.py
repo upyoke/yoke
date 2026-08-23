@@ -23,8 +23,27 @@ NOW = datetime(2026, 8, 22, 20, 0, tzinfo=timezone.utc)
 class FakePort:
     acknowledged: bool = False
     body: str = "Please re-run the focused verifier."
+    read: list[tuple[str, str, int]] = field(default_factory=list)
     leased: list[tuple[str, str, int]] = field(default_factory=list)
     completed: list[tuple[str, bool, str]] = field(default_factory=list)
+
+    def read_for_hook(
+        self,
+        *,
+        session_id: str,
+        hook_event: str,
+        limit: int,
+    ) -> tuple[LeasedSessionMessage, ...]:
+        self.read.append((session_id, hook_event, limit))
+        if self.acknowledged:
+            return ()
+        return (
+            LeasedSessionMessage(
+                message_id="message-1",
+                body=self.body,
+                sender_actor_id=41,
+            ),
+        )
 
     def lease_for_hook(
         self,
@@ -64,12 +83,13 @@ def _context(
     family: str = "codex",
     surface: str = "codex-desktop",
     session_id: str | None = "session-top",
+    payload: dict | None = None,
 ) -> HookContext:
     return HookContext(
         event_name=event_name,
         executor_family=family,
         executor_surface=surface,
-        payload={},
+        payload=payload or {},
         session_id=session_id,
         now=NOW,
     )
@@ -126,6 +146,20 @@ def test_surface_event_gate_fails_open_without_leasing(
     assert port.leased == []
 
 
+@pytest.mark.parametrize("surface", ["codex-cli", "codex-desktop", "codex-vscode"])
+def test_codex_stop_refuses_message_delivery_without_leasing(
+    monkeypatch: pytest.MonkeyPatch,
+    surface: str,
+) -> None:
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    decision = delivery.evaluate(_context("Stop", surface=surface))
+
+    assert decision.outcome is Outcome.NOOP
+    assert port.leased == []
+
+
 def test_family_fallback_preserves_claude_model_visible_events(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -150,6 +184,46 @@ def test_missing_session_fails_open_without_leasing(
 
     assert decision.outcome is Outcome.NOOP
     assert port.leased == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"agent_type": "engineer"},
+        {"subagent_execution": True},
+        {"is_subagent_session": True, "subagent_session_id": "cursor-child"},
+    ],
+)
+def test_child_hook_renders_parent_receipt_without_leasing_or_completing_it(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: dict,
+) -> None:
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    child = delivery.evaluate(_context(payload=payload))
+    rendered, code = render_codex_decision([child], "PreToolUse")
+    delivery.settle_after_render(
+        [child], rendered_text=rendered, denied=False, port=port
+    )
+
+    assert code == 0
+    assert child.outcome is Outcome.AUDIT_ONLY
+    assert port.read == [("session-top", "PreToolUse", 10)]
+    assert port.leased == []
+    assert port.completed == []
+    assert "message-1" in rendered
+    assert port.body in rendered
+    assert "READ-ONLY CHILD VIEW" in rendered
+    assert "receipts shared with their parent read-only" in rendered
+    assert "harness-native parent/subagent channel" in rendered
+    assert "cancel Fleet messages or handle Fleet wake requests" in rendered
+    assert "yoke messages acknowledge" not in rendered
+
+    parent = delivery.evaluate(_context())
+
+    assert port.leased == [("session-top", "PreToolUse", 10)]
+    assert "message-1" in parent.audit_fields["additionalContext"]
 
 
 def test_successful_render_marks_injected_only_after_output_contains_token(

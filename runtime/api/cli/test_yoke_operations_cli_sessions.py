@@ -41,9 +41,7 @@ def _run(*argv: str, session_id: str = "test-session") -> int:
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=_stub_dispatch_ok,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 buf = io.StringIO()
                 err = io.StringIO()
                 with redirect_stdout(buf), redirect_stderr(err):
@@ -67,19 +65,33 @@ def test_sessions_identity_dispatches_with_empty_payload() -> None:
 
 
 def test_sessions_checkpoint_dispatches() -> None:
-    assert _run(
-        "sessions", "checkpoint",
-        "--step", "2",
-        "--action", "charge",
-        "--chainable", "true",
-        "--item-id", "42",
-        "--task-num", "3",
-        "--outcome", "completed",
-        "--status", "implemented",
-        "--required-path", "runtime/api/foo.py",
-        "--pre-status", "implementing",
-        "--failure-class", "dirty-tracked-main",
-    ) == 0
+    assert (
+        _run(
+            "sessions",
+            "checkpoint",
+            "--step",
+            "2",
+            "--action",
+            "charge",
+            "--chainable",
+            "true",
+            "--item-id",
+            "42",
+            "--task-num",
+            "3",
+            "--outcome",
+            "completed",
+            "--status",
+            "implemented",
+            "--required-path",
+            "runtime/api/foo.py",
+            "--pre-status",
+            "implementing",
+            "--failure-class",
+            "dirty-tracked-main",
+        )
+        == 0
+    )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.checkpoint"
     assert req.target.kind == "global"
@@ -106,12 +118,19 @@ def test_sessions_checkpoint_read_dispatches() -> None:
 
 
 def test_sessions_offer_dispatches_with_explicit_session() -> None:
-    assert _run(
-        "sessions", "offer",
-        "--step", "2",
-        "--project", "yoke",
-        "--session-id", "offer-session",
-    ) == 0
+    assert (
+        _run(
+            "sessions",
+            "offer",
+            "--step",
+            "2",
+            "--project",
+            "yoke",
+            "--session-id",
+            "offer-session",
+        )
+        == 0
+    )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.offer"
     assert req.actor.session_id == "offer-session"
@@ -137,11 +156,17 @@ def test_sessions_offer_rejects_caller_asserted_identity() -> None:
 
 
 def test_sessions_ownership_guard_dispatches_item_ref() -> None:
-    assert _run(
-        "sessions", "ownership-guard",
-        "--item", "42",
-        "--project", "yoke",
-    ) == 0
+    assert (
+        _run(
+            "sessions",
+            "ownership-guard",
+            "--item",
+            "42",
+            "--project",
+            "yoke",
+        )
+        == 0
+    )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.ownership_guard"
     assert req.target.kind == "item"
@@ -151,11 +176,17 @@ def test_sessions_ownership_guard_dispatches_item_ref() -> None:
 
 
 def test_charge_schedule_dispatches() -> None:
-    assert _run(
-        "charge", "schedule",
-        "--project", "yoke",
-        "--wip-cap", "7",
-    ) == 0
+    assert (
+        _run(
+            "charge",
+            "schedule",
+            "--project",
+            "yoke",
+            "--wip-cap",
+            "7",
+        )
+        == 0
+    )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "charge.schedule"
     assert req.target.kind == "global"
@@ -176,15 +207,22 @@ def test_session_closeout_and_reclaim_dispatch() -> None:
     assert request.function == "sessions.end_if_empty"
     assert request.payload == {"triggered_by": "hook"}
 
-    assert _run(
-        "sessions", "reclaim-stale", "--confirm", "--project-ids", "1,3",
-    ) == 0
+    assert (
+        _run(
+            "sessions",
+            "reclaim-stale",
+            "--confirm",
+            "--project-ids",
+            "1,3",
+        )
+        == 0
+    )
     request = _CAPTURED_REQUESTS[-1]
     assert request.function == "sessions.reclaim_stale"
     assert request.payload == {"confirm": True, "project_ids": [1, 3]}
 
 
-def test_sessions_list_dispatches_filters_and_prints_pipe_rows() -> None:
+def test_sessions_list_dispatches_filters_and_prints_roster_table() -> None:
     def stub(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)
         return FunctionCallResponse(
@@ -213,21 +251,33 @@ def test_sessions_list_dispatches_filters_and_prints_pipe_rows() -> None:
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 out = io.StringIO()
                 err = io.StringIO()
                 with redirect_stdout(out), redirect_stderr(err):
-                    rc = cli_main([
-                        "sessions", "list",
-                        "--project", "yoke",
-                        "--liveness", "active",
-                        "--limit", "5",
-                    ])
+                    rc = cli_main(
+                        [
+                            "sessions",
+                            "list",
+                            "--project",
+                            "yoke",
+                            "--liveness",
+                            "active",
+                            "--limit",
+                            "5",
+                        ]
+                    )
 
     assert rc == 0
-    assert out.getvalue() == "s-1|active|charge|YOK-41,feed\n"
+    lines = out.getvalue().splitlines()
+    assert lines[:3] == [
+        "SESSIONS",
+        "SESSION  PROJECT  FOCUS         ROLE  RUNNER  MACHINE  LIVENESS  RELAY  MESSAGEABLE",
+        "-------  -------  ------------  ----  ------  -------  --------  -----  -----------",
+    ]
+    assert lines[3] == (
+        "s-1      —        YOK-41, feed  —     —       —        active    —      unknown"
+    )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.list"
     assert req.target.kind == "global"

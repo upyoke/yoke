@@ -9,6 +9,8 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
+from yoke_contracts.session_execution import SUBAGENT_EXECUTION_PAYLOAD_KEY
 from yoke_core.domain.session_message_types import SessionMessageError
 
 
@@ -33,6 +35,19 @@ def require_global(request: FunctionCallRequest) -> HandlerOutcome | None:
         "target_invalid",
         "session-control message functions require target.kind='global'",
         "$.target.kind",
+    )
+
+
+def require_top_level_message_actor(
+    request: FunctionCallRequest,
+) -> HandlerOutcome | None:
+    """Refuse a client-attested child from acting as its parent session."""
+    if request.options.get(SUBAGENT_EXECUTION_PAYLOAD_KEY) is not True:
+        return None
+    return failure(
+        "subagent_message_forbidden",
+        FLEET_OWNERSHIP_GUIDANCE,
+        f"$.options.{SUBAGENT_EXECUTION_PAYLOAD_KEY}",
     )
 
 
@@ -68,4 +83,5 @@ __all__ = [
     "open_connection",
     "parse",
     "require_global",
+    "require_top_level_message_actor",
 ]

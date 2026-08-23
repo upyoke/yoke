@@ -156,7 +156,8 @@ def test_build_uses_native_runners_and_pushes_only_by_digest():
     assert "name-canonical=true" in build
     assert "provenance: false" in build
     assert "tags:" not in build
-    assert "YOKE_BUILD_SHA=${{ needs.validate-tag.outputs.sha_tag }}" in build
+    assert "YOKE_BUILD_SHA=${{ needs.validate-tag.outputs.source_sha }}" in build
+    assert "EXPECTED_BUILD: ${{ needs.validate-tag.outputs.source_sha }}" in build
     assert (
         "YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}" in build
     )

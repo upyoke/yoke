@@ -13,7 +13,7 @@ from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchErr
 
 LAUNCH_COLUMNS = (
     "launch_id, requester_actor_id, requester_session_id, project_id, "
-    "requested_surface, requested_machine_id, requested_model, "
+    "requested_surface, selected_surface, requested_machine_id, requested_model, "
     "presentation_preference, allow_surface_fallback, message_id, "
     "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
     "native_session_id, attestation_hash, attestation_consumed_at, "
@@ -23,6 +23,7 @@ LAUNCH_COLUMNS = (
 _MUTABLE_LAUNCH_COLUMNS = frozenset(
     {
         "state",
+        "selected_surface",
         "assigned_relay_id",
         "assigned_machine_id",
         "native_session_id",
@@ -95,36 +96,38 @@ def row_to_launch(row: Any) -> LaunchRecord:
         requester_session_id=value(row, "requester_session_id", 2),
         project_id=int(value(row, "project_id", 3)),
         requested_surface=str(value(row, "requested_surface", 4)),
-        requested_machine_id=value(row, "requested_machine_id", 5),
-        requested_model=value(row, "requested_model", 6),
-        presentation_preference=value(row, "presentation_preference", 7),
-        allow_surface_fallback=bool(value(row, "allow_surface_fallback", 8)),
-        message_id=str(value(row, "message_id", 9)),
-        idempotency_key=value(row, "idempotency_key", 10),
-        state=str(value(row, "state", 11)),
-        assigned_relay_id=value(row, "assigned_relay_id", 12),
-        assigned_machine_id=value(row, "assigned_machine_id", 13),
-        native_session_id=value(row, "native_session_id", 14),
-        attestation_hash=value(row, "attestation_hash", 15),
-        attestation_consumed_at=value(row, "attestation_consumed_at", 16),
-        registered_session_id=value(row, "registered_session_id", 17),
-        deadline_at=str(value(row, "deadline_at", 18)),
-        created_at=str(value(row, "created_at", 19)),
-        assigned_at=value(row, "assigned_at", 20),
-        launching_at=value(row, "launching_at", 21),
-        awaiting_registration_at=value(row, "awaiting_registration_at", 22),
-        completed_at=value(row, "completed_at", 23),
-        result_code=value(row, "result_code", 24),
-        result_evidence=value(row, "result_evidence", 25),
+        selected_surface=str(value(row, "selected_surface", 5)),
+        requested_machine_id=value(row, "requested_machine_id", 6),
+        requested_model=value(row, "requested_model", 7),
+        presentation_preference=value(row, "presentation_preference", 8),
+        allow_surface_fallback=bool(value(row, "allow_surface_fallback", 9)),
+        message_id=str(value(row, "message_id", 10)),
+        idempotency_key=value(row, "idempotency_key", 11),
+        state=str(value(row, "state", 12)),
+        assigned_relay_id=value(row, "assigned_relay_id", 13),
+        assigned_machine_id=value(row, "assigned_machine_id", 14),
+        native_session_id=value(row, "native_session_id", 15),
+        attestation_hash=value(row, "attestation_hash", 16),
+        attestation_consumed_at=value(row, "attestation_consumed_at", 17),
+        registered_session_id=value(row, "registered_session_id", 18),
+        deadline_at=str(value(row, "deadline_at", 19)),
+        created_at=str(value(row, "created_at", 20)),
+        assigned_at=value(row, "assigned_at", 21),
+        launching_at=value(row, "launching_at", 22),
+        awaiting_registration_at=value(row, "awaiting_registration_at", 23),
+        completed_at=value(row, "completed_at", 24),
+        result_code=value(row, "result_code", 25),
+        result_evidence=value(row, "result_evidence", 26),
     )
 
 
 def get_launch(conn: Any, launch_id: str, *, for_update: bool = False) -> LaunchRecord:
-    suffix = " FOR UPDATE" if for_update and db_backend.connection_is_postgres(conn) else ""
+    suffix = (
+        " FOR UPDATE" if for_update and db_backend.connection_is_postgres(conn) else ""
+    )
     p = marker(conn)
     row = conn.execute(
-        f"SELECT {LAUNCH_COLUMNS} FROM session_launches "
-        f"WHERE launch_id = {p}{suffix}",
+        f"SELECT {LAUNCH_COLUMNS} FROM session_launches WHERE launch_id = {p}{suffix}",
         (launch_id,),
     ).fetchone()
     if row is None:
@@ -133,7 +136,9 @@ def get_launch(conn: Any, launch_id: str, *, for_update: bool = False) -> Launch
 
 
 def get_launch_by_dedupe(
-    conn: Any, actor_id: int, idempotency_key: str,
+    conn: Any,
+    actor_id: int,
+    idempotency_key: str,
 ) -> LaunchRecord | None:
     p = marker(conn)
     row = conn.execute(
@@ -170,7 +175,13 @@ def list_launches(
     return [row_to_launch(row) for row in rows]
 
 
-def update_launch(conn: Any, launch_id: str, **changes: Any) -> LaunchRecord:
+def update_launch(
+    conn: Any,
+    launch_id: str,
+    *,
+    delivery_changed_at: str | None = None,
+    **changes: Any,
+) -> LaunchRecord:
     unknown = set(changes) - _MUTABLE_LAUNCH_COLUMNS
     if unknown:
         raise ValueError(f"unknown launch update columns: {sorted(unknown)}")
@@ -182,6 +193,25 @@ def update_launch(conn: Any, launch_id: str, **changes: Any) -> LaunchRecord:
         f"UPDATE session_launches SET {assignments} WHERE launch_id = {p}",
         (*changes.values(), launch_id),
     )
+    next_state = changes.get("state")
+    if next_state:
+        from yoke_core.domain.session_launch_delivery_state import (
+            TERMINAL_DELIVERY_STATES,
+            close_launch_delivery,
+            reopen_launch_delivery,
+        )
+
+        if next_state in TERMINAL_DELIVERY_STATES:
+            close_launch_delivery(
+                conn,
+                launch_id=launch_id,
+                state=str(next_state),
+                changed_at=str(
+                    delivery_changed_at or changes.get("completed_at") or utc_now()
+                ),
+            )
+        elif next_state in {"assigned", "awaiting_registration"}:
+            reopen_launch_delivery(conn, launch_id=launch_id)
     return get_launch(conn, launch_id)
 
 
@@ -228,8 +258,10 @@ def instruction_message(conn: Any, message_id: str) -> tuple[str, str, int]:
     ).fetchone()
     if row is None:
         raise SessionLaunchError("instruction_missing", "launch instruction is missing")
-    return str(value(row, "body", 0)), str(value(row, "body_sha256", 1)), int(
-        value(row, "sender_actor_id", 2)
+    return (
+        str(value(row, "body", 0)),
+        str(value(row, "body_sha256", 1)),
+        int(value(row, "sender_actor_id", 2)),
     )
 
 

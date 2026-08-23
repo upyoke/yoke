@@ -26,12 +26,14 @@ LAUNCH_PREVIEW_USAGE = (
 )
 LAUNCH_CREATE_USAGE = (
     "yoke session-control launch create --project P --surface S --stdin "
-    "--idempotency-key K [--machine M] [--model M] [--presentation P] [--json]"
+    "--idempotency-key K [--machine M] [--model M] [--presentation P] "
+    "[--allow-surface-fallback] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     "yoke sessions create --project P --surface S "
     "(--preview | --stdin --idempotency-key K) "
-    "[--machine M] [--model M] [--presentation P] [--json]"
+    "[--machine M] [--model M] [--presentation P] "
+    "[--allow-surface-fallback] [--json]"
 )
 LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
 LAUNCH_LIST_USAGE = (

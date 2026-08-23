@@ -21,7 +21,7 @@ def test_review_lists_plist_login_item_and_existing_token(monkeypatch) -> None:
 
     assert grouped["machine"] == [
         "Install the machine relay plist at "
-        "~/Library/LaunchAgents/com.upyoke.relay.plist",
+        "~/Library/LaunchAgents/com.upyoke.relay[.<environment-id>].plist",
         "Load the machine relay as a login item",
         "Reuse this machine's existing Yoke API token",
     ]

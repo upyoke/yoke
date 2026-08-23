@@ -47,7 +47,8 @@ class _ExtrasSuite(unittest.TestCase):
         self._patchers = [
             patch.object(events_module, "emit_event"),
             patch.object(
-                dispatch_module, "_idempotency_lookup",
+                dispatch_module,
+                "_idempotency_lookup",
                 lambda *_a, **_k: None,
             ),
             # Match the envelope's actor session so the actor-identity gate
@@ -93,43 +94,62 @@ class TestCoordinationLease(_ExtrasSuite):
             "yoke_core.domain.coordination_leases.acquire_lease",
             return_value=_FakeLease(id=10),
         ):
-            resp = dispatch(_envelope(
-                "claims.coordination_lease.acquire",
-                target={"kind": "global"},
-                payload={
-                    "project_id": "yoke",
-                    "lease_key": "LIVE_DB_MIGRATION:foo",
-                },
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.coordination_lease.acquire",
+                    target={"kind": "global"},
+                    payload={
+                        "project_id": "yoke",
+                        "lease_key": "LIVE_DB_MIGRATION:foo",
+                    },
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["lease"]["id"], 10)
 
     def test_heartbeat_returns_refreshed_lease(self):
-        with patch(
-            "yoke_core.domain.coordination_leases.heartbeat_lease",
-            return_value=_FakeLease(id=10, heartbeat_at="2026-05-13T07:01:00Z"),
+        with (
+            patch(
+                "yoke_core.domain.coordination_leases.get_lease",
+                return_value=_FakeLease(id=10),
+            ),
+            patch(
+                "yoke_core.domain.coordination_leases.heartbeat_lease",
+                return_value=_FakeLease(id=10, heartbeat_at="2026-05-13T07:01:00Z"),
+            ),
         ):
-            resp = dispatch(_envelope(
-                "claims.coordination_lease.heartbeat",
-                target={"kind": "global"},
-                payload={"lease_id": 10},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.coordination_lease.heartbeat",
+                    target={"kind": "global"},
+                    payload={"lease_id": 10},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["lease"]["heartbeat_at"], "2026-05-13T07:01:00Z")
 
     def test_release_returns_released_lease(self):
-        with patch(
-            "yoke_core.domain.coordination_leases.release_lease",
-            return_value=_FakeLease(
-                id=10, released_at="2026-05-13T07:02:00Z",
-                release_reason="done",
+        with (
+            patch(
+                "yoke_core.domain.coordination_leases.get_lease",
+                return_value=_FakeLease(id=10),
+            ),
+            patch(
+                "yoke_core.domain.coordination_leases.release_lease",
+                return_value=_FakeLease(
+                    id=10,
+                    released_at="2026-05-13T07:02:00Z",
+                    release_reason="done",
+                ),
             ),
         ):
-            resp = dispatch(_envelope(
-                "claims.coordination_lease.release",
-                target={"kind": "global"},
-                payload={"lease_id": 10, "reason": "done"},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.coordination_lease.release",
+                    target={"kind": "global"},
+                    payload={"lease_id": 10, "reason": "done"},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["lease"]["release_reason"], "done")
 
@@ -138,11 +158,13 @@ class TestCoordinationLease(_ExtrasSuite):
             "yoke_core.domain.coordination_leases.list_leases",
             return_value=[_FakeLease(id=10), _FakeLease(id=11)],
         ):
-            resp = dispatch(_envelope(
-                "claims.coordination_lease.list",
-                target={"kind": "global"},
-                payload={"project_id": "yoke"},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.coordination_lease.list",
+                    target={"kind": "global"},
+                    payload={"project_id": "yoke"},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(len(resp.result["leases"]), 2)
 
@@ -164,20 +186,26 @@ class _FakeActivationResult:
 class TestClaimsPathActivation(_ExtrasSuite):
     def _hold_item_claim(self):
         return patch.object(
-            claims_module, "who_claims_for_item",
+            claims_module,
+            "who_claims_for_item",
             return_value={"id": 1, "session_id": "s-1"},
         )
 
     def test_activation_run_returns_outcomes(self):
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.advance_path_claim_activation.run_activation_phase",
-            return_value=_FakeActivationResult(),
+        with (
+            self._hold_item_claim(),
+            patch(
+                "yoke_core.domain.advance_path_claim_activation.run_activation_phase",
+                return_value=_FakeActivationResult(),
+            ),
         ):
-            resp = dispatch(_envelope(
-                "claims.path.activation_run",
-                target={"kind": "item", "item_id": 1665},
-                payload={"item_id": 1665, "actor_id": 2},
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.path.activation_run",
+                    target={"kind": "item", "item_id": 1665},
+                    payload={"item_id": 1665, "actor_id": 2},
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["item_id"], 1665)
         self.assertEqual(resp.result["outcomes"], [])
@@ -192,15 +220,17 @@ class TestClaimsPathActivation(_ExtrasSuite):
             "yoke_core.domain.path_claim_coordination_decision.build_coordination_context",
             return_value=ctx,
         ):
-            resp = dispatch(_envelope(
-                "claims.path.coordination_decision_build",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "candidate_item_id": 1665,
-                    "conflicting_claim_id": 200,
-                    "shared_paths": ["runtime/x.py"],
-                },
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.path.coordination_decision_build",
+                    target={"kind": "item", "item_id": 1665},
+                    payload={
+                        "candidate_item_id": 1665,
+                        "conflicting_claim_id": 200,
+                        "shared_paths": ["runtime/x.py"],
+                    },
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["context"], ctx)
 
@@ -214,14 +244,16 @@ class TestClaimsPathActivation(_ExtrasSuite):
             "yoke_core.domain.path_claim_coordination_decision.build_coordination_context",
             return_value=ctx,
         ) as build:
-            resp = dispatch(_envelope(
-                "claims.path.coordination_decision_build",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "conflicting_claim_id": 200,
-                    "shared_paths": ["runtime/x.py"],
-                },
-            ))
+            resp = dispatch(
+                _envelope(
+                    "claims.path.coordination_decision_build",
+                    target={"kind": "item", "item_id": 1665},
+                    payload={
+                        "conflicting_claim_id": 200,
+                        "shared_paths": ["runtime/x.py"],
+                    },
+                )
+            )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["context"], ctx)
         self.assertEqual(build.call_args.kwargs["candidate_item_id"], 1665)

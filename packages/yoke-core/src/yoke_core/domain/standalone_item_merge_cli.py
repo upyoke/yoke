@@ -1,11 +1,4 @@
-"""Command surface that merges a standalone item and closes it out.
-
-Wraps :func:`yoke_core.domain.standalone_item_merge.merge_standalone_branch`
-with the item bookkeeping the merge boundary deliberately leaves to its
-caller: execution evidence, GitHub sync, and the terminal lifecycle
-transition, which runs the item's own workflow gates rather than bypassing
-them. Reached as ``yoke merge item <ITEM>``.
-"""
+"""Merge a standalone item and optionally close its lifecycle."""
 
 from __future__ import annotations
 
@@ -39,13 +32,14 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_resolution_error,
 )
 from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
-from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
+from yoke_core.domain.standalone_item_merge_qa import (
+    item_for_merge_phase,
+    preflight as qa_preflight,
+)
 from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
 from yoke_contracts.dash_evidence_status import status_argument_kwargs
 
-# Workflows whose terminal transition is gated on an execution-evidence
-# record. Other standalone workflows merge through the same boundary but
-# carry no evidence section.
+# Workflows whose terminal transition requires an execution-evidence record.
 EVIDENCE_WORKFLOWS = frozenset({"dash"})
 
 
@@ -98,7 +92,8 @@ def _transition_to_done(
     # the lane head, leaving only the merge commit reachable from the target.
     landed = any(
         git.is_landed(str(repo_root), sha, target)
-        for sha in (commit_sha, merge_sha) if sha
+        for sha in (commit_sha, merge_sha)
+        if sha
     )
     if not landed:
         return (
@@ -123,30 +118,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="yoke merge item")
     parser.add_argument("item")
     parser.add_argument("--project")
-    parser.add_argument(
-        "--target", default="", help="Base branch override; defaults to the "
-        "project's default branch.",
-    )
-    parser.add_argument(
-        "--session-id", default=os.environ.get("YOKE_SESSION_ID", ""),
-    )
+    parser.add_argument("--target", default="", help="Override the base branch.")
+    parser.add_argument("--session-id", default=os.environ.get("YOKE_SESSION_ID", ""))
     parser.add_argument("--result", default="", help="What changed or was learned.")
-    parser.add_argument(
-        "--verification", default="", help="Checks run and their evidence.",
-    )
+    parser.add_argument("--verification", default="", help="Verification evidence.")
     parser.add_argument("--verification-status", **status_argument_kwargs())
-    parser.add_argument(
-        "--no-changes", action="store_true",
-        help="Record a verified no-change result instead of touched files.",
+    boolean_options = (
+        ("--no-changes", "Record a verified no-change result."),
+        ("--skip-status", "Merge without changing lifecycle status."),
+        ("--pr", "Merge through a pull request."),
     )
-    parser.add_argument(
-        "--skip-status", action="store_true",
-        help="Merge and record evidence, but leave the lifecycle status alone.",
-    )
-    parser.add_argument(
-        "--pr", action="store_true",
-        help="Merge through a pull request instead of merging directly.",
-    )
+    for flag, help_text in boolean_options:
+        parser.add_argument(flag, action="store_true", help=help_text)
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -177,7 +160,8 @@ def run(argv: List[str]) -> int:
     lane_error = lane_resolution_error(item)
     if active_lanes(item) and lane_error:
         return _fail(
-            f"{item_ref}: {lane_error}", as_json=as_json,
+            f"{item_ref}: {lane_error}",
+            as_json=as_json,
         )
 
     branch = lane_branch(item, item_ref)
@@ -186,7 +170,10 @@ def run(argv: List[str]) -> int:
         # A claim released by a close-out that already completed is not a
         # refusal to report; the item's own record says the work landed.
         closed_out = evidence.closed_out_envelope(
-            item, item_ref=item_ref, branch=branch, claim_note=claim_error,
+            item,
+            item_ref=item_ref,
+            branch=branch,
+            claim_note=claim_error,
         )
         if closed_out is not None:
             print(json.dumps(closed_out, indent=2, sort_keys=True))
@@ -199,10 +186,9 @@ def run(argv: List[str]) -> int:
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
     _ensure_usable_cwd(repo_root, lane_path(item))
-    pruned_lane = (
-        not active_lanes(item) and recovery.branch_needs_receipt(
-            str(repo_root), branch,
-        )
+    pruned_lane = not active_lanes(item) and recovery.branch_needs_receipt(
+        str(repo_root),
+        branch,
     )
     if claim_error or pruned_lane:
         receipt, recovery_error = recovery.reacquire_landed_claim(
@@ -219,12 +205,22 @@ def run(argv: List[str]) -> int:
                 as_json=as_json,
             )
         item = recovery.with_recorded_head(item, receipt)
+    qa_item = item_for_merge_phase(
+        item,
+        leaves_status_unchanged=bool(args.skip_status),
+    )
     commit_sha, qa_error = qa_preflight(
-        item, item_ref=item_ref, repo_root=repo_root, branch=branch,
+        qa_item,
+        item_ref=item_ref,
+        repo_root=repo_root,
+        branch=branch,
     )
     if qa_error:
         commit_sha, qa_error = commit_bound.recover_and_recheck(
-            item, item_ref=item_ref, repo_root=repo_root, branch=branch,
+            qa_item,
+            item_ref=item_ref,
+            repo_root=repo_root,
+            branch=branch,
             qa_error=qa_error,
             rerecord=commit_bound.rerecord_hand_run,
             run_case=commit_bound.rerun_command_case,
@@ -283,7 +279,8 @@ def run(argv: List[str]) -> int:
         # that succeeds on retry reports the failed try. The record's own
         # state answers for this merge, not the attempt's return.
         if write_error and not evidence.recorded_covers_merge(
-            item_id, outcome.merge_sha,
+            item_id,
+            outcome.merge_sha,
         ):
             envelope["ok"] = False
             envelope["error"] = f"merge landed, evidence refused: {write_error}"
@@ -306,7 +303,11 @@ def run(argv: List[str]) -> int:
     if not args.skip_status:
         _announce_close_out("terminal transition")
         transition_error = _transition_to_done(
-            item_id, status, repo_root, target, outcome.commit_sha,
+            item_id,
+            status,
+            repo_root,
+            target,
+            outcome.commit_sha,
             outcome.merge_sha,
         )
         if transition_error:
@@ -319,11 +320,15 @@ def run(argv: List[str]) -> int:
             return 1
         envelope["status"] = "done"
         _announce_close_out("lane cleanup")
-        envelope["warnings"].extend(cleanup_terminal_item_lanes(
-            {**item, "claim": None}, target_status="done",
-            session_id=str(args.session_id),
-            repo_root=repo_root, target_branch=target,
-        ))
+        envelope["warnings"].extend(
+            cleanup_terminal_item_lanes(
+                {**item, "claim": None},
+                target_status="done",
+                session_id=str(args.session_id),
+                repo_root=repo_root,
+                target_branch=target,
+            )
+        )
 
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0

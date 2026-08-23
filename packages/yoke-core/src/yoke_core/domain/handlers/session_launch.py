@@ -24,6 +24,10 @@ from yoke_core.domain.session_launch_types import (
     LaunchRequest,
     SessionLaunchError,
 )
+from yoke_core.domain.session_launch_projection import (
+    public_launch_record,
+    public_launch_records,
+)
 
 
 def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome:
@@ -135,8 +139,17 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
             project_id=project_id,
             surface=parsed.executor_surface,
             machine_id=parsed.machine_id,
+            allow_surface_fallback=parsed.allow_surface_fallback,
+            surface_fallback_enabled=bool(
+                _fleet_policy(conn, project_id, "fleet.surface_fallback")
+            ),
+            auto_select_machine=bool(
+                _fleet_policy(conn, project_id, "fleet.auto_select_machine")
+            ),
         )
-        return HandlerOutcome(result_payload=preview.to_dict())
+        payload = preview.to_dict()
+        payload["requested_model"] = parsed.model
+        return HandlerOutcome(result_payload=payload)
     except Exception as exc:
         return _domain_error(exc)
     finally:
@@ -171,10 +184,16 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                 deadline_seconds=deadline_seconds,
             ),
             max_body_bytes=max_body_bytes,
+            surface_fallback_enabled=bool(
+                _fleet_policy(conn, project_id, "fleet.surface_fallback")
+            ),
+            auto_select_machine=bool(
+                _fleet_policy(conn, project_id, "fleet.auto_select_machine")
+            ),
         )
         return HandlerOutcome(
             result_payload={
-                "launch": outcome.launch.to_dict(),
+                "launch": public_launch_record(outcome.launch),
                 "preview": outcome.preview.to_dict(),
                 "deduplicated": outcome.deduplicated,
             }
@@ -186,8 +205,10 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def _launch_and_auth(conn: Any, request: FunctionCallRequest, launch_id: str):
+    from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
     from yoke_core.domain.session_launch_store import get_launch
 
+    settle_launch_deadlines(conn, launch_id=launch_id)
     launch = get_launch(conn, launch_id)
     return launch, _authorization(conn, request, launch.project_id)
 
@@ -201,7 +222,7 @@ def handle_launch_get(request: FunctionCallRequest) -> HandlerOutcome:
         launch, auth = _launch_and_auth(conn, request, parsed.launch_id)
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
-        return HandlerOutcome(result_payload={"launch": launch.to_dict()})
+        return HandlerOutcome(result_payload={"launch": public_launch_record(launch)})
     except Exception as exc:
         return _domain_error(exc)
     finally:
@@ -212,7 +233,8 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchListRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
-    from yoke_core.domain.session_launch_store import list_launches, rows_to_dicts
+    from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
+    from yoke_core.domain.session_launch_store import list_launches
 
     conn = _open()
     try:
@@ -220,7 +242,8 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
         auth = _authorization(conn, request, project_id)
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
-        rows = rows_to_dicts(
+        settle_launch_deadlines(conn, project_id=project_id)
+        rows = public_launch_records(
             list_launches(
                 conn,
                 project_id=project_id,
@@ -261,6 +284,20 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
                     )
                 )
                 * 60,
+                surface_fallback_enabled=bool(
+                    _fleet_policy(
+                        conn,
+                        launch_record.project_id,
+                        "fleet.surface_fallback",
+                    )
+                ),
+                auto_select_machine=bool(
+                    _fleet_policy(
+                        conn,
+                        launch_record.project_id,
+                        "fleet.auto_select_machine",
+                    )
+                ),
             )
         else:
             from yoke_core.domain.session_launch_execution import reconcile_launch
@@ -271,7 +308,7 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
                 auth=auth,
                 observed_native_id=parsed.observed_native_id,
             )
-        return HandlerOutcome(result_payload={"launch": launch.to_dict()})
+        return HandlerOutcome(result_payload={"launch": public_launch_record(launch)})
     except Exception as exc:
         return _domain_error(exc)
     finally:

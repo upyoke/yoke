@@ -9,6 +9,8 @@ repeated runs are no-ops.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,10 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised by Python 3.10 CI
     import tomli as tomllib  # type: ignore[no-redef]
 
+from yoke_core.domain.codex_hook_trust_identity import (
+    codex_hook_hashes,
+    codex_hook_hashes_from_document,
+)
 from yoke_core.domain.worktree_codex_hook_trust import (
     REASON_CONTENT_DIFFERS,
     REASON_SOURCE_UNTRUSTED,
@@ -28,7 +34,25 @@ from yoke_core.domain.worktree_codex_hook_trust import (
 from yoke_core.domain.worktree_provision import provision_worktree_hook_trust
 
 
-HOOKS_BODY = '{"hooks": {"SessionStart": []}}'
+START_COMMAND = "yoke hook evaluate SessionStart"
+TOOL_COMMAND = "yoke hook evaluate PreToolUse"
+HOOKS_DOCUMENT = {
+    "hooks": {
+        "SessionStart": [
+            {
+                "matcher": "startup|resume",
+                "hooks": [{"type": "command", "command": START_COMMAND}],
+            }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": TOOL_COMMAND}],
+            }
+        ],
+    }
+}
+HOOKS_BODY = json.dumps(HOOKS_DOCUMENT)
 SUFFIXES = ("session_start:0:0", "pre_tool_use:0:0")
 
 
@@ -49,9 +73,12 @@ def _config(path: Path, trusted: dict) -> Path:
     return path
 
 
-def _trust_for(checkout: Path, prefix: str = "sha256:aa") -> dict:
+def _trust_for(checkout: Path) -> dict:
     hooks = checkout / ".codex" / "hooks.json"
-    return {f"{hooks}:{suffix}": f"{prefix}{i}" for i, suffix in enumerate(SUFFIXES)}
+    return {
+        f"{hooks}:{suffix}": digest
+        for suffix, digest in codex_hook_hashes(hooks).items()
+    }
 
 
 @pytest.fixture()
@@ -144,13 +171,52 @@ def test_an_entry_carrying_a_different_hash_reads_as_stale(lanes):
     source, worktree, config = lanes
     trusted = _trust_for(source)
     hooks = worktree / ".codex" / "hooks.json"
-    trusted[f"{hooks}:{SUFFIXES[0]}"] = "sha256:drifted"
+    modified = json.loads(HOOKS_BODY)
+    modified["hooks"]["SessionStart"][0]["hooks"][0]["command"] += " changed"
+    trusted[f"{hooks}:{SUFFIXES[0]}"] = codex_hook_hashes_from_document(modified)[
+        SUFFIXES[0]
+    ]
     _config(config, trusted)
 
     result = inspect_hook_trust(str(source), str(worktree), config_path=config)
 
     assert result.stale == (SUFFIXES[0],)
     assert result.hooks_fire is False
+
+
+def test_hash_normalization_includes_codex_command_defaults():
+    identity = {
+        "event_name": "stop",
+        "hooks": [
+            {
+                "async": False,
+                "command": "yoke hook evaluate Stop",
+                "timeout": 600,
+                "type": "command",
+            }
+        ],
+    }
+    canonical = json.dumps(
+        identity, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    expected = f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+
+    actual = codex_hook_hashes_from_document(
+        {
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "ignored",
+                        "hooks": [
+                            {"command": "yoke hook evaluate Stop", "type": "command"}
+                        ],
+                    }
+                ]
+            }
+        }
+    )
+
+    assert actual == {"stop:0:0": expected}
 
 
 def test_an_untrusted_source_has_nothing_to_mirror(tmp_path: Path):

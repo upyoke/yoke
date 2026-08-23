@@ -10,6 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.session_turn_posture import (
+    TURN_POSTURE_AT_COLUMN_DDL,
+    TURN_POSTURE_COLUMN_DDL,
+)
 from yoke_contracts.executor_labels import (
     CANONICAL_HARNESS_IDS,
     KNOWN_SURFACE_LABELS,
@@ -23,7 +27,9 @@ def create_session_tables(conn: Any) -> None:
     surface_values = ", ".join(
         f"'{surface}'" for surface in sorted(KNOWN_SURFACE_LABELS)
     )
-    execute_schema_script(conn, f"""
+    execute_schema_script(
+        conn,
+        f"""
         CREATE TABLE IF NOT EXISTS harness_sessions (
           session_id TEXT PRIMARY KEY,
           executor TEXT NOT NULL CHECK(executor IN ({executor_values})),
@@ -39,6 +45,8 @@ def create_session_tables(conn: Any) -> None:
           mode TEXT DEFAULT 'wait',
           offered_at TEXT NOT NULL,
           last_heartbeat TEXT NOT NULL,
+          turn_posture {TURN_POSTURE_COLUMN_DDL},
+          turn_posture_at {TURN_POSTURE_AT_COLUMN_DDL},
           ended_at TEXT,
           offer_envelope TEXT,
           current_item_id TEXT DEFAULT NULL,
@@ -106,4 +114,5 @@ def create_session_tables(conn: Any) -> None:
         CREATE UNIQUE INDEX IF NOT EXISTS idx_work_claims_active_process_conflict
           ON work_claims(conflict_group)
           WHERE released_at IS NULL AND target_kind='process';
-    """)
+    """,
+    )

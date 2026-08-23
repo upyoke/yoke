@@ -128,7 +128,7 @@ jobs:
       - name: Build and push the native content-addressed image
         id: push
         # The digest is pushed without sha12/latest. /v1/health exposes the
-        # baked source SHA12, while package versions come directly from the
+        # baked full source SHA, while package versions come directly from the
         # validated release tag rather than a branch development version.
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -141,13 +141,13 @@ jobs:
           outputs: type=image,name=${{ needs.validate-tag.outputs.repository }},push-by-digest=true,name-canonical=true,push=true
           provenance: false
           build-args: |
-            YOKE_BUILD_SHA=${{ needs.validate-tag.outputs.sha_tag }}
+            YOKE_BUILD_SHA=${{ needs.validate-tag.outputs.source_sha }}
             YOKE_ENGINE_VERSION=${{ needs.validate-tag.outputs.release_version }}
 
       - name: Verify native architecture and installed release metadata
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
-          EXPECTED_BUILD: ${{ needs.validate-tag.outputs.sha_tag }}
+          EXPECTED_BUILD: ${{ needs.validate-tag.outputs.source_sha }}
           EXPECTED_VERSION: ${{ needs.validate-tag.outputs.release_version }}
           PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
           REPOSITORY: ${{ needs.validate-tag.outputs.repository }}

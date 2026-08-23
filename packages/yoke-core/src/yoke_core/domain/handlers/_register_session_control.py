@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from yoke_contracts.session_control import models as _models
+from yoke_contracts.session_control.private_route_qualification import (
+    PrivateRouteQualificationOpenRequest,
+    PrivateRouteQualificationOpenResponse,
+)
 from yoke_core.domain.handlers import session_launch as _launch
 from yoke_core.domain.handlers import session_messages as _messages
 from yoke_core.domain.handlers import session_messages_receipts as _receipts
 from yoke_core.domain.handlers import session_relay as _relay
+from yoke_core.domain.handlers import session_qualification as _qualification
 
 
 def _register(
@@ -19,6 +24,8 @@ def _register(
     side_effects,
     owner_module,
     adapter_status="live",
+    guardrails=None,
+    claim_required_kind=None,
 ) -> None:
     registry.register(
         function_id,
@@ -30,14 +37,30 @@ def _register(
         target_kinds=["global"],
         side_effects=side_effects,
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["verified_actor", "handler_enforced_project_authority"],
+        guardrails=guardrails
+        or ["verified_actor", "handler_enforced_project_authority"],
         adapter_status=adapter_status,
-        claim_required_kind=None,
+        claim_required_kind=claim_required_kind,
         ambient_session_required=False,
     )
 
 
 def register(registry) -> None:
+    _register(
+        registry,
+        "session_control.qualification.open",
+        _qualification.handle_qualification_open,
+        PrivateRouteQualificationOpenRequest,
+        PrivateRouteQualificationOpenResponse,
+        side_effects=["coordination_leases_insert"],
+        owner_module=_qualification.__name__,
+        guardrails=[
+            "operator_override_required",
+            "handler_enforced_project_authority",
+            "stage_only_exact_release",
+        ],
+        claim_required_kind="operator_override",
+    )
     message_specs = (
         (
             "preview",
@@ -72,7 +95,10 @@ def register(registry) -> None:
             _receipts.handle_message_acknowledge,
             _models.MessageAcknowledgeRequest,
             _models.MessageMutationResponse,
-            ["session_message_recipients_update"],
+            [
+                "session_message_recipients_update",
+                "coordination_leases_update_released_at",
+            ],
         ),
         (
             "cancel",
@@ -179,7 +205,11 @@ def register(registry) -> None:
         _relay.handle_relay_claim,
         _models.RelayClaimRequest,
         _models.RelayClaimResponse,
-        side_effects=["session_relays_upsert", "session_control_jobs_lease"],
+        side_effects=[
+            "session_relays_upsert",
+            "session_control_jobs_lease",
+            "coordination_leases_update_released_at",
+        ],
         owner_module=_relay.__name__,
         adapter_status="internal",
     )

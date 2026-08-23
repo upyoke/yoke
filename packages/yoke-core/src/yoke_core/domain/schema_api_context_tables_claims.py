@@ -39,6 +39,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("project_id", "INTEGER"),
             ("offered_at", "TEXT"),
             ("last_heartbeat", "TEXT"),
+            ("turn_posture", "TEXT"),
+            ("turn_posture_at", "TEXT"),
             ("ended_at", "TEXT"),
             ("last_tool_call_at", "TEXT"),
             ("tool_call_count", "INTEGER"),
@@ -88,7 +90,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             "`recent_item_status`, neither named `state` — and NO "
             "`started_at` column: the session-offer timestamp is "
             "`offered_at`, with liveness / teardown on last_heartbeat / "
-            "ended_at. Tool-call liveness is first-class state: "
+            "ended_at. Native turn posture is first-class state: "
+            "turn_posture is running|waiting|unknown and turn_posture_at "
+            "orders accepted hook/activity observations independently of "
+            "claims, chain progress, and ended_at. Tool-call liveness is "
+            "first-class state: "
             "last_tool_call_at / tool_call_count are stamped by the "
             "observe pipeline on each HarnessToolCallCompleted/Failed — "
             "read these columns, never MAX(events.created_at) (the "

@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from yoke_harness.session_relay_cursor import (
     CursorNativeResult,
     build_cursor_adapter,
@@ -79,12 +81,14 @@ def _wake(
     surface: str = "cursor-cli",
     instruction=None,
     liveness: str = "ended",
+    wake_mode: str = "waiting",
+    job_id: str = "wake-attempt",
 ):
     message_id = "33333333-3333-4333-8333-333333333333"
     expected = f"Yoke message {message_id}: check your Yoke messages."
     return RelayExecutionContext(
         job_kind="wake",
-        job_id="wake-attempt",
+        job_id=job_id,
         lease_id="lease-wake",
         surface=surface,
         surface_version="2026.08.11-e8db854",
@@ -94,6 +98,7 @@ def _wake(
         message_id=message_id,
         target_session_id="cursor-session-existing",
         target_liveness=liveness,
+        wake_mode=wake_mode,
     )
 
 
@@ -139,7 +144,7 @@ def test_idle_wake_uses_acp_without_resuming_a_stopped_chat(tmp_path):
     acp = FakeAcp()
 
     result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
-        _wake(tmp_path, liveness="stale")
+        _wake(tmp_path, liveness="stale", wake_mode="idle_timeout")
     )
 
     assert result.result_code == "accepted"
@@ -150,19 +155,52 @@ def test_idle_wake_uses_acp_without_resuming_a_stopped_chat(tmp_path):
     assert cli.resume_requests == []
 
 
-def test_stopped_wake_resumes_only_after_acp_reports_not_found(tmp_path):
+@pytest.mark.parametrize("scenario", ["claim-held", "chain-pending"])
+def test_waiting_wake_resumes_active_labeled_stopped_chat(tmp_path, scenario):
+    cli = FakeSubprocess()
+    acp = FakeAcp()
+
+    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+        _wake(
+            tmp_path,
+            liveness="active",
+            wake_mode="waiting",
+            job_id=scenario,
+        )
+    )
+
+    assert result.result_code == "accepted"
+    assert acp.prompt_requests == []
+    assert len(cli.resume_requests) == 1
+    assert cli.resume_requests[0].target_session_id == "cursor-session-existing"
+
+
+def test_idle_timeout_resumes_only_after_acp_reports_not_found(tmp_path):
     cli = FakeSubprocess()
     acp = FakeAcp()
     acp.prompt_result = CursorNativeResult("not_found")
 
     result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
-        _wake(tmp_path, liveness="stale")
+        _wake(tmp_path, liveness="stale", wake_mode="idle_timeout")
     )
 
     assert result.result_code == "accepted"
     assert len(acp.prompt_requests) == 1
     assert len(cli.resume_requests) == 1
-    assert cli.resume_requests[0].target_session_id == "cursor-session-existing"
+
+
+@pytest.mark.parametrize("wake_mode", [None, "invented"])
+def test_invalid_wake_mode_fails_before_native_transport(tmp_path, wake_mode):
+    cli = FakeSubprocess()
+    acp = FakeAcp()
+
+    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+        _wake(tmp_path, liveness="active", wake_mode=wake_mode)
+    )
+
+    assert result.result_code == "failed"
+    assert cli.resume_requests == []
+    assert acp.prompt_requests == []
 
 
 def test_non_cursor_cli_and_untrusted_native_text_fail_before_transport(tmp_path):
@@ -214,7 +252,7 @@ def test_uncertain_native_failures_do_not_fall_through_to_a_second_route(tmp_pat
 
     acp.prompt_session = uncertain
     result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
-        _wake(tmp_path, liveness="stale")
+        _wake(tmp_path, liveness="stale", wake_mode="idle_timeout")
     )
 
     assert result.result_code == "outcome_unknown"

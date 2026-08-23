@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 import sqlite3
+
+import pytest
 
 from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
 from yoke_core.domain.session_control_roster import (
     SESSION_CONTROL_ROSTER_FIELDS,
     session_control_roster_result,
 )
+
+
+NOW = datetime(2026, 8, 22, 12, 1, tzinfo=timezone.utc)
 
 
 def _connection() -> sqlite3.Connection:
@@ -19,17 +25,23 @@ def _connection() -> sqlite3.Connection:
         """
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
+            project_id INTEGER,
+            executor_surface TEXT,
             executor_version TEXT,
             machine_id TEXT,
             last_heartbeat TEXT,
             last_tool_call_at TEXT,
-            ended_at TEXT
+            ended_at TEXT,
+            turn_posture TEXT,
+            turn_posture_at TEXT
         );
         CREATE TABLE session_relays (
             relay_id TEXT PRIMARY KEY,
             machine_id TEXT,
             connected_until TEXT,
-            state TEXT
+            state TEXT,
+            surface_versions TEXT,
+            project_checkouts TEXT
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,
@@ -59,38 +71,68 @@ def _connection() -> sqlite3.Connection:
     return conn
 
 
-def test_roster_enriches_version_machine_relay_and_messageability() -> None:
-    conn = _connection()
+def _add_session(
+    conn: sqlite3.Connection,
+    *,
+    surface: str,
+    version: str,
+    posture: str = "running",
+    project_id: int = 10,
+) -> None:
     conn.execute(
-        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?)",
+        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?)",
         (
             "session-1",
-            "26.814.41407",
+            project_id,
+            surface,
+            version,
             "machine-1",
             "2026-08-22T12:00:00Z",
             "2026-08-22T12:00:00Z",
             None,
+            posture,
+            "2026-08-22T12:00:00Z",
         ),
     )
+
+
+def _add_relay(
+    conn: sqlite3.Connection,
+    *,
+    surface_versions: dict[str, str],
+    project_ids: tuple[int, ...] = (10,),
+) -> None:
     conn.execute(
-        "INSERT INTO session_relays VALUES (?,?,?,?)",
+        "INSERT INTO session_relays VALUES (?,?,?,?,?,?)",
         (
             "relay-1",
             "machine-1",
             "2026-08-22T12:05:00Z",
             "active",
+            json.dumps(surface_versions),
+            json.dumps(project_ids),
         ),
     )
+
+
+def _base_row(*, surface: str, liveness: str) -> dict[str, object]:
+    return {
+        "session_id": "session-1",
+        "project": "yoke",
+        "claims": [],
+        "executor": surface.split("-", 1)[0],
+        "executor_surface": surface,
+        "liveness": liveness,
+    }
+
+
+def test_roster_enriches_version_machine_relay_and_messageability() -> None:
+    conn = _connection()
+    _add_session(conn, surface="codex-desktop", version="26.814.41407")
+    _add_relay(conn, surface_versions={"codex-desktop": "26.814.41407"})
     conn.execute(
         "INSERT INTO item_worktrees VALUES (?,?,?,?,?,?)",
-        (
-            1,
-            TEST_ITEM_ID,
-            "/repo/.worktrees/item-42",
-            "item-42",
-            "active",
-            "worker",
-        ),
+        (1, TEST_ITEM_ID, "/repo/.worktrees/item-42", "item-42", "active", "worker"),
     )
     conn.execute(
         "INSERT INTO work_claims VALUES (?,?,?,?,?,?,?,?)",
@@ -105,26 +147,18 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
             None,
         ),
     )
-    base = [
+    base = _base_row(surface="codex-desktop", liveness="active")
+    base.update(
         {
-            "session_id": "session-1",
-            "project": "yoke",
             "claims": [{"target_kind": "item", "target": TEST_ITEM_REF}],
             "current_item": TEST_ITEM_REF,
             "work_role": "implementation",
             "workspace": "/repo",
-            "executor": "codex",
-            "executor_surface": "codex-desktop",
-            "liveness": "active",
             "messageability": {"messageable": False, "reason": "stale-cache"},
         }
-    ]
-
-    result = session_control_roster_result(
-        base,
-        conn=conn,
-        now=datetime(2026, 8, 22, 12, 1, tzinfo=timezone.utc),
     )
+
+    result = session_control_roster_result([base], conn=conn, now=NOW)
 
     assert result["fields"] == list(SESSION_CONTROL_ROSTER_FIELDS)
     row = result["rows"][0]
@@ -134,9 +168,75 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     assert row["executor_version"] == "26.814.41407"
     assert row["machine_id"] == "machine-1"
     assert row["relay"] == "connected"
+    assert row["turn_posture"] == "running"
     assert row["messageability"]["messageable"] is True
     assert row["messageability"]["relay_connected"] is True
     assert row["messageability"]["wake_available"] is True
+
+
+def test_waiting_posture_uses_stopped_wake_capability() -> None:
+    conn = _connection()
+    _add_session(
+        conn,
+        surface="codex-cli",
+        version="0.148.0-alpha.15",
+        posture="waiting",
+    )
+    _add_relay(conn, surface_versions={"codex-cli": "0.148.0-alpha.15"})
+
+    row = session_control_roster_result(
+        [_base_row(surface="codex-cli", liveness="active")],
+        conn=conn,
+        now=NOW,
+    )["rows"][0]
+
+    assert row["turn_posture"] == "waiting"
+    assert row["messageability"]["wake_operation"] == "message_stopped"
+    assert row["messageability"]["wake_interface"] == "supported"
+    assert row["messageability"]["wake_available"] is True
+
+
+def test_private_wake_route_requires_the_exact_pinned_version() -> None:
+    conn = _connection()
+    _add_session(conn, surface="claude-desktop", version="1.34493.1")
+    _add_relay(conn, surface_versions={"claude-desktop": "1.32885.1"})
+
+    routing = session_control_roster_result(
+        [_base_row(surface="claude-desktop", liveness="stale")],
+        conn=conn,
+        now=NOW,
+    )["rows"][0]["messageability"]
+
+    assert routing["hook_injection"] is True
+    assert routing["wake_operation"] == "message_idle"
+    assert routing["wake_interface"] == "none"
+    assert routing["wake_available"] is False
+
+
+@pytest.mark.parametrize(
+    ("surface_versions", "project_ids"),
+    (
+        ({"codex-cli": "0.148.0-alpha.15"}, (10,)),
+        ({"codex-desktop": "26.813.1"}, (10,)),
+        ({"codex-desktop": "26.814.41407"}, (11,)),
+    ),
+)
+def test_connected_relay_is_not_wakeable_without_an_exact_route(
+    surface_versions: dict[str, str],
+    project_ids: tuple[int, ...],
+) -> None:
+    conn = _connection()
+    _add_session(conn, surface="codex-desktop", version="26.814.41407")
+    _add_relay(conn, surface_versions=surface_versions, project_ids=project_ids)
+
+    routing = session_control_roster_result(
+        [_base_row(surface="codex-desktop", liveness="active")],
+        conn=conn,
+        now=NOW,
+    )["rows"][0]["messageability"]
+
+    assert routing["relay_connected"] is True
+    assert routing["wake_available"] is False
 
 
 def test_empty_roster_has_the_complete_stable_field_contract() -> None:

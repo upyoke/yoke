@@ -1,5 +1,3 @@
-"""Concurrent hook lease, completion, expiry, and wake tests."""
-
 from __future__ import annotations
 
 import json
@@ -7,19 +5,29 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
+import pytest
+
+import yoke_core.domain.session_message_delivery as message_delivery
 from yoke_core.domain.session_message_delivery import (
     complete_hook_lease,
     expire_due_recipients,
     lease_for_hook,
 )
+from yoke_core.domain.session_message_observer import read_for_hook
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.domain.session_turn_posture import stamp_turn_posture
 from runtime.api.domain.test_session_message_support import (
     NOW,
     NOW_TEXT,
     message_connection,
     selector,
 )
+
+
+@pytest.fixture(autouse=True)
+def _fixed_message_clock(monkeypatch):
+    monkeypatch.setattr(message_delivery, "utc_now", lambda: NOW)
 
 
 def _send(conn, *, body="Persistent instructions.") -> str:
@@ -37,7 +45,7 @@ def test_hook_completion_reinjects_until_explicit_acknowledgment() -> None:
     conn = message_connection()
     message_id = _send(conn)
 
-    first = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    first = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert first == {
         "lease_id": first["lease_id"],
         "messages": [
@@ -99,13 +107,44 @@ def test_sibling_denial_releases_without_marking_injected() -> None:
     assert lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
 
 
-def test_hook_lease_refuses_non_model_visible_event() -> None:
+def test_child_observer_reads_an_active_parent_lease_without_mutation() -> None:
+    conn = message_connection()
+    message_id = _send(conn)
+    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
+    assert lease
+    before = tuple(
+        conn.execute(
+            "SELECT state,injection_count,injection_lease_id "
+            "FROM session_message_recipients"
+        ).fetchone()
+    )
+
+    messages = read_for_hook(
+        conn,
+        session_id="s1",
+        hook_event="PreToolUse",
+        limit=10,
+        now=NOW,
+    )
+
+    after = tuple(
+        conn.execute(
+            "SELECT state,injection_count,injection_lease_id "
+            "FROM session_message_recipients"
+        ).fetchone()
+    )
+    assert [row["message_id"] for row in messages] == [message_id]
+    assert before == after == ("pending", 0, lease["lease_id"])
+    assert (
+        conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 1
+    )
+
+
+@pytest.mark.parametrize("event", ["Notification", "Stop"])
+def test_hook_lease_refuses_non_model_visible_event(event: str) -> None:
     conn = message_connection()
     _send(conn)
-    assert (
-        lease_for_hook(conn, session_id="s1", hook_event="Notification", limit=10)
-        is None
-    )
+    assert lease_for_hook(conn, session_id="s1", hook_event=event, limit=10) is None
     assert (
         conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 0
     )
@@ -121,7 +160,9 @@ def test_concurrent_hook_leases_exclude_the_same_receipt(tmp_path) -> None:
         conn = sqlite3.connect(str(path), timeout=5, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         try:
-            return lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+            return lease_for_hook(
+                conn, session_id="s1", hook_event="PreToolUse", limit=10
+            )
         finally:
             conn.close()
 
@@ -135,7 +176,7 @@ def test_concurrent_hook_leases_exclude_the_same_receipt(tmp_path) -> None:
 def test_expired_hook_lease_closes_old_attempt_before_releasing_again() -> None:
     conn = message_connection()
     _send(conn)
-    first = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    first = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert first
     conn.execute(
         "UPDATE session_message_recipients "
@@ -143,7 +184,7 @@ def test_expired_hook_lease_closes_old_attempt_before_releasing_again() -> None:
     )
     conn.commit()
 
-    second = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    second = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert second and second["lease_id"] != first["lease_id"]
     old = conn.execute(
         "SELECT completed_at,result_code FROM session_message_attempts "
@@ -157,7 +198,7 @@ def test_expired_hook_lease_closes_old_attempt_before_releasing_again() -> None:
 def test_central_expiry_closes_active_lease_and_prevents_completion() -> None:
     conn = message_connection()
     _send(conn)
-    lease = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert lease
 
     assert expire_due_recipients(conn, now=NOW + timedelta(hours=25)) == 1
@@ -205,10 +246,66 @@ def test_wake_eligibility_keys_off_hook_activity_and_excludes_live_injected() ->
     assert [row["message_id"] for row in stale] == [message_id]
 
 
+def test_waiting_pending_receipt_bypasses_idle_grace_without_an_injection_lease() -> (
+    None
+):
+    conn = message_connection()
+    stamp_turn_posture(
+        conn,
+        session_id="s1",
+        posture="waiting",
+        observed_at=NOW - timedelta(seconds=1),
+    )
+    conn.commit()
+    message_id = _send(conn)
+
+    rows = wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1))
+
+    assert [row["message_id"] for row in rows] == [message_id]
+
+
+def test_running_unknown_and_injected_receipts_keep_existing_idle_grace() -> None:
+    for posture in ("running", "unknown"):
+        conn = message_connection()
+        _send(conn)
+        conn.execute(
+            "UPDATE harness_sessions SET turn_posture=? WHERE session_id='s1'",
+            (posture,),
+        )
+        conn.commit()
+        assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
+
+    conn = message_connection()
+    _send(conn)
+    conn.execute("UPDATE harness_sessions SET turn_posture='waiting'")
+    conn.execute("UPDATE session_message_recipients SET state='injected'")
+    conn.commit()
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
+
+
+def test_waiting_receipt_with_injection_lease_does_not_wake_immediately() -> None:
+    conn = message_connection()
+    _send(conn)
+    conn.execute("UPDATE harness_sessions SET turn_posture='waiting'")
+    conn.execute(
+        "UPDATE session_message_recipients SET injection_lease_id='hook-lease',"
+        "injection_lease_expires_at='2026-08-22T16:01:00Z'"
+    )
+    conn.commit()
+
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
+    conn.execute(
+        "UPDATE session_message_recipients SET "
+        "injection_lease_expires_at='2026-08-22T15:59:59Z'"
+    )
+    conn.commit()
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
+
+
 def test_reinjection_policy_disables_both_repeat_hook_and_injected_wake() -> None:
     conn = message_connection()
     _send(conn)
-    lease = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert lease
     complete_hook_lease(
         conn, lease_id=lease["lease_id"], injected=True, result="injected"
@@ -222,7 +319,10 @@ def test_reinjection_policy_disables_both_repeat_hook_and_injected_wake() -> Non
         "last_tool_call_at='2000-01-01T00:00:00Z' WHERE session_id='s1'"
     )
     conn.commit()
-    assert lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10) is None
+    assert (
+        lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
+        is None
+    )
     assert wake_eligible_recipients(conn, now=NOW + timedelta(hours=1)) == []
 
 
@@ -231,14 +331,14 @@ def test_hook_completion_closes_bound_launch_in_the_same_mutation() -> None:
     message_id = _send(conn)
     conn.execute(
         "INSERT INTO session_launches "
-        "(launch_id,requester_actor_id,project_id,requested_surface,message_id,"
+        "(launch_id,requester_actor_id,project_id,requested_surface,selected_surface,message_id,"
         "state,registered_session_id,deadline_at,created_at) "
-        "VALUES ('launch-1',10,1,'codex-desktop',?,'awaiting_registration',"
+        "VALUES ('launch-1',10,1,'codex-desktop','codex-desktop',?,'awaiting_registration',"
         "'s1','2026-08-22T17:00:00Z',?)",
         (message_id, NOW_TEXT),
     )
     conn.commit()
-    lease = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert lease
     complete_hook_lease(
         conn, lease_id=lease["lease_id"], injected=True, result="injected"

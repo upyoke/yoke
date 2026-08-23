@@ -18,48 +18,6 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 
-#: Row keys of the single-session liveness projection (``session_id`` filter).
-SESSION_LIVENESS_FIELDS = ("session_id", "liveness", "ended_at", "activity_at")
-
-
-def _session_liveness_row(session_id: str) -> Optional[Dict[str, Any]]:
-    """One session's liveness projection, or ``None`` when unregistered."""
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.session_staleness import activity_is_stale
-    from yoke_core.domain.sessions_list_read import (
-        LIVENESS_ACTIVE,
-        LIVENESS_ENDED,
-        LIVENESS_STALE,
-        _latest_activity,
-    )
-
-    conn = connect()
-    try:
-        row = conn.execute(
-            "SELECT session_id, ended_at, last_heartbeat, last_tool_call_at, "
-            "executor FROM harness_sessions WHERE session_id = %s",
-            (session_id,),
-        ).fetchone()
-    finally:
-        conn.close()
-    if row is None:
-        return None
-    activity_at, _parsed = _latest_activity(
-        row["last_heartbeat"], row["last_tool_call_at"]
-    )
-    if row["ended_at"]:
-        liveness = LIVENESS_ENDED
-    elif activity_is_stale(activity_at, executor=row["executor"]):
-        liveness = LIVENESS_STALE
-    else:
-        liveness = LIVENESS_ACTIVE
-    return {
-        "session_id": str(row["session_id"]),
-        "liveness": liveness,
-        "ended_at": "" if row["ended_at"] is None else str(row["ended_at"]),
-        "activity_at": activity_at or "",
-    }
-
 
 class SessionsListRequest(BaseModel):
     project: Optional[str] = None
@@ -69,11 +27,9 @@ class SessionsListRequest(BaseModel):
     session_id: Optional[str] = Field(
         default=None,
         description=(
-            "Return the liveness projection for exactly this session — "
-            "fields session_id/liveness/ended_at/activity_at, one row or "
-            "none. Other filters are ignored. Serves point probes (e.g. "
-            "anchor-contention healing) that must not depend on the roster "
-            "limit window."
+            "Return the complete fleet-roster projection for exactly this "
+            "session, independent of the roster limit window. Project and "
+            "liveness filters still narrow the result."
         ),
     )
 
@@ -104,20 +60,13 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
     payload = request.payload or {}
     session_filter = payload.get("session_id")
-    if session_filter is not None:
-        if not isinstance(session_filter, str) or not session_filter.strip():
-            return _error(
-                "payload_invalid",
-                "session_id must be a non-empty string when present",
-                jsonpath="$.payload.session_id",
-            )
-        row = _session_liveness_row(session_filter.strip())
-        return HandlerOutcome(
-            result_payload={
-                "fields": list(SESSION_LIVENESS_FIELDS),
-                "rows": [] if row is None else [row],
-            },
-            primary_success=True,
+    if session_filter is not None and (
+        not isinstance(session_filter, str) or not session_filter.strip()
+    ):
+        return _error(
+            "payload_invalid",
+            "session_id must be a non-empty string when present",
+            jsonpath="$.payload.session_id",
         )
     project = payload.get("project")
     liveness = payload.get("liveness")
@@ -154,6 +103,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             liveness=liveness,
             limit=limit if limit is not None else DEFAULT_SESSIONS_LIST_LIMIT,
             per_project=per_project,
+            session_id=session_filter.strip() if session_filter is not None else None,
         )
     except ValueError as exc:
         return _error(

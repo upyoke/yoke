@@ -6,11 +6,16 @@ import json
 
 import pytest
 
+from yoke_contracts.session_control.wake_instruction import (
+    native_wake_instruction,
+    native_wake_instruction_sha256,
+)
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     SessionRelayError,
+    WakeMode,
 )
 from yoke_core.domain.session_relay_versions import (
     surface_operation_supported,
@@ -41,6 +46,11 @@ def _connection():
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN ended_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
+    conn.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN turn_posture TEXT "
+        "NOT NULL DEFAULT 'unknown'"
+    )
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN turn_posture_at TEXT")
     conn.commit()
     return conn
 
@@ -65,8 +75,9 @@ def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id,project_id,executor_surface,executor_version,machine_id,"
-        "model,offered_at,last_tool_call_at,ended_at) "
-        "VALUES ('target',10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL,?)",
+        "model,offered_at,last_tool_call_at,ended_at,turn_posture) "
+        "VALUES ('target',10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL,?,"
+        "'waiting')",
         (
             MACHINE_ID,
             "2026-08-22T10:00:00Z",
@@ -147,9 +158,12 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
     assert claimed.job and claimed.job.job_kind == "wake"
     assert claimed.job.message_id == "message-1"
     assert claimed.job.surface_version == "0.148.0a15"
+    assert claimed.job.wake_mode is WakeMode.WAITING
+    assert claimed.to_dict()["job"]["wake_mode"] == "waiting"
+    assert type(claimed.to_dict()["job"]["wake_mode"]) is str
     assert claimed.job.target_liveness == "ended"
     assert "Never send" not in claimed.job.native_instruction
-    assert "message-1" in claimed.job.native_instruction
+    assert claimed.job.native_instruction == native_wake_instruction("message-1")
     reported = report_relay_job(
         conn,
         actor_id=1,
@@ -162,6 +176,7 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
         evidence={
             "duration_ms": 17,
             "surface": "codex-cli",
+            "native_instruction_sha256": "forged-by-relay",
             "stderr": "secret output",
             "token": "never persist",
         },
@@ -186,7 +201,11 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
             (claimed.job.job_id,),
         ).fetchone()[0]
     )
-    assert evidence == {"duration_ms": 17, "surface": "codex-cli"}
+    assert evidence == {
+        "duration_ms": 17,
+        "native_instruction_sha256": native_wake_instruction_sha256("message-1"),
+        "surface": "codex-cli",
+    }
     assert (
         conn.execute(
             "SELECT adapter_revision FROM session_message_attempts WHERE attempt_id=?",
@@ -293,11 +312,16 @@ def test_private_versions_fail_closed_outside_the_pinned_release() -> None:
     assert not surface_operation_supported(
         "codex-cli", "not-a-version", "message_stopped"
     )
-    assert wake_versions_supported("codex-cli", "0.148.0a15", "0.148.0a15", "ended")
-    assert not wake_versions_supported("codex-cli", "0.148.0a15", "0.148.0a15", "stale")
+    assert wake_versions_supported(
+        "codex-cli", "0.148.0a15", "0.148.0a15", "waiting", "active"
+    )
+    assert not wake_versions_supported(
+        "codex-cli", "0.148.0a15", "0.148.0a15", "idle_timeout", "stale"
+    )
     assert wake_versions_supported(
         "cursor-cli",
         "2026.08.11-e8db854",
         "2026.08.11-e8db854",
+        "idle_timeout",
         "stale",
     )

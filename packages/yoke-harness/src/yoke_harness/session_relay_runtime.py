@@ -4,9 +4,38 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Literal, Mapping, cast
 
 from yoke_cli.config import machine_config
+from yoke_contracts.session_control.private_route_qualification import (
+    PrivateRouteQualificationGrant,
+)
+
+
+WakeMode = Literal["waiting", "idle_timeout"]
+WAITING_WAKE_MODE: WakeMode = "waiting"
+IDLE_TIMEOUT_WAKE_MODE: WakeMode = "idle_timeout"
+_WAKE_MODES = frozenset({WAITING_WAKE_MODE, IDLE_TIMEOUT_WAKE_MODE})
+_LIVENESS_OPERATION = {
+    "active": "message_active",
+    "stale": "message_idle",
+    "ended": "message_stopped",
+}
+
+
+def normalize_wake_mode(value: object) -> WakeMode | None:
+    if not isinstance(value, str) or value not in _WAKE_MODES:
+        return None
+    return cast(WakeMode, value)
+
+
+def wake_operation(value: object, target_liveness: object) -> str | None:
+    mode = normalize_wake_mode(value)
+    if mode == WAITING_WAKE_MODE:
+        return "message_stopped"
+    if mode == IDLE_TIMEOUT_WAKE_MODE:
+        return _LIVENESS_OPERATION.get(str(target_liveness or ""))
+    return None
 
 
 @dataclass(frozen=True)
@@ -24,7 +53,13 @@ class RelayExecutionContext:
     requested_model: str | None = None
     presentation: str | None = None
     target_liveness: str | None = None
+    wake_mode: WakeMode | None = None
+    wake_route: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
+    private_route_qualification: PrivateRouteQualificationGrant | None = field(
+        default=None,
+        repr=False,
+    )
 
 
 @dataclass(frozen=True)
@@ -61,6 +96,12 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
     checkout = _checkout_for_project(project_id)
     if checkout is None:
         raise ValueError("relay job project has no registered checkout")
+    raw_qualification = job.get("private_route_qualification")
+    qualification = (
+        PrivateRouteQualificationGrant.model_validate(raw_qualification)
+        if raw_qualification is not None
+        else None
+    )
     return RelayExecutionContext(
         job_kind=str(job.get("job_kind") or ""),
         job_id=str(job.get("job_id") or ""),
@@ -83,9 +124,12 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         target_liveness=(
             str(job["target_liveness"]) if job.get("target_liveness") else None
         ),
+        wake_mode=normalize_wake_mode(job.get("wake_mode")),
+        wake_route=str(job["wake_route"]) if job.get("wake_route") else None,
         launch_attestation=(
             str(job["launch_attestation"]) if job.get("launch_attestation") else None
         ),
+        private_route_qualification=qualification,
     )
 
 
@@ -130,8 +174,13 @@ __all__ = [
     "RelayAdapter",
     "RelayAdapterResult",
     "RelayExecutionContext",
+    "IDLE_TIMEOUT_WAKE_MODE",
+    "WAITING_WAKE_MODE",
+    "WakeMode",
     "execution_context",
+    "normalize_wake_mode",
     "register_relay_adapter",
     "reset_relay_adapters_for_tests",
     "run_registered_job",
+    "wake_operation",
 ]

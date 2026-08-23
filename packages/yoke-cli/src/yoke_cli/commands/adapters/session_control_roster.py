@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, List
+from typing import List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -11,46 +11,45 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
-from yoke_cli.commands.adapters.session_control_common import compact_json
-from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_control.roster import (
-    SESSION_CONTROL_ROSTER_DISPLAY_FIELDS,
+from yoke_cli.commands.adapters.session_control_human_output import (
+    write_roster_result,
 )
+from yoke_contracts.api.function_call import TargetRef
 
 
 SESSION_ROSTER_USAGE = (
     "yoke sessions list [--project P] [--liveness active|stale|ended] "
     "[--limit N] [--session S] [--json]"
 )
+SESSION_ROSTER_HELP = """Find registered top-level sessions and their delivery readiness.
 
+Examples:
+  yoke sessions list --liveness active
+  yoke sessions list --session SESSION-ID
 
-def _cell(field: str, value: Any) -> str:
-    if value is None:
-        return ""
-    if field == "claims":
-        return ",".join(str(claim.get("target") or "") for claim in (value or []))
-    if isinstance(value, (dict, list, tuple)):
-        return compact_json(value)
-    return str(value)
+Next: run `yoke say --help` to preview and send a Fleet message."""
 
 
 def session_control_roster_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke sessions list",
-        description=SESSION_ROSTER_USAGE,
+        usage=SESSION_ROSTER_USAGE,
+        description=SESSION_ROSTER_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", default=None)
+    parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument(
         "--liveness",
         choices=("active", "stale", "ended"),
         default=None,
+        help="Only show sessions in this liveness state.",
     )
-    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--limit", type=int, default=None, help="Maximum rows.")
     parser.add_argument(
         "--session",
         dest="session_filter",
         default=None,
-        help="Return the point liveness projection for exactly this session.",
+        help="Return the complete roster row for exactly this session.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -60,15 +59,7 @@ def session_control_roster_list(args: List[str]) -> int:
 
     def _human_writer(response, stdout, stderr) -> None:
         del stderr
-        result = response.result or {}
-        fields = result.get("fields") or []
-        if set(SESSION_CONTROL_ROSTER_DISPLAY_FIELDS).issubset(fields):
-            fields = SESSION_CONTROL_ROSTER_DISPLAY_FIELDS
-        for row in result.get("rows") or []:
-            print(
-                "|".join(_cell(field, row.get(field)) for field in fields),
-                file=stdout,
-            )
+        write_roster_result(response.result or {}, stdout)
 
     payload = {
         key: value

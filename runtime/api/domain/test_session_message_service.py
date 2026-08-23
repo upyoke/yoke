@@ -27,6 +27,13 @@ from runtime.api.domain.test_session_message_support import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _fixed_delivery_clock(monkeypatch) -> None:
+    from yoke_core.domain import session_message_delivery
+
+    monkeypatch.setattr(session_message_delivery, "utc_now", lambda: NOW)
+
+
 def _send(conn, *, target=None, body="Act on this.", key=None, actor_id=10):
     return send_message(
         conn,
@@ -158,6 +165,35 @@ def test_universe_send_requires_exact_current_preview() -> None:
     assert sent["recipient_count"] == 4
 
 
+def test_confirmed_send_refuses_recipient_drift_after_preview() -> None:
+    conn = message_connection()
+    target = selector(item_refs=["ALP-1"])
+    preview = preview_message(conn, actor_id=10, selector=target, now=NOW)
+    assert [row["session_id"] for row in preview["recipients"]] == ["s1"]
+    conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (str(NOW),))
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(id,session_id,target_kind,item_id,claimed_at) "
+        "VALUES (4,'s2','item',101,?)",
+        (str(NOW),),
+    )
+    conn.commit()
+
+    with pytest.raises(SessionMessageError) as changed:
+        send_message(
+            conn,
+            actor_id=10,
+            sender_session_id=None,
+            selector=target,
+            body="Act on the confirmed recipient snapshot.",
+            supplied_confirmation_token=preview["confirmation_token"],
+            now=NOW,
+        )
+
+    assert changed.value.code == "recipient_snapshot_changed"
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+
+
 def test_get_and_list_visibility_follows_sender_recipient_or_project_read() -> None:
     conn = message_connection()
     message_id = _send(conn)["message_id"]
@@ -191,7 +227,9 @@ def test_sender_or_every_project_admin_cancels_and_receipt_state_is_terminal() -
     assert cancelled["cancelled_by_actor_id"] == 12
     assert cancelled["cancellation_reason"] == "cancelled_by_project_admin"
     assert cancelled["recipients"][0]["state"] == "cancelled"
-    assert lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10) is None
+    assert (
+        lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10) is None
+    )
 
     sender_message_id = _send(conn, body="Sender cancellation proof.")["message_id"]
     sender_cancelled = cancel_message(
@@ -211,7 +249,7 @@ def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:
         acknowledge_message(conn, message_id=message_id, session_id="s2", now=NOW)
     assert other.value.code == "acknowledge_self_only"
 
-    lease = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert lease
     complete_hook_lease(
         conn, lease_id=lease["lease_id"], injected=True, result="injected"
@@ -220,4 +258,7 @@ def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:
         conn, message_id=message_id, session_id="s1", now=NOW
     )
     assert acknowledged["recipients"][0]["state"] == "acknowledged"
-    assert lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10) is None
+    assert (
+        lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
+        is None
+    )

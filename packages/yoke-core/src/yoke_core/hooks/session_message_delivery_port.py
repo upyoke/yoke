@@ -31,6 +31,14 @@ class SessionMessageLease:
 class SessionMessageDeliveryPort(Protocol):
     """Durable operations needed by the hook delivery module."""
 
+    def read_for_hook(
+        self,
+        *,
+        session_id: str,
+        hook_event: str,
+        limit: int,
+    ) -> tuple[LeasedSessionMessage, ...]: ...
+
     def lease_for_hook(
         self,
         *,
@@ -59,14 +67,9 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     raise TypeError("message delivery result must be a mapping")
 
 
-def _coerce_lease(value: Any) -> SessionMessageLease | None:
-    if value is None:
-        return None
-    payload = _mapping(value)
-    lease_id = str(payload.get("lease_id") or "").strip()
-    raw_messages = payload.get("messages")
-    if not lease_id or not isinstance(raw_messages, (list, tuple)):
-        raise ValueError("message delivery lease is missing its id or messages")
+def _coerce_messages(raw_messages: Any) -> tuple[LeasedSessionMessage, ...]:
+    if not isinstance(raw_messages, (list, tuple)):
+        raise ValueError("message delivery result is missing its messages")
     messages: list[LeasedSessionMessage] = []
     for raw in raw_messages:
         row = _mapping(raw)
@@ -82,7 +85,20 @@ def _coerce_lease(value: Any) -> SessionMessageLease | None:
                 sender_actor_id=int(sender_actor_id),
             )
         )
-    return SessionMessageLease(lease_id=lease_id, messages=tuple(messages))
+    return tuple(messages)
+
+
+def _coerce_lease(value: Any) -> SessionMessageLease | None:
+    if value is None:
+        return None
+    payload = _mapping(value)
+    lease_id = str(payload.get("lease_id") or "").strip()
+    if not lease_id:
+        raise ValueError("message delivery lease is missing its id")
+    return SessionMessageLease(
+        lease_id=lease_id,
+        messages=_coerce_messages(payload.get("messages")),
+    )
 
 
 class CoreSessionMessageDeliveryPort:
@@ -92,6 +108,29 @@ class CoreSessionMessageDeliveryPort:
     and connection creation stay inside each call so an unavailable or older
     control plane fails open at the hook boundary without caching stale state.
     """
+
+    def read_for_hook(
+        self,
+        *,
+        session_id: str,
+        hook_event: str,
+        limit: int,
+    ) -> tuple[LeasedSessionMessage, ...]:
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.session_message_observer import read_for_hook
+
+        conn = db_backend.connect(busy_timeout_ms=2000)
+        try:
+            return _coerce_messages(
+                read_for_hook(
+                    conn,
+                    session_id=session_id,
+                    hook_event=hook_event,
+                    limit=limit,
+                )
+            )
+        finally:
+            conn.close()
 
     def lease_for_hook(
         self,

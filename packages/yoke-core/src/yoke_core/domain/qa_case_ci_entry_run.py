@@ -92,23 +92,31 @@ def _merge_context(checkout: Path, *, branch: str, target: str, project: str):
 
 
 def rebase_lane_onto_base(
-    checkout: Path, *, branch: str, target: str, project: str,
+    checkout: Path,
+    *,
+    branch: str,
+    target: str,
+    project: str,
 ) -> None:
     """Replay the lane on top of ``origin/<target>`` before it is published.
 
     Uncommitted work goes through the merge engine's own safety-stash gate
     first, so nothing a rebase would disturb is unbacked; work the gate
     cannot classify as Yoke-managed stops the rebase rather than riding it.
-    A conflict aborts and surfaces the conflicted paths, because resolving
-    them is the session's call — the same answer the landing gives when it
-    cannot replay a branch on its own.
+    A lane that already contains the fetched base keeps its merge topology.
+    Otherwise, a conflict aborts and surfaces the conflicted paths, because
+    resolving them is the session's call — the same answer the landing gives
+    when it cannot replay a branch on its own.
     """
     from yoke_core.engines.merge_worktree_prepare_state import (
         _stash_classify_gate,
     )
 
     ctx = _merge_context(
-        checkout, branch=branch, target=target, project=project,
+        checkout,
+        branch=branch,
+        target=target,
+        project=project,
     )
     # The gate narrates to stdout, which here is the case runner's
     # machine-readable envelope; its narration belongs with the rest of the
@@ -124,7 +132,13 @@ def rebase_lane_onto_base(
             "so only committed work is verified."
         )
     fetched = _git(
-        checkout, "fetch", "--quiet", "--no-tags", "origin", target, timeout=300,
+        checkout,
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        "origin",
+        target,
+        timeout=300,
     )
     if fetched.returncode != 0:
         detail = (fetched.stderr or fetched.stdout or "").strip()
@@ -132,14 +146,31 @@ def rebase_lane_onto_base(
             f"could not fetch origin/{target} before rebasing {branch!r}: "
             f"{detail or 'fetch failed'}"
         )
+    contains_base = _git(
+        checkout,
+        "merge-base",
+        "--is-ancestor",
+        f"origin/{target}",
+        "HEAD",
+    )
+    if contains_base.returncode == 0:
+        return
+    if contains_base.returncode != 1:
+        detail = (contains_base.stderr or contains_base.stdout or "").strip()
+        raise QaCaseExecutionError(
+            f"could not compare {branch!r} with origin/{target} before "
+            f"rebasing: {detail or 'merge-base failed'}"
+        )
     rebased = _git(checkout, "rebase", f"origin/{target}", timeout=600)
     if rebased.returncode == 0:
         return
     conflicts = _git(checkout, "diff", "--name-only", "--diff-filter=U")
     paths = tuple(conflicts.stdout.split())
     _git(checkout, "rebase", "--abort")
-    detail = ", ".join(paths) if paths else (
-        (rebased.stderr or rebased.stdout or "").strip() or "rebase failed"
+    detail = (
+        ", ".join(paths)
+        if paths
+        else ((rebased.stderr or rebased.stdout or "").strip() or "rebase failed")
     )
     raise QaCaseExecutionError(
         f"rebasing {branch!r} onto origin/{target} conflicts: {detail}. "
@@ -168,13 +199,21 @@ def prepare_entry_run_lane(
     target = base_branch(project, checkout)
     if lane_is_checked_out:
         rebase_lane_onto_base(
-            checkout, branch=branch, target=target, project=project,
+            checkout,
+            branch=branch,
+            target=target,
+            project=project,
         )
     return target
 
 
 def open_landing_pull_request(
-    checkout: Path, *, project: str, branch: str, target: str, lane_head: str,
+    checkout: Path,
+    *,
+    project: str,
+    branch: str,
+    target: str,
+    lane_head: str,
 ) -> str:
     """Open (or converge on) the pull request whose entry run gates this tree.
 
@@ -196,11 +235,16 @@ def open_landing_pull_request(
     )
 
     ctx = _merge_context(
-        checkout, branch=branch, target=target, project=project,
+        checkout,
+        branch=branch,
+        target=target,
+        project=project,
     )
     with machine_github_user_authority():
         pr_num, error = ensure_landing_pull_request(
-            ctx, branch, lane_head=lane_head,
+            ctx,
+            branch,
+            lane_head=lane_head,
         )
     if error:
         raise QaCaseExecutionError(
@@ -229,31 +273,46 @@ def await_entry_run(
     deadline = monotonic() + ENTRY_RUN_APPEARANCE_TIMEOUT_SECONDS
     while True:
         run = qa_case_ci_lane.find_pull_request_run(
-            project=project, repo=repo, workflow=workflow,
-            head_sha=head_sha, timeout_seconds=timeout_seconds, status="",
+            project=project,
+            repo=repo,
+            workflow=workflow,
+            head_sha=head_sha,
+            timeout_seconds=timeout_seconds,
+            status="",
         )
         if run is not None:
             break
         if monotonic() >= deadline:
             return None
         qa_case_ci_progress.announce_covering_wait(
-            requirement_id, repo=repo, head_sha=head_sha,
+            requirement_id,
+            repo=repo,
+            head_sha=head_sha,
             next_poll_seconds=ENTRY_RUN_POLL_SECONDS,
         )
         sleep(ENTRY_RUN_POLL_SECONDS)
     qa_case_ci_progress.announce_run(
-        requirement_id, repo=repo, run_id=run.run_id,
-        html_url=run.html_url, source="covering",
+        requirement_id,
+        repo=repo,
+        run_id=run.run_id,
+        html_url=run.html_url,
+        source="covering",
     )
     if run.status == "completed":
         return run
     qa_case_ci_lane.await_workflow(
-        project=project, repo=repo, run_id=run.run_id,
+        project=project,
+        repo=repo,
+        run_id=run.run_id,
         timeout_seconds=timeout_seconds,
     )
     return qa_case_ci_lane.find_pull_request_run(
-        project=project, repo=repo, workflow=workflow,
-        head_sha=head_sha, timeout_seconds=timeout_seconds, status="",
+        project=project,
+        repo=repo,
+        workflow=workflow,
+        head_sha=head_sha,
+        timeout_seconds=timeout_seconds,
+        status="",
     )
 
 

@@ -72,12 +72,16 @@ def _poll(
     *,
     dispatcher: Dispatcher,
     runner: JobRunner,
+    broker_only: bool = False,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
     response = dispatcher(
         function_id=RELAY_CLAIM_FUNCTION_ID,
         target=TargetRef(kind="global"),
-        payload=inventory.claim_payload(),
+        payload=inventory.claim_payload(
+            wait_seconds=0 if broker_only else None,
+            broker_only=broker_only,
+        ),
         timeout_s=RELAY_DISPATCH_TIMEOUT_SECONDS,
     )
     if not getattr(response, "success", False):
@@ -121,20 +125,22 @@ def serve_once(
     dispatcher: Dispatcher = call_dispatcher,
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
+    broker_only: bool = False,
 ) -> ServeOnceOutcome:
     """Respect server cadence and run a single bounded relay transaction."""
     started_at = clock()
     with relay_run_lock(state_dir) as acquired:
         if not acquired:
             return ServeOnceOutcome("locked")
-        if not poll_is_due(state_dir, now=started_at):
+        if not broker_only and not poll_is_due(state_dir, now=started_at):
             return ServeOnceOutcome("backoff")
         outcome = _poll(
             inventory_provider(),
             dispatcher=dispatcher,
             runner=runner,
+            broker_only=broker_only,
         )
-        if outcome.next_poll_seconds:
+        if outcome.next_poll_seconds and not broker_only:
             record_next_poll(
                 outcome.next_poll_seconds,
                 state_dir,

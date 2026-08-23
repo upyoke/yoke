@@ -18,6 +18,10 @@ from yoke_harness.session_relay_cursor import (
     CursorNativeResult,
     CursorWakeRequest,
 )
+from yoke_harness.session_relay_cursor_acp_terminal import (
+    CursorAcpTerminalRegistry,
+    respond_to_agent_request,
+)
 from yoke_harness.session_relay_environment import native_session_environment
 
 
@@ -76,6 +80,7 @@ class _Client:
         self.timeout = timeout
         self.next_id = 1
         self.buffer = bytearray()
+        self.terminals = CursorAcpTerminalRegistry(checkout, environ=env)
         try:
             self.process = subprocess.Popen(
                 [resolved, "acp"],
@@ -135,29 +140,9 @@ class _Client:
 
     def _answer_agent_request(self, payload: dict[str, Any]) -> None:
         request_id = payload.get("id")
-        method = payload.get("method")
         if request_id is None:
             return
-        if method in {
-            "session/request_permission",
-            "cursor/ask_question",
-            "cursor/create_plan",
-        }:
-            self._send(
-                {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "result": {"outcome": {"outcome": "cancelled"}},
-                }
-            )
-            return
-        self._send(
-            {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "error": {"code": -32601, "message": "unsupported request"},
-            }
-        )
+        self._send(respond_to_agent_request(self.terminals, payload))
 
     def _request_id(self, method: str, params: dict[str, object]) -> int:
         request_id = self.next_id
@@ -206,11 +191,12 @@ class _Client:
 
         threading.Thread(
             target=drain,
-            daemon=True,
+            daemon=False,
             name="yoke-cursor-acp-reap",
         ).start()
 
     def close(self) -> None:
+        self.terminals.close()
         try:
             self.selector.close()
         except Exception:
@@ -232,9 +218,26 @@ class _Client:
 class CursorAcpTransport:
     """Use the documented ACP lifecycle without inventing a session lookup."""
 
-    def __init__(self, *, binary: str = "cursor-agent", timeout: float = 20.0) -> None:
+    def __init__(
+        self,
+        *,
+        binary: str = "cursor-agent",
+        timeout: float = 20.0,
+        worker: bool = False,
+    ) -> None:
         self.binary = binary
         self.timeout = timeout
+        self.worker = worker
+
+    @staticmethod
+    def _detached(
+        request: CursorCreateRequest | CursorWakeRequest,
+    ) -> CursorNativeResult:
+        from yoke_harness.session_relay_cursor_acp_process import (
+            run_detached_operation,
+        )
+
+        return run_detached_operation(request)
 
     def _client(
         self,
@@ -249,7 +252,7 @@ class CursorAcpTransport:
                     "protocolVersion": 1,
                     "clientCapabilities": {
                         "fs": {"readTextFile": False, "writeTextFile": False},
-                        "terminal": False,
+                        "terminal": True,
                     },
                     "clientInfo": {
                         "name": "yoke_session_relay",
@@ -264,6 +267,8 @@ class CursorAcpTransport:
             raise
 
     def new_session(self, request: CursorCreateRequest) -> CursorNativeResult:
+        if not self.worker:
+            return self._detached(request)
         started = time.monotonic()
         client: _Client | None = None
         session_id: str | None = None
@@ -287,6 +292,8 @@ class CursorAcpTransport:
             )
 
     def prompt_session(self, request: CursorWakeRequest) -> CursorNativeResult:
+        if not self.worker:
+            return self._detached(request)
         started = time.monotonic()
         client: _Client | None = None
         loaded = False

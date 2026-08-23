@@ -1,3 +1,8 @@
+import { openSessionMessageCompose } from "./session_message_compose_dialog.js";
+import {
+  presentSessionControlFailure,
+  renderSessionControlFailure,
+} from "./universe_session_control_data.js";
 import {
   appendHoldings,
   ownsFocusedItem,
@@ -7,15 +12,17 @@ import {
   el,
   mergedRows,
   portabilityMode,
-  renderError,
   scopeBuckets,
   sessionModePill,
   settledScopedCalls,
   whoColumn,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
-import { sessionRosterFilters } from "./universe_session_roster_filters.js";
-const LIVE_STATES = new Set(["active", "stale"]);
+import {
+  appendSessionMessaging,
+  sessionRosterFilters,
+} from "./universe_session_roster_filters.js";
+const ROSTER_STATES = new Set(["active", "stale", "ended"]);
 const WORKTREE_ROLES = new Set(["integration", "worker"]);
 function statRow(documentNode, facts) {
   const row = el(documentNode, "div", "stat-row sessions-stats");
@@ -127,8 +134,9 @@ function appendFooter(documentNode, card, row, who, mode) {
   ));
   card.appendChild(footer);
 }
-function sessionCard(documentNode, row, who, mode) {
+export function sessionCard(documentNode, row, who, mode, onMessage) {
   const card = el(documentNode, "article", "session-card");
+  card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", row.liveness || "unknown");
 
   const top = el(documentNode, "div", "session-top");
@@ -147,6 +155,7 @@ function sessionCard(documentNode, row, who, mode) {
   appendHoldings(documentNode, body, row);
   appendRuntime(documentNode, body, row);
   appendAge(documentNode, body, row);
+  appendSessionMessaging(documentNode, body, row, onMessage);
   card.appendChild(body);
   appendFooter(documentNode, card, row, who, mode);
   return card;
@@ -181,27 +190,27 @@ function metricFacts(rows) {
   ).filter((value) => value !== null && value !== undefined && value !== ""));
   const actorCount = actors.size;
   return [
-    [rows.length, "live sessions"],
+    [rows.length, "sessions shown"],
     [claimedItems.size, "items claimed"],
     [worktreeLanes, "Blitz worktree lanes"],
     [actorCount, `actor${actorCount === 1 ? "" : "s"}`],
   ];
 }
 
-function renderSessions(documentNode, host, rows, who, mode) {
+function renderSessions(documentNode, host, rows, who, mode, onMessage, filtered = false) {
   host.replaceChildren(statRow(documentNode, metricFacts(rows)));
   if (!rows.length) {
     host.appendChild(el(
       documentNode,
       "p",
       "sessions-empty",
-      "No live sessions in this scope.",
+      filtered ? "No sessions match the current filters." : "No sessions in this scope.",
     ));
     return;
   }
   const grid = el(documentNode, "div", "session-grid");
   for (const row of rows) {
-    grid.appendChild(sessionCard(documentNode, row, who, mode));
+    grid.appendChild(sessionCard(documentNode, row, who, mode, onMessage));
   }
   host.appendChild(grid);
 }
@@ -214,14 +223,22 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   actionStatus.hidden = true;
   actionStatus.setAttribute("role", "status");
   const content = el(documentNode, "div", "sessions-content", "loading sessions…");
+  const dialogHost = el(documentNode, "div", "session-control-dialog-host");
   let visibleRows = [];
+  const openMessage = (sessionId) => openSessionMessageCompose(
+    context, dialogHost, { seedSessionId: sessionId },
+  );
   const filters = sessionRosterFilters(documentNode, () => {
-    renderSessions(documentNode, content, filters.apply(visibleRows), who, mode);
+    renderSessions(
+      documentNode, content, filters.apply(visibleRows), who, mode, openMessage,
+      filters.active(),
+    );
   });
   view.appendChild(localActions);
   view.appendChild(actionStatus);
   view.appendChild(filters.host);
   view.appendChild(content);
+  view.appendChild(dialogHost);
   main.replaceChildren(view);
 
   const reclaim = el(documentNode, "button", "item-button", "Reclaim stale");
@@ -249,7 +266,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   let staleCount = 0;
 
   const load = async () => {
-    const calls = buckets.flatMap((bucket) => [...LIVE_STATES].map(
+    const calls = buckets.flatMap((bucket) => [...ROSTER_STATES].map(
       (liveness) => ({
         functionId: "sessions.list",
         payload: {
@@ -265,15 +282,16 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     );
     if (!context.isMounted()) return;
     if (failed) {
-      content.replaceChildren();
-      renderError(content, failed);
+      renderSessionControlFailure(
+        content, failed, "Sessions could not be loaded.",
+      );
       reclaim.disabled = true;
       reclaim.title = "Sessions could not be read";
       return;
     }
     const rowsBySession = new Map();
     for (const row of mergedRows(callResults, (result) => result.rows)) {
-      if (LIVE_STATES.has(String(row.liveness || "").toLowerCase())) {
+      if (ROSTER_STATES.has(String(row.liveness || "").toLowerCase())) {
         rowsBySession.set(String(row.session_id), row);
       }
     }
@@ -283,7 +301,9 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     reclaim.title = staleCount
       ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
       : "No stale sessions in this scope";
-    renderSessions(documentNode, content, filters.apply(visibleRows), who, mode);
+    renderSessions(
+      documentNode, content, filters.apply(visibleRows), who, mode, openMessage,
+    );
   };
 
   reclaim.addEventListener("click", async () => {
@@ -299,14 +319,17 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
         reclaimPayload,
       );
     } catch (error) {
-      actionStatus.textContent = `Cleanup failed: ${String(error)}`;
+      actionStatus.textContent = presentSessionControlFailure(
+        error, "Session cleanup could not run.",
+      );
       reclaim.disabled = false;
       return;
     }
     const ok = result.status === 200 && result.envelope.success;
     if (!ok) {
-      actionStatus.textContent =
-        (result.envelope.error || {}).message || "Cleanup failed";
+      actionStatus.textContent = presentSessionControlFailure(
+        result, "Session cleanup could not run.",
+      );
       reclaim.disabled = false;
       return;
     }

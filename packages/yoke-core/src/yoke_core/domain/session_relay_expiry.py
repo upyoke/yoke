@@ -34,7 +34,7 @@ def settle_expired_relay_leases(conn: Any, *, now: str) -> int:
         lease = str(lease_id)
         wake = conn.execute(
             "SELECT attempt_id FROM session_message_attempts "
-            f"WHERE lease_id={p} AND attempt_kind='wake_relay' "
+            f"WHERE lease_id={p} AND attempt_kind IN ('wake_relay','wake_broker') "
             "AND completed_at IS NULL LIMIT 1",
             (lease,),
         ).fetchone()
