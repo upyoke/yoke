@@ -36,7 +36,7 @@ function launchCard(documentNode, launch, mutate) {
     documentNode,
     "p",
     "fact-line",
-    `${launch.executor_surface || "unknown surface"} · ${launch.machine_id || "unassigned"}`,
+    `${launch.requested_surface || "unknown surface"} · ${launch.assigned_machine_id || "unassigned"}`,
   ));
   appendLaunchTimeline(documentNode, body, launch);
   if (launch.registered_session_id) {

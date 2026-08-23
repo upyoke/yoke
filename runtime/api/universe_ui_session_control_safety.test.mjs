@@ -84,8 +84,8 @@ test("uncertain launches require reconciliation before retry", async (t) => {
             launch_id: "launch-uncertain",
             state: reconciled ? "failed" : "outcome_unknown",
             result_code: reconciled ? "late_native_reconciled" : "outcome_unknown",
-            executor_surface: "codex-desktop",
-            machine_id: "machine-1",
+            requested_surface: "codex-desktop",
+            assigned_machine_id: "machine-1",
           }],
           count: 1,
         });

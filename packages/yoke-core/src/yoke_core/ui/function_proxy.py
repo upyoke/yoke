@@ -135,6 +135,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "session_control.message.cancel",
     "session_control.launch.create",
     "session_control.launch.cancel",
+    "session_control.launch.reconcile",
     "session_control.launch.retry",
     "strategy.revision.restore",
     "deployment_runs.terminalize",

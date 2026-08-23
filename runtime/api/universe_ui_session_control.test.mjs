@@ -73,11 +73,13 @@ test("message compose previews and sends the identical recipient snapshot", asyn
     t, "#/sessions/messages?project=1", client,
   );
   button(root, "Compose message").dispatchEvent(new Event("click"));
-  const inputs = byClass(root, "session-control-input");
-  assert.equal(inputs[0].value, "");
-  assert.equal(inputs[2].value, "");
-  inputs[0].value = "session-1";
-  inputs[3].value = "Please check the durable message plane.";
+  const sessions = byClass(root, "session-message-selector-sessions")[0];
+  const projects = byClass(root, "session-message-selector-projects")[0];
+  const body = byClass(root, "session-message-body")[0];
+  assert.equal(sessions.value, "");
+  assert.equal(projects.value, "");
+  sessions.value = "session-1";
+  body.value = "Please check the durable message plane.";
   button(root, "Preview recipients").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(button(root, "Send message").disabled, false);
@@ -108,7 +110,7 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     "session_control.launch.list": () => ok({
       launches: [{
         launch_id: "launch-existing", state: "awaiting_registration",
-        executor_surface: "codex-desktop", machine_id: "m1",
+        requested_surface: "codex-desktop", assigned_machine_id: "m1",
         created_at: "2026-08-23T01:00:00Z",
         assigned_at: "2026-08-23T01:01:00Z",
         launching_at: "2026-08-23T01:02:00Z",
@@ -131,6 +133,7 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     t, "#/sessions/launches?project=1", client,
   );
   const timelineText = allNodes(root).map((node) => node._textContent).join(" ");
+  assert.ok(timelineText.includes("codex-desktop · m1"));
   assert.ok(timelineText.includes("launching:"));
   assert.ok(timelineText.includes("awaiting registration:"));
   button(root, "Create session").dispatchEvent(new Event("click"));
@@ -299,9 +302,24 @@ test("roster includes ended sessions with exact message actions", async (t) => {
     (card) => byClass(card, "session-id")[0]?.textContent === "ended-wakeable",
   );
   button(endedCard, "Message").dispatchEvent(new Event("click"));
-  const composeInputs = byClass(root, "session-control-input");
-  assert.equal(composeInputs[0].value, "ended-wakeable");
-  assert.equal(composeInputs[2].value, "");
+  assert.equal(
+    byClass(root, "session-message-selector-sessions")[0].value,
+    "ended-wakeable",
+  );
+  assert.equal(
+    byClass(root, "session-message-selector-projects")[0].value,
+    "",
+  );
+  for (const key of [
+    "items", "epicTasks", "processes", "executors", "surfaces", "roles",
+    "executionLanes", "worktrees", "machines", "liveness", "exclusions",
+  ]) {
+    assert.equal(byClass(root, `session-message-selector-${key}`)[0].value, "");
+  }
+  assert.equal(
+    Boolean(byClass(root, "session-message-selector-universe")[0].checked),
+    false,
+  );
   const route = filters.at(-1).children[1];
   route.value = "message";
   route.dispatchEvent(new Event("change"));

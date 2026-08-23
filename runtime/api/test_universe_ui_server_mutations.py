@@ -84,7 +84,7 @@ class TestRegistrationShape:
             "organizations.settings.merge",
             "session_control.message.send", "session_control.message.cancel",
             "session_control.launch.create", "session_control.launch.cancel",
-            "session_control.launch.retry",
+            "session_control.launch.reconcile", "session_control.launch.retry",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
         }
@@ -133,6 +133,22 @@ class TestOperatorActorResolution:
 
 
 class TestProxyMutations:
+    def test_launch_reconcile_is_admitted_but_unrelated_mutation_is_not(
+        self, ui_client, test_db,
+    ):
+        admitted = _call(ui_client, {
+            "function": "session_control.launch.reconcile",
+            "payload": {"launch_id": "missing-launch"},
+        })
+        assert admitted.status_code == 200
+        assert admitted.json()["error"]["code"] != "function_not_allowed"
+
+        refused = _call(
+            ui_client, {"function": "items.structured_field.replace"},
+        )
+        assert refused.status_code == 403
+        assert refused.json()["error"]["code"] == "function_not_allowed"
+
     def test_unlisted_mutation_stays_refused(self, ui_client):
         response = _call(
             ui_client, {"function": "items.structured_field.replace"},
