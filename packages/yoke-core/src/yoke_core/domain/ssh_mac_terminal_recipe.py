@@ -33,6 +33,9 @@ from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     recipe_assertion_failures,
     send_recipe_keys,
 )
+from yoke_core.domain.ssh_mac_terminal_recipe_watchdog import (
+    wrapped_entry_surface,
+)
 from yoke_core.domain.terminal_screenshot_quality import (
     TerminalScreenshotRegistry,
 )
@@ -63,12 +66,10 @@ def _run_interactive_recipe(
     status_path = f"/tmp/{session}.exit"
     evidence_root = evidence_parent / session
     evidence_root.mkdir(parents=True, exist_ok=True)
-    wrapped = (
-        "set +e; ( "
-        + entry_surface
-        + " ); rc=$?; printf '%s\\n' \"$rc\" > "
-        + shlex.quote(status_path)
-        + "; sleep 600"
+    wrapped = wrapped_entry_surface(
+        entry_surface,
+        status_path,
+        watchdog_seconds=max(1, int(float(config["max_wall_seconds"]))),
     )
     start = (
         f"tmux new-session -d -s {shlex.quote(session)} /bin/sh -lc "

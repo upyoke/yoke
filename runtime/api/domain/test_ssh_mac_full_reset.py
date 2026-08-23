@@ -8,7 +8,10 @@ from pathlib import Path
 import pytest
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
-from runtime.api.domain.ssh_mac_full_reset_test_support import FakeResetTransport
+from runtime.api.domain.ssh_mac_full_reset_test_support import (
+    FakeResetTransport,
+    closed_reset_stdout,
+)
 from yoke_cli.config import path_doctor
 from yoke_core.domain.host_baseline_operations import run_host_baseline
 from yoke_core.domain.ssh_mac_full_reset import (
@@ -18,6 +21,7 @@ from yoke_core.domain.ssh_mac_full_reset import (
 from yoke_core.domain.ssh_mac_full_reset_contract import (
     FULL_RESET_MARKER,
     FULL_RESET_REMOTE_PATH,
+    RESET_PROCESS_REAPED_PREFIX,
 )
 from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
@@ -54,14 +58,7 @@ def test_reset_rejects_any_non_explicit_dedicated_mac_home(home: str) -> None:
 
 
 def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
-    stdout = "\n".join(
-        (
-            "YOKE_TOKEN_STAGE_RESTORED",
-            "YOKE_TOKEN_PROD_ABSENT",
-            "YOKE_INSTALLER_EVIDENCE_MOVED",
-            FULL_RESET_MARKER,
-        )
-    )
+    stdout = closed_reset_stdout(reaped=92, load_average="1.20")
     transport = FakeResetTransport(stdout)
 
     result = execute_full_test_mac_reset(
@@ -79,7 +76,12 @@ def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
         ["/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH],
     ]
     assert transport.commands[2][1] == 300
-    assert set(result.evidence) == {"paths", "path_state"}
+    assert set(result.evidence) == {"paths", "path_state", "process_state"}
+    assert result.evidence["process_state"] == {
+        "reaped_processes": 92,
+        "surviving_matches": 0,
+        "load_average": 1.20,
+    }
     assert all(set(row) == {"path", "outcome"} for row in result.evidence["paths"])
     rows = {row["path"]: row["outcome"] for row in result.evidence["paths"]}
     assert rows["/tmp/yoke-stage.token"] == "restored-mode-0600"
@@ -181,6 +183,57 @@ def test_reset_reports_recovery_failure_without_secret_detail() -> None:
     assert result.error_code == "test_mac_reset_recovery_failed"
     assert result.evidence["reset_phase"] == "remove_registered_state"
     assert result.evidence["recovery_cleanup"] == "failed"
+    assert "process_state" not in result.evidence
+
+
+def test_reset_fails_closed_when_matching_processes_survive_the_reap() -> None:
+    transport = FakeResetTransport(
+        "\n".join(
+            (
+                "YOKE_RESET_FAILED_REAP_PROCESSES",
+                "2 3 18.44",
+            )
+        ),
+        reset_returncode=1,
+    )
+
+    result = execute_full_test_mac_reset(
+        run_remote=transport.run,
+        upload_text=transport.upload,
+        home="/Users/tester",
+    )
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_reap_processes_failed"
+    assert result.evidence["reset_phase"] == "reap_processes"
+    assert result.evidence["process_state"] == {
+        "surviving_reap_failures": 2,
+        "surviving_matches": 3,
+        "load_average": 18.44,
+    }
+
+
+def test_reset_success_refuses_output_missing_the_process_receipt() -> None:
+    transport = FakeResetTransport(
+        "\n".join(
+            (
+                "YOKE_TOKEN_STAGE_ABSENT",
+                "YOKE_TOKEN_PROD_ABSENT",
+                "YOKE_INSTALLER_EVIDENCE_ABSENT",
+                f"{RESET_PROCESS_REAPED_PREFIX}0",
+                FULL_RESET_MARKER,
+            )
+        )
+    )
+
+    result = execute_full_test_mac_reset(
+        run_remote=transport.run,
+        upload_text=transport.upload,
+        home="/Users/tester",
+    )
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_output_invalid"
 
 
 def test_reset_rejects_unregistered_failure_output() -> None:
@@ -202,14 +255,7 @@ def test_reset_rejects_unregistered_failure_output() -> None:
 
 def test_existing_retained_evidence_is_reported_without_claiming_a_new_move() -> None:
     transport = FakeResetTransport(
-        "\n".join(
-            (
-                "YOKE_TOKEN_STAGE_ABSENT",
-                "YOKE_TOKEN_PROD_ABSENT",
-                "YOKE_INSTALLER_EVIDENCE_RETAINED",
-                FULL_RESET_MARKER,
-            )
-        )
+        closed_reset_stdout(stage="ABSENT", prod="ABSENT", evidence="RETAINED")
     )
 
     result = execute_full_test_mac_reset(

@@ -136,7 +136,11 @@ finish() {
   fi
   if (( finish_rc != 0 )); then
     print -r -- "$reset_failure_prefix$failure_step"
-    (( finish_failed )) && print -r -- "$reset_recovery_failure_marker"
+    if [[ -n "${reap_failure_detail:-}" ]]; then
+      print -r -- "$reap_failure_detail"
+    else
+      (( finish_failed )) && print -r -- "$reset_recovery_failure_marker"
+    fi
   fi
   exit "$finish_rc"
 }
@@ -298,10 +302,18 @@ prod_saved=0
 tokens_restored=0
 evidence_outcome="ABSENT"
 evidence_container=""
+reap_user="${home#/Users/}"
+reap_target_count=0
+reap_failed_count=0
+reap_match_count=0
+load_average_1min=""
+cpu_count=0
+reap_failure_detail=""
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
 
 run_reset_step "$reset_phase_preserve_tokens" preserve_tokens
+run_reset_step "$reset_phase_reap_processes" reap_processes
 run_reset_step "$reset_phase_remove_registered_state" remove_registered_state
 run_reset_step "$reset_phase_uninstall_homebrew_uv" uninstall_homebrew_uv
 run_reset_step "$reset_phase_clean_startup_files" clean_startup_files
@@ -315,9 +327,20 @@ prod_outcome="ABSENT"
 (( stage_saved )) && stage_outcome="RESTORED"
 (( prod_saved )) && prod_outcome="RESTORED"
 reset_step="$reset_phase_emit_outcomes"
+count_reap_matches
+record_load_average
 print -r -- "YOKE_TOKEN_STAGE_$stage_outcome"
 print -r -- "YOKE_TOKEN_PROD_$prod_outcome"
 print -r -- "YOKE_INSTALLER_EVIDENCE_$evidence_outcome"
+if [[ -z "$load_average_1min" ]] \
+  || (( reap_failed_count > 0 || reap_match_count > 0 )) \
+  || load_exceeds_capacity; then
+  reset_step="$reset_phase_reap_processes"
+  reap_failure_detail="$reap_failed_count $reap_match_count ${load_average_1min:-0}"
+  exit 1
+fi
+print -r -- "$reset_process_reaped_prefix$reap_target_count"
+print -r -- "$reset_load_average_prefix$load_average_1min"
 print -r -- "$full_reset_marker"
 reset_step="$reset_phase_complete"
 """

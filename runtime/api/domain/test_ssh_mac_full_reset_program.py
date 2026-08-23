@@ -139,6 +139,66 @@ def test_zsh_program_routes_step_failure_through_closed_phase_marker(
     )
 
 
+def test_zsh_program_reaps_ignorant_survivor_through_kill_escalation(
+    tmp_path: Path,
+) -> None:
+    binary = zsh_binary()
+    if binary is None:
+        pytest.skip("zsh is required to execute the macOS reset program")
+    home = tmp_path / "test-home"
+    home.mkdir()
+    probe_status = tmp_path / "victim.pid"
+    marker = "YOKE_REAP_ISOLATION_MARKER.exit"
+    lines = (
+        _function_program(),
+        _assignment("home", str(home)),
+        "reap_user=$(/usr/bin/id -un)",
+        f"reap_marker_anchor={shlex.quote('YOKE_REAP_ISOLATION_MARKER')}",
+        f"reap_marker_suffix={shlex.quote('.exit')}",
+        f"reap_onboard_anchor={shlex.quote('yoke-qa-reaper-isolation-onboard')}",
+        "reap_target_count=0",
+        "reap_failed_count=0",
+        "reap_match_count=0",
+        'load_average_1min=""',
+        "cpu_count=0",
+        'reap_failure_detail=""',
+        "/bin/sh -c "
+        + shlex.quote(
+            f'trap "" TERM; : {marker}; printf "%s\\n" "$$" > "$1"; '
+            "while :; do /bin/sleep 1; done"
+        )
+        + " yoke-qa-reaper "
+        + shlex.quote(str(probe_status))
+        + " >/dev/null 2>&1 &",
+        "/bin/sleep 1",
+        "victim=$(cat " + shlex.quote(str(probe_status)) + ")",
+        "reap_processes",
+        "count_reap_matches",
+        "record_load_average",
+        "if /bin/kill -0 \"$victim\" 2>/dev/null; then",
+        "  print -r -- victim-alive:yes",
+        "else",
+        "  print -r -- victim-alive:no",
+        "fi",
+        "print -r -- matches:$reap_match_count",
+        "print -r -- failed:$reap_failed_count",
+    )
+
+    result = subprocess.run(
+        [binary],
+        input="\n".join(lines),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=120,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "victim-alive:no" in result.stdout
+    assert "matches:0" in result.stdout
+    assert "failed:0" in result.stdout
+
+
 def test_zsh_program_opaquely_moves_evidence_and_restores_token_bytes(
     tmp_path: Path,
 ) -> None:
