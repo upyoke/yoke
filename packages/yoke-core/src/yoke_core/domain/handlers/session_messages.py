@@ -57,6 +57,9 @@ def handle_message_preview(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_message_send(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.session_message_service import send_message
+    from yoke_core.domain.session_control_request_identity import (
+        registered_request_session_id,
+    )
 
     return _handle(
         request,
@@ -64,7 +67,10 @@ def handle_message_send(request: FunctionCallRequest) -> HandlerOutcome:
         lambda conn, body, actor_id: send_message(
             conn,
             actor_id=actor_id,
-            sender_session_id=request.actor.session_id or None,
+            sender_session_id=registered_request_session_id(
+                conn,
+                request.actor.session_id,
+            ),
             selector=body.selector,
             body=body.body,
             idempotency_key=body.idempotency_key,

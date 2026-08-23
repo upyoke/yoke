@@ -59,11 +59,33 @@ def test_wire_placeholder_model_does_not_drive_reregister(monkeypatch):
         lambda *_a, **_kw: pytest.fail("placeholder model must not drive upgrade"),
     )
 
-    assert register_module.ensure_registered_from_hook(
-        _Conn([{"model": "unknown"}]),
-        '{"model": "<synthetic>"}',
-        "s-model-placeholder",
-    ) is False
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn([{"model": "unknown"}]),
+            '{"model": "<synthetic>"}',
+            "s-model-placeholder",
+        )
+        is False
+    )
+
+
+def test_existing_missing_version_with_wire_version_drives_reregister(monkeypatch):
+    _patch_existing_row(monkeypatch)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+    )
+
+    drove = register_module.ensure_registered_from_hook(
+        _Conn([{"model": "gpt", "executor_version": None}]),
+        '{"executor_version": "26.818.31338"}',
+        "s-version",
+    )
+
+    assert drove is True
+    assert calls == ["s-version"]
 
 
 def test_existing_primary_lane_with_wire_lane_drives_reregister(monkeypatch):
@@ -128,12 +150,15 @@ def test_healed_lane_stops_driving_reregister(monkeypatch):
         lambda *_a, **_kw: pytest.fail("resolved rows must not consult routing"),
     )
 
-    assert register_module.ensure_registered_from_hook(
-        _Conn([{"execution_lane": "DARIUS", "executor": "claude-code"}]),
-        "{}",
-        "s-lane-healed",
-        project_id=1,
-    ) is False
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn([{"execution_lane": "DARIUS", "executor": "claude-code"}]),
+            "{}",
+            "s-lane-healed",
+            project_id=1,
+        )
+        is False
+    )
 
 
 def test_unresolvable_lane_does_not_drive_reregister(monkeypatch):
@@ -149,12 +174,15 @@ def test_unresolvable_lane_does_not_drive_reregister(monkeypatch):
         lambda _conn, _project, _executor, **_kw: "primary",
     )
 
-    assert register_module.ensure_registered_from_hook(
-        _Conn([{"execution_lane": "primary", "executor": "some-other-harness"}]),
-        "{}",
-        "s-lane-unmapped",
-        project_id=1,
-    ) is False
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn([{"execution_lane": "primary", "executor": "some-other-harness"}]),
+            "{}",
+            "s-lane-unmapped",
+            project_id=1,
+        )
+        is False
+    )
 
 
 def test_existing_real_lane_with_other_wire_lane_skips(monkeypatch):
@@ -165,8 +193,11 @@ def test_existing_real_lane_with_other_wire_lane_skips(monkeypatch):
         lambda *_a, **_kw: pytest.fail("real lanes must not swap laterally"),
     )
 
-    assert register_module.ensure_registered_from_hook(
-        _Conn([{"execution_lane": "DARIUS"}]),
-        '{"execution_lane": "ALTMAN"}',
-        "s-lane-real",
-    ) is False
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn([{"execution_lane": "DARIUS"}]),
+            '{"execution_lane": "ALTMAN"}',
+            "s-lane-real",
+        )
+        is False
+    )

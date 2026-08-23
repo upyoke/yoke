@@ -54,7 +54,9 @@ def _mark_model_shipped(session_id: str) -> None:
         return
 
 
-def client_model(event_name: str, payload: dict[str, Any], executor: str) -> Optional[str]:
+def client_model(
+    event_name: str, payload: dict[str, Any], executor: str
+) -> Optional[str]:
     session_id = payload.get("session_id")
     session_id = session_id if isinstance(session_id, str) else ""
     if event_name not in REGISTRATION_EVENTS:
@@ -76,7 +78,8 @@ def client_model(event_name: str, payload: dict[str, Any], executor: str) -> Opt
         else:
             tp = payload.get("transcript_path")
             model = detect_model(
-                executor, transcript_path=tp if isinstance(tp, str) else "",
+                executor,
+                transcript_path=tp if isinstance(tp, str) else "",
             )
         if _is_placeholder_model(model):
             return None
@@ -123,7 +126,7 @@ def client_lane(event_name: str, executor: str) -> Optional[str]:
         for key, value in _routing_settings().items():
             if not key.startswith(_EXECUTOR_PREFIX) or not value:
                 continue
-            raw = key[len(_EXECUTOR_PREFIX):]
+            raw = key[len(_EXECUTOR_PREFIX) :]
             if "*" in raw:
                 if raw.endswith("*"):
                     wildcards[_normalize_prefix_token(raw[:-1])] = value.strip()
@@ -208,14 +211,20 @@ def client_project_id(payload: dict[str, Any]) -> Optional[int]:
 
 
 def relay_identity_payload(
-    event_name: str, payload: dict[str, Any], executor: str,
+    event_name: str,
+    payload: dict[str, Any],
+    executor: str,
 ) -> dict[str, Optional[str] | Optional[int]]:
+    entrypoint = client_entrypoint(executor, payload)
     return {
-        "entrypoint": client_entrypoint(executor, payload),
+        "entrypoint": entrypoint,
         "model": client_model(event_name, payload, executor),
         "execution_lane": client_lane(event_name, executor),
         "project_id": client_project_id(payload),
-        "executor_version": client_executor_version(executor),
+        "executor_version": client_executor_version(
+            executor,
+            executor_surface=entrypoint,
+        ),
         "machine_id": client_machine_id(),
     }
 

@@ -57,6 +57,9 @@ def _authorization(
         PERM_PROJECT_ADMIN,
         permission_decision,
     )
+    from yoke_core.domain.session_control_request_identity import (
+        registered_request_session_id,
+    )
 
     actor_id = _actor_id(request)
     operate = permission_decision(
@@ -73,7 +76,10 @@ def _authorization(
     ).allowed
     return LaunchAuthorization(
         actor_id=actor_id,
-        session_id=request.actor.session_id or None,
+        session_id=registered_request_session_id(
+            conn,
+            request.actor.session_id,
+        ),
         can_operate_project=operate,
         can_administer_project=administer,
     )

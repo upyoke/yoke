@@ -29,9 +29,10 @@ _VERSION_ENV_BY_EXECUTOR = {
 def client_executor_version(
     executor: str,
     *,
+    executor_surface: str | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> Optional[str]:
-    """Return a client-observed version without running vendor commands."""
+    """Return a client-observed version without launching vendor clients."""
     env = os.environ if environ is None else environ
     explicit = str(env.get("YOKE_EXECUTOR_VERSION") or "").strip()
     if explicit:
@@ -41,6 +42,14 @@ def client_executor_version(
         value = str(env.get(key) or "").strip()
         if value:
             return value
+    surface = str(executor_surface or "").strip()
+    if surface.endswith("-desktop"):
+        try:
+            from yoke_harness.session_relay_inventory import probe_surface_version
+
+            return probe_surface_version(surface)
+        except Exception:  # noqa: BLE001 - observed identity is best effort
+            return None
     return None
 
 

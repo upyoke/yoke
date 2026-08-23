@@ -58,6 +58,17 @@ def test_inventory_reports_versions_and_project_ids_without_checkout_paths(
     assert str(tmp_path) not in repr(payload)
 
 
+def test_single_surface_version_uses_matching_probe(monkeypatch) -> None:
+    monkeypatch.setattr(
+        inventory_module,
+        "probe_app_version",
+        lambda path: "26.818.31338" if "ChatGPT" in str(path) else None,
+    )
+
+    assert inventory_module.probe_surface_version("codex-desktop") == "26.818.31338"
+    assert inventory_module.probe_surface_version("unknown-surface") is None
+
+
 def test_registered_adapter_receives_attestation_only_in_dedicated_field(
     monkeypatch,
     tmp_path: Path,
