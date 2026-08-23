@@ -1,6 +1,7 @@
-import { el, renderError } from "./universe_view_support.js";
+import { el } from "./universe_view_support.js";
 import { pillFamilyForState } from "./universe_state_pills.js";
 import {
+  renderSessionControlFailure,
   scopedProjectRefs,
   sessionControlCall,
 } from "./universe_session_control_data.js";
@@ -73,8 +74,9 @@ export function renderSessionRelaysView(context, main, scope, chrome = {}) {
         content.appendChild(relayCard(documentNode, relay));
       }
     } catch (error) {
-      content.replaceChildren();
-      renderError(content, error);
+      renderSessionControlFailure(
+        content, error, "Machine relays could not be loaded.",
+      );
     }
   };
   load();

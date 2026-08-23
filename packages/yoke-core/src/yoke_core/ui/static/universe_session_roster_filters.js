@@ -31,7 +31,7 @@ export function sessionRosterFilters(documentNode, onChange) {
     host.appendChild(field.wrapper);
   }
   const liveness = input(documentNode, "Liveness", "select");
-  for (const value of ["", "active", "stale"]) {
+  for (const value of ["", "active", "stale", "ended"]) {
     liveness.control.appendChild(option(
       documentNode, value, value || "Any liveness",
     ));
@@ -71,4 +71,64 @@ export function sessionRosterFilters(documentNode, onChange) {
       });
     },
   };
+}
+
+function unavailableReason(routing) {
+  if (routing.reason === "version_below_floor_or_unknown") {
+    return routing.minimum_version
+      ? `Messaging unavailable: executor version ${routing.minimum_version} or newer is required.`
+      : "Messaging unavailable: the executor version is not supported.";
+  }
+  if (routing.reason === "unknown_surface") {
+    return "Messaging unavailable: this executor surface is not supported.";
+  }
+  return "Messaging unavailable: this surface has no supported delivery hook.";
+}
+
+export function sessionMessageabilityText(row) {
+  const routing = row.messageability || {};
+  if (routing.messageable !== true) return unavailableReason(routing);
+  if (routing.wake_available === true) {
+    return row.liveness === "ended"
+      ? "Messageable: durable delivery and automatic restart are available."
+      : "Messageable: durable delivery and automatic wake are available.";
+  }
+  return row.liveness === "ended"
+    ? "Messageable: a message can queue, but automatic restart is unavailable."
+    : "Messageable through a supported hook; automatic wake is unavailable.";
+}
+
+export function appendSessionMessaging(documentNode, body, row, onMessage) {
+  const relay = row.relay ? ` · relay ${row.relay}` : "";
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-executor-version",
+    `Executor version: ${row.executor_version || "not reported"}`,
+  ));
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-machine-fact",
+    `Machine: ${row.machine_id || "not reported"}${relay}`,
+  ));
+  const description = sessionMessageabilityText(row);
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "fact-line session-messageability",
+    description,
+  ));
+  const actions = el(documentNode, "div", "session-control-actions");
+  const message = el(documentNode, "button", "item-button", "Message");
+  message.type = "button";
+  message.disabled = row.messageability?.messageable !== true;
+  message.title = message.disabled
+    ? description
+    : `Message only session ${row.session_id}`;
+  message.addEventListener("click", () => {
+    if (!message.disabled) onMessage(String(row.session_id));
+  });
+  actions.appendChild(message);
+  body.appendChild(actions);
 }

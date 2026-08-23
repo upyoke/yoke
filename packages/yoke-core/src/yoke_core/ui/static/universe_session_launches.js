@@ -1,13 +1,16 @@
-import { el, renderError } from "./universe_view_support.js";
+import { el } from "./universe_view_support.js";
 import { appendLaunchTimeline } from "./session_launch_timeline.js";
 import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
 import {
+  presentSessionControlFailure,
+  renderSessionControlFailure,
   scopedProjectRefs,
   sessionControlCall,
   statusRegion,
 } from "./universe_session_control_data.js";
 
-const RETRYABLE_STATES = new Set(["failed", "expired", "outcome_unknown"]);
+const RETRYABLE_STATES = new Set(["failed", "expired"]);
+const RECONCILE_FIRST_STATES = new Set(["outcome_unknown"]);
 const CANCELLABLE_STATES = new Set([
   "queued", "assigned", "launching", "awaiting_registration",
 ]);
@@ -41,6 +44,14 @@ function launchCard(documentNode, launch, mutate) {
     );
     link.href = "#/sessions/roster";
     body.appendChild(link);
+  }
+  if (RECONCILE_FIRST_STATES.has(launch.state)) {
+    body.appendChild(el(
+      documentNode,
+      "p",
+      "session-launch-guidance",
+      "Native session creation is uncertain. Reconcile whether a session exists before retrying or creating another one.",
+    ));
   }
   const actions = el(documentNode, "div", "session-control-actions");
   appendAction(
@@ -104,8 +115,9 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       const launches = results.flatMap((result) => result.launches || []);
       renderLaunches(documentNode, content, launches, mutate);
     } catch (error) {
-      content.replaceChildren();
-      renderError(content, error);
+      renderSessionControlFailure(
+        content, error, "Session launches could not be loaded.",
+      );
     }
   };
   const mutate = async (operation, launchId, button) => {
@@ -119,7 +131,9 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       status.textContent = `${launchId} ${operation === "retry" ? "retried" : "cancelled"}.`;
       await load();
     } catch (error) {
-      status.textContent = String(error.message || error);
+      status.textContent = presentSessionControlFailure(
+        error, `The launch could not be ${operation === "retry" ? "retried" : "cancelled"}.`,
+      );
       button.disabled = false;
     }
   };
@@ -128,7 +142,9 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       await openSessionLaunchDialog(context, dialogHost, projects, load);
     } catch (error) {
       status.hidden = false;
-      status.textContent = String(error.message || error);
+      status.textContent = presentSessionControlFailure(
+        error, "The launch dialog could not be opened.",
+      );
     }
   });
   load();

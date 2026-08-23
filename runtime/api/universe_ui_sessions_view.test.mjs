@@ -127,6 +127,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         function: "sessions.list",
         payload: { project: "1", liveness: "stale", limit: 500 },
       },
+      {
+        function: "sessions.list",
+        payload: { project: "1", liveness: "ended", limit: 500 },
+      },
     ],
   );
   assert.equal(byClass(root, "title")[0].textContent, "Sessions");
@@ -139,7 +143,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
     ),
     [
-      ["2", "live sessions"],
+      ["2", "sessions shown"],
       ["1", "items claimed"],
       ["2", "Blitz worktree lanes"],
       ["2", "actors"],
@@ -198,7 +202,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   await settle();
   assert.equal(
     requests.filter((request) => request.function === "sessions.list").length,
-    4,
+    6,
   );
   assert.equal(byClass(root, "session-card").length, 1);
   assert.deepEqual(
@@ -254,7 +258,7 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
   await settle();
   assert.equal(
     byClass(emptyRoot, "sessions-empty")[0].textContent,
-    "No live sessions in this scope.",
+    "No sessions in this scope.",
   );
   assert.deepEqual(
     byClass(emptyRoot, "sessions-stats")[0].children.map(
@@ -298,7 +302,7 @@ test("Sessions reports a scoped read failure without presenting cleanup as avail
 
   assert.equal(
     byClass(root, "error")[0].textContent,
-    "read failed (HTTP 503): session registry unavailable",
+    "session registry unavailable.",
   );
   assert.equal(byClass(root, "session-card").length, 0);
   assert.equal(

@@ -122,7 +122,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
     ),
     [
-      ["1", "live sessions"],
+      ["1", "sessions shown"],
       ["2", "items claimed"],
       ["1", "Blitz worktree lanes"],
       ["1", "actor"],

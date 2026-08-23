@@ -5,6 +5,7 @@ import {
 import { workflowDialogShell } from "./workflow_dialog_shell.js";
 import {
   labelledControl,
+  presentSessionControlFailure,
   sessionControlCall,
   sessionControlIdempotencyKey,
   splitValues,
@@ -45,7 +46,7 @@ function renderRecipients(documentNode, host, recipients) {
 }
 
 export function openSessionMessageCompose(context, host, {
-  seedSessionIds = [], seedProjects = [], onSent = () => {},
+  seedSessionId = null, onSent = () => {},
 } = {}) {
   const documentNode = context.document;
   const close = () => clearWorkflowDialog(host);
@@ -57,8 +58,7 @@ export function openSessionMessageCompose(context, host, {
     universe: el(documentNode, "input", "session-control-check"),
     body: el(documentNode, "textarea", "session-control-input session-message-body"),
   };
-  fields.sessions.value = seedSessionIds.join("\n");
-  fields.projects.value = seedProjects.join("\n");
+  fields.sessions.value = seedSessionId ? String(seedSessionId) : "";
   fields.universe.type = "checkbox";
   fields.body.setAttribute("rows", "8");
   fields.sessions.setAttribute("rows", "3");
@@ -114,7 +114,9 @@ export function openSessionMessageCompose(context, host, {
       status.textContent = `${result.recipient_count || 0} exact recipient(s) resolved.`;
       send.disabled = Number(result.recipient_count || 0) === 0;
     } catch (error) {
-      status.textContent = String(error.message || error);
+      status.textContent = presentSessionControlFailure(
+        error, "Recipients could not be previewed.",
+      );
     } finally {
       preview.disabled = false;
     }
@@ -134,7 +136,9 @@ export function openSessionMessageCompose(context, host, {
       close();
       onSent(result);
     } catch (error) {
-      status.textContent = String(error.message || error);
+      status.textContent = presentSessionControlFailure(
+        error, "The message could not be sent.",
+      );
       send.disabled = false;
     }
   });

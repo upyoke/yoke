@@ -1,12 +1,101 @@
 import { callFunction, el } from "./universe_view_support.js";
 
+const PLAIN_FAILURES = {
+  actor_required: "Sign in before using session controls.",
+  invalid_response: "Session control returned an unreadable response.",
+  network_unavailable: "Session control is temporarily unavailable.",
+  not_found: "That session-control record is no longer available.",
+  permission_denied: "You do not have permission for that session-control action.",
+  project_not_found: "That project is no longer available.",
+  reconcile_required: "This launch has an uncertain native outcome.",
+  reconciliation_conflict: "The recorded and observed launch outcomes disagree.",
+  target_not_found: "No recipient matched the selected target.",
+};
+
+const RECOVERY_BY_CODE = {
+  invalid_response: "Refresh the page and try again.",
+  network_unavailable: "Check the connection, then try again.",
+  not_found: "Refresh the page before choosing another action.",
+  project_not_found: "Refresh the project list and choose an available project.",
+  reconcile_required: "Reconcile whether a native session exists before retrying.",
+  reconciliation_conflict: "Review the native session identity before continuing.",
+};
+
+const TECHNICAL_DETAIL = /HTTP undefined|\b(?:SQL(?:STATE)?|SQLite|Postgres(?:QL)?|database|relation|column|table|constraint|traceback|operationalerror|programmingerror|psycopg)\b|\b(?:SELECT|INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE)\b/i;
+
+function safeSentence(value) {
+  const text = typeof value === "string"
+    ? value.replace(/\s+/g, " ").trim()
+    : "";
+  return text && text.length <= 280 && !TECHNICAL_DETAIL.test(text) ? text : null;
+}
+
+function punctuated(value) {
+  return /[.!?]$/.test(value) ? value : `${value}.`;
+}
+
+export class SessionControlFailure extends Error {
+  constructor({ code, detail, recovery, status } = {}) {
+    super("Session control request failed.");
+    this.name = "SessionControlFailure";
+    this.code = String(code || "invalid_response").toLowerCase();
+    this.detail = safeSentence(detail);
+    this.recovery = safeSentence(recovery);
+    this.status = Number.isInteger(status) ? status : null;
+  }
+}
+
+function responseFailure(response) {
+  const envelope = response?.envelope || {};
+  const error = envelope.error || {};
+  return new SessionControlFailure({
+    code: error.code || (error.message ? "request_failed" : "invalid_response"),
+    detail: error.message,
+    recovery: error.recovery_hint || error.recovery || error.hint,
+    status: response?.status,
+  });
+}
+
 export async function sessionControlCall(context, functionId, payload = {}) {
-  const response = await callFunction(context.client, functionId, payload);
-  const envelope = response.envelope || {};
-  if (response.status !== 200 || !envelope.success) {
-    throw new Error((envelope.error || {}).message || `${functionId} failed`);
+  let response;
+  try {
+    response = await callFunction(context.client, functionId, payload);
+  } catch (_error) {
+    throw new SessionControlFailure({ code: "network_unavailable" });
+  }
+  const envelope = response?.envelope || {};
+  if (response?.status !== 200 || !envelope.success) {
+    throw responseFailure(response);
   }
   return envelope.result || {};
+}
+
+export function presentSessionControlFailure(
+  error,
+  fallback = "Session control request failed.",
+) {
+  const failure = error instanceof SessionControlFailure
+    ? error
+    : error?.envelope
+      ? responseFailure(error)
+      : new SessionControlFailure({ code: "network_unavailable" });
+  const message = PLAIN_FAILURES[failure.code]
+    || failure.detail
+    || safeSentence(fallback)
+    || "Session control request failed.";
+  const recovery = failure.recovery || RECOVERY_BY_CODE[failure.code];
+  return recovery
+    ? `${punctuated(message)} ${punctuated(recovery)}`
+    : punctuated(message);
+}
+
+export function renderSessionControlFailure(host, error, fallback) {
+  host.replaceChildren(el(
+    host.ownerDocument,
+    "p",
+    "error",
+    presentSessionControlFailure(error, fallback),
+  ));
 }
 
 export function scopedProjectRefs(context, scope) {

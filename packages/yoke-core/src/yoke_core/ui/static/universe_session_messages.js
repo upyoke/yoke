@@ -1,7 +1,9 @@
-import { el, renderError } from "./universe_view_support.js";
+import { el } from "./universe_view_support.js";
 import { pillFamilyForState } from "./universe_state_pills.js";
 import { openSessionMessageCompose } from "./session_message_compose_dialog.js";
 import {
+  presentSessionControlFailure,
+  renderSessionControlFailure,
   scopedProjectRefs,
   sessionControlCall,
   statusRegion,
@@ -26,14 +28,23 @@ function receiptList(documentNode, message) {
   const list = el(documentNode, "ul", "session-message-receipts");
   for (const recipient of message.recipients || []) {
     const wakes = Number(recipient.wake_attempt_count || 0);
-    const wake = wakes
-      ? `${wakes} wake attempt${wakes === 1 ? "" : "s"}`
-      : `wake eligible ${recipient.wake_after || "—"}`;
+    let delivery = "waiting for a supported delivery hook";
+    if (recipient.state === "acknowledged") {
+      delivery = "delivery acknowledged; no wake needed";
+    } else if (recipient.state === "injected") {
+      delivery = "injected; awaiting acknowledgement";
+    } else if (recipient.state === "expired") {
+      delivery = "delivery window expired";
+    } else if (wakes) {
+      delivery = `${wakes} wake attempt${wakes === 1 ? "" : "s"}`;
+    } else if (recipient.wake_after) {
+      delivery = `wake scheduled ${recipient.wake_after}`;
+    }
     list.appendChild(el(
       documentNode,
       "li",
       null,
-      `${recipient.session_id} · ${recipient.state} · ${wake}`,
+      `${recipient.session_id} · ${recipient.state} · ${delivery}`,
     ));
   }
   if (!list.children.length) {
@@ -122,8 +133,9 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
       );
       renderMessages(documentNode, content, messages, cancelMessage);
     } catch (error) {
-      content.replaceChildren();
-      renderError(content, error);
+      renderSessionControlFailure(
+        content, error, "Session messages could not be loaded.",
+      );
     }
   };
   const cancelMessage = async (messageId, button) => {
@@ -137,12 +149,14 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
       status.textContent = `${messageId} cancelled.`;
       await load();
     } catch (error) {
-      status.textContent = String(error.message || error);
+      status.textContent = presentSessionControlFailure(
+        error, "The message could not be cancelled.",
+      );
       button.disabled = false;
     }
   };
   compose.addEventListener("click", () => openSessionMessageCompose(
-    context, dialogHost, { seedProjects: projects || [], onSent: load },
+    context, dialogHost, { onSent: load },
   ));
   load();
 }

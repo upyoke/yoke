@@ -3,6 +3,7 @@ import { clearWorkflowDialog } from "./workflow_accessibility.js";
 import { workflowDialogShell } from "./workflow_dialog_shell.js";
 import {
   labelledControl,
+  presentSessionControlFailure,
   sessionControlCall,
   sessionControlIdempotencyKey,
   statusRegion,
@@ -151,7 +152,9 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
         : `Launch refused: ${result.outcome || "unsupported"}.`;
       create.disabled = !result.launchable;
     } catch (error) {
-      status.textContent = String(error.message || error);
+      status.textContent = presentSessionControlFailure(
+        error, "Launch eligibility could not be checked.",
+      );
     } finally {
       preview.disabled = false;
     }
@@ -170,7 +173,9 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
       close();
       onCreated(result);
     } catch (error) {
-      status.textContent = String(error.message || error);
+      status.textContent = presentSessionControlFailure(
+        error, "The session request could not be created.",
+      );
       create.disabled = false;
     }
   });

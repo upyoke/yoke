@@ -1,5 +1,7 @@
-import { el, renderError, section } from "./universe_view_support.js";
+import { el, section } from "./universe_view_support.js";
 import {
+  presentSessionControlFailure,
+  renderSessionControlFailure,
   sessionControlCall,
   statusRegion,
 } from "./universe_session_control_data.js";
@@ -84,7 +86,9 @@ export function renderOrganizationFleet(context, main) {
           status.textContent = `Saved ${saved.changed_paths.length} setting(s).`;
           await load();
         } catch (error) {
-          status.textContent = String(error.message || error);
+          status.textContent = presentSessionControlFailure(
+            error, "Fleet policy could not be saved.",
+          );
           save.disabled = false;
         }
       });
@@ -92,8 +96,9 @@ export function renderOrganizationFleet(context, main) {
       body.appendChild(status);
       body.appendChild(save);
     } catch (error) {
-      body.replaceChildren();
-      renderError(body, error);
+      renderSessionControlFailure(
+        body, error, "Fleet policy could not be loaded.",
+      );
     }
   };
   load();

@@ -74,6 +74,8 @@ test("message compose previews and sends the identical recipient snapshot", asyn
   );
   button(root, "Compose message").dispatchEvent(new Event("click"));
   const inputs = byClass(root, "session-control-input");
+  assert.equal(inputs[0].value, "");
+  assert.equal(inputs[2].value, "");
   inputs[0].value = "session-1";
   inputs[3].value = "Please check the durable message plane.";
   button(root, "Preview recipients").dispatchEvent(new Event("click"));
@@ -88,6 +90,7 @@ test("message compose previews and sends the identical recipient snapshot", asyn
     (request) => request.function === "session_control.message.send",
   );
   assert.deepEqual(send.payload.selector, preview.payload.selector);
+  assert.deepEqual(preview.payload.selector.projects, []);
   assert.equal(send.payload.confirmation_token, "confirmed-1");
   assert.equal(send.payload.body, "Please check the durable message plane.");
   assert.ok(send.payload.idempotency_key.startsWith("workbench-message:"));
@@ -169,6 +172,9 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
         recipients: [{
           session_id: "session-1", project_id: 1, state: "pending",
           wake_attempt_count: 2, last_wake_at: "2026-08-23T01:05:00Z",
+        }, {
+          session_id: "session-2", project_id: 1, state: "acknowledged",
+          wake_attempt_count: 0, wake_after: "2026-08-23T01:06:00Z",
         }],
       }],
       count: 1,
@@ -180,6 +186,10 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   );
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("session-1 · pending · 2 wake attempts"));
+  assert.ok(text.includes(
+    "session-2 · acknowledged · delivery acknowledged; no wake needed",
+  ));
+  assert.equal(text.includes("wake eligible"), false);
   button(root, "Cancel").dispatchEvent(new Event("click"));
   await settle();
   assert.ok(requests.some(
@@ -247,10 +257,12 @@ test("organization Fleet edits only changed registry-backed settings", async (t)
   mounted.unmount();
 });
 
-test("roster filters computed messageability and relay-backed wake", async (t) => {
+test("roster includes ended sessions with exact message actions", async (t) => {
   const requests = [];
   const base = {
     execution_lane: "DARIUS", mode: "wait", executor: "codex",
+    executor_surface: "codex-desktop", executor_version: "26.814.41407",
+    machine_id: "machine-1", relay: "connected",
     model: "gpt-5", actor_id: 2, actor_kind: "human", actor_label: "Ben",
     project_id: 1, project: "yoke", current_item: null, claims: [],
     activity_at: "2026-07-26T12:00:00Z",
@@ -262,24 +274,40 @@ test("roster filters computed messageability and relay-backed wake", async (t) =
     }, {
       ...base, session_id: "wakeable", liveness: "stale",
       messageability: { messageable: false, wake_available: true },
+    }, {
+      ...base, session_id: "ended-wakeable", liveness: "ended",
+      messageability: { messageable: true, wake_available: true },
     }] }),
   });
   const { root, mounted } = await mountAt(
     t, "#/sessions/roster?project=1", client,
   );
   const filters = byClass(root, "session-roster-filter");
+  const text = allNodes(root).map((node) => node._textContent).join(" ");
+  assert.ok(text.includes("Executor version: 26.814.41407"));
+  assert.ok(text.includes("Machine: machine-1 · relay connected"));
+  assert.ok(text.includes(
+    "Messageable: durable delivery and automatic restart are available.",
+  ));
+  const endedCard = byClass(root, "session-card").find(
+    (card) => byClass(card, "session-id")[0]?.textContent === "ended-wakeable",
+  );
+  button(endedCard, "Message").dispatchEvent(new Event("click"));
+  const composeInputs = byClass(root, "session-control-input");
+  assert.equal(composeInputs[0].value, "ended-wakeable");
+  assert.equal(composeInputs[2].value, "");
   const route = filters.at(-1).children[1];
   route.value = "message";
   route.dispatchEvent(new Event("change"));
   assert.deepEqual(
     byClass(root, "session-id").map((node) => node.textContent),
-    ["messageable"],
+    ["messageable", "ended-wakeable"],
   );
   route.value = "wake";
   route.dispatchEvent(new Event("change"));
   assert.deepEqual(
     byClass(root, "session-id").map((node) => node.textContent),
-    ["wakeable"],
+    ["wakeable", "ended-wakeable"],
   );
   mounted.unmount();
 });
