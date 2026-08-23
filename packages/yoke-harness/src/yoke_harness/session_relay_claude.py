@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import time
@@ -20,13 +22,14 @@ from yoke_harness.session_relay_environment import native_session_environment
 CLAUDE_ADAPTER_REVISION = "claude-native-v1"
 CLAUDE_CLI_SURFACE = "claude-cli"
 CLAUDE_NATIVE_TIMEOUT_SECONDS = 20
-CLAUDE_UNSUPPORTED_SURFACES = frozenset({"claude-desktop", "claude-vscode"})
+_MAX_NATIVE_OUTPUT_BYTES = 64 * 1024
+_BACKGROUND_ID_PATTERN = re.compile(
+    r"(?im)^\s*backgrounded\s*[·:]\s*([A-Za-z0-9_-]{4,64})\s*$"
+)
 
 
 @dataclass(frozen=True)
 class ClaudeNativeInvocation:
-    """One bounded native call; its model-visible instruction stays out of repr."""
-
     executable: str
     cwd: Path
     session_id: str
@@ -34,8 +37,6 @@ class ClaudeNativeInvocation:
     instruction: str = field(repr=False)
     resume: bool = False
     model: str | None = None
-    launch_id: str | None = None
-    launch_attestation: str | None = field(default=None, repr=False)
 
     @property
     def argv(self) -> tuple[str, ...]:
@@ -49,8 +50,6 @@ class ClaudeNativeInvocation:
 
 @dataclass(frozen=True)
 class ClaudeProcessResult:
-    """Sanitized process facts; native output is optional and never reported."""
-
     returncode: int
     duration_ms: int
     stdout: str = field(default="", repr=False)
@@ -58,9 +57,10 @@ class ClaudeProcessResult:
 
 
 ClaudeProcessRunner = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
+ClaudeSessionLookup = Callable[[ClaudeNativeInvocation], ClaudeProcessResult]
 ExecutableFinder = Callable[[str], str | None]
-LaunchAttestationHandoff = Callable[[str, str], bool]
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
+LaunchAttestationHandoff = Callable[..., bool]
 
 
 def discover_claude_cli(
@@ -74,29 +74,48 @@ def discover_claude_cli(
     return str(discovered).strip() if discovered else None
 
 
-def run_claude_process(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
-    """Run one documented background command without retaining native output."""
+def _bounded_text(value: object) -> str:
+    raw = value if isinstance(value, bytes) else str(value or "").encode()
+    return raw[:_MAX_NATIVE_OUTPUT_BYTES].decode("utf-8", errors="replace")
+
+
+def _run_claude_command(
+    invocation: ClaudeNativeInvocation,
+    argv: tuple[str, ...],
+) -> ClaudeProcessResult:
     started = time.monotonic()
     environment = native_session_environment(
         executor="claude-code",
         executor_version=invocation.surface_version,
         provider="anthropic",
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
-        launch_id=invocation.launch_id,
-        launch_attestation=invocation.launch_attestation,
     )
     completed = subprocess.run(
-        list(invocation.argv),
+        list(argv),
         cwd=invocation.cwd,
         env=environment,
         stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         timeout=CLAUDE_NATIVE_TIMEOUT_SECONDS,
         check=False,
     )
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
-    return ClaudeProcessResult(completed.returncode, duration_ms)
+    return ClaudeProcessResult(
+        completed.returncode,
+        duration_ms,
+        _bounded_text(completed.stdout),
+        _bounded_text(completed.stderr),
+    )
+
+
+def run_claude_process(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
+    """Run one documented background command with private bounded output."""
+    return _run_claude_command(invocation, invocation.argv)
+
+
+def lookup_claude_session(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
+    return _run_claude_command(invocation, (invocation.executable, "agents", "--json"))
 
 
 def _contract_version_gate(
@@ -181,63 +200,65 @@ def _expected_instruction(context: RelayExecutionContext) -> str | None:
 
 def _context_extensions_present(context: RelayExecutionContext) -> bool:
     return all(
-        hasattr(context, field_name)
-        for field_name in ("surface_version", "requested_model", "presentation")
+        hasattr(context, name)
+        for name in ("surface_version", "requested_model", "presentation")
     )
 
 
-def _launch_invocation(
-    context: RelayExecutionContext,
-    executable: str,
-    instruction: str,
-    native_session_id: str,
-    handoff: LaunchAttestationHandoff | None,
-) -> ClaudeNativeInvocation | None:
-    attestation = context.launch_attestation
-    if not attestation or handoff is None:
-        return None
-    try:
-        handed_off = handoff(context.job_id, attestation)
-    except Exception:  # the secret must never be copied into failure evidence
-        return None
-    if not handed_off:
-        return None
-    raw_model = getattr(context, "requested_model", None)
-    model = str(raw_model).strip() if raw_model else None
-    return ClaudeNativeInvocation(
-        executable,
-        context.checkout,
-        native_session_id,
-        str(context.surface_version),
-        instruction,
-        model=model,
-        launch_id=context.job_id,
-        launch_attestation=attestation,
-    )
-
-
-def _wake_invocation(
+def _native_invocation(
     context: RelayExecutionContext,
     executable: str,
     instruction: str,
 ) -> ClaudeNativeInvocation | None:
-    session_id = str(context.target_session_id or "").strip()
-    if not session_id:
+    launch = context.job_kind == "launch"
+    session_id = context.job_id if launch else str(context.target_session_id or "")
+    if not session_id.strip():
         return None
+    raw_model = getattr(context, "requested_model", None) if launch else None
     return ClaudeNativeInvocation(
         executable,
         context.checkout,
         session_id,
         str(context.surface_version),
         instruction,
-        resume=True,
+        resume=not launch,
+        model=str(raw_model).strip() if raw_model else None,
     )
+
+
+def _short_background_id(process: ClaudeProcessResult) -> str | None:
+    matched = _BACKGROUND_ID_PATTERN.search(f"{process.stdout}\n{process.stderr}")
+    return matched.group(1) if matched else None
+
+
+def _actual_session_id(short_id: str, output: str) -> str | None:
+    try:
+        document = json.loads(output)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(document, dict):
+        document = document.get("agents", document.get("sessions"))
+    if not isinstance(document, list):
+        return None
+    matches = set()
+    for row in document:
+        if not isinstance(row, dict):
+            continue
+        row_id = row.get("id") or row.get("agentId") or row.get("shortId")
+        if str(row_id or "") != short_id:
+            continue
+        try:
+            matches.add(str(UUID(str(row.get("sessionId") or ""))))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return matches.pop() if len(matches) == 1 else None
 
 
 def run_claude_cli_adapter(
     context: RelayExecutionContext,
     *,
     process_runner: ClaudeProcessRunner = run_claude_process,
+    session_lookup: ClaudeSessionLookup = lookup_claude_session,
     executable_finder: ExecutableFinder = shutil.which,
     version_gate: SurfaceVersionGate | None = None,
     attestation_handoff: LaunchAttestationHandoff | None = None,
@@ -265,22 +286,15 @@ def run_claude_cli_adapter(
         if not _context_extensions_present(context):
             return _result(context, "not_created", "context_incomplete")
         try:
-            native_session_id = str(UUID(context.job_id))
+            UUID(context.job_id)
         except (TypeError, ValueError, AttributeError):
             return _result(context, "not_created", "native_session_invalid")
-        invocation = _launch_invocation(
-            context,
-            executable,
-            expected,
-            native_session_id,
-            attestation_handoff,
-        )
-        if invocation is None:
+        if not context.launch_attestation or attestation_handoff is None:
             return _result(context, "not_created", "attestation_handoff_unavailable")
-    else:
-        invocation = _wake_invocation(context, executable, expected)
-        if invocation is None:
-            return _result(context, "not_found", "native_session_missing")
+    invocation = _native_invocation(context, executable, expected)
+    if invocation is None:
+        result = "not_created" if context.job_kind == "launch" else "not_found"
+        return _result(context, result, "native_session_missing")
     try:
         process = process_runner(invocation)
     except Exception:  # native exceptions may contain prompts, output, or tokens
@@ -290,25 +304,46 @@ def run_claude_cli_adapter(
         result = "outcome_unknown" if context.job_kind == "launch" else "failed"
         return _result(context, result, "native_exit", process=process)
     if context.job_kind == "launch":
+        short_id = _short_background_id(process)
+        if short_id is None:
+            return _result(context, "outcome_unknown", "identity_parse_failed")
+        try:
+            lookup = session_lookup(invocation)
+        except Exception:  # lookup output and errors are private native material
+            return _result(context, "outcome_unknown", "identity_lookup_failed")
+        combined = ClaudeProcessResult(
+            lookup.returncode,
+            min(process.duration_ms + lookup.duration_ms, 3_600_000),
+        )
+        actual_id = _actual_session_id(short_id, lookup.stdout)
+        if lookup.returncode != 0 or actual_id is None:
+            code = (
+                "identity_lookup_failed"
+                if lookup.returncode
+                else "identity_parse_failed"
+            )
+            return _result(context, "outcome_unknown", code, process=combined)
+        try:
+            staged = attestation_handoff(
+                context.job_id,
+                context.launch_attestation,
+                binding_id=actual_id,
+            )
+        except Exception:  # the secret must never be copied into failure evidence
+            staged = False
+        if not staged:
+            return _result(
+                context,
+                "outcome_unknown",
+                "attestation_handoff_failed",
+                native_session_id=actual_id,
+                process=combined,
+            )
         return _result(
             context,
             "native_created",
             "native_created",
-            native_session_id=invocation.session_id,
-            process=process,
+            native_session_id=actual_id,
+            process=combined,
         )
     return _result(context, "accepted", "accepted", process=process)
-
-
-__all__ = [
-    "CLAUDE_ADAPTER_REVISION",
-    "CLAUDE_CLI_SURFACE",
-    "CLAUDE_NATIVE_TIMEOUT_SECONDS",
-    "CLAUDE_UNSUPPORTED_SURFACES",
-    "ClaudeNativeInvocation",
-    "ClaudeProcessResult",
-    "discover_claude_cli",
-    "run_claude_cli_adapter",
-    "run_claude_process",
-    "unsupported_claude_route",
-]
