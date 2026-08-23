@@ -14,6 +14,10 @@ from runtime.api.tools.session_control_live_acceptance_driver import (
 )
 
 
+RELEASE_SHA = "a" * 40
+SERVER_BUILD = "a" * 12
+
+
 class _Clock:
     def __init__(self) -> None:
         self.value = 0.0
@@ -214,6 +218,9 @@ def test_native_success_without_registration_fails_closed() -> None:
     report = _driver(client).run(
         AcceptanceMatrix("yoke", (cell,)),
         run_id="release-3",
+        release_sha=RELEASE_SHA,
+        server_build=SERVER_BUILD,
+        engine_version="0.1.1+launch.999",
         caller_session_id="main-session",
         timeout_seconds=10,
         poll_seconds=1,
@@ -232,6 +239,9 @@ def test_ack_without_wake_receipt_and_malformed_counts_fail_closed() -> None:
     first = _driver(missing).run(
         AcceptanceMatrix("yoke", (cell,)),
         run_id="release-4",
+        release_sha=RELEASE_SHA,
+        server_build=SERVER_BUILD,
+        engine_version="0.1.1+launch.999",
         caller_session_id="main-session",
         timeout_seconds=10,
         poll_seconds=1,
@@ -240,6 +250,9 @@ def test_ack_without_wake_receipt_and_malformed_counts_fail_closed() -> None:
     second = _driver(malformed).run(
         AcceptanceMatrix("yoke", (cell,)),
         run_id="release-5",
+        release_sha=RELEASE_SHA,
+        server_build=SERVER_BUILD,
+        engine_version="0.1.1+launch.999",
         caller_session_id="main-session",
         timeout_seconds=10,
         poll_seconds=1,

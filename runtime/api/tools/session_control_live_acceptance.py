@@ -13,6 +13,7 @@ from runtime.api.tools.session_control_live_acceptance_client import YokeCliClie
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
     load_matrix,
+    validate_deployed_release,
     validate_run_id,
 )
 from runtime.api.tools.session_control_live_acceptance_driver import (
@@ -52,6 +53,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--matrix", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument(
+        "--release-sha",
+        required=True,
+        help="Full 40-character commit expected to be serving in prod.",
+    )
     parser.add_argument("--timeout-seconds", type=float, default=900.0)
     parser.add_argument("--poll-seconds", type=float, default=5.0)
     parser.add_argument("--unsupported-observation-seconds", type=float, default=90.0)
@@ -97,9 +103,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise AcceptanceContractError("observation_window_invalid")
         caller = _caller_session_id()
         matrix = load_matrix(args.matrix)
-        report = LiveAcceptanceDriver(YokeCliClient()).run(
+        client = YokeCliClient()
+        release = client.deployed_release()
+        release_sha, server_build = validate_deployed_release(
+            args.release_sha, release.get("server_build", "")
+        )
+        report = LiveAcceptanceDriver(client).run(
             matrix,
             run_id=run_id,
+            release_sha=release_sha,
+            server_build=server_build,
+            engine_version=release.get("engine_version", ""),
             caller_session_id=caller,
             timeout_seconds=args.timeout_seconds,
             poll_seconds=args.poll_seconds,

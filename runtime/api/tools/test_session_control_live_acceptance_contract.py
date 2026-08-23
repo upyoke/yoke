@@ -13,6 +13,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACES,
     AcceptanceContractError,
     parse_matrix,
+    validate_deployed_release,
     validate_run_id,
 )
 
@@ -103,6 +104,19 @@ def test_run_id_is_bounded_for_repeatable_idempotency_keys() -> None:
         assert raised.value.code == "run_id_invalid"
 
 
+def test_deployed_release_requires_the_expected_commit_prefix() -> None:
+    release = "a" * 40
+    assert validate_deployed_release(release, "a" * 12) == (release, "a" * 12)
+    for expected, observed, code in (
+        ("short", "a" * 12, "release_sha_invalid"),
+        (release, "unknown", "server_build_unresolved"),
+        (release, "b" * 12, "deployed_release_mismatch"),
+    ):
+        with pytest.raises(AcceptanceContractError) as raised:
+            validate_deployed_release(expected, observed)
+        assert raised.value.code == code
+
+
 def test_cli_keeps_message_body_out_of_argv(monkeypatch) -> None:
     captured = {}
     envelope = {
@@ -156,3 +170,30 @@ def test_cli_refuses_caller_spoof_and_never_reflects_raw_failure(monkeypatch) ->
 
     assert failed.value.code == "permission_denied"
     assert "SECRET" not in str(failed.value)
+
+
+def test_status_boundary_returns_release_identity_only(monkeypatch) -> None:
+    status = {
+        "server": {
+            "reachable": True,
+            "build": "a" * 12,
+            "engine_version": "0.1.1+launch.999",
+            "token_name": "MUST-NOT-RETURN",
+        },
+        "connection": {"credential_source": "MUST-NOT-RETURN"},
+    }
+    monkeypatch.setattr(
+        client_module.subprocess,
+        "run",
+        lambda *_a, **_kw: SimpleNamespace(
+            returncode=0, stdout=json.dumps(status), stderr=""
+        ),
+    )
+
+    result = YokeCliClient().deployed_release()
+
+    assert result == {
+        "server_build": "a" * 12,
+        "engine_version": "0.1.1+launch.999",
+    }
+    assert "MUST-NOT-RETURN" not in json.dumps(result)

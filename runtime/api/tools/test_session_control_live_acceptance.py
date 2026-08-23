@@ -11,6 +11,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 )
 
 
+RELEASE_SHA = "a" * 40
+SERVER_BUILD = "a" * 12
+
+
 def test_subagent_refuses_before_loading_matrix_or_calling_cli(
     monkeypatch, capsys
 ) -> None:
@@ -26,7 +30,16 @@ def test_subagent_refuses_before_loading_matrix_or_calling_cli(
         lambda: (_ for _ in ()).throw(AssertionError("CLI constructed")),
     )
 
-    code = acceptance.main(["--matrix", "matrix.json", "--run-id", "release-1"])
+    code = acceptance.main(
+        [
+            "--matrix",
+            "matrix.json",
+            "--run-id",
+            "release-1",
+            "--release-sha",
+            RELEASE_SHA,
+        ]
+    )
 
     report = json.loads(capsys.readouterr().out)
     assert code == 2
@@ -56,7 +69,14 @@ def test_top_level_entrypoint_emits_machine_readable_report(
                 "cells": [],
             }
 
-    sentinel = object()
+    class _Client:
+        def deployed_release(self):
+            return {
+                "server_build": SERVER_BUILD,
+                "engine_version": "0.1.1+launch.999",
+            }
+
+    sentinel = _Client()
     monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
     monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
     monkeypatch.setattr(acceptance, "load_matrix", lambda _path: matrix)
@@ -69,6 +89,8 @@ def test_top_level_entrypoint_emits_machine_readable_report(
             "matrix.json",
             "--run-id",
             "release-2",
+            "--release-sha",
+            RELEASE_SHA,
             "--timeout-seconds",
             "12",
             "--poll-seconds",
@@ -85,6 +107,9 @@ def test_top_level_entrypoint_emits_machine_readable_report(
     assert captured["matrix"] is matrix
     assert captured["kwargs"] == {
         "run_id": "release-2",
+        "release_sha": RELEASE_SHA,
+        "server_build": SERVER_BUILD,
+        "engine_version": "0.1.1+launch.999",
         "caller_session_id": "main-session",
         "timeout_seconds": 12.0,
         "poll_seconds": 2.0,
@@ -106,6 +131,8 @@ def test_entrypoint_refuses_invalid_windows_without_cli(monkeypatch, capsys) -> 
             "matrix.json",
             "--run-id",
             "release-3",
+            "--release-sha",
+            RELEASE_SHA,
             "--poll-seconds",
             "0",
         ]
@@ -114,6 +141,47 @@ def test_entrypoint_refuses_invalid_windows_without_cli(monkeypatch, capsys) -> 
     report = json.loads(capsys.readouterr().out)
     assert code == 2
     assert report["failure_code"] == "poll_window_invalid"
+
+
+def test_entrypoint_refuses_release_mismatch_before_mutating_cli(
+    monkeypatch, capsys
+) -> None:
+    matrix = AcceptanceMatrix(
+        "yoke",
+        (AcceptanceCell("codex-desktop", "26.814.41407", "create"),),
+    )
+
+    class _Client:
+        def deployed_release(self):
+            return {"server_build": "b" * 12, "engine_version": "0.1.1"}
+
+        def call(self, *_args, **_kwargs):
+            raise AssertionError("mutating CLI called")
+
+    monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
+    monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
+    monkeypatch.setattr(acceptance, "load_matrix", lambda _path: matrix)
+    monkeypatch.setattr(acceptance, "YokeCliClient", _Client)
+    monkeypatch.setattr(
+        acceptance,
+        "LiveAcceptanceDriver",
+        lambda _client: (_ for _ in ()).throw(AssertionError("driver constructed")),
+    )
+
+    code = acceptance.main(
+        [
+            "--matrix",
+            "matrix.json",
+            "--run-id",
+            "release-mismatch",
+            "--release-sha",
+            RELEASE_SHA,
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert report["failure_code"] == "deployed_release_mismatch"
 
 
 def test_execution_guard_recognizes_a_codex_child(monkeypatch) -> None:
