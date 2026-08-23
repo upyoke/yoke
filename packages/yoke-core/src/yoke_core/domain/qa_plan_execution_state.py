@@ -9,6 +9,9 @@ from uuid import uuid4
 from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_leases import release_lease
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.qa_capture_settlement import (
+    settle_unreviewed_execution_captures,
+)
 from yoke_core.domain.qa_plan_execution_lifecycle import (
     finish_plan_execution,
     heartbeat_plan_execution,
@@ -57,6 +60,7 @@ def _release_stale_execution(
     *,
     now: str,
 ) -> None:
+    settle_unreviewed_execution_captures(conn, execution)
     lease_id = execution.get("machine_lease_id")
     if lease_id is not None:
         release_lease(conn, int(lease_id), "qa-plan-execution-stale")

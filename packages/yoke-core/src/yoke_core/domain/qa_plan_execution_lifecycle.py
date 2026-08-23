@@ -6,6 +6,9 @@ from typing import Any
 
 from yoke_core.domain.coordination_leases import heartbeat_lease, release_lease
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.qa_capture_settlement import (
+    settle_unreviewed_execution_captures,
+)
 from yoke_core.domain.qa_plan_execution_store import (
     QaPlanExecutionStateError,
     marker,
@@ -99,6 +102,9 @@ def finish_plan_execution(
         raise QaPlanExecutionStateError(
             "QA plan execution cannot complete before every case advances"
         )
+    terminal_settlement = state in _TERMINAL_EXECUTION_STATES
+    if terminal_settlement:
+        settle_unreviewed_execution_captures(conn, execution)
     retain_lease = (
         state == "awaiting_agent_review"
         and _mission_needs_retained_lease(execution)

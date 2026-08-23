@@ -50,7 +50,7 @@ def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
 
 def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> None:
     with test_database() as conn:
-        execution, requirement_id, _capture_run_id = _review_execution(conn, 4541)
+        execution, requirement_id, capture_run_id = _review_execution(conn, 4541)
         bundle = begin_plan_review(conn, execution)
         create_governed_tables(conn)
         lease = acquire_lease(
@@ -124,11 +124,18 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
             ).fetchone()[0]
             == 0
         )
+        assert (
+            conn.execute(
+                "SELECT verdict FROM qa_runs WHERE id=%s",
+                (capture_run_id,),
+            ).fetchone()[0]
+            is None
+        )
 
 
 def test_telemetry_failure_cannot_undo_committed_review(monkeypatch) -> None:
     with test_database() as conn:
-        execution, requirement_id, _capture_run_id = _review_execution(conn, 4542)
+        execution, requirement_id, capture_run_id = _review_execution(conn, 4542)
         bundle = begin_plan_review(conn, execution)
 
         def fail_telemetry(*_args, **_kwargs):
@@ -170,4 +177,11 @@ def test_telemetry_failure_cannot_undo_committed_review(monkeypatch) -> None:
                 (bundle["bundle_id"],),
             ).fetchone()[0]
             == 1
+        )
+        assert (
+            conn.execute(
+                "SELECT verdict FROM qa_runs WHERE id=%s",
+                (capture_run_id,),
+            ).fetchone()[0]
+            == "pass"
         )
