@@ -30,6 +30,16 @@ class OrganizationSettingsGetResponse(BaseModel):
     defaulted: bool
 
 
+class OrganizationSettingsCatalogRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    org: Optional[str] = None
+
+
+class OrganizationSettingsCatalogResponse(BaseModel):
+    org_id: int
+    settings: list[dict[str, Any]]
+
+
 class OrganizationSettingsMergeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     org: Optional[str] = None
@@ -101,6 +111,43 @@ def handle_organization_settings_get(
             "value": value,
             "defaulted": defaulted,
         },
+    )
+
+
+def handle_organization_settings_catalog(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    parsed = _parse(OrganizationSettingsCatalogRequest, request)
+    if isinstance(parsed, HandlerOutcome):
+        return parsed
+    from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.organization_settings import read_organization_setting
+
+    conn = connect()
+    try:
+        org_id, error = resolve_org_ref(conn, parsed.org)
+        if error is not None:
+            return HandlerOutcome(primary_success=False, error=error)
+        settings = []
+        for path, spec in FLEET_KEY_SPECS.items():
+            value, defaulted = read_organization_setting(conn, int(org_id), path)
+            settings.append(
+                {
+                    "path": path,
+                    "value": value,
+                    "default": spec.default,
+                    "defaulted": defaulted,
+                    "value_type": spec.value_type.__name__,
+                    "minimum": spec.minimum,
+                    "meaning": spec.meaning,
+                }
+            )
+    finally:
+        conn.close()
+    return HandlerOutcome(
+        primary_success=True,
+        result_payload={"org_id": int(org_id), "settings": settings},
     )
 
 
@@ -176,9 +223,12 @@ __all__ = [
     "OrganizationDomainSetResponse",
     "OrganizationSettingsGetRequest",
     "OrganizationSettingsGetResponse",
+    "OrganizationSettingsCatalogRequest",
+    "OrganizationSettingsCatalogResponse",
     "OrganizationSettingsMergeRequest",
     "OrganizationSettingsMergeResponse",
     "handle_organization_domain_set",
+    "handle_organization_settings_catalog",
     "handle_organization_settings_get",
     "handle_organization_settings_merge",
 ]

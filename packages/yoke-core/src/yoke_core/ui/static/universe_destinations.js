@@ -26,6 +26,24 @@ export const NAV = [
     id: "sessions", icon: "◈", label: "Sessions", scope: SCOPE_MULTI,
     summary:
       "Every harness session running against this universe, and what each one holds.",
+    tabs: [
+      {
+        id: "roster", label: "Roster",
+        summary: "Known sessions, current work, liveness, and messageability.",
+      },
+      {
+        id: "messages", label: "Messages",
+        summary: "Compose confirmed deliveries and inspect per-recipient receipts.",
+      },
+      {
+        id: "launches", label: "Launches",
+        summary: "Create exact-surface sessions and follow their registration timeline.",
+      },
+      {
+        id: "relays", label: "Relays",
+        summary: "Connected machines and the native surfaces they can serve.",
+      },
+    ],
   },
   {
     id: "delivery", icon: "⬈", label: "Delivery", scope: SCOPE_MULTI,

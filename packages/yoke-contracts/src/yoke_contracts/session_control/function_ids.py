@@ -21,6 +21,7 @@ LAUNCH_FUNCTION_IDS = (
 )
 
 RELAY_FUNCTION_IDS = (
+    "session_control.relay.list",
     "session_control.relay.claim",
     "session_control.relay.report",
 )

@@ -81,6 +81,10 @@ class TestRegistrationShape:
             "qa.case.waive",
             "items.create",
             "sessions.reclaim_stale",
+            "organizations.settings.merge",
+            "session_control.message.send", "session_control.message.cancel",
+            "session_control.launch.create", "session_control.launch.cancel",
+            "session_control.launch.retry",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
         }

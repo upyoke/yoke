@@ -29,6 +29,12 @@ function shellClient() {
       if (request.function === "projects.list") {
         return { status: 200, envelope: { success: true, result: { rows: [] } } };
       }
+      if (request.function === "organizations.settings.catalog") {
+        return {
+          status: 200,
+          envelope: { success: true, result: { org_id: 1, settings: [] } },
+        };
+      }
       throw new Error(`unexpected function ${request.function}`);
     },
   };
@@ -54,7 +60,7 @@ function panelTitles(root) {
 // its own, so an assertion about controls has to name this panel rather than
 // sweep the whole view.
 function portabilityPanel(root) {
-  return byClass(root, "panel")[1];
+  return byClass(root, "panel")[2];
 }
 
 test("the Identity panel names the organization from the served card", async (t) => {
@@ -65,7 +71,7 @@ test("the Identity panel names the organization from the served card", async (t)
   const { root, mounted } = await mountOrganization();
 
   // Identity leads: the screen is named for the org, so it says which one.
-  assert.deepEqual(panelTitles(root), ["Identity", "Portability"]);
+  assert.deepEqual(panelTitles(root), ["Identity", "Fleet policy", "Portability"]);
   const cells = allNodes(byClass(root, "panel")[0])
     .filter((node) => node.tagName === "TD")
     .map((node) => node.textContent);
@@ -82,9 +88,9 @@ test("without host actions the Portability panel is copyable text, not controls"
 
   const { root, mounted } = await mountOrganization();
 
-  // The local UI server is a read-only allowlist, so nothing mounted this
-  // way can move a universe: each command renders as a <code> element —
-  // deliberately copyable text — and no control pretends otherwise.
+  // Universe movement is not a browser mutation: each command renders as a
+  // <code> element — deliberately copyable text — and no control pretends
+  // otherwise. Fleet policy has its own bounded registered-function editor.
   const panel = portabilityPanel(root);
   const codes = allNodes(panel).filter((node) => node.tagName === "CODE");
   assert.deepEqual(codes.map((node) => node.textContent), [
@@ -156,7 +162,7 @@ test("a hosted owner can replace the complete portability surface", async (t) =>
   });
 
   const view = byClass(root, "view-host")[0];
-  assert.deepEqual(panelTitles(root), ["Identity"]);
+  assert.deepEqual(panelTitles(root), ["Identity", "Fleet policy"]);
   assert.equal(allNodes(view).filter(
     (node) => node.textContent === "Hosted export and import",
   ).length, 1);

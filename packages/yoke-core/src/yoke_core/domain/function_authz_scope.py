@@ -81,6 +81,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     # The org identity card (slug/name/created_at) is instance identity, not
     # tenant content — readable by any authenticated actor.
     "organizations.get": AuthzSpec(ACTOR_SESSION, None),
+    "organizations.settings.catalog": AuthzSpec(ACTOR_SESSION, None),
     "organizations.settings.get": AuthzSpec(ACTOR_SESSION, None),
     "organizations.settings.merge": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "organizations.domain.set": AuthzSpec(ORG, PERM_ORG_ADMIN),

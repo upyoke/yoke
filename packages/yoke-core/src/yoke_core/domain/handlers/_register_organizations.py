@@ -18,6 +18,18 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
+        "organizations.settings.catalog",
+        _settings.handle_organization_settings_catalog,
+        _settings.OrganizationSettingsCatalogRequest,
+        _settings.OrganizationSettingsCatalogResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.organizations_settings",
+        target_kinds=["global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"], guardrails=[],
+        adapter_status="live", claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
         "organizations.settings.get",
         _settings.handle_organization_settings_get,
         _settings.OrganizationSettingsGetRequest,

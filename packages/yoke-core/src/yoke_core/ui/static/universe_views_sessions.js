@@ -14,6 +14,7 @@ import {
   whoColumn,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
+import { sessionRosterFilters } from "./universe_session_roster_filters.js";
 const LIVE_STATES = new Set(["active", "stale"]);
 const WORKTREE_ROLES = new Set(["integration", "worker"]);
 function statRow(documentNode, facts) {
@@ -208,17 +209,25 @@ function renderSessions(documentNode, host, rows, who, mode) {
 export function renderSessionsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const view = el(documentNode, "div", "sessions-view");
+  const localActions = el(documentNode, "div", "session-control-actions");
   const actionStatus = el(documentNode, "p", "sessions-action-status");
   actionStatus.hidden = true;
   actionStatus.setAttribute("role", "status");
   const content = el(documentNode, "div", "sessions-content", "loading sessions…");
+  let visibleRows = [];
+  const filters = sessionRosterFilters(documentNode, () => {
+    renderSessions(documentNode, content, filters.apply(visibleRows), who, mode);
+  });
+  view.appendChild(localActions);
   view.appendChild(actionStatus);
+  view.appendChild(filters.host);
   view.appendChild(content);
   main.replaceChildren(view);
 
   const reclaim = el(documentNode, "button", "item-button", "Reclaim stale");
   reclaim.type = "button";
   reclaim.disabled = true;
+  localActions.appendChild(reclaim);
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Sessions",
@@ -268,13 +277,13 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
         rowsBySession.set(String(row.session_id), row);
       }
     }
-    const rows = [...rowsBySession.values()];
-    staleCount = rows.filter((row) => row.liveness === "stale").length;
+    visibleRows = [...rowsBySession.values()];
+    staleCount = visibleRows.filter((row) => row.liveness === "stale").length;
     reclaim.disabled = staleCount === 0;
     reclaim.title = staleCount
       ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
       : "No stale sessions in this scope";
-    renderSessions(documentNode, content, rows, who, mode);
+    renderSessions(documentNode, content, filters.apply(visibleRows), who, mode);
   };
 
   reclaim.addEventListener("click", async () => {

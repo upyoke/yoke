@@ -165,6 +165,15 @@ def register(registry) -> None:
 
     _register(
         registry,
+        "session_control.relay.list",
+        _relay.handle_relay_list,
+        _models.RelayListRequest,
+        _models.RelayListResponse,
+        side_effects=[],
+        owner_module=_relay.__name__,
+    )
+    _register(
+        registry,
         "session_control.relay.claim",
         _relay.handle_relay_claim,
         _models.RelayClaimRequest,
