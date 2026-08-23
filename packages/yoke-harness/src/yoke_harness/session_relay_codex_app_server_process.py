@@ -35,6 +35,7 @@ def _request_payload(request: CodexNativeRequest) -> dict[str, object]:
         "presentation": request.presentation,
         "target_liveness": request.target_liveness,
         "target_session_id": request.target_session_id,
+        "instruction_id": request.instruction_id,
         "native_instruction": request.native_instruction,
     }
 
@@ -62,6 +63,7 @@ def _request_from_payload(payload: object) -> CodexNativeRequest:
             if payload.get("target_session_id")
             else None
         ),
+        instruction_id=str(payload.get("instruction_id") or ""),
         native_instruction=str(payload.get("native_instruction") or ""),
     )
 

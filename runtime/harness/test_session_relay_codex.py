@@ -59,6 +59,7 @@ def context(
         ),
         project_id=10,
         checkout=tmp_path,
+        message_id="message-1",
         native_instruction=INSTRUCTION,
         target_session_id="native-1" if job_kind == "wake" else None,
         launch_attestation=SECRET if job_kind == "launch" else None,
@@ -86,6 +87,7 @@ def test_launch_uses_injected_gate_and_keeps_secret_out_of_result(
     assert result.result_code == "native_created"
     assert result.native_session_id == "native-1"
     assert cli.calls[0][1].native_instruction == INSTRUCTION
+    assert cli.calls[0][1].instruction_id == "launch:launch-1"
     assert cli.calls[0][1].launch_attestation == SECRET
     assert SECRET not in repr(cli.calls[0][1])
     assert INSTRUCTION not in repr(cli.calls[0][1])
@@ -132,6 +134,7 @@ def test_wake_selects_only_the_authorized_liveness_primitive(
     selected = cli if surface == "codex-cli" else desktop
     assert selected.calls[0][0] == "wake"
     assert selected.calls[0][1].target_session_id == "native-1"
+    assert selected.calls[0][1].instruction_id == "message:message-1:recipient:native-1"
 
 
 def test_missing_shared_context_and_rejected_version_fail_closed(

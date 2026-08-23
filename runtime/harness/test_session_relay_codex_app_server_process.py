@@ -28,6 +28,7 @@ def _request(tmp_path: Path) -> CodexNativeRequest:
         presentation=None,
         target_liveness=None,
         target_session_id=None,
+        instruction_id="launch:12345678-1234-4234-8234-123456789abc",
         native_instruction=INSTRUCTION,
         launch_attestation=SECRET,
     )
@@ -40,6 +41,7 @@ def test_worker_request_pipe_omits_attestation(tmp_path: Path) -> None:
     restored = process_module._request_from_payload(payload)
 
     assert payload["native_instruction"] == INSTRUCTION
+    assert restored.instruction_id == request.instruction_id
     assert "launch_attestation" not in payload
     assert restored.native_instruction == INSTRUCTION
     assert restored.launch_attestation is None
