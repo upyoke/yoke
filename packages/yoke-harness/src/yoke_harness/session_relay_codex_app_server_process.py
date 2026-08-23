@@ -64,9 +64,7 @@ def _request_from_payload(payload: object) -> CodexNativeRequest:
             if payload.get("target_session_id")
             else None
         ),
-        wake_mode=(
-            str(payload["wake_mode"]) if payload.get("wake_mode") else None
-        ),
+        wake_mode=(str(payload["wake_mode"]) if payload.get("wake_mode") else None),
         instruction_id=str(payload.get("instruction_id") or ""),
         native_instruction=str(payload.get("native_instruction") or ""),
     )

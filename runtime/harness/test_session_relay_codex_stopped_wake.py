@@ -26,11 +26,7 @@ class NativeStateClient:
         self.detached_turn: str | None = None
 
     def _thread(self, status: str) -> dict:
-        turns = (
-            [{"id": "turn-1", "status": "inProgress"}]
-            if status == "active"
-            else []
-        )
+        turns = [{"id": "turn-1", "status": "inProgress"}] if status == "active" else []
         return {
             "thread": {
                 "id": SESSION_ID,
