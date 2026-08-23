@@ -19,6 +19,16 @@ _ATTESTED_SUBJECTS = (
     "${{ runner.temp }}/validated-release/migration-history.json",
     "${{ runner.temp }}/validated-release/migration-history-record.json",
 )
+_RELEASE_FACTORY_INPUTS = frozenset(
+    {
+        ".github/workflows/yoke-build-artifacts.yml",
+        "packages/**",
+        "packaging/**",
+        "runtime/**",
+        "pyproject.toml",
+        "uv.lock",
+    }
+)
 
 
 def _text() -> str:
@@ -35,6 +45,18 @@ def _attested_subject_sets(text: str) -> list[tuple[str, ...]]:
     return [tuple(line.strip() for line in block.splitlines()) for block in blocks]
 
 
+def _trigger_paths(text: str, event: str) -> frozenset[str]:
+    match = re.search(
+        rf"^  {re.escape(event)}:\n(?P<body>(?:^    .*\n)+)",
+        text,
+        re.MULTILINE,
+    )
+    assert match is not None, f"missing {event} trigger"
+    return frozenset(
+        re.findall(r'^      - "([^"]+)"$', match.group("body"), re.MULTILINE)
+    )
+
+
 def test_remains_fork_buildable_and_reusable_by_release_factory():
     text = _text()
     assert "\n  pull_request:\n    branches: [main]" in text
@@ -45,6 +67,16 @@ def test_remains_fork_buildable_and_reusable_by_release_factory():
     assert "value: ${{ jobs.build.outputs.artifact_name }}" in text
     assert "group: yoke-build-artifacts-${{ github.ref }}" in text
     assert "group: ${{ github.workflow }}-${{ github.ref }}" not in text
+
+
+def test_branch_triggers_cover_every_release_factory_input():
+    text = _text()
+    for event in ("pull_request", "push"):
+        paths = _trigger_paths(text, event)
+        assert _RELEASE_FACTORY_INPUTS <= paths, (
+            f"{event} trigger misses release inputs: "
+            f"{sorted(_RELEASE_FACTORY_INPUTS - paths)}"
+        )
 
 
 def test_hosted_runner_and_no_operator_credentials():
