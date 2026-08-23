@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from yoke_core.domain.agents_render_path_context import read_render_source_for
 from yoke_core.domain.conflict_survey_declared_paths import (
@@ -23,6 +23,7 @@ def is_render_target_only_overlap(
     candidate_paths: Sequence[str],
     other_paths: Sequence[str],
     project_id: int | str,
+    target_ids_by_path: Mapping[str, int] | None = None,
 ) -> bool:
     """Return whether every overlap is rendered output with disjoint seeds.
 
@@ -49,7 +50,11 @@ def is_render_target_only_overlap(
 
     seed_sources: set[str] = set()
     for shared_path in {left for left, _right in overlaps}:
-        target_id = target_at(conn, project_id, shared_path)
+        target_id = (
+            target_at(conn, project_id, shared_path)
+            if target_ids_by_path is None
+            else target_ids_by_path.get(shared_path)
+        )
         if target_id is None:
             return False
         sources = read_render_source_for(conn, target_id=target_id)

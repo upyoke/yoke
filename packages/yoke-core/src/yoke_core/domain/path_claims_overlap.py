@@ -64,20 +64,22 @@ def _target_paths(
     conn: Any,
     *,
     target_ids: Sequence[int],
-) -> tuple[Optional[int], tuple[str, ...]]:
+) -> tuple[Optional[int | str], tuple[str, ...], dict[str, int]]:
     unique_ids = tuple(dict.fromkeys(int(value) for value in target_ids))
     if not unique_ids:
-        return None, ()
+        return None, (), {}
     placeholders = ",".join(_p(conn) for _ in unique_ids)
     rows = conn.execute(
-        f"SELECT project_id, path_string FROM path_targets "
+        f"SELECT id, project_id, path_string FROM path_targets "
         f"WHERE id IN ({placeholders})",
         unique_ids,
     ).fetchall()
-    project_ids = {int(row[0]) for row in rows}
+    project_ids = {row[1] for row in rows}
     if len(rows) != len(unique_ids) or len(project_ids) != 1:
-        return None, ()
-    return project_ids.pop(), tuple(str(row[1]) for row in rows)
+        return None, (), {}
+    paths = tuple(str(row[2]) for row in rows)
+    target_ids_by_path = {str(row[2]): int(row[0]) for row in rows}
+    return project_ids.pop(), paths, target_ids_by_path
 
 
 def _is_render_target_only_overlap(
@@ -87,7 +89,7 @@ def _is_render_target_only_overlap(
     other_claim_id: int,
 ) -> bool:
     """Adapt claim target ids to the shared render-overlap rule."""
-    project_id, candidate_paths = _target_paths(
+    project_id, candidate_paths, candidate_target_ids_by_path = _target_paths(
         conn,
         target_ids=candidate_target_ids,
     )
@@ -104,6 +106,7 @@ def _is_render_target_only_overlap(
         candidate_paths=candidate_paths,
         other_paths=[str(row[0]) for row in rows],
         project_id=project_id,
+        target_ids_by_path=candidate_target_ids_by_path,
     )
 
 

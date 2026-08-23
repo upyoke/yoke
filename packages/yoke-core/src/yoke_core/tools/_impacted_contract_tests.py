@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from yoke_core.tools._impacted_contract_tests_path_claims import PATH_CLAIM_CONTRACTS
 
 REPO_CLEANLINESS_TESTS = (
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
@@ -15,7 +16,6 @@ _ALWAYS_RUN_CONTRACTS = (
         (
             "runtime/api/cli/test_adapter_inventory_usage_contract.py",
             "runtime/api/cli/test_yoke_operation_inventory.py",
-            # Database creation is a reachability-blind critical contract.
             "runtime/api/domain/test_engine_artifact_universe_birth.py",
             "runtime/api/test_service_client_structured_api_adapter.py",
             "runtime/api/tools/test_atlas_currency_contract.py",
@@ -101,13 +101,9 @@ MIGRATION_HISTORY_CONTRACT_TESTS = (
     "runtime/api/engines/test_doctor_schema_drift_expected.py",
 )
 
-MACHINE_QA_PACK_CONTRACT_TESTS = (
-    "runtime/api/domain/test_machine_qa.py",
-)
+MACHINE_QA_PACK_CONTRACT_TESTS = ("runtime/api/domain/test_machine_qa.py",)
 
-EPIC_QA_READ_CONTRACT_TESTS = (
-    "runtime/api/test_epic_full_review.py",
-)
+EPIC_QA_READ_CONTRACT_TESTS = ("runtime/api/test_epic_full_review.py",)
 
 PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
@@ -130,9 +126,7 @@ PRODUCT_CLI_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/domain/items_projection.py",
 )
 
-MIGRATION_HISTORY_SOURCE_PREFIX = (
-    "packages/yoke-core/src/yoke_core/domain/migrations/"
-)
+MIGRATION_HISTORY_SOURCE_PREFIX = "packages/yoke-core/src/yoke_core/domain/migrations/"
 
 MACHINE_QA_PACK_SOURCE_PREFIXES = (
     "packs/machine-qa/",
@@ -170,6 +164,7 @@ CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
 )
 
 PATH_CONTRACT_TESTS = (
+    *PATH_CLAIM_CONTRACTS,
     (
         "cursor_session_identity_dispatch_contract",
         frozenset({"packages/yoke-core/src/yoke_core/hooks/cursor_payload.py"}),
@@ -282,8 +277,7 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
         widening_triggers.extend(f"{rule}:{path}" for path in hits)
 
     product_cli_hits = tuple(
-        path for path in changed_paths
-        if path.startswith(PRODUCT_CLI_SOURCE_PREFIXES)
+        path for path in changed_paths if path.startswith(PRODUCT_CLI_SOURCE_PREFIXES)
     )
     if product_cli_hits:
         tests.update(PRODUCT_CLI_BOUNDARY_TESTS)
@@ -313,15 +307,11 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
         )
 
     skill_hits = tuple(
-        path
-        for path in changed_paths
-        if path.startswith(AGENT_SKILL_SOURCE_PREFIXES)
+        path for path in changed_paths if path.startswith(AGENT_SKILL_SOURCE_PREFIXES)
     )
     if skill_hits:
         tests.update(AGENT_SKILL_CONTRACT_TESTS)
-        widening_triggers.extend(
-            f"agent_skill_contract:{path}" for path in skill_hits
-        )
+        widening_triggers.extend(f"agent_skill_contract:{path}" for path in skill_hits)
     return ContractSelection(frozenset(tests), tuple(widening_triggers))
 
 
