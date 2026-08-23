@@ -171,6 +171,7 @@ def register(registry) -> None:
         _models.RelayListResponse,
         side_effects=[],
         owner_module=_relay.__name__,
+        adapter_status="internal",
     )
     _register(
         registry,

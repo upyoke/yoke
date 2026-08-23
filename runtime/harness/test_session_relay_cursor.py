@@ -63,15 +63,23 @@ def _launch(tmp_path: Path, *, surface: str = "cursor-cli", instruction=None):
         job_id=launch_id,
         lease_id="lease-launch",
         surface=surface,
+        surface_version="2026.08.11-e8db854",
         project_id=7,
         checkout=tmp_path,
         native_instruction=expected if instruction is None else instruction,
         message_id="22222222-2222-4222-8222-222222222222",
         launch_attestation=ATTESTATION,
+        requested_model="composer-2",
     )
 
 
-def _wake(tmp_path: Path, *, surface: str = "cursor-cli", instruction=None):
+def _wake(
+    tmp_path: Path,
+    *,
+    surface: str = "cursor-cli",
+    instruction=None,
+    liveness: str = "ended",
+):
     message_id = "33333333-3333-4333-8333-333333333333"
     expected = f"Yoke message {message_id}: check your Yoke messages."
     return RelayExecutionContext(
@@ -79,11 +87,13 @@ def _wake(tmp_path: Path, *, surface: str = "cursor-cli", instruction=None):
         job_id="wake-attempt",
         lease_id="lease-wake",
         surface=surface,
+        surface_version="2026.08.11-e8db854",
         project_id=7,
         checkout=tmp_path,
         native_instruction=expected if instruction is None else instruction,
         message_id=message_id,
         target_session_id="cursor-session-existing",
+        target_liveness=liveness,
     )
 
 
@@ -128,7 +138,9 @@ def test_idle_wake_uses_acp_without_resuming_a_stopped_chat(tmp_path):
     cli = FakeSubprocess()
     acp = FakeAcp()
 
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(_wake(tmp_path))
+    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+        _wake(tmp_path, liveness="stale")
+    )
 
     assert result.result_code == "accepted"
     assert acp.prompt_requests[0].target_session_id == "cursor-session-existing"
@@ -143,7 +155,9 @@ def test_stopped_wake_resumes_only_after_acp_reports_not_found(tmp_path):
     acp = FakeAcp()
     acp.prompt_result = CursorNativeResult("not_found")
 
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(_wake(tmp_path))
+    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+        _wake(tmp_path, liveness="stale")
+    )
 
     assert result.result_code == "accepted"
     assert len(acp.prompt_requests) == 1
@@ -199,7 +213,9 @@ def test_uncertain_native_failures_do_not_fall_through_to_a_second_route(tmp_pat
         raise RuntimeError("secret response and prompt")
 
     acp.prompt_session = uncertain
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(_wake(tmp_path))
+    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+        _wake(tmp_path, liveness="stale")
+    )
 
     assert result.result_code == "outcome_unknown"
     assert cli.resume_requests == []

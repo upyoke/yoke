@@ -115,6 +115,11 @@ from typing import Mapping, Sequence
 # MappingProxyType view. ``ordered_pipeline_for`` returns a fresh list so
 # callers can mutate without leaking changes back into the registry.
 
+_MODEL_DELIVERY: tuple[str, ...] = (
+    "yoke_core.hooks.session_message_delivery",
+    "yoke_core.hooks.session_launch_attestation",
+)
+
 _PRE_BASH: tuple[str, ...] = (
     # Neutral implementation-facing hook path. The implementation still emits
     # the legacy stable lint-sqlite-cmd telemetry/check id.
@@ -141,7 +146,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_claim_ownership_mutations",
     "yoke_core.domain.lint_git_stash_arg_order",
     "yoke_core.domain.lint_destructive_git",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
@@ -151,7 +156,7 @@ _PRE_EDIT: tuple[str, ...] = (
     "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
@@ -164,26 +169,26 @@ _PRE_WRITE: tuple[str, ...] = (
     "yoke_core.domain.lint_python_runtime_import_in_tmp",
     "yoke_core.domain.hint_file_line_limit_approach",
     "yoke_core.domain.lint_tc_label",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
 _PRE_READ: tuple[str, ...] = (
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
 _PRE_SCHEDULE_WAKEUP: tuple[str, ...] = (
     "yoke_core.domain.lint_subagent_background",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.domain.observe_pre",
 )
 
 _PRE_TASK_OUTPUT: tuple[str, ...] = (
     "yoke_core.domain.lint_subagent_background",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.domain.observe_pre",
 )
 
@@ -192,7 +197,7 @@ _PRE_MONITOR: tuple[str, ...] = (
     "yoke_core.domain.lint_long_command_polling",
     "yoke_core.domain.lint_subagent_background",
     "yoke_core.domain.hint_monitor_relay",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.domain.observe_pre",
 )
 
@@ -205,7 +210,7 @@ _PRE_APPLY_PATCH: tuple[str, ...] = (
     "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
@@ -213,7 +218,7 @@ _PRE_APPLY_PATCH: tuple[str, ...] = (
 _POST_DEFAULT: tuple[str, ...] = (
     "yoke_core.domain.db_error_hook",
     "yoke_core.domain.hint_posttool_field_note",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
@@ -224,31 +229,30 @@ _POST_DEFAULT: tuple[str, ...] = (
 # tool-call completion event.
 _POST_AGENT: tuple[str, ...] = (
     "yoke_core.domain.reflection_capture_hook",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
 
 _POST_FAILURE_DEFAULT: tuple[str, ...] = (
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
 
 _PERMISSION_REQUEST: tuple[str, ...] = (
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.domain.observe_pre",
 )
 
 _LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
 _FIRST_HOOK_DISPATCH: tuple[str, ...] = (
     *_LIFECYCLE_DISPATCH,
-    "yoke_core.hooks.session_message_delivery",
-    "yoke_core.hooks.session_launch_attestation",
+    *_MODEL_DELIVERY,
 )
 _STOP_CHAIN: tuple[str, ...] = (
     "yoke_core.domain.turn_end_promised_work_gate",
-    "yoke_core.hooks.session_message_delivery",
+    *_MODEL_DELIVERY,
     "yoke_core.hooks.session_dispatch",
 )
 

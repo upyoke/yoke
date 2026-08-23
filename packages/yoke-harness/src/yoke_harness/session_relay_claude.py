@@ -169,7 +169,7 @@ def _expected_instruction(context: RelayExecutionContext) -> str | None:
 def _context_extensions_present(context: RelayExecutionContext) -> bool:
     return all(
         hasattr(context, field_name)
-        for field_name in ("surface_version", "model", "presentation")
+        for field_name in ("surface_version", "requested_model", "presentation")
     )
 
 
@@ -189,7 +189,7 @@ def _launch_invocation(
         return None
     if not handed_off:
         return None
-    raw_model = getattr(context, "model", None)
+    raw_model = getattr(context, "requested_model", None)
     model = str(raw_model).strip() if raw_model else None
     return ClaudeNativeInvocation(
         executable,
@@ -230,6 +230,8 @@ def run_claude_cli_adapter(
         return unsupported_claude_route(context)
     if context.job_kind not in {"launch", "wake"}:
         return _result(context, "failed", "job_kind_invalid")
+    if context.job_kind == "wake" and context.target_liveness != "ended":
+        return _result(context, "unsupported_surface", "liveness_unsupported")
     operation = "create" if context.job_kind == "launch" else "message_stopped"
     if not _operation_supported(context, operation, version_gate):
         result = "not_created" if context.job_kind == "launch" else "version_mismatch"

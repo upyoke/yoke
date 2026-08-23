@@ -23,6 +23,7 @@ from yoke_harness.session_relay_runtime import (
 CURSOR_ADAPTER_REVISION = "cursor-native-v1"
 CURSOR_CLI_SURFACE = "cursor-cli"
 CursorCreateInterface = Literal["cli", "acp"]
+SurfaceVersionGate = Callable[[str, str | None, str], bool]
 
 _LAUNCH_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
 _WAKE_CODES = frozenset(
@@ -32,6 +33,7 @@ _WAKE_CODES = frozenset(
         "not_found",
         "outcome_unknown",
         "unsupported_surface",
+        "version_mismatch",
     }
 )
 
@@ -41,8 +43,11 @@ class CursorCreateRequest:
     """One opaque create request; the attestation is never printable."""
 
     checkout: Path
-    native_instruction: str
+    launch_id: str
+    surface_version: str
+    native_instruction: str = field(repr=False)
     launch_attestation: str = field(repr=False)
+    requested_model: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,7 +56,9 @@ class CursorWakeRequest:
 
     checkout: Path
     target_session_id: str
-    native_instruction: str
+    surface_version: str
+    target_liveness: str
+    native_instruction: str = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -117,7 +124,24 @@ def _expected_instruction(context: RelayExecutionContext) -> str | None:
     return None
 
 
-def _validated(context: RelayExecutionContext) -> RelayAdapterResult | None:
+def _contract_version_gate(
+    surface: str,
+    version: str | None,
+    operation: str,
+) -> bool:
+    try:
+        from yoke_contracts.session_control.surface_versions import (
+            surface_operation_supported,
+        )
+    except (AttributeError, ImportError):
+        return False
+    return surface_operation_supported(surface, version, operation)
+
+
+def _validated(
+    context: RelayExecutionContext,
+    version_gate: SurfaceVersionGate,
+) -> RelayAdapterResult | None:
     if context.surface != CURSOR_CLI_SURFACE:
         return _result("unsupported_surface")
     expected = _expected_instruction(context)
@@ -126,8 +150,21 @@ def _validated(context: RelayExecutionContext) -> RelayAdapterResult | None:
         return _result(code, native=CursorNativeResult("instruction_refused"))
     if context.job_kind == "launch" and not context.launch_attestation:
         return _result("not_created", native=CursorNativeResult("attestation_missing"))
-    if context.job_kind == "wake" and not context.target_session_id:
-        return _result("failed", native=CursorNativeResult("target_missing"))
+    version = str(context.surface_version or "").strip()
+    if context.job_kind == "launch":
+        operation = "create"
+    else:
+        operation = {
+            "stale": "message_idle",
+            "ended": "message_stopped",
+        }.get(str(context.target_liveness or ""))
+        if not context.target_session_id:
+            return _result("failed", native=CursorNativeResult("target_missing"))
+        if operation is None:
+            return _result("unsupported_surface")
+    if not version or not version_gate(context.surface, version, operation):
+        code = "not_created" if context.job_kind == "launch" else "version_mismatch"
+        return _result(code, native=CursorNativeResult("version_mismatch"))
     return None
 
 
@@ -155,18 +192,22 @@ def build_cursor_adapter(
     subprocess_port: CursorSubprocessPort | None = None,
     acp_port: CursorAcpPort | None = None,
     create_interface: CursorCreateInterface = "cli",
+    version_gate: SurfaceVersionGate = _contract_version_gate,
 ) -> RelayAdapter:
     """Build one adapter over injected, version-pinned native transports."""
 
     def adapter(context: RelayExecutionContext) -> RelayAdapterResult:
-        refused = _validated(context)
+        refused = _validated(context, version_gate)
         if refused is not None:
             return refused
         if context.job_kind == "launch":
             request = CursorCreateRequest(
-                context.checkout,
-                context.native_instruction,
-                str(context.launch_attestation),
+                checkout=context.checkout,
+                launch_id=context.job_id,
+                surface_version=str(context.surface_version),
+                native_instruction=context.native_instruction,
+                launch_attestation=str(context.launch_attestation),
+                requested_model=context.requested_model,
             )
             try:
                 if create_interface == "acp" and acp_port is not None:
@@ -180,11 +221,17 @@ def build_cursor_adapter(
             )
 
         request = CursorWakeRequest(
-            context.checkout,
-            str(context.target_session_id),
-            context.native_instruction,
+            checkout=context.checkout,
+            target_session_id=str(context.target_session_id),
+            surface_version=str(context.surface_version),
+            target_liveness=str(context.target_liveness),
+            native_instruction=context.native_instruction,
         )
-        if acp_port is not None:
+        if context.target_liveness == "stale" and acp_port is None:
+            return _result(
+                "failed", native=CursorNativeResult("native_framing_unavailable")
+            )
+        if context.target_liveness == "stale" and acp_port is not None:
             try:
                 idle = acp_port.prompt_session(request)
             except Exception:
@@ -203,7 +250,7 @@ def build_cursor_adapter(
     return adapter
 
 
-# Safe registration target until an exact installed-build framing is wired.
+# Explicit ports are supplied by the lazy native-adapter registry.
 cursor_relay_adapter: Callable[[RelayExecutionContext], RelayAdapterResult] = (
     build_cursor_adapter()
 )

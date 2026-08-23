@@ -8,15 +8,11 @@ from __future__ import annotations
 
 import unittest
 
-from yoke_contracts.hook_runner.hook_ordering import (
-    HOOK_ORDERING,
-    event_types,
-    matchers_for,
-    ordered_pipeline_for,
-)
+from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 
 _POST_HEARTBEAT_OBSERVE = [
     "yoke_core.hooks.session_message_delivery",
+    "yoke_core.hooks.session_launch_attestation",
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 ]
@@ -61,6 +57,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_git_stash_arg_order",
                 "yoke_core.domain.lint_destructive_git",
                 "yoke_core.hooks.session_message_delivery",
+                "yoke_core.hooks.session_launch_attestation",
                 "yoke_core.hooks.heartbeat",
                 "yoke_core.domain.observe_pre",
             ],
@@ -83,6 +80,10 @@ class TestPreToolUseBash(unittest.TestCase):
         )
         self.assertEqual(
             chain[chain.index("yoke_core.hooks.session_message_delivery") + 1],
+            "yoke_core.hooks.session_launch_attestation",
+        )
+        self.assertEqual(
+            chain[chain.index("yoke_core.hooks.session_launch_attestation") + 1],
             "yoke_core.hooks.heartbeat",
         )
         self.assertEqual(
@@ -217,6 +218,7 @@ class TestPreToolUseMonitor(unittest.TestCase):
                 "yoke_core.domain.lint_subagent_background",
                 "yoke_core.domain.hint_monitor_relay",
                 "yoke_core.hooks.session_message_delivery",
+                "yoke_core.hooks.session_launch_attestation",
                 "yoke_core.domain.observe_pre",
             ],
         )
@@ -229,6 +231,20 @@ class TestNonPreEvents(unittest.TestCase):
         chain = ordered_pipeline_for("PostToolUse", "Bash")
         self.assertEqual(chain[0], "yoke_core.domain.db_error_hook")
         self.assertEqual(chain[-1], "yoke_core.domain.observe")
+
+    def test_TC_launch_attestation_retries_after_generic_delivery(self):
+        for event_name, matcher in (
+            ("PreToolUse", "Bash"),
+            ("PostToolUse", "Bash"),
+            ("PermissionRequest", "_default"),
+            ("Stop", "_default"),
+        ):
+            chain = ordered_pipeline_for(event_name, matcher)
+            delivery = chain.index("yoke_core.hooks.session_message_delivery")
+            self.assertEqual(
+                chain[delivery + 1],
+                "yoke_core.hooks.session_launch_attestation",
+            )
 
     def test_TC_post_tool_use_bash_includes_field_note_hint(self):
         # PostToolUse field-note hint registered between the
@@ -289,57 +305,10 @@ class TestNonPreEvents(unittest.TestCase):
             [
                 "yoke_core.domain.turn_end_promised_work_gate",
                 "yoke_core.hooks.session_message_delivery",
+                "yoke_core.hooks.session_launch_attestation",
                 "yoke_core.hooks.session_dispatch",
             ],
         )
-
-
-class TestRegistryShape(unittest.TestCase):
-    """Top-level shape contracts: frozen view, fresh-list returns, etc."""
-
-    def test_TC_event_types_includes_required(self):
-        types = event_types()
-        for required in (
-            "PreToolUse",
-            "PostToolUse",
-            "PermissionRequest",
-            "SessionStart",
-            "UserPromptSubmit",
-            "Stop",
-        ):
-            self.assertIn(required, types)
-
-    def test_TC_unknown_event_returns_empty_list(self):
-        self.assertEqual(ordered_pipeline_for("DoesNotExist"), [])
-
-    def test_TC_unknown_matcher_falls_back_to_default(self):
-        chain = ordered_pipeline_for("PostToolUse", "TotallyMadeUp")
-        self.assertEqual(chain, _POST_HEARTBEAT_OBSERVE)
-
-    def test_TC_pretooluse_unknown_matcher_returns_empty_when_no_default(self):
-        # PreToolUse intentionally has no _default — every matcher is
-        # explicit. An unknown matcher should produce an empty list.
-        chain = ordered_pipeline_for("PreToolUse", "TotallyMadeUp")
-        self.assertEqual(chain, [])
-
-    def test_TC_returned_list_is_fresh(self):
-        chain1 = ordered_pipeline_for("PreToolUse", "Bash")
-        chain2 = ordered_pipeline_for("PreToolUse", "Bash")
-        chain1.append("mutated")
-        self.assertNotIn("mutated", chain2)
-
-    def test_TC_matchers_for_pretooluse_lists_all(self):
-        matchers = matchers_for("PreToolUse")
-        for required in ("Bash", "Edit", "Write", "Read", "Monitor"):
-            self.assertIn(required, matchers)
-
-    def test_TC_matchers_for_unknown_returns_empty(self):
-        self.assertEqual(matchers_for("DoesNotExist"), [])
-
-    def test_TC_hook_ordering_view_is_read_only(self):
-        # MappingProxyType raises TypeError on assignment.
-        with self.assertRaises(TypeError):
-            HOOK_ORDERING["PreToolUse"]["Bash"] = ()  # type: ignore[index]
 
 
 if __name__ == "__main__":

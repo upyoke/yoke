@@ -13,15 +13,17 @@ from pathlib import Path
 from typing import Callable
 
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
 
-LAUNCH_CONTEXT_ENV = "YOKE_SESSION_LAUNCH_CONTEXT"
 _MAX_LINE_BYTES = 1024 * 1024
 _MAX_CAPTURE_BYTES = 4 * 1024 * 1024
 ThreadIdentityResolver = Callable[[str, Path], tuple[str, str] | None]
 
 
-def _default_identity_resolver(thread_id: str, checkout: Path) -> tuple[str, str] | None:
+def _default_identity_resolver(
+    thread_id: str, checkout: Path
+) -> tuple[str, str] | None:
     from yoke_harness.session_relay_codex_app_server import resolve_thread_identity
 
     return resolve_thread_identity(thread_id, checkout)

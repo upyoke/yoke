@@ -37,8 +37,9 @@ def _context(**overrides):
         "message_id": MESSAGE_ID,
         "target_session_id": None,
         "launch_attestation": "secret-attestation",
-        "model": "claude-opus-4-1",
+        "requested_model": "claude-opus-4-1",
         "presentation": "focused",
+        "target_liveness": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -117,7 +118,7 @@ def test_create_fails_closed_before_native_process_without_sidecar(handoff) -> N
 
 def test_create_fails_closed_when_shared_context_extensions_are_absent() -> None:
     context = _context()
-    del context.model
+    del context.requested_model
     invocations = []
 
     result = run_claude_cli_adapter(
@@ -172,6 +173,7 @@ def test_wake_resumes_exact_session_at_private_version() -> None:
             native_instruction=CHECK_INBOX,
             target_session_id="native-session-1",
             launch_attestation=None,
+            target_liveness="ended",
         ),
         process_runner=runner,
         executable_finder=lambda _name: CLAUDE,
@@ -204,6 +206,7 @@ def test_private_wake_version_mismatch_never_invokes_native_process() -> None:
             native_instruction=CHECK_INBOX,
             target_session_id="native-session-1",
             surface_version="2.1.239",
+            target_liveness="ended",
         ),
         process_runner=invocations.append,
         executable_finder=lambda _name: CLAUDE,
@@ -255,6 +258,7 @@ def test_missing_cli_is_discovered_before_native_invocation(
             job_kind=job_kind,
             native_instruction=BOOTSTRAP if job_kind == "launch" else CHECK_INBOX,
             target_session_id="native-session-1" if job_kind == "wake" else None,
+            target_liveness="ended" if job_kind == "wake" else None,
         ),
         process_runner=invocations.append,
         executable_finder=lambda _name: None,
