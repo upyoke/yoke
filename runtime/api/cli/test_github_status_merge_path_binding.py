@@ -25,6 +25,7 @@ from yoke_core.domain.github_app_dispatch_context import LOCAL_USER_TOKEN_PROVID
 
 
 SERVICE_API_URL = "https://api.upyoke.com"
+ADMIN_ENV = "prod-db-admin"
 
 
 def _connected_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
@@ -41,6 +42,23 @@ def _connected_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
             "transport": "https",
             "api_url": SERVICE_API_URL,
             "credential_source": {"kind": "token_file", "path": str(token_file)},
+        },
+    }
+    config.write_text(json.dumps(payload), encoding="utf-8")
+    config.chmod(0o600)
+    return config
+
+
+def _admin_sibling_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A connected machine whose https plane has an owner-only admin sibling."""
+
+    config = _connected_machine(tmp_path, monkeypatch)
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    payload["connections"][ADMIN_ENV] = {
+        "transport": "local-postgres",
+        "prod": True,
+        "credential_source": {
+            "kind": "dsn_file", "path": str(config.parent / "prod.dsn"),
         },
     }
     config.write_text(json.dumps(payload), encoding="utf-8")
@@ -173,3 +191,31 @@ def test_a_proven_machine_reports_both_bindings_ok_and_ready(
     assert report["ok"] is True
     assert report["ready"] is True
     assert "user authorization (merge path): ok" in github_machine.render_human(report)
+
+
+def test_status_under_the_admin_connection_proves_the_plane_it_administers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _admin_sibling_machine(tmp_path, monkeypatch)
+    monkeypatch.setenv("YOKE_ENV", ADMIN_ENV)
+
+    assert merge_path_binding.status_connection_scope(config) == {
+        "service_api_url": SERVICE_API_URL,
+        "local_connection_selected": False,
+    }
+
+    report = _status(
+        config,
+        profile_opener=_profile_opener,
+        token_opener=_refresh_opener,
+        api_opener=_api_opener(installed=True),
+    )
+    verdicts = {
+        name: binding["verdict"] for name, binding in report["bindings"].items()
+    }
+
+    assert verdicts == {
+        "user_authorization": merge_path_binding.VERDICT_OK,
+        "app_installation": merge_path_binding.VERDICT_OK,
+    }
+    assert report["ready"] is True

@@ -45,6 +45,7 @@ from yoke_core.domain.project_github_auth_models import (
 from yoke_core.domain.project_github_auth_state import read_github_state
 from yoke_core.domain.project_github_auth_tokens import (
     bind_local_github_user_token_provider,
+    bound_local_github_user_token_provider,
     installation_contract_permissions,
     mint_bound_installation_token,
     read_app_credentials,
@@ -295,6 +296,7 @@ __all__ = [
     "UserAuthorizationTransient",
     "UserAuthorizationUnavailable",
     "bind_local_github_user_token_provider",
+    "bound_local_github_user_token_provider",
     "repair_command_hint",
     "resolve_project_github_auth",
 ]

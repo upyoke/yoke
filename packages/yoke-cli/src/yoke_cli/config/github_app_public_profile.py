@@ -110,9 +110,28 @@ def infer_service_api_url(
 def selected_https_service_api_url(
     config_path: str | Path | None = None,
 ) -> str | None:
-    """Return the exact active HTTPS service, or None for an explicit local transport."""
+    """Return the exact selected HTTPS service, or None for a local universe.
+
+    An owner-only ``<env>-db-admin`` connection answers with the https plane
+    it administers: that plane owns the machine's App binding, so a process
+    that selected the admin connection for its engine still proves its
+    authorization against the service it was connected to. An admin
+    connection with no https sibling is a local universe.
+    """
     try:
         connection = machine_config.active_connection(config_path)
+        transport = str(connection.get("transport") or "")
+        if transport == machine_contract.DEFAULT_TRANSPORT:
+            env = str(connection.get("env") or "")
+            https_env = machine_contract.same_universe_https_env(
+                machine_config.load_config(config_path), env,
+            ) if env else ""
+            if not https_env:
+                return None
+            connection = machine_config.active_connection(
+                config_path, explicit_env=https_env,
+            )
+            transport = str(connection.get("transport") or "")
     except (
         machine_config.MachineConfigError,
         machine_contract.MachineConfigContractError,
@@ -120,9 +139,6 @@ def selected_https_service_api_url(
         raise GitHubAppPublicProfileError(
             "the selected Yoke connection is unavailable or invalid"
         ) from exc
-    transport = str(connection.get("transport") or "")
-    if transport == machine_contract.DEFAULT_TRANSPORT:
-        return None
     if transport != machine_contract.TRANSPORT_HTTPS:
         raise GitHubAppPublicProfileError(
             "the selected Yoke connection has an unsupported transport"
@@ -252,26 +268,12 @@ def assert_selected_provenance(
         selected = _validated_service_root(str(service_api_url))
         _assert_service_provenance(github, selected)
         return selected
-    try:
-        connection = machine_config.active_connection(config_path)
-    except (
-        machine_config.MachineConfigError,
-        machine_contract.MachineConfigContractError,
-    ) as exc:
-        raise GitHubAppPublicProfileError(
-            "the selected Yoke connection is unavailable"
-        ) from exc
-    transport = str(connection.get("transport") or "")
-    if transport == machine_contract.TRANSPORT_HTTPS:
-        selected = _validated_service_root(str(connection.get("api_url") or ""))
-        _assert_service_provenance(github, selected)
-        return selected
-    if transport != machine_contract.DEFAULT_TRANSPORT:
-        raise GitHubAppPublicProfileError(
-            "the selected Yoke connection has an unsupported transport"
-        )
-    _assert_local_provenance(github)
-    return None
+    selected = selected_https_service_api_url(config_path)
+    if selected is None:
+        _assert_local_provenance(github)
+        return None
+    _assert_service_provenance(github, selected)
+    return selected
 
 
 def _assert_service_provenance(
