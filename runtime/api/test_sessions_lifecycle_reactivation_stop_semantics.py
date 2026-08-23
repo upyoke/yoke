@@ -18,6 +18,9 @@ from datetime import datetime, timezone
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.domain.test_session_turn_posture_migration import (
+    entry as turn_posture_migration,
+)
 from yoke_core.domain.sessions import end_session_if_empty
 from yoke_core.domain.sessions_lifecycle_registry import register_session
 
@@ -114,6 +117,7 @@ class TestStopSemanticsBranches:
         )
         conn = connect_test_db(db)
         try:
+            turn_posture_migration.apply(conn)
             result = end_session_if_empty(conn, "sess-waiting")
             accepted = posture.accepted_hook_posture(
                 "Stop",

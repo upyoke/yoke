@@ -26,6 +26,9 @@ from runtime.api.domain.handlers.test_sessions_list_handler import (
     _insert_item_claim,
     _insert_session,
 )
+from runtime.api.domain.test_session_turn_posture_migration import (
+    entry as turn_posture_migration,
+)
 
 
 def _iso(minutes_ago: int = 0) -> str:
@@ -49,6 +52,7 @@ class TestSessionIdFilter:
     @pytest.fixture(autouse=True)
     def _session_control_schema(self, test_db):
         create_session_control_tables(test_db)
+        turn_posture_migration.apply(test_db)
         test_db.commit()
 
     def test_live_session_projects_the_complete_roster_row(self, test_db):
