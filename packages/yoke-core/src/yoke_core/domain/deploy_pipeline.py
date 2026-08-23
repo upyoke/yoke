@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import os
-import subprocess
 import sys
 from typing import List, Optional
 
@@ -32,6 +30,9 @@ from yoke_core.domain.deploy_pipeline_run_context import (
     finalize_run_success,
     resolve_flow_target,
     resolve_project_checkout_path,
+)
+from yoke_core.domain.deployment_item_stamp import (
+    transition_member_to_release,
 )
 from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
 
@@ -186,13 +187,7 @@ def run_pipeline(
                     return EXIT_USAGE
                 sri_status = _yoke_db("items", "get", sri_ref, "status", sd=sd)
                 if sri_status == "implemented":
-                    env = dict(os.environ)
-                    env["YOKE_CLAIM_BYPASS"] = f"deploy-pipeline:run-{run_id}"
-                    subprocess.run(
-                        [sys.executable, "-m", "yoke_core.cli.db_router",
-                         "items", "update", sri_ref, "status", "release"],
-                        capture_output=True, env=env,
-                    )
+                    transition_member_to_release(int(sri_item), run_id)
             run_started = True
 
         # Update deploy_stage

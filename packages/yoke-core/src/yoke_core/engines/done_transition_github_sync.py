@@ -19,9 +19,6 @@ import sys
 from dataclasses import dataclass
 from typing import Optional, TextIO
 
-from yoke_contracts.item_ref import format_item_ref
-
-
 @dataclass(frozen=True)
 class Step8Result:
     """Outcome of the Step 8 GitHub done-state sync."""
@@ -50,7 +47,9 @@ def run_step_8(
     operator must see — Step 8 stops claiming success in that case.
     """
     stderr = stderr or sys.stderr
-    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+    # Display only. Never fabricate a default-prefix public ref from the
+    # internal id — that number is not the project's sequence.
+    ref = item_ref or f"items.id={item_id}"
 
     try:
         from yoke_core.domain import backlog_github_sync
@@ -66,8 +65,11 @@ def run_step_8(
         )
 
     try:
+        # Pass the Python int. str(item_id) is a public sequence under the
+        # default project, not items.id — sync_done_item accepts both, and
+        # only the int is the addressed row.
         rc = backlog_github_sync.sync_done_item(
-            str(item_id), old_status, stdout=stderr, stderr=stderr,
+            item_id, old_status, stdout=stderr, stderr=stderr,
         )
     except Exception as exc:  # pragma: no cover - defensive
         message = f"sync_done_item raised for {ref}: {exc}"

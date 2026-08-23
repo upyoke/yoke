@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_core.domain.lint_item_ref_bare_cli_token import (
+    scan_bare_internal_cli_token,
+)
 from yoke_core.domain.lint_item_ref_construction import (
     counts_by_relpath,
     scan,
@@ -208,4 +211,40 @@ def test_repository_item_ref_policy_has_no_stale_allowances() -> None:
         for hit in scan_parser_policy(root)
     ]
     stale_policy = stale_parser_policy_allowances(root)
-    assert (offenders, stale, policy, stale_policy) == ({}, {}, [], [])
+    cli_hits = [
+        (str(hit.path.relative_to(root)), hit.line, hit.snippet)
+        for hit in scan_bare_internal_cli_token(root)
+    ]
+    assert (offenders, stale, policy, stale_policy, cli_hits) == (
+        {}, {}, [], [], [],
+    )
+
+
+def test_flags_bare_id_items_update_token(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/pipe.py",
+        '_yoke_db("items", "update", item_id, "deploy_stage", stage)\n',
+    )
+    hits = scan_bare_internal_cli_token(tmp_path)
+    assert len(hits) == 1
+    assert hits[0].line == 1
+
+
+def test_flags_str_item_id_done_sync(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/sync.py",
+        "sync_done_item(str(item_id), old_status)\n",
+    )
+    hits = scan_bare_internal_cli_token(tmp_path)
+    assert len(hits) == 1
+
+
+def test_rendered_item_ref_cli_token_is_not_flagged(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/ok.py",
+        '_yoke_db("items", "get", item_ref, "deploy_stage")\n',
+    )
+    assert scan_bare_internal_cli_token(tmp_path) == []

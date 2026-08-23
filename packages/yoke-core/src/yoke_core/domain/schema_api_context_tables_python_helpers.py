@@ -99,4 +99,20 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "through router-owned surfaces."
         ),
     },
+    "yoke_core.domain.deployment_item_stamp": {
+        "columns": [
+            ("stamp_item_field", "callable"),
+            ("transition_member_to_release", "callable"),
+            ("STAMP_FUNCTION_ID", "const"),
+        ],
+        "notes": (
+            "Pipeline member-item stamps (`deploy_stage`, `deployed_to`) go "
+            "through `deployment_item_stamp.record` addressed by integer "
+            "`target.item_id`. Do NOT call `items.scalar.update` (claim "
+            "gate) and do NOT stringify an internal id into an items-update "
+            "CLI token — a digit string is a public sequence under the "
+            "default project, not `items.id`. The implemented→release flip "
+            "uses `done_transition.item_status_set`, not `YOKE_CLAIM_BYPASS`."
+        ),
+    },
 }

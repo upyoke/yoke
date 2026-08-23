@@ -21,6 +21,9 @@ from pathlib import Path
 
 from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.item_ref_construction_baseline import baseline_counts
+from yoke_core.domain.lint_item_ref_bare_cli_token import (
+    scan_bare_internal_cli_token,
+)
 from yoke_core.domain.lint_item_ref_construction import (
     counts_by_relpath,
     resolve_project_prefixes,
@@ -53,6 +56,7 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
     counts = counts_by_relpath(repo_root, hits)
     policy_hits = scan_parser_policy(repo_root)
     stale_policy = stale_parser_policy_allowances(repo_root)
+    cli_hits = scan_bare_internal_cli_token(repo_root)
 
     offenders: list[str] = []
     allowed_counts = baseline_counts()
@@ -65,7 +69,13 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         rel for rel, allowed in allowed_counts.items() if counts.get(rel, 0) < allowed
     )
 
-    if not offenders and not stale and not policy_hits and not stale_policy:
+    if (
+        not offenders
+        and not stale
+        and not policy_hits
+        and not stale_policy
+        and not cli_hits
+    ):
         rec.record(_SLUG, _TITLE, "PASS", "")
         return
 
@@ -91,6 +101,11 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
     for hit in policy_hits:
         rel = hit.path.relative_to(repo_root.resolve()).as_posix()
         offender_lines.append(f"- {rel}:{hit.line}: {hit.snippet}")
+    for hit in cli_hits:
+        rel = hit.path.relative_to(repo_root.resolve()).as_posix()
+        offender_lines.append(
+            f"- {rel}:{hit.line}: bare-id CLI token: {hit.snippet}"
+        )
 
     rec.record(
         _SLUG,
@@ -98,7 +113,8 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         "FAIL",
         "Item-ref parser policy drift. Use render_item_ref / "
         "format_item_ref for display and resolve_item_id for lookups; never "
-        "build or parse a ref inline:\n" + "\n".join(offender_lines),
+        "build or parse a ref inline, and never pass str(item_id) to an "
+        "items CLI / sync_done_item boundary:\n" + "\n".join(offender_lines),
     )
 
 # Slug and display name are the ones this check has always reported under.
