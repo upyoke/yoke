@@ -181,11 +181,12 @@ export function openSessionMessageCompose(context, host, {
       const result = await sessionControlCall(
         context, "session_control.message.preview", { selector },
       );
-      previewed = {
+      const confirmationToken = String(result.confirmation_token || "").trim();
+      previewed = confirmationToken ? {
         selector,
         body: String(fields.body.value),
-        confirmationToken: result.confirmation_token || null,
-      };
+        confirmationToken,
+      } : null;
       const exactRecipients = result.recipients || [];
       const unroutable = exactRecipients.filter(
         (recipient) => recipient.messageability?.messageable === false,
@@ -195,8 +196,10 @@ export function openSessionMessageCompose(context, host, {
       renderRecipients(documentNode, recipients, exactRecipients);
       status.textContent = unroutable.length
         ? `${exactRecipients.length} exact ${recipientLabel} resolved; ${unroutable.length} ${blockedLabel} cannot receive Fleet messages. Choose a session marked Messageable in the roster.`
-        : `${result.recipient_count || 0} exact ${recipientLabel} resolved.`;
-      send.disabled = Number(result.recipient_count || 0) === 0
+        : !confirmationToken
+          ? "The server did not confirm this recipient snapshot. Preview again before sending."
+          : `${result.recipient_count || 0} exact ${recipientLabel} resolved and confirmed.`;
+      send.disabled = !confirmationToken || Number(result.recipient_count || 0) === 0
         || unroutable.length > 0;
     } catch (error) {
       status.textContent = presentSessionControlFailure(

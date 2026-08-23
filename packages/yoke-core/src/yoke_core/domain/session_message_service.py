@@ -61,9 +61,7 @@ def preview_message(
     return {
         "recipients": public,
         "recipient_count": len(public),
-        "confirmation_token": (
-            confirmation_token(selector, recipients) if selector.universe else None
-        ),
+        "confirmation_token": confirmation_token(selector, recipients),
     }
 
 
@@ -98,18 +96,29 @@ def send_message(
         recipients = resolve_recipients(conn, selector, now=current)
         _require_recipients(recipients)
         policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
+        expected_confirmation = confirmation_token(selector, recipients)
         if selector.universe:
             authorize_universe(conn, actor_id=actor_id, policies=policies.values())
             required = any(
                 policy.broadcast_requires_confirmation for policy in policies.values()
             )
-            expected = confirmation_token(selector, recipients)
-            if required and supplied_confirmation_token != expected:
+            if supplied_confirmation_token != expected_confirmation and (
+                required or supplied_confirmation_token is not None
+            ):
                 raise SessionMessageError(
                     "broadcast_confirmation_required",
                     "universe broadcast requires the exact current preview token",
                     jsonpath="$.payload.confirmation_token",
                 )
+        elif (
+            supplied_confirmation_token is not None
+            and supplied_confirmation_token != expected_confirmation
+        ):
+            raise SessionMessageError(
+                "recipient_snapshot_changed",
+                "resolved recipient snapshot changed after preview",
+                jsonpath="$.payload.confirmation_token",
+            )
         _validate_routes(recipients)
         body_bytes = len(body.encode("utf-8"))
         if body_bytes == 0:

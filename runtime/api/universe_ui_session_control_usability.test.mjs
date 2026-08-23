@@ -135,6 +135,35 @@ test("compose explains exact preview and blocks an unroutable recipient", async 
   mounted.unmount();
 });
 
+test("compose refuses an unconfirmed recipient preview", async (t) => {
+  const requests = [];
+  const { root, mounted } = await mountAt(t, "#/sessions/messages?project=1", {
+    "session_control.message.list": () => ok({ messages: [], count: 0 }),
+    "session_control.message.preview": (request) => {
+      requests.push(request);
+      return ok({
+        recipients: [{
+          session_id: "session-1", project: "yoke", liveness: "active",
+          messageability: { messageable: true }, resolution: ["session_id"],
+        }],
+        recipient_count: 1,
+      });
+    },
+  });
+  button(root, "Compose message").dispatchEvent(new Event("click"));
+  byClass(root, "session-message-selector-sessions")[0].value = "session-1";
+  byClass(root, "session-message-body")[0].value = "Test exact delivery.";
+  button(root, "Preview recipients").dispatchEvent(new Event("click"));
+  await settle();
+
+  assert.equal(button(root, "Send message").disabled, true);
+  assert.ok(byClass(root, "session-control-status").at(-1).textContent.includes(
+    "did not confirm this recipient snapshot",
+  ));
+  assert.equal(requests.length, 1);
+  mounted.unmount();
+});
+
 test("launch and relay views explain unavailable machine capability", async (t) => {
   const handlers = {
     "session_control.launch.list": () => ok({ launches: [], count: 0 }),

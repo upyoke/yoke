@@ -165,6 +165,35 @@ def test_universe_send_requires_exact_current_preview() -> None:
     assert sent["recipient_count"] == 4
 
 
+def test_confirmed_send_refuses_recipient_drift_after_preview() -> None:
+    conn = message_connection()
+    target = selector(item_refs=["ALP-1"])
+    preview = preview_message(conn, actor_id=10, selector=target, now=NOW)
+    assert [row["session_id"] for row in preview["recipients"]] == ["s1"]
+    conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (str(NOW),))
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(id,session_id,target_kind,item_id,claimed_at) "
+        "VALUES (4,'s2','item',101,?)",
+        (str(NOW),),
+    )
+    conn.commit()
+
+    with pytest.raises(SessionMessageError) as changed:
+        send_message(
+            conn,
+            actor_id=10,
+            sender_session_id=None,
+            selector=target,
+            body="Act on the confirmed recipient snapshot.",
+            supplied_confirmation_token=preview["confirmation_token"],
+            now=NOW,
+        )
+
+    assert changed.value.code == "recipient_snapshot_changed"
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+
+
 def test_get_and_list_visibility_follows_sender_recipient_or_project_read() -> None:
     conn = message_connection()
     message_id = _send(conn)["message_id"]
