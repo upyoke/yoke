@@ -110,6 +110,7 @@ def list_sessions(
     liveness: Optional[str] = None,
     limit: int = DEFAULT_SESSIONS_LIST_LIMIT,
     per_project: bool = False,
+    session_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """List harness sessions, newest activity first.
 
@@ -125,13 +126,24 @@ def list_sessions(
     newest-:data:`PER_PROJECT_SESSIONS_LIST_CAP` slice (NULL-project
     sessions form their own partition), so a busy project cannot crowd a
     quiet one out. The flat unscoped read is unchanged when it is off.
+
+    ``session_id`` selects exactly one session through the same row renderer
+    and enrichment pipeline. The point lookup bypasses both list limits while
+    preserving the optional project and liveness filters.
     """
     if liveness is not None and liveness not in LIVENESS_STATES:
         raise ValueError(
             f"liveness must be one of {', '.join(LIVENESS_STATES)}; got {liveness!r}"
         )
-    bounded_limit = max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
-    windowed = per_project and not project
+    normalized_session_id = str(session_id or "").strip()
+    if session_id is not None and not normalized_session_id:
+        raise ValueError("session_id must be a non-empty string when present")
+    bounded_limit = (
+        1
+        if normalized_session_id
+        else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
+    )
+    windowed = per_project and not project and not normalized_session_id
 
     conn = db_helpers.connect()
     try:
@@ -140,6 +152,9 @@ def list_sessions(
         if project:
             clauses.append("s.project_id = %s")
             where_params.append(resolve_project_id(conn, project))
+        if normalized_session_id:
+            clauses.append("s.session_id = %s")
+            where_params.append(normalized_session_id)
         if liveness == LIVENESS_ENDED:
             clauses.append("s.ended_at IS NOT NULL")
         elif liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):

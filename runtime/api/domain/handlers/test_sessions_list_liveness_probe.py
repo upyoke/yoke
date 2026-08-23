@@ -1,8 +1,8 @@
-"""The ``sessions.list`` single-session projection and the probe over it.
+"""The ``sessions.list`` exact-session roster projection and its live probe.
 
 The anchor-contention healer needs one positive answer — is this session
 ended? — independent of the roster limit window. These tests cover the
-``session_id`` payload filter end to end on the real test DB, and the
+complete ``session_id`` row end to end on the real test DB, and the
 transport probe's mapping of that projection into live / ended / unknown.
 """
 
@@ -10,18 +10,20 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
     FunctionCallResponse,
     TargetRef,
 )
-from yoke_core.domain.handlers.sessions_list import (
-    SESSION_LIVENESS_FIELDS,
-    handle_sessions_list,
-)
+from yoke_core.domain.handlers.sessions_list import handle_sessions_list
+from yoke_core.domain.session_control_roster import SESSION_CONTROL_ROSTER_FIELDS
+from yoke_core.domain.session_control_schema import create_session_control_tables
 
 from runtime.api.domain.handlers.test_sessions_list_handler import (
+    _insert_item_claim,
     _insert_session,
 )
 
@@ -44,15 +46,51 @@ def _request(payload: dict) -> FunctionCallRequest:
 
 
 class TestSessionIdFilter:
-    def test_live_session_projects_active(self, test_db):
-        _insert_session(test_db, "s-live", last_heartbeat=_iso())
+    @pytest.fixture(autouse=True)
+    def _session_control_schema(self, test_db):
+        create_session_control_tables(test_db)
+        test_db.commit()
+
+    def test_live_session_projects_the_complete_roster_row(self, test_db):
+        from runtime.api.fixtures.backlog import insert_item
+
+        insert_item(test_db, id=41, title="Fleet acceptance")
+        test_db.commit()
+        _insert_session(
+            test_db,
+            "s-live",
+            last_heartbeat=_iso(),
+            current_item_id="41",
+        )
+        test_db.execute(
+            "UPDATE harness_sessions SET executor_surface=%s,executor_version=%s,"
+            "machine_id=%s WHERE session_id=%s",
+            ("claude-cli", "2.1.241", "machine-1", "s-live"),
+        )
+        test_db.commit()
+        _insert_item_claim(test_db, "s-live", 41)
         outcome = handle_sessions_list(_request({"session_id": "s-live"}))
         result = outcome.result_payload
-        assert result["fields"] == list(SESSION_LIVENESS_FIELDS)
+        assert result["fields"] == list(SESSION_CONTROL_ROSTER_FIELDS)
         (row,) = result["rows"]
         assert row["session_id"] == "s-live"
         assert row["liveness"] == "active"
-        assert row["ended_at"] == ""
+        assert row["mode"] == "wait"
+        assert row["ended_at"] is None
+        assert row["claims"][0]["target"] == "YOK-41"
+        assert row["current_item"] == "YOK-41"
+        assert row["executor_surface"] == "claude-cli"
+        assert row["executor_version"] == "2.1.241"
+        assert row["machine_id"] == "machine-1"
+        assert isinstance(row["messageability"], dict)
+
+        roster = handle_sessions_list(_request({})).result_payload
+        expected = next(
+            candidate
+            for candidate in roster["rows"]
+            if candidate["session_id"] == "s-live"
+        )
+        assert row == expected
 
     def test_quiet_session_projects_stale_not_ended(self, test_db):
         _insert_session(
@@ -96,6 +134,23 @@ class TestSessionIdFilter:
         (row,) = outcome.result_payload["rows"]
         assert row["session_id"] == "s-target"
 
+    def test_project_and_liveness_still_narrow_the_point_lookup(self, test_db):
+        _insert_session(test_db, "s-live", last_heartbeat=_iso())
+        test_db.execute(
+            "INSERT INTO projects (id,slug,name,created_at) VALUES (%s,%s,%s,%s)",
+            (77, "other", "Other", _iso()),
+        )
+        test_db.commit()
+
+        wrong_liveness = handle_sessions_list(
+            _request({"session_id": "s-live", "liveness": "ended"})
+        )
+        assert wrong_liveness.result_payload["rows"] == []
+        wrong_project = handle_sessions_list(
+            _request({"session_id": "s-live", "project": "other"})
+        )
+        assert wrong_project.result_payload["rows"] == []
+
 
 class TestContenderIsLiveProbe:
     def _probe_with(self, monkeypatch, response):
@@ -113,7 +168,7 @@ class TestContenderIsLiveProbe:
     def _response(self, rows):
         return FunctionCallResponse(
             success=True, function="sessions.list", version="v1",
-            result={"fields": list(SESSION_LIVENESS_FIELDS), "rows": rows},
+            result={"fields": list(SESSION_CONTROL_ROSTER_FIELDS), "rows": rows},
         )
 
     def test_stale_maps_to_live(self, monkeypatch):

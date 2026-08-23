@@ -100,7 +100,7 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
     assert "|" not in rendered
 
 
-def test_roster_has_explicit_empty_and_labeled_point_liveness_views() -> None:
+def test_roster_has_explicit_empty_and_full_point_views() -> None:
     empty = io.StringIO()
     roster.write_roster_result(
         {"fields": list(SESSION_CONTROL_ROSTER_FIELDS), "rows": []},
@@ -111,11 +111,19 @@ def test_roster_has_explicit_empty_and_labeled_point_liveness_views() -> None:
     point = io.StringIO()
     roster.write_roster_result(
         {
-            "fields": ["session_id", "liveness", "ended_at", "activity_at"],
+            "fields": list(SESSION_CONTROL_ROSTER_FIELDS),
             "rows": [
                 {
                     "session_id": "session-1",
+                    "project": "yoke",
+                    "executor": "claude-code",
+                    "executor_surface": "claude-cli",
+                    "executor_version": "2.1.241",
+                    "machine_id": "machine-1",
                     "liveness": "active",
+                    "relay": "connected",
+                    "claims": [],
+                    "messageability": {"messageable": True},
                     "ended_at": "",
                     "activity_at": "2026-08-23T12:00:00Z",
                 }
@@ -124,9 +132,33 @@ def test_roster_has_explicit_empty_and_labeled_point_liveness_views() -> None:
         point,
     )
     rendered = point.getvalue()
-    assert "ACTIVITY (UTC)" in rendered
-    assert "ENDED (UTC)" in rendered
-    assert "2026-08-23 12:00 UTC" in rendered
+    assert "PROJECT" in rendered
+    assert "RUNNER" in rendered
+    assert "MESSAGEABLE" in rendered
+    assert "claude-code / claude-cli" in rendered
+
+
+def test_roster_point_lookup_dispatches_the_exact_session_filter(monkeypatch) -> None:
+    captured = {}
+
+    def _dispatch(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(roster, "dispatch_and_emit", _dispatch)
+
+    assert (
+        roster.session_control_roster_list(
+            ["--project", "yoke", "--session", "session-1", "--json"]
+        )
+        == 0
+    )
+    assert captured["function_id"] == "sessions.list"
+    assert captured["payload"] == {
+        "project": "yoke",
+        "session_id": "session-1",
+    }
+    assert captured["json_mode"] is True
 
 
 def test_registry_override_and_usage_map_are_ready_for_aggregation() -> None:
