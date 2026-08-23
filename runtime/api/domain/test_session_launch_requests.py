@@ -19,7 +19,9 @@ from runtime.api.domain.session_launch_test_support import (
 )
 
 
-def test_eligibility_uses_live_versions_projects_and_freshest_relay_per_machine() -> None:
+def test_eligibility_uses_live_versions_projects_and_freshest_relay_per_machine() -> (
+    None
+):
     conn = launch_connection()
     add_relay(conn, relay_id="old", last_seen_at="2026-08-22T11:58:00Z")
     add_relay(conn, relay_id="fresh", last_seen_at="2026-08-22T11:59:00Z")
@@ -37,11 +39,35 @@ def test_eligibility_uses_live_versions_projects_and_freshest_relay_per_machine(
     )
 
     snapshot = derive_launch_eligibility(
-        conn, project_id=10, surface="codex-cli", machine_id=None, now=NOW,
+        conn,
+        project_id=10,
+        surface="codex-cli",
+        machine_id=None,
+        now=NOW,
     )
 
     assert [relay.relay_id for relay in snapshot.relays] == ["fresh"]
     assert snapshot.rejection_codes == ("project_checkout_missing", "version_mismatch")
+
+
+def test_eligibility_accepts_cursor_build_version() -> None:
+    conn = launch_connection()
+    add_relay(
+        conn,
+        surface="cursor-cli",
+        version="2026.08.11-e8db854",
+    )
+
+    snapshot = derive_launch_eligibility(
+        conn,
+        project_id=10,
+        surface="cursor-cli",
+        machine_id=None,
+        now=NOW,
+    )
+
+    assert [relay.relay_id for relay in snapshot.relays] == ["relay-1"]
+    assert snapshot.rejection_codes == ()
 
 
 def test_preview_requires_machine_when_multiple_eligible_machines_exist() -> None:
@@ -163,7 +189,10 @@ def test_only_requester_or_project_admin_can_cancel() -> None:
 
     with pytest.raises(SessionLaunchError) as raised:
         cancel_launch(
-            conn, launch_id=launch.launch_id, auth=authorization(actor_id=2), now=NOW,
+            conn,
+            launch_id=launch.launch_id,
+            auth=authorization(actor_id=2),
+            now=NOW,
         )
     assert raised.value.code == "permission_denied"
     cancelled = cancel_launch(

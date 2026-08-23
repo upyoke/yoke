@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from packaging.version import InvalidVersion, Version
-
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.surface_versions import (
+    surface_operation_supported,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_types import (
     EligibilitySnapshot,
@@ -35,7 +36,8 @@ def _json(value: Any, default: Any) -> Any:
 def _project_keys(conn: Any, project_id: int) -> set[str]:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        f"SELECT slug FROM projects WHERE id = {marker}", (project_id,),
+        f"SELECT slug FROM projects WHERE id = {marker}",
+        (project_id,),
     ).fetchone()
     keys = {str(project_id)}
     if row is not None:
@@ -55,13 +57,7 @@ def _serves_project(raw: Any, keys: set[str]) -> bool:
 
 
 def _allowed_version(surface: str, offered: str) -> bool:
-    capability = capability_for_surface(surface)
-    if capability is None or capability.create == "none":
-        return False
-    try:
-        return Version(offered) >= Version(capability.minimum_version)
-    except InvalidVersion:
-        return False
+    return surface_operation_supported(surface, offered, "create")
 
 
 def derive_launch_eligibility(
