@@ -11,6 +11,10 @@ import subprocess
 import time
 from uuid import uuid4
 
+from yoke_contracts.machine_qa_execution import (
+    TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
+)
+
 
 RunRemote = Callable[..., subprocess.CompletedProcess[str]]
 TERMINAL_WINDOW_BOUNDS = (66, 90, 1566, 820)
@@ -280,30 +284,43 @@ def verify_terminal_app_control(
                 ready = True
                 break
             time.sleep(0.1)
-        if ready:
-            checks["terminal_app_input"] = send_terminal_app_keys(
-                run,
-                window_id=window_id,
-                keys=(identity, "Enter"),
-            )
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                transcript = capture_terminal_app_transcript(
-                    run,
-                    window_id=window_id,
-                )
-                if received in transcript:
-                    checks["terminal_app_transcript"] = True
-                    break
-                time.sleep(0.1)
-        checks["terminal_app_screenshot"] = (
-            _terminal_app_screenshot_payload(
-                run,
-                remote=remote,
-                window_id=window_id,
-            )
-            is not None
+        if not ready:
+            return False, checks, "terminal_app_control_unavailable"
+        # Frame before the window's content changes: only the ready banner
+        # and prompt are on screen.
+        before_frame = _terminal_app_screenshot_payload(
+            run, remote=remote, window_id=window_id
         )
+        run(f"rm -f {shlex.quote(remote)}", timeout=10)
+        checks["terminal_app_input"] = send_terminal_app_keys(
+            run,
+            window_id=window_id,
+            keys=(identity, "Enter"),
+        )
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            transcript = capture_terminal_app_transcript(
+                run,
+                window_id=window_id,
+            )
+            if received in transcript:
+                checks["terminal_app_transcript"] = True
+                break
+            time.sleep(0.1)
+        if not checks["terminal_app_transcript"]:
+            return False, checks, "terminal_app_control_unavailable"
+        # The transcript proved the visible content changed; a capture that
+        # still matches the earlier frame is not seeing this window — on
+        # macOS that is exactly what an ungranted Terminal.app produces
+        # (a valid non-empty PNG of the wallpaper only).
+        after_frame = _terminal_app_screenshot_payload(
+            run, remote=remote, window_id=window_id
+        )
+        if before_frame is None or after_frame is None:
+            return False, checks, "terminal_app_control_unavailable"
+        checks["terminal_app_screenshot"] = after_frame != before_frame
+        if not checks["terminal_app_screenshot"]:
+            return False, checks, TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE
         ok = all(checks.values())
         return ok, checks, None if ok else "terminal_app_control_unavailable"
     finally:

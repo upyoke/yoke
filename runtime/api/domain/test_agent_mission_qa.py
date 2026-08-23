@@ -15,7 +15,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_contracts.machine_qa_execution import AGENT_MISSION_ARTIFACT_LIMIT
+from yoke_contracts.machine_qa_execution import (
+    AGENT_MISSION_ARTIFACT_LIMIT,
+    TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
+)
 from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_access,
     handle_agent_mission_ready,
@@ -310,6 +313,14 @@ def test_mixed_bundle_keeps_all_final_verdicts_with_the_main_owner() -> None:
                 "instructions": "Explore the onboarding flow.",
                 "expected_outcome": "Return ranked findings.",
                 "artifacts": [],
+                (
+                    "transcript"
+                ): {
+                    "preparation": {
+                        "ok": False,
+                        "error_code": TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
+                    }
+                },
             },
             {
                 "requirement_id": 2,
@@ -327,3 +338,7 @@ def test_mixed_bundle_keeps_all_final_verdicts_with_the_main_owner() -> None:
     assert dispatch["result_schema"]["verdicts"][0]["verdict"] == (
         "pass|fail|undetermined"
     )
+    assert TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE in dispatch["prompt"]
+    assert "Privacy & Security" in dispatch["prompt"]
+    walker_prompt = dispatch["walker_dispatches"][0]["prompt"]
+    assert TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE in walker_prompt

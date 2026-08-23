@@ -10,6 +10,9 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_harness import ssh_mac_terminal_app
+from yoke_contracts.machine_qa_execution import (
+    TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
+)
 from yoke_harness.ssh_mac_terminal_capture import detect_terminal_backend
 from yoke_core.domain import ssh_mac_host_control
 from yoke_core.domain import ssh_mac_terminal_legacy
@@ -53,6 +56,7 @@ def test_check_terminal_bridge_reports_direct_terminal_app_control(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     commands: list[str] = []
+    captures: list[str] = []
     transcript_reads = 0
 
     def run(
@@ -78,7 +82,8 @@ def test_check_terminal_bridge_reports_direct_terminal_app_control(
         if "set shotCmd" in command:
             return _completed(command, stdout="446")
         if command.startswith("/bin/test -s "):
-            return _completed(command, stdout="cG5n")
+            captures.append(command)
+            return _completed(command, stdout=f"cG5n{len(captures)}")
         return _completed(command)
 
     monkeypatch.setattr(
@@ -126,6 +131,104 @@ def test_check_terminal_bridge_reports_direct_terminal_app_control(
     )
     assert any("close window id 445" in command for command in commands)
     assert any("close window id 446" in command for command in commands)
+
+
+def test_check_terminal_bridge_fails_when_frames_ignore_a_proven_content_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[str] = []
+    transcript_reads = 0
+
+    def run(
+        command: str,
+        **_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        nonlocal transcript_reads
+        commands.append(command)
+        if "return id of targetWindow" in command:
+            return _completed(command, stdout="445")
+        if "return contents of selected tab" in command:
+            transcript_reads += 1
+            return _completed(
+                command,
+                stdout=(
+                    "terminal-app-ready\n"
+                    if transcript_reads == 1
+                    else "received-bbbbbbbbbbbb\n"
+                ),
+            )
+        if 'tell application "System Events"' in command:
+            return _completed(command, stdout="true")
+        if "set shotCmd" in command:
+            return _completed(command, stdout="446")
+        if command.startswith("/bin/test -s "):
+            # Every capture returns the same bytes: wallpaper, not the window.
+            return _completed(command, stdout="cG5n")
+        return _completed(command)
+
+    monkeypatch.setattr(
+        ssh_mac_terminal_app,
+        "uuid4",
+        lambda: SimpleNamespace(hex="b" * 32),
+    )
+    control = SshMacHostControl.__new__(SshMacHostControl)
+    control._run = run
+
+    result = control.check_terminal_bridge()
+
+    assert result.ok is False
+    assert result.error_code == TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE
+    assert result.evidence["terminal_app_launch"] is True
+    assert result.evidence["terminal_app_input"] is True
+    assert result.evidence["terminal_app_transcript"] is True
+    assert result.evidence["terminal_app_screenshot"] is False
+    assert (
+        sum(
+            1
+            for command in commands
+            if command.startswith("/bin/test -s ")
+        )
+        >= 2
+    )
+
+
+def test_check_terminal_bridge_reports_generic_failure_without_input_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[str] = []
+
+    def run(
+        command: str,
+        **_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        if "return id of targetWindow" in command:
+            return _completed(command, stdout="445")
+        if "return contents of selected tab" in command:
+            return _completed(command, stdout="terminal-app-ready\n")
+        return _completed(command)
+
+    monkeypatch.setattr(
+        ssh_mac_terminal_app,
+        "uuid4",
+        lambda: SimpleNamespace(hex="b" * 32),
+    )
+    clock = {"now": 0.0}
+
+    def _advance(seconds: float) -> None:
+        clock["now"] += seconds
+
+    monkeypatch.setattr(ssh_mac_terminal_app.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(ssh_mac_terminal_app.time, "sleep", _advance)
+    control = SshMacHostControl.__new__(SshMacHostControl)
+    control._run = run
+
+    result = control.check_terminal_bridge()
+
+    assert result.ok is False
+    assert result.error_code == "terminal_app_control_unavailable"
+    assert result.evidence["terminal_app_input"] is False
+    assert result.evidence["terminal_app_screenshot"] is False
 
 
 def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(
