@@ -29,8 +29,12 @@ _CELL_KEYS = frozenset(
 )
 
 
+def acceptance_operation(surface: str) -> str:
+    return "message_active" if surface == "claude-desktop" else "message_stopped"
+
+
 def _version_acceptance_supported(surface: str, version: str) -> bool:
-    operation = "message_active" if surface == "claude-desktop" else "message_stopped"
+    operation = acceptance_operation(surface)
     return surface_operation_supported(surface, version, operation)
 
 
@@ -98,7 +102,7 @@ def _optional_text(value: Any, *, code: str, surface: str) -> str | None:
     return require_text(value, code=code, surface=surface)
 
 
-def _cell(raw: Any) -> AcceptanceCell:
+def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
     if not isinstance(raw, dict) or set(raw) - _CELL_KEYS:
         raise AcceptanceContractError("cell_shape_invalid")
     surface = require_text(raw.get("surface"), code="surface_missing")
@@ -109,7 +113,7 @@ def _cell(raw: Any) -> AcceptanceCell:
         code="expected_version_missing",
         surface=surface,
     )
-    if not _version_acceptance_supported(surface, version):
+    if evidence_required and not _version_acceptance_supported(surface, version):
         raise AcceptanceContractError("expected_version_unproven", surface=surface)
     mode = require_text(raw.get("mode"), code="mode_missing", surface=surface)
     if mode not in {"create", "identify"}:
@@ -138,7 +142,7 @@ def _cell(raw: Any) -> AcceptanceCell:
     )
 
 
-def parse_matrix(raw: Any) -> AcceptanceMatrix:
+def _parse_matrix(raw: Any, *, evidence_required: bool) -> AcceptanceMatrix:
     if not isinstance(raw, dict) or set(raw) - _MATRIX_KEYS:
         raise AcceptanceContractError("matrix_shape_invalid")
     if raw.get("schema") != SCHEMA_VERSION:
@@ -147,7 +151,9 @@ def parse_matrix(raw: Any) -> AcceptanceMatrix:
     raw_cells = raw.get("cells")
     if not isinstance(raw_cells, list):
         raise AcceptanceContractError("cells_invalid")
-    cells = tuple(_cell(value) for value in raw_cells)
+    cells = tuple(
+        _cell(value, evidence_required=evidence_required) for value in raw_cells
+    )
     surfaces = tuple(cell.surface for cell in cells)
     if len(surfaces) != len(set(surfaces)):
         raise AcceptanceContractError("surface_duplicate")
@@ -159,12 +165,28 @@ def parse_matrix(raw: Any) -> AcceptanceMatrix:
     return AcceptanceMatrix(project=project, cells=ordered)
 
 
-def load_matrix(path: Path) -> AcceptanceMatrix:
+def parse_matrix(raw: Any) -> AcceptanceMatrix:
+    return _parse_matrix(raw, evidence_required=True)
+
+
+def parse_candidate_matrix(raw: Any) -> AcceptanceMatrix:
+    """Validate matrix shape while leaving private-version proof for readiness."""
+    return _parse_matrix(raw, evidence_required=False)
+
+
+def _read_matrix(path: Path) -> Any:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise AcceptanceContractError("matrix_unreadable") from exc
-    return parse_matrix(raw)
+
+
+def load_matrix(path: Path) -> AcceptanceMatrix:
+    return parse_matrix(_read_matrix(path))
+
+
+def load_candidate_matrix(path: Path) -> AcceptanceMatrix:
+    return parse_candidate_matrix(_read_matrix(path))
 
 
 __all__ = [
@@ -172,7 +194,10 @@ __all__ = [
     "AcceptanceCell",
     "AcceptanceContractError",
     "AcceptanceMatrix",
+    "acceptance_operation",
+    "load_candidate_matrix",
     "load_matrix",
+    "parse_candidate_matrix",
     "parse_matrix",
     "require_text",
     "validate_deployed_release",

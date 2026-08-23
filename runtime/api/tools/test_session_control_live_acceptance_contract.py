@@ -12,6 +12,7 @@ from runtime.api.tools.session_control_live_acceptance_client import YokeCliClie
 from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACES,
     AcceptanceContractError,
+    parse_candidate_matrix,
     parse_matrix,
     validate_deployed_release,
     validate_run_id,
@@ -94,6 +95,22 @@ def test_matrix_refuses_unpinned_or_incomplete_evidence(mutation, code) -> None:
         parse_matrix(raw)
 
     assert raised.value.code == code
+
+
+def test_candidate_matrix_preserves_shape_but_defers_private_version_proof() -> None:
+    raw = _matrix()
+    versions = {"claude-cli": "2.1.241", "claude-desktop": "1.34493.1"}
+    for cell in raw["cells"]:
+        if cell["surface"] in versions:
+            cell["expected_version"] = versions[cell["surface"]]
+
+    candidate = parse_candidate_matrix(raw)
+
+    assert candidate.cells[0].expected_version == "2.1.241"
+    assert candidate.cells[1].expected_version == "1.34493.1"
+    with pytest.raises(AcceptanceContractError) as raised:
+        parse_matrix(raw)
+    assert raised.value.code == "expected_version_unproven"
 
 
 def test_run_id_is_bounded_for_repeatable_idempotency_keys() -> None:
