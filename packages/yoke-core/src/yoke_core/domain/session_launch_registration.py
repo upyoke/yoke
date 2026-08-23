@@ -48,10 +48,7 @@ def _session_facts(conn: Any, session_id: str) -> dict[str, Any]:
 def _require_exact_binding(
     launch: LaunchRecord, session_id: str, facts: dict[str, Any]
 ) -> None:
-    if (
-        launch.native_session_id != session_id
-        and launch.requested_surface != "claude-cli"
-    ):
+    if launch.native_session_id != session_id:
         raise SessionLaunchError(
             "native_session_mismatch",
             "registered session does not equal the native binding id",
@@ -100,7 +97,18 @@ def _insert_pending_recipient(
         "INSERT INTO session_message_recipients "
         "(message_id, session_id, project_id, resolution_evidence, routing_snapshot, "
         "executor_surface, executor_version, machine_id, state, created_at, wake_after) "
-        f"VALUES ({', '.join(p for _ in values)}) ON CONFLICT DO NOTHING",
+        f"VALUES ({', '.join(p for _ in values)}) "
+        "ON CONFLICT(message_id, session_id) DO UPDATE SET "
+        "project_id=excluded.project_id, resolution_evidence=excluded.resolution_evidence, "
+        "routing_snapshot=excluded.routing_snapshot, "
+        "executor_surface=excluded.executor_surface, "
+        "executor_version=excluded.executor_version, machine_id=excluded.machine_id, "
+        "state='pending', created_at=excluded.created_at, wake_after=excluded.wake_after, "
+        "injection_lease_id=NULL, injection_leased_at=NULL, "
+        "injection_lease_expires_at=NULL, injection_count=0, last_injected_at=NULL, "
+        "acknowledged_at=NULL, expired_at=NULL, cancelled_at=NULL, "
+        "wake_attempt_count=0, last_wake_at=NULL "
+        "WHERE session_message_recipients.state='cancelled'",
         values,
     )
 
@@ -161,20 +169,12 @@ def prepare_launch_registration(
             facts=facts,
             now=current,
         )
-        registration_fields: dict[str, Any] = {
-            "registered_session_id": session_id,
-            "attestation_consumed_at": current,
-            "result_code": "registration_bound",
-        }
-        if launch.requested_surface == "claude-cli":
-            # Claude's background launcher allocates the addressable session id
-            # after native create. The single-use attestation binds that actual
-            # id at its first hook; other surfaces retain exact reported ids.
-            registration_fields["native_session_id"] = session_id
         update_launch(
             conn,
             launch_id,
-            **registration_fields,
+            registered_session_id=session_id,
+            attestation_consumed_at=current,
+            result_code="registration_bound",
         )
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()
@@ -275,6 +275,25 @@ def complete_launch_for_message(
             if commit:
                 conn.commit()
             return launch
+        from yoke_core.domain.session_launch_delivery_state import (
+            TERMINAL_DELIVERY_STATES,
+            close_launch_delivery,
+        )
+
+        if launch.state in TERMINAL_DELIVERY_STATES:
+            close_launch_delivery(
+                conn,
+                launch_id=launch_id,
+                state=launch.state,
+                changed_at=str(launch.completed_at or current),
+            )
+            if commit:
+                conn.commit()
+            return launch
+        if launch.state != "awaiting_registration":
+            raise SessionLaunchError(
+                "invalid_state", "launch cannot complete from message delivery"
+            )
         receipt = conn.execute(
             "SELECT state FROM session_message_recipients "
             f"WHERE message_id = {p} AND session_id = {p}",

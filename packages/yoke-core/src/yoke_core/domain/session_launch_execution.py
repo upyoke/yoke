@@ -204,7 +204,17 @@ def report_launch_attempt(
         )
         result_evidence = _bounded_evidence(evidence)
         if result_code == "native_created":
-            if parse_time(current) >= parse_time(launch.deadline_at):
+            if launch.state == "outcome_unknown":
+                result = update_launch(
+                    conn,
+                    launch_id,
+                    delivery_changed_at=current,
+                    state="outcome_unknown",
+                    native_session_id=native_session_id,
+                    result_code="late_native_requires_reconciliation",
+                    result_evidence=result_evidence,
+                )
+            elif parse_time(current) >= parse_time(launch.deadline_at):
                 result = update_launch(
                     conn,
                     launch_id,
@@ -237,6 +247,7 @@ def report_launch_attempt(
             result = update_launch(
                 conn,
                 launch_id,
+                delivery_changed_at=current,
                 state="outcome_unknown",
                 result_code="outcome_unknown",
                 result_evidence=result_evidence,

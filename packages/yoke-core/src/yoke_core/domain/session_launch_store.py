@@ -170,7 +170,13 @@ def list_launches(
     return [row_to_launch(row) for row in rows]
 
 
-def update_launch(conn: Any, launch_id: str, **changes: Any) -> LaunchRecord:
+def update_launch(
+    conn: Any,
+    launch_id: str,
+    *,
+    delivery_changed_at: str | None = None,
+    **changes: Any,
+) -> LaunchRecord:
     unknown = set(changes) - _MUTABLE_LAUNCH_COLUMNS
     if unknown:
         raise ValueError(f"unknown launch update columns: {sorted(unknown)}")
@@ -182,6 +188,25 @@ def update_launch(conn: Any, launch_id: str, **changes: Any) -> LaunchRecord:
         f"UPDATE session_launches SET {assignments} WHERE launch_id = {p}",
         (*changes.values(), launch_id),
     )
+    next_state = changes.get("state")
+    if next_state:
+        from yoke_core.domain.session_launch_delivery_state import (
+            TERMINAL_DELIVERY_STATES,
+            close_launch_delivery,
+            reopen_launch_delivery,
+        )
+
+        if next_state in TERMINAL_DELIVERY_STATES:
+            close_launch_delivery(
+                conn,
+                launch_id=launch_id,
+                state=str(next_state),
+                changed_at=str(
+                    delivery_changed_at or changes.get("completed_at") or utc_now()
+                ),
+            )
+        elif next_state in {"assigned", "awaiting_registration"}:
+            reopen_launch_delivery(conn, launch_id=launch_id)
     return get_launch(conn, launch_id)
 
 

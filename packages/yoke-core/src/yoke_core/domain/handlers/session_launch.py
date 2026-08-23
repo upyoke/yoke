@@ -186,8 +186,10 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def _launch_and_auth(conn: Any, request: FunctionCallRequest, launch_id: str):
+    from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
     from yoke_core.domain.session_launch_store import get_launch
 
+    settle_launch_deadlines(conn, launch_id=launch_id)
     launch = get_launch(conn, launch_id)
     return launch, _authorization(conn, request, launch.project_id)
 
@@ -212,6 +214,7 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchListRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
+    from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
     from yoke_core.domain.session_launch_store import list_launches, rows_to_dicts
 
     conn = _open()
@@ -220,6 +223,7 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
         auth = _authorization(conn, request, project_id)
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
+        settle_launch_deadlines(conn, project_id=project_id)
         rows = rows_to_dicts(
             list_launches(
                 conn,

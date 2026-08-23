@@ -258,7 +258,7 @@ def cancel_launch(
             result = update_launch(
                 conn,
                 launch_id,
-                state="outcome_unknown",
+                delivery_changed_at=current, state="outcome_unknown",
                 result_code="cancellation_requires_reconciliation",
             )
         else:
