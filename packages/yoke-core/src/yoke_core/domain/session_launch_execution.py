@@ -95,9 +95,13 @@ def claim_assigned_launch(
         launch = get_launch(conn, launch_id, for_update=True)
         if launch.state != "assigned":
             raise SessionLaunchError(
-                "invalid_state", f"launch is {launch.state!r}, not assigned",
+                "invalid_state",
+                f"launch is {launch.state!r}, not assigned",
             )
-        if launch.assigned_relay_id != relay_id or launch.assigned_machine_id != machine_id:
+        if (
+            launch.assigned_relay_id != relay_id
+            or launch.assigned_machine_id != machine_id
+        ):
             raise SessionLaunchError("relay_mismatch", "launch is assigned elsewhere")
         if parse_time(current) >= parse_time(launch.deadline_at):
             update_launch(
@@ -187,10 +191,13 @@ def report_launch_attempt(
             if previous_code == result_code and previous_native == native_session_id:
                 conn.commit()
                 return launch
-            raise SessionLaunchError("report_conflict", "attempt already has another outcome")
+            raise SessionLaunchError(
+                "report_conflict", "attempt already has another outcome"
+            )
         if launch.state not in {"launching", "outcome_unknown"}:
             raise SessionLaunchError(
-                "invalid_state", f"launch in state {launch.state!r} cannot accept a report",
+                "invalid_state",
+                f"launch in state {launch.state!r} cannot accept a report",
             )
         attempt_id = str(value(attempt, "attempt_id", 0))
         _complete_attempt(
@@ -275,12 +282,15 @@ def reconcile_launch(
         launch = get_launch(conn, launch_id, for_update=True)
         if launch.state == "succeeded":
             if observed_native_id and observed_native_id != launch.native_session_id:
-                raise SessionLaunchError("reconciliation_conflict", "native id conflicts")
+                raise SessionLaunchError(
+                    "reconciliation_conflict", "native id conflicts"
+                )
             conn.commit()
             return launch
         if launch.state not in {"outcome_unknown", "failed"}:
             raise SessionLaunchError(
-                "invalid_state", f"launch in state {launch.state!r} is not reconcilable",
+                "invalid_state",
+                f"launch in state {launch.state!r} is not reconcilable",
             )
         if launch.native_session_id and observed_native_id not in {
             None,
@@ -298,7 +308,9 @@ def reconcile_launch(
                 launch_id,
                 state=state,
                 native_session_id=observed_native_id,
-                awaiting_registration_at=current if state == "awaiting_registration" else None,
+                awaiting_registration_at=current
+                if state == "awaiting_registration"
+                else None,
                 completed_at=current if state == "failed" else None,
                 result_code=(
                     "native_created_reconciled"

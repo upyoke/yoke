@@ -26,7 +26,7 @@ def render_invariant_block() -> list[str]:
     return [
         "**Control-plane DB invariant:** Yoke control-plane authority "
         "is Postgres. Use registered `yoke <subcommand>` readers/writers "
-        "for domain state, and `yoke db read \"SELECT ...\"` for raw "
+        'for domain state, and `yoke db read "SELECT ..."` for raw '
         "diagnostic SELECTs. Do not "
         "construct DB file paths from `$PWD`, `CLAUDE_PROJECT_DIR`, or "
         "linked worktree paths. Product/normal prod reads stay on "
@@ -98,7 +98,7 @@ def render_function_call_surface_block() -> list[str]:
         "validates a `FunctionCallRequest` from "
         "`yoke_contracts.api.function_call` and returns a "
         "`FunctionCallResponse`. Minimal envelope: "
-        '`{function, request_id, actor:{session_id,actor_id}, '
+        "`{function, request_id, actor:{session_id,actor_id}, "
         "target:{kind,item_id|epic_id+task_num|qa_requirement_id|...}, "
         "payload, preconditions:{}, options:{}}`. `target.kind` ∈ "
         "`item|epic_task|qa_requirement|session|process`. "
@@ -134,12 +134,10 @@ def render_json_nested_schema_block(topic: str) -> list[str]:
     ]
     for table, column, meta in entries:
         fields_inline = ", ".join(
-            f"`{name}`:{ftype}={default}"
-            for name, ftype, default in meta["fields"]
+            f"`{name}`:{ftype}={default}" for name, ftype, default in meta["fields"]
         )
         out.append(
-            f"- `{table}.{column}` — {fields_inline}. "
-            f"Validator: `{meta['validator']}`."
+            f"- `{table}.{column}` — {fields_inline}. Validator: `{meta['validator']}`."
         )
     return out
 

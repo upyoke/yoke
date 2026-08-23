@@ -23,63 +23,65 @@ from typing import Any, Dict, Optional, Tuple
 #: reads. Read-only by construction — registered with no side effects
 #: and no claim requirement — except the documented activation-latch
 #: entry below.
-UI_READ_FUNCTION_ALLOWLIST = frozenset({
-    "organizations.get",
-    "organizations.settings.catalog",
-    "organizations.settings.get",
-    "projects.list",
-    "projects.get",
-    "projects.capabilities.list",
-    "projects.environment_settings.get",
-    "projects.infrastructure.list",
-    "projects.github_binding.status",
-    "items.get.run",
-    "items.list.run",
-    "items.overview.list",
-    "items.search.run",
-    "items.detail.get",
-    "epic_tasks.list.run",
-    "strategy.doc.list",
-    "strategy.doc.get",
-    "strategy.surface.list",
-    "strategy.surface.get",
-    "strategy.revision.diff",
-    "ouroboros.entry.list",
-    "board.data.get",
-    "deployment_runs.list",
-    "sessions.list",
-    "session_control.message.preview",
-    "session_control.message.list",
-    "session_control.message.get",
-    "session_control.launch.preview",
-    "session_control.launch.get",
-    "session_control.launch.list",
-    "session_control.relay.list",
-    "frontier.list",
-    "events.query.run",
-    "doctor.last_run.get",
-    "qa.method.list",
-    "qa.method.get",
-    "qa.plan.list",
-    "qa.plan.get",
-    "qa.activity.list",
-    "qa.artifact.read",
-    "inbox.list",
-    "workflow.execution_instruction.list",
-    "workflows.definition.get",
-    "workflows.mechanics.get",
-    "workflows.version.get",
-    "workflows.canon.get",
-    "workflows.canon_update.preview",
-    "test_machine.get",
-    # Documented exception to "no side effects": the Overview activation
-    # read latches newly satisfied module activations into
-    # overview_activation_facts — universe-scoped, monotone, idempotent,
-    # and carrying no actor attribution. See
-    # UI_ACTIVATION_LATCH_FUNCTIONS.
-    "overview.activation.get",
-    "overview.vitals.get",
-})
+UI_READ_FUNCTION_ALLOWLIST = frozenset(
+    {
+        "organizations.get",
+        "organizations.settings.catalog",
+        "organizations.settings.get",
+        "projects.list",
+        "projects.get",
+        "projects.capabilities.list",
+        "projects.environment_settings.get",
+        "projects.infrastructure.list",
+        "projects.github_binding.status",
+        "items.get.run",
+        "items.list.run",
+        "items.overview.list",
+        "items.search.run",
+        "items.detail.get",
+        "epic_tasks.list.run",
+        "strategy.doc.list",
+        "strategy.doc.get",
+        "strategy.surface.list",
+        "strategy.surface.get",
+        "strategy.revision.diff",
+        "ouroboros.entry.list",
+        "board.data.get",
+        "deployment_runs.list",
+        "sessions.list",
+        "session_control.message.preview",
+        "session_control.message.list",
+        "session_control.message.get",
+        "session_control.launch.preview",
+        "session_control.launch.get",
+        "session_control.launch.list",
+        "session_control.relay.list",
+        "frontier.list",
+        "events.query.run",
+        "doctor.last_run.get",
+        "qa.method.list",
+        "qa.method.get",
+        "qa.plan.list",
+        "qa.plan.get",
+        "qa.activity.list",
+        "qa.artifact.read",
+        "inbox.list",
+        "workflow.execution_instruction.list",
+        "workflows.definition.get",
+        "workflows.mechanics.get",
+        "workflows.version.get",
+        "workflows.canon.get",
+        "workflows.canon_update.preview",
+        "test_machine.get",
+        # Documented exception to "no side effects": the Overview activation
+        # read latches newly satisfied module activations into
+        # overview_activation_facts — universe-scoped, monotone, idempotent,
+        # and carrying no actor attribution. See
+        # UI_ACTIVATION_LATCH_FUNCTIONS.
+        "overview.activation.get",
+        "overview.vitals.get",
+    }
+)
 
 #: Read-allowlist members whose one sanctioned side effect is the
 #: universe-scoped monotone activation latch. Kept as its own roster so
@@ -91,55 +93,59 @@ UI_ACTIVATION_LATCH_FUNCTIONS = frozenset({"overview.activation.get"})
 
 #: Reads whose result is defined for the resolved local operator rather than
 #: an anonymous browser process.
-UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset({
-    "inbox.list",
-    "session_control.message.preview",
-    "session_control.message.list",
-    "session_control.message.get",
-    "session_control.launch.preview",
-    "session_control.launch.get",
-    "session_control.launch.list",
-    "session_control.relay.list",
-    "test_machine.get",
-    "workflows.mechanics.get",
-})
+UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
+    {
+        "inbox.list",
+        "session_control.message.preview",
+        "session_control.message.list",
+        "session_control.message.get",
+        "session_control.launch.preview",
+        "session_control.launch.get",
+        "session_control.launch.list",
+        "session_control.relay.list",
+        "test_machine.get",
+        "workflows.mechanics.get",
+    }
+)
 
 #: The only mutations the local proxy may dispatch. All act as the resolved
 #: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
 #: refused when no operator resolves; every other mutation stays 403.
-UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
-    "workflow.execution_instruction.create",
-    "workflow.execution_instruction.update",
-    "workflow.execution_instruction.set_scope",
-    "workflow.execution_instruction.delete",
-    "workflows.canon_update.apply",
-    "workflows.canon_update.apply_all",
-    "workflows.canon_follow.set",
-    "overview.module.dismiss",
-    "overview.module.restore",
-    "workflows.current.set",
-    "workflows.policy_defaults.publish",
-    "workflows.testing_default.set",
-    "workflows.delivery_default.set",
-    "workflows.approval_defaults.publish",
-    "test_machine.settings_replace",
-    "test_machine.verify",
-    "decision_requests.resolve",
-    "notifications.read",
-    "notifications.read_all",
-    "qa.case.waive",
-    "items.create",
-    "sessions.reclaim_stale",
-    "organizations.settings.merge",
-    "session_control.message.send",
-    "session_control.message.cancel",
-    "session_control.launch.create",
-    "session_control.launch.cancel",
-    "session_control.launch.reconcile",
-    "session_control.launch.retry",
-    "strategy.revision.restore",
-    "deployment_runs.terminalize",
-})
+UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
+    {
+        "workflow.execution_instruction.create",
+        "workflow.execution_instruction.update",
+        "workflow.execution_instruction.set_scope",
+        "workflow.execution_instruction.delete",
+        "workflows.canon_update.apply",
+        "workflows.canon_update.apply_all",
+        "workflows.canon_follow.set",
+        "overview.module.dismiss",
+        "overview.module.restore",
+        "workflows.current.set",
+        "workflows.policy_defaults.publish",
+        "workflows.testing_default.set",
+        "workflows.delivery_default.set",
+        "workflows.approval_defaults.publish",
+        "test_machine.settings_replace",
+        "test_machine.verify",
+        "decision_requests.resolve",
+        "notifications.read",
+        "notifications.read_all",
+        "qa.case.waive",
+        "items.create",
+        "sessions.reclaim_stale",
+        "organizations.settings.merge",
+        "session_control.message.send",
+        "session_control.message.cancel",
+        "session_control.launch.create",
+        "session_control.launch.cancel",
+        "session_control.launch.reconcile",
+        "session_control.launch.retry",
+        "strategy.revision.restore",
+        "deployment_runs.terminalize",
+    }
+)
 
 
 def proxy_function_call(
@@ -157,17 +163,17 @@ def proxy_function_call(
     is_mutation = function_id in UI_MUTATION_FUNCTION_ALLOWLIST
     if function_id not in UI_READ_FUNCTION_ALLOWLIST and not is_mutation:
         return (
-            {"error": {
-                "code": "function_not_allowed",
-                "message": (
-                    f"function {function_id!r} is not on this UI "
-                    "server's allowlist"
-                ),
-                "allowed": sorted(
-                    UI_READ_FUNCTION_ALLOWLIST
-                    | UI_MUTATION_FUNCTION_ALLOWLIST
-                ),
-            }},
+            {
+                "error": {
+                    "code": "function_not_allowed",
+                    "message": (
+                        f"function {function_id!r} is not on this UI server's allowlist"
+                    ),
+                    "allowed": sorted(
+                        UI_READ_FUNCTION_ALLOWLIST | UI_MUTATION_FUNCTION_ALLOWLIST
+                    ),
+                }
+            },
             403,
         )
     # Actor-scoped calls act as the machine's operator, resolved
@@ -186,18 +192,19 @@ def proxy_function_call(
         resolved = resolve_local_operator_actor()
         operator_actor_id = None if resolved is None else str(resolved)
         if (
-            (is_mutation or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS)
-            and operator_actor_id is None
-        ):
+            is_mutation or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS
+        ) and operator_actor_id is None:
             return (
-                {"error": {
-                    "code": "operator_actor_unresolved",
-                    "message": (
-                        "this universe has no unambiguous local "
-                        "operator actor, so this per-actor operation "
-                        "is refused"
-                    ),
-                }},
+                {
+                    "error": {
+                        "code": "operator_actor_unresolved",
+                        "message": (
+                            "this universe has no unambiguous local "
+                            "operator actor, so this per-actor operation "
+                            "is refused"
+                        ),
+                    }
+                },
                 403,
             )
     raw_target = envelope.get("target")

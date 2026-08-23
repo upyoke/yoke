@@ -146,14 +146,10 @@ def test_expand_markers_replaces_body_with_packet() -> None:
 
 
 def test_expand_markers_idempotent_on_fresh_text() -> None:
-    body = schema_api_context.render_topic_packet(
-        "core", role="engineer_agent"
-    ).rstrip("\n")
-    text = (
-        f"{_make_marker('engineer_agent', 'core')}\n\n"
-        f"{body}\n\n"
-        f"{MARKER_END}\n"
+    body = schema_api_context.render_topic_packet("core", role="engineer_agent").rstrip(
+        "\n"
     )
+    text = f"{_make_marker('engineer_agent', 'core')}\n\n{body}\n\n{MARKER_END}\n"
     once = expand_markers(text)
     twice = expand_markers(once)
     assert once == twice
@@ -207,13 +203,10 @@ def test_render_claude_agent_expands_markers(tmp_path: Path) -> None:
 def test_render_codex_body_expands_markers(tmp_path: Path) -> None:
     canonical = tmp_path
     body = (
-        "Boss prompt body.\n\n"
-        f"{_make_marker('boss_agent', 'claims')}\n{MARKER_END}\n"
+        f"Boss prompt body.\n\n{_make_marker('boss_agent', 'claims')}\n{MARKER_END}\n"
     )
     (canonical / "boss.md").write_text(body, encoding="utf-8")
-    (canonical / "boss.codex.json").write_text(
-        '{"description": "x"}', encoding="utf-8"
-    )
+    (canonical / "boss.codex.json").write_text('{"description": "x"}', encoding="utf-8")
     rendered = render_codex_agent_body(canonical, "boss")
     fresh_claims = schema_api_context.render_topic_packet(
         "claims", role="boss_agent"
@@ -223,7 +216,8 @@ def test_render_codex_body_expands_markers(tmp_path: Path) -> None:
 
 
 def test_substrate_drift_flags_malformed_canonical_marker(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repo = tmp_path
     canonical = repo / CANONICAL_DIR

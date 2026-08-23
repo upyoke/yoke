@@ -139,9 +139,7 @@ def list_sessions(
     if session_id is not None and not normalized_session_id:
         raise ValueError("session_id must be a non-empty string when present")
     bounded_limit = (
-        1
-        if normalized_session_id
-        else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
+        1 if normalized_session_id else max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
     )
     windowed = per_project and not project and not normalized_session_id
 
@@ -277,7 +275,8 @@ def list_sessions(
                     "claims": claims,
                     "coordination_leases": leases_by_session.get(session_id, []),
                     "claimed_blitz_worktree_ids": blitz_lanes_by_session.get(
-                        session_id, [],
+                        session_id,
+                        [],
                     ),
                 }
             )

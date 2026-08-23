@@ -18,6 +18,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 
+
 class SessionsListRequest(BaseModel):
     project: Optional[str] = None
     liveness: Optional[str] = None

@@ -55,8 +55,7 @@ def test_message_completion_can_share_the_callers_transaction() -> None:
         now="2026-08-22T12:00:31Z",
     )
     conn.execute(
-        "UPDATE session_message_recipients SET state='injected' "
-        "WHERE message_id=?",
+        "UPDATE session_message_recipients SET state='injected' WHERE message_id=?",
         (launch.message_id,),
     )
     completed = complete_launch_for_message(

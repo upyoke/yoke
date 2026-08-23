@@ -98,7 +98,9 @@ class TestSessionIdFilter:
 
     def test_quiet_session_projects_stale_not_ended(self, test_db):
         _insert_session(
-            test_db, "s-quiet", last_heartbeat=_iso(_LONG_AGO_MINUTES),
+            test_db,
+            "s-quiet",
+            last_heartbeat=_iso(_LONG_AGO_MINUTES),
         )
         outcome = handle_sessions_list(_request({"session_id": "s-quiet"}))
         (row,) = outcome.result_payload["rows"]
@@ -106,7 +108,8 @@ class TestSessionIdFilter:
 
     def test_ended_session_projects_ended(self, test_db):
         _insert_session(
-            test_db, "s-done",
+            test_db,
+            "s-done",
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             ended_at=_iso(5),
         )
@@ -127,10 +130,14 @@ class TestSessionIdFilter:
     def test_filter_bypasses_the_roster_limit_window(self, test_db):
         for index in range(5):
             _insert_session(
-                test_db, f"s-noise-{index}", last_heartbeat=_iso(),
+                test_db,
+                f"s-noise-{index}",
+                last_heartbeat=_iso(),
             )
         _insert_session(
-            test_db, "s-target", last_heartbeat=_iso(_LONG_AGO_MINUTES),
+            test_db,
+            "s-target",
+            last_heartbeat=_iso(_LONG_AGO_MINUTES),
         )
         outcome = handle_sessions_list(
             _request({"session_id": "s-target", "limit": 1}),
@@ -171,7 +178,9 @@ class TestContenderIsLiveProbe:
 
     def _response(self, rows):
         return FunctionCallResponse(
-            success=True, function="sessions.list", version="v1",
+            success=True,
+            function="sessions.list",
+            version="v1",
             result={"fields": list(SESSION_CONTROL_ROSTER_FIELDS), "rows": rows},
         )
 
@@ -201,7 +210,8 @@ class TestContenderIsLiveProbe:
         assert probe("") is None
 
     def test_a_roster_answer_cannot_speak_for_the_probed_session(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ):
         """A server predating the filter returns the roster unfiltered.
 

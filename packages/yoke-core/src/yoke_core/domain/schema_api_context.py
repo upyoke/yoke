@@ -1,28 +1,8 @@
 """Generate role/topic-scoped schema/API context packets for Yoke agents.
 
-Single agent-context compiler that the renderer
-(:mod:`yoke_core.domain.agents_render_context`) uses to expand
-``<!-- YOKE:DB-PACKET role=R topic=T start --> ... <!-- YOKE:DB-PACKET end -->``
-markers in canonical agent prompts. Replaces the hand-authored ``## DB
-Quick Reference`` blocks that drifted from live schema and API surfaces.
-
-Source layering:
-
-- **Live introspection** at packet-build time:
-  Native schema catalog probes against the canonical control-plane DB
-  (resolved via :mod:`yoke_core.domain.schema_common`) for column names and
-  types. Live ``--help`` output of the wrapper CLIs for command surface
-  presence.
-- **Curated seed** at :mod:`yoke_core.domain.schema_api_context_seed`
-  for table notes, recipe text, role/topic mappings, stale-term
-  regression, and size budgets. Also the cross-check the generator uses
-  to fail fast when live schema disagrees with the seed.
-
-CLI:
-
-  python3 -m yoke_core.domain.schema_api_context render --role R --topic T
-  python3 -m yoke_core.domain.schema_api_context render --role R
-  python3 -m yoke_core.domain.schema_api_context check
+The renderer expands canonical packet markers from live schema and command
+probes reconciled against the curated seed. The module CLI renders one topic,
+one role, or checks the complete packet corpus for drift and size limits.
 """
 
 from __future__ import annotations
@@ -116,12 +96,26 @@ def _try_live_schema(table: str) -> Optional[list[tuple[str, str]]]:
 _TYPE_CLASSES = {
     "int": {"integer", "int", "bigint", "smallint", "int2", "int4", "int8"},
     "text": {"text", "varchar", "character varying", "char", "character", "clob"},
-    "real": {"real", "double precision", "double", "float", "float4", "float8",
-             "numeric", "decimal"},
+    "real": {
+        "real",
+        "double precision",
+        "double",
+        "float",
+        "float4",
+        "float8",
+        "numeric",
+        "decimal",
+    },
     "blob": {"blob", "bytea"},
     "bool": {"boolean", "bool"},
-    "timestamp": {"timestamp", "timestamptz", "timestamp without time zone",
-                  "timestamp with time zone", "date", "time"},
+    "timestamp": {
+        "timestamp",
+        "timestamptz",
+        "timestamp without time zone",
+        "timestamp with time zone",
+        "date",
+        "time",
+    },
 }
 _TYPE_CLASS_BY_NAME = {
     name: klass for klass, names in _TYPE_CLASSES.items() for name in names
@@ -169,7 +163,9 @@ def _resolve_columns(table: str) -> list[tuple[str, str]]:
     for name, declared in seed_cols:
         live_type = live_map.get(name)
         if live_type is None:
-            drift.append(f"seed declares column {table}.{name} but live schema has no such column")
+            drift.append(
+                f"seed declares column {table}.{name} but live schema has no such column"
+            )
         elif _normalize_type(live_type) != _normalize_type(declared):
             drift.append(
                 f"seed declares {table}.{name} as {declared} but live schema has {live_type}"
@@ -285,15 +281,19 @@ def render_role_packet(role: str) -> str:
         raise ValueError(f"unknown role: {role}")
     chunks = [render_topic_packet(t, role=role) for t in seed.ROLE_TOPICS[role]]
     if role == "main_agent":
-        chunks[-1] = chunks[-1].rstrip() + "\n" + (
-            "**Deployment-run raw-query hint:** "
-            "`deployment_flows.target_environment_id` references "
-            "`environments.id` (JOIN environments for the display name; "
-            "`target_tier` is persistent/ephemeral/NULL — there is no "
-            "`target_env` column); `deployment_runs.status` and "
-            "`deployment_runs.current_stage` record progress. There is no "
-            "`deployment_runs.item_id`; join through `deployment_run_items` "
-            "for item-bound runs."
+        chunks[-1] = (
+            chunks[-1].rstrip()
+            + "\n"
+            + (
+                "**Deployment-run raw-query hint:** "
+                "`deployment_flows.target_environment_id` references "
+                "`environments.id` (JOIN environments for the display name; "
+                "`target_tier` is persistent/ephemeral/NULL — there is no "
+                "`target_env` column); `deployment_runs.status` and "
+                "`deployment_runs.current_stage` record progress. There is no "
+                "`deployment_runs.item_id`; join through `deployment_run_items` "
+                "for item-bound runs."
+            )
         )
     return "\n".join(chunks).rstrip() + "\n"
 

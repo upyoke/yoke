@@ -33,15 +33,22 @@ def _now_iso() -> str:
 
 
 def _insert_session(
-    db_path: str, session_id: str, workspace: str,
-    *, claim_item: int | None = None,
+    db_path: str,
+    session_id: str,
+    workspace: str,
+    *,
+    claim_item: int | None = None,
     chain_checkpoint: dict | None = None,
     mode: str = "charge",
 ) -> None:
     conn = connect_test_db(db_path)
     try:
         now = _now_iso()
-        envelope = json.dumps({"chain_checkpoint": chain_checkpoint}) if chain_checkpoint else None
+        envelope = (
+            json.dumps({"chain_checkpoint": chain_checkpoint})
+            if chain_checkpoint
+            else None
+        )
         conn.execute(
             """INSERT INTO harness_sessions
                (session_id, executor, provider, model, execution_lane,
@@ -92,7 +99,10 @@ class TestStopSemanticsBranches:
     def test_active_claim_blocks_with_has_claims(self, session_offer_db) -> None:
         db = session_offer_db["db_path"]
         _insert_session(
-            db, "sess-busy", session_offer_db["tmp_dir"], claim_item=9001,
+            db,
+            "sess-busy",
+            session_offer_db["tmp_dir"],
+            claim_item=9001,
         )
         conn = connect_test_db(db)
         try:
@@ -147,15 +157,22 @@ class TestStopSemanticsBranches:
         assert row["turn_posture"] == "waiting"
 
     def test_chain_pending_when_chainable_budget_remains(
-        self, session_offer_db,
+        self,
+        session_offer_db,
     ) -> None:
         db = session_offer_db["db_path"]
         _insert_session(
-            db, "sess-chain", session_offer_db["tmp_dir"],
+            db,
+            "sess-chain",
+            session_offer_db["tmp_dir"],
             chain_checkpoint={
-                "step": 1, "max_chain_steps": 3, "action": "charge",
-                "chainable": True, "handler_outcome": "completed",
-                "item_id": "YOK-1234", "status": "implementing",
+                "step": 1,
+                "max_chain_steps": 3,
+                "action": "charge",
+                "chainable": True,
+                "handler_outcome": "completed",
+                "item_id": "YOK-1234",
+                "status": "implementing",
                 "required_path": "advance",
                 "pre_status": "refined-idea",
                 "completed_at": _now_iso(),

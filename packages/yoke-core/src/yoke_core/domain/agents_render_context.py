@@ -87,13 +87,11 @@ def validate_marker_syntax(text: str) -> list[str]:
     for p in pairs:
         if p["role"] not in seed.ROLE_TOPICS:
             issues.append(
-                f"unknown role at offset {p['marker_start']}: "
-                f"role={p['role']}"
+                f"unknown role at offset {p['marker_start']}: role={p['role']}"
             )
         if p["topic"] not in seed.TOPICS:
             issues.append(
-                f"unknown topic at offset {p['marker_start']}: "
-                f"topic={p['topic']}"
+                f"unknown topic at offset {p['marker_start']}: topic={p['topic']}"
             )
     paired_end_offsets = {p["marker_end_start"] for p in pairs}
     pos = 0
@@ -102,9 +100,7 @@ def validate_marker_syntax(text: str) -> list[str]:
         if end_idx < 0:
             break
         if end_idx not in paired_end_offsets:
-            issues.append(
-                f"end marker at offset {end_idx} without matching start"
-            )
+            issues.append(f"end marker at offset {end_idx} without matching start")
         pos = end_idx + len(MARKER_END)
     return issues
 
@@ -128,9 +124,11 @@ def expand_markers(text: str) -> str:
     for p in pairs:
         out.append(text[cursor : p["marker_start_end"]])
         out.append("\n\n")
-        out.append(schema_api_context.render_topic_packet(
-            p["topic"], role=p["role"]
-        ).rstrip("\n"))
+        out.append(
+            schema_api_context.render_topic_packet(p["topic"], role=p["role"]).rstrip(
+                "\n"
+            )
+        )
         out.append("\n\n")
         cursor = p["marker_end_start"]
     out.append(text[cursor:])
@@ -156,8 +154,7 @@ def detect_canonical_body_drift(text: str, source_label: str) -> list[str]:
     for stale in seed.STALE_TERMS:
         if stale in text:
             drift.append(
-                f"stale-term: {source_label}: {stale!r} alongside packet "
-                "markers"
+                f"stale-term: {source_label}: {stale!r} alongside packet markers"
             )
     return drift
 
@@ -181,15 +178,13 @@ def detect_packet_drift(text: str) -> list[str]:
         on_disk = text[p["marker_start_end"] : p["marker_end_start"]]
         fresh = (
             "\n\n"
-            + schema_api_context.render_topic_packet(
-                p["topic"], role=p["role"]
-            ).rstrip("\n")
+            + schema_api_context.render_topic_packet(p["topic"], role=p["role"]).rstrip(
+                "\n"
+            )
             + "\n\n"
         )
         if on_disk != fresh:
-            drift.append(
-                f"packet body drift: role={p['role']} topic={p['topic']}"
-            )
+            drift.append(f"packet body drift: role={p['role']} topic={p['topic']}")
     if not drift:
         drift.append("packet body drift: expander output differs from input")
     return drift
