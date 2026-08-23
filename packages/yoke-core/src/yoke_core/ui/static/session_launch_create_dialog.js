@@ -27,17 +27,30 @@ function payload(fields) {
 
 function renderEligible(documentNode, host, relays) {
   host.replaceChildren();
+  if ((relays || []).length) {
+    host.appendChild(el(
+      documentNode,
+      "p",
+      "session-control-preview-heading",
+      `Eligible machines (${relays.length})`,
+    ));
+  }
   const list = el(documentNode, "ul", "session-launch-eligible");
   for (const relay of relays || []) {
     list.appendChild(el(
       documentNode,
       "li",
       null,
-      `${relay.machine_id || "unknown machine"} · ${relay.hostname || ""}`,
+      `${relay.hostname || relay.machine_id || "unknown machine"} · ${relay.machine_id || "unknown id"} · ${relay.liveness || relay.state || "unknown"}`,
     ));
   }
   if (!list.children.length) {
-    host.appendChild(el(documentNode, "p", "sessions-empty", "No eligible relay."));
+    host.appendChild(el(
+      documentNode,
+      "p",
+      "sessions-empty",
+      "No connected machine supports this exact surface and model.",
+    ));
   } else host.appendChild(list);
 }
 
@@ -45,6 +58,14 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   const documentNode = context.document;
   const close = () => clearWorkflowDialog(host);
   const shell = workflowDialogShell(documentNode, host, "Create session", close);
+  const help = el(
+    documentNode,
+    "p",
+    "session-control-help",
+    "Choose an exact surface, preview eligible machines, then create. Yoke will not silently switch surfaces.",
+  );
+  help.id = "session-launch-create-help";
+  shell.dialog.appendChild(help);
   const fields = {
     project: el(documentNode, "select", "session-control-input"),
     surface: el(documentNode, "select", "session-control-input"),
@@ -53,6 +74,8 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     instructions: el(documentNode, "textarea", "session-control-input session-message-body"),
   };
   fields.instructions.setAttribute("rows", "8");
+  fields.instructions.placeholder = "What should the new session do first?";
+  fields.instructions.setAttribute("aria-describedby", help.id);
   for (const project of projectRefs) {
     fields.project.appendChild(option(documentNode, project));
   }
@@ -83,6 +106,8 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   shell.dialog.appendChild(status);
   shell.dialog.appendChild(eligible);
   shell.dialog.appendChild(actions);
+  status.hidden = false;
+  status.textContent = "Loading available launch surfaces…";
 
   const [relayResult, ...sessionResults] = await Promise.all([
     sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
@@ -96,6 +121,13 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   ))].sort();
   for (const surface of surfaces) fields.surface.appendChild(option(documentNode, surface));
   fields.surface.value = surfaces[0] || "";
+  const noSurfaces = surfaces.length === 0;
+  fields.surface.disabled = noSurfaces;
+  preview.disabled = noSurfaces;
+  status.hidden = !noSurfaces;
+  status.textContent = noSurfaces
+    ? "No connected relay advertises a launch surface. Reconnect a machine relay before creating a session."
+    : "";
   const models = [...new Set(sessionResults.flatMap(
     (result) => (result.rows || []).map((row) => String(row.model || "")),
   ).filter(Boolean))].sort();
@@ -110,7 +142,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
       fields.machine.appendChild(option(
         documentNode,
         String(relay.machine_id),
-        `${relay.hostname || relay.machine_id} · ${relay.state}`,
+        `${relay.hostname || relay.machine_id} · ${relay.liveness || relay.state || "unknown"}`,
       ));
     }
     fields.machine.value = "";
@@ -123,7 +155,10 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     previewed = null;
     create.disabled = true;
     eligible.replaceChildren();
-    status.hidden = true;
+    status.hidden = !noSurfaces;
+    status.textContent = noSurfaces
+      ? "No connected relay advertises a launch surface. Reconnect a machine relay before creating a session."
+      : "";
   };
   for (const field of Object.values(fields)) {
     field.addEventListener("input", invalidate);
@@ -132,7 +167,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   fields.surface.addEventListener("change", refreshMachines);
   cancel.addEventListener("click", shell.dismiss);
   preview.addEventListener("click", async () => {
-    if (!fields.project.value || !fields.surface.value || !fields.instructions.value) {
+    if (!fields.project.value || !fields.surface.value || !fields.instructions.value.trim()) {
       status.hidden = false;
       status.textContent = "Choose a project and surface, then add instructions.";
       return;

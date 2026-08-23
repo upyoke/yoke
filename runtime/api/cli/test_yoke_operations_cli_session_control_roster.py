@@ -6,6 +6,8 @@ import io
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.test_constants import TEST_ITEM_REF
 from yoke_cli.commands.adapters import session_control_roster as roster
 from yoke_cli.commands.adapters.session_control_usage import (
@@ -136,3 +138,14 @@ def test_registry_override_and_usage_map_are_ready_for_aggregation() -> None:
     )
     for function_id, _adapter in SESSION_CONTROL_SUBCOMMAND_REGISTRY.values():
         assert function_id in SESSION_CONTROL_USAGE_BY_FUNCTION_ID
+
+
+def test_roster_help_explains_discovery_and_the_message_next_step(capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        roster.session_control_roster_list(["--help"])
+
+    assert exit_info.value.code == 0
+    rendered = capsys.readouterr().out
+    assert "Find registered top-level sessions" in rendered
+    assert "yoke sessions list --liveness active" in rendered
+    assert "yoke say --help" in rendered

@@ -196,14 +196,14 @@ function metricFacts(rows) {
   ];
 }
 
-function renderSessions(documentNode, host, rows, who, mode, onMessage) {
+function renderSessions(documentNode, host, rows, who, mode, onMessage, filtered = false) {
   host.replaceChildren(statRow(documentNode, metricFacts(rows)));
   if (!rows.length) {
     host.appendChild(el(
       documentNode,
       "p",
       "sessions-empty",
-      "No sessions in this scope.",
+      filtered ? "No sessions match the current filters." : "No sessions in this scope.",
     ));
     return;
   }
@@ -230,6 +230,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   const filters = sessionRosterFilters(documentNode, () => {
     renderSessions(
       documentNode, content, filters.apply(visibleRows), who, mode, openMessage,
+      filters.active(),
     );
   });
   view.appendChild(localActions);

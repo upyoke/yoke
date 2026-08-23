@@ -136,6 +136,7 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   assert.ok(timelineText.includes("codex-desktop · m1"));
   assert.ok(timelineText.includes("launching:"));
   assert.ok(timelineText.includes("awaiting registration:"));
+  assert.ok(timelineText.includes("2026-08-23 01:02 UTC"));
   button(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
   const inputs = byClass(root, "session-control-input");
@@ -148,6 +149,10 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   assert.equal(lastButton(root, "Create session").disabled, false);
   lastButton(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
+  assert.equal(
+    byClass(root, "session-control-status")[0].textContent,
+    "launch-1 created. Tracking registration below.",
+  );
   const preview = requests.find(
     (request) => request.function === "session_control.launch.preview",
   );

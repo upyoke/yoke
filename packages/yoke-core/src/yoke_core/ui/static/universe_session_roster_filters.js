@@ -20,6 +20,8 @@ function includes(value, query) {
 
 export function sessionRosterFilters(documentNode, onChange) {
   const host = el(documentNode, "div", "session-roster-filters");
+  host.setAttribute("role", "search");
+  host.setAttribute("aria-label", "Filter sessions");
   const controls = {};
   for (const [name, label] of [
     ["search", "Search"], ["executor", "Executor"], ["surface", "Surface"],
@@ -27,6 +29,9 @@ export function sessionRosterFilters(documentNode, onChange) {
     ["worktree", "Worktree"], ["machine", "Machine"],
   ]) {
     const field = input(documentNode, label);
+    field.control.placeholder = name === "search"
+      ? "Session, item, model, or operator"
+      : `Filter by ${label.toLowerCase()}`;
     controls[name] = field.control;
     host.appendChild(field.wrapper);
   }
@@ -44,12 +49,28 @@ export function sessionRosterFilters(documentNode, onChange) {
   ]) route.control.appendChild(option(documentNode, value, label));
   controls.route = route.control;
   host.appendChild(route.wrapper);
+  const clear = el(documentNode, "button", "item-button session-filter-clear", "Clear filters");
+  clear.type = "button";
+  clear.disabled = true;
+  const hasActive = () => Object.values(controls).some(
+    (control) => String(control.value || "").trim(),
+  );
+  const changed = () => {
+    clear.disabled = !hasActive();
+    onChange();
+  };
   for (const control of Object.values(controls)) {
-    control.addEventListener("input", onChange);
-    control.addEventListener("change", onChange);
+    control.addEventListener("input", changed);
+    control.addEventListener("change", changed);
   }
+  clear.addEventListener("click", () => {
+    for (const control of Object.values(controls)) control.value = "";
+    changed();
+  });
+  host.appendChild(clear);
   return {
     host,
+    active: hasActive,
     apply(rows) {
       const query = String(controls.search.value || "").toLowerCase();
       return rows.filter((row) => {

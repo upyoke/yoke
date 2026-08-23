@@ -223,6 +223,11 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         )
     write_summary("MESSAGE", fields, stdout)
     _write_recipients(recipients, stdout)
+    if any(recipient.get("state") == "injected" for recipient in recipients):
+        print(
+            f"Recipient next step: yoke messages acknowledge {message.get('message_id')}",
+            file=stdout,
+        )
 
 
 def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
@@ -241,6 +246,8 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             "MESSAGE SENT" if message_id else "MESSAGE PREVIEW", fields, stdout
         )
         _write_recipients(result.get("recipients") or [], stdout)
+        if message_id:
+            print(f"Track delivery: yoke messages get {message_id}", file=stdout)
         return
     if "messages" in result:
         columns: tuple[Column, ...] = (
