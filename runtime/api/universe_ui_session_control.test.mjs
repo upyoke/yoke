@@ -135,13 +135,13 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     t, "#/sessions/launches?project=1", client,
   );
   const timelineText = allNodes(root).map((node) => node._textContent).join(" ");
+  assert.ok(timelineText.includes(
+    "codex-desktop requested · codex-desktop selected · m1",
+  ));
   assert.equal(
     byClass(root, "session-launch-card")[0].getAttribute("data-launch-id"),
     "launch-existing",
   );
-  assert.ok(timelineText.includes(
-    "codex-desktop requested · codex-desktop selected · m1",
-  ));
   assert.ok(timelineText.includes("launching:"));
   assert.ok(timelineText.includes("awaiting registration:"));
   assert.ok(timelineText.includes("2026-08-23 01:02 UTC"));
