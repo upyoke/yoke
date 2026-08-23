@@ -55,7 +55,7 @@ def _require_exact_binding(
         )
     if facts["project_id"] != launch.project_id:
         raise SessionLaunchError("project_mismatch", "registered project differs")
-    if facts["surface"] != launch.requested_surface:
+    if facts["surface"] != launch.selected_surface:
         raise SessionLaunchError("surface_mismatch", "registered surface differs")
     if launch.assigned_machine_id and facts["machine_id"] != launch.assigned_machine_id:
         raise SessionLaunchError("machine_mismatch", "registered machine differs")
@@ -77,7 +77,7 @@ def _insert_pending_recipient(
         {
             "relay_id": launch.assigned_relay_id,
             "machine_id": launch.assigned_machine_id,
-            "surface": launch.requested_surface,
+            "surface": launch.selected_surface,
         }
     )
     values = (

@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import subprocess
 
+from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_core.tools.session_relay_plist import (
     RELAY_LAUNCHD_LABEL,
     RELAY_START_INTERVAL_SECONDS,
@@ -27,7 +28,8 @@ def test_plist_runs_canonical_yoke_once_without_keepalive(tmp_path: Path) -> Non
         "relay",
         "serve-once",
     ]
-    assert document["StartInterval"] == RELAY_START_INTERVAL_SECONDS == 60
+    policy_minimum = FLEET_KEY_SPECS["fleet.relay_poll_seconds"].minimum
+    assert document["StartInterval"] == RELAY_START_INTERVAL_SECONDS == policy_minimum
     assert document["RunAtLoad"] is True
     assert "KeepAlive" not in document
     assert str(paths.stdout_log).startswith(str(tmp_path / ".yoke" / "relay"))

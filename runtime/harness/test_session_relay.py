@@ -246,6 +246,49 @@ def test_serve_once_reports_sanitized_result_and_honors_server_backoff(
     assert "must-not-cross-wire" not in repr(report)
 
 
+def test_next_server_poll_adopts_a_shorter_cadence(tmp_path: Path) -> None:
+    poll_seconds = iter((60, 5, 5))
+    calls = []
+
+    def dispatch(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            success=True,
+            result={"state": "active", "next_poll_seconds": next(poll_seconds)},
+        )
+
+    first = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        dispatcher=dispatch,
+        clock=lambda: 1000.0,
+    )
+    early = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        dispatcher=dispatch,
+        clock=lambda: 1005.0,
+    )
+    changed = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        dispatcher=dispatch,
+        clock=lambda: 1060.0,
+    )
+    next_short_poll = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        dispatcher=dispatch,
+        clock=lambda: 1065.0,
+    )
+
+    assert first.next_poll_seconds == 60
+    assert early.state == "backoff"
+    assert changed.next_poll_seconds == 5
+    assert next_short_poll.state == "active"
+    assert len(calls) == 3
+
+
 def test_relay_lock_is_non_overlapping(tmp_path: Path) -> None:
     with relay_run_lock(tmp_path) as first:
         with relay_run_lock(tmp_path) as second:

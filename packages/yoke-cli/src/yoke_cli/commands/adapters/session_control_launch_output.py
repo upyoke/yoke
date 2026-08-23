@@ -32,10 +32,18 @@ def _write_launch_detail(
         ("State / result", _launch_status(launch)),
         ("Project", launch.get("project") or launch.get("project_id")),
         ("Requested surface", launch.get("requested_surface")),
+        ("Selected surface", launch.get("selected_surface")),
+        (
+            "Fallback used",
+            bool(
+                launch.get("selected_surface")
+                and launch.get("selected_surface") != launch.get("requested_surface")
+            ),
+        ),
         ("Requested machine", launch.get("requested_machine_id")),
         ("Assigned machine", launch.get("assigned_machine_id")),
         ("Model", launch.get("requested_model")),
-        ("Surface fallback", bool(launch.get("allow_surface_fallback"))),
+        ("Fallback allowed", bool(launch.get("allow_surface_fallback"))),
         ("Registered session", launch.get("registered_session_id")),
         ("Created (UTC)", utc_time(launch.get("created_at"))),
         ("Deadline (UTC)", utc_time(launch.get("deadline_at"))),
@@ -54,6 +62,8 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
         [
             ("Outcome", humanize(result.get("outcome"))),
             ("Requested surface", result.get("requested_surface")),
+            ("Selected surface", result.get("selected_surface")),
+            ("Fallback used", bool(result.get("fallback_used"))),
             ("Launchable", bool(result.get("launchable"))),
             ("Selected relay", selected_row.get("relay_id")),
             ("Selected machine", selected_row.get("machine_id")),
@@ -82,7 +92,8 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("LAUNCH", lambda row: row.get("launch_id"), None),
             ("STATE / RESULT", _launch_status, 28),
             ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
-            ("SURFACE", lambda row: row.get("requested_surface"), 20),
+            ("REQUESTED", lambda row: row.get("requested_surface"), 18),
+            ("SELECTED", lambda row: row.get("selected_surface"), 18),
             (
                 "MACHINE",
                 lambda row: (
