@@ -12,6 +12,9 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_driver import (
     LiveAcceptanceDriver,
 )
+from yoke_contracts.session_control.wake_instruction import (
+    native_wake_instruction_sha256,
+)
 
 
 RELEASE_SHA = "a" * 40
@@ -37,12 +40,24 @@ class _ScenarioClient:
         registration_missing: bool = False,
         wake_evidence_missing: bool = False,
         malformed_count: bool = False,
+        broker_identity_mismatch: bool = False,
+        duplicate_wake_attempt: bool = False,
+        missing_instruction_digest: bool = False,
+        broker_direct_available: bool = False,
+        broker_machine_mismatch: bool = False,
+        attempts_truncated: bool = False,
     ) -> None:
         self.cell = cell
         self.session_id = cell.session_id or f"{cell.surface}-created-session"
         self.registration_missing = registration_missing
         self.wake_evidence_missing = wake_evidence_missing
         self.malformed_count = malformed_count
+        self.broker_identity_mismatch = broker_identity_mismatch
+        self.duplicate_wake_attempt = duplicate_wake_attempt
+        self.missing_instruction_digest = missing_instruction_digest
+        self.broker_direct_available = broker_direct_available
+        self.broker_machine_mismatch = broker_machine_mismatch
+        self.attempts_truncated = attempts_truncated
         self.calls: list[tuple[list[str], str | None]] = []
         self.create_count = 0
         self.send_counts: dict[str, int] = {}
@@ -74,20 +89,40 @@ class _ScenarioClient:
         }
 
     def _roster(self) -> dict[str, Any]:
+        rows = [
+            {
+                **self._recipient(),
+                "project": "yoke",
+                "liveness": "active",
+                "turn_posture": "waiting",
+                "messageability": {
+                    "wake_operation": "message_stopped",
+                    "wake_available": (
+                        self.cell.route == "direct" or self.broker_direct_available
+                    ),
+                },
+            }
+        ]
+        if self.cell.route == "broker":
+            rows.append(
+                {
+                    "session_id": self.cell.broker_session_id,
+                    "project": "yoke",
+                    "executor_surface": "codex-desktop",
+                    "executor_version": "26.814.41407",
+                    "machine_id": (
+                        "other-machine"
+                        if self.broker_machine_mismatch
+                        else self.cell.machine_id
+                    ),
+                    "liveness": "active",
+                    "turn_posture": "running",
+                    "messageability": {"hook_injection": True},
+                }
+            )
         return {
             "fields": [],
-            "rows": [
-                {
-                    **self._recipient(),
-                    "project": "yoke",
-                    "liveness": "active",
-                    "turn_posture": "waiting",
-                    "messageability": {
-                        "wake_operation": "message_stopped",
-                        "wake_available": self.cell.wake_supported,
-                    },
-                }
-            ],
+            "rows": rows,
         }
 
     def _launch(self, *, terminal: bool) -> dict[str, Any]:
@@ -127,8 +162,8 @@ class _ScenarioClient:
 
     def _message(self, message_id: str) -> dict[str, Any]:
         wake = message_id == "wake-message"
-        supported_wake = wake and self.cell.wake_supported
-        pending = wake and not self.cell.wake_supported
+        supported_wake = wake and self.cell.route != "none"
+        pending = wake and self.cell.route == "none"
         wake_count: Any = 1 if supported_wake else 0
         if supported_wake and self.wake_evidence_missing:
             wake_count = 0
@@ -145,11 +180,43 @@ class _ScenarioClient:
                 "2026-08-23T12:00:01Z" if supported_wake and wake_count else ""
             ),
         }
+        attempts = []
+        if supported_wake:
+            expected_broker = (
+                self.cell.broker_session_id if self.cell.route == "broker" else None
+            )
+            if self.broker_identity_mismatch:
+                expected_broker = "wrong-broker-session"
+            evidence = {}
+            if not self.missing_instruction_digest:
+                evidence["native_instruction_sha256"] = native_wake_instruction_sha256(
+                    message_id
+                )
+            attempts.append(
+                {
+                    "attempt_id": "wake-attempt-1",
+                    "target_session_id": self.session_id,
+                    "broker_session_id": expected_broker,
+                    "attempt_kind": (
+                        "wake_broker" if self.cell.route == "broker" else "wake_relay"
+                    ),
+                    "adapter_revision": "acceptance-adapter-v1",
+                    "started_at": "2026-08-23T12:00:00Z",
+                    "completed_at": "2026-08-23T12:00:01Z",
+                    "result_code": "accepted",
+                    "evidence": evidence,
+                }
+            )
+            if self.duplicate_wake_attempt:
+                attempts.append({**attempts[0], "attempt_id": "wake-attempt-2"})
         return {
             "message": {
                 "message_id": message_id,
                 "body": "MUST-NOT-ENTER-REPORT",
                 "recipients": [recipient],
+                "attempts": attempts,
+                "attempt_count": len(attempts),
+                "attempts_truncated": self.attempts_truncated,
             }
         }
 
@@ -176,6 +243,8 @@ def test_create_cell_requires_binding_ack_wait_wake_and_dedupe() -> None:
     assert report["registration_identity_matched"] is True
     assert report["initial_message"]["injection_count"] == 1
     assert report["wake_message"]["wake_attempt_count"] == 1
+    assert report["wake_message"]["native_wake"]["attempt_kind"] == "wake_relay"
+    assert report["wake_message"]["native_wake"]["native_traffic_body_free"] is True
     assert report["initial_deduplicated"] is True
     assert report["wake_deduplicated"] is True
     rendered = json.dumps(report)
@@ -209,6 +278,7 @@ def test_known_unwakeable_surface_must_remain_pending() -> None:
     assert report["wake_outcome"] == "expected_pending"
     assert report["wake_message"]["state"] == "pending"
     assert report["wake_message"]["wake_attempt_count"] == 0
+    assert report["wake_message"]["native_wake"]["route"] == "none"
 
 
 def test_native_success_without_registration_fails_closed() -> None:

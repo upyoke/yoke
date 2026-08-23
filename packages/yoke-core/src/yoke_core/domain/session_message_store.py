@@ -40,6 +40,10 @@ def _decode(value: Any, fallback: Any) -> Any:
 
 
 def message_details(conn: Any, message_id: str) -> dict[str, Any]:
+    from yoke_core.domain.session_message_attempt_reads import (
+        message_attempt_evidence,
+    )
+
     marker = _p(conn)
     row = conn.execute(
         f"SELECT * FROM session_messages WHERE message_id={marker}",
@@ -63,6 +67,7 @@ def message_details(conn: Any, message_id: str) -> dict[str, Any]:
         recipient["resolution_evidence"] = _decode(recipient["resolution_evidence"], [])
         recipient["routing_snapshot"] = _decode(recipient["routing_snapshot"], {})
     message["recipients"] = recipients
+    message.update(message_attempt_evidence(conn, message_id))
     return message
 
 

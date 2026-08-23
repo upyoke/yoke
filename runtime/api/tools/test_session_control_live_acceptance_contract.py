@@ -30,13 +30,15 @@ VERSIONS = {
 
 def _matrix() -> dict:
     return {
-        "schema": 1,
+        "schema": 2,
         "project": "yoke",
         "cells": [
             {
                 "surface": surface,
                 "expected_version": VERSIONS[surface],
                 "mode": "identify" if surface == "claude-desktop" else "create",
+                "acceptance_role": "surface",
+                "wake_route": "none" if surface == "claude-desktop" else "direct",
                 **(
                     {"session_id": "claude-desktop-session"}
                     if surface == "claude-desktop"
@@ -44,6 +46,18 @@ def _matrix() -> dict:
                 ),
             }
             for surface in reversed(ACCEPTANCE_SURFACES)
+        ]
+        + [
+            {
+                "surface": "codex-cli",
+                "expected_version": VERSIONS["codex-cli"],
+                "mode": "identify",
+                "session_id": "broker-target-session",
+                "machine_id": "machine-1",
+                "acceptance_role": "broker",
+                "wake_route": "broker",
+                "broker_session_id": "broker-peer-session",
+            }
         ],
     }
 
@@ -52,15 +66,17 @@ def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
     parsed = parse_matrix(_matrix())
 
     assert parsed.project == "yoke"
-    assert tuple(cell.surface for cell in parsed.cells) == ACCEPTANCE_SURFACES
+    assert tuple(cell.surface for cell in parsed.cells[:-1]) == ACCEPTANCE_SURFACES
     assert parsed.cells[0].wake_supported is True
     assert parsed.cells[1].wake_supported is False
+    assert parsed.cells[-1].acceptance_role == "broker"
+    assert parsed.cells[-1].route == "broker"
 
 
 @pytest.mark.parametrize(
     ("mutation", "code"),
     [
-        (lambda raw: raw["cells"].pop(), "surface_matrix_incomplete"),
+        (lambda raw: raw["cells"].pop(0), "surface_matrix_incomplete"),
         (
             lambda raw: raw["cells"].append(dict(raw["cells"][0])),
             "surface_duplicate",
@@ -84,6 +100,21 @@ def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
         (
             lambda raw: raw["cells"][3].pop("session_id"),
             "session_id_missing",
+        ),
+        (lambda raw: raw["cells"].pop(), "broker_cell_count_invalid"),
+        (
+            lambda raw: raw["cells"][-1].update(wake_route="direct"),
+            "broker_wake_route_required",
+        ),
+        (
+            lambda raw: raw["cells"][-1].update(mode="create", session_id=None),
+            "broker_identify_required",
+        ),
+        (
+            lambda raw: raw["cells"][-1].update(
+                broker_session_id="broker-target-session"
+            ),
+            "broker_target_same_session",
         ),
     ],
 )

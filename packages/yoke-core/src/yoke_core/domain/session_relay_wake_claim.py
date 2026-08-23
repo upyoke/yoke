@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 from uuid import uuid4
 
+from yoke_contracts.session_control.wake_instruction import (
+    native_wake_instruction_sha256,
+)
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker, shifted
 from yoke_core.domain.session_relay_types import WAKE_LEASE_SECONDS, WakeMode
@@ -110,7 +113,13 @@ def claim_wake_attempt(
             "wake_relay",
             lease_id,
             now,
-            redacted_evidence(None),
+            redacted_evidence(
+                {
+                    "native_instruction_sha256": native_wake_instruction_sha256(
+                        message_id
+                    )
+                }
+            ),
         ),
     )
     return WakeAttemptClaim(

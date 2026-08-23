@@ -14,10 +14,14 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     require_text,
 )
 from runtime.api.tools.session_control_live_acceptance_evidence import (
+    native_wake_evidence,
     one_recipient,
     receipt_count,
 )
 from runtime.api.tools.session_control_live_acceptance_launch import create_and_bind
+from runtime.api.tools.session_control_live_acceptance_roster import (
+    validated_registration,
+)
 
 
 class LiveAcceptanceDriver:
@@ -64,6 +68,8 @@ class LiveAcceptanceDriver:
                         "surface": cell.surface,
                         "expected_version": cell.expected_version,
                         "mode": cell.mode,
+                        "acceptance_role": cell.acceptance_role,
+                        "wake_route": cell.route,
                         "status": "failed",
                         "failure_code": exc.code,
                     }
@@ -74,6 +80,8 @@ class LiveAcceptanceDriver:
                         "surface": cell.surface,
                         "expected_version": cell.expected_version,
                         "mode": cell.mode,
+                        "acceptance_role": cell.acceptance_role,
+                        "wake_route": cell.route,
                         "status": "failed",
                         "failure_code": "acceptance_internal_error",
                     }
@@ -121,7 +129,7 @@ class LiveAcceptanceDriver:
             initial_id, initial_deduplicated = self._send_twice(
                 cell,
                 session_id,
-                key=f"fleet-live:{run_id}:{cell.surface}:initial",
+                key=f"fleet-live:{run_id}:{cell.acceptance_key}:initial",
                 phase="initial delivery",
             )
             launch = None
@@ -134,10 +142,10 @@ class LiveAcceptanceDriver:
         wake_id, wake_deduplicated = self._send_twice(
             cell,
             session_id,
-            key=f"fleet-live:{run_id}:{cell.surface}:wake",
+            key=f"fleet-live:{run_id}:{cell.acceptance_key}:wake",
             phase="stopped-session wake",
         )
-        if cell.wake_supported:
+        if cell.route != "none":
             wake = self._wait_ack(
                 cell,
                 session_id,
@@ -159,6 +167,12 @@ class LiveAcceptanceDriver:
                 raise AcceptanceContractError(
                     "unsupported_wake_not_pending", surface=cell.surface
                 )
+            wake["native_wake"] = native_wake_evidence(
+                wake.pop("attempt_evidence"),
+                cell=cell,
+                session_id=session_id,
+                message_id=wake_id,
+            )
             self._wait_waiting(project, cell, session_id, timeout=timeout, poll=poll)
             wake_outcome = "expected_pending"
         report: dict[str, Any] = {
@@ -166,6 +180,8 @@ class LiveAcceptanceDriver:
             "expected_version": cell.expected_version,
             "observed_version": waiting["executor_version"],
             "mode": cell.mode,
+            "acceptance_role": cell.acceptance_role,
+            "wake_route": cell.route,
             "status": "passed",
             "session_id": session_id,
             "registration_identity_matched": True,
@@ -184,47 +200,12 @@ class LiveAcceptanceDriver:
     def _roster(
         self, project: str, cell: AcceptanceCell, session_id: str
     ) -> dict[str, Any]:
-        result = self.client.call(
-            ["sessions", "list", "--project", project, "--limit", "500"]
+        return validated_registration(
+            self.client,
+            project=project,
+            cell=cell,
+            session_id=session_id,
         )
-        rows = result.get("rows")
-        matches = (
-            [
-                row
-                for row in rows
-                if isinstance(row, dict) and row.get("session_id") == session_id
-            ]
-            if isinstance(rows, list)
-            else []
-        )
-        if len(matches) != 1:
-            raise AcceptanceContractError("registration_missing", surface=cell.surface)
-        row = matches[0]
-        if row.get("project") != project:
-            raise AcceptanceContractError(
-                "registration_project_mismatch", surface=cell.surface
-            )
-        if row.get("executor_surface") != cell.surface:
-            raise AcceptanceContractError(
-                "registration_surface_mismatch", surface=cell.surface
-            )
-        if row.get("executor_version") != cell.expected_version:
-            raise AcceptanceContractError(
-                "registration_version_mismatch", surface=cell.surface
-            )
-        if cell.machine_id and row.get("machine_id") != cell.machine_id:
-            raise AcceptanceContractError(
-                "registration_machine_mismatch", surface=cell.surface
-            )
-        if cell.model and row.get("model") != cell.model:
-            raise AcceptanceContractError(
-                "registration_model_mismatch", surface=cell.surface
-            )
-        if row.get("liveness") != "active":
-            raise AcceptanceContractError(
-                "registration_not_active", surface=cell.surface
-            )
-        return row
 
     def _wait_waiting(
         self,
@@ -248,7 +229,7 @@ class LiveAcceptanceDriver:
                         "waiting_route_missing", surface=cell.surface
                     )
                 available = routing.get("wake_available") is True
-                if available != cell.wake_supported:
+                if available != (cell.route == "direct"):
                     raise AcceptanceContractError(
                         "waiting_wake_mismatch", surface=cell.surface
                     )
@@ -314,6 +295,11 @@ class LiveAcceptanceDriver:
             ),
             "acknowledged_at": str(row.get("acknowledged_at") or ""),
             "last_wake_at": str(row.get("last_wake_at") or ""),
+            "attempt_evidence": {
+                "attempts": message.get("attempts"),
+                "attempt_count": message.get("attempt_count"),
+                "attempts_truncated": message.get("attempts_truncated"),
+            },
         }
 
     def _wait_ack(
@@ -340,6 +326,15 @@ class LiveAcceptanceDriver:
                     raise AcceptanceContractError(
                         "wake_evidence_missing", surface=cell.surface
                     )
+                if require_wake:
+                    receipt["native_wake"] = native_wake_evidence(
+                        receipt.pop("attempt_evidence"),
+                        cell=cell,
+                        session_id=session_id,
+                        message_id=message_id,
+                    )
+                else:
+                    receipt.pop("attempt_evidence")
                 return receipt
             if receipt["state"] in {"expired", "cancelled"}:
                 raise AcceptanceContractError(

@@ -6,6 +6,10 @@ import json
 
 import pytest
 
+from yoke_contracts.session_control.wake_instruction import (
+    native_wake_instruction,
+    native_wake_instruction_sha256,
+)
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
 from yoke_core.domain.session_relay_types import (
@@ -159,7 +163,7 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
     assert type(claimed.to_dict()["job"]["wake_mode"]) is str
     assert claimed.job.target_liveness == "ended"
     assert "Never send" not in claimed.job.native_instruction
-    assert "message-1" in claimed.job.native_instruction
+    assert claimed.job.native_instruction == native_wake_instruction("message-1")
     reported = report_relay_job(
         conn,
         actor_id=1,
@@ -172,6 +176,7 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
         evidence={
             "duration_ms": 17,
             "surface": "codex-cli",
+            "native_instruction_sha256": "forged-by-relay",
             "stderr": "secret output",
             "token": "never persist",
         },
@@ -196,7 +201,11 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
             (claimed.job.job_id,),
         ).fetchone()[0]
     )
-    assert evidence == {"duration_ms": 17, "surface": "codex-cli"}
+    assert evidence == {
+        "duration_ms": 17,
+        "native_instruction_sha256": native_wake_instruction_sha256("message-1"),
+        "surface": "codex-cli",
+    }
     assert (
         conn.execute(
             "SELECT adapter_revision FROM session_message_attempts WHERE attempt_id=?",

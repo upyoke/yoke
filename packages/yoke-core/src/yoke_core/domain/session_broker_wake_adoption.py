@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.wake_instruction import (
+    native_wake_instruction,
+    native_wake_instruction_sha256,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake_settlement import (
     settle_broker_wake_losses,
 )
 from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
+from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_relay_storage import (
     mark_relay_job,
     marker,
@@ -68,7 +73,8 @@ def _adopt_attempt(
     _begin(conn)
     try:
         attempt = conn.execute(
-            "SELECT lease_id,result_code,completed_at FROM session_message_attempts a "
+            "SELECT lease_id,result_code,completed_at,evidence "
+            "FROM session_message_attempts a "
             f"WHERE attempt_id={p} AND attempt_kind='wake_broker'" + _lock(conn, "a"),
             (attempt_id,),
         ).fetchone()
@@ -104,10 +110,22 @@ def _adopt_attempt(
             + f" WHERE message_id={p} AND session_id={p}",
             (now, candidate["message_id"], candidate["session_id"]),
         )
+        message_id = str(candidate["message_id"])
+        instruction = native_wake_instruction(message_id)
         conn.execute(
-            "UPDATE session_message_attempts SET result_code='broker_native_claimed' "
-            f"WHERE attempt_id={p}",
-            (attempt_id,),
+            "UPDATE session_message_attempts SET result_code='broker_native_claimed',"
+            "evidence=" + p + f" WHERE attempt_id={p}",
+            (
+                merge_redacted_evidence(
+                    attempt[3],
+                    {
+                        "native_instruction_sha256": native_wake_instruction_sha256(
+                            message_id
+                        )
+                    },
+                ),
+                attempt_id,
+            ),
         )
         lease_id = str(attempt[0])
         mark_relay_job(
@@ -119,7 +137,6 @@ def _adopt_attempt(
         )
         conn.commit()
         surface = str(candidate["executor_surface"])
-        message_id = str(candidate["message_id"])
         return RelayJob(
             job_kind="wake",
             job_id=attempt_id,
@@ -128,7 +145,7 @@ def _adopt_attempt(
             surface=surface,
             surface_version=str(heartbeat.surface_versions[surface]),
             project_id=int(candidate["project_id"]),
-            native_instruction=f"Yoke message {message_id}: check your Yoke messages.",
+            native_instruction=instruction,
             message_id=message_id,
             target_session_id=str(candidate["session_id"]),
             wake_mode=WakeMode(str(candidate["wake_mode"])),
