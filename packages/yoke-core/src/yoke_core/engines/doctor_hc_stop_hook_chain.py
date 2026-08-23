@@ -26,6 +26,7 @@ _MEMBER_DESC = "Stop chain registers the promised-work gate before dispatch"
 _EXPECTED_STOP = [
     "yoke_core.domain.turn_end_promised_work_gate",
     "yoke_core.hooks.session_message_delivery",
+    "yoke_core.hooks.session_launch_attestation",
     "yoke_core.hooks.session_dispatch",
 ]
 

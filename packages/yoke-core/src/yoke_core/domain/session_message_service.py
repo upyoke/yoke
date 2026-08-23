@@ -255,10 +255,36 @@ def cancel_message(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     details = message_details(conn, message_id)
-    if int(details["sender_actor_id"]) != actor_id:
-        raise SessionMessageError(
-            "cancel_forbidden", "only the authenticated sender may cancel"
+    sender = int(details["sender_actor_id"]) == actor_id
+    project_ids = {
+        int(recipient["project_id"])
+        for recipient in details.get("recipients", [])
+        if recipient.get("project_id") is not None
+    }
+    if not sender:
+        from yoke_core.domain.actor_permissions import (
+            PERM_PROJECT_ADMIN,
+            permission_decision,
         )
+
+        administers_all = bool(project_ids) and all(
+            permission_decision(
+                conn,
+                actor_id=actor_id,
+                project_id=project_id,
+                permission_key=PERM_PROJECT_ADMIN,
+            ).allowed
+            for project_id in project_ids
+        )
+    else:
+        administers_all = False
+    if not sender and not administers_all:
+        raise SessionMessageError(
+            "cancel_forbidden",
+            "only the sender or an administrator of every target project may cancel",
+        )
+    if administers_all and reason == "cancelled_by_sender":
+        reason = "cancelled_by_project_admin"
     cancelled = cancel_message_rows(
         conn,
         message_id=message_id,

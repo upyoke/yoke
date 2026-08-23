@@ -169,12 +169,15 @@ test("every routed view opens with its prototype page head and scope summary", a
     byClass(heads[0], "subtitle")[0].textContent,
     "Every harness session running against this universe, and what each one holds.",
   );
-  // The head leads the content column, above the view-owned above-scope
-  // host and the view's own picker below it.
+  // The head leads the content column. Sessions is a tabbed view, so its
+  // project picker precedes the facet strip owned by the destination.
   const content = byClass(root, "content")[0];
   assert.ok(content.children[0].classList.contains("page-head"));
-  assert.ok(content.children[1].classList.contains("view-above-scope"));
-  assert.ok(content.children[2].classList.contains("scope-bar"));
+  const scopeIndex = content.children.findIndex(
+    (child) => child.classList.contains("scope-bar"),
+  );
+  assert.ok(scopeIndex > 0);
+  assert.ok(content.children[scopeIndex + 1].classList.contains("tab-bar"));
 
   documentNode.defaultView.location.hash = "#/items?project=1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));

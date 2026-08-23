@@ -45,6 +45,9 @@ import {
   renderQaPlans,
 } from "./universe_views_qa.js";
 import { renderSessionsView } from "./universe_views_sessions.js";
+import { renderSessionMessagesView } from "./universe_session_messages.js";
+import { renderSessionLaunchesView } from "./universe_session_launches.js";
+import { renderSessionRelaysView } from "./universe_session_relays.js";
 import {
   renderStrategyDocDetailView,
   renderStrategyView,
@@ -66,6 +69,12 @@ export const DETAIL_RENDERERS = {
 // appears here only when its NAV entry declares tabs — the same second route
 // segment cannot also be a drill-in.
 export const TAB_RENDERERS = {
+  sessions: {
+    roster: renderSessionsView,
+    messages: renderSessionMessagesView,
+    launches: renderSessionLaunchesView,
+    relays: renderSessionRelaysView,
+  },
   delivery: {
     runs: renderDeliveryRunsView,
     environments: renderDeliveryEnvironmentsView,
@@ -97,7 +106,6 @@ export const VIEW_RENDERERS = {
   frontier: renderFrontierView,
   items: renderItemsView,
   strategy: renderStrategyView,
-  sessions: renderSessionsView,
   capabilities: renderCapabilitiesView,
   events: renderEventsView,
   doctor: renderDoctorView,

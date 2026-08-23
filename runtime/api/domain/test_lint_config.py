@@ -23,6 +23,7 @@ _NON_DENIERS = frozenset(
     {
         "yoke_core.hooks.heartbeat",
         "yoke_core.hooks.session_message_delivery",
+        "yoke_core.hooks.session_launch_attestation",
         "yoke_core.domain.observe_pre",
     }
 )

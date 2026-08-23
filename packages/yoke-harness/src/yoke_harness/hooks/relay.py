@@ -35,7 +35,7 @@ from yoke_harness.hooks.identity import (
     relay_identity_payload,
     write_runtime_cache,
 )
-from yoke_harness.hooks.identity_stamp import record_then_stamp
+from yoke_harness.hooks.launch_context import settle_projection, stamp_hook_input
 from yoke_harness.hooks.guard_version_skew import annotate_guard_version_skew
 from yoke_harness.hooks.local_subset import (
     evaluate_local_subset,
@@ -49,12 +49,10 @@ from yoke_harness.hooks.relay_identity_guard import (
     record_client_anchor,
 )
 
-_record_client_anchor = record_client_anchor
-_codex_capture = capture_codex_session
+_record_client_anchor, _codex_capture = record_client_anchor, capture_codex_session
 
 HOOKS_EVALUATE_PATH = "/v1/hooks/evaluate"
 AGENT_TYPE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
-_HOOK_WIRE_SCHEMA = 1
 _CURSOR_CONTEXT_EVENTS = frozenset({SESSION_START_EVENT, "PostToolUse"})
 _DEGRADED_MARKER = "YOKE_HOOK_DEGRADED"
 
@@ -150,7 +148,9 @@ def evaluate_hook_event(
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    stdin_data = record_then_stamp(payload, stdin_data, executor, event_name)
+    stdin_data, launch_projection = stamp_hook_input(
+        payload, stdin_data, executor, event_name
+    )
     from yoke_harness.hooks.cursor_lifecycle_hooks import (
         ensure_user_lifecycle_hooks_for_executor,
     )
@@ -176,6 +176,7 @@ def evaluate_hook_event(
         )
     if stdout:
         sys.stdout.write(stdout)
+    settle_projection(stdout, launch_projection)
     return local.exit_code
 
 
@@ -199,7 +200,9 @@ def relay_hook_event(
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     original_stdin = stdin_data
-    stdin_data = record_then_stamp(payload, stdin_data, executor, event_name)
+    stdin_data, launch_projection = stamp_hook_input(
+        payload, stdin_data, executor, event_name
+    )
     from yoke_harness.hooks.cursor_lifecycle_hooks import (
         ensure_user_lifecycle_hooks_for_executor,
     )
@@ -239,7 +242,7 @@ def relay_hook_event(
     from yoke_contracts.execution_provenance import collect_execution_provenance
 
     body = {
-        "hook_schema": _HOOK_WIRE_SCHEMA,
+        "hook_schema": 1,
         "event_name": event_name,
         "stdin": stdin_data,
         "executor": executor,
@@ -329,6 +332,7 @@ def relay_hook_event(
     )
     if merged:
         sys.stdout.write(merged)
+    settle_projection(merged, launch_projection)
     return exit_code
 
 

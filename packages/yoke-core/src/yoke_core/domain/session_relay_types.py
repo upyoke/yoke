@@ -50,10 +50,14 @@ class RelayJob:
     lease_id: str
     machine_id: str
     surface: str
+    surface_version: str
     project_id: int
     native_instruction: str
     message_id: str | None = None
     target_session_id: str | None = None
+    requested_model: str | None = None
+    presentation: str | None = None
+    target_liveness: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict[str, Any]:

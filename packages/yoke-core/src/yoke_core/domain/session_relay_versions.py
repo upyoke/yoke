@@ -1,31 +1,48 @@
-"""Fail-closed version gates for relay-executed surface operations."""
+"""Owner-facing native session-control version gates."""
 
-from __future__ import annotations
+from typing import Mapping
 
-from packaging.version import InvalidVersion, Version
+from yoke_contracts.session_control.surface_versions import (
+    surface_operation_supported,
+)
 
-from yoke_contracts.session_control.capabilities import capability_for_surface
+
+_WAKE_OPERATION_BY_LIVENESS = {
+    "active": "message_active",
+    "stale": "message_idle",
+    "ended": "message_stopped",
+}
 
 
-def surface_operation_supported(
-    surface: str | None,
-    version: str | None,
-    operation: str,
+def wake_versions_supported(
+    surface: str,
+    target_version: str | None,
+    relay_version: str | None,
+    liveness: str,
 ) -> bool:
-    capability = capability_for_surface(surface)
-    if capability is None or operation not in {"create", "message_stopped"}:
-        return False
-    interface = getattr(capability, operation)
-    if interface == "none" or not version:
-        return False
-    try:
-        observed = Version(version)
-        floor = Version(capability.minimum_version)
-    except InvalidVersion:
-        return False
-    if interface == "private":
-        return observed == floor
-    return observed >= floor
+    operation = _WAKE_OPERATION_BY_LIVENESS.get(liveness)
+    return bool(
+        operation
+        and surface_operation_supported(surface, target_version, operation)
+        and surface_operation_supported(surface, relay_version, operation)
+    )
 
 
-__all__ = ["surface_operation_supported"]
+def wake_candidate_supported(
+    candidate: Mapping[str, object],
+    relay_versions: Mapping[str, str],
+) -> bool:
+    surface = str(candidate.get("executor_surface") or "")
+    return wake_versions_supported(
+        surface,
+        str(candidate.get("executor_version") or ""),
+        relay_versions.get(surface),
+        str(candidate.get("liveness") or ""),
+    )
+
+
+__all__ = [
+    "surface_operation_supported",
+    "wake_candidate_supported",
+    "wake_versions_supported",
+]

@@ -1,0 +1,112 @@
+.universe-app-root .session-roster-filters,
+.universe-app-root .organization-fleet-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.universe-app-root .session-roster-filter,
+.universe-app-root .session-control-field {
+  display: grid;
+  gap: 5px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.universe-app-root .session-roster-filter input,
+.universe-app-root .session-roster-filter select,
+.universe-app-root .session-control-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 7px;
+  background: var(--yoke-surface);
+  color: var(--yoke-ink);
+  font: inherit;
+}
+
+.universe-app-root .session-message-body {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.universe-app-root .session-control-status {
+  color: var(--yoke-muted);
+  font-size: 12px;
+}
+
+.universe-app-root .session-message-preview,
+.universe-app-root .session-launch-preview {
+  max-height: 180px;
+  overflow: auto;
+}
+
+.universe-app-root .session-message-preview-list,
+.universe-app-root .session-message-receipts,
+.universe-app-root .session-launch-eligible,
+.universe-app-root .session-relay-surfaces,
+.universe-app-root .session-launch-timeline {
+  margin: 8px 0;
+  padding-left: 20px;
+  color: var(--yoke-muted);
+  font-size: 12px;
+}
+
+.universe-app-root .session-message-receipts {
+  min-width: 210px;
+}
+
+.universe-app-root .session-control-table {
+  width: 100%;
+}
+
+.universe-app-root .session-control-id {
+  max-width: 230px;
+  overflow-wrap: anywhere;
+  font-family: var(--yoke-mono);
+  font-size: 11px;
+}
+
+.universe-app-root .session-launch-grid,
+.universe-app-root .session-relay-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 12px;
+}
+
+.universe-app-root .session-launch-card .panel-header,
+.universe-app-root .session-relay-card .panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.universe-app-root .session-control-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.universe-app-root .session-result-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--yoke-mono);
+}
+
+@media (max-width: 640px) {
+  .universe-app-root .session-control-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .universe-app-root .session-control-view * {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

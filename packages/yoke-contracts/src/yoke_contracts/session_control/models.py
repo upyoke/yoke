@@ -202,6 +202,18 @@ class RelayClaimRequest(BaseModel):
     wait_seconds: int = Field(default=55, ge=0, le=55)
 
 
+class RelayListRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project: Optional[str] = None
+    state: Optional[Literal["active", "idle"]] = None
+    limit: int = Field(default=100, ge=1, le=500)
+
+
+class RelayListResponse(BaseModel):
+    relays: List[Dict[str, Any]]
+    count: int
+
+
 class RelayClaimResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
     relay_id: str
@@ -259,6 +271,8 @@ __all__ = [
     "RecipientSelector",
     "RelayClaimRequest",
     "RelayClaimResponse",
+    "RelayListRequest",
+    "RelayListResponse",
     "RelayReportRequest",
     "RelayReportResponse",
 ]

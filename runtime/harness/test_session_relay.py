@@ -83,16 +83,68 @@ def test_registered_adapter_receives_attestation_only_in_dedicated_field(
             "job_id": "launch-1",
             "lease_id": "lease-1",
             "surface": "codex-cli",
+            "surface_version": "0.148.0-alpha.15",
             "project_id": 10,
             "native_instruction": "opaque bootstrap",
+            "requested_model": "gpt-5.6",
+            "presentation": "focused",
             "launch_attestation": "secret-attestation",
         }
     )
 
     assert result.result_code == "native_created"
     assert seen[0].native_instruction == "opaque bootstrap"
+    assert seen[0].surface_version == "0.148.0-alpha.15"
+    assert seen[0].requested_model == "gpt-5.6"
+    assert seen[0].presentation == "focused"
     assert seen[0].launch_attestation == "secret-attestation"
     assert "secret-attestation" not in repr(seen[0])
+
+
+def test_missing_adapter_is_registered_lazily_before_job_execution(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from yoke_harness import session_relay_defaults
+
+    runtime.reset_relay_adapters_for_tests()
+    monkeypatch.setattr(
+        runtime.machine_config,
+        "configured_projects",
+        lambda **_kwargs: [ConfiguredProject(tmp_path, 10, {})],
+    )
+    registered = []
+
+    def register(surface):
+        registered.append(surface)
+        runtime.register_relay_adapter(
+            surface,
+            lambda _context: RelayAdapterResult("native_created", "native-1"),
+        )
+        return True
+
+    monkeypatch.setattr(
+        session_relay_defaults,
+        "register_default_relay_adapter",
+        register,
+    )
+
+    result = runtime.run_registered_job(
+        {
+            "job_kind": "launch",
+            "job_id": "11111111-1111-4111-8111-111111111111",
+            "lease_id": "lease-1",
+            "surface": "codex-cli",
+            "surface_version": "0.148.0-alpha.15",
+            "project_id": 10,
+            "native_instruction": "opaque bootstrap",
+            "launch_attestation": "secret-attestation",
+        }
+    )
+
+    assert registered == ["codex-cli"]
+    assert result.result_code == "native_created"
+    assert result.native_session_id == "native-1"
 
 
 def test_serve_once_reports_sanitized_result_and_honors_server_backoff(

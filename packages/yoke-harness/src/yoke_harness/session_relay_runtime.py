@@ -18,8 +18,12 @@ class RelayExecutionContext:
     project_id: int
     checkout: Path
     native_instruction: str
+    surface_version: str | None = None
     message_id: str | None = None
     target_session_id: str | None = None
+    requested_model: str | None = None
+    presentation: str | None = None
+    target_liveness: str | None = None
     launch_attestation: str | None = field(default=None, repr=False)
 
 
@@ -65,14 +69,22 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         project_id=project_id,
         checkout=checkout,
         native_instruction=str(job.get("native_instruction") or ""),
+        surface_version=(
+            str(job["surface_version"]) if job.get("surface_version") else None
+        ),
         message_id=str(job["message_id"]) if job.get("message_id") else None,
         target_session_id=(
             str(job["target_session_id"]) if job.get("target_session_id") else None
         ),
+        requested_model=(
+            str(job["requested_model"]) if job.get("requested_model") else None
+        ),
+        presentation=(str(job["presentation"]) if job.get("presentation") else None),
+        target_liveness=(
+            str(job["target_liveness"]) if job.get("target_liveness") else None
+        ),
         launch_attestation=(
-            str(job["launch_attestation"])
-            if job.get("launch_attestation")
-            else None
+            str(job["launch_attestation"]) if job.get("launch_attestation") else None
         ),
     )
 
@@ -87,6 +99,16 @@ def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
             evidence={"result_code": "checkout_unavailable"},
         )
     adapter = _ADAPTERS.get(context.surface)
+    if adapter is None:
+        try:
+            from yoke_harness.session_relay_defaults import (
+                register_default_relay_adapter,
+            )
+
+            register_default_relay_adapter(context.surface)
+        except Exception:
+            pass
+        adapter = _ADAPTERS.get(context.surface)
     if adapter is None:
         return RelayAdapterResult(
             "not_created" if context.job_kind == "launch" else "unsupported_surface",

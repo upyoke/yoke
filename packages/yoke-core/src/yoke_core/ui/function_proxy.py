@@ -25,6 +25,8 @@ from typing import Any, Dict, Optional, Tuple
 #: entry below.
 UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "organizations.get",
+    "organizations.settings.catalog",
+    "organizations.settings.get",
     "projects.list",
     "projects.get",
     "projects.capabilities.list",
@@ -46,6 +48,13 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "board.data.get",
     "deployment_runs.list",
     "sessions.list",
+    "session_control.message.preview",
+    "session_control.message.list",
+    "session_control.message.get",
+    "session_control.launch.preview",
+    "session_control.launch.get",
+    "session_control.launch.list",
+    "session_control.relay.list",
     "frontier.list",
     "events.query.run",
     "doctor.last_run.get",
@@ -84,6 +93,13 @@ UI_ACTIVATION_LATCH_FUNCTIONS = frozenset({"overview.activation.get"})
 #: an anonymous browser process.
 UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset({
     "inbox.list",
+    "session_control.message.preview",
+    "session_control.message.list",
+    "session_control.message.get",
+    "session_control.launch.preview",
+    "session_control.launch.get",
+    "session_control.launch.list",
+    "session_control.relay.list",
     "test_machine.get",
     "workflows.mechanics.get",
 })
@@ -114,6 +130,12 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "qa.case.waive",
     "items.create",
     "sessions.reclaim_stale",
+    "organizations.settings.merge",
+    "session_control.message.send",
+    "session_control.message.cancel",
+    "session_control.launch.create",
+    "session_control.launch.cancel",
+    "session_control.launch.retry",
     "strategy.revision.restore",
     "deployment_runs.terminalize",
 })

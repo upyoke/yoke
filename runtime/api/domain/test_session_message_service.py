@@ -180,17 +180,25 @@ def test_get_and_list_visibility_follows_sender_recipient_or_project_read() -> N
     assert denied.value.code == "message_forbidden"
 
 
-def test_only_sender_cancels_and_receipt_state_is_terminal() -> None:
+def test_sender_or_every_project_admin_cancels_and_receipt_state_is_terminal() -> None:
     conn = message_connection()
     message_id = _send(conn)["message_id"]
     with pytest.raises(SessionMessageError) as denied:
-        cancel_message(conn, message_id=message_id, actor_id=12, now=NOW)
+        cancel_message(conn, message_id=message_id, actor_id=13, now=NOW)
     assert denied.value.code == "cancel_forbidden"
 
-    cancelled = cancel_message(conn, message_id=message_id, actor_id=10, now=NOW)
-    assert cancelled["cancelled_by_actor_id"] == 10
+    cancelled = cancel_message(conn, message_id=message_id, actor_id=12, now=NOW)
+    assert cancelled["cancelled_by_actor_id"] == 12
+    assert cancelled["cancellation_reason"] == "cancelled_by_project_admin"
     assert cancelled["recipients"][0]["state"] == "cancelled"
     assert lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10) is None
+
+    sender_message_id = _send(conn, body="Sender cancellation proof.")["message_id"]
+    sender_cancelled = cancel_message(
+        conn, message_id=sender_message_id, actor_id=10, now=NOW
+    )
+    assert sender_cancelled["cancelled_by_actor_id"] == 10
+    assert sender_cancelled["cancellation_reason"] == "cancelled_by_sender"
 
 
 def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:

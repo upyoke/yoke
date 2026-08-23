@@ -12,7 +12,10 @@ from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     SessionRelayError,
 )
-from yoke_core.domain.session_relay_versions import surface_operation_supported
+from yoke_core.domain.session_relay_versions import (
+    surface_operation_supported,
+    wake_versions_supported,
+)
 from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
@@ -62,9 +65,13 @@ def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
     conn.execute(
         "INSERT INTO harness_sessions "
         "(session_id,project_id,executor_surface,executor_version,machine_id,"
-        "model,offered_at,last_tool_call_at) "
-        "VALUES ('target',10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL)",
-        (MACHINE_ID, "2026-08-22T10:00:00Z"),
+        "model,offered_at,last_tool_call_at,ended_at) "
+        "VALUES ('target',10,'codex-cli','0.148.0a15',?,'gpt-5',?,NULL,?)",
+        (
+            MACHINE_ID,
+            "2026-08-22T10:00:00Z",
+            "2026-08-22T10:30:00Z",
+        ),
     )
     conn.execute(
         "INSERT INTO session_messages "
@@ -139,6 +146,8 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
 
     assert claimed.job and claimed.job.job_kind == "wake"
     assert claimed.job.message_id == "message-1"
+    assert claimed.job.surface_version == "0.148.0a15"
+    assert claimed.job.target_liveness == "ended"
     assert "Never send" not in claimed.job.native_instruction
     assert "message-1" in claimed.job.native_instruction
     reported = report_relay_job(
@@ -240,6 +249,8 @@ def test_launch_claim_separates_attestation_and_redacts_report() -> None:
 
     assert claimed.job and claimed.job.job_kind == "launch"
     assert "Sensitive launch instructions" not in claimed.job.native_instruction
+    assert claimed.job.surface_version == "0.148.0a15"
+    assert claimed.job.requested_model == "gpt-5"
     assert claimed.job.launch_attestation
     result = report_relay_job(
         conn,
@@ -281,4 +292,12 @@ def test_private_versions_fail_closed_outside_the_pinned_release() -> None:
     assert not surface_operation_supported("claude-cli", "2.1.239", "message_stopped")
     assert not surface_operation_supported(
         "codex-cli", "not-a-version", "message_stopped"
+    )
+    assert wake_versions_supported("codex-cli", "0.148.0a15", "0.148.0a15", "ended")
+    assert not wake_versions_supported("codex-cli", "0.148.0a15", "0.148.0a15", "stale")
+    assert wake_versions_supported(
+        "cursor-cli",
+        "2026.08.11-e8db854",
+        "2026.08.11-e8db854",
+        "stale",
     )

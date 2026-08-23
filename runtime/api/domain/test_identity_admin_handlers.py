@@ -29,6 +29,7 @@ from yoke_core.domain.handlers.identity_links import (
 )
 from yoke_core.domain.handlers.organizations_settings import (
     handle_organization_domain_set,
+    handle_organization_settings_catalog,
     handle_organization_settings_get,
     handle_organization_settings_merge,
 )
@@ -241,3 +242,26 @@ def test_organization_settings_reject_unknown_or_invalid_assignments():
     )
     assert not invalid.primary_success
     assert invalid.error.code == "validation_error"
+
+
+def test_organization_settings_catalog_projects_closed_fleet_contract():
+    merged = handle_organization_settings_merge(
+        _request(
+            "organizations.settings.merge",
+            {"assignments": {"fleet.relay_poll_seconds": 30}},
+        ),
+    )
+    assert merged.primary_success, merged.error
+    outcome = handle_organization_settings_catalog(
+        _request("organizations.settings.catalog", {}),
+    )
+
+    assert outcome.primary_success, outcome.error
+    settings = {row["path"]: row for row in outcome.result_payload["settings"]}
+    poll = settings["fleet.relay_poll_seconds"]
+    assert poll["value"] == 30
+    assert poll["default"] == 60
+    assert poll["defaulted"] is False
+    assert poll["value_type"] == "int"
+    assert poll["minimum"] == 5
+    assert "meaning" in poll

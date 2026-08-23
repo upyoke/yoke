@@ -23,7 +23,7 @@ from yoke_core.domain.session_relay_types import (
     SessionRelayError,
     WAKE_LEASE_SECONDS,
 )
-from yoke_core.domain.session_relay_versions import surface_operation_supported
+from yoke_core.domain.session_relay_versions import wake_candidate_supported
 
 
 WAKE_REPORT_CODES = frozenset(
@@ -112,9 +112,12 @@ def claim_launch_job(
         lease_id=claim.lease_id,
         machine_id=heartbeat.machine_id,
         surface=claim.launch.requested_surface,
+        surface_version=str(heartbeat.surface_versions[claim.launch.requested_surface]),
         project_id=claim.launch.project_id,
         native_instruction=claim.bootstrap_prompt,
         message_id=claim.launch.message_id,
+        requested_model=claim.launch.requested_model,
+        presentation=claim.launch.presentation_preference,
         launch_attestation=claim.attestation,
     )
 
@@ -147,12 +150,7 @@ def claim_wake_job(
 ) -> RelayJob | None:
     selected = None
     for row in _wake_candidates(conn, heartbeat, now=now):
-        surface = str(row.get("executor_surface") or "")
-        target_version = str(row.get("executor_version") or "")
-        relay_version = heartbeat.surface_versions.get(surface)
-        if not surface_operation_supported(surface, target_version, "message_stopped"):
-            continue
-        if not surface_operation_supported(surface, relay_version, "message_stopped"):
+        if not wake_candidate_supported(row, heartbeat.surface_versions):
             continue
         selected = row
         break
@@ -204,10 +202,12 @@ def claim_wake_job(
         lease_id=lease_id,
         machine_id=heartbeat.machine_id,
         surface=str(surface),
+        surface_version=str(heartbeat.surface_versions[surface]),
         project_id=int(project_id),
         native_instruction=f"Yoke message {message_id}: check your Yoke messages.",
         message_id=str(message_id),
         target_session_id=str(session_id),
+        target_liveness=str(selected["liveness"]),
     )
 
 
