@@ -152,13 +152,68 @@ def test_message_human_output_keeps_recipient_evidence(capsys) -> None:
     )()
     output = io.StringIO()
     messages.write_message_result(response, output, io.StringIO())
-    assert output.getvalue().splitlines() == [
-        "message|preview|1|false",
-        "confirmation|confirm-1",
-        "recipient|session-1|yoke|codex|codex-desktop|machine-1|active|"
-        '{"messageable":true}',
-    ]
+    rendered = output.getvalue()
+    lines = rendered.splitlines()
+    assert lines[0] == "MESSAGE PREVIEW"
+    assert "Recipients" in rendered
+    assert "Confirmation token" in rendered
+    assert "RECIPIENTS" in rendered
+    assert "SESSION" in rendered
+    assert "MESSAGEABLE" in rendered
+    assert "session-1" in rendered
+    assert "codex-desktop" in rendered
+    assert "yes" in rendered
+    assert "|" not in rendered
     assert capsys.readouterr().out == ""
+
+
+def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
+    body = "Operator context " + ("private detail " * 10) + "DO-NOT-LEAK"
+    message = {
+        "message_id": "message-1",
+        "sender_actor_id": 7,
+        "sender_session_id": "session-sender",
+        "body": body,
+        "body_sha256": "digest-that-is-not-human-output",
+        "created_at": "2026-08-23T12:00:00Z",
+        "expires_at": "2026-08-24T12:00:00Z",
+        "recipients": [
+            {
+                "session_id": "session-1",
+                "project_id": 1,
+                "state": "injected",
+                "executor_surface": "codex-desktop",
+                "machine_id": "machine-1",
+                "routing_snapshot": {
+                    "project": "yoke",
+                    "messageability": {"messageable": True},
+                },
+            }
+        ],
+    }
+
+    for result, heading in (
+        ({"messages": [message], "count": 1}, "MESSAGES"),
+        ({"message": message}, "MESSAGE"),
+    ):
+        output = io.StringIO()
+        response = type("Response", (), {"result": result})()
+        messages.write_message_result(response, output, io.StringIO())
+        rendered = output.getvalue()
+        assert rendered.splitlines()[0] == heading
+        assert "BODY" in rendered.upper()
+        assert "CREATED (UTC)" in rendered.upper()
+        assert "…" in rendered
+        assert body not in rendered
+        assert "DO-NOT-LEAK" not in rendered
+        assert "body_sha256" not in rendered
+
+
+def test_message_list_has_an_explicit_empty_state() -> None:
+    response = type("Response", (), {"result": {"messages": [], "count": 0}})()
+    output = io.StringIO()
+    messages.write_message_result(response, output, io.StringIO())
+    assert output.getvalue() == "MESSAGES\nNo messages found.\n"
 
 
 def test_registry_exposes_canonical_functions_and_concise_aliases() -> None:

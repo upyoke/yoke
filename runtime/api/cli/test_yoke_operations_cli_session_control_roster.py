@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import sys
 from types import SimpleNamespace
 
@@ -18,7 +19,7 @@ from yoke_core.domain.session_control_roster import (
 )
 
 
-def test_roster_dispatches_existing_registered_read_and_renders_all_columns(
+def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
     monkeypatch,
     capsys,
 ) -> None:
@@ -78,12 +79,47 @@ def test_roster_dispatches_existing_registered_read_and_renders_all_columns(
         "liveness": "active",
         "limit": 5,
     }
-    assert capsys.readouterr().out == (
-        f"session-1|yoke|{TEST_ITEM_REF},feed|{TEST_ITEM_REF}|implementation|"
-        "/repo/.worktrees/item-42|codex|codex-desktop|26.814.41407|"
-        "machine-1|active|connected|"
-        '{"messageable":true,"relay_connected":true}\n'
+    rendered = capsys.readouterr().out
+    lines = rendered.splitlines()
+    assert lines[0] == "SESSIONS"
+    assert "SESSION" in lines[1]
+    assert "PROJECT" in lines[1]
+    assert "MESSAGEABLE" in lines[1]
+    assert "session-1" in rendered
+    assert TEST_ITEM_REF in rendered
+    assert "codex / codex-desktop" in rendered
+    assert "connected" in rendered
+    assert "yes" in rendered
+    assert "|" not in rendered
+
+
+def test_roster_has_explicit_empty_and_labeled_point_liveness_views() -> None:
+    empty = io.StringIO()
+    roster.write_roster_result(
+        {"fields": list(SESSION_CONTROL_ROSTER_FIELDS), "rows": []},
+        empty,
     )
+    assert empty.getvalue() == "SESSIONS\nNo sessions found.\n"
+
+    point = io.StringIO()
+    roster.write_roster_result(
+        {
+            "fields": ["session_id", "liveness", "ended_at", "activity_at"],
+            "rows": [
+                {
+                    "session_id": "session-1",
+                    "liveness": "active",
+                    "ended_at": "",
+                    "activity_at": "2026-08-23T12:00:00Z",
+                }
+            ],
+        },
+        point,
+    )
+    rendered = point.getvalue()
+    assert "ACTIVITY (UTC)" in rendered
+    assert "ENDED (UTC)" in rendered
+    assert "2026-08-23 12:00 UTC" in rendered
 
 
 def test_registry_override_and_usage_map_are_ready_for_aggregation() -> None:

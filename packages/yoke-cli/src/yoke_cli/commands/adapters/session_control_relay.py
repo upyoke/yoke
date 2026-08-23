@@ -10,6 +10,9 @@ import sys
 from typing import Any, Callable, List
 
 from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands.adapters.session_control_launch_output import (
+    write_relay_summary,
+)
 
 
 RELAY_INSTALL_USAGE = "yoke relay install [--json]"
@@ -41,11 +44,11 @@ def _parser(prog: str, usage: str) -> argparse.ArgumentParser:
     return parser
 
 
-def _emit(payload: dict[str, Any], *, json_mode: bool) -> None:
+def _emit(payload: dict[str, Any], *, json_mode: bool, title: str) -> None:
     if json_mode:
         print(json.dumps(payload, sort_keys=True))
         return
-    print("|".join(str(payload.get(field, "")) for field in payload))
+    write_relay_summary(payload, sys.stdout, title=title)
 
 
 def _relay_lifecycle(args: List[str], action: str) -> int:
@@ -83,7 +86,7 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
         "loaded": bool(status.loaded),
         "plist_path": str(status.plist_path),
     }
-    _emit(payload, json_mode=parsed.json_mode)
+    _emit(payload, json_mode=parsed.json_mode, title=f"RELAY {action.upper()}")
     return 0 if status.supported else 1
 
 
@@ -123,7 +126,7 @@ def relay_serve_once(args: List[str]) -> int:
         )
         return 1
     payload = asdict(outcome)
-    _emit(payload, json_mode=parsed.json_mode)
+    _emit(payload, json_mode=parsed.json_mode, title="RELAY POLL")
     return 1 if str(payload.get("state") or "").endswith("_failed") else 0
 
 

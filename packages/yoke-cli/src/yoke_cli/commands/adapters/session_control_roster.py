@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, List
+from typing import List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -11,27 +11,16 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
-from yoke_cli.commands.adapters.session_control_common import compact_json
-from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_control.roster import (
-    SESSION_CONTROL_ROSTER_DISPLAY_FIELDS,
+from yoke_cli.commands.adapters.session_control_human_output import (
+    write_roster_result,
 )
+from yoke_contracts.api.function_call import TargetRef
 
 
 SESSION_ROSTER_USAGE = (
     "yoke sessions list [--project P] [--liveness active|stale|ended] "
     "[--limit N] [--session S] [--json]"
 )
-
-
-def _cell(field: str, value: Any) -> str:
-    if value is None:
-        return ""
-    if field == "claims":
-        return ",".join(str(claim.get("target") or "") for claim in (value or []))
-    if isinstance(value, (dict, list, tuple)):
-        return compact_json(value)
-    return str(value)
 
 
 def session_control_roster_list(args: List[str]) -> int:
@@ -60,15 +49,7 @@ def session_control_roster_list(args: List[str]) -> int:
 
     def _human_writer(response, stdout, stderr) -> None:
         del stderr
-        result = response.result or {}
-        fields = result.get("fields") or []
-        if set(SESSION_CONTROL_ROSTER_DISPLAY_FIELDS).issubset(fields):
-            fields = SESSION_CONTROL_ROSTER_DISPLAY_FIELDS
-        for row in result.get("rows") or []:
-            print(
-                "|".join(_cell(field, row.get(field)) for field in fields),
-                file=stdout,
-            )
+        write_roster_result(response.result or {}, stdout)
 
     payload = {
         key: value

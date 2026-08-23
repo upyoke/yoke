@@ -126,6 +126,58 @@ def test_launch_lifecycle_adapters_build_typed_payloads(monkeypatch) -> None:
     }
 
 
+def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
+    launch = {
+        "launch_id": "launch-1",
+        "project_id": 1,
+        "state": "outcome_unknown",
+        "result_code": "native_create_timed_out",
+        "requested_surface": "codex-desktop",
+        "requested_machine_id": "machine-1",
+        "assigned_machine_id": None,
+        "requested_model": "gpt-5.6",
+        "allow_surface_fallback": False,
+        "registered_session_id": None,
+        "created_at": "2026-08-23T12:00:00Z",
+        "deadline_at": "2026-08-23T12:05:00Z",
+        "completed_at": None,
+    }
+
+    list_output = io.StringIO()
+    launches.write_launch_result(
+        SimpleNamespace(result={"launches": [launch], "count": 1}),
+        list_output,
+        io.StringIO(),
+    )
+    rendered_list = list_output.getvalue()
+    assert rendered_list.splitlines()[0] == "LAUNCHES"
+    assert "STATE / RESULT" in rendered_list
+    assert "CREATED (UTC)" in rendered_list
+    assert "outcome unknown (native cre" in rendered_list
+    assert "…" in rendered_list
+
+    get_output = io.StringIO()
+    launches.write_launch_result(
+        SimpleNamespace(result={"launch": launch}),
+        get_output,
+        io.StringIO(),
+    )
+    rendered_get = get_output.getvalue()
+    assert rendered_get.splitlines()[0] == "LAUNCH"
+    assert "State / result" in rendered_get
+    assert "Surface fallback" in rendered_get
+    assert "no" in rendered_get
+    assert "Deadline (UTC)" in rendered_get
+
+    empty_output = io.StringIO()
+    launches.write_launch_result(
+        SimpleNamespace(result={"launches": [], "count": 0}),
+        empty_output,
+        io.StringIO(),
+    )
+    assert empty_output.getvalue() == "LAUNCHES\nNo launches found.\n"
+
+
 def test_relay_lifecycle_is_local_and_structured(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         relay,
@@ -147,6 +199,32 @@ def test_relay_lifecycle_is_local_and_structured(monkeypatch, capsys) -> None:
         "plist_present": True,
         "supported": True,
     }
+
+
+def test_relay_status_human_output_uses_readable_labels(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        relay,
+        "_plist_operation",
+        lambda _action: SimpleNamespace(
+            supported=True,
+            plist_present=True,
+            plist_current=False,
+            loaded=True,
+            plist_path=Path("/tmp/com.upyoke.relay.plist"),
+        ),
+    )
+
+    assert relay.relay_status([]) == 0
+    rendered = capsys.readouterr().out
+    assert rendered.splitlines()[0] == "RELAY STATUS"
+    assert "Supported" in rendered
+    assert "Service loaded" in rendered
+    assert "Configuration present" in rendered
+    assert "Configuration current" in rendered
+    assert "Launch agent file" in rendered
+    assert "yes" in rendered
+    assert "no" in rendered
+    assert "|" not in rendered
 
 
 @dataclass(frozen=True)
