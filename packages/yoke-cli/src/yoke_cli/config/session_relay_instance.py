@@ -1,0 +1,107 @@
+"""Stable machine-relay instance identity for one configured environment."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import hashlib
+from pathlib import Path
+
+from yoke_cli.config import machine_config
+from yoke_contracts.machine_config import schema as machine_schema
+
+
+PROD_RELAY_LABEL = "com.upyoke.relay"
+NON_PROD_RELAY_LABEL_PREFIX = f"{PROD_RELAY_LABEL}."
+PROD_RELAY_STATE_DIR_NAME = "relay"
+NON_PROD_RELAY_STATE_ROOT_NAME = "relay-instances"
+_INSTANCE_DIGEST_LENGTH = 16
+
+
+class RelayInstanceError(RuntimeError):
+    """The selected connection cannot safely own a relay instance."""
+
+
+@dataclass(frozen=True)
+class RelayInstance:
+    """Secret-free identity and storage paths for one relay environment."""
+
+    environment: str
+    config_path: Path
+    yoke_home: Path
+    prod: bool
+    label: str
+    state_dir: Path
+
+
+def _canonical(path: Path) -> Path:
+    return path.expanduser().resolve(strict=False)
+
+
+def _digest(config_path: Path, environment: str) -> str:
+    identity = f"{config_path}\0{environment}".encode("utf-8")
+    return hashlib.sha256(identity).hexdigest()[:_INSTANCE_DIGEST_LENGTH]
+
+
+def resolve_relay_instance(
+    *,
+    config_path: str | Path | None = None,
+    environment: str | None = None,
+    yoke_home: Path | None = None,
+) -> RelayInstance:
+    """Resolve and validate the exact connection before any lifecycle write."""
+    selected_config = _canonical(machine_config.config_path(config_path))
+    try:
+        payload = machine_config.load_config(selected_config)
+        selected_environment = machine_schema.selected_env(
+            payload,
+            explicit_env=environment,
+        )
+        issues = [
+            issue
+            for issue in machine_schema.validate_payload(
+                payload,
+                explicit_env=selected_environment,
+            )
+            if issue.severity == "error"
+        ]
+        if issues:
+            raise RelayInstanceError(issues[0].message)
+        connection = machine_schema.active_connection(
+            payload,
+            explicit_env=selected_environment,
+        )
+    except RelayInstanceError:
+        raise
+    except Exception as exc:
+        raise RelayInstanceError(str(exc)) from exc
+
+    selected_home = _canonical(yoke_home or machine_config.yoke_home())
+    is_prod = machine_schema.connection_is_prod(connection)
+    if is_prod:
+        label = PROD_RELAY_LABEL
+        state_dir = selected_home / PROD_RELAY_STATE_DIR_NAME
+    else:
+        instance_digest = _digest(selected_config, selected_environment)
+        label = f"{NON_PROD_RELAY_LABEL_PREFIX}{instance_digest}"
+        state_dir = (
+            selected_home / NON_PROD_RELAY_STATE_ROOT_NAME / instance_digest
+        )
+    return RelayInstance(
+        environment=selected_environment,
+        config_path=selected_config,
+        yoke_home=selected_home,
+        prod=is_prod,
+        label=label,
+        state_dir=state_dir,
+    )
+
+
+__all__ = [
+    "NON_PROD_RELAY_LABEL_PREFIX",
+    "NON_PROD_RELAY_STATE_ROOT_NAME",
+    "PROD_RELAY_LABEL",
+    "PROD_RELAY_STATE_DIR_NAME",
+    "RelayInstance",
+    "RelayInstanceError",
+    "resolve_relay_instance",
+]

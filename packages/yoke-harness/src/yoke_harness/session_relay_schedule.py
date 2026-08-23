@@ -9,16 +9,19 @@ from pathlib import Path
 import time
 from typing import Iterator
 
-from yoke_cli.config import machine_config
+from yoke_cli.config.session_relay_instance import (
+    PROD_RELAY_STATE_DIR_NAME,
+    resolve_relay_instance,
+)
 
 
-RELAY_STATE_DIR_NAME = "relay"
+RELAY_STATE_DIR_NAME = PROD_RELAY_STATE_DIR_NAME
 RELAY_LOCK_FILE_NAME = "serve-once.lock"
 RELAY_NEXT_POLL_FILE_NAME = "next-poll-at"
 
 
 def relay_state_dir() -> Path:
-    return machine_config.yoke_home() / RELAY_STATE_DIR_NAME
+    return resolve_relay_instance().state_dir
 
 
 def _prepare_state_dir(path: Path) -> None:
