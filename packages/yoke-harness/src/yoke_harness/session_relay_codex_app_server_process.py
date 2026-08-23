@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -10,9 +11,10 @@ import subprocess
 import sys
 import threading
 import time
-from typing import BinaryIO, Callable, TextIO
+from typing import BinaryIO, Callable, Mapping, TextIO
 
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
 
 _MODULE = "yoke_harness.session_relay_codex_app_server_process"
@@ -62,6 +64,28 @@ def _request_from_payload(payload: object) -> CodexNativeRequest:
         ),
         native_instruction=str(payload.get("native_instruction") or ""),
     )
+
+
+def _rehydrate_launch_attestation(
+    request: CodexNativeRequest,
+    environ: Mapping[str, str],
+) -> CodexNativeRequest | None:
+    if request.job_kind != "launch":
+        return request
+    try:
+        context = json.loads(environ.get(LAUNCH_CONTEXT_ENV, ""))
+    except (TypeError, ValueError):
+        return None
+    if (
+        not request.job_id
+        or not isinstance(context, dict)
+        or context.get("launch_id") != request.job_id
+    ):
+        return None
+    attestation = context.get("attestation")
+    if not isinstance(attestation, str) or not attestation.strip():
+        return None
+    return replace(request, launch_attestation=attestation.strip())
 
 
 def _outcome_payload(outcome: CodexNativeOutcome) -> dict[str, object]:
@@ -220,7 +244,12 @@ def _run_in_worker(request: CodexNativeRequest) -> CodexNativeOutcome:
     )
 
 
-def worker_main(*, stdin: BinaryIO | None = None, stdout: TextIO | None = None) -> int:
+def worker_main(
+    *,
+    stdin: BinaryIO | None = None,
+    stdout: TextIO | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> int:
     source = stdin or sys.stdin.buffer
     destination = stdout or sys.stdout
     raw = source.read(_MAX_MESSAGE_BYTES + 1)
@@ -228,7 +257,13 @@ def worker_main(*, stdin: BinaryIO | None = None, stdout: TextIO | None = None) 
         return 2
     try:
         request = _request_from_payload(json.loads(raw))
-        outcome = _run_in_worker(request)
+        hydrated = _rehydrate_launch_attestation(
+            request,
+            os.environ if environ is None else environ,
+        )
+        outcome = (
+            _initial_failure(request) if hydrated is None else _run_in_worker(hydrated)
+        )
     except Exception:
         outcome = CodexNativeOutcome("outcome_unknown")
     destination.write(json.dumps(_outcome_payload(outcome), separators=(",", ":")))

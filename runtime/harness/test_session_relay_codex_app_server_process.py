@@ -127,15 +127,28 @@ def test_worker_returns_only_bounded_outcome(monkeypatch, tmp_path: Path) -> Non
         json.dumps(process_module._request_payload(request)).encode() + b"\n"
     )
     stdout = StringIO()
+    observed = []
     monkeypatch.setattr(
         process_module,
         "_run_in_worker",
-        lambda _request: CodexNativeOutcome("accepted", "native-1", True),
+        lambda value: (
+            observed.append(value) or CodexNativeOutcome("accepted", "native-1", True)
+        ),
     )
 
-    result = process_module.worker_main(stdin=stdin, stdout=stdout)
+    result = process_module.worker_main(
+        stdin=stdin,
+        stdout=stdout,
+        environ={
+            LAUNCH_CONTEXT_ENV: json.dumps(
+                {"launch_id": request.job_id, "attestation": SECRET}
+            )
+        },
+    )
 
     assert result == 0
+    assert observed[0].launch_attestation == SECRET
+    assert SECRET not in repr(observed[0])
     assert json.loads(stdout.getvalue()) == {
         "state": "accepted",
         "native_session_id": "native-1",
@@ -144,6 +157,116 @@ def test_worker_returns_only_bounded_outcome(monkeypatch, tmp_path: Path) -> Non
     }
     assert SECRET not in stdout.getvalue()
     assert INSTRUCTION not in stdout.getvalue()
+
+
+def test_worker_rejects_unbound_launch_context(monkeypatch, tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    calls = []
+    monkeypatch.setattr(
+        process_module,
+        "_run_in_worker",
+        lambda value: (
+            calls.append(value) or CodexNativeOutcome("accepted", "native-1", True)
+        ),
+    )
+
+    for environ in (
+        {},
+        {LAUNCH_CONTEXT_ENV: "not-json"},
+        {
+            LAUNCH_CONTEXT_ENV: json.dumps(
+                {"launch_id": "different-launch", "attestation": SECRET}
+            )
+        },
+    ):
+        stdin = BytesIO(
+            json.dumps(process_module._request_payload(request)).encode() + b"\n"
+        )
+        stdout = StringIO()
+
+        assert (
+            process_module.worker_main(
+                stdin=stdin,
+                stdout=stdout,
+                environ=environ,
+            )
+            == 0
+        )
+        assert json.loads(stdout.getvalue())["state"] == "not_created"
+
+    assert calls == []
+
+
+class _Selector:
+    def register(self, *_args) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+class _AppServerProcess:
+    def __init__(self) -> None:
+        self.stdin = BytesIO()
+        self.stdout = BytesIO()
+
+    def poll(self):
+        return 0
+
+    def wait(self, timeout=None):
+        return 0
+
+
+def test_app_server_process_receives_rehydrated_context(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    request = _request(tmp_path)
+    restored = process_module._request_from_payload(
+        process_module._request_payload(request)
+    )
+    hydrated = process_module._rehydrate_launch_attestation(
+        restored,
+        {
+            LAUNCH_CONTEXT_ENV: json.dumps(
+                {"launch_id": request.job_id, "attestation": SECRET}
+            )
+        },
+    )
+    assert hydrated is not None
+    calls = []
+    process = _AppServerProcess()
+
+    def spawn(command, **options):
+        calls.append((command, options))
+        return process
+
+    monkeypatch.setenv("YOKE_SESSION_ID", "parent-yoke-session")
+    monkeypatch.setenv("CODEX_SESSION_ID", "parent-codex-session")
+    monkeypatch.setenv(
+        LAUNCH_CONTEXT_ENV,
+        json.dumps({"launch_id": "stale-launch", "attestation": "stale-secret"}),
+    )
+    monkeypatch.setattr(app_module.shutil, "which", lambda _binary: "/opt/codex")
+    monkeypatch.setattr(app_module.subprocess, "Popen", spawn)
+    monkeypatch.setattr(app_module.selectors, "DefaultSelector", _Selector)
+    monkeypatch.setattr(app_module._Client, "request", lambda *_args: {})
+    monkeypatch.setattr(app_module._Client, "notify", lambda *_args: None)
+
+    client = app_module.CodexAppServerTransport(worker=True)._client(hydrated)
+
+    command, options = calls[0]
+    assert command == ["/opt/codex", "app-server", "--stdio"]
+    assert SECRET not in repr(command)
+    assert INSTRUCTION not in repr(command)
+    assert "YOKE_SESSION_ID" not in options["env"]
+    assert "CODEX_SESSION_ID" not in options["env"]
+    assert json.loads(options["env"][LAUNCH_CONTEXT_ENV]) == {
+        "launch_id": request.job_id,
+        "attestation": SECRET,
+    }
+    assert SECRET not in repr(hydrated)
+    client.close()
 
 
 def test_app_server_turn_owner_thread_survives_worker_main(monkeypatch) -> None:
