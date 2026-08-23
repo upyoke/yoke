@@ -37,6 +37,15 @@ class _Harness:
         self.member_items = list(member_items)
         self.db_calls = []
         self.events = []
+        self.stamps = []
+        self.releases = []
+
+    def stamp_item_field(self, item_id, field, value):
+        self.stamps.append((int(item_id), field, value))
+        return {"verified": True, "item_id": int(item_id)}
+
+    def transition_member_to_release(self, item_id, run_id):
+        self.releases.append((int(item_id), run_id))
 
     def yoke_db(self, *args, sd=None):
         self.db_calls.append(args)
@@ -104,6 +113,13 @@ class _Harness:
             "yoke_core.domain.deploy_ephemeral.exec_ephemeral_deploy",
             return_value=exec_rc,
         ) as exec_deploy, mock.patch(
+            "yoke_core.domain.deployment_item_stamp.stamp_item_field",
+            side_effect=self.stamp_item_field,
+        ), mock.patch.object(
+            deploy_pipeline,
+            "transition_member_to_release",
+            side_effect=self.transition_member_to_release,
+        ), mock.patch(
             "subprocess.run",
         ):
             rc = deploy_pipeline.run_pipeline(_RUN_ID, sd="/tmp/sd")
@@ -178,15 +194,13 @@ class TestEphemeralRunStatusItemBound:
             image_tag="", item_label="YOK-42",
         )
         assert "Ephemeral tier" in capsys.readouterr().out
-        # Item deploy_stage dual-writes ride the same stage transitions.
-        item_stage_updates = [
-            c[4] for c in harness.db_calls
-            if c[:4] == ("items", "update", "42", "deploy_stage")
+        assert harness.releases == [(42, _RUN_ID)]
+        assert [row for row in harness.stamps if row[1] == "deploy_stage"] == [
+            (42, "deploy_stage", "ephemeral-deploy"),
+            (42, "deploy_stage", "complete"),
+            (42, "deploy_stage", "complete"),
         ]
-        assert item_stage_updates == [
-            "ephemeral-deploy", "complete", "complete",
-        ]
-        # Item-bound success also claims deployed_to for the target env.
-        assert ("items", "update", "42", "deployed_to", "ephemeral") in [
-            c[:5] for c in harness.db_calls
+        assert (42, "deployed_to", "ephemeral") in harness.stamps
+        assert not [
+            c for c in harness.db_calls if c[:2] == ("items", "update")
         ]
