@@ -2,9 +2,10 @@
 
 The read behind ``sessions.list``: one row per harness session carrying
 the attribution facts (actor id/kind plus the canonical display label),
-what the session holds (its active work-claims, typed targets rendered
-to display strings), how alive it is, and what Yoke directed it to do
-(``execution_lane`` + ``mode``, both stored on ``harness_sessions``).
+what the session holds (its active work-claims and coordination leases,
+typed targets rendered to display strings), how alive it is, and what
+Yoke directed it to do (``execution_lane`` + ``mode``, both stored on
+``harness_sessions``).
 
 Liveness is derived server-side so no consumer re-encodes TTL numbers:
 
@@ -32,6 +33,11 @@ from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
+from yoke_core.domain.sessions_holdings_read import (
+    active_claims_by_session,
+    active_leases_by_session,
+    claimed_blitz_worktree_ids_by_session,
+)
 from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
 from yoke_core.domain.session_presentation_read import session_presentation
@@ -84,70 +90,6 @@ def _latest_activity(
         return None, None
     raw, parsed = max(dated, key=lambda pair: pair[1])
     return str(raw), parsed
-
-
-def _claim_target_display(conn: Any, claim: Dict[str, Any]) -> str:
-    kind = str(claim.get("target_kind") or "")
-    if kind == "item":
-        return str(display_claim_item_id(str(claim.get("item_id")), conn) or "")
-    if kind == "epic_task":
-        return f"epic {claim.get('epic_id')} task {claim.get('task_num')}"
-    return str(claim.get("process_key") or "")
-
-
-def _active_claims_by_session(
-    conn: Any,
-) -> Tuple[
-    Dict[str, List[Dict[str, Any]]],
-    Dict[str, List[Dict[str, Any]]],
-]:
-    rows = conn.execute(
-        "SELECT wc.session_id, wc.target_kind, wc.item_id, wc.epic_id, "
-        "wc.task_num, wc.process_key, wc.conflict_group, wc.claimed_at, "
-        "wc.reason, COALESCE(task_lane.lane_role, item_lane.lane_role) "
-        "AS lane_role "
-        "FROM work_claims wc "
-        "LEFT JOIN epic_tasks et ON wc.target_kind = 'epic_task' "
-        "AND et.epic_id = wc.epic_id AND et.task_num = wc.task_num "
-        "LEFT JOIN item_worktrees task_lane "
-        "ON task_lane.id = et.item_worktree_id "
-        "AND task_lane.state = 'active' "
-        "LEFT JOIN item_worktrees item_lane ON item_lane.id = ("
-        "SELECT iw.id FROM item_worktrees iw "
-        "WHERE wc.target_kind = 'item' AND iw.item_id = wc.item_id "
-        "AND iw.state = 'active' "
-        "ORDER BY CASE iw.lane_role WHEN 'integration' THEN 0 "
-        "WHEN 'implementation' THEN 1 ELSE 2 END, iw.id LIMIT 1"
-        ") "
-        "WHERE wc.released_at IS NULL ORDER BY wc.claimed_at ASC",
-    ).fetchall()
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
-    roles: Dict[str, List[Dict[str, Any]]] = {}
-    for row in rows:
-        claim = dict(row)
-        session_id = str(claim["session_id"])
-        grouped.setdefault(session_id, []).append(
-            {
-                "target_kind": str(claim.get("target_kind") or ""),
-                "target": _claim_target_display(conn, claim),
-                "claimed_at": claim.get("claimed_at"),
-                "reason": claim.get("reason"),
-            }
-        )
-        claimed_item = (
-            claim.get("item_id")
-            if claim.get("target_kind") == "item"
-            else claim.get("epic_id")
-        )
-        roles.setdefault(session_id, []).append(
-            {
-                "target_kind": str(claim.get("target_kind") or ""),
-                "item_id": int(claimed_item) if claimed_item is not None else None,
-                "lane_role": claim.get("lane_role"),
-                "claimed_at": claim.get("claimed_at"),
-            }
-        )
-    return grouped, roles
 
 
 def _actor_label(conn: Any, cache: Dict[int, str], actor_id: Any) -> Optional[str]:
@@ -216,7 +158,9 @@ def list_sessions(
             params = [*where_params, bounded_limit]
         rows = conn.execute(query, tuple(params)).fetchall()
 
-        claims_by_session, roles_by_session = _active_claims_by_session(conn)
+        claims_by_session, roles_by_session = active_claims_by_session(conn)
+        leases_by_session = active_leases_by_session(conn, roles_by_session)
+        blitz_lanes_by_session = claimed_blitz_worktree_ids_by_session(conn)
         label_cache: Dict[int, str] = {}
         result: List[Dict[str, Any]] = []
         for raw in rows:
@@ -316,6 +260,10 @@ def list_sessions(
                         item_claims[0].get("claimed_at") if item_claims else None
                     ),
                     "claims": claims,
+                    "coordination_leases": leases_by_session.get(session_id, []),
+                    "claimed_blitz_worktree_ids": blitz_lanes_by_session.get(
+                        session_id, [],
+                    ),
                 }
             )
         return result

@@ -31,6 +31,8 @@ SESSION_LIST_FIELDS = (
     "owns_current_item",
     "claim_started_at",
     "claims",
+    "coordination_leases",
+    "claimed_blitz_worktree_ids",
 )
 
 __all__ = ["SESSION_LIST_FIELDS"]

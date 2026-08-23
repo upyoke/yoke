@@ -23,6 +23,7 @@ from .sessions_analytics import (
 )
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_queries import _now_iso, normalize_claim_item_id
+from .sessions_render_attribution import release_current_item_focus
 from .workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     lock_work_claims_workflow_bindings,
@@ -152,24 +153,17 @@ def operator_override_release_claim(
     found_claim_id = row["id"]
 
     current_row = conn.execute(
-        "SELECT current_item_id, current_item_set_at "
+        "SELECT current_item_id "
         f"FROM harness_sessions WHERE session_id = {p}",
         (found_session_id,),
     ).fetchone()
-    if current_row is not None and current_row["current_item_id"] is not None:
-        current = normalize_claim_item_id(str(current_row["current_item_id"]))
-        if current == normalized:
-            conn.execute(
-                "UPDATE harness_sessions SET "
-                f"recent_item_id = {p}, recent_item_recorded_at = {p}, "
-                "current_item_id = NULL, current_item_set_at = NULL "
-                f"WHERE session_id = {p}",
-                (
-                    current_row["current_item_id"],
-                    current_row["current_item_set_at"],
-                    found_session_id,
-                ),
-            )
+    if (
+        current_row is not None
+        and current_row["current_item_id"] is not None
+        and normalize_claim_item_id(str(current_row["current_item_id"]))
+        == normalized
+    ):
+        release_current_item_focus(conn, found_session_id, commit=False)
 
     conn.execute(
         f"UPDATE work_claims SET released_at = {p}, release_reason = 'released' "

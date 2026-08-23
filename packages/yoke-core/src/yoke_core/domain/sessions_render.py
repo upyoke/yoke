@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from .sessions_render_attribution import (
     clear_current_item,
+    focus_fallback_item_id,
     get_session_attribution,
+    release_current_item_focus,
     set_current_item,
 )
 from .sessions_render_end import end_session, end_session_if_empty
@@ -22,6 +24,8 @@ __all__ = [
     "set_current_item",
     "get_session_attribution",
     "clear_current_item",
+    "focus_fallback_item_id",
+    "release_current_item_focus",
     "clear_terminal_item_focuses",
     "end_session",
     "end_session_if_empty",
