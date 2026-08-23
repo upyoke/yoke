@@ -128,6 +128,7 @@ class CursorCliTransport:
             "json",
             "--workspace",
             str(checkout),
+            "--trust",
         ]
         if model:
             command.extend(("--model", model))

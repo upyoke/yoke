@@ -25,7 +25,7 @@ ThreadIdentityResolver = Callable[[str, Path], tuple[str, str] | None]
 def _default_identity_resolver(
     thread_id: str, checkout: Path
 ) -> tuple[str, str] | None:
-    from yoke_harness.session_relay_codex_app_server import resolve_thread_identity
+    from yoke_harness.session_relay_codex_identity import resolve_thread_identity
 
     return resolve_thread_identity(thread_id, checkout)
 

@@ -18,6 +18,7 @@ from yoke_harness.session_relay_codex_cli import _launch_environment
 
 
 _MAX_LINE_BYTES = 4 * 1024 * 1024
+_TURN_OWNER_SECONDS = 24 * 60 * 60
 _STATUS_BY_LIVENESS = {
     "active": "active",
     "stale": "idle",
@@ -126,7 +127,7 @@ class _Client:
 
     def detach_until_turn_completed(self, turn_id: str) -> None:
         def drain() -> None:
-            deadline = time.monotonic() + max(60.0, self.timeout)
+            deadline = time.monotonic() + _TURN_OWNER_SECONDS
             try:
                 while time.monotonic() < deadline:
                     payload = self._receive(deadline)
@@ -143,7 +144,7 @@ class _Client:
                 self.close()
 
         threading.Thread(
-            target=drain, daemon=True, name="yoke-codex-app-server-reap"
+            target=drain, daemon=False, name="yoke-codex-app-server-reap"
         ).start()
 
     def close(self) -> None:
@@ -205,35 +206,27 @@ def _start_turn(client: _Client, thread_id: str, instruction: str) -> str:
     )
 
 
-def resolve_thread_identity(
-    thread_id: str,
-    checkout: Path,
-    *,
-    binary: str = "codex",
-    timeout: float = 15.0,
-) -> tuple[str, str] | None:
-    """Read the vendor's thread/session pair; never scan a time window."""
-    env = dict(os.environ)
-    env["YOKE_EXECUTOR"] = "codex"
-    client: _Client | None = None
-    try:
-        client = _Client(binary, checkout, env, timeout)
-        return _identity(_thread(client.request(
-            "thread/read", {"threadId": thread_id, "includeTurns": False}
-        )))
-    except CodexAppServerError:
-        return None
-    finally:
-        if client is not None:
-            client.close()
-
-
 class CodexAppServerTransport:
     """Official desktop create and liveness-keyed wake primitives."""
 
-    def __init__(self, *, binary: str = "codex", timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        *,
+        binary: str = "codex",
+        timeout: float = 30.0,
+        worker: bool = False,
+    ) -> None:
         self.binary = binary
         self.timeout = timeout
+        self.worker = worker
+
+    @staticmethod
+    def _detached(request: CodexNativeRequest) -> CodexNativeOutcome:
+        from yoke_harness.session_relay_codex_app_server_process import (
+            run_detached_operation,
+        )
+
+        return run_detached_operation(request)
 
     def _client(self, request: CodexNativeRequest) -> _Client:
         return _Client(
@@ -244,6 +237,8 @@ class CodexAppServerTransport:
         )
 
     def create(self, request: CodexNativeRequest) -> CodexNativeOutcome:
+        if not self.worker:
+            return self._detached(request)
         client: _Client | None = None
         created = False
         try:
@@ -262,25 +257,30 @@ class CodexAppServerTransport:
                 raise CodexAppServerError("thread/session identity mismatch")
             turn_id = _start_turn(client, identity[0], request.native_instruction)
             client.detach_until_turn_completed(turn_id)
-            return CodexNativeOutcome(
-                "accepted", identity[0], identity_correlated=True
-            )
+            return CodexNativeOutcome("accepted", identity[0], identity_correlated=True)
         except CodexAppServerError:
             if client is not None:
                 client.close()
             return CodexNativeOutcome("outcome_unknown" if created else "not_created")
 
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome:
-        if not request.target_session_id or request.target_liveness not in _STATUS_BY_LIVENESS:
+        if (
+            not request.target_session_id
+            or request.target_liveness not in _STATUS_BY_LIVENESS
+        ):
             return CodexNativeOutcome("unsupported_surface")
+        if not self.worker:
+            return self._detached(request)
         client: _Client | None = None
         mutated = False
         try:
             client = self._client(request)
-            current = _thread(client.request(
-                "thread/read",
-                {"threadId": request.target_session_id, "includeTurns": True},
-            ))
+            current = _thread(
+                client.request(
+                    "thread/read",
+                    {"threadId": request.target_session_id, "includeTurns": True},
+                )
+            )
             identity = _identity(current)
             if identity != (request.target_session_id, request.target_session_id):
                 raise CodexAppServerError("thread/session identity mismatch")
@@ -291,7 +291,8 @@ class CodexAppServerTransport:
                 return CodexNativeOutcome("outcome_unknown")
             if request.target_liveness == "active":
                 active = [
-                    turn for turn in current.get("turns", [])
+                    turn
+                    for turn in current.get("turns", [])
                     if isinstance(turn, dict) and turn.get("status") == "inProgress"
                 ]
                 if len(active) != 1 or not isinstance(active[0].get("id"), str):
@@ -308,17 +309,15 @@ class CodexAppServerTransport:
                     },
                 )
             else:
-                resumed = _identity(_thread(client.request(
-                    "thread/resume", {"threadId": identity[0]}
-                )))
+                resumed = _identity(
+                    _thread(client.request("thread/resume", {"threadId": identity[0]}))
+                )
                 if resumed != identity:
                     raise CodexAppServerError("resumed identity mismatch")
                 mutated = True
                 turn_id = _start_turn(client, identity[0], request.native_instruction)
             client.detach_until_turn_completed(turn_id)
-            return CodexNativeOutcome(
-                "accepted", identity[0], identity_correlated=True
-            )
+            return CodexNativeOutcome("accepted", identity[0], identity_correlated=True)
         except CodexAppServerError:
             if client is not None:
                 client.close()
@@ -328,5 +327,4 @@ class CodexAppServerTransport:
 __all__ = [
     "CodexAppServerError",
     "CodexAppServerTransport",
-    "resolve_thread_identity",
 ]

@@ -24,8 +24,13 @@ _PARENT_HARNESS_ENV = frozenset(
         "CURSOR_INVOKED_AS",
         "CURSOR_CONVERSATION_ID",
         "CURSOR_TRANSCRIPT_PATH",
+        "BASH_ENV",
+        "ENV",
+        "ZDOTDIR",
     )
 )
+
+_NATIVE_AUTOMATION_SHELL = "/bin/sh"
 
 
 def native_session_environment(
@@ -42,6 +47,7 @@ def native_session_environment(
     env = dict(os.environ if environ is None else environ)
     for name in _PARENT_HARNESS_ENV:
         env.pop(name, None)
+    env["SHELL"] = _NATIVE_AUTOMATION_SHELL
     env["YOKE_EXECUTOR"] = executor
     env["YOKE_EXECUTOR_VERSION"] = executor_version
     if provider:

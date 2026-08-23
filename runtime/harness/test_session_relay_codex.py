@@ -287,7 +287,7 @@ def test_app_server_uses_exact_status_and_id_with_fake_transport(
         )
     )[0]
 
-    outcome = app_module.CodexAppServerTransport().wake(request)
+    outcome = app_module.CodexAppServerTransport(worker=True).wake(request)
 
     assert outcome.state == "accepted"
     assert outcome.identity_correlated is True
@@ -309,8 +309,27 @@ def test_app_server_create_requires_vendor_thread_session_equality(
     )
     request = adapter_module._request(context(tmp_path, surface="codex-desktop"))[0]
 
-    outcome = app_module.CodexAppServerTransport().create(request)
+    outcome = app_module.CodexAppServerTransport(worker=True).create(request)
 
     assert outcome.state == "outcome_unknown"
     assert "turn/start" not in [method for method, _params in client.calls]
     assert client.closed is True
+
+
+def test_app_server_delegates_real_turn_ownership_out_of_serve_once(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    request = adapter_module._request(context(tmp_path, surface="codex-desktop"))[0]
+    calls = []
+    expected = CodexNativeOutcome("accepted", "native-1", True)
+    monkeypatch.setattr(
+        app_module.CodexAppServerTransport,
+        "_detached",
+        staticmethod(lambda value: calls.append(value) or expected),
+    )
+
+    outcome = app_module.CodexAppServerTransport().create(request)
+
+    assert outcome == expected
+    assert calls == [request]
