@@ -71,7 +71,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "yoke claims work acquire --item PREFIX-N "
             "--reason progress-log-append\n"
             "yoke items progress-log append PREFIX-N "
-            "--headline \"dispatched engineer\" --source orchestrator "
+            '--headline "dispatched engineer" --source orchestrator '
             "--content-file PATH\n"
             "yoke claims work release --item PREFIX-N "
             "--reason progress-log-append-complete"
@@ -194,29 +194,18 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Current session_id / actor_id from a script",
+        "purpose": "Fleet session discovery, exact peer messaging, and acknowledgment",
         "recipe": (
-            'echo "$YOKE_SESSION_ID" ; '
-            'yoke db read '
-            '"SELECT actor_id FROM harness_sessions WHERE session_id=\'$YOKE_SESSION_ID\'"'
+            "yoke sessions list ; printf '%s\\n' 'MESSAGE' | "
+            "yoke say --session SESSION-ID --stdin ; "
+            "yoke messages acknowledge MESSAGE-ID"
         ),
         "notes": (
-            "`$YOKE_SESSION_ID` is the fast path; when it is unset, "
-            "ambient identity still resolves automatically (hook-written "
-            "process-anchor registry, walked by every `yoke` CLI / "
-            "dispatch call) — do NOT export session env vars to "
-            "self-bootstrap, and treat `actor_session_missing` as an "
-            "infrastructure bug to report. No `get_active_session_id` "
-            "helper exists. The function-call surface resolves actor_id "
-            "server-side from session_id — agents do not need to look it "
-            "up themselves before dispatch. The actor_id SQL above is a "
-            "diagnostic read, not a dispatch prerequisite; `db_router "
-            "query` is only the source-dev/operator-debug fallback. "
-            "`--session-id` flags are operator-debug overrides, recorded "
-            "as `session_override`."
+            "Use the full copyable session and message IDs. Message bodies enter "
+            "only through stdin. Acknowledge only a message addressed to your "
+            "current top-level session; caller identity resolves ambiently."
         ),
     },
-
     {
         "topic": "core",
         "purpose": "Where to put a project Python script",
