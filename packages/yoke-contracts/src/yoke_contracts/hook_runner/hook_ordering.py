@@ -115,9 +115,12 @@ from typing import Mapping, Sequence
 # MappingProxyType view. ``ordered_pipeline_for`` returns a fresh list so
 # callers can mutate without leaking changes back into the registry.
 
-_MODEL_DELIVERY: tuple[str, ...] = (
+_TURN_END_DELIVERY: tuple[str, ...] = (
     "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.session_launch_attestation",
+)
+_MODEL_DELIVERY: tuple[str, ...] = (
+    *_TURN_END_DELIVERY,
     "yoke_core.hooks.session_broker_wake",
 )
 
@@ -254,7 +257,7 @@ _FIRST_HOOK_DISPATCH: tuple[str, ...] = (
 )
 _STOP_CHAIN: tuple[str, ...] = (
     "yoke_core.domain.turn_end_promised_work_gate",
-    *_MODEL_DELIVERY,
+    *_TURN_END_DELIVERY,
     "yoke_core.hooks.session_dispatch",
 )
 

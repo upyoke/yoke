@@ -130,11 +130,14 @@ def write_relay_summary(
 ) -> None:
     if "supported" in payload:
         fields = [
+            ("Environment", payload.get("environment")),
+            ("Launch agent", payload.get("launchd_label")),
             ("Supported", bool(payload.get("supported"))),
             ("Service loaded", bool(payload.get("loaded"))),
             ("Configuration present", bool(payload.get("plist_present"))),
             ("Configuration current", bool(payload.get("plist_current"))),
             ("Launch agent file", payload.get("plist_path")),
+            ("State directory", payload.get("state_dir")),
         ]
     else:
         fields = [

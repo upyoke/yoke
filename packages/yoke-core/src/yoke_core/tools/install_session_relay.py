@@ -40,7 +40,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"loaded={'yes' if status.loaded else 'no'}, "
         f"current={'yes' if status.plist_current else 'no'}"
     )
-    return 0 if status.supported else 1
+    if parsed.action == "uninstall":
+        healthy = not status.plist_present and not status.loaded
+    else:
+        healthy = status.plist_present and status.loaded and status.plist_current
+    return 0 if status.supported and healthy else 1
 
 
 if __name__ == "__main__":  # pragma: no cover - module entrypoint

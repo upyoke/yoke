@@ -13,7 +13,11 @@ from yoke_harness import session_relay_inventory as inventory_module
 from yoke_harness import session_relay_runtime as runtime
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_runtime import RelayAdapterResult
-from yoke_harness.session_relay_schedule import relay_run_lock
+from yoke_harness.session_relay_schedule import (
+    poll_is_due,
+    record_next_poll,
+    relay_run_lock,
+)
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
@@ -294,3 +298,20 @@ def test_relay_lock_is_non_overlapping(tmp_path: Path) -> None:
         with relay_run_lock(tmp_path) as second:
             assert first is True
             assert second is False
+
+
+def test_environment_locks_and_backoff_state_coexist(tmp_path: Path) -> None:
+    prod_state = tmp_path / "relay"
+    stage_state = tmp_path / "relay-instances" / "stage-hash"
+
+    with relay_run_lock(prod_state) as prod:
+        with relay_run_lock(stage_state) as stage:
+            assert prod is True
+            assert stage is True
+
+    record_next_poll(60, prod_state, started_at=1000.0, now=1000.0)
+    assert not poll_is_due(prod_state, now=1001.0)
+    assert poll_is_due(stage_state, now=1001.0)
+    record_next_poll(5, stage_state, started_at=1000.0, now=1000.0)
+    assert not poll_is_due(stage_state, now=1001.0)
+    assert poll_is_due(stage_state, now=1005.0)

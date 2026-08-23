@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_cli.config import machine_config
+from yoke_cli.config.session_relay_instance import RelayInstance
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
     PrivateRouteQualificationScope,
@@ -138,15 +140,31 @@ def test_prod_active_environment_or_connection_is_refused(
     )
 
 
-def test_launchd_default_environment_uses_connection_derived_stage(
+def test_launchd_projection_authorizes_connection_derived_stage(
     monkeypatch, tmp_path
 ) -> None:
+    yoke_home = tmp_path / ".yoke"
+    instance = RelayInstance(
+        environment="stage",
+        config_path=yoke_home / "config.json",
+        yoke_home=yoke_home,
+        prod=False,
+        label="com.upyoke.relay.stage-test",
+        state_dir=yoke_home / "relay-instances" / "stage-test",
+    )
     document = relay_plist_document(
         executable=tmp_path / "bin" / "yoke",
-        paths=relay_launchd_paths(home=tmp_path, yoke_home=tmp_path / ".yoke"),
+        paths=relay_launchd_paths(home=tmp_path, instance=instance),
         environ={"PATH": "/usr/bin:/bin"},
     )
-    assert set(document["EnvironmentVariables"]) == {"PATH"}
+    assert document["ProgramArguments"][1:3] == ["--env", "stage"]
+    environment = document["EnvironmentVariables"]
+    assert set(environment) == {
+        "PATH",
+        machine_config.CONFIG_FILE_ENV,
+        machine_config.HOME_ENV,
+    }
+    assert "YOKE_ENVIRONMENT" not in environment
     monkeypatch.delenv("YOKE_ENVIRONMENT", raising=False)
     _stage_runtime(monkeypatch)
     monkeypatch.setattr(qualification.subprocess, "run", _git_result())

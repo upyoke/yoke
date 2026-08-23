@@ -6,26 +6,32 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import plistlib
-import shutil
 import subprocess
 import sys
 from typing import Callable, Mapping, Sequence
 
 from yoke_cli.config import machine_config
+from yoke_cli.config.session_relay_instance import (
+    PROD_RELAY_LABEL,
+    RelayInstance,
+    resolve_relay_instance,
+)
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
-from yoke_core.tools.install_yoke_launcher_core import TARGET_PRIORITY
 from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
+from yoke_core.tools.session_relay_executable import relay_executable_search_path
+from yoke_core.tools.session_relay_legacy import (
+    LegacyRelayError,
+    retire_unpinned_legacy_relay,
+)
 
 
-RELAY_LAUNCHD_LABEL = "com.upyoke.relay"
-RELAY_PLIST_NAME = f"{RELAY_LAUNCHD_LABEL}.plist"
+RELAY_LAUNCHD_LABEL = PROD_RELAY_LABEL
 _RELAY_POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
 # launchd must wake frequently enough to honor every valid server cadence. The
 # relay's disk-backed due time still prevents calls before the server asks.
 RELAY_START_INTERVAL_SECONDS = int(
     _RELAY_POLL_POLICY.minimum or _RELAY_POLL_POLICY.default
 )
-_RELAY_CLI_EXECUTABLES = ("claude", "codex", "cursor-agent")
 
 
 class RelayInstallError(RuntimeError):
@@ -38,6 +44,10 @@ class RelayLaunchdPaths:
     state_dir: Path
     stdout_log: Path
     stderr_log: Path
+    environment: str = ""
+    label: str = RELAY_LAUNCHD_LABEL
+    config_path: Path | None = None
+    yoke_home: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -47,6 +57,9 @@ class RelayLaunchdStatus:
     plist_current: bool
     loaded: bool
     plist_path: Path
+    environment: str = ""
+    label: str = RELAY_LAUNCHD_LABEL
+    state_dir: Path | None = None
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
@@ -56,14 +69,26 @@ def relay_launchd_paths(
     *,
     home: Path | None = None,
     yoke_home: Path | None = None,
+    config_path: str | Path | None = None,
+    environment: str | None = None,
+    instance: RelayInstance | None = None,
 ) -> RelayLaunchdPaths:
+    selected = instance or resolve_relay_instance(
+        config_path=config_path,
+        environment=environment,
+        yoke_home=yoke_home,
+    )
     user_home = (home or Path.home()).expanduser()
-    state = (yoke_home or machine_config.yoke_home()) / "relay"
+    state = selected.state_dir
     return RelayLaunchdPaths(
-        plist=user_home / "Library" / "LaunchAgents" / RELAY_PLIST_NAME,
+        plist=user_home / "Library" / "LaunchAgents" / f"{selected.label}.plist",
         state_dir=state,
         stdout_log=state / "relay.stdout.log",
         stderr_log=state / "relay.stderr.log",
+        environment=selected.environment,
+        label=selected.label,
+        config_path=selected.config_path,
+        yoke_home=selected.yoke_home,
     )
 
 
@@ -77,13 +102,21 @@ def relay_plist_document(
     source_env = os.environ if environ is None else environ
     launcher = executable or canonical_shim_path(source_env)
     return {
-        "Label": RELAY_LAUNCHD_LABEL,
-        "ProgramArguments": [str(launcher), "relay", "serve-once"],
+        "Label": resolved.label,
+        "ProgramArguments": [
+            str(launcher),
+            "--env",
+            resolved.environment,
+            "relay",
+            "serve-once",
+        ],
         "EnvironmentVariables": {
             "PATH": relay_executable_search_path(
                 executable=launcher,
                 environ=source_env,
-            )
+            ),
+            machine_config.CONFIG_FILE_ENV: str(resolved.config_path),
+            machine_config.HOME_ENV: str(resolved.yoke_home),
         },
         "ProcessType": "Background",
         "RunAtLoad": True,
@@ -93,34 +126,8 @@ def relay_plist_document(
     }
 
 
-def relay_executable_search_path(
-    *,
-    executable: Path,
-    environ: Mapping[str, str],
-) -> str:
-    """Build a stable, bounded launchd path for Yoke and native CLIs."""
-    candidates = [executable.expanduser().parent]
-    ambient_path = environ.get("PATH", "")
-    for command in _RELAY_CLI_EXECUTABLES:
-        resolved = shutil.which(command, path=ambient_path)
-        if resolved:
-            candidates.append(Path(resolved).expanduser().parent)
-    candidates.extend(Path(raw).expanduser() for raw, _label in TARGET_PRIORITY)
-    candidates.extend(Path(raw) for raw in os.defpath.split(os.pathsep) if raw)
-    unique: list[str] = []
-    for candidate in candidates:
-        value = str(candidate)
-        if candidate.is_absolute() and value not in unique:
-            unique.append(value)
-    return os.pathsep.join(unique)
-
-
-def _launchd_target(uid: int | None = None) -> str:
-    return f"gui/{os.getuid() if uid is None else uid}/{RELAY_LAUNCHD_LABEL}"
-
-
-def _launchd_domain(uid: int | None = None) -> str:
-    return f"gui/{os.getuid() if uid is None else uid}"
+def _launchd_target(label: str, uid: int | None = None) -> str:
+    return f"gui/{os.getuid() if uid is None else uid}/{label}"
 
 
 def _run(
@@ -168,8 +175,16 @@ def relay_launchd_status(
     runner: Runner = subprocess.run,
     platform: str = sys.platform,
     uid: int | None = None,
+    config_path: str | Path | None = None,
+    environment: str | None = None,
+    instance: RelayInstance | None = None,
 ) -> RelayLaunchdStatus:
-    paths = relay_launchd_paths(home=home, yoke_home=yoke_home)
+    selected = instance or resolve_relay_instance(
+        config_path=config_path,
+        environment=environment,
+        yoke_home=yoke_home,
+    )
+    paths = relay_launchd_paths(home=home, instance=selected)
     expected = relay_plist_document(
         executable=executable,
         paths=paths,
@@ -180,7 +195,7 @@ def relay_launchd_status(
     if platform == "darwin":
         loaded = (
             _run(
-                ["launchctl", "print", _launchd_target(uid)],
+                ["launchctl", "print", _launchd_target(paths.label, uid)],
                 runner=runner,
             ).returncode
             == 0
@@ -191,6 +206,9 @@ def relay_launchd_status(
         plist_current=present and _document_is_current(paths.plist, expected),
         loaded=loaded,
         plist_path=paths.plist,
+        environment=paths.environment,
+        label=paths.label,
+        state_dir=paths.state_dir,
     )
 
 
@@ -203,18 +221,35 @@ def install_relay_launchd(
     runner: Runner = subprocess.run,
     platform: str = sys.platform,
     uid: int | None = None,
+    config_path: str | Path | None = None,
+    environment: str | None = None,
+    instance: RelayInstance | None = None,
 ) -> RelayLaunchdStatus:
     if platform != "darwin":
         raise RelayInstallError("machine relay launchd install requires macOS")
-    paths = relay_launchd_paths(home=home, yoke_home=yoke_home)
+    selected = instance or resolve_relay_instance(
+        config_path=config_path,
+        environment=environment,
+        yoke_home=yoke_home,
+    )
+    paths = relay_launchd_paths(home=home, instance=selected)
     source_env = os.environ if environ is None else environ
     launcher = executable or canonical_shim_path(source_env)
     if not launcher.is_file():
         raise RelayInstallError(
             f"canonical yoke launcher is missing at {launcher}; repair it first"
         )
+    try:
+        retire_unpinned_legacy_relay(
+            instance=selected, home=home, runner=runner, uid=uid
+        )
+    except LegacyRelayError as exc:
+        raise RelayInstallError(str(exc)) from exc
     paths.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    _run(["launchctl", "bootout", _launchd_target(uid)], runner=runner)
+    _run(
+        ["launchctl", "bootout", _launchd_target(paths.label, uid)],
+        runner=runner,
+    )
     _write_plist(
         paths.plist,
         relay_plist_document(
@@ -224,7 +259,12 @@ def install_relay_launchd(
         ),
     )
     result = _run(
-        ["launchctl", "bootstrap", _launchd_domain(uid), str(paths.plist)],
+        [
+            "launchctl",
+            "bootstrap",
+            f"gui/{os.getuid() if uid is None else uid}",
+            str(paths.plist),
+        ],
         runner=runner,
     )
     if result.returncode != 0:
@@ -234,12 +274,12 @@ def install_relay_launchd(
         )
     return relay_launchd_status(
         home=home,
-        yoke_home=yoke_home,
         executable=launcher,
         environ=source_env,
         runner=runner,
         platform=platform,
         uid=uid,
+        instance=selected,
     )
 
 
@@ -250,27 +290,47 @@ def uninstall_relay_launchd(
     runner: Runner = subprocess.run,
     platform: str = sys.platform,
     uid: int | None = None,
+    config_path: str | Path | None = None,
+    environment: str | None = None,
+    instance: RelayInstance | None = None,
 ) -> RelayLaunchdStatus:
     if platform != "darwin":
         raise RelayInstallError("machine relay launchd uninstall requires macOS")
-    paths = relay_launchd_paths(home=home, yoke_home=yoke_home)
-    _run(["launchctl", "bootout", _launchd_target(uid)], runner=runner)
+    selected = instance or resolve_relay_instance(
+        config_path=config_path,
+        environment=environment,
+        yoke_home=yoke_home,
+    )
+    paths = relay_launchd_paths(home=home, instance=selected)
+    _run(
+        ["launchctl", "bootout", _launchd_target(paths.label, uid)],
+        runner=runner,
+    )
+    if (
+        _run(
+            ["launchctl", "print", _launchd_target(paths.label, uid)],
+            runner=runner,
+        ).returncode
+        == 0
+    ):
+        raise RelayInstallError(
+            "launchctl kept the exact machine relay loaded after bootout"
+        )
     try:
         paths.plist.unlink()
     except FileNotFoundError:
         pass
     return relay_launchd_status(
         home=home,
-        yoke_home=yoke_home,
         runner=runner,
         platform=platform,
         uid=uid,
+        instance=selected,
     )
 
 
 __all__ = [
     "RELAY_LAUNCHD_LABEL",
-    "RELAY_PLIST_NAME",
     "RELAY_START_INTERVAL_SECONDS",
     "RelayInstallError",
     "RelayLaunchdPaths",

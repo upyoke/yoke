@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Literal, Mapping, Sequence
 
 from yoke_contracts.session_control.private_route_qualification import (
@@ -17,7 +17,7 @@ MAX_RELAY_LONG_POLL_SECONDS = 55
 RELAY_LONG_POLL_STEP_SECONDS = 1
 
 
-class WakeMode(StrEnum):
+class WakeMode(str, Enum):
     """Scheduler authority for one native wake operation."""
 
     WAITING = "waiting"
@@ -81,7 +81,7 @@ class RelayJob:
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         if self.wake_mode is not None:
-            payload["wake_mode"] = str(self.wake_mode)
+            payload["wake_mode"] = self.wake_mode.value
         if self.private_route_qualification is not None:
             payload["private_route_qualification"] = (
                 self.private_route_qualification.model_dump(mode="json")

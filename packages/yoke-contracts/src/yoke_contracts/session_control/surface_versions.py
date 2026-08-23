@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.private_route_versions import (
+    private_route_version_qualified,
+)
 
 
 _OPERATIONS = frozenset({"create", "message_active", "message_idle", "message_stopped"})
@@ -60,10 +63,8 @@ def surface_operation_supported(
         return False
     if not surface_version_supported(surface, version):
         return False
-    observed = _version_key(surface, version)
-    floor = _version_key(surface, capability.minimum_version)
     if interface == "private":
-        return observed == floor
+        return private_route_version_qualified(surface, version, operation)
     return True
 
 

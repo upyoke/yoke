@@ -81,13 +81,22 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
         return 1
     payload = {
         "supported": bool(status.supported),
+        "environment": str(status.environment),
+        "launchd_label": str(status.label),
         "plist_present": bool(status.plist_present),
         "plist_current": bool(status.plist_current),
         "loaded": bool(status.loaded),
         "plist_path": str(status.plist_path),
+        "state_dir": str(status.state_dir) if status.state_dir else None,
     }
     _emit(payload, json_mode=parsed.json_mode, title=f"RELAY {action.upper()}")
-    return 0 if status.supported else 1
+    if not status.supported:
+        return 1
+    if action == "status" and not (
+        status.plist_present and status.plist_current and status.loaded
+    ):
+        return 1
+    return 0
 
 
 def relay_install(args: List[str]) -> int:

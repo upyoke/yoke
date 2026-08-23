@@ -6,7 +6,13 @@ position so table creation order is unchanged. Native Postgres DDL with
 no FOREIGN KEY constraints, matching the rest of the fixture schema.
 """
 
-_SESSIONS_FAMILY_DDL = """
+from yoke_core.domain.session_turn_posture import (
+    TURN_POSTURE_AT_COLUMN_DDL,
+    TURN_POSTURE_COLUMN_DDL,
+)
+
+
+_SESSIONS_FAMILY_DDL = f"""
 CREATE TABLE IF NOT EXISTS harness_sessions (
     session_id TEXT PRIMARY KEY,
     executor TEXT NOT NULL,
@@ -35,7 +41,9 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     episode_started_at TEXT DEFAULT NULL,
     pending_resume_notice TEXT DEFAULT NULL,
     last_chain_step INTEGER DEFAULT NULL,
-    last_checkpoint_at TEXT DEFAULT NULL
+    last_checkpoint_at TEXT DEFAULT NULL,
+    turn_posture {TURN_POSTURE_COLUMN_DDL},
+    turn_posture_at {TURN_POSTURE_AT_COLUMN_DDL}
 );
 
 CREATE TABLE IF NOT EXISTS session_tool_calls (
