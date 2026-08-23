@@ -222,25 +222,31 @@ their enumerations. When budget is on and claims are off, use the budget for
 sizing and conflict evidence without registering a claim. When both are off,
 the stored instruction and survey define scope without either artifact.
 
-For every reported contact, read the advisory and choose:
+For every reported survey contact, read the advisory and choose:
 
 - proceed when the edits are independent; same-file collisions resolve at merge;
-- yield when the work is order-dependent: author an activation dependency from
-  this item to the holder, drop this claim, and re-offer. A planned claim is
-  not a stronger reason to yield than an active one;
+- when the decision needs holder evidence, ask an addressable holder for that
+  evidence with the harness task-messaging tool (`send_message_to_thread` in
+  Codex). When the holder is not addressable in the current harness, give the
+  operator its session id and wait;
+- when the edits are order-dependent, wait for the holding work to finish and
+  re-run the survey before editing or continuing;
 - when a directory survey was only a discovery aid, narrow it to the complete
   concrete file set before preparation, repeating every required file in the
   replacement survey;
-- coordinate with the owning item or wait when the scope is still small;
-  contact an addressable holder with the harness task-messaging tool
-  (`send_message_to_thread` in Codex). When the holder is not addressable in
-  the current harness, give the operator its session id and wait;
-- when effective path claims are enabled, keep the inferred set complete and
-  register or widen it through `claims.path.register` / `claims.path.widen`
-  before preparation; preparation only validates that coverage;
-- if contact repeats or the required work is no longer instruction-sized,
+- when an overlap cannot be decided or resolved from the surfaced evidence,
+  release the work claim and present the holder, paths, and evidence to the
+  operator; do not create a dependency or attestation, or continue editing
+  through uncertainty;
+- if the required work is no longer instruction-sized,
   stop and follow **Escalate** below, which halts for operator agreement
   before anything is filed.
+
+Selected path-claim posture is a separate coverage obligation, never a remedy
+for a survey contact. When effective path claims are enabled, keep the inferred
+set complete and register or widen it through `claims.path.register` /
+`claims.path.widen` before preparation; preparation only validates that
+coverage.
 
 Never remove a required file merely to make the survey clear.
 
@@ -276,11 +282,11 @@ Activate through the shared lifecycle interpreter:
 yoke lifecycle transition ITEM --from idea --to implementing --reason "Dash execution started"
 ```
 
-The transition must pass the live `conflict_survey` gate and the
-`work_claim_activation` gate, which verifies that this session owns the
+The live `conflict_survey` gate requires a recorded, readable touch set and
+re-evaluates current contacts, but an overlap does not block the transition.
+The `work_claim_activation` gate still verifies that this session owns the
 active item claim and that the item has its registered implementation
-worktree. A stale or newly-blocked survey is a coordination stop, not a
-bypass candidate.
+worktree. Read and resolve every survey advisory through the choices above.
 
 ### 4-7. Execute, verify, and close
 

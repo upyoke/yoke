@@ -17,6 +17,7 @@ from yoke_core.domain.file_budget_paths import (
     extract_file_budget_section_paths,
 )
 from yoke_core.domain.file_budget_paths import FILE_BUDGET_SECTION
+from yoke_core.domain.path_render_overlap import is_render_target_only_overlap
 from yoke_core.domain.schema_common import _table_exists
 
 _NON_TERMINAL_CLAIM_STATES = ("planned", "blocked", "active")
@@ -33,6 +34,24 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
         dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
         for row in cursor.fetchall()
     ]
+
+
+def _matching_reportable_scope(
+    conn: Any,
+    *,
+    touch_paths: tuple[str, ...],
+    other_paths: list[str] | tuple[str, ...],
+    project_id: int,
+) -> str:
+    matched = matching_scope(touch_paths, other_paths)
+    if matched and is_render_target_only_overlap(
+        conn,
+        candidate_paths=touch_paths,
+        other_paths=other_paths,
+        project_id=project_id,
+    ):
+        return ""
+    return matched
 
 
 def _path_claim_blockers(
@@ -66,23 +85,36 @@ def _path_claim_blockers(
         )
     )
     blockers: list[ConflictMatch] = []
+    claims: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
+        claims.setdefault(int(row["id"]), []).append(row)
+    for claim_rows in claims.values():
+        row = claim_rows[0]
         owner = row.get("owner_item_id")
         if owner is not None and int(owner) == int(item["id"]):
             continue
         if bool(row.get("owner_frozen")):
             continue
-        matched = matching_scope(touch_paths, [str(row["path_string"])])
-        if matched:
-            blockers.append(
-                ConflictMatch(
-                    kind="path_claim",
-                    owner_item_id=int(owner) if owner is not None else None,
-                    path=matched,
-                    state=str(row["state"]),
-                    detail=f"uncoordinated path claim {row['id']}",
+        claim_paths = [str(entry["path_string"]) for entry in claim_rows]
+        if is_render_target_only_overlap(
+            conn,
+            candidate_paths=touch_paths,
+            other_paths=claim_paths,
+            project_id=int(item["project_id"]),
+        ):
+            continue
+        for entry in claim_rows:
+            matched = matching_scope(touch_paths, [str(entry["path_string"])])
+            if matched:
+                blockers.append(
+                    ConflictMatch(
+                        kind="path_claim",
+                        owner_item_id=int(owner) if owner is not None else None,
+                        path=matched,
+                        state=str(entry["state"]),
+                        detail=f"uncoordinated path claim {entry['id']}",
+                    )
                 )
-            )
     return blockers
 
 
@@ -212,9 +244,7 @@ def _item_coordination_blockers(
         if bool(row.get("frozen")):
             continue
         declared = [
-            *extract_file_budget_paths(
-                f"{row['spec']}\n{row['execution_document']}"
-            ),
+            *extract_file_budget_paths(f"{row['spec']}\n{row['execution_document']}"),
             *extract_file_budget_section_paths(
                 str(row.get("file_budget_section") or "")
             ),
@@ -222,13 +252,27 @@ def _item_coordination_blockers(
         worktree_paths = git_touched_paths(
             str(row.get("worktree_path") or ""), integration_target
         )
-        matched = matching_scope(touch_paths, [*worktree_paths, *declared])
+        active_paths = [*worktree_paths, *declared]
+        matched = _matching_reportable_scope(
+            conn,
+            touch_paths=touch_paths,
+            other_paths=active_paths,
+            project_id=int(item["project_id"]),
+        )
         # A recorded survey is the weakest of the three signals — declared
         # intent, not work already under way — so it answers only where the
         # stronger ones found nothing, and it is attributed separately so
         # the operator can tell the two apart.
-        survey_match = "" if matched else matching_scope(
-            touch_paths, surveys.get(int(row["id"]), ())
+        survey_paths = surveys.get(int(row["id"]), ())
+        survey_match = (
+            ""
+            if matched
+            else _matching_reportable_scope(
+                conn,
+                touch_paths=touch_paths,
+                other_paths=survey_paths,
+                project_id=int(item["project_id"]),
+            )
         )
         if not matched and not survey_match:
             continue

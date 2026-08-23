@@ -34,14 +34,18 @@ locks, so they are intentionally outside this classifier.
 from __future__ import annotations
 
 import enum
-from typing import Any, List, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims_lineage import expand_lineage
+from yoke_core.domain.path_render_overlap import (
+    is_render_target_only_overlap as render_target_only_overlap,
+)
 from yoke_core.domain.schema_common import _column_exists
 
 
-def _p(conn: Any) -> str: return "%s" if db_backend.connection_is_postgres(conn) else "?"
+def _p(conn: Any) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 class OverlapClassification(enum.Enum):
@@ -56,19 +60,26 @@ _NON_TERMINAL_STATES = ("planned", "blocked", "active")
 _ACTIVATION_CONFLICT_STATES = ("active",)
 
 
-def _shared_target_ids(
+def _target_paths(
     conn: Any,
     *,
-    candidate_target_ids: Sequence[int],
-    other_claim_id: int,
-) -> List[int]:
-    placeholders = ",".join(_p(conn) for _ in candidate_target_ids)
+    target_ids: Sequence[int],
+) -> tuple[Optional[int | str], tuple[str, ...], dict[str, int]]:
+    unique_ids = tuple(dict.fromkeys(int(value) for value in target_ids))
+    if not unique_ids:
+        return None, (), {}
+    placeholders = ",".join(_p(conn) for _ in unique_ids)
     rows = conn.execute(
-        f"SELECT target_id FROM path_claim_targets "
-        f"WHERE claim_id = {_p(conn)} AND target_id IN ({placeholders})",
-        (other_claim_id, *candidate_target_ids),
+        f"SELECT id, project_id, path_string FROM path_targets "
+        f"WHERE id IN ({placeholders})",
+        unique_ids,
     ).fetchall()
-    return [int(r[0]) for r in rows]
+    project_ids = {row[1] for row in rows}
+    if len(rows) != len(unique_ids) or len(project_ids) != 1:
+        return None, (), {}
+    paths = tuple(str(row[2]) for row in rows)
+    target_ids_by_path = {str(row[2]): int(row[0]) for row in rows}
+    return project_ids.pop(), paths, target_ids_by_path
 
 
 def _is_render_target_only_overlap(
@@ -77,54 +88,26 @@ def _is_render_target_only_overlap(
     candidate_target_ids: Sequence[int],
     other_claim_id: int,
 ) -> bool:
-    """Return True when EVERY shared target between candidate and other claim
-    is registered as ``FAMILY_RENDER_TARGET`` AND the candidate's path
-    coverage is disjoint from the other claim's path coverage at the
-    seed-source layer (the union of seed sources registered for the
-    shared render targets).
-
-    When True, the overlap is the false-positive class for
-    deterministic regenerated output where the underlying seed-source
-    edits do not coordinate. The caller skips this other claim and
-    continues classification.
-    """
-    from yoke_core.domain.agents_render_path_context import (
-        read_render_source_for,
-    )
-
-    shared = _shared_target_ids(
+    """Adapt claim target ids to the shared render-overlap rule."""
+    project_id, candidate_paths, candidate_target_ids_by_path = _target_paths(
         conn,
-        candidate_target_ids=candidate_target_ids,
-        other_claim_id=other_claim_id,
+        target_ids=candidate_target_ids,
     )
-    if not shared:
+    if project_id is None:
         return False
-    seed_sources: set[str] = set()
-    for tid in shared:
-        sources = read_render_source_for(conn, target_id=tid)
-        if sources is None:
-            return False
-        seed_sources.update(sources)
-    if not seed_sources:
-        return False
-    placeholders = ",".join(_p(conn) for _ in candidate_target_ids)
-    candidate_paths = {
-        str(r[0]) for r in conn.execute(
-            f"SELECT path_string FROM path_targets WHERE id IN ({placeholders})",
-            tuple(candidate_target_ids),
-        ).fetchall()
-    }
-    other_paths = {
-        str(r[0]) for r in conn.execute(
-            "SELECT pt.path_string FROM path_claim_targets pct "
-            "JOIN path_targets pt ON pt.id=pct.target_id "
-            f"WHERE pct.claim_id={_p(conn)}",
-            (other_claim_id,),
-        ).fetchall()
-    }
-    candidate_seeds = candidate_paths & seed_sources
-    other_seeds = other_paths & seed_sources
-    return not (candidate_seeds & other_seeds)
+    rows = conn.execute(
+        "SELECT pt.path_string FROM path_claim_targets pct "
+        "JOIN path_targets pt ON pt.id=pct.target_id "
+        f"WHERE pct.claim_id={_p(conn)} AND pt.project_id={_p(conn)}",
+        (other_claim_id, project_id),
+    ).fetchall()
+    return render_target_only_overlap(
+        conn,
+        candidate_paths=candidate_paths,
+        other_paths=[str(row[0]) for row in rows],
+        project_id=project_id,
+        target_ids_by_path=candidate_target_ids_by_path,
+    )
 
 
 def _candidate_intersects(
@@ -197,9 +180,7 @@ def classify_overlap(
     expanded_targets = expand_lineage(conn, target_ids)
 
     states_to_check = (
-        _ACTIVATION_CONFLICT_STATES
-        if phase == "activate"
-        else _NON_TERMINAL_STATES
+        _ACTIVATION_CONFLICT_STATES if phase == "activate" else _NON_TERMINAL_STATES
     )
     placeholders = ",".join(_p(conn) for _ in states_to_check)
     same_target_clauses = (

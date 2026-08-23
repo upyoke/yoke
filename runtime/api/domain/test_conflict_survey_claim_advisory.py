@@ -24,6 +24,25 @@ from yoke_core.domain.path_claims_overlap_survey import (
 SHARED = "src/shared.py"
 
 
+def test_survey_yield_route_uses_survey_native_actions():
+    for required in (
+        "wait for the holding work to finish",
+        "re-run the survey",
+        "release the work claim",
+        "present the overlapping path, holder, and evidence to the operator",
+        "do not continue editing",
+    ):
+        assert required in SURVEY_ADVISORY_YIELD
+    for path_claim_remedy in (
+        "activation dependency",
+        "coordination_only",
+        "coordinate",
+        "register",
+        "widen",
+    ):
+        assert path_claim_remedy not in SURVEY_ADVISORY_YIELD
+
+
 @pytest.fixture(autouse=True)
 def _no_render_target_context(monkeypatch):
     monkeypatch.setattr(
@@ -34,7 +53,10 @@ def _no_render_target_context(monkeypatch):
 
 def _resp(function: str, result: dict) -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=True, function=function, version="v1", result=result,
+        success=True,
+        function=function,
+        version="v1",
+        result=result,
         error=None,
     )
 
@@ -124,7 +146,10 @@ def test_two_claims_on_one_file_stay_incompatible(test_db):
     insert_item(test_db, id=2291, workflow_id="issue")
     target_id = seed_target(test_db, item_id=2290, path=SHARED)
     seed_item_claim(
-        test_db, item_id=2290, target_ids=(target_id,), state="active",
+        test_db,
+        item_id=2290,
+        target_ids=(target_id,),
+        state="active",
     )
     with pytest.raises(IncompatibleOverlap, match="active claim"):
         register(
@@ -146,7 +171,10 @@ def test_incomplete_coverage_refuses_without_widening(test_db):
     )
     target_id = seed_target(test_db, item_id=2292, path="src/a.py")
     claim_id = seed_item_claim(
-        test_db, item_id=2292, target_ids=(target_id,), state="planned",
+        test_db,
+        item_id=2292,
+        target_ids=(target_id,),
+        state="planned",
     )
     with pytest.raises(ValueError, match="yoke claims path widen --claim-id"):
         ensure_survey_path_claim(
