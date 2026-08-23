@@ -84,12 +84,12 @@ jobs:
 
       # Before the tag, because the tag is the first irreversible act: a
       # release refused after it leaves a tag naming a build that never
-      # deployed. This reads the connected applied ledger, receipts, and the
-      # checked-out history, so it runs on a hosted runner that could never
-      # host the rehearsal itself.
+      # deployed. This submits candidate digests to the control plane's narrow
+      # identity verifier and reads receipts plus checked-out history, so it
+      # runs on a hosted runner that could never host the rehearsal itself.
       # Bootstrapping it is one passing fleet preflight with --record-receipt,
       # which is also the proof that the fleet is currently clean.
-      - name: Refuse a release with unsafe migration history
+      - name: Verify release migration history before tag
         env:
           PRODUCT_SHA: ${{ inputs.product_sha }}
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}

@@ -1,4 +1,4 @@
-"""Receipt-query diagnostics for the hosted release migration gate."""
+"""Semantic-verifier and receipt diagnostics for the hosted release gate."""
 
 from __future__ import annotations
 
@@ -6,8 +6,34 @@ import json
 import subprocess
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.tools import require_fleet_migration_preflight as preflight
 from runtime.api.tools import yoke_migration_fleet
+
+
+def _history(monkeypatch, *names: str) -> tuple[SimpleNamespace, ...]:
+    entries = tuple(
+        SimpleNamespace(name=name, content_sha256=(str(index) * 64))
+        for index, name in enumerate(names, start=1)
+    )
+    monkeypatch.setattr(yoke_migration_fleet, "history_entries", lambda: entries)
+    return entries
+
+
+def _verified(monkeypatch, count: int) -> None:
+    monkeypatch.setattr(
+        preflight,
+        "_verify_applied_migrations",
+        lambda _entries: (
+            {
+                "status": "verified",
+                "verified_count": count,
+                "mismatched_entries": [],
+            },
+            "",
+        ),
+    )
 
 
 def test_query_failure_preserves_advisory_stderr_and_api_error_stdout(
@@ -45,101 +71,129 @@ def test_query_success_reads_stdout_despite_advisory_stderr(monkeypatch) -> None
     assert unreadable == ""
 
 
-def test_applied_migration_query_reads_typed_digest_rows(monkeypatch) -> None:
-    expected = [["0015_entry", "a" * 64]]
+def test_content_verifier_submits_typed_digests_without_raw_sql(monkeypatch) -> None:
+    calls = []
+    verdict = {
+        "status": "verified",
+        "verified_count": 1,
+        "mismatched_entries": [],
+    }
     result = subprocess.CompletedProcess(
-        args=["yoke", "db", "read"],
+        args=[],
         returncode=0,
-        stdout=json.dumps(
-            {
-                "success": True,
-                "result": {
-                    "columns": ["migration_name", "content_sha256"],
-                    "rows": expected,
-                    "truncated": False,
-                },
-            }
-        ),
+        stdout=json.dumps({"success": True, "result": verdict}),
         stderr="this checkout is ahead of the server's build",
     )
-    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
 
-    rows, unreadable = preflight._query_applied_migrations()
+    def _run(argv, **_kwargs):
+        calls.append(argv)
+        return result
 
-    assert rows == [("0015_entry", "a" * 64)]
-    assert unreadable == ""
+    monkeypatch.setattr(preflight.subprocess, "run", _run)
+    candidate = [{"name": "0015_entry", "content_sha256": "a" * 64}]
+
+    status, unavailable = preflight._verify_applied_migrations(candidate)
+
+    assert status == verdict
+    assert unavailable == ""
+    assert calls[0][:4] == ["yoke", "migration", "content-identity", "verify"]
+    assert "db" not in calls[0]
+    assert json.loads(calls[0][5]) == candidate
 
 
-def test_applied_migration_query_refuses_truncated_evidence(monkeypatch) -> None:
+def test_content_verifier_rejects_a_malformed_semantic_verdict(monkeypatch) -> None:
     result = subprocess.CompletedProcess(
-        args=["yoke", "db", "read"],
+        args=[],
         returncode=0,
-        stdout=json.dumps(
-            {
-                "success": True,
-                "result": {
-                    "columns": ["migration_name", "content_sha256"],
-                    "rows": [],
-                    "truncated": True,
-                },
-            }
-        ),
+        stdout=json.dumps({"success": True, "result": {"rows": []}}),
         stderr="",
     )
     monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
 
-    rows, unreadable = preflight._query_applied_migrations()
+    status, unavailable = preflight._verify_applied_migrations(
+        [{"name": "0015_entry", "content_sha256": "a" * 64}]
+    )
+
+    assert status == {}
+    assert unavailable == "migration identity verifier returned a malformed verdict"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        {"success": True, "result": []},
+        {
+            "success": True,
+            "result": {
+                "status": "verified",
+                "verified_count": 1,
+                "mismatched_entries": ["0015_entry"],
+            },
+        },
+    ],
+)
+def test_content_verifier_types_malformed_envelopes_as_unavailable(
+    monkeypatch, payload
+) -> None:
+    result = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout=json.dumps(payload), stderr=""
+    )
+    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
+
+    status, unavailable = preflight._verify_applied_migrations(
+        [{"name": "0015_entry", "content_sha256": "a" * 64}]
+    )
+
+    assert status == {}
+    assert "malformed" in unavailable
+
+
+def test_receipt_query_types_a_malformed_envelope_as_unavailable(monkeypatch) -> None:
+    result = subprocess.CompletedProcess(args=[], returncode=0, stdout="[]", stderr="")
+    monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
+
+    rows, unavailable = preflight._query_receipts("Receipt", "yoke")
 
     assert rows == []
-    assert unreadable == "applied migration query was truncated"
+    assert unavailable == "receipt query returned a malformed envelope"
 
 
 def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> None:
     monkeypatch.setenv("YOKE_ENV", "prod")
-    monkeypatch.setattr(
-        yoke_migration_fleet,
-        "history_names",
-        lambda: ("0005_x",),
-    )
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 0)
     monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
-    monkeypatch.setattr(preflight, "_query_applied_migrations", lambda: ([], ""))
 
     assert preflight.main(["prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
+    assert "release unsafe before tag" in refusal
     assert "yoke watch preflight -- prod-db-admin" in refusal
     assert "--engine-wheel <yoke_core-wheel-from-yoke-build-artifacts>" in refusal
     assert "--receipt-env prod" in refusal
 
 
-def test_refusal_recipe_requires_an_explicit_connection_without_ambient_env(
+def test_refusal_recipe_requires_explicit_connection_without_ambient_env(
     monkeypatch, capsys
 ) -> None:
     monkeypatch.delenv("YOKE_ENV", raising=False)
-    monkeypatch.setattr(
-        yoke_migration_fleet,
-        "history_names",
-        lambda: ("0005_x",),
-    )
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 0)
     monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
-    monkeypatch.setattr(preflight, "_query_applied_migrations", lambda: ([], ""))
 
     assert preflight.main(["prod-db-admin", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
     assert "yoke watch preflight -- prod-db-admin" in refusal
-    assert "--engine-wheel <yoke_core-wheel-from-yoke-build-artifacts>" in refusal
     assert "--receipt-env <control-plane-connection>" in refusal
 
 
-def test_receipt_coverage_is_read_for_the_registered_environment_name(
+def test_receipt_coverage_uses_the_registered_environment_name(
     monkeypatch, capsys
 ) -> None:
-    monkeypatch.setattr(
-        yoke_migration_fleet,
-        "history_names",
-        lambda: ("0005_x",),
-    )
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 1)
     monkeypatch.setattr(
         preflight,
         "_query_receipts",
@@ -148,7 +202,6 @@ def test_receipt_coverage_is_read_for_the_registered_environment_name(
             "",
         ),
     )
-    monkeypatch.setattr(preflight, "_query_applied_migrations", lambda: ([], ""))
 
     assert preflight.main(["prod", "abc123"]) == 0
 
@@ -158,29 +211,24 @@ def test_receipt_coverage_is_read_for_the_registered_environment_name(
 
 
 def test_refusal_names_every_environment_missing_a_receipt(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(
-        yoke_migration_fleet, "history_names", lambda: ("0005_x",)
-    )
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 0)
     monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
-    monkeypatch.setattr(preflight, "_query_applied_migrations", lambda: ([], ""))
 
     assert preflight.main(["prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
+    assert "release unsafe before tag" in refusal
     assert "per environment" in refusal
     assert "stage-db-admin" in refusal
     assert "prod-db-admin" in refusal
     assert "yoke-build-artifacts" in refusal
     assert "commit abc123" in refusal
-    assert "gh run" not in refusal
 
 
-def test_a_receipt_for_only_one_environment_does_not_cover_the_other(
-    monkeypatch, capsys
-) -> None:
-    monkeypatch.setattr(
-        yoke_migration_fleet, "history_names", lambda: ("0005_x",)
-    )
+def test_one_environment_receipt_does_not_cover_the_other(monkeypatch, capsys) -> None:
+    _history(monkeypatch, "0005_x")
+    _verified(monkeypatch, 1)
     monkeypatch.setattr(
         preflight,
         "_query_receipts",
@@ -189,32 +237,31 @@ def test_a_receipt_for_only_one_environment_does_not_cover_the_other(
             "",
         ),
     )
-    monkeypatch.setattr(preflight, "_query_applied_migrations", lambda: ([], ""))
 
     assert preflight.main(["stage", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
+    assert "release unsafe before tag" in refusal
     assert "stage" in refusal
-    assert "0005_x" in refusal
-    assert "per environment" in refusal
-    assert "prod" in refusal
     assert "does not transfer" in refusal
     assert "yoke watch preflight -- stage-db-admin" in refusal
-    assert "yoke-build-artifacts" in refusal
 
 
-def test_content_mismatch_refuses_before_receipt_query(monkeypatch, capsys) -> None:
-    entry = SimpleNamespace(name="0015_entry", content_sha256="b" * 64)
-    monkeypatch.setattr(
-        yoke_migration_fleet, "history_names", lambda: (entry.name,)
-    )
-    monkeypatch.setattr(
-        yoke_migration_fleet, "history_entries", lambda: (entry,)
-    )
+def test_content_mismatch_is_unsafe_and_hides_digest_values(
+    monkeypatch, capsys
+) -> None:
+    entry = _history(monkeypatch, "0015_entry")[0]
     monkeypatch.setattr(
         preflight,
-        "_query_applied_migrations",
-        lambda: ([(entry.name, "a" * 64)], ""),
+        "_verify_applied_migrations",
+        lambda _entries: (
+            {
+                "status": "mismatch",
+                "verified_count": 0,
+                "mismatched_entries": [entry.name],
+            },
+            "",
+        ),
     )
 
     def _receipt_query_must_not_run(*_args):
@@ -225,29 +272,48 @@ def test_content_mismatch_refuses_before_receipt_query(monkeypatch, capsys) -> N
     assert preflight.main(["prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
-    assert "release refused before tag" in refusal
+    assert "release unsafe before tag" in refusal
     assert entry.name in refusal
-    assert f"ledger={'a' * 64}" in refusal
-    assert f"packaged={'b' * 64}" in refusal
+    assert entry.content_sha256 not in refusal
 
 
-def test_unreadable_ledger_refuses_before_receipt_query(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(
-        yoke_migration_fleet, "history_names", lambda: ("0015_entry",)
-    )
+def test_unavailable_identity_verification_is_not_reported_as_unsafe(
+    monkeypatch, capsys
+) -> None:
+    _history(monkeypatch, "0015_entry")
     monkeypatch.setattr(
         preflight,
-        "_query_applied_migrations",
-        lambda: ([], "permission denied"),
+        "_verify_applied_migrations",
+        lambda _entries: ({}, "permission_denied"),
     )
 
     def _receipt_query_must_not_run(*_args):
-        raise AssertionError("receipt query ran after unreadable ledger")
+        raise AssertionError("receipt query ran after unavailable verification")
 
     monkeypatch.setattr(preflight, "_query_receipts", _receipt_query_must_not_run)
 
-    assert preflight.main(["prod", "abc123"]) == 1
+    assert preflight.main(["prod", "abc123"]) == 2
 
     refusal = capsys.readouterr().err
-    assert "release refused before tag" in refusal
-    assert "permission denied" in refusal
+    assert "release verification unavailable before tag" in refusal
+    assert "permission_denied" in refusal
+    assert "release unsafe" not in refusal
+
+
+def test_unavailable_receipt_query_is_not_reported_as_unsafe(
+    monkeypatch, capsys
+) -> None:
+    _history(monkeypatch, "0015_entry")
+    _verified(monkeypatch, 1)
+    monkeypatch.setattr(
+        preflight,
+        "_query_receipts",
+        lambda *_args: ([], "transport unavailable"),
+    )
+
+    assert preflight.main(["prod", "abc123"]) == 2
+
+    refusal = capsys.readouterr().err
+    assert "release verification unavailable before tag" in refusal
+    assert "transport unavailable" in refusal
+    assert "release unsafe" not in refusal

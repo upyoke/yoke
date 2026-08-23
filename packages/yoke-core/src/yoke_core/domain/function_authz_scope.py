@@ -10,9 +10,9 @@ Every registered function is sorted by *blast radius*; the dispatch
                        and cross-project registry ops: create a project,
                        deployment flows/runs.
 * ``CONTROL_PLANE``  — checked against the universe's sole organization and
-                       requires its org admin grant. Whole-DB / whole-instance
-                       diagnostics: raw db read, doctor. Project slugs never
-                       confer control-plane authority.
+                       requires the function's explicit org-scoped permission.
+                       Whole-DB / whole-instance diagnostics: raw db read,
+                       doctor. Project slugs never confer control-plane authority.
 * ``ACTOR_SESSION``  — own-session and global learning-channel operations;
                        allowed for any authenticated actor without a tenant target.
 * ``CLIENT_LOCAL``   — machine-local work gated by machine possession.
@@ -50,6 +50,9 @@ from yoke_core.domain.function_authz_product_scopes import PRODUCT_AUTHZ_BY_ID
 from yoke_core.domain.function_authz_scope_client_local import (
     CLIENT_LOCAL_BY_ID,
 )
+from yoke_core.domain.function_authz_scope_control_plane import (
+    CONTROL_PLANE_AUTHZ_BY_ID,
+)
 from yoke_core.domain.function_authz_types import (
     ACTOR_SESSION,
     CLIENT_LOCAL,
@@ -65,11 +68,7 @@ from yoke_core.domain.yoke_function_registry import RegistryEntry
 # permission_key_for and need no entry here.
 _BY_ID: dict[str, AuthzSpec] = {
     **PRODUCT_AUTHZ_BY_ID,
-    # Control-plane: whole-DB / whole-instance, gated by yoke admin.
-    "db.read.run": AuthzSpec(CONTROL_PLANE, PERM_DB_READ_RAW),
-    # Default Doctor is control-plane; yoke_function_permissions routes the
-    # HTTPS-safe project quick subset to project read before this fallback.
-    "doctor.run.run": AuthzSpec(CONTROL_PLANE, PERM_DB_READ_RAW),
+    **CONTROL_PLANE_AUTHZ_BY_ID,
     # Actor-visible item inventory. The handlers filter rows to the actor's
     # org/project grants; local source-dev calls without a numeric actor remain
     # unfiltered.
@@ -94,10 +93,6 @@ _BY_ID: dict[str, AuthzSpec] = {
     "agents.render_relationships.record": AuthzSpec(ACTOR_SESSION, None),
     # Registering a NEW project in the org is an org-admin act.
     "projects.create": AuthzSpec(ORG, PERM_PROJECT_CREATE),
-    "projects.github_sync_mode.repair": AuthzSpec(
-        CONTROL_PLANE,
-        PERM_DB_READ_RAW,
-    ),
     # Editing an EXISTING project is scoped to that project's admin (the target
     # project resolves from the payload slug/id).
     "projects.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
