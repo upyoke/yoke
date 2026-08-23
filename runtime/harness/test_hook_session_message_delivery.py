@@ -23,8 +23,27 @@ NOW = datetime(2026, 8, 22, 20, 0, tzinfo=timezone.utc)
 class FakePort:
     acknowledged: bool = False
     body: str = "Please re-run the focused verifier."
+    read: list[tuple[str, str, int]] = field(default_factory=list)
     leased: list[tuple[str, str, int]] = field(default_factory=list)
     completed: list[tuple[str, bool, str]] = field(default_factory=list)
+
+    def read_for_hook(
+        self,
+        *,
+        session_id: str,
+        hook_event: str,
+        limit: int,
+    ) -> tuple[LeasedSessionMessage, ...]:
+        self.read.append((session_id, hook_event, limit))
+        if self.acknowledged:
+            return ()
+        return (
+            LeasedSessionMessage(
+                message_id="message-1",
+                body=self.body,
+                sender_actor_id=41,
+            ),
+        )
 
     def lease_for_hook(
         self,
@@ -161,7 +180,7 @@ def test_missing_session_fails_open_without_leasing(
         {"is_subagent_session": True, "subagent_session_id": "cursor-child"},
     ],
 )
-def test_child_hook_cannot_consume_or_hide_parent_message(
+def test_child_hook_renders_parent_receipt_without_leasing_or_completing_it(
     monkeypatch: pytest.MonkeyPatch,
     payload: dict,
 ) -> None:
@@ -169,9 +188,24 @@ def test_child_hook_cannot_consume_or_hide_parent_message(
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
 
     child = delivery.evaluate(_context(payload=payload))
+    rendered, code = render_codex_decision([child], "PreToolUse")
+    delivery.settle_after_render(
+        [child], rendered_text=rendered, denied=False, port=port
+    )
+
+    assert code == 0
+    assert child.outcome is Outcome.AUDIT_ONLY
+    assert port.read == [("session-top", "PreToolUse", 10)]
+    assert port.leased == []
+    assert port.completed == []
+    assert "message-1" in rendered
+    assert port.body in rendered
+    assert "READ-ONLY CHILD VIEW" in rendered
+    assert "harness-native parent channel" in rendered
+    assert "yoke messages acknowledge" not in rendered
+
     parent = delivery.evaluate(_context())
 
-    assert child.outcome is Outcome.NOOP
     assert port.leased == [("session-top", "PreToolUse", 10)]
     assert "message-1" in parent.audit_fields["additionalContext"]
 

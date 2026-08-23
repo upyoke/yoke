@@ -15,6 +15,7 @@ from yoke_core.domain.session_message_delivery import (
     expire_due_recipients,
     lease_for_hook,
 )
+from yoke_core.domain.session_message_observer import read_for_hook
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_turn_posture import stamp_turn_posture
@@ -106,6 +107,39 @@ def test_sibling_denial_releases_without_marking_injected() -> None:
     assert result["result_code"] == "dropped_by_sibling_denial"
     assert "Persistent instructions" not in result["evidence"]
     assert lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
+
+
+def test_child_observer_reads_an_active_parent_lease_without_mutation() -> None:
+    conn = message_connection()
+    message_id = _send(conn)
+    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
+    assert lease
+    before = tuple(
+        conn.execute(
+            "SELECT state,injection_count,injection_lease_id "
+            "FROM session_message_recipients"
+        ).fetchone()
+    )
+
+    messages = read_for_hook(
+        conn,
+        session_id="s1",
+        hook_event="PreToolUse",
+        limit=10,
+        now=NOW,
+    )
+
+    after = tuple(
+        conn.execute(
+            "SELECT state,injection_count,injection_lease_id "
+            "FROM session_message_recipients"
+        ).fetchone()
+    )
+    assert [row["message_id"] for row in messages] == [message_id]
+    assert before == after == ("pending", 0, lease["lease_id"])
+    assert (
+        conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 1
+    )
 
 
 def test_hook_lease_refuses_non_model_visible_event() -> None:
