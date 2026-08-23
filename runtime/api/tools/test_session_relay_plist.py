@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import plistlib
 import subprocess
@@ -30,6 +31,25 @@ def test_plist_runs_canonical_yoke_once_without_keepalive(tmp_path: Path) -> Non
     assert document["RunAtLoad"] is True
     assert "KeepAlive" not in document
     assert str(paths.stdout_log).startswith(str(tmp_path / ".yoke" / "relay"))
+
+
+def test_plist_preserves_only_native_cli_search_directories(tmp_path: Path) -> None:
+    paths = relay_launchd_paths(home=tmp_path, yoke_home=tmp_path / ".yoke")
+    executable = tmp_path / "bin" / "yoke"
+    vendor_bin = tmp_path / "vendor" / "bin"
+    vendor_bin.mkdir(parents=True)
+    for name in ("claude", "codex", "cursor-agent"):
+        command = vendor_bin / name
+        command.touch(mode=0o755)
+    document = relay_plist_document(
+        executable=executable,
+        paths=paths,
+        environ={"PATH": str(vendor_bin)},
+    )
+
+    search = document["EnvironmentVariables"]["PATH"].split(os.pathsep)
+    assert search[:2] == [str(executable.parent), str(vendor_bin)]
+    assert search.count(str(vendor_bin)) == 1
 
 
 def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
