@@ -3,55 +3,10 @@ import {
   el,
 } from "./universe_view_support.js";
 
-function actionError(documentNode, actions, message) {
-  let status = actions.querySelector?.(".qa-case-action-status");
-  if (!status) {
-    status = el(documentNode, "span", "qa-case-action-status");
-    actions.appendChild(status);
-  }
-  status.textContent = message;
-}
-
 function rejectedCallMessage(error, fallback) {
   if (error instanceof Error && error.message) return error.message;
   const detail = String(error ?? "").trim();
   return detail || fallback;
-}
-
-export async function rerunCase(
-  context,
-  row,
-  button,
-  reload,
-  actions,
-) {
-  button.disabled = true;
-  button.textContent = "Running…";
-  const fail = (message) => {
-    button.disabled = false;
-    button.textContent = "Rerun";
-    actionError(context.document, actions, message);
-  };
-  let result;
-  try {
-    result = await callFunction(
-      context.client,
-      "qa.case.rerun",
-      {},
-      {
-        kind: "qa_requirement",
-        qa_requirement_id: row.last_result.requirement_id,
-      },
-    );
-  } catch (error) {
-    fail(rejectedCallMessage(error, "Rerun failed."));
-    return;
-  }
-  if (!result.envelope.success) {
-    fail(result.envelope?.error?.message || "Rerun failed.");
-    return;
-  }
-  reload();
 }
 
 export function waiverDialog(context, row, reload) {

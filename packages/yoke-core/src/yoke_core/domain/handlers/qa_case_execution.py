@@ -4,15 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from yoke_contracts.api.function_call import (
-    ActorContext,
     FunctionCallRequest,
-    FunctionCallResponse,
     FunctionError,
     HandlerOutcome,
-    TargetRef,
 )
 
 
@@ -22,32 +19,6 @@ class CaseExecutionBeginRequest(BaseModel):
 
 class CaseExecutionBeginResponse(BaseModel):
     case: Dict[str, Any]
-
-
-class CaseRerunRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    base_url: str = ""
-    expected_branch: Optional[str] = None
-    expected_sha: Optional[str] = None
-    timeout_seconds: Optional[int] = Field(default=None, ge=1, le=7200)
-
-    @model_validator(mode="after")
-    def _freshness_pair(self) -> "CaseRerunRequest":
-        if bool(self.expected_branch) != bool(self.expected_sha):
-            raise ValueError(
-                "expected_branch and expected_sha must be provided together"
-            )
-        return self
-
-
-class CaseRerunResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    requirement_id: int
-    runner_id: str
-    verdict: Optional[str] = None
-    case_outcome: Optional[str] = None
 
 
 class CaseWaiveRequest(BaseModel):
@@ -85,62 +56,13 @@ def _requirement_id(
 
 
 def _handler_for(function_id: str):
-    from yoke_core.domain.handlers import (
-        qa_artifact_presign,
-        qa_browser,
-        qa_browser_writes,
-        qa_requirement_waive,
-        machine_qa_case,
-    )
+    from yoke_core.domain.handlers import qa_requirement_waive
 
     return {
-        "qa.case_execution.begin": handle_case_execution_begin,
-        "qa.browser_context.get": qa_browser.handle_qa_browser_context_get,
-        "qa.run.add": qa_browser_writes.handle_qa_run_add,
-        "qa.run.complete": qa_browser_writes.handle_qa_run_complete,
-        "qa.artifact.add": qa_browser_writes.handle_qa_artifact_add,
-        "qa.artifact.presign": (qa_artifact_presign.handle_qa_artifact_presign),
-        "qa.requirement.waive": (qa_requirement_waive.handle_qa_requirement_waive),
-        "test_machine.case_execute": machine_qa_case.handle_case_execute,
+        "qa.requirement.waive": (
+            qa_requirement_waive.handle_qa_requirement_waive
+        ),
     }.get(function_id)
-
-
-def _composed_call(
-    parent: FunctionCallRequest,
-    function_id: str,
-    target: TargetRef,
-    payload: dict[str, Any],
-    actor: Optional[ActorContext],
-) -> FunctionCallResponse:
-    """Invoke one target-bound internal leg after parent authorization."""
-    handler = _handler_for(function_id)
-    if handler is None:
-        return FunctionCallResponse(
-            success=False,
-            function=function_id,
-            version="v1",
-            error=FunctionError(
-                code="composition_invalid",
-                message=f"{function_id} is not a composed QA operation",
-            ),
-        )
-    nested = FunctionCallRequest(
-        function=function_id,
-        actor=actor or parent.actor,
-        target=target,
-        payload=payload,
-        intent=f"composed by {parent.function}",
-    )
-    outcome = handler(nested)
-    return FunctionCallResponse(
-        success=outcome.primary_success and outcome.error is None,
-        function=function_id,
-        version="v1",
-        result=dict(outcome.result_payload),
-        warnings=list(outcome.warnings),
-        error=outcome.error,
-        event_ids=list(outcome.handler_event_ids),
-    )
 
 
 def handle_case_execution_begin(
@@ -194,41 +116,6 @@ def handle_case_execution_begin(
     )
 
 
-def handle_case_rerun(request: FunctionCallRequest) -> HandlerOutcome:
-    requirement_id, invalid = _requirement_id(
-        request,
-        function_id="qa.case.rerun",
-    )
-    if invalid is not None:
-        return invalid
-    try:
-        body = CaseRerunRequest.model_validate(request.payload or {})
-    except Exception as exc:
-        return _error("payload_invalid", str(exc), "$.payload")
-
-    from functools import partial
-
-    from yoke_core.domain.qa_case_execution import (
-        QaCaseExecutionError,
-        execute_case,
-    )
-    from yoke_core.domain.qa_composed_dispatch import composed_qa_dispatch
-
-    try:
-        with composed_qa_dispatch(partial(_composed_call, request)):
-            result = execute_case(
-                int(requirement_id),
-                base_url=body.base_url,
-                expected_branch=body.expected_branch,
-                expected_sha=body.expected_sha,
-                timeout_seconds=body.timeout_seconds,
-                actor=request.actor,
-            )
-    except (QaCaseExecutionError, RuntimeError, ValueError, OSError) as exc:
-        return _error("case_rerun_failed", str(exc), "$.target")
-    return HandlerOutcome(primary_success=True, result_payload=result)
-
-
 def handle_case_waive(request: FunctionCallRequest) -> HandlerOutcome:
     requirement_id, invalid = _requirement_id(
         request,
@@ -258,11 +145,8 @@ def handle_case_waive(request: FunctionCallRequest) -> HandlerOutcome:
 __all__ = [
     "CaseExecutionBeginRequest",
     "CaseExecutionBeginResponse",
-    "CaseRerunRequest",
-    "CaseRerunResponse",
     "CaseWaiveRequest",
     "CaseWaiveResponse",
     "handle_case_execution_begin",
-    "handle_case_rerun",
     "handle_case_waive",
 ]

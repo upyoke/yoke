@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  rerunCase,
   waiverDialog,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_plan_actions.js";
 import {
@@ -29,33 +28,6 @@ function rejectedContext(message) {
     },
   };
 }
-
-test("a rejected case rerun becomes retryable and states the failure", async () => {
-  const prepared = rejectedContext("QA service is unreachable.");
-  const actions = prepared.documentNode.createElement("div");
-  const button = prepared.documentNode.createElement("button");
-  button.textContent = "Rerun";
-  actions.appendChild(button);
-  let reloads = 0;
-
-  await rerunCase(
-    prepared.value,
-    { last_result: { requirement_id: 31 } },
-    button,
-    () => { reloads += 1; },
-    actions,
-  );
-
-  assert.equal(button.disabled, false);
-  assert.equal(button.textContent, "Rerun");
-  assert.equal(reloads, 0);
-  assert.deepEqual(
-    byClass(actions, "qa-case-action-status").map(
-      (node) => node.textContent,
-    ),
-    ["QA service is unreachable."],
-  );
-});
 
 test("a rejected waiver keeps its rationale and restores confirmation", async () => {
   const prepared = rejectedContext("Waiver service is unreachable.");

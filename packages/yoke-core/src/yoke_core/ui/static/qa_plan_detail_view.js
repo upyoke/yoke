@@ -18,7 +18,6 @@ import { reviewExplanation } from "./qa_review_explanation.js";
 import { renderEvidence } from "./qa_view_evidence.js";
 import { failureOutputNode } from "./qa_case_output_view.js";
 import {
-  rerunCase,
   waiverDialog,
 } from "./qa_plan_actions.js";
 import {
@@ -148,30 +147,19 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
       if (failureOutput) outcome.appendChild(failureOutput);
       tr.appendChild(outcome);
       const actions = el(documentNode, "td", "qa-case-actions");
-      const actionable = ![
-        "not_run", "queued", "running", "waiting",
-      ].includes(row.last_result.outcome);
       if (
         row.last_result.requirement_id
         && row.last_result.run_id
-        && actionable
+        && row.last_result.outcome === "needs_review"
       ) {
         const actionRow = { ...row, case_key: proofLabel(row) };
-        const rerun = el(documentNode, "button", "btn", "Rerun");
-        rerun.type = "button";
-        rerun.addEventListener("click", () => rerunCase(
-          context, actionRow, rerun, reload, actions,
-        ));
-        actions.appendChild(rerun);
-        if (row.last_result.outcome === "needs_review") {
-          const waive = el(documentNode, "button", "btn", "Waive");
-          waive.type = "button";
-          waive.addEventListener("click", () => {
-            const dialog = waiverDialog(context, actionRow, reload);
-            overlayHost.appendChild(dialog);
-          });
-          actions.appendChild(waive);
-        }
+        const waive = el(documentNode, "button", "btn", "Waive");
+        waive.type = "button";
+        waive.addEventListener("click", () => {
+          const dialog = waiverDialog(context, actionRow, reload);
+          overlayHost.appendChild(dialog);
+        });
+        actions.appendChild(waive);
       } else {
         actions.textContent = "—";
       }
@@ -198,8 +186,8 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
   footer.appendChild(el(
     documentNode, "span", null,
     `${counts || "no runs yet"} — ${waitSubject} waits until every case ` +
-      "passes or is explicitly waived. Rerun and waive are per-case engine " +
-      "actions on the materialized requirement, authority-checked at resolve.",
+      "passes or is explicitly waived. Waive is a per-case engine action " +
+      "on the materialized requirement, authority-checked at resolve.",
   ));
   result.body.appendChild(footer);
   const manage = el(documentNode, "div", "qa-panel-note");

@@ -271,43 +271,6 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
     )
 
 
-def test_doorman_rerun_composes_case_writes_without_a_harness_claim(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
-    with test_database() as conn:
-        requirement_id = _materialized_command_requirement(conn)
-        with mock.patch.object(
-            qa_case_execution,
-            "_execution_checkout",
-            return_value=tmp_path,
-        ):
-            outcome = case_handlers.handle_case_rerun(
-                _case_request(
-                    "qa.case.rerun",
-                    requirement_id,
-                    {},
-                )
-            )
-        run = conn.execute(
-            "SELECT performed_by, verdict, case_outcome "
-            "FROM qa_runs WHERE qa_requirement_id = %s",
-            (requirement_id,),
-        ).fetchone()
-        artifact_count = conn.execute(
-            "SELECT COUNT(*) FROM qa_artifacts a "
-            "JOIN qa_runs r ON r.id = a.qa_run_id "
-            "WHERE r.qa_requirement_id = %s",
-            (requirement_id,),
-        ).fetchone()[0]
-
-    assert outcome.primary_success is True
-    assert outcome.result_payload["verdict"] == "pass"
-    assert tuple(run) == ("worktree_run", "pass", "passed")
-    assert int(artifact_count) == 1
-
-
 def test_doorman_waive_records_operator_rationale_without_a_harness_claim() -> None:
     with test_database() as conn:
         requirement_id = _materialized_command_requirement(conn)

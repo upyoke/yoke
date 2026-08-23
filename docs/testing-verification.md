@@ -73,7 +73,7 @@ the whole plan is considered snapshotted for that item; newly authored cases
 do not leak into that item on a later materialization call. Empty plans cannot
 be attached or materialized. v1 accepts only the `all-pass` policy, including
 case-level overrides, and project-local methods can only be used by plans in
-that same project. Case rerun and waiver stay case-scoped, and the transition
+that same project. Case waiver stays case-scoped, and the transition
 consumes the union of all materialized outcomes.
 
 If a plan definition needs correction after it has materialized, replace the

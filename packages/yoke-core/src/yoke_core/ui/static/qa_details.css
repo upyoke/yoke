@@ -191,7 +191,6 @@
   color: white;
 }
 
-.qa-case-action-status,
 .qa-action-error {
   color: var(--yoke-crit);
   font-size: 11px;

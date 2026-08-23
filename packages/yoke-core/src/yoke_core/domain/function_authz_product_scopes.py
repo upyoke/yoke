@@ -104,7 +104,6 @@ PRODUCT_AUTHZ_BY_ID = {
     "workflow.execution_instruction.delete": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflow.execution_instruction.resolve": AuthzSpec(ACTOR_SESSION, None),
     "workflow.execution_instruction.list": AuthzSpec(ACTOR_SESSION, None),
-    "qa.case.rerun": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

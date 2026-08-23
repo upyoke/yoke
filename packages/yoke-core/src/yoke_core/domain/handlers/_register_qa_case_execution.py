@@ -124,34 +124,6 @@ def register(registry) -> None:
         ambient_session_required=True,
     )
     registry.register(
-        "qa.case.rerun",
-        _case.handle_case_rerun,
-        _case.CaseRerunRequest,
-        _case.CaseRerunResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.qa_case_execution",
-        target_kinds=["qa_requirement"],
-        side_effects=[
-            "qa_case_execution",
-            "qa_run_write",
-            "qa_artifact_write",
-        ],
-        emitted_event_names=[
-            "YokeFunctionCalled",
-            "QARunStarted",
-            "QARunCaptured",
-            "QARunCompleted",
-        ],
-        guardrails=[
-            "project_permission",
-            "materialized_case_reread",
-            "registered_runner",
-        ],
-        adapter_status="internal",
-        claim_required_kind=None,
-        ambient_session_required=False,
-    )
-    registry.register(
         "qa.case.waive",
         _case.handle_case_waive,
         _case.CaseWaiveRequest,
