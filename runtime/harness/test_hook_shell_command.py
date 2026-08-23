@@ -10,7 +10,9 @@ from yoke_harness.hooks.shell_command import hook_shell_command
 
 
 def test_hook_shell_avoids_startup_files_and_sets_launcher_path(tmp_path: Path) -> None:
-    launcher = tmp_path / "yoke"
+    launcher_bin = tmp_path / "launcher-bin"
+    launcher_bin.mkdir()
+    launcher = launcher_bin / "yoke"
     launcher.write_text("#!/bin/sh\nprintf '%s' \"$1\"\n", encoding="utf-8")
     launcher.chmod(0o755)
     command = hook_shell_command("yoke hook-ok")
@@ -23,7 +25,11 @@ def test_hook_shell_avoids_startup_files_and_sets_launcher_path(tmp_path: Path) 
     assert "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" in command
     completed = subprocess.run(
         argv,
-        env={"HOME": str(tmp_path), "XDG_BIN_HOME": str(tmp_path), "PATH": "/bin"},
+        env={
+            "HOME": str(tmp_path),
+            "XDG_BIN_HOME": str(launcher_bin),
+            "PATH": "/bin",
+        },
         capture_output=True,
         text=True,
         check=False,
