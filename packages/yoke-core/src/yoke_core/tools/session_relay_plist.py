@@ -19,7 +19,12 @@ from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
 
 RELAY_LAUNCHD_LABEL = "com.upyoke.relay"
 RELAY_PLIST_NAME = f"{RELAY_LAUNCHD_LABEL}.plist"
-RELAY_START_INTERVAL_SECONDS = int(FLEET_KEY_SPECS["fleet.relay_poll_seconds"].default)
+_RELAY_POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
+# launchd must wake frequently enough to honor every valid server cadence. The
+# relay's disk-backed due time still prevents calls before the server asks.
+RELAY_START_INTERVAL_SECONDS = int(
+    _RELAY_POLL_POLICY.minimum or _RELAY_POLL_POLICY.default
+)
 _RELAY_CLI_EXECUTABLES = ("claude", "codex", "cursor-agent")
 
 

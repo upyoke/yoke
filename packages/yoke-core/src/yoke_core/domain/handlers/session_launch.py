@@ -135,6 +135,13 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
             project_id=project_id,
             surface=parsed.executor_surface,
             machine_id=parsed.machine_id,
+            allow_surface_fallback=parsed.allow_surface_fallback,
+            surface_fallback_enabled=bool(
+                _fleet_policy(conn, project_id, "fleet.surface_fallback")
+            ),
+            auto_select_machine=bool(
+                _fleet_policy(conn, project_id, "fleet.auto_select_machine")
+            ),
         )
         return HandlerOutcome(result_payload=preview.to_dict())
     except Exception as exc:
@@ -171,6 +178,12 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                 deadline_seconds=deadline_seconds,
             ),
             max_body_bytes=max_body_bytes,
+            surface_fallback_enabled=bool(
+                _fleet_policy(conn, project_id, "fleet.surface_fallback")
+            ),
+            auto_select_machine=bool(
+                _fleet_policy(conn, project_id, "fleet.auto_select_machine")
+            ),
         )
         return HandlerOutcome(
             result_payload={
@@ -265,6 +278,20 @@ def _mutate(request: FunctionCallRequest, model: Any, operation: str) -> Handler
                     )
                 )
                 * 60,
+                surface_fallback_enabled=bool(
+                    _fleet_policy(
+                        conn,
+                        launch_record.project_id,
+                        "fleet.surface_fallback",
+                    )
+                ),
+                auto_select_machine=bool(
+                    _fleet_policy(
+                        conn,
+                        launch_record.project_id,
+                        "fleet.auto_select_machine",
+                    )
+                ),
             )
         else:
             from yoke_core.domain.session_launch_execution import reconcile_launch

@@ -63,7 +63,7 @@ def _candidate_launch_id(
         "WHERE l.state='assigned' "
         f"AND l.assigned_relay_id={p} AND l.assigned_machine_id={p} "
         f"AND l.deadline_at>{p} AND l.project_id IN ({project_slots}) "
-        f"AND l.requested_surface IN ({surface_slots}) "
+        f"AND l.selected_surface IN ({surface_slots}) "
         "ORDER BY l.created_at,l.launch_id LIMIT 1" + _lock(conn, "l"),
         (
             heartbeat.relay_id,
@@ -112,8 +112,8 @@ def claim_launch_job(
         job_id=claim.launch.launch_id,
         lease_id=claim.lease_id,
         machine_id=heartbeat.machine_id,
-        surface=claim.launch.requested_surface,
-        surface_version=str(heartbeat.surface_versions[claim.launch.requested_surface]),
+        surface=claim.launch.selected_surface,
+        surface_version=str(heartbeat.surface_versions[claim.launch.selected_surface]),
         project_id=claim.launch.project_id,
         native_instruction=claim.bootstrap_prompt,
         message_id=claim.launch.message_id,

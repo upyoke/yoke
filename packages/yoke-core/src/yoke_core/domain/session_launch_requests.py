@@ -6,6 +6,8 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_surface_selection import preview_launch
+from yoke_core.domain.session_launch_validation import validate_launch_request
 from yoke_core.domain.session_launch_store import (
     add_seconds,
     begin_mutation,
@@ -30,47 +32,8 @@ from yoke_core.domain.session_launch_types import (
     LaunchRequest,
     MAX_LAUNCH_DEADLINE_SECONDS,
     SessionLaunchError,
-    choose_relay,
     ensure_operator,
 )
-
-
-def _validate_request(request: LaunchRequest, *, max_body_bytes: int) -> None:
-    if not request.executor_surface.strip():
-        raise SessionLaunchError("payload_invalid", "executor surface is required")
-    if not request.instructions.strip():
-        raise SessionLaunchError("payload_invalid", "instructions must be non-empty")
-    if len(request.instructions.encode("utf-8")) > max_body_bytes:
-        raise SessionLaunchError("body_too_large", "instructions exceed the body limit")
-    if not request.idempotency_key.strip():
-        raise SessionLaunchError("payload_invalid", "idempotency key is required")
-    if not 60 <= request.deadline_seconds <= MAX_LAUNCH_DEADLINE_SECONDS:
-        raise SessionLaunchError(
-            "deadline_invalid",
-            f"deadline must be between 60 and {MAX_LAUNCH_DEADLINE_SECONDS} seconds",
-        )
-
-
-def preview_launch(
-    conn: Any,
-    *,
-    auth: LaunchAuthorization,
-    project_id: int,
-    surface: str,
-    machine_id: str | None = None,
-    now: str | None = None,
-    eligibility: LaunchEligibilityPort = derive_launch_eligibility,
-) -> LaunchPreview:
-    ensure_operator(auth)
-    current = now or utc_now()
-    snapshot = eligibility(
-        conn,
-        project_id=project_id,
-        surface=surface,
-        machine_id=machine_id,
-        now=current,
-    )
-    return choose_relay(snapshot, surface=surface, machine_id=machine_id)
 
 
 def _same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> bool:
@@ -120,7 +83,7 @@ def _insert_launch(
     p = marker(conn)
     columns = (
         "launch_id, requester_actor_id, requester_session_id, project_id, "
-        "requested_surface, requested_machine_id, requested_model, "
+        "requested_surface, selected_surface, requested_machine_id, requested_model, "
         "presentation_preference, allow_surface_fallback, message_id, "
         "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
         "deadline_at, created_at, assigned_at"
@@ -131,6 +94,7 @@ def _insert_launch(
         auth.session_id,
         request.project_id,
         request.executor_surface,
+        relay.surface,
         request.machine_id,
         request.model,
         request.presentation,
@@ -159,12 +123,14 @@ def create_launch(
     auth: LaunchAuthorization,
     request: LaunchRequest,
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
+    surface_fallback_enabled: bool = False,
+    auto_select_machine: bool = False,
     now: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchCreateOutcome:
     """Persist one instruction message and an assigned launch atomically."""
     ensure_operator(auth)
-    _validate_request(request, max_body_bytes=max_body_bytes)
+    validate_launch_request(request, max_body_bytes=max_body_bytes)
     current = now or utc_now()
     begin_mutation(conn)
     try:
@@ -175,12 +141,18 @@ def create_launch(
             project_id=request.project_id,
             surface=request.executor_surface,
             machine_id=request.machine_id,
+            allow_surface_fallback=request.allow_surface_fallback,
+            surface_fallback_enabled=surface_fallback_enabled,
+            auto_select_machine=auto_select_machine,
             now=current,
             eligibility=eligibility,
         )
         if existing is not None:
             outcome = _deduplicated(
-                conn, existing=existing, request=request, preview=preview,
+                conn,
+                existing=existing,
+                request=request,
+                preview=preview,
             )
             conn.commit()
             return outcome
@@ -217,12 +189,17 @@ def create_launch(
         if not inserted:
             delete_message(conn, message_id)
             existing = get_launch_by_dedupe(
-                conn, auth.actor_id, request.idempotency_key,
+                conn,
+                auth.actor_id,
+                request.idempotency_key,
             )
             if existing is None:
                 raise SessionLaunchError("create_conflict", "launch insert conflicted")
             outcome = _deduplicated(
-                conn, existing=existing, request=request, preview=preview,
+                conn,
+                existing=existing,
+                request=request,
+                preview=preview,
             )
             conn.commit()
             return outcome
@@ -245,20 +222,27 @@ def cancel_launch(
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
-        if auth.actor_id != launch.requester_actor_id and not auth.can_administer_project:
+        if (
+            auth.actor_id != launch.requester_actor_id
+            and not auth.can_administer_project
+        ):
             raise SessionLaunchError(
-                "permission_denied", "only the requester or project admin may cancel",
+                "permission_denied",
+                "only the requester or project admin may cancel",
             )
         if launch.state == "cancelled":
             conn.commit()
             return launch
         if launch.state == "succeeded":
-            raise SessionLaunchError("invalid_state", "a succeeded launch cannot be cancelled")
+            raise SessionLaunchError(
+                "invalid_state", "a succeeded launch cannot be cancelled"
+            )
         if launch.state in {"launching", "outcome_unknown"}:
             result = update_launch(
                 conn,
                 launch_id,
-                delivery_changed_at=current, state="outcome_unknown",
+                delivery_changed_at=current,
+                state="outcome_unknown",
                 result_code="cancellation_requires_reconciliation",
             )
         else:
@@ -286,6 +270,8 @@ def retry_launch(
     launch_id: str,
     auth: LaunchAuthorization,
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS,
+    surface_fallback_enabled: bool = False,
+    auto_select_machine: bool = False,
     now: str | None = None,
     eligibility: LaunchEligibilityPort = derive_launch_eligibility,
 ) -> LaunchRecord:
@@ -298,11 +284,13 @@ def retry_launch(
         launch = get_launch(conn, launch_id, for_update=True)
         if launch.state == "outcome_unknown" or launch.native_session_id:
             raise SessionLaunchError(
-                "reconcile_required", "reconcile possible native creation before retry",
+                "reconcile_required",
+                "reconcile possible native creation before retry",
             )
         if launch.state not in {"failed", "expired"}:
             raise SessionLaunchError(
-                "invalid_state", f"launch in state {launch.state!r} cannot be retried",
+                "invalid_state",
+                f"launch in state {launch.state!r} cannot be retried",
             )
         preview = preview_launch(
             conn,
@@ -310,6 +298,9 @@ def retry_launch(
             project_id=launch.project_id,
             surface=launch.requested_surface,
             machine_id=launch.requested_machine_id,
+            allow_surface_fallback=launch.allow_surface_fallback,
+            surface_fallback_enabled=surface_fallback_enabled,
+            auto_select_machine=auto_select_machine,
             now=current,
             eligibility=eligibility,
         )
@@ -321,6 +312,7 @@ def retry_launch(
             conn,
             launch_id,
             state="assigned",
+            selected_surface=relay.surface,
             assigned_relay_id=relay.relay_id,
             assigned_machine_id=relay.machine_id,
             native_session_id=None,

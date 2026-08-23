@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -101,3 +103,80 @@ def test_retry_mutation_settles_deadline_before_applying_retry(monkeypatch) -> N
     assert retried.primary_success, retried.error
     assert retried.result_payload["launch"]["state"] == "assigned"
     assert get_launch(conn, launch.launch_id).deadline_at == "2026-08-22T12:21:00Z"
+
+
+def test_create_reads_the_organization_surface_fallback_gate(monkeypatch) -> None:
+    conn = launch_connection()
+    conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
+    conn.execute(
+        "CREATE TABLE organizations (id INTEGER PRIMARY KEY,settings TEXT NOT NULL)"
+    )
+    conn.execute("INSERT INTO organizations VALUES (1,'{}')")
+    conn.commit()
+    add_relay(
+        conn,
+        surface="codex-cli",
+        connected_until="2026-08-24T12:00:00Z",
+    )
+    _wire_handler(monkeypatch, conn)
+    payload = {
+        "project": "launch-project",
+        "executor_surface": "codex-vscode",
+        "instructions": "Use an explicitly selected same-family surface.",
+        "idempotency_key": "policy-off",
+        "allow_surface_fallback": True,
+    }
+
+    disabled = handlers.handle_launch_create(_request("session.launch.create", payload))
+    conn.execute(
+        "UPDATE organizations SET settings=? WHERE id=1",
+        (json.dumps({"fleet": {"surface_fallback": True}}),),
+    )
+    conn.commit()
+    enabled = handlers.handle_launch_create(
+        _request(
+            "session.launch.create",
+            {**payload, "idempotency_key": "policy-on"},
+        )
+    )
+
+    assert disabled.primary_success is False
+    assert disabled.error and disabled.error.code == "surface_fallback_disabled"
+    assert enabled.primary_success is True
+    assert enabled.result_payload["launch"]["requested_surface"] == "codex-vscode"
+    assert enabled.result_payload["launch"]["selected_surface"] == "codex-cli"
+
+
+def test_preview_reads_the_organization_machine_auto_selection_gate(
+    monkeypatch,
+) -> None:
+    conn = launch_connection()
+    add_relay(
+        conn,
+        relay_id="relay-b",
+        machine_id="machine-b",
+        connected_until="2026-08-24T12:00:00Z",
+    )
+    add_relay(
+        conn,
+        relay_id="relay-a",
+        machine_id="machine-a",
+        connected_until="2026-08-24T12:00:00Z",
+    )
+    _wire_handler(monkeypatch, conn)
+    monkeypatch.setattr(
+        handlers,
+        "_fleet_policy",
+        lambda _conn, _project_id, key: key == "fleet.auto_select_machine",
+    )
+
+    result = handlers.handle_launch_preview(
+        _request(
+            "session.launch.preview",
+            {"project": "launch-project", "executor_surface": "codex-cli"},
+        )
+    )
+
+    assert result.primary_success is True
+    assert result.result_payload["outcome"] == "assigned"
+    assert result.result_payload["selected_relay"]["machine_id"] == "machine-a"

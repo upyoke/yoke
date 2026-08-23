@@ -137,6 +137,7 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
         "state": "outcome_unknown",
         "result_code": "native_create_timed_out",
         "requested_surface": "codex-desktop",
+        "selected_surface": "codex-cli",
         "requested_machine_id": FULL_MACHINE_ID,
         "assigned_machine_id": None,
         "requested_model": "gpt-5.6",
@@ -157,6 +158,8 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     assert rendered_list.splitlines()[0] == "LAUNCHES"
     assert "STATE / RESULT" in rendered_list
     assert "CREATED (UTC)" in rendered_list
+    assert "REQUESTED" in rendered_list
+    assert "SELECTED" in rendered_list
     assert FULL_LAUNCH_ID in rendered_list
     assert FULL_MACHINE_ID in rendered_list
     assert "outcome unknown (native cre" in rendered_list
@@ -171,7 +174,9 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     rendered_get = get_output.getvalue()
     assert rendered_get.splitlines()[0] == "LAUNCH"
     assert "State / result" in rendered_get
-    assert "Surface fallback" in rendered_get
+    assert "Fallback allowed" in rendered_get
+    assert "Fallback used" in rendered_get
+    assert "Selected surface" in rendered_get
     assert "no" in rendered_get
     assert "Deadline (UTC)" in rendered_get
 

@@ -90,9 +90,19 @@ def test_preview_requires_machine_when_multiple_eligible_machines_exist() -> Non
         machine_id="m2",
         now=NOW,
     )
+    auto_selected = preview_launch(
+        conn,
+        auth=authorization(),
+        project_id=10,
+        surface="codex-cli",
+        auto_select_machine=True,
+        now=NOW,
+    )
 
     assert ambiguous.outcome == "machine_required"
     assert selected.selected_relay and selected.selected_relay.relay_id == "r2"
+    assert auto_selected.selected_relay
+    assert auto_selected.selected_relay.relay_id == "r1"
 
 
 def test_preview_refuses_unsupported_create_surface() -> None:
