@@ -78,7 +78,7 @@ class TestRegistrationShape:
             "test_machine.settings_replace", "test_machine.verify",
             "decision_requests.resolve",
             "notifications.read", "notifications.read_all",
-            "qa.case.rerun", "qa.case.waive",
+            "qa.case.waive",
             "items.create",
             "sessions.reclaim_stale",
             "strategy.revision.restore",

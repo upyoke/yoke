@@ -82,7 +82,7 @@ test("plan detail uses transition ids and carries the per-case authority copy", 
   assert.doesNotMatch(text, /Mutable Release Name|Mutable Review Name/);
   assert.match(
     text,
-    /Rerun and waive are per-case engine actions on the materialized requirement, authority-checked at resolve\./,
+    /Waive is a per-case engine action on the materialized requirement, authority-checked at resolve\./,
   );
   assert.match(text, /failure output/);
   assert.match(text, /AssertionError: checkout confirmation was absent/);

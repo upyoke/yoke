@@ -19,7 +19,6 @@ from yoke_core.domain.browser_qa_steps import (
     _record_artifact,
     _record_run,
 )
-from yoke_core.domain.qa_composed_dispatch import composed_qa_dispatch
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallResponse,
@@ -252,40 +251,4 @@ class TestWriteSeam:
             )
             _record_run(10, "plan_case", actor=actor)
 
-        assert [call["actor"] for call in calls] == [actor, actor]
-
-    def test_context_and_writes_use_scoped_composed_dispatch(self) -> None:
-        calls: List[Dict[str, Any]] = []
-        actor = ActorContext(actor_id="17", session_id="session-17")
-
-        def _composed(function_id, target, payload, nested_actor):
-            calls.append({
-                "function_id": function_id,
-                "target": target,
-                "payload": payload,
-                "actor": nested_actor,
-            })
-            if function_id == "qa.browser_context.get":
-                return _ok({"item_id": 42, "requirements": []})
-            return _ok({"qa_run_id": 77})
-
-        with (
-            mock.patch(
-                "yoke_core.api.service_client_structured_api_adapter."
-                "call_dispatcher",
-                side_effect=AssertionError(
-                    "normal dispatcher should not run inside composition"
-                ),
-            ),
-            composed_qa_dispatch(_composed),
-        ):
-            browser_qa._fetch_browser_context(
-                42, "externalwebapp", 10, actor=actor,
-            )
-            _record_run(10, "plan_case", actor=actor)
-
-        assert [call["function_id"] for call in calls] == [
-            "qa.browser_context.get",
-            "qa.run.add",
-        ]
         assert [call["actor"] for call in calls] == [actor, actor]

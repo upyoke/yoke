@@ -111,7 +111,6 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "decision_requests.resolve",
     "notifications.read",
     "notifications.read_all",
-    "qa.case.rerun",
     "qa.case.waive",
     "items.create",
     "sessions.reclaim_stale",

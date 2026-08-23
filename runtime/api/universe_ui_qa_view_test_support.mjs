@@ -177,14 +177,6 @@ function qaClient() {
           content_base64: "ZnVsbCBvdXRwdXQ=",
         });
       }
-      if (request.function === "qa.case.rerun") {
-        return ok({
-          requirement_id: request.target.qa_requirement_id,
-          runner_id: "worktree_run",
-          verdict: "pass",
-          case_outcome: "passed",
-        });
-      }
       if (request.function === "qa.case.waive") {
         return ok({
           requirement_id: request.target.qa_requirement_id,

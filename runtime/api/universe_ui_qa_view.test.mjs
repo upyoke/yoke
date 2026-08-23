@@ -162,7 +162,7 @@ test("Plans renders the durable objects and the full case-detail composition", a
   assert.doesNotMatch(detailText, /Review gate|Implementation review/);
   assert.match(
     detailText,
-    /Rerun and waive are per-case engine actions on the materialized requirement, authority-checked at resolve\./,
+    /Waive is a per-case engine action on the materialized requirement, authority-checked at resolve\./,
   );
   assert.equal(byClass(root, "tab-bar").length, 0);
   assert.equal(byClass(root, "qa-detail-page-head").length, 1);
@@ -178,6 +178,22 @@ test("Plans renders the durable objects and the full case-detail composition", a
   assert.match(detailText, /Evidence by case/);
   assert.match(detailText, /output.txt/);
   assert.equal(byClass(root, "qa-case-actions")[2].textContent, "—");
+  const passedRow = allNodes(root).find((node) =>
+    node.tagName === "TR"
+    && allNodes(node).some(
+      (child) => child.textContent === "backend-suite",
+    )
+  );
+  assert.equal(
+    byClass(passedRow, "qa-case-actions")[0].textContent,
+    "—",
+  );
+  assert.equal(
+    allNodes(root).some(
+      (node) => node.tagName === "BUTTON" && node.textContent === "Rerun",
+    ),
+    false,
+  );
   assert.match(
     detailText,
     /yoke qa plan edit release-readiness/,
@@ -213,19 +229,6 @@ test("Plans renders the durable objects and the full case-detail composition", a
   );
 
   allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Rerun",
-  ).dispatchEvent(new Event("click"));
-  await settle();
-  assert.deepEqual(
-    client.requests.find((request) => request.function === "qa.case.rerun"),
-    {
-      function: "qa.case.rerun",
-      payload: {},
-      target: { kind: "qa_requirement", qa_requirement_id: 31 },
-    },
-  );
-
-  allNodes(root).find(
     (node) => node.tagName === "BUTTON" && node.textContent === "Waive",
   ).dispatchEvent(new Event("click"));
   const rationale = byClass(root, "qa-waiver-rationale")[0];
@@ -243,25 +246,6 @@ test("Plans renders the durable objects and the full case-detail composition", a
     },
   );
   assert.equal(byClass(root, "qa-action-overlay").length, 0);
-
-  const freshRow = allNodes(root).find((node) =>
-    node.tagName === "TR"
-    && allNodes(node).some((child) => child.textContent === " @fresh-host")
-  );
-  allNodes(freshRow).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Rerun",
-  ).dispatchEvent(new Event("click"));
-  await settle();
-  assert.deepEqual(
-    client.requests.filter(
-      (request) => request.function === "qa.case.rerun",
-    ).at(-1),
-    {
-      function: "qa.case.rerun",
-      payload: {},
-      target: { kind: "qa_requirement", qa_requirement_id: 34 },
-    },
-  );
 
   const shellRow = allNodes(root).find((node) =>
     node.tagName === "TR"
