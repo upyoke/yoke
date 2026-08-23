@@ -1,10 +1,10 @@
 """Collect machine-side harness evidence from the local filesystem.
 
-Presence only. Codex approval is "any hooks.state entry keyed to this
-checkout's literal ``.codex/hooks.json`` path" — no hashing, and the
-path is not symlink-resolved. Cursor glue is the user-level
-``~/.cursor/hooks.json``; ``~/.cursor/projects/`` is not consulted
-because it is not confirmed to key by project path.
+Codex approval requires an exact match between every normalized hook handler
+and the ``trusted_hash`` stored under this checkout's literal
+``.codex/hooks.json`` path.  The path is not symlink-resolved. Cursor glue is
+the user-level ``~/.cursor/hooks.json``; ``~/.cursor/projects/`` is not
+consulted because it is not confirmed to key by project path.
 """
 
 from __future__ import annotations
@@ -14,6 +14,10 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
+from yoke_contracts.codex_hook_trust import (
+    codex_hooks_are_approved,
+    normalized_codex_hook_hashes,
+)
 from yoke_core.domain.worktree_claude_approval import claude_config_path
 from yoke_core.domain.worktree_codex_hook_trust import (
     hooks_file_for,
@@ -56,10 +60,14 @@ def _codex_report(checkout: Path) -> Optional[dict[str, Any]]:
     payload, malformed = _json_object(hooks) if glue_present else (None, False)
     if glue_present and payload is not None and "hooks" not in payload:
         malformed = True
+    if payload is not None and normalized_codex_hook_hashes(payload) is None:
+        malformed = True
     approval = "not_applicable"
     if glue_present:
         entries = trust_entries_for(hooks)
-        approval = "approved" if entries else "unapproved"
+        approval = (
+            "approved" if codex_hooks_are_approved(payload, entries) else "unapproved"
+        )
     if not (config_present or glue_present):
         return None
     return {

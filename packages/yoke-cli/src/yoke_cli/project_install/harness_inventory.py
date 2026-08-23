@@ -1,8 +1,9 @@
 """Client-side harness presence for install persist and the upsert adapter.
 
 Lives in the CLI package so product install never imports ``yoke_core``.
-Presence only: Codex is unapproved when glue exists and no ``hooks.state``
-key names this checkout's literal ``.codex/hooks.json`` path.
+Codex is approved only when every normalized hook handler matches the
+``trusted_hash`` stored for this checkout's literal ``.codex/hooks.json``
+path.
 """
 
 from __future__ import annotations
@@ -11,6 +12,11 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Optional
+
+from yoke_contracts.codex_hook_trust import (
+    codex_hooks_are_approved,
+    normalized_codex_hook_hashes,
+)
 
 try:
     import tomllib
@@ -51,21 +57,28 @@ def _codex_hooks(checkout: Path) -> Path:
     return checkout / ".codex" / "hooks.json"
 
 
-def _codex_trusted(hooks: Path) -> bool:
+def _codex_trust_entries(hooks: Path) -> dict[str, str]:
     home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
     config = home / "config.toml"
     if tomllib is None or not _exists(config):
-        return False
+        return {}
     try:
         with config.open("rb") as handle:
             data = tomllib.load(handle)
     except (OSError, ValueError):
-        return False
+        return {}
     state = ((data.get("hooks") or {}).get("state")) or {}
     if not isinstance(state, dict):
-        return False
+        return {}
     prefix = f"{hooks}:"
-    return any(isinstance(key, str) and key.startswith(prefix) for key in state)
+    entries: dict[str, str] = {}
+    for key, entry in state.items():
+        if not isinstance(key, str) or not key.startswith(prefix):
+            continue
+        trusted_hash = entry.get("trusted_hash") if isinstance(entry, dict) else None
+        if isinstance(trusted_hash, str) and trusted_hash:
+            entries[key[len(prefix) :]] = trusted_hash
+    return entries
 
 
 def _codex_report(checkout: Path) -> Optional[dict[str, Any]]:
@@ -76,9 +89,15 @@ def _codex_report(checkout: Path) -> Optional[dict[str, Any]]:
     payload, malformed = _json_object(hooks) if glue_present else (None, False)
     if glue_present and payload is not None and "hooks" not in payload:
         malformed = True
+    if payload is not None and normalized_codex_hook_hashes(payload) is None:
+        malformed = True
     approval = "not_applicable"
     if glue_present:
-        approval = "approved" if _codex_trusted(hooks) else "unapproved"
+        approval = (
+            "approved"
+            if codex_hooks_are_approved(payload, _codex_trust_entries(hooks))
+            else "unapproved"
+        )
     if not (config_present or glue_present):
         return None
     return {

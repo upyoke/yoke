@@ -26,8 +26,9 @@ HARNESS_TABLES: dict[str, dict] = {
             "PK (project_id, harness_id). No machines, project_installs, "
             "or harness_installs table. approval_state is "
             "approved|unapproved|not_applicable|unknown; orange is "
-            "unapproved (literal .codex/hooks.json hooks.state keys, no "
-            "hashing). Write via harness.machine_report.upsert."
+            "unapproved (every normalized .codex/hooks.json handler must "
+            "match trusted_hash under the literal hooks-file path). Write "
+            "via harness.machine_report.upsert."
         ),
     },
 }

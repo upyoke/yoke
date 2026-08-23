@@ -153,8 +153,9 @@ def trust_entries_for(
 
     Codex does not resolve symlinks before keying, so callers must pass
     the path Codex would see — never ``Path.resolve()`` of a tracked
-    ``.codex/hooks.json`` symlink. Presence only: an empty map means
-    this path has never been trusted. This does not hash file bytes.
+    ``.codex/hooks.json`` symlink. The returned suffix-to-hash map is
+    compared with the normalized current handlers by machine inventory;
+    an empty map means this path has never been trusted.
     """
     state, reason = _read_trust_state(config_path or codex_config_path())
     if reason:
