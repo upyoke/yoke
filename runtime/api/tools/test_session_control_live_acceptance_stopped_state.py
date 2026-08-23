@@ -67,6 +67,8 @@ def test_driver_polls_stop_race_then_accepts_ended_waiting_cli() -> None:
     )
 
     assert report["status"] == "passed"
+    assert report["stopped_liveness"] == "ended"
+    assert report["stopped_session_mode"] == "wait"
     assert report["turn_posture"] == "waiting"
 
 
@@ -99,22 +101,95 @@ def _ended_row(**overrides: Any) -> dict[str, Any]:
         (
             _cli_cell(),
             _ended_row(claims=[{"target": "YOK-1"}]),
-            "ended_waiting_claims_present",
+            "registration_claims_present",
         ),
-        (_cli_cell(), _ended_row(current_item="YOK-1"), "ended_waiting_item_present"),
-        (_cli_cell(), _ended_row(mode="charge"), "ended_waiting_mode_invalid"),
+        (_cli_cell(), _ended_row(current_item="YOK-1"), "registration_item_present"),
+        (_cli_cell(), _ended_row(mode="charge"), "waiting_mode_drift"),
     ),
 )
 def test_ended_waiting_refuses_unsafe_terminal_shapes(
     cell: AcceptanceCell, row: dict[str, Any], code: str
 ) -> None:
     with pytest.raises(AcceptanceContractError) as failure:
-        waiting_registration_ready(row, cell=cell)
+        waiting_registration_ready(row, cell=cell, baseline_mode="wait")
     assert failure.value.code == code
 
 
 @pytest.mark.parametrize("posture", ("unknown", "running"))
 def test_ended_cli_posture_race_is_not_accepted(posture: str) -> None:
     assert not waiting_registration_ready(
-        _ended_row(turn_posture=posture), cell=_cli_cell()
+        _ended_row(turn_posture=posture), cell=_cli_cell(), baseline_mode="wait"
     )
+
+
+class _FastStopCreateClient(_ScenarioClient):
+    def _roster(self, argv: list[str] | None = None) -> dict[str, Any]:
+        result = super()._roster(argv)
+        for row in result["rows"]:
+            if row["session_id"] == self.session_id:
+                row.update(_ended_row())
+        return result
+
+
+def test_create_binding_accepts_fast_stopped_cli() -> None:
+    cell = AcceptanceCell("codex-cli", "0.149.0-alpha.4", "create", wake_route="direct")
+    report = _driver(_FastStopCreateClient(cell))._run_cell(
+        "yoke",
+        cell,
+        run_id="release-fast-stop",
+        timeout=10,
+        poll=1,
+        unsupported_observation=2,
+    )
+    assert report["status"] == "passed"
+    assert report["stopped_liveness"] == "ended"
+
+
+def test_create_binding_rejects_fast_stopped_desktop() -> None:
+    cell = AcceptanceCell(
+        "codex-desktop", "26.818.31338", "create", wake_route="direct"
+    )
+    with pytest.raises(AcceptanceContractError) as failure:
+        _driver(_FastStopCreateClient(cell))._run_cell(
+            "yoke",
+            cell,
+            run_id="release-fast-stop-desktop",
+            timeout=10,
+            poll=1,
+            unsupported_observation=2,
+        )
+    assert failure.value.code == "ended_waiting_cli_required"
+
+
+class _UnsafeActiveClient(_ScenarioClient):
+    def __init__(self, cell: AcceptanceCell, **overrides: Any) -> None:
+        super().__init__(cell)
+        self.overrides = overrides
+
+    def _roster(self, argv: list[str] | None = None) -> dict[str, Any]:
+        result = super()._roster(argv)
+        for row in result["rows"]:
+            if row["session_id"] == self.session_id:
+                row.update(self.overrides)
+        return result
+
+
+@pytest.mark.parametrize(
+    ("overrides", "code"),
+    (
+        ({"claims": [{"target": "YOK-1"}]}, "registration_claims_present"),
+        ({"current_item": "YOK-1"}, "registration_item_present"),
+    ),
+)
+def test_active_waiting_refuses_holdings(overrides: dict[str, Any], code: str) -> None:
+    cell = _cli_cell()
+    with pytest.raises(AcceptanceContractError) as failure:
+        _driver(_UnsafeActiveClient(cell, **overrides))._run_cell(
+            "yoke",
+            cell,
+            run_id="release-active-holdings",
+            timeout=10,
+            poll=1,
+            unsupported_observation=2,
+        )
+    assert failure.value.code == code

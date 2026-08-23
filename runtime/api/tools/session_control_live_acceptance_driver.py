@@ -109,7 +109,7 @@ class LiveAcceptanceDriver:
         unsupported_observation: float,
     ) -> dict[str, Any]:
         if cell.mode == "create":
-            session_id, initial_id, launch = create_and_bind(
+            session_id, initial_id, launch, baseline = create_and_bind(
                 self.client,
                 project=project,
                 cell=cell,
@@ -118,12 +118,14 @@ class LiveAcceptanceDriver:
                 poll=poll,
                 sleep=self.sleep,
                 monotonic=self.monotonic,
-                validate_roster=self._roster,
+                validate_roster=lambda project, cell, session_id: self._roster(
+                    project, cell, session_id, allow_ended=True
+                ),
             )
             initial_deduplicated = launch["deduplicated"]
         else:
             session_id = str(cell.session_id)
-            self._roster(project, cell, session_id)
+            baseline = self._roster(project, cell, session_id)
             initial_id, initial_deduplicated = self._send_twice(
                 cell,
                 session_id,
@@ -131,11 +133,20 @@ class LiveAcceptanceDriver:
                 phase="initial delivery",
             )
             launch = None
+        baseline_mode = roster.registration_mode(baseline, cell=cell)
         initial = self._wait_ack(
             cell, session_id, initial_id, timeout=timeout, poll=poll
         )
-        waiting = self._wait_waiting(
-            project, cell, session_id, timeout=timeout, poll=poll
+        waiting = roster.wait_for_waiting_registration(
+            self.client,
+            project=project,
+            cell=cell,
+            session_id=session_id,
+            baseline_mode=baseline_mode,
+            timeout=timeout,
+            poll=poll,
+            sleep=self.sleep,
+            monotonic=self.monotonic,
         )
         wake_id, wake_deduplicated = self._send_twice(
             cell,
@@ -171,7 +182,17 @@ class LiveAcceptanceDriver:
                 session_id=session_id,
                 message_id=wake_id,
             )
-            self._wait_waiting(project, cell, session_id, timeout=timeout, poll=poll)
+            roster.wait_for_waiting_registration(
+                self.client,
+                project=project,
+                cell=cell,
+                session_id=session_id,
+                baseline_mode=baseline_mode,
+                timeout=timeout,
+                poll=poll,
+                sleep=self.sleep,
+                monotonic=self.monotonic,
+            )
             wake_outcome = "expected_pending"
         report: dict[str, Any] = {
             "surface": cell.surface,
@@ -185,6 +206,8 @@ class LiveAcceptanceDriver:
             "registration_identity_matched": True,
             "initial_message": initial,
             "initial_deduplicated": initial_deduplicated,
+            "stopped_liveness": waiting["liveness"],
+            "stopped_session_mode": waiting["mode"],
             "turn_posture": waiting["turn_posture"],
             "wake_supported": cell.wake_supported,
             "wake_outcome": wake_outcome,
@@ -210,37 +233,6 @@ class LiveAcceptanceDriver:
             session_id=session_id,
             allow_ended=allow_ended,
         )
-
-    def _wait_waiting(
-        self,
-        project: str,
-        cell: AcceptanceCell,
-        session_id: str,
-        *,
-        timeout: float,
-        poll: float,
-    ) -> dict[str, Any]:
-        deadline = self.monotonic() + timeout
-        while True:
-            row = self._roster(project, cell, session_id, allow_ended=True)
-            if roster.waiting_registration_ready(row, cell=cell):
-                routing = row.get("messageability")
-                if (
-                    not isinstance(routing, dict)
-                    or routing.get("wake_operation") != "message_stopped"
-                ):
-                    raise AcceptanceContractError(
-                        "waiting_route_missing", surface=cell.surface
-                    )
-                available = routing.get("wake_available") is True
-                if available != (cell.route == "direct"):
-                    raise AcceptanceContractError(
-                        "waiting_wake_mismatch", surface=cell.surface
-                    )
-                return row
-            if self.monotonic() >= deadline:
-                raise AcceptanceContractError("waiting_timeout", surface=cell.surface)
-            self.sleep(poll)
 
     def _send_twice(
         self,

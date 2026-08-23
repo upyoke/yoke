@@ -94,6 +94,10 @@ class _ScenarioClient:
                 **self._recipient(),
                 "project": "yoke",
                 "liveness": "active",
+                "mode": "wait",
+                "ended_at": None,
+                "claims": [],
+                "current_item": None,
                 "turn_posture": "waiting",
                 "messageability": {
                     "wake_operation": "message_stopped",

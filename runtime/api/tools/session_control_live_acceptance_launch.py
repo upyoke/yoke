@@ -29,7 +29,7 @@ def create_and_bind(
     sleep: Callable[[float], None],
     monotonic: Callable[[], float],
     validate_roster: Callable[[str, AcceptanceCell, str], dict[str, Any]],
-) -> tuple[str, str, dict[str, Any]]:
+) -> tuple[str, str, dict[str, Any], dict[str, Any]]:
     """Create twice, then require registered and native identities to match."""
     selector = ["--project", project, "--surface", cell.surface]
     if cell.machine_id:
@@ -100,7 +100,7 @@ def create_and_bind(
     message_id = require_text(
         launch.get("message_id"), code="launch_message_missing", surface=cell.surface
     )
-    validate_roster(project, cell, registered)
+    registration = validate_roster(project, cell, registered)
     return (
         registered,
         message_id,
@@ -108,6 +108,7 @@ def create_and_bind(
             "launch_id": launch_id,
             "deduplicated": bool(second.get("deduplicated")),
         },
+        registration,
     )
 
 
