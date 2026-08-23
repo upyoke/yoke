@@ -165,8 +165,7 @@ yoke items progress-log append PREFIX-N --headline "dispatched engineer" --sourc
 yoke claims work release --item PREFIX-N --reason progress-log-append-complete`
   - Write PATH with the entry body first. Dispatches items.progress_log.append, which read-merge-writes the Progress Log section atomically and stamps the timestamp.
 - _Find or request the CLI adapter for a function id_
-  - `yoke <family> --help
-yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for items.foo.bar; agent surface boundary forbids HTTP/direct runtime import shapes'`
+  - `yoke <family> --help`
   - `.yoke/docs/reference/db-reference/functions.md` lists the registered function ids per family, and the matching `yoke <subcommand> --help` carries that adapter's variants and flag matrix. The CLI grammar is reversible — dots become spaces, underscores become hyphens, a terminal `.run`/`.execute` drops — so a function id predicts its adapter name. **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Do not start the function-call HTTP server or call the dispatcher from an ad-hoc Python one-liner to work around a missing adapter.
 - _Operator-mode lifecycle repair after authoritative drift_
   - `yoke lifecycle repair-status PREFIX-N --from CURRENT --to TARGET --reason 'operator-authored reconciliation' --dry-run`
@@ -179,8 +178,7 @@ git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N status --porcelain
 git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD`
   - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport; pass --head-sha for release authorization tied to one commit (bearer-token REST). Never expand a visible short SHA by guessing: resolve a reported or handed-off full commit hash with `git -C <checkout> rev-parse HEAD`, then verify it with `git -C <checkout> cat-file -e '<sha>^{commit}'`. For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
 - _Field-note channel: log a failed/new/unclear recipe or observation_
-  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths'
-yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim widen examples omit --item' --correlation-id polish-run-2026-05-20`
+  - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
   - **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Kind: failed (recipe ran, wrong result), new (recipe missing), unclear (recipe present, unclear purpose). Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Surfaces in /yoke curate via OuroborosFieldNoteAppended events.
 - _Apply a structural patch without duplicate or stale hunks_
   - `Use one `*** Update File:` operation per path per patch; consolidate every hunk for that path under the same operation.`
