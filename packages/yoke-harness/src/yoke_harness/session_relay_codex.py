@@ -71,7 +71,9 @@ class CodexNativeTransport(Protocol):
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome: ...
 
 
-def _shared_version_gate(surface: str | None, version: str | None, operation: str) -> bool:
+def _shared_version_gate(
+    surface: str | None, version: str | None, operation: str
+) -> bool:
     """Load the contracts comparator lazily so mixed-version installs close."""
     try:
         from yoke_contracts.session_control.surface_versions import (
@@ -147,7 +149,9 @@ def _evidence(surface: str, state: str, exit_code: int | None = None) -> dict[st
     return payload
 
 
-def _translate(request: CodexNativeRequest, outcome: CodexNativeOutcome) -> RelayAdapterResult:
+def _translate(
+    request: CodexNativeRequest, outcome: CodexNativeOutcome
+) -> RelayAdapterResult:
     evidence = _evidence(request.surface, outcome.state, outcome.exit_code)
     if outcome.state == "accepted" and not outcome.identity_correlated:
         return RelayAdapterResult(
@@ -164,14 +168,18 @@ def _translate(request: CodexNativeRequest, outcome: CodexNativeOutcome) -> Rela
                 evidence=evidence,
             )
         code = "not_created" if outcome.state == "not_created" else "outcome_unknown"
-        return RelayAdapterResult(code, adapter_revision=ADAPTER_REVISION, evidence=evidence)
+        return RelayAdapterResult(
+            code, adapter_revision=ADAPTER_REVISION, evidence=evidence
+        )
     code = {
         "accepted": "accepted",
         "not_found": "not_found",
         "unsupported_surface": "unsupported_surface",
         "outcome_unknown": "outcome_unknown",
     }.get(outcome.state, "failed")
-    return RelayAdapterResult(code, adapter_revision=ADAPTER_REVISION, evidence=evidence)
+    return RelayAdapterResult(
+        code, adapter_revision=ADAPTER_REVISION, evidence=evidence
+    )
 
 
 def build_codex_relay_adapter(
@@ -200,7 +208,9 @@ def build_codex_relay_adapter(
                 adapter_revision=ADAPTER_REVISION,
                 evidence=_evidence(request.surface, "version_mismatch"),
             )
-        transport = cli_transport if request.surface == "codex-cli" else desktop_transport
+        transport = (
+            cli_transport if request.surface == "codex-cli" else desktop_transport
+        )
         try:
             outcome = (
                 transport.create(request)
