@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from yoke_contracts.machine_qa_execution import AGENT_MISSION_ARTIFACT_LIMIT
+from yoke_contracts.machine_qa_execution import (
+    AGENT_MISSION_ARTIFACT_LIMIT,
+    TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE,
+)
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
 
 
@@ -13,6 +16,36 @@ def _subject_flag(subject: Mapping[str, Any]) -> str:
         f"--item-id {int(subject['item_id'])}"
         if subject.get("item_id") is not None
         else f"--deployment-run-id {subject['deployment_run_id']}"
+    )
+
+
+def _screen_recording_warning(cases: list[Mapping[str, Any]]) -> str:
+    """Name the Screen Recording grant when mission preparation proved it absent."""
+    degraded = [
+        case
+        for case in cases
+        if case.get("capture_runner") == "agent_mission"
+        and (
+            (
+                (case.get("transcript") or {})
+                .get("preparation")
+                or {}
+            ).get("error_code")
+        )
+        == TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE
+    ]
+    if not degraded:
+        return ""
+    requirement_ids = ", ".join(
+        str(int(case["requirement_id"])) for case in degraded
+    )
+    return (
+        f" WARNING: host-control preparation for case(s) {requirement_ids} "
+        f"reported {TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE}: this Mac "
+        "cannot produce usable screenshots until a person grants Terminal.app "
+        "access under System Settings > Privacy & Security > Screen & System "
+        "Audio Recording. Treat screenshot-based findings as unreliable and "
+        "prefer transcript, file, and command evidence."
     )
 
 
@@ -64,7 +97,9 @@ def _walker_dispatch(
         "main owner before acting. Treat screenshot "
         "display failures, audit-session permission failures, and apparently "
         "expired/unrefreshable OAuth from SSH as wrong-session signals, not "
-        "broken credentials.\n\n"
+        "broken credentials."
+        + _screen_recording_warning([case])
+        + "\n\n"
         f"Mission:\n{case['instructions']}\n\n"
         f"Good outcome:\n{case['expected_outcome']}"
     )
@@ -167,6 +202,7 @@ def agent_mission_dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]
             f"for each of the {len(cases)} bundle cases in one complete batch. "
             "Undetermined must "
             "name what could not be established and why."
+            + _screen_recording_warning(cases)
         )
         submit_command = (
             f"yoke qa plan review-submit {subject_flag} "

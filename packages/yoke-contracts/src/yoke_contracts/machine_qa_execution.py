@@ -21,6 +21,10 @@ AGENT_MISSION_ARTIFACT_LIMIT = 100
 REQUIRED_SESSION_CONTEXT_FIELD = "required_session_context"
 VERIFICATION_CHECKS = ("connection", "terminal_bridge")
 VERIFICATION_BASELINES = ("fresh-host", "shell-preconfigured")
+# Named failure for a Terminal.app screenshot check that captured identical
+# frames across a proven display change: the host lacks the macOS Screen
+# Recording grant for Terminal.app, so captures hold wallpaper, not windows.
+TERMINAL_SCREEN_RECORDING_REQUIRED_ERROR_CODE = "terminal_screen_recording_required"
 HostControlOperation = Literal[
     "verify",
     "case",
