@@ -37,6 +37,9 @@ class LiveAcceptanceDriver:
         matrix: AcceptanceMatrix,
         *,
         run_id: str,
+        release_sha: str,
+        server_build: str,
+        engine_version: str,
         caller_session_id: str,
         timeout_seconds: float,
         poll_seconds: float,
@@ -80,6 +83,9 @@ class LiveAcceptanceDriver:
             "schema": 1,
             "kind": "fleet_session_control_live_acceptance",
             "run_id": run_id,
+            "release_sha": release_sha,
+            "server_build": server_build,
+            "engine_version": engine_version,
             "project": matrix.project,
             "caller_session_id": caller_session_id,
             "status": "passed" if passed else "failed",
@@ -97,7 +103,7 @@ class LiveAcceptanceDriver:
         unsupported_observation: float,
     ) -> dict[str, Any]:
         if cell.mode == "create":
-            session_id, initial_message, launch = create_and_bind(
+            session_id, initial_id, launch = create_and_bind(
                 self.client,
                 project=project,
                 cell=cell,
@@ -112,7 +118,7 @@ class LiveAcceptanceDriver:
         else:
             session_id = str(cell.session_id)
             self._roster(project, cell, session_id)
-            initial_message, initial_deduplicated = self._send_twice(
+            initial_id, initial_deduplicated = self._send_twice(
                 cell,
                 session_id,
                 key=f"fleet-live:{run_id}:{cell.surface}:initial",
@@ -120,12 +126,12 @@ class LiveAcceptanceDriver:
             )
             launch = None
         initial = self._wait_ack(
-            cell, session_id, initial_message, timeout=timeout, poll=poll
+            cell, session_id, initial_id, timeout=timeout, poll=poll
         )
         waiting = self._wait_waiting(
             project, cell, session_id, timeout=timeout, poll=poll
         )
-        wake_message, wake_deduplicated = self._send_twice(
+        wake_id, wake_deduplicated = self._send_twice(
             cell,
             session_id,
             key=f"fleet-live:{run_id}:{cell.surface}:wake",
@@ -135,7 +141,7 @@ class LiveAcceptanceDriver:
             wake = self._wait_ack(
                 cell,
                 session_id,
-                wake_message,
+                wake_id,
                 timeout=timeout,
                 poll=poll,
                 require_wake=True,
@@ -143,7 +149,7 @@ class LiveAcceptanceDriver:
             wake_outcome = "acknowledged"
         else:
             self.sleep(unsupported_observation)
-            wake = self._receipt(cell, session_id, wake_message)
+            wake = self._receipt(cell, session_id, wake_id)
             if (
                 wake["state"] != "pending"
                 or wake["injection_count"] != 0
@@ -342,6 +348,3 @@ class LiveAcceptanceDriver:
             if self.monotonic() >= deadline:
                 raise AcceptanceContractError("ack_timeout", surface=cell.surface)
             self.sleep(poll)
-
-
-__all__ = ["LiveAcceptanceDriver"]

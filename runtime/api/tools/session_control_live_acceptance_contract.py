@@ -21,6 +21,8 @@ ACCEPTANCE_SURFACES = (
 )
 _CREATE_UNSUPPORTED = frozenset({"claude-desktop"})
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_RELEASE_SHA = re.compile(r"^[0-9a-f]{40}$")
+_SERVER_BUILD = re.compile(r"^[0-9a-f]{7,40}$")
 _MATRIX_KEYS = frozenset({"schema", "project", "cells"})
 _CELL_KEYS = frozenset(
     {"surface", "expected_version", "mode", "session_id", "machine_id", "model"}
@@ -70,6 +72,18 @@ def validate_run_id(value: str) -> str:
     if not _RUN_ID.fullmatch(run_id):
         raise AcceptanceContractError("run_id_invalid")
     return run_id
+
+
+def validate_deployed_release(release_sha: str, server_build: str) -> tuple[str, str]:
+    expected = str(release_sha or "").strip()
+    observed = str(server_build or "").strip()
+    if not _RELEASE_SHA.fullmatch(expected):
+        raise AcceptanceContractError("release_sha_invalid")
+    if not _SERVER_BUILD.fullmatch(observed):
+        raise AcceptanceContractError("server_build_unresolved")
+    if not expected.startswith(observed):
+        raise AcceptanceContractError("deployed_release_mismatch")
+    return expected, observed
 
 
 def require_text(value: Any, *, code: str, surface: str | None = None) -> str:
@@ -161,5 +175,6 @@ __all__ = [
     "load_matrix",
     "parse_matrix",
     "require_text",
+    "validate_deployed_release",
     "validate_run_id",
 ]
