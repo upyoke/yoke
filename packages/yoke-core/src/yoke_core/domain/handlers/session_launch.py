@@ -143,7 +143,9 @@ def handle_launch_preview(request: FunctionCallRequest) -> HandlerOutcome:
                 _fleet_policy(conn, project_id, "fleet.auto_select_machine")
             ),
         )
-        return HandlerOutcome(result_payload=preview.to_dict())
+        payload = preview.to_dict()
+        payload["requested_model"] = parsed.model
+        return HandlerOutcome(result_payload=payload)
     except Exception as exc:
         return _domain_error(exc)
     finally:

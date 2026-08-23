@@ -173,10 +173,15 @@ def test_preview_reads_the_organization_machine_auto_selection_gate(
     result = handlers.handle_launch_preview(
         _request(
             "session.launch.preview",
-            {"project": "launch-project", "executor_surface": "codex-cli"},
+            {
+                "project": "launch-project",
+                "executor_surface": "codex-cli",
+                "model": "gpt-5.6-sol",
+            },
         )
     )
 
     assert result.primary_success is True
     assert result.result_payload["outcome"] == "assigned"
+    assert result.result_payload["requested_model"] == "gpt-5.6-sol"
     assert result.result_payload["selected_relay"]["machine_id"] == "machine-a"

@@ -193,6 +193,7 @@ class LaunchPreviewResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
     outcome: str
     requested_surface: str
+    requested_model: Optional[str] = None
     selected_surface: Optional[str] = None
     fallback_used: bool = False
     launchable: bool

@@ -122,7 +122,7 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     "sessions.list": () => ok({ rows: [{ model: "gpt-5.6-sol" }] }),
     "session_control.relay.list": () => ok({ relays: [relay], count: 1 }),
     "session_control.launch.preview": () => ok({
-      outcome: "assigned", requested_surface: "codex-desktop",
+      outcome: "assigned", requested_surface: "codex-desktop", requested_model: "gpt-5.6-sol",
       selected_surface: "codex-desktop", fallback_used: false,
       launchable: true, eligible_relays: [relay], selected_relay: relay,
     }),

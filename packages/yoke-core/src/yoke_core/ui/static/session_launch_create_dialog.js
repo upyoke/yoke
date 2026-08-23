@@ -59,7 +59,7 @@ function renderEligible(documentNode, host, relays) {
       documentNode,
       "p",
       "sessions-empty",
-      "No connected machine supports this exact surface and model.",
+      "No connected machine supports this surface.",
     ));
   } else host.appendChild(list);
 }
@@ -72,7 +72,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     documentNode,
     "p",
     "session-control-help",
-    "Choose an exact surface, preview eligible machines, then create. Yoke will not silently switch surfaces.",
+    "Choose an exact surface, preview eligible machines, then create. An optional model is verified only when the new session registers; Yoke will not silently switch surfaces.",
   );
   help.id = "session-launch-create-help";
   shell.dialog.appendChild(help);
@@ -80,7 +80,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     project: el(documentNode, "select", "session-control-input"),
     surface: el(documentNode, "select", "session-control-input"),
     machine: el(documentNode, "select", "session-control-input"),
-    model: el(documentNode, "select", "session-control-input"),
+    model: el(documentNode, "input", "session-control-input"),
     fallback: el(documentNode, "input", "session-control-checkbox"),
     instructions: el(documentNode, "textarea", "session-control-input session-message-body"),
   };
@@ -94,14 +94,15 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   fields.project.value = projectRefs[0] || "";
   fields.machine.appendChild(option(documentNode, "", "Choose automatically"));
   fields.machine.value = "";
-  fields.model.appendChild(option(documentNode, "", "Any compatible model"));
+  fields.model.type = "text";
+  fields.model.placeholder = "Optional provider model ID";
   fields.model.value = "";
   for (const [label, field] of [
     ["Project", fields.project],
     ["Requested surface", fields.surface],
     ["Allow same-family fallback", fields.fallback],
     ["Machine", fields.machine],
-    ["Exact model (optional)", fields.model],
+    ["Requested model (verified after launch)", fields.model],
     ["First operational message", fields.instructions],
   ]) shell.dialog.appendChild(labelledControl(documentNode, label, field));
 
@@ -122,12 +123,9 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   status.hidden = false;
   status.textContent = "Loading available launch surfaces…";
 
-  const [relayResult, ...sessionResults] = await Promise.all([
-    sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
-    ...projectRefs.map((project) => sessionControlCall(
-      context, "sessions.list", { project, limit: 500 },
-    )),
-  ]);
+  const relayResult = await sessionControlCall(
+    context, "session_control.relay.list", { limit: 500 },
+  );
   const relays = relayResult.relays || [];
   const surfaces = [...new Set(relays.flatMap(
     (relay) => Object.keys(relay.surface_versions || {}),
@@ -141,10 +139,6 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   status.textContent = noSurfaces
     ? "No connected relay advertises a launch surface. Reconnect a machine relay before creating a session."
     : "";
-  const models = [...new Set(sessionResults.flatMap(
-    (result) => (result.rows || []).map((row) => String(row.model || "")),
-  ).filter(Boolean))].sort();
-  for (const model of models) fields.model.appendChild(option(documentNode, model));
   const refreshMachines = () => {
     fields.machine.replaceChildren(option(
       documentNode, "", "Choose automatically",
@@ -200,13 +194,22 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
       const result = await sessionControlCall(
         context, "session_control.launch.preview", request,
       );
+      if (String(result.requested_model || "") !== String(request.model || "")) {
+        status.textContent = "Launch preview did not confirm the requested model. Refresh after the control plane is updated.";
+        create.disabled = true;
+        return;
+      }
       previewed = { request, instructions: String(fields.instructions.value) };
       renderEligible(documentNode, eligible, result.eligible_relays || []);
-      status.textContent = result.launchable
+      const outcome = result.launchable
         ? (result.fallback_used
           ? `Fallback selected ${result.selected_surface}.`
           : `Requested surface ${result.selected_surface} is eligible.`)
         : `Launch refused: ${result.outcome || "unsupported"}.`;
+      const modelNotice = request.model && result.launchable
+        ? ` Model ${request.model} will be verified when the new session registers.`
+        : "";
+      status.textContent = `${outcome}${modelNotice}`;
       create.disabled = !result.launchable;
     } catch (error) {
       status.textContent = presentSessionControlFailure(

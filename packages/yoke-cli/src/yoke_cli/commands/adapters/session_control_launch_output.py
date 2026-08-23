@@ -57,11 +57,17 @@ def _write_launch_detail(
 def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
     selected = result.get("selected_relay")
     selected_row = selected if isinstance(selected, Mapping) else {}
+    requested_model = result.get("requested_model")
     write_summary(
         "LAUNCH PREVIEW",
         [
             ("Outcome", humanize(result.get("outcome"))),
             ("Requested surface", result.get("requested_surface")),
+            ("Requested model", requested_model),
+            (
+                "Model verification",
+                "at session registration" if requested_model else "not requested",
+            ),
             ("Selected surface", result.get("selected_surface")),
             ("Fallback used", bool(result.get("fallback_used"))),
             ("Launchable", bool(result.get("launchable"))),
