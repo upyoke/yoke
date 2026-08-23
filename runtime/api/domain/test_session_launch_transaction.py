@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from yoke_core.domain.session_launch_execution import (
     claim_assigned_launch,
     report_launch_attempt,
@@ -69,7 +71,14 @@ def test_message_completion_can_share_the_callers_transaction() -> None:
     assert get_launch(conn, launch.launch_id).state == "awaiting_registration"
 
 
-def test_first_launch_instruction_records_append_only_attempt_evidence() -> None:
+@pytest.mark.parametrize(
+    ("injected", "expected_result"),
+    ((True, "injected"), (False, "render_output_missing")),
+)
+def test_first_launch_instruction_records_append_only_attempt_evidence(
+    injected: bool,
+    expected_result: str,
+) -> None:
     conn = launch_connection()
     add_relay(conn)
     launch = assigned_launch(conn, key="first-instruction-evidence")
@@ -106,7 +115,7 @@ def test_first_launch_instruction_records_append_only_attempt_evidence() -> None
         conn,
         launch_id=launch.launch_id,
         session_id="session-first-instruction-evidence",
-        injected=True,
+        injected=injected,
         now="2026-08-22T12:00:32Z",
     )
 
@@ -120,7 +129,7 @@ def test_first_launch_instruction_records_append_only_attempt_evidence() -> None
         "session-launch-attestation-v1",
         "2026-08-22T12:00:32Z",
         "2026-08-22T12:00:32Z",
-        "injected",
+        expected_result,
     )
     assert json.loads(attempt[5]) == {"delivery_path": "launch_attestation"}
     assert "Inspect the current work" not in attempt[5]
