@@ -91,7 +91,7 @@ def test_cli_waiting_wake_resumes_active_labeled_session(
 ) -> None:
     calls = []
     process = object()
-    transport = CodexCliTransport()
+    transport = CodexCliTransport(worker=True)
     monkeypatch.setattr(
         transport,
         "_spawn",

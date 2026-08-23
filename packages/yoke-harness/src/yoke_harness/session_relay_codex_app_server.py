@@ -256,8 +256,6 @@ class CodexAppServerTransport:
             client = self._client(request)
             params: dict[str, Any] = {
                 "cwd": str(request.checkout.resolve()),
-                "approvalPolicy": "never",
-                "sandbox": "read-only",
                 "serviceName": request.presentation or "yoke_session_relay",
             }
             if request.requested_model:

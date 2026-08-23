@@ -140,7 +140,7 @@ def test_acp_idle_wake_loads_and_prompts_the_exact_session(
     tmp_path: Path,
 ) -> None:
     client = FakeAcpClient()
-    transport = CursorAcpTransport()
+    transport = CursorAcpTransport(worker=True)
     monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
 
     result = transport.prompt_session(_wake_request(tmp_path))
