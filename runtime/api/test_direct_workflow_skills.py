@@ -92,7 +92,26 @@ def test_dash_rechecks_keep_survey_contacts_advisory():
         assert retired_stop not in corpus
     assert "A reported overlap remains advisory" in close
     assert "does not block the transition" in skill
-    assert "Dash never authors a `coordination_only` edge" in skill
+    contact_rules = skill.split("For every reported survey contact", 1)[1].split(
+        "Selected path-claim posture", 1
+    )[0]
+    contact_rules = " ".join(contact_rules.split())
+    for required in (
+        "ask an addressable holder for that evidence",
+        "wait for the holding work to finish",
+        "re-run the survey",
+        "release the work claim",
+        "present the holder, paths, and evidence to the operator",
+    ):
+        assert required in contact_rules
+    for path_claim_remedy in (
+        "coordination_only",
+        "activation dependency",
+        "coordinate with",
+        "tighten with claims",
+        "register or widen",
+    ):
+        assert path_claim_remedy not in contact_rules
 
 
 def test_blitz_skill_carries_slice_and_document_completion_contract():

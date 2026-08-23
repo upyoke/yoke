@@ -23,8 +23,10 @@ SURVEY_ADVISORY_PROCEED = (
     "Proceed when the edits are independent; same-file collisions resolve at merge."
 )
 SURVEY_ADVISORY_YIELD = (
-    "Yield by authoring an activation dependency from this item to the other "
-    "item, dropping this claim, and re-offering the item to the engine."
+    "Yield when the edits are order-dependent: wait for the holding work to "
+    "finish, then re-run the survey. If the contact cannot be resolved from "
+    "the surfaced evidence, release the work claim and present the overlapping "
+    "path, holder, and evidence to the operator; do not continue editing."
 )
 
 # ``classify_overlap`` is exercised against deliberately minimal schemas
