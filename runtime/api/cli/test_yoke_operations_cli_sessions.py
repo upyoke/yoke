@@ -184,7 +184,7 @@ def test_session_closeout_and_reclaim_dispatch() -> None:
     assert request.payload == {"confirm": True, "project_ids": [1, 3]}
 
 
-def test_sessions_list_dispatches_filters_and_prints_pipe_rows() -> None:
+def test_sessions_list_dispatches_filters_and_prints_roster_table() -> None:
     def stub(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)
         return FunctionCallResponse(
@@ -227,7 +227,15 @@ def test_sessions_list_dispatches_filters_and_prints_pipe_rows() -> None:
                     ])
 
     assert rc == 0
-    assert out.getvalue() == "s-1|active|charge|YOK-41,feed\n"
+    lines = out.getvalue().splitlines()
+    assert lines[:3] == [
+        "SESSIONS",
+        "SESSION  PROJECT  FOCUS         ROLE  RUNNER  MACHINE  LIVENESS  RELAY  MESSAGEABLE",
+        "-------  -------  ------------  ----  ------  -------  --------  -----  -----------",
+    ]
+    assert lines[3] == (
+        "s-1      —        YOK-41, feed  —     —       —        active    —      unknown"
+    )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.list"
     assert req.target.kind == "global"
