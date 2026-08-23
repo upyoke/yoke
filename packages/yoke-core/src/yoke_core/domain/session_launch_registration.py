@@ -214,6 +214,17 @@ def complete_launch_injection(
                 "invalid_state", "launch cannot complete injection"
             )
         p = marker(conn)
+        from yoke_core.domain.session_launch_message_attempt import (
+            record_launch_instruction_attempt,
+        )
+
+        record_launch_instruction_attempt(
+            conn,
+            message_id=launch.message_id,
+            session_id=session_id,
+            injected=injected,
+            occurred_at=current,
+        )
         if injected:
             cursor = conn.execute(
                 "UPDATE session_message_recipients SET state = 'injected', "
