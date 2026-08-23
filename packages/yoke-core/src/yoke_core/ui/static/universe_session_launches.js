@@ -36,8 +36,16 @@ function launchCard(documentNode, launch, mutate) {
     documentNode,
     "p",
     "fact-line",
-    `${launch.requested_surface || "unknown surface"} · ${launch.assigned_machine_id || "unassigned"}`,
+    `${launch.requested_surface || "unknown surface"} requested · ${launch.selected_surface || "unselected"} selected · ${launch.assigned_machine_id || "unassigned"}`,
   ));
+  if (
+    launch.selected_surface
+    && launch.selected_surface !== launch.requested_surface
+  ) {
+    body.appendChild(el(
+      documentNode, "p", "session-launch-guidance", "Same-family fallback used.",
+    ));
+  }
   appendLaunchTimeline(documentNode, body, launch);
   if (launch.registered_session_id) {
     const link = el(
@@ -120,7 +128,7 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Session launches",
-      summary: "Exact-surface eligibility, launch progress, retry, and cancellation.",
+      summary: "Explicit surface selection, launch progress, retry, and cancellation.",
       actions: [create],
     });
   }

@@ -296,9 +296,9 @@ def test_hook_completion_closes_bound_launch_in_the_same_mutation() -> None:
     message_id = _send(conn)
     conn.execute(
         "INSERT INTO session_launches "
-        "(launch_id,requester_actor_id,project_id,requested_surface,message_id,"
+        "(launch_id,requester_actor_id,project_id,requested_surface,selected_surface,message_id,"
         "state,registered_session_id,deadline_at,created_at) "
-        "VALUES ('launch-1',10,1,'codex-desktop',?,'awaiting_registration',"
+        "VALUES ('launch-1',10,1,'codex-desktop','codex-desktop',?,'awaiting_registration',"
         "'s1','2026-08-22T17:00:00Z',?)",
         (message_id, NOW_TEXT),
     )

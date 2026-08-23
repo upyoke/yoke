@@ -110,7 +110,8 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     "session_control.launch.list": () => ok({
       launches: [{
         launch_id: "launch-existing", state: "awaiting_registration",
-        requested_surface: "codex-desktop", assigned_machine_id: "m1",
+        requested_surface: "codex-desktop", selected_surface: "codex-desktop",
+        assigned_machine_id: "m1",
         created_at: "2026-08-23T01:00:00Z",
         assigned_at: "2026-08-23T01:01:00Z",
         launching_at: "2026-08-23T01:02:00Z",
@@ -121,7 +122,8 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     "sessions.list": () => ok({ rows: [{ model: "gpt-5.6-sol" }] }),
     "session_control.relay.list": () => ok({ relays: [relay], count: 1 }),
     "session_control.launch.preview": () => ok({
-      outcome: "eligible", requested_surface: "codex-desktop",
+      outcome: "assigned", requested_surface: "codex-desktop",
+      selected_surface: "codex-desktop", fallback_used: false,
       launchable: true, eligible_relays: [relay], selected_relay: relay,
     }),
     "session_control.launch.create": () => ok({
@@ -133,7 +135,9 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     t, "#/sessions/launches?project=1", client,
   );
   const timelineText = allNodes(root).map((node) => node._textContent).join(" ");
-  assert.ok(timelineText.includes("codex-desktop · m1"));
+  assert.ok(timelineText.includes(
+    "codex-desktop requested · codex-desktop selected · m1",
+  ));
   assert.ok(timelineText.includes("launching:"));
   assert.ok(timelineText.includes("awaiting registration:"));
   button(root, "Create session").dispatchEvent(new Event("click"));

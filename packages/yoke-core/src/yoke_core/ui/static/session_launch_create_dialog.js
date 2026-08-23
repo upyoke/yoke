@@ -21,8 +21,12 @@ function payload(fields) {
     executor_surface: String(fields.surface.value),
     ...(fields.machine.value ? { machine_id: String(fields.machine.value) } : {}),
     ...(fields.model.value ? { model: String(fields.model.value) } : {}),
-    allow_surface_fallback: false,
+    allow_surface_fallback: Boolean(fields.fallback.checked),
   };
+}
+
+function surfaceFamily(surface) {
+  return String(surface || "").split("-", 1)[0];
 }
 
 function renderEligible(documentNode, host, relays) {
@@ -33,7 +37,7 @@ function renderEligible(documentNode, host, relays) {
       documentNode,
       "li",
       null,
-      `${relay.machine_id || "unknown machine"} · ${relay.hostname || ""}`,
+      `${relay.machine_id || "unknown machine"} · ${relay.surface || "unknown surface"}`,
     ));
   }
   if (!list.children.length) {
@@ -50,8 +54,10 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     surface: el(documentNode, "select", "session-control-input"),
     machine: el(documentNode, "select", "session-control-input"),
     model: el(documentNode, "select", "session-control-input"),
+    fallback: el(documentNode, "input", "session-control-checkbox"),
     instructions: el(documentNode, "textarea", "session-control-input session-message-body"),
   };
+  fields.fallback.type = "checkbox";
   fields.instructions.setAttribute("rows", "8");
   for (const project of projectRefs) {
     fields.project.appendChild(option(documentNode, project));
@@ -63,7 +69,8 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   fields.model.value = "";
   for (const [label, field] of [
     ["Project", fields.project],
-    ["Exact surface", fields.surface],
+    ["Requested surface", fields.surface],
+    ["Allow same-family fallback", fields.fallback],
     ["Machine", fields.machine],
     ["Exact model (optional)", fields.model],
     ["First operational message", fields.instructions],
@@ -104,9 +111,13 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     fields.machine.replaceChildren(option(
       documentNode, "", "Choose automatically",
     ));
-    for (const relay of relays.filter(
-      (candidate) => fields.surface.value in (candidate.surface_versions || {}),
-    )) {
+    for (const relay of relays.filter((candidate) => {
+      const offered = Object.keys(candidate.surface_versions || {});
+      if (offered.includes(fields.surface.value)) return true;
+      return fields.fallback.checked && offered.some(
+        (surface) => surfaceFamily(surface) === surfaceFamily(fields.surface.value),
+      );
+    })) {
       fields.machine.appendChild(option(
         documentNode,
         String(relay.machine_id),
@@ -130,6 +141,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     field.addEventListener("change", invalidate);
   }
   fields.surface.addEventListener("change", refreshMachines);
+  fields.fallback.addEventListener("change", refreshMachines);
   cancel.addEventListener("click", shell.dismiss);
   preview.addEventListener("click", async () => {
     if (!fields.project.value || !fields.surface.value || !fields.instructions.value) {
@@ -139,7 +151,9 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     }
     preview.disabled = true;
     status.hidden = false;
-    status.textContent = "Checking exact surface eligibility…";
+    status.textContent = fields.fallback.checked
+      ? "Checking requested and same-family surface eligibility…"
+      : "Checking requested surface eligibility…";
     try {
       const request = payload(fields);
       const result = await sessionControlCall(
@@ -148,7 +162,9 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
       previewed = { request, instructions: String(fields.instructions.value) };
       renderEligible(documentNode, eligible, result.eligible_relays || []);
       status.textContent = result.launchable
-        ? "Launch is eligible on the exact requested surface."
+        ? (result.fallback_used
+          ? `Fallback selected ${result.selected_surface}.`
+          : `Requested surface ${result.selected_surface} is eligible.`)
         : `Launch refused: ${result.outcome || "unsupported"}.`;
       create.disabled = !result.launchable;
     } catch (error) {

@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.session_launch_surface_domain import (
+    REQUESTED_SURFACE_COLUMN_DDL,
+    SELECTED_SURFACE_COLUMN_DDL,
+)
 
 
 SESSION_CONTROL_TABLES = (
@@ -21,7 +25,7 @@ def create_session_control_tables(conn: Any) -> None:
     """Create additive fleet-control tables and lookup indexes."""
     execute_schema_script(
         conn,
-        """
+        f"""
         CREATE TABLE IF NOT EXISTS session_messages (
             message_id TEXT PRIMARY KEY,
             sender_actor_id INTEGER NOT NULL REFERENCES actors(id),
@@ -100,7 +104,8 @@ def create_session_control_tables(conn: Any) -> None:
             requester_actor_id INTEGER NOT NULL REFERENCES actors(id),
             requester_session_id TEXT REFERENCES harness_sessions(session_id),
             project_id INTEGER NOT NULL REFERENCES projects(id),
-            requested_surface TEXT NOT NULL,
+            requested_surface {REQUESTED_SURFACE_COLUMN_DDL},
+            selected_surface {SELECTED_SURFACE_COLUMN_DDL},
             requested_machine_id TEXT,
             requested_model TEXT,
             presentation_preference TEXT,

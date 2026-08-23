@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 
@@ -148,6 +148,13 @@ class LaunchPreviewRequest(BaseModel):
     model: Optional[str] = None
     allow_surface_fallback: bool = False
 
+    @field_validator("executor_surface")
+    @classmethod
+    def _known_launch_surface(cls, value: str) -> str:
+        if value not in KNOWN_SURFACE_LABELS:
+            raise ValueError(f"unknown executor surface: {value}")
+        return value
+
 
 class LaunchCreateRequest(LaunchPreviewRequest):
     instructions: str
@@ -186,6 +193,8 @@ class LaunchPreviewResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
     outcome: str
     requested_surface: str
+    selected_surface: Optional[str] = None
+    fallback_used: bool = False
     launchable: bool
     eligible_relays: List[Dict[str, Any]]
     selected_relay: Optional[Dict[str, Any]] = None
