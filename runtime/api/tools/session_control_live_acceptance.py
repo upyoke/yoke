@@ -106,6 +106,17 @@ def _require_stage_qualification_environment() -> str:
     return environment
 
 
+def _require_final_acceptance_environment() -> str:
+    try:
+        environment = str(machine_config.active_env() or "").strip()
+        connection = machine_config.active_connection(explicit_env=environment)
+    except Exception as exc:
+        raise AcceptanceContractError("final_environment_unresolved") from exc
+    if environment != "prod" or not connection_is_prod(connection):
+        raise AcceptanceContractError("final_acceptance_prod_required")
+    return environment
+
+
 def _refusal(exc: AcceptanceContractError) -> dict[str, object]:
     report: dict[str, object] = {
         "schema": 1,
@@ -134,17 +145,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         ):
             raise AcceptanceContractError("qualification_window_invalid")
         caller = _caller_session_id()
-        qualification_environment: str | None = None
         if args.qualification_candidate:
-            qualification_environment = _require_stage_qualification_environment()
+            environment = _require_stage_qualification_environment()
             matrix = load_candidate_matrix(args.matrix)
         else:
+            environment = _require_final_acceptance_environment()
             matrix = load_matrix(args.matrix)
-        client = (
-            YokeCliClient(explicit_env=qualification_environment)
-            if qualification_environment is not None
-            else YokeCliClient()
-        )
+        client = YokeCliClient(explicit_env=environment)
         release = client.deployed_release()
         release_sha, server_build = validate_deployed_release(
             args.release_sha, release.get("server_build", "")
@@ -172,6 +179,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             unsupported_observation_seconds=args.unsupported_observation_seconds,
             qualification=qualification,
         )
+        report["environment"] = environment
         if qualification is not None:
             report["qualification_grants"] = qualification.evidence()
             report["qualification_grants_consumed"] = qualification.all_consumed

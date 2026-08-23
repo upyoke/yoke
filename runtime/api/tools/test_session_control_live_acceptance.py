@@ -79,6 +79,9 @@ def test_top_level_entrypoint_emits_machine_readable_report(
     sentinel = _Client()
     monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
     monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
+    monkeypatch.setattr(
+        acceptance, "_require_final_acceptance_environment", lambda: "prod"
+    )
     monkeypatch.setattr(acceptance, "load_matrix", lambda _path: matrix)
     monkeypatch.setattr(
         acceptance,
@@ -87,7 +90,11 @@ def test_top_level_entrypoint_emits_machine_readable_report(
             AssertionError("default acceptance must not open qualification")
         ),
     )
-    monkeypatch.setattr(acceptance, "YokeCliClient", lambda: sentinel)
+    monkeypatch.setattr(
+        acceptance,
+        "YokeCliClient",
+        lambda *, explicit_env: sentinel if explicit_env == "prod" else None,
+    )
     monkeypatch.setattr(acceptance, "LiveAcceptanceDriver", _Driver)
 
     code = acceptance.main(
@@ -110,6 +117,7 @@ def test_top_level_entrypoint_emits_machine_readable_report(
     report = json.loads(capsys.readouterr().out)
     assert code == 0
     assert report["status"] == "passed"
+    assert report["environment"] == "prod"
     assert captured["client"] is sentinel
     assert captured["matrix"] is matrix
     assert captured["kwargs"] == {
@@ -195,8 +203,15 @@ def test_entrypoint_refuses_release_mismatch_before_mutating_cli(
 
     monkeypatch.setattr(acceptance, "_is_subagent_execution", lambda: False)
     monkeypatch.setattr(acceptance, "_caller_session_id", lambda: "main-session")
+    monkeypatch.setattr(
+        acceptance, "_require_final_acceptance_environment", lambda: "prod"
+    )
     monkeypatch.setattr(acceptance, "load_matrix", lambda _path: matrix)
-    monkeypatch.setattr(acceptance, "YokeCliClient", _Client)
+    monkeypatch.setattr(
+        acceptance,
+        "YokeCliClient",
+        lambda *, explicit_env: _Client() if explicit_env == "prod" else None,
+    )
     monkeypatch.setattr(
         acceptance,
         "LiveAcceptanceDriver",
