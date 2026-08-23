@@ -26,6 +26,7 @@ function appendAction(documentNode, actions, label, disabled, invoke) {
 
 function launchCard(documentNode, launch, mutate) {
   const card = el(documentNode, "article", "panel session-launch-card");
+  card.setAttribute("data-launch-id", String(launch.launch_id || ""));
   const header = el(documentNode, "div", "panel-header");
   header.appendChild(el(
     documentNode, "h3", null, "Session launch",

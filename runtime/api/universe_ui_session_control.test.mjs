@@ -135,6 +135,10 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
     t, "#/sessions/launches?project=1", client,
   );
   const timelineText = allNodes(root).map((node) => node._textContent).join(" ");
+  assert.equal(
+    byClass(root, "session-launch-card")[0].getAttribute("data-launch-id"),
+    "launch-existing",
+  );
   assert.ok(timelineText.includes(
     "codex-desktop requested · codex-desktop selected · m1",
   ));

@@ -157,6 +157,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     ["active", "stale"],
   );
   assert.deepEqual(
+    cards.map((card) => card.attributes.get("data-session-id")),
+    ["a7b4pl", "v8c2qa"],
+  );
+  assert.deepEqual(
     byClass(root, "session-harness").map(
       (badge) => [badge.textContent, badge.className],
     ),
