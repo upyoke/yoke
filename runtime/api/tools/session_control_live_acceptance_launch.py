@@ -11,6 +11,9 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
     require_text,
 )
+from runtime.api.tools.session_control_live_acceptance_protocol import (
+    initial_delivery_message,
+)
 
 
 _TERMINAL_STATES = frozenset(
@@ -46,12 +49,7 @@ def create_and_bind(
         raise AcceptanceContractError(
             "launch_preview_unqualified", surface=cell.surface
         )
-    instruction = (
-        f"Fleet live acceptance launch for {cell.surface}. First injection: do "
-        "not acknowledge; finish the top-level turn and wait. Only on "
-        "reinjection, acknowledge this receipt with its wrapper command. Do not "
-        "delegate Fleet communication."
-    )
+    instruction = initial_delivery_message(surface=cell.surface, phase="launch")
     args = [
         "sessions",
         "create",

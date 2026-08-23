@@ -227,7 +227,9 @@ def test_sender_or_every_project_admin_cancels_and_receipt_state_is_terminal() -
     assert cancelled["cancelled_by_actor_id"] == 12
     assert cancelled["cancellation_reason"] == "cancelled_by_project_admin"
     assert cancelled["recipients"][0]["state"] == "cancelled"
-    assert lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10) is None
+    assert (
+        lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10) is None
+    )
 
     sender_message_id = _send(conn, body="Sender cancellation proof.")["message_id"]
     sender_cancelled = cancel_message(
@@ -247,7 +249,7 @@ def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:
         acknowledge_message(conn, message_id=message_id, session_id="s2", now=NOW)
     assert other.value.code == "acknowledge_self_only"
 
-    lease = lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10)
+    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert lease
     complete_hook_lease(
         conn, lease_id=lease["lease_id"], injected=True, result="injected"
@@ -256,4 +258,7 @@ def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:
         conn, message_id=message_id, session_id="s1", now=NOW
     )
     assert acknowledged["recipients"][0]["state"] == "acknowledged"
-    assert lease_for_hook(conn, session_id="s1", hook_event="Stop", limit=10) is None
+    assert (
+        lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
+        is None
+    )

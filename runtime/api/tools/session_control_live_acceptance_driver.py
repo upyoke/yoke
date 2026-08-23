@@ -20,6 +20,7 @@ from runtime.api.tools.session_control_live_acceptance_evidence import (
     wait_for_ack,
 )
 from runtime.api.tools.session_control_live_acceptance_launch import create_and_bind
+from runtime.api.tools import session_control_live_acceptance_protocol as protocol
 from runtime.api.tools import session_control_live_acceptance_roster as roster
 
 
@@ -272,13 +273,11 @@ class LiveAcceptanceDriver:
         one_recipient(
             preview.get("recipients"), session_id=session_id, surface=cell.surface
         )
-        ack_protocol = (
-            "First injection: do not acknowledge; finish the top-level turn and wait. "
-            "Only on reinjection, acknowledge this receipt with its wrapper command."
+        body = (
+            protocol.initial_delivery_message(surface=cell.surface, phase=phase)
             if phase == "initial delivery"
-            else "Use its wrapper command to acknowledge, then finish and wait."
+            else protocol.wake_delivery_message(surface=cell.surface, phase=phase)
         )
-        body = f"Fleet live acceptance {phase} for {cell.surface}. {ack_protocol}"
         args = ["say", "--stdin", "--session", session_id, "--idempotency-key", key]
         first = self.client.call(args, stdin=body)
         second = self.client.call(args, stdin=body)

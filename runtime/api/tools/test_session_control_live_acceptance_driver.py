@@ -12,6 +12,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_driver import (
     LiveAcceptanceDriver,
 )
+from runtime.api.tools.test_session_control_live_acceptance_clock import AcceptanceClock
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
@@ -19,17 +20,6 @@ from yoke_contracts.session_control.wake_instruction import (
 
 RELEASE_SHA = "a" * 40
 SERVER_BUILD = RELEASE_SHA
-
-
-class _Clock:
-    def __init__(self) -> None:
-        self.value = 0.0
-
-    def monotonic(self) -> float:
-        return self.value
-
-    def sleep(self, seconds: float) -> None:
-        self.value += max(seconds, 0.001)
 
 
 class _ScenarioClient:
@@ -62,6 +52,8 @@ class _ScenarioClient:
         self.create_count = 0
         self.send_counts: dict[str, int] = {}
         self.message_reads: dict[str, int] = {}
+        self.message_states: dict[str, tuple[bool, int]] = {}
+        self.tool_hook_events: list[str] = []
 
     def call(self, args, *, stdin: str | None = None) -> dict[str, Any]:
         argv = list(args)
@@ -102,9 +94,8 @@ class _ScenarioClient:
                 "turn_posture": "waiting",
                 "messageability": {
                     "wake_operation": "message_stopped",
-                    "wake_available": (
-                        self.cell.route == "direct" or self.broker_direct_available
-                    ),
+                    "wake_available": self.cell.route == "direct"
+                    or self.broker_direct_available,
                 },
             }
         ]
@@ -115,11 +106,9 @@ class _ScenarioClient:
                     "project": "yoke",
                     "executor_surface": "codex-desktop",
                     "executor_version": "26.814.41407",
-                    "machine_id": (
-                        "other-machine"
-                        if self.broker_machine_mismatch
-                        else self.cell.machine_id
-                    ),
+                    "machine_id": "other-machine"
+                    if self.broker_machine_mismatch
+                    else self.cell.machine_id,
                     "liveness": "active",
                     "turn_posture": "running",
                     "messageability": {"hook_injection": True},
@@ -152,6 +141,7 @@ class _ScenarioClient:
                 "selected_relay": {"version": self.cell.expected_version},
             }
         self.create_count += 1
+        self.message_states.setdefault("launch-message", (False, 1))
         return {
             "launch": self._launch(terminal=False),
             "deduplicated": self.create_count > 1,
@@ -161,8 +151,14 @@ class _ScenarioClient:
         key = argv[argv.index("--idempotency-key") + 1]
         self.send_counts[key] = self.send_counts.get(key, 0) + 1
         phase = "wake" if key.endswith(":wake") else "initial"
+        message_id = f"{phase}-message"
+        wake_supported = self.cell.route != "none"
+        initial_state = (
+            (wake_supported, int(wake_supported)) if phase == "wake" else (False, 1)
+        )
+        self.message_states.setdefault(message_id, initial_state)
         return {
-            "message_id": f"{phase}-message",
+            "message_id": message_id,
             "recipients": [self._recipient()],
             "recipient_count": 1,
             "deduplicated": self.send_counts[key] > 1,
@@ -172,13 +168,11 @@ class _ScenarioClient:
         self.message_reads[message_id] = self.message_reads.get(message_id, 0) + 1
         wake = message_id == "wake-message"
         supported_wake = wake and self.cell.route != "none"
-        pending = (wake and self.cell.route == "none") or (
-            not wake and self.message_reads[message_id] == 1
-        )
+        acknowledged, injection_count = self.message_states[message_id]
+        pending = not acknowledged
         wake_count: Any = 1 if supported_wake else 0
         if supported_wake and self.wake_evidence_missing:
             wake_count = 0
-        injection_count: Any = 0 if pending and wake else 1 if pending or wake else 2
         if self.malformed_count:
             injection_count = "not-a-count"
         recipient = {
@@ -187,9 +181,9 @@ class _ScenarioClient:
             "injection_count": injection_count,
             "wake_attempt_count": wake_count,
             "acknowledged_at": "" if pending else "2026-08-23T12:00:00Z",
-            "last_wake_at": (
-                "2026-08-23T12:00:01Z" if supported_wake and wake_count else ""
-            ),
+            "last_wake_at": "2026-08-23T12:00:01Z"
+            if supported_wake and wake_count
+            else "",
         }
         attempts = []
         if supported_wake:
@@ -231,9 +225,20 @@ class _ScenarioClient:
             }
         }
 
+    def simulate_target_tool_hook(self) -> None:
+        """Advance one initial receipt only at an eligible target hook boundary."""
+        for message_id in ("launch-message", "initial-message"):
+            if self.message_states.get(message_id) == (
+                False,
+                1,
+            ) and self.message_reads.get(message_id, 0):
+                self.message_states[message_id] = (True, 2)
+                self.tool_hook_events.append(message_id)
+                return
+
 
 def _driver(client: _ScenarioClient) -> LiveAcceptanceDriver:
-    clock = _Clock()
+    clock = AcceptanceClock(client.simulate_target_tool_hook)
     return LiveAcceptanceDriver(client, sleep=clock.sleep, monotonic=clock.monotonic)
 
 

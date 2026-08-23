@@ -146,6 +146,20 @@ def test_surface_event_gate_fails_open_without_leasing(
     assert port.leased == []
 
 
+@pytest.mark.parametrize("surface", ["codex-cli", "codex-desktop", "codex-vscode"])
+def test_codex_stop_refuses_message_delivery_without_leasing(
+    monkeypatch: pytest.MonkeyPatch,
+    surface: str,
+) -> None:
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    decision = delivery.evaluate(_context("Stop", surface=surface))
+
+    assert decision.outcome is Outcome.NOOP
+    assert port.leased == []
+
+
 def test_family_fallback_preserves_claude_model_visible_events(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
