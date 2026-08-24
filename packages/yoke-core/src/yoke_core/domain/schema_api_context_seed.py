@@ -191,6 +191,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # and coordination_leases typed-owner / release-provenance columns. The core
 # topic additionally carries the declared package roots, so every role learns
 # where a module physically lives instead of guessing a repo-root directory
-# named after the package.
-PACKET_LINE_BUDGET_PER_ROLE: int = 423
-PACKET_LINE_BUDGET_AGGREGATE: int = 2608
+# named after the package. The core topic also carries the ci-run watcher
+# recipe: waiting on a commit's CI runs is a long command agents otherwise
+# poll by hand, and a hand-authored filter fails silently, so the recipe has
+# to reach every role that waits on CI rather than living in help text alone.
+PACKET_LINE_BUDGET_PER_ROLE: int = 425
+PACKET_LINE_BUDGET_AGGREGATE: int = 2630

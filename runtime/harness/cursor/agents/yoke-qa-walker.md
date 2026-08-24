@@ -337,6 +337,10 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
+- _Wait on a commit's CI runs with watcher (main session)_
+  - `yoke watch ci-run
+yoke watch ci-run -- <branch-or-sha> --workflow <name>`
+  - Owns the CI filter; never hand-author one. Resolves the ref with `git rev-parse <ref>^{commit}`, matches that exact head SHA, and matches --workflow against the workflow name, not the run title.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
   - `yoke watch pytest --raw-capture <PATH> -- <project-test-path>/test_my_module.py -q
 tail -80 <PATH>`

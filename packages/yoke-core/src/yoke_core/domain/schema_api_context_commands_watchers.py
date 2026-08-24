@@ -124,6 +124,19 @@ WATCHERS_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
+        "purpose": "Wait on a commit's CI runs with watcher (main session)",
+        "recipe": (
+            "yoke watch ci-run\n"
+            "yoke watch ci-run -- <branch-or-sha> --workflow <name>"
+        ),
+        "notes": (
+            "Owns the CI filter; never hand-author one. Resolves the ref with "
+            "`git rev-parse <ref>^{commit}`, matches that exact head SHA, and "
+            "matches --workflow against the workflow name, not the run title."
+        ),
+    },
+    {
+        "topic": "core",
         "purpose": (
             "Run pytest with explicit raw-capture path (post-completion inspection)"
         ),
