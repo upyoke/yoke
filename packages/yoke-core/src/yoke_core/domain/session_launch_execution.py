@@ -21,13 +21,12 @@ from yoke_core.domain.session_launch_store import (
     utc_now,
     value,
 )
+from yoke_core.domain.session_launch_reconciliation import reconcile_launch
 from yoke_core.domain.session_launch_types import (
     LAUNCH_LEASE_SECONDS,
-    LaunchAuthorization,
     LaunchClaim,
     LaunchRecord,
     SessionLaunchError,
-    ensure_operator,
 )
 
 
@@ -258,75 +257,6 @@ def report_launch_attempt(
                 state="outcome_unknown",
                 result_code="outcome_unknown",
                 result_evidence=result_evidence,
-            )
-        conn.commit()
-        return result
-    except Exception:
-        conn.rollback()
-        raise
-
-
-def reconcile_launch(
-    conn: Any,
-    *,
-    launch_id: str,
-    auth: LaunchAuthorization,
-    observed_native_id: str | None,
-    now: str | None = None,
-) -> LaunchRecord:
-    """Resolve possible native creation before any retry is permitted."""
-    ensure_operator(auth)
-    current = now or utc_now()
-    begin_mutation(conn)
-    try:
-        launch = get_launch(conn, launch_id, for_update=True)
-        if launch.state == "succeeded":
-            if observed_native_id and observed_native_id != launch.native_session_id:
-                raise SessionLaunchError(
-                    "reconciliation_conflict", "native id conflicts"
-                )
-            conn.commit()
-            return launch
-        if launch.state not in {"outcome_unknown", "failed"}:
-            raise SessionLaunchError(
-                "invalid_state",
-                f"launch in state {launch.state!r} is not reconcilable",
-            )
-        if launch.native_session_id and observed_native_id not in {
-            None,
-            launch.native_session_id,
-        }:
-            raise SessionLaunchError("reconciliation_conflict", "native id conflicts")
-        if observed_native_id:
-            state = (
-                "awaiting_registration"
-                if parse_time(current) < parse_time(launch.deadline_at)
-                else "failed"
-            )
-            result = update_launch(
-                conn,
-                launch_id,
-                state=state,
-                native_session_id=observed_native_id,
-                awaiting_registration_at=current
-                if state == "awaiting_registration"
-                else None,
-                completed_at=current if state == "failed" else None,
-                result_code=(
-                    "native_created_reconciled"
-                    if state == "awaiting_registration"
-                    else "late_native_reconciled"
-                ),
-            )
-        else:
-            result = update_launch(
-                conn,
-                launch_id,
-                state="failed",
-                native_session_id=None,
-                attestation_hash=None,
-                completed_at=current,
-                result_code="reconciled_not_created",
             )
         conn.commit()
         return result
