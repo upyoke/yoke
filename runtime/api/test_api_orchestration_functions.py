@@ -212,6 +212,18 @@ class TestAgentsRenderCheck(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertEqual(len(outcome.result_payload["drift"]), 1)
 
+    def test_check_exception_surfaces_downstream_failure(self):
+        with patch(
+            "yoke_core.domain.agents_render_source_bind.invoke_renderer",
+            side_effect=RuntimeError("seed mismatch"),
+        ):
+            req = _request(
+                "agents.render.check", {"target_root": "/tmp/y"},
+            )
+            outcome = orchestration_agents.handle_agents_render_check(req)
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "downstream_failure")
+
 
 if __name__ == "__main__":
     unittest.main()

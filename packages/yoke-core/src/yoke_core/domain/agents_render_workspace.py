@@ -124,6 +124,9 @@ def run_cli(*, write_all, detect_substrate_drift) -> None:
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(2)
+    from yoke_core.domain.agents_render_source_bind import reexec_cli_if_mixed
+
+    reexec_cli_if_mixed(target_root)
     if args.command == "check":
         drifted = detect_substrate_drift(target_root=target_root)
         if drifted:
