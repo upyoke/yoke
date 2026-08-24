@@ -63,6 +63,7 @@ _SANCTIONED_INSTALLED_READ_DIRS = (
 _SANCTIONED_INSTALLED_READ_FILES = (
     "~/.codex/AGENTS.md",
     "~/.local/bin/yoke",
+    "~/.claude/settings.json",
 )
 
 

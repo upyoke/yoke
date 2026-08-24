@@ -44,12 +44,12 @@ INSTALLED_READ_TARGETS = (
     "~/.codex/AGENTS.md",
     "~/.yoke/browser-runtime/chrome",
     "~/.local/bin/yoke",
+    "~/.claude/settings.json",
 )
 EXCLUDED_READ_TARGETS = (
     "~/.yoke/secrets/capability-secrets/yoke/aws-admin/credentials",
     "~/.codex/auth.json",
     "~/.codex/config.toml",
-    "~/.claude/settings.json",
     "~/.claude/skills/browser/SKILL.md",
 )
 

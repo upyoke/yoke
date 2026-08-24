@@ -20,6 +20,8 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     resolve_for_display,
 )
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
+    GIT_MUTATING_SUBS,
+    git_subcommand,
     match_read_only_signature,
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
@@ -38,7 +40,6 @@ _UNTRACKED_GENERATED_VIEW_PATTERNS = (
     re.compile(r"(?:^|/)\.yoke/BOARD\.md(?:\.ts)?$"),
 )
 
-_GIT_MUTATING_SUBS = frozenset({"commit", "add", "mv", "rm"})
 _SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
 
 
@@ -174,12 +175,8 @@ def _bash_has_write_verb(command: str) -> bool:
         if base in SHELL_WRITE_COMMAND_BASES:
             return True
         if base == "git":
-            for tok in _strip_env_prefixes(segment)[1:]:
-                if tok.startswith("-"):
-                    continue
-                if tok in _GIT_MUTATING_SUBS:
-                    return True
-                break
+            if git_subcommand(_strip_env_prefixes(segment)) in GIT_MUTATING_SUBS:
+                return True
     return False
 
 
@@ -221,13 +218,15 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
     command = extract_payload_command(payload)
     if not command:
         return False
-    if match_read_only_signature(command):
-        return False
     if payload_has_embedded_python_write(payload):
         return True
+    if _bash_has_file_redirect(command):
+        return True
+    if match_read_only_signature(command):
+        return False
     if is_yoke_adapter_command(command):
-        return _bash_has_file_redirect(command)
-    return _bash_has_file_redirect(command) or _bash_has_write_verb(command)
+        return False
+    return _bash_has_write_verb(command)
 
 
 def collect_main_write_targets(

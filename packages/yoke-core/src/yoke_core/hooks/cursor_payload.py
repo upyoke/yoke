@@ -113,6 +113,14 @@ def parse_payload(payload: str) -> Dict[str, Any]:
         if event == "afterShellExecution" and "output" in data:
             data.setdefault("tool_output", data.get("output"))
 
+    tool_input = data.get("tool_input")
+    if isinstance(tool_input, dict):
+        for key in ("working_directory", "workdir"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                tool_input.setdefault("workdir", value)
+                break
+
     from yoke_core.domain.session_ambient_identity import (
         is_conversation_shaped_session_id,
     )

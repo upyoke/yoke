@@ -60,3 +60,21 @@ def test_subagent_non_fleet_command_is_unchanged() -> None:
         _context("yoke sessions list", payload={"subagent_execution": True})
     )
     assert decision.outcome is Outcome.NOOP
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "yoke sessions touch --help",
+        "yoke say --help",
+        "yoke messages ack --help",
+        "yoke messages acknowledge --help",
+        "yoke session-control message send --help",
+        "yoke relay serve-once --help",
+    ],
+)
+def test_subagent_help_is_not_a_fleet_mutation(command: str) -> None:
+    decision = lint.evaluate(
+        _context(command, payload={"agent_type": "engineer"})
+    )
+    assert decision.outcome is Outcome.NOOP

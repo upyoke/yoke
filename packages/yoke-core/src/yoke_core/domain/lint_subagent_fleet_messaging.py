@@ -30,6 +30,8 @@ def _command_uses_fleet_mutation(command: str) -> bool:
             tokens = shlex.split(segment, posix=True)
         except ValueError:
             continue
+        if "--help" in tokens or "-h" in tokens:
+            continue
         for index, token in enumerate(tokens):
             if token != "yoke":
                 continue

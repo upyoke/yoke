@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 import shlex
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     REDIRECT_OPERATORS,
@@ -103,34 +103,60 @@ def _classify_harness_sessions(args: List[str]) -> Optional[str]:
     return None
 
 
-def _git_has_target_flag(tokens: List[str]) -> bool:
-    """Return True when the command names a target via -C / --git-dir / --work-tree."""
-    for i, tok in enumerate(tokens):
-        if tok in {"-C", "--git-dir", "--work-tree"}:
-            return True
-        if tok.startswith("--git-dir=") or tok.startswith("--work-tree="):
-            return True
-    return False
-
-
-_GIT_READ_ONLY_SUBS = frozenset({
+_GIT_VALUE_FLAGS = frozenset({"-C", "--git-dir", "--work-tree"})
+GIT_READ_ONLY_SUBS = frozenset({
     "status", "log", "diff", "show", "rev-parse", "branch", "remote",
     "config", "describe", "ls-files", "ls-tree", "blame", "shortlog",
 })
+GIT_MUTATING_SUBS = frozenset({"commit", "add", "mv", "rm"})
+
+
+def git_subcommand(tokens: List[str]) -> Optional[str]:
+    """Return the git subcommand, skipping ``-C`` / ``--git-dir`` values."""
+    if not tokens or tokens[0].rsplit("/", 1)[-1] != "git":
+        return None
+    i = 1
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok in _GIT_VALUE_FLAGS:
+            i += 2
+            continue
+        if tok.startswith("--git-dir=") or tok.startswith("--work-tree="):
+            i += 1
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        return tok
+    return None
+
+
+def git_write_targets(
+    segment: str,
+    *,
+    bindings: Optional[Mapping[str, str]] = None,
+) -> List[str]:
+    """Write-position paths for one git segment. Read verbs yield nothing."""
+    from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+        extract_command_targets,
+        strip_env_prefixes,
+    )
+
+    try:
+        tokens = strip_env_prefixes(shlex.split(segment))
+    except ValueError:
+        return []
+    sub = git_subcommand(tokens)
+    if sub not in GIT_MUTATING_SUBS:
+        return []
+    return extract_command_targets(segment, bindings=bindings)
 
 
 def _classify_git(tokens: List[str]) -> Optional[str]:
-    """``git <read-only-sub>`` with no target flag — orientation."""
-    if not tokens or tokens[0] != "git":
-        return None
-    if _git_has_target_flag(tokens):
-        return None
-    for tok in tokens[1:]:
-        if tok.startswith("-"):
-            continue
-        if tok in _GIT_READ_ONLY_SUBS:
-            return f"git-{tok}"
-        return None
+    """``git <read-only-sub>`` including ``git -C <path> log`` orientation."""
+    sub = git_subcommand(tokens)
+    if sub in GIT_READ_ONLY_SUBS:
+        return f"git-{sub}"
     return None
 
 
@@ -176,6 +202,24 @@ def _classify_grep_like(tokens: List[str]) -> Optional[str]:
         return None
     if tokens[0] in _GREP_LIKE:
         return tokens[0]
+    return None
+
+
+def _classify_find(tokens: List[str]) -> Optional[str]:
+    if tokens and tokens[0] == "find":
+        return "find"
+    return None
+
+
+def _classify_help(tokens: List[str]) -> Optional[str]:
+    if tokens and _has_help_flag(tokens):
+        return "help"
+    return None
+
+
+def _classify_yoke(tokens: List[str]) -> Optional[str]:
+    if tokens and tokens[0] == "yoke":
+        return "yoke-help" if _has_help_flag(tokens) else "yoke-adapter"
     return None
 
 
@@ -227,17 +271,19 @@ def _has_compound_separator(command: str) -> bool:
     return bool(_COMPOUND_RE.search(command))
 
 
-def match_read_only_signature(command: str) -> Optional[str]:
-    """Return a short signature label when ``command`` is read-only, else ``None``.
+_SIMPLE_CLASSIFIERS = (
+    _classify_python_module,
+    _classify_git,
+    _classify_grep_like,
+    _classify_find,
+    _classify_yoke,
+    _classify_help,
+    _classify_stdout_reporter,
+    _classify_single_arg_read,
+)
 
-    Compound commands (``;``, ``&&``, ``||``, ``|``) are never classified
-    as pure read-only — the second clause could mutate, and we are
-    conservative on the allow-path.
-    """
-    if not command or not command.strip():
-        return None
-    if _has_compound_separator(command):
-        return None
+
+def _match_simple(command: str) -> Optional[str]:
     try:
         tokens = shlex.split(command)
     except ValueError:
@@ -245,17 +291,35 @@ def match_read_only_signature(command: str) -> Optional[str]:
     tokens = _strip_env_prefixes(tokens)
     if tokens is None or not tokens:
         return None
-    for classifier in (
-        _classify_python_module,
-        _classify_git,
-        _classify_grep_like,
-        _classify_stdout_reporter,
-        _classify_single_arg_read,
-    ):
+    for classifier in _SIMPLE_CLASSIFIERS:
         label = classifier(tokens)
         if label:
             return label
     return None
 
 
-__all__ = ["match_read_only_signature"]
+def match_read_only_signature(command: str) -> Optional[str]:
+    """Return a short signature label when ``command`` is read-only, else ``None``.
+
+    A compound is read-only only when every segment matches on its own.
+    """
+    if not command or not command.strip():
+        return None
+    if _has_compound_separator(command):
+        from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+        segments = [part for part in split_pipeline(command) if part.strip()]
+        if len(segments) == 1:
+            return _match_simple(segments[0])
+        if segments and all(_match_simple(part) for part in segments):
+            return "compound-read"
+        return None
+    return _match_simple(command)
+
+
+__all__ = [
+    "GIT_MUTATING_SUBS",
+    "GIT_READ_ONLY_SUBS",
+    "git_subcommand",
+    "git_write_targets",
+    "match_read_only_signature",
+]
