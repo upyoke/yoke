@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import tempfile
 import time
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -17,10 +17,11 @@ from runtime.harness.claude_cross_session_live_support import (
     ScopedNativeProbe,
     agent_rows,
     mature_receiver,
+    named_session_uuid,
     redacted_summary,
     sender_facts,
     single_sender_uuid,
-    short_id_absent,
+    structured_session_result,
     target_row,
 )
 from runtime.harness.test_claude_background_resume_live import _ProbeFailure
@@ -134,17 +135,39 @@ def test_named_claude_session_receives_native_cross_session_message(
         target_short = identity_module.background_agent_id(launched)
         if target_short is None:
             raise _ProbeFailure("target short identity was not parseable")
-        lookup_count = 0
-
-        def lookup():
-            nonlocal lookup_count
-            lookup_count += 1
-            return roster(f"target_identity_{lookup_count}")
-
-        resolution = identity_module.resolve_background_session(target_short, lookup)
-        if resolution.session_id is None:
+        for attempt in range(1, _ATTEMPTS + 1):
+            identity = roster(f"target_identity_{attempt}")
+            target_uuid = (
+                named_session_uuid(identity.stdout, target_short, target_name)
+                if identity.returncode == 0
+                else None
+            )
+            if target_uuid:
+                break
+            time.sleep(_INTERVAL_SECONDS)
+        if target_uuid is None:
             raise _ProbeFailure("target UUID did not resolve")
-        target_uuid = str(UUID(resolution.session_id))
+
+        direct = command(
+            "direct_resume_seed",
+            executable,
+            "-p",
+            "--resume",
+            target_uuid,
+            "--safe-mode",
+            "--settings",
+            _TARGET_SETTINGS,
+            target_prompt,
+            "--output-format",
+            "json",
+            timeout=claude_module.CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS,
+        )
+        direct_identity, direct_result = structured_session_result(direct.stdout)
+        direct_exit_zero = direct.returncode == 0
+        direct_identity_same = direct_identity == target_uuid
+        direct_response_observed = ready_nonce in direct_result
+        if not all((direct_exit_zero, direct_identity_same, direct_response_observed)):
+            raise _ProbeFailure("direct resume did not seed the named session")
 
         for attempt in range(1, _ATTEMPTS + 1):
             agents = roster(f"target_ready_agents_{attempt}")
@@ -168,6 +191,9 @@ def test_named_claude_session_receives_native_cross_session_message(
             time.sleep(_INTERVAL_SECONDS)
         if not target_ready or not ready_nonce_seen:
             raise _ProbeFailure("target did not reach unique idle readiness")
+        direct_logs_observed = ready_nonce_seen
+        direct_same_target = target_ready
+        peer_safe_after_direct = direct_same_target and direct_logs_observed
 
         wake_suffix = uuid4().hex
         wake_nonce = f"WAKE_{wake_suffix}"
@@ -178,53 +204,6 @@ def test_named_claude_session_receives_native_cross_session_message(
             raise _ProbeFailure("target logs were unavailable before challenge")
         if wake_nonce in before_text or expected_response in before_text:
             raise _ProbeFailure("fresh wake challenge was already present")
-
-        direct_suffix = uuid4().hex
-        direct_expected = f"DIRECT_ACK_{direct_suffix[::-1]}"
-        direct_prompt = f"Output DIRECT_ACK_ followed by the reverse of {direct_suffix}. Do not use tools or modify files."
-        direct = command(
-            "direct_resume_control",
-            executable,
-            "-p",
-            "--resume",
-            target_uuid,
-            "--safe-mode",
-            "--settings",
-            _TARGET_SETTINGS,
-            direct_prompt,
-            "--output-format",
-            "json",
-            timeout=claude_module.CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS,
-        )
-        direct_exit_zero = direct.returncode == 0
-        try:
-            direct_document = json.loads(direct.stdout)
-            direct_identity = str(UUID(str(direct_document["session_id"])))
-            direct_result = str(direct_document.get("result") or "")
-        except (KeyError, TypeError, ValueError, AttributeError):
-            direct_identity, direct_result = "", ""
-        direct_identity_same = direct_identity == target_uuid
-        direct_response_observed = direct_expected in direct_result
-        for attempt in range(1, 9):
-            agents = roster(f"direct_agents_{attempt}")
-            logs = command(f"direct_logs_{attempt}", executable, "logs", target_short)
-            row, count = target_row(
-                agents.stdout,
-                short_id=target_short,
-                session_id=target_uuid,
-                name=target_name,
-            )
-            direct_same_target = agents.returncode == 0 and count == 1 and bool(row)
-            direct_logs_observed = (
-                logs.returncode == 0
-                and direct_expected in f"{logs.stdout}\n{logs.stderr}"
-            )
-            peer_safe_after_direct = direct_same_target and mature_receiver(row)
-            if peer_safe_after_direct:
-                break
-            time.sleep(_INTERVAL_SECONDS)
-        if not peer_safe_after_direct:
-            raise _ProbeFailure("target did not return to idle after direct control")
 
         sender_id = str(uuid4())
         sender_prompt = f"Use ListAgents first and require exactly one local background session named {target_name}. Then use SendMessage to send exactly {wake_nonce} to that named session. Use no other tools. Return SENT when the tool succeeds."
@@ -239,6 +218,8 @@ def test_named_claude_session_receives_native_cross_session_message(
             "--settings",
             _TARGET_SETTINGS,
             "--tools",
+            "ListAgents,SendMessage",
+            "--allowedTools",
             "ListAgents,SendMessage",
             sender_prompt,
             "--output-format",
@@ -311,26 +292,12 @@ def test_named_claude_session_receives_native_cross_session_message(
     finally:
         if target_short:
             if failure is not None:
-                roster("failure_agents")
-                command("failure_logs", executable, "logs", target_short)
-            agents = roster("cleanup_identity")
-            if target_uuid:
-                row, count = target_row(
-                    agents.stdout,
-                    short_id=target_short,
-                    session_id=target_uuid,
-                    name=target_name,
+                probe.best_effort_roster("failure_agents")
+                probe.best_effort_command(
+                    "failure_logs", executable, "logs", target_short
                 )
-                cleanup_identity_exact = (
-                    agents.returncode == 0 and count == 1 and bool(row)
-                )
-            command("cleanup_stop", executable, "stop", target_short)
-            removed = command("cleanup_remove", executable, "rm", target_short)
-            after = roster("cleanup_absence")
-            cleanup_ok = (
-                removed.returncode == 0
-                and after.returncode == 0
-                and short_id_absent(after.stdout, target_short)
+            cleanup_identity_exact, cleanup_ok = probe.cleanup_target(
+                target_short, target_uuid, target_name
             )
         isolated.cleanup()
         root_removed = not root.exists()

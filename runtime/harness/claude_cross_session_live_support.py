@@ -122,6 +122,26 @@ def mature_receiver(row: dict[str, object]) -> bool:
     return row.get("state") == "done" and bool(row.get("pid"))
 
 
+def named_session_uuid(output: str, short_id: str, name: str) -> str | None:
+    matches = set()
+    for row in agent_rows(output):
+        if str(row.get("id") or "") != short_id or str(row.get("name") or "") != name:
+            continue
+        try:
+            matches.add(str(UUID(str(row.get("sessionId") or ""))))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return matches.pop() if len(matches) == 1 else None
+
+
+def structured_session_result(output: str) -> tuple[str, str]:
+    try:
+        document = json.loads(output)
+        return str(UUID(str(document["session_id"]))), str(document.get("result") or "")
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return "", ""
+
+
 def sender_facts(output: str) -> tuple[set[str], set[str], int]:
     return (
         set(_SESSION_ID.findall(output)),
@@ -179,3 +199,40 @@ class ScopedNativeProbe:
             "--all",
             "--json",
         )
+
+    def best_effort_command(self, label: str, *argv: str, timeout: int = 20):
+        try:
+            return self.command(label, *argv, timeout=timeout)
+        except BaseException:
+            return None
+
+    def best_effort_roster(self, label: str):
+        try:
+            return self.roster(label)
+        except BaseException:
+            return None
+
+    def cleanup_target(self, short_id: str, session_id: str | None, name: str):
+        agents = self.best_effort_roster("cleanup_identity")
+        exact = False
+        if agents is not None and session_id:
+            row, count = target_row(
+                agents.stdout,
+                short_id=short_id,
+                session_id=session_id,
+                name=name,
+            )
+            exact = agents.returncode == 0 and count == 1 and bool(row)
+        self.best_effort_command("cleanup_stop", self.executable, "stop", short_id)
+        removed = self.best_effort_command(
+            "cleanup_remove", self.executable, "rm", short_id
+        )
+        after = self.best_effort_roster("cleanup_absence")
+        cleaned = (
+            removed is not None
+            and removed.returncode == 0
+            and after is not None
+            and after.returncode == 0
+            and short_id_absent(after.stdout, short_id)
+        )
+        return exact, cleaned
