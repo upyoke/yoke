@@ -182,6 +182,13 @@ def _expected_instruction(context: RelayExecutionContext) -> str | None:
     return None
 
 
+def _wake_prompt(message_id: str) -> str:
+    return (
+        f"Yoke message reference `{message_id}` is pending. Inspect and handle "
+        "authenticated Yoke messages through normal Yoke hooks or message surfaces."
+    )
+
+
 def _context_extensions_present(context: RelayExecutionContext) -> bool:
     names = ("surface_version", "requested_model", "presentation")
     return all(hasattr(context, name) for name in names)
@@ -249,7 +256,12 @@ def run_claude_cli_adapter(
             return _result(context, "not_created", "native_session_invalid")
         if not context.launch_attestation or attestation_handoff is None:
             return _result(context, "not_created", "attestation_handoff_unavailable")
-    invocation = _native_invocation(context, executable, expected)
+    instruction = (
+        _wake_prompt(str(context.message_id))
+        if context.job_kind == "wake"
+        else expected
+    )
+    invocation = _native_invocation(context, executable, instruction)
     if invocation is None:
         result = "not_created" if context.job_kind == "launch" else "not_found"
         return _result(context, result, "native_session_missing")

@@ -15,8 +15,7 @@ from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 CLAUDE_IDENTITY_LOOKUP_ATTEMPTS = 4
 CLAUDE_IDENTITY_RETRY_SECONDS = 0.1
 _BACKGROUND_ID_PATTERN = re.compile(
-    r"(?im)^\s*backgrounded\s*[·:]\s*([A-Za-z0-9_-]{4,64})"
-    r"(?:\s*[·:]\s*[^\r\n]+)?\s*$"
+    r"(?im)^\s*backgrounded\s*[·:]\s*([A-Za-z0-9_-]{4,64})\s*$"
 )
 
 

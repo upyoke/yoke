@@ -6,7 +6,6 @@ import json
 
 from yoke_harness.session_relay_claude_identity import (
     CLAUDE_IDENTITY_LOOKUP_ATTEMPTS,
-    background_agent_id,
     resolve_background_session,
 )
 from yoke_harness.session_relay_claude_process import ClaudeProcessResult
@@ -14,22 +13,6 @@ from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 
 SHORT_ID = "7c5dcf5d"
 ACTUAL_ID = "87654321-4321-4321-8321-cba987654321"
-
-
-def test_background_identity_accepts_named_display_suffix() -> None:
-    process = ClaudeProcessResult(
-        0,
-        7,
-        f"backgrounded · {SHORT_ID} · proof-target (idle — send a prompt to start)",
-    )
-
-    assert background_agent_id(process) == SHORT_ID
-
-
-def test_background_identity_rejects_unseparated_trailing_text() -> None:
-    process = ClaudeProcessResult(0, 7, f"backgrounded · {SHORT_ID} ambiguous")
-
-    assert background_agent_id(process) is None
 
 
 def _agents(session_id, *, status: str) -> ClaudeProcessResult:

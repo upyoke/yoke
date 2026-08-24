@@ -25,8 +25,14 @@ from yoke_harness.session_relay_claude import (
 )
 
 
+WAKE_PROMPT = (
+    "Yoke message reference `message-1` is pending. Inspect and handle authenticated "
+    "Yoke messages through normal Yoke hooks or message surfaces."
+)
+
+
 @pytest.mark.parametrize("scenario", ["claim-held", "chain-pending"])
-def test_waiting_wake_resumes_active_labeled_session_at_private_version(
+def test_waiting_wake_resumes_exact_yoke_session_uuid_at_private_version(
     scenario,
 ) -> None:
     invocations = []
@@ -65,11 +71,17 @@ def test_waiting_wake_resumes_active_labeled_session_at_private_version(
         "-p",
         "--resume",
         ACTUAL_ID,
-        CHECK_INBOX,
+        WAKE_PROMPT,
         "--output-format",
         "json",
     )
-    assert "--bg" not in invocations[0].argv
+    assert invocations[0].session_id == ACTUAL_ID
+    assert invocations[0].instruction == WAKE_PROMPT
+    assert invocations[0].instruction.strip()
+    assert all(
+        token not in invocations[0].argv
+        for token in ("--bg", "--name", "ListAgents", "SendMessage")
+    )
     assert result.result_code == "accepted"
     assert result.native_session_id is None
     assert lookups == []
