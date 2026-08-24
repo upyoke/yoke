@@ -25,9 +25,11 @@ class _Clock:
 
 
 class _LaunchClient:
-    def __init__(self, *, exact_messages: int) -> None:
+    def __init__(self, *, exact_messages: int, visible_after_reads: int = 0) -> None:
         self.exact_messages = exact_messages
+        self.visible_after_reads = visible_after_reads
         self.create_count = 0
+        self.message_reads = 0
         self.calls: list[list[str]] = []
 
     @staticmethod
@@ -100,6 +102,9 @@ class _LaunchClient:
             "--limit",
             "500",
         ]:
+            self.message_reads += 1
+            if self.message_reads <= self.visible_after_reads:
+                return {"messages": [], "count": 0}
             messages = self._messages()
             return {"messages": messages, "count": len(messages)}
         raise AssertionError(f"unexpected call: {argv!r}")
@@ -142,6 +147,15 @@ def test_terminal_launch_resolves_one_exact_recipient_message() -> None:
         "--limit",
         "500",
     ] in client.calls
+
+
+def test_launch_message_resolution_waits_for_recipient_visibility() -> None:
+    client = _LaunchClient(exact_messages=1, visible_after_reads=1)
+
+    _, message_id, _, _ = _create(client)
+
+    assert message_id == "launch-message-1"
+    assert client.message_reads == 2
 
 
 @pytest.mark.parametrize(
