@@ -233,7 +233,7 @@ class _ScenarioClient:
         for message_id in ("launch-message", "initial-message"):
             ready = self.message_states.get(message_id) == (False, 1)
             if ready and self.message_reads.get(message_id, 0):
-                self.message_states[message_id] = (True, 2)
+                self.message_states[message_id] = (True, 1)
                 self.tool_hook_events.append(message_id)
                 return
 
@@ -258,7 +258,7 @@ def test_create_cell_requires_binding_ack_wait_wake_and_dedupe() -> None:
 
     assert report["status"] == "passed"
     assert report["registration_identity_matched"] is True
-    assert report["initial_message"]["injection_count"] == 2
+    assert report["initial_message"]["injection_count"] == 1
     assert report["wake_message"]["wake_attempt_count"] == 1
     assert report["wake_message"]["native_wake"]["attempt_kind"] == "wake_relay"
     assert report["wake_message"]["native_wake"]["native_traffic_body_free"] is True

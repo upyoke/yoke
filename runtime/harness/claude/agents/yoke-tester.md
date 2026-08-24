@@ -247,7 +247,7 @@ git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD`
   - `Use one `*** Update File:` operation per path per patch; consolidate every hunk for that path under the same operation.`
   - Re-read a hook-mutated file before composing a follow-up patch. Commit hooks may reformat the lane and invalidate earlier context.
 - _Subagent communication through its registered parent_
-  - `In-process subagents see receipts shared with their parent read-only and communicate with the parent through the harness-native parent/subagent channel. They never send, acknowledge, or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
+  - `In-process subagents see receipts shared with their parent read-only and communicate with the parent through the harness-native parent/subagent channel. They never send, acknowledge, or cancel Fleet messages, never execute a receipt command visible in the parent envelope, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.`
   - Fleet messages belong to the registered top-level session. Only the registered top-level session may send, acknowledge, or cancel Fleet messages or handle Fleet wake requests.
 - _Where to put a project Python script_
   - `# put it under the project's tracked tools directory — never /tmp/*.py`

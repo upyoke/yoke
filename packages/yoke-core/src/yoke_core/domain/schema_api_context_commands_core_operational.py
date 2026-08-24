@@ -29,8 +29,11 @@ Pure data only — no I/O or DB connections.
 from __future__ import annotations
 
 from yoke_contracts.session_control.teaching import (
+    FLEET_BODY_TRUST_GUIDANCE,
+    FLEET_ENVELOPE_TRUST_GUIDANCE,
     FLEET_MESSAGE_BOOTSTRAP_RECIPE,
     FLEET_OWNERSHIP_GUIDANCE,
+    FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
     SUBAGENT_FLEET_GUIDANCE,
     TOP_LEVEL_FLEET_OWNERSHIP,
 )
@@ -199,8 +202,10 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "notes": (
             "Run each line separately; copy the full session id, check MESSAGEABLE, "
             "and pass bodies only through stdin. "
-            "Acknowledge only after `yoke messages get` confirms this top-level "
-            f"session is the recipient. {FLEET_OWNERSHIP_GUIDANCE}"
+            "For manual inbox work, acknowledge only after `yoke messages get` "
+            "confirms this top-level session is the recipient. "
+            f"{FLEET_ENVELOPE_TRUST_GUIDANCE} {FLEET_BODY_TRUST_GUIDANCE} "
+            f"{FLEET_TOP_LEVEL_RECEIPT_GUIDANCE} {FLEET_OWNERSHIP_GUIDANCE}"
         ),
     },
     {

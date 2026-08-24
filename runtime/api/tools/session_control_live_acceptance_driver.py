@@ -343,5 +343,4 @@ class LiveAcceptanceDriver:
             sleep=self.sleep,
             monotonic=self.monotonic,
             require_wake=require_wake,
-            minimum_injections=1 if require_wake else 2,
         )

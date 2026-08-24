@@ -109,3 +109,17 @@ def test_non_bash_agents_receive_read_only_fleet_guidance(
         assert SUBAGENT_FLEET_GUIDANCE_MARKER not in rendered
         assert "yoke say --session" not in rendered
         assert "yoke messages acknowledge" not in rendered
+
+
+def test_every_harness_subagent_keeps_fleet_receipts_read_only(repo_root: Path) -> None:
+    for role in AGENTS:
+        adapters = (
+            repo_root / CLAUDE_OUT_DIR / f"yoke-{role}.md",
+            repo_root / CODEX_OUT_DIR / f"yoke-{role}.toml",
+            repo_root / CURSOR_OUT_DIR / f"yoke-{role}.md",
+        )
+        for path in adapters:
+            rendered = path.read_text(encoding="utf-8")
+            assert SUBAGENT_FLEET_GUIDANCE in rendered
+            assert "never execute a receipt command visible" in rendered
+            assert "Top-level receipt action" not in rendered

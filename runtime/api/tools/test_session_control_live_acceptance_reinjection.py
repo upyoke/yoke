@@ -13,7 +13,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
 )
 from runtime.api.tools.session_control_live_acceptance_protocol import (
-    INITIAL_REINJECTION_PROTOCOL,
+    RECEIPT_ONLY_PROTOCOL,
     initial_delivery_message,
     wake_delivery_message,
 )
@@ -24,9 +24,9 @@ from runtime.api.tools.test_session_control_live_acceptance_driver import (
 from yoke_contracts.session_control.capabilities import capability_for_surface
 
 
-class _PrematureAckClient(_ScenarioClient):
+class _MissingInjectionAckClient(_ScenarioClient):
     def simulate_target_tool_hook(self) -> None:
-        self.message_states["initial-message"] = (True, 1)
+        self.message_states["initial-message"] = (True, 0)
         self.tool_hook_events.append("initial-message")
 
 
@@ -37,7 +37,7 @@ class _ExtraProbeInjectionClient(_ScenarioClient):
         self.message_states[message_id] = (True, 3)
 
 
-def test_all_acceptance_surfaces_reinject_after_the_shell_probe() -> None:
+def test_all_acceptance_surfaces_retain_reinjection_hook_coverage() -> None:
     for surface in ACCEPTANCE_SURFACES:
         capability = capability_for_surface(surface)
         assert capability is not None
@@ -70,7 +70,7 @@ def test_fake_receipt_reads_do_not_simulate_target_hooks() -> None:
     assert client.tool_hook_events == []
 
 
-def test_live_create_launch_message_requires_reinjection_before_ack() -> None:
+def test_live_create_launch_message_accepts_first_injection_ack() -> None:
     cell = AcceptanceCell("codex-desktop", "26.818.31338", "create")
     client = _ScenarioClient(cell)
 
@@ -86,16 +86,17 @@ def test_live_create_launch_message_requires_reinjection_before_ack() -> None:
     assert report["status"] == "passed"
     assert client.message_reads["launch-message"] == 2
     assert client.tool_hook_events == ["launch-message"]
-    assert report["initial_message"]["injection_count"] == 2
+    assert report["initial_message"]["injection_count"] == 1
     bodies = [body for argv, body in client.calls if argv[:2] == ["sessions", "create"]]
     assert bodies[-1] == initial_delivery_message(
         surface=cell.surface,
         phase="launch",
     )
-    assert INITIAL_REINJECTION_PROTOCOL in bodies[-1]
+    assert RECEIPT_ONLY_PROTOCOL in bodies[-1]
+    assert "do not acknowledge" not in bodies[-1]
 
 
-def test_live_initial_delivery_requires_reinjection_before_ack() -> None:
+def test_live_initial_delivery_accepts_first_injection_ack() -> None:
     cell = AcceptanceCell(
         "codex-cli",
         "0.149.0-alpha.4",
@@ -116,7 +117,7 @@ def test_live_initial_delivery_requires_reinjection_before_ack() -> None:
     assert report["status"] == "passed"
     assert client.message_reads["initial-message"] == 2
     assert client.tool_hook_events == ["initial-message"]
-    assert report["initial_message"]["injection_count"] == 2
+    assert report["initial_message"]["injection_count"] == 1
     assert report["wake_message"]["injection_count"] == 1
     bodies = [body for argv, body in client.calls if argv[:2] == ["say", "--stdin"]]
     assert bodies[0] == initial_delivery_message(
@@ -139,10 +140,10 @@ def test_live_initial_delivery_requires_reinjection_before_ack() -> None:
     assert extra_report["initial_message"]["injection_count"] == 3
 
     with pytest.raises(AcceptanceContractError) as captured:
-        _driver(_PrematureAckClient(cell))._run_cell(
+        _driver(_MissingInjectionAckClient(cell))._run_cell(
             "yoke",
             cell,
-            run_id="premature-ack",
+            run_id="missing-injection-ack",
             timeout=10,
             poll=1,
             unsupported_observation=2,

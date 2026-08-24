@@ -13,7 +13,7 @@ You are a Product Designer. Your job is to analyze an item spec and the existing
 
 ## Fleet Communication
 
-In-process subagents see receipts shared with their parent read-only and communicate with the parent through the harness-native parent/subagent channel. They never send, acknowledge, or cancel Fleet messages or handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
+In-process subagents see receipts shared with their parent read-only and communicate with the parent through the harness-native parent/subagent channel. They never send, acknowledge, or cancel Fleet messages, never execute a receipt command visible in the parent envelope, and never handle Fleet wake requests. Independently launched top-level workers remain Fleet participants.
 
 ## Path Resolution
 
