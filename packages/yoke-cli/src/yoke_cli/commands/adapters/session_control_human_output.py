@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from typing import Any, TextIO
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
+from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
+    native_diagnostic_fields,
+)
 
 
 BODY_EXCERPT_CHARACTERS = 72
@@ -230,23 +233,10 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
     write_table("DELIVERY ATTEMPTS", columns, rows, stdout, empty="")
     for row in rows:
         evidence = _attempt_evidence(row)
-        reference = evidence.get("native_diagnostic_ref")
-        if not reference:
+        fields = native_diagnostic_fields(evidence)
+        if not fields:
             continue
-        location = " / ".join(
-            str(value)
-            for value in (evidence.get("machine_id"), evidence.get("relay_id"))
-            if value
-        )
-        write_summary(
-            "NATIVE DIAGNOSTIC",
-            [
-                ("Reference", reference),
-                ("Location", location),
-                ("Retrieve", evidence.get("native_diagnostic_command")),
-            ],
-            stdout,
-        )
+        write_summary("NATIVE DIAGNOSTIC", fields, stdout)
 
 
 def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:

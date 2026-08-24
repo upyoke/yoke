@@ -1,4 +1,4 @@
-"""Web visibility for owner-local native relay diagnostics."""
+"""Web visibility for machine-user-local native relay diagnostics."""
 
 from __future__ import annotations
 
@@ -17,6 +17,10 @@ def test_session_failure_views_show_owner_local_diagnostic_recipe() -> None:
         "native_diagnostic_command",
         "machine_id",
         "relay_id",
+        "native_error_class",
+        "native_error_step",
+        "diagnostic_availability",
+        "diagnostic_expires_at",
     ):
         assert field in helper
     assert "appendRelayDiagnostic" in messages
@@ -24,3 +28,4 @@ def test_session_failure_views_show_owner_local_diagnostic_recipe() -> None:
     assert "appendRelayDiagnostic" in launches
     assert "session-relay-diagnostic-command" in styles
     assert "user-select: all" in styles
+    assert "Local detail unavailable." in helper

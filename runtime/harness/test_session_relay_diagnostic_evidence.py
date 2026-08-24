@@ -186,3 +186,53 @@ def test_storage_failure_reports_unavailable_without_raw_streams(
     assert result.private_diagnostic is None
     assert "private native failure" not in repr(result)
     assert "private filesystem detail" not in repr(result)
+
+
+def test_storage_failure_keeps_typed_operator_outcome_and_location(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from yoke_harness.session_relay_native_diagnostics import NativeDiagnosticError
+
+    job = {
+        "job_kind": "wake",
+        "job_id": "11111111-1111-4111-8111-111111111111",
+        "lease_id": "22222222-2222-4222-8222-222222222222",
+    }
+
+    def unavailable(*_args, **_kwargs):
+        raise NativeDiagnosticError("private filesystem detail")
+
+    def dispatch(**kwargs):
+        if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
+            return SimpleNamespace(
+                success=True,
+                result={"state": "active", "next_poll_seconds": 60, "job": job},
+            )
+        return SimpleNamespace(success=True, result={"state": "failed"})
+
+    monkeypatch.setattr(session_relay, "store_native_diagnostic", unavailable)
+    outcome = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        dispatcher=dispatch,
+        runner=lambda _job: RelayAdapterResult(
+            "failed",
+            private_diagnostic=RelayPrivateDiagnostic(
+                "process_exit",
+                error_step="session_lookup",
+                stderr=b"private native failure",
+            ),
+        ),
+        clock=lambda: 1000.0,
+    )
+
+    assert outcome.state == "reported"
+    assert outcome.diagnostic_availability == "unavailable"
+    assert outcome.native_error_class == "process_exit"
+    assert outcome.native_error_step == "session_lookup"
+    assert outcome.machine_id == MACHINE_ID
+    assert outcome.relay_id == f"machine:{MACHINE_ID}"
+    assert outcome.native_diagnostic_ref is None
+    assert "private native failure" not in repr(outcome)
+    assert "private filesystem detail" not in repr(outcome)

@@ -1,4 +1,4 @@
-"""Owner-only retention for bounded native relay failure output."""
+"""Machine-user-local retention for bounded native relay failure output."""
 
 from __future__ import annotations
 
@@ -6,11 +6,13 @@ from dataclasses import dataclass
 import hashlib
 import os
 from pathlib import Path
-import re
 import secrets
 import stat
 import time
 
+from yoke_contracts.session_control.evidence import (
+    NATIVE_DIAGNOSTIC_REFERENCE_PATTERN,
+)
 from yoke_harness.session_relay_schedule import relay_state_dir
 
 
@@ -19,7 +21,6 @@ NATIVE_DIAGNOSTIC_DIR_NAME = "native-diagnostics"
 NATIVE_DIAGNOSTIC_MAX_BYTES = 132 * 1024
 NATIVE_DIAGNOSTIC_MAX_FILES = 32
 NATIVE_DIAGNOSTIC_TTL_SECONDS = 7 * 24 * 60 * 60
-_REFERENCE_PATTERN = re.compile(r"nd-[0-9a-f]{32}")
 _FILE_SUFFIX = ".capture"
 _BACKGROUND_IN_USE_MARKERS = (
     b"session is already in use",
@@ -82,7 +83,7 @@ def _diagnostic_directory(state_dir: Path | None, *, create: bool) -> Path:
 
 
 def _reference_path(directory: Path, reference: str) -> Path:
-    if _REFERENCE_PATTERN.fullmatch(reference) is None:
+    if NATIVE_DIAGNOSTIC_REFERENCE_PATTERN.fullmatch(reference) is None:
         raise NativeDiagnosticError("diagnostic reference is invalid")
     return directory / f"{reference}{_FILE_SUFFIX}"
 
@@ -117,7 +118,7 @@ def _known_files(directory: Path) -> list[tuple[Path, os.stat_result]]:
         if not name.endswith(_FILE_SUFFIX):
             continue
         reference = name[: -len(_FILE_SUFFIX)]
-        if _REFERENCE_PATTERN.fullmatch(reference) is None:
+        if NATIVE_DIAGNOSTIC_REFERENCE_PATTERN.fullmatch(reference) is None:
             continue
         try:
             details = child.lstat()
@@ -206,7 +207,7 @@ def read_native_diagnostic(
     state_dir: Path | None = None,
     now: float | None = None,
 ) -> bytes:
-    """Read an unexpired capture after owner, type, and symlink checks."""
+    """Read an unexpired capture after OS-user, type, and symlink checks."""
     directory = _diagnostic_directory(state_dir, create=False)
     path = _reference_path(directory, reference)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)

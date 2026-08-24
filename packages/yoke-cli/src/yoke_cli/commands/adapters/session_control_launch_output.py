@@ -14,6 +14,9 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     write_summary,
     write_table,
 )
+from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
+    native_diagnostic_fields,
+)
 
 
 def _launch_status(launch: Mapping[str, Any]) -> str:
@@ -46,19 +49,10 @@ def _result_evidence(launch: Mapping[str, Any]) -> str | None:
 
 def _diagnostic_fields(launch: Mapping[str, Any]) -> list[tuple[str, Any]]:
     evidence = launch.get("result_evidence")
-    safe = redacted_evidence_document(
-        evidence if isinstance(evidence, Mapping) else None
+    return native_diagnostic_fields(
+        evidence if isinstance(evidence, Mapping) else None,
+        fallback_machine=launch.get("assigned_machine_id"),
     )
-    if not safe.get("native_diagnostic_ref"):
-        return []
-    location = " / ".join(
-        str(value) for value in (safe.get("machine_id"), safe.get("relay_id")) if value
-    )
-    return [
-        ("Native diagnostic", safe.get("native_diagnostic_ref")),
-        ("Diagnostic location", location or launch.get("assigned_machine_id")),
-        ("Retrieve diagnostic", safe.get("native_diagnostic_command")),
-    ]
 
 
 def _write_launch_detail(
@@ -201,25 +195,7 @@ def write_relay_summary(
             ("Error", humanize(payload.get("error_code"))),
             ("Next poll (seconds)", payload.get("next_poll_seconds")),
         ]
-        if payload.get("native_diagnostic_ref"):
-            fields[5:5] = [
-                ("Native diagnostic", payload.get("native_diagnostic_ref")),
-                (
-                    "Diagnostic location",
-                    " / ".join(
-                        str(value)
-                        for value in (
-                            payload.get("machine_id"),
-                            payload.get("relay_id"),
-                        )
-                        if value
-                    ),
-                ),
-                (
-                    "Retrieve diagnostic",
-                    payload.get("native_diagnostic_command"),
-                ),
-            ]
+        fields[5:5] = native_diagnostic_fields(payload)
     write_summary(title, fields, stdout)
 
 

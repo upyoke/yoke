@@ -6,7 +6,10 @@ export function appendRelayDiagnostic(
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return false;
   const reference = String(evidence.native_diagnostic_ref || "").trim();
   const command = String(evidence.native_diagnostic_command || "").trim();
-  if (!reference || !command) return false;
+  const failureClass = String(evidence.native_error_class || "").trim();
+  const failureStep = String(evidence.native_error_step || "").trim();
+  const availability = String(evidence.diagnostic_availability || "").trim();
+  if (!reference && !failureClass && !availability) return false;
   const machine = String(evidence.machine_id || fallbackMachine || "").trim();
   const relay = String(evidence.relay_id || "").trim();
   const location = [machine, relay].filter(Boolean).join(" / ");
@@ -15,17 +18,30 @@ export function appendRelayDiagnostic(
     documentNode,
     "strong",
     "session-relay-diagnostic-title",
-    `Native diagnostic ${reference}`,
+    reference ? `Native diagnostic ${reference}` : `Native failure: ${failureClass}`,
+  ));
+  if (failureStep) callout.appendChild(el(
+    documentNode, "span", "session-relay-diagnostic-step", `Step: ${failureStep}`,
+  ));
+  if (availability) callout.appendChild(el(
+    documentNode, "span", "session-relay-diagnostic-availability", `Detail: ${availability}`,
   ));
   if (location) callout.appendChild(el(
     documentNode, "span", "session-relay-diagnostic-location", `On ${location}`,
   ));
-  callout.appendChild(el(
-    documentNode,
-    "code",
-    "session-relay-diagnostic-command",
-    command,
-  ));
+  if (reference && command) {
+    const expires = String(evidence.diagnostic_expires_at || "").trim();
+    if (expires) callout.appendChild(el(
+      documentNode, "span", "session-relay-diagnostic-expiry", `Expires: ${expires}`,
+    ));
+    callout.appendChild(el(
+      documentNode, "code", "session-relay-diagnostic-command", command,
+    ));
+  } else {
+    callout.appendChild(el(
+      documentNode, "span", "session-relay-diagnostic-unavailable", "Local detail unavailable.",
+    ));
+  }
   host.appendChild(callout);
   return true;
 }

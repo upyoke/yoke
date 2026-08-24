@@ -9,6 +9,7 @@ from yoke_cli.commands.adapters import session_control_relay as relay
 from yoke_cli.commands.adapters.session_control_human_output import (
     write_message_result,
 )
+from yoke_harness.session_relay import ServeOnceOutcome
 
 
 class _BinaryStdout(StringIO):
@@ -29,7 +30,7 @@ def test_relay_diagnostic_emits_exact_private_capture_to_operator(
     assert output.buffer.getvalue() == b"raw\x00error\n"
 
 
-def test_relay_diagnostic_allows_same_owner_read_from_subagent_context(
+def test_relay_diagnostic_allows_same_machine_user_read_from_subagent_context(
     monkeypatch,
 ) -> None:
     output = _BinaryStdout()
@@ -39,6 +40,31 @@ def test_relay_diagnostic_allows_same_owner_read_from_subagent_context(
 
     assert relay.relay_diagnostic(["nd-" + "a" * 32]) == 0
     assert output.buffer.getvalue() == b"details\n"
+
+
+def test_relay_serve_once_treats_reported_native_failure_as_settled(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
+    monkeypatch.setattr(
+        relay,
+        "_serve_once",
+        lambda **_kwargs: ServeOnceOutcome(
+            "reported",
+            result_code="failed",
+            diagnostic_availability="unavailable",
+            native_error_class="process_exit",
+            native_error_step="resume",
+            machine_id="machine-1",
+            relay_id="machine:machine-1",
+        ),
+    )
+
+    assert relay.relay_serve_once([]) == 0
+    rendered = capsys.readouterr().out
+    assert "Native failure" in rendered and "process_exit" in rendered
+    assert "local detail unavailable" in rendered
 
 
 def test_relay_diagnostic_reports_safe_unavailable_error(
@@ -80,6 +106,30 @@ def test_relay_poll_human_output_names_location_and_retrieval_recipe() -> None:
     assert "Native diagnostic" in rendered and reference in rendered
     assert "machine-1 / machine:machine-1" in rendered
     assert f"yoke relay diagnostic {reference}" in rendered
+
+
+def test_relay_poll_human_output_keeps_typed_failure_when_capture_unavailable() -> None:
+    output = StringIO()
+    relay.write_relay_summary(
+        {
+            "state": "reported",
+            "job_kind": "wake",
+            "result_code": "failed",
+            "relay_id": "machine:machine-1",
+            "machine_id": "machine-1",
+            "diagnostic_availability": "unavailable",
+            "native_error_class": "process_exit",
+            "native_error_step": "session_lookup",
+        },
+        output,
+        title="RELAY POLL",
+    )
+
+    rendered = output.getvalue()
+    assert "Native failure" in rendered and "process_exit" in rendered
+    assert "session_lookup" in rendered
+    assert "machine-1 / machine:machine-1" in rendered
+    assert "local detail unavailable" in rendered
 
 
 def test_message_attempt_output_names_diagnostic_without_raw_stderr() -> None:

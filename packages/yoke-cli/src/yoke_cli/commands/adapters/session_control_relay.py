@@ -178,6 +178,8 @@ def relay_serve_once(args: List[str]) -> int:
         return 1
     payload = asdict(outcome)
     _emit(payload, json_mode=parsed.json_mode, title="RELAY POLL")
+    # A reported native failure is a settled relay transaction, not a request to
+    # rerun the native action. Only a failed control-plane boundary exits nonzero.
     return 1 if str(payload.get("state") or "").endswith("_failed") else 0
 
 
@@ -185,7 +187,7 @@ def relay_diagnostic(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke relay diagnostic",
         description=(
-            "Read one owner-only native failure capture by its opaque relay reference."
+            "Read one machine-user-local native failure capture by opaque reference."
         ),
     )
     parser.add_argument("reference")

@@ -49,6 +49,9 @@ class ServeOnceOutcome:
     native_diagnostic_ref: str | None = None
     native_diagnostic_command: str | None = None
     diagnostic_expires_at: int | None = None
+    diagnostic_availability: str | None = None
+    native_error_class: str | None = None
+    native_error_step: str | None = None
 
 
 Dispatcher = Callable[..., Any]
@@ -146,14 +149,19 @@ def _diagnostic_outcome_fields(
 ) -> dict[str, object]:
     evidence = redacted_evidence_document(result.evidence)
     reference = evidence.get("native_diagnostic_ref")
-    if not isinstance(reference, str):
+    failure_class = evidence.get("native_error_class")
+    availability = evidence.get("diagnostic_availability")
+    if not any((reference, failure_class, availability)):
         return {}
     return {
         "relay_id": inventory.relay_id,
         "machine_id": inventory.machine_id,
-        "native_diagnostic_ref": reference,
+        "native_diagnostic_ref": reference if isinstance(reference, str) else None,
         "native_diagnostic_command": evidence.get("native_diagnostic_command"),
         "diagnostic_expires_at": evidence.get("diagnostic_expires_at"),
+        "diagnostic_availability": availability,
+        "native_error_class": failure_class,
+        "native_error_step": evidence.get("native_error_step"),
     }
 
 

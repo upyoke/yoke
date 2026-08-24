@@ -13,7 +13,10 @@ from runtime.harness.test_session_relay_claude import (
     _allow,
     _context,
 )
-from yoke_contracts.session_control.evidence import redacted_evidence_document
+from yoke_contracts.session_control.evidence import (
+    native_diagnostic_command,
+    redacted_evidence_document,
+)
 from yoke_harness import session_relay
 from yoke_harness.session_relay_claude import (
     ClaudeProcessResult,
@@ -75,3 +78,19 @@ def test_claude_failure_class_and_reference_are_safe_durable_evidence(
     assert stderr not in repr(durable)
     assert "private body" not in repr(durable)
     assert retained.private_diagnostic is None
+
+
+def test_malicious_diagnostic_reference_never_becomes_a_copyable_command() -> None:
+    malicious = "nd-" + "a" * 32 + "; open /tmp/private"
+
+    durable = redacted_evidence_document(
+        {
+            "native_diagnostic_ref": malicious,
+            "native_diagnostic_command": f"yoke relay diagnostic {malicious}",
+            "native_error_class": "process_exit",
+        }
+    )
+
+    assert durable == {"native_error_class": "process_exit"}
+    with pytest.raises(ValueError, match="reference is invalid"):
+        native_diagnostic_command(malicious)
