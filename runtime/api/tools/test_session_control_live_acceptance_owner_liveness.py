@@ -15,6 +15,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
     AcceptanceMatrix,
+    acceptance_operation,
 )
 from runtime.api.tools.session_control_live_acceptance_driver import (
     LiveAcceptanceDriver,
@@ -29,6 +30,15 @@ from runtime.api.tools.test_session_control_live_acceptance_driver import (
 
 OWNER_SESSION_ID = "top-level-owner"
 RELEASE_SHA = "a" * 40
+# The active-message route stays private, and this version is outside the exact
+# pin that qualifies it, so acceptance must open a one-shot grant for it.
+UNPROVEN_PRIVATE_ROUTE_CELL = AcceptanceCell(
+    "claude-desktop",
+    "1.34493.1",
+    "identify",
+    session_id="desktop-session",
+    wake_route="none",
+)
 
 
 class _OwnerClient(_ScenarioClient):
@@ -41,20 +51,25 @@ class _OwnerClient(_ScenarioClient):
 
 
 class _Qualification:
+    """Grant only the operation this surface is accepted on."""
+
     def __init__(self, client: _OwnerClient) -> None:
         self.client = client
-        self.open_call_counts: list[int] = []
+        self.granted_operation = acceptance_operation(client.cell.surface)
+        self.granted_call_counts: list[int] = []
 
     def open(self, _cell: AcceptanceCell, operation: str) -> str | None:
-        self.open_call_counts.append(len(self.client.calls))
-        return operation if operation == "message_stopped" else None
+        if operation != self.granted_operation:
+            return None
+        self.granted_call_counts.append(len(self.client.calls))
+        return operation
 
     def verify(self, _grant: str | None) -> None:
         return None
 
 
-def test_long_create_wait_touches_repeatedly_and_immediately_before_grant() -> None:
-    cell = AcceptanceCell("claude-cli", "2.1.241", "create")
+def test_long_bounded_wait_touches_repeatedly_and_immediately_before_grant() -> None:
+    cell = UNPROVEN_PRIVATE_ROUTE_CELL
     client = _OwnerClient(cell)
     clock = AcceptanceClock(client.simulate_target_tool_hook)
     qualification = _Qualification(client)
@@ -79,8 +94,20 @@ def test_long_create_wait_touches_repeatedly_and_immediately_before_grant() -> N
     touches = [call for call in client.calls if call[0] == ["sessions", "touch"]]
     assert len(touches) >= 3
     assert all(stdin is None and "--session-id" not in argv for argv, stdin in touches)
-    assert len(qualification.open_call_counts) == 1
-    before_open = qualification.open_call_counts[0]
+    receipt_reads = [
+        index
+        for index, (argv, _stdin) in enumerate(client.calls)
+        if argv[:2] == ["messages", "get"]
+    ]
+    polled_touches = [
+        index
+        for index, (argv, _stdin) in enumerate(client.calls)
+        if argv == ["sessions", "touch"]
+        and receipt_reads[0] < index < receipt_reads[-1]
+    ]
+    assert polled_touches
+    assert len(qualification.granted_call_counts) == 1
+    before_open = qualification.granted_call_counts[0]
     assert client.calls[before_open - 1] == (["sessions", "touch"], None)
 
 
