@@ -19,7 +19,7 @@ from yoke_core.domain.deploy_product_source import DeployProductSourceError
 
 
 RELEASE_SHA = "a" * 40
-CANDIDATE_CLAUDE_VERSION = "2.1.241"
+UNPROVEN_CLAUDE_DESKTOP_VERSION = "1.34493.1"
 
 
 def _versions() -> dict[str, str]:
@@ -101,7 +101,7 @@ def test_matrix_builder_owns_the_exact_six_modes_roles_and_routes() -> None:
 
 def test_candidate_builder_keeps_only_unproven_private_route_cells() -> None:
     bindings = _bindings()
-    bindings["versions"]["claude-cli"] = CANDIDATE_CLAUDE_VERSION
+    bindings["versions"]["claude-desktop"] = UNPROVEN_CLAUDE_DESKTOP_VERSION
 
     document = command.build_acceptance_matrix_document(
         "yoke",
@@ -109,7 +109,7 @@ def test_candidate_builder_keeps_only_unproven_private_route_cells() -> None:
         qualification_candidate=True,
     )
 
-    assert [cell["surface"] for cell in document["cells"]] == ["claude-cli"]
+    assert [cell["surface"] for cell in document["cells"]] == ["claude-desktop"]
 
 
 def test_subagent_refuses_before_source_validation_or_stdin(
@@ -268,7 +268,7 @@ def test_candidate_run_forwards_stage_mode_to_existing_runner(
     _allow_source(monkeypatch)
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     bindings = _bindings()
-    bindings["versions"]["claude-cli"] = CANDIDATE_CLAUDE_VERSION
+    bindings["versions"]["claude-desktop"] = UNPROVEN_CLAUDE_DESKTOP_VERSION
     monkeypatch.setattr(command.sys, "stdin", io.StringIO(json.dumps(bindings)))
     observed: dict[str, object] = {}
 
