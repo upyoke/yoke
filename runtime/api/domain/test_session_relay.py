@@ -106,7 +106,7 @@ def _add_wake_recipient(conn, *, message_id: str = "message-1") -> None:
     conn.commit()
 
 
-def test_idle_heartbeat_uses_backoff_and_persists_public_facts_only() -> None:
+def test_idle_launch_capable_heartbeat_keeps_active_cadence() -> None:
     conn = _connection()
 
     outcome = claim_relay_job(
@@ -117,7 +117,7 @@ def test_idle_heartbeat_uses_backoff_and_persists_public_facts_only() -> None:
     )
 
     assert outcome.state == "idle"
-    assert outcome.next_poll_seconds == 300
+    assert outcome.next_poll_seconds == 60
     row = conn.execute(
         "SELECT actor_id,hostname,relay_version,surface_versions,"
         "project_checkouts,connected_until "
@@ -129,7 +129,21 @@ def test_idle_heartbeat_uses_backoff_and_persists_public_facts_only() -> None:
     assert row[2] == "0.1.1"
     assert json.loads(row[3]) == {"codex-cli": "0.148.0a15"}
     assert json.loads(row[4]) == [10]
-    assert row[5] == "2026-08-22T12:10:00Z"
+    assert row[5] == "2026-08-22T12:02:00Z"
+
+
+def test_idle_non_launch_heartbeat_uses_backoff() -> None:
+    conn = _connection()
+
+    outcome = claim_relay_job(
+        conn,
+        _heartbeat(**{"cursor-desktop": "3.17.8"}),
+        wait_seconds=0,
+        now_provider=_clock(),
+    )
+
+    assert outcome.state == "idle"
+    assert outcome.next_poll_seconds == 300
 
 
 def test_recent_hook_activity_snaps_idle_machine_to_active_cadence() -> None:

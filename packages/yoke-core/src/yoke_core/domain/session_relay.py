@@ -5,6 +5,9 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Mapping
 
+from yoke_contracts.session_control.surface_versions import (
+    surface_operation_supported,
+)
 from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
 from yoke_core.domain.session_relay_jobs import (
     claim_launch_job,
@@ -118,7 +121,13 @@ def claim_relay_job(
         now=current,
     )
     state = "idle" if idle else "active"
-    next_poll = policy.idle_poll_seconds if idle else policy.poll_seconds
+    launch_capable = any(
+        surface_operation_supported(surface, version, "create")
+        for surface, version in heartbeat.surface_versions.items()
+    )
+    next_poll = (
+        policy.idle_poll_seconds if idle and not launch_capable else policy.poll_seconds
+    )
     connected = heartbeat_relay(
         conn,
         heartbeat,
