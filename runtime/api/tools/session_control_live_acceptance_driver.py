@@ -6,7 +6,7 @@ from collections.abc import Callable
 import time
 from typing import Any
 
-from runtime.api.tools.session_control_live_acceptance_client import CommandClient
+import runtime.api.tools.session_control_live_acceptance_client as acceptance_client
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
@@ -27,7 +27,7 @@ from runtime.api.tools import session_control_live_acceptance_roster as roster
 class LiveAcceptanceDriver:
     def __init__(
         self,
-        client: CommandClient,
+        client: acceptance_client.CommandClient,
         *,
         sleep: Callable[[float], None] = time.sleep,
         monotonic: Callable[[], float] = time.monotonic,
@@ -50,11 +50,15 @@ class LiveAcceptanceDriver:
         unsupported_observation_seconds: float,
         qualification: Any | None = None,
     ) -> dict[str, Any]:
+        client, sleep, qualification = acceptance_client.bind_acceptance_owner(
+            self.client, caller_session_id, self.sleep, self.monotonic, qualification
+        )
+        bound = LiveAcceptanceDriver(client, sleep=sleep, monotonic=self.monotonic)
         reports: list[dict[str, Any]] = []
         for cell in matrix.cells:
             try:
                 reports.append(
-                    self._run_cell(
+                    bound._run_cell(
                         matrix.project,
                         cell,
                         run_id=run_id,

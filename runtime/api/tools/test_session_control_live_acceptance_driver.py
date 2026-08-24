@@ -1,5 +1,3 @@
-"""Deterministic orchestration tests for Fleet live acceptance."""
-
 from __future__ import annotations
 
 import json
@@ -57,6 +55,8 @@ class _ScenarioClient:
     def call(self, args, *, stdin: str | None = None) -> dict[str, Any]:
         argv = list(args)
         self.calls.append((argv, stdin))
+        if argv == ["sessions", "touch"]:
+            return {"session": {"session_id": "main-session"}}
         if argv[:2] == ["sessions", "list"]:
             return self._roster(argv)
         if argv[:2] == ["sessions", "create"]:
