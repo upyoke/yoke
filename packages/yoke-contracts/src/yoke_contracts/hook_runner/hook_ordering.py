@@ -39,10 +39,10 @@ PreToolUse Bash chain order rationale:
     shell choreography. Runs after the structured-field transform shell
     lint because both inspect command shape; this one is keyed on the
     adapter inventory (function-id coverage).
-12. ``lint_shell_backtick_search`` — block ``rg``/``grep`` search text
-    that places backticks inside double quotes. Pure command-shape parse;
-    runs with the other shell-footgun guards before any subprocess-backed
-    state checks.
+12. ``lint_shell_backtick_search`` / ``lint_unmatched_path_glob`` —
+    shell-footgun deniers (backticks in double-quoted grep/rg; unquoted
+    path globs that match no files, teaching ``rg --files``). Shape parse
+    first; unmatched globs then check the command cwd.
 13. ``lint_no_agent_runtime_api_import_from_c`` — block ad-hoc
     ``python3 -c "from runtime..."`` one-liners. Shape-only denier in the
     same family as the shell-quoted payload lint above; keyed on the
@@ -145,6 +145,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_structured_field_transform_shell",
     "yoke_core.domain.lint_shell_quoted_function_payload",
     "yoke_core.domain.lint_shell_backtick_search",
+    "yoke_core.domain.lint_unmatched_path_glob",
     "yoke_core.domain.lint_no_agent_runtime_api_import_from_c",
     "yoke_core.domain.lint_no_agent_curl_against_yoke_api",
     "yoke_core.domain.lint_no_agent_session_end",

@@ -14,11 +14,12 @@ of failure context (forcing a re-run to see what broke), and the pipeline
 exit code is the truncator's — ``tail`` exits 0, so a failed test run
 reads as success to everything keying off ``$?``.
 
-Scope includes the named long-command set (watcher wrappers, pytest, the
-generic test runner, doctor/deploy engines) plus repository-wide search
-commands in the first pipeline stage. File-scoped searches and downstream
-search filters stay out of scope, as do short Yoke adapters — the shell-payload
-lint already classifies those.
+Scope is the named long-command set (watcher wrappers, pytest, the
+generic test runner, doctor/deploy engines). Pure read discovery tools
+(``rg``, ``grep``, ``ls``, ``find``, ``git grep``) are short commands and
+stay exempt — the truncator denial is for the long set, not sub-second
+reads. Short Yoke adapters stay out of scope; the shell-payload lint
+already classifies those.
 
 Pattern mirrors :mod:`yoke_core.domain.lint_git_stash_arg_order`: typed
 ``evaluate(record: HookContext) -> HookDecision`` entry, CLI ``__main__``
@@ -63,11 +64,6 @@ _LONG_CLI_TOKEN_PREFIXES = tuple(
 )
 
 _TRUNCATORS = frozenset({"tail", "head"})
-
-_TREE_SEARCH_COMMANDS = frozenset({"find", "fd", "fdfind"})
-_RECURSIVE_GREP_FLAGS = frozenset({
-    "-r", "-R", "--recursive", "--dereference-recursive",
-})
 
 # Instant metadata/help modes do not start the long-running operation.
 _INSTANT_EXEMPTIONS = frozenset({"--print-streaming-pair", "--help", "-h"})
@@ -141,47 +137,6 @@ def _stage_is_long_command(stage: str) -> Optional[str]:
     return None
 
 
-def _short_flag_enables_recursive_grep(token: str) -> bool:
-    return (
-        token.startswith("-")
-        and not token.startswith("--")
-        and any(flag in token[1:] for flag in ("r", "R"))
-    )
-
-
-def _rg_is_file_scoped(tokens: List[str]) -> bool:
-    """Recognize the common explicit-file shape without parsing all rg flags."""
-    positionals = [token for token in tokens[1:] if not token.startswith("-")]
-    if len(positionals) < 2:
-        return False
-    candidate = positionals[-1].rstrip("/").rsplit("/", 1)[-1]
-    return bool(candidate and not candidate.startswith(".") and "." in candidate)
-
-
-def _stage_is_long_search(stage: str) -> Optional[str]:
-    """Return a label for a repository-search stage likely to traverse a tree."""
-    tokens = _stage_tokens(stage)
-    if not tokens or any(token in _INSTANT_EXEMPTIONS for token in tokens):
-        return None
-    first = tokens[0].rsplit("/", 1)[-1]
-    if first in {"rg", "ripgrep"}:
-        return None if _rg_is_file_scoped(tokens) else first
-    if first == "grep" and any(
-        token in _RECURSIVE_GREP_FLAGS
-        or _short_flag_enables_recursive_grep(token)
-        for token in tokens[1:]
-    ):
-        return "grep"
-    if first in _TREE_SEARCH_COMMANDS:
-        return first
-    if first == "git" and (
-        len(tokens) > 1 and tokens[1] == "grep"
-        or len(tokens) > 3 and tokens[1] == "-C" and tokens[3] == "grep"
-    ):
-        return "git grep"
-    return None
-
-
 def _stage_is_truncator(stage: str) -> bool:
     tokens = _stage_tokens(stage)
     if not tokens:
@@ -201,8 +156,6 @@ def _find_pipe_to_truncator(command: str) -> Optional[Tuple[str, str]]:
             continue
         for idx, stage in enumerate(stages[:-1]):
             label = _stage_is_long_command(stage)
-            if label is None and idx == 0:
-                label = _stage_is_long_search(stage)
             if label is None:
                 continue
             for later in stages[idx + 1:]:
@@ -226,7 +179,9 @@ def _format_reason(label: str, truncator: str, suppression_seen: bool, mode: str
         "  # other long commands use capture-first:\n"
         "  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX)\n"
         "  <command> >\"$_tmp\" 2>&1; _rc=$?\n"
-        "  tail -80 \"$_tmp\"; exit \"$_rc\"\n"
+        "  tail -80 \"$_tmp\" # inspect captured output\n"
+        "  grep -E \"FAIL|ERROR|error\" \"$_tmp\" || true # extract failures\n"
+        "  exit \"$_rc\"\n"
         "Doctrine: AGENTS.md `## Command Output — Hard Rule`"
     )
     if mode == "warn":

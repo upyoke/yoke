@@ -52,6 +52,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_structured_field_transform_shell",
                 "yoke_core.domain.lint_shell_quoted_function_payload",
                 "yoke_core.domain.lint_shell_backtick_search",
+                "yoke_core.domain.lint_unmatched_path_glob",
                 "yoke_core.domain.lint_no_agent_runtime_api_import_from_c",
                 "yoke_core.domain.lint_no_agent_curl_against_yoke_api",
                 "yoke_core.domain.lint_no_agent_session_end",

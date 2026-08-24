@@ -88,7 +88,7 @@ class TestHitShapes(unittest.TestCase):
     def test_venv_pytest_path_piped(self):
         self.assertIsNotNone(_eval("./venv/bin/pytest -q | tail -4"))
 
-    def test_repository_searches_piped_to_truncators(self):
+    def test_discovery_reads_piped_to_truncators_are_exempt(self):
         commands = (
             "rg -n 'pytest|watch_pytest' runtime/api | head -40",
             "rg 'yoke watch merge --' packages runtime | head",
@@ -97,10 +97,13 @@ class TestHitShapes(unittest.TestCase):
             "fd 'test_.*py' runtime | head -20",
             "git grep pytest | head -20",
             "git -C /repo grep pytest | tail -20",
+            "ls runtime/api | head -20",
+            "sed -n '1,80p' packages/yoke-core/src/yoke_core/domain/foo.py "
+            "| rg -n 'pattern' | head -20",
         )
         for command in commands:
             with self.subTest(command=command):
-                self.assertIsNotNone(_eval(command))
+                self.assertIsNone(_eval(command))
 
 
 class TestNonMatches(unittest.TestCase):
@@ -248,6 +251,14 @@ class TestModesAndSuppression(unittest.TestCase):
         self.assertIn("exit code", reason)
         self.assertIn("failure context", reason)
         self.assertIn("capture-first", reason)
+        self.assertIn("_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX)", reason)
+        self.assertIn('<command> >"$_tmp" 2>&1; _rc=$?', reason)
+        self.assertIn('tail -80 "$_tmp" # inspect captured output', reason)
+        self.assertIn(
+            'grep -E "FAIL|ERROR|error" "$_tmp" || true # extract failures',
+            reason,
+        )
+        self.assertIn('exit "$_rc"', reason)
 
 
 if __name__ == "__main__":

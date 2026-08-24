@@ -44,6 +44,18 @@ def test_unknown_member_suggests_nearest_real_subcommand(capsys) -> None:
     assert "Did you mean `yoke doctor run`?" in capsys.readouterr().err
 
 
+def test_unknown_top_level_suggests_hyphenated_family(capsys) -> None:
+    assert main(["runs"]) == 2
+    err = capsys.readouterr().err
+    assert "unknown subcommand" in err
+    assert "Did you mean `yoke deployment-runs`?" in err
+
+
+def test_unknown_top_level_help_still_suggests_hyphenated_family(capsys) -> None:
+    assert main(["runs", "--help"]) == 2
+    assert "Did you mean `yoke deployment-runs`?" in capsys.readouterr().err
+
+
 def test_space_separated_hyphenated_family_resolves(capsys) -> None:
     assert main(["github", "actions", "wait", "--help"]) == 0
     assert "yoke github-actions wait-run" in capsys.readouterr().out
