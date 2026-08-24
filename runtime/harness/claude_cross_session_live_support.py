@@ -7,7 +7,10 @@ from pathlib import Path
 import re
 from uuid import UUID
 
-from runtime.harness.test_claude_background_resume_live import _recorded_call
+from runtime.harness.test_claude_background_resume_live import (
+    _PrivateNativeCapture,
+    _recorded_call,
+)
 from yoke_harness import session_relay_claude_process as process_module
 
 
@@ -28,6 +31,7 @@ _SUMMARY_FIELDS = (
     "sender_exit_zero",
     "sender_identity_distinct",
     "sender_not_registered",
+    "post_commands_ok",
     "same_target",
     "saw_working",
     "target_idle_after",
@@ -37,6 +41,29 @@ _SUMMARY_FIELDS = (
     "cleanup_identity_exact",
     "root_removed",
 )
+_POLL_PREFIXES = (
+    "target_identity_",
+    "target_ready_agents_",
+    "target_ready_logs_",
+    "direct_agents_",
+    "direct_logs_",
+    "post_send_agents_",
+    "post_send_logs_",
+)
+
+
+class CrossSessionPrivateCapture(_PrivateNativeCapture):
+    """Retain full primary/failing streams, not cumulative successful polls."""
+
+    def append(self, label, stdout, stderr, result, exception) -> None:
+        successful_poll = (
+            result is not None
+            and result.returncode == 0
+            and exception is None
+            and label.startswith(_POLL_PREFIXES)
+        )
+        if not successful_poll:
+            super().append(label, stdout, stderr, result, exception)
 
 
 def agent_rows(output: str) -> list[dict[str, object]]:

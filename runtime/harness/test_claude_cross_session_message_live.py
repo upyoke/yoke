@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from runtime.harness.claude_cross_session_live_support import (
+    CrossSessionPrivateCapture,
     ScopedNativeProbe,
     agent_rows,
     mature_receiver,
@@ -22,10 +23,7 @@ from runtime.harness.claude_cross_session_live_support import (
     short_id_absent,
     target_row,
 )
-from runtime.harness.test_claude_background_resume_live import (
-    _PrivateNativeCapture,
-    _ProbeFailure,
-)
+from runtime.harness.test_claude_background_resume_live import _ProbeFailure
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness import session_relay_claude_identity as identity_module
 from yoke_harness.session_relay_environment import native_session_environment
@@ -78,7 +76,7 @@ def test_named_claude_session_receives_native_cross_session_message(
         provider="anthropic",
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
     )
-    capture = _PrivateNativeCapture()
+    capture = CrossSessionPrivateCapture()
     print(f"CLAUDE_CROSS_SESSION_PRIVATE_CAPTURE={capture.path}")
     probe = ScopedNativeProbe(executable, project, environment, capture)
     command, roster = probe.command, probe.roster
@@ -91,6 +89,7 @@ def test_named_claude_session_receives_native_cross_session_message(
     sender_exit_zero = False
     sender_identity_distinct = False
     sender_not_registered = False
+    post_commands_ok = False
     wake_observed = False
     response_observed = False
     same_target = False
@@ -271,7 +270,8 @@ def test_named_claude_session_receives_native_cross_session_message(
             logs = command(
                 f"post_send_logs_{attempt}", executable, "logs", target_short
             )
-            rows = agent_rows(agents.stdout)
+            post_commands_ok = agents.returncode == 0 and logs.returncode == 0
+            rows = agent_rows(agents.stdout) if agents.returncode == 0 else []
             sender_not_registered = all(
                 str(row.get("sessionId") or "") != sender_uuid for row in rows
             )
@@ -281,10 +281,10 @@ def test_named_claude_session_receives_native_cross_session_message(
                 session_id=target_uuid,
                 name=target_name,
             )
-            same_target = agents.returncode == 0 and name_count == 1 and bool(row)
+            same_target = post_commands_ok and name_count == 1 and bool(row)
             saw_working = saw_working or row.get("state") == "working"
             target_idle_after = mature_receiver(row)
-            log_text = f"{logs.stdout}\n{logs.stderr}" if logs.returncode == 0 else ""
+            log_text = f"{logs.stdout}\n{logs.stderr}" if post_commands_ok else ""
             wake_observed = wake_nonce in log_text
             response_observed = expected_response in log_text
             if (
@@ -310,6 +310,9 @@ def test_named_claude_session_receives_native_cross_session_message(
         failure = caught
     finally:
         if target_short:
+            if failure is not None:
+                roster("failure_agents")
+                command("failure_logs", executable, "logs", target_short)
             agents = roster("cleanup_identity")
             if target_uuid:
                 row, count = target_row(
