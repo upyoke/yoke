@@ -76,10 +76,15 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
     report = calls[1]["payload"]
     evidence = report["evidence"]
     assert evidence["diagnostic_availability"] == "relay_local"
+    assert evidence["machine_id"] == MACHINE_ID
+    assert evidence["relay_id"] == f"machine:{MACHINE_ID}"
     assert evidence["native_error_class"] == "process_exit"
     assert evidence["native_error_step"] == "session_lookup"
     assert len(evidence["native_error_sha256"]) == 64
     assert evidence["native_diagnostic_ref"].startswith("nd-")
+    assert evidence["native_diagnostic_command"] == (
+        f"yoke relay diagnostic {evidence['native_diagnostic_ref']}"
+    )
     assert isinstance(evidence["diagnostic_expires_at"], int)
     assert "private stdout body" not in repr(report)
     assert "actual native stderr" not in repr(report)
@@ -92,6 +97,61 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
     )
     assert b"private stdout body" in payload
     assert b"actual native stderr" in payload
+
+
+def test_report_failure_keeps_local_diagnostic_ref_and_recipe(
+    tmp_path: Path,
+) -> None:
+    job = {
+        "job_kind": "wake",
+        "job_id": "11111111-1111-4111-8111-111111111111",
+        "lease_id": "22222222-2222-4222-8222-222222222222",
+    }
+
+    def dispatch(**kwargs):
+        if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
+            return SimpleNamespace(
+                success=True,
+                result={"state": "active", "next_poll_seconds": 60, "job": job},
+            )
+        return SimpleNamespace(
+            success=False,
+            error=SimpleNamespace(code="control_plane_unreachable"),
+        )
+
+    outcome = session_relay.serve_once(
+        state_dir=tmp_path,
+        inventory_provider=_inventory,
+        dispatcher=dispatch,
+        runner=lambda _job: RelayAdapterResult(
+            "failed",
+            private_diagnostic=RelayPrivateDiagnostic(
+                "process_exit",
+                error_step="session_lookup",
+                stdout=b"private lookup stdout",
+                stderr=b"private lookup stderr",
+            ),
+        ),
+        clock=lambda: 1000.0,
+    )
+
+    assert outcome.state == "report_failed"
+    assert outcome.error_code == "control_plane_unreachable"
+    assert outcome.relay_id == f"machine:{MACHINE_ID}"
+    assert outcome.machine_id == MACHINE_ID
+    assert outcome.native_diagnostic_ref is not None
+    assert outcome.native_diagnostic_command == (
+        f"yoke relay diagnostic {outcome.native_diagnostic_ref}"
+    )
+    assert outcome.diagnostic_expires_at is not None
+    assert "private lookup" not in repr(outcome)
+    retained = read_native_diagnostic(
+        outcome.native_diagnostic_ref,
+        state_dir=tmp_path,
+        now=1001,
+    )
+    assert b"private lookup stdout" in retained
+    assert b"private lookup stderr" in retained
 
 
 def test_storage_failure_reports_unavailable_without_raw_streams(

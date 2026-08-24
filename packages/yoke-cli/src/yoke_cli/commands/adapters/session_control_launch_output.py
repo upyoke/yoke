@@ -44,6 +44,23 @@ def _result_evidence(launch: Mapping[str, Any]) -> str | None:
     return "; ".join(f"{humanize(key)}={value}" for key, value in safe_evidence.items())
 
 
+def _diagnostic_fields(launch: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    evidence = launch.get("result_evidence")
+    safe = redacted_evidence_document(
+        evidence if isinstance(evidence, Mapping) else None
+    )
+    if not safe.get("native_diagnostic_ref"):
+        return []
+    location = " / ".join(
+        str(value) for value in (safe.get("machine_id"), safe.get("relay_id")) if value
+    )
+    return [
+        ("Native diagnostic", safe.get("native_diagnostic_ref")),
+        ("Diagnostic location", location or launch.get("assigned_machine_id")),
+        ("Retrieve diagnostic", safe.get("native_diagnostic_command")),
+    ]
+
+
 def _write_launch_detail(
     launch: Mapping[str, Any],
     stdout: TextIO,
@@ -75,6 +92,7 @@ def _write_launch_detail(
         ("Deadline (UTC)", utc_time(launch.get("deadline_at"))),
         ("Completed (UTC)", utc_time(launch.get("completed_at"))),
     ]
+    fields[13:13] = _diagnostic_fields(launch)
     if deduplicated is not None:
         fields.insert(2, ("Deduplicated", bool(deduplicated)))
     write_summary("LAUNCH", fields, stdout)
@@ -183,6 +201,25 @@ def write_relay_summary(
             ("Error", humanize(payload.get("error_code"))),
             ("Next poll (seconds)", payload.get("next_poll_seconds")),
         ]
+        if payload.get("native_diagnostic_ref"):
+            fields[5:5] = [
+                ("Native diagnostic", payload.get("native_diagnostic_ref")),
+                (
+                    "Diagnostic location",
+                    " / ".join(
+                        str(value)
+                        for value in (
+                            payload.get("machine_id"),
+                            payload.get("relay_id"),
+                        )
+                        if value
+                    ),
+                ),
+                (
+                    "Retrieve diagnostic",
+                    payload.get("native_diagnostic_command"),
+                ),
+            ]
     write_summary(title, fields, stdout)
 
 

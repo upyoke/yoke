@@ -110,6 +110,23 @@
   font-size: 11px;
 }
 
+.universe-app-root .session-relay-diagnostic {
+  border-left: 4px solid var(--yoke-danger, #b42318);
+  display: grid;
+  gap: 5px;
+  margin: 10px 0;
+  padding: 8px 10px;
+}
+
+.universe-app-root .session-relay-diagnostic-location {
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .session-relay-diagnostic-command {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .universe-app-root .session-launch-grid,
 .universe-app-root .session-relay-grid {
   display: grid;

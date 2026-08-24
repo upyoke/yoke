@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, TextIO
 
+from yoke_contracts.session_control.evidence import redacted_evidence_document
+
 
 BODY_EXCERPT_CHARACTERS = 72
 EMPTY_VALUE = "—"
@@ -203,6 +205,50 @@ def _body_excerpt(value: Any) -> str:
     return _fit(value, BODY_EXCERPT_CHARACTERS)
 
 
+def _attempt_evidence(attempt: Mapping[str, Any]) -> dict[str, str | int]:
+    evidence = attempt.get("evidence")
+    return redacted_evidence_document(
+        evidence if isinstance(evidence, Mapping) else None
+    )
+
+
+def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> None:
+    rows = list(attempts)
+    if not rows:
+        return
+    columns: tuple[Column, ...] = (
+        ("ATTEMPT", lambda row: row.get("attempt_id"), 18),
+        ("TARGET", lambda row: row.get("target_session_id"), 20),
+        ("TYPE", lambda row: humanize(row.get("attempt_kind")), 16),
+        ("RESULT", lambda row: humanize(row.get("result_code")), 18),
+        (
+            "DIAGNOSTIC",
+            lambda row: _attempt_evidence(row).get("native_diagnostic_ref"),
+            None,
+        ),
+    )
+    write_table("DELIVERY ATTEMPTS", columns, rows, stdout, empty="")
+    for row in rows:
+        evidence = _attempt_evidence(row)
+        reference = evidence.get("native_diagnostic_ref")
+        if not reference:
+            continue
+        location = " / ".join(
+            str(value)
+            for value in (evidence.get("machine_id"), evidence.get("relay_id"))
+            if value
+        )
+        write_summary(
+            "NATIVE DIAGNOSTIC",
+            [
+                ("Reference", reference),
+                ("Location", location),
+                ("Retrieve", evidence.get("native_diagnostic_command")),
+            ],
+            stdout,
+        )
+
+
 def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
     recipients = message.get("recipients") or []
     sender = message.get("sender_session_id")
@@ -223,6 +269,7 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         )
     write_summary("MESSAGE", fields, stdout)
     _write_recipients(recipients, stdout)
+    _write_attempts(message.get("attempts") or [], stdout)
     if any(recipient.get("state") == "injected" for recipient in recipients):
         print(
             f"Recipient next step: yoke messages acknowledge {message.get('message_id')}",

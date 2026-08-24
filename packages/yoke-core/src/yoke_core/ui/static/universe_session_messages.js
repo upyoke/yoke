@@ -1,6 +1,7 @@
 import { el } from "./universe_view_support.js";
 import { pillFamilyForState } from "./universe_state_pills.js";
 import { openSessionMessageCompose } from "./session_message_compose_dialog.js";
+import { appendRelayDiagnostic } from "./session_relay_diagnostic_view.js";
 import {
   formatSessionControlTime,
   presentSessionControlFailure,
@@ -59,6 +60,16 @@ function receiptList(documentNode, message) {
       null,
       `${recipient.session_id} · ${recipient.state} · ${delivery}`,
     ));
+    for (const attempt of message.attempts || []) {
+      const target = String(attempt.target_session_id || "");
+      if (target !== String(recipient.session_id || "")) {
+        continue;
+      }
+      const detail = el(documentNode, "li", "session-message-attempt");
+      if (appendRelayDiagnostic(
+        documentNode, detail, attempt.evidence, recipient.machine_id,
+      )) list.appendChild(detail);
+    }
   }
   if (!list.children.length) {
     list.appendChild(el(

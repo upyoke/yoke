@@ -6,6 +6,9 @@ from io import BytesIO, StringIO
 
 from yoke_cli.commands import registry_session_control
 from yoke_cli.commands.adapters import session_control_relay as relay
+from yoke_cli.commands.adapters.session_control_human_output import (
+    write_message_result,
+)
 
 
 class _BinaryStdout(StringIO):
@@ -26,17 +29,16 @@ def test_relay_diagnostic_emits_exact_private_capture_to_operator(
     assert output.buffer.getvalue() == b"raw\x00error\n"
 
 
-def test_relay_diagnostic_refuses_subagent_ownership(
+def test_relay_diagnostic_allows_same_owner_read_from_subagent_context(
     monkeypatch,
-    capsys,
 ) -> None:
+    output = _BinaryStdout()
     monkeypatch.setattr(relay, "is_subagent_execution", lambda: True)
-    called = []
-    monkeypatch.setattr(relay, "_read_diagnostic", called.append)
+    monkeypatch.setattr(relay, "_read_diagnostic", lambda _reference: b"details")
+    monkeypatch.setattr(relay.sys, "stdout", output)
 
-    assert relay.relay_diagnostic(["nd-" + "a" * 32]) == 2
-    assert called == []
-    assert "top-level" in capsys.readouterr().err.lower()
+    assert relay.relay_diagnostic(["nd-" + "a" * 32]) == 0
+    assert output.buffer.getvalue() == b"details\n"
 
 
 def test_relay_diagnostic_reports_safe_unavailable_error(
@@ -52,6 +54,67 @@ def test_relay_diagnostic_reports_safe_unavailable_error(
 
     assert relay.relay_diagnostic(["nd-" + "a" * 32]) == 1
     assert "relay_diagnostic_unavailable" in capsys.readouterr().err
+
+
+def test_relay_poll_human_output_names_location_and_retrieval_recipe() -> None:
+    output = StringIO()
+    reference = "nd-" + "a" * 32
+
+    relay.write_relay_summary(
+        {
+            "state": "report_failed",
+            "job_kind": "wake",
+            "job_id": "attempt-1",
+            "result_code": "native_exit",
+            "error_code": "control_plane_unreachable",
+            "relay_id": "machine:machine-1",
+            "machine_id": "machine-1",
+            "native_diagnostic_ref": reference,
+            "native_diagnostic_command": f"yoke relay diagnostic {reference}",
+        },
+        output,
+        title="RELAY POLL",
+    )
+
+    rendered = output.getvalue()
+    assert "Native diagnostic" in rendered and reference in rendered
+    assert "machine-1 / machine:machine-1" in rendered
+    assert f"yoke relay diagnostic {reference}" in rendered
+
+
+def test_message_attempt_output_names_diagnostic_without_raw_stderr() -> None:
+    output = StringIO()
+    reference = "nd-" + "b" * 32
+    write_message_result(
+        {
+            "message": {
+                "message_id": "message-1",
+                "recipients": [{"session_id": "session-1", "state": "pending"}],
+                "attempts": [
+                    {
+                        "attempt_id": "attempt-1",
+                        "target_session_id": "session-1",
+                        "attempt_kind": "wake",
+                        "result_code": "native_exit",
+                        "evidence": {
+                            "native_diagnostic_ref": reference,
+                            "machine_id": "machine-1",
+                            "relay_id": "machine:machine-1",
+                            "stderr": "never show raw stderr",
+                        },
+                    }
+                ],
+            }
+        },
+        output,
+    )
+
+    rendered = output.getvalue()
+    assert "DELIVERY ATTEMPTS" in rendered
+    assert "NATIVE DIAGNOSTIC" in rendered and reference in rendered
+    assert "machine-1 / machine:machine-1" in rendered
+    assert f"yoke relay diagnostic {reference}" in rendered
+    assert "never show raw stderr" not in rendered
 
 
 def test_relay_diagnostic_is_registered_as_a_machine_local_tool() -> None:

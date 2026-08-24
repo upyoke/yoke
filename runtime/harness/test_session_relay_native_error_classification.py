@@ -68,6 +68,9 @@ def test_claude_failure_class_and_reference_are_safe_durable_evidence(
     assert durable["native_error_step"] == "resume"
     assert durable["diagnostic_availability"] == "relay_local"
     assert durable["native_diagnostic_ref"].startswith("nd-")
+    assert durable["native_diagnostic_command"] == (
+        f"yoke relay diagnostic {durable['native_diagnostic_ref']}"
+    )
     assert private_uuid not in repr(durable)
     assert stderr not in repr(durable)
     assert "private body" not in repr(durable)

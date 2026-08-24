@@ -44,6 +44,11 @@ class ServeOnceOutcome:
     job_id: str | None = None
     result_code: str | None = None
     error_code: str | None = None
+    relay_id: str | None = None
+    machine_id: str | None = None
+    native_diagnostic_ref: str | None = None
+    native_diagnostic_command: str | None = None
+    diagnostic_expires_at: int | None = None
 
 
 Dispatcher = Callable[..., Any]
@@ -95,6 +100,7 @@ def _retain_private_diagnostic(
     result: RelayAdapterResult,
     *,
     state_dir: Path | None,
+    inventory: RelayInventory | None = None,
 ) -> RelayAdapterResult:
     private = result.private_diagnostic
     if private is None:
@@ -111,6 +117,9 @@ def _retain_private_diagnostic(
         if private.error_step in _NATIVE_ERROR_STEPS
         else "native_command"
     )
+    if inventory is not None:
+        evidence["relay_id"] = inventory.relay_id
+        evidence["machine_id"] = inventory.machine_id
     try:
         receipt = store_native_diagnostic(
             private.stdout,
@@ -129,6 +138,23 @@ def _retain_private_diagnostic(
             }
         )
     return replace(result, evidence=evidence, private_diagnostic=None)
+
+
+def _diagnostic_outcome_fields(
+    inventory: RelayInventory,
+    result: RelayAdapterResult,
+) -> dict[str, object]:
+    evidence = redacted_evidence_document(result.evidence)
+    reference = evidence.get("native_diagnostic_ref")
+    if not isinstance(reference, str):
+        return {}
+    return {
+        "relay_id": inventory.relay_id,
+        "machine_id": inventory.machine_id,
+        "native_diagnostic_ref": reference,
+        "native_diagnostic_command": evidence.get("native_diagnostic_command"),
+        "diagnostic_expires_at": evidence.get("diagnostic_expires_at"),
+    }
 
 
 def _poll(
@@ -158,7 +184,12 @@ def _poll(
     job = payload.get("job")
     if not isinstance(job, Mapping):
         return ServeOnceOutcome(str(payload.get("state") or "active"), next_poll)
-    result = _retain_private_diagnostic(runner(job), state_dir=state_dir)
+    result = _retain_private_diagnostic(
+        runner(job),
+        state_dir=state_dir,
+        inventory=inventory,
+    )
+    diagnostic_fields = _diagnostic_outcome_fields(inventory, result)
     report = dispatcher(
         function_id=RELAY_REPORT_FUNCTION_ID,
         target=TargetRef(kind="global"),
@@ -175,6 +206,7 @@ def _poll(
             job_id,
             result.result_code,
             _error_code(report),
+            **diagnostic_fields,
         )
     return ServeOnceOutcome(
         "reported",
@@ -182,6 +214,7 @@ def _poll(
         kind,
         job_id,
         result.result_code,
+        **diagnostic_fields,
     )
 
 

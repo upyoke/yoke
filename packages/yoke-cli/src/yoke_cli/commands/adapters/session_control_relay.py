@@ -192,8 +192,6 @@ def relay_diagnostic(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, RELAY_DIAGNOSTIC_USAGE)
     if parsed is None:
         return 2
-    if is_subagent_execution():
-        return usage_error(FLEET_OWNERSHIP_GUIDANCE)
     try:
         payload = _read_diagnostic(parsed.reference)
     except Exception as exc:

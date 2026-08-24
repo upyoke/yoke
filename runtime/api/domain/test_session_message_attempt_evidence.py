@@ -47,6 +47,9 @@ def test_message_get_projects_safe_attempt_facts_without_lease_or_native_payload
             "accepted",
             json.dumps(
                 {
+                    "machine_id": "machine-1",
+                    "relay_id": "machine:machine-1",
+                    "native_diagnostic_ref": "nd-" + "a" * 32,
                     "native_instruction_sha256": digest,
                     "surface": "codex-desktop",
                     "body": secret,
@@ -77,7 +80,11 @@ def test_message_get_projects_safe_attempt_facts_without_lease_or_native_payload
             "completed_at": "2026-08-22T16:01:01Z",
             "result_code": "accepted",
             "evidence": {
+                "machine_id": "machine-1",
+                "native_diagnostic_command": ("yoke relay diagnostic nd-" + "a" * 32),
+                "native_diagnostic_ref": "nd-" + "a" * 32,
                 "native_instruction_sha256": digest,
+                "relay_id": "machine:machine-1",
                 "surface": "codex-desktop",
             },
         }

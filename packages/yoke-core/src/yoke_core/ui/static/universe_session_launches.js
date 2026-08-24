@@ -2,6 +2,7 @@ import { el } from "./universe_view_support.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { appendLaunchTimeline } from "./session_launch_timeline.js";
 import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
+import { appendRelayDiagnostic } from "./session_relay_diagnostic_view.js";
 import {
   labelledControl,
   presentSessionControlFailure,
@@ -92,6 +93,9 @@ function appendLaunchIdentity(documentNode, body, launch) {
       `Result evidence · ${facts.join(" · ")}`,
     ));
   }
+  appendRelayDiagnostic(
+    documentNode, body, evidence, launch.assigned_machine_id,
+  );
 }
 
 function appendAction(documentNode, actions, label, disabled, invoke) {
