@@ -92,6 +92,10 @@ class TestGroupTeachingNamesTheRealSurface:
         hint = group_help.nearest_subcommand_hint(["project", "list"])
         assert hint == "Did you mean `yoke projects list`?"
 
+    def test_hyphenated_family_suffix_is_suggested(self):
+        hint = group_help.nearest_subcommand_hint(["runs"])
+        assert hint == "Did you mean `yoke deployment-runs`?"
+
 
 class TestItemFieldNames:
     def test_help_lists_every_accepted_field(self, capsys):

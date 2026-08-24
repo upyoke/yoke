@@ -65,6 +65,9 @@ lint_shell_quoted_function_payload=deny
 # Refuse grep/rg search text with backticks inside double quotes.
 lint_shell_backtick_search=deny
 
+# Refuse unquoted path globs that match no files; teach rg --files.
+lint_unmatched_path_glob=deny
+
 # Refuse `python3 -c "from runtime..."` agent reach-in. [protected]
 lint_no_agent_runtime_api_import_from_c=deny
 

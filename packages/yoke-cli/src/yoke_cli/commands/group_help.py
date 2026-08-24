@@ -194,7 +194,8 @@ def can_route_group(argv: Sequence[str]) -> bool:
 
 def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
     """Suggest the nearest real member when an existing group is mistyped."""
-    if not argv:
+    stripped = [token for token in argv if token not in ("-h", "--help", "help")]
+    if not stripped:
         return None
     all_tokens = (
         tuple(SUBCOMMAND_REGISTRY)
@@ -202,14 +203,18 @@ def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
         + tuple(SPACE_EXPANDED_ROUTE_REGISTRY)
         + tuple(TOOL_SHAPED_SUBCOMMANDS)
     )
-    group = argv[0]
+    group = stripped[0]
+    first_tokens = sorted({tokens[0] for tokens in all_tokens if tokens})
     # Sibling groups whose names differ from the typed one by a character
     # or two — `project` next to `projects` — are in scope, or the singular
     # spelling can only ever suggest its own members.
-    siblings = set(get_close_matches(
-        group, sorted({tokens[0] for tokens in all_tokens if tokens}),
-        n=3, cutoff=0.8,
-    ))
+    siblings = set(get_close_matches(group, first_tokens, n=3, cutoff=0.8))
+    # Hyphenated families whose last segment is the typed token —
+    # `runs` next to `deployment-runs`.
+    hyphen_families = {
+        token for token in first_tokens
+        if "-" in token and token.rsplit("-", 1)[-1] == group
+    }
     candidates = [
         " ".join(tokens)
         for tokens in all_tokens
@@ -217,11 +222,13 @@ def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
             tokens[0] == group
             or tokens[0].split("-")[0] == group
             or tokens[0] in siblings
+            or tokens[0] in hyphen_families
         )
     ]
+    candidates.extend(sorted(hyphen_families))
     if not candidates:
         return None
-    requested = " ".join(argv)
+    requested = " ".join(stripped)
     matches = get_close_matches(requested, candidates, n=1, cutoff=0.35)
     if not matches:
         return None
