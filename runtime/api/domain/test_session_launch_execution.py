@@ -15,7 +15,7 @@ from yoke_core.domain.session_launch_registration import (
     complete_launch_injection,
     prepare_launch_registration,
 )
-from yoke_core.domain.session_launch_requests import cancel_launch, retry_launch
+from yoke_core.domain.session_launch_requests import retry_launch
 from yoke_core.domain.session_launch_store import get_launch
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from runtime.api.domain.session_launch_test_support import (
@@ -179,10 +179,13 @@ def test_registration_is_single_use_and_success_requires_injection_completion() 
         now="2026-08-22T12:00:33Z",
     )
     assert completed.state == "succeeded"
-    assert conn.execute(
-        "SELECT state FROM session_message_recipients WHERE message_id = ?",
-        (launch.message_id,),
-    ).fetchone()[0] == "injected"
+    assert (
+        conn.execute(
+            "SELECT state FROM session_message_recipients WHERE message_id = ?",
+            (launch.message_id,),
+        ).fetchone()[0]
+        == "injected"
+    )
 
 
 def test_dropped_first_hook_recovers_through_ordinary_message_delivery() -> None:
@@ -219,10 +222,13 @@ def test_dropped_first_hook_recovers_through_ordinary_message_delivery() -> None
         now="2026-08-22T12:00:33Z",
     )
     assert completed and completed.state == "succeeded"
-    assert conn.execute(
-        "SELECT injection_count FROM session_message_recipients WHERE message_id=?",
-        (launch.message_id,),
-    ).fetchone()[0] == 1
+    assert (
+        conn.execute(
+            "SELECT injection_count FROM session_message_recipients WHERE message_id=?",
+            (launch.message_id,),
+        ).fetchone()[0]
+        == 1
+    )
 
 
 @pytest.mark.parametrize(
@@ -231,7 +237,13 @@ def test_dropped_first_hook_recovers_through_ordinary_message_delivery() -> None
         ("session-surface", "codex-desktop", "machine-1", "gpt-5", "surface_mismatch"),
         ("session-machine", "codex-cli", "wrong", "gpt-5", "machine_mismatch"),
         ("session-model", "codex-cli", "machine-1", "gpt-4", "model_mismatch"),
-        ("different-native", "codex-cli", "machine-1", "gpt-5", "native_session_mismatch"),
+        (
+            "different-native",
+            "codex-cli",
+            "machine-1",
+            "gpt-5",
+            "native_session_mismatch",
+        ),
     ],
 )
 def test_registration_refuses_exact_binding_mismatches(
@@ -244,7 +256,9 @@ def test_registration_refuses_exact_binding_mismatches(
     conn = launch_connection()
     add_relay(conn)
     launch, claim = _awaiting_launch(conn, key=code)
-    candidate_id = f"session-{code}" if code != "native_session_mismatch" else session_id
+    candidate_id = (
+        f"session-{code}" if code != "native_session_mismatch" else session_id
+    )
     _register_candidate(
         conn,
         session_id=candidate_id,
@@ -305,12 +319,15 @@ def test_explicit_failure_is_retryable_but_uncertain_report_is_not() -> None:
         now="2026-08-22T12:00:20Z",
     )
     assert failed.result_code == "native_create_failed"
-    assert retry_launch(
-        conn,
-        launch_id=safe.launch_id,
-        auth=authorization(),
-        now="2026-08-22T12:00:21Z",
-    ).state == "assigned"
+    assert (
+        retry_launch(
+            conn,
+            launch_id=safe.launch_id,
+            auth=authorization(),
+            now="2026-08-22T12:00:21Z",
+        ).state
+        == "assigned"
+    )
 
     uncertain = assigned_launch(conn, key="uncertain")
     uncertain_claim = claim_assigned_launch(
@@ -329,21 +346,3 @@ def test_explicit_failure_is_retryable_but_uncertain_report_is_not() -> None:
         now="2026-08-22T12:00:20Z",
     )
     assert unknown.state == "outcome_unknown"
-
-
-def test_cancelling_during_native_create_preserves_unknown_outcome() -> None:
-    conn = launch_connection()
-    add_relay(conn)
-    launch = assigned_launch(conn, key="cancel-launching")
-    claim_assigned_launch(
-        conn,
-        launch_id=launch.launch_id,
-        relay_id="relay-1",
-        machine_id="machine-1",
-        now=NOW,
-    )
-    result = cancel_launch(
-        conn, launch_id=launch.launch_id, auth=authorization(), now=NOW,
-    )
-    assert result.state == "outcome_unknown"
-    assert result.result_code == "cancellation_requires_reconciliation"

@@ -58,9 +58,7 @@ def test_long_create_wait_touches_repeatedly_and_immediately_before_grant() -> N
     client = _OwnerClient(cell)
     clock = AcceptanceClock(client.simulate_target_tool_hook)
     qualification = _Qualification(client)
-    driver = LiveAcceptanceDriver(
-        client, sleep=clock.sleep, monotonic=clock.monotonic
-    )
+    driver = LiveAcceptanceDriver(client, sleep=clock.sleep, monotonic=clock.monotonic)
 
     report = driver.run(
         AcceptanceMatrix("yoke", (cell,)),
