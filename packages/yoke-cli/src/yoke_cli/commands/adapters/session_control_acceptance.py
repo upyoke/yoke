@@ -17,7 +17,7 @@ from yoke_contracts.uv_project import UV_EXECUTABLE, uv_project_root, uv_run_arg
 
 ACCEPTANCE_RUN_USAGE = (
     "yoke session-control acceptance run --project P --release-sha SHA "
-    "--run-id RUN --bindings-stdin [--preview] "
+    "--run-id RUN --bindings-stdin [--qualification-candidate] [--preview] "
     "[--timeout-seconds N] [--poll-seconds N] "
     "[--unsupported-observation-seconds N]"
 )
@@ -28,7 +28,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yoke session-control acceptance run",
         description=(
-            "Run the canonical six-cell production acceptance from a clean, "
+            "Run production acceptance or stage candidate qualification from a clean, "
             "release-bound Yoke source checkout. Bindings are read only by the runner."
         ),
     )
@@ -36,6 +36,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--release-sha", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--bindings-stdin", action="store_true", required=True)
+    parser.add_argument("--qualification-candidate", action="store_true")
     parser.add_argument("--preview", action="store_true")
     parser.add_argument("--timeout-seconds", type=float)
     parser.add_argument("--poll-seconds", type=float)
@@ -71,6 +72,8 @@ def _runtime_args(parsed: argparse.Namespace) -> list[str]:
     ]
     if parsed.preview:
         forwarded.append("--preview")
+    if parsed.qualification_candidate:
+        forwarded.append("--qualification-candidate")
     for flag, value in (
         ("--timeout-seconds", parsed.timeout_seconds),
         ("--poll-seconds", parsed.poll_seconds),

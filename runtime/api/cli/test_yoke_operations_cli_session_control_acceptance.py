@@ -160,6 +160,7 @@ def test_adapter_reexecs_exact_cwd_with_scrubbed_import_environment(
     monkeypatch.setattr(adapter.subprocess, "run", _run)
     result = adapter.session_control_acceptance_run(
         _args(
+            "--qualification-candidate",
             "--preview",
             "--timeout-seconds",
             "12",
@@ -186,12 +187,8 @@ def test_adapter_reexecs_exact_cwd_with_scrubbed_import_environment(
     ]
     assert argv[5] == "runtime.api.tools.session_control_live_acceptance_command"
     assert "--bindings-stdin" in argv
-    assert not {
-        "--environment",
-        "--qualification-candidate",
-        "--body",
-        "--token",
-    }.intersection(argv)
+    assert "--qualification-candidate" in argv
+    assert not {"--environment", "--body", "--token"}.intersection(argv)
     assert argv[argv.index("--release-sha") + 1] == RELEASE_SHA
     assert argv[argv.index("--timeout-seconds") + 1] == "12.0"
 

@@ -19,6 +19,7 @@ from yoke_core.domain.deploy_product_source import DeployProductSourceError
 
 
 RELEASE_SHA = "a" * 40
+CANDIDATE_CLAUDE_VERSION = "2.1.241"
 
 
 def _versions() -> dict[str, str]:
@@ -96,6 +97,19 @@ def test_matrix_builder_owns_the_exact_six_modes_roles_and_routes() -> None:
     assert broker["wake_route"] == "broker"
     assert broker["session_id"] == "broker-target"
     assert broker["broker_session_id"] == "broker-peer"
+
+
+def test_candidate_builder_keeps_only_unproven_private_route_cells() -> None:
+    bindings = _bindings()
+    bindings["versions"]["claude-cli"] = CANDIDATE_CLAUDE_VERSION
+
+    document = command.build_acceptance_matrix_document(
+        "yoke",
+        command.LiveAcceptanceBindings.model_validate(bindings),
+        qualification_candidate=True,
+    )
+
+    assert [cell["surface"] for cell in document["cells"]] == ["claude-cli"]
 
 
 def test_subagent_refuses_before_source_validation_or_stdin(
@@ -246,6 +260,26 @@ def test_live_run_uses_owner_only_atomic_scratch_and_cleans_it(
     assert not observed["atomic_target"].exists()
     assert stat.S_IMODE(observed["payload_dir"].stat().st_mode) == 0o700
     assert observed["document"]["project"] == "yoke"
+
+
+def test_candidate_run_forwards_stage_mode_to_existing_runner(
+    monkeypatch, tmp_path
+) -> None:
+    _allow_source(monkeypatch)
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    bindings = _bindings()
+    bindings["versions"]["claude-cli"] = CANDIDATE_CLAUDE_VERSION
+    monkeypatch.setattr(command.sys, "stdin", io.StringIO(json.dumps(bindings)))
+    observed: dict[str, object] = {}
+
+    def _acceptance_main(args: list[str]) -> int:
+        observed["args"] = args
+        return 0
+
+    monkeypatch.setattr(command, "acceptance_main", _acceptance_main)
+
+    assert command.main(_argv("--qualification-candidate")) == 0
+    assert "--qualification-candidate" in observed["args"]
 
 
 def test_symlinked_payload_directory_refuses_without_writing_or_leaking_path(

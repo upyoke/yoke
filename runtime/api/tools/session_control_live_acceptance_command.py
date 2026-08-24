@@ -16,11 +16,14 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACES,
     SCHEMA_VERSION,
     AcceptanceContractError,
+    acceptance_operation,
+    parse_candidate_matrix,
     parse_matrix,
     validate_deployed_release,
     validate_run_id,
 )
 from yoke_contracts.session_execution import is_subagent_execution
+from yoke_contracts.session_control.surface_versions import surface_operation_supported
 from yoke_cli.config.machine_config_file import (
     MachineConfigFileError,
     atomic_write_text,
@@ -86,11 +89,23 @@ class LiveAcceptanceBindings(BaseModel):
 
 
 def _canonical_document(
-    project: str, raw_cells: list[dict[str, Any]]
+    project: str,
+    raw_cells: list[dict[str, Any]],
+    *,
+    qualification_candidate: bool = False,
 ) -> dict[str, Any]:
-    parsed = parse_matrix(
-        {"schema": SCHEMA_VERSION, "project": project, "cells": raw_cells}
-    )
+    if qualification_candidate:
+        raw_cells = [
+            cell
+            for cell in raw_cells
+            if not surface_operation_supported(
+                cell["surface"],
+                cell["expected_version"],
+                acceptance_operation(cell["surface"]),
+            )
+        ]
+    parser = parse_candidate_matrix if qualification_candidate else parse_matrix
+    parsed = parser({"schema": SCHEMA_VERSION, "project": project, "cells": raw_cells})
     cells: list[dict[str, Any]] = []
     for cell in parsed.cells:
         row: dict[str, Any] = {
@@ -109,7 +124,10 @@ def _canonical_document(
 
 
 def build_acceptance_matrix_document(
-    project: str, bindings: LiveAcceptanceBindings
+    project: str,
+    bindings: LiveAcceptanceBindings,
+    *,
+    qualification_candidate: bool = False,
 ) -> dict[str, Any]:
     """Build the only supported five-surface plus one-broker matrix."""
     versions = bindings.versions.model_dump(by_alias=True)
@@ -138,18 +156,26 @@ def build_acceptance_matrix_document(
             "broker_session_id": bindings.broker.peer_session_id,
         }
     )
-    return _canonical_document(project, cells)
+    return _canonical_document(
+        project,
+        cells,
+        qualification_candidate=qualification_candidate,
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yoke session-control acceptance run",
-        description="Run or preview the canonical production Fleet acceptance matrix.",
+        description=(
+            "Run or preview production Fleet acceptance or stage candidate "
+            "qualification."
+        ),
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--release-sha", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--bindings-stdin", action="store_true", required=True)
+    parser.add_argument("--qualification-candidate", action="store_true")
     parser.add_argument("--preview", action="store_true")
     parser.add_argument("--timeout-seconds", type=float)
     parser.add_argument("--poll-seconds", type=float)
@@ -229,6 +255,8 @@ def _acceptance_argv(args: argparse.Namespace, matrix_path: Path) -> list[str]:
         "--release-sha",
         args.release_sha,
     ]
+    if args.qualification_candidate:
+        forwarded.append("--qualification-candidate")
     for flag, value in (
         ("--timeout-seconds", args.timeout_seconds),
         ("--poll-seconds", args.poll_seconds),
@@ -248,7 +276,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         _validate_windows(args)
         _validate_source(args.release_sha)
         bindings = _read_bindings()
-        document = build_acceptance_matrix_document(args.project, bindings)
+        document = build_acceptance_matrix_document(
+            args.project,
+            bindings,
+            qualification_candidate=args.qualification_candidate,
+        )
         if args.preview:
             print(
                 json.dumps(
