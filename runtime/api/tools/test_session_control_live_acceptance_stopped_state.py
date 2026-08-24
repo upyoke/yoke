@@ -113,7 +113,8 @@ class _AckThenEndedDesktopClient(_ScenarioClient):
 
     def _roster(self, argv: list[str] | None = None) -> dict[str, Any]:
         result = super()._roster(argv)
-        initial_acknowledged = self.message_states.get("initial-message") == (True, 2)
+        initial_state = self.message_states.get("initial-message")
+        initial_acknowledged = bool(initial_state and initial_state[0])
         for row in result["rows"]:
             if row["session_id"] != self.session_id:
                 continue
