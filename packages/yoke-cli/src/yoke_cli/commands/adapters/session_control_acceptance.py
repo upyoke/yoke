@@ -28,8 +28,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yoke session-control acceptance run",
         description=(
-            "Run production acceptance or stage candidate qualification from a clean, "
-            "release-bound Yoke source checkout. Bindings are read only by the runner."
+            "Run the canonical six-cell production acceptance or stage candidate "
+            "qualification from a clean, release-bound Yoke source checkout. "
+            "Bindings are read only by the runner."
         ),
     )
     parser.add_argument("--project", required=True)
