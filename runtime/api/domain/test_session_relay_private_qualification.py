@@ -38,11 +38,16 @@ def _connection(*, target_version: str):
     conn.execute(
         "UPDATE harness_sessions SET actor_id=10,mode='operator' WHERE session_id='s1'"
     )
+    # Activity is a full day old so the target is idle under any staleness
+    # window, pinning the wake to the private idle route rather than leaving
+    # it to resolve near the boundary.
+    idle_since = str(NOW - timedelta(days=1))
     conn.execute(
         "UPDATE harness_sessions SET executor_surface='claude-cli',"
         "executor_version=?,machine_id=?,turn_posture='running',"
-        "turn_posture_at=? WHERE session_id='s2'",
-        (target_version, MACHINE_ID, str(NOW - timedelta(seconds=1))),
+        "turn_posture_at=?,last_heartbeat=?,last_tool_call_at=? "
+        "WHERE session_id='s2'",
+        (target_version, MACHINE_ID, idle_since, idle_since, idle_since),
     )
     grant_actor_project_role(
         conn,
@@ -89,7 +94,7 @@ def test_candidate_direct_wake_consumes_grant_before_return(monkeypatch) -> None
         acceptance_run_id="stage-proof-relay",
         surface="claude-cli",
         version="2.1.241",
-        operation="message_active",
+        operation="message_idle",
         route="direct",
     )
     grant = open_qualification_grant(
