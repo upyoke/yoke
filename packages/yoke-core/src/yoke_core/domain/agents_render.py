@@ -52,8 +52,8 @@ from yoke_core.domain.agents_render_workspace import (
     resolve_target_root_for_cli,  # noqa: F401 - preserve the renderer's public exports
     _repo_root,  # noqa: F401 - re-exported for CLI/legacy consumers; reader hot path uses require_reader_root
 )
+from yoke_core.domain.agents_render_source_bind import assert_renderer_seed
 from yoke_core.domain.workspace_authority import (
-    assert_seed_source_under_target_root,
     assert_target_under_session_work_authority,
 )
 from yoke_core.domain import agents_render_project_install
@@ -144,29 +144,12 @@ def detect_drift(*, target_root: Optional[Path] = None) -> list[str]:
 
 def _atomic_write(out_path: Path, rendered: str, *, target_root: Path) -> None:
     assert_target_under_session_work_authority(out_path)
-    _assert_seed_under_target_root(target_root)
+    assert_renderer_seed(target_root)
     symlink = first_symlink_component(target_root, out_path)
     if symlink is not None:
         raise RuntimeError(f"refusing render through symlinked parent {symlink}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_replace_bytes(out_path, rendered.encode("utf-8"))
-
-
-def _assert_seed_under_target_root(target_root: Path) -> None:
-    """Defense for Coupling B: seed loaded from a different tree than target_root.
-
-    The renderer's per-output context expander imports
-    ``schema_api_context_seed`` at module load. When cwd != target_root,
-    the seed loaded from cwd's tree drives renders written into
-    target_root — silent wrong-tree content. The check fires at write
-    time; module import has already happened.
-    """
-    from yoke_core.domain import schema_api_context_seed as _seed
-    assert_seed_source_under_target_root(
-        getattr(_seed, "__file__", None),
-        target_root,
-        seed_module_name="schema_api_context_seed",
-    )
 
 
 def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, str]]:
@@ -211,6 +194,7 @@ def write_all(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[st
     """
     results: dict[str, tuple[str, str]] = {}
     root = Path(target_root)
+    assert_renderer_seed(root)
     project_results = agents_render_project_install.write_if_applicable(target_root=root, dry_run=dry_run)
     if project_results is not None:
         return project_results
@@ -262,6 +246,7 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
     by the lane R / task 10 health check ``HC-harness-substrate-drift``.
     """
     root = _resolve_reader_root(target_root)
+    assert_renderer_seed(root)
     project_drift = agents_render_project_install.drift_if_applicable(target_root=root)
     if project_drift is not None:
         return project_drift

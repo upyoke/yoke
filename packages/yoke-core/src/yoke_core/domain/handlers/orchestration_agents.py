@@ -50,13 +50,18 @@ class AgentsRenderRunResponse(BaseModel):
 def _resolve_target_root(payload_root: Optional[str]) -> Path:
     if payload_root:
         return Path(str(payload_root))
-    from yoke_core.domain.rebuild_board import resolve_main_repo_root
+    from yoke_core.domain.agents_render_workspace import require_reader_root
 
-    return Path(resolve_main_repo_root(None))
+    try:
+        return require_reader_root(None)
+    except RuntimeError:
+        from yoke_core.domain.rebuild_board import resolve_main_repo_root
+
+        return Path(resolve_main_repo_root(None))
 
 
 def handle_agents_render_run(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.agents_render import write_all_and_record
+    from yoke_core.domain.agents_render_source_bind import invoke_renderer
 
     payload = request.payload or {}
     payload_root = payload.get("target_root")
@@ -73,7 +78,10 @@ def handle_agents_render_run(request: FunctionCallRequest) -> HandlerOutcome:
             ),
         )
     try:
-        rendered = write_all_and_record(target_root=target_root, dry_run=dry_run)
+        results = invoke_renderer(
+            target_root=target_root,
+            mode="dry-run" if dry_run else "render",
+        )
     except Exception as exc:
         return HandlerOutcome(
             primary_success=False,
@@ -82,9 +90,6 @@ def handle_agents_render_run(request: FunctionCallRequest) -> HandlerOutcome:
                 message=f"agents_render.write_all failed: {exc}",
             ),
         )
-    # Project just the action so the response is compact; full content is
-    # available via packets.render or agents.render.check.
-    results = {rel: action for rel, (action, _content) in rendered.items()}
     return HandlerOutcome(
         result_payload={
             "target_root": str(target_root),
@@ -118,7 +123,7 @@ class AgentsRenderRelationshipsRecordResponse(BaseModel):
 
 
 def handle_agents_render_check(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.agents_render import detect_substrate_drift
+    from yoke_core.domain.agents_render_source_bind import invoke_renderer
 
     payload = request.payload or {}
     payload_root = payload.get("target_root")
@@ -133,7 +138,16 @@ def handle_agents_render_check(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath="$.payload.target_root",
             ),
         )
-    drift = list(detect_substrate_drift(target_root=target_root))
+    try:
+        drift = list(invoke_renderer(target_root=target_root, mode="check"))
+    except Exception as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="downstream_failure",
+                message=f"agents_render.check failed: {exc}",
+            ),
+        )
     return HandlerOutcome(
         result_payload={
             "target_root": str(target_root),

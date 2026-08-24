@@ -206,6 +206,7 @@ def assert_seed_source_under_target_root(
     *,
     seed_module_name: str,
     session_id: Optional[str] = None,
+    require_session: bool = True,
 ) -> None:
     """Defense for Coupling B: seed module loaded from wrong tree.
 
@@ -224,11 +225,13 @@ def assert_seed_source_under_target_root(
 
     Gated on ``$YOKE_SESSION_ID`` (or the explicit ``session_id``
     argument) so test fixtures with no harness session get the
-    operator-maintenance no-op path. A ``None`` ``seed_module_file``
+    operator-maintenance no-op path, unless ``require_session`` is
+    false — the renderer check/dry-run path must refuse mixed origin
+    even without a session. A ``None`` ``seed_module_file``
     (built-in / dynamically created module) is a no-op.
     """
     sid = _resolve_session_id(session_id)
-    if not sid:
+    if require_session and not sid:
         return
     if not seed_module_file:
         return
