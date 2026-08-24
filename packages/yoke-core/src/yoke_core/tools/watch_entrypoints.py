@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from yoke_core.tools import (
+    watch_ci_run,
     watch_deploy,
     watch_doctor,
     watch_merge,
@@ -31,6 +32,7 @@ WRAPPER_MAINS: dict[str, WrapperMain] = {
         watch_doctor,
         watch_merge,
         watch_deploy,
+        watch_ci_run,
         watch_preflight,
         watch_qa_case,
         watch_qa_plan,

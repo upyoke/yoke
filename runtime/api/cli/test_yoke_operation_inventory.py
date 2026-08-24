@@ -127,6 +127,7 @@ class TestRegistryShape:
             "yoke watch pytest",
             "yoke watch doctor",
             "yoke watch merge",
+            "yoke watch ci-run",
             "yoke watch qa-case",
             "yoke watch qa-plan",
             "yoke release-pin verify",
