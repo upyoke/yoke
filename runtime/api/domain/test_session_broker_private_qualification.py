@@ -131,6 +131,8 @@ def test_broker_scoped_grant_does_not_claim_direct_availability(monkeypatch) -> 
         heartbeat,
         wait_seconds=0,
         broker_only=True,
+        broker_lease_id=lease.lease_id,
+        broker_session_id="broker-a",
         now_provider=lambda: "2026-08-22T16:00:03Z",
     )
 

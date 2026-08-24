@@ -31,14 +31,7 @@ from yoke_core.domain.session_relay_private_qualification import (
 
 
 WAKE_REPORT_CODES = frozenset(
-    {
-        "accepted",
-        "failed",
-        "not_found",
-        "outcome_unknown",
-        "unsupported_surface",
-        "version_mismatch",
-    }
+    "accepted failed not_found outcome_unknown unsupported_surface version_mismatch".split()
 )
 LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
 
@@ -158,12 +151,17 @@ def claim_wake_job(
     *,
     now: str,
     broker_only: bool = False,
+    broker_lease_id: str | None = None,
+    broker_session_id: str | None = None,
 ) -> RelayJob | None:
-    brokered = claim_broker_wake_job(conn, heartbeat, now=now)
-    if brokered is not None:
-        return brokered
     if broker_only:
-        return None
+        return claim_broker_wake_job(
+            conn,
+            heartbeat,
+            now=now,
+            broker_lease_id=str(broker_lease_id or ""),
+            broker_session_id=str(broker_session_id or ""),
+        )
     selected: Mapping[str, Any] | None = None
     qualification = None
     for row in _wake_candidates(conn, heartbeat, now=now):

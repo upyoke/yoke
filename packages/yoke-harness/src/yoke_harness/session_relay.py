@@ -138,6 +138,7 @@ def _poll(
     runner: JobRunner,
     state_dir: Path | None = None,
     broker_only: bool = False,
+    broker_lease_id: str | None = None,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
     response = dispatcher(
@@ -146,6 +147,7 @@ def _poll(
         payload=inventory.claim_payload(
             wait_seconds=0 if broker_only else None,
             broker_only=broker_only,
+            broker_lease_id=broker_lease_id,
         ),
         timeout_s=RELAY_DISPATCH_TIMEOUT_SECONDS,
     )
@@ -191,6 +193,7 @@ def serve_once(
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
     broker_only: bool = False,
+    broker_lease_id: str | None = None,
 ) -> ServeOnceOutcome:
     """Respect server cadence and run a single bounded relay transaction."""
     started_at = clock()
@@ -205,6 +208,7 @@ def serve_once(
             runner=runner,
             state_dir=state_dir,
             broker_only=broker_only,
+            broker_lease_id=broker_lease_id,
         )
         if outcome.next_poll_seconds and not broker_only:
             record_next_poll(

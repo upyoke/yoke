@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -211,6 +212,25 @@ class RelayClaimRequest(BaseModel):
     surfaces: Dict[str, str]
     wait_seconds: int = Field(default=55, ge=0, le=55)
     broker_only: bool = False
+    broker_lease_id: Optional[str] = None
+
+    @field_validator("broker_lease_id")
+    @classmethod
+    def _validate_broker_lease_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        try:
+            return str(UUID(value))
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise ValueError("broker_lease_id must be a UUID") from exc
+
+    @model_validator(mode="after")
+    def _require_exact_broker_lease(self) -> "RelayClaimRequest":
+        if self.broker_only != bool(self.broker_lease_id):
+            raise ValueError(
+                "broker_only and broker_lease_id must be provided together"
+            )
+        return self
 
 
 class RelayListRequest(BaseModel):

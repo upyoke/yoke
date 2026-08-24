@@ -40,12 +40,24 @@ def claim_relay_job(
     *,
     wait_seconds: int = MAX_RELAY_LONG_POLL_SECONDS,
     broker_only: bool = False,
+    broker_lease_id: str | None = None,
+    broker_session_id: str | None = None,
     now_provider: Callable[[], str] = utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
     """Heartbeat, long-poll, lease at most one job, and return server cadence."""
     heartbeat = validate_heartbeat(heartbeat)
+    if broker_only != bool(broker_lease_id):
+        raise SessionRelayError(
+            "broker_lease_required",
+            "broker-only claims require one exact broker lease",
+        )
+    if broker_only and not str(broker_session_id or "").strip():
+        raise SessionRelayError(
+            "broker_session_required",
+            "broker-only claims require a verified broker session",
+        )
     wait_seconds = (
         0
         if broker_only
@@ -90,6 +102,8 @@ def claim_relay_job(
                 heartbeat,
                 now=current,
                 broker_only=broker_only,
+                broker_lease_id=broker_lease_id,
+                broker_session_id=broker_session_id,
             )
         if job is not None:
             connected = heartbeat_relay(

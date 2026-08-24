@@ -18,6 +18,7 @@ from yoke_harness.session_relay_runtime import RelayAdapterResult
 
 
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
+BROKER_LEASE_ID = "22222222-2222-4222-8222-222222222222"
 _CHILD_ENV_KEYS = (
     "CODEX_SESSION_ID",
     "CODEX_THREAD_ID",
@@ -44,8 +45,11 @@ class FakePort:
         self.leases.append((broker_session_id, hook_event))
         return BrokerWakeLease(
             attempt_id="attempt-1",
-            lease_id="lease-1",
-            command="yoke relay serve-once --broker",
+            lease_id=BROKER_LEASE_ID,
+            command=(
+                "yoke relay serve-once --broker "
+                f"--broker-lease {BROKER_LEASE_ID}"
+            ),
         )
 
     def complete_hook_lease(
@@ -77,12 +81,15 @@ def test_hook_renders_only_the_one_hop_command_and_settles_after_output(
     )
 
     assert code == 0
-    assert "yoke relay serve-once --broker" in rendered
+    assert (
+        f"yoke relay serve-once --broker --broker-lease {BROKER_LEASE_ID}"
+        in rendered
+    )
     assert "Do not forward or broker" in rendered
     assert "message body" in rendered
     assert "target_session_id" not in rendered
     assert port.leases == [("broker-a", "PreToolUse")]
-    assert port.completed == [("lease-1", True, "injected")]
+    assert port.completed == [(BROKER_LEASE_ID, True, "injected")]
 
 
 def test_stop_event_never_creates_a_broker_job(monkeypatch) -> None:
@@ -173,7 +180,9 @@ def test_sibling_denial_reports_dropped_broker_instruction(monkeypatch) -> None:
     )
 
     assert "YOKE_BROKER_WAKE_LEASE" not in rendered
-    assert port.completed == [("lease-1", False, "dropped_by_sibling_denial")]
+    assert port.completed == [
+        (BROKER_LEASE_ID, False, "dropped_by_sibling_denial")
+    ]
 
 
 def _inventory() -> RelayInventory:
@@ -212,10 +221,12 @@ def test_broker_relay_bypasses_backoff_and_claims_only_reserved_work(
         dispatcher=dispatch,
         runner=lambda _job: RelayAdapterResult("accepted"),
         broker_only=True,
+        broker_lease_id=BROKER_LEASE_ID,
     )
 
     assert outcome.state == "active"
     payload = calls[0]["payload"]
     assert payload["broker_only"] is True
+    assert payload["broker_lease_id"] == BROKER_LEASE_ID
     assert payload["wait_seconds"] == 0
     assert cadence_writes == []

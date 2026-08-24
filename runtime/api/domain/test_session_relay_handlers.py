@@ -57,11 +57,21 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
     def authorize(_conn, *, actor_id, project_ids):
         seen.update(authorized_actor=actor_id, project_ids=tuple(project_ids))
 
-    def claim(conn, heartbeat, *, wait_seconds, broker_only):
+    def claim(
+        conn,
+        heartbeat,
+        *,
+        wait_seconds,
+        broker_only,
+        broker_lease_id,
+        broker_session_id,
+    ):
         seen.update(
             actor_id=heartbeat.actor_id,
             wait_seconds=wait_seconds,
             broker_only=broker_only,
+            broker_lease_id=broker_lease_id,
+            broker_session_id=broker_session_id,
         )
         return RelayClaimOutcome(
             relay_id=heartbeat.relay_id,
@@ -91,7 +101,76 @@ def test_claim_binds_heartbeat_to_dispatcher_verified_actor(monkeypatch) -> None
         "project_ids": (10,),
         "wait_seconds": 0,
         "broker_only": False,
+        "broker_lease_id": None,
+        "broker_session_id": None,
     }
+
+
+def test_broker_claim_forwards_exact_lease_and_verified_session(monkeypatch) -> None:
+    lease_id = "22222222-2222-4222-8222-222222222222"
+    seen = {}
+
+    def claim(
+        conn,
+        heartbeat,
+        *,
+        wait_seconds,
+        broker_only,
+        broker_lease_id,
+        broker_session_id,
+    ):
+        seen.update(
+            wait_seconds=wait_seconds,
+            broker_only=broker_only,
+            broker_lease_id=broker_lease_id,
+            broker_session_id=broker_session_id,
+        )
+        return RelayClaimOutcome(
+            relay_id=heartbeat.relay_id,
+            machine_id=heartbeat.machine_id,
+            state="active",
+            connected_until="2026-08-22T12:05:00Z",
+            next_poll_seconds=60,
+        )
+
+    monkeypatch.setattr(relay_domain, "claim_relay_job", claim)
+    monkeypatch.setattr(
+        "yoke_core.domain.session_relay_authorization.require_relay_project_authority",
+        lambda *_args, **_kwargs: None,
+    )
+    from yoke_core.domain import db_helpers
+
+    monkeypatch.setattr(db_helpers, "connect", _Connection)
+    payload = _claim_payload()
+    payload.update(broker_only=True, broker_lease_id=lease_id)
+
+    outcome = relay_handlers.handle_relay_claim(
+        _request("session_control.relay.claim", payload)
+    )
+
+    assert outcome.primary_success is True
+    assert seen == {
+        "wait_seconds": 0,
+        "broker_only": True,
+        "broker_lease_id": lease_id,
+        "broker_session_id": "machine-token",
+    }
+
+
+def test_broker_claim_wire_requires_a_valid_paired_lease() -> None:
+    for extra in (
+        {"broker_only": True},
+        {"broker_lease_id": "22222222-2222-4222-8222-222222222222"},
+        {"broker_only": True, "broker_lease_id": "not-a-uuid"},
+    ):
+        payload = _claim_payload()
+        payload.update(extra)
+        outcome = relay_handlers.handle_relay_claim(
+            _request("session_control.relay.claim", payload)
+        )
+        assert outcome.primary_success is False
+        assert outcome.error is not None
+        assert outcome.error.code == "payload_invalid"
 
 
 def test_claim_refuses_cross_project_advertisement_before_heartbeat(

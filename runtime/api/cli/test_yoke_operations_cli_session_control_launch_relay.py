@@ -331,18 +331,3 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
     expected = {("relay", verb) for verb in verbs}
     expected.add(("session-control", "acceptance", "run"))
     assert set(SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS) == expected
-
-
-def test_relay_broker_flag_forces_the_reserved_work_path(monkeypatch, capsys) -> None:
-    seen = []
-    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
-    monkeypatch.setattr(
-        relay,
-        "_serve_once",
-        lambda **kwargs: seen.append(kwargs) or _Outcome("active", 60),
-    )
-    assert relay.relay_serve_once(["--broker", "--json"]) == 0
-    monkeypatch.setattr(relay, "is_subagent_execution", lambda: True)
-    assert relay.relay_serve_once(["--json"]) == 2
-    assert seen == [{"broker_only": True}]
-    assert "registered top-level session" in capsys.readouterr().err

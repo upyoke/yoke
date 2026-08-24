@@ -171,7 +171,12 @@ def _adopt_attempt(
 
 
 def claim_broker_wake_job(
-    conn: Any, heartbeat: RelayHeartbeat, *, now: str
+    conn: Any,
+    heartbeat: RelayHeartbeat,
+    *,
+    now: str,
+    broker_lease_id: str,
+    broker_session_id: str,
 ) -> RelayJob | None:
     settle_broker_wake_losses(conn, now=parse_timestamp(now))
     p = marker(conn)
@@ -180,9 +185,10 @@ def claim_broker_wake_job(
         "FROM session_message_attempts a JOIN session_message_recipients r "
         "ON r.message_id=a.message_id AND r.session_id=a.target_session_id "
         f"WHERE a.attempt_kind='wake_broker' AND a.completed_at IS NULL "
-        f"AND a.result_code='broker_instructed' AND r.machine_id={p} "
+        f"AND a.result_code='broker_instructed' AND a.lease_id={p} "
+        f"AND a.broker_session_id={p} AND r.machine_id={p} "
         "ORDER BY a.started_at,a.attempt_id LIMIT 25",
-        (heartbeat.machine_id,),
+        (broker_lease_id, broker_session_id, heartbeat.machine_id),
     ).fetchall()
     projects = {int(value) for value in heartbeat.project_ids}
     for attempt_id, message_id, session_id in rows:

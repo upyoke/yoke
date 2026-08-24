@@ -111,6 +111,12 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                 ),
                 wait_seconds=payload.wait_seconds,
                 broker_only=payload.broker_only,
+                broker_lease_id=payload.broker_lease_id,
+                broker_session_id=(
+                    str(request.actor.session_id or "").strip()
+                    if payload.broker_only
+                    else None
+                ),
             )
         except (SessionRelayError, ValueError) as exc:
             return _failure(getattr(exc, "code", "relay_claim_failed"), str(exc))

@@ -45,7 +45,7 @@ class BrokerWakeLease:
     attempt_id: str
     lease_id: str
     message_id: str
-    command: str = BROKER_COMMAND
+    command: str
 
 
 def _lock(conn: Any, alias: str) -> str:
@@ -298,6 +298,7 @@ def _reserve_candidate(
             attempt_id=attempt_id,
             lease_id=lease_id,
             message_id=str(candidate["message_id"]),
+            command=f"{BROKER_COMMAND} --broker-lease {lease_id}",
         )
     except Exception:
         conn.rollback()

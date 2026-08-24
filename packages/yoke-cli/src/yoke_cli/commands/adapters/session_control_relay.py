@@ -8,6 +8,7 @@ import importlib
 import json
 import sys
 from typing import Any, Callable, List
+from uuid import UUID
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.commands.adapters.session_control_launch_output import (
@@ -20,7 +21,9 @@ from yoke_contracts.session_execution import is_subagent_execution
 RELAY_INSTALL_USAGE = "yoke relay install [--json]"
 RELAY_UNINSTALL_USAGE = "yoke relay uninstall [--json]"
 RELAY_STATUS_USAGE = "yoke relay status [--json]"
-RELAY_SERVE_ONCE_USAGE = "yoke relay serve-once [--broker] [--json]"
+RELAY_SERVE_ONCE_USAGE = (
+    "yoke relay serve-once [--broker --broker-lease LEASE_ID] [--json]"
+)
 RELAY_DIAGNOSTIC_USAGE = "yoke relay diagnostic <opaque-ref>"
 
 
@@ -35,10 +38,15 @@ def _plist_operation(action: str) -> Any:
     return operation[action]()
 
 
-def _serve_once(*, broker_only: bool = False) -> Any:
+def _serve_once(
+    *, broker_only: bool = False, broker_lease_id: str | None = None
+) -> Any:
     from yoke_harness.session_relay import serve_once
 
-    return serve_once(broker_only=broker_only)
+    return serve_once(
+        broker_only=broker_only,
+        broker_lease_id=broker_lease_id,
+    )
 
 
 def _read_diagnostic(reference: str) -> bytes:
@@ -129,6 +137,10 @@ def relay_serve_once(args: List[str]) -> int:
         action="store_true",
         help="bypass local cadence and claim only a reserved peer wake",
     )
+    parser.add_argument(
+        "--broker-lease",
+        help="claim only this exact peer-wake reservation",
+    )
     parsed = parse_or_usage_error(
         parser,
         args,
@@ -136,10 +148,21 @@ def relay_serve_once(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
+    if parsed.broker != bool(parsed.broker_lease):
+        return usage_error("--broker and --broker-lease must be provided together")
+    broker_lease_id = None
+    if parsed.broker_lease:
+        try:
+            broker_lease_id = str(UUID(parsed.broker_lease))
+        except (TypeError, ValueError, AttributeError):
+            return usage_error("--broker-lease must be a UUID")
     if is_subagent_execution():
         return usage_error(FLEET_OWNERSHIP_GUIDANCE)
     try:
-        outcome = _serve_once(broker_only=parsed.broker)
+        outcome = _serve_once(
+            broker_only=parsed.broker,
+            broker_lease_id=broker_lease_id,
+        )
     except Exception as exc:
         print(
             json.dumps(

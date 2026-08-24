@@ -43,6 +43,7 @@ class RelayInventory:
         *,
         wait_seconds: int | None = None,
         broker_only: bool = False,
+        broker_lease_id: str | None = None,
     ) -> dict[str, object]:
         payload: dict[str, object] = {
             "relay_id": self.relay_id,
@@ -56,6 +57,8 @@ class RelayInventory:
             payload["wait_seconds"] = wait_seconds
         if broker_only:
             payload["broker_only"] = True
+        if broker_lease_id:
+            payload["broker_lease_id"] = broker_lease_id
         return payload
 
 

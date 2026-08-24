@@ -87,7 +87,9 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
     conn, message_id = _seed()
     lease = _reserve(conn)
 
-    assert lease and lease.command == "yoke relay serve-once --broker"
+    assert lease and lease.command == (
+        f"yoke relay serve-once --broker --broker-lease {lease.lease_id}"
+    )
     attempt = conn.execute(
         "SELECT attempt_id,attempt_kind,broker_session_id,result_code,evidence "
         "FROM session_message_attempts"
@@ -99,12 +101,10 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
         "broker_hook_leased",
     )
     assert "Secret body" not in attempt[4]
-    assert (
-        conn.execute(
-            "SELECT wake_attempt_count FROM session_message_recipients"
-        ).fetchone()[0]
-        == 0
-    )
+    wake_count = conn.execute(
+        "SELECT wake_attempt_count FROM session_message_recipients"
+    ).fetchone()[0]
+    assert wake_count == 0
 
     complete_broker_hook_lease(
         conn,
@@ -118,6 +118,8 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
         _heartbeat(),
         wait_seconds=0,
         broker_only=True,
+        broker_lease_id=lease.lease_id,
+        broker_session_id="broker-a",
         now_provider=lambda: _stamp(seconds=3),
     )
 
@@ -125,12 +127,10 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
     assert claimed.job.message_id == message_id
     assert claimed.job.native_instruction == native_wake_instruction(message_id)
     assert "Secret body" not in claimed.job.native_instruction
-    assert (
-        conn.execute(
-            "SELECT wake_attempt_count FROM session_message_recipients"
-        ).fetchone()[0]
-        == 1
-    )
+    wake_count = conn.execute(
+        "SELECT wake_attempt_count FROM session_message_recipients"
+    ).fetchone()[0]
+    assert wake_count == 1
     report_relay_job(
         conn,
         actor_id=10,
