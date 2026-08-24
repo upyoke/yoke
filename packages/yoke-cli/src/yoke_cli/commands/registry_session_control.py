@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Tuple
 
+from yoke_cli.commands.adapters.session_control_acceptance import (
+    ACCEPTANCE_RUN_USAGE,
+    session_control_acceptance_run,
+)
 from yoke_cli.commands.adapters.session_control_launches import (
     session_launch_cancel,
     session_launch_create,
@@ -140,6 +144,7 @@ SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute
 
 
 SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
+    ("session-control", "acceptance", "run"): session_control_acceptance_run,
     ("relay", "install"): relay_install,
     ("relay", "uninstall"): relay_uninstall,
     ("relay", "status"): relay_status,
@@ -147,6 +152,7 @@ SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 }
 
 SESSION_CONTROL_TOOL_SHAPED_USAGE = {
+    "yoke session-control acceptance run": ACCEPTANCE_RUN_USAGE,
     "yoke relay install": RELAY_INSTALL_USAGE,
     "yoke relay uninstall": RELAY_UNINSTALL_USAGE,
     "yoke relay status": RELAY_STATUS_USAGE,

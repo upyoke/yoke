@@ -327,12 +327,11 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
         "result_code": "native_created",
         "state": "reported",
     }
-    assert set(SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS) == {
-        ("relay", "install"),
-        ("relay", "uninstall"),
-        ("relay", "status"),
-        ("relay", "serve-once"),
+    expected = {
+        ("relay", verb) for verb in ("install", "uninstall", "status", "serve-once")
     }
+    expected.add(("session-control", "acceptance", "run"))
+    assert set(SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS) == expected
 
 
 def test_relay_broker_flag_forces_the_reserved_work_path(monkeypatch, capsys) -> None:
