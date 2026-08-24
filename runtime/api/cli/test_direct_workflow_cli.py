@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_cli.commands import direct_workflow_worktree
+from yoke_cli.commands import _helpers, direct_workflow_worktree
 from yoke_cli.commands.adapters import blitz, dash, lane_tree
 from yoke_cli.commands.adapters import (
     field_note_promote as field_note_promote_adapter,
@@ -159,6 +159,42 @@ def test_dash_survey_reports_client_local_headroom(monkeypatch):
     assert "survey-touch-path-update|replace" in out.getvalue()
 
 
+@pytest.mark.parametrize(("handler", "args", "function_id"), [
+    (
+        dash.dash_survey,
+        ["9", "--path", "pkg/file.py"],
+        "direct_workflow.dash.survey",
+    ),
+    (
+        dash.dash_evidence,
+        [
+            "9", "--result", "Updated footer", "--verification", "passed",
+            "--commit-sha", "abc1234", "--merge-sha", "def5678",
+            "--no-changes", "--tree-root", "/lane", "--tree-head-sha", "abc1234",
+        ],
+        "direct_workflow.dash.evidence",
+    ),
+    (
+        dash.dash_escalate,
+        ["9", "--issue-title", "Broader repair", "--findings", "More work"],
+        "direct_workflow.dash.escalate",
+    ),
+])
+def test_dash_item_entries_attach_checkout_project_to_bare_refs(
+    monkeypatch, handler, args, function_id,
+):
+    captured = _capture(monkeypatch, dash)
+    monkeypatch.setattr(_helpers, "client_project_context", lambda _=None: "1")
+    monkeypatch.setattr(dash, "item_lane_tree", lambda *a, **k: lane_tree.LaneTree())
+    monkeypatch.setattr(dash, "survey_path_sizes", lambda *_a, **_k: [])
+
+    assert handler(args) == 0
+
+    assert captured["function_id"] == function_id
+    assert captured["target"].item_ref == "9"
+    assert captured["target"].project_id == "1"
+
+
 def test_dash_evidence_adapter_refuses_an_unidentifiable_tree(monkeypatch):
     _capture(monkeypatch, dash)
     from yoke_core.domain import verification_tree_binding
@@ -257,3 +293,21 @@ def test_worktree_prepare_delegates_to_engine_module(monkeypatch):
         "dash",
     ]
     assert captured["check"] is False
+
+
+def test_worktree_prepare_attaches_checkout_project_to_bare_ref(monkeypatch):
+    captured = {}
+
+    def _run(command, *, check):
+        captured["command"] = command
+        return type("Completed", (), {"returncode": 0})()
+
+    monkeypatch.setattr(direct_workflow_worktree.subprocess, "run", _run)
+    monkeypatch.setattr(
+        direct_workflow_worktree, "client_project_context", lambda: "1",
+    )
+
+    assert direct_workflow_worktree.direct_workflow_worktree_prepare([
+        "9", "--workflow", "dash",
+    ]) == 0
+    assert captured["command"][-2:] == ["--project", "1"]
