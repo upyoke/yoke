@@ -152,17 +152,6 @@ def _open_broker_role(conn: Any, session_id: str) -> bool:
     )
 
 
-def _broker_attempt_count(conn: Any, message_id: str, session_id: str) -> int:
-    p = marker(conn)
-    row = conn.execute(
-        "SELECT COUNT(*) FROM session_message_attempts "
-        f"WHERE message_id={p} AND target_session_id={p} "
-        "AND attempt_kind='wake_broker'",
-        (message_id, session_id),
-    ).fetchone()
-    return int(row[0]) if row is not None else 0
-
-
 def _candidate_routes(
     conn: Any, *, broker_session_id: str, now: datetime
 ) -> list[dict[str, Any]]:
@@ -186,11 +175,6 @@ def _candidate_routes(
             now=now,
         )
         policy = project_policy(conn, int(row["project_id"]))
-        if (
-            _broker_attempt_count(conn, str(row["message_id"]), str(row["session_id"]))
-            >= policy.max_wake_attempts
-        ):
-            continue
         previous = parse_timestamp(row.get("last_wake_at"))
         waiting_cooldown = (
             row.get("wake_mode") == "waiting"
@@ -229,7 +213,9 @@ def _reserve_candidate(
         ).fetchone()
         target = conn.execute(
             "SELECT r.state,r.wake_attempt_count,r.last_wake_at,"
-            "r.injection_lease_id,hs.machine_id,hs.turn_posture,hs.turn_posture_at "
+            "r.injection_lease_id,hs.machine_id,hs.turn_posture,hs.turn_posture_at,"
+            "hs.last_heartbeat,hs.last_tool_call_at,hs.ended_at,r.wake_after,"
+            "r.executor_surface,r.executor_version "
             "FROM session_message_recipients r JOIN session_messages m "
             "ON m.message_id=r.message_id JOIN harness_sessions hs "
             "ON hs.session_id=r.session_id "
@@ -253,6 +239,12 @@ def _reserve_candidate(
             _same(target[4], candidate.get("machine_id")),
             _same(target[5], candidate.get("turn_posture")),
             _same(target[6], candidate.get("turn_posture_at")),
+            _same(target[7], candidate.get("last_heartbeat")),
+            _same(target[8], candidate.get("last_tool_call_at")),
+            _same(target[9], candidate.get("ended_at")),
+            _same(target[10], candidate.get("wake_after")),
+            _same(target[11], candidate.get("executor_surface")),
+            _same(target[12], candidate.get("executor_version")),
         )
         if not all(checks) or _open_broker_role(conn, broker_session_id):
             conn.rollback()
@@ -270,7 +262,8 @@ def _reserve_candidate(
         attempt_id = str(uuid4())
         lease_id = str(uuid4())
         conn.execute(
-            "UPDATE session_message_recipients SET last_wake_at="
+            "UPDATE session_message_recipients SET wake_attempt_count="
+            "wake_attempt_count+1,last_wake_at="
             + p
             + f" WHERE message_id={p} AND session_id={p}",
             (now, candidate["message_id"], candidate["session_id"]),

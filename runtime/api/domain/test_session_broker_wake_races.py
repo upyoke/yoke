@@ -55,9 +55,10 @@ def test_target_hook_activity_closes_broker_job_before_native_mutation() -> None
     conn, _message_id = _seed()
     lease = _instruct(conn)
     conn.execute(
-        "UPDATE harness_sessions SET turn_posture='running',turn_posture_at=? "
+        "UPDATE harness_sessions SET ended_at=NULL,last_heartbeat=?,"
+        "turn_posture='running',turn_posture_at=? "
         "WHERE session_id='s4'",
-        (_stamp(seconds=3),),
+        (_stamp(seconds=3), _stamp(seconds=3)),
     )
     conn.commit()
 
@@ -75,7 +76,7 @@ def test_target_hook_activity_closes_broker_job_before_native_mutation() -> None
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
         ).fetchone()[0]
-        == 0
+        == 1
     )
 
 
@@ -108,8 +109,13 @@ def test_broker_version_mismatch_is_terminal_and_typed() -> None:
         "WHERE attempt_id=?",
         (lease.attempt_id,),
     ).fetchone()
-    assert row[0] == _stamp(seconds=3)
-    assert row[1] == "version_mismatch"
+    assert tuple(row) == (_stamp(seconds=3), "version_mismatch")
+    assert (
+        conn.execute(
+            "SELECT wake_attempt_count FROM session_message_recipients"
+        ).fetchone()[0]
+        == 1
+    )
 
 
 def test_connected_relay_without_target_project_does_not_block_broker() -> None:
@@ -167,10 +173,10 @@ def test_broker_claim_is_scoped_to_exact_lease_and_verified_peer() -> None:
         "INSERT INTO harness_sessions "
         "(session_id,project_id,executor,executor_surface,executor_version,"
         "machine_id,execution_lane,last_heartbeat,last_tool_call_at,offered_at,"
-        "turn_posture,turn_posture_at) VALUES "
-        "('s5',1,'codex','codex-cli','0.148.0a15',?,'direct',?,?,?,"
+        "ended_at,turn_posture,turn_posture_at) VALUES "
+        "('s5',1,'codex','codex-cli','0.148.0a15',?,'direct',?,?,?,?,"
         "'waiting',?)",
-        (MACHINE_ID, _stamp(), _stamp(), _stamp(), _stamp()),
+        (MACHINE_ID, _stamp(), _stamp(), _stamp(), _stamp(), _stamp()),
     )
     send_message(
         conn,
@@ -178,7 +184,7 @@ def test_broker_claim_is_scoped_to_exact_lease_and_verified_peer() -> None:
         sender_session_id="s1",
         selector=selector(session_ids=["s5"]),
         body="Second exact-lease wake",
-        now=NOW,
+        now=NOW - timedelta(minutes=11),
     )
     first = _reserve(conn, "broker-a")
     second = _reserve(conn, "broker-b")
@@ -290,6 +296,12 @@ def test_render_failures_are_bounded_by_the_wake_retry_policy() -> None:
             now=NOW + timedelta(seconds=10),
         )
         is None
+    )
+    assert (
+        conn.execute(
+            "SELECT wake_attempt_count FROM session_message_recipients"
+        ).fetchone()[0]
+        == 3
     )
 
 

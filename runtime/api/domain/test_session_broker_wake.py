@@ -28,9 +28,8 @@ RELAY_ID = f"machine:{MACHINE_ID}"
 
 
 def _stamp(minutes: int = 0, seconds: int = 0) -> str:
-    return (NOW + timedelta(minutes=minutes, seconds=seconds)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    value = NOW + timedelta(minutes=minutes, seconds=seconds)
+    return value.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _heartbeat() -> RelayHeartbeat:
@@ -48,9 +47,10 @@ def _heartbeat() -> RelayHeartbeat:
 def _seed(path: str = ":memory:"):
     conn = message_connection(path)
     conn.execute(
-        "UPDATE harness_sessions SET machine_id=?,turn_posture='waiting',"
+        "UPDATE harness_sessions SET machine_id=?,ended_at=?,last_tool_call_at=?,"
+        "turn_posture='unknown',"
         "turn_posture_at=? WHERE session_id='s4'",
-        (MACHINE_ID, NOW_TEXT),
+        (MACHINE_ID, NOW_TEXT, _stamp(minutes=-11), NOW_TEXT),
     )
     for broker in ("broker-a", "broker-b"):
         conn.execute(
@@ -69,7 +69,7 @@ def _seed(path: str = ":memory:"):
         sender_session_id="s1",
         selector=selector(session_ids=["s4"]),
         body="Secret body must never enter broker or native traffic.",
-        now=NOW,
+        now=NOW - timedelta(minutes=11),
     )["message_id"]
     return conn, message_id
 
@@ -85,8 +85,8 @@ def _reserve(conn, broker: str = "broker-a"):
 
 def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> None:
     conn, message_id = _seed()
+    conn.execute("UPDATE session_message_recipients SET wake_attempt_count=2")
     lease = _reserve(conn)
-
     assert lease and lease.command == (
         f"yoke relay serve-once --broker --broker-lease {lease.lease_id}"
     )
@@ -104,7 +104,7 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
     wake_count = conn.execute(
         "SELECT wake_attempt_count FROM session_message_recipients"
     ).fetchone()[0]
-    assert wake_count == 0
+    assert wake_count == 3
 
     complete_broker_hook_lease(
         conn,
@@ -130,7 +130,7 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
     wake_count = conn.execute(
         "SELECT wake_attempt_count FROM session_message_recipients"
     ).fetchone()[0]
-    assert wake_count == 1
+    assert wake_count == 3
     report_relay_job(
         conn,
         actor_id=10,
@@ -189,7 +189,7 @@ def test_failed_direct_route_waits_for_and_immediately_offers_broker() -> None:
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
         ).fetchone()[0]
-        == 1
+        == 2
     )
 
 
@@ -244,7 +244,7 @@ def test_failed_direct_route_retries_after_bounded_broker_window() -> None:
     assert retried.job.job_id != direct.job.job_id
 
 
-def test_broker_loss_and_dropped_render_settle_without_consuming_retry() -> None:
+def test_broker_loss_and_dropped_render_each_consume_one_retry() -> None:
     conn, _message_id = _seed()
     dropped = _reserve(conn)
     assert dropped
@@ -289,7 +289,7 @@ def test_broker_loss_and_dropped_render_settle_without_consuming_retry() -> None
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
         ).fetchone()[0]
-        == 0
+        == 2
     )
 
 

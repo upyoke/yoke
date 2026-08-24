@@ -23,6 +23,9 @@ def _waiting_candidate(conn):
         posture="waiting",
         observed_at=NOW - timedelta(seconds=1),
     )
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at=? WHERE session_id='s1'", (str(NOW),)
+    )
     conn.commit()
     send_message(
         conn,
@@ -30,7 +33,7 @@ def _waiting_candidate(conn):
         sender_session_id="s1",
         selector=selector(session_ids=["s1"]),
         body="Opaque body remains in the inbox.",
-        now=NOW,
+        now=NOW - timedelta(minutes=11),
     )
     return wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1))[0]
 

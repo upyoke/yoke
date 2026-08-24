@@ -109,13 +109,7 @@ def _adopt_attempt(
         if not all(checks):
             conn.rollback()
             return None
-        conn.execute(
-            "UPDATE session_message_recipients SET wake_attempt_count="
-            "wake_attempt_count+1,last_wake_at="
-            + p
-            + f" WHERE message_id={p} AND session_id={p}",
-            (now, candidate["message_id"], candidate["session_id"]),
-        )
+        # Reservation already charged the recipient's shared attempt counter.
         message_id = str(candidate["message_id"])
         instruction = native_wake_instruction(message_id)
         conn.execute(

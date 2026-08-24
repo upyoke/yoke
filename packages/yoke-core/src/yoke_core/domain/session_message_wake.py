@@ -13,6 +13,7 @@ from yoke_core.domain.session_message_delivery import (
 )
 from yoke_core.domain.session_message_routing import (
     latest_hook_activity,
+    messageability,
     session_liveness,
 )
 from yoke_core.domain.session_message_types import (
@@ -26,6 +27,37 @@ from yoke_core.domain.session_relay_types import WakeMode
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _native_wake_route_available(
+    conn: Any,
+    row: dict[str, Any],
+    *,
+    liveness: str,
+    wake_mode: WakeMode,
+) -> bool:
+    if messageability(row, liveness=liveness)["wake_interface"] != "none":
+        return True
+    from yoke_core.domain.session_private_route_qualification import (
+        PrivateRouteQualificationError,
+        qualification_for_message,
+    )
+    from yoke_core.domain.session_relay_versions import wake_operation
+
+    operation = wake_operation(wake_mode.value, liveness)
+    if operation is None:
+        return False
+    # Exact stage qualification is claim authority for a canonical route gap.
+    for route in ("direct", "broker"):
+        try:
+            if (
+                qualification_for_message(conn, row, operation=operation, route=route)
+                is not None
+            ):
+                return True
+        except PrivateRouteQualificationError:
+            continue
+    return False
 
 
 def wake_eligible_recipients(
@@ -57,10 +89,9 @@ def wake_eligible_recipients(
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
             "WHERE r.state IN ('pending','injected') AND m.cancelled_at IS NULL "
-            "AND (r.wake_after<="
+            "AND r.wake_after<="
             + marker
-            + " OR (r.state='pending' AND hs.turn_posture='waiting' "
-            "AND r.injection_lease_id IS NULL)) AND m.expires_at>"
+            + " AND m.expires_at>"
             + marker
             + " AND (r.injection_lease_id IS NULL OR ("
             "r.injection_lease_expires_at IS NOT NULL "
@@ -86,16 +117,20 @@ def wake_eligible_recipients(
             row = row_dict(raw)
             policy = project_policy(conn, int(row["project_id"]))
             liveness = session_liveness(row, now=current)
-            if int(row["wake_attempt_count"] or 0) >= policy.max_wake_attempts:
+            attempt_count = int(row["wake_attempt_count"] or 0)
+            at_limit = attempt_count >= policy.max_wake_attempts
+            adopting_final_attempt = bool(
+                ignore_attempt_id and attempt_count == policy.max_wake_attempts
+            )
+            if at_limit and not adopting_final_attempt:
                 continue
-            # Delivery can repeat, but a live prompt must never receive a wake.
-            if row["state"] == "injected" and (
-                liveness == "active" or not policy.reinject_until_acknowledged
-            ):
+            if liveness == "active":
+                continue
+            if row["state"] == "injected" and not policy.reinject_until_acknowledged:
                 continue
             created_at = parse_timestamp(row["message_created_at"])
             wake_after = parse_timestamp(row["wake_after"])
-            if created_at is None or wake_after is None:
+            if created_at is None or wake_after is None or wake_after > current:
                 continue
             activity = latest_hook_activity(row)
             if activity is not None and activity <= created_at:
@@ -127,6 +162,10 @@ def wake_eligible_recipients(
                 ):
                     continue
                 wake_mode = WakeMode.IDLE_TIMEOUT
+            if not _native_wake_route_available(
+                conn, row, liveness=liveness, wake_mode=wake_mode
+            ):
+                continue
             eligible.append(
                 {
                     "message_id": str(row["message_id"]),
@@ -140,9 +179,13 @@ def wake_eligible_recipients(
                     "liveness": liveness,
                     "turn_posture": str(row["turn_posture"]),
                     "turn_posture_at": row["turn_posture_at"],
+                    "last_heartbeat": row["last_heartbeat"],
+                    "last_tool_call_at": row["last_tool_call_at"],
+                    "ended_at": row["ended_at"],
+                    "wake_after": row["wake_after"],
                     "injection_lease_id": row["injection_lease_id"],
                     "injection_lease_expires_at": row["injection_lease_expires_at"],
-                    "wake_attempt_count": int(row["wake_attempt_count"] or 0),
+                    "wake_attempt_count": attempt_count,
                     "last_wake_at": row["last_wake_at"],
                 }
             )

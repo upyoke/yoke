@@ -220,13 +220,11 @@ def test_central_expiry_closes_active_lease_and_prevents_completion() -> None:
     assert attempt["result_code"] == "recipient_expired"
 
 
-def test_wake_eligibility_keys_off_hook_activity_and_excludes_live_injected() -> None:
+def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> None:
     conn = message_connection()
     message_id = _send(conn)
     pending = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))
-    assert [(row["message_id"], row["liveness"]) for row in pending] == [
-        (message_id, "active")
-    ]
+    assert pending == []
 
     active_at = "2026-08-22T16:11:00Z"
     conn.execute(
@@ -246,9 +244,7 @@ def test_wake_eligibility_keys_off_hook_activity_and_excludes_live_injected() ->
     assert [row["message_id"] for row in stale] == [message_id]
 
 
-def test_waiting_pending_receipt_bypasses_idle_grace_without_an_injection_lease() -> (
-    None
-):
+def test_waiting_pending_receipt_does_not_bypass_native_wake_gates() -> None:
     conn = message_connection()
     stamp_turn_posture(
         conn,
@@ -257,11 +253,11 @@ def test_waiting_pending_receipt_bypasses_idle_grace_without_an_injection_lease(
         observed_at=NOW - timedelta(seconds=1),
     )
     conn.commit()
-    message_id = _send(conn)
+    _send(conn)
 
     rows = wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1))
 
-    assert [row["message_id"] for row in rows] == [message_id]
+    assert rows == []
 
 
 def test_running_unknown_and_injected_receipts_keep_existing_idle_grace() -> None:
