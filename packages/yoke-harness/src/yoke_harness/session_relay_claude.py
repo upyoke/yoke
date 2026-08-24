@@ -49,9 +49,9 @@ class ClaudeNativeInvocation:
                 "-p",
                 "--resume",
                 self.session_id,
+                self.instruction,
                 "--output-format",
                 "json",
-                self.instruction,
             )
         arguments = [self.executable, "--session-id", self.session_id]
         if self.model:

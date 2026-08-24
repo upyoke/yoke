@@ -65,9 +65,9 @@ def test_waiting_wake_resumes_active_labeled_session_at_private_version(
         "-p",
         "--resume",
         ACTUAL_ID,
+        CHECK_INBOX,
         "--output-format",
         "json",
-        CHECK_INBOX,
     )
     assert "--bg" not in invocations[0].argv
     assert result.result_code == "accepted"
