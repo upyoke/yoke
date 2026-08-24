@@ -127,26 +127,12 @@ WATCHERS_COMMANDS: list[dict] = [
         "purpose": "Wait on a commit's CI runs with watcher (main session)",
         "recipe": (
             "yoke watch ci-run\n"
-            "# Watches the current checkout's resolved HEAD. Narrow it:\n"
-            "yoke watch ci-run -- <branch-or-sha> --workflow <workflow-name>\n"
-            "yoke watch ci-run --print-streaming-pair -- HEAD"
+            "yoke watch ci-run -- <branch-or-sha> --workflow <name>"
         ),
         "notes": (
-            "watch_ci_run owns the CI filter; never hand-author a polling "
-            "filter for a workflow run. Two matching mistakes make a "
-            "hand-authored one run silently past the conclusion it is "
-            "waiting for: comparing a hash string-padded from an "
-            "abbreviated SHA instead of resolved with "
-            "`git rev-parse <ref>^{commit}`, and keying on the run's "
-            "display title instead of the workflow's name. The wrapper "
-            "resolves the ref, matches on the exact head SHA, matches "
-            "--workflow against the workflow name, and emits every state "
-            "change, every terminal conclusion, and the "
-            "no-run-found and still-running deadlines. Exit codes: 0 all "
-            "succeeded, 1 a run concluded otherwise, 2 the ref does not "
-            "resolve, 3 still running at the deadline, 4 project GitHub "
-            "auth failure, 5 no run appeared. Runs read through the "
-            "project's GitHub App auth on the shared CI poll schedule."
+            "Owns the CI filter; never hand-author one. Resolves the ref with "
+            "`git rev-parse <ref>^{commit}`, matches that exact head SHA, and "
+            "matches --workflow against the workflow name, not the run title."
         ),
     },
     {
