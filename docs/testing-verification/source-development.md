@@ -30,14 +30,17 @@ general recipe only for a direct invocation that is not covered by a wrapper:
 yoke dev run -- python3 -m pytest path/to/test_file.py
 ```
 
-Ruff is a locked development dependency. Lint every changed Python path with:
+Ruff is a locked development dependency. Lint changed existing Python paths
+from the session's claimed source checkout with:
 
 ```bash
-uv run --frozen ruff check <changed Python paths>
+yoke dev ruff-changed --base <ref>
 ```
 
-Do not call a checkout-local `.venv/bin/ruff` path or rely on an ambient
-Homebrew install.
+Add `--format-check` to also run `ruff format --check`. The command reads a
+NUL-delimited Git diff, excludes deleted or otherwise nonexistent paths, and
+runs the locked Ruff version without shell path expansion. Do not call a
+checkout-local `.venv/bin/ruff` path or rely on an ambient Homebrew install.
 
 For a changed-test fallback, first list candidates with:
 

@@ -69,7 +69,7 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
     source_development = (
         REPO / "docs/testing-verification/source-development.md"
     ).read_text(encoding="utf-8")
-    assert "uv run --frozen ruff check <changed Python paths>" in agents
+    assert "yoke dev ruff-changed --base <ref>" in agents
     assert "Use `-- -n 0`" in agents
     assert "Never pass an optional unmatched path glob" in agents
     assert "Never fabricate or expand a full commit hash" in agents
