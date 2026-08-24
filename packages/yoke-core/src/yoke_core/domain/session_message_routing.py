@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
+    machine_stopped_wake_supported,
     surface_operation_supported,
     surface_version_supported,
 )
@@ -35,7 +36,51 @@ def session_liveness(row: dict[str, Any], *, now: datetime) -> str:
     return "active"
 
 
-def messageability(row: dict[str, Any], *, liveness: str) -> dict[str, Any]:
+_WAKE_OPERATION_BY_LIVENESS = {
+    "active": "message_active",
+    "stale": "message_idle",
+    "ended": "message_stopped",
+}
+
+
+def _wake_operation(row: dict[str, Any], liveness: str) -> str | None:
+    if row.get("turn_posture") == "waiting":
+        return "message_stopped"
+    return _WAKE_OPERATION_BY_LIVENESS.get(liveness)
+
+
+def _wake_interface(
+    surface: str,
+    version: str | None,
+    operation: str | None,
+    machine_surface_versions: Mapping[str, str] | None,
+) -> str:
+    capability = capability_for_surface(surface)
+    if capability is None or operation is None:
+        return "none"
+    if surface_operation_supported(surface, version, operation):
+        return str(getattr(capability, operation))
+    if operation == "message_stopped" and machine_stopped_wake_supported(
+        surface, machine_surface_versions
+    ):
+        return "supported"
+    return "none"
+
+
+def messageability(
+    row: dict[str, Any],
+    *,
+    liveness: str,
+    machine_surface_versions: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Project hook delivery and wake facts for one session.
+
+    Hook delivery follows the session's own registered surface and version.
+    A stopped session may still be wakeable through a peer binary installed on
+    its machine, so the caller passes the relay-reported installed versions and
+    the wake route is derived from those rather than from the registered
+    surface alone.
+    """
     surface = str(row.get("executor_surface") or "")
     capability = capability_for_surface(surface)
     if capability is None:
@@ -46,37 +91,26 @@ def messageability(row: dict[str, Any], *, liveness: str) -> dict[str, Any]:
             "reason": "unknown_surface",
         }
     version = str(row.get("executor_version") or "") or None
-    version_ok = surface_version_supported(surface, version)
-    if not version_ok:
+    operation = _wake_operation(row, liveness)
+    wake_interface = _wake_interface(
+        surface, version, operation, machine_surface_versions
+    )
+    if not surface_version_supported(surface, version):
         return {
             "messageable": False,
             "hook_injection": False,
-            "wake_interface": "none",
+            "wake_interface": wake_interface,
+            "wake_operation": operation,
             "reason": "version_below_floor_or_unknown",
             "minimum_version": capability.minimum_version,
         }
-    wake_operation = (
-        "message_stopped"
-        if row.get("turn_posture") == "waiting"
-        else {
-            "active": "message_active",
-            "stale": "message_idle",
-            "ended": "message_stopped",
-        }.get(liveness)
-    )
-    wake_interface = (
-        str(getattr(capability, wake_operation))
-        if wake_operation
-        and surface_operation_supported(surface, version, wake_operation)
-        else "none"
-    )
     hook_injection = bool(capability.inject_events)
     return {
         "messageable": hook_injection,
         "hook_injection": hook_injection,
         "inject_events": list(capability.inject_events),
         "wake_interface": wake_interface,
-        "wake_operation": wake_operation,
+        "wake_operation": operation,
         "minimum_version": capability.minimum_version,
         "reason": "hook_delivery" if hook_injection else "unsupported_surface",
     }

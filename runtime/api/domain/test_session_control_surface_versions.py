@@ -8,6 +8,7 @@ from yoke_contracts.session_control.private_route_versions import (
     PRIVATE_ROUTE_VERSION_QUALIFICATIONS,
 )
 from yoke_contracts.session_control.surface_versions import (
+    machine_stopped_wake_supported,
     surface_operation_supported,
     surface_version_supported,
 )
@@ -109,6 +110,35 @@ def test_other_private_surface_versions_remain_exactly_pinned() -> None:
     assert surface_operation_supported("codex-cli", "0.149.0", "create")
     assert not surface_operation_supported("codex-cli", "not-a-version", "create")
     assert not surface_operation_supported("cursor-cli", "2026.08.11", "delete")
+
+
+def test_documented_cli_resume_uses_a_floor_while_idle_stays_pinned() -> None:
+    assert surface_operation_supported("claude-cli", "2.1.238", "message_stopped")
+    assert surface_operation_supported("claude-cli", "2.1.241", "message_stopped")
+    assert not surface_operation_supported("claude-cli", "2.1.237", "message_stopped")
+    assert not surface_operation_supported("claude-cli", "2.1.241", "message_idle")
+    assert ("claude-cli", "message_stopped") not in PRIVATE_ROUTE_VERSION_QUALIFICATIONS
+
+
+def test_installed_cli_wakes_every_stopped_claude_surface_on_its_machine() -> None:
+    installed = {"claude-cli": "2.1.241"}
+
+    for surface in ("claude-cli", "claude-desktop", "claude-vscode"):
+        assert machine_stopped_wake_supported(surface, installed)
+    assert not machine_stopped_wake_supported("codex-desktop", installed)
+    assert not machine_stopped_wake_supported("cursor-desktop", installed)
+
+
+def test_machine_wake_reads_the_installed_binary_not_the_registered_surface() -> None:
+    assert not machine_stopped_wake_supported(
+        "claude-desktop", {"claude-desktop": "1.34493.1"}
+    )
+    assert not machine_stopped_wake_supported(
+        "claude-desktop", {"claude-cli": "2.1.237"}
+    )
+    assert not machine_stopped_wake_supported("claude-desktop", {})
+    assert not machine_stopped_wake_supported("claude-desktop", None)
+    assert not machine_stopped_wake_supported(None, {"claude-cli": "2.1.241"})
 
 
 def test_core_owner_module_reexports_the_contract_authority() -> None:

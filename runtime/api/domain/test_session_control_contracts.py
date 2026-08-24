@@ -37,7 +37,7 @@ def test_registered_function_vocabulary_uses_product_verbs_only() -> None:
 @pytest.mark.parametrize(
     "surface, active, idle, stopped",
     [
-        ("claude-cli", "private", "private", "private"),
+        ("claude-cli", "private", "private", "supported"),
         ("codex-cli", "none", "none", "supported"),
         ("cursor-cli", "none", "supported", "supported"),
     ],

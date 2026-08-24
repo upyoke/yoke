@@ -59,7 +59,7 @@ def _scope(*, run_id: str = "stage-proof-1") -> PrivateRouteQualificationScope:
         acceptance_run_id=run_id,
         surface="claude-cli",
         version="2.1.241",
-        operation="message_stopped",
+        operation="message_idle",
         route="direct",
     )
 
@@ -278,7 +278,7 @@ def test_message_lookup_binds_run_sender_project_operation_and_route(
 
     assert (
         qualification_for_message(
-            conn, candidate, operation="message_stopped", route="direct"
+            conn, candidate, operation="message_idle", route="direct"
         )
         is None
     )
@@ -289,7 +289,7 @@ def test_message_lookup_binds_run_sender_project_operation_and_route(
     )
     assert (
         qualification_for_message(
-            conn, candidate, operation="message_stopped", route="direct"
+            conn, candidate, operation="message_idle", route="direct"
         )
         is None
     )
@@ -299,13 +299,13 @@ def test_message_lookup_binds_run_sender_project_operation_and_route(
     )
     assert (
         qualification_for_message(
-            conn, candidate, operation="message_stopped", route="direct"
+            conn, candidate, operation="message_idle", route="direct"
         )
         == grant
     )
     assert (
         qualification_for_message(
-            conn, candidate, operation="message_stopped", route="broker"
+            conn, candidate, operation="message_idle", route="broker"
         )
         is None
     )

@@ -8,6 +8,9 @@ from pathlib import Path
 import re
 from typing import Any
 
+from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    expected_wake_route,
+)
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
@@ -181,9 +184,6 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
     if wake_route not in _WAKE_ROUTES:
         raise AcceptanceContractError("wake_route_invalid", surface=surface)
     if role == "surface":
-        expected_route = "none" if surface in _IDENTIFY_ONLY_SURFACES else "direct"
-        if wake_route != expected_route:
-            raise AcceptanceContractError("surface_wake_route_invalid", surface=surface)
         if broker_session_id is not None:
             raise AcceptanceContractError(
                 "broker_session_id_forbidden", surface=surface
@@ -212,6 +212,24 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
         wake_route=wake_route,
         broker_session_id=broker_session_id,
     )
+
+
+def _validate_wake_routes(cells: tuple[AcceptanceCell, ...]) -> None:
+    """Check authored routes against the complete matrix's own machine.
+
+    A candidate subset is exempt: selection removes the installed versions its
+    surviving cells would then be judged against.
+    """
+    surfaces = [cell for cell in cells if cell.acceptance_role == "surface"]
+    machine_versions = {cell.surface: cell.expected_version for cell in surfaces}
+    for cell in surfaces:
+        expected = expected_wake_route(
+            cell.surface, cell.expected_version, machine_versions
+        )
+        if cell.wake_route != expected:
+            raise AcceptanceContractError(
+                "surface_wake_route_invalid", surface=cell.surface
+            )
 
 
 def _parse_matrix(
@@ -262,6 +280,7 @@ def _parse_matrix(
             )
         )
         return AcceptanceMatrix(project=project, cells=ordered)
+    _validate_wake_routes(cells)
     surface_cells = tuple(cell for cell in cells if cell.acceptance_role == "surface")
     surfaces = tuple(cell.surface for cell in surface_cells)
     if len(surfaces) != len(set(surfaces)):

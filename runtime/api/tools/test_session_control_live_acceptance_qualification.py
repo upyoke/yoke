@@ -12,8 +12,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
     AcceptanceMatrix,
+    acceptance_operation,
 )
 from runtime.api.tools.session_control_live_acceptance_qualification import (
+    OpenedQualification,
     QualificationCoordinator,
 )
 from yoke_contracts.session_control.private_route_qualification import (
@@ -23,6 +25,25 @@ from yoke_contracts.session_control.private_route_qualification import (
 
 
 RELEASE_SHA = "a" * 40
+# Version evidence already authorizes this surface's stopped-session wake, so
+# its acceptance route needs no one-shot qualification.
+PROVEN_WAKE_CELL = AcceptanceCell(
+    "claude-cli",
+    "2.1.241",
+    "create",
+    acceptance_role="surface",
+    wake_route="direct",
+)
+# The active-message route stays private, and this version is outside the exact
+# pin that qualifies it, so acceptance must open a one-shot grant for it.
+UNPROVEN_PRIVATE_ROUTE_CELL = AcceptanceCell(
+    "claude-desktop",
+    "1.34493.1",
+    "identify",
+    session_id="desktop-session",
+    acceptance_role="surface",
+    wake_route="none",
+)
 
 
 class _Client:
@@ -105,21 +126,8 @@ def _matrix() -> AcceptanceMatrix:
     return AcceptanceMatrix(
         project="yoke",
         cells=(
-            AcceptanceCell(
-                "claude-cli",
-                "2.1.241",
-                "create",
-                acceptance_role="surface",
-                wake_route="direct",
-            ),
-            AcceptanceCell(
-                "claude-desktop",
-                "1.34493.1",
-                "identify",
-                session_id="desktop-session",
-                acceptance_role="surface",
-                wake_route="none",
-            ),
+            PROVEN_WAKE_CELL,
+            UNPROVEN_PRIVATE_ROUTE_CELL,
             AcceptanceCell(
                 "codex-cli",
                 "0.148.0-alpha.15",
@@ -129,6 +137,13 @@ def _matrix() -> AcceptanceMatrix:
             ),
         ),
     )
+
+
+def _open_acceptance_route(
+    coordinator: QualificationCoordinator, cell: AcceptanceCell
+) -> OpenedQualification | None:
+    """Open at the boundary of the operation this surface is accepted on."""
+    return coordinator.open(cell, acceptance_operation(cell.surface))
 
 
 def test_candidate_grants_are_exact_redacted_and_consumed() -> None:
@@ -143,26 +158,24 @@ def test_candidate_grants_are_exact_redacted_and_consumed() -> None:
     )
     assert client.opened == []
 
-    opened = [
-        coordinator.open(matrix.cells[0], "message_stopped"),
-        coordinator.open(matrix.cells[1], "message_active"),
-    ]
+    authorized = _open_acceptance_route(coordinator, PROVEN_WAKE_CELL)
+    opened = _open_acceptance_route(coordinator, UNPROVEN_PRIVATE_ROUTE_CELL)
 
-    assert all(item is not None for item in opened)
-    assert [
-        (item.grant.scope.operation, item.grant.scope.route) for item in opened if item
-    ] == [
-        ("message_stopped", "direct"),
-        ("message_active", "hook"),
-    ]
-    assert all(item and item.grant.scope.environment == "stage" for item in opened)
-    assert len(client.opened) == 2
+    assert authorized is None
+    assert opened is not None
+    assert (opened.grant.scope.operation, opened.grant.scope.route) == (
+        "message_active",
+        "hook",
+    )
+    assert opened.grant.scope.surface == UNPROVEN_PRIVATE_ROUTE_CELL.surface
+    assert opened.grant.scope.version == UNPROVEN_PRIVATE_ROUTE_CELL.expected_version
+    assert opened.grant.scope.environment == "stage"
+    assert len(client.opened) == 1
     evidence = coordinator.evidence()
-    assert set(evidence[0]) == {"lease_id", "grant_digest"}
+    assert [set(entry) for entry in evidence] == [{"lease_id", "grant_digest"}]
     assert "lease_key" not in repr(evidence)
 
-    for item in opened:
-        coordinator.verify(item)
+    coordinator.verify(opened)
     assert coordinator.all_consumed is True
 
 
@@ -176,7 +189,7 @@ def test_forged_sender_grant_is_refused_before_acceptance() -> None:
         caller_session_id="main-session",
     )
     with pytest.raises(AcceptanceContractError) as raised:
-        coordinator.open(matrix.cells[0], "message_stopped")
+        _open_acceptance_route(coordinator, UNPROVEN_PRIVATE_ROUTE_CELL)
 
     assert raised.value.code == "qualification_grant_mismatch"
 
@@ -191,7 +204,7 @@ def test_unconsumed_grant_fails_the_acceptance_gate() -> None:
         release_sha=RELEASE_SHA,
         caller_session_id="main-session",
     )
-    opened = coordinator.open(matrix.cells[0], "message_stopped")
+    opened = _open_acceptance_route(coordinator, UNPROVEN_PRIVATE_ROUTE_CELL)
     client.consumed = False
 
     with pytest.raises(AcceptanceContractError) as raised:
@@ -211,7 +224,8 @@ def test_exact_lease_is_verified_among_prior_scope_history() -> None:
         release_sha=RELEASE_SHA,
         caller_session_id="main-session",
     )
-    opened = coordinator.open(matrix.cells[0], "message_stopped")
+    opened = _open_acceptance_route(coordinator, UNPROVEN_PRIVATE_ROUTE_CELL)
+    assert opened is not None
 
     coordinator.verify(opened)
 
@@ -234,7 +248,7 @@ def test_forged_release_identity_cannot_prove_consumption(client: _Client) -> No
         release_sha=RELEASE_SHA,
         caller_session_id="main-session",
     )
-    opened = coordinator.open(matrix.cells[0], "message_stopped")
+    opened = _open_acceptance_route(coordinator, UNPROVEN_PRIVATE_ROUTE_CELL)
 
     with pytest.raises(AcceptanceContractError) as raised:
         coordinator.verify(opened)
@@ -247,18 +261,7 @@ def test_candidate_runner_keeps_stage_pinned_after_active_env_switch(
     capsys,
 ) -> None:
     selected = {"environment": "stage"}
-    matrix = AcceptanceMatrix(
-        project="yoke",
-        cells=(
-            AcceptanceCell(
-                "claude-cli",
-                "2.1.241",
-                "create",
-                acceptance_role="surface",
-                wake_route="direct",
-            ),
-        ),
-    )
+    matrix = AcceptanceMatrix(project="yoke", cells=(UNPROVEN_PRIVATE_ROUTE_CELL,))
     captured: dict[str, object] = {}
 
     class _PinnedClient:

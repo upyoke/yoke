@@ -196,6 +196,38 @@ def test_waiting_posture_uses_stopped_wake_capability() -> None:
     assert row["messageability"]["wake_available"] is True
 
 
+def test_stopped_desktop_session_wakes_through_the_machines_installed_cli() -> None:
+    conn = _connection()
+    _add_session(conn, surface="claude-desktop", version="1.34493.1")
+    _add_relay(conn, surface_versions={"claude-cli": "2.1.241"})
+
+    routing = session_control_roster_result(
+        [_base_row(surface="claude-desktop", liveness="ended")],
+        conn=conn,
+        now=NOW,
+    )["rows"][0]["messageability"]
+
+    assert routing["wake_operation"] == "message_stopped"
+    assert routing["wake_interface"] == "supported"
+    assert routing["wake_available"] is True
+
+
+def test_machine_wake_needs_a_relay_serving_the_sessions_project() -> None:
+    conn = _connection()
+    _add_session(conn, surface="claude-desktop", version="1.34493.1")
+    _add_relay(conn, surface_versions={"claude-cli": "2.1.241"}, project_ids=(11,))
+
+    routing = session_control_roster_result(
+        [_base_row(surface="claude-desktop", liveness="ended")],
+        conn=conn,
+        now=NOW,
+    )["rows"][0]["messageability"]
+
+    assert routing["relay_connected"] is True
+    assert routing["wake_interface"] == "none"
+    assert routing["wake_available"] is False
+
+
 def test_private_wake_route_requires_the_exact_pinned_version() -> None:
     conn = _connection()
     _add_session(conn, surface="claude-desktop", version="1.34493.1")

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from yoke_contracts.session_control.roster import (
     SESSION_CONTROL_ROSTER_DISPLAY_FIELDS,
+)
+from yoke_contracts.session_control.surface_versions import (
+    machine_stopped_wake_supported,
 )
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
@@ -81,17 +84,37 @@ def _connected_relays(conn: Any, *, now: str) -> dict[str, tuple[dict[str, Any],
     return {machine: tuple(routes) for machine, routes in relays.items()}
 
 
+def _relay_surface_versions(
+    merged: dict[str, Any],
+    routes: tuple[dict[str, Any], ...],
+) -> dict[str, str]:
+    """Merge installed versions reported by relays serving this session's project."""
+    project_id = merged.get("project_id")
+    versions: dict[str, str] = {}
+    if project_id is None:
+        return versions
+    for route in routes:
+        projects = route.get("project_checkouts")
+        if not isinstance(projects, list) or str(project_id) not in {
+            str(value) for value in projects
+        }:
+            continue
+        reported = route.get("surface_versions")
+        if isinstance(reported, dict):
+            versions.update({str(key): str(value) for key, value in reported.items()})
+    return versions
+
+
 def _wake_route_available(
     merged: dict[str, Any],
     *,
     liveness: str,
-    routes: tuple[dict[str, Any], ...],
+    versions: Mapping[str, str],
+    wake_operation: str | None,
 ) -> bool:
-    project_id = merged.get("project_id")
-    if project_id is None:
-        return False
+    surface = str(merged.get("executor_surface") or "")
     candidate = {
-        "executor_surface": str(merged.get("executor_surface") or ""),
+        "executor_surface": surface,
         "executor_version": str(merged.get("executor_version") or ""),
         "wake_mode": (
             WakeMode.WAITING.value
@@ -100,16 +123,11 @@ def _wake_route_available(
         ),
         "liveness": liveness,
     }
-    for route in routes:
-        projects = route.get("project_checkouts")
-        if not isinstance(projects, list) or str(project_id) not in {
-            str(value) for value in projects
-        }:
-            continue
-        versions = route.get("surface_versions")
-        if isinstance(versions, dict) and wake_candidate_supported(candidate, versions):
-            return True
-    return False
+    if wake_candidate_supported(candidate, versions):
+        return True
+    return wake_operation == "message_stopped" and machine_stopped_wake_supported(
+        surface, versions
+    )
 
 
 def _active_worktrees(
@@ -170,14 +188,21 @@ def _project_row(
     routes = connected_relays.get(machine_id, ())
     relay_connected = bool(machine_id and routes)
     liveness = str(row.get("liveness") or "ended")
+    versions = _relay_surface_versions(merged, routes)
     routing = messageability(
         merged,
         liveness=liveness,
+        machine_surface_versions=versions,
     )
     routing["relay_connected"] = relay_connected
     routing["wake_available"] = bool(
         routing.get("wake_interface") != "none"
-        and _wake_route_available(merged, liveness=liveness, routes=routes)
+        and _wake_route_available(
+            merged,
+            liveness=liveness,
+            versions=versions,
+            wake_operation=routing.get("wake_operation"),
+        )
     )
     role = row.get("work_role")
     claims = row.get("claims") or []

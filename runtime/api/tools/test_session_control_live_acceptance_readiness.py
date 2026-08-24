@@ -35,7 +35,7 @@ def _matrix(versions: dict[str, str]) -> dict:
                 "expected_version": versions[surface],
                 "mode": "identify" if surface == "claude-desktop" else "create",
                 "acceptance_role": "surface",
-                "wake_route": "none" if surface == "claude-desktop" else "direct",
+                "wake_route": "direct",
                 **(
                     {"session_id": "active-claude-desktop"}
                     if surface == "claude-desktop"
@@ -66,10 +66,10 @@ def test_current_claude_versions_name_exact_missing_evidence_and_action() -> Non
     cells = {cell["surface"]: cell for cell in report["cells"]}
 
     assert report["status"] == "blocked"
-    assert cells["claude-cli"] == {
-        "surface": "claude-cli",
-        "expected_version": "2.1.241",
-        "operation": "message_stopped",
+    assert cells["claude-desktop"] == {
+        "surface": "claude-desktop",
+        "expected_version": "1.34493.1",
+        "operation": "message_active",
         "status": "blocked",
         "failure_code": "private_route_evidence_missing",
         "evidence_source": readiness.EVIDENCE_SOURCE,
@@ -78,29 +78,25 @@ def test_current_claude_versions_name_exact_missing_evidence_and_action() -> Non
             "matching_registration_identity",
             "model_visible_hook_retrieval",
             "explicit_acknowledgement",
-            "waiting_posture",
-            "native_wake_attempt",
             "idempotent_receipt_deduplication",
         ],
         "operator_action": {
-            "action": "install_and_register_exact_qualified_version",
-            "exact_version": "2.1.238",
+            "action": "open_and_identify_exact_qualified_version",
+            "exact_version": "1.32885.1",
             "then": "rerun_private_route_readiness",
         },
         "candidate_qualification_action": {
             "action": "capture_version_specific_live_acceptance",
-            "exact_version": "2.1.241",
+            "exact_version": "1.34493.1",
             "then": "add_as_separately_qualified_private_route",
         },
     }
-    desktop = cells["claude-desktop"]
-    assert desktop["operation"] == "message_active"
-    assert desktop["operator_action"] == {
-        "action": "open_and_identify_exact_qualified_version",
-        "exact_version": "1.32885.1",
-        "then": "rerun_private_route_readiness",
+    assert cells["claude-cli"] == {
+        "surface": "claude-cli",
+        "expected_version": "2.1.241",
+        "operation": "message_stopped",
+        "status": "qualified",
     }
-    assert desktop["candidate_qualification_action"]["exact_version"] == "1.34493.1"
     assert all(
         cells[surface]["status"] == "qualified" for surface in ACCEPTANCE_SURFACES[2:]
     )

@@ -39,7 +39,7 @@ def _scope(**changes: str) -> PrivateRouteQualificationScope:
         "acceptance_run_id": "stage-private-proof",
         "surface": "claude-cli",
         "version": "2.1.241",
-        "operation": "message_stopped",
+        "operation": "message_idle",
         "route": "direct",
     }
     values.update(changes)
@@ -83,8 +83,8 @@ def _context(tmp_path, *, grant=None, version: str = "2.1.241"):
         surface_version=version,
         message_id="message-1",
         target_session_id=TARGET_SESSION_ID,
-        target_liveness="ended",
-        wake_mode="waiting",
+        target_liveness="stale",
+        wake_mode="idle_timeout",
         wake_route="direct",
         private_route_qualification=grant,
     )
@@ -124,7 +124,7 @@ def test_exact_clean_stage_scope_is_allowed(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(qualification.subprocess, "run", _git_result())
 
     assert qualification.private_route_qualification_allows(
-        _context(tmp_path, grant=_grant()), operation="message_stopped"
+        _context(tmp_path, grant=_grant()), operation="message_idle"
     )
 
 
@@ -151,7 +151,7 @@ def test_registered_target_checkout_does_not_stand_in_for_relay_source(
     monkeypatch.setattr(qualification.subprocess, "run", run)
 
     assert qualification.private_route_qualification_allows(
-        _context(target_checkout, grant=_grant()), operation="message_stopped"
+        _context(target_checkout, grant=_grant()), operation="message_idle"
     )
     assert observed == [source_checkout, SOURCE_ROOT, SOURCE_ROOT]
 
@@ -173,7 +173,7 @@ def test_installed_wheel_inside_clean_repo_is_not_source_authority(
     monkeypatch.setattr(qualification.subprocess, "run", run)
 
     assert not qualification.private_route_qualification_allows(
-        _context(tmp_path, grant=_grant()), operation="message_stopped"
+        _context(tmp_path, grant=_grant()), operation="message_idle"
     )
 
 
@@ -195,7 +195,7 @@ def test_prod_active_environment_or_connection_is_refused(
     monkeypatch.setattr(qualification.subprocess, "run", _git_result())
 
     assert not qualification.private_route_qualification_allows(
-        _context(tmp_path, grant=_grant()), operation="message_stopped"
+        _context(tmp_path, grant=_grant()), operation="message_idle"
     )
 
 
@@ -229,7 +229,7 @@ def test_launchd_projection_authorizes_connection_derived_stage(
     monkeypatch.setattr(qualification.subprocess, "run", _git_result())
 
     assert qualification.private_route_qualification_allows(
-        _context(tmp_path, grant=_grant()), operation="message_stopped"
+        _context(tmp_path, grant=_grant()), operation="message_idle"
     )
 
 
@@ -241,7 +241,7 @@ def test_launchd_projection_authorizes_connection_derived_stage(
         _grant(project_id=2),
         _grant(scope=_scope(surface="claude-desktop", version="1.34493.1")),
         _grant(scope=_scope(version="2.1.242")),
-        _grant(scope=_scope(operation="message_idle")),
+        _grant(scope=_scope(operation="message_stopped")),
         _grant(scope=_scope(route="broker")),
     ],
 )
@@ -252,7 +252,7 @@ def test_expired_or_mismatched_envelope_is_refused(
     monkeypatch.setattr(qualification.subprocess, "run", _git_result())
 
     assert not qualification.private_route_qualification_allows(
-        _context(tmp_path, grant=grant), operation="message_stopped"
+        _context(tmp_path, grant=grant), operation="message_idle"
     )
 
 
@@ -271,7 +271,7 @@ def test_relay_source_must_be_clean_at_the_exact_full_release(
     )
 
     assert not qualification.private_route_qualification_allows(
-        _context(tmp_path, grant=_grant()), operation="message_stopped"
+        _context(tmp_path, grant=_grant()), operation="message_idle"
     )
 
 

@@ -134,6 +134,7 @@ def test_version_qualified_messageability_fails_closed() -> None:
         "messageable": False,
         "hook_injection": False,
         "wake_interface": "none",
+        "wake_operation": "message_active",
         "reason": "version_below_floor_or_unknown",
         "minimum_version": "26.814.41407",
     }

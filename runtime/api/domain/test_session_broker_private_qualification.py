@@ -38,10 +38,16 @@ def _candidate_connection(monkeypatch, *, route: str):
     conn.execute(
         "UPDATE harness_sessions SET actor_id=10,mode='operator' WHERE session_id='s1'"
     )
+    # Route-scoped grants only arbitrate where a grant is still required, so
+    # the target is idle rather than ended: a stopped wake needs no grant now.
+    # Day-old activity keeps it idle under any staleness window.
+    idle_since = str(NOW - timedelta(days=1))
     conn.execute(
         "UPDATE harness_sessions SET executor='claude-code',"
-        "executor_surface='claude-cli',executor_version='2.1.241' "
-        "WHERE session_id='s4'"
+        "executor_surface='claude-cli',executor_version='2.1.241',"
+        "ended_at=NULL,last_heartbeat=?,last_tool_call_at=? "
+        "WHERE session_id='s4'",
+        (idle_since, idle_since),
     )
     conn.execute(
         "UPDATE session_message_recipients SET executor_surface='claude-cli',"
@@ -64,7 +70,7 @@ def _candidate_connection(monkeypatch, *, route: str):
             acceptance_run_id="broker-route-proof",
             surface="claude-cli",
             version="2.1.241",
-            operation="message_stopped",
+            operation="message_idle",
             route=route,
         ),
     )
