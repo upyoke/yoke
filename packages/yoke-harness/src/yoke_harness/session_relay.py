@@ -27,6 +27,7 @@ _POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
 RELAY_DISPATCH_TIMEOUT_SECONDS = int(_POLL_POLICY.default) + int(
     _POLL_POLICY.minimum or 0
 )
+RELAY_REPORT_TIMEOUT_SECONDS = 10
 
 
 @dataclass(frozen=True)
@@ -96,7 +97,7 @@ def _poll(
         function_id=RELAY_REPORT_FUNCTION_ID,
         target=TargetRef(kind="global"),
         payload=_report_payload(inventory, job, result),
-        timeout_s=10,
+        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
     )
     kind = str(job.get("job_kind") or "")
     job_id = str(job.get("job_id") or "")
@@ -154,6 +155,7 @@ __all__ = [
     "RELAY_CLAIM_FUNCTION_ID",
     "RELAY_DISPATCH_TIMEOUT_SECONDS",
     "RELAY_REPORT_FUNCTION_ID",
+    "RELAY_REPORT_TIMEOUT_SECONDS",
     "ServeOnceOutcome",
     "serve_once",
 ]

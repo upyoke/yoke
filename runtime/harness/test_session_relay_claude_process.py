@@ -6,7 +6,17 @@ from io import BytesIO
 from pathlib import Path
 import threading
 
+from yoke_core.domain.session_launch_types import LAUNCH_LEASE_SECONDS
 from yoke_harness import session_relay_claude_process as process_module
+from yoke_harness.session_relay import (
+    RELAY_DISPATCH_TIMEOUT_SECONDS,
+    RELAY_REPORT_TIMEOUT_SECONDS,
+)
+from yoke_harness.session_relay_claude import CLAUDE_NATIVE_TIMEOUT_SECONDS
+from yoke_harness.session_relay_claude_identity import (
+    CLAUDE_IDENTITY_LOOKUP_ATTEMPTS,
+    CLAUDE_IDENTITY_RETRY_SECONDS,
+)
 from yoke_harness.session_relay_claude_process import (
     CLAUDE_STREAM_OUTPUT_LIMIT_BYTES,
     run_bounded_claude_process,
@@ -83,3 +93,20 @@ def test_process_drains_oversized_streams_while_retaining_only_the_cap(
     assert popen_calls[0][1]["stdout"] is process_module.subprocess.PIPE
     assert popen_calls[0][1]["stderr"] is process_module.subprocess.PIPE
     assert popen_calls[0][1]["env"] == {"SAFE": "1"}
+
+
+def test_claude_create_and_report_budget_fits_launch_lease() -> None:
+    process_count = 1 + CLAUDE_IDENTITY_LOOKUP_ATTEMPTS
+    # stdout/stderr are joined once before and once after close.
+    drain_budget = process_count * 2 * 2 * process_module._DRAIN_JOIN_SECONDS
+    native_budget = process_count * CLAUDE_NATIVE_TIMEOUT_SECONDS
+    retry_budget = (CLAUDE_IDENTITY_LOOKUP_ATTEMPTS - 1) * CLAUDE_IDENTITY_RETRY_SECONDS
+
+    assert (
+        native_budget
+        + drain_budget
+        + retry_budget
+        + RELAY_DISPATCH_TIMEOUT_SECONDS
+        + RELAY_REPORT_TIMEOUT_SECONDS
+        < LAUNCH_LEASE_SECONDS
+    )

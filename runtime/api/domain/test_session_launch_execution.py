@@ -44,7 +44,7 @@ def test_claim_separates_bootstrap_body_and_stores_only_attestation_hash() -> No
         f"Yoke launch `{launch.launch_id}`: register, pull your message, act."
     )
     assert "Sensitive instruction body" not in claim.bootstrap_prompt
-    assert claim.lease_expires_at == "2026-08-22T12:02:00Z"
+    assert claim.lease_expires_at == "2026-08-22T12:05:00Z"
     stored = get_launch(conn, launch.launch_id)
     assert stored.attestation_hash.startswith("sha256:")
     assert claim.attestation not in stored.attestation_hash
@@ -66,14 +66,14 @@ def test_lost_native_outcome_requires_reconciliation_before_retry() -> None:
         now=NOW,
     )
 
-    changed = settle_launch_deadlines(conn, now="2026-08-22T12:02:01Z")
+    changed = settle_launch_deadlines(conn, now="2026-08-22T12:05:01Z")
     assert changed[0].state == "outcome_unknown"
     with pytest.raises(SessionLaunchError) as blocked:
         retry_launch(
             conn,
             launch_id=launch.launch_id,
             auth=authorization(),
-            now="2026-08-22T12:02:02Z",
+            now="2026-08-22T12:05:02Z",
         )
     assert blocked.value.code == "reconcile_required"
 
@@ -82,21 +82,21 @@ def test_lost_native_outcome_requires_reconciliation_before_retry() -> None:
         launch_id=launch.launch_id,
         auth=authorization(),
         observed_native_id=None,
-        now="2026-08-22T12:02:03Z",
+        now="2026-08-22T12:05:03Z",
     )
     assert reconciled.result_code == "reconciled_not_created"
     retried = retry_launch(
         conn,
         launch_id=launch.launch_id,
         auth=authorization(),
-        now="2026-08-22T12:02:04Z",
+        now="2026-08-22T12:05:04Z",
     )
     second = claim_assigned_launch(
         conn,
         launch_id=retried.launch_id,
         relay_id="relay-1",
         machine_id="machine-1",
-        now="2026-08-22T12:02:05Z",
+        now="2026-08-22T12:05:05Z",
     )
     assert second.attempt_number == 2
 

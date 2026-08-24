@@ -8,8 +8,8 @@ from typing import Any, Protocol, Sequence
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 
 
-LAUNCH_LEASE_SECONDS = 120
 MAX_LAUNCH_LEASE_SECONDS = 300
+LAUNCH_LEASE_SECONDS = MAX_LAUNCH_LEASE_SECONDS
 DEFAULT_LAUNCH_DEADLINE_SECONDS = (
     int(FLEET_KEY_SPECS["fleet.launch_deadline_minutes"].default) * 60
 )
