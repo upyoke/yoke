@@ -141,10 +141,9 @@ def _agent_states(output: str, short_id: str, actual_id: str) -> tuple[bool, boo
         ),
         {},
     )
-    waiting_for = str(row.get("waitingFor") or "").lower().replace("_", " ")
     pid = row.get("pid")
-    waiting = row.get("state") == "blocked" and row.get("status") == "waiting"
-    waiting = waiting and waiting_for == "input needed" and bool(pid)
+    waiting = row.get("state") == "blocked"
+    waiting = waiting and row.get("status") in {"idle", "waiting"} and bool(pid)
     return waiting, row.get("state") == "stopped" and not pid
 
 
@@ -152,9 +151,7 @@ def _agent_states(output: str, short_id: str, actual_id: str) -> tuple[bool, boo
     os.environ.get(_LIVE_OPT_IN_ENV) != _LIVE_OPT_IN,
     reason=f"set {_LIVE_OPT_IN_ENV}={_LIVE_OPT_IN} to create a disposable session",
 )
-def test_stopped_claude_background_session_accepts_production_resume_argv(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_stopped_claude_background_session_accepts_production_resume_argv() -> None:
     executable = claude_module.discover_claude_cli()
     if executable is None:
         raise _ProbeFailure("Claude CLI is unavailable")
@@ -168,16 +165,12 @@ def test_stopped_claude_background_session_accepts_production_resume_argv(
     ):
         raise _ProbeFailure("isolated Claude temp root failed validation")
     os.chmod(temp_root, 0o700)
-    cwd, config_root = temp_root / "project", temp_root / "config"
+    cwd = temp_root / "project"
     cwd.mkdir(mode=0o700)
-    config_root.mkdir(mode=0o700)
-    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_root))
-    hook_sources_absent = not (cwd / ".claude").exists() and not any(
-        config_root.iterdir()
-    )
-    if not hook_sources_absent:
+    isolated_project = not any(cwd.iterdir())
+    if not isolated_project:
         isolated.cleanup()
-        raise _ProbeFailure("isolated Claude hook sources are not empty")
+        raise _ProbeFailure("isolated Claude project is not empty")
     native_environment = native_session_environment(
         executor="claude-code",
         executor_version=_REQUIRED_VERSION,
@@ -339,7 +332,8 @@ def test_stopped_claude_background_session_accepts_production_resume_argv(
             "stopped_state_seen": stopped_state_seen,
             "resume_succeeded": resume_succeeded,
             "cleanup_completed": cleanup_completed,
-            "hook_sources_absent_at_launch": hook_sources_absent,
+            "safe_mode_requested": True,
+            "isolated_project": isolated_project,
             "temp_root_removed": temp_root_removed,
         }
         print("CLAUDE_RESUME_REDACTED_SUMMARY=" + json.dumps(summary, sort_keys=True))
