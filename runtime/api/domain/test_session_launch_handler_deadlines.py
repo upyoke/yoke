@@ -12,6 +12,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.handlers import session_launch as handlers
 from yoke_core.domain.session_launch_store import get_launch
 from runtime.api.domain.session_launch_test_support import (
+    NOW,
     add_relay,
     assigned_launch,
     authorization,
@@ -42,6 +43,14 @@ def _request(function: str, payload: dict) -> FunctionCallRequest:
 def _wire_handler(monkeypatch, conn) -> None:
     monkeypatch.setattr(handlers, "_open", lambda: _NoCloseConnection(conn))
     monkeypatch.setattr(handlers, "_resolve_project", lambda _conn, _project: 10)
+    monkeypatch.setattr(
+        "yoke_core.domain.session_launch_requests.utc_now",
+        lambda: NOW,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_launch_surface_selection.utc_now",
+        lambda: NOW,
+    )
     monkeypatch.setattr(
         handlers,
         "_authorization",
