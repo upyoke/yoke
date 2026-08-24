@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 import shutil
 from typing import Callable
@@ -47,6 +48,8 @@ class ClaudeNativeInvocation:
                 "-p",
                 "--resume",
                 self.session_id,
+                "--output-format",
+                "json",
                 self.instruction,
             )
         arguments = [self.executable, "--session-id", self.session_id]
@@ -186,11 +189,8 @@ def unsupported_claude_route(
     context: RelayExecutionContext,
 ) -> RelayAdapterResult:
     """Return the typed refusal for non-CLI Claude surfaces."""
-    return _result(
-        context,
-        "not_created" if context.job_kind == "launch" else "unsupported_surface",
-        "unsupported_surface",
-    )
+    code = "not_created" if context.job_kind == "launch" else "unsupported_surface"
+    return _result(context, code, "unsupported_surface")
 
 
 def _expected_instruction(context: RelayExecutionContext) -> str | None:
@@ -202,10 +202,8 @@ def _expected_instruction(context: RelayExecutionContext) -> str | None:
 
 
 def _context_extensions_present(context: RelayExecutionContext) -> bool:
-    return all(
-        hasattr(context, name)
-        for name in ("surface_version", "requested_model", "presentation")
-    )
+    names = ("surface_version", "requested_model", "presentation")
+    return all(hasattr(context, name) for name in names)
 
 
 def _native_invocation(
@@ -227,6 +225,18 @@ def _native_invocation(
         resume=not launch,
         model=str(raw_model).strip() if raw_model else None,
     )
+
+
+def _resume_session_id(output: str) -> tuple[str | None, str]:
+    try:
+        document = json.loads(output)
+        if not isinstance(document, dict):
+            raise ValueError
+        return str(UUID(str(document["session_id"]))), "resume_identity_resolved"
+    except KeyError:
+        return None, "resume_identity_missing"
+    except (TypeError, ValueError, AttributeError):
+        return None, "resume_identity_malformed"
 
 
 def run_claude_cli_adapter(
@@ -325,4 +335,13 @@ def run_claude_cli_adapter(
             native_session_id=actual_id,
             process=combined,
         )
+    observed_id, identity_code = _resume_session_id(process.stdout)
+    try:
+        expected_id = str(UUID(invocation.session_id))
+    except (TypeError, ValueError, AttributeError):
+        return _result(context, "failed", "resume_identity_malformed", process=process)
+    if observed_id is None:
+        return _result(context, "failed", identity_code, process=process)
+    if observed_id != expected_id:
+        return _result(context, "failed", "resume_identity_mismatch", process=process)
     return _result(context, "accepted", "accepted", process=process)

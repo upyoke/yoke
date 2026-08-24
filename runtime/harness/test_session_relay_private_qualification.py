@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -26,6 +27,7 @@ from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
 RELEASE_SHA = "a" * 40
+TARGET_SESSION_ID = "22222222-2222-4222-8222-222222222222"
 
 
 def _scope(**changes: str) -> PrivateRouteQualificationScope:
@@ -77,7 +79,7 @@ def _context(tmp_path, *, grant=None, version: str = "2.1.241"):
         native_instruction="Yoke message message-1: check your Yoke messages.",
         surface_version=version,
         message_id="message-1",
-        target_session_id="target-session",
+        target_session_id=TARGET_SESSION_ID,
         target_liveness="ended",
         wake_mode="waiting",
         wake_route="direct",
@@ -224,8 +226,12 @@ def test_claude_adapter_keeps_canonical_first_and_fallback_exact(
         qualification, "_clean_source_sha", lambda _context: RELEASE_SHA
     )
 
-    def runner(_invocation):
-        return ClaudeProcessResult(0, 4)
+    def runner(invocation):
+        return ClaudeProcessResult(
+            0,
+            4,
+            stdout=json.dumps({"session_id": invocation.session_id}),
+        )
 
     def finder(_name):
         return "/opt/claude"
