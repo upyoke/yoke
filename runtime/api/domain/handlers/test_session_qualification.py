@@ -79,7 +79,7 @@ def _request(
                 "acceptance_run_id": "stage-proof-1",
                 "surface": "claude-cli",
                 "version": "2.1.241",
-                "operation": "message_stopped",
+                "operation": "message_idle",
                 "route": "direct",
             },
         }

@@ -84,7 +84,7 @@ def test_matrix_builder_owns_the_exact_six_modes_roles_and_routes() -> None:
         "expected_version": _versions()["claude-desktop"],
         "mode": "identify",
         "acceptance_role": "surface",
-        "wake_route": "none",
+        "wake_route": "direct",
         "session_id": "desktop-session",
     }
     assert all(

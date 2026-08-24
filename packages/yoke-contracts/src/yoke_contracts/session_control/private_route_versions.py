@@ -24,9 +24,6 @@ PRIVATE_ROUTE_VERSION_QUALIFICATIONS: Mapping[PrivateRouteKey, frozenset[str]] =
                 {_minimum_version("claude-cli")}
             ),
             ("claude-cli", "message_idle"): frozenset({_minimum_version("claude-cli")}),
-            ("claude-cli", "message_stopped"): frozenset(
-                {_minimum_version("claude-cli")}
-            ),
             ("claude-desktop", "message_active"): frozenset(
                 {_minimum_version("claude-desktop")}
             ),

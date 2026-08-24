@@ -33,7 +33,7 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "supported",
         "private",
         "private",
-        "private",
+        "supported",
     ),
     "claude-desktop": SessionSurfaceCapability(
         "1.32885.1",

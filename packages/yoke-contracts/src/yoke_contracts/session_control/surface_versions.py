@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import re
+from typing import Mapping
 
-from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.capabilities import (
+    capabilities_for_harness,
+    capability_for_surface,
+)
 from yoke_contracts.session_control.private_route_versions import (
     private_route_version_qualified,
 )
@@ -25,6 +29,8 @@ _VERSION = re.compile(
     r"(?:[-._]?(?P<number>\d+))?)?$",
     re.IGNORECASE,
 )
+_CLAUDE_RESUME_SURFACE = "claude-cli"
+_CLAUDE_FAMILY_SURFACES = frozenset(capabilities_for_harness("claude-code"))
 _PRERELEASE_RANK = {
     "a": 0,
     "alpha": 0,
@@ -87,4 +93,29 @@ def surface_version_supported(surface: str | None, version: str | None) -> bool:
     return bool(observed is not None and floor is not None and observed >= floor)
 
 
-__all__ = ["surface_operation_supported", "surface_version_supported"]
+def machine_stopped_wake_supported(
+    surface: str | None,
+    machine_surface_versions: Mapping[str, str] | None,
+) -> bool:
+    """Return whether a machine's installed CLI can wake a stopped Claude session.
+
+    Every Claude app on one machine shares a single transcript store, so the
+    installed CLI resumes a stopped session whichever app registered it. The
+    gate is therefore the version of the binary that executes the resume, not
+    the version recorded for the surface the session was born in.
+    """
+    if str(surface or "") not in _CLAUDE_FAMILY_SURFACES:
+        return False
+    versions = machine_surface_versions or {}
+    return surface_operation_supported(
+        _CLAUDE_RESUME_SURFACE,
+        versions.get(_CLAUDE_RESUME_SURFACE),
+        "message_stopped",
+    )
+
+
+__all__ = [
+    "machine_stopped_wake_supported",
+    "surface_operation_supported",
+    "surface_version_supported",
+]

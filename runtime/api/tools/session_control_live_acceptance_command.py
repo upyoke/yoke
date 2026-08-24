@@ -22,6 +22,9 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     validate_deployed_release,
     validate_run_id,
 )
+from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    expected_wake_route,
+)
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_contracts.session_control.surface_versions import surface_operation_supported
 from yoke_cli.config.machine_config_file import (
@@ -139,7 +142,7 @@ def build_acceptance_matrix_document(
             "expected_version": versions[surface],
             "mode": "identify" if active_only else "create",
             "acceptance_role": "surface",
-            "wake_route": "none" if active_only else "direct",
+            "wake_route": expected_wake_route(surface, versions[surface], versions),
         }
         if active_only:
             row["session_id"] = bindings.claude_desktop_session_id

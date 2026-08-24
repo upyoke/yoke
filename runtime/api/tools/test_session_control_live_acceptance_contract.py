@@ -39,7 +39,7 @@ def _matrix() -> dict:
                 "expected_version": VERSIONS[surface],
                 "mode": "identify" if surface == "claude-desktop" else "create",
                 "acceptance_role": "surface",
-                "wake_route": "none" if surface == "claude-desktop" else "direct",
+                "wake_route": "direct",
                 **(
                     {"session_id": "claude-desktop-session"}
                     if surface == "claude-desktop"
@@ -137,7 +137,7 @@ def test_matrix_refuses_unpinned_or_incomplete_evidence(mutation, code) -> None:
 
 def test_candidate_matrix_preserves_shape_but_defers_private_version_proof() -> None:
     raw = _matrix()
-    versions = {"claude-cli": "2.1.241", "claude-desktop": "1.34493.1"}
+    versions = {"claude-desktop": "1.34493.1"}
     for cell in raw["cells"]:
         if cell["surface"] in versions:
             cell["expected_version"] = versions[cell["surface"]]
@@ -149,25 +149,38 @@ def test_candidate_matrix_preserves_shape_but_defers_private_version_proof() -> 
 
     candidate = parse_candidate_matrix(raw)
 
-    assert candidate.cells[0].expected_version == "2.1.241"
-    assert candidate.cells[1].expected_version == "1.34493.1"
+    assert candidate.cells[0].expected_version == "1.34493.1"
     with pytest.raises(AcceptanceContractError) as raised:
         parse_matrix(raw)
     assert raised.value.code == "expected_version_unproven"
 
 
-def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells() -> None:
+def test_publicly_routed_surface_is_not_a_private_qualification_candidate() -> None:
     raw = _matrix()
     candidate = next(cell for cell in raw["cells"] if cell["surface"] == "claude-cli")
     candidate["expected_version"] = "2.1.241"
     raw["cells"] = [candidate]
-    assert parse_candidate_matrix(raw).cells[0].surface == "claude-cli"
+
+    with pytest.raises(AcceptanceContractError) as raised:
+        parse_candidate_matrix(raw)
+
+    assert raised.value.code == "candidate_route_not_private"
+
+
+def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells() -> None:
+    raw = _matrix()
+    candidate = next(
+        cell for cell in raw["cells"] if cell["surface"] == "claude-desktop"
+    )
+    candidate["expected_version"] = "1.34493.1"
+    raw["cells"] = [candidate]
+    assert parse_candidate_matrix(raw).cells[0].surface == "claude-desktop"
 
     for cells, code in (
         ([], "candidate_cells_empty"),
         ([candidate, dict(candidate)], "candidate_cell_duplicate"),
         (
-            [{**candidate, "expected_version": "2.1.238"}],
+            [{**candidate, "expected_version": "1.32885.1"}],
             "candidate_version_already_proven",
         ),
     ):

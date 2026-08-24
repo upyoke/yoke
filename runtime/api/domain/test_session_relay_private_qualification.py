@@ -40,9 +40,9 @@ def _connection(*, target_version: str):
     )
     conn.execute(
         "UPDATE harness_sessions SET executor_surface='claude-cli',"
-        "executor_version=?,machine_id=?,ended_at=?,turn_posture='waiting',"
+        "executor_version=?,machine_id=?,turn_posture='running',"
         "turn_posture_at=? WHERE session_id='s2'",
-        (target_version, MACHINE_ID, str(NOW), str(NOW - timedelta(seconds=1))),
+        (target_version, MACHINE_ID, str(NOW - timedelta(seconds=1))),
     )
     grant_actor_project_role(
         conn,
@@ -89,7 +89,7 @@ def test_candidate_direct_wake_consumes_grant_before_return(monkeypatch) -> None
         acceptance_run_id="stage-proof-relay",
         surface="claude-cli",
         version="2.1.241",
-        operation="message_stopped",
+        operation="message_active",
         route="direct",
     )
     grant = open_qualification_grant(
