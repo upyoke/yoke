@@ -21,6 +21,8 @@ class ClaudeProcessResult:
     duration_ms: int
     stdout: str = field(default="", repr=False)
     stderr: str = field(default="", repr=False)
+    stdout_bytes: bytes = field(default=b"", repr=False)
+    stderr_bytes: bytes = field(default=b"", repr=False)
 
 
 def _drain(stream, retained: dict[str, bytes], name: str) -> None:
@@ -95,9 +97,13 @@ def run_bounded_claude_process(
     if timed_out:
         raise subprocess.TimeoutExpired(list(argv), timeout_seconds)
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
+    stdout_bytes = retained.get("stdout", b"")
+    stderr_bytes = retained.get("stderr", b"")
     return ClaudeProcessResult(
         returncode,
         duration_ms,
-        retained.get("stdout", b"").decode("utf-8", errors="ignore"),
-        retained.get("stderr", b"").decode("utf-8", errors="ignore"),
+        stdout_bytes.decode("utf-8", errors="ignore"),
+        stderr_bytes.decode("utf-8", errors="ignore"),
+        stdout_bytes,
+        stderr_bytes,
     )

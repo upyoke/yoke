@@ -87,6 +87,8 @@ def test_process_drains_oversized_streams_while_retaining_only_the_cap(
     assert max(process.stdout.read_sizes + process.stderr.read_sizes) <= 8 * 1024
     assert len(result.stdout.encode()) == limit
     assert len(result.stderr.encode()) == limit
+    assert result.stdout_bytes == stdout[:limit]
+    assert result.stderr_bytes == stderr[:limit]
     assert "private-stdout-tail" not in result.stdout
     assert "private-stderr-tail" not in result.stderr
     assert result.duration_ms == 12

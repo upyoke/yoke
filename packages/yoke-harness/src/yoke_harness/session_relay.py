@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import time
 from typing import Any, Callable, Mapping
@@ -14,6 +14,10 @@ from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.function_ids import RELAY_FUNCTION_IDS
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
+from yoke_harness.session_relay_native_diagnostics import (
+    NativeDiagnosticError,
+    store_native_diagnostic,
+)
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
 from yoke_harness.session_relay_schedule import (
     poll_is_due,
@@ -44,6 +48,25 @@ class ServeOnceOutcome:
 
 Dispatcher = Callable[..., Any]
 JobRunner = Callable[[Mapping[str, Any]], RelayAdapterResult]
+_NATIVE_FAILURE_CLASSES = frozenset(
+    {
+        "adapter_exception",
+        "background_session_in_use",
+        "native_exception",
+        "no_conversation_found",
+        "process_exit",
+    }
+)
+_NATIVE_ERROR_STEPS = frozenset(
+    {
+        "launch",
+        "native_command",
+        "resume",
+        "session_lookup",
+        "session_stop",
+        "state_poll",
+    }
+)
 
 
 def _error_code(response: Any) -> str:
@@ -68,11 +91,52 @@ def _report_payload(
     }
 
 
+def _retain_private_diagnostic(
+    result: RelayAdapterResult,
+    *,
+    state_dir: Path | None,
+) -> RelayAdapterResult:
+    private = result.private_diagnostic
+    if private is None:
+        return result
+    failure_class = (
+        private.failure_class
+        if private.failure_class in _NATIVE_FAILURE_CLASSES
+        else "adapter_exception"
+    )
+    evidence = dict(result.evidence)
+    evidence["native_error_class"] = failure_class
+    evidence["native_error_step"] = (
+        private.error_step
+        if private.error_step in _NATIVE_ERROR_STEPS
+        else "native_command"
+    )
+    try:
+        receipt = store_native_diagnostic(
+            private.stdout,
+            private.stderr,
+            state_dir=state_dir,
+        )
+    except NativeDiagnosticError:
+        evidence["diagnostic_availability"] = "unavailable"
+    else:
+        evidence.update(
+            {
+                "diagnostic_availability": "relay_local",
+                "diagnostic_expires_at": receipt.expires_at,
+                "native_diagnostic_ref": receipt.reference,
+                "native_error_sha256": receipt.fingerprint_sha256,
+            }
+        )
+    return replace(result, evidence=evidence, private_diagnostic=None)
+
+
 def _poll(
     inventory: RelayInventory,
     *,
     dispatcher: Dispatcher,
     runner: JobRunner,
+    state_dir: Path | None = None,
     broker_only: bool = False,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
@@ -92,7 +156,7 @@ def _poll(
     job = payload.get("job")
     if not isinstance(job, Mapping):
         return ServeOnceOutcome(str(payload.get("state") or "active"), next_poll)
-    result = runner(job)
+    result = _retain_private_diagnostic(runner(job), state_dir=state_dir)
     report = dispatcher(
         function_id=RELAY_REPORT_FUNCTION_ID,
         target=TargetRef(kind="global"),
@@ -139,6 +203,7 @@ def serve_once(
             inventory_provider(),
             dispatcher=dispatcher,
             runner=runner,
+            state_dir=state_dir,
             broker_only=broker_only,
         )
         if outcome.next_poll_seconds and not broker_only:

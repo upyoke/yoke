@@ -21,6 +21,7 @@ RELAY_INSTALL_USAGE = "yoke relay install [--json]"
 RELAY_UNINSTALL_USAGE = "yoke relay uninstall [--json]"
 RELAY_STATUS_USAGE = "yoke relay status [--json]"
 RELAY_SERVE_ONCE_USAGE = "yoke relay serve-once [--broker] [--json]"
+RELAY_DIAGNOSTIC_USAGE = "yoke relay diagnostic <opaque-ref>"
 
 
 def _plist_operation(action: str) -> Any:
@@ -38,6 +39,14 @@ def _serve_once(*, broker_only: bool = False) -> Any:
     from yoke_harness.session_relay import serve_once
 
     return serve_once(broker_only=broker_only)
+
+
+def _read_diagnostic(reference: str) -> bytes:
+    from yoke_harness.session_relay_native_diagnostics import (
+        read_native_diagnostic,
+    )
+
+    return read_native_diagnostic(reference)
 
 
 def _parser(prog: str, usage: str) -> argparse.ArgumentParser:
@@ -149,11 +158,47 @@ def relay_serve_once(args: List[str]) -> int:
     return 1 if str(payload.get("state") or "").endswith("_failed") else 0
 
 
+def relay_diagnostic(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke relay diagnostic",
+        description=(
+            "Read one owner-only native failure capture by its opaque relay reference."
+        ),
+    )
+    parser.add_argument("reference")
+    parsed = parse_or_usage_error(parser, args, RELAY_DIAGNOSTIC_USAGE)
+    if parsed is None:
+        return 2
+    if is_subagent_execution():
+        return usage_error(FLEET_OWNERSHIP_GUIDANCE)
+    try:
+        payload = _read_diagnostic(parsed.reference)
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "code": "relay_diagnostic_unavailable",
+                    "message": str(exc),
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 1
+    sys.stdout.buffer.write(payload)
+    if payload and not payload.endswith(b"\n"):
+        sys.stdout.buffer.write(b"\n")
+    return 0
+
+
 __all__ = [
+    "RELAY_DIAGNOSTIC_USAGE",
     "RELAY_INSTALL_USAGE",
     "RELAY_SERVE_ONCE_USAGE",
     "RELAY_STATUS_USAGE",
     "RELAY_UNINSTALL_USAGE",
+    "relay_diagnostic",
     "relay_install",
     "relay_serve_once",
     "relay_status",

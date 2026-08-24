@@ -327,9 +327,8 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
         "result_code": "native_created",
         "state": "reported",
     }
-    expected = {
-        ("relay", verb) for verb in ("install", "uninstall", "status", "serve-once")
-    }
+    verbs = ("diagnostic", "install", "uninstall", "status", "serve-once")
+    expected = {("relay", verb) for verb in verbs}
     expected.add(("session-control", "acceptance", "run"))
     assert set(SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS) == expected
 

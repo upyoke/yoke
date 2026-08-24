@@ -8,12 +8,17 @@ from typing import Any, Mapping
 _TEXT_FIELDS = frozenset(
     {
         "adapter_revision",
+        "diagnostic_availability",
+        "native_diagnostic_ref",
+        "native_error_class",
+        "native_error_sha256",
+        "native_error_step",
         "native_instruction_sha256",
         "result_code",
         "surface",
     }
 )
-_INTEGER_FIELDS = frozenset({"duration_ms", "exit_code"})
+_INTEGER_FIELDS = frozenset({"diagnostic_expires_at", "duration_ms", "exit_code"})
 _MAX_TEXT_LENGTH = 128
 
 

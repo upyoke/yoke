@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json
+from functools import partial
 from pathlib import Path
 import shutil
 from typing import Callable
@@ -17,9 +17,14 @@ from yoke_harness.session_relay_claude_process import (
     ClaudeProcessResult,
     run_bounded_claude_process,
 )
+from yoke_harness.session_relay_claude_result import (
+    build_claude_result,
+    parse_resume_session_id,
+)
 from yoke_harness.session_relay_runtime import (
     RelayAdapterResult,
     RelayExecutionContext,
+    RelayPrivateDiagnostic,
     wake_operation,
 )
 from yoke_harness.session_relay_environment import native_session_environment
@@ -29,6 +34,11 @@ CLAUDE_ADAPTER_REVISION = "claude-native-v2"
 CLAUDE_CLI_SURFACE = "claude-cli"
 CLAUDE_NATIVE_TIMEOUT_SECONDS = 20
 CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS = 75
+_result = partial(
+    build_claude_result,
+    adapter_revision=CLAUDE_ADAPTER_REVISION,
+)
+_resume_session_id = parse_resume_session_id
 
 
 @dataclass(frozen=True)
@@ -156,37 +166,6 @@ def _operation_authorized(
         return False
 
 
-def _evidence(
-    context: RelayExecutionContext,
-    code: str,
-    process: ClaudeProcessResult | None = None,
-) -> dict[str, object]:
-    evidence: dict[str, object] = {
-        "result_code": code,
-        "surface": context.surface,
-    }
-    if process is not None:
-        evidence["duration_ms"] = max(0, min(process.duration_ms, 3_600_000))
-        evidence["exit_code"] = int(process.returncode)
-    return evidence
-
-
-def _result(
-    context: RelayExecutionContext,
-    result_code: str,
-    evidence_code: str,
-    *,
-    native_session_id: str | None = None,
-    process: ClaudeProcessResult | None = None,
-) -> RelayAdapterResult:
-    return RelayAdapterResult(
-        result_code,
-        native_session_id=native_session_id,
-        adapter_revision=CLAUDE_ADAPTER_REVISION,
-        evidence=_evidence(context, evidence_code, process),
-    )
-
-
 def unsupported_claude_route(
     context: RelayExecutionContext,
 ) -> RelayAdapterResult:
@@ -227,18 +206,6 @@ def _native_invocation(
         resume=not launch,
         model=str(raw_model).strip() if raw_model else None,
     )
-
-
-def _resume_session_id(output: str) -> tuple[str | None, str]:
-    try:
-        document = json.loads(output)
-        if not isinstance(document, dict):
-            raise ValueError
-        return str(UUID(str(document["session_id"]))), "resume_identity_resolved"
-    except KeyError:
-        return None, "resume_identity_missing"
-    except (TypeError, ValueError, AttributeError):
-        return None, "resume_identity_malformed"
 
 
 def run_claude_cli_adapter(
@@ -288,12 +255,26 @@ def run_claude_cli_adapter(
         return _result(context, result, "native_session_missing")
     try:
         process = process_runner(invocation)
-    except Exception:  # native exceptions may contain prompts, output, or tokens
+    except Exception as exc:  # native exceptions stay private on this relay
         result = "outcome_unknown" if context.job_kind == "launch" else "failed"
-        return _result(context, result, "native_exception")
+        return _result(
+            context,
+            result,
+            "native_exception",
+            private_diagnostic=RelayPrivateDiagnostic(
+                "native_exception",
+                error_step="resume" if context.job_kind == "wake" else "launch",
+                stderr=str(exc).encode("utf-8", errors="replace"),
+            ),
+        )
     if process.returncode != 0:
         result = "outcome_unknown" if context.job_kind == "launch" else "failed"
-        return _result(context, result, "native_exit", process=process)
+        return _result(
+            context,
+            result,
+            "native_exit",
+            process=process,
+        )
     if context.job_kind == "launch":
         short_id = background_agent_id(process)
         if short_id is None:

@@ -28,10 +28,12 @@ from yoke_cli.commands.adapters.session_control_messages import (
     session_message_send,
 )
 from yoke_cli.commands.adapters.session_control_relay import (
+    RELAY_DIAGNOSTIC_USAGE,
     RELAY_INSTALL_USAGE,
     RELAY_SERVE_ONCE_USAGE,
     RELAY_STATUS_USAGE,
     RELAY_UNINSTALL_USAGE,
+    relay_diagnostic,
     relay_install,
     relay_serve_once,
     relay_status,
@@ -145,6 +147,7 @@ SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute
 
 SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("session-control", "acceptance", "run"): session_control_acceptance_run,
+    ("relay", "diagnostic"): relay_diagnostic,
     ("relay", "install"): relay_install,
     ("relay", "uninstall"): relay_uninstall,
     ("relay", "status"): relay_status,
@@ -153,6 +156,7 @@ SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 
 SESSION_CONTROL_TOOL_SHAPED_USAGE = {
     "yoke session-control acceptance run": ACCEPTANCE_RUN_USAGE,
+    "yoke relay diagnostic": RELAY_DIAGNOSTIC_USAGE,
     "yoke relay install": RELAY_INSTALL_USAGE,
     "yoke relay uninstall": RELAY_UNINSTALL_USAGE,
     "yoke relay status": RELAY_STATUS_USAGE,

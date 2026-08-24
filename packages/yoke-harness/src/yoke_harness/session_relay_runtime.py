@@ -68,6 +68,20 @@ class RelayAdapterResult:
     native_session_id: str | None = None
     adapter_revision: str | None = None
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    private_diagnostic: "RelayPrivateDiagnostic | None" = field(
+        default=None,
+        repr=False,
+    )
+
+
+@dataclass(frozen=True)
+class RelayPrivateDiagnostic:
+    """Native failure streams that must never cross the relay report wire."""
+
+    failure_class: str
+    error_step: str = "native_command"
+    stdout: bytes = field(default=b"", repr=False)
+    stderr: bytes = field(default=b"", repr=False)
 
 
 RelayAdapter = Callable[[RelayExecutionContext], RelayAdapterResult]
@@ -163,10 +177,14 @@ def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
         )
     try:
         return adapter(context)
-    except Exception:  # native failures must not leak prompts, tokens, or bodies
+    except Exception as exc:  # native failures stay private on this relay
         return RelayAdapterResult(
             "outcome_unknown" if context.job_kind == "launch" else "failed",
             evidence={"result_code": "adapter_exception", "surface": context.surface},
+            private_diagnostic=RelayPrivateDiagnostic(
+                "adapter_exception",
+                stderr=str(exc).encode("utf-8", errors="replace"),
+            ),
         )
 
 
@@ -174,6 +192,7 @@ __all__ = [
     "RelayAdapter",
     "RelayAdapterResult",
     "RelayExecutionContext",
+    "RelayPrivateDiagnostic",
     "IDLE_TIMEOUT_WAKE_MODE",
     "WAITING_WAKE_MODE",
     "WakeMode",
