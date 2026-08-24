@@ -167,20 +167,54 @@ def check_changed_path_ruff(
     return False, _ruff_failure_detail(completed.stdout or "", completed.stderr or "")
 
 
-def check_atlas_currency(
+def _atlas_drift_findings(report: dict) -> List[str]:
+    """Finding text for taught ``yoke`` command drift in the audit report.
+
+    Matches HC-atlas-integrity: inventory-only ``python_module`` rows stay
+    data. A ``yoke`` recipe with ``drift_type`` is a contract failure.
+    """
+    taught = report.get("taught_commands") or {}
+    findings: List[str] = []
+    for row in taught.get("surfaces") or []:
+        if not isinstance(row, dict):
+            continue
+        if row.get("kind") != "yoke" or not row.get("drift_type"):
+            continue
+        findings.append(
+            "taught command `{recipe}` does not resolve from "
+            "`{source}:{line}` ({drift})".format(
+                recipe=row.get("recipe") or "",
+                source=row.get("source") or "unknown",
+                line=row.get("line_number") or "?",
+                drift=row.get("drift_type"),
+            )
+        )
+    return findings
+
+
+def check_atlas_integrity(
     repo_root: Path, _scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
     from yoke_core.tools.atlas_integrity_audit import build_report
     from yoke_core.tools.atlas_render_docs import is_stale, render
 
     report = build_report(repo_root)
+    findings = _atlas_drift_findings(report)
     body = render(report)
-    if is_stale(repo_root, body=body):
-        return False, (
+    stale = is_stale(repo_root, body=body)
+    if not findings and not stale:
+        return True, "docs/atlas.md matches the live audit render; no drift findings"
+    parts: List[str] = []
+    if findings:
+        parts.append(
+            "atlas audit carries drift finding(s):\n" + "\n".join(findings)
+        )
+    if stale:
+        parts.append(
             "docs/atlas.md is stale relative to the live audit report — "
             "run `python3 -m yoke_core.tools.atlas_render_docs render`"
         )
-    return True, "docs/atlas.md matches the live audit render"
+    return False, "\n".join(parts)
 
 
 def check_install_bundle_tree(
@@ -199,7 +233,7 @@ def check_install_bundle_tree(
 CONTRACTS: Tuple[Tuple[str, ContractFn], ...] = (
     ("authored-file-limit", check_authored_file_limit),
     ("changed-path-ruff", check_changed_path_ruff),
-    ("atlas-currency", check_atlas_currency),
+    ("atlas-integrity", check_atlas_integrity),
     ("install-bundle-tree", check_install_bundle_tree),
 )
 
@@ -286,7 +320,7 @@ if __name__ == "__main__":
 __all__ = [
     "CONTRACTS",
     "ChangedPathScope",
-    "check_atlas_currency",
+    "check_atlas_integrity",
     "check_authored_file_limit",
     "check_changed_path_ruff",
     "check_install_bundle_tree",

@@ -83,7 +83,7 @@ def test_contract_roster_names_expected_checks() -> None:
     assert names == [
         "authored-file-limit",
         "changed-path-ruff",
-        "atlas-currency",
+        "atlas-integrity",
         "install-bundle-tree",
     ]
 
@@ -236,15 +236,15 @@ def test_run_contracts_reports_named_failure(
         (
             ("authored-file-limit", _pass),
             ("changed-path-ruff", _pass),
-            ("atlas-currency", _fail),
+            ("atlas-integrity", _fail),
             ("install-bundle-tree", _pass),
         ),
     )
     assert crc.run_contracts(forked_repo, base="main") == 1
     captured = capsys.readouterr()
-    assert "repo-contract atlas-currency: FAIL" in captured.out
-    assert "atlas-currency" in summary.read_text(encoding="utf-8")
-    assert "**Failed contracts:** atlas-currency" in summary.read_text(
+    assert "repo-contract atlas-integrity: FAIL" in captured.out
+    assert "atlas-integrity" in summary.read_text(encoding="utf-8")
+    assert "**Failed contracts:** atlas-integrity" in summary.read_text(
         encoding="utf-8"
     )
 

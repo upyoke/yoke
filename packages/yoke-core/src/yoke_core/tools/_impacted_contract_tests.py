@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from yoke_core.tools._impacted_contract_tests_path_claims import PATH_CLAIM_CONTRACTS
+from yoke_core.tools._impacted_generated_artifact_parity import (
+    GENERATED_ARTIFACT_PARITY_TESTS,
+)
 
 REPO_CLEANLINESS_TESTS = (
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
@@ -18,10 +21,11 @@ _ALWAYS_RUN_CONTRACTS = (
             "runtime/api/cli/test_yoke_operation_inventory.py",
             "runtime/api/domain/test_engine_artifact_universe_birth.py",
             "runtime/api/test_service_client_structured_api_adapter.py",
-            "runtime/api/tools/test_atlas_currency_contract.py",
+            "runtime/api/tools/test_atlas_integrity_contract.py",
         ),
     ),
     ("repo_cleanliness_contract", REPO_CLEANLINESS_TESTS),
+    ("generated_artifact_parity", GENERATED_ARTIFACT_PARITY_TESTS),
 )
 
 ALWAYS_RUN_TESTS = tuple(
@@ -319,6 +323,7 @@ __all__ = [
     "AGENT_SKILL_CONTRACT_TESTS",
     "AGENT_SKILL_SOURCE_PREFIXES",
     "ALWAYS_RUN_TESTS",
+    "GENERATED_ARTIFACT_PARITY_TESTS",
     "ContractSelection",
     "CURSOR_SESSION_IDENTITY_DISPATCH_TESTS",
     "DIRECT_WORKFLOW_PREPARE_TESTS",

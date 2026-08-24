@@ -25,8 +25,9 @@ Local verification stays change-scoped:
   module paths appearing as string literals (subprocess `-m` targets,
   patch targets, registry keys) count as dependency edges, and a small
   always-run floor of cross-cutting contract tests executes on every
-  selection (CLI registry, operation inventory, adapter parity, and Atlas
-  currency, plus a fresh-universe birth from the published engine wheel).
+  selection (CLI registry, operation inventory, adapter parity, Atlas
+  integrity, generated-artifact parity/drift, plus a fresh-universe birth
+  from the published engine wheel).
   Every member but the last is fast; that one builds an artifact and boots
   a database, and it is on the floor precisely because a deferred test is
   how the engine last shipped unable to create one. The conservative
