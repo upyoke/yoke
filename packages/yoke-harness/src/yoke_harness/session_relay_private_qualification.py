@@ -10,9 +10,26 @@ from yoke_contracts.machine_config.schema import connection_is_prod
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
+_SOURCE_PATH = Path(
+    "packages/yoke-harness/src/yoke_harness/session_relay_private_qualification.py"
+)
+
+
 def _clean_source_sha() -> str | None:
-    source_checkout = Path(__file__).resolve().parent
+    source_file = Path(__file__).resolve()
     try:
+        root = subprocess.run(
+            ["git", "-C", str(source_file.parent), "rev-parse", "--show-toplevel"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+        if root.returncode:
+            return None
+        source_checkout = Path(root.stdout.strip()).resolve()
+        if source_file != source_checkout / _SOURCE_PATH:
+            return None
         head = subprocess.run(
             ["git", "-C", str(source_checkout), "rev-parse", "HEAD"],
             text=True,

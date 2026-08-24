@@ -29,6 +29,8 @@ from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 RELEASE_SHA = "a" * 40
 TARGET_SESSION_ID = "22222222-2222-4222-8222-222222222222"
+SOURCE_FILE = Path(qualification.__file__).resolve()
+SOURCE_ROOT = SOURCE_FILE.parents[4]
 
 
 def _scope(**changes: str) -> PrivateRouteQualificationScope:
@@ -106,7 +108,12 @@ def _stage_runtime(
 
 def _git_result(*, dirty: bool = False, head: str = RELEASE_SHA):
     def run(argv, **_kwargs):
-        stdout = f"{head}\n" if "rev-parse" in argv else (" M file\n" if dirty else "")
+        if "--show-toplevel" in argv:
+            stdout = f"{SOURCE_ROOT}\n"
+        elif "rev-parse" in argv:
+            stdout = f"{head}\n"
+        else:
+            stdout = " M file\n" if dirty else ""
         return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
 
     return run
@@ -128,12 +135,17 @@ def test_registered_target_checkout_does_not_stand_in_for_relay_source(
     target_checkout = tmp_path / "registered-target"
     target_checkout.mkdir()
     (target_checkout / "dirty.txt").write_text("not relay source", encoding="utf-8")
-    source_checkout = Path(qualification.__file__).resolve().parent
+    source_checkout = SOURCE_FILE.parent
     observed: list[Path] = []
 
     def run(argv, **_kwargs):
         observed.append(Path(argv[2]))
-        stdout = f"{RELEASE_SHA}\n" if "rev-parse" in argv else ""
+        if "--show-toplevel" in argv:
+            stdout = f"{SOURCE_ROOT}\n"
+        elif "rev-parse" in argv:
+            stdout = f"{RELEASE_SHA}\n"
+        else:
+            stdout = ""
         return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
 
     monkeypatch.setattr(qualification.subprocess, "run", run)
@@ -141,7 +153,28 @@ def test_registered_target_checkout_does_not_stand_in_for_relay_source(
     assert qualification.private_route_qualification_allows(
         _context(target_checkout, grant=_grant()), operation="message_stopped"
     )
-    assert observed == [source_checkout, source_checkout]
+    assert observed == [source_checkout, SOURCE_ROOT, SOURCE_ROOT]
+
+
+def test_installed_wheel_inside_clean_repo_is_not_source_authority(
+    monkeypatch, tmp_path
+) -> None:
+    _stage_runtime(monkeypatch)
+    installed = tmp_path / ".venv/site-packages/yoke_harness"
+    installed.mkdir(parents=True)
+    module = installed / "session_relay_private_qualification.py"
+    module.write_text("installed wheel bytes", encoding="utf-8")
+    monkeypatch.setattr(qualification, "__file__", str(module))
+
+    def run(argv, **_kwargs):
+        assert "--show-toplevel" in argv
+        return SimpleNamespace(returncode=0, stdout=f"{tmp_path}\n", stderr="")
+
+    monkeypatch.setattr(qualification.subprocess, "run", run)
+
+    assert not qualification.private_route_qualification_allows(
+        _context(tmp_path, grant=_grant()), operation="message_stopped"
+    )
 
 
 @pytest.mark.parametrize(
