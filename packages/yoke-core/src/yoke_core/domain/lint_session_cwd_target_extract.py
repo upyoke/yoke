@@ -43,6 +43,7 @@ from yoke_core.domain.lint_shell_target_tokens import (
     shell_variable_bindings,
 )
 from yoke_core.domain.lint_session_cwd_path_authority import is_dev_family_path
+from yoke_core.domain.lint_session_cwd_read_only_signatures import git_write_targets
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     FLAG_BINARY,
     FLAG_EQUALS_PREFIXES,
@@ -76,7 +77,7 @@ def glued_file_redirect_target(token: str) -> str | None:
     match = _GLUED_REDIRECT_RE.match(token)
     if match is None:
         return None
-    target = match.group(1)
+    target = match.group(1).rstrip(";&")
     if _FD_DUP_REDIRECT_TARGET_RE.match(target):
         return None
     if is_dev_family_path(target):
@@ -264,7 +265,7 @@ def _extract_shell_write_targets(command: str) -> Tuple[List[str], bool]:
             continue
         command_base = PurePath(clean[0]).name
         if command_base == "git":
-            out.extend(extract_command_targets(segment, bindings=bindings))
+            out.extend(git_write_targets(segment, bindings=bindings))
             continue
         args = clean[1:]
         positionals = [arg for arg in args if arg != "-" and not arg.startswith("-")]

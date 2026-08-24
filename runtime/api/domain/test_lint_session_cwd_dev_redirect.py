@@ -45,6 +45,18 @@ def test_dev_null_and_fd_dup_is_not_a_write() -> None:
     assert is_write_operation("Bash", _bash("cmd >/dev/null 2>&1")) is False
 
 
+def test_glued_fd_dup_with_trailing_semicolon_is_not_a_file_redirect() -> None:
+    assert glued_file_redirect_target("2>&1;") is None
+    _clean, targets = _split_redirect_targets(
+        ["yoke", "relay", "status", "2>&1;", "git", "log"]
+    )
+    assert targets == []
+    assert is_write_operation(
+        "Bash",
+        _bash("yoke relay status 2>&1; git -C /repo log --oneline -1"),
+    ) is False
+
+
 def test_tmp_redirect_and_write_tool_remain_writes() -> None:
     assert is_write_operation("Bash", _bash("echo hi > /tmp/out")) is True
     assert is_write_operation("Write", {"tool_name": "Write"}) is True

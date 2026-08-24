@@ -128,18 +128,18 @@ class TestGitSignatures:
     def test_git_read_only_commands_classify(self, command, want_signature):
         assert match_read_only_signature(command) == want_signature
 
-    def test_git_with_dash_C_does_not_classify(self):
+    def test_git_with_dash_C_classifies_read_verb(self):
         assert (
             match_read_only_signature("git -C /some/path status")
-            is None
+            == "git-status"
         )
 
-    def test_git_with_git_dir_does_not_classify(self):
+    def test_git_with_git_dir_classifies_read_verb(self):
         assert (
             match_read_only_signature(
                 "git --git-dir=/some/.git status"
             )
-            is None
+            == "git-status"
         )
 
     def test_git_mutation_does_not_classify(self):
@@ -180,25 +180,25 @@ class TestGrepLikeSignatures:
 
 
 class TestCompoundCommands:
-    def test_pipe_disqualifies_classification(self):
+    def test_all_read_pipe_classifies(self):
         assert (
             match_read_only_signature("git status | head -1")
-            is None
+            == "compound-read"
         )
 
-    def test_semicolon_disqualifies_classification(self):
+    def test_all_read_semicolon_classifies(self):
         assert (
             match_read_only_signature("git status; git log")
-            is None
+            == "compound-read"
         )
 
-    def test_and_disqualifies_classification(self):
+    def test_and_with_mutation_does_not_classify(self):
         assert (
             match_read_only_signature("git status && pytest")
             is None
         )
 
-    def test_or_disqualifies_classification(self):
+    def test_or_with_unclassified_does_not_classify(self):
         assert (
             match_read_only_signature("git status || true")
             is None
@@ -233,6 +233,14 @@ class TestNonReadOnlyCommands:
             )
             == "python-yoke_core.domain.foo-help"
         )
+
+    def test_yoke_help_classifies(self):
+        assert match_read_only_signature("yoke sessions touch --help") == (
+            "yoke-help"
+        )
+
+    def test_find_classifies(self):
+        assert match_read_only_signature("find src -name '*.py'") == "find"
 
 
 class TestEdgeCases:

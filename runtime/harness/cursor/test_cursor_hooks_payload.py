@@ -288,6 +288,24 @@ def test_resolve_root_order(bare_env: None, monkeypatch: pytest.MonkeyPatch) -> 
     assert resolve_root("") == "/proj"
 
 
+def test_shell_gate_copies_working_directory_into_tool_input(
+    container_env: None,
+) -> None:
+    payload = json.dumps(
+        {
+            "hook_event_name": "beforeShellExecution",
+            "command": "git commit -m msg",
+            "working_directory": "/lane",
+            "cwd": "/workspace",
+            "session_id": MAIN,
+            "conversation_id": MAIN,
+        }
+    )
+    data = parse_payload(payload)
+    assert data["tool_input"]["command"] == "git commit -m msg"
+    assert data["tool_input"]["workdir"] == "/lane"
+
+
 def test_garbage_and_field_stringification(bare_env: None) -> None:
     assert parse_payload("") == {}
     assert parse_payload("not json") == {}

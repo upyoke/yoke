@@ -116,3 +116,45 @@ def test_absolute_main_target_still_denies(tmp_path):
             ))
     assert verdict.allow is False
     assert str(target.resolve()) in verdict.reason
+
+
+def test_git_commit_from_lane_workdir_allows(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    with test_database() as conn:
+        worktree = _seed_lane(conn, repo)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
+            "sid-lane",
+            "git commit -m slice",
+            cwd=str(repo),
+            workdir=str(worktree),
+        ))
+    assert verdict.allow is True
+
+
+def test_relative_git_commit_path_from_lane_workdir_allows(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    with test_database() as conn:
+        worktree = _seed_lane(conn, repo)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
+            "sid-lane",
+            "git commit -m slice -- packages/foo.py",
+            cwd=str(repo),
+            workdir=str(worktree),
+        ))
+    assert verdict.allow is True
+
+
+def test_git_commit_on_main_without_workdir_denies(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / ".worktrees").mkdir(parents=True)
+    with test_database() as conn:
+        _seed_lane(conn, repo)
+        with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+            verdict = lint_lane_main_write.evaluate_pre_tool_use(_bash(
+                "sid-lane",
+                "git commit -m slice",
+                cwd=str(repo),
+            ))
+    assert verdict.allow is False
