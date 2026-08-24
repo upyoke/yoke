@@ -1,7 +1,4 @@
-"""Opt-in live probe for resuming a stopped Claude background session.
-
-Run only when a disposable native Claude session is acceptable::
-
+"""Opt-in live probe; run only when a disposable session is acceptable::
     YOKE_RUN_LIVE_CLAUDE_BACKGROUND_RESUME=I_ACCEPT_DISPOSABLE_SESSION \
       .venv/bin/pytest -q -s runtime/harness/test_claude_background_resume_live.py
 Native streams stay in the printed owner-only capture; pytest output is redacted.
@@ -15,46 +12,29 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import time
 from typing import Callable
 from uuid import UUID, uuid4
 
 import pytest
 
+from yoke_harness import session_relay_claude as claude_module
+from yoke_harness import session_relay_claude_identity as identity_module
 from yoke_harness import session_relay_claude_process as process_module
-from yoke_harness.session_relay_claude import (
-    CLAUDE_NATIVE_TIMEOUT_SECONDS,
-    ClaudeNativeInvocation,
-    discover_claude_cli,
-    lookup_claude_session,
-    run_claude_process,
-)
-from yoke_harness.session_relay_claude_identity import (
-    background_agent_id,
-    resolve_background_session,
-)
-from yoke_harness.session_relay_claude_process import (
-    ClaudeProcessResult,
-    run_bounded_claude_process,
-)
 from yoke_harness.session_relay_environment import native_session_environment
 
 
 _LIVE_OPT_IN = "I_ACCEPT_DISPOSABLE_SESSION"
 _LIVE_OPT_IN_ENV = "YOKE_RUN_LIVE_CLAUDE_BACKGROUND_RESUME"
 _REQUIRED_VERSION = "2.1.241"
-_VERSION_PATTERN = re.compile(r"(?<![0-9.])2\.1\.241(?![0-9.])")
-_LAUNCH_INSTRUCTION = (
-    "Disposable Yoke resume probe. Reply READY and stop. "
-    "Do not use tools or modify files."
-)
-_RESUME_INSTRUCTION = (
-    "Disposable Yoke resume probe. Reply RESUMED and stop. "
-    "Do not use tools or modify files."
-)
+_VERSION_PATTERN = re.compile(rf"(?<![0-9.]){re.escape(_REQUIRED_VERSION)}(?![0-9.])")
+_INITIAL_WAIT_ATTEMPTS = 30
+_INITIAL_WAIT_INTERVAL_SECONDS = 0.5
+_RESUME_INSTRUCTION = "Disposable Yoke resume probe. Reply RESUMED and stop. Do not use tools or modify files."
 
 
 class _ProbeFailure(RuntimeError):
-    """A failure whose text is safe for the public pytest report."""
+    pass
 
 
 class _PrivateNativeCapture:
@@ -71,19 +51,9 @@ class _PrivateNativeCapture:
     def close(self) -> None:
         self._stream.close()
 
-    def append(
-        self,
-        label: str,
-        stdout,
-        stderr,
-        *,
-        result: ClaudeProcessResult | None,
-        exception: BaseException | None,
-    ) -> None:
-        stdout.seek(0, os.SEEK_END)
-        stderr.seek(0, os.SEEK_END)
-        stdout_bytes = stdout.tell()
-        stderr_bytes = stderr.tell()
+    def append(self, label, stdout, stderr, result, exception) -> None:
+        stdout_bytes = stdout.seek(0, os.SEEK_END)
+        stderr_bytes = stderr.seek(0, os.SEEK_END)
         stdout.seek(0)
         stderr.seek(0)
         metadata = {
@@ -107,8 +77,8 @@ class _PrivateNativeCapture:
 def _recorded_call(
     capture: _PrivateNativeCapture,
     label: str,
-    call: Callable[[], ClaudeProcessResult],
-) -> ClaudeProcessResult:
+    call: Callable[[], process_module.ClaudeProcessResult],
+) -> process_module.ClaudeProcessResult:
     result = None
     with tempfile.TemporaryFile(mode="w+b") as stdout_spool:
         with tempfile.TemporaryFile(mode="w+b") as stderr_spool:
@@ -143,55 +113,39 @@ def _recorded_call(
                 raise
             finally:
                 process_module._drain = original_drain
-                capture.append(
-                    label,
-                    stdout_spool,
-                    stderr_spool,
-                    result=result,
-                    exception=exception,
-                )
+                capture.append(label, stdout_spool, stderr_spool, result, exception)
 
 
-def _safe_summary(
-    capture: _PrivateNativeCapture,
-    **outcome: object,
-) -> str:
-    return json.dumps(
-        {
-            "capture_path": str(capture.path),
-            "capture_mode": oct(capture.path.stat().st_mode & 0o777),
-            "surface": "claude-cli",
-            "required_version": _REQUIRED_VERSION,
-            "steps": capture.steps,
-            **outcome,
-        },
-        sort_keys=True,
-    )
-
-
-def _isolated_roots() -> tuple[Path, Path, Path]:
-    root = Path(tempfile.mkdtemp(prefix="yoke-claude-resume-project-")).resolve()
-    os.chmod(root, 0o700)
-    project = root / "project"
-    config = root / "config"
-    project.mkdir(mode=0o700)
-    config.mkdir(mode=0o700)
-    return root, project, config
-
-
-def _remove_isolated_root(root: Path) -> bool:
-    temp_parent = Path(tempfile.gettempdir()).resolve()
-    if (
-        root.is_symlink()
-        or root.parent != temp_parent
-        or not root.name.startswith("yoke-claude-resume-project-")
-    ):
-        return False
+def _agent_states(output: str, short_id: str, actual_id: str) -> tuple[bool, bool]:
     try:
-        shutil.rmtree(root)
-    except OSError:
-        return False
-    return not root.exists()
+        document = json.loads(output)
+    except (TypeError, ValueError):
+        return False, False
+    if isinstance(document, dict):
+        document = document.get("agents", document.get("sessions"))
+    if not isinstance(document, list):
+        return False, False
+    row = next(
+        (
+            candidate
+            for candidate in document
+            if isinstance(candidate, dict)
+            and str(
+                candidate.get("id")
+                or candidate.get("agentId")
+                or candidate.get("shortId")
+                or ""
+            )
+            == short_id
+            and str(candidate.get("sessionId") or "") == actual_id
+        ),
+        {},
+    )
+    waiting_for = str(row.get("waitingFor") or "").lower().replace("_", " ")
+    pid = row.get("pid")
+    waiting = row.get("state") == "blocked" and row.get("status") == "waiting"
+    waiting = waiting and waiting_for == "input needed" and bool(pid)
+    return waiting, row.get("state") == "stopped" and not pid
 
 
 @pytest.mark.skipif(
@@ -201,16 +155,28 @@ def _remove_isolated_root(root: Path) -> bool:
 def test_stopped_claude_background_session_accepts_production_resume_argv(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    executable = discover_claude_cli()
+    executable = claude_module.discover_claude_cli()
     if executable is None:
         raise _ProbeFailure("Claude CLI is unavailable")
-    temp_root, cwd, config_root = _isolated_roots()
+    isolated = tempfile.TemporaryDirectory(prefix="yoke-claude-resume-project-")
+    temp_root = Path(isolated.name).resolve()
+    temp_parent = Path(tempfile.gettempdir()).resolve()
+    if (
+        temp_root.is_symlink()
+        or temp_root.parent != temp_parent
+        or not temp_root.name.startswith("yoke-claude-resume-project-")
+    ):
+        raise _ProbeFailure("isolated Claude temp root failed validation")
+    os.chmod(temp_root, 0o700)
+    cwd, config_root = temp_root / "project", temp_root / "config"
+    cwd.mkdir(mode=0o700)
+    config_root.mkdir(mode=0o700)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_root))
     hook_sources_absent = not (cwd / ".claude").exists() and not any(
         config_root.iterdir()
     )
     if not hook_sources_absent:
-        _remove_isolated_root(temp_root)
+        isolated.cleanup()
         raise _ProbeFailure("isolated Claude hook sources are not empty")
     native_environment = native_session_environment(
         executor="claude-code",
@@ -219,78 +185,114 @@ def test_stopped_claude_background_session_accepts_production_resume_argv(
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
     )
 
-    def native(*argv: str) -> ClaudeProcessResult:
-        return run_bounded_claude_process(
+    def native(*argv: str) -> process_module.ClaudeProcessResult:
+        return process_module.run_bounded_claude_process(
             argv,
             cwd=cwd,
             environment=native_environment,
-            timeout_seconds=CLAUDE_NATIVE_TIMEOUT_SECONDS,
+            timeout_seconds=claude_module.CLAUDE_NATIVE_TIMEOUT_SECONDS,
         )
 
     capture = _PrivateNativeCapture()
     print(f"CLAUDE_RESUME_PRIVATE_CAPTURE={capture.path}")
+
+    def record(label, call) -> process_module.ClaudeProcessResult:
+        return _recorded_call(capture, label, call)
+
+    def command(label: str, *argv: str) -> process_module.ClaudeProcessResult:
+        return record(label, lambda: native(*argv))
+
+    def roster(label: str) -> process_module.ClaudeProcessResult:
+        return command(label, executable, "agents", "--all", "--json")
+
     short_id = None
-    identity_resolved = False
+    initial_turn_persisted = False
+    initial_wait_state_ready = False
+    initial_nonce_seen = False
+    initial_wait_attempts = 0
+    initial_wait_ms = 0
+    stopped_state_seen = False
+    stopped_wait_attempts = 0
     resume_succeeded = False
     cleanup_completed = False
     temp_root_removed = False
     failure: _ProbeFailure | None = None
     try:
-        version = _recorded_call(
-            capture,
-            "version",
-            lambda: native(executable, "--version"),
-        )
+        version = command("version", executable, "--version")
         if version.returncode or not _VERSION_PATTERN.search(
             f"{version.stdout}\n{version.stderr}"
         ):
-            raise _ProbeFailure("installed Claude CLI is not exact version 2.1.241")
+            raise _ProbeFailure("installed Claude CLI version mismatch")
 
         requested_id = str(uuid4())
-        launch = ClaudeNativeInvocation(
+        nonce_suffix = uuid4().hex
+        ready_nonce = f"YOKE_READY_{nonce_suffix}"
+        launch_instruction = f"Disposable Yoke resume probe. Reply with the concatenation of YOKE_READY_ and {nonce_suffix}, then use AskUserQuestion to ask Should the probe continue? Wait for input; do not modify files."
+        launch = claude_module.ClaudeNativeInvocation(
             executable,
             cwd,
             requested_id,
             _REQUIRED_VERSION,
-            _LAUNCH_INSTRUCTION,
+            launch_instruction,
         )
-        launched = _recorded_call(
-            capture,
-            "launch",
-            lambda: run_claude_process(launch),
+        launched = command(
+            "launch", *launch.argv[:-2], "--safe-mode", *launch.argv[-2:]
         )
         if launched.returncode:
             raise _ProbeFailure("Claude background launch exited nonzero")
-        short_id = background_agent_id(launched)
+        short_id = identity_module.background_agent_id(launched)
         if short_id is None:
             raise _ProbeFailure("Claude background launch identity was not parseable")
 
         lookup_count = 0
 
-        def lookup() -> ClaudeProcessResult:
+        def lookup() -> process_module.ClaudeProcessResult:
             nonlocal lookup_count
             lookup_count += 1
-            return _recorded_call(
-                capture,
+            return record(
                 f"identity_lookup_{lookup_count}",
-                lambda: lookup_claude_session(launch),
+                lambda: claude_module.lookup_claude_session(launch),
             )
 
-        resolution = resolve_background_session(short_id, lookup)
+        resolution = identity_module.resolve_background_session(short_id, lookup)
         if resolution.session_id is None:
             raise _ProbeFailure("Claude background session identity did not resolve")
         actual_id = str(UUID(resolution.session_id))
-        identity_resolved = True
 
-        stopped = _recorded_call(
-            capture,
-            "stop_before_resume",
-            lambda: native(executable, "stop", short_id),
-        )
+        wait_started = time.monotonic()
+        for initial_wait_attempts in range(1, _INITIAL_WAIT_ATTEMPTS + 1):
+            agents = roster(f"initial_agents_{initial_wait_attempts}")
+            logs = command(
+                f"initial_logs_{initial_wait_attempts}", executable, "logs", short_id
+            )
+            initial_wait_state_ready, _ = _agent_states(
+                agents.stdout, short_id, actual_id
+            )
+            initial_nonce_seen = ready_nonce in f"{logs.stdout}\n{logs.stderr}"
+            if agents.returncode == logs.returncode == 0 and (
+                initial_wait_state_ready and initial_nonce_seen
+            ):
+                initial_turn_persisted = True
+                break
+            if initial_wait_attempts < _INITIAL_WAIT_ATTEMPTS:
+                time.sleep(_INITIAL_WAIT_INTERVAL_SECONDS)
+        initial_wait_ms = max(0, int((time.monotonic() - wait_started) * 1000))
+        if not initial_turn_persisted:
+            raise _ProbeFailure("initial Claude background turn did not persist")
+
+        stopped = command("stop_before_resume", executable, "stop", short_id)
         if stopped.returncode:
             raise _ProbeFailure("Claude background session did not stop cleanly")
+        for stopped_wait_attempts in range(1, _INITIAL_WAIT_ATTEMPTS + 1):
+            agents = roster(f"stopped_agents_{stopped_wait_attempts}")
+            _, stopped_state_seen = _agent_states(agents.stdout, short_id, actual_id)
+            if agents.returncode == 0 and stopped_state_seen:
+                break
+            time.sleep(_INITIAL_WAIT_INTERVAL_SECONDS)
+        if not stopped_state_seen:
+            raise _ProbeFailure("Claude background session did not reach stopped state")
 
-        resume = ClaudeNativeInvocation(
+        resume = claude_module.ClaudeNativeInvocation(
             executable,
             cwd,
             actual_id,
@@ -298,10 +300,8 @@ def test_stopped_claude_background_session_accepts_production_resume_argv(
             _RESUME_INSTRUCTION,
             resume=True,
         )
-        resumed = _recorded_call(
-            capture,
-            "production_resume",
-            lambda: run_claude_process(resume),
+        resumed = record(
+            "production_resume", lambda: claude_module.run_claude_process(resume)
         )
         if resumed.returncode:
             raise _ProbeFailure("production Claude resume argv exited nonzero")
@@ -318,33 +318,30 @@ def test_stopped_claude_background_session_accepts_production_resume_argv(
         failure = caught
     finally:
         if short_id is not None:
-            stop_result = _recorded_call(
-                capture,
-                "cleanup_stop",
-                lambda: native(executable, "stop", short_id),
-            )
-            remove_result = _recorded_call(
-                capture,
-                "cleanup_remove",
-                lambda: native(executable, "rm", short_id),
-            )
+            stop_result = command("cleanup_stop", executable, "stop", short_id)
+            remove_result = command("cleanup_remove", executable, "rm", short_id)
             cleanup_completed = remove_result.returncode == 0
             if stop_result.returncode and not cleanup_completed and failure is None:
                 failure = _ProbeFailure("Claude background cleanup failed")
-        temp_root_removed = _remove_isolated_root(temp_root)
+        isolated.cleanup()
+        temp_root_removed = not temp_root.exists()
         if not temp_root_removed and failure is None:
             failure = _ProbeFailure("isolated Claude temp root cleanup failed")
         capture.close()
-        print(
-            "CLAUDE_RESUME_REDACTED_SUMMARY="
-            + _safe_summary(
-                capture,
-                identity_resolved=identity_resolved,
-                resume_succeeded=resume_succeeded,
-                cleanup_completed=cleanup_completed,
-                hook_sources_absent_at_launch=hook_sources_absent,
-                temp_root_removed=temp_root_removed,
-            )
-        )
+        summary = {
+            "capture_path": str(capture.path),
+            "capture_mode": oct(capture.path.stat().st_mode & 0o777),
+            "steps": capture.steps,
+            "initial_wait_state_ready": initial_wait_state_ready,
+            "initial_nonce_seen": initial_nonce_seen,
+            "initial_wait_attempts": initial_wait_attempts,
+            "initial_wait_ms": initial_wait_ms,
+            "stopped_state_seen": stopped_state_seen,
+            "resume_succeeded": resume_succeeded,
+            "cleanup_completed": cleanup_completed,
+            "hook_sources_absent_at_launch": hook_sources_absent,
+            "temp_root_removed": temp_root_removed,
+        }
+        print("CLAUDE_RESUME_REDACTED_SUMMARY=" + json.dumps(summary, sort_keys=True))
     if failure is not None:
         pytest.fail(f"{failure}; inspect owner-only capture at {capture.path}")
