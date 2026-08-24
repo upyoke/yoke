@@ -99,7 +99,7 @@ class TestCleanStaleHarnessSessions:
         conn.commit()
 
         # Insert tool events so it's not never-engaged
-        _stamp_tool_activity(conn, 'dead-worker', 25)
+        _stamp_tool_activity(conn, "dead-worker", 25)
         conn.commit()
 
         result = clean_stale_harness_sessions(conn, stale_threshold_minutes=10)
@@ -110,17 +110,23 @@ class TestCleanStaleHarnessSessions:
         assert result["total_reclaimed"] == 1
 
     def test_reclaims_progress_stale_session(self, conn_with_events):
-        """Fresh heartbeat + old tool events = progress_stale."""
+        """Fresh heartbeat cannot hide a genuinely stale live episode."""
         conn = conn_with_events
         _register(conn, session_id="wedged-sess")
-        # Heartbeat is fresh (just now), but tool events are old
         claim_work(conn, session_id="wedged-sess", item_id=300)
 
-        _stamp_tool_activity(conn, 'wedged-sess', 120)
+        _stamp_tool_activity(conn, "wedged-sess", 120)
+        conn.execute(
+            "UPDATE harness_sessions SET episode_started_at = %s "
+            "WHERE session_id = 'wedged-sess'",
+            (_ago_minutes(120),),
+        )
         conn.commit()
 
         result = clean_stale_harness_sessions(
-            conn, stale_threshold_minutes=10, progress_threshold_minutes=90,
+            conn,
+            stale_threshold_minutes=10,
+            progress_threshold_minutes=90,
         )
 
         assert len(result["progress_stale"]) == 1
@@ -135,11 +141,13 @@ class TestCleanStaleHarnessSessions:
         _register(conn, session_id="healthy-sess")
         claim_work(conn, session_id="healthy-sess", item_id=400)
 
-        _stamp_tool_activity(conn, 'healthy-sess', 5)
+        _stamp_tool_activity(conn, "healthy-sess", 5)
         conn.commit()
 
         result = clean_stale_harness_sessions(
-            conn, stale_threshold_minutes=10, progress_threshold_minutes=90,
+            conn,
+            stale_threshold_minutes=10,
+            progress_threshold_minutes=90,
         )
 
         assert len(result["never_engaged"]) == 0
@@ -186,19 +194,26 @@ class TestCleanStaleHarnessSessions:
                WHERE session_id = 'hb-stale'""",
             (_ts30, _ts30),
         )
-        _stamp_tool_activity(conn, 'hb-stale', 25)
+        _stamp_tool_activity(conn, "hb-stale", 25)
 
         # Progress-stale: fresh heartbeat, old tool events
         _register(conn, session_id="prog-stale")
-        _stamp_tool_activity(conn, 'prog-stale', 120)
+        _stamp_tool_activity(conn, "prog-stale", 120)
+        conn.execute(
+            "UPDATE harness_sessions SET episode_started_at = %s "
+            "WHERE session_id = 'prog-stale'",
+            (_ago_minutes(120),),
+        )
 
         # Healthy: fresh heartbeat, recent tool events
         _register(conn, session_id="healthy")
-        _stamp_tool_activity(conn, 'healthy', 5)
+        _stamp_tool_activity(conn, "healthy", 5)
         conn.commit()
 
         result = clean_stale_harness_sessions(
-            conn, stale_threshold_minutes=10, progress_threshold_minutes=90,
+            conn,
+            stale_threshold_minutes=10,
+            progress_threshold_minutes=90,
         )
 
         ne_ids = {e["session_id"] for e in result["never_engaged"]}
@@ -211,7 +226,9 @@ class TestCleanStaleHarnessSessions:
         assert result["total_reclaimed"] == 3
 
     def test_aborts_reclaim_when_fresh_activity_lands_before_mutation(
-        self, conn_with_events, monkeypatch,
+        self,
+        conn_with_events,
+        monkeypatch,
     ):
         """Fresh activity between snapshot and mutation aborts reclaim.
 
@@ -269,18 +286,28 @@ class TestCleanStaleHarnessSessions:
         # production events-table schema being present in the test fixture.
         emitted = []
         from yoke_core.domain import sessions_analytics as _sa
+
         real_emit_session_event = _sa._emit_session_event
 
-        def capture_emit(event_name, *, session_id, item_id=None,
-                         task_num=None, context=None, outcome="completed"):
-            emitted.append({
-                "event_name": event_name,
-                "session_id": session_id,
-                "item_id": item_id,
-                "task_num": task_num,
-                "context": context,
-                "outcome": outcome,
-            })
+        def capture_emit(
+            event_name,
+            *,
+            session_id,
+            item_id=None,
+            task_num=None,
+            context=None,
+            outcome="completed",
+        ):
+            emitted.append(
+                {
+                    "event_name": event_name,
+                    "session_id": session_id,
+                    "item_id": item_id,
+                    "task_num": task_num,
+                    "context": context,
+                    "outcome": outcome,
+                }
+            )
             return real_emit_session_event(
                 event_name,
                 session_id=session_id,
@@ -309,8 +336,7 @@ class TestCleanStaleHarnessSessions:
         assert sess_row["ended_at"] is None
 
         claim_row = c.execute(
-            "SELECT released_at, release_reason FROM work_claims "
-            "WHERE item_id = 700",
+            "SELECT released_at, release_reason FROM work_claims WHERE item_id = 700",
         ).fetchone()
         assert claim_row["released_at"] is None
         assert claim_row["release_reason"] is None

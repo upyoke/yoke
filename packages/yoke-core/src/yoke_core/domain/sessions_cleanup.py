@@ -11,6 +11,7 @@ from . import db_backend
 from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
+    current_episode_progress_stamp,
     latest_activity,
 )
 from .session_staleness import activity_is_stale
@@ -95,6 +96,8 @@ def clean_stale_harness_sessions(
         select_cols += ", executor"
     if activity_cols:
         select_cols += ", last_tool_call_at, tool_call_count"
+    if "episode_started_at" in active_cols:
+        select_cols += ", episode_started_at"
 
     if project_ids is None:
         all_active = conn.execute(
@@ -150,6 +153,11 @@ def clean_stale_harness_sessions(
         else:
             tool_count = 0
             latest_event_at = None
+        episode_started_at = (
+            sess_row["episode_started_at"]
+            if "episode_started_at" in active_cols
+            else None
+        )
 
         activity_at = latest_activity(conn, sid, executor=executor)
         is_stale = (
@@ -173,16 +181,17 @@ def clean_stale_harness_sessions(
             "stale_minutes": stale_minutes,
         }
 
-        # The combined-activity check is the "don't false-positive a
-        # session that is still emitting events" guard.  When that passes, we
-        # still run the progress-stale check against the latest tool event so
-        # sessions that heartbeat fine but stop making progress are still
-        # reclaimed.
+        # Combined activity guards a session that is still emitting events. When it
+        # passes, the progress check still catches a session that stopped advancing.
         progress_stale_flag = False
-        if tool_count > 0 and latest_event_at:
+        progress_at = current_episode_progress_stamp(
+            latest_event_at,
+            episode_started_at,
+        )
+        if tool_count > 0 and progress_at:
             try:
                 latest_event_dt = datetime.fromisoformat(
-                    str(latest_event_at).replace("Z", "+00:00")
+                    str(progress_at).replace("Z", "+00:00")
                 )
                 if latest_event_dt.tzinfo is None:
                     latest_event_dt = latest_event_dt.replace(tzinfo=timezone.utc)

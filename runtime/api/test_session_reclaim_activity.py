@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Direct coverage for the shared stale-reclaim activity classifier."""
 
 from __future__ import annotations
@@ -13,6 +14,9 @@ from yoke_core.domain.session_reclaim_activity import (
     classify_reclaimable,
     read_activity_signals,
     resolve_effective_ttl,
+)
+from yoke_core.domain.session_reclaim_progress import (
+    current_episode_progress_stamp,
 )
 from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
 from runtime.api.sessions_api_stale_test_helpers import (
@@ -36,7 +40,9 @@ def _seed_session(
     ended_at: str = None,
 ):
     _register(conn, session_id=session_id, executor=executor)
-    heartbeat_ts = _ago_minutes(heartbeat_ago_min) if heartbeat_ago_min > 0 else _now_literal()
+    heartbeat_ts = (
+        _ago_minutes(heartbeat_ago_min) if heartbeat_ago_min > 0 else _now_literal()
+    )
     conn.execute(
         """UPDATE harness_sessions
            SET offered_at = %s, last_heartbeat = %s, ended_at = %s
@@ -83,6 +89,14 @@ class TestResolveEffectiveTtl:
         assert resolve_effective_ttl("unknown") == 20
 
 
+def test_episode_progress_requires_tool_activity_and_uses_current_boundary():
+    old_tool = "2026-08-24T12:00:00Z"
+    current_episode = "2026-08-24T14:00:00Z"
+
+    assert current_episode_progress_stamp(None, current_episode) is None
+    assert current_episode_progress_stamp(old_tool, current_episode) == current_episode
+
+
 class TestReadActivitySignals:
     def test_returns_session_state_and_event_max(self, conn_with_events):
         c = conn_with_events
@@ -102,7 +116,8 @@ class TestReadActivitySignals:
         assert evidence.ended_at is None
 
     def test_returns_claim_activity_when_claim_id_is_provided(
-        self, conn_with_events,
+        self,
+        conn_with_events,
     ):
         c = conn_with_events
         _seed_session(c, "sess-A", heartbeat_ago_min=30)
@@ -176,11 +191,16 @@ class TestClassifyReclaimable:
         c = conn_with_events
         _seed_session(c, "claim-live-sess", heartbeat_ago_min=30)
         claim_id = _seed_claim(
-            c, "claim-live-sess", item_id=7002, ago_minutes=1,
+            c,
+            "claim-live-sess",
+            item_id=7002,
+            ago_minutes=1,
         )
 
         result = classify_reclaimable(
-            c, "claim-live-sess", claim_id=claim_id,
+            c,
+            "claim-live-sess",
+            claim_id=claim_id,
         )
 
         assert result.is_reclaimable is False
@@ -190,18 +210,46 @@ class TestClassifyReclaimable:
         c = conn_with_events
         _seed_session(c, "wedged-sess", heartbeat_ago_min=1)
         _emit_tool_event(c, "wedged-sess", ago_minutes=120)
+        c.execute(
+            "UPDATE harness_sessions SET episode_started_at = %s "
+            "WHERE session_id = 'wedged-sess'",
+            (_ago_minutes(120),),
+        )
+        c.commit()
 
         result = classify_reclaimable(
-            c, "wedged-sess", progress_threshold_minutes=90,
+            c,
+            "wedged-sess",
+            progress_threshold_minutes=90,
         )
 
         assert result.is_reclaimable is True
         assert result.reason == REASON_PROGRESS_STALE
 
+    def test_current_episode_boundary_supersedes_old_tool_activity(
+        self,
+        conn_with_events,
+    ):
+        c = conn_with_events
+        _seed_session(c, "resumed-sess", heartbeat_ago_min=1)
+        _emit_tool_event(c, "resumed-sess", ago_minutes=120)
+
+        result = classify_reclaimable(
+            c,
+            "resumed-sess",
+            progress_threshold_minutes=90,
+        )
+
+        assert result.is_reclaimable is False
+        assert result.reason == REASON_FRESH
+
     def test_codex_executor_uses_60_minute_override(self, conn_with_events):
         c = conn_with_events
         _seed_session(
-            c, "codex-sess", executor="codex", heartbeat_ago_min=30,
+            c,
+            "codex-sess",
+            executor="codex",
+            heartbeat_ago_min=30,
         )
         _emit_tool_event(c, "codex-sess", ago_minutes=30)
 
@@ -214,7 +262,10 @@ class TestClassifyReclaimable:
     def test_codex_executor_reclaims_after_60_minutes(self, conn_with_events):
         c = conn_with_events
         _seed_session(
-            c, "codex-stale", executor="codex", heartbeat_ago_min=120,
+            c,
+            "codex-stale",
+            executor="codex",
+            heartbeat_ago_min=120,
         )
         _emit_tool_event(c, "codex-stale", ago_minutes=120)
 

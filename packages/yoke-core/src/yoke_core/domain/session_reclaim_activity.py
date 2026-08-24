@@ -10,6 +10,11 @@ from .session_staleness import activity_is_stale
 from .sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
 from .sessions_render_reclaim import _resolve_effective_ttl
 from .schema_common import _get_columns as _schema_get_columns
+from .session_reclaim_progress import (
+    current_episode_progress_stamp,
+    newest_activity_stamp,
+    read_session_state,
+)
 
 
 SCOPE_ITEM_CLAIM = "item_claim"
@@ -26,17 +31,6 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def newest_activity_stamp(*values: Optional[str]) -> Optional[str]:
-    """Return the newest present ISO-8601 stamp, or ``None`` when all are absent.
-
-    The reclaim activity signal is "the newest thing this session did", so its
-    selection rule lives here and is reused by the many-session reader in
-    :mod:`session_reclaim_activity_bulk`.
-    """
-    present = [value for value in values if value]
-    return max(present) if present else None
-
-
 @dataclass(frozen=True)
 class ReclaimActivityEvidence:
     session_id: str
@@ -46,6 +40,7 @@ class ReclaimActivityEvidence:
     last_event_at: Optional[str]
     claim_last_heartbeat: Optional[str]
     claim_claimed_at: Optional[str]
+    episode_started_at: Optional[str]
     activity_at: Optional[str]
     ended_at: Optional[str]
 
@@ -79,51 +74,6 @@ def resolve_effective_ttl(
         executor,
         base_ttl_minutes,
         dict(overrides) if overrides is not None else None,
-    )
-
-
-def _session_state(
-    conn: Any, session_id: str
-) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
-    """Return ``(executor, last_heartbeat, ended_at, last_tool_call_at)``.
-
-    ``last_tool_call_at`` is the post telemetry-only-events tool-activity signal — stamped by
-    the observe pipeline in the same transaction as each tool-call
-    telemetry insert. Introspection keeps minimal fixtures working: a
-    schema lacking the column (or the optional executor) reads as NULL.
-    """
-    try:
-        columns = set(_schema_get_columns(conn, "harness_sessions"))
-    except db_backend.operational_error_types():
-        return (None, None, None, None)
-    if not columns:
-        return (None, None, None, None)
-    select_cols = ["last_heartbeat", "ended_at"]
-    if "executor" in columns:
-        select_cols.insert(0, "executor")
-    if "last_tool_call_at" in columns:
-        select_cols.append("last_tool_call_at")
-    try:
-        p = _p(conn)
-        row = conn.execute(
-            f"SELECT {', '.join(select_cols)} FROM harness_sessions "
-            f"WHERE session_id = {p}",
-            (session_id,),
-        ).fetchone()
-    except db_backend.operational_error_types():
-        return (None, None, None, None)
-    if row is None:
-        return (None, None, None, None)
-    values = (
-        {name: row[name] for name in select_cols}
-        if hasattr(row, "keys")
-        else dict(zip(select_cols, row))
-    )
-    return (
-        values.get("executor"),
-        values.get("last_heartbeat"),
-        values.get("ended_at"),
-        values.get("last_tool_call_at"),
     )
 
 
@@ -181,11 +131,17 @@ def read_activity_signals(
     overrides: Optional[Mapping[str, int]] = None,
 ) -> ReclaimActivityEvidence:
     """Read the canonical reclaim activity signals for ``session_id``."""
-    executor_raw, last_heartbeat, ended_at, last_event_at = _session_state(
-        conn, session_id,
-    )
+    (
+        executor_raw,
+        last_heartbeat,
+        ended_at,
+        last_event_at,
+        episode_started_at,
+    ) = read_session_state(conn, session_id)
     claim_last_heartbeat, claim_claimed_at = _claim_state(
-        conn, session_id, claim_id,
+        conn,
+        session_id,
+        claim_id,
     )
 
     activity_at = newest_activity_stamp(
@@ -209,6 +165,7 @@ def read_activity_signals(
         last_event_at=last_event_at,
         claim_last_heartbeat=claim_last_heartbeat,
         claim_claimed_at=claim_claimed_at,
+        episode_started_at=episode_started_at,
         activity_at=activity_at,
         ended_at=ended_at,
     )
@@ -292,12 +249,13 @@ def classify_reclaimable(
             evidence=evidence,
         )
 
-    if (
-        progress_threshold_minutes is not None
-        and evidence.last_event_at is not None
-    ):
+    progress_at = current_episode_progress_stamp(
+        evidence.last_event_at,
+        evidence.episode_started_at,
+    )
+    if progress_threshold_minutes is not None and progress_at is not None:
         progress_stale = activity_is_stale(
-            evidence.last_event_at,
+            progress_at,
             executor=evidence.executor,
             base_ttl_minutes=progress_threshold_minutes,
             executor_ttl_overrides={},
@@ -317,9 +275,19 @@ def classify_reclaimable(
 
 
 __all__ = [
-    "ReclaimActivityEvidence", "ReclaimClassification", "SCOPE_ITEM_CLAIM",
-    "SCOPE_SESSION_CLEANUP", "REASON_ENDED", "REASON_FRESH",
-    "REASON_HEARTBEAT_STALE", "REASON_NEVER_ENGAGED",
-    "REASON_PROGRESS_STALE", "newest_activity_stamp", "resolve_effective_ttl",
-    "read_activity_signals", "classify_reclaimable", "latest_activity",
+    "ReclaimActivityEvidence",
+    "ReclaimClassification",
+    "SCOPE_ITEM_CLAIM",
+    "SCOPE_SESSION_CLEANUP",
+    "REASON_ENDED",
+    "REASON_FRESH",
+    "REASON_HEARTBEAT_STALE",
+    "REASON_NEVER_ENGAGED",
+    "REASON_PROGRESS_STALE",
+    "current_episode_progress_stamp",
+    "newest_activity_stamp",
+    "resolve_effective_ttl",
+    "read_activity_signals",
+    "classify_reclaimable",
+    "latest_activity",
 ]
