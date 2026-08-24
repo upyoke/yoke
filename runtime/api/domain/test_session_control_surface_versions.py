@@ -46,6 +46,22 @@ def test_cursor_build_normalization_accepts_only_the_observed_hash_family() -> N
     assert not surface_version_supported("cursor-cli", "2026.08.11-nothex")
 
 
+def test_codex_cli_build_revision_only_affects_capability_comparison() -> None:
+    observed = "0.149.0-alpha.4.3"
+
+    assert surface_version_supported("codex-cli", observed)
+    assert surface_operation_supported("codex-cli", observed, "create")
+    assert surface_operation_supported("codex-cli", observed, "message_stopped")
+    assert not surface_operation_supported("codex-cli", observed, "message_active")
+    assert not surface_operation_supported("codex-cli", observed, "message_idle")
+    for malformed in (
+        "0.149.0-alpha.4.3.1",
+        "0.149.0-alpha.4.x",
+        "0.149.0-alpha.4.",
+    ):
+        assert not surface_version_supported("codex-cli", malformed)
+
+
 def test_private_route_registry_starts_with_the_existing_exact_pins() -> None:
     expected = {
         (surface, operation): frozenset({capability.minimum_version})

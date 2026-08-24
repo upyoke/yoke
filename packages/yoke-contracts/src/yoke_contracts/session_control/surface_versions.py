@@ -14,6 +14,11 @@ _OPERATIONS = frozenset({"create", "message_active", "message_idle", "message_st
 _CURSOR_BUILD_VERSION = re.compile(
     r"^(?P<release>\d{4}\.\d{1,2}\.\d{1,2})-[0-9a-fA-F]{7,40}$"
 )
+_CODEX_CLI_BUILD_VERSION = re.compile(
+    r"^(?P<release>\d+(?:\.\d+){1,3}"
+    r"-(?:a|alpha|b|beta|rc|pre|preview)[-._]?\d+)\.\d+$",
+    re.IGNORECASE,
+)
 _VERSION = re.compile(
     r"^(?P<release>\d+(?:\.\d+){1,3})"
     r"(?:(?:[-._]?)(?P<label>a|alpha|b|beta|rc|pre|preview)"
@@ -35,6 +40,10 @@ def _version_key(surface: str | None, raw: str) -> tuple[int, ...] | None:
     value = raw.strip()
     if str(surface or "").startswith("cursor-"):
         matched = _CURSOR_BUILD_VERSION.fullmatch(value)
+        if matched:
+            value = matched.group("release")
+    elif surface == "codex-cli":
+        matched = _CODEX_CLI_BUILD_VERSION.fullmatch(value)
         if matched:
             value = matched.group("release")
     matched = _VERSION.fullmatch(value)

@@ -23,7 +23,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 VERSIONS = {
     "claude-cli": "2.1.238",
     "claude-desktop": "1.32885.1",
-    "codex-cli": "0.148.0-alpha.15",
+    "codex-cli": "0.149.0-alpha.4.3",
     "codex-desktop": "26.814.41407",
     "cursor-cli": "2026.08.11-e8db854",
 }
@@ -70,6 +70,12 @@ def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
     assert tuple(cell.surface for cell in parsed.cells[:-1]) == ACCEPTANCE_SURFACES
     assert parsed.cells[0].wake_supported is True
     assert parsed.cells[1].wake_supported is False
+    assert [
+        cell.expected_version for cell in parsed.cells if cell.surface == "codex-cli"
+    ] == [
+        "0.149.0-alpha.4.3",
+        "0.149.0-alpha.4.3",
+    ]
     assert parsed.cells[-1].acceptance_role == "broker"
     assert parsed.cells[-1].route == "broker"
 

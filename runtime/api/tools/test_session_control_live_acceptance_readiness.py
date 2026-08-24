@@ -14,7 +14,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 QUALIFIED_VERSIONS = {
     "claude-cli": "2.1.238",
     "claude-desktop": "1.32885.1",
-    "codex-cli": "0.149.0-alpha.4",
+    "codex-cli": "0.149.0-alpha.4.3",
     "codex-desktop": "26.818.31338",
     "cursor-cli": "2026.08.11-e8db854",
 }
