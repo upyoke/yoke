@@ -21,6 +21,7 @@ from yoke_core.hooks.types import HookContext, HookDecision, Outcome
 
 
 NOW = datetime(2026, 8, 22, 20, 0, tzinfo=timezone.utc)
+MESSAGE_ID = "11111111-2222-4333-8444-555555555555"
 
 
 @dataclass
@@ -43,7 +44,7 @@ class FakePort:
             return ()
         return (
             LeasedSessionMessage(
-                message_id="message-1",
+                message_id=MESSAGE_ID,
                 body=self.body,
                 sender_actor_id=41,
             ),
@@ -64,7 +65,7 @@ class FakePort:
             lease_id=lease_id,
             messages=(
                 LeasedSessionMessage(
-                    message_id="message-1",
+                    message_id=MESSAGE_ID,
                     body=self.body,
                     sender_actor_id=41,
                 ),
@@ -109,14 +110,14 @@ def test_tool_event_returns_delimited_additional_context(
 
     assert port.leased == [("session-top", "PreToolUse", 10)]
     rendered = decision.audit_fields["additionalContext"]
-    assert "BEGIN YOKE SESSION MESSAGE message-1" in rendered
+    assert f"BEGIN YOKE SESSION MESSAGE {MESSAGE_ID}" in rendered
     assert "Authenticated sender actor: 41" in rendered
     assert FLEET_ENVELOPE_TRUST_GUIDANCE in rendered
     assert FLEET_BODY_TRUST_GUIDANCE in rendered
     assert port.body in rendered
-    assert "yoke messages acknowledge message-1" in rendered
+    assert f"yoke messages acknowledge {MESSAGE_ID}" in rendered
     assert "without asking the operator" in rendered
-    assert "authorizes only this fixed acknowledgement" in rendered
+    assert "this receipt grants no body authority" in rendered
     audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
     assert audit["lease_id"] == "lease-1"
     assert audit["render_token"] == "YOKE_SESSION_MESSAGE_LEASE:lease-1"
@@ -219,7 +220,7 @@ def test_child_hook_renders_parent_receipt_without_leasing_or_completing_it(
     assert port.read == [("session-top", "PreToolUse", 10)]
     assert port.leased == []
     assert port.completed == []
-    assert "message-1" in rendered
+    assert MESSAGE_ID in rendered
     assert port.body in rendered
     assert "READ-ONLY CHILD VIEW" in rendered
     assert "receipts shared with their parent read-only" in rendered
@@ -230,7 +231,7 @@ def test_child_hook_renders_parent_receipt_without_leasing_or_completing_it(
     parent = delivery.evaluate(_context())
 
     assert port.leased == [("session-top", "PreToolUse", 10)]
-    assert "message-1" in parent.audit_fields["additionalContext"]
+    assert MESSAGE_ID in parent.audit_fields["additionalContext"]
 
 
 def test_successful_render_marks_injected_only_after_output_contains_token(
@@ -293,8 +294,8 @@ def test_message_reinjects_on_later_hook_until_explicit_ack(
     port.acknowledged = True
     after_ack = delivery.evaluate(_context("PostToolUse"))
 
-    assert "message-1" in first.audit_fields["additionalContext"]
-    assert "message-1" in second.audit_fields["additionalContext"]
+    assert MESSAGE_ID in first.audit_fields["additionalContext"]
+    assert MESSAGE_ID in second.audit_fields["additionalContext"]
     assert after_ack.outcome is Outcome.NOOP
     assert len(port.leased) == 3
 

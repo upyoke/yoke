@@ -20,6 +20,7 @@ from yoke_contracts.session_control.private_route_versions import (
 from yoke_contracts.session_control.teaching import (
     FLEET_BODY_TRUST_GUIDANCE,
     FLEET_ENVELOPE_TRUST_GUIDANCE,
+    FLEET_INVALID_MESSAGE_ID_GUIDANCE,
     FLEET_MESSAGE_BOOTSTRAP_RECIPE,
     FLEET_MESSAGE_RECIPE,
     FLEET_MESSAGE_WORKFLOW_HELP,
@@ -28,6 +29,7 @@ from yoke_contracts.session_control.teaching import (
     FLEET_UNDELIVERED_CANCEL_RECIPE,
     SUBAGENT_FLEET_GUIDANCE,
     TOP_LEVEL_FLEET_OWNERSHIP,
+    canonical_fleet_message_id,
     fleet_acknowledgement_instruction,
 )
 from yoke_contracts.session_control import models as _models
@@ -41,6 +43,7 @@ __all__ = [
     "PRIVATE_ROUTE_VERSION_QUALIFICATIONS",
     "FLEET_BODY_TRUST_GUIDANCE",
     "FLEET_ENVELOPE_TRUST_GUIDANCE",
+    "FLEET_INVALID_MESSAGE_ID_GUIDANCE",
     "FLEET_MESSAGE_BOOTSTRAP_RECIPE",
     "FLEET_MESSAGE_RECIPE",
     "FLEET_MESSAGE_WORKFLOW_HELP",
@@ -54,6 +57,7 @@ __all__ = [
     "TOP_LEVEL_FLEET_OWNERSHIP",
     "capabilities_for_harness",
     "capability_for_surface",
+    "canonical_fleet_message_id",
     "fleet_acknowledgement_instruction",
     "private_route_version_qualified",
     *_models.__all__,
