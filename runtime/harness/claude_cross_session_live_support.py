@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import re
 from uuid import UUID
@@ -40,6 +41,7 @@ _SUMMARY_FIELDS = (
     "cleanup_ok",
     "cleanup_identity_exact",
     "root_removed",
+    "capture_truncated",
 )
 _POLL_PREFIXES = (
     "target_identity_",
@@ -53,7 +55,13 @@ _POLL_PREFIXES = (
 
 
 class CrossSessionPrivateCapture(_PrivateNativeCapture):
-    """Retain full primary/failing streams, not cumulative successful polls."""
+    """Retain bounded primary/failing streams, not cumulative successful polls."""
+
+    _MAX_CAPTURE_BYTES = 1024 * 1024
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.capture_truncated = False
 
     def append(self, label, stdout, stderr, result, exception) -> None:
         successful_poll = (
@@ -62,8 +70,23 @@ class CrossSessionPrivateCapture(_PrivateNativeCapture):
             and exception is None
             and label.startswith(_POLL_PREFIXES)
         )
-        if not successful_poll:
-            super().append(label, stdout, stderr, result, exception)
+        if successful_poll:
+            return
+        limit = process_module.CLAUDE_STREAM_OUTPUT_LIMIT_BYTES
+        for spool in (stdout, stderr):
+            if spool.seek(0, os.SEEK_END) > limit:
+                spool.truncate(limit)
+                self.capture_truncated = True
+            spool.seek(0)
+        if self.path.stat().st_size >= self._MAX_CAPTURE_BYTES:
+            self.capture_truncated = True
+            return
+        super().append(label, stdout, stderr, result, exception)
+        self._stream.flush()
+        if self.path.stat().st_size > self._MAX_CAPTURE_BYTES:
+            os.ftruncate(self._stream.fileno(), self._MAX_CAPTURE_BYTES)
+            self._stream.seek(0, os.SEEK_END)
+            self.capture_truncated = True
 
 
 def agent_rows(output: str) -> list[dict[str, object]]:

@@ -335,6 +335,7 @@ def test_named_claude_session_receives_native_cross_session_message(
         isolated.cleanup()
         root_removed = not root.exists()
         capture.close()
+        capture_truncated = capture.capture_truncated
         passed = failure is None and cleanup_ok and root_removed
         summary = redacted_summary(locals(), passed=passed)
         print("CLAUDE_CROSS_SESSION_REDACTED=" + json.dumps(summary, sort_keys=True))
