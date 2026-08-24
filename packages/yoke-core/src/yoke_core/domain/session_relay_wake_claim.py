@@ -22,6 +22,12 @@ class WakeAttemptClaim:
     lease_expires_at: str
 
 
+def _match(column: str, value: Any, placeholder: str) -> tuple[str, tuple[Any, ...]]:
+    if value is None:
+        return f"{column} IS NULL", ()
+    return f"{column}={placeholder}", (value,)
+
+
 def claim_wake_attempt(
     conn: Any,
     *,
@@ -30,9 +36,9 @@ def claim_wake_attempt(
 ) -> WakeAttemptClaim | None:
     """CAS one eligible receipt and open its native wake attempt.
 
-    Recipient counters, native posture observations, and injection leases come
-    from eligibility selection. A prompt lease or newer posture observation
-    therefore invalidates the candidate before a native mutation can start.
+    Recipient routing, liveness, posture, and injection facts come from
+    eligibility selection. Any newer observation therefore invalidates the
+    candidate before a native mutation can start.
     """
     message_id = str(candidate["message_id"])
     session_id = str(candidate["session_id"])
@@ -49,6 +55,8 @@ def claim_wake_attempt(
     if expected_state not in {"pending", "injected"}:
         return None
     if expected_posture not in TURN_POSTURES:
+        return None
+    if candidate.get("liveness") == "active":
         return None
     if wake_mode is WakeMode.WAITING and (
         expected_state != "pending"
@@ -81,22 +89,54 @@ def claim_wake_attempt(
     if expected_injection is not None and wake_mode is WakeMode.IDLE_TIMEOUT:
         injection_clause = f"injection_lease_id={p} AND injection_lease_expires_at<={p}"
         injection_params.extend((expected_injection, now))
+    recipient_clauses: list[str] = []
+    recipient_params: list[Any] = []
+    for column, key in (
+        ("wake_after", "wake_after"),
+        ("executor_surface", "executor_surface"),
+        ("executor_version", "executor_version"),
+        ("machine_id", "machine_id"),
+    ):
+        clause, values = _match(column, candidate.get(key), p)
+        recipient_clauses.append(clause)
+        recipient_params.extend(values)
+    session_clauses: list[str] = []
+    session_params: list[Any] = []
+    for column, key in (
+        ("hs.last_heartbeat", "last_heartbeat"),
+        ("hs.last_tool_call_at", "last_tool_call_at"),
+        ("hs.ended_at", "ended_at"),
+    ):
+        clause, values = _match(column, candidate.get(key), p)
+        session_clauses.append(clause)
+        session_params.extend(values)
     updated = conn.execute(
         "UPDATE session_message_recipients SET wake_attempt_count="
         "wake_attempt_count+1,last_wake_at="
         + p
         + f" WHERE message_id={p} AND session_id={p} AND state={p} "
         + f"AND wake_attempt_count={p} AND {last_clause} "
-        + f"AND {injection_clause} "
+        + f"AND {injection_clause} AND wake_after<={p} "
+        + f"AND {' AND '.join(recipient_clauses)} "
         "AND EXISTS (SELECT 1 FROM harness_sessions hs "
         "WHERE hs.session_id=session_message_recipients.session_id "
-        + f"AND hs.turn_posture={p} AND {posture_at_clause}) "
+        + f"AND hs.turn_posture={p} AND {posture_at_clause} "
+        + f"AND {' AND '.join(session_clauses)}) "
         "AND NOT EXISTS (SELECT 1 FROM session_message_attempts a "
         "WHERE a.message_id=session_message_recipients.message_id "
         "AND a.target_session_id=session_message_recipients.session_id "
         "AND a.attempt_kind IN ('wake_relay','wake_broker') "
         "AND a.completed_at IS NULL)",
-        tuple((*params, *injection_params, *posture_params)),
+        tuple(
+            (
+                *params,
+                *injection_params,
+                now,
+                *recipient_params,
+                *posture_params,
+                *session_params,
+            )
+        ),
     )
     if updated.rowcount != 1:
         conn.rollback()

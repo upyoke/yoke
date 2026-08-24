@@ -11,6 +11,7 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from runtime.api.domain.test_session_message_support import (
     NOW,
+    NOW_TEXT,
     message_connection,
     selector,
 )
@@ -26,6 +27,8 @@ def test_stale_candidate_cannot_open_a_duplicate_native_wake_attempt() -> None:
         body="Durable body never passed to native wake.",
         now=NOW,
     )["message_id"]
+    conn.execute("UPDATE harness_sessions SET ended_at=?", (NOW_TEXT,))
+    conn.commit()
     candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))[0]
 
     first = claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:11:00Z")
@@ -64,6 +67,8 @@ def test_concurrent_relays_cannot_claim_the_same_recipient(tmp_path) -> None:
         body="One wake only.",
         now=NOW,
     )
+    seed.execute("UPDATE harness_sessions SET ended_at=?", (NOW_TEXT,))
+    seed.commit()
     candidate = wake_eligible_recipients(seed, now=NOW + timedelta(minutes=11))[0]
     seed.close()
 
@@ -90,3 +95,31 @@ def test_concurrent_relays_cannot_claim_the_same_recipient(tmp_path) -> None:
         == 1
     )
     check.close()
+
+
+def test_new_liveness_observation_invalidates_a_selected_candidate() -> None:
+    conn = message_connection()
+    send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s1",
+        selector=selector(session_ids=["s1"]),
+        body="Do not wake an active prompt.",
+        now=NOW,
+    )
+    conn.execute("UPDATE harness_sessions SET ended_at=?", (NOW_TEXT,))
+    conn.commit()
+    candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))[0]
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at=NULL,last_heartbeat=?,"
+        "last_tool_call_at=? WHERE session_id='s1'",
+        ("2026-08-22T16:11:00Z", "2026-08-22T16:11:00Z"),
+    )
+    conn.commit()
+
+    claim = claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:11:00Z")
+
+    assert claim is None
+    assert (
+        conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 0
+    )
