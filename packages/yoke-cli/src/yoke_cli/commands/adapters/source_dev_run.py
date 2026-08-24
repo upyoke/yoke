@@ -6,14 +6,18 @@ import importlib
 from typing import List
 
 
+def _source_runner():
+    return importlib.import_module("yoke_core.tools.source_dev_run")
+
+
 def source_dev_run(args: List[str]) -> int:
-    runner = importlib.import_module("yoke_core.tools.source_dev_run")
-    return runner.main(args)
+    return _source_runner().main(args)
 
 
 def ruff_changed(args: List[str]) -> int:
-    runner = importlib.import_module("yoke_core.tools.source_dev_run")
-    return runner.run(["python3", "-m", "yoke_core.tools.ruff_changed", *args])
+    return _source_runner().run(
+        ["python3", "-m", "yoke_core.tools.ruff_changed", *args]
+    )
 
 
 __all__ = ["ruff_changed", "source_dev_run"]
