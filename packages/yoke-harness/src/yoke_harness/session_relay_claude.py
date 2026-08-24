@@ -28,6 +28,7 @@ from yoke_harness.session_relay_environment import native_session_environment
 CLAUDE_ADAPTER_REVISION = "claude-native-v2"
 CLAUDE_CLI_SURFACE = "claude-cli"
 CLAUDE_NATIVE_TIMEOUT_SECONDS = 20
+CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS = 75
 
 
 @dataclass(frozen=True)
@@ -81,6 +82,7 @@ def _run_claude_command(
     invocation: ClaudeNativeInvocation,
     argv: tuple[str, ...],
 ) -> ClaudeProcessResult:
+    timeouts = (CLAUDE_NATIVE_TIMEOUT_SECONDS, CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS)
     environment = native_session_environment(
         executor="claude-code",
         executor_version=invocation.surface_version,
@@ -91,7 +93,7 @@ def _run_claude_command(
         argv,
         cwd=invocation.cwd,
         environment=environment,
-        timeout_seconds=CLAUDE_NATIVE_TIMEOUT_SECONDS,
+        timeout_seconds=timeouts[invocation.resume],
     )
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -13,9 +14,14 @@ from runtime.harness.test_session_relay_claude import (
     _allow,
     _context,
 )
+from yoke_harness import session_relay_claude as claude_module
 from yoke_harness.session_relay_claude import (
+    CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS,
+    CLAUDE_NATIVE_TIMEOUT_SECONDS,
+    ClaudeNativeInvocation,
     ClaudeProcessResult,
     run_claude_cli_adapter,
+    run_claude_process,
 )
 
 
@@ -162,6 +168,42 @@ def test_headless_resume_failure_is_failed_redacted_and_bounded() -> None:
     }
     assert "private message body" not in repr(result)
     assert "private bearer token" not in repr(result)
+
+
+def test_native_runner_uses_the_longer_bound_only_for_headless_wake(
+    monkeypatch,
+) -> None:
+    timeouts = []
+
+    def run(_argv, **kwargs):
+        timeouts.append(kwargs["timeout_seconds"])
+        return ClaudeProcessResult(0, 1)
+
+    monkeypatch.setattr(claude_module, "run_bounded_claude_process", run)
+    launch = ClaudeNativeInvocation(
+        CLAUDE,
+        Path("/project"),
+        ACTUAL_ID,
+        "2.1.238",
+        "launch instruction",
+    )
+    wake = ClaudeNativeInvocation(
+        CLAUDE,
+        Path("/project"),
+        ACTUAL_ID,
+        "2.1.238",
+        CHECK_INBOX,
+        resume=True,
+    )
+
+    run_claude_process(launch)
+    run_claude_process(wake)
+
+    assert timeouts == [
+        CLAUDE_NATIVE_TIMEOUT_SECONDS,
+        CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS,
+    ]
+    assert CLAUDE_HEADLESS_WAKE_TIMEOUT_SECONDS > CLAUDE_NATIVE_TIMEOUT_SECONDS
 
 
 @pytest.mark.parametrize("wake_mode", [None, "invented"])
