@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -120,6 +121,29 @@ def test_exact_clean_stage_scope_is_allowed(monkeypatch, tmp_path) -> None:
     )
 
 
+def test_registered_target_checkout_does_not_stand_in_for_relay_source(
+    monkeypatch, tmp_path
+) -> None:
+    _stage_runtime(monkeypatch)
+    target_checkout = tmp_path / "registered-target"
+    target_checkout.mkdir()
+    (target_checkout / "dirty.txt").write_text("not relay source", encoding="utf-8")
+    source_checkout = Path(qualification.__file__).resolve().parent
+    observed: list[Path] = []
+
+    def run(argv, **_kwargs):
+        observed.append(Path(argv[2]))
+        stdout = f"{RELEASE_SHA}\n" if "rev-parse" in argv else ""
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(qualification.subprocess, "run", run)
+
+    assert qualification.private_route_qualification_allows(
+        _context(target_checkout, grant=_grant()), operation="message_stopped"
+    )
+    assert observed == [source_checkout, source_checkout]
+
+
 @pytest.mark.parametrize(
     ("active_environment", "prod"),
     [("prod", False), ("stage", True)],
@@ -203,7 +227,7 @@ def test_expired_or_mismatched_envelope_is_refused(
     ("dirty", "head"),
     [(True, RELEASE_SHA), (False, "b" * 40), (False, "a" * 12)],
 )
-def test_checkout_must_be_clean_at_the_exact_full_release(
+def test_relay_source_must_be_clean_at_the_exact_full_release(
     monkeypatch, tmp_path, dirty: bool, head: str
 ) -> None:
     _stage_runtime(monkeypatch)
@@ -222,9 +246,7 @@ def test_claude_adapter_keeps_canonical_first_and_fallback_exact(
     monkeypatch, tmp_path
 ) -> None:
     _stage_runtime(monkeypatch)
-    monkeypatch.setattr(
-        qualification, "_clean_source_sha", lambda _context: RELEASE_SHA
-    )
+    monkeypatch.setattr(qualification, "_clean_source_sha", lambda: RELEASE_SHA)
 
     def runner(invocation):
         return ClaudeProcessResult(
