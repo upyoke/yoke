@@ -64,12 +64,14 @@ def _request(
     actor_id: str | None = "10",
     session_id: str = "s1",
     project: str = "alpha",
+    subagent_execution: bool = False,
 ) -> FunctionCallRequest:
     return FunctionCallRequest.model_validate(
         {
             "function": "session_control.qualification.open",
             "actor": {"actor_id": actor_id, "session_id": session_id},
             "target": {"kind": "global"},
+            "options": {"subagent_execution": subagent_execution},
             "payload": {
                 "project": project,
                 "environment": "stage",
@@ -82,6 +84,16 @@ def _request(
             },
         }
     )
+
+
+def test_handler_refuses_subagent_attestation() -> None:
+    outcome = session_qualification.handle_qualification_open(
+        _request(subagent_execution=True)
+    )
+
+    assert outcome.error and outcome.error.code == "subagent_qualification_forbidden"
+    assert outcome.error.jsonpath == "$.options.subagent_execution"
+    assert "registered top-level session" in outcome.error.message
 
 
 def test_registration_is_operator_override_and_stage_guarded() -> None:

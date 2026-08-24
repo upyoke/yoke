@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from yoke_contracts.session_control.teaching import SUBAGENT_FLEET_GUIDANCE
 from yoke_core.domain.agents_render_conditional import (
     CLAUDE_HARNESS_ID,
     apply_conditional_blocks,
@@ -21,9 +22,7 @@ from yoke_core.domain.agents_render_field_note import (
 )
 
 
-CLAUDE_REFERENCE_DIR = (
-    Path("runtime") / "harness" / "claude" / "agents" / "references"
-)
+CLAUDE_REFERENCE_DIR = Path("runtime") / "harness" / "claude" / "agents" / "references"
 INSTALLED_REFERENCE_DIR = Path(".claude") / "agents" / "references"
 
 # These references are needed on every relevant run, so embedding them keeps
@@ -34,12 +33,11 @@ INLINE_REFERENCE_PATHS = frozenset(
         Path("tester") / "regression-detection.md",
     }
 )
-_SHARED_REFERENCE_PATHS = (
-    Path("_shared") / "ouroboros-reflection-contract.md",
-)
+_SHARED_REFERENCE_PATHS = (Path("_shared") / "ouroboros-reflection-contract.md",)
 _CANONICAL_REFERENCE_RE = re.compile(
     r"runtime/agents/(?P<relative>[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.md)"
 )
+SUBAGENT_FLEET_GUIDANCE_MARKER = "<!-- YOKE:SUBAGENT-FLEET-GUIDANCE -->"
 
 
 def _role_fragment_paths(canonical_dir: Path) -> tuple[Path, ...]:
@@ -114,6 +112,7 @@ def render_reference_text(
     harness_id: str,
 ) -> str:
     """Expand common renderer markers and translate portable references."""
+    text = text.replace(SUBAGENT_FLEET_GUIDANCE_MARKER, SUBAGENT_FLEET_GUIDANCE)
     expanded = apply_conditional_blocks(
         expand_field_note_markers(expand_markers(text)), harness_id
     )
@@ -164,6 +163,7 @@ __all__ = (
     "CLAUDE_REFERENCE_DIR",
     "INLINE_REFERENCE_PATHS",
     "INSTALLED_REFERENCE_DIR",
+    "SUBAGENT_FLEET_GUIDANCE_MARKER",
     "conditional_reference_paths",
     "inline_fragment_paths",
     "installed_reference_path",

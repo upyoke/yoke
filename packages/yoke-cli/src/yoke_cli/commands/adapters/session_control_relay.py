@@ -9,10 +9,12 @@ import json
 import sys
 from typing import Any, Callable, List
 
-from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.commands.adapters.session_control_launch_output import (
     write_relay_summary,
 )
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
+from yoke_contracts.session_execution import is_subagent_execution
 
 
 RELAY_INSTALL_USAGE = "yoke relay install [--json]"
@@ -125,6 +127,8 @@ def relay_serve_once(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
+    if is_subagent_execution():
+        return usage_error(FLEET_OWNERSHIP_GUIDANCE)
     try:
         outcome = _serve_once(broker_only=parsed.broker)
     except Exception as exc:
