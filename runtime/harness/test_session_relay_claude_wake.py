@@ -43,14 +43,46 @@ def test_waiting_wake_resumes_active_labeled_session_at_private_version(
 
     assert invocations[0].argv == (
         CLAUDE,
+        "-p",
         "--resume",
         ACTUAL_ID,
-        "--bg",
         CHECK_INBOX,
     )
+    assert "--bg" not in invocations[0].argv
     assert result.result_code == "accepted"
     assert result.native_session_id is None
     assert lookups == []
+
+
+def test_headless_resume_failure_is_failed_redacted_and_bounded() -> None:
+    result = run_claude_cli_adapter(
+        _context(
+            job_kind="wake",
+            native_instruction=CHECK_INBOX,
+            target_session_id=ACTUAL_ID,
+            launch_attestation=None,
+            target_liveness="active",
+            wake_mode="waiting",
+        ),
+        process_runner=lambda _invocation: ClaudeProcessResult(
+            23,
+            4_000_000,
+            stdout="private message body",
+            stderr="private bearer token",
+        ),
+        executable_finder=lambda _name: CLAUDE,
+        version_gate=_allow,
+    )
+
+    assert result.result_code == "failed"
+    assert result.evidence == {
+        "result_code": "native_exit",
+        "surface": "claude-cli",
+        "duration_ms": 3_600_000,
+        "exit_code": 23,
+    }
+    assert "private message body" not in repr(result)
+    assert "private bearer token" not in repr(result)
 
 
 @pytest.mark.parametrize("wake_mode", [None, "invented"])

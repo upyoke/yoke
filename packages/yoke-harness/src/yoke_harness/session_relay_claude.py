@@ -41,9 +41,16 @@ class ClaudeNativeInvocation:
 
     @property
     def argv(self) -> tuple[str, ...]:
-        session_flag = "--resume" if self.resume else "--session-id"
-        arguments = [self.executable, session_flag, self.session_id]
-        if self.model and not self.resume:
+        if self.resume:
+            return (
+                self.executable,
+                "-p",
+                "--resume",
+                self.session_id,
+                self.instruction,
+            )
+        arguments = [self.executable, "--session-id", self.session_id]
+        if self.model:
             arguments.extend(("--model", self.model))
         arguments.extend(("--bg", self.instruction))
         return tuple(arguments)
@@ -86,7 +93,7 @@ def _run_claude_command(
 
 
 def run_claude_process(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
-    """Run one documented background command with private bounded output."""
+    """Run one documented native command with private bounded output."""
     return _run_claude_command(invocation, invocation.argv)
 
 
