@@ -30,6 +30,8 @@ def _context(command: str, *, payload: dict | None = None) -> HookContext:
         "yoke messages cancel message-id",
         "yoke session-control message cancel message-id",
         "yoke session-control qualification open --project yoke",
+        "yoke relay serve-once",
+        "yoke relay serve-once --broker",
     ],
 )
 def test_subagent_fleet_mutations_are_denied(command: str) -> None:

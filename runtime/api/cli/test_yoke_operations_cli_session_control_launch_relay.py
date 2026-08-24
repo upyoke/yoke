@@ -58,7 +58,6 @@ def test_sessions_create_preview_and_create_use_registered_functions(
         )
         == 0
     )
-
     assert calls[0]["function_id"] == "session_control.launch.preview"
     assert calls[0]["payload"] == {
         "project": "yoke",
@@ -149,7 +148,6 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
         "deadline_at": "2026-08-23T12:05:00Z",
         "completed_at": None,
     }
-
     list_output = io.StringIO()
     launches.write_launch_result(
         SimpleNamespace(result={"launches": [launch], "count": 1}),
@@ -166,7 +164,6 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     assert FULL_MACHINE_ID in rendered_list
     assert "outcome unknown (native cre" in rendered_list
     assert "…" in rendered_list
-
     get_output = io.StringIO()
     launches.write_launch_result(
         SimpleNamespace(result={"launch": launch}),
@@ -181,7 +178,6 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     assert "Selected surface" in rendered_get
     assert "no" in rendered_get
     assert "Deadline (UTC)" in rendered_get
-
     empty_output = io.StringIO()
     launches.write_launch_result(
         SimpleNamespace(result={"launches": [], "count": 0}),
@@ -314,6 +310,7 @@ class _Outcome:
 
 
 def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
     monkeypatch.setattr(
         relay,
         "_serve_once",
@@ -338,13 +335,16 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
     }
 
 
-def test_relay_broker_flag_forces_the_reserved_work_path(monkeypatch) -> None:
+def test_relay_broker_flag_forces_the_reserved_work_path(monkeypatch, capsys) -> None:
     seen = []
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: False)
     monkeypatch.setattr(
         relay,
         "_serve_once",
         lambda **kwargs: seen.append(kwargs) or _Outcome("active", 60),
     )
-
     assert relay.relay_serve_once(["--broker", "--json"]) == 0
+    monkeypatch.setattr(relay, "is_subagent_execution", lambda: True)
+    assert relay.relay_serve_once(["--json"]) == 2
     assert seen == [{"broker_only": True}]
+    assert "registered top-level session" in capsys.readouterr().err

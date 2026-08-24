@@ -21,6 +21,51 @@ _TERMINAL_STATES = frozenset(
 )
 
 
+def _launch_message_id(
+    client: CommandClient,
+    *,
+    launch_id: str,
+    session_id: str,
+    surface: str,
+) -> str:
+    listed = client.call(
+        [
+            "messages",
+            "list",
+            "--recipient-session",
+            session_id,
+            "--limit",
+            "500",
+        ]
+    )
+    messages = listed.get("messages")
+    if not isinstance(messages, list):
+        raise AcceptanceContractError("launch_message_missing", surface=surface)
+    matched: set[str] = set()
+    expected = {"anchor": "launch", "launch_id": launch_id}
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        message_id = message.get("message_id")
+        recipients = message.get("recipients")
+        if not isinstance(message_id, str) or not message_id.strip():
+            continue
+        if not isinstance(recipients, list):
+            continue
+        if any(
+            isinstance(recipient, dict)
+            and recipient.get("session_id") == session_id
+            and recipient.get("resolution_evidence") == expected
+            for recipient in recipients
+        ):
+            matched.add(message_id.strip())
+    if not matched:
+        raise AcceptanceContractError("launch_message_missing", surface=surface)
+    if len(matched) != 1:
+        raise AcceptanceContractError("launch_message_ambiguous", surface=surface)
+    return matched.pop()
+
+
 def create_and_bind(
     client: CommandClient,
     *,
@@ -96,8 +141,11 @@ def create_and_bind(
         or launch.get("native_session_id") != registered
     ):
         raise AcceptanceContractError("launch_identity_unproven", surface=cell.surface)
-    message_id = require_text(
-        launch.get("message_id"), code="launch_message_missing", surface=cell.surface
+    message_id = _launch_message_id(
+        client,
+        launch_id=launch_id,
+        session_id=registered,
+        surface=cell.surface,
     )
     registration = validate_roster(project, cell, registered)
     return (

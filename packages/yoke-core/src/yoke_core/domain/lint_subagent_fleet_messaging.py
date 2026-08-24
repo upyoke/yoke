@@ -16,6 +16,7 @@ _BLOCKED_PATHS = (
     ("yoke", "session-control", "message", "send"),
     ("yoke", "session-control", "message", "acknowledge"),
     ("yoke", "session-control", "qualification", "open"),
+    ("yoke", "relay", "serve-once"),
     ("yoke", "messages", "acknowledge"),
     ("yoke", "messages", "ack"),
     ("yoke", "messages", "cancel"),

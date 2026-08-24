@@ -18,8 +18,7 @@ from yoke_contracts.session_control.wake_instruction import (
 )
 
 
-RELEASE_SHA = "a" * 40
-SERVER_BUILD = RELEASE_SHA
+RELEASE_SHA = SERVER_BUILD = "a" * 40
 
 
 class _ScenarioClient:
@@ -64,6 +63,16 @@ class _ScenarioClient:
             return self._create(argv)
         if argv[:4] == ["session-control", "launch", "get", "launch-1"]:
             return {"launch": self._launch(terminal=True)}
+        if argv[:2] == ["messages", "list"]:
+            recipient = {
+                **self._recipient(),
+                "resolution_evidence": {"anchor": "launch", "launch_id": "launch-1"},
+            }
+            return {
+                "messages": [
+                    {"message_id": "launch-message", "recipients": [recipient]}
+                ]
+            }
         if argv[:2] == ["say", "--preview"]:
             return {"recipient_count": 1, "recipients": [self._recipient()]}
         if argv[:2] == ["say", "--stdin"]:
@@ -117,16 +126,12 @@ class _ScenarioClient:
         if argv and "--session" in argv:
             requested = argv[argv.index("--session") + 1]
             rows = [row for row in rows if row["session_id"] == requested]
-        return {
-            "fields": [],
-            "rows": rows,
-        }
+        return {"fields": [], "rows": rows}
 
     def _launch(self, *, terminal: bool) -> dict[str, Any]:
         registered = None if self.registration_missing else self.session_id
         return {
             "launch_id": "launch-1",
-            "message_id": "launch-message",
             "state": "succeeded" if terminal else "queued",
             "result_code": "registered_and_injected" if terminal else None,
             "requested_surface": self.cell.surface,
@@ -142,10 +147,8 @@ class _ScenarioClient:
             }
         self.create_count += 1
         self.message_states.setdefault("launch-message", (False, 1))
-        return {
-            "launch": self._launch(terminal=False),
-            "deduplicated": self.create_count > 1,
-        }
+        deduplicated = self.create_count > 1
+        return {"launch": self._launch(terminal=False), "deduplicated": deduplicated}
 
     def _send(self, argv: list[str]) -> dict[str, Any]:
         key = argv[argv.index("--idempotency-key") + 1]
@@ -228,10 +231,8 @@ class _ScenarioClient:
     def simulate_target_tool_hook(self) -> None:
         """Advance one initial receipt only at an eligible target hook boundary."""
         for message_id in ("launch-message", "initial-message"):
-            if self.message_states.get(message_id) == (
-                False,
-                1,
-            ) and self.message_reads.get(message_id, 0):
+            ready = self.message_states.get(message_id) == (False, 1)
+            if ready and self.message_reads.get(message_id, 0):
                 self.message_states[message_id] = (True, 2)
                 self.tool_hook_events.append(message_id)
                 return

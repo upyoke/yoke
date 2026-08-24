@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.session_control.teaching import SUBAGENT_FLEET_GUIDANCE
 from yoke_core.domain.agents_render import (
     AGENTS,
     CANONICAL_DIR,
@@ -15,6 +16,7 @@ from yoke_core.domain.agents_render import (
 )
 from yoke_core.domain.agents_render_conditional import CLAUDE_HARNESS_ID
 from yoke_core.domain.agents_render_references import (
+    SUBAGENT_FLEET_GUIDANCE_MARKER,
     conditional_reference_paths,
     reference_output_path,
     render_reference_text,
@@ -86,3 +88,24 @@ def test_rendered_adapters_do_not_reference_canonical_source_tree(
         assert "runtime/agents/" not in text, (
             f"{path.relative_to(repo_root)} names the source-only agent tree"
         )
+
+
+@pytest.mark.parametrize("role", ("product-manager", "product-designer"))
+def test_non_bash_agents_receive_read_only_fleet_guidance(
+    repo_root: Path,
+    role: str,
+) -> None:
+    canonical = (repo_root / CANONICAL_DIR / f"{role}.md").read_text(encoding="utf-8")
+    assert canonical.count(SUBAGENT_FLEET_GUIDANCE_MARKER) == 1
+
+    adapters = (
+        repo_root / CLAUDE_OUT_DIR / f"yoke-{role}.md",
+        repo_root / CODEX_OUT_DIR / f"yoke-{role}.toml",
+        repo_root / CURSOR_OUT_DIR / f"yoke-{role}.md",
+    )
+    for path in adapters:
+        rendered = path.read_text(encoding="utf-8")
+        assert SUBAGENT_FLEET_GUIDANCE in rendered
+        assert SUBAGENT_FLEET_GUIDANCE_MARKER not in rendered
+        assert "yoke say --session" not in rendered
+        assert "yoke messages acknowledge" not in rendered

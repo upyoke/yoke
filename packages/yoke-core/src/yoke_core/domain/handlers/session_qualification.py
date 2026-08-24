@@ -10,6 +10,8 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationOpenRequest,
 )
+from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
+from yoke_contracts.session_execution import SUBAGENT_EXECUTION_PAYLOAD_KEY
 
 
 def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome:
@@ -22,6 +24,12 @@ def _failure(code: str, message: str, path: str = "$.payload") -> HandlerOutcome
 def handle_qualification_open(request: FunctionCallRequest) -> HandlerOutcome:
     if request.target.kind != "global":
         return _failure("target_invalid", "qualification requires a global target")
+    if request.options.get(SUBAGENT_EXECUTION_PAYLOAD_KEY) is True:
+        return _failure(
+            "subagent_qualification_forbidden",
+            FLEET_OWNERSHIP_GUIDANCE,
+            f"$.options.{SUBAGENT_EXECUTION_PAYLOAD_KEY}",
+        )
     try:
         payload = PrivateRouteQualificationOpenRequest.model_validate(
             request.payload or {}
