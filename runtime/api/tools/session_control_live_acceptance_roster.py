@@ -9,6 +9,7 @@ from runtime.api.tools.session_control_live_acceptance_client import CommandClie
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
+    acceptance_operation,
 )
 
 
@@ -113,7 +114,7 @@ def validated_registration(
     _validate_target_state(row, cell=cell)
     liveness = row.get("liveness")
     if liveness == "ended" and allow_ended:
-        _validate_ended_cli_shape(row, cell=cell)
+        _validate_ended_waiting_shape(row, cell=cell)
     elif liveness != "active":
         raise AcceptanceContractError("registration_not_active", surface=cell.surface)
     _validate_broker(client, project=project, cell=cell, target=row)
@@ -137,10 +138,16 @@ def _validate_target_state(row: dict[str, Any], *, cell: AcceptanceCell) -> None
         raise AcceptanceContractError("registration_item_present", surface=cell.surface)
 
 
-def _validate_ended_cli_shape(row: dict[str, Any], *, cell: AcceptanceCell) -> None:
-    if not cell.surface.endswith("-cli"):
+def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) -> None:
+    desktop_active_proof = (
+        acceptance_operation(cell.surface) == "message_active"
+        and cell.mode == "identify"
+        and cell.acceptance_role == "surface"
+        and cell.route == "none"
+    )
+    if not cell.surface.endswith("-cli") and not desktop_active_proof:
         raise AcceptanceContractError(
-            "ended_waiting_cli_required", surface=cell.surface
+            "ended_waiting_shape_invalid", surface=cell.surface
         )
     if registration_mode(row, cell=cell) != "wait":
         raise AcceptanceContractError(
@@ -155,7 +162,7 @@ def _validate_ended_cli_shape(row: dict[str, Any], *, cell: AcceptanceCell) -> N
 def waiting_registration_ready(
     row: dict[str, Any], *, cell: AcceptanceCell, baseline_mode: str
 ) -> bool:
-    """Accept the narrow CLI Stop terminal shape after an active observation."""
+    """Accept a route-specific Stop terminal shape after an active observation."""
     _validate_target_state(row, cell=cell)
     if registration_mode(row, cell=cell) != baseline_mode:
         raise AcceptanceContractError("waiting_mode_drift", surface=cell.surface)
@@ -163,7 +170,7 @@ def waiting_registration_ready(
         return row.get("turn_posture") == "waiting"
     if row.get("liveness") != "ended":
         raise AcceptanceContractError("waiting_liveness_invalid", surface=cell.surface)
-    _validate_ended_cli_shape(row, cell=cell)
+    _validate_ended_waiting_shape(row, cell=cell)
     return row.get("turn_posture") == "waiting"
 
 
@@ -197,6 +204,14 @@ def wait_for_waiting_registration(
             ):
                 raise AcceptanceContractError(
                     "waiting_route_missing", surface=cell.surface
+                )
+            if (
+                row.get("liveness") == "ended"
+                and cell.route == "none"
+                and routing.get("wake_interface") != "none"
+            ):
+                raise AcceptanceContractError(
+                    "waiting_wake_interface_mismatch", surface=cell.surface
                 )
             available = routing.get("wake_available") is True
             availability_relaxed = (

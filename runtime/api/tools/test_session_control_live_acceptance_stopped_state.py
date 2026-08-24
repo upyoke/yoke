@@ -29,6 +29,19 @@ def _cli_cell() -> AcceptanceCell:
     )
 
 
+def _desktop_cell(**overrides: Any) -> AcceptanceCell:
+    values = {
+        "surface": "claude-desktop",
+        "expected_version": "1.34493.1",
+        "mode": "identify",
+        "session_id": "stopped-desktop-session",
+        "acceptance_role": "surface",
+        "wake_route": "none",
+    }
+    values.update(overrides)
+    return AcceptanceCell(**values)
+
+
 class _StopRaceClient(_ScenarioClient):
     def __init__(self, cell: AcceptanceCell) -> None:
         super().__init__(cell)
@@ -85,6 +98,62 @@ def _ended_row(**overrides: Any) -> dict[str, Any]:
     return row
 
 
+class _AckThenEndedDesktopClient(_ScenarioClient):
+    def __init__(
+        self,
+        cell: AcceptanceCell,
+        *,
+        row_overrides: dict[str, Any] | None = None,
+        routing_overrides: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(cell)
+        self.row_overrides = row_overrides or {}
+        self.routing_overrides = routing_overrides or {}
+        self.ended_before_initial_ack = False
+
+    def _roster(self, argv: list[str] | None = None) -> dict[str, Any]:
+        result = super()._roster(argv)
+        initial_acknowledged = self.message_states.get("initial-message") == (True, 2)
+        for row in result["rows"]:
+            if row["session_id"] != self.session_id:
+                continue
+            if not initial_acknowledged:
+                self.ended_before_initial_ack |= row["liveness"] == "ended"
+                continue
+            row.update(_ended_row(**self.row_overrides))
+            row["messageability"].update(
+                {
+                    "wake_interface": "none",
+                    "wake_operation": "message_stopped",
+                    "wake_available": False,
+                    **self.routing_overrides,
+                }
+            )
+        return result
+
+
+def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
+    cell = _desktop_cell()
+    client = _AckThenEndedDesktopClient(cell)
+
+    report = _driver(client)._run_cell(
+        "yoke",
+        cell,
+        run_id="release-desktop-active-ended",
+        timeout=10,
+        poll=1,
+        unsupported_observation=2,
+    )
+
+    assert client.ended_before_initial_ack is False
+    assert report["initial_message"]["state"] == "acknowledged"
+    assert report["stopped_liveness"] == "ended"
+    assert report["stopped_session_mode"] == "wait"
+    assert report["turn_posture"] == "waiting"
+    assert report["wake_outcome"] == "expected_pending"
+    assert report["wake_message"]["native_wake"]["route"] == "none"
+
+
 @pytest.mark.parametrize(
     ("cell", "row", "code"),
     (
@@ -96,7 +165,26 @@ def _ended_row(**overrides: Any) -> dict[str, Any]:
                 session_id="desktop-session",
             ),
             _ended_row(),
-            "ended_waiting_cli_required",
+            "ended_waiting_shape_invalid",
+        ),
+        (
+            _desktop_cell(mode="create"),
+            _ended_row(),
+            "ended_waiting_shape_invalid",
+        ),
+        (
+            _desktop_cell(wake_route="direct"),
+            _ended_row(),
+            "ended_waiting_shape_invalid",
+        ),
+        (
+            _desktop_cell(
+                acceptance_role="broker",
+                wake_route="broker",
+                broker_session_id="broker-session",
+            ),
+            _ended_row(),
+            "ended_waiting_shape_invalid",
         ),
         (
             _cli_cell(),
@@ -158,7 +246,58 @@ def test_create_binding_rejects_fast_stopped_desktop() -> None:
             poll=1,
             unsupported_observation=2,
         )
-    assert failure.value.code == "ended_waiting_cli_required"
+    assert failure.value.code == "ended_waiting_shape_invalid"
+
+
+@pytest.mark.parametrize(
+    ("routing_overrides", "code"),
+    (
+        ({"wake_operation": "message_idle"}, "waiting_route_missing"),
+        ({"wake_available": True}, "waiting_wake_mismatch"),
+        ({"wake_interface": "supported"}, "waiting_wake_interface_mismatch"),
+    ),
+)
+def test_desktop_ended_waiting_refuses_wake_route_drift(
+    routing_overrides: dict[str, Any], code: str
+) -> None:
+    cell = _desktop_cell()
+    with pytest.raises(AcceptanceContractError) as failure:
+        _driver(
+            _AckThenEndedDesktopClient(cell, routing_overrides=routing_overrides)
+        )._run_cell(
+            "yoke",
+            cell,
+            run_id="release-desktop-ended-route-drift",
+            timeout=10,
+            poll=1,
+            unsupported_observation=2,
+        )
+    assert failure.value.code == code
+
+
+@pytest.mark.parametrize(
+    ("row_overrides", "code"),
+    (
+        ({"claims": [{"target": "YOK-1"}]}, "registration_claims_present"),
+        ({"current_item": "YOK-1"}, "registration_item_present"),
+    ),
+)
+def test_desktop_ended_waiting_refuses_holdings(
+    row_overrides: dict[str, Any], code: str
+) -> None:
+    cell = _desktop_cell()
+    with pytest.raises(AcceptanceContractError) as failure:
+        _driver(
+            _AckThenEndedDesktopClient(cell, row_overrides=row_overrides)
+        )._run_cell(
+            "yoke",
+            cell,
+            run_id="release-desktop-ended-holdings",
+            timeout=10,
+            poll=1,
+            unsupported_observation=2,
+        )
+    assert failure.value.code == code
 
 
 class _UnsafeActiveClient(_ScenarioClient):
