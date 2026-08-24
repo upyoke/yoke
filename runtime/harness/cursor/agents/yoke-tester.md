@@ -239,6 +239,12 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
+- _Wait on a commit's CI runs with watcher (main session)_
+  - `yoke watch ci-run
+# Watches the current checkout's resolved HEAD. Narrow it:
+yoke watch ci-run -- <branch-or-sha> --workflow <workflow-name>
+yoke watch ci-run --print-streaming-pair -- HEAD`
+  - watch_ci_run owns the CI filter; never hand-author a polling filter for a workflow run. Two matching mistakes make a hand-authored one run silently past the conclusion it is waiting for: comparing a hash string-padded from an abbreviated SHA instead of resolved with `git rev-parse <ref>^{commit}`, and keying on the run's display title instead of the workflow's name. The wrapper resolves the ref, matches on the exact head SHA, matches --workflow against the workflow name, and emits every state change, every terminal conclusion, and the no-run-found and still-running deadlines. Exit codes: 0 all succeeded, 1 a run concluded otherwise, 2 the ref does not resolve, 3 still running at the deadline, 4 project GitHub auth failure, 5 no run appeared. Runs read through the project's GitHub App auth on the shared CI poll schedule.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
   - `yoke watch pytest --raw-capture <PATH> -- <project-test-path>/test_my_module.py -q
 tail -80 <PATH>`
