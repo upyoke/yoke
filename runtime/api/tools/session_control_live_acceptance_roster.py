@@ -147,7 +147,7 @@ def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) 
     )
     if not cell.surface.endswith("-cli") and not desktop_active_proof:
         raise AcceptanceContractError(
-            "ended_waiting_shape_invalid", surface=cell.surface
+            "ended_waiting_cli_required", surface=cell.surface
         )
     if registration_mode(row, cell=cell) != "wait":
         raise AcceptanceContractError(

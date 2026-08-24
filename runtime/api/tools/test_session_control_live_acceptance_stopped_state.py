@@ -165,17 +165,17 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
                 session_id="desktop-session",
             ),
             _ended_row(),
-            "ended_waiting_shape_invalid",
+            "ended_waiting_cli_required",
         ),
         (
             _desktop_cell(mode="create"),
             _ended_row(),
-            "ended_waiting_shape_invalid",
+            "ended_waiting_cli_required",
         ),
         (
             _desktop_cell(wake_route="direct"),
             _ended_row(),
-            "ended_waiting_shape_invalid",
+            "ended_waiting_cli_required",
         ),
         (
             _desktop_cell(
@@ -184,7 +184,7 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
                 broker_session_id="broker-session",
             ),
             _ended_row(),
-            "ended_waiting_shape_invalid",
+            "ended_waiting_cli_required",
         ),
         (
             _cli_cell(),
@@ -246,7 +246,7 @@ def test_create_binding_rejects_fast_stopped_desktop() -> None:
             poll=1,
             unsupported_observation=2,
         )
-    assert failure.value.code == "ended_waiting_shape_invalid"
+    assert failure.value.code == "ended_waiting_cli_required"
 
 
 @pytest.mark.parametrize(
