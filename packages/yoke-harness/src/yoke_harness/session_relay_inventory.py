@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import plistlib
 import re
@@ -26,6 +27,9 @@ _APP_PROBES = {
     "claude-desktop": Path("/Applications/Claude.app/Contents/Info.plist"),
     "codex-desktop": Path("/Applications/ChatGPT.app/Contents/Info.plist"),
     "cursor-desktop": Path("/Applications/Cursor.app/Contents/Info.plist"),
+}
+_CLI_FALLBACKS = {
+    "codex": _APP_PROBES["codex-desktop"].parent / "Resources" / "codex",
 }
 
 
@@ -67,8 +71,22 @@ def _version_token(text: str) -> str | None:
     return matched.group(0).rstrip("-+._") if matched else None
 
 
+def _resolve_cli(command_name: str) -> str | None:
+    found = shutil.which(command_name)
+    if found:
+        return found
+    fallback = _CLI_FALLBACKS.get(command_name)
+    if (
+        fallback is not None
+        and fallback.is_file()
+        and os.access(fallback, os.X_OK)
+    ):
+        return str(fallback)
+    return None
+
+
 def probe_cli_version(command: tuple[str, ...]) -> str | None:
-    executable = shutil.which(command[0])
+    executable = _resolve_cli(command[0])
     if not executable:
         return None
     try:
