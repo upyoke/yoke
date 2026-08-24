@@ -16,7 +16,10 @@ def test_agents_testing_section_teaches_watcher_not_raw_pytest() -> None:
     assert IMPACTED_WATCH_PYTEST in text
     assert CANONICAL_WATCH_PYTEST in text
     assert "inject xdist `-n auto`" in text
-    assert "The canonical verification target for Yoke code is `python3 -m pytest" not in text
+    assert (
+        "The canonical verification target for Yoke code is `python3 -m pytest"
+        not in text
+    )
 
 
 def test_advance_summary_default_uses_watcher() -> None:
@@ -48,10 +51,11 @@ def test_readiness_repair_verification_defers_to_project_command() -> None:
 
 
 def test_db_reference_rehearsal_commands_use_watcher() -> None:
-    text = _read(REPO / ".yoke" / "docs" / "reference" / "db-reference" / "items-and-epics.md")
+    text = _read(
+        REPO / ".yoke" / "docs" / "reference" / "db-reference" / "items-and-epics.md"
+    )
     assert (
-        '"rehearsal_commands": '
-        '["yoke watch pytest -- <project-test-path>"]'
+        '"rehearsal_commands": ["yoke watch pytest -- <project-test-path>"]'
     ) in text
     assert '"rehearsal_commands": ["python3 -m pytest <project-test-path>"]' not in text
 
@@ -65,8 +69,13 @@ def test_api_readmes_use_watcher_for_test_recipes() -> None:
 
 def test_pg_cluster_example_uses_watcher() -> None:
     text = _read(
-        REPO / "packages" / "yoke-core" / "src"
-        / "yoke_core" / "tools" / "pg_testcluster.py"
+        REPO
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "tools"
+        / "pg_testcluster.py"
     )
     assert "yoke watch pytest -- runtime/api/" in text
     assert "python3 -m pytest runtime/api/ -q" not in text
@@ -74,8 +83,13 @@ def test_pg_cluster_example_uses_watcher() -> None:
 
 def test_watch_pytest_help_teaches_parallel_default() -> None:
     text = _read(
-        REPO / "packages" / "yoke-core" / "src"
-        / "yoke_core" / "tools" / "watch_pytest.py"
+        REPO
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "tools"
+        / "watch_pytest.py"
     )
     help_text = text.split("from __future__", 1)[0]
     assert "Parallel-by-default: ``-n auto``" in help_text
@@ -88,12 +102,15 @@ def test_live_verification_teaching_uses_supported_sequential_and_lint_forms() -
         REPO / "AGENTS.md",
         REPO / "CONTRIBUTING.md",
         REPO / "runtime" / "harness" / "claude" / "rules" / "session.md",
-        REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "domain"
+        REPO
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "domain"
         / "schema_api_context_commands_watchers.py",
     ):
         text = _read(path)
         assert "--no-parallel" not in text
-    assert "uv run --frozen ruff check <changed Python paths>" in _read(
-        REPO / "AGENTS.md"
-    )
+    assert "yoke dev ruff-changed --base <ref>" in _read(REPO / "AGENTS.md")
     assert '"ruff==0.15.20"' in _read(REPO / "pyproject.toml")

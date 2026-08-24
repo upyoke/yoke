@@ -21,7 +21,8 @@ class TestOperationEntryValidation:
     def test_invalid_status_rejected(self) -> None:
         with pytest.raises(ValueError):
             inv.OperationEntry(
-                shell_form="x", family="y",
+                shell_form="x",
+                family="y",
                 status="not-a-status",
                 reason=inv.REASON_WRAPPED_BY_YOKE_CLI,
             )
@@ -29,14 +30,17 @@ class TestOperationEntryValidation:
     def test_invalid_reason_rejected(self) -> None:
         with pytest.raises(ValueError):
             inv.OperationEntry(
-                shell_form="x", family="y",
-                status=inv.WRAPPED, reason="not-a-reason",
+                shell_form="x",
+                family="y",
+                status=inv.WRAPPED,
+                reason="not-a-reason",
             )
 
     def test_pending_without_function_id_rejected(self) -> None:
         with pytest.raises(ValueError):
             inv.OperationEntry(
-                shell_form="x", family="y",
+                shell_form="x",
+                family="y",
                 status=inv.PENDING,
                 reason=inv.REASON_NO_HANDLER_REGISTERED,
             )
@@ -44,7 +48,8 @@ class TestOperationEntryValidation:
     def test_wrapped_with_function_id_rejected(self) -> None:
         with pytest.raises(ValueError):
             inv.OperationEntry(
-                shell_form="x", family="y",
+                shell_form="x",
+                family="y",
                 status=inv.WRAPPED,
                 reason=inv.REASON_WRAPPED_BY_YOKE_CLI,
                 proposed_function_id="foo.bar",
@@ -53,7 +58,8 @@ class TestOperationEntryValidation:
     def test_permanent_with_function_id_rejected(self) -> None:
         with pytest.raises(ValueError):
             inv.OperationEntry(
-                shell_form="x", family="y",
+                shell_form="x",
+                family="y",
                 status=inv.PERMANENT,
                 reason=inv.REASON_OPERATOR_BREAK_GLASS,
                 proposed_function_id="foo.bar",
@@ -114,11 +120,10 @@ class TestRegistryShape:
             assert entry.proposed_function_id is None
 
     def test_tool_cli_rows_are_first_class_local_adapters(self) -> None:
-        assert {
-            entry.shell_form for entry in inv.by_status(inv.TOOL_CLI)
-        } == {
+        assert {entry.shell_form for entry in inv.by_status(inv.TOOL_CLI)} == {
             "yoke advance implementation-entry",
             "yoke dev run",
+            "yoke dev ruff-changed",
             "yoke watch pytest",
             "yoke watch doctor",
             "yoke watch merge",
@@ -160,7 +165,8 @@ class TestAccessors:
         ],
     )
     def test_core_launcher_rows_are_permanent_tool_shaped(
-        self, shell_form: str,
+        self,
+        shell_form: str,
     ) -> None:
         entry = inv.lookup(shell_form)
         assert entry is not None
@@ -179,7 +185,8 @@ class TestAccessors:
         ],
     )
     def test_session_orchestration_rows_are_wrapped(
-        self, shell_form: str,
+        self,
+        shell_form: str,
     ) -> None:
         entry = inv.lookup(shell_form)
         assert entry is not None
@@ -195,18 +202,19 @@ class TestAccessors:
         assert inv.is_wrapped("yoke db-claim prose-check") is True
 
     def test_is_wrapped_false_for_permanent(self) -> None:
-        assert inv.is_wrapped(
-            "python3 -m yoke_core.api.service_client coordination-lease-acquire"
-        ) is False
+        assert (
+            inv.is_wrapped(
+                "python3 -m yoke_core.api.service_client coordination-lease-acquire"
+            )
+            is False
+        )
         worktree = inv.lookup("python3 -m yoke_core.domain.worktree create")
         assert worktree is not None
         assert worktree.status == inv.PERMANENT
         assert worktree.reason == inv.REASON_TOOL_SHAPED
 
     def test_is_wrapped_false_for_pending(self) -> None:
-        assert inv.is_wrapped(
-            "python3 -m yoke_core.cli.db_router events list"
-        ) is False
+        assert inv.is_wrapped("python3 -m yoke_core.cli.db_router events list") is False
 
     def test_is_wrapped_false_for_unknown(self) -> None:
         assert inv.is_wrapped("not real") is False
@@ -268,8 +276,7 @@ class TestRegistryCoverage:
             shell_form = "yoke " + " ".join(cli_tokens)
             entry = inv.lookup(shell_form)
             assert entry is not None, (
-                f"registered subcommand {shell_form!r} missing from "
-                "operation tracker"
+                f"registered subcommand {shell_form!r} missing from operation tracker"
             )
             if entry.status == inv.PERMANENT:
                 assert is_explicit_client_local(function_id)
@@ -282,6 +289,5 @@ class TestRegistryCoverage:
             shell_form = "yoke " + " ".join(cli_tokens)
             entry = inv.lookup(shell_form)
             assert entry is not None and entry.status == inv.WRAPPED, (
-                f"registered alias {shell_form!r} missing from "
-                "wrapped tracker entries"
+                f"registered alias {shell_form!r} missing from wrapped tracker entries"
             )

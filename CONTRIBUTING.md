@@ -45,9 +45,9 @@ yoke watch pytest -- runtime/api/ runtime/harness/ tests/
 - For a focused run, pass specific file or directory paths after `--`.
 - Tests run in parallel by default (pytest-xdist `-n auto`); pass `-n 0` after
   `--` for sequential order-sensitive debugging.
-- Ruff is locked with the dev environment. Lint each changed Python path with
-  `uv run --frozen ruff check <changed Python paths>`; do not assume a
-  checkout-local `.venv/bin/ruff` binary exists.
+- Ruff is locked with the dev environment. Run
+  `yoke dev ruff-changed --base <ref>` from a session that owns a source lane;
+  add `--format-check` to verify formatting too.
 - The suite starts its own disposable Postgres cluster on first use; no
   database setup is required beyond having the Postgres server binaries
   (`initdb`, `pg_ctl`) on `PATH` — e.g. `brew install postgresql@17` on
