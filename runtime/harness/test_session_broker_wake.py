@@ -47,8 +47,7 @@ class FakePort:
             attempt_id="attempt-1",
             lease_id=BROKER_LEASE_ID,
             command=(
-                "yoke relay serve-once --broker "
-                f"--broker-lease {BROKER_LEASE_ID}"
+                f"yoke relay serve-once --broker --broker-lease {BROKER_LEASE_ID}"
             ),
         )
 
@@ -82,8 +81,7 @@ def test_hook_renders_only_the_one_hop_command_and_settles_after_output(
 
     assert code == 0
     assert (
-        f"yoke relay serve-once --broker --broker-lease {BROKER_LEASE_ID}"
-        in rendered
+        f"yoke relay serve-once --broker --broker-lease {BROKER_LEASE_ID}" in rendered
     )
     assert "Do not forward or broker" in rendered
     assert "message body" in rendered
@@ -180,9 +178,7 @@ def test_sibling_denial_reports_dropped_broker_instruction(monkeypatch) -> None:
     )
 
     assert "YOKE_BROKER_WAKE_LEASE" not in rendered
-    assert port.completed == [
-        (BROKER_LEASE_ID, False, "dropped_by_sibling_denial")
-    ]
+    assert port.completed == [(BROKER_LEASE_ID, False, "dropped_by_sibling_denial")]
 
 
 def _inventory() -> RelayInventory:
