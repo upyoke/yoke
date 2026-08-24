@@ -43,6 +43,64 @@ def focus_fallback_item_id(
     return normalize_claim_item_id(str(row["item_id"]))
 
 
+def attribution_takes_focus(
+    conn: Any,
+    session_id: str,
+    item_id: str,
+) -> bool:
+    """Whether touching ``item_id`` may become this session's focus.
+
+    Filing or updating an item is attribution, not a claim on it. It may
+    take the focus slot only when nothing better holds it: the session
+    already claims this item, or it holds no active item claim at all.
+    A session working claimed work keeps pointing at that work, so the
+    roster never renders a filed item as the item this session is on.
+    """
+    claimed = {
+        normalize_claim_item_id(str(row["item_id"]))
+        for row in conn.execute(
+            "SELECT item_id FROM work_claims "
+            f"WHERE session_id = {_p(conn)} AND target_kind = 'item' "
+            "AND released_at IS NULL AND item_id IS NOT NULL",
+            (session_id,),
+        ).fetchall()
+    }
+    return not claimed or normalize_claim_item_id(str(item_id)) in claimed
+
+
+def record_recent_item(
+    conn: Any,
+    session_id: str,
+    item_id: str,
+    *,
+    commit: bool = True,
+) -> None:
+    """Record an item this session touched without taking its focus.
+
+    The attribution counterpart to :func:`set_current_item` for a
+    session whose focus belongs to claimed work. Silently no-ops if the
+    session is ended.
+    """
+    item_id = normalize_session_item_id(item_id)
+    row = conn.execute(
+        "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
+    if row[0] is not None:
+        return
+    conn.execute(
+        "UPDATE harness_sessions SET "
+        "recent_item_id = %s, recent_item_status = NULL, "
+        "recent_item_recorded_at = %s "
+        "WHERE session_id = %s",
+        (item_id, _now_iso(), session_id),
+    )
+    if commit:
+        conn.commit()
+
+
 def set_current_item(
     conn: Any,
     session_id: str,
@@ -207,9 +265,11 @@ def release_current_item_focus(
 
 
 __all__ = [
+    "attribution_takes_focus",
     "clear_current_item",
     "focus_fallback_item_id",
     "get_session_attribution",
+    "record_recent_item",
     "release_current_item_focus",
     "set_current_item",
 ]

@@ -17,8 +17,10 @@ from unittest import mock
 import pytest
 
 from runtime.api.backlog_mutations_test_helpers import (
+    _conn,
     _item_field,
     _patch_externals,
+    _seed_claim,
     _seed_session,
     _session_attribution,
     insert_item,
@@ -279,3 +281,30 @@ class TestExecuteCreate:
         attribution = _session_attribution(tmp_db)
         assert attribution["current_item_id"] == str(result["item_id"])
         assert attribution["recent_item_id"] is None
+
+    def test_create_while_claimed_records_recent_and_keeps_focus(self, tmp_db):  # noqa: F811
+        """Filing an item never displaces the work a claim holds."""
+        from yoke_core.domain.sessions import set_current_item
+
+        _seed_session(tmp_db)
+        _seed_claim(tmp_db, item_id="10")
+        conn = _conn(tmp_db)
+        set_current_item(conn, "sess-1", "10")
+        conn.close()
+        out = io.StringIO()
+        with _patch_externals(), \
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+             ):
+            result = backlog.execute_create(
+                title="Filed while claimed",
+                workflow="issue",
+                session_id="sess-1",
+                out=out,
+            )
+        assert result["success"] is True
+        assert str(result["item_id"]) != "10"
+        attribution = _session_attribution(tmp_db)
+        assert attribution["current_item_id"] == "10"
+        assert attribution["recent_item_id"] == str(result["item_id"])

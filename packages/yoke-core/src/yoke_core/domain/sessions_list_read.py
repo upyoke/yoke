@@ -222,9 +222,14 @@ def list_sessions(
                 for claim in held_roles
                 if claim.get("target_kind") == "item" and claim.get("lane_role")
             ]
+            # The lane role of the session's own claim on its current
+            # item, or "item" when it holds that claim without a lane.
+            # A session whose focus is mere attribution — an item it
+            # filed or updated but holds no claim on — has no role at
+            # all, so readers never dress attribution as a worktree lane.
             work_role = next(iter(task_roles or item_roles), None)
-            if not work_role and current_item_display:
-                work_role = "item" if owns_current_item else "attached"
+            if not work_role and owns_current_item:
+                work_role = "item"
             executor_surface = row.get("executor_surface")
             presentation = session_presentation(conn, row)
             result.append(

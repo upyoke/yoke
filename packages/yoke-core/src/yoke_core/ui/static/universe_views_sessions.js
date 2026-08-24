@@ -81,7 +81,9 @@ function appendAge(documentNode, body, row) {
     lead = "claim held ";
     timestamp = row.claim_started_at || row.activity_at;
   } else if (row.current_item) {
-    lead = "worktree attached · active ";
+    lead = row.work_role
+      ? "worktree attached · active "
+      : "attributed · active ";
   }
   age.appendChild(el(documentNode, "span", "session-age-prefix", lead));
   age.appendChild(relativeTime(documentNode, timestamp));
