@@ -177,7 +177,13 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "session-lock").map(
       (marker) => [marker.textContent, marker.className],
     ),
-    [["🔒", "session-lock"], ["↳", "session-lock attached"]],
+    [["🔒", "session-lock"]],
+  );
+  assert.deepEqual(
+    byClass(root, "session-attached").map(
+      (marker) => [marker.textContent, marker.className],
+    ),
+    [["↳", "session-attached"]],
   );
   assert.deepEqual(
     byClass(root, "session-work-role").map((node) => node.textContent),

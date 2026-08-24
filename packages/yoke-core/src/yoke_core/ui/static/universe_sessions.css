@@ -81,8 +81,11 @@
   color: var(--yoke-warn);
 }
 
-.universe-app-root .session-lock.attached {
-  color: var(--yoke-accent);
+/* Attached rows are not holds — the muted glyph keeps a worktree lane
+   or a filing attribution from reading as the lock a claim earns. */
+.universe-app-root .session-attached {
+  flex: 0 0 auto;
+  color: var(--yoke-muted);
 }
 
 .universe-app-root .session-item-link,

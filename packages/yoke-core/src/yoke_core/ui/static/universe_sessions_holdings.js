@@ -20,7 +20,10 @@ function claimHref(claim, row) {
 
 // One entry per thing the session holds: its work claims, its
 // coordination leases, and — when the session's focus names an item no
-// claim of theirs covers — the attached worktree lane it is watching.
+// claim of theirs covers — one attached row for that item. Only the
+// claim entries are holds; the attached row is a worktree lane the
+// session watches, or the bare attribution left by filing or updating
+// the item, and `work_role` is what tells those two apart.
 export function holdingEntries(row) {
   const entries = [];
   const claims = Array.isArray(row.claims) ? row.claims : [];
@@ -101,9 +104,12 @@ function appendLeaseEntry(documentNode, body, lease) {
 
 function appendAttachedEntry(documentNode, body, row) {
   const work = el(documentNode, "div", "session-work");
-  const marker = el(documentNode, "span", "session-lock attached", "↳");
-  marker.title =
-    "worktree lane on the owning session's item; holds no item claim";
+  const laneRole = row.work_role || "";
+  const marker = el(documentNode, "span", "session-attached", "↳");
+  marker.title = laneRole
+    ? "worktree lane on the owning session's item; holds no item claim"
+    : "attributed to this session by filing or updating it; "
+      + "no claim and no worktree lane on it";
   work.appendChild(marker);
   const href = itemDrillInHref({
     projectId: row.current_item_project_id,
@@ -126,7 +132,7 @@ function appendAttachedEntry(documentNode, body, row) {
     documentNode,
     "span",
     "session-work-role",
-    row.work_role || "attached",
+    laneRole || "attached",
   ));
   body.appendChild(work);
 }

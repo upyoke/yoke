@@ -131,6 +131,67 @@ test("Sessions lists every work claim and coordination lease a session holds", a
   mounted.unmount();
 });
 
+test("Sessions separates a filed item's attribution from the claim it holds", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  const root = documentNode.createElement("div");
+  const mounted = mountUniverseApp(root, {
+    client: sessionsClient([
+      {
+        session_id: "filer-1", liveness: "active",
+        execution_lane: "DARIUS", mode: "wait", executor: "claude-code",
+        executor_surface: "claude-desktop", model: "claude-opus-4-8",
+        executor_mark: "A", executor_class_name: "h-claude",
+        actor_id: 2, actor_kind: "human", actor_label: "Ben",
+        project_id: 1, project: "yoke",
+        // Focus names an item this session filed; its only claim is
+        // elsewhere, so the roster owes an attribution row, not a lock.
+        current_item: "YOK-4102",
+        current_item_project_id: 1,
+        current_item_project_sequence: 4102,
+        current_item_title: "Filed while claimed",
+        owns_current_item: false, work_role: null,
+        claim_started_at: null,
+        activity_at: "2026-07-26T12:04:00Z",
+        claims: [{ target_kind: "item", target: "YOK-4090" }],
+        coordination_leases: [],
+      },
+    ]),
+    capabilities: { data: { portability: { mode: "hosted" } } },
+  });
+  await settle();
+
+  assert.deepEqual(
+    byClass(root, "session-lock").map((node) => node.textContent),
+    ["🔒"],
+  );
+  const attributed = byClass(root, "session-attached");
+  assert.deepEqual(attributed.map((node) => node.textContent), ["↳"]);
+  assert.match(attributed[0].title, /^attributed to this session/);
+  assert.deepEqual(
+    byClass(root, "session-work-role").map((node) => node.textContent),
+    ["item", "attached"],
+  );
+  const text = visibleText(root);
+  assert.ok(!text.includes("worktree attached"), "no worktree line");
+  assert.ok(text.includes("attributed · active"), "attributed age lead");
+  assert.deepEqual(
+    byClass(root, "sessions-stats")[0].children.map(
+      (tile) => [tile.children[0].textContent, tile.children[1].textContent],
+    ),
+    [
+      ["1", "sessions shown"],
+      ["1", "items claimed"],
+      ["0", "Blitz worktree lanes"],
+      ["1", "actor"],
+    ],
+  );
+  mounted.unmount();
+});
+
 test("Sessions lease keys share the mono typeface of item refs", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",

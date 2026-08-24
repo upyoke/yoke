@@ -77,6 +77,7 @@ from .sessions_queries_chain import (
 )
 from .sessions_render import (
     _resolve_effective_ttl,
+    attribution_takes_focus,
     clear_current_item,
     clear_terminal_item_focuses,
     end_session,
@@ -87,6 +88,7 @@ from .sessions_render import (
     handoff_claim,
     reclaim_stale_item_claims,
     reclaim_stale_session,
+    record_recent_item,
     release_claims_for_done_item,
     release_current_item_focus,
     set_current_item,
@@ -159,6 +161,8 @@ __all__ = [
     # Render
     "set_current_item",
     "get_session_attribution",
+    "attribution_takes_focus",
+    "record_recent_item",
     "clear_current_item",
     "focus_fallback_item_id",
     "release_current_item_focus",

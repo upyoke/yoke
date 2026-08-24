@@ -193,7 +193,9 @@ export function loadSessions(context, panel, getScope) {
             `${row.owns_current_item ? "🔒" : "↳"} ${row.current_item}`;
           claim.title = [
             row.current_item_title,
-            row.owns_current_item ? "owns claim" : row.work_role,
+            row.owns_current_item
+              ? "owns claim"
+              : (row.work_role || "attributed · no claim held"),
           ].filter(Boolean).join(" · ");
         } else {
           claim.textContent = "—";
