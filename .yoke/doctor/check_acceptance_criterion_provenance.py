@@ -72,6 +72,7 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
     _resolve_repo_root,
 )
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 _HC_SLUG = "acceptance-criterion-provenance"
 _HC_NAME = "No acceptance-criterion provenance in live prose"
@@ -161,7 +162,7 @@ def scan_acceptance_criterion_provenance(repo_root: Path) -> list[str]:
         root = repo_root / root_name
         if not root.is_dir():
             continue
-        for path in sorted(root.rglob("*")):
+        for path in sorted(iter_tree_files(root)):
             if path.suffix not in _SCAN_SUFFIXES or not path.is_file():
                 continue
             relative = path.relative_to(repo_root).as_posix()

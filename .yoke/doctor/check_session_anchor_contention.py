@@ -21,6 +21,7 @@ from yoke_core.domain import db_backend
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import list_directory
 
 HC_SLUG = "session-anchor-contention"
 HC_LABEL = "Contended session anchors heal once contention ends"
@@ -33,7 +34,9 @@ def _contended_records() -> List[dict]:
     directory = Path(anchors_dir())
     if not directory.is_dir():
         return records
-    for path in sorted(directory.glob("*.json")):
+    for path in list_directory(directory):
+        if path.suffix != ".json":
+            continue
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):

@@ -28,13 +28,13 @@ not the connection this guard is about.
 from __future__ import annotations
 
 import ast
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, List, Optional, Sequence
 
 from yoke_core.api.repo_root import find_repo_root
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES, iter_tree_files
 
 
 HC_NAME = "HC-ambient-authority-connection-guard"
@@ -49,9 +49,6 @@ GUARDED_FACTORY = "packages/yoke-core/src/yoke_core/domain/db_backend.py"
 #: Roots scanned for the composition. Tests are excluded: a test that opens a
 #: database directly is exercising the machinery, not shipping a call path.
 SCAN_ROOTS = ("packages", "runtime")
-
-#: Generated Python trees repeat package source and are not shipping call paths.
-GENERATED_TREE_NAMES = frozenset({"build", "dist"})
 
 DRIVER_MODULE = "psycopg"
 DRIVER_CONNECT = "connect"
@@ -166,30 +163,17 @@ def _scan_one(repo_root: Path, path: Path) -> List[UnguardedConnection]:
 
 
 def _scanned_files(repo_root: Path, roots: Sequence[str]) -> Iterator[Path]:
-    def tolerate_removed_directory(error: OSError) -> None:
-        if not isinstance(error, FileNotFoundError):
-            raise error
-
     for root in roots:
         base = repo_root / root
         if not base.is_dir():
             continue
-        for directory, dirnames, filenames in os.walk(
-            base, onerror=tolerate_removed_directory
-        ):
-            dirnames[:] = sorted(
-                name for name in dirnames if name not in GENERATED_TREE_NAMES
-            )
-            for filename in sorted(filenames):
-                if not filename.endswith(".py") or filename.startswith("test_"):
-                    continue
-                path = Path(directory) / filename
-                relative = path.relative_to(repo_root)
-                if GENERATED_TREE_NAMES.intersection(relative.parts):
-                    continue
-                if relative.as_posix() == GUARDED_FACTORY:
-                    continue
-                yield path
+        for path in iter_tree_files(base, "*.py", prune_dir_names=GENERATED_TREE_NAMES):
+            if path.name.startswith("test_"):
+                continue
+            relative = path.relative_to(repo_root)
+            if relative.as_posix() == GUARDED_FACTORY:
+                continue
+            yield path
 
 
 def scan_for_unguarded_connections(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from yoke_core.api.repo_root import find_repo_root
@@ -130,7 +131,7 @@ def test_directory_removed_during_scan_is_ignored(monkeypatch, tmp_path: Path) -
     )
     disappearing = tmp_path / "disappearing"
     disappearing.mkdir()
-    real_scandir = hc.os.scandir
+    real_scandir = os.scandir
 
     def remove_before_scan(path):
         if Path(path) == disappearing:
@@ -138,7 +139,7 @@ def test_directory_removed_during_scan_is_ignored(monkeypatch, tmp_path: Path) -
             raise FileNotFoundError(disappearing)
         return real_scandir(path)
 
-    monkeypatch.setattr(hc.os, "scandir", remove_before_scan)
+    monkeypatch.setattr(os, "scandir", remove_before_scan)
 
     findings = hc.scan_for_unguarded_connections(tmp_path, roots=["."])
     assert [finding.relpath for finding in findings] == ["stable.py"]

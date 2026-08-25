@@ -8,6 +8,7 @@ from typing import List
 
 from yoke_core.api.repo_root import find_repo_root
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 from yoke_project_checks._declare import self_project_checks
 
 
@@ -38,10 +39,9 @@ def scan_runtime_module_names(
     if not base.is_dir():
         return []
     findings: List[RuntimeModuleNameFinding] = []
-    for path in sorted(base.rglob("test_*.py")):
-        relative_to_runtime = path.relative_to(base)
-        if NON_RUNTIME_PARTS.intersection(relative_to_runtime.parts):
-            continue
+    for path in sorted(
+        iter_tree_files(base, "test_*.py", prune_dir_names=NON_RUNTIME_PARTS)
+    ):
         findings.append(
             RuntimeModuleNameFinding(
                 relpath=path.relative_to(repo_root).as_posix(),

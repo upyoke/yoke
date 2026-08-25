@@ -37,6 +37,7 @@ from typing import Any, Iterable, List, Optional, Set, Tuple
 from yoke_core.domain.events_tool_call_outcome import OUTCOMES
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 
 HC_ID = "event-outcome-enum-coverage"
@@ -70,7 +71,7 @@ def _iter_source_files(repo_root: Path) -> Iterable[Path]:
         base = repo_root / rel
         if not base.is_dir():
             continue
-        for path in sorted(base.rglob("*.py")):
+        for path in sorted(iter_tree_files(base, "*.py")):
             name = path.name
             if name.startswith("test_") or name.endswith("_test.py"):
                 continue
