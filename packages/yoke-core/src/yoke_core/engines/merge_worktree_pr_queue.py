@@ -19,7 +19,7 @@ asserting a verdict it never read.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS as ACTIONS_READ,
@@ -38,6 +38,9 @@ from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
 from yoke_core.engines.merge_worktree_pr_rest import (
     AuthResolutionFailed,
     resolve_auth,
+)
+from yoke_core.engines.merge_worktree_pr_graphql import (
+    graphql_with_auth as _graphql_with_auth,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
@@ -111,28 +114,16 @@ def graphql_with_auth(
     *,
     query: str,
     variables: dict[str, Any],
+    required_permissions: Mapping[str, str],
 ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """POST one GraphQL document; return ``(data, error_detail)``."""
-    try:
-        response = request_with_retry(
-            RestRequest(
-                method="POST",
-                path="/graphql",
-                body={"query": query, "variables": variables},
-                replay_safe=True,
-            ),
-            token=auth.token,
-        )
-    except RestTransportError as exc:
-        return None, f"github graphql transport failure: {exc}"
-    body = response.body if isinstance(response.body, dict) else {}
-    errors = body.get("errors") or []
-    if errors:
-        first = errors[0] if isinstance(errors[0], dict) else {}
-        message = str(first.get("message") or errors[0])
-        return None, f"github graphql refused: {message}"
-    data = body.get("data")
-    return (data if isinstance(data, dict) else {}), None
+    return _graphql_with_auth(
+        auth,
+        query=query,
+        variables=variables,
+        required_permissions=required_permissions,
+        request=request_with_retry,
+    )
 
 
 def _pr_node_id(
@@ -166,23 +157,18 @@ def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
     """
     auth, auth_err = resolve_auth_detail(ctx, PR_WRITE)
     if auth_err or auth is None:
-        return QueueEntryResult(
-            success=False, pr_num=pr_num, error_detail=auth_err
-        )
+        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err)
     node_id, node_err = _pr_node_id(auth, pr_num)
     if node_err:
-        return QueueEntryResult(
-            success=False, pr_num=pr_num, error_detail=node_err
-        )
+        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=node_err)
     _, mutation_err = graphql_with_auth(
         auth,
         query=_ENABLE_AUTO_MERGE_MUTATION,
         variables={"pullRequestId": node_id},
+        required_permissions=PR_WRITE,
     )
     if mutation_err:
-        return QueueEntryResult(
-            success=False, pr_num=pr_num, error_detail=mutation_err
-        )
+        return QueueEntryResult(success=False, pr_num=pr_num, error_detail=mutation_err)
     return QueueEntryResult(success=True, pr_num=pr_num)
 
 
@@ -244,6 +230,7 @@ def read_queue_members(
         auth,
         query=_MERGE_QUEUE_ENTRIES_QUERY,
         variables={"owner": owner, "name": name, "branch": base_branch},
+        required_permissions=PR_READ,
     )
     if err:
         return None, err
@@ -262,11 +249,13 @@ def read_queue_members(
         head = str(pr.get("headRefName") or "")
         if number is None or not head:
             continue
-        members.append(QueueMember(
-            pr_num=str(number),
-            head_ref=head,
-            state=str((node or {}).get("state") or ""),
-        ))
+        members.append(
+            QueueMember(
+                pr_num=str(number),
+                head_ref=head,
+                state=str((node or {}).get("state") or ""),
+            )
+        )
     return members, None
 
 

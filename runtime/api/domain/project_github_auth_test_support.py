@@ -124,6 +124,7 @@ def app_bound_db(db_path: str) -> str:
 def _minted(token: str = "ghs_install") -> InstallationToken:
     return InstallationToken(
         token=token,
+        issued_at=datetime(2026, 7, 9, 17, 0, tzinfo=timezone.utc),
         expires_at=datetime(2026, 7, 9, 18, 0, tzinfo=timezone.utc),
     )
 

@@ -56,6 +56,7 @@ class InstallationTokenCache:
         opener: Callable[..., Any] | None = None,
         timeout_seconds: float = 30.0,
         refresh_skew_seconds: int = 60,
+        force_refresh: bool = False,
     ) -> InstallationToken:
         selected_now = now or utc_now()
         selected_installation_id = _normalize_installation_id(installation_id)
@@ -71,7 +72,11 @@ class InstallationTokenCache:
             normalized=normalized,
         )
         cached = self._tokens.get(key)
-        if cached and cached.usable_at(selected_now, skew_seconds=refresh_skew_seconds):
+        if (
+            not force_refresh
+            and cached
+            and cached.usable_at(selected_now, skew_seconds=refresh_skew_seconds)
+        ):
             return cached
         minted = mint_installation_token(
             issuer=issuer,
@@ -134,10 +139,14 @@ def mint_installation_token(
         opener=opener,
         timeout_seconds=timeout_seconds,
     )
-    return _parse_installation_token(payload)
+    return _parse_installation_token(payload, issued_at=selected_now)
 
 
-def _parse_installation_token(payload: Mapping[str, Any]) -> InstallationToken:
+def _parse_installation_token(
+    payload: Mapping[str, Any],
+    *,
+    issued_at: datetime | None = None,
+) -> InstallationToken:
     raw_permissions = payload.get("permissions")
     permissions = (
         {str(key): str(value) for key, value in raw_permissions.items()}
@@ -152,6 +161,7 @@ def _parse_installation_token(payload: Mapping[str, Any]) -> InstallationToken:
     return InstallationToken(
         token=require_nonempty_string(payload.get("token"), "installation token"),
         expires_at=parse_github_datetime(payload.get("expires_at"), "expires_at"),
+        issued_at=issued_at,
         permissions=permissions,
         repository_selection=str(payload.get("repository_selection") or ""),
         repositories=repositories,
