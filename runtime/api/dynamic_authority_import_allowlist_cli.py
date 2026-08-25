@@ -30,6 +30,14 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
+        "yoke_core.domain.connected_env_readiness",
+    ): (
+        "machine_local_connection_custody",
+        "prove the selected control plane is reachable before the merge runs "
+        "under it, so a dead SSH forward refuses instead of failing mid-merge",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
         "yoke_core.domain.standalone_item_merge_recovery",
     ): (
         "client_local_execution",

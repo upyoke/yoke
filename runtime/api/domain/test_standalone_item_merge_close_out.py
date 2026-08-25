@@ -45,6 +45,8 @@ def _transition_calls(monkeypatch) -> list:
     monkeypatch.setattr(merge_cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(merge_evidence, "call_dispatcher", dispatch)
     monkeypatch.setattr(terminal, "call_dispatcher", dispatch)
+    # This session holds its claim; the recovery path has its own coverage.
+    monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
     return calls
 
 
