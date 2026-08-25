@@ -72,7 +72,10 @@ def _source_files(root: Path) -> Iterable[Path]:
     workflows = root / ".github/workflows"
     if workflows.is_dir():
         yield from sorted(
-            (*iter_tree_files(workflows, "*.yml"), *iter_tree_files(workflows, "*.yaml"))
+            (
+                *iter_tree_files(workflows, "*.yml"),
+                *iter_tree_files(workflows, "*.yaml"),
+            )
         )
 
 

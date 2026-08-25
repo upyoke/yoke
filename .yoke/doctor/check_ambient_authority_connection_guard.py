@@ -167,9 +167,7 @@ def _scanned_files(repo_root: Path, roots: Sequence[str]) -> Iterator[Path]:
         base = repo_root / root
         if not base.is_dir():
             continue
-        for path in iter_tree_files(
-            base, "*.py", prune_dir_names=GENERATED_TREE_NAMES
-        ):
+        for path in iter_tree_files(base, "*.py", prune_dir_names=GENERATED_TREE_NAMES):
             if path.name.startswith("test_"):
                 continue
             relative = path.relative_to(repo_root)
