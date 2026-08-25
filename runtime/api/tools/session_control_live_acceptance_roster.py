@@ -124,11 +124,27 @@ def validated_registration(
     _validate_target_state(row, cell=cell)
     liveness = row.get("liveness")
     if liveness == "ended" and allow_ended:
-        _validate_ended_waiting_shape(row, cell=cell)
+        _validate_ended_registration(row, cell=cell)
     elif liveness != "active":
         raise AcceptanceContractError("registration_not_active", surface=cell.surface)
     _validate_broker(client, project=project, cell=cell, target=row)
     return row
+
+
+def validated_stoppable_registration(
+    client: CommandClient,
+    project: str,
+    cell: AcceptanceCell,
+    session_id: str,
+) -> dict[str, Any]:
+    """Validate a launch registration that may already be waiting or ended."""
+    return validated_registration(
+        client,
+        project=project,
+        cell=cell,
+        session_id=session_id,
+        allow_ended=True,
+    )
 
 
 def registration_mode(row: dict[str, Any], *, cell: AcceptanceCell) -> str:
@@ -169,6 +185,47 @@ def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) 
         )
 
 
+def _wakeable_identify_baseline(cell: AcceptanceCell) -> bool:
+    return (
+        acceptance_operation(cell.surface) == "message_active"
+        and cell.mode == "identify"
+        and cell.acceptance_role == "surface"
+        and cell.route == "direct"
+    )
+
+
+def _validate_wakeable_ended_shape(
+    row: dict[str, Any], *, cell: AcceptanceCell
+) -> None:
+    if registration_mode(row, cell=cell) != "wait":
+        raise AcceptanceContractError(
+            "ended_waiting_mode_invalid", surface=cell.surface
+        )
+    if not row.get("ended_at"):
+        raise AcceptanceContractError(
+            "ended_waiting_stamp_missing", surface=cell.surface
+        )
+    routing = row.get("messageability")
+    if (
+        not isinstance(routing, dict)
+        or routing.get("wake_operation") != "message_stopped"
+    ):
+        raise AcceptanceContractError("waiting_route_missing", surface=cell.surface)
+    if routing.get("wake_interface") != "supported":
+        raise AcceptanceContractError(
+            "waiting_wake_interface_mismatch", surface=cell.surface
+        )
+    if routing.get("wake_available") is not True:
+        raise AcceptanceContractError("waiting_wake_mismatch", surface=cell.surface)
+
+
+def _validate_ended_registration(row: dict[str, Any], *, cell: AcceptanceCell) -> None:
+    if _wakeable_identify_baseline(cell):
+        _validate_wakeable_ended_shape(row, cell=cell)
+    else:
+        _validate_ended_waiting_shape(row, cell=cell)
+
+
 def waiting_registration_ready(
     row: dict[str, Any], *, cell: AcceptanceCell, baseline_mode: str
 ) -> bool:
@@ -180,7 +237,7 @@ def waiting_registration_ready(
         return row.get("turn_posture") == "waiting"
     if row.get("liveness") != "ended":
         raise AcceptanceContractError("waiting_liveness_invalid", surface=cell.surface)
-    _validate_ended_waiting_shape(row, cell=cell)
+    _validate_ended_registration(row, cell=cell)
     return row.get("turn_posture") == "waiting"
 
 
@@ -199,13 +256,7 @@ def wait_for_waiting_registration(
 ) -> dict[str, Any]:
     deadline = monotonic() + timeout
     while True:
-        row = validated_registration(
-            client,
-            project=project,
-            cell=cell,
-            session_id=session_id,
-            allow_ended=True,
-        )
+        row = validated_stoppable_registration(client, project, cell, session_id)
         if waiting_registration_ready(row, cell=cell, baseline_mode=baseline_mode):
             routing = row.get("messageability")
             if (
@@ -242,6 +293,7 @@ def wait_for_waiting_registration(
 __all__ = [
     "registration_mode",
     "validated_registration",
+    "validated_stoppable_registration",
     "wait_for_waiting_registration",
     "waiting_registration_ready",
 ]
