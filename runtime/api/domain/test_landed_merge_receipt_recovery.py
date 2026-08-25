@@ -1,4 +1,4 @@
-"""Landed standalone merges reconstruct their lane head from the receipt."""
+"""Landed standalone merges reconstruct their lane head from the landing."""
 
 from __future__ import annotations
 
@@ -9,12 +9,21 @@ import pytest
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_recovery as recovery
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
-from yoke_core.domain.standalone_item_merge_receipt import MergeReceipt
+from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
+LANE = LandedLane(
+    branch="ITEM-1",
+    target="main",
+    commit_sha=LANE_SHA,
+    merge_sha=MERGE_SHA,
+    touched_files=("feature.py",),
+    source="merge receipt",
+)
 
 
 def _landed_item() -> dict:
@@ -39,24 +48,18 @@ def test_pruned_lane_reconstructs_the_same_receipt_head(
     claim_state: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    receipt = MergeReceipt(
-        branch="ITEM-1",
-        target="main",
-        commit_sha=LANE_SHA,
-        merge_sha=MERGE_SHA,
-        touched_files=("feature.py",),
-    )
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (_landed_item(), ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: claim_state)
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     recovery_calls: list[dict] = []
 
     def recover(**kwargs):
         recovery_calls.append(kwargs)
-        return receipt, ""
+        return LANE, ""
 
     monkeypatch.setattr(recovery, "reacquire_landed_claim", recover)
     preflight_heads: list[str] = []
@@ -65,9 +68,9 @@ def test_pruned_lane_reconstructs_the_same_receipt_head(
         preflight_heads.append(item["worktrees"][-1]["commit_sha"])
         return LANE_SHA, ""
 
-    monkeypatch.setattr(merge_cli, "qa_preflight", preflight)
+    monkeypatch.setattr(verify, "qa_preflight", preflight)
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "route_standalone_landing",
         lambda **_kwargs: StandaloneMergeOutcome(
             ok=True,
@@ -98,13 +101,6 @@ def test_released_only_history_still_recovers_from_the_receipt(
             "commit_sha": "a" * 40,
         }],
     }
-    receipt = MergeReceipt(
-        branch="ITEM-1",
-        target="main",
-        commit_sha=LANE_SHA,
-        merge_sha=MERGE_SHA,
-        touched_files=("feature.py",),
-    )
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(
         merge_cli, "_session_holds_claim",
@@ -114,8 +110,9 @@ def test_released_only_history_still_recovers_from_the_receipt(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
-        recovery, "reacquire_landed_claim", lambda **_k: (receipt, ""),
+        recovery, "reacquire_landed_claim", lambda **_k: (LANE, ""),
     )
     recovered: list[str] = []
 
@@ -123,9 +120,9 @@ def test_released_only_history_still_recovers_from_the_receipt(
         recovered.append(recovered_item["worktrees"][-1]["commit_sha"])
         return LANE_SHA, ""
 
-    monkeypatch.setattr(merge_cli, "qa_preflight", preflight)
+    monkeypatch.setattr(verify, "qa_preflight", preflight)
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "route_standalone_landing",
         lambda **_kwargs: StandaloneMergeOutcome(
             ok=True, exit_code=0, already_merged=True, commit_sha=LANE_SHA,
@@ -151,18 +148,19 @@ def test_live_branch_does_not_enter_receipt_recovery(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: False)
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery,
         "reacquire_landed_claim",
-        lambda **_kwargs: pytest.fail("a live branch needs no receipt recovery"),
+        lambda **_kwargs: pytest.fail("a live branch needs no claim recovery"),
     )
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "qa_preflight",
         lambda *_a, **_kwargs: (LANE_SHA, ""),
     )
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "route_standalone_landing",
         lambda **_kwargs: StandaloneMergeOutcome(
             ok=True,

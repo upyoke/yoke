@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import standalone_item_merge as merge_boundary
-from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_terminal as terminal
+from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 from yoke_core.engines.merge_worktree_recorded_source import bind_recorded_source
 
@@ -79,13 +80,16 @@ def test_terminal_transition_refuses_an_unreachable_recorded_head(
     unreachable = _git(repo, "rev-parse", "lane")
     _git(repo, "checkout", "-q", "main")
     monkeypatch.setattr(
-        merge_cli,
+        terminal,
         "call_dispatcher",
         lambda **_k: pytest.fail("lifecycle dispatcher must not be called"),
     )
 
-    error = merge_cli._transition_to_done(
-        7, "reviewing-implementation", repo, "main", unreachable,
+    error = terminal.transition_to_done(
+        item_id=7,
+        source_status="reviewing-implementation",
+        repo_root=str(repo),
+        lane=LandedLane(branch="lane", target="main", commit_sha=unreachable),
     )
 
     assert "not reachable" in error

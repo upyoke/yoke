@@ -168,6 +168,10 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
     def import_module(name: str):
         if name == "yoke_core.domain.standalone_item_merge_cli":
             return SimpleNamespace(main=child_main)
+        if name == "yoke_core.domain.connected_env_readiness":
+            return SimpleNamespace(
+                ensure_ready=lambda **_k: SimpleNamespace(ok=True, message="ready"),
+            )
         return real_import(name)
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)

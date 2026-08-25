@@ -192,26 +192,34 @@ def _clean_check_runs(value: Any) -> tuple[dict[str, str], ...]:
     return tuple(runs)
 
 
-def touched_files_from_merge_commit(
-    repo_root: str, target: str, commit_sha: str,
-) -> tuple[str, ...]:
-    """What the merge that first contained ``commit_sha`` brought into ``target``.
+def landing_merge_commit(repo_root: str, target: str, commit_sha: str) -> str:
+    """The merge commit that first carried ``commit_sha`` into ``target``.
 
     The last merge commit on the ancestry path is the oldest one that contains
-    ``commit_sha``, so it is the merge that landed the branch; its first-parent
-    diff is exactly the branch's contribution. A fast-forward leaves no merge
-    commit behind and resolves to nothing — that case needs the receipt.
+    ``commit_sha``, so it is the merge that landed the branch. A fast-forward
+    leaves no merge commit behind and resolves to nothing — that case needs the
+    receipt.
     """
     if not commit_sha:
-        return ()
+        return ""
     listing = git.git_out(
         repo_root,
         "rev-list", "--ancestry-path", "--merges", f"{commit_sha}..{target}",
     )
     merges = [line.strip() for line in listing.splitlines() if line.strip()]
-    if not merges:
+    return merges[-1] if merges else ""
+
+
+def touched_files_from_merge_commit(
+    repo_root: str, target: str, commit_sha: str,
+) -> tuple[str, ...]:
+    """What the merge that first contained ``commit_sha`` brought into ``target``.
+
+    The landing merge's first-parent diff is exactly the branch's contribution.
+    """
+    landed = landing_merge_commit(repo_root, target, commit_sha)
+    if not landed:
         return ()
-    landed = merges[-1]
     return _clean(
         git.git_out(
             repo_root, "diff", "--name-only", f"{landed}^1", landed,
@@ -244,6 +252,7 @@ def resolve_touched_files(
 __all__ = [
     "MergeReceipt",
     "RECEIPT_EVENT_NAME",
+    "landing_merge_commit",
     "load",
     "record",
     "resolve_touched_files",

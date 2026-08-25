@@ -77,46 +77,34 @@ def test_bound_holder_for_a_different_item_is_not_authority() -> None:
     assert recovery.claim_is_missing(error) is False
 
 
-def test_missing_receipt_preserves_the_current_claim_diagnosis(
+def test_absent_landing_preserves_the_current_claim_diagnosis(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(recovery.receipts, "load", lambda *_a, **_k: None)
     monkeypatch.setattr(
         recovery,
         "claim_error",
         lambda *_a, **_k: "no live work claim on this item; acquire one",
     )
 
-    receipt, error = recovery.reacquire_landed_claim(
-        item_id=7,
-        branch="ITEM-1",
-        target="main",
-        repo_root="/repo",
-        project="yoke",
-        session_id="session-1",
+    lane, error = recovery.reacquire_landed_claim(
+        item_id=7, session_id="session-1", lane=None,
     )
 
-    assert receipt is None
+    assert lane is None
     assert error == "no live work claim on this item; acquire one"
     assert "no durable merge receipt" not in error
 
 
-def test_missing_receipt_with_a_live_claim_reports_the_missing_lane(
+def test_absent_landing_with_a_live_claim_reports_the_missing_lane(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(recovery.receipts, "load", lambda *_a, **_k: None)
     monkeypatch.setattr(recovery, "claim_error", lambda *_a, **_k: "")
 
-    receipt, error = recovery.reacquire_landed_claim(
-        item_id=7,
-        branch="ITEM-1",
-        target="main",
-        repo_root="/repo",
-        project="yoke",
-        session_id="session-1",
+    lane, error = recovery.reacquire_landed_claim(
+        item_id=7, session_id="session-1", lane=None,
     )
 
-    assert receipt is None
+    assert lane is None
     assert "no active worktree lane" in error
     assert "no live work claim" not in error
 
@@ -154,7 +142,7 @@ def test_evidence_only_item_without_a_landing_gets_the_direct_diagnosis(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
-    monkeypatch.setattr(recovery.receipts, "load", lambda *_a, **_k: None)
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery, "claim_error", lambda *_a, **_k: initial_claim_error,
     )

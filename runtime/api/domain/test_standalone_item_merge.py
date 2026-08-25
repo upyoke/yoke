@@ -250,8 +250,8 @@ class TestCloseOutOrdering:
             sim_cli, "_resolve_checkout", lambda item, target: (repo, "main"),
         )
         monkeypatch.setattr(
-            sim_cli, "_transition_to_done",
-            lambda *_a: pytest.fail("status must be left alone"),
+            sim_cli.terminal, "transition_to_done",
+            lambda **_k: pytest.fail("status must be left alone"),
         )
         monkeypatch.setattr(
             sim_cli.evidence, "record",
@@ -290,8 +290,8 @@ class TestCloseOutOrdering:
         )
         monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
         monkeypatch.setattr(
-            sim_cli, "_transition_to_done",
-            lambda *_a: "deployment run has not succeeded",
+            sim_cli.terminal, "transition_to_done",
+            lambda **_k: "deployment run has not succeeded",
         )
         monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)

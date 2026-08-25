@@ -105,6 +105,51 @@ def test_merged_pull_request_behind_the_lane_head_is_declined(monkeypatch):
     assert LANE_SHA[:12] in refusal
 
 
+def test_a_lane_the_base_already_contains_is_not_declined(monkeypatch):
+    """A lane fast-forwarded onto the base after its merge has landed.
+
+    Its head differs from the merged head — it *is* the merge commit — and
+    calling that "commits beyond the pull request that merged it" sent
+    close-out off to open a second pull request for work already on main.
+    """
+    _wire_listing(monkeypatch, [{
+        "number": 183, "html_url": "https://gh/183", "state": "closed",
+        "merged_at": "2026-01-01T00:00:00Z", "head": {"sha": MERGED_SHA},
+    }])
+    monkeypatch.setattr(discovery_mod.git, "is_landed", lambda *_a: True)
+    ctx = MergeContext(
+        args=MergeArgs(branch="YOK-200", target="main"),
+        project="yoke",
+        repo_root="/repo",
+    )
+
+    _, num, refusal = discovery_mod.find_landable_pull_request(
+        ctx, lane_head=LANE_SHA,
+    )
+
+    assert (num, refusal) == ("183", "")
+
+
+def test_a_lane_the_base_lacks_is_still_declined_with_a_checkout(monkeypatch):
+    _wire_listing(monkeypatch, [{
+        "number": 183, "html_url": "https://gh/183", "state": "closed",
+        "merged_at": "2026-01-01T00:00:00Z", "head": {"sha": MERGED_SHA},
+    }])
+    monkeypatch.setattr(discovery_mod.git, "is_landed", lambda *_a: False)
+    ctx = MergeContext(
+        args=MergeArgs(branch="YOK-200", target="main"),
+        project="yoke",
+        repo_root="/repo",
+    )
+
+    url, num, refusal = discovery_mod.find_landable_pull_request(
+        ctx, lane_head=LANE_SHA,
+    )
+
+    assert (url, num) == (None, None)
+    assert LANE_SHA[:12] in refusal
+
+
 def test_closed_unmerged_pull_request_is_still_returned(monkeypatch):
     """Only a merged pull request claims to have landed the lane."""
     _wire_listing(monkeypatch, [{

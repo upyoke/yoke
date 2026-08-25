@@ -10,6 +10,7 @@ import pytest
 
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_recovery as merge_recovery
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
 
@@ -76,6 +77,7 @@ def test_merge_refuses_before_invoking_git(
 ):
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (_item(requirement), ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -83,7 +85,7 @@ def test_merge_refuses_before_invoking_git(
         lambda *a: (tmp_path, "main"),
     )
     merger = mock.Mock()
-    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
+    monkeypatch.setattr(verify, "route_standalone_landing", merger)
 
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 1
     assert message in capsys.readouterr().err
@@ -94,6 +96,7 @@ def test_exact_commit_pass_reaches_the_merge_boundary(tmp_path: Path, monkeypatc
     item = _item(_requirement(verdict="pass", sha=MERGING_SHA))
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -110,7 +113,7 @@ def test_exact_commit_pass_reaches_the_merge_boundary(tmp_path: Path, monkeypatc
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
-    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
+    monkeypatch.setattr(verify, "route_standalone_landing", merger)
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
 
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
@@ -134,6 +137,7 @@ def test_skip_status_defers_only_done_phase_qa(tmp_path: Path, monkeypatch):
     ]
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -150,7 +154,7 @@ def test_skip_status_defers_only_done_phase_qa(tmp_path: Path, monkeypatch):
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
-    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
+    monkeypatch.setattr(verify, "route_standalone_landing", merger)
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
 
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
@@ -167,6 +171,7 @@ def test_closeout_still_blocks_on_done_phase_qa(tmp_path: Path, monkeypatch, cap
     )
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -174,7 +179,7 @@ def test_closeout_still_blocks_on_done_phase_qa(tmp_path: Path, monkeypatch, cap
         lambda *a: (tmp_path, "main"),
     )
     merger = mock.Mock()
-    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
+    monkeypatch.setattr(verify, "route_standalone_landing", merger)
 
     assert (
         merge_cli.run(
@@ -235,6 +240,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
     item["qa_requirements"] = [review, done]
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(
         merge_cli,
@@ -245,7 +251,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
     def rerecord(requirement, commit_sha):
         requirement["recorded_head_sha"] = commit_sha
 
-    monkeypatch.setattr(merge_cli.commit_bound, "rerecord_hand_run", rerecord)
+    monkeypatch.setattr(verify.commit_bound, "rerecord_hand_run", rerecord)
     outcome = mock.Mock(
         ok=True,
         already_merged=False,
@@ -256,7 +262,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
-    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
+    monkeypatch.setattr(verify, "route_standalone_landing", merger)
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
 
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
