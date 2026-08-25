@@ -128,7 +128,15 @@ def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
         (launch.launch_id,),
     ).fetchone()
     assert tuple(attempt[:2]) == ("2026-08-22T12:05:02Z", "not_created")
-    assert json.loads(attempt[2]) == {"result_code": "reconciled_not_created"}
+    # A reconciliation closes an attempt the relay never reported, so the
+    # document says how far the launch got and what the transport was doing
+    # rather than only naming the reconciliation itself.
+    evidence = json.loads(attempt[2])
+    assert evidence["result_code"] == "reconciled_not_created"
+    assert evidence["closure_reason"] == "operator_reconciliation"
+    assert evidence["launch_phase_reached"] == "launching"
+    assert evidence["relay_id"] == RELAY_ID
+    assert evidence["machine_id"] == MACHINE_ID
     assert (
         conn.execute(
             "SELECT lease_id FROM session_relays WHERE relay_id=?", (RELAY_ID,)

@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_launch_closure_evidence import (
+    closure_evidence,
+    open_attempt,
+)
+from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_launch_store import (
     LAUNCH_COLUMNS,
     add_seconds,
@@ -43,6 +48,61 @@ def _deadline_candidates(
     return [row_to_launch(row) for row in rows]
 
 
+_LAUNCH_LEASE_EXPIRED_CODE = "launch_lease_expired"
+
+
+def _expire_launching(
+    conn: Any,
+    launch: LaunchRecord,
+    *,
+    attempt: Any,
+    now: str,
+) -> LaunchRecord:
+    """Mark a silent launch uncertain while saying what was observed.
+
+    The attempt stays open on purpose: the relay may still be alive and a
+    late report is the only thing that can settle a native outcome this pass
+    cannot see. What changes is that the attempt no longer waits with an
+    empty evidence column — the phase the launch reached and the transport
+    state at expiry are written now, while they are still true, and a later
+    report replaces them with the native facts it carries.
+    """
+    evidence = closure_evidence(
+        conn,
+        launch=launch,
+        result_code=_LAUNCH_LEASE_EXPIRED_CODE,
+        closure_reason="launch_lease_expiry",
+        relay_id=value(attempt, "relay_id", 1) if attempt else launch.assigned_relay_id,
+        machine_id=(
+            value(attempt, "machine_id", 2) if attempt else launch.assigned_machine_id
+        ),
+        started_at=value(attempt, "started_at", 3) if attempt else launch.launching_at,
+        now=now,
+    )
+    # Merge rather than replace: a relay that reported its spawn phase before
+    # going quiet left the most diagnosable fact on this row, and an expiry
+    # that overwrote it would destroy exactly what the closure exists to
+    # preserve. The closure's own terminal code wins where the two overlap.
+    rendered = merge_redacted_evidence(
+        value(attempt, "evidence", 4) if attempt else None, evidence
+    )
+    if attempt is not None:
+        p = marker(conn)
+        conn.execute(
+            f"UPDATE session_launch_attempts SET evidence = {p} "
+            f"WHERE attempt_id = {p} AND completed_at IS NULL",
+            (rendered, str(value(attempt, "attempt_id", 0))),
+        )
+    return update_launch(
+        conn,
+        launch.launch_id,
+        delivery_changed_at=now,
+        state="outcome_unknown",
+        result_code=_LAUNCH_LEASE_EXPIRED_CODE,
+        result_evidence=rendered,
+    )
+
+
 def settle_launch_deadlines(
     conn: Any,
     *,
@@ -62,25 +122,13 @@ def settle_launch_deadlines(
         ):
             deadline_passed = parse_time(current) >= parse_time(launch.deadline_at)
             if launch.state == "launching":
-                p = marker(conn)
-                row = conn.execute(
-                    "SELECT started_at FROM session_launch_attempts "
-                    f"WHERE launch_id = {p} AND completed_at IS NULL "
-                    "ORDER BY attempt_number DESC LIMIT 1",
-                    (launch.launch_id,),
-                ).fetchone()
+                row = open_attempt(conn, launch.launch_id)
                 lease_passed = bool(row) and parse_time(current) >= parse_time(
-                    add_seconds(str(value(row, "started_at", 0)), LAUNCH_LEASE_SECONDS)
+                    add_seconds(str(value(row, "started_at", 3)), LAUNCH_LEASE_SECONDS)
                 )
                 if deadline_passed or lease_passed:
                     changed.append(
-                        update_launch(
-                            conn,
-                            launch.launch_id,
-                            delivery_changed_at=current,
-                            state="outcome_unknown",
-                            result_code="launch_lease_expired",
-                        )
+                        _expire_launching(conn, launch, attempt=row, now=current)
                     )
             elif deadline_passed:
                 final_state = (

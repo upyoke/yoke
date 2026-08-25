@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_launch_closure_evidence import closure_evidence
 from yoke_core.domain.session_launch_store import (
     begin_mutation,
     canonical_json,
@@ -33,13 +34,15 @@ def _lock(conn: Any) -> str:
 def _settle_open_attempts(
     conn: Any,
     *,
-    launch_id: str,
+    launch: LaunchRecord,
     observed_native_id: str | None,
     now: str,
 ) -> None:
+    launch_id = launch.launch_id
     p = marker(conn)
     attempts = conn.execute(
-        "SELECT attempt_id,relay_id,batch_id FROM session_launch_attempts "
+        "SELECT attempt_id,relay_id,batch_id,machine_id,started_at "
+        f"FROM session_launch_attempts "
         f"WHERE launch_id={p} AND completed_at IS NULL ORDER BY attempt_number"
         + _lock(conn),
         (launch_id,),
@@ -86,7 +89,18 @@ def _settle_open_attempts(
                 now,
                 observed_native_id,
                 result_code,
-                canonical_json({"result_code": evidence_code}),
+                canonical_json(
+                    closure_evidence(
+                        conn,
+                        launch=launch,
+                        result_code=evidence_code,
+                        closure_reason="operator_reconciliation",
+                        relay_id=attempt[1],
+                        machine_id=attempt[3],
+                        started_at=attempt[4],
+                        now=now,
+                    )
+                ),
                 str(attempt[0]),
             ),
         )
@@ -133,7 +147,7 @@ def reconcile_launch(
 
         _settle_open_attempts(
             conn,
-            launch_id=launch_id,
+            launch=launch,
             observed_native_id=observed_native_id,
             now=current,
         )
