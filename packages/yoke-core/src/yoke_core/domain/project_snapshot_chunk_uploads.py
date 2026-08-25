@@ -14,6 +14,16 @@ from yoke_core.domain import db_backend, json_helper
 SyncSnapshotPayload = Callable[[str, PathSnapshotSyncPayload], Dict[str, Any]]
 
 
+class ChunkUploadMissingError(LookupError):
+    """The staged upload is gone; the caller must restart it from ``begin``.
+
+    Staging rows are deleted on abort and on a completed finalize, so a
+    retried append or finalize whose response was lost finds nothing. That
+    is recoverable by re-uploading, unlike the other chunk failures, so it
+    carries its own type instead of collapsing into a generic failure.
+    """
+
+
 def sync_chunk(
     project_ref: Optional[str],
     payload: PathSnapshotChunkSyncPayload,
@@ -58,6 +68,7 @@ def _begin_chunk_upload(
     if payload.snapshot is None:
         raise ValueError("begin requires snapshot metadata")
     p = _p(conn)
+    lane_head_recorded = _record_lane_head(conn, project_id, payload)
     _delete_chunk_upload_rows(conn, payload.upload_id)
     existing_snapshot_id = find_existing_snapshot_id(
         conn, project_id=project_id, commit_sha=payload.snapshot.commit_sha,
@@ -79,6 +90,7 @@ def _begin_chunk_upload(
             "warnings": list(payload.snapshot.warnings),
             "expected_file_count": payload.snapshot.file_count,
             "expected_chunk_count": payload.snapshot.chunk_count,
+            "lane_head_recorded": lane_head_recorded,
         }
     conn.execute(
         "INSERT INTO path_snapshot_sync_uploads "
@@ -108,7 +120,37 @@ def _begin_chunk_upload(
         "upload_id": payload.upload_id,
         "expected_file_count": payload.snapshot.file_count,
         "expected_chunk_count": payload.snapshot.chunk_count,
+        "lane_head_recorded": lane_head_recorded,
     }
+
+
+def _record_lane_head(
+    conn: Any,
+    project_id: int,
+    payload: PathSnapshotChunkSyncPayload,
+) -> bool:
+    """Bind the checkout's active lane to the committed HEAD this upload names.
+
+    The lane head is a commit identity the client already proved locally; it
+    does not depend on the file inventory that the rest of the upload
+    carries. Recording it here — rather than only when a full upload
+    finalizes — keeps claim narrowing verifiable while a large inventory is
+    deferred or already reused from an earlier sync.
+    """
+    from yoke_core.domain.item_worktree_head import record_head_for_checkout
+
+    if payload.snapshot is None or payload.snapshot.ref != "HEAD":
+        return False
+    if not payload.repo_root:
+        return False
+    recorded = record_head_for_checkout(
+        conn,
+        project_id=project_id,
+        checkout_path=payload.repo_root,
+        commit_sha=payload.snapshot.commit_sha,
+    )
+    conn.commit()
+    return recorded is not None
 
 
 def _append_chunk_upload(
@@ -119,7 +161,9 @@ def _append_chunk_upload(
         raise ValueError("append requires chunk_index")
     upload = _load_upload(conn, payload.upload_id)
     if upload is None:
-        raise ValueError(f"snapshot chunk upload {payload.upload_id!r} not found")
+        raise ChunkUploadMissingError(
+            f"snapshot chunk upload {payload.upload_id!r} not found"
+        )
     expected_chunk_count = int(_row_get(upload, "expected_chunk_count", 6))
     if payload.chunk_index >= expected_chunk_count:
         raise ValueError(
@@ -153,7 +197,9 @@ def _finalize_chunk_upload(
 ) -> Dict[str, Any]:
     upload = _load_upload(conn, upload_id)
     if upload is None:
-        raise ValueError(f"snapshot chunk upload {upload_id!r} not found")
+        raise ChunkUploadMissingError(
+            f"snapshot chunk upload {upload_id!r} not found"
+        )
     chunks = _load_chunks(conn, upload_id)
     expected_chunk_count = int(_row_get(upload, "expected_chunk_count", 6))
     if len(chunks) != expected_chunk_count:
@@ -270,4 +316,4 @@ def _now_iso() -> str:
     return iso8601_now()
 
 
-__all__ = ["sync_chunk"]
+__all__ = ["ChunkUploadMissingError", "sync_chunk"]

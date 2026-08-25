@@ -42,6 +42,28 @@ CLAIM_PATH_AMEND_USAGE = (
 )
 
 
+# A deferral keeps only the large file inventory off the write path; the
+# lane head the boundary check reads is bound either way, so narrowing stays
+# verifiable while the inventory uploads on a later sync.
+_BOUNDARY_READY_SYNC_STATES = frozenset({"ok", "deferred"})
+
+AMEND_NARROW_HELP = (
+    "Narrowing verifies that the coverage you keep still contains every "
+    "committed change on the lane, so it needs the lane's synced head. A "
+    "large path snapshot may defer its file inventory to a later sync; that "
+    "does not block narrowing. When the sync genuinely fails, the refusal "
+    "names the exact `yoke project snapshot sync` command that binds the "
+    "lane head, and narrowing succeeds once that command does."
+)
+
+
+def _boundary_sync_refusal(sync_status: Dict[str, Any]) -> str:
+    message = sync_status.get("message") or "snapshot sync did not complete"
+    repair_command = sync_status.get("repair_command") or ""
+    remedy = f"; run `{repair_command}` and retry" if repair_command else ""
+    return f"cannot verify narrowing boundary: {message}{remedy}"
+
+
 def claims_path_widen(args: List[str]) -> int:
     return _claims_path_change(
         args,
@@ -63,7 +85,11 @@ def claims_path_amend(args: List[str]) -> int:
 def _claims_path_change(
     args: List[str], *, function_id: str, prog: str, usage: str
 ) -> int:
-    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description=usage,
+        epilog=AMEND_NARROW_HELP if function_id == "claims.path.amend" else None,
+    )
     parser.add_argument("--claim-id", required=True, help="path_claims.id to change.")
     if function_id == "claims.path.amend":
         path_group = parser.add_mutually_exclusive_group(required=True)
@@ -178,9 +204,8 @@ def _claims_path_change(
             integration_target=parsed.integration_target,
             session_id=parsed.session_id,
         )
-        if sync_status.get("status") != "ok":
-            message = sync_status.get("message") or "snapshot sync did not complete"
-            return usage_error(f"cannot verify narrowing boundary: {message}")
+        if sync_status.get("status") not in _BOUNDARY_READY_SYNC_STATES:
+            return usage_error(_boundary_sync_refusal(sync_status))
         payload["boundary_evidence"] = evidence
     else:
         sync_local_snapshot_for_write(
@@ -198,6 +223,7 @@ def _claims_path_change(
 
 
 __all__ = [
+    "AMEND_NARROW_HELP",
     "CLAIM_PATH_AMEND_USAGE",
     "CLAIM_PATH_WIDEN_USAGE",
     "claims_path_amend",
