@@ -41,11 +41,10 @@ def _plist_operation(action: str) -> Any:
 
 
 def _contain_stranded_natives() -> None:
-    """Terminate natives from launches that never registered.
+    """Terminate unsupervised launches and inactive detached resumes.
 
-    The relay is the only process on this machine that knows it started them,
-    so the sweep runs on its cadence rather than waiting for an operator to
-    notice an agent working without a claim.
+    The relay owns machine-local custody, so the sweep runs on its cadence
+    rather than waiting for an operator to notice an uncontrolled native.
     """
     from yoke_harness.session_launch_containment import (
         contain_stranded_launch_natives,
@@ -53,8 +52,9 @@ def _contain_stranded_natives() -> None:
 
     for outcome in contain_stranded_launch_natives():
         print(
-            f"contained unregistered native for launch {outcome.launch_id}: "
-            f"pid={outcome.pid} result={outcome.result}",
+            f"contained supervised native: kind={outcome.supervision_kind} "
+            f"id={outcome.launch_id} pid={outcome.pid} result={outcome.result} "
+            f"reason={outcome.reason}",
             file=sys.stderr,
         )
 

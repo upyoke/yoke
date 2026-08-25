@@ -7,6 +7,7 @@ from typing import Any
 import uuid
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
+from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
@@ -246,8 +247,9 @@ def clear_relay_batch_when_drained(
     wake = conn.execute(
         "SELECT 1 FROM session_message_attempts "
         f"WHERE lease_id={p} AND attempt_kind IN ('wake_relay','wake_broker') "
-        "AND completed_at IS NULL LIMIT 1",
-        (batch_id,),
+        f"AND completed_at IS NULL AND (result_code IS NULL OR result_code<>{p}) "
+        "LIMIT 1",
+        (batch_id, RESUMED_RUNNING_RESULT),
     ).fetchone()
     if wake is not None:
         return

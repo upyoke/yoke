@@ -11,6 +11,10 @@ from yoke_contracts.session_control.roster import (
 from yoke_contracts.session_control.surface_versions import (
     machine_stopped_wake_supported,
 )
+from yoke_contracts.session_control.resume import (
+    RESUME_RESULT_CODES,
+    resume_roster_state,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_message_routing import messageability
@@ -115,6 +119,33 @@ def _active_worktrees(
     return worktrees
 
 
+def _resume_states(
+    conn: Any,
+    session_ids: Iterable[str],
+) -> dict[str, str]:
+    ids = tuple(dict.fromkeys(session_ids))
+    if not ids:
+        return {}
+    marker = _marker(conn)
+    result_markers = ",".join(marker for _ in RESUME_RESULT_CODES)
+    rows = conn.execute(
+        "SELECT target_session_id,result_code FROM session_message_attempts "
+        "WHERE target_session_id IN ("
+        + ",".join(marker for _ in ids)
+        + ") AND result_code IN ("
+        + result_markers
+        + ") ORDER BY started_at DESC,attempt_id DESC",
+        (*ids, *sorted(RESUME_RESULT_CODES)),
+    ).fetchall()
+    states: dict[str, str] = {}
+    for row in rows:
+        session_id = str(row[0])
+        state = resume_roster_state(row[1])
+        if state is not None and session_id not in states:
+            states[session_id] = state
+    return states
+
+
 def _focus(row: dict[str, Any]) -> str:
     current = str(row.get("current_item") or "")
     if current:
@@ -131,6 +162,7 @@ def _project_row(
     identity: dict[str, Any],
     connected_relays: dict[str, tuple[dict[str, Any], ...]],
     worktree: str | None,
+    resume_state: str | None,
 ) -> dict[str, Any]:
     merged = {**row, **identity}
     machine_id = str(merged.get("machine_id") or "")
@@ -165,6 +197,7 @@ def _project_row(
         "executor_version": merged.get("executor_version"),
         "machine_id": merged.get("machine_id"),
         "turn_posture": merged.get("turn_posture") or "unknown",
+        "resume_state": resume_state,
         "relay": "connected"
         if relay_connected
         else ("unavailable" if machine_id else ""),
@@ -195,6 +228,10 @@ def session_control_roster_result(
             conn,
             (str(row.get("session_id") or "") for row in rows),
         )
+        resume_states = _resume_states(
+            conn,
+            (str(row.get("session_id") or "") for row in rows),
+        )
         connected = connected_relay_routes(conn, now=now)
         projected = [
             _project_row(
@@ -202,6 +239,7 @@ def session_control_roster_result(
                 identity=identities.get(str(row.get("session_id") or ""), {}),
                 connected_relays=connected,
                 worktree=worktrees.get(str(row.get("session_id") or "")),
+                resume_state=resume_states.get(str(row.get("session_id") or "")),
             )
             for row in rows
         ]

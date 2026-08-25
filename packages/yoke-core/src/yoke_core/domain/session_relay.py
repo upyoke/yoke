@@ -77,6 +77,11 @@ def claim_relay_job(
         next_poll_seconds=policy.poll_seconds,
         now=current,
     )
+    from yoke_core.domain.session_wake_reconciliation import (
+        reconcile_spawned_wake_attempts,
+    )
+
+    reconcile_spawned_wake_attempts(conn, now=current)
     settle_expired_relay_leases(conn, now=current)
     expire_due_recipients(conn, now=parse_timestamp(current))
     conn.commit()

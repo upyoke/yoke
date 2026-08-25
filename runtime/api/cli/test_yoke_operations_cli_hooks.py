@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
+from yoke_cli.commands.adapters import hooks as hooks_adapter
 from yoke_cli.main import main as cli_main
 from yoke_cli.transport.https import HttpsConnection, TransportError
 
@@ -331,3 +332,18 @@ def test_hook_evaluate_half_configured_https_degrades_to_noop(
     if out.out:
         assert "local-only allow" in json.loads(out.out)["additional_context"]
     hook_main.assert_not_called()
+
+
+def test_hook_evaluate_refreshes_detached_resume_custody(monkeypatch) -> None:
+    touched = []
+    monkeypatch.setattr(
+        hooks_adapter, "_touch_detached_resume", lambda: touched.append(True)
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
+    monkeypatch.setattr(
+        _RESOLVE,
+        lambda: (_ for _ in ()).throw(TransportError("not configured")),
+    )
+
+    assert hooks_adapter.hook_evaluate(["Stop"]) == 0
+    assert touched == [True]

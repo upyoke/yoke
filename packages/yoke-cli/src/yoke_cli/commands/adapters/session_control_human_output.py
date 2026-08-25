@@ -150,6 +150,7 @@ def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("RUNNER", _runner, 28),
             ("MACHINE", lambda row: row.get("machine_id"), None),
             ("LIVENESS", lambda row: humanize(row.get("liveness")), 10),
+            ("RESUME", lambda row: humanize(row.get("resume_state")), 18),
             ("RELAY", lambda row: humanize(row.get("relay")), 12),
             ("MESSAGEABLE", _messageable, 18),
         )

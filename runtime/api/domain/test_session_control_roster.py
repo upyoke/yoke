@@ -9,6 +9,11 @@ import sqlite3
 import pytest
 
 from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
+from yoke_contracts.session_control.resume import (
+    RESUME_NEVER_STARTED_RESULT,
+    RESUMED_COMPLETED_RESULT,
+    RESUMED_RUNNING_RESULT,
+)
 from yoke_core.domain.session_control_roster import (
     SESSION_CONTROL_ROSTER_FIELDS,
     session_control_roster_result,
@@ -65,6 +70,13 @@ def _connection() -> sqlite3.Connection:
             branch TEXT,
             state TEXT,
             lane_role TEXT
+        );
+        CREATE TABLE session_message_attempts (
+            attempt_id TEXT PRIMARY KEY,
+            target_session_id TEXT,
+            result_code TEXT,
+            started_at TEXT,
+            completed_at TEXT
         );
         """
     )
@@ -276,3 +288,46 @@ def test_empty_roster_has_the_complete_stable_field_contract() -> None:
         "fields": list(SESSION_CONTROL_ROSTER_FIELDS),
         "rows": [],
     }
+
+
+@pytest.mark.parametrize(
+    ("result_code", "completed_at", "expected"),
+    (
+        (RESUMED_RUNNING_RESULT, None, "resumed-running"),
+        (
+            RESUMED_COMPLETED_RESULT,
+            "2026-08-22T12:00:20Z",
+            "resumed-completed",
+        ),
+        (
+            RESUME_NEVER_STARTED_RESULT,
+            "2026-08-22T12:20:00Z",
+            "resumed-died",
+        ),
+    ),
+)
+def test_roster_marks_the_latest_detached_resume_state(
+    result_code: str,
+    completed_at: str | None,
+    expected: str,
+) -> None:
+    conn = _connection()
+    _add_session(conn, surface="claude-desktop", version="1.34493.1")
+    conn.execute(
+        "INSERT INTO session_message_attempts VALUES (?,?,?,?,?)",
+        (
+            "attempt-1",
+            "session-1",
+            result_code,
+            "2026-08-22T12:00:10Z",
+            completed_at,
+        ),
+    )
+
+    row = session_control_roster_result(
+        [_base_row(surface="claude-desktop", liveness="active")],
+        conn=conn,
+        now=NOW,
+    )["rows"][0]
+
+    assert row["resume_state"] == expected

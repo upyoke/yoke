@@ -35,6 +35,18 @@ __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
 HOOK_EVALUATE_USAGE = "yoke hook evaluate <event> [--dry-run]"
 
 
+def _touch_detached_resume() -> None:
+    """Refresh machine-local custody when this hook belongs to a resume."""
+    try:
+        from yoke_harness.session_launch_containment import (
+            touch_supervised_resume_from_environment,
+        )
+
+        touch_supervised_resume_from_environment()
+    except Exception:
+        return
+
+
 def _degrade_to_noop(
     event_name: str,
     detail: str,
@@ -71,6 +83,8 @@ def hook_evaluate(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, HOOK_EVALUATE_USAGE)
     if parsed is None:
         return 2
+    if not parsed.dry_run:
+        _touch_detached_resume()
 
     stdin_data = None
     cursor_invocation = is_cursor_config_invocation(os.environ, "")

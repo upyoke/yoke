@@ -12,21 +12,31 @@ _TEXT_FIELDS = frozenset(
         "diagnostic_availability",
         "machine_id",
         "native_binary_source",
+        "native_binary",
+        "native_capture_path",
         "native_diagnostic_ref",
         "native_error_class",
         "native_error_sha256",
         "native_error_step",
         "native_instruction_sha256",
         "native_launch_phase",
+        "native_started_at",
         "relay_id",
         "result_code",
         "surface",
     }
 )
 _INTEGER_FIELDS = frozenset(
-    {"diagnostic_expires_at", "duration_ms", "exit_code", "native_launch_pid"}
+    {
+        "diagnostic_expires_at",
+        "duration_ms",
+        "exit_code",
+        "native_launch_pid",
+        "native_pid",
+    }
 )
 _MAX_TEXT_LENGTH = 128
+_MAX_CAPTURE_PATH_LENGTH = 512
 _NATIVE_DIAGNOSTIC_COMMAND = "yoke relay diagnostic"
 NATIVE_DIAGNOSTIC_REFERENCE_PATTERN = re.compile(r"nd-[0-9a-f]{32}")
 
@@ -59,7 +69,12 @@ def redacted_evidence_document(
             continue
         item = source.get(key)
         if isinstance(item, str) and item.strip():
-            clean[key] = item.strip()[:_MAX_TEXT_LENGTH]
+            limit = (
+                _MAX_CAPTURE_PATH_LENGTH
+                if key == "native_capture_path"
+                else _MAX_TEXT_LENGTH
+            )
+            clean[key] = item.strip()[:limit]
     for key in sorted(_INTEGER_FIELDS):
         item = source.get(key)
         if isinstance(item, int) and not isinstance(item, bool):

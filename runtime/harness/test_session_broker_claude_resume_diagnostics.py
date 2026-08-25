@@ -1,4 +1,4 @@
-"""Exact broker adoption through Claude resume and private diagnostics."""
+"""Exact broker adoption through detached Claude resume spawn evidence."""
 
 from __future__ import annotations
 
@@ -17,20 +17,16 @@ from yoke_core.domain.session_broker_wake_settlement import (
 )
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
+from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_harness import session_relay
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness import session_relay_runtime as relay_runtime
-from yoke_harness.session_relay_claude import (
-    ClaudeProcessResult,
-    run_claude_cli_adapter,
-)
+from yoke_harness.session_relay_claude import run_claude_cli_adapter
+from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
 from yoke_harness.session_relay_inventory import RelayInventory
-from yoke_harness.session_relay_native_diagnostics import read_native_diagnostic
 
 
 CLAUDE_VERSION = "2.1.238"
-NATIVE_STDOUT = b"private native stdout"
-NATIVE_STDERR = b"private native stderr"
 
 
 def _heartbeat() -> RelayHeartbeat:
@@ -57,7 +53,7 @@ def _inventory() -> RelayInventory:
     )
 
 
-def test_exact_broker_lease_resumes_claude_and_reports_private_diagnostic(
+def test_exact_broker_lease_spawns_claude_and_reports_running(
     monkeypatch,
     tmp_path,
 ) -> None:
@@ -96,17 +92,20 @@ def test_exact_broker_lease_resumes_claude_and_reports_private_diagnostic(
 
     def claude_adapter(context):
         contexts.append(context)
+
+        def spawn(_context, invocation):
+            invocations.append(invocation)
+            return ClaudeResumeProcess(
+                9876,
+                invocation.executable,
+                "path",
+                tmp_path / "resume.capture",
+                _stamp(seconds=3),
+            )
+
         return run_claude_cli_adapter(
             context,
-            process_runner=lambda invocation: (
-                invocations.append(invocation)
-                or ClaudeProcessResult(
-                    9,
-                    12,
-                    stdout_bytes=NATIVE_STDOUT,
-                    stderr_bytes=NATIVE_STDERR,
-                )
-            ),
+            wake_spawner=spawn,
             executable_finder=lambda _name: "/opt/claude/bin/claude",
         )
 
@@ -151,7 +150,7 @@ def test_exact_broker_lease_resumes_claude_and_reports_private_diagnostic(
     )
 
     assert outcome.state == "reported"
-    assert outcome.jobs[0].result_code == "failed"
+    assert outcome.jobs[0].result_code == RESUMED_RUNNING_RESULT
     assert contexts[0].lease_id == lease.lease_id
     assert contexts[0].wake_route == "broker"
     assert contexts[0].target_session_id == "s4"
@@ -165,18 +164,18 @@ def test_exact_broker_lease_resumes_claude_and_reports_private_diagnostic(
     assert lease.lease_id not in repr(invocations[0])
 
     evidence = reports[0]["evidence"]
-    reference = evidence["native_diagnostic_ref"]
-    assert reference == outcome.jobs[0].native_diagnostic_ref
-    assert evidence["native_error_step"] == "resume"
-    assert NATIVE_STDOUT.decode() not in repr(reports[0])
-    assert NATIVE_STDERR.decode() not in repr(reports[0])
-    retained = read_native_diagnostic(reference, state_dir=tmp_path, now=1001)
-    assert NATIVE_STDOUT in retained
-    assert NATIVE_STDERR in retained
+    assert evidence["native_pid"] == 9876
+    assert evidence["native_binary"] == "/opt/claude/bin/claude"
+    assert evidence["native_capture_path"].endswith("resume.capture")
+    assert evidence["native_started_at"] == _stamp(seconds=3)
 
     row = conn.execute(
-        "SELECT result_code,evidence FROM session_message_attempts WHERE attempt_id=?",
+        "SELECT completed_at,result_code,evidence FROM session_message_attempts "
+        "WHERE attempt_id=?",
         (lease.attempt_id,),
     ).fetchone()
-    assert row[0] == "failed"
-    assert json.loads(row[1])["native_diagnostic_ref"] == reference
+    assert row[0] is None
+    assert row[1] == RESUMED_RUNNING_RESULT
+    stored = json.loads(row[2])
+    assert stored["native_pid"] == 9876
+    assert stored["native_instruction_sha256"]

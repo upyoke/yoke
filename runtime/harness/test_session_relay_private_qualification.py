@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,10 +19,8 @@ from yoke_core.tools.session_relay_plist import (
     relay_plist_document,
 )
 from yoke_harness import session_relay_private_qualification as qualification
-from yoke_harness.session_relay_claude import (
-    ClaudeProcessResult,
-    run_claude_cli_adapter,
-)
+from yoke_harness.session_relay_claude import run_claude_cli_adapter
+from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
@@ -281,11 +278,13 @@ def test_claude_adapter_keeps_canonical_first_and_fallback_exact(
     _stage_runtime(monkeypatch)
     monkeypatch.setattr(qualification, "_clean_source_sha", lambda: RELEASE_SHA)
 
-    def runner(invocation):
-        return ClaudeProcessResult(
-            0,
-            4,
-            stdout=json.dumps({"session_id": invocation.session_id}),
+    def spawner(_context, invocation):
+        return ClaudeResumeProcess(
+            41,
+            invocation.executable,
+            "path",
+            tmp_path / "resume.capture",
+            "2026-08-25T12:00:00Z",
         )
 
     def finder(_name):
@@ -293,20 +292,20 @@ def test_claude_adapter_keeps_canonical_first_and_fallback_exact(
 
     canonical = run_claude_cli_adapter(
         _context(tmp_path, version="2.1.238"),
-        process_runner=runner,
+        wake_spawner=spawner,
         executable_finder=finder,
     )
     qualified = run_claude_cli_adapter(
         _context(tmp_path, grant=_grant()),
-        process_runner=runner,
+        wake_spawner=spawner,
         executable_finder=finder,
     )
     refused = run_claude_cli_adapter(
         _context(tmp_path, grant=_grant(digest="b" * 64)),
-        process_runner=runner,
+        wake_spawner=spawner,
         executable_finder=finder,
     )
 
-    assert canonical.result_code == "accepted"
-    assert qualified.result_code == "accepted"
+    assert canonical.result_code == "resumed_running"
+    assert qualified.result_code == "resumed_running"
     assert refused.result_code == "version_mismatch"

@@ -7,8 +7,6 @@ from pathlib import Path
 import pytest
 
 from runtime.harness.test_session_relay_claude import (
-    ACTUAL_ID,
-    CHECK_INBOX,
     CLAUDE,
     _allow,
     _context,
@@ -18,7 +16,6 @@ from yoke_contracts.session_control.evidence import (
     redacted_evidence_document,
 )
 from yoke_harness import session_relay
-from yoke_harness import session_relay_claude as claude_module
 from yoke_harness.session_relay_claude import (
     ClaudeProcessResult,
     run_claude_cli_adapter,
@@ -43,24 +40,11 @@ def test_classifier_emits_only_closed_non_secret_classes(stderr, expected) -> No
 
 def test_claude_failure_class_and_reference_are_safe_durable_evidence(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        claude_module,
-        "claude_session_transcript_exists",
-        lambda checkout, session_id: True,
-    )
     private_uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
     stderr = f"No conversation found with session ID: {private_uuid}"
     result = run_claude_cli_adapter(
-        _context(
-            job_kind="wake",
-            native_instruction=CHECK_INBOX,
-            target_session_id=ACTUAL_ID,
-            launch_attestation=None,
-            target_liveness="active",
-            wake_mode="waiting",
-        ),
+        _context(),
         process_runner=lambda _invocation: ClaudeProcessResult(
             1,
             10,
@@ -69,13 +53,14 @@ def test_claude_failure_class_and_reference_are_safe_durable_evidence(
         ),
         executable_finder=lambda _name: CLAUDE,
         version_gate=_allow,
+        attestation_handoff=lambda *args, **kwargs: True,
     )
 
     retained = session_relay._retain_private_diagnostic(result, state_dir=tmp_path)
     durable = redacted_evidence_document(retained.evidence)
 
     assert durable["native_error_class"] == "no_conversation_found"
-    assert durable["native_error_step"] == "resume"
+    assert durable["native_error_step"] == "launch"
     assert durable["diagnostic_availability"] == "relay_local"
     assert durable["native_diagnostic_ref"].startswith("nd-")
     assert durable["native_diagnostic_command"] == (

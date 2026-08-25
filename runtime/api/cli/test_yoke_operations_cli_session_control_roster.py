@@ -49,6 +49,7 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
                     "executor_version": "26.814.41407",
                     "machine_id": FULL_MACHINE_ID,
                     "liveness": "active",
+                    "resume_state": "resumed-running",
                     "relay": "connected",
                     "messageability": {
                         "messageable": True,
@@ -91,11 +92,13 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
     assert "SESSION" in lines[1]
     assert "PROJECT" in lines[1]
     assert "MESSAGEABLE" in lines[1]
+    assert "RESUME" in lines[1]
     assert FULL_SESSION_ID in rendered
     assert FULL_MACHINE_ID in rendered
     assert TEST_ITEM_REF in rendered
     assert "codex / codex-desktop" in rendered
     assert "connected" in rendered
+    assert "resumed running" in rendered
     assert "yes" in rendered
     assert "|" not in rendered
 

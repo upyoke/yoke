@@ -7,6 +7,7 @@ import os
 from typing import Mapping
 
 from yoke_contracts.session_identity import ACTOR_ROLE_ENV_VAR, AMBIENT_ENV_VARS
+from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
 
@@ -14,6 +15,7 @@ _PARENT_HARNESS_ENV = frozenset(
     (
         *AMBIENT_ENV_VARS,
         ACTOR_ROLE_ENV_VAR,
+        RESUME_ATTEMPT_ENV,
         LAUNCH_CONTEXT_ENV,
         "YOKE_EXECUTOR",
         "YOKE_EXECUTOR_VERSION",
