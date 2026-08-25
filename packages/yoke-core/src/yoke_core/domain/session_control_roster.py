@@ -9,7 +9,7 @@ from yoke_contracts.session_control.roster import (
     SESSION_CONTROL_ROSTER_DISPLAY_FIELDS,
 )
 from yoke_contracts.session_control.surface_versions import (
-    machine_stopped_wake_supported,
+    machine_wake_surface,
 )
 from yoke_contracts.session_control.resume import (
     RESUME_RESULT_CODES,
@@ -78,8 +78,9 @@ def _wake_route_available(
     }
     if wake_candidate_supported(candidate, versions):
         return True
-    return wake_operation == "message_stopped" and machine_stopped_wake_supported(
-        surface, versions
+    return bool(
+        wake_operation
+        and machine_wake_surface(surface, versions, wake_operation) is not None
     )
 
 

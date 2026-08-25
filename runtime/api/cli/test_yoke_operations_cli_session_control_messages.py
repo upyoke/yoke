@@ -237,6 +237,14 @@ def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
         "body_sha256": "digest-that-is-not-human-output",
         "created_at": "2026-08-23T12:00:00Z",
         "expires_at": "2026-08-24T12:00:00Z",
+        "attempts": [
+            {
+                "attempt_id": "attempt-1",
+                "target_session_id": "session-1",
+                "attempt_kind": "wake_relay",
+                "result_code": "skipped_surface",
+            }
+        ],
         "recipients": [
             {
                 "session_id": "session-1",
@@ -269,6 +277,8 @@ def test_message_list_and_get_use_excerpts_without_full_body_leak() -> None:
         assert "DO-NOT-LEAK" not in rendered
         assert "body_sha256" not in rendered
         if heading == "MESSAGE":
+            assert "DELIVERY ATTEMPTS" in rendered
+            assert "skipped surface" in rendered
             assert (
                 f"Recipient next step: yoke messages acknowledge {FULL_MESSAGE_ID}"
                 in rendered

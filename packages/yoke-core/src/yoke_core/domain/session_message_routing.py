@@ -7,7 +7,7 @@ from typing import Any, Mapping
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
-    machine_stopped_wake_supported,
+    machine_wake_surface,
     surface_operation_supported,
     surface_version_supported,
 )
@@ -69,8 +69,10 @@ def _wake_interface(
         return "none"
     if surface_operation_supported(surface, version, operation):
         return str(getattr(capability, operation))
-    if operation == "message_stopped" and machine_stopped_wake_supported(
-        surface, machine_surface_versions
+    if (
+        operation
+        and machine_wake_surface(surface, machine_surface_versions, operation)
+        is not None
     ):
         return "supported"
     return "none"

@@ -28,6 +28,8 @@ REASON_NEVER_ENGAGED = "never_engaged"
 REASON_HEARTBEAT_STALE = "heartbeat_stale"
 REASON_PROGRESS_STALE = "progress_stale"
 REASON_FRESH = "fresh"
+REASON_ABANDONED_IN_FLIGHT = "abandoned_in_flight"
+IN_FLIGHT_HARD_TTL_MULTIPLIER = 3
 
 
 def _p(conn) -> str:
@@ -195,9 +197,24 @@ def latest_activity(
     """Return the canonical "is this session alive?" timestamp."""
     del executor  # routed via read_activity_signals
     evidence = read_activity_signals(conn, session_id)
-    if evidence.in_flight:
+    if evidence.in_flight and not in_flight_activity_is_hard_stale(
+        evidence.activity_at,
+        effective_ttl_minutes=evidence.effective_ttl_minutes,
+    ):
         return live_activity_stamp()
     return evidence.activity_at
+
+
+def in_flight_activity_is_hard_stale(
+    activity_at: Optional[str], *, effective_ttl_minutes: int
+) -> bool:
+    """Bound crashed in-flight markers while normal liveness remains protected."""
+    return activity_is_stale(
+        activity_at,
+        executor=None,
+        base_ttl_minutes=effective_ttl_minutes * IN_FLIGHT_HARD_TTL_MULTIPLIER,
+        executor_ttl_overrides={},
+    )
 
 
 def classify_reclaimable(
@@ -290,6 +307,12 @@ def classify_reclaimable(
                 evidence=evidence,
             )
 
+    if evidence.in_flight and in_flight_activity_is_hard_stale(
+        evidence.activity_at,
+        effective_ttl_minutes=evidence.effective_ttl_minutes,
+    ):
+        return ReclaimClassification(True, REASON_ABANDONED_IN_FLIGHT, evidence)
+
     return ReclaimClassification(
         is_reclaimable=False,
         reason=REASON_FRESH,
@@ -302,12 +325,15 @@ __all__ = [
     "ReclaimClassification",
     "SCOPE_ITEM_CLAIM",
     "SCOPE_SESSION_CLEANUP",
+    "IN_FLIGHT_HARD_TTL_MULTIPLIER",
+    "REASON_ABANDONED_IN_FLIGHT",
     "REASON_ENDED",
     "REASON_FRESH",
     "REASON_HEARTBEAT_STALE",
     "REASON_NEVER_ENGAGED",
     "REASON_PROGRESS_STALE",
     "current_episode_progress_stamp",
+    "in_flight_activity_is_hard_stale",
     "newest_activity_stamp",
     "resolve_effective_ttl",
     "read_activity_signals",
