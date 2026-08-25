@@ -239,9 +239,7 @@ def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> Non
     )
     conn.commit()
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=20)) == []
-
-    stale = wake_eligible_recipients(conn, now=NOW + timedelta(hours=3))
-    assert [row["message_id"] for row in stale] == [message_id]
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(hours=3)) == []
 
 
 def test_waiting_pending_receipt_does_not_bypass_native_wake_gates() -> None:

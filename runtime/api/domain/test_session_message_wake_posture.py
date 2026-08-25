@@ -41,9 +41,9 @@ def test_wake_candidates_require_elapsed_deadline_and_inactive_liveness() -> Non
     deadline_conn = message_connection()
     _send(deadline_conn)
     _stop(deadline_conn)
-    assert wake_eligible_recipients(deadline_conn, now=NOW + timedelta(minutes=9)) == []
+    assert wake_eligible_recipients(deadline_conn, now=NOW + timedelta(minutes=2)) == []
     assert (
-        len(wake_eligible_recipients(deadline_conn, now=NOW + timedelta(minutes=11)))
+        len(wake_eligible_recipients(deadline_conn, now=NOW + timedelta(minutes=4)))
         == 1
     )
 

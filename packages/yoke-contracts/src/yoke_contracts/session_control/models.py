@@ -85,6 +85,14 @@ class MessageSendRequest(BaseModel):
     body: str
     idempotency_key: Optional[str] = None
     confirmation_token: Optional[str] = None
+    urgent: bool = False
+    wake_after_seconds: Optional[int] = Field(default=None, ge=0, le=86400)
+
+    @model_validator(mode="after")
+    def _exclusive_urgency(self) -> "MessageSendRequest":
+        if self.urgent and self.wake_after_seconds is not None:
+            raise ValueError("urgent and wake_after_seconds cannot both be set")
+        return self
 
 
 class MessageSendResponse(BaseModel):

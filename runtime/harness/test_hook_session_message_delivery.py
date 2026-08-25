@@ -304,11 +304,10 @@ def test_message_reinjects_on_later_hook_until_explicit_ack(
 def test_terminal_recipient_is_never_wake_eligible(state: str) -> None:
     assert not delivery.wake_eligible(
         recipient_state=state,
-        liveness="ended",
         recipient_created_at=NOW,
         wake_after=NOW,
         last_hook_activity_at=None,
-        idle_window=timedelta(minutes=10),
+        last_heartbeat_at=None,
         now=NOW + timedelta(hours=1),
     )
 
@@ -316,34 +315,31 @@ def test_terminal_recipient_is_never_wake_eligible(state: str) -> None:
 def test_pending_without_post_message_hook_becomes_wake_eligible() -> None:
     assert delivery.wake_eligible(
         recipient_state="pending",
-        liveness="active",
         recipient_created_at=NOW,
-        wake_after=NOW + timedelta(minutes=10),
+        wake_after=NOW + timedelta(minutes=3),
         last_hook_activity_at=NOW - timedelta(seconds=1),
-        idle_window=timedelta(minutes=10),
-        now=NOW + timedelta(minutes=10),
+        last_heartbeat_at=NOW - timedelta(seconds=1),
+        now=NOW + timedelta(minutes=3),
     )
 
 
 def test_live_injected_unacknowledged_recipient_is_never_woken() -> None:
     assert not delivery.wake_eligible(
         recipient_state="injected",
-        liveness="active",
         recipient_created_at=NOW,
-        wake_after=NOW + timedelta(minutes=10),
+        wake_after=NOW + timedelta(minutes=3),
         last_hook_activity_at=NOW + timedelta(minutes=2),
-        idle_window=timedelta(minutes=10),
+        last_heartbeat_at=None,
         now=NOW + timedelta(hours=2),
     )
 
 
-def test_stale_injected_recipient_can_wake_after_new_idle_window() -> None:
-    assert delivery.wake_eligible(
-        recipient_state="injected",
-        liveness="stale",
+def test_post_send_heartbeat_skips_native_wake() -> None:
+    assert not delivery.wake_eligible(
+        recipient_state="pending",
         recipient_created_at=NOW,
-        wake_after=NOW + timedelta(minutes=10),
-        last_hook_activity_at=NOW + timedelta(minutes=4),
-        idle_window=timedelta(minutes=10),
-        now=NOW + timedelta(minutes=14),
+        wake_after=NOW,
+        last_hook_activity_at=None,
+        last_heartbeat_at=NOW + timedelta(seconds=1),
+        now=NOW + timedelta(minutes=3),
     )

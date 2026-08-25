@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import timedelta
 
 import pytest
 
@@ -19,7 +20,7 @@ from yoke_core.domain.session_message_service import (
     preview_message,
     send_message,
 )
-from yoke_core.domain.session_message_types import SessionMessageError
+from yoke_core.domain.session_message_types import SessionMessageError, parse_timestamp
 from runtime.api.domain.test_session_message_support import (
     NOW,
     message_connection,
@@ -237,6 +238,51 @@ def test_sender_or_every_project_admin_cancels_and_receipt_state_is_terminal() -
     )
     assert sender_cancelled["cancelled_by_actor_id"] == 10
     assert sender_cancelled["cancellation_reason"] == "cancelled_by_sender"
+
+
+def _wake_after(conn, message_id: str):
+    return conn.execute(
+        "SELECT wake_after FROM session_message_recipients WHERE message_id=?",
+        (message_id,),
+    ).fetchone()[0]
+
+
+def test_default_send_stamps_the_fleet_idle_grace() -> None:
+    conn = message_connection()
+    result = _send(conn)
+    assert parse_timestamp(_wake_after(conn, result["message_id"])) == NOW + timedelta(
+        minutes=3
+    )
+
+
+def test_urgent_send_stamps_wake_after_at_send_time() -> None:
+    conn = message_connection()
+    result = send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s1",
+        selector=selector(session_ids=["s1"]),
+        body="Act now.",
+        now=NOW,
+        urgent=True,
+    )
+    assert parse_timestamp(_wake_after(conn, result["message_id"])) == NOW
+
+
+def test_wake_after_seconds_overrides_fleet_idle_grace() -> None:
+    conn = message_connection()
+    result = send_message(
+        conn,
+        actor_id=10,
+        sender_session_id="s1",
+        selector=selector(session_ids=["s1"]),
+        body="Act soon.",
+        now=NOW,
+        wake_after_seconds=30,
+    )
+    assert parse_timestamp(_wake_after(conn, result["message_id"])) == NOW + timedelta(
+        seconds=30
+    )
 
 
 def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any, Iterable
 
 from yoke_core.domain.actor_permissions import (
@@ -69,6 +70,21 @@ def project_policy(conn: Any, project_id: int) -> MessageProjectPolicy:
             setting("fleet.broadcast_requires_confirmation")
         ),
     )
+
+
+def recipient_wake_after(
+    current: datetime,
+    idle_minutes: int,
+    *,
+    urgent: bool = False,
+    wake_after_seconds: int | None = None,
+) -> datetime:
+    """Stamp ``wake_after`` from fleet idle policy or an explicit send override."""
+    if wake_after_seconds is not None:
+        return current + timedelta(seconds=wake_after_seconds)
+    if urgent:
+        return current
+    return current + timedelta(minutes=idle_minutes)
 
 
 def authorize_recipients(
@@ -138,4 +154,5 @@ __all__ = [
     "authorize_universe",
     "can_read_project",
     "project_policy",
+    "recipient_wake_after",
 ]
