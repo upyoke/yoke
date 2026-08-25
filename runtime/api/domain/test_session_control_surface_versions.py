@@ -12,6 +12,7 @@ from yoke_contracts.session_control.private_route_versions import (
 )
 from yoke_contracts.session_control.surface_versions import (
     machine_stopped_wake_supported,
+    machine_wake_surface,
     surface_operation_supported,
     surface_version_supported,
 )
@@ -164,6 +165,16 @@ def test_installed_cli_wakes_every_stopped_claude_surface_on_its_machine() -> No
         assert machine_stopped_wake_supported(surface, installed)
     assert not machine_stopped_wake_supported("codex-desktop", installed)
     assert not machine_stopped_wake_supported("cursor-desktop", installed)
+
+
+def test_installed_cursor_cli_wakes_cursor_desktop_idle_and_stopped() -> None:
+    installed = {"cursor-cli": "2026.08.11-e8db854"}
+
+    assert machine_wake_surface("cursor-desktop", installed, "message_idle") == (
+        "cursor-cli",
+        "2026.08.11-e8db854",
+    )
+    assert machine_stopped_wake_supported("cursor-desktop", installed)
 
 
 def test_machine_wake_reads_the_installed_binary_not_the_registered_surface() -> None:

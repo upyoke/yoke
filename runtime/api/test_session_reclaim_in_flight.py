@@ -18,12 +18,15 @@ from runtime.api.test_session_reclaim_activity import (
 )
 from runtime.api.test_sessions import _insert_claimable_item, conn  # noqa: F401
 from yoke_core.domain.session_reclaim_activity import (
+    IN_FLIGHT_HARD_TTL_MULTIPLIER,
+    REASON_ABANDONED_IN_FLIGHT,
     REASON_FRESH,
     REASON_HEARTBEAT_STALE,
     REASON_PROGRESS_STALE,
     classify_reclaimable,
     latest_activity,
     read_activity_signals,
+    resolve_effective_ttl,
 )
 from yoke_core.domain.session_reclaim_activity_bulk import latest_activity_by_session
 from yoke_core.domain.session_staleness import activity_is_stale
@@ -132,15 +135,18 @@ class TestInFlightReclaim:
         assert result.is_reclaimable is True
         assert result.reason == REASON_PROGRESS_STALE
 
-    def test_open_tool_call_blocks_progress_stale(self, conn_with_events):
+    def test_open_tool_call_is_reclaimable_after_the_hard_ttl(self, conn_with_events):
         c = conn_with_events
-        _seed_session(c, "hour-pytest", heartbeat_ago_min=30)
-        _emit_tool_event(c, "hour-pytest", ago_minutes=120)
-        _open_tool_call(c, "hour-pytest", ago_minutes=120)
+        old_minutes = (
+            resolve_effective_ttl("claude-code") * IN_FLIGHT_HARD_TTL_MULTIPLIER + 1
+        )
+        _seed_session(c, "hour-pytest", heartbeat_ago_min=old_minutes)
+        _emit_tool_event(c, "hour-pytest", ago_minutes=old_minutes)
+        _open_tool_call(c, "hour-pytest", ago_minutes=old_minutes)
         c.execute(
             "UPDATE harness_sessions SET episode_started_at = %s "
             "WHERE session_id = 'hour-pytest'",
-            (_ago_minutes(120),),
+            (_ago_minutes(old_minutes),),
         )
         c.commit()
 
@@ -150,8 +156,8 @@ class TestInFlightReclaim:
             progress_threshold_minutes=90,
         )
 
-        assert result.is_reclaimable is False
-        assert result.reason == REASON_FRESH
+        assert result.is_reclaimable is True
+        assert result.reason == REASON_ABANDONED_IN_FLIGHT
 
 
 class TestInFlightSweepAndScheduler:
@@ -196,6 +202,48 @@ class TestInFlightSweepAndScheduler:
             activity["bulk-running"],
             executor="claude-code",
         )
+
+    def test_bulk_activity_stops_masking_an_abandoned_turn(self, conn_with_events):
+        c = conn_with_events
+        old_minutes = 20 * IN_FLIGHT_HARD_TTL_MULTIPLIER + 1
+        _seed_session(c, "bulk-abandoned", heartbeat_ago_min=old_minutes)
+        _emit_tool_event(c, "bulk-abandoned", ago_minutes=old_minutes)
+        _set_turn_posture(c, "bulk-abandoned", "running")
+
+        activity = latest_activity_by_session(c, ["bulk-abandoned"])
+
+        assert activity_is_stale(activity["bulk-abandoned"], executor="claude-code")
+
+    def test_cleanup_reclaims_an_abandoned_running_session_claim(
+        self, conn_with_events
+    ):
+        c = conn_with_events
+        _insert_claimable_item(c, 9103)
+        old_minutes = 20 * IN_FLIGHT_HARD_TTL_MULTIPLIER + 1
+        _seed_session(c, "abandoned-worker", heartbeat_ago_min=old_minutes)
+        claim_work(c, session_id="abandoned-worker", item_id=9103)
+        old = _ago_minutes(old_minutes)
+        c.execute(
+            "UPDATE harness_sessions SET offered_at=%s,last_heartbeat=%s,"
+            "last_tool_call_at=%s,turn_posture='running' "
+            "WHERE session_id='abandoned-worker'",
+            (old, old, old),
+        )
+        c.execute(
+            "UPDATE work_claims SET claimed_at=%s,last_heartbeat=%s "
+            "WHERE session_id='abandoned-worker' AND released_at IS NULL",
+            (old, old),
+        )
+        c.commit()
+
+        clean_stale_harness_sessions(c)
+
+        row = c.execute(
+            "SELECT released_at,release_reason FROM work_claims "
+            "WHERE session_id='abandoned-worker' AND item_id=9103"
+        ).fetchone()
+        assert row["released_at"] is not None
+        assert row["release_reason"] == "reclaimed"
 
 
 class TestReclaimedClaimReactivation:

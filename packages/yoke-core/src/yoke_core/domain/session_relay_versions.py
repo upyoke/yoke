@@ -3,7 +3,7 @@
 from typing import Mapping
 
 from yoke_contracts.session_control.surface_versions import (
-    machine_stopped_wake_surface,
+    machine_wake_surface,
     surface_operation_supported,
 )
 from yoke_core.domain.session_relay_types import WakeMode
@@ -76,9 +76,9 @@ def wake_execution_surface(
         str(candidate.get("wake_mode") or ""),
         str(candidate.get("liveness") or ""),
     )
-    if operation != "message_stopped":
+    if operation is None:
         return None
-    return machine_stopped_wake_surface(surface, relay_versions)
+    return machine_wake_surface(surface, relay_versions, operation)
 
 
 __all__ = [
