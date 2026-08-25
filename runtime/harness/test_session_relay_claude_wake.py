@@ -31,6 +31,16 @@ WAKE_PROMPT = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _transcript_present_by_default(monkeypatch):
+    """Every waiting-wake test resumes past the transcript precondition by default."""
+    monkeypatch.setattr(
+        claude_module,
+        "claude_session_transcript_exists",
+        lambda checkout, session_id: True,
+    )
+
+
 @pytest.mark.parametrize("scenario", ["claim-held", "chain-pending"])
 def test_waiting_wake_resumes_exact_yoke_session_uuid_at_private_version(
     scenario,
@@ -246,3 +256,59 @@ def test_private_wake_version_mismatch_never_invokes_native_process() -> None:
 
     assert result.result_code == "version_mismatch"
     assert calls == []
+
+
+def test_stopped_wake_refuses_when_transcript_missing(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        claude_module,
+        "claude_session_transcript_exists",
+        lambda checkout, session_id: False,
+    )
+    result = run_claude_cli_adapter(
+        _context(
+            job_kind="wake",
+            native_instruction=CHECK_INBOX,
+            target_session_id=ACTUAL_ID,
+            target_liveness="ended",
+            wake_mode="waiting",
+        ),
+        process_runner=calls.append,
+        executable_finder=lambda _name: CLAUDE,
+        version_gate=_allow,
+    )
+
+    assert result.result_code == "failed"
+    assert result.evidence["result_code"] == "transcript_missing"
+    assert calls == []
+
+
+def test_stopped_wake_proceeds_when_transcript_exists() -> None:
+    calls = []
+
+    def resume(invocation):
+        calls.append(invocation)
+        return ClaudeProcessResult(
+            0,
+            9,
+            json.dumps({"session_id": ACTUAL_ID}),
+            "",
+        )
+
+    result = run_claude_cli_adapter(
+        _context(
+            job_kind="wake",
+            native_instruction=CHECK_INBOX,
+            target_session_id=ACTUAL_ID,
+            target_liveness="ended",
+            wake_mode="waiting",
+        ),
+        process_runner=resume,
+        executable_finder=lambda _name: CLAUDE,
+        version_gate=_allow,
+    )
+
+    assert result.result_code == "accepted"
+    assert result.evidence["result_code"] == "accepted"
+    assert len(calls) == 1
+    assert calls[0].resume is True

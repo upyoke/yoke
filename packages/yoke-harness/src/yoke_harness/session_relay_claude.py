@@ -21,6 +21,9 @@ from yoke_harness.session_relay_claude_result import (
     build_claude_result,
     parse_resume_session_id,
 )
+from yoke_harness.session_relay_claude_transcript import (
+    claude_session_transcript_exists,
+)
 from yoke_harness.session_relay_runtime import (
     RelayAdapterResult,
     RelayExecutionContext,
@@ -265,6 +268,11 @@ def run_claude_cli_adapter(
     if invocation is None:
         result = "not_created" if context.job_kind == "launch" else "not_found"
         return _result(context, result, "native_session_missing")
+    if operation == "message_stopped" and not claude_session_transcript_exists(
+        context.checkout,
+        str(context.target_session_id or ""),
+    ):
+        return _result(context, "failed", "transcript_missing")
     try:
         process = process_runner(invocation)
     except Exception as exc:  # native exceptions stay private on this relay

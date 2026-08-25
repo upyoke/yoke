@@ -18,6 +18,7 @@ from yoke_core.domain.session_broker_wake_settlement import (
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_harness import session_relay
+from yoke_harness import session_relay_claude as claude_module
 from yoke_harness import session_relay_runtime as relay_runtime
 from yoke_harness.session_relay_claude import (
     ClaudeProcessResult,
@@ -87,6 +88,11 @@ def test_exact_broker_lease_resumes_claude_and_reports_private_diagnostic(
     reports = []
     monkeypatch.setattr(relay_runtime, "_ADAPTERS", {})
     monkeypatch.setattr(relay_runtime, "_checkout_for_project", lambda _id: tmp_path)
+    monkeypatch.setattr(
+        claude_module,
+        "claude_session_transcript_exists",
+        lambda checkout, session_id: True,
+    )
 
     def claude_adapter(context):
         contexts.append(context)

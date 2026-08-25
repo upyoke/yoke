@@ -18,6 +18,7 @@ from yoke_contracts.session_control.evidence import (
     redacted_evidence_document,
 )
 from yoke_harness import session_relay
+from yoke_harness import session_relay_claude as claude_module
 from yoke_harness.session_relay_claude import (
     ClaudeProcessResult,
     run_claude_cli_adapter,
@@ -42,7 +43,13 @@ def test_classifier_emits_only_closed_non_secret_classes(stderr, expected) -> No
 
 def test_claude_failure_class_and_reference_are_safe_durable_evidence(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
+    monkeypatch.setattr(
+        claude_module,
+        "claude_session_transcript_exists",
+        lambda checkout, session_id: True,
+    )
     private_uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
     stderr = f"No conversation found with session ID: {private_uuid}"
     result = run_claude_cli_adapter(
