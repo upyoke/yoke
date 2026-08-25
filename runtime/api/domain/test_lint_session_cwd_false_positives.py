@@ -175,6 +175,34 @@ def test_redirect_into_out_of_claim_path_still_surfaced():
 
 
 # ---------------------------------------------------------------------------
+# Extraction: an operator written without whitespace ends the statement
+# ---------------------------------------------------------------------------
+
+
+def test_unspaced_separator_does_not_glue_onto_the_preceding_path():
+    """``;`` written flush against a path must not become part of it.
+
+    Tokenizing the whole body with ``shlex`` alone glues the operator
+    onto the preceding word, so the claimed lane arrives as
+    ``<lane>;`` and no containment test can match it against the lane
+    the session actually holds.
+    """
+    cmd = f"yoke dev run -- render --target-root {WT}; git -C {WT} status"
+    assert extract_command_targets(cmd) == [WT, WT]
+
+
+def test_unspaced_separator_after_a_non_path_token_is_unchanged():
+    """The same shape stays correct when nothing glues onto a path."""
+    cmd = f"git -C {WT} status; wc -l {WT}/AGENTS.md"
+    assert extract_command_targets(cmd) == [WT, f"{WT}/AGENTS.md"]
+
+
+def test_quoted_separator_still_does_not_split_the_statement():
+    """Splitting on raw text must stay quote-aware."""
+    assert extract_command_targets('grep -E "FAIL|ERROR" runtime') == []
+
+
+# ---------------------------------------------------------------------------
 # Authorisation: tool-dir allowlist + out-of-claim regression (8769+)
 # ---------------------------------------------------------------------------
 
@@ -230,3 +258,30 @@ class TestOutOfClaimStillDenied:
             conn, session_id="session-with-no-claims", targets=["/anything/at/all"]
         )
         assert verdict.allow
+
+
+class TestClaimedWorktreeRecognised:
+    """A target inside the session's own claimed lane is authorised.
+
+    The guard prints the session's active claims in its denial text, so
+    refusing a path those very rows cover contradicts itself. The
+    compound form is the regression: it is the shape whose separator
+    glued onto the lane path and turned a covered target into an
+    unrecognisable one.
+    """
+
+    def test_claimed_lane_target_allowed(self, conn, tmp_path):
+        lane = str(tmp_path / "repo" / ".worktrees" / "YOK-100")
+        verdict = validate_targets(conn, session_id="s1", targets=[lane])
+        assert verdict.allow
+
+    def test_claimed_lane_allowed_through_unspaced_compound(self, conn, tmp_path):
+        lane = str(tmp_path / "repo" / ".worktrees" / "YOK-100")
+        command = f"yoke dev run -- render --target-root {lane}; git -C {lane} status"
+        verdict = validate_targets(
+            conn, session_id="s1", targets=extract_command_targets(command),
+        )
+        assert verdict.allow, (
+            f"denied {verdict.offending_target!r} while the session's own "
+            f"claims cover {[c.worktree_path for c in verdict.claims]}"
+        )

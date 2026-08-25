@@ -33,6 +33,8 @@ import tempfile
 from pathlib import PurePath
 from typing import Dict, List, Mapping, Optional, Tuple
 
+from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+
 
 _REGEX_METACHARS = re.compile(r"[?*{]")
 _MID_STRING_COLON = re.compile(r".+:.+")
@@ -219,6 +221,46 @@ def _mktemp_path(inner: str) -> Optional[str]:
     return os.path.join(tempfile.gettempdir(), _ANONYMOUS_TEMP_LEAF)
 
 
+# Shell control operators that separate one command invocation from the
+# next within a single statement. Statement boundaries themselves are a
+# quote-aware text-level split (``path_claim_bash_splitter``); this pass
+# catches the operators that survive it, notably a backgrounding ``&``.
+SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
+
+
+def shell_command_segments(command: str) -> List[List[str]]:
+    """Return each command invocation in ``command`` as its own tokens.
+
+    Statement boundaries are the quote-aware text-level split; the
+    operators that survive it split the remaining tokens. Splitting the
+    text first is what makes the result trustworthy: ``shlex`` alone
+    glues an operator written without surrounding whitespace onto the
+    preceding word, so ``--target-root /lane; git ...`` hands back the
+    lane path with a ``;`` stuck to it and every containment test
+    against that path fails against the lane it names.
+    """
+    out: List[List[str]] = []
+    for statement in split_pipeline(command):
+        out.extend(split_command_segments(_safe_split(statement)))
+    return out
+
+
+def split_command_segments(tokens: List[str]) -> List[List[str]]:
+    """Split a token stream into per-invocation segments on shell operators."""
+    segments: List[List[str]] = []
+    current: List[str] = []
+    for tok in tokens:
+        if tok in SEGMENT_SEPARATORS:
+            if current:
+                segments.append(current)
+            current = []
+            continue
+        current.append(tok)
+    if current:
+        segments.append(current)
+    return segments
+
+
 def _safe_split(text: str) -> List[str]:
     try:
         return shlex.split(text)
@@ -227,9 +269,12 @@ def _safe_split(text: str) -> List[str]:
 
 
 __all__ = [
+    "SEGMENT_SEPARATORS",
     "expand_variables",
     "is_path_like",
     "path_target_from_token",
     "resolve_write_operands",
+    "shell_command_segments",
     "shell_variable_bindings",
+    "split_command_segments",
 ]

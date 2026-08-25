@@ -136,6 +136,119 @@ def test_cli_adapter_uses_the_claimed_source_resolver(
     ]
 
 
+def test_workdir_names_the_tree_to_lint(tmp_path: Path) -> None:
+    repo, _base = _repo_with_baseline(tmp_path, {"module.py": "value = 1\n"})
+    tree, error = ruff_changed.resolve_tree(str(repo))
+
+    assert error is None
+    assert tree == repo.resolve()
+
+
+def test_workdir_that_is_not_a_checkout_is_refused(tmp_path: Path) -> None:
+    plain = tmp_path / "not-a-checkout"
+    plain.mkdir()
+    tree, error = ruff_changed.resolve_tree(str(plain))
+
+    assert tree is None
+    assert "not a Git checkout" in str(error)
+
+
+def test_tree_without_workdir_comes_from_the_claimed_lane(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The working directory must never stand in for the claimed lane.
+
+    A harness re-applies a previous ``cd`` between calls, so a
+    cwd-derived tree can be a checkout the caller never named.
+    """
+    lane = tmp_path / "lane"
+    lane.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        ruff_changed.source_dev_run,
+        "claimed_lane_root",
+        lambda *_a, **_k: (lane, None),
+    )
+
+    assert ruff_changed.resolve_tree(None) == (lane, None)
+
+
+def test_unresolvable_tree_refuses_and_names_what_it_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        ruff_changed.source_dev_run,
+        "claimed_lane_root",
+        lambda *_a, **_k: (None, "no live claimed Yoke source lane"),
+    )
+
+    def _unexpected(*_args, **_kwargs) -> int:
+        raise AssertionError("run must not execute without a resolved tree")
+
+    monkeypatch.setattr(ruff_changed, "run", _unexpected)
+
+    assert ruff_changed.main(["--base", "main"]) == 1
+    captured = capsys.readouterr().err
+    assert "refusing to guess which checkout to lint" in captured
+    assert "no live claimed Yoke source lane" in captured
+    assert str(tmp_path.resolve()) in captured
+    assert "--workdir <checkout>" in captured
+
+
+def test_resolved_tree_is_named_in_the_result(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A run that reports a clean result must say which tree it read."""
+    repo, base = _repo_with_baseline(tmp_path, {"module.py": "value = 1\n"})
+
+    assert ruff_changed.run(base, root=repo) == 0
+    assert str(repo.resolve()) in capsys.readouterr().out
+
+
+def test_mapped_main_checkout_is_not_offered_as_a_lane(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Main is not a substitute for a lane when a branch diff is the subject.
+
+    Diffing main against main is empty, so accepting the mapped main
+    checkout would report a clean result for a branch nothing read.
+    """
+    from yoke_core.tools import source_dev_run
+
+    main_checkout = tmp_path / "main"
+    monkeypatch.setattr(
+        source_dev_run,
+        "_claimed_root",
+        lambda *_a, **_k: (main_checkout, None, 1),
+    )
+
+    root, error = source_dev_run.claimed_lane_root()
+    assert root is None
+    assert "not a lane" in str(error)
+
+
+def test_claimed_lane_is_offered_as_the_tree(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from yoke_core.tools import source_dev_run
+
+    lane = tmp_path / "lane"
+    monkeypatch.setattr(
+        source_dev_run,
+        "_claimed_root",
+        lambda *_a, **_k: (lane, None, None),
+    )
+
+    assert source_dev_run.claimed_lane_root() == (lane, None)
+
+
 def test_command_is_registered_as_a_local_tool() -> None:
     from yoke_cli import operation_inventory
     from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY

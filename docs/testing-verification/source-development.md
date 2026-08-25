@@ -42,6 +42,15 @@ NUL-delimited Git diff, excludes deleted or otherwise nonexistent paths, and
 runs the locked Ruff version without shell path expansion. Do not call a
 checkout-local `.venv/bin/ruff` path or rely on an ambient Homebrew install.
 
+The checkout it reads is never the working directory. A harness re-applies a
+previous `cd` between tool calls, so a cwd-derived tree can be a different
+checkout than the caller means — and a branch diff taken against the wrong
+tree is empty, which would otherwise be reported as a clean pass. The tree
+comes from the session's claimed lane, or from an explicit `--workdir
+<checkout>`; when neither names one, the command refuses instead of guessing
+and prints the working directory it declined to use. Every line it prints
+names the tree it read, so a result is always attributable to a checkout.
+
 For a changed-test fallback, first list candidates with:
 
 ```bash

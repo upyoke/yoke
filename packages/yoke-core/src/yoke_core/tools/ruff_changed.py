@@ -1,4 +1,13 @@
-"""Lint changed Python files from the active claimed source checkout."""
+"""Lint changed Python files from the active claimed source checkout.
+
+The checkout is never taken from the ambient working directory. A
+harness re-applies a previous ``cd`` between tool calls, so a
+cwd-derived tree can silently be a different checkout than the one
+the caller means — and a branch diff taken against the wrong tree is
+empty, which this command would otherwise report as a clean pass.
+The tree comes from an explicit ``--workdir`` or from the session's
+claimed lane, and every line it prints names the tree it used.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +17,8 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
+
+from yoke_core.tools import source_dev_run
 
 
 class ChangedPathError(RuntimeError):
@@ -59,8 +70,23 @@ def _run_ruff(root: Path, arguments: Sequence[str], paths: Sequence[str]) -> int
     return completed.returncode
 
 
-def run(base: str, *, format_check: bool = False, root: Path | None = None) -> int:
-    checkout = (root or Path.cwd()).resolve()
+def resolve_tree(workdir: str | None) -> tuple[Path | None, str | None]:
+    """Return the checkout to lint, or the reason none could be named.
+
+    ``workdir`` wins when given. Otherwise the tree is the session's
+    claimed source lane — never the working directory, which a harness
+    may have re-applied from an earlier call.
+    """
+    if workdir:
+        tree = Path(workdir).expanduser().resolve()
+        if not (tree / ".git").exists():
+            return None, f"--workdir is not a Git checkout: {tree}"
+        return tree, None
+    return source_dev_run.claimed_lane_root()
+
+
+def run(base: str, *, format_check: bool = False, root: Path) -> int:
+    checkout = Path(root).resolve()
     try:
         paths = changed_python_paths(base, checkout)
     except ChangedPathError as exc:
@@ -74,11 +100,17 @@ def run(base: str, *, format_check: bool = False, root: Path | None = None) -> i
 
     count = len(paths)
     if not paths:
-        print(f"ruff-changed: no changed Python files against {base}; passing")
+        print(
+            f"ruff-changed: no changed Python files against {base} "
+            f"in {checkout}; passing"
+        )
         return 0
 
     noun = "file" if count == 1 else "files"
-    print(f"ruff-changed: checking {count} changed Python {noun} against {base}")
+    print(
+        f"ruff-changed: checking {count} changed Python {noun} against "
+        f"{base} in {checkout}"
+    )
     check_status = _run_ruff(checkout, ("check",), paths)
     if check_status:
         print(
@@ -97,7 +129,7 @@ def run(base: str, *, format_check: bool = False, root: Path | None = None) -> i
             return format_status
 
     suffix = " and format" if format_check else ""
-    print(f"ruff-changed: check{suffix} passed for {count} {noun}")
+    print(f"ruff-changed: check{suffix} passed for {count} {noun} in {checkout}")
     return 0
 
 
@@ -105,8 +137,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke dev ruff-changed",
         description=(
-            "Run Ruff on changed existing Python files in the current "
-            "session's claimed Yoke source checkout."
+            "Run Ruff on changed existing Python files in an explicitly "
+            "named Yoke source checkout, defaulting to the current "
+            "session's claimed lane."
         ),
     )
     parser.add_argument(
@@ -116,15 +149,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Compare the merge-base of REF and HEAD with HEAD.",
     )
     parser.add_argument(
+        "--workdir",
+        metavar="PATH",
+        help=(
+            "Checkout to lint. Defaults to this session's claimed source "
+            "lane; the working directory is never used."
+        ),
+    )
+    parser.add_argument(
         "--format-check",
         action="store_true",
         help="Also run `ruff format --check` on the changed files.",
     )
     parsed = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
-    return run(parsed.base, format_check=parsed.format_check)
+    tree, error = resolve_tree(parsed.workdir)
+    if tree is None:
+        print(
+            "ruff-changed: refusing to guess which checkout to lint",
+            file=sys.stderr,
+        )
+        print(f"  reason: {error}", file=sys.stderr)
+        print(
+            f"  working directory (not used): {Path.cwd()}",
+            file=sys.stderr,
+        )
+        print(
+            "  name the checkout: yoke dev ruff-changed --base "
+            f"{parsed.base} --workdir <checkout>",
+            file=sys.stderr,
+        )
+        return 1
+    return run(parsed.base, format_check=parsed.format_check, root=tree)
 
 
-__all__ = ["ChangedPathError", "changed_python_paths", "main", "run"]
+__all__ = [
+    "ChangedPathError",
+    "changed_python_paths",
+    "main",
+    "resolve_tree",
+    "run",
+]
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter
