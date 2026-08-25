@@ -1,34 +1,11 @@
 """Run a Command-method QA case on the project's CI workflow.
 
-The blocking verification gate for an item is the same suite CI already
-runs on every pull request and every push to the integration branch. On a
-developer machine that suite competes with every other session for one
-machine-wide admission slot and one CPU complement; on CI it fans out
-across duration-balanced shards with disposable databases and freshly
-provisioned capacity. This runner moves the gate there: push the lane,
-reuse a pull-request run that reached a verdict on its exact commit when
-one exists, otherwise dispatch the project's declared workflow, and record
-the run's conclusion as the case verdict. The lane and workflow plumbing
-lives in :mod:`yoke_core.domain.qa_case_ci_lane`, and what a conclusion
-makes a run in :mod:`yoke_core.domain.qa_case_ci_conclusion`.
-
-A project landing through the merge queue reaches that reuse path by
-construction rather than by luck: it rebases and opens its landing pull
-request here, so the entry run GitHub mints *is* the gate run
-(:mod:`yoke_core.domain.qa_case_ci_entry_run`). Dispatch stays the fallback
-for every other project, and for a queue project whose pull request
-produced no run.
-
-Recorded evidence names the run URL and the exact head sha the run
-covered, so a green is attributable to one tree exactly as a local
-``worktree_run`` verdict is (see
-:mod:`yoke_core.domain.verification_tree_binding`).
-
-``worktree_run`` remains the local runner for the same Command method
-and stays the fallback for offline or local-only operation. Selecting it
-is a plan-case choice, never a silent runtime downgrade: when CI cannot
-be reached this runner fails with a named reason rather than quietly
-running the suite on the machine it exists to keep free.
+Push the lane, reuse a pull-request run on that exact commit when one
+exists, otherwise dispatch the declared workflow. Merge-queue projects
+open the landing pull request so its entry run is the gate. An empty
+diff against the integration target is inapplicable CI
+(:mod:`yoke_core.domain.qa_case_ci_empty_diff`). ``worktree_run`` stays
+the local Command runner and is never a silent downgrade.
 """
 
 from __future__ import annotations
@@ -42,6 +19,7 @@ from yoke_contracts.api.function_call import ActorContext
 
 from yoke_core.domain import (
     qa_case_budget,
+    qa_case_ci_empty_diff,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
     qa_case_ci_progress,
@@ -66,66 +44,6 @@ EXECUTOR_ID = "ci_run"
 #: the CI run, not to the local process timeout a ``worktree_run`` case
 #: would apply to its own command.
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
-
-
-def _record_run(
-    case: dict,
-    *,
-    raw_result: str,
-    duration_ms: int,
-    verdict: str,
-    output: str,
-    actor: Optional[ActorContext],
-) -> tuple[int, int]:
-    from yoke_core.domain.qa_artifact_handle import local_handle
-    from yoke_core.domain.qa_artifacts import (
-        artifact_file_path,
-        case_artifact_subject,
-    )
-    from yoke_core.domain.qa_case_execution import recording_leg
-
-    call_qa = recording_leg(case, actor=actor)
-    run = call_qa(
-        "qa.run.add",
-        {
-            "performed_by": EXECUTOR_ID,
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
-        },
-    )
-    run_id = int(run["qa_run_id"])
-    output_path = artifact_file_path(
-        str(case["project"]),
-        case_artifact_subject(case),
-        run_id,
-        "ci-run-output.txt",
-    )
-    output_path.write_text(output, encoding="utf-8")
-    artifact = call_qa(
-        "qa.artifact.add",
-        {
-            "run_id": run_id,
-            "artifact_type": "command_output",
-            "content_type": "text/plain",
-            "artifact_handle": local_handle(
-                str(output_path.resolve()), "text/plain",
-            ),
-            "metadata": json.dumps(
-                {"case_key": case["case_key"], "verdict": verdict},
-                sort_keys=True,
-            ),
-        },
-    )
-    call_qa(
-        "qa.run.complete",
-        {
-            "run_id": run_id,
-            "verdict": verdict,
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
-        },
-    )
-    return run_id, int(artifact["qa_artifact_id"])
 
 
 def _resolve_checkout(
@@ -165,7 +83,9 @@ def execute_ci_case(
     required_case_command(case)
     workflow = qa_case_ci_lane.workflow_file(case)
     checkout = _resolve_checkout(
-        case, checkout_path, allow_tree_mismatch=allow_tree_mismatch,
+        case,
+        checkout_path,
+        allow_tree_mismatch=allow_tree_mismatch,
     )
     selected_budget = qa_case_budget.resolve_command_case_budget(
         case["method_config"],
@@ -184,14 +104,17 @@ def execute_ci_case(
         checked_out_branch = ""
     # Rebase before the head sha is resolved: the rebase is what it names.
     entry_run_base = qa_case_ci_entry_run.prepare_entry_run_lane(
-        checkout, project=project, branch=branch,
+        checkout,
+        project=project,
+        branch=branch,
         lane_is_checked_out=checked_out_branch == branch,
     )
     tree = verification_tree_binding.resolve_tree_identity(checkout)
     if not checked_out_branch:
         checked_out_branch = branch if tree else "HEAD"
     source_ref = (
-        "HEAD" if checked_out_branch == branch
+        "HEAD"
+        if checked_out_branch == branch
         else str(case.get("lane_commit_sha") or "").strip()
     )
     if not source_ref:
@@ -199,10 +122,29 @@ def execute_ci_case(
             f"CI case for {branch!r} has no recorded commit after lane cleanup"
         )
     head_sha = (
-        tree.head_sha if source_ref == "HEAD" and tree is not None
+        tree.head_sha
+        if source_ref == "HEAD" and tree is not None
         else qa_case_ci_lane.ref_sha(checkout, source_ref)
     )
     tree = verification_tree_binding.TreeIdentity(str(checkout), head_sha)
+    empty = qa_case_ci_empty_diff.record_pass_if_empty(
+        case,
+        checkout,
+        actor=actor,
+        started=started,
+        selected_budget=selected_budget,
+        project=project,
+        repo=repo,
+        workflow=workflow,
+        branch=branch,
+        head_sha=head_sha,
+        tree=tree,
+        target=entry_run_base or qa_case_ci_entry_run.base_branch(project, checkout),
+        requirement_id=requirement_id,
+        budget=budget,
+    )
+    if empty is not None:
+        return empty
     ci_run_id = ""
     run_url = ""
     reused_pull_request_run = False
@@ -212,18 +154,27 @@ def execute_ci_case(
         with qa_case_ci_lane.github_actions_authority():
             if entry_run_base is not None:
                 qa_case_ci_entry_run.open_landing_pull_request(
-                    checkout, project=project, branch=branch,
-                    target=entry_run_base, lane_head=head_sha,
+                    checkout,
+                    project=project,
+                    branch=branch,
+                    target=entry_run_base,
+                    lane_head=head_sha,
                 )
                 covering_run = qa_case_ci_entry_run.await_entry_run(
                     requirement_id=requirement_id,
-                    project=project, repo=repo, workflow=workflow,
-                    head_sha=head_sha, timeout_seconds=budget,
+                    project=project,
+                    repo=repo,
+                    workflow=workflow,
+                    head_sha=head_sha,
+                    timeout_seconds=budget,
                 )
             else:
                 covering_run = qa_case_ci_lane.find_pull_request_run(
-                    project=project, repo=repo, workflow=workflow,
-                    head_sha=head_sha, timeout_seconds=budget,
+                    project=project,
+                    repo=repo,
+                    workflow=workflow,
+                    head_sha=head_sha,
+                    timeout_seconds=budget,
                 )
             if (
                 covering_run is not None
@@ -237,27 +188,39 @@ def execute_ci_case(
                 known_conclusion = covering_run.conclusion
                 if entry_run_base is None:
                     qa_case_ci_progress.announce_run(
-                        requirement_id, repo=repo, run_id=ci_run_id,
-                        html_url=run_url, source="covering",
+                        requirement_id,
+                        repo=repo,
+                        run_id=ci_run_id,
+                        html_url=run_url,
+                        source="covering",
                     )
                 exit_code = 0 if known_conclusion == "success" else 1
                 poll_output = f"reused pull_request run: {known_conclusion}"
             else:
                 qa_case_ci_progress.announce_dispatch(
-                    requirement_id, repo=repo, workflow=workflow,
+                    requirement_id,
+                    repo=repo,
+                    workflow=workflow,
                     branch=branch,
                 )
                 ci_run_id = qa_case_ci_lane.dispatch_workflow(
-                    project=project, repo=repo, workflow=workflow, branch=branch,
+                    project=project,
+                    repo=repo,
+                    workflow=workflow,
+                    branch=branch,
                     request_id=f"qa-case:{requirement_id}:{head_sha}",
                     timeout_seconds=budget,
                 )
                 run_url = qa_case_ci_progress.announce_run(
-                    requirement_id, repo=repo, run_id=ci_run_id,
+                    requirement_id,
+                    repo=repo,
+                    run_id=ci_run_id,
                     source="dispatched",
                 )
                 exit_code, poll_output = qa_case_ci_lane.await_workflow(
-                    project=project, repo=repo, run_id=ci_run_id,
+                    project=project,
+                    repo=repo,
+                    run_id=ci_run_id,
                     timeout_seconds=budget,
                 )
     except Exception as exc:
@@ -276,9 +239,13 @@ def execute_ci_case(
             },
             sort_keys=True,
         )
-        run_id, _ = _record_run(
-            case, raw_result=raw_result, duration_ms=duration_ms,
-            verdict="error", output=str(exc), actor=actor,
+        run_id, _ = qa_case_ci_empty_diff._record_run(
+            case,
+            raw_result=raw_result,
+            duration_ms=duration_ms,
+            verdict="error",
+            output=str(exc),
+            actor=actor,
         )
         raise QaCaseExecutionError(
             f"CI execution errored; recorded QA run #{run_id}: {exc}"
@@ -286,8 +253,7 @@ def execute_ci_case(
     duration_ms = int((time.monotonic() - started) * 1000)
     conclusion = known_conclusion or conclusion_from_poll(exit_code, poll_output)
     verdict, failure_class = (
-        ("pass", "") if conclusion == "success"
-        else failure_verdict(conclusion)
+        ("pass", "") if conclusion == "success" else failure_verdict(conclusion)
     )
     run_url = run_url or f"https://github.com/{repo}/actions/runs/{ci_run_id}"
     raw_result = json.dumps(
@@ -310,7 +276,7 @@ def execute_ci_case(
         f"$ {workflow} on {repo}@{branch} ({head_sha[:12] or 'unknown sha'})\n"
         f"{run_url}\n\n[output]\n{poll_output}\n\n[exit_code]\n{exit_code}\n"
     )
-    qa_run_id, artifact_id = _record_run(
+    qa_run_id, artifact_id = qa_case_ci_empty_diff._record_run(
         case,
         raw_result=raw_result,
         duration_ms=duration_ms,
@@ -325,8 +291,11 @@ def execute_ci_case(
         "runner_id": EXECUTOR_ID,
         "verdict": verdict,
         "case_outcome": (
-            "passed" if verdict == "pass" else
-            "failed" if verdict == "fail" else "infrastructure_transient"
+            "passed"
+            if verdict == "pass"
+            else "failed"
+            if verdict == "fail"
+            else "infrastructure_transient"
         ),
         "exit_code": exit_code,
         "duration_ms": duration_ms,
