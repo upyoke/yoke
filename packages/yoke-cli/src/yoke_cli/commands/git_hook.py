@@ -29,6 +29,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands.adapters.project_snapshot import project_snapshot_sync
+from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -57,6 +58,8 @@ Sync committed git tree state for the current checkout through
 just-created HEAD commit locally, dispatches the authoritative
 path-snapshot write to the configured Yoke API/core, and exits 0 even
 when sync needs manual repair; a completed commit is never blocked.
+Gate-owned rebase replay skips this per-commit sync because the gate binds
+the final lane head after the replay completes.
 
 Invoked by the `.git/hooks/post-commit` shim that `yoke project
 install` writes. Extra arguments from git are accepted and ignored."""
@@ -88,7 +91,12 @@ def _refresh_atlas_currency_or_skip() -> None:
         return
     root = pathlib.Path(root_text)
     module_path = (
-        root / "packages" / "yoke-core" / "src" / "yoke_core" / "tools"
+        root
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "tools"
         / "atlas_pre_commit_refresh.py"
     )
     if not module_path.is_file():
@@ -156,6 +164,8 @@ def git_post_commit(args: List[str]) -> int:
     """Never error a completed commit; snapshot writes dispatch server-side."""
     if _wants_help(args):
         print(_POST_COMMIT_HELP)
+        return 0
+    if os.environ.get(POST_COMMIT_SNAPSHOT_SKIP_ENV):
         return 0
     sync_args = ["--hook", "--head-only"]
     legacy_project = os.environ.get(PROJECT_ID_ENV)

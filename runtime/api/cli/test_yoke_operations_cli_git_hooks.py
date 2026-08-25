@@ -39,7 +39,9 @@ _GATE_RUN = "yoke_harness.git_hooks.pre_commit.run"
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(
         ["git", "-C", str(repo), *args],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
 
 
@@ -104,7 +106,10 @@ class TestPreCommitGateExecution:
         assert cli_main(["git", "pre-commit"]) == 0
 
     def test_oversize_authored_file_blocks(
-        self, scratch_repo, monkeypatch, capsys,
+        self,
+        scratch_repo,
+        monkeypatch,
+        capsys,
     ):
         monkeypatch.chdir(scratch_repo)
         big = "\n".join(f"x = {i}" for i in range(400)) + "\n"
@@ -132,6 +137,20 @@ class TestPostCommitSnapshotSync:
         assert captured.out == ""
         assert captured.err == ""
         assert calls == [["--hook", "--head-only"]]
+
+    def test_gate_rebase_replay_skips_the_per_commit_sync(
+        self,
+        monkeypatch,
+        capsys,
+    ):
+        calls = []
+        monkeypatch.setattr(mod, "project_snapshot_sync", calls.append)
+        monkeypatch.setenv(mod.POST_COMMIT_SNAPSHOT_SKIP_ENV, "1")
+
+        assert cli_main(["git", "post-commit"]) == 0
+
+        assert calls == []
+        assert capsys.readouterr().err == ""
 
     def test_legacy_project_env_passes_project_flag(self, monkeypatch, capsys):
         calls = []
@@ -201,12 +220,11 @@ class TestShimCliCoupling:
     def test_no_module_invocation_form_remains(self):
         for shim in (PRE_COMMIT_SHIM, POST_COMMIT_SHIM):
             assert "python3 -m yoke_core.domain.git_pre_commit" not in shim
-            assert (
-                "python3 -m yoke_core.domain.path_snapshots" not in shim
-            )
+            assert "python3 -m yoke_core.domain.path_snapshots" not in shim
 
     def test_refresh_rewrites_legacy_module_form_pre_commit(
-        self, scratch_repo,
+        self,
+        scratch_repo,
     ):
         # The exact pre-launcher shim earlier installs wrote (the text
         # ExternalWebapp received before this slice) MUST be rewritten on refresh.
@@ -215,7 +233,7 @@ class TestShimCliCoupling:
             f"# {PRE_COMMIT_MARKER} hook installed by `yoke project install`\n"
             "# Hard-fails on file_line_check violations. "
             "Bypass with `git commit --no-verify`.\n"
-            "exec python3 -m yoke_core.domain.git_pre_commit \"$@\"\n"
+            'exec python3 -m yoke_core.domain.git_pre_commit "$@"\n'
         )
         hook = scratch_repo / ".git" / "hooks" / "pre-commit"
         hook.parent.mkdir(parents=True, exist_ok=True)

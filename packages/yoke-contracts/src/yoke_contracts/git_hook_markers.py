@@ -1,14 +1,11 @@
-"""Canonical Yoke git-hook marker strings.
+"""Canonical Yoke git-hook coordination tokens.
 
-These three constants identify the Yoke-managed git-hook shims that
-``yoke project install`` writes into a project's ``.git/hooks/``. Each shim
-carries its marker in a leading comment line, so a marker's presence in a
-hook file is the recognition signal for "this is the Yoke shim".
+The marker constants identify shims that ``yoke project install`` writes into
+a project's ``.git/hooks/``. The environment token lets a gate that owns the
+final committed-tree binding suppress redundant snapshot sync during replay.
 
-They live in yoke-contracts so that both yoke-cli (which authors the shims)
-and yoke-core (whose doctor gate-liveness check recognizes an installed
-shim on disk) can import the same strings. yoke-core must not import
-yoke-cli, so the shared identity has to sit in the package both depend on.
+These live in yoke-contracts so yoke-cli and yoke-core can share the same
+identity without making yoke-core import yoke-cli.
 """
 
 from __future__ import annotations
@@ -16,9 +13,11 @@ from __future__ import annotations
 PRE_COMMIT_MARKER = "yoke-pre-commit"
 POST_COMMIT_MARKER = "yoke-post-commit"
 PRE_MERGE_COMMIT_MARKER = "yoke-pre-merge-commit"
+POST_COMMIT_SNAPSHOT_SKIP_ENV = "YOKE_SKIP_POST_COMMIT_SNAPSHOT_SYNC"
 
 __all__ = [
     "PRE_COMMIT_MARKER",
     "POST_COMMIT_MARKER",
+    "POST_COMMIT_SNAPSHOT_SKIP_ENV",
     "PRE_MERGE_COMMIT_MARKER",
 ]
