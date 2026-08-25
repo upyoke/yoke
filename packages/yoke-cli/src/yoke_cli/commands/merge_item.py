@@ -10,7 +10,8 @@ from typing import Callable, Dict, List, Tuple
 AdapterFn = Callable[[List[str]], int]
 MERGE_ITEM_USAGE = (
     "yoke merge item ITEM --result TEXT --verification TEXT "
-    "[--no-changes] [--target BRANCH] [--project P] [--skip-status] [--pr]"
+    "[--no-changes] [--target BRANCH] [--project P] [--skip-status] [--pr]  "
+    "(Dash close-out needs --result/--verification even after a queue landing)"
 )
 
 

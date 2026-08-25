@@ -161,6 +161,12 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_args: True)
+    restored = []
+    monkeypatch.setattr(
+        merge_cli.recovery,
+        "restore_close_out_claim",
+        lambda **kw: (restored.append(kw["lane"].merge_sha), (item, ""))[1],
+    )
     calls = _transition_calls(monkeypatch)
 
     exit_code = merge_cli.run(
@@ -173,6 +179,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     assert evidence["touched_files"] == ["a.py", "docs/b.md"]
     assert evidence["commit_sha"] == LANE_SHA
     assert evidence["merge_sha"] == MERGE_SHA
+    assert restored == [MERGE_SHA]
     assert payloads["lifecycle.transition.execute"]["target_status"] == "done"
     call_names = [name for name, _payload in calls]
     assert call_names.index("direct_workflow.dash.evidence") < call_names.index(
@@ -191,7 +198,9 @@ def test_landed_lane_reacquires_close_out_authority(monkeypatch):
     monkeypatch.setattr(recovery, "call_dispatcher", dispatch)
 
     recovered, error = recovery.reacquire_landed_claim(
-        item_id=7, session_id="session-1", lane=LANE,
+        item_id=7,
+        session_id="session-1",
+        lane=LANE,
     )
 
     assert error == ""
@@ -212,7 +221,9 @@ def test_absent_landing_cannot_reacquire_close_out_authority(monkeypatch):
     monkeypatch.setattr(recovery, "claim_error", lambda *_a: "")
 
     recovered, error = recovery.reacquire_landed_claim(
-        item_id=7, session_id="session-1", lane=None,
+        item_id=7,
+        session_id="session-1",
+        lane=None,
     )
 
     assert recovered is None

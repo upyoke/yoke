@@ -173,7 +173,11 @@ yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM \
 ```
 
 Otherwise merge and close out in one call. The operation resolves the touched
-files from the branch itself, so no path list is needed:
+files from the branch itself, so no path list is needed. Dash close-out is
+evidence-gated on this same command — pass `--result` and `--verification`
+even when the merge queue already landed the branch. Do not substitute
+`yoke lifecycle transition --to done`; that path cannot restore the work
+claim a queue wait may have dropped.
 
 ```text
 yoke merge item ITEM \
@@ -183,17 +187,12 @@ yoke merge item ITEM \
 ```
 
 Add `--no-changes` for a genuine no-change result. When the merge is already
-recorded and only the close-out remains — after a deployment run, or after
-approval — record evidence and transition directly:
-
-```text
-yoke direct-workflow dash evidence ITEM \
-  --result "<what changed or was learned>" \
-  --verification "<checks and evidence>" \
-  --commit-sha <sha> --merge-sha <sha> \
-  --path <actual-file> [--path <actual-file> ...]
-yoke lifecycle transition ITEM --from reviewing-implementation --to done --reason "Merged and evidence recorded"
-```
+recorded and only the close-out remains — after a deployment run, after
+approval, or after a queue landing that has not reached `done` — re-run the
+same merge command with `--result` and `--verification`. It restores the
+work claim close-out needs and records evidence if the merge identity is
+not yet on the item. Do not hand-run `lifecycle.transition --to done` for
+Dash close-out.
 
 When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,

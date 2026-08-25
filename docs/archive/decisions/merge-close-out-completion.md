@@ -51,12 +51,14 @@ reported as a failure.**
 
 2. **The gate compares against the set of heads the merge boundary recorded**
    (`yoke_core.domain.qa_merging_identity.accepted_merging_shas`): the merge
-   receipt's landing and merge commits, the newest head a passing `ci_run`
-   proved green, the execution evidence a workflow may add, and the lane
-   column. A run recorded at none of them predates the merge and is still
-   refused, so the gate keeps its teeth while a legitimate two-tree merge
-   settles. Both routes now write that receipt — the queue route did not
-   before, which is why a queue landing had no local identity at all.
+   receipt's landing and merge commits, the passing ``ci_run`` identities
+   (PR-entry head and train receipt, not only the newest row), the execution
+   evidence a workflow may add, and the lane column. A later train receipt
+   must not displace the PR-entry SHA the item's own case verified. When the
+   train receipt names this merge, passing blocking runs are covered by it.
+   A run recorded at none of those predates the merge and is still refused.
+   Both routes write that receipt — the queue route did not before, which is
+   why a queue landing had no local identity at all.
 
 3. **A refused write is a failed write.** The handler carries the refusal text
    and code in its result payload, and `_update_item_direct` reports
@@ -107,8 +109,13 @@ already landed, on every member of every train.
 
 - A queue-landed item carries the same landing identity a locally merged one
   does, and its close-out reads the same surfaces.
-- The terminal transition accepts a passing run recorded at either the lane
-  head or the integrated head, and no others.
+- The terminal transition accepts a passing run recorded at the lane head,
+  the CI-verified PR-entry head, or the integrated head. When a merge-queue
+  batch receipt names this item's merge identity, that train run is the
+  covering verdict: passing blocking runs are not stale against a SHA the
+  queue rewrote, and a per-item re-verdict at the combined head is not
+  required. A run recorded at none of those predates the merge and is still
+  refused.
 - A refused done transition exits non-zero and prints why, over both
   transports.
 - A merge whose close-out completed reports as completed, whether the reporting

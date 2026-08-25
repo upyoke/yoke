@@ -9,6 +9,14 @@ import pytest
 
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_recovery as recovery
+from yoke_core.domain.standalone_item_merge_landed import LandedLane
+
+_LANE = LandedLane(
+    branch="ITEM-1",
+    target="main",
+    commit_sha="1" * 40,
+    merge_sha="2" * 40,
+)
 
 
 def _lookup(*, result, connection: str = "prod-db-admin") -> dict:
@@ -30,9 +38,12 @@ def test_bound_holder_authorizes_the_same_session_without_a_second_read(
             AssertionError("the authority connection must not repeat the lookup")
         ),
     )
-    lookup = _lookup(result={
-        "holder": {"item_id": 7, "session_id": "session-1"},
-    }, connection="prod")
+    lookup = _lookup(
+        result={
+            "holder": {"item_id": 7, "session_id": "session-1"},
+        },
+        connection="prod",
+    )
 
     with recovery.bind_work_claim_lookup(lookup):
         assert recovery.claim_error(7, "session-1") == ""
@@ -47,7 +58,9 @@ def test_missing_holder_field_names_the_connection_and_function(
         lambda **_kwargs: SimpleNamespace(success=True, result={}, error=None),
     )
     monkeypatch.setattr(
-        recovery, "_active_connection_name", lambda: "prod-db-admin",
+        recovery,
+        "_active_connection_name",
+        lambda: "prod-db-admin",
     )
 
     error = recovery.claim_error(7, "session-1")
@@ -66,9 +79,11 @@ def test_explicit_empty_holder_is_the_direct_missing_claim_diagnosis() -> None:
 
 
 def test_bound_holder_for_a_different_item_is_not_authority() -> None:
-    lookup = _lookup(result={
-        "holder": {"item_id": 8, "session_id": "session-1"},
-    })
+    lookup = _lookup(
+        result={
+            "holder": {"item_id": 8, "session_id": "session-1"},
+        }
+    )
 
     with recovery.bind_work_claim_lookup(lookup):
         error = recovery.claim_error(7, "session-1")
@@ -87,7 +102,9 @@ def test_absent_landing_preserves_the_current_claim_diagnosis(
     )
 
     lane, error = recovery.reacquire_landed_claim(
-        item_id=7, session_id="session-1", lane=None,
+        item_id=7,
+        session_id="session-1",
+        lane=None,
     )
 
     assert lane is None
@@ -101,7 +118,9 @@ def test_absent_landing_with_a_live_claim_reports_the_missing_lane(
     monkeypatch.setattr(recovery, "claim_error", lambda *_a, **_k: "")
 
     lane, error = recovery.reacquire_landed_claim(
-        item_id=7, session_id="session-1", lane=None,
+        item_id=7,
+        session_id="session-1",
+        lane=None,
     )
 
     assert lane is None
@@ -133,25 +152,114 @@ def test_evidence_only_item_without_a_landing_gets_the_direct_diagnosis(
     }
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(
-        merge_cli, "_session_holds_claim", lambda *_a: initial_claim_error,
+        merge_cli,
+        "_session_holds_claim",
+        lambda *_a: initial_claim_error,
     )
     monkeypatch.setattr(
-        merge_cli.evidence, "closed_out_envelope", lambda *_a, **_k: None,
+        merge_cli.evidence,
+        "closed_out_envelope",
+        lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
+        merge_cli,
+        "_resolve_checkout",
+        lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
     monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
-        recovery, "claim_error", lambda *_a, **_k: initial_claim_error,
+        recovery,
+        "claim_error",
+        lambda *_a, **_k: initial_claim_error,
     )
 
-    exit_code = merge_cli.run([
-        "ITEM-1", "--skip-status", "--no-changes", "--session-id", "session-1",
-    ])
+    exit_code = merge_cli.run(
+        [
+            "ITEM-1",
+            "--skip-status",
+            "--no-changes",
+            "--session-id",
+            "session-1",
+        ]
+    )
 
     assert exit_code == 1
     error = capsys.readouterr().err
     assert expected in error
     assert "no durable merge receipt" not in error
+
+
+def test_restore_reacquires_when_the_claim_is_gone(monkeypatch) -> None:
+    monkeypatch.setattr(
+        recovery,
+        "claim_error",
+        lambda *_a, **_k: "no live work claim",
+    )
+    monkeypatch.setattr(
+        recovery,
+        "reacquire_landed_claim",
+        lambda **_k: (_LANE, ""),
+    )
+
+    item, error = recovery.restore_close_out_claim(
+        item={"id": 7},
+        item_id=7,
+        session_id="session-1",
+        lane=_LANE,
+    )
+
+    assert error == ""
+    assert item["worktrees"][0]["commit_sha"] == _LANE.commit_sha
+
+
+def test_restore_is_a_no_op_when_the_session_still_holds_the_claim(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(recovery, "claim_error", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        recovery,
+        "reacquire_landed_claim",
+        lambda **_k: (_ for _ in ()).throw(
+            AssertionError("a held claim must not reacquire")
+        ),
+    )
+    original = {"id": 7}
+
+    item, error = recovery.restore_close_out_claim(
+        item=original,
+        item_id=7,
+        session_id="session-1",
+        lane=_LANE,
+    )
+
+    assert error == ""
+    assert item is original
+
+
+def test_restore_treats_an_already_done_item_as_closed_out(monkeypatch) -> None:
+    monkeypatch.setattr(
+        recovery,
+        "claim_error",
+        lambda *_a, **_k: "no live work claim",
+    )
+    monkeypatch.setattr(
+        recovery,
+        "reacquire_landed_claim",
+        lambda **_k: (None, "INVALID_CLAIM: item is already terminal"),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.standalone_item_merge_evidence.authoritative_status_is",
+        lambda *_a: True,
+    )
+    original = {"id": 7}
+
+    item, error = recovery.restore_close_out_claim(
+        item=original,
+        item_id=7,
+        session_id="session-1",
+        lane=_LANE,
+    )
+
+    assert error == ""
+    assert item is original
