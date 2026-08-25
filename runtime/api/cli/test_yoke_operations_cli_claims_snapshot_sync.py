@@ -38,6 +38,11 @@ def _run(*argv: str, requests: list[FunctionCallRequest] | None = None) -> int:
             return cli_main(list(argv))
 
 
+# Registering without --allow-planned refuses a path that exists in neither
+# tree before it reaches the sync, so proving the ordering needs a real one.
+_COMMITTED = "runtime/api/cli/test_yoke_operations_cli_claims_snapshot_sync.py"
+
+
 def test_register_attempts_snapshot_sync_before_dispatch() -> None:
     with patch(
         "yoke_cli.commands.adapters.claims.sync_local_snapshot_for_write"
@@ -45,7 +50,7 @@ def test_register_attempts_snapshot_sync_before_dispatch() -> None:
         rc = _run(
             "claims", "path", "register",
             "--item", "1819",
-            "--paths", "src/app.py",
+            "--paths", _COMMITTED,
             "--integration-target", "main",
         )
     assert rc == 0

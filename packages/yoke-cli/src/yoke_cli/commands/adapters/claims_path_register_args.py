@@ -13,6 +13,10 @@ from yoke_cli.commands._helpers import (
     split_comma,
     usage_error,
 )
+from yoke_cli.commands.adapters.claims_path_unmaterialized import (
+    UNMATERIALIZED_PATH_REFUSAL,
+    unmaterialized_paths,
+)
 
 
 CLAIM_PATH_REGISTER_USAGE = (
@@ -104,6 +108,14 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
         return usage_error("--tentative-paths requires --allow-planned")
     if not set(tentative_paths).issubset(set(paths)):
         return usage_error("--tentative-paths must be a subset of --paths")
+    # Refuse here rather than after a whole-tree snapshot scan and a relay
+    # round trip that can spend minutes retrying without printing anything.
+    if parsed.mode == "exclusive" and not parsed.allow_planned:
+        unmaterialized = unmaterialized_paths(paths)
+        if unmaterialized:
+            return usage_error(
+                UNMATERIALIZED_PATH_REFUSAL.format(paths=", ".join(unmaterialized))
+            )
 
     payload: Dict[str, Any] = {
         "paths": paths,

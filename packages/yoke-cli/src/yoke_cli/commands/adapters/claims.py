@@ -11,6 +11,7 @@ Covers four function ids:
 from __future__ import annotations
 
 import argparse
+import sys
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -284,6 +285,13 @@ def claims_path_register(args: List[str]) -> int:
     if isinstance(parsed_result, int):
         return parsed_result
     parsed = parsed_result.parsed
+    # Scanning a large checkout takes seconds before the claim is even sent,
+    # and an unannounced pause reads as a hang.
+    print(
+        "note: syncing the path snapshot before registering the claim",
+        file=sys.stderr,
+        flush=True,
+    )
     sync_local_snapshot_for_write(
         project=parsed.project,
         integration_target=parsed.integration_target,

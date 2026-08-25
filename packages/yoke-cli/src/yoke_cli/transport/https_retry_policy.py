@@ -23,6 +23,9 @@ never-run one proceeds fresh.
 
 from __future__ import annotations
 
+import sys
+from typing import TextIO
+
 
 CONNECTION_ATTEMPTS = 7
 CONNECTION_BACKOFF_SECONDS = (1.0, 3.0, 6.0, 12.0, 24.0, 48.0)
@@ -53,10 +56,33 @@ def connection_backoff_seconds(attempt: int) -> float:
     return backoff[min(max(attempt, 0), len(backoff) - 1)]
 
 
+def write_retry_notice(
+    reason: str,
+    attempt: int,
+    backoff_seconds: float,
+    stream: TextIO | None = None,
+) -> None:
+    """Say that the relay is waiting, so a long retry is never silent.
+
+    The full attempt budget spends 94 seconds of backoff on top of seven
+    request timeouts, which is minutes of wall clock. Without a line per
+    attempt the operator cannot tell a relay that is patiently retrying
+    from a command that has hung, and the observed report is exactly that:
+    zero output, no receipt, and no way to know which one happened.
+    """
+    print(
+        f"note: relay attempt {attempt + 1}/{CONNECTION_ATTEMPTS} failed "
+        f"({reason}); retrying in {backoff_seconds:.0f}s",
+        file=sys.stderr if stream is None else stream,
+        flush=True,
+    )
+
+
 __all__ = [
     "CONNECTION_ATTEMPTS",
     "CONNECTION_BACKOFF_SECONDS",
     "RESPONSE_DEADLINE_ATTEMPTS",
     "connection_backoff_seconds",
+    "write_retry_notice",
     "http_status_is_transient",
 ]
