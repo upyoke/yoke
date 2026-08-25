@@ -27,7 +27,10 @@ Local verification stays change-scoped:
   always-run floor of cross-cutting contract tests executes on every
   selection (CLI registry, operation inventory, adapter parity, Atlas
   integrity, generated-artifact parity/drift, plus a fresh-universe birth
-  from the published engine wheel).
+  from the published engine wheel). A changed or added test file is
+  selected unconditionally before reachability runs — including when a
+  bounded run defers a near-total remainder — so the branch's own tests
+  cannot be dropped in favor of the floor alone.
   Every member but the last is fast; that one builds an artifact and boots
   a database, and it is on the floor precisely because a deferred test is
   how the engine last shipped unable to create one. The conservative

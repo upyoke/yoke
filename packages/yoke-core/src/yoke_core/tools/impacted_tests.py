@@ -8,11 +8,11 @@ cross-cutting wiring that reachability can miss.
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
+from yoke_core.tools._impacted_changed_paths import changed_paths
 from yoke_core.tools._impacted_contract_tests import (
     AGENT_SKILL_CONTRACT_TESTS,
     ALWAYS_RUN_TESTS,
@@ -27,6 +27,7 @@ from yoke_core.tools._impacted_import_index import (
     ImportIndex,
     TEST_ANCHORS,
     build_import_index,
+    direct_changed_tests,
     is_test_file,
     module_name_for,
 )
@@ -46,6 +47,7 @@ SHARED_TEST_FIXTURE_PATHS = (
 #: The selection and test-run machinery itself. A change here can alter
 #: what any other run selects or how it executes.
 TEST_TOOLING_PATHS = (
+    "packages/yoke-core/src/yoke_core/tools/_impacted_changed_paths.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py",
     "packages/yoke-core/src/yoke_core/tools/impacted_tests.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_selection.py",
@@ -91,28 +93,6 @@ FALLBACK_RULES = tuple(rule for rule, _paths, _why in _PATH_RULES) + (
     "no_importable_module",
     "effectively_full_selection",
 )
-
-
-def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:
-    """Repo-relative paths differing from *base*, including uncommitted work."""
-    seen: list[str] = []
-    for args in (
-        ["diff", "--name-only", f"{base}...HEAD"],
-        ["diff", "--name-only", "HEAD"],
-        ["ls-files", "--others", "--exclude-standard"],
-    ):
-        result = subprocess.run(
-            ["git", "-C", str(repo_root), *args],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            continue
-        for line in result.stdout.splitlines():
-            line = line.strip()
-            if line and line not in seen:
-                seen.append(line)
-    return tuple(seen)
 
 
 def _matches(rel: str, prefixes: Sequence[str]) -> bool:
@@ -227,11 +207,12 @@ def select(
         tests=frozenset(applicable_contracts),
         widening_triggers=(contracts.widening_triggers if applicable_contracts else ()),
     )
+    direct = direct_changed_tests(changed, index)
     selection = replace(_widened(changed, index), total_files=total_files)
     if not selection.full_sweep:
         selection = replace(
             selection,
-            files=tuple(sorted(set(selection.files) | contracts.tests)),
+            files=tuple(sorted(set(selection.files) | contracts.tests | direct)),
             widening_triggers=contracts.widening_triggers,
         )
     selected_files = sum(path in index.module_of for path in selection.files)
@@ -264,7 +245,7 @@ def select(
             f"{', '.join(selection.trigger_paths)}) — deferring full "
             f"coverage to the final QA gate{subset_note}"
         ),
-        files=tuple(sorted(reached | contracts.tests)),
+        files=tuple(sorted(reached | contracts.tests | direct)),
         total_files=total_files,
         fallback_rule=selection.fallback_rule,
         trigger_paths=selection.trigger_paths,
