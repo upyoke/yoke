@@ -64,6 +64,18 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         ),
     ),
     _read_entry(
+        function_id="github_actions.failed_log",
+        cli_invocation=(
+            "yoke github-actions failed-log <owner/repo> <run-id> "
+            "--project <project>"
+        ),
+        notes=(
+            "Failed-step log tail via gh_rest_transport ZIP path; omit "
+            "run id and pass --workflow with optional --head-sha to "
+            "resolve from the current checkout."
+        ),
+    ),
+    _read_entry(
         function_id="github_actions.wait_run",
         cli_invocation=(
             "yoke github-actions wait-run <owner/repo> <run-id> "

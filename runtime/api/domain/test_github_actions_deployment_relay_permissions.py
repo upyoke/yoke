@@ -211,6 +211,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             "github_actions.run.jobs_count": False,
             "github_actions.wait_run": False,
             "github_actions.check_ci": False,
+            "github_actions.failed_log": False,
             "github_actions.variable.get": False,
             "github.release.create_next_tag": True,
             "release_pin.record": True,

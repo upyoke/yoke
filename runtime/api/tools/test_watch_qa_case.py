@@ -54,7 +54,8 @@ class TestGateClassifier:
             "https://github.com/o/r/actions/runs/32421897187",
             "# qa case run: requirement=15582 waiting for a covering run on "
             "o/r@aac38c7b5f2f; no run id yet; next poll=10s",
-            "# qa case run: inspect with `gh run view 1 --repo o/r`; watch "
+            "# qa case run: inspect failures with "
+            "`yoke github-actions failed-log o/r 1 --project <project>`; watch "
             "with `gh run watch 1 --repo o/r`",
             "# qa case run: if cancellation stalls, force-cancel with "
             "`gh api --method POST repos/o/r/actions/runs/1/force-cancel`",

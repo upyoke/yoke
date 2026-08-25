@@ -21,6 +21,7 @@ _ALLOWED_FUNCTIONS = frozenset({
     "github_actions.workflow.find_run",
     "github_actions.run.jobs_count",
     "github_actions.wait_run",
+    "github_actions.failed_log",
 })
 
 
@@ -72,10 +73,12 @@ def dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
     options = dict(request.options or {})
     options["authorized_project_id"] = project_id
     narrowed = request.model_copy(update={"actor": actor, "options": options})
+    from yoke_core.domain.handlers import github_actions_failed_log
     from yoke_core.domain.handlers import github_actions_run
     from yoke_core.domain.handlers import github_actions_workflow
 
     registrations = (
+        *github_actions_failed_log.REGISTRATIONS,
         *github_actions_run.REGISTRATIONS,
         *github_actions_workflow.REGISTRATIONS,
     )
