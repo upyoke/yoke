@@ -12,8 +12,11 @@ from .sessions_render_reclaim import _resolve_effective_ttl
 from .schema_common import _get_columns as _schema_get_columns
 from .session_reclaim_progress import (
     current_episode_progress_stamp,
+    live_activity_stamp,
     newest_activity_stamp,
     read_session_state,
+    session_has_open_tool_call,
+    session_turn_is_running,
 )
 
 
@@ -43,6 +46,8 @@ class ReclaimActivityEvidence:
     episode_started_at: Optional[str]
     activity_at: Optional[str]
     ended_at: Optional[str]
+    turn_posture: Optional[str]
+    open_tool_call: bool
 
     def as_payload(self) -> dict:
         return {
@@ -53,7 +58,13 @@ class ReclaimActivityEvidence:
             "claim_last_heartbeat": self.claim_last_heartbeat,
             "claim_claimed_at": self.claim_claimed_at,
             "activity_at": self.activity_at,
+            "turn_posture": self.turn_posture,
+            "open_tool_call": self.open_tool_call,
         }
+
+    @property
+    def in_flight(self) -> bool:
+        return self.open_tool_call or session_turn_is_running(self.turn_posture)
 
 
 @dataclass(frozen=True)
@@ -137,12 +148,14 @@ def read_activity_signals(
         ended_at,
         last_event_at,
         episode_started_at,
+        turn_posture,
     ) = read_session_state(conn, session_id)
     claim_last_heartbeat, claim_claimed_at = _claim_state(
         conn,
         session_id,
         claim_id,
     )
+    open_tool_call = session_has_open_tool_call(conn, session_id)
 
     activity_at = newest_activity_stamp(
         claim_last_heartbeat,
@@ -168,6 +181,8 @@ def read_activity_signals(
         episode_started_at=episode_started_at,
         activity_at=activity_at,
         ended_at=ended_at,
+        turn_posture=turn_posture,
+        open_tool_call=open_tool_call,
     )
 
 
@@ -179,7 +194,10 @@ def latest_activity(
 ) -> Optional[str]:
     """Return the canonical "is this session alive?" timestamp."""
     del executor  # routed via read_activity_signals
-    return read_activity_signals(conn, session_id).activity_at
+    evidence = read_activity_signals(conn, session_id)
+    if evidence.in_flight:
+        return live_activity_stamp()
+    return evidence.activity_at
 
 
 def classify_reclaimable(
@@ -238,6 +256,7 @@ def classify_reclaimable(
         and event_stale
         and claim_heartbeat_stale
         and claim_claimed_stale
+        and not evidence.in_flight
     ):
         if evidence.activity_at is None:
             reason = REASON_NEVER_ENGAGED
@@ -253,7 +272,11 @@ def classify_reclaimable(
         evidence.last_event_at,
         evidence.episode_started_at,
     )
-    if progress_threshold_minutes is not None and progress_at is not None:
+    if (
+        progress_threshold_minutes is not None
+        and progress_at is not None
+        and not evidence.open_tool_call
+    ):
         progress_stale = activity_is_stale(
             progress_at,
             executor=evidence.executor,

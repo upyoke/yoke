@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 from . import db_backend
 from .schema_common import _get_columns as _schema_get_columns
 from .session_reclaim_activity import newest_activity_stamp as _newest
+from .session_reclaim_progress import live_activity_stamp
 
 
 def _p(conn: Any) -> str:
@@ -87,8 +88,7 @@ def latest_activity_by_session(
             for row in _rows(conn, sql, ids):
                 session_id = str(_value(row, "session_id", 0))
                 stamps = [
-                    _value(row, name, index + 1)
-                    for index, name in enumerate(selected)
+                    _value(row, name, index + 1) for index, name in enumerate(selected)
                 ]
                 activity[session_id] = _newest(activity.get(session_id), *stamps)
 
@@ -108,11 +108,45 @@ def latest_activity_by_session(
                 _value(row, "last_heartbeat", 1)
                 if "last_heartbeat" in claim_columns
                 else None,
-                _value(row, "claimed_at", 2 if "last_heartbeat" in claim_columns else 1),
+                _value(
+                    row, "claimed_at", 2 if "last_heartbeat" in claim_columns else 1
+                ),
             ]
             activity[session_id] = _newest(activity.get(session_id), *stamps)
 
+    _mark_in_flight_live(conn, ids, activity, marker, placeholders)
     return activity
+
+
+def _mark_in_flight_live(
+    conn: Any,
+    ids: List[str],
+    activity: Dict[str, Optional[str]],
+    marker: str,
+    placeholders: str,
+) -> None:
+    """Treat a running turn or open tool call as live for every listed session."""
+    live_stamp = live_activity_stamp()
+    session_columns = _columns(conn, "harness_sessions")
+    if "turn_posture" in session_columns:
+        sql = (
+            f"SELECT session_id FROM harness_sessions "
+            f"WHERE session_id IN ({placeholders}) AND turn_posture = {marker}"
+        )
+        for row in _rows(conn, sql, (*ids, "running")):
+            session_id = str(_value(row, "session_id", 0))
+            if session_id in activity:
+                activity[session_id] = live_stamp
+    tool_columns = _columns(conn, "session_tool_calls")
+    if "completed_at" in tool_columns and "session_id" in tool_columns:
+        sql = (
+            f"SELECT DISTINCT session_id FROM session_tool_calls "
+            f"WHERE completed_at IS NULL AND session_id IN ({placeholders})"
+        )
+        for row in _rows(conn, sql, ids):
+            session_id = str(_value(row, "session_id", 0))
+            if session_id in activity:
+                activity[session_id] = live_stamp
 
 
 __all__ = ["latest_activity_by_session"]
