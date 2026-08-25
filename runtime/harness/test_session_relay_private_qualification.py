@@ -22,12 +22,20 @@ from yoke_harness import session_relay_private_qualification as qualification
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
 from yoke_harness.session_relay_runtime import RelayExecutionContext
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    require_exact_cli_idle_policy,
+)
 
 
 RELEASE_SHA = "a" * 40
 TARGET_SESSION_ID = "22222222-2222-4222-8222-222222222222"
 SOURCE_FILE = Path(qualification.__file__).resolve()
 SOURCE_ROOT = SOURCE_FILE.parents[4]
+
+
+@pytest.fixture(autouse=True)
+def _candidate_route_requires_grant(monkeypatch) -> None:
+    require_exact_cli_idle_policy(monkeypatch)
 
 
 def _scope(**changes: str) -> PrivateRouteQualificationScope:

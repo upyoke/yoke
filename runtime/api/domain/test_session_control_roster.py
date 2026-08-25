@@ -240,7 +240,7 @@ def test_machine_wake_needs_a_relay_serving_the_sessions_project() -> None:
     assert routing["wake_available"] is False
 
 
-def test_private_wake_route_requires_the_exact_pinned_version() -> None:
+def test_private_wake_route_accepts_a_newer_patch_version() -> None:
     conn = _connection()
     _add_session(conn, surface="claude-desktop", version="1.34493.1")
     _add_relay(conn, surface_versions={"claude-desktop": "1.32885.1"})
@@ -253,8 +253,8 @@ def test_private_wake_route_requires_the_exact_pinned_version() -> None:
 
     assert routing["hook_injection"] is True
     assert routing["wake_operation"] == "message_idle"
-    assert routing["wake_interface"] == "none"
-    assert routing["wake_available"] is False
+    assert routing["wake_interface"] == "private"
+    assert routing["wake_available"] is True
 
 
 @pytest.mark.parametrize(
@@ -265,7 +265,7 @@ def test_private_wake_route_requires_the_exact_pinned_version() -> None:
         ({"codex-desktop": "26.814.41407"}, (11,)),
     ),
 )
-def test_connected_relay_is_not_wakeable_without_an_exact_route(
+def test_connected_relay_is_not_wakeable_without_a_qualifying_route(
     surface_versions: dict[str, str],
     project_ids: tuple[int, ...],
 ) -> None:

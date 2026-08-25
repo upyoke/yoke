@@ -94,8 +94,19 @@ def surface_version_supported(surface: str | None, version: str | None) -> bool:
     capability = capability_for_surface(surface)
     if capability is None or not version:
         return False
-    observed = _version_key(surface, version)
-    floor = _version_key(surface, capability.minimum_version)
+    return surface_version_meets_floor(surface, version, capability.minimum_version)
+
+
+def surface_version_meets_floor(
+    surface: str | None,
+    observed_version: str | None,
+    minimum_version: str | None,
+) -> bool:
+    """Return whether one observed surface version meets an explicit floor."""
+    if not observed_version or not minimum_version:
+        return False
+    observed = _version_key(surface, observed_version)
+    floor = _version_key(surface, minimum_version)
     return bool(observed is not None and floor is not None and observed >= floor)
 
 
@@ -134,5 +145,6 @@ __all__ = [
     "machine_stopped_wake_supported",
     "machine_stopped_wake_surface",
     "surface_operation_supported",
+    "surface_version_meets_floor",
     "surface_version_supported",
 ]

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_RELEASE_REASON,
     PrivateRouteQualificationScope,
@@ -24,10 +26,18 @@ from runtime.api.domain.test_session_message_support import (
     message_connection,
     selector,
 )
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    require_exact_cli_idle_policy,
+)
 
 
 RELEASE_SHA = "a" * 40
 MACHINE_ID = "11111111-1111-4111-8111-111111111111"
+
+
+@pytest.fixture(autouse=True)
+def _candidate_route_requires_grant(monkeypatch) -> None:
+    require_exact_cli_idle_policy(monkeypatch)
 
 
 def _connection(*, target_version: str):

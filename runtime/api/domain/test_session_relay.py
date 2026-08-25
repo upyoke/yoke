@@ -302,9 +302,10 @@ def test_launch_claim_separates_attestation_and_redacts_report() -> None:
     assert json.loads(evidence) == {"exit_code": 0}
 
 
-def test_private_versions_fail_closed_outside_the_pinned_release() -> None:
+def test_private_versions_use_floors_and_malformed_versions_fail_closed() -> None:
     assert surface_operation_supported("claude-cli", "2.1.238", "message_idle")
-    assert not surface_operation_supported("claude-cli", "2.1.239", "message_idle")
+    assert surface_operation_supported("claude-cli", "2.1.239", "message_idle")
+    assert not surface_operation_supported("claude-cli", "2.1.237", "message_idle")
     assert not surface_operation_supported(
         "codex-cli", "not-a-version", "message_stopped"
     )

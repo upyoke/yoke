@@ -53,6 +53,8 @@ def authorize_wake_versions(
         return execution, None
     surface = str(candidate.get("executor_surface") or "")
     version = str(candidate.get("executor_version") or "")
+    # A one-shot grant proves the exact installed binary that will consume it;
+    # a floor here would replay build-specific stage evidence onto another build.
     if surface_versions.get(surface) != version:
         return None, None
     operation = wake_operation(

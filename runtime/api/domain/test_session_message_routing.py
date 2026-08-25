@@ -44,7 +44,7 @@ def test_waiting_desktop_session_wakes_through_the_installed_cli() -> None:
     assert routing["wake_interface"] == "supported"
 
 
-def test_live_session_keeps_its_private_route_and_is_never_machine_woken() -> None:
+def test_live_and_idle_sessions_keep_their_private_surface_routes() -> None:
     active = messageability(
         _row(), liveness="active", machine_surface_versions=INSTALLED_CLI
     )
@@ -55,7 +55,7 @@ def test_live_session_keeps_its_private_route_and_is_never_machine_woken() -> No
     assert active["wake_operation"] == "message_active"
     assert active["wake_interface"] == "private"
     assert idle["wake_operation"] == "message_idle"
-    assert idle["wake_interface"] == "none"
+    assert idle["wake_interface"] == "private"
 
 
 def test_stopped_session_without_a_qualifying_installed_cli_has_no_route() -> None:

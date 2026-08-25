@@ -50,7 +50,7 @@ _NonEmptyText = Annotated[
     str,
     StringConstraints(strip_whitespace=True, strict=True, min_length=1, max_length=256),
 ]
-_ExactVersion = Annotated[
+_SurfaceVersion = Annotated[
     str,
     StringConstraints(strip_whitespace=True, strict=True, min_length=1, max_length=128),
 ]
@@ -61,11 +61,11 @@ class _AcceptanceVersions(BaseModel):
         extra="forbid", frozen=True, validate_by_alias=True, validate_by_name=False
     )
 
-    claude_cli: _ExactVersion = Field(alias="claude-cli")
-    claude_desktop: _ExactVersion = Field(alias="claude-desktop")
-    codex_cli: _ExactVersion = Field(alias="codex-cli")
-    codex_desktop: _ExactVersion = Field(alias="codex-desktop")
-    cursor_cli: _ExactVersion = Field(alias="cursor-cli")
+    claude_cli: _SurfaceVersion = Field(alias="claude-cli")
+    claude_desktop: _SurfaceVersion = Field(alias="claude-desktop")
+    codex_cli: _SurfaceVersion = Field(alias="codex-cli")
+    codex_desktop: _SurfaceVersion = Field(alias="codex-desktop")
+    cursor_cli: _SurfaceVersion = Field(alias="cursor-cli")
 
 
 class BrokerAcceptanceBinding(BaseModel):

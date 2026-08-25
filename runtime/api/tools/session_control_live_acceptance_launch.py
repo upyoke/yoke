@@ -14,6 +14,9 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_protocol import (
     initial_delivery_message,
 )
+from yoke_contracts.session_control.surface_versions import (
+    surface_version_meets_floor,
+)
 
 
 _TERMINAL_STATES = frozenset(
@@ -89,7 +92,11 @@ def create_and_bind(
     if (
         preview.get("launchable") is not True
         or not isinstance(selected, dict)
-        or selected.get("version") != cell.expected_version
+        or not surface_version_meets_floor(
+            cell.surface,
+            str(selected.get("version") or ""),
+            cell.expected_version,
+        )
     ):
         raise AcceptanceContractError(
             "launch_preview_unqualified", surface=cell.surface
