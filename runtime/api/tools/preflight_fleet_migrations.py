@@ -24,6 +24,9 @@ to those; the default is every tenant database on that cluster.
 release gate reads before allocating a tag; a receipt covers exactly the
 environment whose fleet was rehearsed, a release targeting an environment
 requires that environment's receipt, and one environment's receipt never satisfies another.
+The receipt names the history entries covered and the schema-shape digest of
+the boot-converge sources in the selected engine artifact, so an additive
+schema change without a new history entry is still uncovered until rehearsed.
 Receipts always write to the release-gate control plane.
 The selected admin connection changes the covered fleet, not the receipt
 plane. Receipts are recorded only on passing runs, so they cannot exist for
@@ -114,6 +117,7 @@ def _record_receipt(
     product_sha: str,
     entries: Sequence[str],
     engine_artifact: Mapping[str, str],
+    schema_shape_digest: str,
 ) -> str:
     """Write the pass to the control plane; return a reason on failure."""
     from yoke_core.domain import migration_preflight_receipt as receipt
@@ -123,6 +127,7 @@ def _record_receipt(
         product_sha,
         entries,
         engine_artifact=engine_artifact,
+        schema_shape_digest=schema_shape_digest,
     )
     argv = [
         "yoke",
@@ -240,12 +245,27 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1 if failed else 0
 
     entries = plan.history
+    from yoke_core.domain.schema_shape_source import (
+        SchemaShapeSourceError,
+        digest_schema_shape,
+    )
+
+    try:
+        schema_digest = digest_schema_shape()
+    except SchemaShapeSourceError as exc:
+        print(
+            "fleet rehearsal passed but its schema-shape digest could not be "
+            f"computed, so no receipt was recorded: {exc}",
+            file=sys.stderr,
+        )
+        return 1
     unwritten = _record_receipt(
         receipt_env=receipt_env,
         environment=positional[0],
         product_sha=product_sha,
         entries=entries,
         engine_artifact=engine_artifact.evidence(),
+        schema_shape_digest=schema_digest,
     )
     if unwritten:
         # A pass nobody recorded reads to the operator as an unblocked release
@@ -257,7 +277,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"receipt recorded on {receipt_env} covering {len(entries)} history entries")
+    print(
+        f"receipt recorded on {receipt_env} covering {len(entries)} history "
+        f"entries and schema-shape {schema_digest}"
+    )
     return 0
 
 

@@ -1,20 +1,24 @@
-"""What proves a migration history entry was rehearsed against the fleet.
+"""What proves a fleet rehearsal covered the schema this release would ship.
 
-The fleet preflight answers the one question a migration entry raises: does it
-still apply to the databases that are behind it? Answering it well is worth
-nothing if a release can ship without asking. This module is the record that
-the question was asked and the predicate a release gate reads to find out.
+The fleet preflight answers two questions a release raises: do pending
+history entries still apply to the databases behind them, and does this
+build's additive schema shape converge on those same aged copies? Answering
+either well is worth nothing if a release can ship without asking. This
+module is the record that the questions were asked and the predicate a
+release gate reads to find out.
 
-A receipt names an environment and the history entries covered when the
-rehearsal passed. It exists only on a pass, so a receipt cannot be produced by
-a run that failed, and the gate needs no verdict field to interpret.
+A receipt names an environment, the history entries covered, and the
+schema-shape digest of the sources that emit boot-converge DDL. It exists
+only on a pass, so a receipt cannot be produced by a run that failed, and
+the gate needs no verdict field to interpret.
 
 **Coverage is a union over receipts, not the newest one.** A release carries
 its whole history, so demanding that one receipt cover all of it would mean
 re-rehearsing every entry ever written on every release — minutes per release
-to re-prove entries the fleet applied long ago. Taking the union instead makes
-the obligation exactly what the risk is: an entry must be rehearsed once for an
-environment before a build carrying it ships there, and never again.
+to re-prove entries the fleet applied long ago. The same union applies to
+schema-shape digests: a digest must be rehearsed once per environment, and
+never again until the shape changes. Taking the union makes the obligation
+exactly what the risk is.
 
 **Coverage is per environment.** Each environment is a different fleet at a
 different ledger position, and an entry that applies cleanly to one says
@@ -42,6 +46,7 @@ ENVIRONMENT_KEY = "environment"
 ENTRIES_KEY = "entries"
 PRODUCT_SHA_KEY = "product_sha"
 ENGINE_ARTIFACT_KEY = "engine_artifact"
+SCHEMA_SHAPE_DIGEST_KEY = "schema_shape_digest"
 
 #: Suffix on the admin connection the preflight runs against. The connection
 #: names a cluster; a receipt names the environment a release targets, and
@@ -72,6 +77,7 @@ def receipt_context(
     entries: Sequence[str],
     *,
     engine_artifact: Mapping[str, Any] | None = None,
+    schema_shape_digest: str = "",
 ) -> Dict[str, Any]:
     """The event context a passing rehearsal records."""
     context = {
@@ -83,6 +89,9 @@ def receipt_context(
     }
     if engine_artifact:
         context[ENGINE_ARTIFACT_KEY] = dict(engine_artifact)
+    digest = schema_shape_digest.strip()
+    if digest:
+        context[SCHEMA_SHAPE_DIGEST_KEY] = digest
     return context
 
 
@@ -140,6 +149,34 @@ def uncovered(
     return tuple(name for name in history if name not in covered)
 
 
+def covered_schema_shape_digests(
+    rows: Iterable[Mapping[str, Any]], environment: str
+) -> frozenset:
+    """Every schema-shape digest some passing receipt covers for one environment."""
+    wanted = target_environment_for_admin_env(environment)
+    covered = set()
+    for row in rows:
+        context = _context_of(row)
+        if context.get(ENVIRONMENT_KEY) != wanted:
+            continue
+        digest = context.get(SCHEMA_SHAPE_DIGEST_KEY)
+        if isinstance(digest, str) and digest.strip():
+            covered.add(digest.strip())
+    return frozenset(covered)
+
+
+def uncovered_schema_shape(
+    digest: str, rows: Iterable[Mapping[str, Any]], environment: str
+) -> Tuple[str, ...]:
+    """The current digest when no passing receipt covers it, else empty."""
+    wanted = digest.strip()
+    if not wanted:
+        return ("",)
+    if wanted in covered_schema_shape_digests(rows, environment):
+        return ()
+    return (wanted,)
+
+
 #: Registered environments a Yoke hosted release can target. Coverage is
 #: per environment, so a receipt for one is not evidence for another.
 RELEASE_ENVIRONMENTS = ("stage", "prod")
@@ -177,6 +214,26 @@ def refusal_message(
         "coverage for another. An entry exists for the databases that are "
         "behind it, and nothing here has yet run it against one. Rehearse "
         f"the fleet, then re-run this release:\n  {command}"
+    )
+
+
+def schema_shape_refusal_message(
+    environment: str,
+    digest: str,
+    *,
+    product_sha: str = "",
+    rehearse_command: str = "",
+) -> str:
+    """Why this release stops when the schema-shape digest is uncovered."""
+    build = f" at {product_sha}" if product_sha.strip() else ""
+    command = rehearse_command.strip() or _DEFAULT_REHEARSE_COMMAND
+    return (
+        f"this build{build} carries a schema-shape digest no passing fleet "
+        f"preflight has covered for {target_environment_for_admin_env(environment)}: "
+        f"{digest}. Additive schema converges on boot without a history entry, "
+        "and CI only ever creates fresh databases, so an unrehearsed shape "
+        "reaches the fleet as a missing column. Receipts are per environment. "
+        f"Rehearse the fleet, then re-run this release:\n  {command}"
     )
 
 
@@ -224,9 +281,7 @@ def release_refusal_message(
         if target_environment_for_admin_env(env) != target and missing
     ]
     if others:
-        extra = "; ".join(
-            f"{env}: {', '.join(missing)}" for env, missing in others
-        )
+        extra = "; ".join(f"{env}: {', '.join(missing)}" for env, missing in others)
         parts.append(
             "Also uncovered (receipts are per environment, so these are "
             f"separate gaps): {extra}."
@@ -243,9 +298,7 @@ def release_refusal_message(
     ]
     if covered:
         named = ", ".join(target_environment_for_admin_env(env) for env in covered)
-        parts.append(
-            f"Covered for {named}; that evidence does not transfer."
-        )
+        parts.append(f"Covered for {named}; that evidence does not transfer.")
     if engine_wheel_source.strip():
         parts.append(engine_wheel_source.strip())
     return "\n".join(parts)
