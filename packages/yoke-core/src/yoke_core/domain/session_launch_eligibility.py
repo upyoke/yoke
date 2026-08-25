@@ -79,15 +79,14 @@ def derive_launch_eligibility(
         return EligibilitySnapshot((), rejection_codes=("unsupported_surface",))
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    params: list[Any] = [now]
+    params: list[Any] = []
     machine_clause = ""
     if machine_id:
-        machine_clause = f" AND machine_id = {marker}"
+        machine_clause = f" WHERE machine_id = {marker}"
         params.append(machine_id)
     rows = conn.execute(
         "SELECT relay_id, machine_id, surface_versions, project_checkouts, "
-        "last_seen_at FROM session_relays "
-        f"WHERE state IN ('active','idle') AND connected_until >= {marker}"
+        "last_seen_at, state, connected_until FROM session_relays"
         f"{machine_clause} ORDER BY last_seen_at DESC, relay_id ASC",
         tuple(params),
     ).fetchall()
@@ -98,13 +97,24 @@ def derive_launch_eligibility(
     for row in rows:
         relay_machine = str(_value(row, "machine_id", 1))
         considered.add(relay_machine)
+        row_rejected = False
+        state = str(_value(row, "state", 5))
+        connected_until = str(_value(row, "connected_until", 6))
+        if state not in {"active", "idle"} or connected_until < now:
+            rejected.add("liveness_expired")
+            row_rejected = True
         if not _serves_project(_value(row, "project_checkouts", 3), project_keys):
             rejected.add("project_checkout_missing")
-            continue
+            row_rejected = True
         versions = _json(_value(row, "surface_versions", 2), {})
         offered = versions.get(surface) if isinstance(versions, dict) else None
-        if not isinstance(offered, str) or not _allowed_version(surface, offered):
-            rejected.add("version_mismatch")
+        if not isinstance(offered, str) or not offered.strip():
+            rejected.add("surface_absent")
+            row_rejected = True
+        elif not _allowed_version(surface, offered):
+            rejected.add("version_below_floor")
+            row_rejected = True
+        if row_rejected:
             continue
         if relay_machine in selected_by_machine:
             continue
@@ -115,6 +125,8 @@ def derive_launch_eligibility(
             version=offered,
             last_seen_at=str(_value(row, "last_seen_at", 4)),
         )
+    if not rows:
+        rejected.add("relay_absent")
     return EligibilitySnapshot(
         tuple(selected_by_machine.values()),
         tuple(sorted(considered)),

@@ -87,6 +87,8 @@ class LaunchPreview:
     requested_surface: str
     eligible_relays: tuple[EligibleRelay, ...]
     selected_relay: EligibleRelay | None = None
+    considered_machine_ids: tuple[str, ...] = ()
+    rejection_codes: tuple[str, ...] = ()
 
     @property
     def launchable(self) -> bool:
@@ -109,6 +111,8 @@ class LaunchPreview:
             "selected_surface": self.selected_surface,
             "fallback_used": self.fallback_used,
             "launchable": self.launchable,
+            "considered_machine_ids": list(self.considered_machine_ids),
+            "rejection_codes": list(self.rejection_codes),
             "eligible_relays": [relay.to_dict() for relay in self.eligible_relays],
             "selected_relay": (
                 self.selected_relay.to_dict() if self.selected_relay else None
@@ -201,19 +205,45 @@ def choose_relay(
             if "unsupported_surface" in snapshot.rejection_codes
             else "no_eligible_relay"
         )
-        return LaunchPreview(outcome, surface, tuple(relays))
+        return LaunchPreview(
+            outcome,
+            surface,
+            tuple(relays),
+            considered_machine_ids=snapshot.considered_machine_ids,
+            rejection_codes=snapshot.rejection_codes,
+        )
     if len(relays) == 1:
         outcome = "assigned_fallback" if fallback else "assigned"
-        return LaunchPreview(outcome, surface, tuple(relays), relays[0])
+        return LaunchPreview(
+            outcome,
+            surface,
+            tuple(relays),
+            relays[0],
+            snapshot.considered_machine_ids,
+            snapshot.rejection_codes,
+        )
     if not machine_id and auto_select_machine:
         selected = min(
             relays,
             key=lambda relay: (relay.machine_id, relay.relay_id, relay.surface),
         )
         outcome = "assigned_fallback" if fallback else "assigned"
-        return LaunchPreview(outcome, surface, tuple(relays), selected)
+        return LaunchPreview(
+            outcome,
+            surface,
+            tuple(relays),
+            selected,
+            snapshot.considered_machine_ids,
+            snapshot.rejection_codes,
+        )
     outcome = "relay_ambiguous" if machine_id else "machine_required"
-    return LaunchPreview(outcome, surface, tuple(relays))
+    return LaunchPreview(
+        outcome,
+        surface,
+        tuple(relays),
+        considered_machine_ids=snapshot.considered_machine_ids,
+        rejection_codes=snapshot.rejection_codes,
+    )
 
 
 __all__ = [

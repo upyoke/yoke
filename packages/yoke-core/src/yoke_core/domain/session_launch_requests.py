@@ -159,7 +159,8 @@ def create_launch(
         if not preview.launchable:
             raise SessionLaunchError(
                 preview.outcome,
-                f"launch refused with outcome {preview.outcome}",
+                f"launch refused with outcome {preview.outcome}: "
+                f"{', '.join(preview.rejection_codes) or 'no relay evidence'}",
             )
 
         launch_id = str(uuid4())
