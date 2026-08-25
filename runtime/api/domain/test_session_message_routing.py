@@ -53,7 +53,7 @@ def test_live_session_keeps_its_private_route_and_is_never_machine_woken() -> No
     )
 
     assert active["wake_operation"] == "message_active"
-    assert active["wake_interface"] == "none"
+    assert active["wake_interface"] == "private"
     assert idle["wake_operation"] == "message_idle"
     assert idle["wake_interface"] == "none"
 

@@ -22,12 +22,17 @@ from runtime.api.domain.test_session_message_support import (
     message_connection,
     selector,
 )
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
+    require_exact_desktop_active_policy,
+)
 
 
 RELEASE_SHA = "a" * 40
 
 
 def _setup(monkeypatch):
+    require_exact_desktop_active_policy(monkeypatch)
     monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn = message_connection()
@@ -39,8 +44,9 @@ def _setup(monkeypatch):
     )
     conn.execute(
         "UPDATE harness_sessions SET executor='claude',"
-        "executor_surface='claude-desktop',executor_version='1.34493.1' "
-        "WHERE session_id='s2'"
+        "executor_surface='claude-desktop',executor_version=? "
+        "WHERE session_id='s2'",
+        (CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,),
     )
     grant_actor_project_role(conn, actor_id=10, project_id=1, role_name=ROLE_ADMIN)
     current = datetime.now(timezone.utc).replace(microsecond=0)
@@ -53,7 +59,7 @@ def _setup(monkeypatch):
             release_sha=RELEASE_SHA,
             acceptance_run_id="desktop-active-proof",
             surface="claude-desktop",
-            version="1.34493.1",
+            version=CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
             operation="message_active",
             route="hook",
         ),

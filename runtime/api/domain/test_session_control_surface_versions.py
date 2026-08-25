@@ -6,6 +6,7 @@ from yoke_contracts.session_control.capabilities import (
 )
 from yoke_contracts.session_control.private_route_versions import (
     PRIVATE_ROUTE_VERSION_QUALIFICATIONS,
+    PrivateRouteVersionQualification,
 )
 from yoke_contracts.session_control.surface_versions import (
     machine_stopped_wake_supported,
@@ -63,9 +64,11 @@ def test_codex_cli_build_revision_only_affects_capability_comparison() -> None:
         assert not surface_version_supported("codex-cli", malformed)
 
 
-def test_private_route_registry_starts_with_the_existing_exact_pins() -> None:
+def test_private_route_registry_covers_exact_pins_and_the_desktop_floor() -> None:
     expected = {
-        (surface, operation): frozenset({capability.minimum_version})
+        (surface, operation): PrivateRouteVersionQualification.exact(
+            capability.minimum_version
+        )
         for surface, capability in SESSION_SURFACE_CAPABILITIES.items()
         for operation in (
             "create",
@@ -75,6 +78,9 @@ def test_private_route_registry_starts_with_the_existing_exact_pins() -> None:
         )
         if getattr(capability, operation) == "private"
     }
+    expected[("claude-desktop", "message_active")] = (
+        PrivateRouteVersionQualification.surface_floor()
+    )
 
     assert dict(PRIVATE_ROUTE_VERSION_QUALIFICATIONS) == expected
 
@@ -86,7 +92,7 @@ def test_private_route_registry_can_retain_multiple_exact_versions(
     baseline = SESSION_SURFACE_CAPABILITIES[key[0]].minimum_version
     candidate = "2.1.239"
     qualifications = dict(PRIVATE_ROUTE_VERSION_QUALIFICATIONS)
-    qualifications[key] = frozenset({baseline, candidate})
+    qualifications[key] = PrivateRouteVersionQualification.exact(baseline, candidate)
     monkeypatch.setattr(
         private_route_versions,
         "PRIVATE_ROUTE_VERSION_QUALIFICATIONS",
@@ -96,6 +102,19 @@ def test_private_route_registry_can_retain_multiple_exact_versions(
     assert surface_operation_supported(key[0], baseline, key[1])
     assert surface_operation_supported(key[0], candidate, key[1])
     assert not surface_operation_supported(key[0], "2.1.240", key[1])
+
+
+def test_desktop_active_message_uses_the_surface_minimum_version_floor() -> None:
+    qualification = PRIVATE_ROUTE_VERSION_QUALIFICATIONS[
+        ("claude-desktop", "message_active")
+    ]
+
+    assert qualification.uses_surface_floor
+    assert surface_operation_supported("claude-desktop", "1.32885.1", "message_active")
+    assert surface_operation_supported("claude-desktop", "1.34493.1", "message_active")
+    assert not surface_operation_supported(
+        "claude-desktop", "1.32885.0", "message_active"
+    )
 
 
 def test_other_private_surface_versions_remain_exactly_pinned() -> None:

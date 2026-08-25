@@ -15,16 +15,19 @@ from runtime.api.tools.test_session_control_live_acceptance_driver import (
     _ScenarioClient,
     _driver,
 )
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
+    require_exact_desktop_active_policy,
+)
 from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
 )
 
 
-# The active-message route stays private, and this version is outside the exact
-# pin that qualifies it, so acceptance must open a one-shot grant for it.
+# A synthetic exact policy keeps one unproven route available for timing tests.
 UNPROVEN_PRIVATE_ROUTE_CELL = AcceptanceCell(
     "claude-desktop",
-    "1.34493.1",
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
     "identify",
     session_id="desktop-session",
     wake_route="none",
@@ -32,6 +35,11 @@ UNPROVEN_PRIVATE_ROUTE_CELL = AcceptanceCell(
 # The send each private route carries: an active-message grant covers the
 # initial delivery, a stopped-session grant covers the wake.
 _GRANTED_SEND_KEY_SUFFIX = {"message_active": ":initial", "message_stopped": ":wake"}
+
+
+@pytest.fixture(autouse=True)
+def _exact_desktop_active_policy(monkeypatch) -> None:
+    require_exact_desktop_active_policy(monkeypatch)
 
 
 def _granted_send(argv: list[str], suffix: str) -> bool:

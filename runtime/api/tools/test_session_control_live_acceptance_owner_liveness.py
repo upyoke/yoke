@@ -26,19 +26,27 @@ from runtime.api.tools.test_session_control_live_acceptance_clock import (
 from runtime.api.tools.test_session_control_live_acceptance_driver import (
     _ScenarioClient,
 )
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
+    require_exact_desktop_active_policy,
+)
 
 
 OWNER_SESSION_ID = "top-level-owner"
 RELEASE_SHA = "a" * 40
-# The active-message route stays private, and this version is outside the exact
-# pin that qualifies it, so acceptance must open a one-shot grant for it.
+# A synthetic exact policy keeps one unproven route available for liveness tests.
 UNPROVEN_PRIVATE_ROUTE_CELL = AcceptanceCell(
     "claude-desktop",
-    "1.34493.1",
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
     "identify",
     session_id="desktop-session",
     wake_route="none",
 )
+
+
+@pytest.fixture(autouse=True)
+def _exact_desktop_active_policy(monkeypatch) -> None:
+    require_exact_desktop_active_policy(monkeypatch)
 
 
 class _OwnerClient(_ScenarioClient):

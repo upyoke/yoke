@@ -18,6 +18,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     validate_deployed_release,
     validate_run_id,
 )
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
+    require_exact_desktop_active_policy,
+)
 
 
 VERSIONS = {
@@ -135,24 +139,17 @@ def test_matrix_refuses_unpinned_or_incomplete_evidence(mutation, code) -> None:
     assert raised.value.code == code
 
 
-def test_candidate_matrix_preserves_shape_but_defers_private_version_proof() -> None:
+def test_floor_qualified_version_is_not_a_candidate() -> None:
     raw = _matrix()
-    versions = {"claude-desktop": "1.34493.1"}
-    for cell in raw["cells"]:
-        if cell["surface"] in versions:
-            cell["expected_version"] = versions[cell["surface"]]
-    raw["cells"] = [
-        cell
-        for cell in raw["cells"]
-        if cell["acceptance_role"] == "surface" and cell["surface"] in versions
-    ]
+    candidate = next(
+        cell for cell in raw["cells"] if cell["surface"] == "claude-desktop"
+    )
+    candidate["expected_version"] = CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION
+    raw["cells"] = [candidate]
 
-    candidate = parse_candidate_matrix(raw)
-
-    assert candidate.cells[0].expected_version == "1.34493.1"
     with pytest.raises(AcceptanceContractError) as raised:
-        parse_matrix(raw)
-    assert raised.value.code == "expected_version_unproven"
+        parse_candidate_matrix(raw)
+    assert raised.value.code == "candidate_version_already_proven"
 
 
 def test_publicly_routed_surface_is_not_a_private_qualification_candidate() -> None:
@@ -167,12 +164,15 @@ def test_publicly_routed_surface_is_not_a_private_qualification_candidate() -> N
     assert raised.value.code == "candidate_route_not_private"
 
 
-def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells() -> None:
+def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells(
+    monkeypatch,
+) -> None:
+    require_exact_desktop_active_policy(monkeypatch)
     raw = _matrix()
     candidate = next(
         cell for cell in raw["cells"] if cell["surface"] == "claude-desktop"
     )
-    candidate["expected_version"] = "1.34493.1"
+    candidate["expected_version"] = CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION
     raw["cells"] = [candidate]
     assert parse_candidate_matrix(raw).cells[0].surface == "claude-desktop"
 

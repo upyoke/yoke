@@ -13,13 +13,17 @@ import pytest
 from runtime.api.tools import session_control_live_acceptance_command as command
 from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACES,
+    AcceptanceContractError,
+)
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
+    require_exact_desktop_active_policy,
 )
 from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILITIES
 from yoke_core.domain.deploy_product_source import DeployProductSourceError
 
 
 RELEASE_SHA = "a" * 40
-UNPROVEN_CLAUDE_DESKTOP_VERSION = "1.34493.1"
 
 
 def _versions() -> dict[str, str]:
@@ -99,17 +103,20 @@ def test_matrix_builder_owns_the_exact_six_modes_roles_and_routes() -> None:
     assert broker["broker_session_id"] == "broker-peer"
 
 
-def test_candidate_builder_keeps_only_unproven_private_route_cells() -> None:
+def test_candidate_builder_refuses_when_floor_proves_every_route() -> None:
     bindings = _bindings()
-    bindings["versions"]["claude-desktop"] = UNPROVEN_CLAUDE_DESKTOP_VERSION
-
-    document = command.build_acceptance_matrix_document(
-        "yoke",
-        command.LiveAcceptanceBindings.model_validate(bindings),
-        qualification_candidate=True,
+    bindings["versions"]["claude-desktop"] = (
+        CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION
     )
 
-    assert [cell["surface"] for cell in document["cells"]] == ["claude-desktop"]
+    with pytest.raises(AcceptanceContractError) as raised:
+        command.build_acceptance_matrix_document(
+            "yoke",
+            command.LiveAcceptanceBindings.model_validate(bindings),
+            qualification_candidate=True,
+        )
+
+    assert raised.value.code == "candidate_cells_empty"
 
 
 def test_subagent_refuses_before_source_validation_or_stdin(
@@ -265,10 +272,13 @@ def test_live_run_uses_owner_only_atomic_scratch_and_cleans_it(
 def test_candidate_run_forwards_stage_mode_to_existing_runner(
     monkeypatch, tmp_path
 ) -> None:
+    require_exact_desktop_active_policy(monkeypatch)
     _allow_source(monkeypatch)
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     bindings = _bindings()
-    bindings["versions"]["claude-desktop"] = UNPROVEN_CLAUDE_DESKTOP_VERSION
+    bindings["versions"]["claude-desktop"] = (
+        CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION
+    )
     monkeypatch.setattr(command.sys, "stdin", io.StringIO(json.dumps(bindings)))
     observed: dict[str, object] = {}
 

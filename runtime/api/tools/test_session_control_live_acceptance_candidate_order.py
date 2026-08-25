@@ -13,12 +13,12 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from yoke_contracts.session_control.capabilities import SESSION_SURFACE_CAPABILITIES
 
 
-UNPROVEN_CLAUDE_DESKTOP_VERSION = "1.34493.1"
+CURRENT_CLAUDE_DESKTOP_VERSION = "1.34493.1"
 
 
 def _version(surface: str) -> str:
     if surface == "claude-desktop":
-        return UNPROVEN_CLAUDE_DESKTOP_VERSION
+        return CURRENT_CLAUDE_DESKTOP_VERSION
     return SESSION_SURFACE_CAPABILITIES[surface].minimum_version
 
 

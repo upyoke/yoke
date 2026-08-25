@@ -6,6 +6,9 @@ from pathlib import Path
 
 from yoke_core.tools import _impacted_contract_tests as contracts
 from yoke_core.tools import _impacted_contract_tests_path_claims as path_claims
+from yoke_core.tools import (
+    _impacted_contract_tests_session_control as session_control_contracts,
+)
 from yoke_core.tools import impacted_tests
 from yoke_core.tools.impacted_tests import build_import_index, select
 
@@ -63,5 +66,30 @@ def test_contract_companions_survive_bounded_shared_fixture_deferral(
     )
     assert any(
         token.startswith("survey_advisory_contract:")
+        for token in selection.widening_triggers
+    )
+
+
+def test_private_route_consumers_survive_bounded_tooling_deferral(
+    tmp_path: Path,
+) -> None:
+    source = sorted(session_control_contracts.PRIVATE_SESSION_ROUTE_SOURCE_PATHS)[0]
+    tooling = "packages/yoke-core/src/yoke_core/tools/impacted_tests.py"
+    _write(tmp_path, source)
+    _write(tmp_path, tooling)
+    for test_path in {
+        *impacted_tests.ALWAYS_RUN_TESTS,
+        *session_control_contracts.PRIVATE_SESSION_ROUTE_TESTS,
+    }:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select([source, tooling], build_import_index(tmp_path), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(session_control_contracts.PRIVATE_SESSION_ROUTE_TESTS) <= set(
+        selection.files
+    )
+    assert any(
+        token.startswith("private_session_route_contract:")
         for token in selection.widening_triggers
     )

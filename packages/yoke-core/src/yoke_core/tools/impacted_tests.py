@@ -23,6 +23,9 @@ from yoke_core.tools._impacted_contract_tests import (
     STANDALONE_MERGE_CLOSE_OUT_TESTS,
     contract_selection_for,
 )
+from yoke_core.tools._impacted_contract_tests_session_control import (
+    session_control_contract_selection,
+)
 from yoke_core.tools._impacted_import_index import (
     ImportIndex,
     TEST_ANCHORS,
@@ -201,6 +204,14 @@ def select(
     """
     total_files = sum(is_test_file(path) for path in index.module_of)
     contracts = contract_selection_for(changed)
+    session_contracts = session_control_contract_selection(changed)
+    contracts = replace(
+        contracts,
+        tests=contracts.tests | session_contracts.tests,
+        widening_triggers=(
+            contracts.widening_triggers + session_contracts.widening_triggers
+        ),
+    )
     applicable_contracts = contracts.tests.intersection(index.module_of)
     contracts = replace(
         contracts,
@@ -217,12 +228,19 @@ def select(
         )
     selected_files = sum(path in index.module_of for path in selection.files)
     if not selection.full_sweep and is_effectively_full(selected_files, total_files):
+        individually_broad = tuple(
+            path
+            for path in changed
+            if is_effectively_full(
+                len(_reachable_tests((path,), index) or ()), total_files
+            )
+        )
         selection = Selection(
             full_sweep=True,
             reason=f"reachability selected {selected_files} of {total_files} test files",
             total_files=total_files,
             fallback_rule="effectively_full_selection",
-            trigger_paths=tuple(changed),
+            trigger_paths=individually_broad or tuple(changed),
         )
     if not (bounded and selection.full_sweep):
         return selection

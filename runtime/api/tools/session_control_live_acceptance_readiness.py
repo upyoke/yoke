@@ -103,7 +103,7 @@ def readiness_report(matrix: AcceptanceMatrix) -> dict[str, Any]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Check exact private-route version evidence without contacting Yoke, "
+            "Check private-route version policy without contacting Yoke, "
             "launching a session, or sending a message."
         )
     )
