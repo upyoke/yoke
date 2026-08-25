@@ -145,6 +145,19 @@ def test_acp_worker_rehydrates_secret_and_returns_metadata_only(
     assert INSTRUCTION not in stdout.getvalue()
 
 
+def test_identity_parse_fields_survive_the_worker_payload() -> None:
+    outcome = CursorNativeResult(
+        "not_created",
+        identity_output_snippet='{"modes":{"currentModeId":"agent"}}',
+        identity_parse_expectation="JSON-RPC session/new result.sessionId UUID",
+    )
+
+    assert (
+        process_module._outcome_from_payload(process_module._outcome_payload(outcome))
+        == outcome
+    )
+
+
 def test_acp_default_delegates_to_detached_owner(monkeypatch, tmp_path: Path) -> None:
     request = _request(tmp_path)
     expected = CursorNativeResult("native_created", SESSION_ID)

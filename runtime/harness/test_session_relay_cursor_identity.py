@@ -5,13 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_contracts.cursor_session_map import record_conversation_session
+from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness.session_relay_cursor import CursorNativeResult, build_cursor_adapter
 from yoke_harness.session_relay_cursor_identity import (
+    ACP_SESSION_PARSE_EXPECTATION,
     CURSOR_IDENTITY_LOOKUP_ATTEMPTS,
     bind_launch_session,
     conversation_map_lookup,
     resolve_conversation_session,
+    session_id_from_native_payload,
 )
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
@@ -79,6 +82,8 @@ def test_lookup_fails_closed_after_the_bounded_missing_map_window() -> None:
     assert resolution.attempts == CURSOR_IDENTITY_LOOKUP_ATTEMPTS
     assert calls == [CONVERSATION_ID] * CURSOR_IDENTITY_LOOKUP_ATTEMPTS
     assert len(delays) == CURSOR_IDENTITY_LOOKUP_ATTEMPTS - 1
+    assert CONVERSATION_ID in (resolution.output_snippet or "")
+    assert resolution.parse_expectation == ACP_SESSION_PARSE_EXPECTATION
 
 
 def test_bind_stages_attestation_under_the_mapped_session_not_the_conversation() -> (
@@ -161,16 +166,80 @@ def test_adapter_reports_and_stages_the_mapped_session(tmp_path: Path) -> None:
     assert ATTESTATION not in repr(result)
 
 
-def test_adapter_identity_miss_is_unknown_and_does_not_stage(tmp_path: Path) -> None:
+def test_current_cursor_agent_session_new_payload_parses() -> None:
+    payload = {
+        "sessionId": CONVERSATION_ID,
+        "modes": {
+            "currentModeId": "agent",
+            "availableModes": [{"id": "agent", "name": "Agent"}],
+        },
+        "models": {"currentModelId": "default[]", "availableModels": []},
+    }
+
+    assert session_id_from_native_payload(payload) == CONVERSATION_ID
+    assert session_id_from_native_payload({"modes": payload["modes"]}) is None
+
+
+def test_bind_map_miss_uses_the_acp_session_id() -> None:
+    handoffs = []
+
+    binding = bind_launch_session(
+        CONVERSATION_ID,
+        lambda _conversation_id: None,
+        lambda launch_id, secret, **kwargs: (
+            handoffs.append((launch_id, secret, kwargs)) or True
+        ),
+        LAUNCH_ID,
+        ATTESTATION,
+        sleeper=lambda _seconds: None,
+    )
+
+    assert binding.result_code == "native_created"
+    assert binding.session_id == CONVERSATION_ID
+    assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
+
+
+def test_adapter_map_miss_registers_the_acp_session(tmp_path: Path) -> None:
     handoffs = []
     result = build_cursor_adapter(
         acp_port=FakeAcp(),
         identity_lookup=lambda _conversation_id: None,
-        attestation_handoff=lambda *_args, **kwargs: handoffs.append(kwargs) or True,
+        attestation_handoff=lambda launch_id, secret, **kwargs: (
+            handoffs.append((launch_id, secret, kwargs)) or True
+        ),
         sleeper=lambda _seconds: None,
     )(_launch(tmp_path))
 
-    assert result.result_code == "outcome_unknown"
+    assert result.result_code == "native_created"
+    assert result.native_session_id == CONVERSATION_ID
+    assert result.evidence["result_code"] == "native_created"
+    assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
+
+
+def test_unparseable_identity_fails_closed_with_snippet(tmp_path: Path) -> None:
+    class UnparseableAcp:
+        def new_session(self, request):
+            return CursorNativeResult(
+                "native_created",
+                native_session_id="not-a-session-id",
+                duration_ms=25,
+            )
+
+        def prompt_session(self, request):
+            raise AssertionError("launch must not prompt")
+
+    result = build_cursor_adapter(
+        acp_port=UnparseableAcp(),
+        identity_lookup=lambda _conversation_id: None,
+        attestation_handoff=lambda *_args, **_kwargs: True,
+        sleeper=lambda _seconds: None,
+    )(_launch(tmp_path))
+    durable = redacted_evidence_document(result.evidence)
+
+    assert result.result_code == "not_created"
     assert result.native_session_id is None
     assert result.evidence["result_code"] == "identity_parse_failed"
-    assert handoffs == []
+    assert "not-a-session-id" in str(durable["identity_output_snippet"])
+    assert durable["identity_parse_expectation"] == ACP_SESSION_PARSE_EXPECTATION
+    assert ATTESTATION not in repr(result)
+    assert ATTESTATION not in repr(durable)
