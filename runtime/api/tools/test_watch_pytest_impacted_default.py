@@ -27,7 +27,7 @@ def _stub_binding(monkeypatch) -> None:
 def _capture_bounded(monkeypatch):
     captured: dict[str, bool] = {}
 
-    def fake_selection(base: str, *, bounded: bool = False):
+    def fake_selection(base: str, *, bounded: bool = False, root=None):
         captured["base"] = base
         captured["bounded"] = bounded
         return None
