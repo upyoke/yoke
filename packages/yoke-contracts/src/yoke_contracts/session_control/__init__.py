@@ -15,6 +15,7 @@ from yoke_contracts.session_control.function_ids import (
 )
 from yoke_contracts.session_control.private_route_versions import (
     PRIVATE_ROUTE_VERSION_QUALIFICATIONS,
+    PrivateRouteVersionQualification,
     private_route_version_qualified,
 )
 from yoke_contracts.session_control.teaching import (
@@ -41,6 +42,7 @@ __all__ = [
     "MESSAGE_FUNCTION_IDS",
     "QUALIFICATION_FUNCTION_IDS",
     "PRIVATE_ROUTE_VERSION_QUALIFICATIONS",
+    "PrivateRouteVersionQualification",
     "FLEET_BODY_TRUST_GUIDANCE",
     "FLEET_ENVELOPE_TRUST_GUIDANCE",
     "FLEET_INVALID_MESSAGE_ID_GUIDANCE",

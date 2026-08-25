@@ -9,6 +9,9 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACES,
     parse_readiness_matrix,
 )
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    require_exact_desktop_active_policy,
+)
 
 
 QUALIFIED_VERSIONS = {
@@ -59,7 +62,24 @@ def _matrix(versions: dict[str, str]) -> dict:
     }
 
 
-def test_current_claude_versions_name_exact_missing_evidence_and_action() -> None:
+def test_current_claude_versions_are_qualified_by_registered_policies() -> None:
+    report = readiness.readiness_report(
+        parse_readiness_matrix(_matrix(CURRENT_VERSIONS))
+    )
+    cells = {cell["surface"]: cell for cell in report["cells"]}
+
+    assert report["status"] == "ready"
+    assert cells["claude-desktop"] == {
+        "surface": "claude-desktop",
+        "expected_version": "1.34493.1",
+        "operation": "message_active",
+        "status": "qualified",
+    }
+    assert all(cell["status"] == "qualified" for cell in cells.values())
+
+
+def test_exact_policy_names_missing_evidence_and_candidate_action(monkeypatch) -> None:
+    require_exact_desktop_active_policy(monkeypatch)
     report = readiness.readiness_report(
         parse_readiness_matrix(_matrix(CURRENT_VERSIONS))
     )
@@ -102,7 +122,7 @@ def test_current_claude_versions_name_exact_missing_evidence_and_action() -> Non
     )
 
 
-def test_existing_exact_private_pins_remain_qualified() -> None:
+def test_registered_minimum_versions_remain_qualified() -> None:
     report = readiness.readiness_report(
         parse_readiness_matrix(_matrix(QUALIFIED_VERSIONS))
     )
@@ -118,8 +138,8 @@ def test_cli_report_is_non_mutating_machine_readable(tmp_path, capsys) -> None:
     code = readiness.main(["--matrix", str(matrix_path)])
 
     report = json.loads(capsys.readouterr().out)
-    assert code == 1
-    assert report["status"] == "blocked"
+    assert code == 0
+    assert report["status"] == "ready"
     assert report["kind"] == "fleet_session_control_private_route_readiness"
 
 

@@ -302,12 +302,12 @@ def parse_matrix(raw: Any) -> AcceptanceMatrix:
 
 
 def parse_candidate_matrix(raw: Any) -> AcceptanceMatrix:
-    """Validate a nonempty subset of exact unproven private-route cells."""
+    """Validate a nonempty subset of unproven private-route cells."""
     return _parse_matrix(raw, evidence_required=False, complete_required=False)
 
 
 def parse_readiness_matrix(raw: Any) -> AcceptanceMatrix:
-    """Validate the full matrix while deferring exact private-version proof."""
+    """Validate the full matrix while deferring private-route proof."""
     return _parse_matrix(raw, evidence_required=False, complete_required=True)
 
 

@@ -18,6 +18,10 @@ from runtime.api.tools.session_control_live_acceptance_qualification import (
     OpenedQualification,
     QualificationCoordinator,
 )
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
+    require_exact_desktop_active_policy,
+)
 from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_RELEASE_REASON,
     PrivateRouteQualificationScope,
@@ -34,16 +38,20 @@ PROVEN_WAKE_CELL = AcceptanceCell(
     acceptance_role="surface",
     wake_route="direct",
 )
-# The active-message route stays private, and this version is outside the exact
-# pin that qualifies it, so acceptance must open a one-shot grant for it.
+# A synthetic exact policy keeps one unproven route available for grant tests.
 UNPROVEN_PRIVATE_ROUTE_CELL = AcceptanceCell(
     "claude-desktop",
-    "1.34493.1",
+    CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION,
     "identify",
     session_id="desktop-session",
     acceptance_role="surface",
     wake_route="none",
 )
+
+
+@pytest.fixture(autouse=True)
+def _exact_desktop_active_policy(monkeypatch) -> None:
+    require_exact_desktop_active_policy(monkeypatch)
 
 
 class _Client:

@@ -76,10 +76,16 @@ def surface_operation_supported(
     interface = getattr(capability, operation)
     if interface == "none" or not version:
         return False
-    if not surface_version_supported(surface, version):
+    surface_floor_qualified = surface_version_supported(surface, version)
+    if not surface_floor_qualified:
         return False
     if interface == "private":
-        return private_route_version_qualified(surface, version, operation)
+        return private_route_version_qualified(
+            surface,
+            version,
+            operation,
+            surface_floor_qualified=surface_floor_qualified,
+        )
     return True
 
 
