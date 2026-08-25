@@ -3,7 +3,10 @@
 `yoke_core.domain.project_scratch_dir` is the shared helper for
 Yoke-owned scratch files. It keeps transient filesystem writes behind one
 machine temp root so operators can rebind local scratch storage without
-editing every caller.
+editing every caller. Two modules own the pieces it composes:
+`project_scratch_roots` resolves and proves the writable root, and
+`project_scratch_segments` owns the session and run namespaces layered on
+top of it.
 
 ## Resolution Order
 
@@ -34,9 +37,11 @@ define project context.
 
 All accessors return absolute `Path` objects.
 
-`scratch_root(project=None) -> Path`
+`scratch_root(project=None, *, session_segment=None) -> Path`
 : Resolved project/session/run scratch root, always
 `<global_scratch_root>/<project>/sessions/<session>/runs/<run>`.
+`session_segment` lets a caller that already resolved and vetted the session
+namespace supply it instead of resolving ambient identity a second time.
 
 `dispatch_inputs_dir(project=None, *, create=True) -> Path`
 : Dispatch prompt input directory under `<scratch_root(project)>/dispatch-inputs`.
@@ -49,9 +54,15 @@ All accessors return absolute `Path` objects.
 
 `watcher_capture_path(command, stream, nonce=None, project=None, *, suffix=".log", create_parent=True) -> Path`
 : Watcher capture file path under `<scratch_root(project)>/watcher-captures/`.
+Raises `ScratchSessionIdentityError` inside a harness session whose ambient
+identity does not resolve, rather than minting under the `session-unknown`
+placeholder — the session-cwd guard admits a capture only when its session
+segment matches the calling session, so that path is refused on the next tool
+call, naming the path instead of the identity gap that produced it. An
+operator's own terminal is legitimately session-less and keeps the placeholder.
 
 `mint_watcher_capture_pair(command, project=None) -> tuple[Path, Path]`
-: Returns raw and progress capture paths that share one nonce.
+: Returns raw and progress capture paths that share one nonce. Same refusal.
 
 `ephemeral_payload(prefix="payload", suffix="", project=None, *, delete=True) -> Iterator[Path]`
 : Context manager that creates a temporary payload file under

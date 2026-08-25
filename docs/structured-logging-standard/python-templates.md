@@ -58,7 +58,7 @@ emit_event(
 
 1. Generates `event_id` (UUID v4) if not provided via `--event-id`
 2. Sets `event_time` to current UTC if not provided
-3. Resolves `session_id` from: `$CLAUDE_SESSION_ID` > hook JSON payload > `$(date +%s)-$$` fallback
+3. Resolves `session_id` from: `$CLAUDE_CODE_SESSION_ID` > hook JSON payload > `$(date +%s)-$$` fallback
 4. Resolves `environment` from `$YOKE_ENV` or defaults to `development`
 5. Resolves `project` from `$YOKE_PROJECT` or defaults to `yoke`
 6. Checks write-side severity config before inserting (skips if below threshold)
@@ -69,7 +69,7 @@ emit_event(
 **Session ID Fallback Chain:**
 
 ```
-$CLAUDE_SESSION_ID (if set in environment)
+$CLAUDE_CODE_SESSION_ID (if set in environment)
  -> hook JSON .session_id (if available from hook payload)
  -> "$(date +%s)-$$" (deterministic fallback for scripts)
 ```

@@ -168,7 +168,7 @@ def detect_executor() -> str:
         return _compose_executor(
             _CODEX_COARSE, _CODEX_COARSE, _codex_resolve_entrypoint(),
         )
-    if os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+    if os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
         return _compose_executor(
             "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
         )

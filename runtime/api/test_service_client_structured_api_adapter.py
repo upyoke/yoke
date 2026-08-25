@@ -326,7 +326,7 @@ class TestActorResolution:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-        monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+        monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
         monkeypatch.delenv("CODEX_SESSION_ID", raising=False)
         monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
         monkeypatch.delenv("YOKE_ACTOR_ID", raising=False)

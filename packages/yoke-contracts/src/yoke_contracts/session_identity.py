@@ -1,27 +1,23 @@
 """Canonical, dependency-free ambient session-identity resolution.
 
-Single owner of the chain every Yoke surface uses to answer "which
-harness session is this process running under?":
+Single owner of the chain answering "which harness session is this
+process running under?":
 
-1. **Env chain (fast path):** ``YOKE_SESSION_ID`` -> ``CLAUDE_SESSION_ID``
-   -> ``CODEX_SESSION_ID`` -> ``CODEX_THREAD_ID``.
+1. **Env chain (fast path):** ``YOKE_SESSION_ID`` ->
+   ``CLAUDE_CODE_SESSION_ID`` -> ``CODEX_SESSION_ID`` -> ``CODEX_THREAD_ID``.
 2. **Process-anchor ancestry walk:** a hook-written registry under
    ``<machine-home>/session-anchors/`` maps the per-session harness agent
-   pid to its session id, so any shell the harness spawns self-identifies
-   by walking its parent chain against the registry — even when no env
-   stamp was delivered.
+   pid to its session id, so any shell that harness spawns self-identifies
+   by walking its parent chain against it when no env stamp came.
 3. **Conversation mapping:** a harness that neither stamps step 1 nor can
-   be anchored resolves through the pairing its own hooks record
-   (:mod:`yoke_contracts.cursor_session_map`).
+   be anchored resolves through the pairing its own hooks record.
 
 Pure standard library; takes ``anchors_dir`` as an argument so BOTH sides
-of the contract share one body: the engine core (server / in-process
-dispatch) via the thin ``yoke_core.domain`` re-export shims, and the
-product CLI client, which depends only on ``yoke-contracts`` and MUST
-resolve identity client-side because, on the https transport, the remote
-server cannot inspect the caller's process tree. Keeping one
-implementation here is what prevents the resolver drift that let an
-env-only client copy silently omit the ancestry fallback.
+share one body: the engine core via the thin ``yoke_core.domain``
+re-export shims, and the product CLI client, which MUST resolve identity
+client-side because an https server cannot inspect the caller's process
+tree. One implementation prevents the drift that let an env-only copy
+silently omit the ancestry walk.
 """
 
 from __future__ import annotations
@@ -53,19 +49,23 @@ from yoke_contracts.session_anchor_contention import (
 # Env chain
 # ---------------------------------------------------------------------------
 
-# Codex exports the *parent* thread as ``CODEX_SESSION_ID`` in every
-# process it starts and the subagent's own as ``CODEX_THREAD_ID``; parent
-# first, because a child-resolved thread names an unregistered session.
+# Claude Code stamps ``CLAUDE_CODE_SESSION_ID`` into every subprocess,
+# background agent and interactive alike, and for a launched worker it is
+# the only per-conversation identity that arrives: those shells descend
+# from pooled daemon processes, so an anchor on the reused pid is claimed
+# by each worker in turn and names none. Codex exports the *parent*
+# thread as ``CODEX_SESSION_ID`` and the subagent's own as
+# ``CODEX_THREAD_ID``; parent first, since a child is unregistered.
 AMBIENT_ENV_VARS: Tuple[str, ...] = (
     "YOKE_SESSION_ID",
-    "CLAUDE_SESSION_ID",
+    "CLAUDE_CODE_SESSION_ID",
     "CODEX_SESSION_ID",
     "CODEX_THREAD_ID",
 )
 
 # One denial sentence for every surface that requires a session and found
-# none. Names the infrastructure-gap framing and the operator-debug
-# override; deliberately does NOT teach env-var self-bootstrap.
+# none: infrastructure-gap framing plus the operator-debug override, and
+# deliberately no env-var self-bootstrap.
 AMBIENT_RESOLUTION_FAILED = (
     "ambient session identity could not be resolved (env chain, then the "
     "hook-written process-anchor registry, then cursor-session-map) — this "

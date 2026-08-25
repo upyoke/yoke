@@ -4,7 +4,7 @@ Single owner of the ambient chain every Yoke surface uses to answer
 "which harness session is this process running under?":
 
 1. **Env chain (fast path):** ``YOKE_SESSION_ID`` →
-   ``CLAUDE_SESSION_ID`` → ``CODEX_SESSION_ID`` → ``CODEX_THREAD_ID``,
+   ``CLAUDE_CODE_SESSION_ID`` → ``CODEX_SESSION_ID`` → ``CODEX_THREAD_ID``,
    owned by :mod:`yoke_contracts.session_identity`. Populated by harnesses
    that stamp identity into the environment (the desktop harness
    prepends a per-command export; Codex exports at SessionStart).
@@ -228,17 +228,21 @@ def _public_channel(channel: str) -> str:
     label one slot along. ``CODEX_SESSION_ID`` and ``CODEX_THREAD_ID``
     stay distinguishable because parent-versus-child is the whole reason
     a Codex subagent's diagnostics are worth reading.
+
+    The family is what remains after the trailing role suffix, not the
+    first underscore-delimited word, because a harness may spell its
+    family with an underscore of its own (``CLAUDE_CODE_SESSION_ID``).
     """
     if not channel.startswith("env:"):
         return channel
     name = channel[4:]
     if name not in AMBIENT_ENV_VARS:
         return "env:other"
-    family, _, suffix = name.partition("_")
-    if family == "YOKE":
-        return "env:session"
-    label = f"env:{family.lower()}"
-    return label if suffix == "SESSION_ID" else f"{label}-thread"
+    for suffix, role in (("_THREAD_ID", "-thread"), ("_SESSION_ID", "")):
+        if name.endswith(suffix):
+            family = name[: -len(suffix)].lower().replace("_", "-")
+            return "env:session" if family == "yoke" else f"env:{family}{role}"
+    return "env:other"
 
 
 def format_actor_session_missing(function_id: str) -> str:

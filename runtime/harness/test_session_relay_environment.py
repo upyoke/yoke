@@ -13,7 +13,7 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     inherited = {
         "PATH": "/opt/native/bin",
         "YOKE_SESSION_ID": "parent-yoke-session",
-        "CLAUDE_SESSION_ID": "parent-claude-session",
+        "CLAUDE_CODE_SESSION_ID": "parent-claude-session",
         "CODEX_SESSION_ID": "parent-codex-session",
         "CODEX_THREAD_ID": "parent-codex-thread",
         ACTOR_ROLE_ENV_VAR: "worker",

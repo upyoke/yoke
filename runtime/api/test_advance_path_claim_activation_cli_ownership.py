@@ -92,7 +92,7 @@ class TestWorkClaimOwnership:
         self, fake_db, monkeypatch, capsys
     ):
         clear_session_env(monkeypatch)
-        monkeypatch.setenv("CLAUDE_SESSION_ID", "env-session")
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "env-session")
         seed_item(fake_db, 1704, owner=42, source=None)
         seed_work_claim(fake_db, item_id=1704, session_id="other")
         stub = stub_run(

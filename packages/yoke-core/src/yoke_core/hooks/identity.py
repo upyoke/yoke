@@ -27,7 +27,7 @@ def resolve_session_id_from_env_and_payload(
     Returns ``(session_id, has_canonical_id)`` where *has_canonical_id*
     indicates whether a stable (non-fallback) ID was found.
     """
-    claude_sid = os.environ.get("CLAUDE_SESSION_ID", "")
+    claude_sid = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
     if claude_sid:
         return claude_sid, True
 

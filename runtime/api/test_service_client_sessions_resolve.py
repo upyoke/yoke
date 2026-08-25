@@ -71,9 +71,9 @@ class TestResolveSessionId:
         assert _resolve_session_id("") == "env-val"
 
     def test_priority_yoke_over_claude(self, monkeypatch):
-        """YOKE_SESSION_ID takes priority over CLAUDE_SESSION_ID."""
+        """YOKE_SESSION_ID takes priority over CLAUDE_CODE_SESSION_ID."""
         monkeypatch.setenv("YOKE_SESSION_ID", "yoke-wins")
-        monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-loses")
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "claude-loses")
         monkeypatch.setenv("CODEX_THREAD_ID", "codex-loses")
         from yoke_core.api.service_client import _resolve_session_id
         assert _resolve_session_id(None) == "yoke-wins"
@@ -209,7 +209,7 @@ class TestSessionIdAutoResolutionIntegration:
             )
 
     def test_claude_session_id_fallback_works(self, session_offer_db):
-        """CLAUDE_SESSION_ID fallback works for session-touch."""
+        """CLAUDE_CODE_SESSION_ID fallback works for session-touch."""
         db = session_offer_db["db_path"]
         sid = "claude-fallback-test"
         r = _run_client(
@@ -224,7 +224,7 @@ class TestSessionIdAutoResolutionIntegration:
         env = os.environ.copy()
         env["YOKE_DB"] = db
         env.pop("YOKE_SESSION_ID", None)
-        env["CLAUDE_SESSION_ID"] = sid
+        env["CLAUDE_CODE_SESSION_ID"] = sid
         env.pop("CODEX_THREAD_ID", None)
         r2 = subprocess.run(
             _service_client_cmd(["session-touch"]),

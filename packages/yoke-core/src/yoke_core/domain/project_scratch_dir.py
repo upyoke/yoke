@@ -14,15 +14,28 @@ import os
 import shutil
 import tempfile
 import uuid
-import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
 from yoke_core.domain import machine_config
+from yoke_core.domain import project_scratch_roots
+from yoke_core.domain.project_scratch_roots import (
+    ENV_KEY,
+    ScratchRootResolutionError,
+    global_scratch_root,
+)
+from yoke_core.domain.project_scratch_segments import (
+    ScratchSessionIdentityError,
+    require_resolved_session_segment,
+    run_segment as _run_segment,
+    safe_segment as _safe_segment,
+    session_segment as _session_segment,
+)
 
 __all__ = [
     "ScratchRootResolutionError",
+    "ScratchSessionIdentityError",
     "dispatch_inputs_dir",
     "ephemeral_payload",
     "global_scratch_root",
@@ -38,14 +51,7 @@ __all__ = [
 ]
 
 
-ENV_KEY = "YOKE_SCRATCH_ROOT"
 DEFAULT_PROJECT = "yoke"
-RUN_ENV_KEYS = ("YOKE_RUN_ID", "YOKE_EXECUTION_ID", "GITHUB_RUN_ID")
-DEFAULT_SESSION_SEGMENT = "session-unknown"
-
-
-class ScratchRootResolutionError(RuntimeError):
-    """Raised when no writable scratch root can be resolved."""
 
 
 def resolve_active_project(project: str | None = None) -> str:
@@ -63,43 +69,26 @@ def resolve_active_project(project: str | None = None) -> str:
     return DEFAULT_PROJECT
 
 
-def global_scratch_root() -> Path:
-    """Return the writable scratch root shared across ALL projects."""
+def scratch_root(
+    project: str | None = None, *, session_segment: str | None = None,
+) -> Path:
+    """Return the writable project/session/run scratch root.
 
-    override = _override_root()
-    if override is not None:
-        resolved = _absolute_root(override)
-        if _ensure_writable_dir(resolved):
-            return resolved
-        warnings.warn(
-            f"scratch root {resolved} is not writable; falling back to "
-            f"{_fallback_base()}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-
-    fallback = _fallback_base()
-    if _ensure_writable_dir(fallback):
-        return fallback
-    raise ScratchRootResolutionError(
-        f"Unable to create writable scratch root at {fallback}. "
-        f"Set {ENV_KEY} to a writable path."
-    )
-
-
-def scratch_root(project: str | None = None) -> Path:
-    """Return the writable project/session/run scratch root."""
+    ``session_segment`` lets a caller that has already resolved (and
+    vetted) the session namespace supply it, instead of resolving ambient
+    identity a second time.
+    """
 
     active_project = resolve_active_project(project)
     root = (
         global_scratch_root()
         / _safe_segment(active_project)
         / "sessions"
-        / _session_segment()
+        / (session_segment or _session_segment())
         / "runs"
         / _run_segment()
     )
-    if _ensure_writable_dir(root):
+    if project_scratch_roots.ensure_writable_dir(root):
         return root
     raise ScratchRootResolutionError(
         f"Unable to create writable scratch root at {root}. "
@@ -182,15 +171,22 @@ def watcher_capture_path(
     suffix: str = ".log",
     create_parent: bool = True,
 ) -> Path:
-    """Return a watcher capture path sharing the given *nonce*."""
+    """Return a watcher capture path sharing the given *nonce*.
+
+    Raises :class:`ScratchSessionIdentityError` rather than minting a
+    capture under the unknown-session placeholder inside a harness
+    session, where that path is one the session-cwd guard then refuses.
+    """
 
     safe_command = _safe_segment(command)
     safe_stream = _safe_segment(stream)
     safe_nonce = _safe_segment(nonce or uuid.uuid4().hex)
     filename = f"yoke-{safe_command}.{safe_stream}.{safe_nonce}{suffix}"
-    return _rooted_path(
-        project, "watcher-captures", filename, create_parent=create_parent
-    )
+    root = scratch_root(project, session_segment=require_resolved_session_segment())
+    path = root / "watcher-captures" / filename
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def mint_watcher_capture_pair(
@@ -279,50 +275,6 @@ def storage_dir(
     return path
 
 
-def _override_root() -> str | None:
-    env_value = os.environ.get(ENV_KEY, "").strip()
-    if env_value:
-        return env_value
-    return machine_config.temp_root()
-
-
-def _fallback_base() -> Path:
-    base = Path(tempfile.gettempdir())
-    if str(base).startswith("/var/folders/") and Path("/tmp").is_dir():
-        base = Path("/tmp")
-    return base / "yoke-scratch"
-
-
-def _absolute_root(value: str) -> Path:
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path
-    return machine_config.yoke_home() / path
-
-
-def _first_env(keys: tuple[str, ...]) -> str:
-    for key in keys:
-        value = os.environ.get(key, "").strip()
-        if value:
-            return value
-    return ""
-
-
-def _session_segment() -> str:
-    # Ambient identity (env chain, then anchor registry): desktop sessions
-    # carry no env stamp, so env-only resolution namespaced everything
-    # under ``session-unknown``.
-    from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
-
-    value = resolve_ambient_session_id() or DEFAULT_SESSION_SEGMENT
-    return _safe_segment(value)
-
-
-def _run_segment() -> str:
-    value = _first_env(RUN_ENV_KEYS) or f"pid-{os.getpid()}"
-    return _safe_segment(value)
-
-
 def _rooted_path(
     project: str | None,
     *parts: str,
@@ -346,24 +298,3 @@ def _stable_rooted_path(
     if create_parent:
         path.parent.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def _safe_segment(value: str) -> str:
-    text = str(value).strip()
-    if not text or text in {".", ".."}:
-        raise ValueError("scratch path segment must be non-empty")
-    path = Path(text)
-    if path.is_absolute() or ".." in path.parts or len(path.parts) != 1:
-        raise ValueError(f"unsafe scratch path segment: {value!r}")
-    return text
-
-
-def _ensure_writable_dir(path: Path) -> bool:
-    try:
-        path.mkdir(parents=True, exist_ok=True)
-        probe = path / f".write-test-{uuid.uuid4().hex}"
-        probe.write_text("", encoding="utf-8")
-        probe.unlink(missing_ok=True)
-        return True
-    except OSError:
-        return False

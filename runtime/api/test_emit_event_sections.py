@@ -155,7 +155,7 @@ def test_emit_uses_explicit_event_id(events_db):
 @pytest.mark.parametrize(
     "env_var,sentinel",
     [
-        ("CLAUDE_SESSION_ID", "claude-session-id"),
+        ("CLAUDE_CODE_SESSION_ID", "claude-session-id"),
         ("CODEX_SESSION_ID", "codex-session-id"),
         ("CODEX_THREAD_ID", "codex-thread-id"),
     ],

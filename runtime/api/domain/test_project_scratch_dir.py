@@ -7,11 +7,14 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import project_scratch_dir as scratch
+from yoke_core.domain import project_scratch_roots as roots
+from yoke_core.domain import project_scratch_segments as segments
 
 
 def test_public_export_surface_is_complete() -> None:
     expected = {
         "ScratchRootResolutionError",
+        "ScratchSessionIdentityError",
         "dispatch_inputs_dir",
         "ephemeral_payload",
         "global_scratch_root",
@@ -54,7 +57,7 @@ def _set_identity(
 
     for key in AMBIENT_ENV_VARS:
         monkeypatch.delenv(key, raising=False)
-    for key in scratch.RUN_ENV_KEYS:
+    for key in segments.RUN_ENV_KEYS:
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("YOKE_SESSION_ID", session)
     monkeypatch.setenv("YOKE_RUN_ID", run)
@@ -262,7 +265,7 @@ def test_bad_env_override_degrades_to_tmpdir_fallback(
     def fake_writable(path: Path) -> bool:
         return path != bad_root
 
-    monkeypatch.setattr(scratch, "_ensure_writable_dir", fake_writable)
+    monkeypatch.setattr(roots, "ensure_writable_dir", fake_writable)
 
     with pytest.warns(RuntimeWarning, match="falling back"):
         assert scratch.scratch_root("yoke") == (
@@ -287,7 +290,7 @@ def test_resolution_error_only_when_tmpdir_fallback_unwritable(
     # "falling back" warning a configured machine temp_root would otherwise emit.
     monkeypatch.setattr(scratch.machine_config, "temp_root", lambda path=None: None)
     monkeypatch.setattr(scratch.tempfile, "gettempdir", lambda: str(tmp_path))
-    monkeypatch.setattr(scratch, "_ensure_writable_dir", lambda path: False)
+    monkeypatch.setattr(roots, "ensure_writable_dir", lambda path: False)
 
     with pytest.raises(scratch.ScratchRootResolutionError):
         scratch.scratch_root("yoke")
@@ -307,7 +310,7 @@ def test_session_segment_falls_back_to_ancestry_registry(
         lambda: "ancestry-resolved-id",
     )
 
-    assert scratch._session_segment() == "ancestry-resolved-id"
+    assert segments.session_segment() == "ancestry-resolved-id"
 
 
 def test_session_segment_unknown_when_nothing_resolves(
@@ -322,7 +325,7 @@ def test_session_segment_unknown_when_nothing_resolves(
         lambda: None,
     )
 
-    assert scratch._session_segment() == scratch.DEFAULT_SESSION_SEGMENT
+    assert segments.session_segment() == segments.DEFAULT_SESSION_SEGMENT
 
 
 def test_session_segment_env_stamp_wins_over_ancestry(
@@ -334,4 +337,4 @@ def test_session_segment_env_stamp_wins_over_ancestry(
         lambda: "ancestry-resolved-id",
     )
 
-    assert scratch._session_segment() == "env-stamped-id"
+    assert segments.session_segment() == "env-stamped-id"

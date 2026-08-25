@@ -86,7 +86,7 @@ class TestExecuteUpdate:
             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False),
         ):
             os.environ.pop("YOKE_SESSION_ID", None)
-            os.environ.pop("CLAUDE_SESSION_ID", None)
+            os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
             os.environ.pop("CODEX_THREAD_ID", None)
             result = backlog.execute_update(
                 item_id=10,
@@ -140,7 +140,7 @@ class TestExecuteUpdate:
             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False),
         ):
             os.environ.pop("YOKE_SESSION_ID", None)
-            os.environ.pop("CLAUDE_SESSION_ID", None)
+            os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
             os.environ.pop("CODEX_THREAD_ID", None)
             os.environ.pop("YOKE_CLAIM_BYPASS", None)
             no_session = backlog.execute_update(

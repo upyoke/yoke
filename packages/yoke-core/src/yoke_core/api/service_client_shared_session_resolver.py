@@ -31,7 +31,7 @@ def _resolve_session_id(explicit: str | None) -> str | None:
 
     When *explicit* is a non-empty string it is returned as-is — the
     flagged operator-debug override. Otherwise the canonical ambient
-    chain resolves: ``YOKE_SESSION_ID`` → ``CLAUDE_SESSION_ID`` →
+    chain resolves: ``YOKE_SESSION_ID`` → ``CLAUDE_CODE_SESSION_ID`` →
     ``CODEX_SESSION_ID`` → ``CODEX_THREAD_ID`` → the hook-written
     process-anchor registry
     (ancestry walk). Returns ``None`` if no value is found anywhere.

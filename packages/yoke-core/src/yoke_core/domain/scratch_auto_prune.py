@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_core.domain import project_scratch_dir
+from yoke_core.domain import project_scratch_segments
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
@@ -190,7 +191,7 @@ def prune_stale_scratch(
         return result
 
     current_session = current_run.parent.parent
-    if current_session.name != project_scratch_dir.DEFAULT_SESSION_SEGMENT:
+    if current_session.name != project_scratch_segments.DEFAULT_SESSION_SEGMENT:
         active.add(current_session.name)
     now = int(time.time()) if now_epoch is None else now_epoch
 
@@ -200,7 +201,7 @@ def prune_stale_scratch(
         pid_alive = pid is not None and _pid_is_alive(pid)
         known_ended = session_dir.name in ended
         unknown_dead_pid = (
-            session_dir.name == project_scratch_dir.DEFAULT_SESSION_SEGMENT
+            session_dir.name == project_scratch_segments.DEFAULT_SESSION_SEGMENT
             and pid is not None
             and not pid_alive
         )

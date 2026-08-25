@@ -190,7 +190,7 @@ If the session registry is unavailable, automatic mutation fails closed; the
 doctor reports the problem without treating filesystem age alone as ownership
 proof.
 
-For supported harnesses such as Claude Code and Codex, `session_id` should come from the harness runtime's stable conversation identifier (`CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, or a hook payload `session_id` when the env var is unavailable). Do not invent a second ID format for those harnesses. Codex also exports `CODEX_THREAD_ID`, which names the thread actually running and is the *child* inside a subagent; the canonical chain consults it only after `CODEX_SESSION_ID`.
+For supported harnesses such as Claude Code and Codex, `session_id` should come from the harness runtime's stable conversation identifier (`CLAUDE_CODE_SESSION_ID`, `CODEX_SESSION_ID`, or a hook payload `session_id` when the env var is unavailable). Do not invent a second ID format for those harnesses. Codex also exports `CODEX_THREAD_ID`, which names the thread actually running and is the *child* inside a subagent; the canonical chain consults it only after `CODEX_SESSION_ID`.
 
 ### Path support and fallback
 
