@@ -154,6 +154,9 @@ def _adopt_attempt(
             native_instruction=instruction,
             message_id=message_id,
             target_session_id=str(candidate["session_id"]),
+            target_native_thread_id=(
+                str(candidate.get("native_thread_id") or "") or None
+            ),
             wake_mode=WakeMode(str(candidate["wake_mode"])),
             target_liveness=str(candidate["liveness"]),
             wake_route="broker",

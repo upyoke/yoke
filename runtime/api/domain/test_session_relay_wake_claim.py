@@ -30,6 +30,7 @@ def test_stale_candidate_cannot_open_a_duplicate_native_wake_attempt() -> None:
     conn.execute("UPDATE harness_sessions SET ended_at=?", (NOW_TEXT,))
     conn.commit()
     candidate = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))[0]
+    assert candidate["native_thread_id"] == "codex-thread-s1"
 
     first = claim_wake_attempt(conn, candidate=candidate, now="2026-08-22T16:11:00Z")
     assert first is not None

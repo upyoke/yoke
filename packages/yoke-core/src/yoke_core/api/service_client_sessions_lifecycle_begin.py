@@ -43,6 +43,7 @@ def begin_session(
     entrypoint: str | None = None,
     executor_version: str | None = None,
     machine_id: str | None = None,
+    native_thread_id: str | None = None,
 ) -> dict:
     """Register (or idempotently refresh) a session row; return a result dict.
 
@@ -85,6 +86,7 @@ def begin_session(
             entrypoint=entrypoint,
             executor_version=executor_version,
             machine_id=machine_id,
+            native_thread_id=native_thread_id,
         )
     except SessionError as exc:
         if exc.code == "SESSION_EXISTS":
@@ -122,6 +124,7 @@ def cmd_session_begin(args: list[str]) -> int:
     parser.add_argument("--entrypoint", default=None)
     parser.add_argument("--executor-version", default=None)
     parser.add_argument("--machine-id", default=None)
+    parser.add_argument("--native-thread-id", default=None)
 
     try:
         parsed = parser.parse_args(args)
@@ -161,6 +164,7 @@ def cmd_session_begin(args: list[str]) -> int:
                 entrypoint=parsed.entrypoint,
                 executor_version=parsed.executor_version,
                 machine_id=parsed.machine_id,
+                native_thread_id=parsed.native_thread_id,
             )
             print(json.dumps(result, default=str))
         except SessionError as exc:

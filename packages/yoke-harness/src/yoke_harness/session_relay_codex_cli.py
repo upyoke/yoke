@@ -135,7 +135,7 @@ class CodexCliTransport:
             raise _NativePhaseError("instruction_write", binary_source=resolved.source)
         command = _base_command(resolved.path, request)
         if resume:
-            command.extend(["resume", str(request.target_session_id)])
+            command.extend(["resume", str(request.target_thread_id)])
         command.append("-")
         process: subprocess.Popen[bytes] | None = None
         try:
@@ -231,7 +231,7 @@ class CodexCliTransport:
                 binary_source=binary_source,
                 pid=process.pid,
             )
-        if request.job_kind == "wake" and found != request.target_session_id:
+        if request.job_kind == "wake" and found != request.target_thread_id:
             _stop(process)
             return CodexNativeOutcome(
                 "outcome_unknown",
@@ -275,7 +275,7 @@ class CodexCliTransport:
         if (
             wake_operation(request.wake_mode, request.target_liveness)
             != "message_stopped"
-            or not request.target_session_id
+            or not request.target_thread_id
         ):
             return CodexNativeOutcome("unsupported_surface")
         return self._run(request, resume=True)

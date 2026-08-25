@@ -69,6 +69,7 @@ class RelayJob:
     native_instruction: str
     message_id: str | None = None
     target_session_id: str | None = None
+    target_native_thread_id: str | None = None
     requested_model: str | None = None
     presentation: str | None = None
     wake_mode: WakeMode | None = None

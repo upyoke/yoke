@@ -180,6 +180,19 @@ def detect_executor() -> str:
     return _compose_executor("claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
 
 
+def detect_native_thread_id() -> Optional[str]:
+    """Codex's own thread id for this process, when the environment carries it.
+
+    Distinct from the Yoke session id: an operator-started codex-desktop
+    session registers under ``CODEX_SESSION_ID`` while the app-server keys
+    its thread on ``CODEX_THREAD_ID``. Callers store this value at
+    registration rather than assuming the session id already IS the thread
+    id — an assumption that only holds for plane-launched sessions.
+    """
+    value = os.environ.get("CODEX_THREAD_ID", "").strip()
+    return value or None
+
+
 def detect_provider(executor: Optional[str] = None) -> str:
     """Detect the inference provider.
 

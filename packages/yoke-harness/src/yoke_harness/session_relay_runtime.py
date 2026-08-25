@@ -52,6 +52,7 @@ class RelayExecutionContext:
     surface_version: str | None = None
     message_id: str | None = None
     target_session_id: str | None = None
+    target_native_thread_id: str | None = None
     requested_model: str | None = None
     presentation: str | None = None
     target_liveness: str | None = None
@@ -147,6 +148,11 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
         message_id=str(job["message_id"]) if job.get("message_id") else None,
         target_session_id=(
             str(job["target_session_id"]) if job.get("target_session_id") else None
+        ),
+        target_native_thread_id=(
+            str(job["target_native_thread_id"])
+            if job.get("target_native_thread_id")
+            else None
         ),
         requested_model=(
             str(job["requested_model"]) if job.get("requested_model") else None

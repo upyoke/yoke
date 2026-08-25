@@ -17,6 +17,7 @@ from yoke_core.hooks.helpers import (
     compose_executor_from_entrypoint,
     detect_entrypoint,
     detect_executor,
+    detect_native_thread_id,
     detect_provider,
     is_claude,
     is_codex,
@@ -135,6 +136,20 @@ class TestDetectExecutor:
 # ---------------------------------------------------------------------------
 # detect_provider
 # ---------------------------------------------------------------------------
+
+
+class TestDetectNativeThreadId:
+    def test_captures_codex_thread_id(self):
+        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "thread-42"}, clear=True):
+            assert detect_native_thread_id() == "thread-42"
+
+    def test_none_when_unset(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            assert detect_native_thread_id() is None
+
+    def test_none_when_blank(self):
+        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": "   "}, clear=True):
+            assert detect_native_thread_id() is None
 
 
 class TestDetectProvider:

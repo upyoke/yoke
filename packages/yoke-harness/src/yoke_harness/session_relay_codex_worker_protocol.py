@@ -30,6 +30,7 @@ def request_payload(request: CodexNativeRequest) -> dict[str, object]:
         "presentation": request.presentation,
         "target_liveness": request.target_liveness,
         "target_session_id": request.target_session_id,
+        "target_thread_id": request.target_thread_id,
         "wake_mode": request.wake_mode,
         "instruction_id": request.instruction_id,
         "native_instruction": request.native_instruction,
@@ -57,6 +58,11 @@ def request_from_payload(payload: object) -> CodexNativeRequest:
         target_session_id=(
             str(payload["target_session_id"])
             if payload.get("target_session_id")
+            else None
+        ),
+        target_thread_id=(
+            str(payload["target_thread_id"])
+            if payload.get("target_thread_id")
             else None
         ),
         wake_mode=(str(payload["wake_mode"]) if payload.get("wake_mode") else None),

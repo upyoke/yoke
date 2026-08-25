@@ -30,7 +30,8 @@ from yoke_core.domain.session_relay_private_qualification import (
 
 
 WAKE_REPORT_CODES = frozenset(
-    "accepted failed not_found outcome_unknown unsupported_surface version_mismatch".split()
+    "accepted failed not_found outcome_unknown thread_id_unknown "
+    "unsupported_surface version_mismatch".split()
 )
 LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
 
@@ -122,6 +123,7 @@ def claim_wake_job(
         native_instruction=native_wake_instruction(message_id),
         message_id=str(message_id),
         target_session_id=str(session_id),
+        target_native_thread_id=str(selected.get("native_thread_id") or "") or None,
         wake_mode=WakeMode(str(selected["wake_mode"])),
         target_liveness=str(selected["liveness"]),
         wake_route="direct",

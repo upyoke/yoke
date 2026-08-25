@@ -33,6 +33,7 @@ class BeginRequest(BaseModel):
     entrypoint: Optional[str] = None
     executor_version: Optional[str] = None
     machine_id: Optional[str] = None
+    native_thread_id: Optional[str] = None
 
 
 class BeginResponse(BaseModel):
@@ -73,6 +74,7 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 entrypoint=body.entrypoint,
                 executor_version=body.executor_version,
                 machine_id=body.machine_id,
+                native_thread_id=body.native_thread_id,
             )
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)

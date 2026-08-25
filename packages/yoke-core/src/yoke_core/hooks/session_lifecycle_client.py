@@ -32,6 +32,7 @@ def register_harness_session(
     entrypoint: Optional[str] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
+    native_thread_id: Optional[str] = None,
 ) -> str:
     """Register a harness session through the target-aware service client.
 
@@ -61,6 +62,7 @@ def register_harness_session(
             project_id=project_id,
             executor_version=executor_version,
             machine_id=machine_id,
+            native_thread_id=native_thread_id,
         )
     return service_client.register_session(
         service_client_path(root),
@@ -73,6 +75,7 @@ def register_harness_session(
         project_id,
         executor_version,
         machine_id,
+        native_thread_id,
     ) or ""
 
 

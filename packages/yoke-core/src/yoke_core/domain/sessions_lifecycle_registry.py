@@ -8,7 +8,10 @@ from typing import Any, Dict, List, Optional
 from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
 from . import db_backend
 from . import sessions_analytics as _sa
-from .session_activity_state import episode_column_present
+from .session_activity_state import (
+    episode_column_present,
+    native_thread_id_column_present,
+)
 from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
 from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_canonicalize import canonicalize_executor as _canonicalize_executor
@@ -74,8 +77,16 @@ def register_session(
     actor_id: Optional[int] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
+    native_thread_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Register a new active session."""
+    """Register a new active session.
+
+    ``native_thread_id`` is the harness's own thread/session identity
+    (currently Codex's ``CODEX_THREAD_ID``) when the environment or a
+    relayed hook payload carries it — distinct from ``session_id``, which
+    an operator-started session may register under a different value.
+    Wake resolves against this column instead of assuming the two agree.
+    """
     now = _now_iso()
     envelope_json = json.dumps(offer_envelope) if offer_envelope else None
     resolved_actor_id = resolve_session_actor_id(conn, actor_id)
@@ -88,6 +99,7 @@ def register_session(
     # episode_started_at marks the current-episode boundary (fresh start
     # AND reactivation); introspection tolerates minimal fixtures.
     has_episode_col = episode_column_present(conn)
+    has_thread_col = native_thread_id_column_present(conn)
     insert_cols = (
         "session_id, executor, executor_surface, executor_version, machine_id, "
         "provider, model, execution_lane, workspace, mode, offered_at, "
@@ -98,6 +110,9 @@ def register_session(
         provider, model, execution_lane, workspace, mode, now, now,
         None, envelope_json, resolved_actor_id, resolved_project_id,
     ]
+    if has_thread_col:
+        insert_cols += ", native_thread_id"
+        insert_values.append(native_thread_id)
     if has_episode_col:
         insert_cols += ", episode_started_at"
         insert_values.append(now)
@@ -115,9 +130,10 @@ def register_session(
         # does not, so only the native PG path rolls back before reactivation.
         if db_backend.connection_is_postgres(conn):
             conn.rollback()
+        thread_select = ", native_thread_id" if has_thread_col else ""
         existing = conn.execute(
             f"SELECT ended_at, model, actor_id, execution_lane, project_id, "
-            f"executor_version, machine_id "
+            f"executor_version, machine_id{thread_select} "
             f"FROM harness_sessions WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
@@ -133,6 +149,7 @@ def register_session(
                 resolved_actor_id=resolved_actor_id,
                 executor_version=executor_version,
                 machine_id=machine_id,
+                native_thread_id=native_thread_id if has_thread_col else None,
             )
             raise SessionError(
                 "SESSION_EXISTS",
@@ -155,6 +172,10 @@ def register_session(
         episode_clause = (
             f", episode_started_at = {p}" if has_episode_col else ""
         )
+        thread_clause = (
+            f", native_thread_id = COALESCE({p}, native_thread_id)"
+            if has_thread_col else ""
+        )
         params: List[Any] = [
             provider,
             resolved_model,
@@ -166,6 +187,8 @@ def register_session(
             executor_version,
             machine_id,
         ]
+        if thread_clause:
+            params.append(native_thread_id)
         if episode_clause:
             params.append(now)
         if actor_clause:
@@ -185,7 +208,8 @@ def register_session(
                    ended_at = NULL,
                    offer_envelope = {p},
                    executor_version = {p},
-                   machine_id = {p}{episode_clause}{actor_clause}{project_clause}
+                   machine_id = {p}
+                   {thread_clause}{episode_clause}{actor_clause}{project_clause}
                WHERE session_id = {p} AND ended_at IS NOT NULL""",
             tuple(params),
         )
