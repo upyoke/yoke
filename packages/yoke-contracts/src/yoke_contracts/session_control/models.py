@@ -252,7 +252,8 @@ class RelayClaimResponse(BaseModel):
     state: Literal["active", "idle"]
     connected_until: str
     next_poll_seconds: int
-    job: Optional[Dict[str, Any]] = None
+    launch_stagger_seconds: int = 0
+    jobs: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class RelayReportRequest(BaseModel):

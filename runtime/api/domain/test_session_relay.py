@@ -25,7 +25,7 @@ from runtime.api.domain.session_launch_test_support import (
     NOW,
     add_relay,
     assigned_launch,
-    launch_connection,
+    relay_connection,
 )
 
 
@@ -34,25 +34,7 @@ RELAY_ID = f"machine:{MACHINE_ID}"
 
 
 def _connection():
-    conn = launch_connection()
-    conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
-    conn.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT)")
-    conn.execute("INSERT INTO organizations VALUES (1, '{}')")
-    conn.execute(
-        "ALTER TABLE harness_sessions ADD COLUMN executor TEXT DEFAULT 'codex'"
-    )
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN execution_lane TEXT")
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_heartbeat TEXT")
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN ended_at TEXT")
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
-    conn.execute(
-        "ALTER TABLE harness_sessions ADD COLUMN turn_posture TEXT "
-        "NOT NULL DEFAULT 'unknown'"
-    )
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN turn_posture_at TEXT")
-    conn.commit()
-    return conn
+    return relay_connection()
 
 
 def _heartbeat(**versions: str) -> RelayHeartbeat:
@@ -169,22 +151,22 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
 
     claimed = claim_relay_job(conn, _heartbeat(), wait_seconds=0, now_provider=_clock())
 
-    assert claimed.job and claimed.job.job_kind == "wake"
-    assert claimed.job.message_id == "message-1"
-    assert claimed.job.surface_version == "0.148.0a15"
-    assert claimed.job.wake_mode is WakeMode.WAITING
-    assert claimed.to_dict()["job"]["wake_mode"] == "waiting"
-    assert type(claimed.to_dict()["job"]["wake_mode"]) is str
-    assert claimed.job.target_liveness == "ended"
-    assert "Never send" not in claimed.job.native_instruction
-    assert claimed.job.native_instruction == native_wake_instruction("message-1")
+    assert len(claimed.jobs) == 1 and claimed.jobs[0].job_kind == "wake"
+    assert claimed.jobs[0].message_id == "message-1"
+    assert claimed.jobs[0].surface_version == "0.148.0a15"
+    assert claimed.jobs[0].wake_mode is WakeMode.WAITING
+    assert claimed.to_dict()["jobs"][0]["wake_mode"] == "waiting"
+    assert type(claimed.to_dict()["jobs"][0]["wake_mode"]) is str
+    assert claimed.jobs[0].target_liveness == "ended"
+    assert "Never send" not in claimed.jobs[0].native_instruction
+    assert claimed.jobs[0].native_instruction == native_wake_instruction("message-1")
     reported = report_relay_job(
         conn,
         actor_id=1,
         relay_id=RELAY_ID,
         job_kind="wake",
-        job_id=claimed.job.job_id,
-        lease_id=claimed.job.lease_id,
+        job_id=claimed.jobs[0].job_id,
+        lease_id=claimed.jobs[0].lease_id,
         result_code="accepted",
         adapter_revision="adapter-1",
         evidence={
@@ -201,8 +183,8 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
         actor_id=1,
         relay_id=RELAY_ID,
         job_kind="wake",
-        job_id=claimed.job.job_id,
-        lease_id=claimed.job.lease_id,
+        job_id=claimed.jobs[0].job_id,
+        lease_id=claimed.jobs[0].lease_id,
         result_code="accepted",
         adapter_revision="adapter-1",
         now="2026-08-22T12:00:11Z",
@@ -212,7 +194,7 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
     evidence = json.loads(
         conn.execute(
             "SELECT evidence FROM session_message_attempts WHERE attempt_id=?",
-            (claimed.job.job_id,),
+            (claimed.jobs[0].job_id,),
         ).fetchone()[0]
     )
     assert evidence == {
@@ -223,7 +205,7 @@ def test_wake_claim_carries_only_id_and_report_is_redacted_idempotent() -> None:
     assert (
         conn.execute(
             "SELECT adapter_revision FROM session_message_attempts WHERE attempt_id=?",
-            (claimed.job.job_id,),
+            (claimed.jobs[0].job_id,),
         ).fetchone()[0]
         == "adapter-1"
     )
@@ -236,8 +218,8 @@ def test_live_lease_blocks_a_second_job_and_expires_without_guessing() -> None:
 
     second = claim_relay_job(conn, _heartbeat(), wait_seconds=0, now_provider=_clock())
 
-    assert first.job is not None
-    assert second.job is None
+    assert len(first.jobs) == 1
+    assert second.jobs == ()
     assert (
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
@@ -250,8 +232,8 @@ def test_live_lease_blocks_a_second_job_and_expires_without_guessing() -> None:
             actor_id=1,
             relay_id=RELAY_ID,
             job_kind="wake",
-            job_id=first.job.job_id,
-            lease_id=first.job.lease_id,
+            job_id=first.jobs[0].job_id,
+            lease_id=first.jobs[0].lease_id,
             result_code="accepted",
             now="2026-08-22T12:01:31Z",
         )
@@ -280,18 +262,18 @@ def test_launch_claim_separates_attestation_and_redacts_report() -> None:
 
     claimed = claim_relay_job(conn, _heartbeat(), wait_seconds=0, now_provider=_clock())
 
-    assert claimed.job and claimed.job.job_kind == "launch"
-    assert "Sensitive launch instructions" not in claimed.job.native_instruction
-    assert claimed.job.surface_version == "0.148.0a15"
-    assert claimed.job.requested_model == "gpt-5"
-    assert claimed.job.launch_attestation
+    assert len(claimed.jobs) == 1 and claimed.jobs[0].job_kind == "launch"
+    assert "Sensitive launch instructions" not in claimed.jobs[0].native_instruction
+    assert claimed.jobs[0].surface_version == "0.148.0a15"
+    assert claimed.jobs[0].requested_model == "gpt-5"
+    assert claimed.jobs[0].launch_attestation
     result = report_relay_job(
         conn,
         actor_id=1,
         relay_id=RELAY_ID,
         job_kind="launch",
         job_id=launch.launch_id,
-        lease_id=claimed.job.lease_id,
+        lease_id=claimed.jobs[0].lease_id,
         result_code="native_created",
         native_session_id="native-session",
         adapter_revision="adapter-1",
@@ -304,7 +286,7 @@ def test_launch_claim_separates_attestation_and_redacts_report() -> None:
         relay_id=RELAY_ID,
         job_kind="launch",
         job_id=launch.launch_id,
-        lease_id=claimed.job.lease_id,
+        lease_id=claimed.jobs[0].lease_id,
         result_code="native_created",
         native_session_id="native-session",
         adapter_revision="adapter-1",

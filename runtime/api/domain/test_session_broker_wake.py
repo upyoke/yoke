@@ -123,10 +123,10 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
         now_provider=lambda: _stamp(seconds=3),
     )
 
-    assert claimed.job and claimed.job.job_id == lease.attempt_id
-    assert claimed.job.message_id == message_id
-    assert claimed.job.native_instruction == native_wake_instruction(message_id)
-    assert "Secret body" not in claimed.job.native_instruction
+    assert len(claimed.jobs) == 1 and claimed.jobs[0].job_id == lease.attempt_id
+    assert claimed.jobs[0].message_id == message_id
+    assert claimed.jobs[0].native_instruction == native_wake_instruction(message_id)
+    assert "Secret body" not in claimed.jobs[0].native_instruction
     wake_count = conn.execute(
         "SELECT wake_attempt_count FROM session_message_recipients"
     ).fetchone()[0]
@@ -158,14 +158,14 @@ def test_failed_direct_route_waits_for_and_immediately_offers_broker() -> None:
         wait_seconds=0,
         now_provider=lambda: _stamp(seconds=1),
     )
-    assert direct.job
+    assert direct.jobs
     report_relay_job(
         conn,
         actor_id=10,
         relay_id=RELAY_ID,
         job_kind="wake",
-        job_id=direct.job.job_id,
-        lease_id=direct.job.lease_id,
+        job_id=direct.jobs[0].job_id,
+        lease_id=direct.jobs[0].lease_id,
         result_code="failed",
         now=_stamp(seconds=2),
     )
@@ -183,7 +183,7 @@ def test_failed_direct_route_waits_for_and_immediately_offers_broker() -> None:
         now=NOW + timedelta(seconds=3),
     )
 
-    assert repeat.job is None
+    assert repeat.jobs == ()
     assert broker is not None
     assert (
         conn.execute(
@@ -221,14 +221,14 @@ def test_failed_direct_route_retries_after_bounded_broker_window() -> None:
         wait_seconds=0,
         now_provider=lambda: _stamp(seconds=1),
     )
-    assert direct.job
+    assert direct.jobs
     report_relay_job(
         conn,
         actor_id=10,
         relay_id=RELAY_ID,
         job_kind="wake",
-        job_id=direct.job.job_id,
-        lease_id=direct.job.lease_id,
+        job_id=direct.jobs[0].job_id,
+        lease_id=direct.jobs[0].lease_id,
         result_code="failed",
         now=_stamp(seconds=2),
     )
@@ -240,8 +240,8 @@ def test_failed_direct_route_retries_after_bounded_broker_window() -> None:
         now_provider=lambda: _stamp(minutes=11),
     )
 
-    assert retried.job and retried.job.job_kind == "wake"
-    assert retried.job.job_id != direct.job.job_id
+    assert len(retried.jobs) == 1 and retried.jobs[0].job_kind == "wake"
+    assert retried.jobs[0].job_id != direct.jobs[0].job_id
 
 
 def test_broker_loss_and_dropped_render_each_consume_one_retry() -> None:

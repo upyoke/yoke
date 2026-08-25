@@ -9,7 +9,7 @@ from yoke_cli.commands.adapters import session_control_relay as relay
 from yoke_cli.commands.adapters.session_control_human_output import (
     write_message_result,
 )
-from yoke_harness.session_relay import ServeOnceOutcome
+from yoke_harness.session_relay import ServeOnceJobOutcome, ServeOnceOutcome
 
 
 class _BinaryStdout(StringIO):
@@ -52,12 +52,17 @@ def test_relay_serve_once_treats_reported_native_failure_as_settled(
         "_serve_once",
         lambda **_kwargs: ServeOnceOutcome(
             "reported",
-            result_code="failed",
-            diagnostic_availability="unavailable",
-            native_error_class="process_exit",
-            native_error_step="resume",
-            machine_id="machine-1",
-            relay_id="machine:machine-1",
+            jobs=(
+                ServeOnceJobOutcome(
+                    "reported",
+                    result_code="failed",
+                    diagnostic_availability="unavailable",
+                    native_error_class="process_exit",
+                    native_error_step="resume",
+                    machine_id="machine-1",
+                    relay_id="machine:machine-1",
+                ),
+            ),
         ),
     )
 
@@ -89,14 +94,18 @@ def test_relay_poll_human_output_names_location_and_retrieval_recipe() -> None:
     relay.write_relay_summary(
         {
             "state": "report_failed",
-            "job_kind": "wake",
-            "job_id": "attempt-1",
-            "result_code": "native_exit",
-            "error_code": "control_plane_unreachable",
-            "relay_id": "machine:machine-1",
-            "machine_id": "machine-1",
-            "native_diagnostic_ref": reference,
-            "native_diagnostic_command": f"yoke relay diagnostic {reference}",
+            "jobs": [
+                {
+                    "job_kind": "wake",
+                    "job_id": "attempt-1",
+                    "result_code": "native_exit",
+                    "error_code": "control_plane_unreachable",
+                    "relay_id": "machine:machine-1",
+                    "machine_id": "machine-1",
+                    "native_diagnostic_ref": reference,
+                    "native_diagnostic_command": (f"yoke relay diagnostic {reference}"),
+                }
+            ],
         },
         output,
         title="RELAY POLL",
@@ -113,13 +122,17 @@ def test_relay_poll_human_output_keeps_typed_failure_when_capture_unavailable() 
     relay.write_relay_summary(
         {
             "state": "reported",
-            "job_kind": "wake",
-            "result_code": "failed",
-            "relay_id": "machine:machine-1",
-            "machine_id": "machine-1",
-            "diagnostic_availability": "unavailable",
-            "native_error_class": "process_exit",
-            "native_error_step": "session_lookup",
+            "jobs": [
+                {
+                    "job_kind": "wake",
+                    "result_code": "failed",
+                    "relay_id": "machine:machine-1",
+                    "machine_id": "machine-1",
+                    "diagnostic_availability": "unavailable",
+                    "native_error_class": "process_exit",
+                    "native_error_step": "session_lookup",
+                }
+            ],
         },
         output,
         title="RELAY POLL",

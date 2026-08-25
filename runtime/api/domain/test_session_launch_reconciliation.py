@@ -67,8 +67,8 @@ def _claimed_launch(conn, *, key: str):
         wait_seconds=0,
         now_provider=lambda: NOW,
     )
-    assert outcome.job and outcome.job.job_kind == "launch"
-    return launch, outcome.job
+    assert len(outcome.jobs) == 1 and outcome.jobs[0].job_kind == "launch"
+    return launch, outcome.jobs[0]
 
 
 def test_reconciliation_refuses_an_unexpired_relay_lease() -> None:
@@ -99,8 +99,13 @@ def test_reconciliation_refuses_an_unexpired_relay_lease() -> None:
     relay = conn.execute(
         "SELECT lease_id FROM session_relays WHERE relay_id=?", (RELAY_ID,)
     ).fetchone()
+    batch = conn.execute(
+        "SELECT batch_id FROM session_launch_attempts WHERE launch_id=?",
+        (launch.launch_id,),
+    ).fetchone()
     assert attempt[0] is None
-    assert relay[0] == job.lease_id
+    assert job.lease_id
+    assert relay[0] == batch[0]
 
 
 def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
@@ -142,7 +147,9 @@ def test_expired_reconciliation_releases_relay_for_the_next_launch() -> None:
         wait_seconds=0,
         now_provider=lambda: "2026-08-22T12:05:03Z",
     )
-    assert next_claim.job and next_claim.job.job_id == next_launch.launch_id
+    assert (
+        len(next_claim.jobs) == 1 and next_claim.jobs[0].job_id == next_launch.launch_id
+    )
 
 
 def test_native_reconciliation_refuses_multiple_open_attempts() -> None:

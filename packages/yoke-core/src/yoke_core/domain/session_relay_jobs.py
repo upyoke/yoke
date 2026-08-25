@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
-from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake import direct_wake_waits_for_broker
 from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
 from yoke_core.domain.session_relay_evidence import (
@@ -14,10 +13,10 @@ from yoke_core.domain.session_relay_evidence import (
 )
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from yoke_core.domain.session_relay_storage import (
-    clear_relay_job,
-    mark_relay_job,
+    clear_relay_batch_when_drained,
+    mark_relay_batch,
     marker,
-    require_relay_lease,
+    require_relay_batch,
 )
 from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
@@ -34,89 +33,6 @@ WAKE_REPORT_CODES = frozenset(
     "accepted failed not_found outcome_unknown unsupported_surface version_mismatch".split()
 )
 LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
-
-
-def _lock(conn: Any, alias: str) -> str:
-    if db_backend.connection_is_postgres(conn):
-        return f" FOR UPDATE OF {alias} SKIP LOCKED"
-    return ""
-
-
-def _candidate_launch_id(
-    conn: Any,
-    heartbeat: RelayHeartbeat,
-    *,
-    now: str,
-) -> str | None:
-    p = marker(conn)
-    projects = tuple(sorted({int(value) for value in heartbeat.project_ids}))
-    if not projects or not heartbeat.surface_versions:
-        return None
-    project_slots = ",".join(p for _ in projects)
-    surface_slots = ",".join(p for _ in heartbeat.surface_versions)
-    row = conn.execute(
-        "SELECT l.launch_id FROM session_launches l "
-        "WHERE l.state='assigned' "
-        f"AND l.assigned_relay_id={p} AND l.assigned_machine_id={p} "
-        f"AND l.deadline_at>{p} AND l.project_id IN ({project_slots}) "
-        f"AND l.selected_surface IN ({surface_slots}) "
-        "ORDER BY l.created_at,l.launch_id LIMIT 1" + _lock(conn, "l"),
-        (
-            heartbeat.relay_id,
-            heartbeat.machine_id,
-            now,
-            *projects,
-            *sorted(heartbeat.surface_versions),
-        ),
-    ).fetchone()
-    return str(row[0]) if row is not None else None
-
-
-def claim_launch_job(
-    conn: Any,
-    heartbeat: RelayHeartbeat,
-    *,
-    now: str,
-) -> RelayJob | None:
-    launch_id = _candidate_launch_id(conn, heartbeat, now=now)
-    if launch_id is None:
-        return None
-    from yoke_core.domain.session_launch_execution import claim_assigned_launch
-
-    try:
-        claim = claim_assigned_launch(
-            conn,
-            launch_id=launch_id,
-            relay_id=heartbeat.relay_id,
-            machine_id=heartbeat.machine_id,
-            now=now,
-        )
-    except Exception as exc:
-        if getattr(exc, "code", "") in {"invalid_state", "relay_mismatch", "expired"}:
-            return None
-        raise
-    mark_relay_job(
-        conn,
-        relay_id=heartbeat.relay_id,
-        lease_id=claim.lease_id,
-        lease_expires_at=claim.lease_expires_at,
-        now=now,
-    )
-    conn.commit()
-    return RelayJob(
-        job_kind="launch",
-        job_id=claim.launch.launch_id,
-        lease_id=claim.lease_id,
-        machine_id=heartbeat.machine_id,
-        surface=claim.launch.selected_surface,
-        surface_version=str(heartbeat.surface_versions[claim.launch.selected_surface]),
-        project_id=claim.launch.project_id,
-        native_instruction=claim.bootstrap_prompt,
-        message_id=claim.launch.message_id,
-        requested_model=claim.launch.requested_model,
-        presentation=claim.launch.presentation_preference,
-        launch_attestation=claim.attestation,
-    )
 
 
 def _wake_candidates(
@@ -187,11 +103,11 @@ def claim_wake_job(
         )
 
         consume_qualification_grant(conn, qualification, now=now)
-    mark_relay_job(
+    mark_relay_batch(
         conn,
         relay_id=heartbeat.relay_id,
-        lease_id=claim.lease_id,
-        lease_expires_at=claim.lease_expires_at,
+        batch_id=claim.lease_id,
+        expires_at=claim.lease_expires_at,
         now=now,
     )
     conn.commit()
@@ -241,12 +157,7 @@ def report_wake_job(
         if str(row[2] or "") == result_code:
             return {"attempt_id": attempt_id, "result_code": result_code}
         raise SessionRelayError("report_conflict", "wake attempt was already reported")
-    require_relay_lease(
-        conn,
-        relay_id=relay_id,
-        lease_id=lease_id,
-        now=now,
-    )
+    require_relay_batch(conn, relay_id=relay_id, now=now)
     conn.execute(
         "UPDATE session_message_attempts SET completed_at="
         + p
@@ -265,7 +176,7 @@ def report_wake_job(
             attempt_id,
         ),
     )
-    clear_relay_job(conn, relay_id=relay_id, lease_id=lease_id)
+    clear_relay_batch_when_drained(conn, relay_id=relay_id, batch_id=lease_id)
     conn.commit()
     return {"attempt_id": attempt_id, "result_code": result_code}
 
@@ -286,13 +197,15 @@ def report_launch_job(
         raise SessionRelayError("result_invalid", "unknown launch relay result code")
     p = marker(conn)
     prior = conn.execute(
-        "SELECT completed_at,result_code,native_session_id "
+        "SELECT completed_at,result_code,native_session_id,batch_id "
         "FROM session_launch_attempts "
-        f"WHERE launch_id={p} AND lease_id={p}",
-        (launch_id, lease_id),
+        f"WHERE launch_id={p} AND lease_id={p} AND relay_id={p}",
+        (launch_id, lease_id, relay_id),
     ).fetchone()
     if prior is None:
-        raise SessionRelayError("attempt_missing", "launch attempt does not exist")
+        raise SessionRelayError(
+            "attempt_missing", "this relay holds no such launch attempt lease"
+        )
     if prior[0] is not None:
         if str(prior[1] or "") != result_code or str(prior[2] or "") != str(
             native_session_id or ""
@@ -304,19 +217,18 @@ def report_launch_job(
             f"SELECT state,result_code FROM session_launches WHERE launch_id={p}",
             (launch_id,),
         ).fetchone()
-        clear_relay_job(conn, relay_id=relay_id, lease_id=lease_id)
+        clear_relay_batch_when_drained(
+            conn,
+            relay_id=relay_id,
+            batch_id=str(prior[3] or ""),
+        )
         conn.commit()
         return {
             "launch_id": launch_id,
             "state": str(launch[0]),
             "result_code": str(launch[1] or ""),
         }
-    require_relay_lease(
-        conn,
-        relay_id=relay_id,
-        lease_id=lease_id,
-        now=now,
-    )
+    require_relay_batch(conn, relay_id=relay_id, now=now)
     from yoke_core.domain.session_launch_execution import report_launch_attempt
 
     launch = report_launch_attempt(
@@ -329,7 +241,11 @@ def report_launch_job(
         evidence=redacted_evidence_document(evidence),
         now=now,
     )
-    clear_relay_job(conn, relay_id=relay_id, lease_id=lease_id)
+    clear_relay_batch_when_drained(
+        conn,
+        relay_id=relay_id,
+        batch_id=str(prior[3] or ""),
+    )
     conn.commit()
     return {
         "launch_id": launch.launch_id,
@@ -341,7 +257,6 @@ def report_launch_job(
 __all__ = [
     "LAUNCH_REPORT_CODES",
     "WAKE_REPORT_CODES",
-    "claim_launch_job",
     "claim_wake_job",
     "report_launch_job",
     "report_wake_job",

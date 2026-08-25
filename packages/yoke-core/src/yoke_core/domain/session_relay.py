@@ -10,16 +10,16 @@ from yoke_contracts.session_control.surface_versions import (
 )
 from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
 from yoke_core.domain.session_relay_jobs import (
-    claim_launch_job,
     claim_wake_job,
     report_launch_job,
     report_wake_job,
 )
+from yoke_core.domain.session_relay_launch_batch import claim_launch_batch
 from yoke_core.domain.session_relay_policy import effective_relay_policy
 from yoke_core.domain.session_relay_storage import (
     heartbeat_relay,
     machine_is_idle,
-    relay_has_live_lease,
+    relay_has_live_batch,
     utc_now,
     validate_heartbeat,
 )
@@ -46,7 +46,12 @@ def claim_relay_job(
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RelayClaimOutcome:
-    """Heartbeat, long-poll, lease at most one job, and return server cadence."""
+    """Heartbeat, long-poll, lease one batch of work, and return server cadence.
+
+    Launches are independent native creates, so a poll leases up to the
+    organization's batch cap of them together. Wakes touch shared session
+    state, so a poll leases at most one.
+    """
     heartbeat = validate_heartbeat(heartbeat)
     if broker_only != bool(broker_lease_id):
         raise SessionRelayError(
@@ -76,7 +81,7 @@ def claim_relay_job(
     expire_due_recipients(conn, now=parse_timestamp(current))
     conn.commit()
 
-    if relay_has_live_lease(conn, relay_id=heartbeat.relay_id, now=current):
+    if relay_has_live_batch(conn, relay_id=heartbeat.relay_id, now=current):
         connected = heartbeat_relay(
             conn,
             heartbeat,
@@ -90,14 +95,26 @@ def claim_relay_job(
             state="active",
             connected_until=connected,
             next_poll_seconds=policy.poll_seconds,
+            launch_stagger_seconds=policy.launch_stagger_seconds,
         )
 
     started = monotonic()
     while True:
         current = now_provider()
-        job = None if broker_only else claim_launch_job(conn, heartbeat, now=current)
-        if job is None:
-            job = claim_wake_job(
+        jobs: tuple[Any, ...] = (
+            ()
+            if broker_only
+            else tuple(
+                claim_launch_batch(
+                    conn,
+                    heartbeat,
+                    now=current,
+                    cap=policy.launch_batch,
+                )
+            )
+        )
+        if not jobs:
+            wake = claim_wake_job(
                 conn,
                 heartbeat,
                 now=current,
@@ -105,7 +122,8 @@ def claim_relay_job(
                 broker_lease_id=broker_lease_id,
                 broker_session_id=broker_session_id,
             )
-        if job is not None:
+            jobs = (wake,) if wake is not None else ()
+        if jobs:
             connected = heartbeat_relay(
                 conn,
                 heartbeat,
@@ -119,7 +137,8 @@ def claim_relay_job(
                 state="active",
                 connected_until=connected,
                 next_poll_seconds=policy.poll_seconds,
-                job=job,
+                launch_stagger_seconds=policy.launch_stagger_seconds,
+                jobs=jobs,
             )
         # Never hold a read transaction open across the long-poll sleep.
         conn.commit()
@@ -155,6 +174,7 @@ def claim_relay_job(
         state=state,
         connected_until=connected,
         next_poll_seconds=next_poll,
+        launch_stagger_seconds=policy.launch_stagger_seconds,
     )
 
 

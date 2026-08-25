@@ -20,7 +20,10 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
     ensure_operator,
 )
-from yoke_core.domain.session_relay_storage import clear_relay_job
+from yoke_core.domain.session_relay_storage import (
+    clear_relay_batch_when_drained,
+    relay_holds_batch,
+)
 
 
 def _lock(conn: Any) -> str:
@@ -36,7 +39,7 @@ def _settle_open_attempts(
 ) -> None:
     p = marker(conn)
     attempts = conn.execute(
-        "SELECT attempt_id,relay_id,lease_id FROM session_launch_attempts "
+        "SELECT attempt_id,relay_id,batch_id FROM session_launch_attempts "
         f"WHERE launch_id={p} AND completed_at IS NULL ORDER BY attempt_number"
         + _lock(conn),
         (launch_id,),
@@ -50,20 +53,18 @@ def _settle_open_attempts(
         relay_id = str(attempt[1] or "")
         if not relay_id:
             continue
-        relay = conn.execute(
-            "SELECT lease_id,lease_expires_at FROM session_relays "
-            f"WHERE relay_id={p}" + _lock(conn),
-            (relay_id,),
-        ).fetchone()
-        if (
-            relay is not None
-            and str(relay[0] or "") == str(attempt[2])
-            and relay[1] is not None
-            and parse_time(str(relay[1])) > parse_time(now)
+        # Only the batch that leased this attempt can still be executing it.
+        # A relay that has moved on to a newer batch has abandoned this one,
+        # which is exactly the attempt an operator is here to repair.
+        if relay_holds_batch(
+            conn,
+            relay_id=relay_id,
+            batch_id=str(attempt[2] or ""),
+            now=now,
         ):
             raise SessionLaunchError(
                 "relay_lease_active",
-                "launch attempt is still held by an active relay lease",
+                "launch attempt is still held by an active relay batch",
             )
 
     result_code = "native_created" if observed_native_id else "not_created"
@@ -91,10 +92,10 @@ def _settle_open_attempts(
         )
         relay_id = str(attempt[1] or "")
         if relay_id:
-            clear_relay_job(
+            clear_relay_batch_when_drained(
                 conn,
                 relay_id=relay_id,
-                lease_id=str(attempt[2]),
+                batch_id=str(attempt[2] or ""),
             )
 
 

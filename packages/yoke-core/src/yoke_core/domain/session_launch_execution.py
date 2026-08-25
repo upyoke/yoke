@@ -85,9 +85,15 @@ def claim_assigned_launch(
     launch_id: str,
     relay_id: str,
     machine_id: str,
+    batch_id: str | None = None,
     now: str | None = None,
 ) -> LaunchClaim:
-    """Lease one assigned launch and mint its single-use attestation secret."""
+    """Lease one assigned launch and mint its single-use attestation secret.
+
+    ``batch_id`` names the relay poll that leased this attempt, so a later
+    reader can tell an attempt the relay still owns from one it has moved on
+    from. A launch leased outside a relay poll belongs to no batch.
+    """
     current = now or utc_now()
     begin_mutation(conn)
     try:
@@ -120,15 +126,16 @@ def claim_assigned_launch(
         p = marker(conn)
         conn.execute(
             "INSERT INTO session_launch_attempts "
-            "(attempt_id, launch_id, relay_id, machine_id, lease_id, "
+            "(attempt_id, launch_id, relay_id, machine_id, lease_id, batch_id, "
             "attempt_number, started_at) "
-            f"VALUES ({', '.join(p for _ in range(7))})",
+            f"VALUES ({', '.join(p for _ in range(8))})",
             (
                 attempt_id,
                 launch_id,
                 relay_id,
                 machine_id,
                 lease_id,
+                batch_id,
                 attempt_number,
                 current,
             ),

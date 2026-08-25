@@ -94,6 +94,18 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
         "Relay polling cadence while the machine is idle.",
         1,
     ),
+    "fleet.relay_launch_batch": FleetKeySpec(
+        5,
+        int,
+        "Maximum launch jobs one relay poll may lease together.",
+        1,
+    ),
+    "fleet.relay_launch_stagger_seconds": FleetKeySpec(
+        1,
+        int,
+        "Seconds a relay waits between consecutive native creates.",
+        0,
+    ),
 }
 
 

@@ -149,6 +149,7 @@ def create_session_control_tables(conn: Any) -> None:
             relay_id TEXT,
             machine_id TEXT NOT NULL,
             lease_id TEXT NOT NULL,
+            batch_id TEXT,
             attempt_number INTEGER NOT NULL,
             adapter_revision TEXT,
             started_at TEXT NOT NULL,

@@ -46,6 +46,34 @@ def launch_connection() -> sqlite3.Connection:
     return conn
 
 
+def relay_connection(
+    org_settings: dict[str, Any] | None = None,
+) -> sqlite3.Connection:
+    """Launch fixture widened with the session columns relay claiming reads."""
+    conn = launch_connection()
+    conn.execute("ALTER TABLE projects ADD COLUMN org_id INTEGER DEFAULT 1")
+    conn.execute("CREATE TABLE organizations (id INTEGER PRIMARY KEY, settings TEXT)")
+    conn.execute(
+        "INSERT INTO organizations VALUES (1, ?)",
+        (json.dumps(org_settings or {}),),
+    )
+    conn.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN executor TEXT DEFAULT 'codex'"
+    )
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN execution_lane TEXT")
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_heartbeat TEXT")
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN ended_at TEXT")
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
+    conn.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN turn_posture TEXT "
+        "NOT NULL DEFAULT 'unknown'"
+    )
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN turn_posture_at TEXT")
+    conn.commit()
+    return conn
+
+
 def authorization(
     actor_id: int = 1,
     *,
@@ -123,4 +151,5 @@ __all__ = [
     "assigned_launch",
     "authorization",
     "launch_connection",
+    "relay_connection",
 ]

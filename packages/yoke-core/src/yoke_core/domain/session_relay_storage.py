@@ -98,7 +98,8 @@ def heartbeat_relay(
     heartbeat = validate_heartbeat(heartbeat)
     p = marker(conn)
     existing = conn.execute(
-        f"SELECT actor_id,machine_id FROM session_relays WHERE relay_id={p}",
+        "SELECT actor_id,machine_id,lease_expires_at FROM session_relays "
+        f"WHERE relay_id={p}",
         (heartbeat.relay_id,),
     ).fetchone()
     if existing is not None and int(existing[0]) != heartbeat.actor_id:
@@ -111,7 +112,14 @@ def heartbeat_relay(
             "relay_machine_mismatch",
             "an existing relay id cannot move to a different machine",
         )
-    connected_until = shifted(now, seconds=max(1, next_poll_seconds) * 2)
+    # A relay executing a batch is silent for as long as its native creates
+    # take, which outlasts a poll interval. It owes a report by the batch
+    # horizon, so it stays connected at least that long — otherwise it drops
+    # out of the eligible roster mid-burst and new launches find no relay.
+    connected_until = max(
+        shifted(now, seconds=max(1, next_poll_seconds) * 2),
+        str(existing[2] or "") if existing is not None else "",
+    )
     surfaces = json_helper.dumps_compact(dict(heartbeat.surface_versions))
     projects = json_helper.dumps_compact(list(heartbeat.project_ids))
     conn.execute(
@@ -187,19 +195,25 @@ def machine_is_idle(
     return recent_job is None
 
 
-def mark_relay_job(
+def mark_relay_batch(
     conn: Any,
     *,
     relay_id: str,
-    lease_id: str,
-    lease_expires_at: str,
+    batch_id: str,
+    expires_at: str,
     now: str,
 ) -> None:
+    """Record that this relay owns one outstanding batch until ``expires_at``.
+
+    A batch spans every job leased by a single poll. Each job keeps its own
+    lease id on its attempt row; this marker carries only the relay-level
+    ownership and the horizon by which the whole batch must be reported.
+    """
     p = marker(conn)
     cursor = conn.execute(
         "UPDATE session_relays SET lease_id=" + p + ",lease_expires_at=" + p + ","
         "last_job_at=" + p + ",state='active' WHERE relay_id=" + p,
-        (lease_id, lease_expires_at, now, relay_id),
+        (batch_id, expires_at, now, relay_id),
     )
     if cursor.rowcount != 1:
         raise SessionRelayError(
@@ -207,16 +221,44 @@ def mark_relay_job(
         )
 
 
-def clear_relay_job(conn: Any, *, relay_id: str, lease_id: str) -> None:
+def clear_relay_batch_when_drained(
+    conn: Any,
+    *,
+    relay_id: str,
+    batch_id: str,
+) -> None:
+    """Release this batch's marker once none of its jobs are outstanding.
+
+    The guard names the batch explicitly: a relay that has already moved on to
+    a newer batch must keep that newer marker, whatever happens to the jobs of
+    an abandoned one.
+    """
+    if not batch_id:
+        return
     p = marker(conn)
+    launch = conn.execute(
+        "SELECT 1 FROM session_launch_attempts "
+        f"WHERE batch_id={p} AND completed_at IS NULL LIMIT 1",
+        (batch_id,),
+    ).fetchone()
+    if launch is not None:
+        return
+    wake = conn.execute(
+        "SELECT 1 FROM session_message_attempts "
+        f"WHERE lease_id={p} AND attempt_kind IN ('wake_relay','wake_broker') "
+        "AND completed_at IS NULL LIMIT 1",
+        (batch_id,),
+    ).fetchone()
+    if wake is not None:
+        return
     conn.execute(
         "UPDATE session_relays SET lease_id=NULL,lease_expires_at=NULL "
         f"WHERE relay_id={p} AND lease_id={p}",
-        (relay_id, lease_id),
+        (relay_id, batch_id),
     )
 
 
-def relay_has_live_lease(conn: Any, *, relay_id: str, now: str) -> bool:
+def relay_has_live_batch(conn: Any, *, relay_id: str, now: str) -> bool:
     p = marker(conn)
     return (
         conn.execute(
@@ -228,38 +270,54 @@ def relay_has_live_lease(conn: Any, *, relay_id: str, now: str) -> bool:
     )
 
 
-def require_relay_lease(
-    conn: Any,
-    *,
-    relay_id: str,
-    lease_id: str,
-    now: str,
-) -> None:
+def relay_holds_batch(conn: Any, *, relay_id: str, batch_id: str, now: str) -> bool:
+    """Report whether this exact batch is the one the relay still owns."""
+    if not batch_id:
+        return False
+    p = marker(conn)
+    return (
+        conn.execute(
+            "SELECT 1 FROM session_relays "
+            f"WHERE relay_id={p} AND lease_id={p} AND lease_expires_at>{p}",
+            (relay_id, batch_id, now),
+        ).fetchone()
+        is not None
+    )
+
+
+def require_relay_batch(conn: Any, *, relay_id: str, now: str) -> None:
+    """Refuse a report once the batch horizon has passed.
+
+    Which job the report belongs to is settled by the attempt row's own lease
+    id; this guard only establishes that the relay still owns the batch it is
+    reporting under.
+    """
     p = marker(conn)
     row = conn.execute(
         "SELECT lease_expires_at FROM session_relays "
-        f"WHERE relay_id={p} AND lease_id={p} LIMIT 1",
-        (relay_id, lease_id),
+        f"WHERE relay_id={p} AND lease_id IS NOT NULL LIMIT 1",
+        (relay_id,),
     ).fetchone()
     if row is None:
         raise SessionRelayError(
-            "relay_lease_mismatch", "relay does not hold the reported lease"
+            "relay_lease_mismatch", "relay does not hold an outstanding batch"
         )
     if str(row[0] or "") <= now:
         raise SessionRelayError(
-            "relay_lease_expired", "relay lease expired before the report"
+            "relay_lease_expired", "relay batch expired before the report"
         )
 
 
 __all__ = [
-    "clear_relay_job",
+    "clear_relay_batch_when_drained",
     "heartbeat_relay",
     "machine_is_idle",
-    "mark_relay_job",
+    "mark_relay_batch",
     "marker",
-    "relay_has_live_lease",
+    "relay_has_live_batch",
+    "relay_holds_batch",
     "require_relay_actor",
-    "require_relay_lease",
+    "require_relay_batch",
     "shifted",
     "utc_now",
     "validate_heartbeat",
