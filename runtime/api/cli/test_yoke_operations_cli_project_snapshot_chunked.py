@@ -15,6 +15,7 @@ from runtime.api.cli.project_snapshot_cli_test_helpers import (
     OVERSIZED_HTTPS_PAYLOAD_BYTES,
     head_sha,
     make_repo,
+    non_progress_err,
     run_cli,
 )
 
@@ -44,7 +45,7 @@ def test_https_payload_too_large_uses_chunked_dispatch(tmp_path: Path) -> None:
         )
     assert rc == 0
     assert "created: HEAD abc snapshot=1" in out
-    assert err == ""
+    assert non_progress_err(err) == ""
     assert [call["payload"]["operation"] for call in CALLS] == [
         "begin",
         "append",
@@ -85,7 +86,7 @@ def test_chunked_dispatch_skips_upload_when_begin_reuses_snapshot(
 
     assert rc == 0
     assert f"reused: HEAD {commit_sha} snapshot=44" in out
-    assert err == ""
+    assert non_progress_err(err) == ""
     assert [call["payload"]["operation"] for call in CALLS] == ["begin"]
 
 
@@ -126,7 +127,7 @@ def test_chunked_dispatch_deduplicates_same_commit_refs(
     assert rc == 0
     assert f"created: HEAD {commit_sha} snapshot=45" in out
     assert f"reused: main {commit_sha} snapshot=45" in out
-    assert err == ""
+    assert non_progress_err(err) == ""
     assert [call["payload"]["operation"] for call in CALLS] == [
         "begin",
         "append",
@@ -195,7 +196,7 @@ def test_hook_mode_payload_too_large_reuses_at_begin(tmp_path: Path) -> None:
         )
     assert rc == 0
     assert out == ""
-    assert err == ""
+    assert non_progress_err(err) == ""
     assert [call["payload"]["operation"] for call in CALLS] == ["begin"]
 
 
@@ -274,7 +275,7 @@ def test_chunked_dispatch_restarts_once_when_staging_went_missing(
 
     assert rc == 0
     assert f"created: HEAD {commit_sha} snapshot=47" in out
-    assert err == ""
+    assert non_progress_err(err) == ""
     assert [call["payload"]["operation"] for call in CALLS] == [
         "begin",
         "append",

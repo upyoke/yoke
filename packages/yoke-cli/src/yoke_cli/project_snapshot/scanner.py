@@ -8,12 +8,15 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from yoke_cli.project_snapshot.scan_progress import ScanProgress
+from yoke_cli.project_snapshot.scanner_blobs import BlobScanError, blob_sources
 from yoke_contracts.path_snapshot import (
     SYMLINK_CANONICALIZED,
     SYMLINK_DANGLING_TARGET,
     SYMLINK_EXTERNAL_TARGET,
     PathSnapshotPayload,
     PathSnapshotSyncPayload,
+    SnapshotFileEntry,
     SnapshotSymlinkFact,
     all_paths_with_kinds,
     file_entry_from_source,
@@ -31,9 +34,15 @@ def build_sync_payload(
     integration_target: Optional[str],
     head_only: bool = False,
     hook_mode: bool = False,
+    include_contents: bool = True,
 ) -> PathSnapshotSyncPayload:
     root = resolve_repo_root(repo_root)
-    head = scan_ref(root, "HEAD", label="HEAD")
+    head = scan_ref(
+        root,
+        "HEAD",
+        label="HEAD",
+        include_contents=include_contents,
+    )
     snapshots = [head]
     if not head_only:
         target = integration_target or _default_integration_target(root)
@@ -44,7 +53,13 @@ def build_sync_payload(
                 snapshots.append(head.model_copy(update={"ref": target}))
             else:
                 snapshots.append(
-                    scan_ref(root, ref, label=target, expected_sha=sha)
+                    scan_ref(
+                        root,
+                        ref,
+                        label=target,
+                        expected_sha=sha,
+                        include_contents=include_contents,
+                    )
                 )
         else:
             head.warnings.append(
@@ -63,9 +78,7 @@ def resolve_repo_root(repo_root: str | Path | None) -> Path:
     proc = _git(candidate, "rev-parse", "--show-toplevel")
     root = Path(proc.stdout.strip())
     if not root:
-        raise ProjectSnapshotScanError(
-            f"{candidate} is not inside a git checkout"
-        )
+        raise ProjectSnapshotScanError(f"{candidate} is not inside a git checkout")
     return root
 
 
@@ -75,29 +88,70 @@ def scan_ref(
     *,
     label: Optional[str] = None,
     expected_sha: Optional[str] = None,
+    include_contents: bool = True,
 ) -> PathSnapshotPayload:
     root = Path(repo_root)
     commit_sha = expected_sha or _rev_parse(root, ref)
+    name = label or ref
+    progress = ScanProgress()
+    if not include_contents:
+        progress.emit(
+            f"{name} {commit_sha[:12]} identity only; file contents deferred",
+            force=True,
+        )
+        return PathSnapshotPayload(
+            ref=name,
+            commit_sha=commit_sha,
+            files=[],
+            warnings=_dirty_warnings(root),
+        )
+    progress.emit(f"scanning {name}", force=True)
     entries = _ls_tree(root, ref)
-    file_paths = [path for _mode, kind, _sha, path in entries if kind == "blob"]
-    sources = _blob_sources(
-        root, [(sha, path) for _mode, kind, sha, path in entries if kind == "blob"]
-    )
-    symlinks = _symlink_facts(entries, sources)
+    blobs = [(sha, path) for _mode, kind, sha, path in entries if kind == "blob"]
+    progress.emit(f"reading {len(blobs)} blobs", force=True)
+    try:
+        sources = blob_sources(
+            root,
+            blobs,
+            on_progress=lambda done, total: progress.emit(
+                f"read {done}/{total} blobs",
+                force=done >= total,
+            ),
+        )
+    except BlobScanError as exc:
+        raise ProjectSnapshotScanError(str(exc)) from exc
+    files = _file_entries(blobs, sources, progress)
     payload = PathSnapshotPayload(
-        ref=label or ref,
+        ref=name,
         commit_sha=commit_sha,
-        files=[file_entry_from_source(path, sources.get(path, "")) for path in file_paths],
-        symlinks=symlinks,
+        files=files,
+        symlinks=_symlink_facts(entries, sources),
         warnings=_dirty_warnings(root),
     )
-    # Exercise shared path derivation during scanning so invalid payloads fail
-    # client-side before a network call.
     all_paths_with_kinds([entry.path for entry in payload.files])
+    progress.emit(f"scanned {name} ({len(files)} files)", force=True)
     return payload
 
 
-def _git(repo_root: Path, *args: str, binary: bool = False) -> subprocess.CompletedProcess:
+def _file_entries(
+    blobs: Sequence[Tuple[str, str]],
+    sources: Dict[str, str],
+    progress: ScanProgress,
+) -> List[SnapshotFileEntry]:
+    files: List[SnapshotFileEntry] = []
+    total = len(blobs)
+    for index, (_sha, path) in enumerate(blobs, start=1):
+        files.append(file_entry_from_source(path, sources.get(path, "")))
+        progress.emit(
+            f"parsed {index}/{total} files",
+            force=index >= total,
+        )
+    return files
+
+
+def _git(
+    repo_root: Path, *args: str, binary: bool = False
+) -> subprocess.CompletedProcess:
     try:
         proc = subprocess.run(
             ["git", "-C", str(repo_root), *args],
@@ -109,7 +163,8 @@ def _git(repo_root: Path, *args: str, binary: bool = False) -> subprocess.Comple
         raise ProjectSnapshotScanError("git is required for snapshot sync") from exc
     if proc.returncode != 0:
         detail = (
-            proc.stderr if isinstance(proc.stderr, str)
+            proc.stderr
+            if isinstance(proc.stderr, str)
             else proc.stderr.decode("utf-8", errors="replace")
         ).strip()
         raise ProjectSnapshotScanError(
@@ -138,62 +193,11 @@ def _ls_tree(repo_root: Path, ref: str) -> List[Tuple[str, str, str, str]]:
     return rows
 
 
-def _blob_sources(
-    repo_root: Path,
-    blobs: Sequence[Tuple[str, str]],
-) -> Dict[str, str]:
-    sources: Dict[str, str] = {}
-    if not blobs:
-        return sources
-    try:
-        proc = subprocess.Popen(
-            ["git", "-C", str(repo_root), "cat-file", "--batch"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-    except FileNotFoundError as exc:
-        raise ProjectSnapshotScanError("git is required for snapshot sync") from exc
-    request = "".join(f"{sha}\n" for sha, _path in blobs).encode("ascii")
-    stdout, stderr = proc.communicate(request)
-    if proc.returncode != 0:
-        detail = stderr.decode("utf-8", errors="replace").strip()
-        raise ProjectSnapshotScanError(
-            f"git cat-file --batch failed in {repo_root}: {detail}"
-        )
-    offset = 0
-    for expected_sha, path in blobs:
-        try:
-            line_end = stdout.index(b"\n", offset)
-        except ValueError as exc:
-            raise ProjectSnapshotScanError(
-                f"git cat-file ended before blob header for {path}"
-            ) from exc
-        header = stdout[offset:line_end].decode("ascii", errors="replace")
-        parts = header.split()
-        if len(parts) != 3 or parts[0] != expected_sha or parts[1] != "blob":
-            raise ProjectSnapshotScanError(
-                f"git cat-file returned unexpected header for {path}: {header}"
-            )
-        size = int(parts[2])
-        start = line_end + 1
-        end = start + size
-        data = stdout[start:end]
-        try:
-            sources[path] = data.decode("utf-8")
-        except UnicodeDecodeError:
-            sources[path] = ""
-        offset = end + 1
-    return sources
-
-
 def _symlink_facts(
     entries: Sequence[Tuple[str, str, str, str]],
     sources: Dict[str, str],
 ) -> List[SnapshotSymlinkFact]:
-    observed_paths = {
-        path for _mode, kind, _sha, path in entries if kind == "blob"
-    }
+    observed_paths = {path for _mode, kind, _sha, path in entries if kind == "blob"}
     observed_paths.update(path for path, _kind in all_paths_with_kinds(observed_paths))
     facts: List[SnapshotSymlinkFact] = []
     for mode, kind, _sha, path in entries:
@@ -202,24 +206,30 @@ def _symlink_facts(
         target_attempt = sources.get(path, "").strip()
         canonical = _canonical_symlink_path(path, target_attempt)
         if canonical is None:
-            facts.append(SnapshotSymlinkFact(
-                path=path,
-                reason=SYMLINK_EXTERNAL_TARGET,
-                target_attempt=target_attempt,
-            ))
+            facts.append(
+                SnapshotSymlinkFact(
+                    path=path,
+                    reason=SYMLINK_EXTERNAL_TARGET,
+                    target_attempt=target_attempt,
+                )
+            )
         elif canonical in observed_paths:
-            facts.append(SnapshotSymlinkFact(
-                path=path,
-                reason=SYMLINK_CANONICALIZED,
-                target_attempt=target_attempt,
-                canonical_path=canonical,
-            ))
+            facts.append(
+                SnapshotSymlinkFact(
+                    path=path,
+                    reason=SYMLINK_CANONICALIZED,
+                    target_attempt=target_attempt,
+                    canonical_path=canonical,
+                )
+            )
         else:
-            facts.append(SnapshotSymlinkFact(
-                path=path,
-                reason=SYMLINK_DANGLING_TARGET,
-                target_attempt=target_attempt,
-            ))
+            facts.append(
+                SnapshotSymlinkFact(
+                    path=path,
+                    reason=SYMLINK_DANGLING_TARGET,
+                    target_attempt=target_attempt,
+                )
+            )
     return facts
 
 
@@ -248,8 +258,15 @@ def _dirty_warnings(repo_root: Path) -> List[str]:
 
 def _default_integration_target(repo_root: Path) -> str:
     proc = subprocess.run(
-        ["git", "-C", str(repo_root), "symbolic-ref", "--quiet", "--short",
-         "refs/remotes/origin/HEAD"],
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "symbolic-ref",
+            "--quiet",
+            "--short",
+            "refs/remotes/origin/HEAD",
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -298,8 +315,15 @@ def _try_rev_parse(repo_root: Path, ref: str) -> Optional[str]:
 
 def _is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
     proc = subprocess.run(
-        ["git", "-C", str(repo_root), "merge-base", "--is-ancestor",
-         ancestor, descendant],
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "merge-base",
+            "--is-ancestor",
+            ancestor,
+            descendant,
+        ],
         capture_output=True,
         text=True,
         check=False,
