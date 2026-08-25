@@ -26,10 +26,10 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
         bool,
         "Admit verified email under the organization's identity domain.",
     ),
-    "fleet.wake_after_idle_minutes": FleetKeySpec(
-        3,
+    "fleet.wake_after_idle_seconds": FleetKeySpec(
+        60,
         int,
-        "Minutes without hook activity before wake is eligible.",
+        "Seconds without hook, tool, or heartbeat activity before wake is eligible.",
         1,
     ),
     "fleet.reinject_until_acknowledged": FleetKeySpec(

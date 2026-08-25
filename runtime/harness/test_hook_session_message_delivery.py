@@ -304,42 +304,34 @@ def test_message_reinjects_on_later_hook_until_explicit_ack(
 def test_terminal_recipient_is_never_wake_eligible(state: str) -> None:
     assert not delivery.wake_eligible(
         recipient_state=state,
-        recipient_created_at=NOW,
-        wake_after=NOW,
-        last_hook_activity_at=None,
-        last_heartbeat_at=None,
+        last_activity_at=None,
         now=NOW + timedelta(hours=1),
+        idle_threshold=timedelta(seconds=60),
     )
 
 
 def test_pending_without_post_message_hook_becomes_wake_eligible() -> None:
     assert delivery.wake_eligible(
         recipient_state="pending",
-        recipient_created_at=NOW,
-        wake_after=NOW + timedelta(minutes=3),
-        last_hook_activity_at=NOW - timedelta(seconds=1),
-        last_heartbeat_at=NOW - timedelta(seconds=1),
-        now=NOW + timedelta(minutes=3),
+        last_activity_at=NOW - timedelta(seconds=60),
+        now=NOW,
+        idle_threshold=timedelta(seconds=60),
     )
 
 
 def test_live_injected_unacknowledged_recipient_is_never_woken() -> None:
     assert not delivery.wake_eligible(
         recipient_state="injected",
-        recipient_created_at=NOW,
-        wake_after=NOW + timedelta(minutes=3),
-        last_hook_activity_at=NOW + timedelta(minutes=2),
-        last_heartbeat_at=None,
-        now=NOW + timedelta(hours=2),
+        last_activity_at=NOW - timedelta(seconds=10),
+        now=NOW,
+        idle_threshold=timedelta(seconds=60),
     )
 
 
-def test_post_send_heartbeat_skips_native_wake() -> None:
+def test_recent_heartbeat_skips_native_wake() -> None:
     assert not delivery.wake_eligible(
         recipient_state="pending",
-        recipient_created_at=NOW,
-        wake_after=NOW,
-        last_hook_activity_at=None,
-        last_heartbeat_at=NOW + timedelta(seconds=1),
-        now=NOW + timedelta(minutes=3),
+        last_activity_at=NOW - timedelta(seconds=10),
+        now=NOW,
+        idle_threshold=timedelta(seconds=60),
     )

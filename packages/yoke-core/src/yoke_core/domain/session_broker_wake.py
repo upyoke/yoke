@@ -182,7 +182,7 @@ def _candidate_routes(
             and int(row.get("wake_attempt_count") or 0) > 0
             and (
                 previous is None
-                or previous + timedelta(minutes=policy.wake_after_idle_minutes) > now
+                or previous + timedelta(seconds=policy.wake_after_idle_seconds) > now
             )
         )
         if waiting_cooldown and not direct_failed:

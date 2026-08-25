@@ -142,7 +142,7 @@ def test_idle_wake_skips_when_a_heartbeat_landed_after_send() -> None:
     )
     conn.commit()
 
-    assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=4)) == []
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=30)) == []
 
 
 def test_idle_wake_fires_when_no_activity_landed_after_send() -> None:

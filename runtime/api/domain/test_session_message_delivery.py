@@ -239,7 +239,8 @@ def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> Non
     )
     conn.commit()
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=20)) == []
-    assert wake_eligible_recipients(conn, now=NOW + timedelta(hours=3)) == []
+    long_idle = wake_eligible_recipients(conn, now=NOW + timedelta(hours=3))
+    assert len(long_idle) == 1
 
 
 def test_waiting_pending_receipt_does_not_bypass_native_wake_gates() -> None:

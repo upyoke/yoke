@@ -13,7 +13,7 @@ from yoke_core.domain.session_message_delivery import (
     _expire_rows,
 )
 from yoke_core.domain.session_message_routing import (
-    latest_hook_activity,
+    latest_observed_activity,
     messageability,
     session_liveness,
 )
@@ -141,14 +141,10 @@ def wake_eligible_recipients(
                 continue
             if row["state"] == "injected" and not policy.reinject_until_acknowledged:
                 continue
-            created_at = parse_timestamp(row["message_created_at"])
-            wake_after = parse_timestamp(row["wake_after"])
-            if created_at is None or wake_after is None or wake_after > current:
-                continue
             waiting_pending = (
                 row["state"] == "pending" and row.get("turn_posture") == "waiting"
             )
-            idle_window = timedelta(minutes=policy.wake_after_idle_minutes)
+            idle_window = timedelta(seconds=policy.wake_after_idle_seconds)
             if waiting_pending:
                 if row.get("injection_lease_id") is not None:
                     continue
@@ -163,11 +159,9 @@ def wake_eligible_recipients(
             else:
                 if not wake_eligible(
                     recipient_state=str(row["state"]),
-                    recipient_created_at=created_at,
-                    wake_after=wake_after,
-                    last_hook_activity_at=latest_hook_activity(row),
-                    last_heartbeat_at=parse_timestamp(row.get("last_heartbeat")),
+                    last_activity_at=latest_observed_activity(row),
                     now=current,
+                    idle_threshold=idle_window,
                 ):
                     continue
                 wake_mode = WakeMode.IDLE_TIMEOUT
@@ -202,6 +196,7 @@ def wake_eligible_recipients(
                     "wake_after": row["wake_after"],
                     "injection_lease_id": row["injection_lease_id"],
                     "injection_lease_expires_at": row["injection_lease_expires_at"],
+                    "last_injected_at": row.get("last_injected_at"),
                     "wake_attempt_count": attempt_count,
                     "last_wake_at": row["last_wake_at"],
                     "native_thread_id": row.get("native_thread_id"),

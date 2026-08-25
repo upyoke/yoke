@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from typing import Iterable
 
@@ -262,28 +262,22 @@ def _as_utc(value: datetime) -> datetime:
 def wake_eligible(
     *,
     recipient_state: str,
-    recipient_created_at: datetime,
-    wake_after: datetime,
-    last_hook_activity_at: datetime | None,
-    last_heartbeat_at: datetime | None,
+    last_activity_at: datetime | None,
     now: datetime,
+    idle_threshold: timedelta,
 ) -> bool:
     """Return whether a recipient may enter idle-timeout native wake routing.
 
-    Eligibility starts at ``wake_after``. Any heartbeat or hook that landed
-    after the message was created skips the wake: injection already has the
-    session, or will imminently, and a second native ``--resume`` would race it.
+    The wake sweep uses one idleness clock: time since the latest hook, tool
+    call, injection, or heartbeat. A session still inside that window is
+    left to hook injection; once idleness reaches the threshold, wake may
+    run. ``wake_after`` is stamped at send so eligibility is not delayed.
     """
     if recipient_state not in _DELIVERABLE_STATES:
         return False
-    current = _as_utc(now)
-    created = _as_utc(recipient_created_at)
-    if current < _as_utc(wake_after):
-        return False
-    for activity in (last_hook_activity_at, last_heartbeat_at):
-        if activity is not None and _as_utc(activity) > created:
-            return False
-    return True
+    if last_activity_at is None:
+        return True
+    return _as_utc(now) - _as_utc(last_activity_at) >= idle_threshold
 
 
 __all__ = [

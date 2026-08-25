@@ -37,19 +37,32 @@ def _stop(conn, session_id: str = "s1") -> None:
     conn.commit()
 
 
-def test_wake_candidates_require_elapsed_deadline_and_inactive_liveness() -> None:
-    deadline_conn = message_connection()
-    _send(deadline_conn)
-    _stop(deadline_conn)
-    assert wake_eligible_recipients(deadline_conn, now=NOW + timedelta(minutes=2)) == []
-    assert (
-        len(wake_eligible_recipients(deadline_conn, now=NOW + timedelta(minutes=4)))
-        == 1
-    )
+def test_idle_threshold_boundary_is_respected() -> None:
+    conn = message_connection()
+    _send(conn)
+    _stop(conn)
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=59)) == []
+    assert len(wake_eligible_recipients(conn, now=NOW + timedelta(seconds=60))) == 1
 
-    active_conn = message_connection()
-    _send(active_conn)
-    assert wake_eligible_recipients(active_conn, now=NOW + timedelta(minutes=11)) == []
+
+def test_long_idle_session_with_a_fresh_message_wakes_on_the_next_sweep() -> None:
+    conn = message_connection()
+    conn.execute(
+        "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
+        "WHERE session_id='s1'",
+        ("2026-08-22T15:00:00Z", "2026-08-22T15:00:00Z"),
+    )
+    conn.commit()
+    _send(conn)
+    _stop(conn)
+    assert len(wake_eligible_recipients(conn, now=NOW)) == 1
+
+
+def test_actively_working_session_with_a_pending_message_is_never_woken() -> None:
+    conn = message_connection()
+    _send(conn)
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=90)) == []
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11)) == []
 
 
 def test_unsupported_route_stays_terminal_until_routing_facts_change() -> None:
@@ -105,7 +118,7 @@ def test_waiting_retry_uses_the_project_idle_policy_as_cooldown() -> None:
     conn = message_connection()
     conn.execute(
         "UPDATE organizations SET settings=? WHERE id=1",
-        (json.dumps({"fleet": {"wake_after_idle_minutes": 3}}),),
+        (json.dumps({"fleet": {"wake_after_idle_seconds": 180}}),),
     )
     stamp_turn_posture(
         conn,
