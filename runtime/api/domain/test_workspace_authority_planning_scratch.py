@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import project_scratch_dir as scratch
+from yoke_core.domain import project_scratch_roots as scratch_roots
 from yoke_core.domain.workspace_authority import (
     SESSION_ID_ENV_VAR,
     assert_target_under_session_work_authority,
@@ -33,7 +34,9 @@ def _setup_scratch(patch_conn, monkeypatch, item_id, status):
     monkeypatch.setenv(scratch.ENV_KEY, SCRATCH_ROOT)
     monkeypatch.setenv("YOKE_RUN_ID", RUN_ID)
     monkeypatch.delenv("YOKE_PROJECT", raising=False)
-    monkeypatch.setattr(scratch, "_ensure_writable_dir", lambda path: True)
+    monkeypatch.setattr(
+        scratch_roots, "ensure_writable_dir", lambda path: True
+    )
     _seed_project(patch_conn, PROJECT_REPO_ROOT)
     _seed_item(patch_conn, item_id=item_id, branch=f"YOK-{item_id}")
     _seed_claim(patch_conn, SESSION_A, item_id=item_id)

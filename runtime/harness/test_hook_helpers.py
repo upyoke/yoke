@@ -71,7 +71,7 @@ class TestGetSessionId:
     def test_falls_back_to_claude_session_id(self):
         with mock.patch.dict(
             os.environ,
-            {"CLAUDE_SESSION_ID": "claude-456"},
+            {"CLAUDE_CODE_SESSION_ID": "claude-456"},
             clear=True,
         ):
             assert get_session_id() == "claude-456"

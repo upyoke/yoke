@@ -52,7 +52,14 @@ from typing import Callable, Dict, List, Optional, Tuple
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
 
 MULTIPLEXED_PROCESS_BASENAMES = frozenset(
-    {"codex", "codex-code-mode-host", "cursor", "cursor-agent"}
+    {
+        "codex",
+        "codex-code-mode-host",
+        "cursor",
+        "cursor-agent",
+        "claude bg-pty-host",
+        "claude bg-spare",
+    }
 )
 """Harness processes that host many concurrent sessions under one pid.
 
@@ -60,6 +67,16 @@ Never a valid anchor: every sibling conversation shares the pid, so a
 record keyed on it resolves to whichever session wrote last. One
 ``cursor-agent`` process hosts the main conversation plus every subagent
 session it spawns, and the Cursor IDE host process is shared the same way.
+
+Claude's background-agent daemon keeps a pool of ``bg-pty-host`` and
+``bg-spare`` processes and hands them to successive workers, so a pid
+identifies the pool slot rather than any one session. They announce that
+role in their process title, which is what ``ps`` reports as the command
+name. Listing them matters most on the read side: their chain can rise
+into an ordinary per-session ``claude``, and walking through would let a
+worker resolve to -- and act as -- whichever session owns that process.
+One such pid was observed holding a contention marker naming seven
+sessions, which is that walk happening repeatedly on the write side.
 """
 
 _MAX_ANCESTOR_DEPTH = 64

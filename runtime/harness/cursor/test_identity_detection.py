@@ -18,7 +18,7 @@ BOTH = pytest.mark.parametrize("identity", [tree_identity, wheel_identity])
 @pytest.fixture(autouse=True)
 def _clean_identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for var in (
-        "YOKE_EXECUTOR", "CODEX_THREAD_ID", "CLAUDE_SESSION_ID",
+        "YOKE_EXECUTOR", "CODEX_THREAD_ID", "CLAUDE_CODE_SESSION_ID",
         "CLAUDE_CODE_ENTRYPOINT", "CURSOR_CONVERSATION_ID",
         "CURSOR_TRANSCRIPT_PATH", "CURSOR_INVOKED_AS",
     ):
@@ -127,7 +127,7 @@ def test_detect_executor_conversation_id_only_is_cursor_desktop(
 def test_detect_executor_claude_session_wins_over_conversation_id(
     identity, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-nested")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "claude-nested")
     monkeypatch.setenv("CURSOR_CONVERSATION_ID", "conv-ide-shell")
     assert identity.detect_executor() == "claude-code"
 

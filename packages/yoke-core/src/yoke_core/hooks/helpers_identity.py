@@ -152,7 +152,7 @@ def detect_executor() -> str:
     Resolution order:
       1. ``YOKE_EXECUTOR`` — explicit override; stored verbatim.
       2. Codex family (``CODEX_THREAD_ID`` set) -> ``codex-{surface}``.
-      3. Claude session/entrypoint (``CLAUDE_SESSION_ID`` /
+      3. Claude session/entrypoint (``CLAUDE_CODE_SESSION_ID`` /
          ``CLAUDE_CODE_ENTRYPOINT``) -> ``claude-{surface}``.
       4. Cursor hook/CLI markers, then ``CURSOR_CONVERSATION_ID`` as the
          IDE-shell fallback to ``cursor-desktop``.
@@ -167,7 +167,7 @@ def detect_executor() -> str:
         from yoke_core.hooks.codex_model import resolve_entrypoint
 
         return _compose_executor(_CODEX_COARSE, _CODEX_COARSE, resolve_entrypoint())
-    if os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+    if os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
         return _compose_executor(
             "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
         )

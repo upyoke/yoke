@@ -75,6 +75,12 @@ class TestMultiplexedNameMatcher(unittest.TestCase):
         self.assertTrue(is_multiplexed_process_name("Codex"))
         self.assertTrue(is_multiplexed_process_name("codex-code-mode-host"))
 
+    def test_accepts_claude_background_pool_process_titles(self):
+        """The daemon hands one pooled process to worker after worker, so its
+        pid names a pool slot rather than any single session."""
+        self.assertTrue(is_multiplexed_process_name("claude bg-spare"))
+        self.assertTrue(is_multiplexed_process_name("claude bg-pty-host"))
+
     def test_rejects_per_session_and_unrelated_names(self):
         for name in ("claude", "zsh", "python3", "", None):
             self.assertFalse(is_multiplexed_process_name(name))
@@ -89,6 +95,14 @@ class TestAnchorCandidatePids(unittest.TestCase):
 
     def test_chain_ends_at_the_hosting_process(self):
         names = {300: "zsh", 200: "cursor-agent", 100: "claude"}
+        self.assertEqual(
+            anchor_candidate_pids(400, parents=_TREE, name_of=names.get), [300],
+        )
+
+    def test_chain_stops_before_a_claude_above_the_background_pool(self):
+        """A launched worker's chain can rise into an ordinary per-session
+        claude; walking through it would resolve to that session's id."""
+        names = {300: "zsh", 200: "claude bg-spare", 100: "claude"}
         self.assertEqual(
             anchor_candidate_pids(400, parents=_TREE, name_of=names.get), [300],
         )

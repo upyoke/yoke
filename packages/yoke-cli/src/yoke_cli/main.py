@@ -39,6 +39,7 @@ from yoke_cli.commands.tool_shaped import (
     resolve_tool_shaped,
 )
 from yoke_cli.config import install_binding, machine_config
+from yoke_cli.session_id_propagation import propagated_session_identity
 from yoke_contracts.control_plane_locality import (
     local_authority_is_pinned,
     remote_control_plane,
@@ -319,7 +320,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         # because the code that must not open a connection is the engine work
         # the adapter runs locally — worktree preflight, merge, resync,
         # GitHub sync — not the relay call itself.
-        with _control_plane_locality(global_env):
+        with _control_plane_locality(global_env), propagated_session_identity(
+            argv
+        ):
             try:
                 return adapter(remaining)
             except SystemExit as exc:

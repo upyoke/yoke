@@ -22,7 +22,7 @@ class TestSessionAndBypass(unittest.TestCase):
             os.environ,
             {
                 "YOKE_SESSION_ID": "sid-yoke",
-                "CLAUDE_SESSION_ID": "sid-claude",
+                "CLAUDE_CODE_SESSION_ID": "sid-claude",
                 "CODEX_THREAD_ID": "sid-codex",
             },
             clear=False,
@@ -32,7 +32,7 @@ class TestSessionAndBypass(unittest.TestCase):
     def test_resolve_session_id_claude_next(self) -> None:
         env = {
             "YOKE_SESSION_ID": "",
-            "CLAUDE_SESSION_ID": "sid-claude",
+            "CLAUDE_CODE_SESSION_ID": "sid-claude",
             "CODEX_THREAD_ID": "sid-codex",
         }
         with mock.patch.dict(os.environ, env, clear=False):

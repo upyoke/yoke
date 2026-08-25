@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import project_scratch_dir as scratch
+from yoke_core.domain import project_scratch_roots as scratch_roots
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -18,7 +19,9 @@ def _configure_scratch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(scratch.ENV_KEY, SCRATCH_ROOT)
     monkeypatch.setenv("YOKE_RUN_ID", RUN_ID)
     monkeypatch.delenv("YOKE_PROJECT", raising=False)
-    monkeypatch.setattr(scratch, "_ensure_writable_dir", lambda path: True)
+    monkeypatch.setattr(
+        scratch_roots, "ensure_writable_dir", lambda path: True
+    )
 
 
 def _dispatch_target(

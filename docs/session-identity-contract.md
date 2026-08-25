@@ -1,12 +1,12 @@
 # Cross-Harness Session Identity Contract
 
 > Unified behavioral specification for session registration and identity
-> surfacing across all Yoke-supported harnesses..
+> surfacing across all Yoke-supported harnesses.
 ## Canonical Identity Sources
 
 | Harness | Runtime source | Stable fallback source |
 |-------------|---------------------|------------------------|
-| Claude Code | `CLAUDE_SESSION_ID` | Hook payload `session_id` when available |
+| Claude Code | `CLAUDE_CODE_SESSION_ID` | Hook payload `session_id` when available |
 | Codex | `CODEX_SESSION_ID` (parent thread; `CODEX_THREAD_ID` names the *running* thread and is the child inside a subagent) | Hook payload `session_id` when available |
 | Cursor | conversation map (`<machine-home>/cursor-session-map/`) | not an env var (`CURSOR_CONVERSATION_ID` names the conversation, not the session) |
 
@@ -149,7 +149,7 @@ identity survives a briefly unreachable control plane.
 Resolution is the second step of the canonical ambient chain owned by
 `yoke_core.domain.session_ambient_identity`:
 
-1. Env chain: `YOKE_SESSION_ID` → `CLAUDE_SESSION_ID` → `CODEX_SESSION_ID`
+1. Env chain: `YOKE_SESSION_ID` → `CLAUDE_CODE_SESSION_ID` → `CODEX_SESSION_ID`
    → `CODEX_THREAD_ID`. The Codex pair is ordered parent-before-child:
    `CODEX_SESSION_ID` holds the parent thread in every process Codex starts
    and only the parent is registered, so a subagent reading its own
@@ -169,13 +169,13 @@ conversations cannot identify any of them. Two defenses keep a shared pid
 from answering:
 
 - **Known session-hosting processes are never anchors.**
-  `process_ancestry.MULTIPLEXED_PROCESS_BASENAMES` lists harness processes
-  that host every concurrent conversation in one process (the Codex
-  desktop app server and its code-mode host). `find_nearest_harness_anchor`
-  stops at one and returns `None` rather than walking to an ancestor that
-  can only be more widely shared. Those harnesses stamp identity per
-  conversation into the environment, so step 1 already covers them and the
-  registry is not needed.
+  `process_ancestry.MULTIPLEXED_PROCESS_BASENAMES` lists processes hosting
+  every concurrent conversation in one pid (the Codex desktop app server and
+  its code-mode host) plus Claude's pooled background-agent hosts, handed to successive workers so the pid names a pool slot.
+  rather than continuing to an ancestor that can only be more widely shared:
+  above a pooled host that ancestor can be an ordinary per-session `claude`,
+  and walking through would resolve a worker to that session. All stamp
+  per-conversation identity into the environment, so step 1 covers them.
 - **Contention is recorded, not overwritten.** When a second live session
   resolves the same anchor pid — same pid *and* same start time, so not a
   reused pid — `record_session_anchor` replaces the record with a
@@ -186,9 +186,9 @@ from answering:
   `actor_session_missing` refusal is visible, and acting under another
   session's identity is not.
 
-Both defenses fail toward step 3. That is the intended outcome — an
-unresolvable identity is an infrastructure gap to report, and a confidently
-wrong one is a correctness bug that spreads through claims and attribution.
+Both defenses fail toward step 3: an unresolvable identity is a gap to
+report, a confidently wrong one a correctness bug. A background-launched
+Claude worker has no usable anchor at all — see [`launched-worker-ambient-identity.md`](archive/decisions/launched-worker-ambient-identity.md).
 
 ### Contention is a marker that heals, never a latch
 

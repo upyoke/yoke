@@ -295,7 +295,7 @@ To implement a session-offer adapter:
 
 1. **Construct a `SessionOffer`** with all required fields. For supported
  harnesses such as `claude-code` and `codex`, pass the canonical harness
- session ID from the runtime (`CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, or the
+ session ID from the runtime (`CLAUDE_CODE_SESSION_ID`, `CODEX_SESSION_ID`, or the
  equivalent hook payload value) rather than inventing a second format.
  Unsupported/fallback executors may generate their own stable `session_id`.
  Set `executor` and `model` from your runtime context. Declare your

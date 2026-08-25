@@ -138,7 +138,7 @@ class TestLaneEquivalentPath:
 
 class TestSessionIdentity:
     def test_env_fallback_prefers_the_codex_parent_session(self, monkeypatch):
-        for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID"):
+        for name in ("YOKE_SESSION_ID", "CLAUDE_CODE_SESSION_ID"):
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv("CODEX_SESSION_ID", "parent-thread")
         monkeypatch.setenv("CODEX_THREAD_ID", "child-thread")

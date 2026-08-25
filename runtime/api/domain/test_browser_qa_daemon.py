@@ -140,7 +140,7 @@ class TestDaemonRetry:
         env_override = {
             "CODEX_THREAD_ID": "codex-session",
             "YOKE_SESSION_ID": "",
-            "CLAUDE_SESSION_ID": "",
+            "CLAUDE_CODE_SESSION_ID": "",
         }
         with mock.patch.dict(os.environ, env_override), \
              mock.patch("yoke_core.domain.events.emit_event") as mock_emit:

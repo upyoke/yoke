@@ -33,7 +33,7 @@ class TestEnvChain:
     def test_canonical_constant(self):
         assert ambient.AMBIENT_ENV_VARS == (
             "YOKE_SESSION_ID",
-            "CLAUDE_SESSION_ID",
+            "CLAUDE_CODE_SESSION_ID",
             "CODEX_SESSION_ID",
             "CODEX_THREAD_ID",
         )
@@ -41,14 +41,14 @@ class TestEnvChain:
     def test_yoke_wins(self):
         env = {
             "YOKE_SESSION_ID": "yok-1",
-            "CLAUDE_SESSION_ID": "claude-1",
+            "CLAUDE_CODE_SESSION_ID": "claude-1",
             "CODEX_THREAD_ID": "codex-1",
         }
         assert ambient.resolve_env_session_id(env) == "yok-1"
 
     def test_falls_back_to_claude_then_codex(self):
         assert (
-            ambient.resolve_env_session_id({"CLAUDE_SESSION_ID": "c-1"})
+            ambient.resolve_env_session_id({"CLAUDE_CODE_SESSION_ID": "c-1"})
             == "c-1"
         )
         assert (
@@ -115,7 +115,7 @@ class TestPublicChannelLabels:
         }
         assert labels == {
             "YOKE_SESSION_ID": "env:session",
-            "CLAUDE_SESSION_ID": "env:claude",
+            "CLAUDE_CODE_SESSION_ID": "env:claude-code",
             "CODEX_SESSION_ID": "env:codex",
             "CODEX_THREAD_ID": "env:codex-thread",
         }
