@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 from yoke_core.domain import project_settings, runtime_settings
 from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
@@ -68,6 +68,7 @@ def create_worktree(
     config_path: Optional[str] = None,
     scripts_dir: Optional[str] = None,
     db_path: Optional[str] = None,
+    needed_paths: Sequence[str] = (),
 ) -> CreateWorktreeResult:
     """Create git worktrees for a backlog item.
 
@@ -151,9 +152,7 @@ def create_worktree(
     )
     worktrees_dir = os.path.join(repo_root, wt_dir)
 
-    hosted_lane_authority = (
-        db_path is None and item_worktree_authority_is_https()
-    )
+    hosted_lane_authority = db_path is None and item_worktree_authority_is_https()
     authoritative_lanes = None
 
     # --- Per-item path-claim activation gate / hosted lane preparation ---
@@ -220,7 +219,7 @@ def create_worktree(
             failed_branch=plan.failed_branch,
         )
     if plan.pending_worktree_count:
-        dirty_error = dirty_main_error(repo_root, worktrees_dir)
+        dirty_error = dirty_main_error(repo_root, worktrees_dir, needed_paths)
         if dirty_error:
             primary = plan.primary or plan.worktrees[0]
             return CreateWorktreeResult(

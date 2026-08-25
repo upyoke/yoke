@@ -8,6 +8,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
+from yoke_core.domain import worktree_dirty_main_guard as guard
 from yoke_core.domain import worktree_preflight_steps as steps
 
 
@@ -66,8 +67,8 @@ class TestCheckDirtyMain:
             (0, "", ""),  # ls-files --others --exclude-standard
         ]
         fake_run, _ = _fake_run_factory(canned)
-        monkeypatch.setattr(steps, "_run", fake_run)
-        blocked, kind, paths = steps.check_dirty_main("/repo")
+        monkeypatch.setattr(guard, "_run", fake_run)
+        blocked, kind, paths = steps.check_dirty_main("/repo", ["foo.py"])
         assert blocked is False
         assert (kind, paths) == ("", [])
 
@@ -78,8 +79,8 @@ class TestCheckDirtyMain:
             (0, "", ""),
         ]
         fake_run, _ = _fake_run_factory(canned)
-        monkeypatch.setattr(steps, "_run", fake_run)
-        blocked, kind, paths = steps.check_dirty_main("/repo")
+        monkeypatch.setattr(guard, "_run", fake_run)
+        blocked, kind, paths = steps.check_dirty_main("/repo", ["runtime/api/foo.py"])
         assert blocked is True
         assert kind == steps.BLOCK_DIRTY_TRACKED
         assert "runtime/api/foo.py" in paths
@@ -91,24 +92,16 @@ class TestCheckDirtyMain:
             (0, "", ""),
         ]
         fake_run, _ = _fake_run_factory(canned)
-        monkeypatch.setattr(steps, "_run", fake_run)
-        blocked, kind, paths = steps.check_dirty_main("/repo")
+        monkeypatch.setattr(guard, "_run", fake_run)
+        blocked, kind, paths = steps.check_dirty_main("/repo", ["runtime/api/bar.py"])
         assert blocked is True
         assert kind == steps.BLOCK_DIRTY_TRACKED
         assert paths == ["runtime/api/bar.py"]
 
-    def test_untracked_blocks_only_when_no_tracked_dirt(self, monkeypatch):
-        canned = [
-            (0, "", ""),
-            (0, "", ""),
-            (0, "scratch.txt\n", ""),
-        ]
-        fake_run, _ = _fake_run_factory(canned)
-        monkeypatch.setattr(steps, "_run", fake_run)
+    def test_untracked_without_needed_paths_does_not_block(self, monkeypatch):
         blocked, kind, paths = steps.check_dirty_main("/repo")
-        assert blocked is True
-        assert kind == steps.BLOCK_DIRTY_UNTRACKED
-        assert paths == ["scratch.txt"]
+        assert blocked is False
+        assert (kind, paths) == ("", [])
 
 
 def _resp(function, *, result=None, success=True, error=None):
