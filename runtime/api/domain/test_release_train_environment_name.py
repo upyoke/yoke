@@ -47,22 +47,41 @@ def test_prod_flow_dispatches_the_registered_environment_name() -> None:
         gh_calls.append(args)
         if args and args[0] == "trigger":
             return subprocess.CompletedProcess(
-                args=args, returncode=0, stdout="new-run-id\n",
+                args=args,
+                returncode=0,
+                stdout="new-run-id\n",
             )
         return subprocess.CompletedProcess(args=args, returncode=0, stdout="")
 
-    with mock.patch.object(
-        deploy_pipeline_github_workflow, "_run_cmd",
-        return_value=subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="abc1234\n",
+    with (
+        mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="abc1234\n",
+            ),
         ),
-    ), mock.patch.object(
-        deploy_pipeline_github_workflow, "_github_actions", side_effect=_fake_gh,
-    ), mock.patch.object(
-        deploy_pipeline_github_workflow, "_poll_github_actions",
-        return_value=(0, "completed: success"),
-    ), mock.patch.object(
-        deploy_pipeline_github_workflow, "_emit_run_event",
+        mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_github_actions",
+            side_effect=_fake_gh,
+        ),
+        mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_poll_github_actions",
+            return_value=(0, "completed: success"),
+        ),
+        mock.patch.object(
+            deploy_pipeline_github_workflow,
+            "_emit_run_event",
+        ),
+        mock.patch.object(
+            deploy_pipeline_step_runners.deploy_pipeline_schema_rehearsal,
+            "ensure_before_dispatch",
+            return_value=(0, ""),
+        ),
     ):
         rc, diag = deploy_pipeline_step_runners._dispatch_step_runner(
             {
