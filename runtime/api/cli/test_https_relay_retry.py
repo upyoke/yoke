@@ -191,3 +191,37 @@ def test_every_attempt_carries_the_same_request_id(monkeypatch) -> None:
 
     assert len(bodies) == 2
     assert bodies[0] == bodies[1]
+
+
+def test_a_retrying_relay_says_so_on_every_attempt(monkeypatch, capsys) -> None:
+    # Seven attempts spend 94 seconds of backoff on top of their request
+    # timeouts. Silence over that span is indistinguishable from a hang, and
+    # was reported as one.
+    sleeps: list[float] = []
+    _relay(
+        monkeypatch,
+        [
+            ConnectionResetError("connection reset by peer"),
+            _http_error(503, b"gateway"),
+            FakeResponse(envelope(result={"ok": True})),
+        ],
+        sleeps,
+    )
+
+    notices = [
+        line
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("note: relay attempt ")
+    ]
+    assert len(notices) == len(sleeps)
+    assert "relay unreachable" in notices[0]
+    assert "server returned 503" in notices[1]
+    assert f"{https_retry_policy.CONNECTION_ATTEMPTS}" in notices[0]
+
+
+def test_the_retry_notice_names_the_wait_it_is_about_to_take(capsys) -> None:
+    https_retry_policy.write_retry_notice("relay unreachable", 2, 6.0)
+
+    assert capsys.readouterr().err.strip() == (
+        "note: relay attempt 3/7 failed (relay unreachable); retrying in 6s"
+    )

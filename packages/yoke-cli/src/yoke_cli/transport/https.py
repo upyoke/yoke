@@ -26,6 +26,7 @@ from yoke_cli.transport.https_retry_policy import (
     RESPONSE_DEADLINE_ATTEMPTS,
     connection_backoff_seconds,
     http_status_is_transient,
+    write_retry_notice,
 )
 from yoke_cli.transport.https_engine_handshake import (
     ServerHandshake,
@@ -212,7 +213,9 @@ def _relay_attempts(
                 http_status_is_transient(getattr(exc, "code", None))
                 and _more_connection_attempts(attempt)
             ):
-                sleep(connection_backoff_seconds(attempt))
+                backoff = connection_backoff_seconds(attempt)
+                write_retry_notice(f"server returned {exc.code}", attempt, backoff)
+                sleep(backoff)
                 continue
             return _http_error_response(
                 request, connection, exc, deadline=deadline,
@@ -237,7 +240,9 @@ def _relay_attempts(
             ), attempt + 1
         except _NETWORK_ERRORS:
             if _more_connection_attempts(attempt):
-                sleep(connection_backoff_seconds(attempt))
+                backoff = connection_backoff_seconds(attempt)
+                write_retry_notice("relay unreachable", attempt, backoff)
+                sleep(backoff)
                 continue
             return _refuse(
                 request, connection, _UNREACHABLE,
