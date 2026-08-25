@@ -3,23 +3,28 @@
 Single owner of the ambient chain every Yoke surface uses to answer
 "which harness session is this process running under?":
 
-1. **Env chain (fast path):** ``YOKE_SESSION_ID`` →
-   ``CLAUDE_CODE_SESSION_ID`` → ``CODEX_SESSION_ID`` → ``CODEX_THREAD_ID``,
-   owned by :mod:`yoke_contracts.session_identity`. Populated by harnesses
-   that stamp identity into the environment (the desktop harness
-   prepends a per-command export; Codex exports at SessionStart).
-2. **Process-anchor ancestry walk:** the hook-written registry under
+0. **Yoke's own stamp:** ``YOKE_SESSION_ID``, the operator override an
+   explicit ``--session-id`` propagates, outranks everything below.
+1. **The owning harness family** (:mod:`yoke_contracts.harness_family_identity`),
+   read from the process tree because nothing there is inherited, scopes
+   every step below it: only the family this process actually runs under
+   may answer, so a variable an outer harness exported into a nested one
+   never does.
+2. **Env chain:** that family's own session variables — populated by
+   harnesses that stamp identity into the environment (the desktop
+   harness prepends a per-command export; Codex exports at SessionStart).
+3. **Process-anchor ancestry walk:** the hook-written registry under
    ``<machine-home>/session-anchors/`` maps the per-session harness
    agent pid to its session id, so any shell spawned by that harness
    self-identifies with zero agent involvement even when no env stamp
    was delivered (:mod:`yoke_core.domain.session_process_anchors`).
-3. **Cursor conversation mapping:** the hook-written pairing under
+4. **Cursor conversation mapping:** the hook-written pairing under
    ``<machine-home>/cursor-session-map/`` resolves the conversation id a
    Cursor shell carries to the top-level session Yoke registered for it
    (:mod:`yoke_contracts.cursor_session_map`) — the lane for a harness
    that stamps nothing step 1 reads and hosts every conversation in one
    process, so step 2 can record no anchor.
-4. ``None`` — no ambient identity. Mutating dispatch surfaces treat
+5. ``None`` — no ambient identity. Mutating dispatch surfaces treat
    this as a Yoke infrastructure gap (``actor_session_missing``), not
    a condition for agents to work around.
 
@@ -39,6 +44,12 @@ from yoke_contracts.payload_session_fold import (
     HOOK_REPLAY_ENV,
     is_conversation_shaped_session_id,
     is_hook_replay,
+)
+from yoke_contracts.harness_family_identity import (
+    CURSOR_FAMILY,
+    HARNESS_FAMILY_ENV_VARS,
+    YOKE_SESSION_ENV_VAR,
+    nearest_harness_family,
 )
 from yoke_contracts.session_identity import (
     AMBIENT_ENV_VARS,
@@ -128,6 +139,11 @@ def consult_identity_channels(
         "raw": ancestry,
         "resolved": fold_raw_identity(ancestry, env=source) if ancestry else "",
     })
+    channels.append({
+        "channel": "process_family",
+        "raw": nearest_harness_family() or "",
+        "resolved": "",
+    })
     return channels
 
 
@@ -144,14 +160,59 @@ def resolve_env_session_id(
     return None
 
 
+def _owning_family_session_id(
+    family: str, source: Mapping[str, str],
+) -> Optional[str]:
+    """Session id from the channels ``family`` stamps into its own processes.
+
+    Falls to ``None`` rather than to another family's channel: where the
+    only remaining candidate is a variable a *different* harness exported
+    into this process, reporting no identity is the correct answer.
+    """
+    from yoke_contracts.cursor_session_map import (
+        CURSOR_SESSION_MAP_DIR_NAME,
+        resolve_mapped_session_id,
+    )
+    from yoke_core.domain import machine_config
+    from yoke_core.domain.session_process_anchors import (
+        resolve_session_from_ancestry,
+    )
+
+    for name in HARNESS_FAMILY_ENV_VARS.get(family, ()):
+        folded = fold_raw_identity(source.get(name), env=source)
+        if folded:
+            return folded
+    anchored = resolve_session_from_ancestry()
+    if anchored:
+        return fold_raw_identity(anchored, env=source) or None
+    if family != CURSOR_FAMILY:
+        return None
+    return resolve_mapped_session_id(
+        machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME, source,
+    )
+
+
 def resolve_ambient_session_id(
     env: Optional[Mapping[str, str]] = None,
 ) -> Optional[str]:
-    """Resolve ambient session identity: env chain, ancestry, hook mapping.
+    """Resolve ambient session identity for the calling process.
 
-    Returns ``None`` when no source yields an id. Never raises.
+    Yoke's own stamp wins outright. Otherwise the harness family the
+    process tree names decides which channels may answer. The
+    family-blind chain below runs only for a process with no harness
+    ancestor — an operator terminal, CI, or a process reparented after
+    its harness exited — where an inherited variable is the best
+    evidence available. Returns ``None`` when no source yields an id.
+    Never raises.
     """
-    value = resolve_env_session_id(env)
+    source = os.environ if env is None else env
+    explicit = fold_raw_identity(source.get(YOKE_SESSION_ENV_VAR), env=source)
+    if explicit:
+        return explicit
+    family = nearest_harness_family()
+    if family is not None:
+        return _owning_family_session_id(family, source)
+    value = resolve_env_session_id(source)
     if value:
         return value
     from yoke_core.domain.session_process_anchors import (
@@ -160,7 +221,7 @@ def resolve_ambient_session_id(
 
     value = resolve_session_from_ancestry()
     if value:
-        return fold_raw_identity(value, env=env) or None
+        return fold_raw_identity(value, env=source) or None
     from yoke_contracts.cursor_session_map import (
         CURSOR_SESSION_MAP_DIR_NAME,
         resolve_mapped_session_id,
@@ -168,7 +229,7 @@ def resolve_ambient_session_id(
     from yoke_core.domain import machine_config
 
     return resolve_mapped_session_id(
-        machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME, env,
+        machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME, source,
     )
 
 

@@ -51,10 +51,10 @@ def _ambient_note(ambient: Optional[str]) -> str:
 def resolve_ambient(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
     """Resolve this process's ambient session id, or ``None``.
 
-    Mirrors the dispatcher's client-side resolver: env chain, then the
-    hook-written process-anchor ancestry registry, then the hook-written
-    Cursor conversation mapping. Never raises — a failed resolution is
-    itself the signal this guard acts on.
+    Mirrors the dispatcher's client-side resolver: the family-scoped
+    ambient chain, reading only the channels belonging to the harness
+    this process runs under. Never raises — a failed resolution is itself
+    the signal this guard acts on.
     """
     try:
         home = machine_config.yoke_home()

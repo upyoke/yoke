@@ -10,10 +10,8 @@ Usage::
 
     python3 -m yoke_core.api.service_client ownership-guard --item YOK-N
 
-Resolves ``--session-id`` from the standard env chain
-(``YOKE_SESSION_ID`` / ``CLAUDE_CODE_SESSION_ID`` / ``CODEX_SESSION_ID`` /
-``CODEX_THREAD_ID``)
-when the flag is omitted. Always prints one JSON object to stdout on
+Resolves ``--session-id`` through the canonical ambient chain when the
+flag is omitted. Always prints one JSON object to stdout on
 success; non-zero exit only on argument or DB-connection errors.
 
 The command does NOT mutate state. It is the runtime-side companion to

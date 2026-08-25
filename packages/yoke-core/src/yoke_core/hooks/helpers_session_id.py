@@ -115,10 +115,11 @@ def get_session_id(workspace: Optional[str] = None) -> str:
 
     Resolution order (owned by
     :mod:`yoke_core.domain.session_ambient_identity`):
-      1. $YOKE_SESSION_ID → $CLAUDE_CODE_SESSION_ID → $CODEX_SESSION_ID →
-         $CODEX_THREAD_ID
-      2. hook-written process-anchor registry (ancestry walk)
-      3. "unknown" fallback
+      1. $YOKE_SESSION_ID
+      2. the session variables of the harness family the process tree
+         names — never another family's, which a nested harness inherits
+      3. that family's hook-written process-anchor registry (ancestry walk)
+      4. "unknown" fallback
 
     Yoke hosts N parallel sessions per (executor, workspace) — multiple
     Claude Desktop windows on the same checkout, sub-agent dispatches into

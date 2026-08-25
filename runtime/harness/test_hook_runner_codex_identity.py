@@ -20,6 +20,10 @@ from yoke_core.hooks.helpers_identity import (
     detect_provider,
 )
 from yoke_core.hooks.capability_resolve import resolve_capability
+from yoke_core.domain.sessions_lifecycle_canonicalize import (
+    canonicalize_executor,
+)
+from yoke_core.hooks.helpers_identity import detect_entrypoint
 from yoke_harness.hooks import identity_codex_runtime
 
 
@@ -196,3 +200,30 @@ class TestSurfaceAliasConvergence:
             "codex-vscode"
         )
         assert codex_model.resolve_entrypoint() == "codex-vscode"
+
+    def test_codex_exec_env_originator_records_the_cli_surface(
+        self, clean_env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``codex exec`` is the non-interactive CLI, not a fourth surface."""
+        monkeypatch.setenv("CODEX_ORIGINATOR", "codex_exec")
+        monkeypatch.setenv("CODEX_THREAD_ID", "exec-thread")
+        self._stub_transcripts(monkeypatch, None)
+
+        assert identity_codex_runtime._codex_resolve_entrypoint() == "codex-cli"
+        assert codex_model.resolve_entrypoint() == "codex-cli"
+        assert detect_executor() == "codex-cli"
+
+    def test_codex_exec_registration_stores_a_surface(
+        self, clean_env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The observed gap: one such session stored ``executor_surface`` NULL.
+
+        Its transcript recorded originator ``codex_exec`` while every
+        interactive Codex row beside it carried ``codex-desktop``.
+        """
+        monkeypatch.setenv("CODEX_THREAD_ID", "exec-thread")
+        self._stub_transcripts(monkeypatch, "codex-exec")
+
+        assert canonicalize_executor(
+            detect_executor(), detect_entrypoint(),
+        ) == ("codex", "codex-cli")

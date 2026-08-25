@@ -182,11 +182,17 @@ class TestStaleness:
 
 
 class TestAmbientChainPosition:
-    """Env, then ancestry, then the mapping — in that order."""
+    """The owning family first, then env, ancestry, and the mapping.
+
+    The mapping answers only for a process the tree says is Cursor's:
+    a conversation id inherited by some other harness names the Cursor
+    session that launched it, never the process reading it.
+    """
 
     def test_mapping_resolves_when_env_and_ancestry_are_empty(
-        self, tmp_path, map_dir,
+        self, tmp_path, map_dir, harness_family,
     ):
+        harness_family("cursor")
         record_conversation_session(SUBAGENT, CONTAINER, map_dir)
         resolved = session_identity.resolve_ambient_session_id(
             tmp_path / "session-anchors", _env(SUBAGENT), cursor_map_dir=map_dir,
@@ -202,11 +208,12 @@ class TestAmbientChainPosition:
         assert resolved == "pinned"
 
     def test_a_nested_harness_keeps_its_own_anchored_identity(
-        self, tmp_path, map_dir, monkeypatch,
+        self, tmp_path, map_dir, monkeypatch, harness_family,
     ):
         # A per-session harness launched inside a Cursor agent inherits
-        # CURSOR_CONVERSATION_ID through the environment. Its own anchor,
-        # which the ancestry walk reaches first, is the truthful answer.
+        # CURSOR_CONVERSATION_ID through the environment. The tree names
+        # that harness, and its own anchor is the truthful answer.
+        harness_family("claude-code")
         anchors_dir = tmp_path / "session-anchors"
         record_conversation_session(SUBAGENT, CONTAINER, map_dir)
         session_identity.record_session_anchor(
@@ -228,7 +235,10 @@ class TestAmbientChainPosition:
         )
         assert resolved == "nested-harness-session"
 
-    def test_omitting_the_map_dir_skips_the_lane(self, tmp_path, map_dir):
+    def test_omitting_the_map_dir_skips_the_lane(
+        self, tmp_path, map_dir, harness_family,
+    ):
+        harness_family("cursor")
         record_conversation_session(SUBAGENT, CONTAINER, map_dir)
         resolved = session_identity.resolve_ambient_session_id(
             tmp_path / "session-anchors", _env(SUBAGENT),

@@ -68,7 +68,8 @@ class TestGetSessionId:
         with mock.patch.dict(os.environ, {"YOKE_SESSION_ID": "abc-123"}):
             assert get_session_id() == "abc-123"
 
-    def test_falls_back_to_claude_session_id(self):
+    def test_falls_back_to_claude_session_id(self, harness_family):
+        harness_family("claude-code")
         with mock.patch.dict(
             os.environ,
             {"CLAUDE_CODE_SESSION_ID": "claude-456"},
@@ -76,7 +77,11 @@ class TestGetSessionId:
         ):
             assert get_session_id() == "claude-456"
 
-    def test_falls_back_to_codex_thread_id(self):
+    def test_falls_back_to_codex_thread_id(self, harness_family):
+        # The variable answers for the family that stamped it, so this
+        # describes a Codex process rather than whichever harness runs
+        # the suite.
+        harness_family("codex")
         with mock.patch.dict(
             os.environ,
             {"CODEX_THREAD_ID": "codex-789"},

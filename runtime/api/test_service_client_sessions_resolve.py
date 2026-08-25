@@ -13,6 +13,10 @@ import subprocess
 
 import pytest
 
+from yoke_contracts.harness_family_identity import (
+    CLAUDE_FAMILY,
+    nearest_harness_family,
+)
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import (
@@ -31,8 +35,32 @@ def _clear_chain(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
+#: A subprocess inherits this suite's process tree, so it belongs to
+#: whichever harness family is running the tests. One started from
+#: another harness correctly refuses an injected Claude variable — the
+#: behaviour under test elsewhere, not a failure here.
+_CLAUDE_LANE_REACHABLE = nearest_harness_family() in (None, CLAUDE_FAMILY)
+
+
 class TestResolveSessionId:
     """Unit tests for _resolve_session_id."""
+
+    @pytest.fixture(autouse=True)
+    def family_blind(self, monkeypatch):
+        """Describe a process with no harness above it.
+
+        Ambient resolution is scoped to the harness family the process
+        tree names, so these chain-order assertions are about the
+        family-blind fallback — an operator terminal, CI, a reparented
+        process. Without the pin they would answer for whichever harness
+        happens to be running the suite.
+        """
+        from yoke_core.domain import session_ambient_identity
+
+        monkeypatch.setattr(
+            session_ambient_identity, "nearest_harness_family",
+            lambda *_a, **_k: None,
+        )
 
     def test_explicit_value_returned_as_is(self, monkeypatch):
         """Explicit value wins regardless of env vars."""
@@ -208,6 +236,10 @@ class TestSessionIdAutoResolutionIntegration:
                 f"stderr: {r.stderr}"
             )
 
+    @pytest.mark.skipif(
+        not _CLAUDE_LANE_REACHABLE,
+        reason="suite runs under a harness whose family is not Claude",
+    )
     def test_claude_session_id_fallback_works(self, session_offer_db):
         """CLAUDE_CODE_SESSION_ID fallback works for session-touch."""
         db = session_offer_db["db_path"]

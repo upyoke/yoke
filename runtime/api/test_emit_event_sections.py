@@ -153,15 +153,20 @@ def test_emit_uses_explicit_event_id(events_db):
 
 
 @pytest.mark.parametrize(
-    "env_var,sentinel",
+    "env_var,sentinel,family",
     [
-        ("CLAUDE_CODE_SESSION_ID", "claude-session-id"),
-        ("CODEX_SESSION_ID", "codex-session-id"),
-        ("CODEX_THREAD_ID", "codex-thread-id"),
+        ("CLAUDE_CODE_SESSION_ID", "claude-session-id", "claude-code"),
+        ("CODEX_SESSION_ID", "codex-session-id", "codex"),
+        ("CODEX_THREAD_ID", "codex-thread-id", "codex"),
     ],
 )
-def test_emit_session_id_env_fallback(events_db, monkeypatch, env_var, sentinel):
+def test_emit_session_id_env_fallback(
+    events_db, monkeypatch, harness_family, env_var, sentinel, family,
+):
     """Section 21: CLAUDE/CODEX env vars are used when no explicit session-id is given."""
+    # A variable answers for the family that stamped it, so each case
+    # names the harness whose process would be reading it.
+    harness_family(family)
     # Ensure only the env var under test is set.
     for name in AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)

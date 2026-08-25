@@ -216,7 +216,7 @@ When an event is emitted, execution context is resolved in this order:
 | `task_num` | Dispatch chain only (epic tasks) | Populated for all epic task work |
 | `project` | Dispatch chain/item project context, explicit project context, or the current checkout's machine-config project mapping when available | Setup-dependent; no repo config default |
 | `agent` | `$YOKE_AGENT` env var set by agent dispatch | Populated for all agent sessions |
-| `session_id` | Ambient chain: `$YOKE_SESSION_ID` → `$CLAUDE_CODE_SESSION_ID` → `$CODEX_SESSION_ID` → `$CODEX_THREAD_ID` → process-anchor ancestry registry → `unknown` (`yoke_core.domain.session_ambient_identity`). A surface that resolves nothing records its declared empty/sentinel value; no surface invents an id. | Always populated |
+| `session_id` | Ambient chain: `$YOKE_SESSION_ID`, then the session variables of the harness family the process tree names, then that family's process-anchor ancestry registry, then `unknown` (`yoke_core.domain.session_ambient_identity`). A surface that resolves nothing records its declared empty/sentinel value; no surface invents an id. | Always populated |
 
 ### Emitting Events with Context
 

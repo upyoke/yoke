@@ -135,8 +135,11 @@ class TestDaemonRetry:
         assert result is not None
         assert "boom" in result
 
-    def test_emit_event_uses_native_runtime_emitter(self) -> None:
+    def test_emit_event_uses_native_runtime_emitter(
+        self, harness_family,
+    ) -> None:
         """Event helper uses the native runtime emitter with item context."""
+        harness_family("codex")
         env_override = {
             "CODEX_THREAD_ID": "codex-session",
             "YOKE_SESSION_ID": "",

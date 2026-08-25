@@ -126,6 +126,38 @@ def _forbid_real_browser_launches(
         )
 
 
+@pytest.fixture()
+def harness_family(monkeypatch: pytest.MonkeyPatch):
+    """Pin the harness family the process tree would otherwise name.
+
+    Ambient session identity is scoped to the harness family a process
+    actually runs under, so a test describing a Codex or Cursor process
+    has to say which — otherwise it answers for whichever harness is
+    running the suite, and the same assertion passes on CI and fails on
+    a developer's machine. Pin ``None`` for a process with no harness
+    above it at all: an operator terminal, CI, a process reparented
+    after its harness exited.
+
+    Every module that binds the resolver by name is pinned together, so
+    a test does not have to know which layer its call reaches.
+    """
+    from yoke_contracts import harness_family_identity
+    from yoke_contracts import session_identity
+    from yoke_core.domain import session_ambient_identity
+
+    def _pin(family):
+        for module in (
+            harness_family_identity,
+            session_identity,
+            session_ambient_identity,
+        ):
+            monkeypatch.setattr(
+                module, "nearest_harness_family", lambda *_a, **_k: family,
+            )
+
+    return _pin
+
+
 @pytest.fixture(autouse=True)
 def _isolate_commit_cache(tmp_path, monkeypatch: pytest.MonkeyPatch):
     """Redirect the on-disk commit/activity caches to a per-test tmp dir.

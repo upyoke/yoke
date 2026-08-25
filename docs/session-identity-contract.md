@@ -10,6 +10,11 @@
 | Codex | `CODEX_SESSION_ID` (parent thread; `CODEX_THREAD_ID` names the *running* thread and is the child inside a subagent) | Hook payload `session_id` when available |
 | Cursor | conversation map (`<machine-home>/cursor-session-map/`) | not an env var (`CURSOR_CONVERSATION_ID` names the conversation, not the session) |
 
+Each runtime source belongs to exactly one harness family, and a process
+reads only its own family's — a harness started from inside another
+harness's shell inherits that harness's variable, so the nearest harness
+ancestor in the process tree scopes every read below.
+
 The canonical session ID is the harness-provided stable conversation-level
 identifier. It MUST NOT be inferred from the board or fabricated IDs. When the
 runtime env var is absent, the hook payload `session_id` is still a valid
@@ -129,32 +134,24 @@ session env vars. The env stamp is the **fast path**, not the only path:
 when no session env var reaches a shell (observed live on a desktop
 session that received neither the env stamp nor any
 SessionStart/UserPromptSubmit delivery), ambient identity still resolves
-through the process-anchor registry below. Agents never export session
-env vars to self-bootstrap.
+through the process-anchor registry the chain below reads. Agents never
+export session env vars to self-bootstrap.
 
-## Process-Anchor Registry (shell-side ambient identity)
+## Ambient Chain
 
-Every registration pass through `_register_from_hook` records the hook
-process's nearest harness ancestor — the per-session agent binary
-(executable basename `claude` / `claude-code`), never the shared desktop
-app shell — into `<machine-home>/session-anchors/<anchor-pid>.json`
-(`yoke_core.domain.session_process_anchors`; atomic tmp+rename, no
-locking). Each record carries `session_id`, `transcript_path` (when the
-hook payload had one), `anchor_pid`, `anchor_start_time` (opaque
-`ps -o lstart=` string, equality-compared to defeat pid reuse),
-`anchor_process_name`, and `registered_at`. The anchor write is
-best-effort and independent of DB registration success, so shell-side
-identity survives a briefly unreachable control plane.
-
-Resolution is the second step of the canonical ambient chain owned by
+Resolution runs one canonical chain, owned by
 `yoke_core.domain.session_ambient_identity`:
 
-1. Env chain: `YOKE_SESSION_ID` → `CLAUDE_CODE_SESSION_ID` → `CODEX_SESSION_ID`
-   → `CODEX_THREAD_ID`. The Codex pair is ordered parent-before-child:
-   `CODEX_SESSION_ID` holds the parent thread in every process Codex starts
-   and only the parent is registered, so a subagent reading its own
-   `CODEX_THREAD_ID` would name a session that does not exist. That id is
-   still right wherever a Codex *runtime thread*, not a session, is meant.
+1. Owning family, then that family's variables. `YOKE_SESSION_ID` wins
+   outright; otherwise the nearest harness ancestor names the one family
+   whose variables may answer — `CLAUDE_CODE_SESSION_ID` for Claude,
+   `CODEX_SESSION_ID` then `CODEX_THREAD_ID` for Codex (parent before
+   child: only the parent is registered, so a subagent reading its own
+   thread id would name a session that does not exist), none for Cursor,
+   which stamps none. A family that stamped nothing reachable resolves to
+   `None` rather than to a variable another harness exported into this
+   process; with no harness ancestor the chain is family-blind. Why:
+   [`nested-harness-identity.md`](archive/decisions/nested-harness-identity.md).
 2. Ancestry walk: each ancestor pid of the calling process is tested
    against the registry; a record is trusted only when the live start
    time matches (stale records are pruned best-effort).
@@ -162,63 +159,10 @@ Resolution is the second step of the canonical ambient chain owned by
    infrastructure-bug signal to report — never a prompt to export env
    vars.
 
-### A pid is only an anchor when it belongs to one session
-
-The registry maps a pid to a session, so a pid shared by concurrent
-conversations cannot identify any of them. Two defenses keep a shared pid
-from answering:
-
-- **Known session-hosting processes are never anchors.**
-  `process_ancestry.MULTIPLEXED_PROCESS_BASENAMES` lists processes hosting
-  every concurrent conversation in one pid (the Codex desktop app server and
-  its code-mode host) plus Claude's pooled background-agent hosts, handed to successive workers so the pid names a pool slot.
-  rather than continuing to an ancestor that can only be more widely shared:
-  above a pooled host that ancestor can be an ordinary per-session `claude`,
-  and walking through would resolve a worker to that session. All stamp
-  per-conversation identity into the environment, so step 1 covers them.
-- **Contention is recorded, not overwritten.** When a second live session
-  resolves the same anchor pid — same pid *and* same start time, so not a
-  reused pid — `record_session_anchor` replaces the record with a
-  `shared_by_multiple_sessions` marker instead of taking the pid over.
-  Resolution stops at such a record and returns `None`. Silently
-  overwriting would hand the displaced session's shell processes the new
-  session's id, which is worse than not resolving: an
-  `actor_session_missing` refusal is visible, and acting under another
-  session's identity is not.
-
-Both defenses fail toward step 3: an unresolvable identity is a gap to
-report, a confidently wrong one a correctness bug. A background-launched
-Claude worker has no usable anchor at all — see [`launched-worker-ambient-identity.md`](archive/decisions/launched-worker-ambient-identity.md).
-
-### Contention is a marker that heals, never a latch
-
-A contention marker records the state it refuses over, and every anchor
-write re-decides tenancy (`yoke_contracts.session_anchor_contention`):
-
-- The marker carries `contending_session_ids` plus a
-  `last_writer_pid` / `last_writer_argv` breadcrumb, so a contended pid is
-  attributable instead of blank.
-- The **writer is always a live candidate** — its hook event is proof of
-  the process even while its session row is transiently ended.
-- A recorded contender **drops out** when the probe positively says it is
-  not a live session — its row is ended, or it has no row at all (rows are
-  never deleted, so an unregistered id is not a conversation on this
-  control plane; that is the anchor-poisoning class). Probed through the
-  `sessions.list` single-session projection, over either transport. A
-  *clean* registry record anchoring the contender to a different live
-  process also drops it — one conversation has one per-conversation
-  process, so a live home elsewhere means this pid's claim on it was
-  written in error. A failed probe keeps the contender: genuine ambiguity
-  still fails closed.
-- One live candidate left → the record becomes that session's clean
-  anchor again. Two or more → the marker persists, now naming them, and
-  the engine-side writer emits `SessionAnchorContentionObserved` for
-  ledger visibility. `HC-session-anchor-contention` flags any live marker
-  whose recorded contenders are not two-or-more live sessions.
-
-Markers written before contender recording heal the same way: the next
-write from the surviving tenant finds a single candidate and reclaims the
-pid.
+Step 2 reads the hook-written process-anchor registry: its record
+format, the two rules that keep a pid shared by several conversations
+from answering, and how a contention marker heals are documented at
+[`process-anchor-registry.md`](session-identity-contract/process-anchor-registry.md).
 
 The `actor_session_missing` rejection is the default for mutating dispatch,
 but a bounded **bootstrap/config class** opts out with
@@ -345,6 +289,7 @@ second call for an already-owned item returns `(already owned)` and exits 0.
 | `runtime/harness/test_hook_runner_register_anchor.py` | Process-anchor recording inside `_register_from_hook` (transcript propagation, DB-failure independence) |
 | `runtime/api/domain/test_process_ancestry.py` | Portable ancestry walk: parent-map parsing, nearest-harness matcher, pid-reuse start times |
 | `runtime/api/domain/test_session_process_anchors.py` | Anchor registry: atomic writes, ancestry resolution, pid-reuse rejection + pruning, parallel-session separation |
-| `runtime/api/domain/test_session_ambient_identity.py` | Canonical ambient chain order (env fast path → ancestry → None) + CLI chokepoint delegation |
+| `runtime/api/domain/test_session_ambient_identity.py` | Canonical ambient chain order (owning family → its variables → ancestry → None) + nested-spawn regressions + CLI chokepoint delegation |
+| `runtime/api/domain/test_harness_family_identity.py` | Process-tree family classification, per-family env vocabulary, and the nested-spawn chain scoping |
 | `runtime/api/test_service_client.py::TestSessionOfferCommand::test_session_offer_supported_harness_requires_session_id` | Supported harnesses (`claude-code`, `codex`) must pass a canonical session id; auto-generated fallbacks are rejected at the service boundary |
 | `runtime/api/test_sessions.py` | Registration idempotency and concurrent self-id isolation |
