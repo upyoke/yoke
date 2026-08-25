@@ -187,18 +187,19 @@ class TestCreateWorktreeMultiWorktree:
     def test_dirty_main_blocks_before_side_effects(self, git_repo, yoke_db):
         branches = ["epic-99210-a", "epic-99210-b"]
         entries = seed_multiworktree_epic(yoke_db, 99210, branches, str(git_repo))
-        (git_repo / "dirty.txt").write_text("dirty\n")
+        (git_repo / "pkg").mkdir()
+        (git_repo / "pkg" / "new.py").write_text("dirty\n")
 
         result = create_worktree(
             99210,
             repo_root=str(git_repo),
             config_path=_config_path(git_repo),
             db_path=yoke_db,
-            needed_paths=("dirty.txt",),
+            needed_paths=("pkg/new.py",),
         )
 
         assert result.error is not None
-        assert "overlapping" in result.error
+        assert "source/package roots" in result.error
         for _, path in entries:
             assert not os.path.isdir(path)
 

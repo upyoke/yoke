@@ -174,25 +174,29 @@ def dirty_main_error(
     repo_root: str,
     worktrees_dir: str,
     needed_paths: Sequence[str] = (),
+    source_root_prefixes: Sequence[str] = (),
 ) -> Optional[str]:
-    """Return a scoped dirty-main blocker, or ``None`` when there is no overlap."""
+    """Return a dirty-main blocker, or ``None`` when creation may proceed."""
     from yoke_core.domain.worktree_dirty_main_guard import overlapping_dirty_main
     from yoke_core.domain.worktree_preflight_steps import BLOCK_DIRTY_TRACKED
 
     blocked, kind, paths = overlapping_dirty_main(
-        repo_root, needed_paths=needed_paths, worktrees_dir=worktrees_dir
+        repo_root,
+        needed_paths=needed_paths,
+        worktrees_dir=worktrees_dir,
+        source_root_prefixes=source_root_prefixes,
     )
     if not blocked:
         return None
-    kind_label = (
-        "tracked or staged"
-        if kind == BLOCK_DIRTY_TRACKED
-        else "untracked, non-gitignored"
-    )
+    listing = ", ".join(paths[:20])
+    if kind == BLOCK_DIRTY_TRACKED:
+        return (
+            "Cannot create worktree: overlapping tracked or staged files on "
+            "main match paths this lane needs. Dirty paths: " + listing
+        )
     return (
-        "Cannot create worktree: overlapping "
-        f"{kind_label} files on main match paths this lane needs. "
-        "Dirty paths: " + ", ".join(paths[:20])
+        "Cannot create worktree: untracked files under source/package roots "
+        "on main could collide with a new module. Dirty paths: " + listing
     )
 
 

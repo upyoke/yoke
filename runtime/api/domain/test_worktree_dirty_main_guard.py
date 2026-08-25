@@ -70,12 +70,20 @@ def test_directory_scope_overlap_blocks_tracked(monkeypatch):
     assert paths == ("runtime/api/foo.py",)
 
 
-def test_overlapping_untracked_blocks(monkeypatch):
+def test_overlapping_untracked_does_not_block_repo_root_scratch(monkeypatch):
     monkeypatch.setattr(guard, "_run", _fake_run(_git_untracked("scratch.txt")))
     blocked, kind, paths = guard.overlapping_dirty_main("/repo", ["scratch.txt"])
+    assert (blocked, kind, paths) == (False, "", ())
+
+
+def test_nested_untracked_blocks_without_needed_paths(monkeypatch):
+    monkeypatch.setattr(
+        guard, "_run", _fake_run(_git_untracked("packages/yoke_core/new.py"))
+    )
+    blocked, kind, paths = guard.overlapping_dirty_main("/repo")
     assert blocked is True
     assert kind == BLOCK_DIRTY_UNTRACKED
-    assert paths == ("scratch.txt",)
+    assert paths == ("packages/yoke_core/new.py",)
 
 
 def test_untracked_under_worktrees_dir_is_exempt(monkeypatch):
@@ -206,6 +214,78 @@ def test_narrative_includes_session_id_and_say_recipe(monkeypatch):
     assert "yoke say --preview --session abc-123" in verdict.narrative
     assert "yoke say --session abc-123 --stdin" in verdict.narrative
     assert "foo.py" in verdict.narrative
+
+
+def test_untracked_scratch_warns_and_does_not_block(monkeypatch):
+    monkeypatch.setattr(guard, "_run", _fake_run(_git_untracked("scratch.py")))
+
+    def router(*, function_id, target, payload=None, **_k):
+        return _resp(function_id, result={"rows": []})
+
+    _patch_dispatch(monkeypatch, router)
+    verdict = guard.evaluate_dirty_main_for_item(
+        "/repo",
+        item_id=1,
+        item_ref="YOK-1",
+        session_id="caller",
+        needed_paths=("scratch.py",),
+        source_root_prefixes=("src",),
+    )
+    assert verdict.blocked is False
+    assert "scratch.py" in verdict.warning_note
+    assert "not a worktree block" in verdict.warning_note
+
+
+def test_declared_package_roots_do_not_block_docs_scratch(monkeypatch):
+    monkeypatch.setattr(guard, "_run", _fake_run(_git_untracked("docs/notes.md")))
+    blocked, kind, paths = guard.overlapping_dirty_main(
+        "/repo", source_root_prefixes=["src"]
+    )
+    assert (blocked, kind, paths) == (False, "", ())
+
+
+def test_untracked_under_declared_source_root_blocks(monkeypatch):
+    monkeypatch.setattr(guard, "_run", _fake_run(_git_untracked("src/pkg/new.py")))
+    blocked, kind, paths = guard.overlapping_dirty_main(
+        "/repo", source_root_prefixes=["src"]
+    )
+    assert blocked is True
+    assert kind == BLOCK_DIRTY_UNTRACKED
+    assert paths == ("src/pkg/new.py",)
+
+
+def test_lane_source_root_prefixes_read_architecture_roots(monkeypatch):
+    def router(*, function_id, target, payload=None, **_k):
+        if function_id == "items.detail.get":
+            return _resp(
+                function_id,
+                result={"item": {"project": {"id": 1, "slug": "yoke"}}},
+            )
+        if function_id == "project_structure.get":
+            return _resp(
+                function_id,
+                result={
+                    "entries": [
+                        {
+                            "payload": {
+                                "package_roots": {
+                                    "pkg": [
+                                        {"root": "src", "layout": "package_under_root"},
+                                        {
+                                            "root": "runtime/api",
+                                            "layout": "package_is_root",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(function_id)
+
+    _patch_dispatch(monkeypatch, router)
+    assert guard.lane_source_root_prefixes(42) == ("src", "runtime/api")
 
 
 def test_unknown_machine_falls_back_to_self_clear_recipe(monkeypatch):

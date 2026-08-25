@@ -15,8 +15,9 @@ active ``work_claims`` row, validated per tool call by
 envelope, and no ``scope:entered`` action is emitted.
 
 Dirty-main guard runs only when creating a new worktree — re-entry
-does not touch main. It refuses only overlapping dirt on paths the
-new lane needs, and names a likely holder. Errors surface as
+does not touch main. Tracked dirt blocks on needed-path overlap.
+Untracked files under source/package roots always block; untracked
+files outside those roots warn via envelope notes. Errors surface as
 ``ok=False`` outcomes with a ``block_kind`` and rendered ``narrative``.
 CLI: exit 0 (envelope to stdout), exit 1 (sanctioned block, narrative
 to stderr), exit 2 (usage / bad-input).
@@ -222,6 +223,7 @@ def run_preflight(
         canonical_exists = os.path.isdir(canonical_path)
         will_create = not canonical_exists
         needed_paths: tuple[str, ...] = ()
+        source_roots: tuple[str, ...] = ()
         if will_create:
             verdict = evaluate_dirty_main_for_item(
                 repo_root,
@@ -236,6 +238,9 @@ def run_preflight(
                 out.narrative = verdict.narrative
                 return out
             needed_paths = verdict.needed_paths
+            source_roots = verdict.source_root_prefixes
+            if verdict.warning_note:
+                out.notes.append(verdict.warning_note)
         # Direct import: a test patching `worktree_cli.create_worktree`
         # does NOT cover this call site. Patch `worktree_create.create_worktree`
         # (or scope `repo_root` to a tempdir) to keep tests off the real repo.
@@ -246,6 +251,7 @@ def run_preflight(
             project=project,
             repo_root=repo_root,
             needed_paths=needed_paths,
+            source_root_prefixes=source_roots,
         )
         if create_result.error:
             out.ok = False

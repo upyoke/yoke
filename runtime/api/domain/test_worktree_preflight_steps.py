@@ -99,6 +99,13 @@ class TestCheckDirtyMain:
         assert paths == ["runtime/api/bar.py"]
 
     def test_untracked_without_needed_paths_does_not_block(self, monkeypatch):
+        canned = [
+            (0, "", ""),
+            (0, "", ""),
+            (0, "scratch.py\n", ""),
+        ]
+        fake_run, _ = _fake_run_factory(canned)
+        monkeypatch.setattr(guard, "_run", fake_run)
         blocked, kind, paths = steps.check_dirty_main("/repo")
         assert blocked is False
         assert (kind, paths) == ("", [])

@@ -69,6 +69,7 @@ def create_worktree(
     scripts_dir: Optional[str] = None,
     db_path: Optional[str] = None,
     needed_paths: Sequence[str] = (),
+    source_root_prefixes: Sequence[str] = (),
 ) -> CreateWorktreeResult:
     """Create git worktrees for a backlog item.
 
@@ -219,7 +220,9 @@ def create_worktree(
             failed_branch=plan.failed_branch,
         )
     if plan.pending_worktree_count:
-        dirty_error = dirty_main_error(repo_root, worktrees_dir, needed_paths)
+        dirty_error = dirty_main_error(
+            repo_root, worktrees_dir, needed_paths, source_root_prefixes
+        )
         if dirty_error:
             primary = plan.primary or plan.worktrees[0]
             return CreateWorktreeResult(
