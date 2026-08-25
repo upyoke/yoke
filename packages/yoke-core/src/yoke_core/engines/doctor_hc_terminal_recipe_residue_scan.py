@@ -24,6 +24,7 @@ from yoke_core.api.service_client_structured_api_adapter_inventory import (
 from yoke_core.api.service_client_structured_api_adapter_inventory_taught import (
     TAUGHT_ADAPTERS,
 )
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 
 # Single-file scan targets at repo root.
@@ -79,8 +80,7 @@ def iter_scan_paths(repo_root: Path) -> Iterable[Path]:
             base = repo_root / rel
             if not base.is_dir():
                 continue
-            for f in base.rglob(f"*{ext}"):
-                yield f
+            yield from iter_tree_files(base, f"*{ext}")
 
 
 def path_in_allowlist(rel_str: str, allowlist: Tuple[str, ...]) -> bool:

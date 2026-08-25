@@ -29,6 +29,7 @@ except ImportError:  # Python < 3.11
 
 from yoke_core.api.repo_root import find_repo_root
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 
 HC_NAME = "HC-platform-namespace-boundary"
@@ -79,7 +80,7 @@ def _iter_python_files(repo_root: Path) -> Iterable[Path]:
     for rel in SCAN_ROOTS:
         base = repo_root / rel
         if base.is_dir():
-            yield from sorted(base.rglob("*.py"))
+            yield from sorted(iter_tree_files(base, "*.py"))
 
 
 def _iter_pyproject_files(repo_root: Path) -> Iterable[Path]:
@@ -89,7 +90,7 @@ def _iter_pyproject_files(repo_root: Path) -> Iterable[Path]:
     for rel in SCAN_ROOTS:
         base = repo_root / rel
         if base.is_dir():
-            yield from sorted(base.rglob("pyproject.toml"))
+            yield from sorted(iter_tree_files(base, "pyproject.toml"))
 
 
 def _names_private_namespace(module: str) -> bool:

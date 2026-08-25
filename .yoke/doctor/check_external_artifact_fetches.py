@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 from yoke_project_checks._declare import self_project_checks
 
 
@@ -67,10 +68,12 @@ def _resolve_repo_root() -> str | None:
 
 
 def _source_files(root: Path) -> Iterable[Path]:
-    yield from sorted(path for path in root.rglob("Dockerfile*") if path.is_file())
+    yield from sorted(iter_tree_files(root, "Dockerfile*"))
     workflows = root / ".github/workflows"
     if workflows.is_dir():
-        yield from sorted((*workflows.rglob("*.yml"), *workflows.rglob("*.yaml")))
+        yield from sorted(
+            (*iter_tree_files(workflows, "*.yml"), *iter_tree_files(workflows, "*.yaml"))
+        )
 
 
 def inventory(root: Path) -> list[InventoryEntry]:

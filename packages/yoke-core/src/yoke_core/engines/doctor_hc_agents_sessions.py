@@ -29,6 +29,7 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+from yoke_core.engines.doctor_tree_scan import list_directory
 
 
 def hc_stale_sessions(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -60,8 +61,14 @@ def hc_stale_sessions(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     now = time.time()
     four_hours = 14400
     issues: List[str] = []
-    for sfile in sorted(sessions_dir.glob("*.session")):
-        age = now - sfile.stat().st_mtime
+    for sfile in list_directory(sessions_dir):
+        if sfile.suffix != ".session":
+            continue
+        try:
+            age = now - sfile.stat().st_mtime
+        except FileNotFoundError:
+            # A session file removed mid-scan is no longer a stale one.
+            continue
         if age > four_hours:
             hours = int(age // 3600)
             issues.append(f"- {sfile.name}: stale ({hours}h old)")

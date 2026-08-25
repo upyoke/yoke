@@ -25,6 +25,7 @@ from yoke_core.domain.time_sql import now_sql
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import list_directory
 
 
 __all__ = (
@@ -48,7 +49,7 @@ def _find_worktree_stray_dbs(main_root: Path) -> List[Path]:
     strays: List[Path] = []
     # Check both legacy (yoke/) and current (data/, runtime/) stray locations.
     stray_subdirs = ("yoke", "data", "runtime")
-    for branch_dir in sorted(worktrees_dir.iterdir()):
+    for branch_dir in list_directory(worktrees_dir):
         if not branch_dir.is_dir():
             continue
         for subdir in stray_subdirs:
@@ -141,7 +142,11 @@ def hc_stray_db(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             )
 
     for stray in _find_worktree_stray_dbs(main_root):
-        size = stray.stat().st_size
+        try:
+            size = stray.stat().st_size
+        except FileNotFoundError:
+            # A worktree removed between discovery and sizing is not a stray.
+            continue
         if size == 0:
             empty_issues.append(
                 f"- {stray}: stray worktree-local yoke.db "

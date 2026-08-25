@@ -37,6 +37,7 @@ from yoke_core.domain.project_identity import render_item_ref
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 
 _HC_NAME = "HC-oneshot-migration-coverage"
@@ -185,11 +186,10 @@ def _scan_call_sites(api_root: Path) -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
     if not api_root.is_dir():
         return out
-    for py in sorted(api_root.rglob("*.py")):
-        rel = py.name
+    for py in sorted(iter_tree_files(api_root, "*.py")):
         # Skip tests — they exercise the helper but do not carry a
         # governance obligation to pair a decision record.
-        if rel.startswith("test_") or rel.endswith("_test.py"):
+        if py.name.startswith("test_") or py.name.endswith("_test.py"):
             continue
         try:
             text = py.read_text(encoding="utf-8", errors="ignore")

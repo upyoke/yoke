@@ -16,6 +16,7 @@ from typing import Iterable, List, Sequence
 
 from yoke_core.api.repo_root import find_repo_root
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES, iter_tree_files
 from yoke_project_checks._declare import self_project_checks
 
 
@@ -33,7 +34,6 @@ LOCAL_HOOK_ADAPTER = (
 )
 LOCAL_ENGINE_MODULE = "yoke_core.hooks.local_entry"
 SOURCE_HOOK_PREFIX = "runtime.harness"
-GENERATED_TREE_NAMES = frozenset({"build", "dist"})
 
 
 @dataclass(frozen=True)
@@ -54,10 +54,9 @@ def _python_files(repo_root: Path, roots: Sequence[str]) -> Iterable[Path]:
         base = repo_root / root
         if not base.is_dir():
             continue
-        for path in sorted(base.rglob("*.py")):
-            relative = path.relative_to(repo_root)
-            if not GENERATED_TREE_NAMES.intersection(relative.parts):
-                yield path
+        yield from sorted(
+            iter_tree_files(base, "*.py", prune_dir_names=GENERATED_TREE_NAMES)
+        )
 
 
 def _parse(path: Path) -> ast.Module:

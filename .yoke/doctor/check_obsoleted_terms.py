@@ -50,6 +50,7 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
     _resolve_repo_root,
 )
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 # Obsoleted-term declarations
 
@@ -102,12 +103,7 @@ def _iter_scan_paths(repo_root: Path):
             base = repo_root / rel
             if not base.is_dir():
                 continue
-            try:
-                discovered = list(base.rglob(f"*{ext}"))
-            except OSError:
-                # Concurrent xdist wheel builds can delete ``build/`` trees mid-walk.
-                continue
-            for f in discovered:
+            for f in iter_tree_files(base, f"*{ext}"):
                 try:
                     if _is_exempt(f):
                         continue

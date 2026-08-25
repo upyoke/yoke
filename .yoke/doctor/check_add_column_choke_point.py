@@ -20,6 +20,7 @@ from typing import Iterator, List, Optional, Sequence
 
 from yoke_core.api.repo_root import find_repo_root
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES, iter_tree_files
 
 
 HC_NAME = "HC-add-column-choke-point"
@@ -30,7 +31,6 @@ HC_DESC = (
 
 CHOKE_POINT = "packages/yoke-core/src/yoke_core/domain/schema_common.py"
 SCAN_ROOTS = ("packages", "runtime")
-GENERATED_TREE_NAMES = frozenset({"build", "dist"})
 EXEMPT_RELPATHS = frozenset(
     {
         CHOKE_POINT,
@@ -146,10 +146,13 @@ def _scanned_files(repo_root: Path, roots: Sequence[str]) -> Iterator[Path]:
         base = repo_root / root
         if not base.is_dir():
             continue
-        for path in sorted((*base.rglob("*.py"), *base.rglob("*.sql"))):
+        for path in sorted(
+            (
+                *iter_tree_files(base, "*.py", prune_dir_names=GENERATED_TREE_NAMES),
+                *iter_tree_files(base, "*.sql", prune_dir_names=GENERATED_TREE_NAMES),
+            )
+        ):
             relative = path.relative_to(repo_root)
-            if GENERATED_TREE_NAMES.intersection(relative.parts):
-                continue
             if _is_test_path(relative):
                 continue
             if relative.as_posix() in EXEMPT_RELPATHS:

@@ -28,6 +28,7 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+from yoke_core.engines.doctor_tree_scan import list_directory
 
 
 def _p(conn) -> str:
@@ -143,7 +144,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     if repo_root:
         wt_dir = Path(repo_root) / ".worktrees"
         if wt_dir.is_dir():
-            for child in sorted(wt_dir.iterdir()):
+            for child in list_directory(wt_dir):
                 if not child.is_dir():
                     continue
                 child_str = str(child)

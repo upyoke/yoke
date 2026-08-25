@@ -54,6 +54,7 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
     _resolve_repo_root,
 )
+from yoke_core.engines.doctor_tree_scan import iter_tree_files
 
 # SQL read shapes against the events table. Line-based; covers aliased
 # forms (``FROM events e``). INSERT shapes are emission discipline, not
@@ -171,7 +172,7 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
         source_root = repo_root / rel_root
         if not source_root.is_dir():
             continue
-        for f in sorted(source_root.rglob("*.py")):
+        for f in sorted(iter_tree_files(source_root, "*.py")):
             if not _is_scan_target(f):
                 continue
             try:
