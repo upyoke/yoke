@@ -43,6 +43,25 @@ def _wait_until_gone(pid: int, timeout: float = 5.0) -> bool:
     return not _process_is_alive(pid)
 
 
+def _wait_for_nonempty_text(path, timeout: float = 10.0) -> str:
+    """Wait for file content, not mere existence.
+
+    ``Path.write_text`` creates then writes, so ``exists()`` can observe
+    the empty window between those steps.
+    """
+    deadline = time.monotonic() + timeout
+    observed = ""
+    while time.monotonic() < deadline:
+        try:
+            observed = path.read_text()
+        except FileNotFoundError:
+            observed = ""
+        if observed.strip():
+            return observed
+        time.sleep(0.05)
+    return observed
+
+
 def _kill_if_alive(pid: int) -> None:
     try:
         os.kill(pid, signal.SIGKILL)
@@ -87,7 +106,7 @@ def test_timeout_reaps_the_whole_tree_before_raising(tmp_path):
             grace_seconds=2.0,
         )
 
-    grandchild_pid = int(pid_file.read_text().strip())
+    grandchild_pid = int(_wait_for_nonempty_text(pid_file).strip())
     try:
         assert _wait_until_gone(grandchild_pid)
     finally:
@@ -115,10 +134,7 @@ def test_reaping_reaches_a_grandchild_that_started_its_own_session(tmp_path):
     proc = process_group_reaping.popen_in_process_group(
         [sys.executable, "-c", middle]
     )
-    deadline = time.monotonic() + 10.0
-    while time.monotonic() < deadline and not pid_file.exists():
-        time.sleep(0.05)
-    detached_pid = int(pid_file.read_text().strip())
+    detached_pid = int(_wait_for_nonempty_text(pid_file).strip())
     try:
         assert _process_is_alive(detached_pid)
 
