@@ -1,4 +1,4 @@
-"""Machine-local containment for natives a launch never registered.
+"""Machine-local containment for unregistered launches and detached resumes.
 
 Creating a native and registering it are two separate events, and the gap
 between them is where an unattended agent does damage. Natives that never
@@ -13,8 +13,9 @@ the launch handoff is delivered only once a native has registered and pulled
 its message. A record that outlives the registration deadline therefore names
 a process that is running without authority, and the sweep terminates it.
 
-Records are owner-only files under the machine cache, one per launch, so a
-relay that is killed mid-flight still leaves the evidence its successor needs.
+Detached resumes use the same owner-only record family. Hook activity refreshes
+their custody timestamp; the sweep reaps only sustained inactivity or an
+absolute runaway, never a healthy turn merely because one relay cycle ended.
 """
 
 from __future__ import annotations
@@ -25,10 +26,16 @@ import os
 from pathlib import Path
 import signal
 import time
-from typing import Iterator
+from typing import Iterator, Mapping
+from uuid import UUID
 
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.process_ancestry import process_start_time
+from yoke_contracts.session_control.resume import (
+    RESUME_ATTEMPT_ENV,
+    RESUME_INACTIVITY_SECONDS,
+    RESUME_RUNAWAY_SECONDS,
+)
 from yoke_cli.config import machine_config
 
 
@@ -53,6 +60,8 @@ class ContainmentOutcome:
     pid: int
     result: str
     native_session_id: str | None = None
+    supervision_kind: str = "launch"
+    reason: str = "registration_timeout"
 
 
 def _directory(state_dir: Path | None = None) -> Path:
@@ -71,15 +80,17 @@ def record_supervised_native(
     pid: int,
     *,
     native_session_id: str | None = None,
+    supervision_kind: str = "launch",
+    capture_path: Path | None = None,
     state_dir: Path | None = None,
     now: float | None = None,
 ) -> bool:
-    """Record one native this machine started for ``launch_id``.
+    """Record one native under a launch or resume-attempt identifier.
 
-    Best effort: a failure here must never turn a working launch into a
-    failed one, so the caller is not told to abort.
+    Launch registration remains best effort. Detached resume callers require
+    this custody record and stop the process when it cannot be written.
     """
-    if not launch_id or pid <= 0:
+    if not launch_id or pid <= 0 or supervision_kind not in {"launch", "resume"}:
         return False
     start_time = process_start_time(pid)
     if not start_time:
@@ -89,6 +100,9 @@ def record_supervised_native(
         "pid": int(pid),
         "process_start_time": start_time,
         "native_session_id": native_session_id or None,
+        "supervision_kind": supervision_kind,
+        "last_activity_at": int(time.time() if now is None else now),
+        "capture_path": str(capture_path) if capture_path is not None else None,
         "recorded_at": int(time.time() if now is None else now),
     }
     try:
@@ -100,6 +114,45 @@ def record_supervised_native(
     except OSError:
         return False
     return True
+
+
+def touch_supervised_resume(
+    attempt_id: str,
+    *,
+    state_dir: Path | None = None,
+    now: float | None = None,
+) -> bool:
+    """Refresh local custody after one hook from a detached resume."""
+    try:
+        UUID(attempt_id)
+        path = _record_path(attempt_id, state_dir)
+        if path.stat().st_size > _MAX_RECORD_BYTES:
+            return False
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or payload.get("supervision_kind") != "resume":
+            return False
+        payload["last_activity_at"] = int(time.time() if now is None else now)
+        temporary = path.with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        temporary.chmod(0o600)
+        os.replace(temporary, path)
+    except (OSError, TypeError, ValueError):
+        return False
+    return True
+
+
+def touch_supervised_resume_from_environment(
+    *,
+    environ: Mapping[str, str] | None = None,
+    state_dir: Path | None = None,
+    now: float | None = None,
+) -> bool:
+    """Refresh resume custody when a native hook inherited its attempt id."""
+    source = os.environ if environ is None else environ
+    attempt_id = str(source.get(RESUME_ATTEMPT_ENV) or "").strip()
+    return bool(
+        attempt_id and touch_supervised_resume(attempt_id, state_dir=state_dir, now=now)
+    )
 
 
 def release_supervised_native(
@@ -162,12 +215,34 @@ def contain_stranded_launch_natives(
     now: float | None = None,
     ttl_seconds: int = CONTAINMENT_TTL_SECONDS,
 ) -> list[ContainmentOutcome]:
-    """Terminate every recorded native that outlived its registration window."""
+    """Contain launches past registration and resumes past custody limits."""
     current = time.time() if now is None else now
     outcomes: list[ContainmentOutcome] = []
     for path, payload in _records(state_dir):
         recorded_at = payload.get("recorded_at")
-        if not isinstance(recorded_at, int) or current - recorded_at < ttl_seconds:
+        if not isinstance(recorded_at, int):
+            continue
+        kind = str(payload.get("supervision_kind") or "launch")
+        if kind not in {"launch", "resume"}:
+            kind = "launch"
+        reason = "registration_timeout"
+        if kind == "resume":
+            activity_at = payload.get("last_activity_at")
+            last_activity = float(activity_at) if isinstance(activity_at, int) else 0.0
+            capture_path = payload.get("capture_path")
+            if isinstance(capture_path, str) and capture_path:
+                try:
+                    last_activity = max(
+                        last_activity, Path(capture_path).stat().st_mtime
+                    )
+                except OSError:
+                    pass
+            runaway = current - recorded_at >= RESUME_RUNAWAY_SECONDS
+            inactive = current - last_activity >= RESUME_INACTIVITY_SECONDS
+            if not runaway and not inactive:
+                continue
+            reason = "runaway" if runaway else "inactivity"
+        elif current - recorded_at < ttl_seconds:
             continue
         launch_id = str(payload.get("launch_id") or path.stem)
         pid = payload.get("pid")
@@ -190,6 +265,8 @@ def contain_stranded_launch_natives(
                 native_session_id=(
                     str(native_session_id) if native_session_id else None
                 ),
+                supervision_kind=kind,
+                reason=reason,
             )
         )
     return outcomes
@@ -210,4 +287,6 @@ __all__ = [
     "contain_stranded_launch_natives",
     "record_supervised_native",
     "release_supervised_native",
+    "touch_supervised_resume",
+    "touch_supervised_resume_from_environment",
 ]

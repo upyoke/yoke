@@ -16,6 +16,7 @@ SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "machine_id",
     "liveness",
     "turn_posture",
+    "resume_state",
     "relay",
     "messageability",
 )

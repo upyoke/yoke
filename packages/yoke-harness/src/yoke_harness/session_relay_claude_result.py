@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from uuid import UUID
-
 from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 from yoke_harness.session_relay_native_diagnostics import classify_native_failure
 from yoke_harness.session_relay_runtime import (
@@ -68,16 +65,4 @@ def build_claude_result(
     )
 
 
-def parse_resume_session_id(output: str) -> tuple[str | None, str]:
-    try:
-        document = json.loads(output)
-        if not isinstance(document, dict):
-            raise ValueError
-        return str(UUID(str(document["session_id"]))), "resume_identity_resolved"
-    except KeyError:
-        return None, "resume_identity_missing"
-    except (TypeError, ValueError, AttributeError):
-        return None, "resume_identity_malformed"
-
-
-__all__ = ["build_claude_result", "parse_resume_session_id"]
+__all__ = ["build_claude_result"]

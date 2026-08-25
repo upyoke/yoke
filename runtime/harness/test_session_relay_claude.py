@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
-from yoke_harness import session_relay_claude as claude_module
+from yoke_harness import session_relay_claude_native as claude_native_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_claude import (
     ClaudeNativeInvocation,
@@ -219,7 +219,11 @@ def test_native_commands_use_private_collector_without_launch_secret(
         calls.append((argv, kwargs))
         return ClaudeProcessResult(0, 12, "private-stdout", "private-stderr")
 
-    monkeypatch.setattr(claude_module, "run_bounded_claude_process", fake_run)
+    monkeypatch.setattr(
+        claude_native_module,
+        "run_bounded_claude_process",
+        fake_run,
+    )
     monkeypatch.setenv("CODEX_SESSION_ID", "parent-session")
     invocation = ClaudeNativeInvocation(
         CLAUDE,

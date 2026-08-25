@@ -14,7 +14,9 @@ from yoke_harness.session_launch_containment import (
     contain_stranded_launch_natives,
     record_supervised_native,
     release_supervised_native,
+    touch_supervised_resume,
 )
+from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
 
 
 LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
@@ -181,3 +183,72 @@ def test_recording_refuses_a_pid_that_does_not_exist(tmp_path: Path) -> None:
     assert not record_supervised_native(LAUNCH_ID, process.pid, state_dir=tmp_path)
     assert not record_supervised_native(LAUNCH_ID, 0, state_dir=tmp_path)
     assert not record_supervised_native("", os.getpid(), state_dir=tmp_path)
+
+
+def test_recent_resume_hook_activity_keeps_detached_native_alive(
+    tmp_path: Path,
+) -> None:
+    process = _sleeper()
+    now = time.time()
+    try:
+        record_supervised_native(
+            LAUNCH_ID,
+            process.pid,
+            supervision_kind="resume",
+            state_dir=tmp_path,
+            now=now - RESUME_INACTIVITY_SECONDS - 1,
+        )
+        assert touch_supervised_resume(LAUNCH_ID, state_dir=tmp_path, now=now)
+
+        assert contain_stranded_launch_natives(state_dir=tmp_path, now=now) == []
+        assert process.poll() is None
+    finally:
+        process.kill()
+        process.wait()
+
+
+def test_quiet_resume_is_reaped_with_inactivity_evidence(tmp_path: Path) -> None:
+    process = _sleeper()
+    now = time.time()
+    try:
+        record_supervised_native(
+            LAUNCH_ID,
+            process.pid,
+            supervision_kind="resume",
+            state_dir=tmp_path,
+            now=now - RESUME_INACTIVITY_SECONDS - 1,
+        )
+
+        outcomes = contain_stranded_launch_natives(state_dir=tmp_path, now=now)
+
+        assert len(outcomes) == 1
+        assert outcomes[0].supervision_kind == "resume"
+        assert outcomes[0].reason == "inactivity"
+        assert outcomes[0].result in {"terminated", "killed"}
+        process.wait(timeout=10)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
+def test_recent_capture_output_keeps_silent_resume_alive(tmp_path: Path) -> None:
+    process = _sleeper()
+    now = time.time()
+    capture = tmp_path / "resume.capture"
+    capture.write_text("recent native output")
+    try:
+        record_supervised_native(
+            LAUNCH_ID,
+            process.pid,
+            supervision_kind="resume",
+            capture_path=capture,
+            state_dir=tmp_path,
+            now=now - RESUME_INACTIVITY_SECONDS - 1,
+        )
+
+        assert contain_stranded_launch_natives(state_dir=tmp_path, now=now) == []
+        assert process.poll() is None
+    finally:
+        process.kill()
+        process.wait()
