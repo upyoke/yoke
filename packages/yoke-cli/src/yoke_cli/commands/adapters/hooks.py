@@ -15,7 +15,10 @@ import sys
 from typing import List
 
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
-from yoke_contracts.hook_runner.chain_registry import session_orientation_event
+from yoke_contracts.hook_runner.chain_registry import (
+    session_orientation_event,
+    session_orientation_redelivery_event,
+)
 from yoke_contracts.hook_runner.config_owner import (
     CONFIG_OWNER_ENV_VAR,
 )
@@ -149,27 +152,30 @@ def hook_evaluate(args: List[str]) -> int:
             cursor=cursor_invocation,
         )
         if connection is not None:
-            return relay_hook_event(
+            exit_code = relay_hook_event(
                 parsed.event_name,
                 connection,
                 stdin_data=stdin_data,
                 extra_context=extra_context,
             )
-
         # A bound local-postgres universe is an installed engine authority,
         # so run the complete packaged chain in-process. Machines with no
         # bound universe retain the product-safe client subset.
-        if _active_local_universe():
-            return _evaluate_local_universe_hook(
+        elif _active_local_universe():
+            exit_code = _evaluate_local_universe_hook(
                 parsed.event_name,
                 stdin_data,
                 extra_context=extra_context,
             )
-        return evaluate_hook_event(
-            parsed.event_name,
-            stdin_data=stdin_data,
-            extra_context=extra_context,
-        )
+        else:
+            exit_code = evaluate_hook_event(
+                parsed.event_name,
+                stdin_data=stdin_data,
+                extra_context=extra_context,
+            )
+        if extra_context and exit_code == 0:
+            _confirm_session_orientation()
+        return exit_code
 
     return evaluate_hook_event(parsed.event_name, dry_run=parsed.dry_run)
 
@@ -193,7 +199,10 @@ def _session_orientation(
     touching the engine at all."""
     import importlib
 
-    if event_name != session_orientation_event(cursor=cursor):
+    if event_name not in (
+        session_orientation_event(cursor=cursor),
+        session_orientation_redelivery_event(cursor=cursor),
+    ):
         return ""
     try:
         module = importlib.import_module("yoke_core.domain.session_orientation")
@@ -210,6 +219,24 @@ def _session_orientation(
         )
     except Exception:
         return ""
+
+
+def _confirm_session_orientation() -> None:
+    """Record that this process printed the orientation it composed.
+
+    Only an allow exit code reaches here. A deny prints its block message in
+    place of the merged allow stdout, and a hook the harness kills on its own
+    timeout never returns at all — in both cases the composed block never
+    reached the agent, and leaving delivery unconfirmed is what makes the
+    next context-bearing event re-deliver it.
+    """
+    import importlib
+
+    try:
+        module = importlib.import_module("yoke_core.domain.session_orientation")
+        module.confirm_orientation_delivery()
+    except Exception:
+        return
 
 
 def _active_local_universe() -> bool:
