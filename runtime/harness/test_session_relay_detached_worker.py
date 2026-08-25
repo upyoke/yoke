@@ -68,7 +68,17 @@ def test_detached_owner_survives_one_shot_relay_exit(tmp_path: Path) -> None:
     )
 
     assert completed.returncode == 0, completed.stderr.decode(errors="replace")
+    # Wait for the content, not merely for the path. ``write_text`` creates
+    # the file and writes it separately, so a reader that stops at
+    # ``exists()`` can read the empty window between the two and compare ''.
     deadline = time.monotonic() + 3
-    while time.monotonic() < deadline and not sentinel.exists():
+    observed = ""
+    while time.monotonic() < deadline:
+        try:
+            observed = sentinel.read_text()
+        except FileNotFoundError:
+            observed = ""
+        if observed:
+            break
         time.sleep(0.02)
-    assert sentinel.read_text() == "owner-survived-relay-exit"
+    assert observed == "owner-survived-relay-exit"
