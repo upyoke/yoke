@@ -170,6 +170,7 @@ def run(argv: List[str]) -> int:
         str(repo_root),
         branch,
     )
+    recovered_claim = False
     if claim_error or pruned_lane:
         recovered, recovery_error = recovery.reacquire_landed_claim(
             item_id=item_id,
@@ -182,6 +183,7 @@ def run(argv: List[str]) -> int:
                 as_json=as_json,
             )
         item = recovery.with_recorded_head(item, recovered)
+        recovered_claim = True
 
     if landed_lane is not None:
         # Nothing below is safe against a landing that already happened: the
@@ -223,14 +225,20 @@ def run(argv: List[str]) -> int:
         touched_files=tuple(outcome.touched_files),
         source="this merge",
     )
-    item, restore_error = recovery.restore_close_out_claim(
-        item=item,
-        item_id=item_id,
-        session_id=str(args.session_id),
-        lane=close_lane,
-    )
-    if restore_error:
-        return _fail(f"{item_ref}: {restore_error}", as_json=as_json)
+    # A claim recovered at admission is already close-out authority. Re-check
+    # after landing only when the wait itself could have outlived a claim
+    # that was held going in.
+    if not recovered_claim and recovery.claim_is_missing(
+        _session_holds_claim(item_id, str(args.session_id))
+    ):
+        item, restore_error = recovery.restore_close_out_claim(
+            item=item,
+            item_id=item_id,
+            session_id=str(args.session_id),
+            lane=close_lane,
+        )
+        if restore_error:
+            return _fail(f"{item_ref}: {restore_error}", as_json=as_json)
 
     envelope: dict[str, Any] = {
         "ok": True,

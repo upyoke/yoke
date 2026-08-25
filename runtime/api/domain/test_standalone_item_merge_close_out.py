@@ -134,7 +134,15 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         "_resolve_item",
         lambda ref, project: (item, ""),
     )
-    monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    holds_checks = {"n": 0}
+
+    def holds_claim(*_a):
+        holds_checks["n"] += 1
+        if holds_checks["n"] == 1:
+            return ""
+        return "no live work claim on this item"
+
+    monkeypatch.setattr(merge_cli, "_session_holds_claim", holds_claim)
     monkeypatch.setattr(
         merge_cli,
         "_resolve_checkout",
@@ -174,6 +182,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     )
 
     assert exit_code == 0
+    assert holds_checks["n"] >= 2
     payloads = dict(calls)
     evidence = payloads["direct_workflow.dash.evidence"]
     assert evidence["touched_files"] == ["a.py", "docs/b.md"]
