@@ -98,6 +98,28 @@ def _claimed_root(
     return source_lanes[0], None, None
 
 
+def claimed_lane_root(
+    selected_lane: Path | str | None = None,
+) -> tuple[Path | None, str | None]:
+    """Return the session's claimed Yoke source lane, or why there is none.
+
+    Callers that lint or test a *branch diff* need the lane itself, so
+    the mapped-main fallback is reported as a failure here rather than
+    returned: a diff of main against main is empty, and a command that
+    silently accepted main would report a clean result for a branch it
+    never looked at.
+    """
+    root, error, fallback_project_id = _claimed_root(selected_lane)
+    if error or root is None:
+        return None, error
+    if fallback_project_id is not None:
+        return None, (
+            "this session has no live claimed Yoke source lane; "
+            f"{root} is the mapped main checkout, not a lane"
+        )
+    return root, None
+
+
 def _mapped_main_source_root() -> tuple[Path | None, str | None, int | None]:
     """Resolve the one machine-mapped checkout that is Yoke-shaped."""
     try:
@@ -315,7 +337,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     return run(parsed.command, lane=parsed.lane)
 
 
-__all__ = ["main", "run"]
+__all__ = ["claimed_lane_root", "main", "run"]
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter

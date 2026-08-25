@@ -32,6 +32,7 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
     payload_has_embedded_python_write,
     _split_redirect_targets,
 )
+from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
 _WRITE_TOOLS = frozenset({"Write", "Edit", "apply_patch"})
@@ -39,9 +40,6 @@ _WRITE_TOOLS = frozenset({"Write", "Edit", "apply_patch"})
 _UNTRACKED_GENERATED_VIEW_PATTERNS = (
     re.compile(r"(?:^|/)\.yoke/BOARD\.md(?:\.ts)?$"),
 )
-
-_SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
-
 
 def command_has_suppression_token(text: str) -> bool:
     return isinstance(text, str) and SUPPRESSION_TOKEN in text
@@ -140,21 +138,6 @@ def _strip_env_prefixes(tokens: List[str]) -> List[str]:
     return out
 
 
-def _split_command_segments(tokens: List[str]) -> List[List[str]]:
-    segments: List[List[str]] = []
-    current: List[str] = []
-    for tok in tokens:
-        if tok in _SEGMENT_SEPARATORS:
-            if current:
-                segments.append(current)
-            current = []
-            continue
-        current.append(tok)
-    if current:
-        segments.append(current)
-    return segments
-
-
 def _segment_command_base(tokens: List[str]) -> str:
     stripped = _strip_env_prefixes(tokens)
     for tok in stripped:
@@ -170,7 +153,7 @@ def _bash_has_file_redirect(command: str) -> bool:
 
 def _bash_has_write_verb(command: str) -> bool:
     """True when a segment's leading command is a filesystem write verb."""
-    for segment in _split_command_segments(_safe_split(command)):
+    for segment in shell_command_segments(command):
         base = _segment_command_base(segment)
         if base in SHELL_WRITE_COMMAND_BASES:
             return True
@@ -184,7 +167,7 @@ def is_yoke_adapter_command(command: str) -> bool:
     """True when every shell segment is a ``yoke`` CLI adapter invocation."""
     if not command or not command.strip():
         return False
-    segments = _split_command_segments(_safe_split(command))
+    segments = shell_command_segments(command)
     if not segments:
         return False
     return all(_segment_command_base(seg) == "yoke" for seg in segments)

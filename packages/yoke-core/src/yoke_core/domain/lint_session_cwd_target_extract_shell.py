@@ -11,6 +11,7 @@ from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
 )
 from yoke_core.domain.lint_shell_target_tokens import (
     path_target_from_token,
+    shell_command_segments,
     shell_variable_bindings,
 )
 
@@ -44,12 +45,16 @@ def extract_command_targets(
     flags). Returns an empty list when no target signals appear — the
     caller treats that as "fall through to cwd".
 
+    Invocation boundaries come from :func:`shell_command_segments`,
+    so an operator written without surrounding whitespace still
+    ends the statement instead of gluing onto the path before it.
+
     Heredoc bodies (``<<TAG`` / ``<<'TAG'`` / ``<<"TAG"`` / ``<<-TAG``)
-    are stripped at the **line** level before ``shlex.split`` runs:
-    only body lines and the closing-tag line are removed. Anything on
-    the opener's own line — including a redirect target that comes
-    after the opener (``cat <<EOF > /tmp/out``) — survives and is
-    available to the positional walk below.
+    are stripped at the **line** level first: only body lines and the
+    closing-tag line are removed. Anything on the opener's own line —
+    including a redirect target that comes after the opener (``cat
+    <<EOF > /tmp/out``) — survives and is available to the positional
+    walk below.
 
     A token naming a shell variable resolves through that variable's own
     assignment (see :mod:`lint_shell_target_tokens`). Pass ``bindings``
@@ -57,22 +62,16 @@ def extract_command_targets(
     — a caller walking one segment at a time would otherwise lose it.
     """
     sanitized = strip_heredoc_body_lines(command)
-    tokens = _safe_split(sanitized)
-    if not tokens:
+    if not _safe_split(sanitized):
         return []
     if bindings is None:
         bindings = shell_variable_bindings(command)
 
     out: List[str] = extract_gh_repo_selector_targets(sanitized)
-    for segment in _split_command_segments(tokens):
+    for segment in shell_command_segments(sanitized):
         out.extend(_extract_segment_targets(segment, bindings))
     return out
 
-
-# Shell control operators that separate one command invocation from the
-# next. ``extract_command_targets`` splits on these so each segment's
-# leading token is recognised as that segment's command name.
-_SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
 
 _SEARCH_COMMANDS = frozenset({
     "grep", "egrep", "fgrep", "rg", "ripgrep", "ag", "ack",
@@ -142,22 +141,6 @@ _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 REDIRECT_OPERATORS = frozenset({
     ">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>",
 })
-
-
-def _split_command_segments(tokens: List[str]) -> List[List[str]]:
-    """Split a token stream into per-invocation segments on shell operators."""
-    segments: List[List[str]] = []
-    current: List[str] = []
-    for tok in tokens:
-        if tok in _SEGMENT_SEPARATORS:
-            if current:
-                segments.append(current)
-            current = []
-            continue
-        current.append(tok)
-    if current:
-        segments.append(current)
-    return segments
 
 
 def _segment_command_base(tokens: List[str]) -> str:
