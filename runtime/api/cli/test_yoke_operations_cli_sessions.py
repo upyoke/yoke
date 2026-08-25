@@ -272,11 +272,11 @@ def test_sessions_list_dispatches_filters_and_prints_roster_table() -> None:
     lines = out.getvalue().splitlines()
     assert lines[:3] == [
         "SESSIONS",
-        "SESSION  PROJECT  FOCUS         ROLE  RUNNER  MACHINE  LIVENESS  RELAY  MESSAGEABLE",
-        "-------  -------  ------------  ----  ------  -------  --------  -----  -----------",
+        "SESSION  PROJECT  FOCUS         ROLE  RUNNER  MACHINE  LIVENESS  RESUME  RELAY  MESSAGEABLE",
+        "-------  -------  ------------  ----  ------  -------  --------  ------  -----  -----------",
     ]
     assert lines[3] == (
-        "s-1      —        YOK-41, feed  —     —       —        active    —      unknown"
+        "s-1      —        YOK-41, feed  —     —       —        active    —       —      unknown"
     )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.list"
