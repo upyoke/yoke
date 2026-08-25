@@ -25,6 +25,7 @@ from yoke_harness.session_relay_claude_transcript import (
     claude_session_transcript_exists,
 )
 from yoke_harness.session_relay_runtime import (
+    expected_native_instruction,
     RelayAdapterResult,
     RelayExecutionContext,
     RelayPrivateDiagnostic,
@@ -177,14 +178,6 @@ def unsupported_claude_route(
     return _result(context, code, "unsupported_surface")
 
 
-def _expected_instruction(context: RelayExecutionContext) -> str | None:
-    if context.job_kind == "launch":
-        return f"Yoke launch `{context.job_id}`: register, pull your message, act."
-    if context.job_kind == "wake" and context.message_id:
-        return f"Yoke message {context.message_id}: check your Yoke messages."
-    return None
-
-
 def _wake_prompt(message_id: str) -> str:
     return (
         f"Yoke message reference `{message_id}` is pending. Inspect and handle "
@@ -242,7 +235,7 @@ def run_claude_cli_adapter(
     if not _operation_authorized(context, operation, version_gate):
         result = "not_created" if context.job_kind == "launch" else "version_mismatch"
         return _result(context, result, "version_mismatch")
-    expected = _expected_instruction(context)
+    expected = expected_native_instruction(context)
     if expected is None or context.native_instruction != expected:
         result = "not_created" if context.job_kind == "launch" else "failed"
         return _result(context, result, "instruction_invalid")

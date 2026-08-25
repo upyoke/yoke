@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_codex_app_server as app_module
 from yoke_harness import session_relay_codex_app_server_process as process_module
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
@@ -14,7 +15,7 @@ from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
 
 SECRET = "one-time-worker-attestation"
-INSTRUCTION = "Yoke launch launch-1: register, pull your message, act."
+INSTRUCTION = native_launch_bootstrap("launch-1")
 
 
 def _request(tmp_path: Path) -> CodexNativeRequest:
@@ -250,7 +251,7 @@ def test_app_server_process_receives_rehydrated_context(
         LAUNCH_CONTEXT_ENV,
         json.dumps({"launch_id": "stale-launch", "attestation": "stale-secret"}),
     )
-    monkeypatch.setattr(app_module.shutil, "which", lambda _binary: "/opt/codex")
+    monkeypatch.setattr(app_module, "resolve_native_cli", lambda _binary: "/opt/codex")
     monkeypatch.setattr(app_module.subprocess, "Popen", spawn)
     monkeypatch.setattr(app_module.selectors, "DefaultSelector", _Selector)
     monkeypatch.setattr(app_module._Client, "request", lambda *_args: {})

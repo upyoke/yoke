@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_claude import (
@@ -23,7 +24,7 @@ from yoke_harness.session_relay_claude import (
 LAUNCH_ID = "12345678-1234-4234-8234-123456789abc"
 ACTUAL_ID = "87654321-4321-4321-8321-cba987654321"
 SHORT_ID = "7c5dcf5d"
-BOOTSTRAP = f"Yoke launch `{LAUNCH_ID}`: register, pull your message, act."
+BOOTSTRAP = native_launch_bootstrap(LAUNCH_ID)
 MESSAGE_ID = "message-1"
 CHECK_INBOX = f"Yoke message {MESSAGE_ID}: check your Yoke messages."
 CLAUDE = "/opt/claude/bin/claude"
@@ -314,9 +315,7 @@ def test_missing_cli_is_discovered_before_native_invocation(
         (
             _context(
                 job_id="not-a-uuid",
-                native_instruction=(
-                    "Yoke launch `not-a-uuid`: register, pull your message, act."
-                ),
+                native_instruction=(native_launch_bootstrap("not-a-uuid")),
             ),
             "native_session_invalid",
         ),

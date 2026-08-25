@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import selectors
-import shutil
 import subprocess
 import threading
 import time
@@ -16,6 +15,7 @@ from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequ
 from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_environment import native_session_environment
+from yoke_harness.session_relay_inventory import resolve_native_cli
 from yoke_harness.session_relay_runtime import wake_operation
 
 
@@ -111,7 +111,7 @@ class CodexCliTransport:
         return run_detached_operation(request)
 
     def _binary(self) -> str | None:
-        return shutil.which(self.binary) if os.sep not in self.binary else self.binary
+        return resolve_native_cli(self.binary)
 
     def _spawn(
         self, request: CodexNativeRequest, *, resume: bool

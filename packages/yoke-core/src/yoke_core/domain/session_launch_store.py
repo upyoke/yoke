@@ -7,6 +7,7 @@ import hashlib
 import json
 from typing import Any, Iterable
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchError
 
@@ -79,7 +80,7 @@ def attestation_digest(value: str) -> str:
 
 
 def bootstrap_prompt(launch_id: str) -> str:
-    return f"Yoke launch `{launch_id}`: register, pull your message, act."
+    return native_launch_bootstrap(launch_id)
 
 
 def begin_mutation(conn: Any) -> None:

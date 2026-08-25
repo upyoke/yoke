@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, cast
 
 from yoke_cli.config import machine_config
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
 )
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 
 
 WakeMode = Literal["waiting", "idle_timeout"]
@@ -60,6 +62,21 @@ class RelayExecutionContext:
         default=None,
         repr=False,
     )
+
+
+def expected_native_instruction(context: RelayExecutionContext) -> str | None:
+    """Return the only sentence a native may be handed for this job.
+
+    Adapters compare the job's instruction against this and refuse anything
+    else, so the sentence has exactly one author. Two adapters spelling it
+    out separately is how a native ends up reading an instruction the
+    control plane never issued.
+    """
+    if context.job_kind == "launch":
+        return native_launch_bootstrap(context.job_id)
+    if context.job_kind == "wake" and context.message_id:
+        return native_wake_instruction(context.message_id)
+    return None
 
 
 @dataclass(frozen=True)
@@ -189,6 +206,7 @@ def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
 
 
 __all__ = [
+    "expected_native_instruction",
     "RelayAdapter",
     "RelayAdapterResult",
     "RelayExecutionContext",

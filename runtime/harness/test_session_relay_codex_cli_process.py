@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_codex_app_server as app_module
 from yoke_harness import session_relay_codex_cli as cli_module
 from yoke_harness import session_relay_codex_cli_process as process_module
@@ -16,7 +17,7 @@ from yoke_harness.session_relay_codex_worker_protocol import request_payload
 
 
 SECRET = "codex-cli-owner-attestation"
-INSTRUCTION = "Yoke launch launch-1: register, pull your message, act."
+INSTRUCTION = native_launch_bootstrap("launch-1")
 
 
 def _request(tmp_path: Path, *, surface: str = "codex-cli") -> CodexNativeRequest:
@@ -173,6 +174,7 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
         "Popen",
         lambda command, **options: calls.append((command, options)) or child,
     )
+    monkeypatch.setattr(cli_module, "resolve_native_cli", lambda binary: binary)
 
     result = cli_module.CodexCliTransport(
         binary="/opt/codex",

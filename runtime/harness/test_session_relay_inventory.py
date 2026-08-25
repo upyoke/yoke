@@ -1,4 +1,4 @@
-"""CLI surface probes fall back to well-known app-bundled binaries."""
+"""Native CLI resolution is one rule for probes and launch transports."""
 
 from __future__ import annotations
 
@@ -11,9 +11,7 @@ def _version_script(directory: Path, text: str) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     script = directory / "codex"
     script.write_text(
-        "#!/usr/bin/env python3\n"
-        "import sys\n"
-        f"sys.stdout.write({text!r})\n",
+        f"#!/usr/bin/env python3\nimport sys\nsys.stdout.write({text!r})\n",
         encoding="utf-8",
     )
     script.chmod(0o755)
@@ -32,14 +30,10 @@ def test_cli_probe_uses_app_bundle_when_command_is_not_on_path(
     )
 
 
-def test_cli_probe_prefers_path_over_app_bundle(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_cli_probe_prefers_path_over_app_bundle(monkeypatch, tmp_path: Path) -> None:
     on_path = _version_script(tmp_path / "path", "codex-cli 1.2.3\n")
     bundled = _version_script(tmp_path / "bundle", "codex-cli 9.9.9\n")
-    monkeypatch.setattr(
-        inventory_module.shutil, "which", lambda _name: str(on_path)
-    )
+    monkeypatch.setattr(inventory_module.shutil, "which", lambda _name: str(on_path))
     monkeypatch.setattr(inventory_module, "_CLI_FALLBACKS", {"codex": bundled})
 
     assert inventory_module.probe_cli_version(("codex", "--version")) == "1.2.3"
@@ -56,3 +50,35 @@ def test_cli_probe_returns_none_when_path_and_bundle_are_absent(
     )
 
     assert inventory_module.probe_cli_version(("codex", "--version")) is None
+
+
+def test_launch_transports_resolve_the_binary_the_probe_advertised(
+    monkeypatch, tmp_path: Path
+) -> None:
+    # A probe that finds the app bundle while the transport searches only
+    # PATH advertises a launchable surface that then fails every create.
+    from yoke_harness.session_relay_codex_app_server import (
+        CodexAppServerTransport,
+    )
+    from yoke_harness.session_relay_codex_cli import CodexCliTransport
+
+    bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
+    monkeypatch.setattr(inventory_module.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(inventory_module, "_CLI_FALLBACKS", {"codex": bundled})
+
+    assert inventory_module.probe_cli_version(("codex", "--version"))
+    assert CodexCliTransport()._binary() == str(bundled)
+    assert CodexAppServerTransport().binary == "codex"
+    assert inventory_module.resolve_native_cli("codex") == str(bundled)
+
+
+def test_an_absolute_binary_resolves_only_when_it_is_executable(
+    tmp_path: Path,
+) -> None:
+    executable = _version_script(tmp_path / "explicit", "codex-cli 1.0.0\n")
+    plain = tmp_path / "explicit" / "not-executable"
+    plain.write_text("", encoding="utf-8")
+
+    assert inventory_module.resolve_native_cli(str(executable)) == str(executable)
+    assert inventory_module.resolve_native_cli(str(plain)) is None
+    assert inventory_module.resolve_native_cli(str(tmp_path / "absent")) is None

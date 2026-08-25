@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import selectors
-import shutil
 import subprocess
 import threading
 import time
@@ -15,6 +14,7 @@ from typing import Any
 
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
 from yoke_harness.session_relay_codex_cli import _launch_environment
+from yoke_harness.session_relay_inventory import resolve_native_cli
 
 
 _MAX_LINE_BYTES = 4 * 1024 * 1024
@@ -38,7 +38,7 @@ class _Client:
         env: dict[str, str],
         timeout: float,
     ) -> None:
-        resolved = shutil.which(binary) if os.sep not in binary else binary
+        resolved = resolve_native_cli(binary)
         if not resolved or not checkout.is_dir():
             raise CodexAppServerError("app-server unavailable")
         self.timeout = timeout

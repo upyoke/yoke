@@ -7,6 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.session_control.launch_bootstrap import (
+    LAUNCH_BOOTSTRAP_REFUSAL,
+    native_launch_bootstrap,
+)
 from yoke_harness.session_relay_cursor import (
     CursorNativeResult,
     build_cursor_adapter,
@@ -20,19 +24,8 @@ ATTESTATION = "secret-launch-attestation"
 
 class FakeSubprocess:
     def __init__(self) -> None:
-        self.create_requests = []
         self.resume_requests = []
-        self.create_result = CursorNativeResult(
-            "native_created",
-            native_session_id="cursor-session-new",
-            exit_code=0,
-            duration_ms=14,
-        )
         self.resume_result = CursorNativeResult("accepted", exit_code=0, duration_ms=8)
-
-    def create_chat(self, request):
-        self.create_requests.append(request)
-        return self.create_result
 
     def resume_chat(self, request):
         self.resume_requests.append(request)
@@ -59,7 +52,7 @@ class FakeAcp:
 
 def _launch(tmp_path: Path, *, surface: str = "cursor-cli", instruction=None):
     launch_id = "11111111-1111-4111-8111-111111111111"
-    expected = f"Yoke launch `{launch_id}`: register, pull your message, act."
+    expected = native_launch_bootstrap(launch_id)
     return RelayExecutionContext(
         job_kind="launch",
         job_id=launch_id,
@@ -102,41 +95,38 @@ def _wake(
     )
 
 
-def test_cli_create_chat_gets_only_bootstrap_and_separate_attestation(tmp_path):
-    cli = FakeSubprocess()
+def test_launch_without_an_acp_port_creates_no_native_at_all(tmp_path):
+    result = build_cursor_adapter(subprocess_port=FakeSubprocess())(_launch(tmp_path))
 
-    result = build_cursor_adapter(subprocess_port=cli)(_launch(tmp_path))
+    assert result.result_code == "not_created"
+    assert result.native_session_id is None
+
+
+def test_launch_creates_through_acp_and_carries_a_separate_attestation(tmp_path):
+    cli = FakeSubprocess()
+    acp = FakeAcp()
+
+    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(_launch(tmp_path))
 
     assert result.result_code == "native_created"
-    assert result.native_session_id == "cursor-session-new"
-    assert result.evidence == {
-        "surface": "cursor-cli",
-        "result_code": "native_created",
-        "exit_code": 0,
-        "duration_ms": 14,
-    }
-    request = cli.create_requests[0]
-    assert request.native_instruction.endswith("register, pull your message, act.")
+    assert result.native_session_id == "cursor-acp-new"
+    assert len(acp.new_requests) == 1
+    request = acp.new_requests[0]
+    assert request.native_instruction == native_launch_bootstrap(request.launch_id)
     assert request.launch_attestation == ATTESTATION
     assert ATTESTATION not in request.native_instruction
     assert ATTESTATION not in repr(request)
     assert ATTESTATION not in repr(result)
 
 
-def test_acp_session_new_is_an_explicit_create_interface(tmp_path):
-    cli = FakeSubprocess()
+def test_bootstrap_tells_an_unregistered_native_to_stop(tmp_path):
     acp = FakeAcp()
 
-    result = build_cursor_adapter(
-        subprocess_port=cli,
-        acp_port=acp,
-        create_interface="acp",
-    )(_launch(tmp_path))
+    build_cursor_adapter(acp_port=acp)(_launch(tmp_path))
 
-    assert result.result_code == "native_created"
-    assert result.native_session_id == "cursor-acp-new"
-    assert len(acp.new_requests) == 1
-    assert cli.create_requests == []
+    instruction = acp.new_requests[0].native_instruction
+    assert LAUNCH_BOOTSTRAP_REFUSAL in instruction
+    assert "take no repository" in instruction
 
 
 def test_idle_wake_uses_acp_without_resuming_a_stopped_chat(tmp_path):
@@ -215,7 +205,6 @@ def test_non_cursor_cli_and_untrusted_native_text_fail_before_transport(tmp_path
 
     assert desktop.result_code == "unsupported_surface"
     assert injected.result_code == "not_created"
-    assert cli.create_requests == []
     assert cli.resume_requests == []
     assert acp.new_requests == []
     assert acp.prompt_requests == []
@@ -223,8 +212,8 @@ def test_non_cursor_cli_and_untrusted_native_text_fail_before_transport(tmp_path
 
 
 def test_native_output_and_secrets_cannot_enter_report_evidence(tmp_path):
-    cli = FakeSubprocess()
-    cli.create_result = SimpleNamespace(
+    acp = FakeAcp()
+    acp.new_result = SimpleNamespace(
         result_code="native_created",
         native_session_id="cursor-session-safe",
         exit_code=0,
@@ -234,7 +223,7 @@ def test_native_output_and_secrets_cannot_enter_report_evidence(tmp_path):
         token="secret token",
     )
 
-    result = build_cursor_adapter(subprocess_port=cli)(_launch(tmp_path))
+    result = build_cursor_adapter(acp_port=acp)(_launch(tmp_path))
 
     assert result.native_session_id == "cursor-session-safe"
     rendered = repr(result)
