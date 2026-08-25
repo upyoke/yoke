@@ -12,6 +12,7 @@ from uuid import UUID
 
 from yoke_cli.commands._helpers import parse_or_usage_error, usage_error
 from yoke_cli.commands.adapters.session_control_launch_output import (
+    write_relay_probe_summary,
     write_relay_summary,
 )
 from yoke_contracts.session_control.teaching import FLEET_OWNERSHIP_GUIDANCE
@@ -25,6 +26,7 @@ RELAY_SERVE_ONCE_USAGE = (
     "yoke relay serve-once [--broker --broker-lease LEASE_ID] [--json]"
 )
 RELAY_DIAGNOSTIC_USAGE = "yoke relay diagnostic <opaque-ref>"
+RELAY_PROBE_SURFACE_USAGE = "yoke relay probe-surface [--surface S] [--json]"
 
 
 def _plist_operation(action: str) -> Any:
@@ -61,9 +63,15 @@ def _serve_once(
     *, broker_only: bool = False, broker_lease_id: str | None = None
 ) -> Any:
     from yoke_harness.session_relay import serve_once
+    from yoke_harness.session_relay_inventory import collect_cached_inventory
+    from yoke_harness.session_relay_surface_probe_cache import (
+        refresh_surface_probe_cache,
+    )
 
     _contain_stranded_natives()
     return serve_once(
+        inventory_provider=collect_cached_inventory,
+        inventory_refresher=(None if broker_only else refresh_surface_probe_cache),
         broker_only=broker_only,
         broker_lease_id=broker_lease_id,
     )
@@ -203,6 +211,40 @@ def relay_serve_once(args: List[str]) -> int:
     return 1 if str(payload.get("state") or "").endswith("_failed") else 0
 
 
+def relay_probe_surface(args: List[str]) -> int:
+    from yoke_harness.session_relay_surface_probe_cache import (
+        refresh_surface_probe_cache,
+    )
+    from yoke_harness.session_relay_surface_probes import KNOWN_SURFACE_PROBES
+
+    parser = _parser("yoke relay probe-surface", RELAY_PROBE_SURFACE_USAGE)
+    parser.add_argument("--surface", choices=KNOWN_SURFACE_PROBES)
+    parsed = parse_or_usage_error(parser, args, RELAY_PROBE_SURFACE_USAGE)
+    if parsed is None:
+        return 2
+    try:
+        probes = refresh_surface_probe_cache(parsed.surface)
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "code": "relay_surface_probe_failed",
+                    "message": str(exc),
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 1
+    payload = {"count": len(probes), "probes": list(probes)}
+    if parsed.json_mode:
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        write_relay_probe_summary(payload, sys.stdout)
+    return 0 if all(probe.get("verdict") == "ok" for probe in probes) else 1
+
+
 def relay_diagnostic(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke relay diagnostic",
@@ -238,11 +280,13 @@ def relay_diagnostic(args: List[str]) -> int:
 __all__ = [
     "RELAY_DIAGNOSTIC_USAGE",
     "RELAY_INSTALL_USAGE",
+    "RELAY_PROBE_SURFACE_USAGE",
     "RELAY_SERVE_ONCE_USAGE",
     "RELAY_STATUS_USAGE",
     "RELAY_UNINSTALL_USAGE",
     "relay_diagnostic",
     "relay_install",
+    "relay_probe_surface",
     "relay_serve_once",
     "relay_status",
     "relay_uninstall",

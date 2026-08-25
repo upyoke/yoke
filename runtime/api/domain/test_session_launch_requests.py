@@ -47,7 +47,74 @@ def test_eligibility_uses_live_versions_projects_and_freshest_relay_per_machine(
     )
 
     assert [relay.relay_id for relay in snapshot.relays] == ["fresh"]
-    assert snapshot.rejection_codes == ("project_checkout_missing", "version_mismatch")
+    assert snapshot.rejection_codes == (
+        "project_checkout_missing",
+        "version_below_floor",
+    )
+
+
+def test_eligibility_names_surface_version_and_liveness_predicates() -> None:
+    conn = launch_connection()
+    add_relay(
+        conn,
+        relay_id="stale",
+        machine_id="machine-stale",
+        connected_until="2026-08-22T11:59:59Z",
+    )
+    add_relay(
+        conn,
+        relay_id="absent",
+        machine_id="machine-absent",
+    )
+    conn.execute(
+        "UPDATE session_relays SET surface_versions = '{}' WHERE relay_id = ?",
+        ("absent",),
+    )
+    conn.commit()
+    add_relay(
+        conn,
+        relay_id="below-floor",
+        machine_id="machine-floor",
+        version="0.147.0",
+    )
+
+    snapshot = derive_launch_eligibility(
+        conn,
+        project_id=10,
+        surface="codex-cli",
+        machine_id=None,
+        now=NOW,
+    )
+
+    assert snapshot.relays == ()
+    assert snapshot.rejection_codes == (
+        "liveness_expired",
+        "surface_absent",
+        "version_below_floor",
+    )
+
+
+def test_create_refusal_names_the_failed_eligibility_predicate() -> None:
+    conn = launch_connection()
+    add_relay(conn)
+    conn.execute("UPDATE session_relays SET surface_versions = '{}'")
+    conn.commit()
+
+    with pytest.raises(SessionLaunchError) as raised:
+        create_launch(
+            conn,
+            auth=authorization(),
+            request=LaunchRequest(
+                project_id=10,
+                executor_surface="codex-cli",
+                instructions="Start one bounded task.",
+                idempotency_key="surface-absent",
+            ),
+            now=NOW,
+        )
+
+    assert raised.value.code == "no_eligible_relay"
+    assert "surface_absent" in str(raised.value)
 
 
 def test_eligibility_accepts_cursor_build_version() -> None:

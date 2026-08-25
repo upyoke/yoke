@@ -198,6 +198,8 @@ class LaunchPreviewResponse(BaseModel):
     selected_surface: Optional[str] = None
     fallback_used: bool = False
     launchable: bool
+    considered_machine_ids: List[str] = Field(default_factory=list)
+    rejection_codes: List[str] = Field(default_factory=list)
     eligible_relays: List[Dict[str, Any]]
     selected_relay: Optional[Dict[str, Any]] = None
 

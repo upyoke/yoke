@@ -32,7 +32,14 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
 
 PERMANENT_ROWS: tuple[_Row, ...] = tuple(
     _p(f"yoke relay {verb}", "session_control.relay", REASON_TOOL_SHAPED)
-    for verb in ("install", "uninstall", "status", "serve-once", "diagnostic")
+    for verb in (
+        "install",
+        "uninstall",
+        "status",
+        "serve-once",
+        "diagnostic",
+        "probe-surface",
+    )
 ) + (
     _p(
         "yoke session-control acceptance run",

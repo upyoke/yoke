@@ -109,6 +109,16 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("Selected surface", result.get("selected_surface")),
             ("Fallback used", bool(result.get("fallback_used"))),
             ("Launchable", bool(result.get("launchable"))),
+            (
+                "Considered machines",
+                ", ".join(result.get("considered_machine_ids") or []),
+            ),
+            (
+                "Eligibility failures",
+                ", ".join(
+                    humanize(code) for code in result.get("rejection_codes") or []
+                ),
+            ),
             ("Selected relay", selected_row.get("relay_id")),
             ("Selected machine", selected_row.get("machine_id")),
         ],
@@ -169,6 +179,26 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
     print("LAUNCH\nNo launch details returned.", file=stdout)
 
 
+def write_relay_probe_summary(payload: Mapping[str, Any], stdout: TextIO) -> None:
+    columns: tuple[Column, ...] = (
+        ("SURFACE", lambda row: row.get("surface"), 20),
+        ("SOURCE", lambda row: humanize(row.get("source")), 8),
+        ("VERDICT", lambda row: humanize(row.get("verdict")), 16),
+        ("VERSION", lambda row: row.get("version"), 18),
+        ("DURATION (MS)", lambda row: row.get("duration_ms"), 13),
+        ("ADVERTISED", lambda row: row.get("advertised_version"), 18),
+        ("CACHE", lambda row: humanize(row.get("cache_state")), 10),
+        ("ERROR", lambda row: row.get("error"), None),
+    )
+    write_table(
+        "RELAY SURFACE PROBES",
+        columns,
+        payload.get("probes") or [],
+        stdout,
+        empty="No relay surfaces were probed.",
+    )
+
+
 def write_relay_summary(
     payload: Mapping[str, Any],
     stdout: TextIO,
@@ -218,4 +248,8 @@ def _relay_job_fields(
     return fields
 
 
-__all__ = ["write_launch_result", "write_relay_summary"]
+__all__ = [
+    "write_launch_result",
+    "write_relay_probe_summary",
+    "write_relay_summary",
+]

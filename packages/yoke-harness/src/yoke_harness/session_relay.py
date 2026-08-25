@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
+import logging
 from pathlib import Path
 import time
 from typing import Any, Callable, Mapping
@@ -32,6 +34,7 @@ RELAY_DISPATCH_TIMEOUT_SECONDS = int(_POLL_POLICY.default) + int(
     _POLL_POLICY.minimum or 0
 )
 RELAY_REPORT_TIMEOUT_SECONDS = 10
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -272,6 +275,7 @@ def serve_once(
     *,
     state_dir: Path | None = None,
     inventory_provider: Callable[[], RelayInventory] = collect_inventory,
+    inventory_refresher: Callable[[], object] | None = None,
     dispatcher: Dispatcher = call_dispatcher,
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
@@ -286,15 +290,27 @@ def serve_once(
             return ServeOnceOutcome("locked")
         if not broker_only and not poll_is_due(state_dir, now=started_at):
             return ServeOnceOutcome("backoff")
-        outcome = _poll(
-            inventory_provider(),
-            dispatcher=dispatcher,
-            runner=runner,
-            state_dir=state_dir,
-            broker_only=broker_only,
-            broker_lease_id=broker_lease_id,
-            sleep=sleep,
-        )
+        inventory = inventory_provider()
+        pool = ThreadPoolExecutor(max_workers=1) if inventory_refresher else None
+        refresh = pool.submit(inventory_refresher) if pool else None
+        try:
+            outcome = _poll(
+                inventory,
+                dispatcher=dispatcher,
+                runner=runner,
+                state_dir=state_dir,
+                broker_only=broker_only,
+                broker_lease_id=broker_lease_id,
+                sleep=sleep,
+            )
+        finally:
+            if refresh:
+                try:
+                    refresh.result()
+                except Exception:
+                    _LOGGER.warning("relay surface probe refresh failed", exc_info=True)
+            if pool:
+                pool.shutdown()
         if outcome.next_poll_seconds and not broker_only:
             record_next_poll(
                 outcome.next_poll_seconds,
