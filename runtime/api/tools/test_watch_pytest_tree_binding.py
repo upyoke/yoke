@@ -11,6 +11,7 @@ their other pre-flight rejections.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ import pytest
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 from yoke_core.tools import run_tests, watch_pytest
+from yoke_core.tools._impacted_selection import Selection
 
 REFUSAL = "REFUSAL: cd to the claimed worktree"
 NOTICE = "NOTICE: running the other tree"
@@ -109,6 +111,84 @@ class TestWatchPytestBinding:
             ["--print-streaming-pair", "--", "runtime/api/", "-q"],
         )
         assert rc == 0
+
+    def test_impacted_main_call_runs_untracked_lane_selection_in_one_tree(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
+        tmp_path: Path,
+    ) -> None:
+        main = tmp_path / "repo"
+        lane = main / ".worktrees" / "foreign-lane"
+        selected = "runtime/api/tools/test_new_untracked.py"
+        trigger = "notes/new-untracked.txt"
+        (lane / selected).parent.mkdir(parents=True)
+        (lane / selected).write_text(
+            "def test_new():\n    assert True\n", encoding="utf-8"
+        )
+        (lane / trigger).parent.mkdir(parents=True)
+        (lane / trigger).write_text("new\n", encoding="utf-8")
+        (main / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+        (lane / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+        monkeypatch.chdir(main)
+        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+        monkeypatch.setattr(watch_pytest, "_impacted_tree", lambda: lane)
+        selection = Selection(
+            full_sweep=False,
+            reason="selection unbounded (unmapped_file_kind)",
+            files=(selected,),
+            fallback_rule="unmapped_file_kind",
+            trigger_paths=(trigger,),
+            bounded_deferral=True,
+        )
+
+        def _selection(base, *, bounded=False, root=None):
+            assert base == "main" and bounded is True
+            assert root == lane
+            return selection
+
+        observed = {}
+        monkeypatch.setattr(watch_pytest, "_impacted_selection", _selection)
+        monkeypatch.setattr(
+            watch_pytest.verification_tree_binding,
+            "evaluate_run",
+            lambda **kwargs: (
+                observed.update(binding=kwargs)
+                or watch_pytest.verification_tree_binding.TreeBindingVerdict()
+            ),
+        )
+        monkeypatch.setattr(
+            watch_pytest,
+            "_pytest_argv",
+            lambda args, *, cwd=None: (
+                observed.update(argv_cwd=cwd) or ["pytest", *args]
+            ),
+        )
+        monkeypatch.setattr(
+            watch_pytest.gate_admission,
+            "admitted_gate",
+            lambda *_args, **_kwargs: contextlib.nullcontext(),
+        )
+        monkeypatch.setattr(
+            watch_pytest._watch_runner,
+            "run_watcher",
+            lambda **kwargs: observed.update(runner=kwargs) or 0,
+        )
+        monkeypatch.setattr(
+            watch_pytest._watch_pytest_wall_clock,
+            "report",
+            lambda *_args, **_kwargs: None,
+        )
+
+        assert watch_pytest.main(["--impacted", "main"]) == 0
+
+        assert observed["binding"]["tree"] == str(lane)
+        assert observed["argv_cwd"] == lane
+        assert observed["runner"]["cwd"] == str(lane)
+        assert selected in observed["runner"]["argv"]
+        output = capsys.readouterr().out
+        assert "unmapped_file_kind" in output
+        assert trigger in output
 
     def test_nested_pytest_rejection_still_wins(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,

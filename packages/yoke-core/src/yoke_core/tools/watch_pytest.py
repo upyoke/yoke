@@ -32,7 +32,6 @@ Do NOT pass a full pytest command-shape after ``--``. The wrapper rejects
 
 from __future__ import annotations
 
-import os
 import time
 import sys
 from pathlib import Path
@@ -74,11 +73,11 @@ KIND = "pytest"
 DEFAULT_PROG = "watch_pytest"
 
 
-def _pytest_argv(args: Sequence[str]) -> list[str]:
+def _pytest_argv(args: Sequence[str], *, cwd: Path | None = None) -> list[str]:
     """Build the underlying pytest invocation."""
     from yoke_core.tools.watch_pytest_project_python import pytest_argv
 
-    return pytest_argv(args)
+    return pytest_argv(args, cwd=cwd)
 
 
 def _strip_separator(passthrough: list[str]) -> list[str]:
@@ -105,11 +104,22 @@ def _extract_wrapper_flag(argv: list[str], flag: str) -> tuple[list[str], bool]:
     return filtered, found
 
 
-def _impacted_selection(base: str, *, bounded: bool = False):
+def _impacted_selection(
+    base: str,
+    *,
+    bounded: bool = False,
+    root: Path | None = None,
+):
     """Selection for the current change, or None when there are no files."""
     from yoke_core.tools.watch_pytest_project_python import impacted_selection
 
-    return impacted_selection(base, bounded=bounded)
+    return impacted_selection(base, bounded=bounded, root=root)
+
+
+def _impacted_tree() -> Path:
+    from yoke_core.tools.watch_pytest_project_python import impacted_tree
+
+    return impacted_tree()
 
 
 def _selection_footer(selection, collected_items: int | None) -> str:
@@ -148,8 +158,14 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     pytest_args = _strip_separator(list(ns.passthrough))
 
     selection = None
+    run_root = Path.cwd().resolve()
     if ns.impacted is not None:
-        selection = _impacted_selection(ns.impacted, bounded=not ns.widen)
+        run_root = _impacted_tree()
+        selection = _impacted_selection(
+            ns.impacted,
+            bounded=not ns.widen,
+            root=run_root,
+        )
         if selection is None:
             return 0
         if getattr(selection, "bounded_deferral", False):
@@ -184,7 +200,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         return 2
 
     invalid_selection = _watch_pytest_args.invalid_test_selection_diagnostic(
-        pytest_args, Path.cwd()
+        pytest_args, run_root
     )
     if invalid_selection is not None:
         print(invalid_selection, file=sys.stderr)
@@ -192,6 +208,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     binding = verification_tree_binding.evaluate_run(
         surface=prog,
+        tree=str(run_root),
         allow_mismatch=ns.allow_tree_mismatch,
     )
     if binding.notice is not None:
@@ -205,7 +222,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     # ``--no-parallel`` is a wrapper-level concept and never reaches pytest.
     no_parallel, pytest_args = split_no_parallel(pytest_args)
     pytest_args = apply_parallel_default(pytest_args, no_parallel=no_parallel)
-    source_root = _source_pythonpath.repo_root(Path.cwd())
+    source_root = _source_pythonpath.repo_root(run_root)
     pytest_env = apply_postgres_xdist_auto_env(pytest_args)
     pytest_env = _source_pythonpath.with_source_pythonpath(pytest_env, source_root)
     # Already judged above; the child's startup check inherits that answer.
@@ -252,7 +269,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_path = ns.raw_capture
         progress_path = ns.progress_capture
 
-    warning = _watch_pytest_rootdir.rootdir_mismatch_warning(pytest_args, os.getcwd())
+    warning = _watch_pytest_rootdir.rootdir_mismatch_warning(pytest_args, str(run_root))
     if warning:
         sys.stdout.write(warning)
         sys.stdout.flush()
@@ -278,18 +295,19 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             if selection is not None:
                 lines.append(_selection_footer(selection, collected_items))
             zero_collection = _watch_pytest_args.zero_collection_diagnostic(
-                pytest_args, collected_items, Path.cwd()
+                pytest_args, collected_items, run_root
             )
             if zero_collection is not None:
                 lines.append(zero_collection)
             return "\n".join(lines) or None
 
         exit_code = _watch_runner.run_watcher(
-            argv=_pytest_argv(pytest_args),
+            argv=_pytest_argv(pytest_args, cwd=run_root),
             classifier=selection_classifier,
             raw_capture=raw_path,
             progress_capture=progress_path,
             kind=KIND,
+            cwd=str(run_root),
             env=gate_admission.admitted_environment(pytest_env),
             timeout_seconds=execution_timeout,
             header_metadata=(
