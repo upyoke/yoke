@@ -12,6 +12,12 @@ Scope is live source only. Tests legitimately build environments that
 name several variables at once; they satisfy the same rule by importing
 :data:`yoke_contracts.session_identity.AMBIENT_ENV_VARS` when they mean
 "the whole chain", which is what makes a chain that grows reach them.
+
+The owner spells the chain out per harness family rather than as one
+flat tuple, because which family a process belongs to decides which of
+the variables may answer for it. The guard therefore asks whether the
+owner names every chain variable somewhere, not whether one statement
+lists them all.
 """
 
 from __future__ import annotations
@@ -34,7 +40,9 @@ SOURCE_ROOTS = (
 )
 
 #: The chain's single owner, and the one module allowed to spell it out.
-_CHAIN_OWNER = "packages/yoke-contracts/src/yoke_contracts/session_identity.py"
+_CHAIN_OWNER = (
+    "packages/yoke-contracts/src/yoke_contracts/harness_family_identity.py"
+)
 
 #: ``CODEX_THREAD_ID`` here keys a Codex *runtime thread* — which
 #: transcript and cache belong to the process now running — and not a
@@ -123,9 +131,9 @@ def test_only_session_identity_enumerates_the_chain() -> None:
 def test_the_owner_really_does_enumerate_the_chain() -> None:
     """The guard above is only meaningful while the owner is the exception."""
     tree = ast.parse((REPO_ROOT / _CHAIN_OWNER).read_text(encoding="utf-8"))
-    assert any(
-        names == _CHAIN for _, names in _enumerations(tree)
-    ), "the chain owner no longer spells out the chain; move the guard"
+    assert _chain_names_in(tree) == _CHAIN, (
+        "the chain owner no longer spells out the chain; move the guard"
+    )
 
 
 def test_runtime_thread_lookups_stay_child_keyed() -> None:

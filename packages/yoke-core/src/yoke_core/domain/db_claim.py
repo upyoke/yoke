@@ -137,9 +137,8 @@ def amend(
         conn: Optional pre-opened DB connection. When omitted, the
             workflow opens a short-lived connection via
             :func:`db_helpers.connect`.
-        session_id: Optional session ID override. Falls back to
-            ``YOKE_SESSION_ID`` / ``CLAUDE_CODE_SESSION_ID`` /
-            ``CODEX_SESSION_ID`` / ``CODEX_THREAD_ID`` in that order.
+        session_id: Optional session ID override. Falls back to this
+            process's ambient session identity.
         commit: Commit the amendment when true. With ``commit=False`` the
             caller owns commit/rollback so this write can compose atomically.
 

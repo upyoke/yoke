@@ -115,11 +115,24 @@ Only the second is a surface, and only the second is in
 """
 
 
+SURFACE_TOKEN_ALIASES: Mapping[str, str] = {"codex-exec": "codex-cli"}
+"""Harness-reported tokens naming a surface :data:`EXECUTOR_EMOJI` already has.
+
+``codex exec`` reports originator ``codex_exec``: the non-interactive
+form of the Codex CLI, not a fourth Codex surface. Unmapped it resolves
+to nothing, and one observed ``codex exec`` session stored
+``executor_surface`` NULL beside every interactive Codex row's
+``codex-desktop``. Minting a ``codex-exec`` label instead would give one
+physical surface two names — the drift the glyph map exists to prevent.
+"""
+
+
 def surface_alias(candidate: Optional[str]) -> Optional[str]:
     """Return a closed-vocabulary surface alias, or ``None`` when unknown."""
     normalized = str(candidate or "").strip().lower().replace("_", "-")
     if not normalized or normalized in INVOCATION_CONTEXT_ORIGINATORS:
         return None
+    normalized = SURFACE_TOKEN_ALIASES.get(normalized, normalized)
     if normalized in CANONICAL_HARNESS_IDS:
         return None
     return normalized if normalized in EXECUTOR_EMOJI else None
@@ -148,6 +161,7 @@ __all__ = [
     "LEGACY_HARNESS_ALIASES",
     "KNOWN_EXECUTOR_LABELS",
     "KNOWN_SURFACE_LABELS",
+    "SURFACE_TOKEN_ALIASES",
     "canonical_harness_id",
     "executor_presentation",
     "surface_alias",

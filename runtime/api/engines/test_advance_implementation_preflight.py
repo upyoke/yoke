@@ -93,7 +93,8 @@ def test_env_stamped_identity_proceeds(monkeypatch, tmp_path):
     )
 
 
-def test_cursor_map_identity_proceeds(monkeypatch, tmp_path):
+def test_cursor_map_identity_proceeds(monkeypatch, tmp_path, harness_family):
+    harness_family("cursor")
     home = _isolate_ambient_identity(monkeypatch, tmp_path)
     monkeypatch.setenv(CURSOR_CONVERSATION_ENV_VAR, "conversation-1")
     record_conversation_session(

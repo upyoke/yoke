@@ -3,13 +3,18 @@
 Single owner of the chain answering "which harness session is this
 process running under?":
 
-1. **Env chain (fast path):** ``YOKE_SESSION_ID`` ->
-   ``CLAUDE_CODE_SESSION_ID`` -> ``CODEX_SESSION_ID`` -> ``CODEX_THREAD_ID``.
-2. **Process-anchor ancestry walk:** a hook-written registry under
+0. **Yoke's own stamp:** ``YOKE_SESSION_ID``, which an explicit
+   ``--session-id`` propagates, outranks everything below.
+1. **The owning harness family**, read from the process tree
+   (:mod:`yoke_contracts.harness_family_identity`), scopes the rest: only
+   the family this process actually runs under may answer, so a variable
+   an outer harness exported into a nested one never does.
+2. **Env chain:** that family's own session variables.
+3. **Process-anchor ancestry walk:** a hook-written registry under
    ``<machine-home>/session-anchors/`` maps the per-session harness agent
    pid to its session id, so any shell that harness spawns self-identifies
    by walking its parent chain against it when no env stamp came.
-3. **Conversation mapping:** a harness that neither stamps step 1 nor can
+4. **Conversation mapping:** a harness that neither stamps step 2 nor can
    be anchored resolves through the pairing its own hooks record.
 
 Pure standard library; takes ``anchors_dir`` as an argument so BOTH sides
@@ -26,11 +31,19 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Mapping, Optional, Union
 
 from yoke_contracts.cursor_session_map import (
     CURSOR_SESSION_MAP_DIR_NAME,
     resolve_mapped_session_id,
+)
+from yoke_contracts.harness_family_identity import (
+    AMBIENT_ENV_VARS,
+    CURSOR_FAMILY,
+    YOKE_SESSION_ENV_VAR,
+    family_env_session_id,
+    nearest_harness_family,
+    resolve_env_session_id,
 )
 from yoke_contracts.process_ancestry import (
     ProcessAnchor,
@@ -44,24 +57,6 @@ from yoke_contracts.session_anchor_contention import (
     writer_breadcrumb,
 )
 
-
-# ---------------------------------------------------------------------------
-# Env chain
-# ---------------------------------------------------------------------------
-
-# Claude Code stamps ``CLAUDE_CODE_SESSION_ID`` into every subprocess,
-# background agent and interactive alike, and for a launched worker it is
-# the only per-conversation identity that arrives: those shells descend
-# from pooled daemon processes, so an anchor on the reused pid is claimed
-# by each worker in turn and names none. Codex exports the *parent*
-# thread as ``CODEX_SESSION_ID`` and the subagent's own as
-# ``CODEX_THREAD_ID``; parent first, since a child is unregistered.
-AMBIENT_ENV_VARS: Tuple[str, ...] = (
-    "YOKE_SESSION_ID",
-    "CLAUDE_CODE_SESSION_ID",
-    "CODEX_SESSION_ID",
-    "CODEX_THREAD_ID",
-)
 
 # One denial sentence for every surface that requires a session and found
 # none: infrastructure-gap framing plus the operator-debug override, and
@@ -84,18 +79,6 @@ ANCHORS_DIR_NAME = "session-anchors"
 ACTOR_ROLE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
 
 _AnchorsDir = Union[str, "os.PathLike[str]"]
-
-
-def resolve_env_session_id(
-    env: Optional[Mapping[str, str]] = None,
-) -> Optional[str]:
-    """Return the first non-empty session id from the canonical env chain."""
-    source = os.environ if env is None else env
-    for name in AMBIENT_ENV_VARS:
-        value = source.get(name)
-        if value:
-            return value
-    return None
 
 
 def resolve_actor_role(
@@ -311,18 +294,34 @@ def resolve_ambient_session_id(
     *,
     cursor_map_dir: Optional[_AnchorsDir] = None,
 ) -> Optional[str]:
-    """Resolve ambient session identity: env chain, ancestry, hook mapping.
+    """Resolve ambient session identity for the calling process.
 
-    Returns ``None`` when no source yields an id. Never raises. Each
-    layer resolves its own machine home and passes the two directories
-    below it; omitting ``cursor_map_dir`` skips the Cursor lane.
-
-    Ancestry precedes the mapping deliberately: a per-session harness
-    nested inside a Cursor agent inherits ``CURSOR_CONVERSATION_ID``
-    through the environment, and its own anchor — reached before the
-    shared Cursor host — is the truthful answer.
+    Yoke's own stamp wins outright. Otherwise the harness family this
+    process actually runs under — read from the process tree, which
+    nothing inherits — decides which channels may answer: that family's
+    variables, then its anchor, then, for the one family that stamps no
+    variable, its conversation map. A family that stamped nothing
+    reachable yields ``None``: reporting no identity beats answering
+    with a variable a *different* harness exported into this process.
+    With no harness ancestor at all (an operator terminal, CI, a
+    reparented process) nothing was inherited from and the family-blind
+    chain runs unchanged. Each layer resolves its own machine home and
+    passes the two directories below it; omitting ``cursor_map_dir``
+    skips the Cursor lane. Never raises.
     """
-    value = resolve_env_session_id(env)
+    source = os.environ if env is None else env
+    explicit = (source.get(YOKE_SESSION_ENV_VAR) or "").strip()
+    if explicit:
+        return explicit
+    family = nearest_harness_family()
+    if family is not None:
+        value = family_env_session_id(family, source)
+        if not value:
+            value = resolve_session_from_ancestry(anchors_dir)
+        if not value and family == CURSOR_FAMILY and cursor_map_dir is not None:
+            value = resolve_mapped_session_id(cursor_map_dir, source)
+        return value or None
+    value = resolve_env_session_id(source)
     if value:
         return value
     value = resolve_session_from_ancestry(anchors_dir)
@@ -330,7 +329,7 @@ def resolve_ambient_session_id(
         return value
     if cursor_map_dir is None:
         return None
-    return resolve_mapped_session_id(cursor_map_dir, env)
+    return resolve_mapped_session_id(cursor_map_dir, source)
 
 
 __all__ = [

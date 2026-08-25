@@ -80,7 +80,10 @@ def _write(lane, session_id="", conversation_id=""):
 
 
 class TestCursorMapOnlyIdentity:
-    def test_own_lane_write_is_allowed(self, conn, repo, isolated_home, monkeypatch):
+    def test_own_lane_write_is_allowed(
+        self, conn, repo, isolated_home, monkeypatch, harness_family,
+    ):
+        harness_family("cursor")
         record_conversation_session(
             CONVERSATION, HOLDER, isolated_home / CURSOR_SESSION_MAP_DIR_NAME,
         )

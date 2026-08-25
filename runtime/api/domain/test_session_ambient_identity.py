@@ -1,11 +1,15 @@
 """Unit tests for the canonical ambient session-identity chain.
 
-Covers the resolution order pin: env chain first (fast path), then the
-process-anchor ancestry walk, then ``None``. The ancestry step is
-exercised against a tmp machine home so no test reads the real registry.
+Covers the resolution order pin: the owning harness family scopes the
+chain, then that family's env variables, then the process-anchor
+ancestry walk, then ``None``. The ancestry step is exercised against a
+tmp machine home so no test reads the real registry, and the owning
+family is always pinned so no test reads the machine's process tree.
 """
 
 from __future__ import annotations
+
+import os
 
 import pytest
 
@@ -26,7 +30,21 @@ def machine_home(tmp_path, monkeypatch):
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     for name in ambient.AMBIENT_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+    # No harness ancestor by default: the family-blind chain, and never
+    # the process tree of whichever harness happens to run the suite.
+    monkeypatch.setattr(ambient, "nearest_harness_family", lambda *_a, **_k: None)
     return home
+
+
+@pytest.fixture()
+def owning_family(monkeypatch):
+    """Pin the harness family the process tree would otherwise name."""
+    def _pin(family):
+        monkeypatch.setattr(
+            ambient, "nearest_harness_family", lambda *_a, **_k: family,
+        )
+
+    return _pin
 
 
 class TestEnvChain:
@@ -200,6 +218,105 @@ class TestCliChokepointDelegation:
         )
 
         assert _resolve_session_id(None) is None
+
+
+class TestNestedHarnessSpawn:
+    """A harness started inside another harness inherits its variable.
+
+    Live-reproduced on both: a ``codex exec`` run and a Cursor agent run,
+    each launched from a Claude session's shell, resolved to that Claude
+    session and would have acted with its authority while their own
+    registrations sat unused.
+    """
+
+    def test_codex_child_resolves_to_its_own_session(
+        self, machine_home, owning_family,
+    ):
+        owning_family("codex")
+        assert ambient.resolve_ambient_session_id({
+            "CLAUDE_CODE_SESSION_ID": "claude-parent",
+            "CODEX_SESSION_ID": "codex-child",
+        }) == "codex-child"
+
+    def test_cursor_child_resolves_through_its_conversation_map(
+        self, machine_home, owning_family,
+    ):
+        record_conversation_session(
+            "conv-child",
+            "cursor-child",
+            machine_home / CURSOR_SESSION_MAP_DIR_NAME,
+        )
+        owning_family("cursor")
+        assert ambient.resolve_ambient_session_id({
+            "CLAUDE_CODE_SESSION_ID": "claude-parent",
+            "CURSOR_CONVERSATION_ID": "conv-child",
+        }) == "cursor-child"
+
+    def test_a_family_that_stamped_nothing_reports_no_identity(
+        self, machine_home, owning_family,
+    ):
+        """Refusing beats answering with the launching session's variable."""
+        owning_family("codex")
+        assert ambient.resolve_ambient_session_id({
+            "CLAUDE_CODE_SESSION_ID": "claude-parent",
+        }) is None
+
+    def test_claude_child_of_a_codex_session_resolves_to_itself(
+        self, machine_home, owning_family,
+    ):
+        owning_family("claude-code")
+        assert ambient.resolve_ambient_session_id({
+            "CODEX_SESSION_ID": "codex-parent",
+            "CLAUDE_CODE_SESSION_ID": "claude-child",
+        }) == "claude-child"
+
+    def test_the_explicit_stamp_outranks_the_owning_family(
+        self, machine_home, owning_family,
+    ):
+        owning_family("codex")
+        assert ambient.resolve_ambient_session_id({
+            "YOKE_SESSION_ID": "pinned",
+            "CLAUDE_CODE_SESSION_ID": "claude-parent",
+        }) == "pinned"
+
+    def test_the_owning_family_reaches_the_cli_chokepoint(
+        self, machine_home, owning_family,
+    ):
+        from yoke_core.api.service_client_shared_session_resolver import (
+            _resolve_session_id,
+        )
+
+        owning_family("codex")
+        monkey_env = {"CLAUDE_CODE_SESSION_ID": "claude-parent"}
+        for name, value in monkey_env.items():
+            os.environ[name] = value
+        try:
+            assert _resolve_session_id(None) is None
+        finally:
+            for name in monkey_env:
+                os.environ.pop(name, None)
+
+
+class TestOwningFamilyDiagnostics:
+    """The denial names the family, the reason an inherited value lost."""
+
+    def test_channels_report_the_owning_family(
+        self, machine_home, owning_family,
+    ):
+        owning_family("codex")
+        channels = {
+            row["channel"]: row["raw"]
+            for row in ambient.consult_identity_channels()
+        }
+        assert channels["process_family"] == "codex"
+
+    def test_denial_text_names_the_owning_family(
+        self, machine_home, owning_family,
+    ):
+        owning_family("codex")
+        assert "process_family=codex" in ambient.format_actor_session_missing(
+            "items.create",
+        )
 
 
 class TestHookPayloadFold:

@@ -296,7 +296,10 @@ def test_record_then_stamp_skips_self_map_on_worktree_lane(
     )
 
 
-def test_stamp_fills_from_cursor_session_map(tmp_path, monkeypatch) -> None:
+def test_stamp_fills_from_cursor_session_map(
+    tmp_path, monkeypatch, harness_family,
+) -> None:
+    harness_family("cursor")
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     for name in AMBIENT_ENV_VARS:
