@@ -97,6 +97,16 @@ def _connect_rw() -> Any:
     return db_helpers.connect()
 
 
+#: Typed acquisition refusals that deserve their own function error code.
+#: ``document_locked`` names the strategy-document lock standing between a
+#: Blitz and its claim, so the caller can tell it from an item already
+#: claimed by another session.
+_ACQUIRE_ERROR_CODES = {
+    "ALREADY_CLAIMED": "already_claimed",
+    "DOCUMENT_LOCKED": "document_locked",
+}
+
+
 def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
     """Acquire a typed work claim for ``request.actor.session_id``.
 
@@ -137,11 +147,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 reason=body.reason,
             )
         except SessionError as exc:
-            code = (
-                "already_claimed"
-                if exc.code == "ALREADY_CLAIMED"
-                else "claim_failed"
-            )
+            code = _ACQUIRE_ERROR_CODES.get(exc.code, "claim_failed")
             return _err(code, f"{exc.code}: {exc}")
 
     return HandlerOutcome(

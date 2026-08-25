@@ -189,7 +189,8 @@ def test_item_owned_claim_survives_session_handoff(tmp_db: str) -> None:
     finally:
         conn.close()
 
-    assert claim["owning_item_id"] == 2001
+    assert claim["owner_kind"] == "item"
+    assert claim["owner_item_id"] == 2001
     assert claim["workflow_id"] == "blitz"
     assert int(claim["workflow_version_id"]) > 0
     # The number is this universe's own sequence position, so the claim only
@@ -226,7 +227,9 @@ def test_second_blitz_cannot_claim_same_document(tmp_db: str) -> None:
             session_id="session-a",
             actor_id=1,
         )
-        with pytest.raises(StrategyDocClaimConflictError, match="item 2001"):
+        # The refusal names the holder the operator can act on: its public
+        # item reference, not the raw row id.
+        with pytest.raises(StrategyDocClaimConflictError, match="YOK-2001"):
             acquire_strategy_doc_claim(
                 conn,
                 item_id=2002,

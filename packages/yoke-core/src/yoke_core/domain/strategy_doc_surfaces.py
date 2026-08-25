@@ -82,7 +82,9 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
         "(SELECT COUNT(*) FROM strategy_doc_revisions r "
         " WHERE r.project_id = d.project_id AND r.slug = d.slug "
         f" AND r.created_at >= {marker}) AS recent_writes, "
-        "c.owning_item_id AS execution_item_id, i.title AS execution_item_title, "
+        "c.owner_kind AS execution_owner_kind, "
+        "c.owner_session_id AS execution_owner_session_id, "
+        "c.owner_item_id AS execution_item_id, i.title AS execution_item_title, "
         "i.project_sequence AS execution_item_sequence, "
         "p.slug AS project_slug, p.public_item_prefix "
         "FROM strategy_docs d "
@@ -90,7 +92,7 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
         "LEFT JOIN strategy_doc_claims c "
         " ON c.project_id = d.project_id "
         "AND c.strategy_doc_slug = d.slug AND c.released_at IS NULL "
-        "LEFT JOIN items i ON i.id = c.owning_item_id "
+        "LEFT JOIN items i ON i.id = c.owner_item_id "
         f"WHERE d.project_id = {marker}",
         (recent_cutoff, int(project_id)),
     ).fetchall()
@@ -103,10 +105,13 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
     for row in rows:
         values = dict(row)
         summary = summary_from_row(conn, values)
+        held = values["execution_owner_kind"] is not None
         summary.update({
             "parent_slug": values["parent_slug"],
             "revisions": int(values["revisions"]),
             "recent_writes": int(values["recent_writes"]),
+            "execution_owner_kind": values["execution_owner_kind"],
+            "execution_owner_session_id": values["execution_owner_session_id"],
             "execution_item_id": values["execution_item_id"],
             "execution_item_title": values["execution_item_title"],
             "execution_item_ref": (
@@ -119,7 +124,7 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
                 if values["execution_item_id"] is not None else None
             ),
             "execution_state": (
-                "claimed" if values["execution_item_id"] is not None
+                "claimed" if held
                 else ("reference" if values["archived_at"] is not None else "available")
             ),
         })

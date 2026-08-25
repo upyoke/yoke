@@ -97,8 +97,39 @@ class StrategyExecutionClaimBreakGlassRequest(BaseModel):
     reason: str = Field(..., min_length=1)
 
 
+class StrategyDocClaimAcquireRequest(BaseModel):
+    slug: str = Field(..., min_length=1)
+    reason: Optional[str] = None
+
+
+class StrategyDocClaimReleaseRequest(BaseModel):
+    slug: str = Field(..., min_length=1)
+    reason: Optional[str] = None
+
+
+class StrategyDocClaimListRequest(BaseModel):
+    active_only: bool = True
+
+
+class StrategyDocClaimResponse(BaseModel):
+    project_id: int
+    project_slug: str
+    claim: Dict[str, Any]
+
+
+class StrategyDocClaimListResponse(BaseModel):
+    project_id: int
+    project_slug: str
+    claims: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 __all__ = [
     "EmptyRequest",
+    "StrategyDocClaimAcquireRequest",
+    "StrategyDocClaimListRequest",
+    "StrategyDocClaimListResponse",
+    "StrategyDocClaimReleaseRequest",
+    "StrategyDocClaimResponse",
     "StrategyCoordinationAppendRequest",
     "StrategyCoordinationAppendResponse",
     "StrategyExecutionClaimReleaseRequest",

@@ -230,6 +230,14 @@ def claim_work(
         validate_work_claim_target(conn, target)
     except WorkflowItemBindingError as exc:
         raise SessionError("INVALID_CLAIM", str(exc)) from exc
+    if target.kind == TARGET_KIND_ITEM:
+        from yoke_core.domain.strategy_doc_claim_exclusion import (
+            document_lock_refusal,
+        )
+
+        locked = document_lock_refusal(conn, int(target.item_id))
+        if locked is not None:
+            raise SessionError("DOCUMENT_LOCKED", locked)
     dup = conn.execute(
         f"SELECT id FROM work_claims "
         f"WHERE session_id = {p} AND {self_clause} AND released_at IS NULL "

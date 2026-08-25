@@ -77,6 +77,31 @@ def seed_session_claim(conn, item_id: int, session_id: str) -> None:
     conn.commit()
 
 
+def seed_session(conn, session_id: str) -> None:
+    """Register one harness session with no work claim of its own."""
+    now = iso8601_now()
+    conn.execute(
+        "INSERT INTO harness_sessions "
+        "(session_id, executor, provider, model, workspace, project_id, "
+        "offered_at, last_heartbeat) "
+        "VALUES (%s, 'codex', 'openai', 'gpt', '/tmp', 1, %s, %s) "
+        "ON CONFLICT (session_id) DO NOTHING",
+        (session_id, now, now),
+    )
+    conn.commit()
+
+
+def link_blitz_document(conn, item_id: int, slug: str) -> None:
+    """Bind a Blitz item to the document it executes."""
+    conn.execute(
+        "INSERT INTO item_strategy_docs "
+        "(item_id, project_id, strategy_doc_slug, linked_at) "
+        "VALUES (%s, 1, %s, %s)",
+        (item_id, slug, iso8601_now()),
+    )
+    conn.commit()
+
+
 def strategy_function_request(
     function_id: str,
     *,

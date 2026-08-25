@@ -9,11 +9,11 @@ COORDINATION_APPENDED_EVENT = "StrategyDocCoordinationAppended"
 STRATEGY_EXECUTION_EVENT_ROWS = (
     (
         CLAIM_ACQUIRED_EVENT,
-        "An active Blitz item acquired its linked execution document.",
+        "A Blitz item or a session took the claim on a strategy document.",
     ),
     (
         CLAIM_RELEASED_EVENT,
-        "A Blitz released its item-owned execution-document claim.",
+        "A Blitz item or a session released its strategy-document claim.",
     ),
     (
         CLAIM_BREAK_GLASS_EVENT,

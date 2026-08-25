@@ -64,7 +64,7 @@ function strategyDocument() {
     pending_review_count: 1,
     review_requests: [{ id: 7, status: "pending" }],
     execution_claim: {
-      owning_item_id: 2262, project_id: 1,
+      owner_kind: "item", owner_item_id: 2262, project_id: 1,
       item_ref: "YOK-2001",
       workflow_id: "blitz",
       workflow_version_id: 17,

@@ -50,7 +50,7 @@ test("Blitz detail route renders the full execution-document composition", async
                 slug: "WORKFLOW-TYPES",
                 parent_slug: "MASTER-PLAN",
                 updated_at: "2026-07-26T11:00:00Z",
-                execution_claim: { owning_item_id: 51 },
+                execution_claim: { owner_kind: "item", owner_item_id: 51 },
               },
             },
           },

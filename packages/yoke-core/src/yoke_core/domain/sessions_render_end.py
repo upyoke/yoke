@@ -190,6 +190,8 @@ def end_session(
             lifecycle_reason="session_end_destructive",
         )
     clear_current_item(conn, session_id, commit=False)
+    # A document lock is session authority, so it ends with the session.
+    release_session_doc_claims_for_session(conn, session_id)
 
     # Mark session as ended
     conn.execute(

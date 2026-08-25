@@ -8,6 +8,10 @@ from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend
 
 
+#: The one workflow whose items execute a strategy document.
+BLITZ_WORKFLOW_ID = "blitz"
+
+
 class StrategyExecutionError(RuntimeError):
     """Base for refused document-execution operations."""
 
@@ -58,7 +62,7 @@ def _item_row(conn: Any, item_id: int) -> dict[str, Any]:
 
 def _require_blitz_item(conn: Any, item_id: int) -> dict[str, Any]:
     item = _item_row(conn, item_id)
-    if str(item["workflow_id"]) != "blitz":
+    if str(item["workflow_id"]) != BLITZ_WORKFLOW_ID:
         raise StrategyExecutionLinkError(
             f"item {item_id} uses workflow {item['workflow_id']!r}; "
             "only Blitz items link execution strategy documents"
@@ -85,6 +89,51 @@ def _active_item_claim(
     )
 
 
+CLAIM_COLUMNS = (
+    "c.id, c.project_id, c.strategy_doc_slug, c.owner_kind, "
+    "c.owner_item_id, c.owner_session_id, c.registered_by_actor_id, "
+    "c.registered_by_session_id, c.registered_at, "
+    "i.title AS item_title, i.status AS item_status, "
+    "i.workflow_id, i.workflow_version_id, "
+    "v.version AS workflow_version, i.project_sequence, "
+    "p.slug AS project_slug, p.public_item_prefix"
+)
+
+CLAIM_SOURCE = (
+    "FROM strategy_doc_claims c "
+    "LEFT JOIN items i ON i.id = c.owner_item_id "
+    "LEFT JOIN workflow_versions v ON v.id = i.workflow_version_id "
+    "LEFT JOIN projects p ON p.id = i.project_id"
+)
+
+
+def claim_holder_label(claim: dict[str, Any]) -> str:
+    """Name the holder the way a refusal message should say it."""
+    if str(claim.get("owner_kind")) == "session":
+        return f"session {claim.get('owner_session_id')!r}"
+    reference = claim.get("item_ref") or f"item {claim.get('owner_item_id')}"
+    title = claim.get("item_title")
+    return f"{reference} ({title})" if title else str(reference)
+
+
+def decorate_claim(claim: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Add the public item reference and holder label to a claim row."""
+    if claim is None:
+        return None
+    claim["item_ref"] = (
+        format_item_ref(
+            claim["project_slug"],
+            claim["public_item_prefix"],
+            int(claim["project_sequence"]),
+        )
+        if claim.get("owner_item_id") is not None
+        and claim.get("project_sequence") is not None
+        else None
+    )
+    claim["holder_label"] = claim_holder_label(claim)
+    return claim
+
+
 def active_strategy_doc_claim(
     conn: Any,
     *,
@@ -92,46 +141,58 @@ def active_strategy_doc_claim(
     slug: Optional[str] = None,
     item_id: Optional[int] = None,
 ) -> Optional[dict[str, Any]]:
-    """Return one active item-owned document claim by document or item."""
+    """Return one active document claim of either owner kind."""
     marker = _marker(conn)
     if item_id is not None:
-        where, params = f"c.owning_item_id = {marker}", (int(item_id),)
+        where, params = f"c.owner_item_id = {marker}", (int(item_id),)
     elif project_id is not None and slug is not None:
         where = f"c.project_id = {marker} AND c.strategy_doc_slug = {marker}"
         params = (int(project_id), slug)
     else:
         raise ValueError("document identity or item_id is required")
-    claim = _row(
-        conn.execute(
-            "SELECT c.id, c.project_id, c.strategy_doc_slug, "
-            "c.owning_item_id, c.registered_by_actor_id, "
-            "c.registered_by_session_id, c.registered_at, "
-            "i.title AS item_title, i.status AS item_status, "
-            "i.workflow_id, i.workflow_version_id, "
-            "v.version AS workflow_version, "
-            "i.project_sequence, p.slug AS project_slug, "
-            "p.public_item_prefix "
-            "FROM strategy_doc_claims c "
-            "JOIN items i ON i.id = c.owning_item_id "
-            "JOIN workflow_versions v ON v.id = i.workflow_version_id "
-            "JOIN projects p ON p.id = i.project_id "
-            f"WHERE {where} AND c.released_at IS NULL",
-            params,
+    return decorate_claim(
+        _row(
+            conn.execute(
+                f"SELECT {CLAIM_COLUMNS} {CLAIM_SOURCE} "
+                f"WHERE {where} AND c.released_at IS NULL",
+                params,
+            )
         )
     )
-    if claim is not None:
-        claim["item_ref"] = format_item_ref(
-            claim["project_slug"],
-            claim["public_item_prefix"],
-            int(claim["project_sequence"]),
-        )
-    return claim
+
+
+def list_strategy_doc_claims(
+    conn: Any,
+    *,
+    project_id: int,
+    active_only: bool = True,
+) -> list[dict[str, Any]]:
+    """Return the project's document claims, newest registration first."""
+    marker = _marker(conn)
+    active = " AND c.released_at IS NULL" if active_only else ""
+    rows = conn.execute(
+        f"SELECT {CLAIM_COLUMNS}, c.released_at, c.release_mode, "
+        f"c.release_reason {CLAIM_SOURCE} "
+        f"WHERE c.project_id = {marker}{active} "
+        "ORDER BY c.registered_at DESC, c.id DESC",
+        (int(project_id),),
+    ).fetchall()
+    return [
+        decorate_claim(dict(row)) or {}
+        for row in rows
+    ]
 
 
 __all__ = [
+    "BLITZ_WORKFLOW_ID",
+    "CLAIM_COLUMNS",
+    "CLAIM_SOURCE",
     "StrategyDocClaimAuthorizationError",
     "StrategyDocClaimConflictError",
     "StrategyExecutionError",
     "StrategyExecutionLinkError",
     "active_strategy_doc_claim",
+    "claim_holder_label",
+    "decorate_claim",
+    "list_strategy_doc_claims",
 ]

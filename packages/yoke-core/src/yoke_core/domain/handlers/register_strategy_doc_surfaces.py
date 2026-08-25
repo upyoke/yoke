@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.handlers import strategy_doc_session_claims as doc_claims
 from yoke_core.domain.handlers import strategy_doc_surfaces as handlers
 from yoke_core.domain.handlers import strategy_doc_surface_reads as reads
 from yoke_core.domain.handlers.strategy_doc_surface_models import (
     EmptyRequest,
+    StrategyDocClaimAcquireRequest,
+    StrategyDocClaimListRequest,
+    StrategyDocClaimListResponse,
+    StrategyDocClaimReleaseRequest,
+    StrategyDocClaimResponse,
     StrategyCoordinationAppendRequest,
     StrategyCoordinationAppendResponse,
     StrategyExecutionClaimBreakGlassRequest,
@@ -92,6 +98,17 @@ REGISTRATIONS = [
                   StrategyExecutionClaimReleaseRequest, StrategyExecutionResponse,
                   target_kind="item", side_effects=["db_write", "event_emit"],
                   events=[handlers.CLAIM_RELEASED_EVENT]),
+    _registration("strategy.doc_claim.acquire", doc_claims.handle_doc_claim_acquire,
+                  StrategyDocClaimAcquireRequest, StrategyDocClaimResponse,
+                  target_kind="global", side_effects=["db_write", "event_emit"],
+                  events=[handlers.CLAIM_ACQUIRED_EVENT]),
+    _registration("strategy.doc_claim.release", doc_claims.handle_doc_claim_release,
+                  StrategyDocClaimReleaseRequest, StrategyDocClaimResponse,
+                  target_kind="global", side_effects=["db_write", "event_emit"],
+                  events=[handlers.CLAIM_RELEASED_EVENT]),
+    _registration("strategy.doc_claim.list", doc_claims.handle_doc_claim_list,
+                  StrategyDocClaimListRequest, StrategyDocClaimListResponse,
+                  target_kind="global", side_effects=[]),
     _registration(
         "strategy.claim.break_glass_release",
         handlers.handle_claim_break_glass_release,

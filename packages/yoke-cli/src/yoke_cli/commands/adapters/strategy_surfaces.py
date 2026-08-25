@@ -262,6 +262,39 @@ def strategy_claim_break_glass_release(args: List[str]) -> int:
     )
 
 
+def _doc_claim_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("slug")
+    parser.add_argument("--reason")
+
+
+def strategy_doc_claim_acquire(args: List[str]) -> int:
+    return _global(
+        args, tokens="strategy doc-claim acquire", configure=_doc_claim_args,
+        function_id="strategy.doc_claim.acquire",
+        payload=lambda parsed: {"slug": parsed.slug, "reason": parsed.reason},
+    )
+
+
+def strategy_doc_claim_release(args: List[str]) -> int:
+    return _global(
+        args, tokens="strategy doc-claim release", configure=_doc_claim_args,
+        function_id="strategy.doc_claim.release",
+        payload=lambda parsed: {"slug": parsed.slug, "reason": parsed.reason},
+    )
+
+
+def strategy_doc_claim_list(args: List[str]) -> int:
+    return _global(
+        args, tokens="strategy doc-claim list",
+        configure=lambda parser: parser.add_argument(
+            "--all", dest="include_released", action="store_true",
+            help="Include released claims, not only the live holders.",
+        ),
+        function_id="strategy.doc_claim.list",
+        payload=lambda parsed: {"active_only": not parsed.include_released},
+    )
+
+
 USAGE_BY_FUNCTION_ID = {
     "strategy.surface.list": "yoke strategy surface list --project P",
     "strategy.surface.get": "yoke strategy surface get SLUG --project P",
@@ -277,6 +310,13 @@ USAGE_BY_FUNCTION_ID = {
         "[--reason TEXT] --project P"
     ),
     "strategy.claim.break_glass_release": "yoke strategy claim break-glass-release ITEM --reason TEXT --project P",
+    "strategy.doc_claim.acquire": (
+        "yoke strategy doc-claim acquire SLUG [--reason TEXT] --project P"
+    ),
+    "strategy.doc_claim.release": (
+        "yoke strategy doc-claim release SLUG [--reason TEXT] --project P"
+    ),
+    "strategy.doc_claim.list": "yoke strategy doc-claim list [--all] --project P",
 }
 
 

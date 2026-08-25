@@ -171,6 +171,9 @@ function docLink(documentNode, projectId, slug, label = slug) {
 
 function executionFact(documentNode, claim) {
   if (!claim) return "available";
+  if (claim.owner_kind === "session") {
+    return sessionLockFact(documentNode, claim);
+  }
   const host = el(documentNode, "span", "strategy-inline");
   const pill = statePill(documentNode, "item-owned");
   if (pill) host.appendChild(pill);
@@ -198,6 +201,21 @@ function executionFact(documentNode, claim) {
     "item-muted",
     `${workflowName}${workflowVersion ? ` v${workflowVersion}` : ""}`,
   ));
+  return host;
+}
+
+function sessionLockFact(documentNode, claim) {
+  const host = el(documentNode, "span", "strategy-inline");
+  const pill = statePill(documentNode, "session-owned");
+  if (pill) host.appendChild(pill);
+  host.appendChild(el(documentNode, "span", "item-muted", "·"));
+  host.appendChild(el(
+    documentNode,
+    "span",
+    "row-link mono",
+    String(claim.owner_session_id || "session unavailable"),
+  ));
+  host.appendChild(el(documentNode, "span", "item-muted", "no work item"));
   return host;
 }
 
