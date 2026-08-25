@@ -116,7 +116,8 @@ def _direct_relay_available(conn: Any, candidate: Mapping[str, Any], now: str) -
             continue
         if str(candidate["project_id"]) not in {str(value) for value in projects}:
             continue
-        if authorize_wake_versions(conn, candidate, versions, route="direct")[0]:
+        authorized = authorize_wake_versions(conn, candidate, versions, route="direct")
+        if authorized[0] is not None:
             return True
     return False
 

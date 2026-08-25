@@ -74,6 +74,7 @@ def _adopt_attempt(
     heartbeat: RelayHeartbeat,
     now: str,
     qualification: PrivateRouteQualificationGrant | None,
+    execution: tuple[str, str],
 ) -> RelayJob | None:
     p = marker(conn)
     _begin(conn)
@@ -142,14 +143,13 @@ def _adopt_attempt(
 
             consume_qualification_grant(conn, qualification, now=now)
         conn.commit()
-        surface = str(candidate["executor_surface"])
         return RelayJob(
             job_kind="wake",
             job_id=attempt_id,
             lease_id=lease_id,
             machine_id=heartbeat.machine_id,
-            surface=surface,
-            surface_version=str(heartbeat.surface_versions[surface]),
+            surface=execution[0],
+            surface_version=execution[1],
             project_id=int(candidate["project_id"]),
             native_instruction=instruction,
             message_id=message_id,
@@ -206,10 +206,10 @@ def claim_broker_wake_job(
             continue
         if int(candidate["project_id"]) not in projects:
             continue
-        authorized, qualification = authorize_wake_candidate(
+        execution, qualification = authorize_wake_candidate(
             conn, candidate, heartbeat, route="broker"
         )
-        if not authorized:
+        if execution is None:
             surface = str(candidate["executor_surface"])
             if surface in heartbeat.surface_versions:
                 _close_with_code(conn, str(attempt_id), "version_mismatch", now)
@@ -221,6 +221,7 @@ def claim_broker_wake_job(
             heartbeat=heartbeat,
             now=now,
             qualification=qualification,
+            execution=execution,
         )
         if claimed is not None:
             return claimed

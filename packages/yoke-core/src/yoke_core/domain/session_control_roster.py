@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Iterable, Mapping
 
 from yoke_contracts.session_control.roster import (
@@ -11,9 +11,13 @@ from yoke_contracts.session_control.roster import (
 from yoke_contracts.session_control.surface_versions import (
     machine_stopped_wake_supported,
 )
-from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain import db_backend
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_message_routing import messageability
+from yoke_core.domain.session_relay_machine_versions import (
+    connected_relay_routes,
+    surface_versions_for,
+)
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_candidate_supported
 
@@ -25,13 +29,6 @@ SESSION_CONTROL_ROSTER_FIELDS = tuple(
 
 def _marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _now_text(now: datetime | None) -> str:
-    current = now or datetime.now(timezone.utc)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=timezone.utc)
-    return current.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _row_dict(row: Any) -> dict[str, Any]:
@@ -55,54 +52,6 @@ def _identity_facts(
         ids,
     ).fetchall()
     return {str(row["session_id"]): _row_dict(row) for row in rows}
-
-
-def _document(raw: Any, default: Any) -> Any:
-    if isinstance(raw, (dict, list)):
-        return raw
-    try:
-        return json_helper.loads_text(str(raw))
-    except (TypeError, ValueError):
-        return default
-
-
-def _connected_relays(conn: Any, *, now: str) -> dict[str, tuple[dict[str, Any], ...]]:
-    marker = _marker(conn)
-    rows = conn.execute(
-        "SELECT machine_id,surface_versions,project_checkouts FROM session_relays "
-        f"WHERE state IN ('active','idle') AND connected_until>{marker}",
-        (now,),
-    ).fetchall()
-    relays: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        relays.setdefault(str(row["machine_id"]), []).append(
-            {
-                "surface_versions": _document(row["surface_versions"], {}),
-                "project_checkouts": _document(row["project_checkouts"], []),
-            }
-        )
-    return {machine: tuple(routes) for machine, routes in relays.items()}
-
-
-def _relay_surface_versions(
-    merged: dict[str, Any],
-    routes: tuple[dict[str, Any], ...],
-) -> dict[str, str]:
-    """Merge installed versions reported by relays serving this session's project."""
-    project_id = merged.get("project_id")
-    versions: dict[str, str] = {}
-    if project_id is None:
-        return versions
-    for route in routes:
-        projects = route.get("project_checkouts")
-        if not isinstance(projects, list) or str(project_id) not in {
-            str(value) for value in projects
-        }:
-            continue
-        reported = route.get("surface_versions")
-        if isinstance(reported, dict):
-            versions.update({str(key): str(value) for key, value in reported.items()})
-    return versions
 
 
 def _wake_route_available(
@@ -188,7 +137,7 @@ def _project_row(
     routes = connected_relays.get(machine_id, ())
     relay_connected = bool(machine_id and routes)
     liveness = str(row.get("liveness") or "ended")
-    versions = _relay_surface_versions(merged, routes)
+    versions = surface_versions_for(routes, project_id=merged.get("project_id"))
     routing = messageability(
         merged,
         liveness=liveness,
@@ -246,7 +195,7 @@ def session_control_roster_result(
             conn,
             (str(row.get("session_id") or "") for row in rows),
         )
-        connected = _connected_relays(conn, now=_now_text(now))
+        connected = connected_relay_routes(conn, now=now)
         projected = [
             _project_row(
                 row,

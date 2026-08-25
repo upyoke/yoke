@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_authorization import project_policy
@@ -22,6 +22,10 @@ from yoke_core.domain.session_message_types import (
     timestamp,
     utc_now,
 )
+from yoke_core.domain.session_relay_machine_versions import (
+    connected_relay_routes,
+    machine_surface_versions,
+)
 from yoke_core.domain.session_relay_types import WakeMode
 
 
@@ -35,8 +39,12 @@ def _native_wake_route_available(
     *,
     liveness: str,
     wake_mode: WakeMode,
+    relay_versions: Mapping[str, str],
 ) -> bool:
-    if messageability(row, liveness=liveness)["wake_interface"] != "none":
+    routing = messageability(
+        row, liveness=liveness, machine_surface_versions=relay_versions
+    )
+    if routing["wake_interface"] != "none":
         return True
     from yoke_core.domain.session_private_route_qualification import (
         PrivateRouteQualificationError,
@@ -80,6 +88,7 @@ def wake_eligible_recipients(
     _begin_mutation(conn)
     try:
         _expire_rows(conn, now=current)
+        relay_routes = connected_relay_routes(conn, now=current)
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
@@ -163,7 +172,15 @@ def wake_eligible_recipients(
                     continue
                 wake_mode = WakeMode.IDLE_TIMEOUT
             if not _native_wake_route_available(
-                conn, row, liveness=liveness, wake_mode=wake_mode
+                conn,
+                row,
+                liveness=liveness,
+                wake_mode=wake_mode,
+                relay_versions=machine_surface_versions(
+                    relay_routes,
+                    machine_id=row["machine_id"],
+                    project_id=row["project_id"],
+                ),
             ):
                 continue
             eligible.append(
