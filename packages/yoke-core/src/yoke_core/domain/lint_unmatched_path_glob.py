@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.lint_session_cwd_target_extract import resolve_payload_cwd
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-unmatched-path-glob"
@@ -45,7 +46,11 @@ def _extract_tool_name(payload: dict) -> str:
     return ""
 
 
-def _extract_cwd(payload: dict) -> str:
+def _extract_cwd(payload: dict, fallback: str = "") -> str:
+    return resolve_payload_cwd(payload, fallback=fallback)
+
+
+def _payload_cwd(payload: dict) -> str:
     cwd = payload.get("cwd")
     return cwd if isinstance(cwd, str) else ""
 
@@ -54,7 +59,8 @@ def _read_mode(payload: object | None = None) -> str:
     from yoke_core.domain import lint_config
 
     return lint_config.resolve_mode_for_payload(
-        "lint_unmatched_path_glob", payload,
+        "lint_unmatched_path_glob",
+        payload,
     )
 
 
@@ -93,7 +99,7 @@ def _unquoted_tokens(command: str) -> List[str]:
 def _strip_redir(token: str) -> str:
     for prefix in _REDIR_PREFIXES:
         if token.startswith(prefix):
-            return token[len(prefix):]
+            return token[len(prefix) :]
     return token
 
 
@@ -123,10 +129,24 @@ def _find_unmatched(command: str, cwd: str) -> Optional[str]:
     return None
 
 
-def _format_reason(token: str, suppression_seen: bool, mode: str) -> str:
+def _format_reason(
+    token: str,
+    suppression_seen: bool,
+    mode: str,
+    *,
+    execution_cwd: str = "",
+    payload_cwd: str = "",
+) -> str:
     body = (
         "BLOCKED: unquoted path glob matches no files under the command cwd.\n\n"
-        f"Detected: `{token}`\n\n"
+        f"Detected: `{token}`\n"
+    )
+    if execution_cwd:
+        body += f"Checked tree: `{execution_cwd}`\n"
+    if payload_cwd and payload_cwd != execution_cwd:
+        body += f"Payload cwd was `{payload_cwd}`.\n"
+    body += (
+        "\n"
         "zsh NOMATCH aborts the command before the tool runs. Enumerate "
         "candidates with `rg --files`, or quote a pattern the tool consumes:\n"
         "  rg --files | rg 'name-or-symbol'\n"
@@ -144,7 +164,11 @@ def _format_reason(token: str, suppression_seen: bool, mode: str) -> str:
     return append_field_note_footer(body, rule_id=CHECK_ID)
 
 
-def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
+def evaluate_payload(
+    payload: dict,
+    *,
+    fallback_cwd: str = "",
+) -> Optional[Tuple[str, str, str]]:
     if not isinstance(payload, dict):
         return None
     tool = _extract_tool_name(payload)
@@ -153,12 +177,19 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    token = _find_unmatched(command, _extract_cwd(payload))
+    execution_cwd = _extract_cwd(payload, fallback=fallback_cwd)
+    token = _find_unmatched(command, execution_cwd)
     if token is None:
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
     mode = _read_mode(payload)
-    reason = _format_reason(token, suppression_seen, mode)
+    reason = _format_reason(
+        token,
+        suppression_seen,
+        mode,
+        execution_cwd=execution_cwd,
+        payload_cwd=_payload_cwd(payload),
+    )
     outcome = "suppression_attempted" if suppression_seen else "denied"
     return mode, reason, outcome
 
@@ -186,9 +217,7 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
 
 def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
-    if record.cwd and not payload.get("cwd"):
-        payload = {**payload, "cwd": record.cwd}
-    verdict = evaluate_payload(payload)
+    verdict = evaluate_payload(payload, fallback_cwd=record.cwd or "")
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
