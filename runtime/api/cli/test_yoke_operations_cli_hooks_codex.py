@@ -15,12 +15,13 @@ import pytest
 from yoke_core.domain.session_ambient_identity import AMBIENT_ENV_VARS
 from yoke_harness.hooks import relay
 
-from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
-    _FakeResponse,
-    cli_main,
-    https_connection,
-    local_subset,
-)
+from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse, cli_main
+
+
+# ``local_subset`` and ``https_connection`` are fixtures, not values: loading
+# the sibling as a plugin registers them for these tests without importing
+# names that every use as a test parameter then shadows.
+pytest_plugins = ("runtime.api.cli.test_yoke_operations_cli_hooks",)
 
 
 @pytest.fixture(autouse=True)
