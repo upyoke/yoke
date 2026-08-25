@@ -78,24 +78,18 @@ class CursorWakeRequest:
 
 @dataclass(frozen=True)
 class CursorNativeResult:
-    """Bounded native outcome with no stdout, stderr, prompt, or secret field."""
+    """Bounded native outcome; identity-parse tails stay out of repr."""
 
     result_code: str
     native_session_id: str | None = None
     exit_code: int | None = None
     duration_ms: int | None = None
+    identity_output_snippet: str | None = field(default=None, repr=False)
+    identity_parse_expectation: str | None = field(default=None, repr=False)
 
 
 class CursorSubprocessPort(Protocol):
-    """The proven cursor-agent stopped-session resume operation.
-
-    Creation is deliberately absent. A print-mode create detaches a native
-    nobody owns: it runs outside the hook chain, so it never registers, and
-    nothing is left holding the process when the launch is written off.
-    Observed natives created that way read the backlog, adopted briefs meant
-    for other sessions, and wrote into the shared checkout with no claim and
-    no lane. Launches go through the caller-owned ACP port instead.
-    """
+    """Stopped-session resume. Print-mode create is absent; launches use ACP."""
 
     def resume_chat(self, request: CursorWakeRequest) -> CursorNativeResult: ...
 
@@ -116,10 +110,18 @@ def _evidence(
         "surface": CURSOR_CLI_SURFACE,
         "result_code": result_code,
     }
-    if native is not None and native.exit_code is not None:
+    if native is None:
+        return evidence
+    if native.exit_code is not None:
         evidence["exit_code"] = native.exit_code
-    if native is not None and native.duration_ms is not None:
+    if native.duration_ms is not None:
         evidence["duration_ms"] = max(0, native.duration_ms)
+    snippet = getattr(native, "identity_output_snippet", None)
+    expectation = getattr(native, "identity_parse_expectation", None)
+    if snippet:
+        evidence["identity_output_snippet"] = snippet
+    if expectation:
+        evidence["identity_parse_expectation"] = expectation
     return evidence
 
 
@@ -214,10 +216,17 @@ def _bound_launch(
         binding.session_id,
         native.exit_code,
         max(0, int(native.duration_ms or 0) + binding.duration_ms),
+        identity_output_snippet=binding.output_snippet,
+        identity_parse_expectation=binding.parse_expectation,
     )
     if binding.result_code != "native_created":
+        report = (
+            "not_created"
+            if binding.result_code == "identity_parse_failed"
+            else "outcome_unknown"
+        )
         return _result(
-            "outcome_unknown",
+            report,
             native=combined,
             native_session_id=binding.session_id,
             evidence_code=binding.result_code,

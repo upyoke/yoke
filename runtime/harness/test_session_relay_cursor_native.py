@@ -120,12 +120,16 @@ class FakeAcpClient:
         self.prompts = []
         self.closed = False
         self.new_session_id = None
+        self.new_session_result = None
         self.process = SimpleNamespace(pid=4321)
 
     def request(self, method, params):
         self.requests.append((method, params))
-        if method == "session/new" and self.new_session_id:
-            return {"sessionId": self.new_session_id}
+        if method == "session/new":
+            if self.new_session_result is not None:
+                return self.new_session_result
+            if self.new_session_id:
+                return {"sessionId": self.new_session_id}
         return {}
 
     def start_prompt(self, session_id, instruction):
@@ -179,3 +183,25 @@ def test_acp_launch_creates_a_session_and_makes_it_containable(
     assert client.prompts == [(SESSION_ID, BOOTSTRAP)]
     # The relay owns the process, so it records what it would have to kill.
     assert recorded == [(LAUNCH_ID, client.process.pid, SESSION_ID)]
+
+
+def test_acp_launch_parse_failure_carries_output_snippet(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    client = FakeAcpClient()
+    client.new_session_result = {
+        "modes": {"currentModeId": "agent"},
+        "models": {"currentModelId": "default[]"},
+    }
+    transport = CursorAcpTransport(worker=True)
+    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
+
+    result = transport.new_session(_create_request(tmp_path))
+
+    assert result.result_code == "not_created"
+    assert result.native_session_id is None
+    assert "currentModeId" in (result.identity_output_snippet or "")
+    assert result.identity_parse_expectation
+    assert client.closed is True
+    assert client.prompts == []

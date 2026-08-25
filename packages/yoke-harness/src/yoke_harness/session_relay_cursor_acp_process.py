@@ -98,12 +98,17 @@ def _rehydrate(request: Request, environ: Mapping[str, str]) -> Request | None:
 
 
 def _outcome_payload(outcome: CursorNativeResult) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "result_code": outcome.result_code,
         "native_session_id": outcome.native_session_id,
         "exit_code": outcome.exit_code,
         "duration_ms": outcome.duration_ms,
     }
+    if outcome.identity_output_snippet:
+        payload["identity_output_snippet"] = outcome.identity_output_snippet
+    if outcome.identity_parse_expectation:
+        payload["identity_parse_expectation"] = outcome.identity_parse_expectation
+    return payload
 
 
 def _outcome_from_payload(payload: object) -> CursorNativeResult | None:
@@ -112,11 +117,17 @@ def _outcome_from_payload(payload: object) -> CursorNativeResult | None:
     native = payload.get("native_session_id")
     exit_code = payload.get("exit_code")
     duration_ms = payload.get("duration_ms")
+    snippet = payload.get("identity_output_snippet")
+    expectation = payload.get("identity_parse_expectation")
     return CursorNativeResult(
         str(payload["result_code"]),
         str(native) if isinstance(native, str) and native else None,
         int(exit_code) if isinstance(exit_code, int) else None,
         int(duration_ms) if isinstance(duration_ms, int) else None,
+        identity_output_snippet=snippet if isinstance(snippet, str) else None,
+        identity_parse_expectation=(
+            expectation if isinstance(expectation, str) else None
+        ),
     )
 
 

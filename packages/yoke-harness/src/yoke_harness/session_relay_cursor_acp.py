@@ -11,13 +11,17 @@ import subprocess
 import threading
 import time
 from typing import Any
-from uuid import UUID
 
 from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_cursor import (
     CursorCreateRequest,
     CursorNativeResult,
     CursorWakeRequest,
+)
+from yoke_harness.session_relay_cursor_identity import (
+    ACP_SESSION_PARSE_EXPECTATION,
+    bounded_identity_snippet,
+    session_id_from_native_payload,
 )
 from yoke_harness.session_relay_cursor_acp_terminal import (
     CursorAcpTerminalRegistry,
@@ -47,13 +51,6 @@ def _environment(
         launch_id=launch.launch_id if launch else None,
         launch_attestation=launch.launch_attestation if launch else None,
     )
-
-
-def _session_id(value: object) -> str | None:
-    try:
-        return str(UUID(str(value or "").strip()))
-    except (AttributeError, TypeError, ValueError):
-        return None
 
 
 def _session_params(checkout: Path) -> dict[str, object]:
@@ -276,9 +273,15 @@ class CursorAcpTransport:
         try:
             client = self._client(request.checkout, request)
             result = client.request("session/new", _session_params(request.checkout))
-            session_id = _session_id(result.get("sessionId"))
+            session_id = session_id_from_native_payload(result)
             if session_id is None:
-                raise CursorAcpError("session/new identity missing")
+                client.close()
+                return CursorNativeResult(
+                    "not_created",
+                    duration_ms=max(0, int((time.monotonic() - started) * 1000)),
+                    identity_output_snippet=bounded_identity_snippet(result),
+                    identity_parse_expectation=ACP_SESSION_PARSE_EXPECTATION,
+                )
             # From here the native can act, so it becomes containable: if it
             # never registers, the sweep has the process it must terminate.
             record_supervised_native(
