@@ -116,6 +116,7 @@ SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
 
 SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
     ("say",): ("session_control.message.send", say),
+    ("messages", "send"): ("session_control.message.send", say),
     ("messages", "list"): (
         "session_control.message.list",
         session_message_list,

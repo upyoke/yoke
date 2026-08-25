@@ -38,6 +38,7 @@ from yoke_cli.commands.tool_shaped import (
     TOOL_SHAPED_USAGE,
     resolve_tool_shaped,
 )
+from yoke_cli.conceptual_cli_names import conceptual_cli_hint
 from yoke_cli.config import install_binding, machine_config
 from yoke_cli.session_id_propagation import propagated_session_identity
 from yoke_contracts.control_plane_locality import (
@@ -162,15 +163,19 @@ def _emit_unknown(
     explicit_env: Optional[str] = None,
 ) -> int:
     head = " ".join(list(argv)[:3]) if argv else "<no subcommand>"
-    hint = manifest_unknown_hint(
-        list(argv), explicit_env=explicit_env,
-    ) or nearest_subcommand_hint(argv) or (
-        "Run `yoke --help` for the canonical list of subcommands."
+    conceptual = conceptual_cli_hint(argv)
+    hint = (
+        conceptual
+        or manifest_unknown_hint(
+            list(argv),
+            explicit_env=explicit_env,
+        )
+        or nearest_subcommand_hint(argv)
+        or ("Run `yoke --help` for the canonical list of subcommands.")
     )
     print(f"yoke: unknown subcommand: {head!r}\n{hint}", file=sys.stderr)
-    # A guessed leaf under a real group answers best with that group's
-    # actual members: the retry becomes a pick from a list.
-    emit_nearest_group_help(argv, stream=sys.stderr)
+    if conceptual is None:
+        emit_nearest_group_help(argv, stream=sys.stderr)
     return 2
 
 

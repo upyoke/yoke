@@ -29,9 +29,7 @@ def test_bare_and_intuitive_groups_route_to_real_surfaces(
 
 
 @pytest.mark.parametrize("argv", [["environment"], ["environments"]])
-def test_environment_terminology_lists_registration_and_settings(
-    argv, capsys
-) -> None:
+def test_environment_terminology_lists_registration_and_settings(argv, capsys) -> None:
     assert main(argv) == 0
     out = capsys.readouterr().out
     assert "yoke projects environment create" in out
@@ -59,3 +57,55 @@ def test_unknown_top_level_help_still_suggests_hyphenated_family(capsys) -> None
 def test_space_separated_hyphenated_family_resolves(capsys) -> None:
     assert main(["github", "actions", "wait", "--help"]) == 0
     assert "yoke github-actions wait-run" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("argv", "adapters", "recipes"),
+    [
+        (
+            ["qa", "evidence", "list"],
+            ("yoke qa requirement list", "yoke qa run list"),
+            (
+                "yoke qa requirement list [--item PREFIX-N",
+                "yoke qa run list [--requirement-id N]",
+            ),
+        ),
+        (
+            ["claims", "path", "survey"],
+            (
+                "yoke direct-workflow dash survey",
+                "yoke direct-workflow conflict-survey status",
+            ),
+            (
+                "yoke direct-workflow dash survey ITEM --path PATH",
+                "yoke direct-workflow conflict-survey status ITEM",
+            ),
+        ),
+    ],
+)
+def test_conceptual_cli_names_name_the_real_adapter(
+    argv, adapters, recipes, capsys
+) -> None:
+    assert main(argv) == 2
+    err = capsys.readouterr().err
+    assert "unknown subcommand" in err
+    assert "subcommand group." not in err
+    for adapter in adapters:
+        assert f"Did you mean `{adapter}`?" in err
+    for recipe in recipes:
+        assert recipe in err
+
+
+def test_conceptual_cli_names_match_before_flags() -> None:
+    from yoke_cli.conceptual_cli_names import conceptual_cli_hint
+
+    hint = conceptual_cli_hint(["qa", "evidence", "list", "--json"])
+    assert hint is not None
+    assert "Did you mean `yoke qa requirement list`?" in hint
+
+
+def test_messages_send_routes_to_say(capsys) -> None:
+    assert main(["messages", "send", "--help"]) == 0
+    out = capsys.readouterr().out
+    assert "yoke say" in out
+    assert "(--preview | --stdin)" in out
