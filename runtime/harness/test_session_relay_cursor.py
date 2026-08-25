@@ -22,6 +22,12 @@ from yoke_harness.session_relay_runtime import RelayExecutionContext
 ATTESTATION = "secret-launch-attestation"
 
 
+def _adapter(**kwargs):
+    kwargs.setdefault("identity_lookup", lambda conversation_id: conversation_id)
+    kwargs.setdefault("attestation_handoff", lambda *_args, **_kwargs: True)
+    return build_cursor_adapter(**kwargs)
+
+
 class FakeSubprocess:
     def __init__(self) -> None:
         self.resume_requests = []
@@ -96,7 +102,7 @@ def _wake(
 
 
 def test_launch_without_an_acp_port_creates_no_native_at_all(tmp_path):
-    result = build_cursor_adapter(subprocess_port=FakeSubprocess())(_launch(tmp_path))
+    result = _adapter(subprocess_port=FakeSubprocess())(_launch(tmp_path))
 
     assert result.result_code == "not_created"
     assert result.native_session_id is None
@@ -106,7 +112,7 @@ def test_launch_creates_through_acp_and_carries_a_separate_attestation(tmp_path)
     cli = FakeSubprocess()
     acp = FakeAcp()
 
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(_launch(tmp_path))
+    result = _adapter(subprocess_port=cli, acp_port=acp)(_launch(tmp_path))
 
     assert result.result_code == "native_created"
     assert result.native_session_id == "cursor-acp-new"
@@ -122,7 +128,7 @@ def test_launch_creates_through_acp_and_carries_a_separate_attestation(tmp_path)
 def test_bootstrap_tells_an_unregistered_native_to_stop(tmp_path):
     acp = FakeAcp()
 
-    build_cursor_adapter(acp_port=acp)(_launch(tmp_path))
+    _adapter(acp_port=acp)(_launch(tmp_path))
 
     instruction = acp.new_requests[0].native_instruction
     assert LAUNCH_BOOTSTRAP_REFUSAL in instruction
@@ -133,7 +139,7 @@ def test_idle_wake_uses_acp_without_resuming_a_stopped_chat(tmp_path):
     cli = FakeSubprocess()
     acp = FakeAcp()
 
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+    result = _adapter(subprocess_port=cli, acp_port=acp)(
         _wake(tmp_path, liveness="stale", wake_mode="idle_timeout")
     )
 
@@ -150,7 +156,7 @@ def test_waiting_wake_resumes_active_labeled_stopped_chat(tmp_path, scenario):
     cli = FakeSubprocess()
     acp = FakeAcp()
 
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+    result = _adapter(subprocess_port=cli, acp_port=acp)(
         _wake(
             tmp_path,
             liveness="active",
@@ -170,7 +176,7 @@ def test_idle_timeout_resumes_only_after_acp_reports_not_found(tmp_path):
     acp = FakeAcp()
     acp.prompt_result = CursorNativeResult("not_found")
 
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+    result = _adapter(subprocess_port=cli, acp_port=acp)(
         _wake(tmp_path, liveness="stale", wake_mode="idle_timeout")
     )
 
@@ -184,7 +190,7 @@ def test_invalid_wake_mode_fails_before_native_transport(tmp_path, wake_mode):
     cli = FakeSubprocess()
     acp = FakeAcp()
 
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+    result = _adapter(subprocess_port=cli, acp_port=acp)(
         _wake(tmp_path, liveness="active", wake_mode=wake_mode)
     )
 
@@ -196,7 +202,7 @@ def test_invalid_wake_mode_fails_before_native_transport(tmp_path, wake_mode):
 def test_non_cursor_cli_and_untrusted_native_text_fail_before_transport(tmp_path):
     cli = FakeSubprocess()
     acp = FakeAcp()
-    adapter = build_cursor_adapter(subprocess_port=cli, acp_port=acp)
+    adapter = _adapter(subprocess_port=cli, acp_port=acp)
 
     desktop = adapter(_wake(tmp_path, surface="cursor-desktop"))
     injected = adapter(
@@ -223,7 +229,7 @@ def test_native_output_and_secrets_cannot_enter_report_evidence(tmp_path):
         token="secret token",
     )
 
-    result = build_cursor_adapter(acp_port=acp)(_launch(tmp_path))
+    result = _adapter(acp_port=acp)(_launch(tmp_path))
 
     assert result.native_session_id == "cursor-session-safe"
     rendered = repr(result)
@@ -240,7 +246,7 @@ def test_uncertain_native_failures_do_not_fall_through_to_a_second_route(tmp_pat
         raise RuntimeError("secret response and prompt")
 
     acp.prompt_session = uncertain
-    result = build_cursor_adapter(subprocess_port=cli, acp_port=acp)(
+    result = _adapter(subprocess_port=cli, acp_port=acp)(
         _wake(tmp_path, liveness="stale", wake_mode="idle_timeout")
     )
 
