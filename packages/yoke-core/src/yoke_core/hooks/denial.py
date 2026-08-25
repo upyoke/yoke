@@ -22,8 +22,19 @@ def build_denial_payload(
     check_id: str = "",
     reason: str = "",
     command_snippet: str = "",
+    guard_key: str = "",
+    mode: str = "",
+    client_revision: str = "",
+    server_revision: str = "",
 ) -> dict[str, Any]:
-    """Build the context payload for a HarnessToolCallDenied event."""
+    """Build the context payload for a HarnessToolCallDenied event.
+
+    ``guard_key``/``mode`` name the lint-config guard and the mode it
+    resolved under (``deny``/``warn``); ``client_revision``/
+    ``server_revision`` record the source revision each side of a relayed
+    evaluation was running, so a denial recorded during guard-revision skew
+    carries the pair that explains it.
+    """
     payload = {
         "hook": hook,
         "check_id": check_id,
@@ -33,6 +44,15 @@ def build_denial_payload(
         payload["command_snippet"] = command_snippet.replace("\n", " ")[
             :COMMAND_SNIPPET_MAX_BYTES
         ]
+    if guard_key:
+        payload["guard_key"] = guard_key
+    if mode:
+        payload["mode"] = mode
+    if client_revision or server_revision:
+        payload["revision_pair"] = {
+            "client": client_revision,
+            "server": server_revision,
+        }
     return payload
 
 
@@ -41,6 +61,10 @@ def build_denial_context(
     check_id: str = "",
     reason: str = "",
     command_snippet: str = "",
+    guard_key: str = "",
+    mode: str = "",
+    client_revision: str = "",
+    server_revision: str = "",
 ) -> str:
     """Build the compact JSON context for a HarnessToolCallDenied event."""
     return json.dumps(
@@ -49,6 +73,10 @@ def build_denial_context(
             check_id=check_id,
             reason=reason,
             command_snippet=command_snippet,
+            guard_key=guard_key,
+            mode=mode,
+            client_revision=client_revision,
+            server_revision=server_revision,
         ),
         separators=(",", ":"),
     )
@@ -64,6 +92,10 @@ def emit_denial_event(
     turn_id: str = "",
     command_snippet: str = "",
     outcome: str = "denied",
+    guard_key: str = "",
+    mode: str = "",
+    client_revision: str = "",
+    server_revision: str = "",
 ) -> None:
     """Emit HarnessToolCallDenied via the Python emit-event owner.
 
@@ -78,6 +110,10 @@ def emit_denial_event(
         check_id=check_id,
         reason=reason,
         command_snippet=command_snippet,
+        guard_key=guard_key,
+        mode=mode,
+        client_revision=client_revision,
+        server_revision=server_revision,
     )
     if tool_use_id:
         payload["tool_use_id"] = tool_use_id

@@ -28,6 +28,7 @@ from yoke_core.domain.session_ambient_identity import (
     is_conversation_shaped_session_id,
 )
 from yoke_core.hooks.remote_entry import evaluate_remote
+from yoke_core.api.routes.hooks_denial_audit import router as _denial_audit_router
 
 
 router = APIRouter()
@@ -52,6 +53,7 @@ class HookEvaluateRequest(BaseModel):
     machine_id: Optional[str] = None
     payload_extra: dict[str, Any] = Field(default_factory=dict)
     deadline_ms: Optional[int] = None
+    execution_provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class HookEvaluateResponse(BaseModel):
@@ -96,7 +98,7 @@ def post_hooks_evaluate(
         else resolve_total_timeout_ms()
     )
     auth = require_auth_context(http_request)
-    auth_error = _authorize_project(auth.actor_id, request.project_id)
+    auth_error = _authorize_project(auth.actor_id, request)
     if auth_error is not None:
         return auth_error
     result = evaluate_remote(
@@ -114,6 +116,10 @@ def post_hooks_evaluate(
         deadline_ms=deadline_ms,
         actor_id=auth.actor_id,
     )
+    if result.outcome == "denied":
+        skew_reason = _guard_revision_skew_reason(request)
+        if skew_reason:
+            _emit_route_denial("guard_version_skew", skew_reason, request)
     attributes = {"event": request.event_name, "outcome": result.outcome}
     record_histogram("yoke.hook.wait_ms", result.wait_ms, attributes=attributes)
     record_counter("yoke.hook.requests", attributes=attributes)
@@ -135,27 +141,96 @@ def _with_provenance(content: dict[str, Any]) -> dict[str, Any]:
     return content
 
 
-def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | None:
-    """Reject relayed payloads whose stamped session id is still a conversation."""
+def _stdin_payload(request: HookEvaluateRequest) -> dict[str, Any]:
     import json
 
     try:
         payload = json.loads(request.stdin) if request.stdin else {}
     except (json.JSONDecodeError, TypeError):
-        payload = {}
-    if not isinstance(payload, dict):
-        payload = {}
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+_UNKNOWN_REVISIONS = frozenset({"", "unknown"})
+
+
+def _guard_revision_skew_reason(request: HookEvaluateRequest) -> str:
+    """Explain a client/server guard-revision mismatch on this denial, or "".
+
+    A denial rendered under skew may be running server code that predates
+    (or postdates) the guard that produced it, so this comparison — not any
+    single guard's own emission — is what makes the mismatch itself durable.
+    """
+    client_revision = str(request.execution_provenance.get("source_sha") or "").strip().lower()
+    server_revision = str(collect_execution_provenance().get("source_sha") or "").strip().lower()
+    if client_revision in _UNKNOWN_REVISIONS or server_revision in _UNKNOWN_REVISIONS:
+        return ""
+    if client_revision == server_revision or client_revision.startswith(
+        server_revision
+    ) or server_revision.startswith(client_revision):
+        return ""
+    return (
+        f"Denial rendered during guard-revision skew: server revision "
+        f"{server_revision[:12]} vs client revision {client_revision[:12]}."
+    )
+
+
+def _emit_route_denial(
+    check_id: str,
+    reason: str,
+    request: HookEvaluateRequest,
+) -> None:
+    """Record HarnessToolCallDenied for a pre-dispatch route refusal.
+
+    Both refusals below return ``outcome="denied"`` before the guard chain
+    (``evaluate_remote``) ever runs, so no guard module gets a chance to
+    emit — this is the only place that can. Revision pair is the requesting
+    client's own reported provenance against this server's, so a denial
+    recorded during guard-revision skew still carries both sides.
+    """
+    try:
+        from yoke_core.hooks.denial import emit_denial_event
+    except Exception:
+        return
+    payload = _stdin_payload(request)
+    session_id = payload.get("session_id")
+    tool_use_id = payload.get("tool_use_id")
+    turn_id = payload.get("turn_id") or payload.get("message_id")
+    server_revision = collect_execution_provenance().get("source_sha") or ""
+    client_revision = request.execution_provenance.get("source_sha") or ""
+    try:
+        emit_denial_event(
+            hook="yoke_core.api.routes.hooks",
+            check_id=check_id,
+            reason=reason,
+            session_id=session_id if isinstance(session_id, str) else "",
+            tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
+            turn_id=turn_id if isinstance(turn_id, str) else "",
+            guard_key=check_id,
+            mode="deny",
+            client_revision=str(client_revision),
+            server_revision=str(server_revision),
+        )
+    except Exception:
+        pass
+
+
+def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | None:
+    """Reject relayed payloads whose stamped session id is still a conversation."""
+    payload = _stdin_payload(request)
     if payload.get("identity_stamped") is True:
         return None
     sid = payload.get("session_id")
     if not isinstance(sid, str) or not sid.strip():
+        reason = (
+            "Yoke hook relay refused: payload has no stamped, "
+            "non-conversation session id."
+        )
+        _emit_route_denial("conversation_shaped_session", reason, request)
         return JSONResponse(
             content=_with_provenance(
                 HookEvaluateResponse(
-                    stdout=(
-                        "Yoke hook relay refused: payload has no stamped, "
-                        "non-conversation session id.\n"
-                    ),
+                    stdout=f"{reason}\n",
                     exit_code=2,
                     wait_ms=0,
                     degraded=[],
@@ -164,13 +239,12 @@ def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | 
             ),
         )
     if is_conversation_shaped_session_id(payload, session_id=sid):
+        reason = "Yoke hook relay refused: session id is still conversation-shaped."
+        _emit_route_denial("conversation_shaped_session", reason, request)
         return JSONResponse(
             content=_with_provenance(
                 HookEvaluateResponse(
-                    stdout=(
-                        "Yoke hook relay refused: session id is still "
-                        "conversation-shaped.\n"
-                    ),
+                    stdout=f"{reason}\n",
                     exit_code=2,
                     wait_ms=0,
                     degraded=[],
@@ -181,14 +255,20 @@ def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | 
     return None
 
 
-def _authorize_project(actor_id: int, project_id: Optional[int]) -> JSONResponse | None:
+def _authorize_project(
+    actor_id: int,
+    request: HookEvaluateRequest,
+) -> JSONResponse | None:
+    project_id = request.project_id
     if project_id is None:
+        reason = (
+            "Yoke hook registration denied: this checkout has no "
+            "configured project id. Run Yoke setup for this checkout."
+        )
+        _emit_route_denial("project_authorization", reason, request)
         return JSONResponse(
             content=HookEvaluateResponse(
-                stdout=(
-                    "Yoke hook registration denied: this checkout has no "
-                    "configured project id. Run Yoke setup for this checkout.\n"
-                ),
+                stdout=f"{reason}\n",
                 exit_code=1,
                 wait_ms=0,
                 degraded=[],
@@ -202,9 +282,11 @@ def _authorize_project(actor_id: int, project_id: Optional[int]) -> JSONResponse
         with db_helpers.connect() as conn:
             visible = actor_visible_project_ids(conn, actor_id) or set()
     except Exception:
+        reason = "Yoke hook registration denied: project auth unavailable."
+        _emit_route_denial("project_authorization", reason, request)
         return JSONResponse(
             content=HookEvaluateResponse(
-                stdout="Yoke hook registration denied: project auth unavailable.\n",
+                stdout=f"{reason}\n",
                 exit_code=1,
                 wait_ms=0,
                 degraded=[],
@@ -213,18 +295,22 @@ def _authorize_project(actor_id: int, project_id: Optional[int]) -> JSONResponse
         )
     if int(project_id) in visible:
         return None
+    reason = (
+        f"Yoke hook registration denied: actor cannot access project {int(project_id)}."
+    )
+    _emit_route_denial("project_authorization", reason, request)
     return JSONResponse(
         content=HookEvaluateResponse(
-            stdout=(
-                f"Yoke hook registration denied: actor cannot access project "
-                f"{int(project_id)}.\n"
-            ),
+            stdout=f"{reason}\n",
             exit_code=1,
             wait_ms=0,
             degraded=[],
             outcome="denied",
         ).model_dump(),
     )
+
+
+router.include_router(_denial_audit_router)
 
 
 __all__ = ["HOOK_WIRE_SCHEMA", "router"]
