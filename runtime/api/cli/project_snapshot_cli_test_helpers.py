@@ -74,17 +74,29 @@ def run_cli(
 
     out = io.StringIO()
     err = io.StringIO()
-    with patch(
-        "yoke_cli.commands.adapters.project_snapshot.call_dispatcher",
-        side_effect=fake_call_dispatcher,
-    ), patch(
-        "yoke_cli.commands.adapters.project_snapshot_chunked.call_dispatcher",
-        side_effect=fake_call_dispatcher,
-    ), patch(
-        "yoke_cli.commands.adapters.project_snapshot.ensure_handlers_loaded"
-    ), patch(
-        "yoke_cli.commands.adapters.project_snapshot_chunked.ensure_handlers_loaded"
+    with (
+        patch(
+            "yoke_cli.commands.adapters.project_snapshot.call_dispatcher",
+            side_effect=fake_call_dispatcher,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.project_snapshot_chunked.call_dispatcher",
+            side_effect=fake_call_dispatcher,
+        ),
+        patch("yoke_cli.commands.adapters.project_snapshot.ensure_handlers_loaded"),
+        patch(
+            "yoke_cli.commands.adapters.project_snapshot_chunked.ensure_handlers_loaded"
+        ),
     ):
         with redirect_stdout(out), redirect_stderr(err):
             rc = cli_main(list(argv))
     return rc, out.getvalue(), err.getvalue()
+
+
+def non_progress_err(err: str) -> str:
+    """Stderr leftover after snapshot-scan progress lines."""
+    return "\n".join(
+        line
+        for line in err.splitlines()
+        if line.strip() and not line.startswith("snapshot sync:")
+    )

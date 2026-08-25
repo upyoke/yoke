@@ -54,7 +54,9 @@ def project_snapshot_sync(args: List[str]) -> int:
     parser.add_argument("--integration-target", default=None)
     parser.add_argument("--head-only", action="store_true")
     parser.add_argument(
-        "--hook", dest="hook_mode", action="store_true",
+        "--hook",
+        dest="hook_mode",
+        action="store_true",
         help="Hook-safe mode: report failures but exit zero.",
     )
     add_session_arg(parser)
@@ -72,13 +74,14 @@ def project_snapshot_sync(args: List[str]) -> int:
             integration_target=parsed.integration_target,
             head_only=parsed.head_only,
             hook_mode=parsed.hook_mode,
+            include_contents=not parsed.hook_mode,
         )
     except ProjectSnapshotScanError as exc:
         label = "warning" if parsed.hook_mode else "error"
         print(f"{label}: {exc}", file=sys.stderr)
         return 0 if parsed.hook_mode else 1
     try:
-        if needs_https_chunking(payload):
+        if parsed.hook_mode or needs_https_chunking(payload):
             response = dispatch_chunked_sync_payload(
                 project=project,
                 payload=payload,
@@ -125,7 +128,10 @@ def sync_local_snapshot_for_write(
     repair_command = _repair_command(project_id, repo_root)
     if project_id is None:
         return _sync_status(
-            False, "skipped", "project context unavailable", repair_command,
+            False,
+            "skipped",
+            "project context unavailable",
+            repair_command,
         )
     try:
         payload = build_sync_payload(
@@ -139,13 +145,17 @@ def sync_local_snapshot_for_write(
     try:
         if needs_https_chunking(payload):
             response = dispatch_chunked_sync_payload(
-                project=project_id, payload=payload,
-                session_id=session_id, timeout_s=8.0,
+                project=project_id,
+                payload=payload,
+                session_id=session_id,
+                timeout_s=8.0,
             )
         else:
             response = _dispatch_sync_payload(
-                project=project_id, payload=payload,
-                session_id=session_id, timeout_s=8.0,
+                project=project_id,
+                payload=payload,
+                session_id=session_id,
+                timeout_s=8.0,
             )
     except Exception as exc:
         message = str(exc) or type(exc).__name__

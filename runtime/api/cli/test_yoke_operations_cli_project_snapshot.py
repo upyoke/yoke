@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from yoke_cli.main import main as cli_main
 from yoke_cli.project_snapshot import scanner
 from yoke_contracts.api.function_call import (
     FunctionCallResponse,
@@ -14,6 +13,7 @@ from yoke_contracts.api.function_call import (
 from runtime.api.cli.project_snapshot_cli_test_helpers import (
     CALLS as _CALLS,
     make_repo as _make_repo,
+    non_progress_err,
     run_cli as _run,
 )
 
@@ -29,12 +29,18 @@ def test_registry_maps_project_snapshot_sync() -> None:
 def test_project_snapshot_sync_scans_and_dispatches_payload(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     rc, out, err = _run(
-        "project", "snapshot", "sync", str(repo), "--project", "demo",
+        "project",
+        "snapshot",
+        "sync",
+        str(repo),
+        "--project",
+        "demo",
         "--head-only",
     )
     assert rc == 0
     assert "created: HEAD abc snapshot=1" in out
-    assert err == ""
+    assert non_progress_err(err) == ""
+    assert "snapshot sync:" in err
 
     call = _CALLS[-1]
     assert call["function_id"] == "project.snapshot.sync"
@@ -62,7 +68,9 @@ def test_build_sync_payload_reuses_head_scan_for_same_commit_refs(
     monkeypatch.setattr(scanner, "scan_ref", fake_scan_ref)
 
     payload = scanner.build_sync_payload(
-        repo, project_id="demo", integration_target="main",
+        repo,
+        project_id="demo",
+        integration_target="main",
     )
 
     assert [snapshot.ref for snapshot in payload.snapshots] == ["HEAD", "main"]
@@ -79,8 +87,14 @@ def test_hook_mode_reports_failure_but_exits_zero(tmp_path: Path) -> None:
         error=FunctionError(code="snapshot_sync_failed", message="nope"),
     )
     rc, _out, err = _run(
-        "project", "snapshot", "sync", str(repo), "--project", "demo",
-        "--head-only", "--hook",
+        "project",
+        "snapshot",
+        "sync",
+        str(repo),
+        "--project",
+        "demo",
+        "--head-only",
+        "--hook",
         response=response,
     )
     assert rc == 0
@@ -106,8 +120,14 @@ def test_hook_mode_deferral_reads_as_calm_note(tmp_path: Path) -> None:
         ),
     )
     rc, _out, err = _run(
-        "project", "snapshot", "sync", str(repo), "--project", "demo",
-        "--head-only", "--hook",
+        "project",
+        "snapshot",
+        "sync",
+        str(repo),
+        "--project",
+        "demo",
+        "--head-only",
+        "--hook",
         response=response,
     )
     assert rc == 0
