@@ -31,6 +31,9 @@ _VERSION = re.compile(
 )
 _CLAUDE_RESUME_SURFACE = "claude-cli"
 _CLAUDE_FAMILY_SURFACES = frozenset(capabilities_for_harness("claude-code"))
+_CURSOR_RESUME_SURFACE = "cursor-cli"
+_CURSOR_DESKTOP_SURFACE = "cursor-desktop"
+_CURSOR_PEER_WAKE_OPERATIONS = frozenset({"message_idle", "message_stopped"})
 _PRERELEASE_RANK = {
     "a": 0,
     "alpha": 0,
@@ -110,11 +113,39 @@ def surface_version_meets_floor(
     return bool(observed is not None and floor is not None and observed >= floor)
 
 
+def machine_wake_executor_surface(
+    surface: str | None,
+    operation: str,
+) -> str | None:
+    """Name the same-machine binary that executes a peer wake."""
+    target = str(surface or "")
+    if operation == "message_stopped" and target in _CLAUDE_FAMILY_SURFACES:
+        return _CLAUDE_RESUME_SURFACE
+    if target == _CURSOR_DESKTOP_SURFACE and operation in _CURSOR_PEER_WAKE_OPERATIONS:
+        return _CURSOR_RESUME_SURFACE
+    return None
+
+
+def machine_wake_surface(
+    surface: str | None,
+    machine_surface_versions: Mapping[str, str] | None,
+    operation: str,
+) -> tuple[str, str] | None:
+    """Return the qualified same-machine peer binary for one wake operation."""
+    executor_surface = machine_wake_executor_surface(surface, operation)
+    if executor_surface is None:
+        return None
+    version = (machine_surface_versions or {}).get(executor_surface)
+    if not surface_operation_supported(executor_surface, version, operation):
+        return None
+    return executor_surface, str(version)
+
+
 def machine_stopped_wake_surface(
     surface: str | None,
     machine_surface_versions: Mapping[str, str] | None,
 ) -> tuple[str, str] | None:
-    """Return the binary that wakes a stopped Claude session, with its version.
+    """Return the binary that wakes a stopped session, with its version.
 
     Every Claude app on one machine shares a single transcript store, so the
     installed CLI resumes a stopped session whichever app registered it. The
@@ -122,15 +153,11 @@ def machine_stopped_wake_surface(
     the version recorded for the surface the session was born in — and every
     caller carrying that wake onward names the same executing binary, because
     the surface the session registered under has no resume route of its own.
+
+    Cursor desktop conversations likewise use the installed Cursor CLI's exact
+    session resume operation while the desktop capability itself stays closed.
     """
-    if str(surface or "") not in _CLAUDE_FAMILY_SURFACES:
-        return None
-    version = (machine_surface_versions or {}).get(_CLAUDE_RESUME_SURFACE)
-    if not surface_operation_supported(
-        _CLAUDE_RESUME_SURFACE, version, "message_stopped"
-    ):
-        return None
-    return _CLAUDE_RESUME_SURFACE, str(version)
+    return machine_wake_surface(surface, machine_surface_versions, "message_stopped")
 
 
 def machine_stopped_wake_supported(
@@ -142,6 +169,8 @@ def machine_stopped_wake_supported(
 
 
 __all__ = [
+    "machine_wake_executor_surface",
+    "machine_wake_surface",
     "machine_stopped_wake_supported",
     "machine_stopped_wake_surface",
     "surface_operation_supported",

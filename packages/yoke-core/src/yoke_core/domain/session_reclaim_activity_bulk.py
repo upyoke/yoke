@@ -19,7 +19,11 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 
 from . import db_backend
 from .schema_common import _get_columns as _schema_get_columns
-from .session_reclaim_activity import newest_activity_stamp as _newest
+from .session_reclaim_activity import (
+    in_flight_activity_is_hard_stale,
+    newest_activity_stamp as _newest,
+    resolve_effective_ttl,
+)
 from .session_reclaim_progress import live_activity_stamp
 
 
@@ -72,12 +76,13 @@ def latest_activity_by_session(
     marker = _p(conn)
     placeholders = ", ".join(marker for _ in ids)
     activity: Dict[str, Optional[str]] = {session_id: None for session_id in ids}
+    executors: Dict[str, Optional[str]] = {session_id: None for session_id in ids}
 
     session_columns = _columns(conn, "harness_sessions")
     if session_columns:
         selected = [
             name
-            for name in ("last_heartbeat", "last_tool_call_at")
+            for name in ("executor", "last_heartbeat", "last_tool_call_at")
             if name in session_columns
         ]
         if selected:
@@ -87,9 +92,12 @@ def latest_activity_by_session(
             )
             for row in _rows(conn, sql, ids):
                 session_id = str(_value(row, "session_id", 0))
-                stamps = [
-                    _value(row, name, index + 1) for index, name in enumerate(selected)
-                ]
+                values = {
+                    name: _value(row, name, index + 1)
+                    for index, name in enumerate(selected)
+                }
+                executors[session_id] = values.get("executor")
+                stamps = [values.get("last_heartbeat"), values.get("last_tool_call_at")]
                 activity[session_id] = _newest(activity.get(session_id), *stamps)
 
     claim_columns = _columns(conn, "work_claims")
@@ -114,7 +122,7 @@ def latest_activity_by_session(
             ]
             activity[session_id] = _newest(activity.get(session_id), *stamps)
 
-    _mark_in_flight_live(conn, ids, activity, marker, placeholders)
+    _mark_in_flight_live(conn, ids, activity, executors, marker, placeholders)
     return activity
 
 
@@ -122,11 +130,22 @@ def _mark_in_flight_live(
     conn: Any,
     ids: List[str],
     activity: Dict[str, Optional[str]],
+    executors: Dict[str, Optional[str]],
     marker: str,
     placeholders: str,
 ) -> None:
     """Treat a running turn or open tool call as live for every listed session."""
     live_stamp = live_activity_stamp()
+
+    def mark_live(row: Any) -> None:
+        session_id = str(_value(row, "session_id", 0))
+        if session_id not in activity or in_flight_activity_is_hard_stale(
+            activity[session_id],
+            effective_ttl_minutes=resolve_effective_ttl(executors.get(session_id)),
+        ):
+            return
+        activity[session_id] = live_stamp
+
     session_columns = _columns(conn, "harness_sessions")
     if "turn_posture" in session_columns:
         sql = (
@@ -134,9 +153,7 @@ def _mark_in_flight_live(
             f"WHERE session_id IN ({placeholders}) AND turn_posture = {marker}"
         )
         for row in _rows(conn, sql, (*ids, "running")):
-            session_id = str(_value(row, "session_id", 0))
-            if session_id in activity:
-                activity[session_id] = live_stamp
+            mark_live(row)
     tool_columns = _columns(conn, "session_tool_calls")
     if "completed_at" in tool_columns and "session_id" in tool_columns:
         sql = (
@@ -144,9 +161,7 @@ def _mark_in_flight_live(
             f"WHERE completed_at IS NULL AND session_id IN ({placeholders})"
         )
         for row in _rows(conn, sql, ids):
-            session_id = str(_value(row, "session_id", 0))
-            if session_id in activity:
-                activity[session_id] = live_stamp
+            mark_live(row)
 
 
 __all__ = ["latest_activity_by_session"]
