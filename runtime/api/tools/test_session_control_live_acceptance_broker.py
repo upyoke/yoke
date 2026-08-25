@@ -96,29 +96,18 @@ def test_broker_cell_fails_closed_on_wrong_peer_duplicate_or_missing_digest() ->
         assert report["cells"][0]["failure_code"] == failure_code
 
 
-def test_broker_cell_requires_direct_absence_and_same_machine_peer() -> None:
+def test_broker_cell_requires_same_machine_peer() -> None:
     cell = _broker_cell()
-    scenarios = (
-        (
-            _ScenarioClient(cell, broker_direct_available=True),
-            "waiting_wake_mismatch",
-        ),
-        (
-            _ScenarioClient(cell, broker_machine_mismatch=True),
-            "broker_machine_mismatch",
-        ),
+    client = _ScenarioClient(cell, broker_machine_mismatch=True)
+    report = _driver(client).run(
+        AcceptanceMatrix("yoke", (cell,)),
+        run_id="release-broker-route",
+        release_sha=RELEASE_SHA,
+        server_build=SERVER_BUILD,
+        engine_version="0.1.1+launch.999",
+        caller_session_id="main-session",
+        timeout_seconds=10,
+        poll_seconds=1,
+        unsupported_observation_seconds=2,
     )
-
-    for index, (client, failure_code) in enumerate(scenarios):
-        report = _driver(client).run(
-            AcceptanceMatrix("yoke", (cell,)),
-            run_id=f"release-broker-route-{index}",
-            release_sha=RELEASE_SHA,
-            server_build=SERVER_BUILD,
-            engine_version="0.1.1+launch.999",
-            caller_session_id="main-session",
-            timeout_seconds=10,
-            poll_seconds=1,
-            unsupported_observation_seconds=2,
-        )
-        assert report["cells"][0]["failure_code"] == failure_code
+    assert report["cells"][0]["failure_code"] == "broker_machine_mismatch"

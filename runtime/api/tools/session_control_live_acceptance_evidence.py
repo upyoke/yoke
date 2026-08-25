@@ -27,6 +27,9 @@ _ATTEMPT_KEYS = frozenset(
         "target_session_id",
     }
 )
+_SUCCESS_RESULTS = frozenset({"accepted", "resumed_running", "resumed_completed"})
+_SKIP_RESULTS = frozenset({"skipped_surface", "skipped_version", "skipped_operation"})
+_WAKE_KINDS = frozenset({"wake_relay", "wake_broker"})
 
 
 def one_recipient(
@@ -55,6 +58,75 @@ def receipt_count(value: Any, *, surface: str) -> int:
     return count
 
 
+def _attempt_summary(attempt: dict[str, Any]) -> dict[str, Any]:
+    keys = (
+        "attempt_id",
+        "attempt_kind",
+        "result_code",
+        "started_at",
+        "completed_at",
+    )
+    return {
+        key: value if isinstance((value := attempt.get(key)), str) else None
+        for key in keys
+    }
+
+
+def _require_attempt_metadata(
+    attempt: dict[str, Any],
+    *,
+    surface: str,
+    completed_required: bool,
+) -> None:
+    required = (
+        attempt.get("attempt_id"),
+        attempt.get("started_at"),
+        attempt.get("adapter_revision"),
+        attempt.get("result_code"),
+    )
+    if not all(isinstance(item, str) and item.strip() for item in required):
+        raise AcceptanceContractError(
+            "wake_attempt_settlement_invalid", surface=surface
+        )
+    completed = attempt.get("completed_at")
+    if completed_required and not (isinstance(completed, str) and completed.strip()):
+        raise AcceptanceContractError(
+            "wake_attempt_settlement_invalid", surface=surface
+        )
+
+
+def _unsupported_wake_evidence(
+    wake_attempts: list[dict[str, Any]],
+    *,
+    cell: AcceptanceCell,
+    session_id: str,
+) -> dict[str, Any]:
+    if len(wake_attempts) != 1:
+        raise AcceptanceContractError(
+            "unsupported_wake_attempt_count_invalid", surface=cell.surface
+        )
+    attempt = wake_attempts[0]
+    _require_attempt_metadata(attempt, surface=cell.surface, completed_required=True)
+    if (
+        attempt.get("attempt_kind") != "wake_relay"
+        or attempt.get("target_session_id") != session_id
+        or attempt.get("broker_session_id") is not None
+        or attempt.get("result_code") not in _SKIP_RESULTS
+    ):
+        raise AcceptanceContractError(
+            "unsupported_native_wake_present", surface=cell.surface
+        )
+    return {
+        "route": "none",
+        "result_code": attempt["result_code"],
+        "attempt_count": 1,
+        "retry_count": 0,
+        "attempts": [_attempt_summary(attempt)],
+        "attempt_deduplicated": True,
+        "native_traffic_body_free": True,
+    }
+
+
 def native_wake_evidence(
     value: Any,
     *,
@@ -78,26 +150,31 @@ def native_wake_evidence(
             "attempt_evidence_incomplete", surface=cell.surface
         )
     wake_attempts = [
-        attempt
-        for attempt in attempts
-        if attempt.get("attempt_kind") in {"wake_relay", "wake_broker"}
+        attempt for attempt in attempts if attempt.get("attempt_kind") in _WAKE_KINDS
     ]
     if cell.route == "none":
-        if wake_attempts:
-            raise AcceptanceContractError(
-                "unsupported_native_wake_present", surface=cell.surface
-            )
-        return {
-            "route": "none",
-            "attempt_count": 0,
-            "attempt_deduplicated": True,
-            "native_traffic_body_free": True,
-        }
-    if len(wake_attempts) != 1:
+        return _unsupported_wake_evidence(
+            wake_attempts, cell=cell, session_id=session_id
+        )
+    successes = [
+        index
+        for index, attempt in enumerate(wake_attempts)
+        if attempt.get("result_code") in _SUCCESS_RESULTS
+    ]
+    if not successes:
+        raise AcceptanceContractError("wake_attempt_not_accepted", surface=cell.surface)
+    if len(successes) != 1:
         raise AcceptanceContractError(
             "wake_attempt_count_invalid", surface=cell.surface
         )
-    attempt = wake_attempts[0]
+    selected_index = successes[0]
+    if selected_index != len(wake_attempts) - 1:
+        raise AcceptanceContractError(
+            "wake_attempt_order_invalid", surface=cell.surface
+        )
+    for retry in wake_attempts[:selected_index]:
+        _require_attempt_metadata(retry, surface=cell.surface, completed_required=True)
+    attempt = wake_attempts[selected_index]
     expected_kind = "wake_broker" if cell.route == "broker" else "wake_relay"
     if attempt.get("attempt_kind") != expected_kind:
         raise AcceptanceContractError("wake_route_mismatch", surface=cell.surface)
@@ -110,18 +187,12 @@ def native_wake_evidence(
         raise AcceptanceContractError(
             "wake_broker_identity_mismatch", surface=cell.surface
         )
-    required = (
-        attempt.get("attempt_id"),
-        attempt.get("started_at"),
-        attempt.get("completed_at"),
-        attempt.get("adapter_revision"),
+    result_code = str(attempt["result_code"])
+    _require_attempt_metadata(
+        attempt,
+        surface=cell.surface,
+        completed_required=result_code != "resumed_running",
     )
-    if not all(isinstance(item, str) and item.strip() for item in required):
-        raise AcceptanceContractError(
-            "wake_attempt_settlement_invalid", surface=cell.surface
-        )
-    if attempt.get("result_code") != "accepted":
-        raise AcceptanceContractError("wake_attempt_not_accepted", surface=cell.surface)
     evidence = attempt.get("evidence")
     digest = native_wake_instruction_sha256(message_id)
     if (
@@ -136,13 +207,55 @@ def native_wake_evidence(
         "attempt_id": attempt["attempt_id"],
         "attempt_kind": expected_kind,
         "broker_session_id": expected_broker,
-        "result_code": "accepted",
+        "result_code": result_code,
         "adapter_revision": attempt["adapter_revision"],
         "native_instruction_sha256": digest,
-        "attempt_count": 1,
+        "attempt_count": len(wake_attempts),
+        "retry_count": selected_index,
+        "attempts": [_attempt_summary(item) for item in wake_attempts],
         "attempt_deduplicated": True,
         "native_traffic_body_free": True,
     }
+
+
+def _body_free_receipt_evidence(observed: dict[str, Any]) -> dict[str, Any]:
+    evidence = {
+        key: observed.get(key)
+        for key in (
+            "message_id",
+            "state",
+            "injection_count",
+            "wake_attempt_count",
+            "acknowledged_at",
+            "last_wake_at",
+        )
+    }
+    raw_attempts = observed.get("attempt_evidence")
+    if isinstance(raw_attempts, dict):
+        attempts = raw_attempts.get("attempts")
+        evidence["native_wake_attempts"] = {
+            "attempt_count": raw_attempts.get("attempt_count"),
+            "attempts_truncated": raw_attempts.get("attempts_truncated"),
+            "attempts": [
+                _attempt_summary(attempt)
+                for attempt in attempts
+                if isinstance(attempt, dict)
+            ]
+            if isinstance(attempts, list)
+            else [],
+        }
+    evidence["native_traffic_body_free"] = True
+    return evidence
+
+
+def _receipt_failure(
+    code: str, *, cell: AcceptanceCell, observed: dict[str, Any]
+) -> AcceptanceContractError:
+    return AcceptanceContractError(
+        code,
+        surface=cell.surface,
+        evidence=_body_free_receipt_evidence(observed),
+    )
 
 
 def wait_for_ack(
@@ -166,31 +279,44 @@ def wait_for_ack(
                 observed["injection_count"] < minimum_injections
                 or not observed["acknowledged_at"]
             ):
-                raise AcceptanceContractError(
-                    "ack_evidence_invalid", surface=cell.surface
+                raise _receipt_failure(
+                    "ack_evidence_invalid", cell=cell, observed=observed
                 )
             if require_wake and (
                 observed["wake_attempt_count"] < 1 or not observed["last_wake_at"]
             ):
-                raise AcceptanceContractError(
-                    "wake_evidence_missing", surface=cell.surface
+                raise _receipt_failure(
+                    "wake_evidence_missing", cell=cell, observed=observed
                 )
             if require_wake:
-                observed["native_wake"] = native_wake_evidence(
-                    observed.pop("attempt_evidence"),
-                    cell=cell,
-                    session_id=session_id,
-                    message_id=message_id,
-                )
+                try:
+                    observed["native_wake"] = native_wake_evidence(
+                        observed["attempt_evidence"],
+                        cell=cell,
+                        session_id=session_id,
+                        message_id=message_id,
+                    )
+                except AcceptanceContractError as exc:
+                    raise _receipt_failure(
+                        exc.code, cell=cell, observed=observed
+                    ) from exc
+                if (
+                    observed["wake_attempt_count"]
+                    != observed["native_wake"]["attempt_count"]
+                ):
+                    raise _receipt_failure(
+                        "wake_attempt_count_mismatch", cell=cell, observed=observed
+                    )
+                observed.pop("attempt_evidence")
             else:
                 observed.pop("attempt_evidence")
             return observed
         if observed["state"] in {"expired", "cancelled"}:
-            raise AcceptanceContractError(
-                "receipt_terminal_without_ack", surface=cell.surface
+            raise _receipt_failure(
+                "receipt_terminal_without_ack", cell=cell, observed=observed
             )
         if monotonic() >= deadline:
-            raise AcceptanceContractError("ack_timeout", surface=cell.surface)
+            raise _receipt_failure("ack_timeout", cell=cell, observed=observed)
         sleep(poll)
 
 
