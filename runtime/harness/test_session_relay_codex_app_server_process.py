@@ -9,6 +9,7 @@ from pathlib import Path
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_codex_app_server as app_module
+from yoke_harness import session_relay_codex_app_server_client as client_module
 from yoke_harness import session_relay_codex_app_server_process as process_module
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
@@ -158,6 +159,9 @@ def test_worker_returns_only_bounded_outcome(monkeypatch, tmp_path: Path) -> Non
         "native_session_id": "native-1",
         "identity_correlated": True,
         "exit_code": None,
+        "phase": None,
+        "binary_source": None,
+        "pid": None,
     }
     assert SECRET not in stdout.getvalue()
     assert INSTRUCTION not in stdout.getvalue()
@@ -251,11 +255,13 @@ def test_app_server_process_receives_rehydrated_context(
         LAUNCH_CONTEXT_ENV,
         json.dumps({"launch_id": "stale-launch", "attestation": "stale-secret"}),
     )
-    monkeypatch.setattr(app_module, "resolve_native_cli", lambda _binary: "/opt/codex")
-    monkeypatch.setattr(app_module.subprocess, "Popen", spawn)
-    monkeypatch.setattr(app_module.selectors, "DefaultSelector", _Selector)
-    monkeypatch.setattr(app_module._Client, "request", lambda *_args: {})
-    monkeypatch.setattr(app_module._Client, "notify", lambda *_args: None)
+    monkeypatch.setattr(
+        client_module, "resolve_native_cli", lambda _binary: "/opt/codex"
+    )
+    monkeypatch.setattr(client_module.subprocess, "Popen", spawn)
+    monkeypatch.setattr(client_module.selectors, "DefaultSelector", _Selector)
+    monkeypatch.setattr(client_module._Client, "request", lambda *_args: {})
+    monkeypatch.setattr(client_module._Client, "notify", lambda *_args: None)
 
     client = app_module.CodexAppServerTransport(worker=True)._client(hydrated)
 
@@ -283,8 +289,8 @@ def test_app_server_turn_owner_thread_survives_worker_main(monkeypatch) -> None:
         def start(self) -> None:
             observed["started"] = True
 
-    monkeypatch.setattr(app_module.threading, "Thread", Thread)
-    client = object.__new__(app_module._Client)
+    monkeypatch.setattr(client_module.threading, "Thread", Thread)
+    client = object.__new__(client_module._Client)
     client.timeout = 1.0
 
     client.detach_until_turn_completed("turn-1")

@@ -11,17 +11,21 @@ _TEXT_FIELDS = frozenset(
         "adapter_revision",
         "diagnostic_availability",
         "machine_id",
+        "native_binary_source",
         "native_diagnostic_ref",
         "native_error_class",
         "native_error_sha256",
         "native_error_step",
         "native_instruction_sha256",
+        "native_launch_phase",
         "relay_id",
         "result_code",
         "surface",
     }
 )
-_INTEGER_FIELDS = frozenset({"diagnostic_expires_at", "duration_ms", "exit_code"})
+_INTEGER_FIELDS = frozenset(
+    {"diagnostic_expires_at", "duration_ms", "exit_code", "native_launch_pid"}
+)
 _MAX_TEXT_LENGTH = 128
 _NATIVE_DIAGNOSTIC_COMMAND = "yoke relay diagnostic"
 NATIVE_DIAGNOSTIC_REFERENCE_PATTERN = re.compile(r"nd-[0-9a-f]{32}")

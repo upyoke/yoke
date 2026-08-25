@@ -71,7 +71,15 @@ def _version_token(text: str) -> str | None:
     return matched.group(0).rstrip("-+._") if matched else None
 
 
-def resolve_native_cli(command_name: str) -> str | None:
+@dataclass(frozen=True)
+class ResolvedNativeCli:
+    """Which executable served a probe or launch, and by which route."""
+
+    path: str
+    source: str
+
+
+def resolve_native_cli_source(command_name: str) -> ResolvedNativeCli | None:
     """Resolve a native CLI exactly as the surface-version probe finds it.
 
     The probe is what tells the control plane a surface is launchable here,
@@ -79,19 +87,30 @@ def resolve_native_cli(command_name: str) -> str | None:
     launch for a surface the relay is still advertising. Codex ships only
     inside the desktop app on some machines, and a ``PATH``-only lookup there
     reports the surface as present and then fails every create against it.
+
+    The route is part of the answer. A standalone install on ``PATH`` and the
+    copy inside the desktop app are different builds with different release
+    cadences, so an attempt that names which one served it can be compared
+    against one that ran the other.
     """
     if os.sep in command_name:
         candidate = Path(command_name)
         if candidate.is_file() and os.access(candidate, os.X_OK):
-            return command_name
+            return ResolvedNativeCli(command_name, "explicit")
         return None
     found = shutil.which(command_name)
     if found:
-        return found
+        return ResolvedNativeCli(found, "path")
     fallback = _CLI_FALLBACKS.get(command_name)
     if fallback is not None and fallback.is_file() and os.access(fallback, os.X_OK):
-        return str(fallback)
+        return ResolvedNativeCli(str(fallback), "bundled")
     return None
+
+
+def resolve_native_cli(command_name: str) -> str | None:
+    """Return only the executable, for callers that never report provenance."""
+    resolved = resolve_native_cli_source(command_name)
+    return resolved.path if resolved else None
 
 
 def probe_cli_version(command: tuple[str, ...]) -> str | None:
@@ -167,9 +186,11 @@ def collect_inventory(
 
 __all__ = [
     "RelayInventory",
+    "ResolvedNativeCli",
     "collect_inventory",
     "probe_app_version",
     "probe_cli_version",
     "resolve_native_cli",
+    "resolve_native_cli_source",
     "probe_surface_version",
 ]

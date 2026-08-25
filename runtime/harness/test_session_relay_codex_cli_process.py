@@ -13,6 +13,7 @@ from yoke_harness import session_relay_codex_cli as cli_module
 from yoke_harness import session_relay_codex_cli_process as process_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_relay_inventory import ResolvedNativeCli
 from yoke_harness.session_relay_codex_worker_protocol import request_payload
 
 
@@ -174,14 +175,19 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
         "Popen",
         lambda command, **options: calls.append((command, options)) or child,
     )
-    monkeypatch.setattr(cli_module, "resolve_native_cli", lambda binary: binary)
+    monkeypatch.setattr(
+        cli_module,
+        "resolve_native_cli_source",
+        lambda binary: ResolvedNativeCli(binary, "explicit"),
+    )
 
-    result = cli_module.CodexCliTransport(
+    process, binary_source = cli_module.CodexCliTransport(
         binary="/opt/codex",
         worker=True,
     )._spawn(_request(tmp_path), resume=False)
 
-    assert result is child
+    assert process is child
+    assert binary_source == "explicit"
     command, options = calls[0]
     assert command[-1] == "-"
     assert INSTRUCTION not in repr(command)

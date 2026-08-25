@@ -33,6 +33,20 @@ NativeState = Literal[
     "outcome_unknown",
     "unsupported_surface",
 ]
+# A launch that stalls reports nothing on its own, so each transport names
+# the last phase it reached. The phase is what turns an empty outcome into
+# an answer about where the native stopped.
+NativePhase = Literal[
+    "binary_resolve",
+    "spawn",
+    "instruction_write",
+    "thread_identity",
+    "identity_match",
+    "handshake",
+    "thread_open",
+    "turn_start",
+    "native_running",
+]
 
 
 @dataclass(frozen=True)
@@ -66,6 +80,9 @@ class CodexNativeOutcome:
     native_session_id: str | None = None
     identity_correlated: bool = False
     exit_code: int | None = None
+    phase: NativePhase | None = None
+    binary_source: str | None = None
+    pid: int | None = None
 
 
 class CodexNativeTransport(Protocol):
@@ -148,22 +165,35 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
     )
 
 
-def _evidence(surface: str, state: str, exit_code: int | None = None) -> dict[str, Any]:
+def _evidence(
+    surface: str,
+    state: str,
+    outcome: CodexNativeOutcome | None = None,
+) -> dict[str, Any]:
+    """Render the bounded facts an unproven attempt needs to name its phase."""
     payload: dict[str, Any] = {"surface": surface, "result_code": state}
-    if exit_code is not None:
-        payload["exit_code"] = int(exit_code)
+    if outcome is None:
+        return payload
+    if outcome.exit_code is not None:
+        payload["exit_code"] = int(outcome.exit_code)
+    if outcome.phase:
+        payload["native_launch_phase"] = outcome.phase
+    if outcome.binary_source:
+        payload["native_binary_source"] = outcome.binary_source
+    if outcome.pid:
+        payload["native_launch_pid"] = int(outcome.pid)
     return payload
 
 
 def _translate(
     request: CodexNativeRequest, outcome: CodexNativeOutcome
 ) -> RelayAdapterResult:
-    evidence = _evidence(request.surface, outcome.state, outcome.exit_code)
+    evidence = _evidence(request.surface, outcome.state, outcome)
     if outcome.state == "accepted" and not outcome.identity_correlated:
         return RelayAdapterResult(
             "outcome_unknown",
             adapter_revision=ADAPTER_REVISION,
-            evidence=_evidence(request.surface, "identity_uncorrelated"),
+            evidence=_evidence(request.surface, "identity_uncorrelated", outcome),
         )
     if request.job_kind == "launch":
         if outcome.state == "accepted" and outcome.native_session_id:
@@ -254,6 +284,7 @@ __all__ = [
     "CodexNativeOutcome",
     "CodexNativeRequest",
     "CodexNativeTransport",
+    "NativePhase",
     "build_codex_relay_adapter",
     "register_codex_relay_adapters",
 ]

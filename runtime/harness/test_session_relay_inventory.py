@@ -67,9 +67,27 @@ def test_launch_transports_resolve_the_binary_the_probe_advertised(
     monkeypatch.setattr(inventory_module, "_CLI_FALLBACKS", {"codex": bundled})
 
     assert inventory_module.probe_cli_version(("codex", "--version"))
-    assert CodexCliTransport()._binary() == str(bundled)
+    resolved = CodexCliTransport()._resolve_binary()
+    assert resolved is not None and resolved.path == str(bundled)
+    assert resolved.source == "bundled"
     assert CodexAppServerTransport().binary == "codex"
     assert inventory_module.resolve_native_cli("codex") == str(bundled)
+
+
+def test_a_standalone_install_on_path_wins_over_the_desktop_bundle(
+    monkeypatch, tmp_path: Path
+) -> None:
+    # Both codex builds ship separately, so an attempt has to be able to say
+    # which one ran it.
+    standalone = _version_script(tmp_path / "path", "codex-cli 0.150.0\n")
+    bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
+    monkeypatch.setattr(inventory_module, "_CLI_FALLBACKS", {"codex": bundled})
+    monkeypatch.setattr(inventory_module.shutil, "which", lambda _name: str(standalone))
+
+    resolved = inventory_module.resolve_native_cli_source("codex")
+
+    assert resolved == inventory_module.ResolvedNativeCli(str(standalone), "path")
+    assert inventory_module.probe_cli_version(("codex", "--version")) == "0.150.0"
 
 
 def test_an_absolute_binary_resolves_only_when_it_is_executable(
@@ -80,5 +98,8 @@ def test_an_absolute_binary_resolves_only_when_it_is_executable(
     plain.write_text("", encoding="utf-8")
 
     assert inventory_module.resolve_native_cli(str(executable)) == str(executable)
+    assert inventory_module.resolve_native_cli_source(str(executable)) == (
+        inventory_module.ResolvedNativeCli(str(executable), "explicit")
+    )
     assert inventory_module.resolve_native_cli(str(plain)) is None
     assert inventory_module.resolve_native_cli(str(tmp_path / "absent")) is None
