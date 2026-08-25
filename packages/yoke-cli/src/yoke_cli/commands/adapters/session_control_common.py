@@ -6,6 +6,8 @@ import argparse
 import sys
 from typing import Any, TextIO
 
+from yoke_contracts.session_control.liveness import LIVENESS_CHOICES
+
 from yoke_cli.commands.adapters.session_control_human_output import (
     write_message_result as write_human_message_result,
 )
@@ -47,7 +49,11 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
         "execution_lanes": "Keep recipients in this execution lane (repeatable).",
         "worktree_lanes": "Keep recipients on this worktree or branch (repeatable).",
         "machine_ids": "Keep recipients on this machine (repeatable).",
-        "liveness": "Keep recipients in this liveness state (repeatable).",
+        "liveness": (
+            "Keep recipients in this liveness state (repeatable). "
+            "--project and --universe resolve against active sessions "
+            "unless this widens them; 'all' restores every state."
+        ),
         "exclude_session_ids": "Remove this exact session from the result (repeatable).",
     }
     for dest, flag in SELECTOR_ARGUMENTS:
@@ -56,6 +62,7 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
             dest=dest,
             action="append",
             default=[],
+            choices=LIVENESS_CHOICES if dest == "liveness" else None,
             help=anchor_help.get(dest) or filter_help[dest],
         )
     parser.add_argument(
