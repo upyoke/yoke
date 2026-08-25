@@ -5,10 +5,17 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, get_args
 
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
-from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_relay_codex import (
+    CodexNativeOutcome,
+    CodexNativeRequest,
+    NativePhase,
+)
+
+
+_PHASES = frozenset(get_args(NativePhase))
 
 
 def request_payload(request: CodexNativeRequest) -> dict[str, object]:
@@ -82,11 +89,15 @@ def rehydrate_launch_attestation(
 
 
 def outcome_payload(outcome: CodexNativeOutcome) -> dict[str, object]:
+    """Carry the phase across the worker boundary; it is the whole answer."""
     return {
         "state": outcome.state,
         "native_session_id": outcome.native_session_id,
         "identity_correlated": outcome.identity_correlated,
         "exit_code": outcome.exit_code,
+        "phase": outcome.phase,
+        "binary_source": outcome.binary_source,
+        "pid": outcome.pid,
     }
 
 
@@ -105,11 +116,19 @@ def outcome_from_payload(payload: object) -> CodexNativeOutcome | None:
         return None
     native = payload.get("native_session_id")
     exit_code = payload.get("exit_code")
+    phase = payload.get("phase")
+    binary_source = payload.get("binary_source")
+    pid = payload.get("pid")
     return CodexNativeOutcome(
         state,
         str(native) if isinstance(native, str) and native else None,
         bool(payload.get("identity_correlated")),
         int(exit_code) if isinstance(exit_code, int) else None,
+        phase if phase in _PHASES else None,
+        str(binary_source)
+        if isinstance(binary_source, str) and binary_source
+        else None,
+        int(pid) if isinstance(pid, int) and not isinstance(pid, bool) else None,
     )
 
 

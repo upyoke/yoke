@@ -8,28 +8,40 @@ import selectors
 import subprocess
 import threading
 import time
-from pathlib import Path
-from typing import Callable
 
-from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_relay_codex import (
+    CodexNativeOutcome,
+    CodexNativeRequest,
+    NativePhase,
+)
 from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_environment import native_session_environment
-from yoke_harness.session_relay_inventory import resolve_native_cli
+from yoke_harness.session_relay_inventory import (
+    ResolvedNativeCli,
+    resolve_native_cli_source,
+)
 from yoke_harness.session_relay_runtime import wake_operation
 
 
 _MAX_LINE_BYTES = 1024 * 1024
 _MAX_CAPTURE_BYTES = 4 * 1024 * 1024
-ThreadIdentityResolver = Callable[[str, Path], tuple[str, str] | None]
 
 
-def _default_identity_resolver(
-    thread_id: str, checkout: Path
-) -> tuple[str, str] | None:
-    from yoke_harness.session_relay_codex_identity import resolve_thread_identity
+class _NativePhaseError(Exception):
+    """The native never reached the next phase; the phase is the evidence."""
 
-    return resolve_thread_identity(thread_id, checkout)
+    def __init__(
+        self,
+        phase: NativePhase,
+        *,
+        binary_source: str | None = None,
+        pid: int | None = None,
+    ) -> None:
+        super().__init__(phase)
+        self.phase = phase
+        self.binary_source = binary_source
+        self.pid = pid
 
 
 def _launch_environment(request: CodexNativeRequest) -> dict[str, str]:
@@ -94,12 +106,10 @@ class CodexCliTransport:
         *,
         binary: str = "codex",
         startup_timeout: float = 30.0,
-        identity_resolver: ThreadIdentityResolver = _default_identity_resolver,
         worker: bool = False,
     ) -> None:
         self.binary = binary
         self.startup_timeout = startup_timeout
-        self.identity_resolver = identity_resolver
         self.worker = worker
 
     @staticmethod
@@ -110,22 +120,23 @@ class CodexCliTransport:
 
         return run_detached_operation(request)
 
-    def _binary(self) -> str | None:
-        return resolve_native_cli(self.binary)
+    def _resolve_binary(self) -> ResolvedNativeCli | None:
+        return resolve_native_cli_source(self.binary)
 
     def _spawn(
         self, request: CodexNativeRequest, *, resume: bool
-    ) -> subprocess.Popen[bytes] | None:
-        binary = self._binary()
-        if not binary or not request.checkout.is_dir():
-            return None
-        command = _base_command(binary, request)
+    ) -> tuple[subprocess.Popen[bytes], str]:
+        """Start the native, raising the phase that stopped it short."""
+        resolved = self._resolve_binary()
+        if resolved is None or not request.checkout.is_dir():
+            raise _NativePhaseError("binary_resolve")
+        instruction = request.native_instruction.encode()
+        if not instruction or len(instruction) > MAX_HANDOFF_BYTES:
+            raise _NativePhaseError("instruction_write", binary_source=resolved.source)
+        command = _base_command(resolved.path, request)
         if resume:
             command.extend(["resume", str(request.target_session_id)])
         command.append("-")
-        instruction = request.native_instruction.encode()
-        if not instruction or len(instruction) > MAX_HANDOFF_BYTES:
-            return None
         process: subprocess.Popen[bytes] | None = None
         try:
             process = subprocess.Popen(
@@ -138,25 +149,45 @@ class CodexCliTransport:
                 start_new_session=True,
             )
             if process.stdin is None:
-                _stop(process)
-                return None
+                raise OSError("native stdin unavailable")
             process.stdin.write(instruction)
             process.stdin.flush()
             process.stdin.close()
-            return process
-        except (OSError, subprocess.SubprocessError):
+            return process, resolved.source
+        except (OSError, subprocess.SubprocessError) as exc:
+            started = process is not None
             if process is not None:
                 _stop(process)
-            return None
+            raise _NativePhaseError(
+                "instruction_write" if started else "spawn",
+                binary_source=resolved.source,
+                pid=process.pid if process is not None else None,
+            ) from exc
 
     def _await_identity(
         self,
         process: subprocess.Popen[bytes],
         request: CodexNativeRequest,
+        *,
+        binary_source: str,
     ) -> CodexNativeOutcome:
+        """Correlate the native from its own stream, never a second process.
+
+        ``codex exec`` announces the thread it opened on its own stdout, and
+        that announcement is the identity. Confirming it through a separate
+        ``codex app-server`` cannot work: the vendor exposes a thread only
+        once its rollout is persisted, which happens after the turn ends, so
+        a create that waited for that confirmation killed every native it
+        had just started and reported an unproven outcome instead.
+        """
         if process.stdout is None:
             _stop(process)
-            return CodexNativeOutcome("outcome_unknown")
+            return CodexNativeOutcome(
+                "outcome_unknown",
+                phase="spawn",
+                binary_source=binary_source,
+                pid=process.pid,
+            )
         selector = selectors.DefaultSelector()
         selector.register(process.stdout, selectors.EVENT_READ)
         deadline = time.monotonic() + self.startup_timeout
@@ -193,35 +224,50 @@ class CodexCliTransport:
         if not found:
             exit_code = process.poll()
             _stop(process)
-            return CodexNativeOutcome("outcome_unknown", exit_code=exit_code)
-        try:
-            identity = self.identity_resolver(found, request.checkout)
-        except Exception:
-            identity = None
-        expected = request.target_session_id if request.job_kind == "wake" else found
-        correlated = bool(identity == (found, found) and found == expected)
-        if not correlated:
+            return CodexNativeOutcome(
+                "outcome_unknown",
+                exit_code=exit_code,
+                phase="thread_identity",
+                binary_source=binary_source,
+                pid=process.pid,
+            )
+        if request.job_kind == "wake" and found != request.target_session_id:
             _stop(process)
             return CodexNativeOutcome(
                 "outcome_unknown",
                 native_session_id=found,
                 identity_correlated=False,
                 exit_code=process.poll(),
+                phase="identity_match",
+                binary_source=binary_source,
+                pid=process.pid,
             )
         _discard_and_reap(process)
         return CodexNativeOutcome(
             "accepted",
             native_session_id=found,
             identity_correlated=True,
+            phase="native_running",
+            binary_source=binary_source,
+            pid=process.pid,
         )
+
+    def _run(self, request: CodexNativeRequest, *, resume: bool) -> CodexNativeOutcome:
+        try:
+            process, binary_source = self._spawn(request, resume=resume)
+        except _NativePhaseError as failure:
+            return CodexNativeOutcome(
+                "not_found" if request.job_kind == "wake" else "not_created",
+                phase=failure.phase,
+                binary_source=failure.binary_source,
+                pid=failure.pid,
+            )
+        return self._await_identity(process, request, binary_source=binary_source)
 
     def create(self, request: CodexNativeRequest) -> CodexNativeOutcome:
         if not self.worker:
             return self._detached(request)
-        process = self._spawn(request, resume=False)
-        if process is None:
-            return CodexNativeOutcome("not_created")
-        return self._await_identity(process, request)
+        return self._run(request, resume=False)
 
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome:
         if not self.worker:
@@ -232,10 +278,7 @@ class CodexCliTransport:
             or not request.target_session_id
         ):
             return CodexNativeOutcome("unsupported_surface")
-        process = self._spawn(request, resume=True)
-        if process is None:
-            return CodexNativeOutcome("not_found")
-        return self._await_identity(process, request)
+        return self._run(request, resume=True)
 
 
 __all__ = ["CodexCliTransport", "LAUNCH_CONTEXT_ENV"]

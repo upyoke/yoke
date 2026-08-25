@@ -95,12 +95,14 @@ def test_cli_waiting_wake_resumes_active_labeled_session(
     monkeypatch.setattr(
         transport,
         "_spawn",
-        lambda request, *, resume: calls.append((request, resume)) or process,
+        lambda request, *, resume: (
+            calls.append((request, resume)) or (process, "bundled")
+        ),
     )
     monkeypatch.setattr(
         transport,
         "_await_identity",
-        lambda *_: CodexNativeOutcome("accepted", SESSION_ID, True),
+        lambda *_args, **_options: CodexNativeOutcome("accepted", SESSION_ID, True),
     )
 
     outcome = transport.wake(_request(tmp_path, job_id=scenario))

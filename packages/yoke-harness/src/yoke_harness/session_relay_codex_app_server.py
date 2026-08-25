@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-import json
-import os
-import selectors
-import subprocess
-import threading
-import time
 import uuid
-from pathlib import Path
 from typing import Any
 
-from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
+from yoke_harness.session_relay_codex import (
+    CodexNativeOutcome,
+    CodexNativeRequest,
+    NativePhase,
+)
+from yoke_harness.session_relay_codex_app_server_client import (
+    CodexAppServerError,
+    _Client,
+)
 from yoke_harness.session_relay_codex_cli import _launch_environment
-from yoke_harness.session_relay_inventory import resolve_native_cli
+from yoke_harness.session_relay_inventory import resolve_native_cli_source
 
 
-_MAX_LINE_BYTES = 4 * 1024 * 1024
-_TURN_OWNER_SECONDS = 24 * 60 * 60
 _RESUMABLE_NATIVE_STATUSES = frozenset({"idle", "notLoaded"})
 _CLIENT_MESSAGE_NAMESPACE = uuid.uuid5(
     uuid.NAMESPACE_URL,
@@ -26,150 +25,10 @@ _CLIENT_MESSAGE_NAMESPACE = uuid.uuid5(
 )
 
 
-class CodexAppServerError(RuntimeError):
-    """The bounded app-server exchange could not prove its outcome."""
-
-
-class _Client:
-    def __init__(
-        self,
-        binary: str,
-        checkout: Path,
-        env: dict[str, str],
-        timeout: float,
-    ) -> None:
-        resolved = resolve_native_cli(binary)
-        if not resolved or not checkout.is_dir():
-            raise CodexAppServerError("app-server unavailable")
-        self.timeout = timeout
-        self.next_id = 1
-        self.buffer = bytearray()
-        try:
-            self.process = subprocess.Popen(
-                [resolved, "app-server", "--stdio"],
-                cwd=checkout,
-                env=env,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                bufsize=0,
-                start_new_session=True,
-            )
-        except OSError as exc:
-            raise CodexAppServerError("app-server unavailable") from exc
-        if self.process.stdin is None or self.process.stdout is None:
-            raise CodexAppServerError("app-server pipes unavailable")
-        self.selector = selectors.DefaultSelector()
-        self.selector.register(self.process.stdout, selectors.EVENT_READ)
-        self.request(
-            "initialize",
-            {"clientInfo": {"name": "yoke_session_relay", "version": "1"}},
-        )
-        self.notify("initialized", {})
-
-    def _send(self, payload: dict[str, Any]) -> None:
-        body = json.dumps(payload, separators=(",", ":")).encode() + b"\n"
-        if len(body) > _MAX_LINE_BYTES or self.process.stdin is None:
-            raise CodexAppServerError("app-server request rejected")
-        self.process.stdin.write(body)
-        self.process.stdin.flush()
-
-    def _line(self, deadline: float) -> bytes:
-        while True:
-            newline = self.buffer.find(b"\n")
-            if newline >= 0:
-                line = bytes(self.buffer[:newline])
-                del self.buffer[: newline + 1]
-                return line
-            if len(self.buffer) > _MAX_LINE_BYTES:
-                raise CodexAppServerError("app-server response exceeded limit")
-            remaining = deadline - time.monotonic()
-            if remaining <= 0 or not self.selector.select(remaining):
-                raise CodexAppServerError("app-server response timed out")
-            if self.process.stdout is None:
-                raise CodexAppServerError("app-server response unavailable")
-            chunk = os.read(self.process.stdout.fileno(), 65_536)
-            if not chunk:
-                raise CodexAppServerError("app-server exited")
-            self.buffer.extend(chunk)
-
-    def _receive(self, deadline: float) -> dict[str, Any]:
-        while True:
-            try:
-                payload = json.loads(self._line(deadline))
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                continue
-            if isinstance(payload, dict):
-                return payload
-
-    def request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        request_id = self.next_id
-        self.next_id += 1
-        self._send({"method": method, "id": request_id, "params": params})
-        deadline = time.monotonic() + self.timeout
-        while True:
-            payload = self._receive(deadline)
-            if payload.get("id") == request_id and "method" not in payload:
-                if "error" in payload:
-                    raise CodexAppServerError(f"{method} failed")
-                result = payload.get("result")
-                return result if isinstance(result, dict) else {}
-            if "method" in payload and "id" in payload:
-                self._send(
-                    {
-                        "id": payload["id"],
-                        "error": {"code": -32601, "message": "unsupported request"},
-                    }
-                )
-
-    def notify(self, method: str, params: dict[str, Any]) -> None:
-        self._send({"method": method, "params": params})
-
-    def detach_until_turn_completed(self, turn_id: str) -> None:
-        def drain() -> None:
-            deadline = time.monotonic() + _TURN_OWNER_SECONDS
-            try:
-                while time.monotonic() < deadline:
-                    payload = self._receive(deadline)
-                    if payload.get("method") != "turn/completed":
-                        continue
-                    params = payload.get("params")
-                    turn = params.get("turn") if isinstance(params, dict) else None
-                    completed = turn.get("id") if isinstance(turn, dict) else None
-                    if completed == turn_id:
-                        break
-            except Exception:
-                pass
-            finally:
-                self.close()
-
-        threading.Thread(
-            target=drain, daemon=False, name="yoke-codex-app-server-reap"
-        ).start()
-
-    def close(self) -> None:
-        try:
-            self.selector.close()
-        except Exception:
-            pass
-        if self.process.stdin is not None:
-            try:
-                self.process.stdin.close()
-            except OSError:
-                pass
-        if self.process.poll() is None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=2)
-
-
 def _thread(result: dict[str, Any]) -> dict[str, Any]:
     value = result.get("thread")
     if not isinstance(value, dict):
-        raise CodexAppServerError("thread response missing identity")
+        raise CodexAppServerError("thread response missing identity", "thread_open")
     return value
 
 
@@ -177,7 +36,7 @@ def _identity(value: dict[str, Any]) -> tuple[str, str]:
     thread_id = str(value.get("id") or "").strip()
     session_id = str(value.get("sessionId") or "").strip()
     if not thread_id or not session_id:
-        raise CodexAppServerError("thread response missing identity")
+        raise CodexAppServerError("thread response missing identity", "thread_open")
     return thread_id, session_id
 
 
@@ -189,13 +48,13 @@ def _turn_id(result: dict[str, Any]) -> str:
     turn = result.get("turn")
     value = turn.get("id") if isinstance(turn, dict) else None
     if not isinstance(value, str) or not value:
-        raise CodexAppServerError("turn response missing identity")
+        raise CodexAppServerError("turn response missing identity", "turn_start")
     return value
 
 
 def _client_message_id(request: CodexNativeRequest, thread_id: str) -> str:
     if not request.instruction_id:
-        raise CodexAppServerError("instruction identity missing")
+        raise CodexAppServerError("instruction identity missing", "turn_start")
     return str(
         uuid.uuid5(
             _CLIENT_MESSAGE_NAMESPACE,
@@ -214,6 +73,25 @@ def _start_turn(client: _Client, thread_id: str, request: CodexNativeRequest) ->
                 "clientUserMessageId": _client_message_id(request, thread_id),
             },
         )
+    )
+
+
+def _outcome(
+    binary: str,
+    state: str,
+    *,
+    phase: NativePhase,
+    native_session_id: str | None = None,
+    identity_correlated: bool = False,
+) -> CodexNativeOutcome:
+    """Attach the phase and the serving binary to one desktop outcome."""
+    resolved = resolve_native_cli_source(binary)
+    return CodexNativeOutcome(
+        state,
+        native_session_id,
+        identity_correlated,
+        phase=phase,
+        binary_source=resolved.source if resolved else None,
     )
 
 
@@ -263,14 +141,26 @@ class CodexAppServerTransport:
             identity = _identity(_thread(client.request("thread/start", params)))
             created = True
             if identity[0] != identity[1]:
-                raise CodexAppServerError("thread/session identity mismatch")
+                raise CodexAppServerError(
+                    "thread/session identity mismatch", "identity_match"
+                )
             turn_id = _start_turn(client, identity[0], request)
             client.detach_until_turn_completed(turn_id)
-            return CodexNativeOutcome("accepted", identity[0], identity_correlated=True)
-        except CodexAppServerError:
+            return _outcome(
+                self.binary,
+                "accepted",
+                phase="native_running",
+                native_session_id=identity[0],
+                identity_correlated=True,
+            )
+        except CodexAppServerError as failure:
             if client is not None:
                 client.close()
-            return CodexNativeOutcome("outcome_unknown" if created else "not_created")
+            return _outcome(
+                self.binary,
+                "outcome_unknown" if created else "not_created",
+                phase=failure.phase,
+            )
 
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome:
         if not request.target_session_id:
@@ -299,7 +189,9 @@ class CodexAppServerTransport:
             else:
                 identity = _identity(current)
                 if identity != (target_session_id, target_session_id):
-                    raise CodexAppServerError("thread/session identity mismatch")
+                    raise CodexAppServerError(
+                        "thread/session identity mismatch", "identity_match"
+                    )
                 status = current.get("status")
                 native_status = status.get("type") if isinstance(status, dict) else None
             if native_status == "active":
@@ -310,7 +202,7 @@ class CodexAppServerTransport:
                 ]
                 if len(active) != 1 or not isinstance(active[0].get("id"), str):
                     client.close()
-                    return CodexNativeOutcome("outcome_unknown")
+                    return _outcome(self.binary, "outcome_unknown", phase="turn_start")
                 turn_id = str(active[0]["id"])
                 mutated = True
                 client.request(
@@ -327,18 +219,30 @@ class CodexAppServerTransport:
                     _thread(client.request("thread/resume", {"threadId": identity[0]}))
                 )
                 if resumed != identity:
-                    raise CodexAppServerError("resumed identity mismatch")
+                    raise CodexAppServerError(
+                        "resumed identity mismatch", "identity_match"
+                    )
                 mutated = True
                 turn_id = _start_turn(client, identity[0], request)
             else:
                 client.close()
-                return CodexNativeOutcome("outcome_unknown")
+                return _outcome(self.binary, "outcome_unknown", phase="thread_open")
             client.detach_until_turn_completed(turn_id)
-            return CodexNativeOutcome("accepted", identity[0], identity_correlated=True)
-        except CodexAppServerError:
+            return _outcome(
+                self.binary,
+                "accepted",
+                phase="native_running",
+                native_session_id=identity[0],
+                identity_correlated=True,
+            )
+        except CodexAppServerError as failure:
             if client is not None:
                 client.close()
-            return CodexNativeOutcome("outcome_unknown" if mutated else "not_found")
+            return _outcome(
+                self.binary,
+                "outcome_unknown" if mutated else "not_found",
+                phase=failure.phase,
+            )
 
 
 __all__ = [
