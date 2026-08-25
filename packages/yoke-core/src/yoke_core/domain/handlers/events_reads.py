@@ -81,6 +81,8 @@ class EventsQueryRequest(EventsFilterRequest):
 
 class EventsQueryResponse(BaseModel):
     rows: List[Dict[str, Any]]
+    #: Present only when ``current_episode`` hid same-filter rows.
+    elided_prior_episode_rows: Optional[int] = None
 
 
 class EventsTailRequest(BaseModel):
@@ -279,10 +281,10 @@ def handle_events_query(request: FunctionCallRequest) -> HandlerOutcome:
     where, params, where_error = _where_from_payload(request)
     if where_error is not None:
         return where_error
-    return HandlerOutcome(
-        result_payload={"rows": _select_rows(where, params, limit)},
-        primary_success=True,
-    )
+    from yoke_core.domain.events_current_episode import note_elided_prior_episodes
+    result: Dict[str, Any] = {"rows": _select_rows(where, params, limit)}
+    note_elided_prior_episodes(request.payload or {}, where, params, result)
+    return HandlerOutcome(result_payload=result, primary_success=True)
 
 
 def handle_events_tail(request: FunctionCallRequest) -> HandlerOutcome:

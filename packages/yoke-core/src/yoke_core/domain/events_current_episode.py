@@ -32,7 +32,7 @@ cross-harness decision record under
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Tuple
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from .schema_common import _get_columns as _schema_get_columns
 
@@ -79,6 +79,59 @@ def episode_boundary_event_names() -> Sequence[str]:
     return _BOUNDARY_EVENT_NAMES
 
 
+def note_elided_prior_episodes(
+    payload: Mapping[str, Any],
+    where: str,
+    params: Sequence[Any],
+    result: MutableMapping[str, Any],
+    db_path: Optional[str] = None,
+) -> None:
+    """Record how many rows the episode boundary hid from this same filter.
+
+    An empty ``--current-episode`` answer is indistinguishable from
+    "nothing happened" unless the query says what it left out, and a
+    session that crossed a transient end/resume mid-work keeps its
+    earlier evidence in the prior episode. That is not hypothetical: a
+    close-out asked for this episode's guardrail denials four minutes
+    after a sleep/resume cycle opened a new one, got nothing, and
+    reported a clean run over seventeen real denials.
+
+    Sets ``elided_prior_episode_rows`` on *result* only when the count is
+    non-zero, so a genuinely quiet episode stays quiet. Never raises —
+    an un-inspectable count must not fail the read it annotates.
+    """
+    if not payload.get("current_episode"):
+        return
+    from yoke_core.domain.events_queries import (
+        EPISODE_BOUNDARY_CLAUSE,
+        EPISODE_UNRESOLVED_CLAUSE,
+    )
+
+    if EPISODE_BOUNDARY_CLAUSE in where:
+        # Same filter, same params — the boundary predicate inverted.
+        prior = where.replace(EPISODE_BOUNDARY_CLAUSE, "created_at < %s", 1)
+    elif EPISODE_UNRESOLVED_CLAUSE in where:
+        # No boundary resolved, so the filter hid every row it matched.
+        prior = where.replace(EPISODE_UNRESOLVED_CLAUSE, "1=1", 1)
+    else:
+        return
+    try:
+        from yoke_core.domain.db_helpers import connect
+
+        conn = connect(db_path)
+        try:
+            row = conn.execute(
+                f"SELECT COUNT(*) FROM events {prior}", tuple(params),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001 — an annotation never fails the read
+        return
+    count = int(row[0]) if row else 0
+    if count:
+        result["elided_prior_episode_rows"] = count
+
+
 def claim_episode_scope(
     *,
     claim_claimed_at: Optional[str],
@@ -108,5 +161,6 @@ def claim_episode_scope(
 __all__ = [
     "claim_episode_scope",
     "episode_boundary_event_names",
+    "note_elided_prior_episodes",
     "resolve_current_episode_boundary",
 ]

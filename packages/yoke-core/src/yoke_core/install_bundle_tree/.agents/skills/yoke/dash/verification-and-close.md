@@ -222,6 +222,12 @@ caller identity. Then run registered `events.query.run`:
 yoke events query --session SESSION_ID --event-name HarnessToolCallDenied --current-episode --json
 ```
 
+When `result.elided_prior_episode_rows` is present, this session crossed
+an episode boundary mid-Dash — a sleep, a reload, a brief disconnect —
+and that many denials sit in the previous episode. Re-run the same query
+without `--current-episode` and report the whole session's denials. An
+empty `rows` beside a non-zero count is not a clean run.
+
 When `result.rows` is non-empty, print a short list of each row's
 `check_id` and `command_snippet` from `envelope.context.detail` (parse
 `envelope` when it is a JSON string). File a field-note for any denial
