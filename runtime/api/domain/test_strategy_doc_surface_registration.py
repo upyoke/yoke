@@ -19,6 +19,9 @@ def test_leaf_registration_exposes_the_review_and_execution_contract() -> None:
         "strategy.claim.acquire",
         "strategy.claim.release",
         "strategy.claim.break_glass_release",
+        "strategy.doc_claim.acquire",
+        "strategy.doc_claim.release",
+        "strategy.doc_claim.list",
     }
     restore = next(
         entry for entry in REGISTRATIONS
@@ -32,3 +35,9 @@ def test_leaf_registration_exposes_the_review_and_execution_contract() -> None:
     )
     assert override["claim_required_kind"] == "operator_override"
     assert override["guardrails"] == ["operator_override_required"]
+    document_lock = next(
+        entry for entry in REGISTRATIONS
+        if entry["function_id"] == "strategy.doc_claim.acquire"
+    )
+    assert document_lock["target_kinds"] == ["global"]
+    assert document_lock["side_effects"] == ["db_write", "event_emit"]

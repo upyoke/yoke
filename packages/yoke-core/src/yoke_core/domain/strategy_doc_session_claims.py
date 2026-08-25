@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.strategy_doc_claim_exclusion import live_execution_refusal
 from yoke_core.domain.strategy_docs import get_doc
 from yoke_core.domain.strategy_execution_state import (
@@ -171,8 +172,12 @@ def release_session_doc_claims_for_session(
     """Release every document lock a session still holds.
 
     The caller owns the transaction, matching the work-claim release the
-    stale sweep and session end already perform in the same window.
+    stale sweep and session end already perform in the same window. Every
+    ending session runs this, including one in a universe whose storage
+    predates document locks, so an absent table means nothing to release.
     """
+    if not _table_exists(conn, "strategy_doc_claims"):
+        return []
     marker = _marker(conn)
     rows = conn.execute(
         "SELECT id FROM strategy_doc_claims "

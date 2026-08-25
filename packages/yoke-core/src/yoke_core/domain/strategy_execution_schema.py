@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _add_column_if_not_exists
+from yoke_core.domain.schema_common import _add_column_if_not_exists, _table_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.strategy_execution_events import (
     STRATEGY_EXECUTION_EVENT_ROWS,
@@ -104,9 +104,13 @@ def ensure_strategy_execution_schema(
     """Create storage, committing unless the caller owns the transaction."""
     _add_column_if_not_exists(conn, "strategy_docs", "parent_slug", "TEXT")
     _add_column_if_not_exists(conn, "strategy_doc_revisions", "session_id", "TEXT")
-    execute_schema_script(conn, STRATEGY_EXECUTION_TABLE_SQL)
+    # The typed-owner columns come first: the script below indexes them, so
+    # a table that predates them (or lost one to a degradation sweep) must
+    # gain the column before the index that reads it is created.
     for column, ddl in TYPED_OWNER_COLUMNS:
-        _add_column_if_not_exists(conn, "strategy_doc_claims", column, ddl)
+        if _table_exists(conn, "strategy_doc_claims"):
+            _add_column_if_not_exists(conn, "strategy_doc_claims", column, ddl)
+    execute_schema_script(conn, STRATEGY_EXECUTION_TABLE_SQL)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     for event_name, description in STRATEGY_EXECUTION_EVENT_ROWS:
         conn.execute(

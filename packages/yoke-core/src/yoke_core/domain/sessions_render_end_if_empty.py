@@ -19,6 +19,22 @@ from .sessions_render_end_chain_pending import (
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
 
 
+def _document_lock_count(conn: Any, session_id: str) -> int:
+    """Count the strategy documents this session still holds directly."""
+    from .schema_common import _table_exists
+
+    if not _table_exists(conn, "strategy_doc_claims"):
+        return 0
+    row = conn.execute(
+        """SELECT COUNT(*) AS cnt
+           FROM strategy_doc_claims
+           WHERE owner_kind = 'session' AND owner_session_id = %s
+             AND released_at IS NULL""",
+        (session_id,),
+    ).fetchone()
+    return int(row["cnt"] or 0)
+
+
 @rollback_workflow_binding_write_errors
 def end_session_if_empty(
     conn: Any,
@@ -65,13 +81,7 @@ def end_session_if_empty(
             "active_claim_count": int(claim_count),
         }
 
-    lock_count = conn.execute(
-        """SELECT COUNT(*) AS cnt
-           FROM strategy_doc_claims
-           WHERE owner_kind = 'session' AND owner_session_id = %s
-             AND released_at IS NULL""",
-        (session_id,),
-    ).fetchone()["cnt"]
+    lock_count = _document_lock_count(conn, session_id)
     if lock_count:
         conn.commit()
         return {

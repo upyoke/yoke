@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.strategy_execution_state import (
     BLITZ_WORKFLOW_ID,
     _marker,
@@ -27,7 +28,14 @@ from yoke_core.domain.strategy_execution_state import (
 
 
 def linked_document(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
-    """Return the execution document an item is bound to, if any."""
+    """Return the execution document an item is bound to, if any.
+
+    Answers for a universe whose storage predates document execution too:
+    every work-item claim consults this, and a database without the link
+    table simply has no item bound to a document.
+    """
+    if not _table_exists(conn, "item_strategy_docs"):
+        return None
     marker = _marker(conn)
     return _row(
         conn.execute(

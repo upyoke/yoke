@@ -23,11 +23,12 @@ from yoke_core.domain.schema_init import converge_core_schema
 _DROP_SAVEPOINT = "boot_schema_column_degradation"
 _INCIDENT_COLUMN = ("session_launch_attempts", "batch_id")
 # Digest of columns that shipped with their table and therefore have no
-# additive converge lookup. Update only when introducing a new table; a new
-# column on an existing table must instead restore through boot convergence
-# and leave this digest unchanged.
+# additive converge lookup. Update only when introducing a new table, or when
+# a governed migration retires a born-with column; a new column on an existing
+# table must instead restore through boot convergence and leave this digest
+# unchanged.
 _BORN_WITH_COLUMN_DIGEST = (
-    "ba5a2b9e5949e9059c8db2b71fe4046dbf333c1a3f6a5b56923d8611def6fd28"
+    "46790153e2f57c5250bc6043be83de7bb7340f79edd1e5321631e7a39face7de"
 )
 
 
