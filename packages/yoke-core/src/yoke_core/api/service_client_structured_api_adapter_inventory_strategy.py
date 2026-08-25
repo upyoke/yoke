@@ -109,8 +109,10 @@ STRATEGY_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="strategy.ingest.run",
-        cli_invocation="yoke strategy ingest [SLUG ...] [--dry-run]",
-        notes="CAS write-back of operator-edited rendered files on each header's base updated_at (lost-update protection); refuses headerless files; re-renders written docs.",
+        cli_invocation=(
+            "yoke strategy ingest [SLUG ...] [--content-file PATH] [--dry-run]"
+        ),
+        notes="CAS write-back of operator-edited rendered files on each header's base updated_at (lost-update protection); --content-file accepts one rendered handoff from a readable path; receipts carry the proposed content SHA-256; refuses headerless files; re-renders written docs.",
     ),
     AdapterEntry(
         function_id="strategy.seed_defaults.run",

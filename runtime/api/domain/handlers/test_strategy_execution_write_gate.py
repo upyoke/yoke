@@ -20,7 +20,7 @@ from yoke_core.domain.handlers._strategy_docs_test_helpers import (
     seed_process_claim,
     seed_session,
 )
-from yoke_core.domain.strategy_docs_header import render_file_text
+from yoke_core.domain.strategy_docs_header import content_sha256, render_file_text
 from yoke_core.domain.strategy_execution import (
     acquire_strategy_doc_claim,
     link_execution_document,
@@ -108,7 +108,7 @@ def _ingest_request(
         {
             "files": [{
                 "slug": "PAD",
-                "path": ".yoke/strategy/PAD.md",
+                "path": "/tmp/PAD.md",
                 "text": header + "\n" + edited_body,
             }],
         },
@@ -117,9 +117,10 @@ def _ingest_request(
     )
 
 
-def test_claim_holder_can_replace_and_ingest_without_process_claim(
+def test_document_claim_holder_can_ingest_handoff_without_process_claim(
     tmp_db: str,
 ) -> None:
+    ingested_body = SEED_CONTENT["PAD"] + "replace\ningest\n"
     with patch.object(
         doc_handlers._events, "emit_event", return_value=ok_emit(),
     ):
@@ -132,10 +133,13 @@ def test_claim_holder_can_replace_and_ingest_without_process_claim(
                 "session-blitz",
                 replaced.result_payload["updated_at"],
                 SEED_CONTENT["PAD"] + "replace\n",
-                SEED_CONTENT["PAD"] + "replace\ningest\n",
+                ingested_body,
             )
         )
     assert ingested.primary_success is True
+    assert ingested.result_payload["docs"][0]["content_sha256"] == (
+        content_sha256(ingested_body)
+    )
     conn = connect_test_db(tmp_db)
     try:
         sessions = [
@@ -150,7 +154,7 @@ def test_claim_holder_can_replace_and_ingest_without_process_claim(
     assert sessions == ["session-blitz", "session-blitz"]
 
 
-def test_process_claim_does_not_bypass_foreign_document_claim(
+def test_caller_without_document_claim_is_refused_even_with_process_claim(
     tmp_db: str,
 ) -> None:
     conn = connect_test_db(tmp_db)

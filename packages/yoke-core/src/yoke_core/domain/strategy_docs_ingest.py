@@ -175,6 +175,7 @@ def _doc_report(plan: IngestDocPlan, status: str, **extra: Any) -> Dict[str, Any
     report: Dict[str, Any] = {
         "slug": plan.slug,
         "status": status,
+        "content_sha256": content_sha256(plan.file_body),
         "old_lines": plan.old_lines,
         "new_lines": plan.new_lines,
         "line_delta": plan.new_lines - plan.old_lines,

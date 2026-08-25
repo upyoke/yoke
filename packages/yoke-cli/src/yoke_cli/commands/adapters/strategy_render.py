@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Any, Dict, List, Mapping, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from yoke_cli.commands import _helpers as _helpers
 from yoke_cli.commands._helpers import (
@@ -39,13 +40,14 @@ from yoke_cli.commands.adapters.strategy import (
     strategy_target,
     write_rendered_files,
 )
+from yoke_cli.commands.adapters.strategy_render_response import (
+    compact_file_text_response,
+)
+from yoke_cli.commands.text_file import resolve_text_file
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
 from yoke_contracts.project_contract.strategy_docs_io import (
     StrategyIngestFileMissingError,
     read_ingest_files,
-)
-from yoke_contracts.project_contract.strategy_docs_paths import (
-    strategy_view_rel_path,
 )
 
 
@@ -60,8 +62,8 @@ __all__ = [
 
 
 STRATEGY_INGEST_USAGE = (
-    "yoke strategy ingest [SLUG ...] [--dry-run] [--target-root PATH] "
-    "[--project P] [--session-id S] [--json]"
+    "yoke strategy ingest [SLUG ...] [--content-file PATH] [--dry-run] "
+    "[--target-root PATH] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -81,7 +83,9 @@ def strategy_ingest(args: List[str]) -> int:
             "Example:\n"
             "  # edit .yoke/strategy/MASTER-PLAN.md in your editor, then:\n"
             "  yoke strategy ingest MASTER-PLAN --dry-run   # preview\n"
-            "  yoke strategy ingest MASTER-PLAN             # CAS write-back"
+            "  yoke strategy ingest MASTER-PLAN             # CAS write-back\n"
+            "  # ingest one rendered handoff file from a readable path:\n"
+            "  yoke strategy ingest MASTER-PLAN --content-file /tmp/MASTER-PLAN.md"
         ),
     )
     parser.add_argument(
@@ -95,6 +99,13 @@ def strategy_ingest(args: List[str]) -> int:
     parser.add_argument(
         "--target-root", dest="target_root", default=None,
         help="Checkout root whose rendered .yoke/strategy/ files to read.",
+    )
+    parser.add_argument(
+        "--content-file", dest="content_file", default=None,
+        help=(
+            "Rendered file for exactly one explicit slug, read from a free "
+            "or claim-covered path instead of --target-root."
+        ),
     )
     add_project_arg(parser)
     add_session_arg(parser)
@@ -112,23 +123,40 @@ def strategy_ingest(args: List[str]) -> int:
     target = strategy_target(parsed.project)
 
     slugs = list(parsed.slugs)
-    if not slugs:
-        slugs, list_response = _corpus_slugs(target, actor)
-        if slugs is None:
-            return emit_response(list_response, json_mode=parsed.json_mode)
-        if not slugs:
-            print(
-                "error (doc_not_seeded): the project has no strategy docs; "
-                "cold-start with `yoke strategy seed-defaults`.",
-                file=sys.stderr,
+    if parsed.content_file:
+        if len(slugs) != 1:
+            return usage_error(
+                "--content-file requires exactly one explicit SLUG."
             )
+        content_path = Path(parsed.content_file).expanduser().resolve()
+        try:
+            content = resolve_text_file(
+                None, str(content_path), "--content-file",
+            )
+        except ValueError as exc:
+            return usage_error(str(exc))
+        files = [{
+            "slug": slugs[0],
+            "path": str(content_path),
+            "text": str(content),
+        }]
+    else:
+        if not slugs:
+            slugs, list_response = _corpus_slugs(target, actor)
+            if slugs is None:
+                return emit_response(list_response, json_mode=parsed.json_mode)
+            if not slugs:
+                print(
+                    "error (doc_not_seeded): the project has no strategy docs; "
+                    "cold-start with `yoke strategy seed-defaults`.",
+                    file=sys.stderr,
+                )
+                return 1
+        try:
+            files = read_ingest_files(target_root, slugs)
+        except StrategyIngestFileMissingError as exc:
+            print(f"error (ingest_file_missing): {exc}", file=sys.stderr)
             return 1
-
-    try:
-        files = read_ingest_files(target_root, slugs)
-    except StrategyIngestFileMissingError as exc:
-        print(f"error (ingest_file_missing): {exc}", file=sys.stderr)
-        return 1
 
     response = call_dispatcher(
         function_id="strategy.ingest.run",
@@ -157,7 +185,7 @@ def strategy_ingest(args: List[str]) -> int:
             )
 
     rc = emit_response(
-        _compact_file_text_response(
+        compact_file_text_response(
             response, target_root=target_root, render_report=render_report,
         ),
         json_mode=parsed.json_mode,
@@ -246,65 +274,12 @@ def strategy_render(args: List[str]) -> int:
             print(f"{slug}\t{status}", file=stdout)
 
     return emit_response(
-        _compact_file_text_response(
+        compact_file_text_response(
             response, target_root=target_root, render_report=report,
         ),
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
-
-
-def _line_count(text: str) -> int:
-    if not text:
-        return 0
-    return text.count("\n") if text.endswith("\n") else text.count("\n") + 1
-
-
-def _compact_doc(
-    doc: Mapping[str, Any], render_report: Mapping[str, str],
-) -> Dict[str, Any]:
-    compact = dict(doc)
-    file_text = compact.pop("file_text", None)
-    slug = str(compact.get("slug") or "")
-    archived = bool(compact.get("archived", False))
-    if slug:
-        compact["path"] = strategy_view_rel_path(slug, archived=archived)
-        if slug in render_report:
-            compact["render_status"] = render_report[slug]
-    if isinstance(file_text, str):
-        compact["file_bytes"] = len(file_text.encode("utf-8"))
-        compact["file_lines"] = _line_count(file_text)
-    return compact
-
-
-def _render_counts(render_report: Mapping[str, str]) -> Dict[str, int]:
-    return {
-        "written": sum(1 for status in render_report.values() if status == "written"),
-        "unchanged": sum(
-            1 for status in render_report.values() if status == "unchanged"
-        ),
-    }
-
-
-def _compact_file_text_response(
-    response,
-    *,
-    target_root,
-    render_report: Optional[Mapping[str, str]],
-):
-    """Return a CLI-facing response with file bodies replaced by metadata."""
-    report = dict(render_report or {})
-    result = dict(response.result or {})
-    docs = result.get("docs")
-    if isinstance(docs, list):
-        result["docs"] = [
-            _compact_doc(doc, report) if isinstance(doc, Mapping) else doc
-            for doc in docs
-        ]
-    result["target_root"] = str(target_root)
-    if report:
-        result["rendered"] = _render_counts(report)
-    return response.model_copy(update={"result": result})
 
 
 STRATEGY_SEED_DEFAULTS_USAGE = (
