@@ -91,6 +91,7 @@ def _register_from_hook(
         detect_entrypoint,
         detect_executor,
         detect_model,
+        detect_native_thread_id,
         detect_provider,
     )
 
@@ -148,6 +149,7 @@ def _register_from_hook(
             project_id=facts.project_id,
             executor_version=executor_version or None,
             machine_id=machine_id or None,
+            native_thread_id=facts.native_thread_id or detect_native_thread_id(),
         )
         return (err, executor, provider, model, entrypoint)
 
@@ -163,6 +165,7 @@ def _register_from_hook(
         entrypoint=entrypoint,
         executor_version=executor_version or None,
         machine_id=machine_id or None,
+        native_thread_id=facts.native_thread_id or detect_native_thread_id(),
     )
     return (err, executor, provider, model, entrypoint)
 
@@ -180,6 +183,7 @@ def _register_in_process(
     project_id: Optional[int] = None,
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
+    native_thread_id: Optional[str] = None,
 ) -> str:
     """Direct domain registration for server-side (remote) contexts.
 
@@ -218,6 +222,7 @@ def _register_in_process(
                 project_id=project_id,
                 executor_version=executor_version,
                 machine_id=machine_id,
+                native_thread_id=native_thread_id,
                 **lane_kwargs,
             )
         finally:

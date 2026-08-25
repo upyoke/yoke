@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.hooks import session_lifecycle_client
+from yoke_core.hooks.helpers_identity import detect_native_thread_id
 
 
 def recovery_command(
@@ -36,6 +37,7 @@ def register(
         provider="openai",
         model=model,
         entrypoint=entrypoint,
+        native_thread_id=detect_native_thread_id(),
     )
 
 

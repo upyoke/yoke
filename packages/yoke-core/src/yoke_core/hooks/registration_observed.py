@@ -14,6 +14,7 @@ class HookRegistrationFacts:
     execution_lane: str = ""
     executor_version: str = ""
     machine_id: str = ""
+    native_thread_id: str = ""
     project_id: Optional[int] = None
     transcript_path: str = ""
     cwd: str = ""
@@ -57,6 +58,7 @@ def parse_hook_registration_facts(
         execution_lane=_text("execution_lane"),
         executor_version=_text("executor_version"),
         machine_id=_text("machine_id"),
+        native_thread_id=_text("native_thread_id"),
         project_id=(
             project_id
             if project_id is not None

@@ -73,6 +73,7 @@ def _request(
         presentation=None,
         target_liveness=target_liveness,
         target_session_id=SESSION_ID,
+        target_thread_id=SESSION_ID,
         wake_mode="waiting",
         instruction_id=INSTRUCTION_ID,
         native_instruction=INSTRUCTION,

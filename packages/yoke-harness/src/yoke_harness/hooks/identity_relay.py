@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -210,6 +211,20 @@ def client_project_id(payload: dict[str, Any]) -> Optional[int]:
     return None
 
 
+def client_native_thread_id(executor: str) -> Optional[str]:
+    """Codex's own thread id for this session, when the client env carries it.
+
+    Distinct from the Yoke session id: an operator-started codex-desktop
+    session registers under ``CODEX_SESSION_ID`` while the app-server keys
+    its thread on ``CODEX_THREAD_ID``. Relayed so the server-side registrar
+    (which has no local env of its own) can store the same mapping.
+    """
+    if not is_codex(executor):
+        return None
+    value = os.environ.get("CODEX_THREAD_ID", "").strip()
+    return value or None
+
+
 def relay_identity_payload(
     event_name: str,
     payload: dict[str, Any],
@@ -226,6 +241,7 @@ def relay_identity_payload(
             executor_surface=entrypoint,
         ),
         "machine_id": client_machine_id(),
+        "native_thread_id": client_native_thread_id(executor),
     }
 
 
@@ -236,6 +252,7 @@ __all__ = [
     "client_lane",
     "client_machine_id",
     "client_model",
+    "client_native_thread_id",
     "client_project_id",
     "relay_identity_payload",
 ]

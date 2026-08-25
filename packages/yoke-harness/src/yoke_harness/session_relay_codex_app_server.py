@@ -163,7 +163,7 @@ class CodexAppServerTransport:
             )
 
     def wake(self, request: CodexNativeRequest) -> CodexNativeOutcome:
-        if not request.target_session_id:
+        if not request.target_thread_id:
             return CodexNativeOutcome("unsupported_surface")
         if not self.worker:
             return self._detached(request)
@@ -171,12 +171,12 @@ class CodexAppServerTransport:
         mutated = False
         try:
             client = self._client(request)
-            target_session_id = str(request.target_session_id)
+            target_thread_id = str(request.target_thread_id)
             try:
                 current = _thread(
                     client.request(
                         "thread/read",
-                        {"threadId": target_session_id, "includeTurns": True},
+                        {"threadId": target_thread_id, "includeTurns": True},
                     )
                 )
             except CodexAppServerError:
@@ -184,11 +184,11 @@ class CodexAppServerTransport:
                 # thread cannot be read by a fresh app-server process.
                 current = None
             if current is None:
-                identity = (target_session_id, target_session_id)
+                identity = (target_thread_id, target_thread_id)
                 native_status = "notLoaded"
             else:
                 identity = _identity(current)
-                if identity != (target_session_id, target_session_id):
+                if identity != (target_thread_id, target_thread_id):
                     raise CodexAppServerError(
                         "thread/session identity mismatch", "identity_match"
                     )

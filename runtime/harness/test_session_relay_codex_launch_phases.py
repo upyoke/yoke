@@ -67,6 +67,7 @@ def _request(
     *,
     job_kind: str = "launch",
     target_session_id: str | None = None,
+    target_thread_id: str | None = None,
 ) -> CodexNativeRequest:
     return CodexNativeRequest(
         job_kind=job_kind,
@@ -82,6 +83,9 @@ def _request(
         instruction_id=f"{job_kind}:1",
         native_instruction=INSTRUCTION,
         launch_attestation="secret" if job_kind == "launch" else None,
+        target_thread_id=(
+            target_thread_id if target_thread_id is not None else target_session_id
+        ),
     )
 
 

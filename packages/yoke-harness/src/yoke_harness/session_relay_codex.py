@@ -66,10 +66,21 @@ class CodexNativeRequest:
     instruction_id: str
     native_instruction: str = field(repr=False)
     launch_attestation: str | None = field(default=None, repr=False)
+    target_thread_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.job_kind == "wake" and normalize_wake_mode(self.wake_mode) is None:
             raise ValueError("wake instruction has no authorized mode")
+
+
+class ThreadIdUnknownError(ValueError):
+    """A wake target resolved no native thread id — refuse before any native call.
+
+    Distinguishable from a generic malformed-context ``ValueError`` so the
+    adapter can report a specific ``thread_id_unknown`` result instead of
+    spending a real Codex subprocess/app-server round trip on a target that
+    was never going to be found.
+    """
 
 
 @dataclass(frozen=True)
@@ -127,6 +138,15 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
     presentation = _text(_extended(context, "presentation"))
     liveness = _text(getattr(context, "target_liveness", None))
     target_session_id = _text(context.target_session_id)
+    # The stored native thread id (captured at session registration, see
+    # ``sessions_lifecycle_registry.register_session``) is the real Codex
+    # app-server/CLI thread identity. It equals ``target_session_id`` for a
+    # plane-launched session (launch asserts that agreement), but an
+    # operator-started session registers its own session id while the
+    # app-server keys the thread on a different value — so fall back to
+    # ``target_session_id`` only when no stored mapping exists.
+    native_thread_id = _text(getattr(context, "target_native_thread_id", None))
+    target_thread_id = native_thread_id or target_session_id
     instruction = str(context.native_instruction or "").strip()
     if not instruction:
         raise ValueError("relay context has no native instruction")
@@ -140,8 +160,16 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
         wake_mode = normalize_wake_mode(_extended(context, "wake_mode"))
         operation = wake_operation(wake_mode, liveness)
         message_id = _text(_extended(context, "message_id"))
-        if not operation or not target_session_id or not message_id:
-            raise ValueError("wake context lacks target, message, or authorized mode")
+        if not operation or not message_id:
+            raise ValueError("wake context lacks a message id or authorized mode")
+        if not target_thread_id:
+            # Neither the stored native-thread mapping nor the target Yoke
+            # session id resolved anything to wake — refuse before spending
+            # a real Codex subprocess/app-server round trip on a target
+            # that was never going to be found.
+            raise ThreadIdUnknownError("wake target has no resolvable native thread id")
+        if not target_session_id:
+            raise ValueError("wake context lacks a target session")
         instruction_id = f"message:{message_id}:recipient:{target_session_id}"
     else:
         raise ValueError("Codex relay job must be launch or wake")
@@ -160,6 +188,7 @@ def _request(context: Any) -> tuple[CodexNativeRequest, str]:
             instruction_id=instruction_id,
             native_instruction=instruction,
             launch_attestation=_text(context.launch_attestation),
+            target_thread_id=target_thread_id,
         ),
         operation,
     )
@@ -229,6 +258,12 @@ def build_codex_relay_adapter(
     def run(context: Any) -> RelayAdapterResult:
         try:
             request, operation = _request(context)
+        except ThreadIdUnknownError:
+            return RelayAdapterResult(
+                "thread_id_unknown",
+                adapter_revision=ADAPTER_REVISION,
+                evidence={"result_code": "thread_id_unknown"},
+            )
         except (AttributeError, TypeError, ValueError):
             kind = str(getattr(context, "job_kind", ""))
             code = "not_created" if kind == "launch" else "failed"

@@ -48,7 +48,7 @@ class TestRegisterInProcess:
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
             actor_id=None, execution_lane=None, project_id=None,
-            executor_version=None, machine_id=None:
+            executor_version=None, machine_id=None, native_thread_id=None, **_k:
                 seen.append({
                     "sid": sid, "executor": executor, "workspace": workspace,
                     "lane": execution_lane, "project_id": project_id,
@@ -74,7 +74,7 @@ class TestRegisterInProcess:
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
             actor_id=None, execution_lane=None, project_id=None,
-            executor_version=None, machine_id=None:
+            executor_version=None, machine_id=None, native_thread_id=None, **_k:
                 seen.append(workspace) or "",
         )
         register_module._register_from_hook(
@@ -101,7 +101,7 @@ class TestRegisterInProcess:
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
             actor_id=None, execution_lane=None, project_id=None,
-            executor_version=None, machine_id=None:
+            executor_version=None, machine_id=None, native_thread_id=None, **_k:
                 seen.append(actor_id) or "",
         )
         register_module._register_from_hook(
@@ -117,7 +117,7 @@ class TestRegisterInProcess:
             register_module, "_register_in_process",
             lambda sid, executor, provider, model, workspace, entrypoint,
             actor_id=None, execution_lane=None, project_id=None,
-            executor_version=None, machine_id=None:
+            executor_version=None, machine_id=None, native_thread_id=None, **_k:
                 seen.append(execution_lane) or "",
         )
         register_module._register_from_hook(
@@ -141,7 +141,7 @@ def test_in_process_payload_entrypoint_preferred(monkeypatch):
         register_module, "_register_in_process",
         lambda sid, executor, provider, model, workspace, entrypoint,
         actor_id=None, execution_lane=None, project_id=None,
-        executor_version=None, machine_id=None:
+        executor_version=None, machine_id=None, native_thread_id=None, **_k:
             seen.append((model, entrypoint)) or "",
     )
     register_module._register_from_hook(

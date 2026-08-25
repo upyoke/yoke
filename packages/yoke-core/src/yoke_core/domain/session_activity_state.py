@@ -78,6 +78,18 @@ def episode_column_present(conn: Any) -> bool:
     return "episode_started_at" in _columns(conn, "harness_sessions")
 
 
+def native_thread_id_column_present(conn: Any) -> bool:
+    """True when the connected schema carries the Codex native-thread mapping.
+
+    Many test fixtures compose ``harness_sessions`` by hand rather than
+    through the real schema converge (``episode_started_at`` tolerates the
+    same gap); introspecting here lets registration degrade gracefully on
+    those minimal schemas instead of requiring every one of them to track
+    every column the real production table carries.
+    """
+    return "native_thread_id" in _columns(conn, "harness_sessions")
+
+
 def truncate_command_summary(command: Optional[str]) -> Optional[str]:
     if not command:
         return None
@@ -262,6 +274,7 @@ __all__ = [
     "bump_session_tool_activity",
     "episode_column_present",
     "has_session_tool_calls_table",
+    "native_thread_id_column_present",
     "record_tool_call_finished",
     "record_tool_call_started",
     "session_activity_columns_present",

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_activity_state import native_thread_id_column_present
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_delivery import (
     _begin_mutation,
@@ -89,11 +90,14 @@ def wake_eligible_recipients(
     try:
         _expire_rows(conn, now=current)
         relay_routes = connected_relay_routes(conn, now=current)
+        thread_select = (
+            ",hs.native_thread_id" if native_thread_id_column_present(conn) else ""
+        )
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
             "hs.last_tool_call_at,hs.ended_at,hs.turn_posture,"
-            "hs.turn_posture_at "
+            f"hs.turn_posture_at{thread_select} "
             "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
@@ -204,6 +208,7 @@ def wake_eligible_recipients(
                     "injection_lease_expires_at": row["injection_lease_expires_at"],
                     "wake_attempt_count": attempt_count,
                     "last_wake_at": row["last_wake_at"],
+                    "native_thread_id": row.get("native_thread_id"),
                 }
             )
         conn.commit()

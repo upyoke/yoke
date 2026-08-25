@@ -31,6 +31,7 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
         return None
 
     _pin_local_transport(monkeypatch)
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
     monkeypatch.setattr(
         "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
@@ -60,8 +61,38 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
             1,
             None,
             None,
+            None,
         )
     ]
+
+
+def test_codex_register_stamps_native_thread_id_from_env(monkeypatch) -> None:
+    calls: list[tuple] = []
+
+    def fake_register(*args):  # noqa: ANN001
+        calls.append(args)
+        return None
+
+    _pin_local_transport(monkeypatch)
+    monkeypatch.setenv("CODEX_THREAD_ID", "thread-42")
+    monkeypatch.setattr(
+        "yoke_core.hooks.target.target_service_client_path",
+        lambda root: "/Users/x/yoke/runtime/api/service_client.py",
+    )
+    monkeypatch.setattr(
+        "yoke_core.hooks.service_client.register_session",
+        fake_register,
+    )
+
+    err = session_dispatch._register_codex(
+        "/Users/x/externalwebapp",
+        "sid-codex",
+        "gpt-5.5",
+        "codex-desktop",
+    )
+
+    assert err == ""
+    assert calls[0][-1] == "thread-42"
 
 
 def test_universal_register_uses_target_service_client_path(monkeypatch) -> None:
@@ -101,6 +132,7 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
             "/Users/x/externalwebapp",
             "claude-desktop",
             1,
+            None,
             None,
             None,
         )
@@ -257,5 +289,6 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
             "entrypoint": "claude-desktop",
             "executor_version": "0.1.0",
             "machine_id": "00000000-0000-4000-8000-000000000123",
+            "native_thread_id": None,
         }
     ]

@@ -138,6 +138,7 @@ def refresh_active_duplicate_identity(
     resolved_actor_id: Optional[int],
     executor_version: Optional[str],
     machine_id: Optional[str],
+    native_thread_id: Optional[str] = None,
 ) -> None:
     """Upgrade mutable identity fields on an active duplicate registration.
 
@@ -186,6 +187,9 @@ def refresh_active_duplicate_identity(
     if machine_id and not _stored_value(existing, "machine_id"):
         observed_updates.append(f"machine_id = {placeholder}")
         observed_values.append(machine_id)
+    if native_thread_id and not _stored_value(existing, "native_thread_id"):
+        observed_updates.append(f"native_thread_id = {placeholder}")
+        observed_values.append(native_thread_id)
     if observed_updates:
         conn.execute(
             "UPDATE harness_sessions SET " + ", ".join(observed_updates)

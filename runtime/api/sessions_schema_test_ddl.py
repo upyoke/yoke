@@ -32,7 +32,8 @@ _SESSIONS_AND_CLAIMS_DDL = """
             episode_started_at TEXT DEFAULT NULL,
             pending_resume_notice TEXT DEFAULT NULL,
             last_chain_step INTEGER DEFAULT NULL,
-            last_checkpoint_at TEXT DEFAULT NULL
+            last_checkpoint_at TEXT DEFAULT NULL,
+            native_thread_id TEXT DEFAULT NULL
         );
         CREATE TABLE IF NOT EXISTS session_tool_calls (
             id INTEGER PRIMARY KEY,
