@@ -142,24 +142,66 @@ def _executor_version_can_upgrade(
     payload_json: str,
     session_id: str,
 ) -> bool:
-    """True when a wire-observed version can fill an unqualified row."""
+    """True when a surface-qualified wire version can fill a stored gap."""
     try:
         payload = json.loads(payload_json) if payload_json else {}
         if not isinstance(payload, dict):
             return False
         wire_version = payload.get("executor_version", "")
-        if not isinstance(wire_version, str) or not wire_version.strip():
+        wire_surface = payload.get("entrypoint", "")
+        if (
+            not isinstance(wire_version, str)
+            or not wire_version.strip()
+            or not isinstance(wire_surface, str)
+            or not wire_surface.strip()
+        ):
             return False
         from yoke_core.domain import db_backend
 
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT executor_version FROM harness_sessions WHERE session_id = {p}",
+            f"SELECT executor_surface, executor_version FROM harness_sessions "
+            f"WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
         if row is None:
             return False
-        stored = row.get("executor_version") if hasattr(row, "get") else row[0]
+        if hasattr(row, "get"):
+            stored_surface = row.get("executor_surface")
+            stored_version = row.get("executor_version")
+        else:
+            stored_surface, stored_version = row[0], row[1]
+        surface = str(stored_surface or "").strip()
+        return not str(stored_version or "").strip() and (
+            not surface or surface == wire_surface.strip()
+        )
+    except Exception:  # noqa: BLE001 - probe must never break dispatch
+        return False
+
+
+def _executor_surface_can_upgrade(
+    conn: Any,
+    payload_json: str,
+    session_id: str,
+) -> bool:
+    """True when hook-side resolution can name a missing stored surface."""
+    try:
+        payload = json.loads(payload_json) if payload_json else {}
+        if not isinstance(payload, dict):
+            return False
+        wire_surface = payload.get("entrypoint", "")
+        if not isinstance(wire_surface, str) or not wire_surface.strip():
+            return False
+        from yoke_core.domain import db_backend
+
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        row = conn.execute(
+            f"SELECT executor_surface FROM harness_sessions WHERE session_id = {p}",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        stored = row.get("executor_surface") if hasattr(row, "get") else row[0]
         return not str(stored or "").strip()
     except Exception:  # noqa: BLE001 - probe must never break dispatch
         return False
@@ -184,6 +226,11 @@ def placeholder_identity_can_upgrade(
             session_id,
         )
         or _executor_version_can_upgrade(
+            conn,
+            payload_json,
+            session_id,
+        )
+        or _executor_surface_can_upgrade(
             conn,
             payload_json,
             session_id,

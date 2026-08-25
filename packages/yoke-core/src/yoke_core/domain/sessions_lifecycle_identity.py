@@ -213,6 +213,7 @@ def refresh_active_duplicate_identity(
     execution_lane: str,
     actor_id: Optional[int],
     resolved_actor_id: Optional[int],
+    executor_surface: Optional[str],
     executor_version: Optional[str],
     machine_id: Optional[str],
     native_thread_id: Optional[str] = None,
@@ -258,7 +259,17 @@ def refresh_active_duplicate_identity(
 
     observed_updates = []
     observed_values = []
-    if executor_version and not _stored_value(existing, "executor_version"):
+    stored_surface = _stored_value(existing, "executor_surface") or None
+    incoming_surface = str(executor_surface or "").strip() or None
+    if incoming_surface and stored_surface is None:
+        observed_updates.append(f"executor_surface = {placeholder}")
+        observed_values.append(incoming_surface)
+        stored_surface = incoming_surface
+    if (
+        executor_version
+        and not _stored_value(existing, "executor_version")
+        and incoming_surface == stored_surface
+    ):
         observed_updates.append(f"executor_version = {placeholder}")
         observed_values.append(executor_version)
     if machine_id and not _stored_value(existing, "machine_id"):
