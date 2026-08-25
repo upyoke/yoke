@@ -1,10 +1,10 @@
 """Scoped dirty-main guard for worktree creation.
 
-``git worktree add`` copies HEAD, so a clean main is not required. The
-invariant is overlap: refuse only when uncommitted main paths match what
-the new lane needs. An empty needed-path set does not block, which stops
-unrelated main dirt from serializing the fleet. Overlap refusals name
-likely holders on this machine and include a ``yoke say --session`` recipe.
+``git worktree add`` copies HEAD, so a clean main is not required.
+Tracked/staged dirt still blocks only on overlap with the new lane's
+needed paths. Untracked files under source/package roots always block
+(new-module collision). Untracked files outside those roots — typically
+repo-root scratch — become a named warning, never a block.
 """
 
 from __future__ import annotations
@@ -14,15 +14,17 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.domain.conflict_survey_declared_paths import (
-    clean_path,
-    matching_scope,
-)
+from yoke_core.domain.conflict_survey_declared_paths import clean_path
 from yoke_core.domain.file_budget_paths import (
     FILE_BUDGET_SECTION,
     extract_file_budget_section_paths,
 )
 from yoke_core.domain.sessions_list_read import LIVENESS_ACTIVE
+from yoke_core.domain.worktree_dirty_main_classify import (
+    decide_dirty_main,
+    lane_source_root_prefixes,
+    scratch_warning_note,
+)
 from yoke_core.domain.worktree_paths import _run
 
 
@@ -41,10 +43,8 @@ class DirtyMainVerdict:
     paths: tuple[str, ...]
     needed_paths: tuple[str, ...]
     narrative: str
-
-
-def _overlap(needed: Sequence[str], dirty: Sequence[str]) -> tuple[str, ...]:
-    return tuple(path for path in dirty if path and matching_scope(needed, [path]))
+    warning_note: str = ""
+    source_root_prefixes: tuple[str, ...] = ()
 
 
 def list_dirty_main_paths(
@@ -65,14 +65,7 @@ def list_dirty_main_paths(
         )
     )
     untracked_run = _run(
-        [
-            "git",
-            "-C",
-            repo_root,
-            "ls-files",
-            "--others",
-            "--exclude-standard",
-        ]
+        ["git", "-C", repo_root, "ls-files", "--others", "--exclude-standard"]
     )
     worktrees_rel = ""
     if worktrees_dir:
@@ -92,29 +85,14 @@ def overlapping_dirty_main(
     needed_paths: Sequence[str] = (),
     *,
     worktrees_dir: str = "",
+    source_root_prefixes: Sequence[str] = (),
 ) -> tuple[bool, str, tuple[str, ...]]:
-    """Return ``(blocked, kind, overlapping_paths)`` for this lane's paths.
-
-    Empty *needed_paths* never blocks, even when main is dirty.
-    """
-    from yoke_core.domain.worktree_preflight_steps import (
-        BLOCK_DIRTY_TRACKED,
-        BLOCK_DIRTY_UNTRACKED,
-    )
-
-    needed = tuple(
-        dict.fromkeys(clean_path(path) for path in needed_paths if clean_path(path))
-    )
-    if not needed:
-        return False, "", ()
+    """Return ``(blocked, kind, paths)`` for this lane."""
     tracked, untracked = list_dirty_main_paths(repo_root, worktrees_dir=worktrees_dir)
-    tracked_hit = _overlap(needed, tracked)
-    if tracked_hit:
-        return True, BLOCK_DIRTY_TRACKED, tracked_hit
-    untracked_hit = _overlap(needed, untracked)
-    if untracked_hit:
-        return True, BLOCK_DIRTY_UNTRACKED, untracked_hit
-    return False, "", ()
+    blocked, kind, paths, _scratch = decide_dirty_main(
+        needed_paths, tracked, untracked, source_root_prefixes
+    )
+    return blocked, kind, paths
 
 
 def _dispatch(function_id: str, target: TargetRef, payload: dict | None = None):
@@ -233,42 +211,44 @@ def format_dirty_main_narrative(
     """Render the sanctioned dirty-main refusal, including holder recipe."""
     from yoke_core.domain.worktree_preflight_steps import BLOCK_DIRTY_TRACKED
 
-    kind_label = (
-        "tracked or staged"
-        if kind == BLOCK_DIRTY_TRACKED
-        else "untracked, non-gitignored"
-    )
+    tracked = kind == BLOCK_DIRTY_TRACKED
     shown = list(paths)[:_PATH_LIST_CAP]
     listing = "\n  - ".join(shown)
     if len(paths) > _PATH_LIST_CAP:
         listing += f"\n  - ... +{len(paths) - _PATH_LIST_CAP} more"
-    lines = [
-        f"Cannot create worktree for {item_ref}: overlapping {kind_label} "
-        "files on main match paths this lane needs. git worktree add copies "
-        "HEAD and does not require a clean tree; this guard only refuses "
-        "overlap.",
-        f"  - {listing}",
-    ]
+    if tracked:
+        lead = (
+            f"Cannot create worktree for {item_ref}: overlapping tracked or "
+            "staged files on main match paths this lane needs. git worktree "
+            "add copies HEAD and does not require a clean tree; this guard "
+            "only refuses overlap."
+        )
+        ask = "Please commit, stash, or drop overlapping dirty files on main: "
+    else:
+        lead = (
+            f"Cannot create worktree for {item_ref}: untracked files under "
+            "source/package roots on main could collide with a new module. "
+            "Untracked files outside package roots are a warning, not a block."
+        )
+        ask = "Please commit, stash, or drop untracked source-root files: "
+    lines = [lead, f"  - {listing}"]
+    preview = ", ".join(shown[:8])
     if holders:
         lines.append("Likely holder(s) working on main on this machine:")
-        preview = ", ".join(shown[:8])
-        ask = (
-            "Please commit, stash, or drop overlapping dirty files on main: " + preview
-        )
         for holder in holders:
             session_id = holder["session_id"]
             actor = holder.get("actor_label") or "unknown"
             focus = holder.get("current_item") or "(no current item)"
             lines.append(f"  session {session_id} actor={actor} focus={focus}")
-            lines.append("Ask them to commit, stash, or drop the overlapping files:")
+            lines.append("Ask them to commit, stash, or drop the files:")
             lines.append(f"  yoke say --preview --session {session_id}")
             lines.append(
-                f"  printf '%s\\n' {ask!r} | yoke say --session {session_id} --stdin"
+                f"  printf '%s\\n' {ask + preview!r} | yoke say --session {session_id} --stdin"
             )
     else:
         lines.append(
             "No live session on this machine is recorded as working on main. "
-            "Commit, stash, or drop the overlapping files, then retry. "
+            "Commit, stash, or drop the files, then retry. "
             f"Find peers with: yoke sessions list --liveness {LIVENESS_ACTIVE}"
         )
     return "\n".join(lines)
@@ -282,16 +262,24 @@ def evaluate_dirty_main_for_item(
     session_id: str = "",
     worktrees_dir: str = "",
     needed_paths: Sequence[str] | None = None,
+    source_root_prefixes: Sequence[str] | None = None,
 ) -> DirtyMainVerdict:
-    """Resolve needed paths, overlap, and holder narrative for one item."""
+    """Resolve needed paths, source roots, overlap, and holder narrative."""
     needed = (
         tuple(needed_paths) if needed_paths is not None else lane_needed_paths(item_id)
     )
-    blocked, kind, paths = overlapping_dirty_main(
-        repo_root, needed_paths=needed, worktrees_dir=worktrees_dir
+    prefixes = (
+        tuple(source_root_prefixes)
+        if source_root_prefixes is not None
+        else lane_source_root_prefixes(item_id)
     )
+    tracked, untracked = list_dirty_main_paths(repo_root, worktrees_dir=worktrees_dir)
+    blocked, kind, paths, scratch = decide_dirty_main(
+        needed, tracked, untracked, prefixes
+    )
+    note = scratch_warning_note(scratch)
     if not blocked:
-        return DirtyMainVerdict(False, "", (), tuple(needed), "")
+        return DirtyMainVerdict(False, "", (), tuple(needed), "", note, prefixes)
     holders = list_main_lane_holders(caller_session_id=session_id)
     return DirtyMainVerdict(
         True,
@@ -301,6 +289,8 @@ def evaluate_dirty_main_for_item(
         format_dirty_main_narrative(
             item_ref=item_ref, kind=kind, paths=paths, holders=holders
         ),
+        note,
+        prefixes,
     )
 
 
@@ -309,6 +299,7 @@ __all__ = [
     "evaluate_dirty_main_for_item",
     "format_dirty_main_narrative",
     "lane_needed_paths",
+    "lane_source_root_prefixes",
     "list_dirty_main_paths",
     "list_main_lane_holders",
     "overlapping_dirty_main",

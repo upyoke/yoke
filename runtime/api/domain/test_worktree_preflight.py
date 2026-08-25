@@ -58,6 +58,8 @@ def _patch_steps(
             if blocked
             else ""
         ),
+        warning_note="",
+        source_root_prefixes=(),
     )
     monkeypatch.setattr(
         wp, "evaluate_dirty_main_for_item", lambda *_args, **_kwargs: verdict

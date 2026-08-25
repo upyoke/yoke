@@ -270,16 +270,20 @@ def check_dirty_main(
     needed_paths: Sequence[str] = (),
     *,
     worktrees_dir: str = "",
+    source_root_prefixes: Sequence[str] = (),
 ) -> Tuple[bool, str, List[str]]:
-    """Return ``(blocked, kind, paths)`` for dirt overlapping *needed_paths*.
+    """Return ``(blocked, kind, paths)`` for dirt that must stop creation.
 
-    Empty *needed_paths* never blocks — ``git worktree add`` does not
-    require a clean main.
+    Empty *needed_paths* never blocks tracked dirt. Untracked files under
+    source/package roots still block; repo-root scratch does not.
     """
     from yoke_core.domain.worktree_dirty_main_guard import overlapping_dirty_main
 
     blocked, kind, paths = overlapping_dirty_main(
-        repo_root, needed_paths=needed_paths, worktrees_dir=worktrees_dir
+        repo_root,
+        needed_paths=needed_paths,
+        worktrees_dir=worktrees_dir,
+        source_root_prefixes=source_root_prefixes,
     )
     return blocked, kind, list(paths)
 
