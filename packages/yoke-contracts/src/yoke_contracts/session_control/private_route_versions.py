@@ -38,35 +38,6 @@ class PrivateRouteVersionQualification:
         return version in self.exact_versions
 
 
-def _minimum_version(surface: str) -> str:
-    return SESSION_SURFACE_CAPABILITIES[surface].minimum_version
-
-
-PRIVATE_ROUTE_VERSION_QUALIFICATIONS: Mapping[
-    PrivateRouteKey, PrivateRouteVersionQualification
-] = MappingProxyType(
-    {
-        ("claude-cli", "message_active"): PrivateRouteVersionQualification.exact(
-            _minimum_version("claude-cli")
-        ),
-        ("claude-cli", "message_idle"): PrivateRouteVersionQualification.exact(
-            _minimum_version("claude-cli")
-        ),
-        (
-            "claude-desktop",
-            "message_active",
-        ): PrivateRouteVersionQualification.surface_floor(),
-        (
-            "claude-desktop",
-            "message_idle",
-        ): PrivateRouteVersionQualification.exact(_minimum_version("claude-desktop")),
-        ("claude-vscode", "message_idle"): PrivateRouteVersionQualification.exact(
-            _minimum_version("claude-vscode")
-        ),
-    }
-)
-
-
 def _private_capability_keys() -> set[PrivateRouteKey]:
     operations = ("create", "message_active", "message_idle", "message_stopped")
     return {
@@ -75,6 +46,16 @@ def _private_capability_keys() -> set[PrivateRouteKey]:
         for operation in operations
         if getattr(capability, operation) == "private"
     }
+
+
+PRIVATE_ROUTE_VERSION_QUALIFICATIONS: Mapping[
+    PrivateRouteKey, PrivateRouteVersionQualification
+] = MappingProxyType(
+    {
+        key: PrivateRouteVersionQualification.surface_floor()
+        for key in _private_capability_keys()
+    }
+)
 
 
 if set(PRIVATE_ROUTE_VERSION_QUALIFICATIONS) != _private_capability_keys():

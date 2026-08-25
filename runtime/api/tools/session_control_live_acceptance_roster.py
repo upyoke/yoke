@@ -11,6 +11,9 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
     acceptance_operation,
 )
+from yoke_contracts.session_control.surface_versions import (
+    surface_version_meets_floor,
+)
 
 
 def _one_session(
@@ -98,11 +101,18 @@ def validated_registration(
     checks = (
         ("project", project, "registration_project_mismatch"),
         ("executor_surface", cell.surface, "registration_surface_mismatch"),
-        ("executor_version", cell.expected_version, "registration_version_mismatch"),
     )
     for field, expected, code in checks:
         if row.get(field) != expected:
             raise AcceptanceContractError(code, surface=cell.surface)
+    if not surface_version_meets_floor(
+        cell.surface,
+        str(row.get("executor_version") or ""),
+        cell.expected_version,
+    ):
+        raise AcceptanceContractError(
+            "registration_version_mismatch", surface=cell.surface
+        )
     if cell.machine_id and row.get("machine_id") != cell.machine_id:
         raise AcceptanceContractError(
             "registration_machine_mismatch", surface=cell.surface

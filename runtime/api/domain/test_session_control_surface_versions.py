@@ -1,5 +1,7 @@
 """Version-normalized native surface capability gates."""
 
+import pytest
+
 from yoke_contracts.session_control import private_route_versions
 from yoke_contracts.session_control.capabilities import (
     SESSION_SURFACE_CAPABILITIES,
@@ -64,11 +66,9 @@ def test_codex_cli_build_revision_only_affects_capability_comparison() -> None:
         assert not surface_version_supported("codex-cli", malformed)
 
 
-def test_private_route_registry_covers_exact_pins_and_the_desktop_floor() -> None:
+def test_private_route_registry_uses_floors_for_every_private_route() -> None:
     expected = {
-        (surface, operation): PrivateRouteVersionQualification.exact(
-            capability.minimum_version
-        )
+        (surface, operation): PrivateRouteVersionQualification.surface_floor()
         for surface, capability in SESSION_SURFACE_CAPABILITIES.items()
         for operation in (
             "create",
@@ -78,9 +78,6 @@ def test_private_route_registry_covers_exact_pins_and_the_desktop_floor() -> Non
         )
         if getattr(capability, operation) == "private"
     }
-    expected[("claude-desktop", "message_active")] = (
-        PrivateRouteVersionQualification.surface_floor()
-    )
 
     assert dict(PRIVATE_ROUTE_VERSION_QUALIFICATIONS) == expected
 
@@ -117,25 +114,46 @@ def test_desktop_active_message_uses_the_surface_minimum_version_floor() -> None
     )
 
 
-def test_other_private_surface_versions_remain_exactly_pinned() -> None:
-    assert surface_version_supported("claude-cli", "2.1.239")
-    assert surface_operation_supported("claude-cli", "2.1.238", "message_idle")
-    assert not surface_operation_supported("claude-cli", "2.1.239", "message_idle")
-    assert not surface_operation_supported("claude-cli", "2.1.238.0", "message_idle")
-    assert not surface_operation_supported(
-        "claude-cli", "2.1.238-deadbee", "message_idle"
-    )
+@pytest.mark.parametrize(
+    ("surface", "operation", "floor", "newer", "below_floor"),
+    (
+        ("claude-cli", "message_active", "2.1.238", "2.1.239", "2.1.237"),
+        ("claude-cli", "message_idle", "2.1.238", "2.1.239", "2.1.237"),
+        (
+            "claude-desktop",
+            "message_idle",
+            "1.32885.1",
+            "1.32885.2",
+            "1.32885.0",
+        ),
+        ("claude-vscode", "message_idle", "2.1.238", "2.1.239", "2.1.237"),
+    ),
+)
+def test_private_routes_accept_newer_patch_versions(
+    surface: str,
+    operation: str,
+    floor: str,
+    newer: str,
+    below_floor: str,
+) -> None:
+    assert surface_operation_supported(surface, floor, operation)
+    assert surface_operation_supported(surface, newer, operation)
+    assert not surface_operation_supported(surface, below_floor, operation)
+
+
+def test_public_routes_keep_surface_strict_while_accepting_version_floors() -> None:
     assert surface_operation_supported("codex-cli", "0.148.0-alpha.15", "create")
     assert surface_operation_supported("codex-cli", "0.149.0", "create")
     assert not surface_operation_supported("codex-cli", "not-a-version", "create")
     assert not surface_operation_supported("cursor-cli", "2026.08.11", "delete")
 
 
-def test_documented_cli_resume_uses_a_floor_while_idle_stays_pinned() -> None:
+def test_documented_cli_resume_and_idle_routes_use_version_floors() -> None:
     assert surface_operation_supported("claude-cli", "2.1.238", "message_stopped")
     assert surface_operation_supported("claude-cli", "2.1.241", "message_stopped")
     assert not surface_operation_supported("claude-cli", "2.1.237", "message_stopped")
-    assert not surface_operation_supported("claude-cli", "2.1.241", "message_idle")
+    assert surface_operation_supported("claude-cli", "2.1.241", "message_idle")
+    assert not surface_operation_supported("claude-cli", "2.1.237", "message_idle")
     assert ("claude-cli", "message_stopped") not in PRIVATE_ROUTE_VERSION_QUALIFICATIONS
 
 

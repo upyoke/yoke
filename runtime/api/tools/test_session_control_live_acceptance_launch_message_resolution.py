@@ -25,8 +25,14 @@ class _Clock:
 
 
 class _LaunchClient:
-    def __init__(self, *, exact_messages: int) -> None:
+    def __init__(
+        self,
+        *,
+        exact_messages: int,
+        selected_version: str = "2.1.241",
+    ) -> None:
         self.exact_messages = exact_messages
+        self.selected_version = selected_version
         self.create_count = 0
         self.calls: list[list[str]] = []
 
@@ -82,7 +88,7 @@ class _LaunchClient:
         if argv[:2] == ["sessions", "create"] and "--preview" in argv:
             return {
                 "launchable": True,
-                "selected_relay": {"version": "2.1.241"},
+                "selected_relay": {"version": self.selected_version},
             }
         if argv[:2] == ["sessions", "create"]:
             self.create_count += 1
@@ -105,12 +111,16 @@ class _LaunchClient:
         raise AssertionError(f"unexpected call: {argv!r}")
 
 
-def _create(client: _LaunchClient) -> tuple[str, str, dict[str, Any], dict[str, Any]]:
+def _create(
+    client: _LaunchClient,
+    *,
+    expected_version: str = "2.1.241",
+) -> tuple[str, str, dict[str, Any], dict[str, Any]]:
     clock = _Clock()
     return create_and_bind(
         client,
         project="yoke",
-        cell=AcceptanceCell("claude-cli", "2.1.241", "create"),
+        cell=AcceptanceCell("claude-cli", expected_version, "create"),
         run_id="release-1",
         timeout=10,
         poll=1,
@@ -142,6 +152,14 @@ def test_terminal_launch_resolves_one_exact_recipient_message() -> None:
         "--limit",
         "500",
     ] in client.calls
+
+
+def test_launch_preview_accepts_a_newer_patch_version() -> None:
+    client = _LaunchClient(exact_messages=1, selected_version="2.1.242")
+
+    session_id, _, _, _ = _create(client, expected_version="2.1.241")
+
+    assert session_id == "created-session"
 
 
 @pytest.mark.parametrize(

@@ -75,6 +75,8 @@ def private_route_qualification_allows(
         or grant.grant_digest != scope.digest
         or scope.environment != "stage"
         or scope.surface != context.surface
+        # The grant attests this exact stage-tested binary. A floor would let an
+        # untested build consume proof minted for a different executable.
         or scope.version != context.surface_version
         or scope.operation != operation
         or scope.route != context.wake_route
