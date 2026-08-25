@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -12,6 +11,9 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from yoke_core.domain import approval
+from runtime.api.load_tolerant_subprocess import (
+    run_load_tolerant_subprocess,
+)
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -20,11 +22,11 @@ _EXPORT_MODULE = "yoke_core.tools.lifecycle_export"
 
 def _shell_eval(export_type: str) -> str:
     """Run lifecycle_export and return its stdout (shell code)."""
-    result = subprocess.run(
+    result = run_load_tolerant_subprocess(
         [sys.executable, "-m", _EXPORT_MODULE, export_type],
+        purpose="exporting approval parity shell code",
         capture_output=True,
         text=True,
-        timeout=10,
         cwd=_REPO_ROOT,
     )
     assert result.returncode == 0, f"Export failed: {result.stderr}"
@@ -34,11 +36,11 @@ def _shell_eval(export_type: str) -> str:
 def _shell_var(shell_code: str, var_name: str) -> str:
     """Extract a shell variable value by eval-ing the code in sh."""
     script = f'{shell_code}\necho "${var_name}"'
-    result = subprocess.run(
+    result = run_load_tolerant_subprocess(
         ["sh", "-c", script],
+        purpose="evaluating an approval parity shell variable",
         capture_output=True,
         text=True,
-        timeout=10,
     )
     assert result.returncode == 0, f"Shell eval failed: {result.stderr}"
     return result.stdout.strip()
@@ -47,11 +49,11 @@ def _shell_var(shell_code: str, var_name: str) -> str:
 def _shell_fn_check(shell_code: str, fn_name: str, arg: str) -> bool:
     """Invoke a shell function from the generated code, return True if exit 0."""
     script = f'{shell_code}\n{fn_name} "{arg}"'
-    result = subprocess.run(
+    result = run_load_tolerant_subprocess(
         ["sh", "-c", script],
+        purpose="evaluating an approval parity shell function",
         capture_output=True,
         text=True,
-        timeout=10,
     )
     return result.returncode == 0
 

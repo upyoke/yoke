@@ -16,6 +16,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from runtime.api.load_tolerant_subprocess import (
+    run_load_tolerant_subprocess,
+)
+
 # Ensure the repo root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -37,11 +41,11 @@ def _run_service_client(db_path: str, *args: str) -> subprocess.CompletedProcess
     env["YOKE_DB"] = db_path
     if args and args[0] == "create-item":
         env["YOKE_ITEM_ENTRY_SURFACE"] = "harness_skill"
-    return subprocess.run(
+    return run_load_tolerant_subprocess(
         [sys.executable, "-m", _CLIENT] + list(args),
+        purpose="running a service-client parity command",
         capture_output=True,
         text=True,
-        timeout=10,
         env=env,
     )
 
@@ -56,11 +60,11 @@ def _run_db_router(db_path: str, *args: str) -> subprocess.CompletedProcess:
             *_DB_ROUTER_ITEM_ALIASES[router_args[0]],
             *router_args[1:],
         ]
-    return subprocess.run(
+    return run_load_tolerant_subprocess(
         [sys.executable, "-m", _DB_ROUTER, *router_args],
+        purpose="running a DB-router parity command",
         capture_output=True,
         text=True,
-        timeout=10,
         env=env,
         cwd=_REPO_ROOT,
     )

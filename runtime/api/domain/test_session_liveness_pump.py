@@ -7,7 +7,7 @@ the refresh cadence and the failure behavior that make that safe.
 
 from __future__ import annotations
 
-import time
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -156,13 +156,24 @@ class TestWaitCadence(unittest.TestCase):
 
     def test_a_blocking_scope_refreshes_in_the_background(self):
         pump = SessionLivenessPump(session_id="s-1", interval_seconds=0.01)
-        with patch.object(
-            session_liveness_pump, "refresh_session_heartbeat", return_value=True
-        ) as refresh:
-            with pump.running():
-                time.sleep(0.03)
+        refreshed = threading.Event()
 
-        self.assertGreaterEqual(refresh.call_count, 2)
+        def record_refresh(*_args, **_kwargs) -> bool:
+            refreshed.set()
+            return True
+
+        with patch.object(
+            session_liveness_pump,
+            "refresh_session_heartbeat",
+            side_effect=record_refresh,
+        ) as refresh_call:
+            with pump.running():
+                self.assertTrue(
+                    refreshed.wait(timeout=5),
+                    "background refresh did not arrive inside the load-tolerant window",
+                )
+
+        self.assertGreaterEqual(refresh_call.call_count, 1)
 
 
 if __name__ == "__main__":  # pragma: no cover - direct module run

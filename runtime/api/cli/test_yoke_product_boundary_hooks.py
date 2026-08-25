@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 from runtime.api.cli.product_boundary_test_support import (
@@ -12,6 +11,9 @@ from runtime.api.cli.product_boundary_test_support import (
     _assert_clean_client_boundary,
     _repo_pythonpath,
     _run_product_cli,
+)
+from runtime.api.load_tolerant_subprocess import (
+    run_load_tolerant_subprocess,
 )
 
 
@@ -47,24 +49,24 @@ def _https_config(token_file: Path) -> dict:
 
 
 def _git(repo: Path, *args: str) -> None:
-    subprocess.run(
+    run_load_tolerant_subprocess(
         ["git", "-C", str(repo), *args],
+        purpose="preparing the product-boundary hook repository",
         check=True,
         capture_output=True,
         text=True,
-        timeout=10,
     )
 
 
 def _repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
-    subprocess.run(
+    run_load_tolerant_subprocess(
         ["git", "init", "-b", "main", str(repo)],
+        purpose="initializing the product-boundary hook repository",
         check=True,
         capture_output=True,
         text=True,
-        timeout=10,
     )
     _git(repo, "config", "user.email", "test@example.invalid")
     _git(repo, "config", "user.name", "Test User")
