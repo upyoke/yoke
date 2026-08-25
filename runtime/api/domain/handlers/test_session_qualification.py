@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    require_exact_cli_idle_policy,
+)
 from yoke_cli.commands.adapters.session_control_qualification import (
     QUALIFICATION_OPEN_USAGE,
 )
@@ -28,6 +33,12 @@ from runtime.api.domain.test_session_message_support import (
 
 
 RELEASE_SHA = "a" * 40
+
+
+@pytest.fixture(autouse=True)
+def _unproven_private_route_policy(monkeypatch) -> None:
+    """Give handler tests an explicit stage-qualification candidate."""
+    require_exact_cli_idle_policy(monkeypatch)
 
 
 class _NoCloseConnection:

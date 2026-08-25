@@ -13,13 +13,10 @@ from yoke_contracts.session_control.private_route_versions import (
 CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION = "1.34493.1"
 
 
-def require_exact_desktop_active_policy(monkeypatch) -> None:
-    """Make the current desktop build unproven for generic grant tests."""
+def _require_exact_policy(monkeypatch, *, surface: str, operation: str) -> None:
     qualifications = dict(PRIVATE_ROUTE_VERSION_QUALIFICATIONS)
-    qualifications[("claude-desktop", "message_active")] = (
-        PrivateRouteVersionQualification.exact(
-            SESSION_SURFACE_CAPABILITIES["claude-desktop"].minimum_version
-        )
+    qualifications[(surface, operation)] = PrivateRouteVersionQualification.exact(
+        SESSION_SURFACE_CAPABILITIES[surface].minimum_version
     )
     monkeypatch.setattr(
         private_route_versions,
@@ -28,7 +25,26 @@ def require_exact_desktop_active_policy(monkeypatch) -> None:
     )
 
 
+def require_exact_desktop_active_policy(monkeypatch) -> None:
+    """Make the current desktop build unproven for generic grant tests."""
+    _require_exact_policy(
+        monkeypatch,
+        surface="claude-desktop",
+        operation="message_active",
+    )
+
+
+def require_exact_cli_idle_policy(monkeypatch) -> None:
+    """Make a newer CLI build an explicit stage-qualification candidate."""
+    _require_exact_policy(
+        monkeypatch,
+        surface="claude-cli",
+        operation="message_idle",
+    )
+
+
 __all__ = [
     "CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION",
+    "require_exact_cli_idle_policy",
     "require_exact_desktop_active_policy",
 ]

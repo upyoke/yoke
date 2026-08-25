@@ -6,12 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from yoke_contracts.session_control import private_route_versions
-from yoke_contracts.session_control.capabilities import (
-    SESSION_SURFACE_CAPABILITIES,
-)
-from yoke_contracts.session_control.private_route_versions import (
-    PrivateRouteVersionQualification,
+from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
+    require_exact_cli_idle_policy,
 )
 from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_ABANDONED_REASON,
@@ -43,17 +39,7 @@ RELEASE_SHA = "a" * 40
 @pytest.fixture(autouse=True)
 def _unproven_private_route_policy(monkeypatch) -> None:
     """Give stage-qualification tests an explicit noncanonical candidate."""
-    qualifications = dict(private_route_versions.PRIVATE_ROUTE_VERSION_QUALIFICATIONS)
-    qualifications[("claude-cli", "message_idle")] = (
-        PrivateRouteVersionQualification.exact(
-            SESSION_SURFACE_CAPABILITIES["claude-cli"].minimum_version
-        )
-    )
-    monkeypatch.setattr(
-        private_route_versions,
-        "PRIVATE_ROUTE_VERSION_QUALIFICATIONS",
-        qualifications,
-    )
+    require_exact_cli_idle_policy(monkeypatch)
 
 
 def _connection():
