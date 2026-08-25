@@ -16,7 +16,8 @@ from yoke_core.domain.standalone_item_merge_landed import LandedLane
 _MISSING_CLAIM = "no live work claim on this item"
 _HOLDER_FUNCTION = "claims.work.holder_get"
 _WORK_CLAIM_LOOKUP: ContextVar[Optional[Mapping[str, Any]]] = ContextVar(
-    "standalone_merge_work_claim_lookup", default=None,
+    "standalone_merge_work_claim_lookup",
+    default=None,
 )
 
 
@@ -94,11 +95,7 @@ def _claim_error_from_lookup(
     holder_session = str(holder.get("session_id") or "")
     if not holder_session:
         return _lookup_failure(connection, "holder omitted its session id")
-    caller = (
-        session_id
-        or str(lookup.get("caller_session_id") or "")
-        or _session_id("")
-    )
+    caller = session_id or str(lookup.get("caller_session_id") or "") or _session_id("")
     if not caller:
         return "ambient session identity is unavailable"
     if holder_session != caller:
@@ -115,12 +112,16 @@ def claim_error(item_id: int, session_id: str) -> str:
         function_id=_HOLDER_FUNCTION,
         target=TargetRef(kind="item", item_id=item_id),
     )
-    return _claim_error_from_lookup(item_id, session_id, {
-        "caller_session_id": _session_id(session_id),
-        "connection": _active_connection_name(),
-        "function_id": _HOLDER_FUNCTION,
-        "response": response,
-    })
+    return _claim_error_from_lookup(
+        item_id,
+        session_id,
+        {
+            "caller_session_id": _session_id(session_id),
+            "connection": _active_connection_name(),
+            "function_id": _HOLDER_FUNCTION,
+            "response": response,
+        },
+    )
 
 
 def claim_is_missing(error: str) -> bool:
@@ -179,12 +180,42 @@ def with_recorded_head(
     """Present the landing's verified lane head as the unique active lane."""
     return {
         **item,
-        "worktrees": [{
-            "state": "active",
-            "branch": lane.branch,
-            "commit_sha": lane.commit_sha,
-        }],
+        "worktrees": [
+            {
+                "state": "active",
+                "branch": lane.branch,
+                "commit_sha": lane.commit_sha,
+            }
+        ],
     }
+
+
+def restore_close_out_claim(
+    *,
+    item: dict[str, Any],
+    item_id: int,
+    session_id: str,
+    lane: Optional[LandedLane],
+) -> tuple[dict[str, Any], str]:
+    """Reclaim close-out authority when the landing outlived the work claim."""
+    from yoke_core.domain import standalone_item_merge_evidence as evidence
+
+    if not claim_error(item_id, session_id):
+        return item, ""
+    recovered, error = reacquire_landed_claim(
+        item_id=item_id,
+        session_id=session_id,
+        lane=lane,
+    )
+    if error or recovered is None:
+        if evidence.authoritative_status_is(item_id, evidence.CLOSED_OUT_STATUS):
+            return item, ""
+        return item, (
+            error
+            or "the merge is landed but close-out authority could not be "
+            "recovered to finish it"
+        )
+    return with_recorded_head(item, recovered), ""
 
 
 __all__ = [
@@ -193,5 +224,6 @@ __all__ = [
     "claim_error",
     "claim_is_missing",
     "reacquire_landed_claim",
+    "restore_close_out_claim",
     "with_recorded_head",
 ]

@@ -78,8 +78,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project")
     parser.add_argument("--target", default="", help="Override the base branch.")
     parser.add_argument("--session-id", default=os.environ.get("YOKE_SESSION_ID", ""))
-    parser.add_argument("--result", default="", help="What changed or was learned.")
-    parser.add_argument("--verification", default="", help="Verification evidence.")
+    parser.add_argument(
+        "--result",
+        default="",
+        help="What changed or was learned. Required to close a Dash item, "
+        "including when the merge queue already landed the branch.",
+    )
+    parser.add_argument(
+        "--verification",
+        default="",
+        help="Verification evidence. Required with --result to close a Dash "
+        "item; do not substitute `yoke lifecycle transition --to done`.",
+    )
     parser.add_argument("--verification-status", **status_argument_kwargs())
     boolean_options = (
         ("--no-changes", "Record a verified no-change result."),
@@ -111,7 +121,10 @@ def run(argv: List[str]) -> int:
         return _fail(
             f"{item_ref} uses the {workflow_id} workflow, whose terminal "
             "transition is evidence-gated: pass --result and --verification "
-            "(or --skip-status to merge without closing out).",
+            "on this command (including when the merge queue already landed "
+            "the branch). `yoke lifecycle transition --to done` cannot "
+            "restore the work claim close-out needs. Use --skip-status to "
+            "merge without closing out.",
             as_json=as_json,
         )
 
@@ -151,14 +164,13 @@ def run(argv: List[str]) -> int:
         target=target,
         repo_root=str(repo_root),
         project=project,
-        recorded_head=str(
-            (merge_source_lane(item) or {}).get("commit_sha") or ""
-        ),
+        recorded_head=str((merge_source_lane(item) or {}).get("commit_sha") or ""),
     )
     pruned_lane = not active_lanes(item) and recovery.branch_needs_receipt(
         str(repo_root),
         branch,
     )
+    recovered_claim = False
     if claim_error or pruned_lane:
         recovered, recovery_error = recovery.reacquire_landed_claim(
             item_id=item_id,
@@ -171,6 +183,7 @@ def run(argv: List[str]) -> int:
                 as_json=as_json,
             )
         item = recovery.with_recorded_head(item, recovered)
+        recovered_claim = True
 
     if landed_lane is not None:
         # Nothing below is safe against a landing that already happened: the
@@ -203,6 +216,29 @@ def run(argv: List[str]) -> int:
             branch=branch,
             target=target,
         )
+
+    close_lane = landed_lane or landed.LandedLane(
+        branch=branch,
+        target=target,
+        commit_sha=outcome.commit_sha,
+        merge_sha=outcome.merge_sha,
+        touched_files=tuple(outcome.touched_files),
+        source="this merge",
+    )
+    # A claim recovered at admission is already close-out authority. Re-check
+    # after landing only when the wait itself could have outlived a claim
+    # that was held going in.
+    if not recovered_claim and recovery.claim_is_missing(
+        _session_holds_claim(item_id, str(args.session_id))
+    ):
+        item, restore_error = recovery.restore_close_out_claim(
+            item=item,
+            item_id=item_id,
+            session_id=str(args.session_id),
+            lane=close_lane,
+        )
+        if restore_error:
+            return _fail(f"{item_ref}: {restore_error}", as_json=as_json)
 
     envelope: dict[str, Any] = {
         "ok": True,
@@ -262,14 +298,7 @@ def run(argv: List[str]) -> int:
             item_id=item_id,
             source_status=status,
             repo_root=str(repo_root),
-            lane=landed_lane or landed.LandedLane(
-                branch=branch,
-                target=target,
-                commit_sha=outcome.commit_sha,
-                merge_sha=outcome.merge_sha,
-                touched_files=tuple(outcome.touched_files),
-                source="this merge",
-            ),
+            lane=close_lane,
             session_id=str(args.session_id),
         )
         if transition_error:
