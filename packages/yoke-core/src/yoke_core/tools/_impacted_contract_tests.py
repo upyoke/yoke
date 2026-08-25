@@ -110,6 +110,10 @@ MACHINE_QA_PACK_CONTRACT_TESTS = ("runtime/api/domain/test_machine_qa.py",)
 EPIC_QA_READ_CONTRACT_TESTS = ("runtime/api/test_epic_full_review.py",)
 
 PRODUCT_CLI_BOUNDARY_TESTS = (
+    # Registry rows and usage entries agree through dict keys, not imports,
+    # so reachability cannot see a route added without its usage string.
+    "runtime/api/cli/test_yoke_cli_manifest.py",
+    "runtime/api/cli/test_yoke_operations_cli.py",
     "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
     "runtime/api/cli/test_yoke_product_boundary_hooks.py",
     "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py",

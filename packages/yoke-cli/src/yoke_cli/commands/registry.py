@@ -15,6 +15,7 @@ from yoke_cli.commands.adapters.lifecycle_repair import lifecycle_repair_status
 from yoke_cli.commands.adapters.migration_content_identity import (
     migration_content_identity_verify,
 )
+from yoke_cli.commands.adapters.render import packets_budget_get
 from yoke_cli.commands.adapters.claims_path_change import claims_path_amend
 from yoke_cli.commands.adapters.config import env_list
 from yoke_cli.commands.registry_token_normalization import expanded_hyphen_routes
@@ -138,6 +139,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ),
     ("packets", "render"): ("packets.render.run", _adapters.packets_render),
     ("packets", "check"): ("packets.check.run", _adapters.packets_check),
+    ("packets", "budget", "get"): ("packets.budget.get", packets_budget_get),
     ("board", "rebuild"): ("board.rebuild.run", _adapters.board_rebuild),
     ("board", "data", "get"): ("board.data.get", _adapters.board_data_get),
     ("lint", "config", "show"): ("lint.config.show", _adapters.lint_config_show),

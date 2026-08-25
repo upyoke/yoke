@@ -57,7 +57,7 @@ _PROJECT_INSTALL = _commands(
     "project install|project refresh|project snapshot sync|project uninstall"
 )
 _SOURCE_DEV = _commands(
-    "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets check|packets render|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
+    "agents render|agents render check|aws exec|board rebuild|dev setup|dev db-admin setup|dev path-snapshot-prewarm|github-actions runners status|merge audit|packets budget get|packets check|packets render|resync|runner-fleet exec|schema converge|scratch dispatch-inputs|source-authority export|source-authority quiesce|usher reconcile-github"
 )
 _HOOKS = _commands("git post-commit|git pre-commit|hook evaluate")
 

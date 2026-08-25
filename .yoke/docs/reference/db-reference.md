@@ -35,12 +35,13 @@ Quick reference for the columns most often mis-named in agent SQL. The DB-comman
 
 Bash-capable agents (Architect, Engineer, Tester, Simulator, Boss) receive a compact, role/topic-scoped DB Quick Reference packet that is **generated** from this reference plus live schema introspection — never hand-copied. The generator is `yoke_core.domain.schema_api_context`; the curated seed is split across `yoke_core.domain.schema_api_context_seed` (facade — role/topic assignments, stale-term regression list, size budgets), `yoke_core.domain.schema_api_context_tables` (canonical schema cheat sheet), and `yoke_core.domain.schema_api_context_commands` (wrapper-command recipes). The marker expander that wires it into rendered Claude / Codex agent adapters is `yoke_core.domain.agents_render_context`. Operator commands:
 
-Agents render/check via the function-call surface (`packets.render`, `packets.check`, `agents.render.run`, `agents.render.check`). Operator/debug adapters (the matching CLI shapes):
+Agents render/check via the function-call surface (`packets.render`, `packets.check`, `packets.budget.get`, `agents.render.run`, `agents.render.check`). Operator/debug adapters (the matching CLI shapes):
 
 ```sh
 yoke packets render --role main_agent
 yoke packets render --role engineer_agent
 yoke packets check
+yoke packets budget get
 yoke agents render
 yoke agents render check
 ```
