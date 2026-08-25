@@ -67,6 +67,25 @@ def test_quoted_path_glob_is_allowed(tmp_path: Path) -> None:
     assert _eval("rg --glob 'docs/deploy*' PATTERN", cwd=str(tmp_path)) is None
 
 
+def test_quoted_heredoc_markdown_link_is_allowed(tmp_path: Path) -> None:
+    command = (
+        "python3 - <<'PY'\n"
+        'text = "[name](archive/decisions/name.md)"\n'
+        "print(text)\n"
+        "PY\n"
+    )
+    assert _eval(command, cwd=str(tmp_path)) is None
+
+
+def test_unquoted_glob_on_heredoc_opener_line_is_still_denied(
+    tmp_path: Path,
+) -> None:
+    command = "rg -n PATTERN docs/deploy* <<'EOF'\nbody\nEOF\n"
+    result = _eval(command, cwd=str(tmp_path))
+    assert result is not None
+    assert "docs/deploy*" in result[1]
+
+
 def test_matching_path_glob_is_allowed(tmp_path: Path) -> None:
     target = tmp_path / "docs"
     target.mkdir()
