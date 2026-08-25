@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -11,7 +12,10 @@ from yoke_contracts.hook_runner.hook_ordering import (
     ordered_pipeline_for,
 )
 from yoke_contracts.hook_runner import lint_policy
-from yoke_contracts.hook_runner.session_cwd import client_scratch_root_fact
+from yoke_contracts.hook_runner.session_cwd import (
+    client_claude_job_tmp_fact,
+    client_scratch_root_fact,
+)
 from yoke_contracts.machine_config import runtime as machine_config
 
 from yoke_harness.hooks.deadline import HookDeadline
@@ -100,6 +104,16 @@ def _client_scratch_root_fact() -> dict[str, object]:
 
     try:
         return client_scratch_root_fact(machine_config.effective_temp_root())
+    except Exception:
+        return {}
+
+
+def _client_claude_job_tmp_fact() -> dict[str, object]:
+    """Collect the background-job temp root only this client can resolve."""
+    try:
+        return client_claude_job_tmp_fact(
+            os.environ.get("CLAUDE_JOB_DIR", ""),
+        )
     except Exception:
         return {}
 
@@ -202,6 +216,7 @@ def evaluate_local_subset(
         ).as_dict()
     if defer_main_commit:
         payload_extra.update(_client_scratch_root_fact())
+        payload_extra.update(_client_claude_job_tmp_fact())
         payload_extra.update(collect_git_commit_facts(payload))
     contexts: list[str] = []
     for module_id in _local_modules(

@@ -109,6 +109,7 @@ def validate_targets(
     targets: Sequence[str],
     fallback_cwd: str = "",
     watcher_capture_root: str = "",
+    claude_job_tmp_root: str = "",
     read_only: bool = False,
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
@@ -121,6 +122,7 @@ def validate_targets(
     carry an explicit file_path target).
     ``watcher_capture_root`` is the client-evidenced root on relayed calls;
     local evaluation resolves the root directly.
+    ``claude_job_tmp_root`` is the exact harness-owned background-job temp root.
     ``read_only`` admits explicitly sanctioned installed harness/tool paths.
     """
     if not (session_id or "").strip():
@@ -187,6 +189,7 @@ def validate_targets(
             repo_roots=repo_roots,
             session_id=session_id,
             watcher_capture_root=watcher_capture_root,
+            claude_job_tmp_root=claude_job_tmp_root,
             read_only=read_only,
         ):
             continue
@@ -214,12 +217,14 @@ def _is_target_authorised(
     repo_roots: Sequence[str],
     session_id: str,
     watcher_capture_root: str,
+    claude_job_tmp_root: str,
     read_only: bool,
 ) -> bool:
     if _is_free_path(
         target,
         session_id=session_id,
         watcher_capture_root=watcher_capture_root,
+        claude_job_tmp_root=claude_job_tmp_root,
     ):
         return True
     if _is_under_tool_dir(target):
@@ -248,10 +253,13 @@ def _is_free_path(
     *,
     session_id: str,
     watcher_capture_root: str,
+    claude_job_tmp_root: str,
 ) -> bool:
     # FREE_PATH_PREFIXES stays monkeypatchable for tests; watcher-captures
     # under the live machine scratch root are a separate allowlist entry.
     if _path_is_free_path(target, prefixes=FREE_PATH_PREFIXES):
+        return True
+    if claude_job_tmp_root and _is_inside(target, claude_job_tmp_root):
         return True
     return is_yoke_watcher_capture_path(
         target,

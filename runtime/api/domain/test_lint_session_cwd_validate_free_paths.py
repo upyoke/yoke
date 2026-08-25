@@ -272,6 +272,38 @@ class TestWatcherMintedCapturePairAllowed:
             shutil.rmtree(scratch, ignore_errors=True)
 
 
+class TestClaudeJobTmpAllowed:
+    """The current background-job harness temp subtree is claim-free."""
+
+    def test_job_tmp_target_allowed(
+        self, conn, session_with_claim
+    ) -> None:
+        root = Path.home() / ".claude" / "jobs" / "job-123" / "tmp"
+        target = root / "verification.log"
+
+        verdict = validate_targets(
+            conn,
+            session_id=session_with_claim,
+            targets=[str(target)],
+            claude_job_tmp_root=str(root),
+        )
+
+        assert verdict.allow
+
+    def test_job_sibling_still_denied(
+        self, conn, session_with_claim
+    ) -> None:
+        job = Path.home() / ".claude" / "jobs" / "job-123"
+        verdict = validate_targets(
+            conn,
+            session_id=session_with_claim,
+            targets=[str(job / "result.json")],
+            claude_job_tmp_root=str(job / "tmp"),
+        )
+
+        assert not verdict.allow
+
+
 class TestNegativeRegression:
     """Real repo-tree paths outside the session's claim still deny."""
 

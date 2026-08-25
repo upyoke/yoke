@@ -77,7 +77,10 @@ from yoke_core.domain.session_ambient_identity import (
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
-from yoke_contracts.hook_runner.session_cwd import client_scratch_root
+from yoke_contracts.hook_runner.session_cwd import (
+    client_claude_job_tmp,
+    client_scratch_root,
+)
 
 
 _ORIENTATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
@@ -125,6 +128,7 @@ def evaluate_pre_tool_use(
     payload: Mapping[str, Any],
     *,
     watcher_capture_root: str = "",
+    claude_job_tmp_root: str = "",
 ) -> Verdict:
     """Return the :class:`Verdict` for a PreToolUse payload."""
     session_id = session_id_from_hook_payload(payload)
@@ -152,6 +156,7 @@ def evaluate_pre_tool_use(
                 targets=targets,
                 fallback_cwd=fallback_cwd,
                 watcher_capture_root=watcher_capture_root,
+                claude_job_tmp_root=claude_job_tmp_root,
                 read_only=not write_operation,
             )
     except Exception as exc:
@@ -272,6 +277,7 @@ def _build_deny_response(reason: str) -> dict:
 def evaluate(record: HookContext) -> HookDecision:
     """Typed entry. Dispatches by ``record.event_name``."""
     payload = record.payload if isinstance(record.payload, dict) else {}
+    job_dir = "" if record.remote else os.environ.get("CLAUDE_JOB_DIR", "")
     if record.event_name == "PreToolUse":
         try:
             verdict = evaluate_pre_tool_use(
@@ -279,6 +285,7 @@ def evaluate(record: HookContext) -> HookDecision:
                 watcher_capture_root=(
                     client_scratch_root(payload) if record.remote else ""
                 ),
+                claude_job_tmp_root=client_claude_job_tmp(payload, job_dir=job_dir),
             )
         except Exception as exc:
             emit_fail_open(
@@ -332,17 +339,9 @@ def main() -> int:
     return 0
 
 
-__all__ = [
-    "ORIENTATION_HEADING",
-    "OrientationBlock",
-    "SCOPE_MISMATCH_TEMPLATE",
-    "Verdict",
-    "build_scope_mismatch_block",
-    "evaluate",
-    "evaluate_orientation",
-    "evaluate_pre_tool_use",
-    "main",
-]
+__all__ = ["ORIENTATION_HEADING", "OrientationBlock", "SCOPE_MISMATCH_TEMPLATE",
+           "Verdict", "build_scope_mismatch_block", "evaluate",
+           "evaluate_orientation", "evaluate_pre_tool_use", "main"]
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI shim

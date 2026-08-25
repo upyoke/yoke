@@ -12,6 +12,8 @@ from yoke_harness.hooks import local_subset
 from yoke_harness.hooks.deadline import HookDeadline
 from yoke_harness.hooks.local_policy_common import DENY, PolicyResult
 from yoke_contracts.hook_runner.session_cwd import (
+    CLIENT_CLAUDE_JOB_TMP_KEY,
+    CLIENT_CLAUDE_JOB_TMP_SCHEMA,
     CLIENT_SCRATCH_ROOT_KEY,
     CLIENT_SCRATCH_ROOT_SCHEMA,
 )
@@ -116,15 +118,17 @@ def test_product_local_subset_denies_in_cursor_wire_shape(
     assert envelope["user_message"] == "blocked by local policy"
 
 
-def test_relay_subset_reports_effective_client_scratch_root(
+def test_relay_subset_reports_client_free_path_roots(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client_root = str(Path.home() / ".yoke" / "tmp")
+    job_dir = str(Path.home() / ".claude" / "jobs" / "job-123")
     monkeypatch.setattr(local_subset, "_local_modules", lambda *_a, **_k: [])
     monkeypatch.setenv(
         local_subset.machine_config.SCRATCH_ROOT_ENV,
         client_root,
     )
+    monkeypatch.setenv("CLAUDE_JOB_DIR", job_dir)
 
     result = local_subset.evaluate_local_subset(
         "PreToolUse",
@@ -136,6 +140,10 @@ def test_relay_subset_reports_effective_client_scratch_root(
     )
 
     assert result.payload_extra == {
+        CLIENT_CLAUDE_JOB_TMP_KEY: {
+            "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
+            "root": str(Path(job_dir) / "tmp"),
+        },
         CLIENT_SCRATCH_ROOT_KEY: {
             "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
             "root": client_root,
