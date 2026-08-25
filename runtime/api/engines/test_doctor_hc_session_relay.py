@@ -38,6 +38,40 @@ def test_doctor_passes_only_when_plist_heartbeat_and_token_are_healthy(
     assert "relay-1" in rec.results[0].detail
 
 
+def test_doctor_reads_remote_heartbeat_without_a_local_database(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def list_relays(function, payload):
+        calls.append((function, payload))
+        return {
+            "relays": [{
+                "relay_id": "relay-remote",
+                "machine_id": "machine-1",
+                "last_seen_at": "2026-08-25T12:00:00Z",
+                "liveness": "connected",
+            }],
+        }
+
+    monkeypatch.setattr(relay_hc.sys, "platform", "darwin")
+    monkeypatch.setattr(relay_hc, "relay_launchd_status", lambda: _status(tmp_path))
+    monkeypatch.setattr(relay_hc, "_machine_id", lambda: "machine-1")
+    monkeypatch.setattr(relay_hc, "_token_reference_active", lambda: True)
+    monkeypatch.setattr(relay_hc, "relay", list_relays)
+    rec = RecordCollector()
+
+    relay_hc.hc_session_relay(None, DoctorArgs(), rec)
+
+    assert rec.results[0].result == "PASS"
+    assert "relay-remote" in rec.results[0].detail
+    assert calls == [(
+        relay_hc._RELAY_LIST_FUNCTION_ID,
+        {"state": "active", "limit": 500},
+    )]
+
+
 def test_doctor_combines_missing_loaded_heartbeat_and_token_findings(
     monkeypatch,
     tmp_path: Path,

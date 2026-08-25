@@ -134,3 +134,70 @@ def test_https_only_still_relays_unknown_slug() -> None:
     assert rc == 1
     assert envelope["success"] is False
     assert envelope["error"]["code"] == "invalid_check"
+
+
+def test_https_only_composes_local_runtime_verdict() -> None:
+    relayed = FunctionCallResponse(
+        success=True,
+        function="doctor.run.run",
+        version="v1",
+        request_id="r2",
+        result={
+            "results": [{
+                "hc": "HC-session-relay",
+                "name": "Machine relay",
+                "severity": "N/A",
+                "detail": "declared for the local runtime; this run is hosted",
+            }],
+            "scope": "only",
+            "project": "yoke",
+            "runtime": "hosted",
+            "fail_count": 0,
+            "warn_count": 0,
+            "pass_count": 0,
+            "na_count": 1,
+        },
+    )
+    local = [{
+        "hc": "HC-session-relay",
+        "name": "Machine relay",
+        "severity": "PASS",
+        "detail": "relay-1 is loaded and authenticated",
+    }]
+
+    with (
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_run.collect_chunked",
+            return_value=relayed,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_compose.run_local_runtime_checks",
+            return_value=local,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.doctor_https_compose.machine_has_checkout_for",
+            return_value=False,
+        ),
+        redirect_stdout(StringIO()) as stdout,
+    ):
+        rc = dispatch_chunked(
+            payload={
+                "project": "yoke",
+                "only": "HC-session-relay",
+                "quick": False,
+                "full": False,
+                "fix": False,
+                "runtime": "hosted",
+            },
+            session_id="test-session",
+            json_mode=True,
+            chunk_max_checks=1,
+            timeout_s=30.0,
+        )
+
+    result = json.loads(stdout.getvalue())["result"]
+    assert rc == 0
+    assert result["results"] == local
+    assert result["pass_count"] == 1
+    assert result["na_count"] == 0
+    assert result["composed"] == "local_runtime+relayed_control_plane"

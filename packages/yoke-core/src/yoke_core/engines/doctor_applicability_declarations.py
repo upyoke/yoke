@@ -246,9 +246,18 @@ def source_checkout_slugs() -> frozenset[str]:
     )
 
 
+def local_runtime_slugs() -> frozenset[str]:
+    """Slugs that must execute on the operator's own machine."""
+    return frozenset(
+        slug for slug, shape in DECLARATIONS.items()
+        if shape.runtimes == _LOCAL.runtimes
+    )
+
+
 __all__ = [
     "DECLARATIONS",
     "applicability_for",
+    "local_runtime_slugs",
     "source_checkout_slugs",
     "undeclared_slugs",
 ]

@@ -1,10 +1,9 @@
-"""Compose LOCAL source-tree doctor checks with relayed control-plane ones.
+"""Compose machine-local doctor checks with relayed control-plane ones.
 
-An https client holds the checkout the hosted runner does not. Relayed
-``doctor.run.run`` correctly N/As ``requires_source_checkout`` checks on
-the server; this module re-runs those checks on the client and merges
-them into one report so a machine with a checkout does not report false
-not-applicable rows for trees it can read.
+An https client holds machine state and source checkouts the hosted runner
+does not. Relayed ``doctor.run.run`` correctly N/As checks that need either
+on the server; this module re-runs those checks on the client and merges
+them into one report.
 """
 
 from __future__ import annotations
@@ -20,6 +19,7 @@ from yoke_core.domain.project_checkout_locations import (
 )
 from yoke_core.engines.doctor_applicability import RUNTIME_LOCAL
 from yoke_core.engines.doctor_applicability_declarations import (
+    local_runtime_slugs,
     source_checkout_slugs,
 )
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
@@ -82,6 +82,24 @@ def false_na_source_slugs(results: Sequence[Dict[str, Any]]) -> List[str]:
     return out
 
 
+def false_na_local_runtime_slugs(
+    results: Sequence[Dict[str, Any]],
+) -> List[str]:
+    """Local-only slugs the relayed runner could not execute on this machine."""
+    wanted = local_runtime_slugs()
+    out: List[str] = []
+    seen: set[str] = set()
+    for row in results:
+        slug = _hc_key(row.get("hc"))
+        if str(row.get("severity") or "").upper() != "N/A":
+            continue
+        if slug not in wanted or slug in seen:
+            continue
+        seen.add(slug)
+        out.append(slug)
+    return out
+
+
 def note_missing_control_plane(
     records: Sequence[CheckResult],
     project: str,
@@ -106,6 +124,47 @@ def note_missing_control_plane(
             "checkout but no local-postgres authority for "
             "the DB half of the check"
         )
+
+
+def run_local_runtime_checks(
+    *,
+    project: str,
+    quick: bool,
+    fix: bool,
+    slugs: Sequence[str],
+) -> List[Dict[str, Any]]:
+    """Execute local-runtime HCs while retaining the HTTPS authority."""
+    if not slugs:
+        return []
+    wanted = set(slugs)
+    args = DoctorArgs(
+        only=",".join(sorted(wanted)),
+        quick=quick,
+        project=str(project),
+        fix=fix,
+        runtime=RUNTIME_LOCAL,
+    )
+    rec = RecordCollector()
+    conn = local_connection_or_none(connect)
+    try:
+        for hc in HEALTH_CHECKS:
+            if hc.slug in wanted:
+                execute_check_isolated(conn, args, rec, hc)
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    return [
+        {
+            "hc": r.check_id,
+            "name": r.check_name,
+            "severity": r.result,
+            "detail": r.detail,
+        }
+        for r in rec.results
+    ]
 
 
 def run_local_source_checks(
@@ -182,7 +241,7 @@ def merge_relayed_with_local(
     relayed_results: Sequence[Dict[str, Any]],
     local_results: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """Replace false checkout N/A rows with locally executed verdicts."""
+    """Replace relayed N/A rows with locally executed verdicts."""
     by_slug = {
         _hc_key(row.get("hc")): row
         for row in local_results
@@ -196,7 +255,6 @@ def merge_relayed_with_local(
         if (
             local is not None
             and str(row.get("severity") or "").upper() == "N/A"
-            and _NO_CHECKOUT_DETAIL in str(row.get("detail") or "")
         ):
             merged.append(dict(local))
             replaced.add(slug)
@@ -265,11 +323,13 @@ def resolve_operator_project(project: str) -> str:
 __all__ = [
     "UnavailableControlPlane",
     "checkout_root_for_project",
+    "false_na_local_runtime_slugs",
     "false_na_source_slugs",
     "machine_has_checkout_for",
     "merge_relayed_with_local",
     "note_missing_control_plane",
     "recount",
     "resolve_operator_project",
+    "run_local_runtime_checks",
     "run_local_source_checks",
 ]

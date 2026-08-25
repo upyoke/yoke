@@ -3,10 +3,28 @@
 from __future__ import annotations
 
 from yoke_cli.commands.adapters.doctor_https_compose import (
+    false_na_local_runtime_slugs,
     false_na_source_slugs,
     merge_relayed_with_local,
     recount,
 )
+
+
+def test_false_na_local_runtime_slugs_selects_machine_checks() -> None:
+    rows = [
+        {
+            "hc": "HC-session-relay",
+            "severity": "N/A",
+            "detail": "declared for the local runtime; this run is hosted",
+        },
+        {
+            "hc": "HC-status-consistency",
+            "severity": "N/A",
+            "detail": "unrelated",
+        },
+    ]
+
+    assert false_na_local_runtime_slugs(rows) == ["session-relay"]
 
 
 def test_false_na_source_slugs_filters_checkout_gaps() -> None:

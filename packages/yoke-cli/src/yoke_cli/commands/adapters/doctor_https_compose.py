@@ -16,6 +16,7 @@ _only = importlib.import_module("yoke_core.engines.doctor_https_only")
 
 caller_project_local_slugs = _only.caller_project_local_slugs
 checkout_root_for_project = _compose.checkout_root_for_project
+false_na_local_runtime_slugs = _compose.false_na_local_runtime_slugs
 false_na_source_slugs = _compose.false_na_source_slugs
 https_relay_needed = _only.https_relay_needed
 local_project_only_result = _only.local_project_only_result
@@ -26,11 +27,13 @@ prepare_https_only_payload = _only.prepare_https_only_payload
 recount = _compose.recount
 resolve_operator_project = _compose.resolve_operator_project
 run_local_project_checks = _only.run_local_project_checks
+run_local_runtime_checks = _compose.run_local_runtime_checks
 run_local_source_checks = _compose.run_local_source_checks
 
 __all__ = [
     "caller_project_local_slugs",
     "checkout_root_for_project",
+    "false_na_local_runtime_slugs",
     "false_na_source_slugs",
     "https_relay_needed",
     "local_project_only_result",
@@ -41,5 +44,6 @@ __all__ = [
     "recount",
     "resolve_operator_project",
     "run_local_project_checks",
+    "run_local_runtime_checks",
     "run_local_source_checks",
 ]
