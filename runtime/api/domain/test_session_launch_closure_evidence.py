@@ -97,6 +97,13 @@ def _attempt(conn, launch_id: str):
     ).fetchone()
 
 
+def _open_lease(conn, launch_id: str) -> str:
+    return conn.execute(
+        "SELECT lease_id FROM session_launch_attempts WHERE launch_id=?",
+        (launch_id,),
+    ).fetchone()[0]
+
+
 def test_lease_expiry_records_phase_and_diagnostics_on_the_open_attempt() -> None:
     conn = _connection()
     launch = _claimed_launch(conn, key="lease-expiry-evidence")
@@ -242,3 +249,37 @@ def test_a_cancelled_launch_still_closes_with_phase_and_transport() -> None:
     assert evidence["transport_state"] == TRANSPORT_RELAY_CONNECTED
     assert evidence["relay_id"] == RELAY_ID
     assert evidence["machine_id"] == MACHINE_ID
+
+
+def test_lease_expiry_keeps_what_the_relay_already_reported() -> None:
+    """The closure adds to the relay's account of itself, never replaces it.
+
+    A relay that reported its spawn phase before going quiet left the most
+    diagnosable fact on the row. Overwriting it at expiry would destroy
+    exactly what recording a closure exists to preserve.
+    """
+    from yoke_core.domain.session_relay import report_relay_job
+
+    conn = _connection()
+    launch = _claimed_launch(conn, key="expiry-keeps-relay-report")
+    _relay_connected_through(conn, "2026-08-22T12:10:00Z")
+    report_relay_job(
+        conn,
+        actor_id=1,
+        relay_id=RELAY_ID,
+        job_kind="launch",
+        job_id=launch.launch_id,
+        lease_id=_open_lease(conn, launch.launch_id),
+        result_code="progress",
+        adapter_revision="codex-relay-v4",
+        evidence={"result_code": "transport_exception", "native_launch_phase": "spawn"},
+        now="2026-08-22T12:00:20Z",
+    )
+
+    settle_launch_deadlines(conn, now=LEASE_EXPIRED_AT)
+
+    evidence = json.loads(_attempt(conn, launch.launch_id)[2])
+    assert evidence["native_launch_phase"] == "spawn"
+    # The closure's terminal code wins where the two documents overlap.
+    assert evidence["result_code"] == "launch_lease_expired"
+    assert evidence["closure_reason"] == "launch_lease_expiry"

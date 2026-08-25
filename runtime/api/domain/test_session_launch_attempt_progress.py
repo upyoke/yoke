@@ -81,12 +81,15 @@ def test_relay_lease_expiry_preserves_last_phase_and_diagnostic() -> None:
         "2026-08-22T12:06:01Z",
         "relay_lease_expired",
     )
-    assert evidence == {
+    # The relay's own last word survives the closure. The document also
+    # carries what the server observed as it closed the attempt, so this
+    # asserts the preserved keys rather than the absence of every other one.
+    assert evidence.items() >= {
         "native_diagnostic_command": f"yoke relay diagnostic {DIAGNOSTIC_REF}",
         "native_diagnostic_ref": DIAGNOSTIC_REF,
         "native_launch_phase": "spawn",
         "result_code": "relay_lease_expired",
-    }
+    }.items()
     launch_row = conn.execute(
         "SELECT state,result_code,result_evidence FROM session_launches "
         "WHERE launch_id=?",

@@ -9,11 +9,11 @@ from yoke_core.domain.session_launch_closure_evidence import (
     closure_evidence,
     open_attempt,
 )
+from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_launch_store import (
     LAUNCH_COLUMNS,
     add_seconds,
     begin_mutation,
-    canonical_json,
     marker,
     parse_time,
     row_to_launch,
@@ -79,7 +79,13 @@ def _expire_launching(
         started_at=value(attempt, "started_at", 3) if attempt else launch.launching_at,
         now=now,
     )
-    rendered = canonical_json(evidence)
+    # Merge rather than replace: a relay that reported its spawn phase before
+    # going quiet left the most diagnosable fact on this row, and an expiry
+    # that overwrote it would destroy exactly what the closure exists to
+    # preserve. The closure's own terminal code wins where the two overlap.
+    rendered = merge_redacted_evidence(
+        value(attempt, "evidence", 4) if attempt else None, evidence
+    )
     if attempt is not None:
         p = marker(conn)
         conn.execute(

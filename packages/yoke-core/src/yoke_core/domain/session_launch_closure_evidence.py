@@ -112,7 +112,7 @@ def open_attempt(conn: Any, launch_id: str) -> Any:
     """Return the newest attempt still awaiting an outcome, when one exists."""
     p = marker(conn)
     return conn.execute(
-        "SELECT attempt_id, relay_id, machine_id, started_at "
+        "SELECT attempt_id, relay_id, machine_id, started_at, evidence "
         f"FROM session_launch_attempts WHERE launch_id = {p} "
         "AND completed_at IS NULL ORDER BY attempt_number DESC LIMIT 1",
         (launch_id,),
