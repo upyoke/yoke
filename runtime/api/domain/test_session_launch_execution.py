@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
 from yoke_core.domain.session_launch_execution import (
     claim_assigned_launch,
@@ -40,9 +41,7 @@ def test_claim_separates_bootstrap_body_and_stores_only_attestation_hash() -> No
         now=NOW,
     )
 
-    assert claim.bootstrap_prompt == (
-        f"Yoke launch `{launch.launch_id}`: register, pull your message, act."
-    )
+    assert claim.bootstrap_prompt == (native_launch_bootstrap(launch.launch_id))
     assert "Sensitive instruction body" not in claim.bootstrap_prompt
     assert claim.lease_expires_at == "2026-08-22T12:05:00Z"
     stored = get_launch(conn, launch.launch_id)

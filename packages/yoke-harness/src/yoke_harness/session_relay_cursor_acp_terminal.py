@@ -8,8 +8,18 @@ from pathlib import Path
 import signal
 import subprocess
 import threading
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 import uuid
+
+from yoke_harness.session_relay_acp_tool_gate import (
+    ToolGateDecision,
+    evaluate_native_command,
+    permission_request_command,
+)
+
+
+class ToolCallRefused(ValueError):
+    """The guard chain refused a supervised native tool call."""
 
 
 DEFAULT_OUTPUT_BYTES = 1024 * 1024
@@ -18,6 +28,7 @@ MAX_ARGUMENTS = 256
 MAX_ARGUMENT_BYTES = 64 * 1024
 
 ProcessFactory = Callable[..., subprocess.Popen[bytes]]
+ToolGate = Callable[..., ToolGateDecision]
 
 
 @dataclass
@@ -67,7 +78,13 @@ def _stop(process: subprocess.Popen[bytes]) -> None:
 
 
 class CursorAcpTerminalRegistry:
-    """Execute ACP terminal requests without shell expansion or unbounded capture."""
+    """Execute ACP terminal requests under the installed PreToolUse guards.
+
+    The relay answers these requests on the native's behalf, so it also owns
+    the guard chain the native never runs for itself: every command is
+    evaluated before it is spawned, and a refusal surfaces to the agent as a
+    rejected request rather than a silently permitted one.
+    """
 
     def __init__(
         self,
@@ -75,11 +92,17 @@ class CursorAcpTerminalRegistry:
         *,
         environ: Mapping[str, str] | None = None,
         process_factory: ProcessFactory = subprocess.Popen,
+        tool_gate: ToolGate = evaluate_native_command,
     ) -> None:
         self.checkout = checkout.resolve()
         self.environ = dict(os.environ if environ is None else environ)
         self.process_factory = process_factory
+        self.tool_gate = tool_gate
         self.terminals: dict[str, _Terminal] = {}
+
+    def gate(self, command: Sequence[str], cwd: Path) -> ToolGateDecision:
+        """Return the guard chain's verdict for one supervised command."""
+        return self.tool_gate(command, cwd=cwd, environ=self.environ)
 
     def _cwd(self, value: object) -> Path:
         cwd = Path(str(value)).resolve() if value else self.checkout
@@ -135,9 +158,14 @@ class CursorAcpTerminalRegistry:
             else DEFAULT_OUTPUT_BYTES
         )
         limit = min(limit, MAX_OUTPUT_BYTES)
+        command = self._command(params)
+        cwd = self._cwd(params.get("cwd"))
+        decision = self.gate(command, cwd)
+        if not decision.allowed:
+            raise ToolCallRefused(decision.reason or "refused by guard chain")
         process = self.process_factory(
-            self._command(params),
-            cwd=self._cwd(params.get("cwd")),
+            command,
+            cwd=cwd,
             env=self._environment(params),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -225,6 +253,19 @@ def respond_to_agent_request(
     values = params if isinstance(params, dict) else {}
     try:
         if method == "session/request_permission":
+            requested = permission_request_command(values)
+            if (
+                requested is not None
+                and not registry.gate(requested, registry.checkout).allowed
+            ):
+                # Cancelling is the ACP-native refusal: the agent is told the
+                # action did not happen instead of being handed an approval
+                # the guard chain withheld.
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {"outcome": {"outcome": "cancelled"}},
+                }
             options = values.get("options")
             selected = (
                 next(
@@ -265,6 +306,12 @@ def respond_to_agent_request(
                 "error": {"code": -32601, "message": "unsupported request"},
             }
         return {"jsonrpc": "2.0", "id": request_id, "result": result}
+    except ToolCallRefused as refusal:
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {"code": -32000, "message": str(refusal)},
+        }
     except (OSError, subprocess.SubprocessError, ValueError):
         return {
             "jsonrpc": "2.0",
@@ -273,4 +320,8 @@ def respond_to_agent_request(
         }
 
 
-__all__ = ["CursorAcpTerminalRegistry", "respond_to_agent_request"]
+__all__ = [
+    "CursorAcpTerminalRegistry",
+    "ToolCallRefused",
+    "respond_to_agent_request",
+]

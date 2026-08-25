@@ -13,6 +13,7 @@ import time
 from typing import Any
 from uuid import UUID
 
+from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_cursor import (
     CursorCreateRequest,
     CursorNativeResult,
@@ -278,6 +279,13 @@ class CursorAcpTransport:
             session_id = _session_id(result.get("sessionId"))
             if session_id is None:
                 raise CursorAcpError("session/new identity missing")
+            # From here the native can act, so it becomes containable: if it
+            # never registers, the sweep has the process it must terminate.
+            record_supervised_native(
+                request.launch_id,
+                client.process.pid,
+                native_session_id=session_id,
+            )
             client.start_prompt(session_id, request.native_instruction)
             return CursorNativeResult(
                 "native_created",

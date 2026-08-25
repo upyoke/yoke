@@ -7,10 +7,12 @@ import json
 import os
 from pathlib import Path
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_cursor_acp as acp_module
 from yoke_harness import session_relay_cursor_acp_process as process_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_cursor import CursorCreateRequest, CursorNativeResult
+from yoke_harness.session_relay_acp_tool_gate import ToolGateDecision
 from yoke_harness.session_relay_cursor_acp_terminal import (
     CursorAcpTerminalRegistry,
     respond_to_agent_request,
@@ -20,7 +22,7 @@ from yoke_harness.session_relay_cursor_acp_terminal import (
 LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
 SESSION_ID = "22222222-2222-4222-8222-222222222222"
 SECRET = "cursor-acp-owner-attestation"
-INSTRUCTION = f"Yoke launch `{LAUNCH_ID}`: register, pull your message, act."
+INSTRUCTION = native_launch_bootstrap(LAUNCH_ID)
 
 
 def _request(tmp_path: Path) -> CursorCreateRequest:
@@ -210,6 +212,7 @@ def test_acp_terminal_executes_explicit_ack_without_shell(tmp_path: Path) -> Non
         process_factory=lambda command, **options: (
             calls.append((command, options)) or _CommandProcess()
         ),
+        tool_gate=lambda *_args, **_kwargs: ToolGateDecision(True),
     )
     response = respond_to_agent_request(
         registry,

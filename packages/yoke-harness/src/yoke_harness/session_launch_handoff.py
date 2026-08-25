@@ -13,6 +13,7 @@ from typing import Mapping
 from uuid import UUID
 
 from yoke_cli.config import machine_config
+from yoke_harness.session_launch_containment import release_supervised_native
 
 
 LAUNCH_CONTEXT_ENV = "YOKE_SESSION_LAUNCH_CONTEXT"
@@ -184,6 +185,9 @@ def mark_launch_attestation_delivered(
         _delivered_path(projection.launch_id, state_dir),
         {"launch_id": projection.launch_id, "delivered_at": int(time.time())},
     )
+    # Delivery only happens inside a registered session's own hook, so this is
+    # the local proof that the native no longer needs containing.
+    release_supervised_native(projection.launch_id)
     if projection.binding_id:
         try:
             _handoff_path(projection.binding_id, state_dir).unlink(missing_ok=True)

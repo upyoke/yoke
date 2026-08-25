@@ -11,9 +11,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Literal, Protocol
+from typing import Callable, Protocol
 
 from yoke_harness.session_relay_runtime import (
+    expected_native_instruction,
     RelayAdapter,
     RelayAdapterResult,
     RelayExecutionContext,
@@ -25,7 +26,6 @@ from yoke_harness.session_relay_runtime import (
 
 CURSOR_ADAPTER_REVISION = "cursor-native-v2"
 CURSOR_CLI_SURFACE = "cursor-cli"
-CursorCreateInterface = Literal["cli", "acp"]
 SurfaceVersionGate = Callable[[str, str | None, str], bool]
 
 _LAUNCH_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
@@ -80,9 +80,15 @@ class CursorNativeResult:
 
 
 class CursorSubprocessPort(Protocol):
-    """Proven cursor-agent create-chat and stopped-session operations."""
+    """The proven cursor-agent stopped-session resume operation.
 
-    def create_chat(self, request: CursorCreateRequest) -> CursorNativeResult: ...
+    Creation is deliberately absent. A print-mode create detaches a native
+    nobody owns: it runs outside the hook chain, so it never registers, and
+    nothing is left holding the process when the launch is written off.
+    Observed natives created that way read the backlog, adopted briefs meant
+    for other sessions, and wrote into the shared checkout with no claim and
+    no lane. Launches go through the caller-owned ACP port instead.
+    """
 
     def resume_chat(self, request: CursorWakeRequest) -> CursorNativeResult: ...
 
@@ -124,14 +130,6 @@ def _result(
     )
 
 
-def _expected_instruction(context: RelayExecutionContext) -> str | None:
-    if context.job_kind == "launch":
-        return f"Yoke launch `{context.job_id}`: register, pull your message, act."
-    if context.job_kind == "wake" and context.message_id:
-        return f"Yoke message {context.message_id}: check your Yoke messages."
-    return None
-
-
 def _contract_version_gate(
     surface: str,
     version: str | None,
@@ -152,7 +150,7 @@ def _validated(
 ) -> RelayAdapterResult | None:
     if context.surface != CURSOR_CLI_SURFACE:
         return _result("unsupported_surface")
-    expected = _expected_instruction(context)
+    expected = expected_native_instruction(context)
     if expected is None or context.native_instruction != expected:
         code = "not_created" if context.job_kind == "launch" else "failed"
         return _result(code, native=CursorNativeResult("instruction_refused"))
@@ -196,10 +194,14 @@ def build_cursor_adapter(
     *,
     subprocess_port: CursorSubprocessPort | None = None,
     acp_port: CursorAcpPort | None = None,
-    create_interface: CursorCreateInterface = "cli",
     version_gate: SurfaceVersionGate = _contract_version_gate,
 ) -> RelayAdapter:
-    """Build one adapter over injected, version-pinned native transports."""
+    """Build one adapter over injected, version-pinned native transports.
+
+    Launch goes only to ``acp_port``: the ACP child stays a child of the
+    process that started it, so an exchange that cannot finish takes the
+    native down with it rather than leaving one running unattended.
+    """
 
     def adapter(context: RelayExecutionContext) -> RelayAdapterResult:
         refused = _validated(context, version_gate)
@@ -214,16 +216,15 @@ def build_cursor_adapter(
                 launch_attestation=str(context.launch_attestation),
                 requested_model=context.requested_model,
             )
+            if acp_port is None:
+                return _result(
+                    "not_created",
+                    native=CursorNativeResult("native_framing_unavailable"),
+                )
             try:
-                if create_interface == "acp" and acp_port is not None:
-                    return _launch_result(acp_port.new_session(request))
-                if create_interface == "cli" and subprocess_port is not None:
-                    return _launch_result(subprocess_port.create_chat(request))
+                return _launch_result(acp_port.new_session(request))
             except Exception:
                 return _result("outcome_unknown")
-            return _result(
-                "not_created", native=CursorNativeResult("native_framing_unavailable")
-            )
 
         wake_mode = normalize_wake_mode(context.wake_mode)
         if wake_mode is None:

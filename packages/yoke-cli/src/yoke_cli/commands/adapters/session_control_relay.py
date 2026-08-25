@@ -38,11 +38,31 @@ def _plist_operation(action: str) -> Any:
     return operation[action]()
 
 
+def _contain_stranded_natives() -> None:
+    """Terminate natives from launches that never registered.
+
+    The relay is the only process on this machine that knows it started them,
+    so the sweep runs on its cadence rather than waiting for an operator to
+    notice an agent working without a claim.
+    """
+    from yoke_harness.session_launch_containment import (
+        contain_stranded_launch_natives,
+    )
+
+    for outcome in contain_stranded_launch_natives():
+        print(
+            f"contained unregistered native for launch {outcome.launch_id}: "
+            f"pid={outcome.pid} result={outcome.result}",
+            file=sys.stderr,
+        )
+
+
 def _serve_once(
     *, broker_only: bool = False, broker_lease_id: str | None = None
 ) -> Any:
     from yoke_harness.session_relay import serve_once
 
+    _contain_stranded_natives()
     return serve_once(
         broker_only=broker_only,
         broker_lease_id=broker_lease_id,

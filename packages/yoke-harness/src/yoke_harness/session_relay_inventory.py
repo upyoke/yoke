@@ -71,22 +71,31 @@ def _version_token(text: str) -> str | None:
     return matched.group(0).rstrip("-+._") if matched else None
 
 
-def _resolve_cli(command_name: str) -> str | None:
+def resolve_native_cli(command_name: str) -> str | None:
+    """Resolve a native CLI exactly as the surface-version probe finds it.
+
+    The probe is what tells the control plane a surface is launchable here,
+    so a transport that resolves the executable differently can refuse every
+    launch for a surface the relay is still advertising. Codex ships only
+    inside the desktop app on some machines, and a ``PATH``-only lookup there
+    reports the surface as present and then fails every create against it.
+    """
+    if os.sep in command_name:
+        candidate = Path(command_name)
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return command_name
+        return None
     found = shutil.which(command_name)
     if found:
         return found
     fallback = _CLI_FALLBACKS.get(command_name)
-    if (
-        fallback is not None
-        and fallback.is_file()
-        and os.access(fallback, os.X_OK)
-    ):
+    if fallback is not None and fallback.is_file() and os.access(fallback, os.X_OK):
         return str(fallback)
     return None
 
 
 def probe_cli_version(command: tuple[str, ...]) -> str | None:
-    executable = _resolve_cli(command[0])
+    executable = resolve_native_cli(command[0])
     if not executable:
         return None
     try:
@@ -161,5 +170,6 @@ __all__ = [
     "collect_inventory",
     "probe_app_version",
     "probe_cli_version",
+    "resolve_native_cli",
     "probe_surface_version",
 ]
