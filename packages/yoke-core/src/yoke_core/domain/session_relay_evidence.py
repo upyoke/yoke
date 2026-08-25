@@ -22,8 +22,9 @@ def merge_redacted_evidence(
     except (TypeError, ValueError):
         stored = {}
     source = stored if isinstance(stored, Mapping) else {}
-    merged = redacted_evidence_document(incoming)
-    digest = source.get("native_instruction_sha256")
+    retained = redacted_evidence_document(source)
+    merged = {**retained, **redacted_evidence_document(incoming)}
+    digest = retained.get("native_instruction_sha256")
     if isinstance(digest, str) and digest.strip():
         merged["native_instruction_sha256"] = digest
     return redacted_evidence(merged)

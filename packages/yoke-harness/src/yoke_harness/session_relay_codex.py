@@ -13,6 +13,7 @@ from typing import Any, Callable, Literal, Protocol
 from yoke_harness.session_relay_runtime import (
     RelayAdapter,
     RelayAdapterResult,
+    RelayPrivateDiagnostic,
     WakeMode,
     normalize_wake_mode,
     register_relay_adapter,
@@ -288,12 +289,21 @@ def build_codex_relay_adapter(
                 if request.job_kind == "launch"
                 else transport.wake(request)
             )
-        except Exception:
+        except Exception as exc:
             code = "outcome_unknown" if request.job_kind == "launch" else "failed"
             return RelayAdapterResult(
                 code,
                 adapter_revision=ADAPTER_REVISION,
-                evidence=_evidence(request.surface, "transport_exception"),
+                evidence=_evidence(
+                    request.surface,
+                    "transport_exception",
+                    CodexNativeOutcome("outcome_unknown", phase="spawn"),
+                ),
+                private_diagnostic=RelayPrivateDiagnostic(
+                    "native_exception",
+                    error_step="launch" if request.job_kind == "launch" else "resume",
+                    stderr=str(exc).encode("utf-8", errors="replace"),
+                ),
             )
         return _translate(request, outcome)
 
