@@ -3,6 +3,7 @@
 from typing import Mapping
 
 from yoke_contracts.session_control.surface_versions import (
+    machine_stopped_wake_surface,
     surface_operation_supported,
 )
 from yoke_core.domain.session_relay_types import WakeMode
@@ -56,9 +57,34 @@ def wake_candidate_supported(
     )
 
 
+def wake_execution_surface(
+    candidate: Mapping[str, object],
+    relay_versions: Mapping[str, str],
+) -> tuple[str, str] | None:
+    """Return the surface and version of the binary that performs one wake.
+
+    A session whose own surface proves the operation is resumed by that surface.
+    A stopped Claude session registered under an app with no resume route is
+    resumed by the CLI the same machine reports, so the route is only available
+    when that peer binary qualifies — and it, not the registered surface, is
+    what the relay must be handed to execute the wake.
+    """
+    surface = str(candidate.get("executor_surface") or "")
+    if wake_candidate_supported(candidate, relay_versions):
+        return surface, str(relay_versions.get(surface) or "")
+    operation = wake_operation(
+        str(candidate.get("wake_mode") or ""),
+        str(candidate.get("liveness") or ""),
+    )
+    if operation != "message_stopped":
+        return None
+    return machine_stopped_wake_surface(surface, relay_versions)
+
+
 __all__ = [
     "surface_operation_supported",
     "wake_candidate_supported",
+    "wake_execution_surface",
     "wake_operation",
     "wake_versions_supported",
 ]

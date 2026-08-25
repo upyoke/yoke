@@ -9,9 +9,12 @@ from yoke_contracts.session_control.private_route_qualification import (
 )
 from yoke_core.domain.session_relay_types import RelayHeartbeat
 from yoke_core.domain.session_relay_versions import (
-    wake_candidate_supported,
+    wake_execution_surface,
     wake_operation,
 )
+
+
+WakeExecution = tuple[str, str]
 
 
 def authorize_wake_candidate(
@@ -20,7 +23,7 @@ def authorize_wake_candidate(
     heartbeat: RelayHeartbeat,
     *,
     route: str,
-) -> tuple[bool, PrivateRouteQualificationGrant | None]:
+) -> tuple[WakeExecution | None, PrivateRouteQualificationGrant | None]:
     """Return canonical authority first, consulting a grant only on failure."""
     return authorize_wake_versions(
         conn,
@@ -36,20 +39,28 @@ def authorize_wake_versions(
     surface_versions: Mapping[str, str],
     *,
     route: str,
-) -> tuple[bool, PrivateRouteQualificationGrant | None]:
-    """Authorize one exact route without broadening another route's grant."""
-    if wake_candidate_supported(candidate, surface_versions):
-        return True, None
+) -> tuple[WakeExecution | None, PrivateRouteQualificationGrant | None]:
+    """Name the binary authorized for one exact route, or refuse it.
+
+    Authorization and execution are one answer: a route is available only
+    because some installed binary proves the operation, and that binary is
+    what the caller must hand the relay. Refusal is a missing execution
+    surface rather than a bare false, so no caller can carry an authorized
+    wake onward under a surface that cannot perform it.
+    """
+    execution = wake_execution_surface(candidate, surface_versions)
+    if execution is not None:
+        return execution, None
     surface = str(candidate.get("executor_surface") or "")
     version = str(candidate.get("executor_version") or "")
     if surface_versions.get(surface) != version:
-        return False, None
+        return None, None
     operation = wake_operation(
         str(candidate.get("wake_mode") or ""),
         str(candidate.get("liveness") or ""),
     )
     if operation is None:
-        return False, None
+        return None, None
     from yoke_core.domain.session_private_route_qualification import (
         PrivateRouteQualificationError,
         qualification_for_message,
@@ -63,8 +74,10 @@ def authorize_wake_versions(
             route=route,
         )
     except PrivateRouteQualificationError:
-        return False, None
-    return grant is not None, grant
+        return None, None
+    if grant is None:
+        return None, None
+    return (surface, version), grant
 
 
 __all__ = ["authorize_wake_candidate", "authorize_wake_versions"]

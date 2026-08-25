@@ -16,6 +16,10 @@ from yoke_core.domain.project_identity import (
     resolve_project_slug,
 )
 from yoke_core.domain.session_message_routing import messageability, session_liveness
+from yoke_core.domain.session_relay_machine_versions import (
+    connected_relay_routes,
+    machine_surface_versions,
+)
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
@@ -223,6 +227,7 @@ def resolve_recipients(
     sessions = _session_rows(conn)
     claims = _claim_rows(conn)
     hits = _anchor_hits(conn, selector, sessions, claims)
+    relay_routes = connected_relay_routes(conn, now=current)
     excluded = set(selector.exclude_session_ids)
     resolved: list[ResolvedRecipient] = []
     for session_id in sorted(hits):
@@ -245,7 +250,15 @@ def resolve_recipients(
             executor_version=str(row.get("executor_version") or "") or None,
             machine_id=str(row.get("machine_id") or "") or None,
             liveness=liveness,
-            messageability=messageability(row, liveness=liveness),
+            messageability=messageability(
+                row,
+                liveness=liveness,
+                machine_surface_versions=machine_surface_versions(
+                    relay_routes,
+                    machine_id=row.get("machine_id"),
+                    project_id=row.get("project_id"),
+                ),
+            ),
             resolution=[evidence for evidence, _project in hits[session_id]],
             authorized_project_ids=projects,
             work_roles=roles,

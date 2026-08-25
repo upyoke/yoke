@@ -79,21 +79,21 @@ def claim_wake_job(
             broker_session_id=str(broker_session_id or ""),
         )
     selected: Mapping[str, Any] | None = None
+    execution: tuple[str, str] = ("", "")
     qualification = None
     for row in _wake_candidates(conn, heartbeat, now=now):
         authorized, qualification = authorize_wake_candidate(
             conn, row, heartbeat, route="direct"
         )
-        if not authorized:
+        if authorized is None:
             continue
-        selected = row
+        selected, execution = row, authorized
         break
     if selected is None:
         return None
     message_id = str(selected["message_id"])
     session_id = str(selected["session_id"])
     project_id = int(selected["project_id"])
-    surface = str(selected["executor_surface"])
     claim = claim_wake_attempt(conn, candidate=selected, now=now)
     if claim is None:
         return None
@@ -116,8 +116,8 @@ def claim_wake_job(
         job_id=claim.attempt_id,
         lease_id=claim.lease_id,
         machine_id=heartbeat.machine_id,
-        surface=str(surface),
-        surface_version=str(heartbeat.surface_versions[surface]),
+        surface=execution[0],
+        surface_version=execution[1],
         project_id=int(project_id),
         native_instruction=native_wake_instruction(message_id),
         message_id=str(message_id),

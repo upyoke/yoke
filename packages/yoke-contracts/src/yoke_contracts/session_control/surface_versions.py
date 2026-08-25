@@ -93,29 +93,40 @@ def surface_version_supported(surface: str | None, version: str | None) -> bool:
     return bool(observed is not None and floor is not None and observed >= floor)
 
 
-def machine_stopped_wake_supported(
+def machine_stopped_wake_surface(
     surface: str | None,
     machine_surface_versions: Mapping[str, str] | None,
-) -> bool:
-    """Return whether a machine's installed CLI can wake a stopped Claude session.
+) -> tuple[str, str] | None:
+    """Return the binary that wakes a stopped Claude session, with its version.
 
     Every Claude app on one machine shares a single transcript store, so the
     installed CLI resumes a stopped session whichever app registered it. The
     gate is therefore the version of the binary that executes the resume, not
-    the version recorded for the surface the session was born in.
+    the version recorded for the surface the session was born in — and every
+    caller carrying that wake onward names the same executing binary, because
+    the surface the session registered under has no resume route of its own.
     """
     if str(surface or "") not in _CLAUDE_FAMILY_SURFACES:
-        return False
-    versions = machine_surface_versions or {}
-    return surface_operation_supported(
-        _CLAUDE_RESUME_SURFACE,
-        versions.get(_CLAUDE_RESUME_SURFACE),
-        "message_stopped",
-    )
+        return None
+    version = (machine_surface_versions or {}).get(_CLAUDE_RESUME_SURFACE)
+    if not surface_operation_supported(
+        _CLAUDE_RESUME_SURFACE, version, "message_stopped"
+    ):
+        return None
+    return _CLAUDE_RESUME_SURFACE, str(version)
+
+
+def machine_stopped_wake_supported(
+    surface: str | None,
+    machine_surface_versions: Mapping[str, str] | None,
+) -> bool:
+    """Return whether a machine's installed CLI can wake a stopped Claude session."""
+    return machine_stopped_wake_surface(surface, machine_surface_versions) is not None
 
 
 __all__ = [
     "machine_stopped_wake_supported",
+    "machine_stopped_wake_surface",
     "surface_operation_supported",
     "surface_version_supported",
 ]
