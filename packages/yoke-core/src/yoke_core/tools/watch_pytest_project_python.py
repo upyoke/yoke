@@ -16,6 +16,9 @@ from yoke_core.tools.impacted_project_test_roots import (
 )
 
 
+BOUNDED_DEFERRAL_VERDICT = "FULL COVERAGE DEFERRED TO FINAL QA GATE"
+
+
 def pytest_argv(
     args: Sequence[str],
     *,
@@ -57,17 +60,36 @@ def impacted_selection(base: str, *, bounded: bool = False):
     return selection if selection.pytest_paths() else None
 
 
+def _selection_verdict_prefix(selection) -> str:
+    if selection.bounded_deferral:
+        return f"{BOUNDED_DEFERRAL_VERDICT}; "
+    return ""
+
+
+def selection_progress_banner(selection) -> str:
+    """Prominent start-of-stream selection verdict and telemetry."""
+    return (
+        "# watch_pytest selection-start: "
+        f"{_selection_verdict_prefix(selection)}{selection.telemetry()}"
+    )
+
+
 def selection_footer(selection, collected_items: int | None) -> str:
     all_files = selection.full_sweep or len(selection.files) == selection.total_files
     total_items = collected_items if all_files else None
     counted = replace(
         selection, selected_items=collected_items, total_items=total_items
     )
-    return f"# watch_pytest selection-summary: {counted.count_summary()}"
+    return (
+        "# watch_pytest selection-summary: "
+        f"{_selection_verdict_prefix(counted)}{counted.telemetry()}"
+    )
 
 
 __all__ = [
+    "BOUNDED_DEFERRAL_VERDICT",
     "impacted_selection",
     "pytest_argv",
     "selection_footer",
+    "selection_progress_banner",
 ]

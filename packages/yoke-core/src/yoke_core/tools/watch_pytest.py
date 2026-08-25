@@ -118,6 +118,12 @@ def _selection_footer(selection, collected_items: int | None) -> str:
     return selection_footer(selection, collected_items)
 
 
+def _selection_banner(selection) -> str:
+    from yoke_core.tools.watch_pytest_project_python import selection_progress_banner
+
+    return selection_progress_banner(selection)
+
+
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_wrapper_flag(
@@ -154,7 +160,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 ),
                 flush=True,
             )
-        pytest_args = [*selection.pytest_paths(), *pytest_args]
+        if not ns.print_streaming_pair:
+            pytest_args = [*selection.pytest_paths(), *pytest_args]
     elif ns.widen:
         print(_watch_pytest_args.WIDEN_WITHOUT_IMPACTED, file=sys.stderr)
         return 2
@@ -217,10 +224,21 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
+        wrapper_options: list[str] = []
+        if ns.impacted is not None:
+            wrapper_options.extend(("--impacted", ns.impacted))
+            wrapper_options.append(
+                _watch_pytest_args.WIDEN_FLAG
+                if ns.widen
+                else _watch_pytest_args.BOUNDED_FLAG
+            )
+        if ns.allow_tree_mismatch:
+            wrapper_options.append(verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG)
         _watch_runner.print_streaming_pair(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=pytest_args,
+            wrapper_options=wrapper_options,
             raw_capture=raw_path,
             progress_capture=progress_path,
         )
@@ -274,6 +292,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             kind=KIND,
             env=gate_admission.admitted_environment(pytest_env),
             timeout_seconds=execution_timeout,
+            header_metadata=(
+                _selection_banner(selection) if selection is not None else None
+            ),
             footer_metadata=selection_footer,
         )
         _watch_pytest_wall_clock.report(time.monotonic() - started, raw_path)
