@@ -60,10 +60,10 @@ def _version_acceptance_supported(surface: str, version: str) -> bool:
 class AcceptanceContractError(ValueError):
     """A safe, body-free refusal suitable for machine-readable output."""
 
-    def __init__(self, code: str, *, surface: str | None = None) -> None:
+    def __init__(self, code: str, *, surface: str | None = None, evidence=None) -> None:
         super().__init__(code)
-        self.code = code
-        self.surface = surface
+        self.code, self.surface = code, surface
+        self.evidence: dict[str, Any] | None = evidence
 
 
 @dataclass(frozen=True)

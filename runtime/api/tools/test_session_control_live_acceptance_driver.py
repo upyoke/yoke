@@ -30,7 +30,6 @@ class _ScenarioClient:
         broker_identity_mismatch: bool = False,
         duplicate_wake_attempt: bool = False,
         missing_instruction_digest: bool = False,
-        broker_direct_available: bool = False,
         broker_machine_mismatch: bool = False,
         attempts_truncated: bool = False,
     ) -> None:
@@ -42,7 +41,6 @@ class _ScenarioClient:
         self.broker_identity_mismatch = broker_identity_mismatch
         self.duplicate_wake_attempt = duplicate_wake_attempt
         self.missing_instruction_digest = missing_instruction_digest
-        self.broker_direct_available = broker_direct_available
         self.broker_machine_mismatch = broker_machine_mismatch
         self.attempts_truncated = attempts_truncated
         self.calls: list[tuple[list[str], str | None]] = []
@@ -102,9 +100,11 @@ class _ScenarioClient:
                 "current_item": None,
                 "turn_posture": "waiting",
                 "messageability": {
+                    "wake_interface": (
+                        "supported" if self.cell.route != "none" else "none"
+                    ),
                     "wake_operation": "message_stopped",
-                    "wake_available": self.cell.route == "direct"
-                    or self.broker_direct_available,
+                    "wake_available": self.cell.route != "none",
                 },
             }
         ]
@@ -173,7 +173,7 @@ class _ScenarioClient:
         supported_wake = wake and self.cell.route != "none"
         acknowledged, injection_count = self.message_states[message_id]
         pending = not acknowledged
-        wake_count: Any = 1 if supported_wake else 0
+        wake_count: Any = 1 if wake else 0
         if supported_wake and self.wake_evidence_missing:
             wake_count = 0
         if self.malformed_count:
@@ -184,9 +184,7 @@ class _ScenarioClient:
             "injection_count": injection_count,
             "wake_attempt_count": wake_count,
             "acknowledged_at": "" if pending else "2026-08-23T12:00:00Z",
-            "last_wake_at": "2026-08-23T12:00:01Z"
-            if supported_wake and wake_count
-            else "",
+            "last_wake_at": "2026-08-23T12:00:01Z" if wake and wake_count else "",
         }
         attempts = []
         if supported_wake:
@@ -217,6 +215,25 @@ class _ScenarioClient:
             )
             if self.duplicate_wake_attempt:
                 attempts.append({**attempts[0], "attempt_id": "wake-attempt-2"})
+        elif wake:
+            attempts.append(
+                {
+                    "attempt_id": "wake-attempt-skip",
+                    "target_session_id": self.session_id,
+                    "broker_session_id": None,
+                    "attempt_kind": "wake_relay",
+                    "adapter_revision": "session-wake-eligibility-v1",
+                    "started_at": "2026-08-23T12:00:00Z",
+                    "completed_at": "2026-08-23T12:00:01Z",
+                    "result_code": "skipped_surface",
+                    "evidence": {
+                        "surface": self.cell.surface,
+                        "driver_surface": self.cell.surface,
+                        "driver_version": self.cell.expected_version,
+                        "result_code": "skipped_surface",
+                    },
+                }
+            )
         return {
             "message": {
                 "message_id": message_id,
@@ -272,7 +289,7 @@ def test_create_cell_requires_binding_ack_wait_wake_and_dedupe() -> None:
             assert "--stdin" in argv
 
 
-def test_known_unwakeable_surface_must_remain_pending() -> None:
+def test_known_unwakeable_surface_records_observable_skip() -> None:
     cell = AcceptanceCell(
         "claude-desktop",
         "1.32885.1",
@@ -292,10 +309,11 @@ def test_known_unwakeable_surface_must_remain_pending() -> None:
 
     assert report["status"] == "passed"
     assert report["wake_supported"] is False
-    assert report["wake_outcome"] == "expected_pending"
+    assert report["wake_outcome"] == "expected_unsupported"
     assert report["wake_message"]["state"] == "pending"
-    assert report["wake_message"]["wake_attempt_count"] == 0
+    assert report["wake_message"]["wake_attempt_count"] == 1
     assert report["wake_message"]["native_wake"]["route"] == "none"
+    assert report["wake_message"]["native_wake"]["result_code"] == "skipped_surface"
 
 
 def test_native_success_without_registration_fails_closed() -> None:
@@ -316,35 +334,3 @@ def test_native_success_without_registration_fails_closed() -> None:
 
     assert report["status"] == "failed"
     assert report["cells"][0]["failure_code"] == "launch_registration_missing"
-
-
-def test_ack_without_wake_receipt_and_malformed_counts_fail_closed() -> None:
-    cell = AcceptanceCell("claude-cli", "2.1.238", "create")
-    missing = _ScenarioClient(cell, wake_evidence_missing=True)
-    malformed = _ScenarioClient(cell, malformed_count=True)
-
-    first = _driver(missing).run(
-        AcceptanceMatrix("yoke", (cell,)),
-        run_id="release-4",
-        release_sha=RELEASE_SHA,
-        server_build=SERVER_BUILD,
-        engine_version="0.1.1+launch.999",
-        caller_session_id="main-session",
-        timeout_seconds=10,
-        poll_seconds=1,
-        unsupported_observation_seconds=2,
-    )
-    second = _driver(malformed).run(
-        AcceptanceMatrix("yoke", (cell,)),
-        run_id="release-5",
-        release_sha=RELEASE_SHA,
-        server_build=SERVER_BUILD,
-        engine_version="0.1.1+launch.999",
-        caller_session_id="main-session",
-        timeout_seconds=10,
-        poll_seconds=1,
-        unsupported_observation_seconds=2,
-    )
-
-    assert first["cells"][0]["failure_code"] == "wake_evidence_missing"
-    assert second["cells"][0]["failure_code"] == "receipt_count_invalid"

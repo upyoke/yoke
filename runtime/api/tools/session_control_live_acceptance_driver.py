@@ -22,6 +22,12 @@ from runtime.api.tools.session_control_live_acceptance_evidence import (
 )
 from runtime.api.tools.session_control_live_acceptance_launch import create_and_bind
 from runtime.api.tools import session_control_live_acceptance_protocol as protocol
+from runtime.api.tools.session_control_live_acceptance_reporting import (
+    FAILED_STATUS,
+    deferred_cell_report,
+    failed_cell_report,
+    passed_cell_report,
+)
 from runtime.api.tools import session_control_live_acceptance_roster as roster
 
 
@@ -71,29 +77,15 @@ class LiveAcceptanceDriver:
                 )
             except AcceptanceContractError as exc:
                 reports.append(
-                    {
-                        "surface": cell.surface,
-                        "expected_version": cell.expected_version,
-                        "mode": cell.mode,
-                        "acceptance_role": cell.acceptance_role,
-                        "wake_route": cell.route,
-                        "status": "failed",
-                        "failure_code": exc.code,
-                    }
+                    failed_cell_report(
+                        cell, failure_code=exc.code, evidence=exc.evidence
+                    )
                 )
             except Exception:
                 reports.append(
-                    {
-                        "surface": cell.surface,
-                        "expected_version": cell.expected_version,
-                        "mode": cell.mode,
-                        "acceptance_role": cell.acceptance_role,
-                        "wake_route": cell.route,
-                        "status": "failed",
-                        "failure_code": "acceptance_internal_error",
-                    }
+                    failed_cell_report(cell, failure_code="acceptance_internal_error")
                 )
-        passed = all(report["status"] == "passed" for report in reports)
+        passed = not any(report["status"] == FAILED_STATUS for report in reports)
         return {
             "schema": 1,
             "kind": "fleet_session_control_live_acceptance",
@@ -135,7 +127,7 @@ class LiveAcceptanceDriver:
             initial_deduplicated = launch["deduplicated"]
         else:
             session_id = str(cell.session_id)
-            allow_ended = cell.acceptance_role == "surface" and cell.route == "direct"
+            allow_ended = roster.wakeable_identify_baseline(cell)
             baseline = roster.validated_registration(
                 self.client,
                 project=project,
@@ -183,6 +175,16 @@ class LiveAcceptanceDriver:
             monotonic=self.monotonic,
             one_shot_private_wake_candidate=candidate and cell.route == "direct",
         )
+        if roster.desktop_single_writer_deferral_ready(cell, waiting):
+            return deferred_cell_report(
+                cell,
+                session_id=session_id,
+                baseline=baseline,
+                initial=initial,
+                initial_deduplicated=initial_deduplicated,
+                waiting=waiting,
+                launch=launch,
+            )
         grant = qualification.open(cell, "message_stopped") if candidate else None
         try:
             wake_id, wake_deduplicated = self._send_twice(
@@ -207,7 +209,6 @@ class LiveAcceptanceDriver:
                 if (
                     wake["state"] != "pending"
                     or wake["injection_count"] != 0
-                    or wake["wake_attempt_count"] != 0
                     or wake["acknowledged_at"]
                 ):
                     raise AcceptanceContractError(
@@ -219,6 +220,10 @@ class LiveAcceptanceDriver:
                     session_id=session_id,
                     message_id=wake_id,
                 )
+                if wake["wake_attempt_count"] != wake["native_wake"]["attempt_count"]:
+                    raise AcceptanceContractError(
+                        "wake_attempt_count_mismatch", surface=cell.surface
+                    )
                 roster.wait_for_waiting_registration(
                     self.client,
                     project=project,
@@ -230,34 +235,22 @@ class LiveAcceptanceDriver:
                     sleep=self.sleep,
                     monotonic=self.monotonic,
                 )
-                wake_outcome = "expected_pending"
+                wake_outcome = "expected_unsupported"
         finally:
             if qualification is not None:
                 qualification.verify(grant)
-        report: dict[str, Any] = {
-            "surface": cell.surface,
-            "expected_version": cell.expected_version,
-            "observed_version": waiting["executor_version"],
-            "mode": cell.mode,
-            "acceptance_role": cell.acceptance_role,
-            "wake_route": cell.route,
-            "status": "passed",
-            "session_id": session_id,
-            "registration_identity_matched": True,
-            "baseline_liveness": baseline["liveness"],
-            "initial_message": initial,
-            "initial_deduplicated": initial_deduplicated,
-            "stopped_liveness": waiting["liveness"],
-            "stopped_session_mode": waiting["mode"],
-            "turn_posture": waiting["turn_posture"],
-            "wake_supported": cell.route != "none",
-            "wake_outcome": wake_outcome,
-            "wake_message": wake,
-            "wake_deduplicated": wake_deduplicated,
-        }
-        if launch is not None:
-            report["launch_id"] = launch["launch_id"]
-        return report
+        return passed_cell_report(
+            cell,
+            session_id=session_id,
+            baseline=baseline,
+            initial=initial,
+            initial_deduplicated=initial_deduplicated,
+            waiting=waiting,
+            wake=wake,
+            wake_outcome=wake_outcome,
+            wake_deduplicated=wake_deduplicated,
+            launch=launch,
+        )
 
     def _send_twice(
         self,

@@ -151,7 +151,7 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
     assert report["stopped_liveness"] == "ended"
     assert report["stopped_session_mode"] == "wait"
     assert report["turn_posture"] == "waiting"
-    assert report["wake_outcome"] == "expected_pending"
+    assert report["wake_outcome"] == "expected_unsupported"
     assert report["wake_message"]["native_wake"]["route"] == "none"
 
 
@@ -166,7 +166,7 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
                 session_id="desktop-session",
             ),
             _ended_row(),
-            "ended_waiting_cli_required",
+            "waiting_route_missing",
         ),
         (
             _desktop_cell(mode="create"),
@@ -185,7 +185,7 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
                 broker_session_id="broker-session",
             ),
             _ended_row(),
-            "ended_waiting_cli_required",
+            "waiting_route_missing",
         ),
         (
             _cli_cell(),
@@ -207,7 +207,16 @@ def test_ended_waiting_refuses_unsafe_terminal_shapes(
 @pytest.mark.parametrize("posture", ("unknown", "running"))
 def test_ended_cli_posture_race_is_not_accepted(posture: str) -> None:
     assert not waiting_registration_ready(
-        _ended_row(turn_posture=posture), cell=_cli_cell(), baseline_mode="wait"
+        _ended_row(
+            turn_posture=posture,
+            messageability={
+                "wake_interface": "supported",
+                "wake_operation": "message_stopped",
+                "wake_available": True,
+            },
+        ),
+        cell=_cli_cell(),
+        baseline_mode="wait",
     )
 
 
@@ -232,22 +241,6 @@ def test_create_binding_accepts_fast_stopped_cli() -> None:
     )
     assert report["status"] == "passed"
     assert report["stopped_liveness"] == "ended"
-
-
-def test_create_binding_rejects_fast_stopped_desktop() -> None:
-    cell = AcceptanceCell(
-        "codex-desktop", "26.818.31338", "create", wake_route="direct"
-    )
-    with pytest.raises(AcceptanceContractError) as failure:
-        _driver(_FastStopCreateClient(cell))._run_cell(
-            "yoke",
-            cell,
-            run_id="release-fast-stop-desktop",
-            timeout=10,
-            poll=1,
-            unsupported_observation=2,
-        )
-    assert failure.value.code == "ended_waiting_cli_required"
 
 
 @pytest.mark.parametrize(

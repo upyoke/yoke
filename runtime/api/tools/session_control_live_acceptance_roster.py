@@ -76,11 +76,17 @@ def _validate_broker(
         raise AcceptanceContractError("broker_project_mismatch", surface=cell.surface)
     if broker.get("machine_id") != target.get("machine_id"):
         raise AcceptanceContractError("broker_machine_mismatch", surface=cell.surface)
-    if broker.get("liveness") != "active":
-        raise AcceptanceContractError("broker_not_active", surface=cell.surface)
     routing = broker.get("messageability")
-    if not isinstance(routing, dict) or routing.get("hook_injection") is not True:
-        raise AcceptanceContractError("broker_hook_route_missing", surface=cell.surface)
+    if broker.get("liveness") == "active":
+        if not isinstance(routing, dict) or routing.get("hook_injection") is not True:
+            raise AcceptanceContractError(
+                "broker_hook_route_missing", surface=cell.surface
+            )
+        return
+    if broker.get("liveness") != "ended":
+        raise AcceptanceContractError("broker_not_active", surface=cell.surface)
+    _validate_target_state(broker, cell=cell)
+    _validate_wakeable_ended_shape(broker, cell=cell)
 
 
 def validated_registration(
@@ -164,6 +170,15 @@ def _validate_target_state(row: dict[str, Any], *, cell: AcceptanceCell) -> None
         raise AcceptanceContractError("registration_item_present", surface=cell.surface)
 
 
+def _desktop_single_writer_candidate(cell: AcceptanceCell) -> bool:
+    return (
+        cell.surface == "codex-desktop"
+        and cell.mode == "create"
+        and cell.acceptance_role == "surface"
+        and cell.route == "direct"
+    )
+
+
 def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) -> None:
     desktop_active_proof = (
         acceptance_operation(cell.surface) == "message_active"
@@ -171,7 +186,11 @@ def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) 
         and cell.acceptance_role == "surface"
         and cell.route == "none"
     )
-    if not cell.surface.endswith("-cli") and not desktop_active_proof:
+    if (
+        not cell.surface.endswith("-cli")
+        and not desktop_active_proof
+        and not _desktop_single_writer_candidate(cell)
+    ):
         raise AcceptanceContractError(
             "ended_waiting_cli_required", surface=cell.surface
         )
@@ -185,13 +204,8 @@ def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) 
         )
 
 
-def _wakeable_identify_baseline(cell: AcceptanceCell) -> bool:
-    return (
-        acceptance_operation(cell.surface) == "message_active"
-        and cell.mode == "identify"
-        and cell.acceptance_role == "surface"
-        and cell.route == "direct"
-    )
+def wakeable_identify_baseline(cell: AcceptanceCell) -> bool:
+    return cell.mode == "identify" and cell.route in {"direct", "broker"}
 
 
 def _validate_wakeable_ended_shape(
@@ -220,7 +234,7 @@ def _validate_wakeable_ended_shape(
 
 
 def _validate_ended_registration(row: dict[str, Any], *, cell: AcceptanceCell) -> None:
-    if _wakeable_identify_baseline(cell):
+    if wakeable_identify_baseline(cell):
         _validate_wakeable_ended_shape(row, cell=cell)
     else:
         _validate_ended_waiting_shape(row, cell=cell)
@@ -239,6 +253,18 @@ def waiting_registration_ready(
         raise AcceptanceContractError("waiting_liveness_invalid", surface=cell.surface)
     _validate_ended_registration(row, cell=cell)
     return row.get("turn_posture") == "waiting"
+
+
+def desktop_single_writer_deferral_ready(
+    cell: AcceptanceCell, row: dict[str, Any]
+) -> bool:
+    """Identify the validated terminal shape caused by the desktop writer lock."""
+    return (
+        _desktop_single_writer_candidate(cell)
+        and row.get("liveness") == "ended"
+        and registration_mode(row, cell=cell) == "wait"
+        and row.get("turn_posture") == "waiting"
+    )
 
 
 def wait_for_waiting_registration(
@@ -280,7 +306,7 @@ def wait_for_waiting_registration(
                 and cell.route == "direct"
                 and not available
             )
-            if available != (cell.route == "direct") and not availability_relaxed:
+            if available != (cell.route != "none") and not availability_relaxed:
                 raise AcceptanceContractError(
                     "waiting_wake_mismatch", surface=cell.surface
                 )
@@ -291,9 +317,11 @@ def wait_for_waiting_registration(
 
 
 __all__ = [
+    "desktop_single_writer_deferral_ready",
     "registration_mode",
     "validated_registration",
     "validated_stoppable_registration",
     "wait_for_waiting_registration",
     "waiting_registration_ready",
+    "wakeable_identify_baseline",
 ]
