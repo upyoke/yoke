@@ -12,6 +12,8 @@ _TEXT_FIELDS = frozenset(
         "diagnostic_availability",
         "driver_surface",
         "driver_version",
+        "identity_output_snippet",
+        "identity_parse_expectation",
         "machine_id",
         "native_binary_source",
         "native_binary",
@@ -73,7 +75,7 @@ def redacted_evidence_document(
         if isinstance(item, str) and item.strip():
             limit = (
                 _MAX_CAPTURE_PATH_LENGTH
-                if key == "native_capture_path"
+                if key in {"native_capture_path", "identity_output_snippet"}
                 else _MAX_TEXT_LENGTH
             )
             clean[key] = item.strip()[:limit]
