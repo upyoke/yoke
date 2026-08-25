@@ -20,6 +20,12 @@ from yoke_core.domain.events_query_usage import LIST_USAGE
 from yoke_core.domain.events_relative_time import parse_since
 from yoke_core.domain.yok_n_parser import parse_item_argument
 
+#: The two shapes ``--current-episode`` can add to a WHERE clause: rows
+#: at or after the boundary, or — when the session has no boundary at
+#: all — nothing. Named because the elision reporter inverts them.
+EPISODE_BOUNDARY_CLAUSE = "created_at >= %s"
+EPISODE_UNRESOLVED_CLAUSE = "0=1"
+
 
 _COLUMN_FLAGS: dict[str, str] = {
     "--source-type": "source_type",
@@ -147,6 +153,8 @@ def _build_where(
             raise ValueError(f"events: unknown filter flag '{flag}'")
         i += 1
 
+    # Named so the elision reporter can invert exactly this predicate
+    # rather than re-deriving one that could drift from it.
     if current_episode:
         if session_id_value is None:
             raise ValueError(
@@ -161,9 +169,9 @@ def _build_where(
         finally:
             conn.close()
         if boundary is None:
-            parts.append("0=1")  # fail closed: empty set, never implicit-all
+            parts.append(EPISODE_UNRESOLVED_CLAUSE)  # empty set, never all
         else:
-            parts.append("created_at >= %s")
+            parts.append(EPISODE_BOUNDARY_CLAUSE)
             params.append(boundary)
 
     if parts:

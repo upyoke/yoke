@@ -66,6 +66,11 @@ _VALUE_FLAGS = frozenset({
     "--tb", "--maxfail", "-c", "--rootdir", "--deselect", "--ignore",
 })
 
+#: Where pytest's own operands end and the shell's redirection begins:
+#: ``>file``, ``>>file``, ``2>&1``, ``<in``, ``&>both``. These are not
+#: paths, and nothing after them is one either.
+_REDIRECTION = re.compile(r"^\d*(?:&?>>?|<<?)")
+
 
 def _extract_command(payload: dict) -> str:
     for key in ("tool_input", "toolInput", "input"):
@@ -112,10 +117,20 @@ def full_sweep_anchors() -> tuple[str, ...]:
 
 
 def _pytest_paths(tokens: Sequence[str]) -> List[str]:
-    """Return the positional path operands of a pytest invocation."""
+    """Return the positional path operands of a pytest invocation.
+
+    Redirection ends the operand list. A capture-first run — the shape
+    this project's own command-output rule prescribes — trails
+    ``>"$_tmp" 2>&1``, and reading those tokens as operands made every
+    explicitly-pathed narrow run look like a directory sweep: twelve
+    advisories in one observed session, each naming ``2>&1`` as the
+    swept path.
+    """
     paths: List[str] = []
     skip_next = False
     for token in tokens:
+        if _REDIRECTION.match(token):
+            break
         if skip_next:
             skip_next = False
             continue

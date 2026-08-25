@@ -143,6 +143,70 @@ class TestSilentShapes(unittest.TestCase):
         self.assertIsNone(lint.evaluate_payload(payload))
 
 
+class TestRedirectionIsNotAPath(unittest.TestCase):
+    """Capture-first redirection ends the operands; it is not one.
+
+    The observed shape: twelve advisories in one session, every one
+    naming ``2>&1`` or ``>"$_tmp" 2>&1`` as the swept path, because any
+    non-flag token counted as an operand. Capture-first is the command
+    shape this project's own rules prescribe, so the guard was firing on
+    narrow runs that had done exactly the right thing.
+    """
+
+    def test_captured_file_scoped_run_is_not_matched(self):
+        self.assertIsNone(_eval(
+            'uv run --frozen python3 -m pytest runtime/api/test_a.py '
+            'runtime/api/test_b.py >"$_tmp" 2>&1'
+        ))
+
+    def test_every_redirection_spelling_ends_the_operands(self):
+        for suffix in ('>"$_tmp" 2>&1', "2>&1", "> out.log", ">> out.log",
+                       "&> both.log", "< in.txt"):
+            with self.subTest(suffix=suffix):
+                self.assertIsNone(
+                    _eval(f"python3 -m pytest runtime/api/test_a.py {suffix}")
+                )
+
+    def test_a_captured_directory_sweep_still_advises(self):
+        verdict = _eval('python3 -m pytest runtime/api/ >"$_tmp" 2>&1')
+        assert verdict is not None
+        _mode, reason, _outcome = verdict
+        self.assertIn("runtime/api", reason)
+        self.assertNotIn("2>&1", reason)
+
+    def test_a_captured_pathless_run_is_still_a_rootdir_sweep(self):
+        verdict = _eval('python3 -m pytest -q >"$_tmp" 2>&1')
+        assert verdict is not None
+        self.assertIn("the whole rootdir", verdict[1])
+
+
+class TestNonPytestCommandsNamingTestFiles(unittest.TestCase):
+    """A test path in a command that never invokes pytest is not a sweep."""
+
+    def test_heredoc_authoring_a_test_file(self):
+        self.assertIsNone(_eval(
+            "cat > runtime/api/test_new_thing.py <<'PY'\n"
+            "import pytest\n"
+            "def test_x():\n"
+            "    assert True\n"
+            "PY"
+        ))
+
+    def test_git_mv_between_test_directories(self):
+        self.assertIsNone(_eval(
+            "git mv runtime/api/test_a.py runtime/harness/test_a.py"
+        ))
+
+    def test_python_heredoc_editing_a_test_file(self):
+        self.assertIsNone(_eval(
+            "python3 - <<'PY'\n"
+            "import pathlib\n"
+            "p = pathlib.Path('runtime/api/test_a.py')\n"
+            "p.write_text(p.read_text().replace('a', 'b'))\n"
+            "PY"
+        ))
+
+
 class TestDecisionEnvelope(unittest.TestCase):
     def test_deny_stops_the_chain_with_a_permission_envelope(self):
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
