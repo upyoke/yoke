@@ -7,6 +7,7 @@ import sys
 from typing import Optional
 
 from yoke_core.domain import schema_api_context_seed as seed
+from yoke_core.domain.schema_api_context_packet_budget import BUDGET_READ_COMMAND
 from yoke_core.domain.schema_api_context import (
     check_aggregate_size,
     check_role_packet_size,
@@ -35,14 +36,18 @@ def _cli_check(_: argparse.Namespace) -> int:
         size, budget = check_role_packet_size(role)
         if size > budget:
             print(
-                f"SIZE: role={role} packet has {size} lines (budget {budget})",
+                f"SIZE: role={role} packet has {size} lines (budget {budget}). "
+                f"Read every role's usage and headroom with "
+                f"`{BUDGET_READ_COMMAND}`.",
                 file=sys.stderr,
             )
             rc = 1
     total, agg_budget = check_aggregate_size()
     if total > agg_budget:
         print(
-            f"SIZE: aggregate packets total {total} lines (budget {agg_budget})",
+            f"SIZE: aggregate packets total {total} lines "
+            f"(budget {agg_budget}). Read every role's usage and headroom "
+            f"with `{BUDGET_READ_COMMAND}`.",
             file=sys.stderr,
         )
         rc = 1

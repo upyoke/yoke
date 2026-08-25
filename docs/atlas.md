@@ -2,14 +2,14 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-25T01:56:02Z_
+_Audit generated_at: 2026-08-25T12:24:35Z_
 
 ## 1. Summary
 
-- Function ids registered: **416**
+- Function ids registered: **417**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **342** (342 carry usable `--help`)
-- Operation tracker: **320 wrapped**, 10 tool_cli, 123 permanent, 0 pending
+- `yoke` CLI subcommands: **343** (343 carry usable `--help`)
+- Operation tracker: **320 wrapped**, 10 tool_cli, 124 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
@@ -423,6 +423,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | migration.apply | `yoke migration rehearse` | tool_shaped | — |
 | onboard | `yoke onboard project` | tool_shaped | — |
 | onboard | `yoke onboard` | tool_shaped | — |
+| packets | `yoke packets budget get` | tool_shaped | — |
 | packets | `yoke packets check` | tool_shaped | — |
 | packets | `yoke packets render` | tool_shaped | — |
 | packs | `yoke packs get` | tool_shaped | — |
@@ -506,7 +507,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 128 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 31 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 32 |
 | runtime/agents/*.md | 9 |
 | runtime/harness/claude/agents/yoke-*.md | 8 |
 | runtime/harness/codex/agents/yoke-*.toml | 8 |
@@ -519,10 +520,10 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| claude-code | 24 |
-| codex | 15 |
-| cursor | 7 |
-| agent | 4 |
+| claude-code | 22 |
+| agent | 19 |
+| codex | 7 |
+| cursor | 2 |
 
 ## 8. Contradictions
 

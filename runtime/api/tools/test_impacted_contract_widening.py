@@ -30,6 +30,24 @@ def test_cli_and_done_transition_contracts_name_their_widening_paths(tmp_path):
     assert f"product_cli_boundary_contract:{cli_helper}" in telemetry
 
 
+def test_cli_registry_change_selects_the_registry_usage_parity_tests(tmp_path):
+    """A new CLI route couples to its usage entry by dict key, not import."""
+    root = _tiny_repo(tmp_path)
+    registry = "packages/yoke-cli/src/yoke_cli/commands/registry.py"
+    manifest_test = "runtime/api/cli/test_yoke_cli_manifest.py"
+    operations_test = "runtime/api/cli/test_yoke_operations_cli.py"
+    _write(root, registry, "SUBCOMMAND_REGISTRY = {}\n")
+    _write(root, manifest_test, "def test_manifest_usage(): pass\n")
+    _write(root, operations_test, "def test_usage_entry(): pass\n")
+
+    selection = select([registry], build_import_index(root))
+
+    assert selection.full_sweep is False
+    assert manifest_test in selection.files
+    assert operations_test in selection.files
+    assert f"product_cli_boundary_contract:{registry}" in selection.telemetry()
+
+
 def test_repo_cleanliness_floor_names_its_global_widening_trigger(tmp_path):
     root = _tiny_repo(tmp_path)
     payload = "packages/yoke-cli/src/yoke_cli/transport/control_plane_payload.py"

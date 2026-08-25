@@ -13,6 +13,7 @@ import sys
 from typing import Optional
 
 from yoke_core.domain import schema_api_context_seed as seed
+from yoke_core.domain.schema_api_context_packet_budget import packet_line_count
 from yoke_core.domain.schema_api_context_render import (
     render_command_block,
     render_function_call_surface_block,
@@ -317,12 +318,12 @@ def detect_seed_drift() -> list[str]:
 def check_role_packet_size(role: str) -> tuple[int, int]:
     """Return ``(line_count, budget)`` for the role's packet."""
     body = render_role_packet(role)
-    return (body.count("\n"), seed.PACKET_LINE_BUDGET_PER_ROLE)
+    return (packet_line_count(body), seed.PACKET_LINE_BUDGET_PER_ROLE)
 
 
 def check_aggregate_size() -> tuple[int, int]:
     """Return ``(total_line_count, aggregate_budget)`` across all roles."""
-    total = sum(render_role_packet(r).count("\n") for r in seed.ROLE_TOPICS)
+    total = sum(packet_line_count(render_role_packet(r)) for r in seed.ROLE_TOPICS)
     return (total, seed.PACKET_LINE_BUDGET_AGGREGATE)
 
 

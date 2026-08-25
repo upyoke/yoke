@@ -13,7 +13,7 @@ Covers acceptance criteria:
   declared table.
 - Live ``--help`` for service_client, db_router, and the
   harness_sessions module surfaces the wrapper commands the packet teaches.
-- Per-role and aggregate packet sizes stay within budget.
+- Packet size budgets live in ``test_schema_api_context_packet_budget``.
 """
 
 from __future__ import annotations
@@ -288,26 +288,6 @@ def test_harness_sessions_help_exposes_who_claims() -> None:
     if text is None:
         pytest.skip("harness_sessions --help unavailable on this checkout")
     assert "who-claims" in text
-
-
-@pytest.mark.parametrize("role", sorted(seed.ROLE_TOPICS))
-def test_role_packet_within_size_budget(role: str) -> None:
-    size, budget = sac.check_role_packet_size(role)
-    assert size <= budget, (
-        f"role={role} packet has {size} lines, budget is {budget}. "
-        "Either trim the seed (preferred — packet content is for fast "
-        "agent reference, not a comprehensive schema doc) or increase "
-        "PACKET_LINE_BUDGET_PER_ROLE in schema_api_context_seed.py with "
-        "an explicit rationale."
-    )
-
-
-def test_aggregate_packet_size_within_budget() -> None:
-    total, budget = sac.check_aggregate_size()
-    assert total <= budget, (
-        f"aggregate packet size is {total} lines, budget is {budget}. "
-        "See PACKET_LINE_BUDGET_AGGREGATE in schema_api_context_seed.py."
-    )
 
 
 def test_every_role_topic_is_known() -> None:

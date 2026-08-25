@@ -15,6 +15,7 @@ from yoke_core.domain.handlers import (
     project_structure as _ps,
     orchestration as _orch,
     orchestration_agents as _orch_agents,
+    orchestration_packet_budget as _orch_budget,
 )
 
 
@@ -269,6 +270,20 @@ def register(registry) -> None:
         _orch.PacketsCheckResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.orchestration",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "packets.budget.get",
+        _orch_budget.handle_packets_budget_get,
+        _orch_budget.PacketsBudgetGetRequest,
+        _orch_budget.PacketsBudgetGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.orchestration_packet_budget",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

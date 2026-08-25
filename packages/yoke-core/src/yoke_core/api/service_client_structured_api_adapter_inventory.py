@@ -2,7 +2,7 @@
 
 The :class:`AdapterEntry` shape lives in
 :mod:`service_client_structured_api_adapter_inventory_types`; the
-installer, qa, and strategy family entries live in sibling modules
+installer, qa, packet, and strategy family entries live in sibling modules
 (350-cap split). This module concatenates the family lists into the one
 ``CLI_ADAPTERS`` surface consumers read.
 """
@@ -38,6 +38,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_test_machine 
 )
 from yoke_core.api.service_client_structured_api_adapter_inventory_ops import (
     OPS_ADAPTERS,
+)
+from yoke_core.api.service_client_structured_api_adapter_inventory_packets import (
+    PACKET_ADAPTERS,
 )
 from yoke_core.api.service_client_structured_api_adapter_inventory_organizations import (
     ORGANIZATION_ADAPTERS,
@@ -303,26 +306,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         function_id="hook.evaluate.run",
         cli_invocation="yoke hook evaluate <event> [--dry-run]",
     ),
-    AdapterEntry(
-        function_id="packets.render.run",
-        cli_invocation=(
-            "python3 -m yoke_core.domain.schema_api_context render"
-        ),
-    ),
-    _read_entry(
-        function_id="packets.check.run",
-        cli_invocation=(
-            "python3 -m yoke_core.domain.schema_api_context check"
-        ),
-    ),
-    AdapterEntry(
-        function_id="agents.render.run",
-        cli_invocation="python3 -m yoke_core.domain.agents_render render",
-    ),
-    _read_entry(
-        function_id="agents.render.check",
-        cli_invocation="python3 -m yoke_core.domain.agents_render check",
-    ),
+    *PACKET_ADAPTERS,
     AdapterEntry("ouroboros.field_note.append", "python3 -m yoke_core.api.service_client field-note-log"),
     _read_entry(function_id="scratch.dispatch_inputs", cli_invocation="yoke scratch dispatch-inputs <YOK-N|item-id> <session_id> <attempt>", notes="Helper-resolved dispatch-inputs path; wraps yoke_cli.commands.adapters.misc.scratch_dispatch_inputs."),
 ]

@@ -105,6 +105,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke lint config show", "lint.config", REASON_TOOL_SHAPED),
     _p("yoke packets render", "packets", REASON_TOOL_SHAPED),
     _p("yoke packets check", "packets", REASON_TOOL_SHAPED),
+    _p("yoke packets budget get", "packets", REASON_TOOL_SHAPED),
     _p("yoke scratch dispatch-inputs", "scratch", REASON_TOOL_SHAPED),
     _p("yoke config example", "config", REASON_TOOL_SHAPED),
     _p("yoke config stamp-project-env", "config", REASON_TOOL_SHAPED),
