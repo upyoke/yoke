@@ -145,9 +145,6 @@ def wake_eligible_recipients(
             wake_after = parse_timestamp(row["wake_after"])
             if created_at is None or wake_after is None or wake_after > current:
                 continue
-            activity = latest_hook_activity(row)
-            if activity is not None and activity <= created_at:
-                activity = None
             waiting_pending = (
                 row["state"] == "pending" and row.get("turn_posture") == "waiting"
             )
@@ -166,11 +163,10 @@ def wake_eligible_recipients(
             else:
                 if not wake_eligible(
                     recipient_state=str(row["state"]),
-                    liveness=liveness,
                     recipient_created_at=created_at,
                     wake_after=wake_after,
-                    last_hook_activity_at=activity,
-                    idle_window=idle_window,
+                    last_hook_activity_at=latest_hook_activity(row),
+                    last_heartbeat_at=parse_timestamp(row.get("last_heartbeat")),
                     now=current,
                 ):
                     continue

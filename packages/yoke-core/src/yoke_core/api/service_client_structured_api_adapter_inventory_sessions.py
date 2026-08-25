@@ -76,6 +76,7 @@ SESSION_ADAPTERS = [
         function_id="session_control.message.send",
         cli_invocation=(
             "yoke session-control message send --stdin [selector] "
+            "[--urgent | --wake-after-seconds N] "
             "[--idempotency-key K] [--confirmation-token T] [--json]"
         ),
     ),

@@ -10,6 +10,7 @@ from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
     authorize_universe,
     can_read_project,
+    recipient_wake_after,
 )
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
@@ -39,9 +40,7 @@ def _require_recipients(recipients: list[ResolvedRecipient]) -> None:
         )
 
 
-def _public_recipients(
-    recipients: list[ResolvedRecipient],
-) -> list[dict[str, Any]]:
+def _public_recipients(recipients: list[ResolvedRecipient]) -> list[dict[str, Any]]:
     return [recipient.public() for recipient in recipients]
 
 
@@ -67,9 +66,7 @@ def preview_message(
 
 def _validate_routes(recipients: list[ResolvedRecipient]) -> None:
     unsupported = [
-        recipient.session_id
-        for recipient in recipients
-        if not recipient.messageability.get("messageable")
+        r.session_id for r in recipients if not r.messageability.get("messageable")
     ]
     if unsupported:
         raise SessionMessageError(
@@ -88,6 +85,8 @@ def send_message(
     idempotency_key: str | None = None,
     supplied_confirmation_token: str | None = None,
     now: datetime | None = None,
+    urgent: bool = False,
+    wake_after_seconds: int | None = None,
 ) -> dict[str, Any]:
     """Resolve, authorize, and snapshot recipients in the write transaction."""
     current = now or utc_now()
@@ -134,8 +133,13 @@ def send_message(
             hours=min(policy.expiry_hours for policy in policies.values())
         )
         wake_after_by_project = {
-            project_id: current + timedelta(minutes=policy.wake_after_idle_minutes)
-            for project_id, policy in policies.items()
+            pid: recipient_wake_after(
+                current,
+                pol.wake_after_idle_minutes,
+                urgent=urgent,
+                wake_after_seconds=wake_after_seconds,
+            )
+            for pid, pol in policies.items()
         }
         details, created = insert_message(
             conn,

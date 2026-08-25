@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import json
 from typing import Iterable
 
@@ -31,7 +31,6 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 DELIVERY_AUDIT_FIELD = "session_message_delivery"
 DEFAULT_LEASE_LIMIT = 10
 _STDOUT_EVENTS = frozenset({"SessionStart", "UserPromptSubmit", "Stop"})
-_ACTIVE = "active"
 _DELIVERABLE_STATES = frozenset({"pending", "injected"})
 
 
@@ -263,34 +262,28 @@ def _as_utc(value: datetime) -> datetime:
 def wake_eligible(
     *,
     recipient_state: str,
-    liveness: str,
     recipient_created_at: datetime,
     wake_after: datetime,
     last_hook_activity_at: datetime | None,
-    idle_window: timedelta,
+    last_heartbeat_at: datetime | None,
     now: datetime,
 ) -> bool:
-    """Return whether a recipient may enter native wake routing.
+    """Return whether a recipient may enter idle-timeout native wake routing.
 
-    An active injected recipient is categorically excluded. Before the first
-    post-message hook, the recipient becomes eligible at ``wake_after`` even
-    if older activity still classifies it active. Once a hook has observed the
-    message, wake waits for that activity to become non-active and for a fresh
-    idle window to elapse.
+    Eligibility starts at ``wake_after``. Any heartbeat or hook that landed
+    after the message was created skips the wake: injection already has the
+    session, or will imminently, and a second native ``--resume`` would race it.
     """
     if recipient_state not in _DELIVERABLE_STATES:
         return False
     current = _as_utc(now)
     created = _as_utc(recipient_created_at)
-    threshold = _as_utc(wake_after)
-    if current < threshold:
+    if current < _as_utc(wake_after):
         return False
-    activity = _as_utc(last_hook_activity_at) if last_hook_activity_at else None
-    if activity is None or activity < created:
-        return True
-    if liveness == _ACTIVE:
-        return False
-    return current >= max(threshold, activity + idle_window)
+    for activity in (last_hook_activity_at, last_heartbeat_at):
+        if activity is not None and _as_utc(activity) > created:
+            return False
+    return True
 
 
 __all__ = [

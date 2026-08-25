@@ -46,11 +46,12 @@ def _heartbeat() -> RelayHeartbeat:
 
 def _seed(path: str = ":memory:"):
     conn = message_connection(path)
+    idle_at = _stamp(minutes=-11)
     conn.execute(
-        "UPDATE harness_sessions SET machine_id=?,ended_at=?,last_tool_call_at=?,"
-        "turn_posture='unknown',"
+        "UPDATE harness_sessions SET machine_id=?,ended_at=?,last_heartbeat=?,"
+        "last_tool_call_at=?,turn_posture='unknown',"
         "turn_posture_at=? WHERE session_id='s4'",
-        (MACHINE_ID, NOW_TEXT, _stamp(minutes=-11), NOW_TEXT),
+        (MACHINE_ID, NOW_TEXT, idle_at, idle_at, NOW_TEXT),
     )
     for broker in ("broker-a", "broker-b"):
         conn.execute(
