@@ -176,7 +176,7 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
         (
             _desktop_cell(wake_route="direct"),
             _ended_row(),
-            "ended_waiting_cli_required",
+            "waiting_route_missing",
         ),
         (
             _desktop_cell(

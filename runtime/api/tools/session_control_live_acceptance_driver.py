@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 import time
 from typing import Any
 
@@ -127,19 +128,24 @@ class LiveAcceptanceDriver:
                 poll=poll,
                 sleep=self.sleep,
                 monotonic=self.monotonic,
-                validate_roster=lambda project, cell, session_id: self._roster(
-                    project, cell, session_id, allow_ended=True
+                validate_roster=partial(
+                    roster.validated_stoppable_registration, self.client
                 ),
             )
             initial_deduplicated = launch["deduplicated"]
         else:
             session_id = str(cell.session_id)
-            baseline = self._roster(project, cell, session_id)
-            grant = (
-                qualification.open(cell, "message_active")
-                if qualification is not None
-                else None
+            allow_ended = cell.acceptance_role == "surface" and cell.route == "direct"
+            baseline = roster.validated_registration(
+                self.client,
+                project=project,
+                cell=cell,
+                session_id=session_id,
+                allow_ended=allow_ended,
             )
+            grant = None
+            if qualification is not None:
+                grant = qualification.open(cell, "message_active")
             try:
                 initial_id, initial_deduplicated = self._send_twice(
                     cell,
@@ -148,7 +154,12 @@ class LiveAcceptanceDriver:
                     phase="initial delivery",
                 )
                 initial = self._wait_ack(
-                    cell, session_id, initial_id, timeout=timeout, poll=poll
+                    cell,
+                    session_id,
+                    initial_id,
+                    timeout=timeout,
+                    poll=poll,
+                    require_wake=baseline["liveness"] == "ended",
                 )
             finally:
                 if qualification is not None:
@@ -233,12 +244,13 @@ class LiveAcceptanceDriver:
             "status": "passed",
             "session_id": session_id,
             "registration_identity_matched": True,
+            "baseline_liveness": baseline["liveness"],
             "initial_message": initial,
             "initial_deduplicated": initial_deduplicated,
             "stopped_liveness": waiting["liveness"],
             "stopped_session_mode": waiting["mode"],
             "turn_posture": waiting["turn_posture"],
-            "wake_supported": cell.wake_supported,
+            "wake_supported": cell.route != "none",
             "wake_outcome": wake_outcome,
             "wake_message": wake,
             "wake_deduplicated": wake_deduplicated,
@@ -246,22 +258,6 @@ class LiveAcceptanceDriver:
         if launch is not None:
             report["launch_id"] = launch["launch_id"]
         return report
-
-    def _roster(
-        self,
-        project: str,
-        cell: AcceptanceCell,
-        session_id: str,
-        *,
-        allow_ended: bool = False,
-    ) -> dict[str, Any]:
-        return roster.validated_registration(
-            self.client,
-            project=project,
-            cell=cell,
-            session_id=session_id,
-            allow_ended=allow_ended,
-        )
 
     def _send_twice(
         self,
