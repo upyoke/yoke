@@ -72,7 +72,10 @@ def resolve_worktrees_for_item(
     return [
         (branch, path)
         for branch, path, *_rest in resolve_worktree_lanes_for_item(
-            item_id, repo_root, wt_dir, db_path,
+            item_id,
+            repo_root,
+            wt_dir,
+            db_path,
         )
     ]
 
@@ -80,27 +83,12 @@ def resolve_worktrees_for_item(
 def _classify_existing(branch: str, path: str) -> Tuple[bool, Optional[str]]:
     """Return ``(preexisting, error)`` for a worktree whose ``path`` exists.
 
-    Idempotent re-entry returns ``(True, None)``. Mismatched state (not a
-    git worktree, wrong branch checked out) returns ``(False, error)``.
+    Idempotent re-entry returns ``(True, None)`` only for a healthy
+    checkout. A leftover corrupt lane is repaired in place or refused.
     """
-    from yoke_core.domain.worktree_paths import _run
+    from yoke_core.domain.worktree_reuse import classify_reusable_worktree
 
-    if not os.path.isdir(path):
-        return False, None
-
-    inside = _run(["git", "rev-parse", "--is-inside-work-tree"], cwd=path)
-    if inside.returncode != 0 or inside.stdout.strip() != "true":
-        return False, f"{path} exists but is not a git worktree"
-
-    current = _run(["git", "branch", "--show-current"], cwd=path)
-    if current.returncode == 0:
-        live = current.stdout.strip()
-        if live and live != branch:
-            return False, (
-                f"{path} exists on branch '{live}' but the planned worktree "
-                f"declares branch '{branch}'"
-            )
-    return True, None
+    return classify_reusable_worktree(branch, path)
 
 
 def preflight_worktree_plan(

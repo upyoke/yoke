@@ -8,8 +8,10 @@ from typing import Optional
 
 from yoke_core.domain.worktree_create_plan import WorktreeCreationEntry
 from yoke_core.domain.worktree_deps import install_worktree_deps
-from yoke_core.domain.worktree_paths import _run
+from yoke_core.domain.worktree_paths import _run, captured_process_detail
 from yoke_contracts.project_contract.file_line_policy import item_base_config_key
+
+GIT_WORKTREE_ADD_TIMEOUT_SECONDS = 600
 
 
 def provision_worktree(
@@ -20,10 +22,17 @@ def provision_worktree(
     scripts_dir: str,
 ) -> Optional[str]:
     """Provision one planned lane, returning a blocking git error if any."""
-    ref_check = _run([
-        "git", "-C", repo_root, "show-ref", "--verify", "--quiet",
-        f"refs/heads/{entry.branch}",
-    ])
+    ref_check = _run(
+        [
+            "git",
+            "-C",
+            repo_root,
+            "show-ref",
+            "--verify",
+            "--quiet",
+            f"refs/heads/{entry.branch}",
+        ]
+    )
     config_key = item_base_config_key(entry.branch)
     recorded = _run(["git", "-C", repo_root, "config", "--get", config_key])
     if recorded.returncode != 0:
@@ -34,29 +43,45 @@ def provision_worktree(
         )
         base = _run(["git", "-C", repo_root, *base_args])
         if base.returncode != 0:
-            return f"could not resolve item base {base_branch!r}: {base.stderr.strip()}"
-        recorded = _run([
-            "git", "-C", repo_root, "config", config_key, base.stdout.strip(),
-        ])
+            return (
+                f"could not resolve item base {base_branch!r}: "
+                f"{captured_process_detail(base)}"
+            )
+        recorded = _run(
+            [
+                "git",
+                "-C",
+                repo_root,
+                "config",
+                config_key,
+                base.stdout.strip(),
+            ]
+        )
         if recorded.returncode != 0:
             return (
                 f"could not record item base for '{entry.branch}': "
-                f"{recorded.stderr.strip()}"
+                f"{captured_process_detail(recorded)}"
             )
-    if ref_check.returncode == 0:
-        result = _run([
-            "git", "-C", repo_root, "worktree", "add",
-            entry.path, entry.branch,
-        ])
-    else:
-        result = _run([
-            "git", "-C", repo_root, "worktree", "add",
-            entry.path, "-b", entry.branch, base_branch,
-        ])
+    add_cmd = (
+        ["git", "-C", repo_root, "worktree", "add", entry.path, entry.branch]
+        if ref_check.returncode == 0
+        else [
+            "git",
+            "-C",
+            repo_root,
+            "worktree",
+            "add",
+            entry.path,
+            "-b",
+            entry.branch,
+            base_branch,
+        ]
+    )
+    result = _run(add_cmd, timeout=GIT_WORKTREE_ADD_TIMEOUT_SECONDS)
     if result.returncode != 0:
         return (
             f"git worktree add failed for worktree '{entry.branch}': "
-            f"{result.stderr.strip()}"
+            f"{captured_process_detail(result)}"
         )
     try:
         install_exit = install_worktree_deps(
@@ -178,16 +203,12 @@ def provision_worktree_test_environment(
     for action in hygiene.actions:
         print(f"Lane hygiene: {action}", file=sys.stderr)
     if hygiene.error:
-        return (
-            f"Lane bytecode hygiene failed for {worktree_path}: {hygiene.error}"
-        )
+        return f"Lane bytecode hygiene failed for {worktree_path}: {hygiene.error}"
 
     try:
         report = provision_test_environment(worktree_path, project=project)
     except Exception as exc:  # noqa: BLE001 — a broken lane must name its cause
-        return (
-            f"Lane test environment provisioning failed for {worktree_path}: {exc}"
-        )
+        return f"Lane test environment provisioning failed for {worktree_path}: {exc}"
     for action in report.actions:
         print(f"Lane test environment: {action}", file=sys.stderr)
     return report.error or None
@@ -210,8 +231,7 @@ def provision_worktree_validation_surfaces(
         if isinstance(exc.__cause__, ConnectedEnvNotLocalPostgres):
             return
         print(
-            f"Warning: validation-surface provisioning failed "
-            f"(non-fatal): {exc}",
+            f"Warning: validation-surface provisioning failed (non-fatal): {exc}",
             file=sys.stderr,
         )
         return
@@ -237,9 +257,16 @@ def count_active_worktrees(
     worktrees_dir: str,
 ) -> tuple[int, list[str]]:
     """Return active managed worktree count and branch-directory names."""
-    result = _run([
-        "git", "-C", repo_root, "worktree", "list", "--porcelain",
-    ])
+    result = _run(
+        [
+            "git",
+            "-C",
+            repo_root,
+            "worktree",
+            "list",
+            "--porcelain",
+        ]
+    )
     if result.returncode != 0:
         return 0, []
     paths = [
@@ -248,9 +275,7 @@ def count_active_worktrees(
         if line.startswith("worktree ")
     ]
     names = [
-        os.path.basename(path)
-        for path in paths
-        if path.startswith(worktrees_dir + "/")
+        os.path.basename(path) for path in paths if path.startswith(worktrees_dir + "/")
     ]
     return len(names), names
 
@@ -264,10 +289,16 @@ def project_field(
     """Read one project field through the existing local tool surface."""
     if project_db_get is not None:
         return project_db_get(project, field)
-    result = _run([
-        sys.executable, "-m", "yoke_core.domain.projects",
-        "get", project, field,
-    ])
+    result = _run(
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.projects",
+            "get",
+            project,
+            field,
+        ]
+    )
     if result.returncode == 0:
         return result.stdout.strip() or None
     return None
