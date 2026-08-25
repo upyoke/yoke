@@ -199,6 +199,7 @@ def mint_bound_installation_token(
     token_permissions: Mapping[str, str],
     token_cache: InstallationTokenCache | None,
     token_minter: TokenMinter | None,
+    force_refresh: bool = False,
 ) -> InstallationToken:
     repository_id = _required_repository_id(
         state.binding.get("repository_id") if state.binding else None,
@@ -215,7 +216,10 @@ def mint_bound_installation_token(
     try:
         if token_minter is not None:
             return token_minter(**kwargs)
-        return (token_cache or _INSTALLATION_TOKEN_CACHE).get_or_mint(**kwargs)
+        return (token_cache or _INSTALLATION_TOKEN_CACHE).get_or_mint(
+            **kwargs,
+            force_refresh=force_refresh,
+        )
     except GitHubAppTokenError as exc:
         raise TokenMintFailed(
             state.project_slug,
@@ -263,25 +267,26 @@ def _permissions_with_minimum(
 def _required_repository_id(value: Any, *, project: str) -> int:
     if isinstance(value, bool):
         raise MissingRepoMetadata(
-            project, f"project '{project}' bound GitHub repository id is invalid",
+            project,
+            f"project '{project}' bound GitHub repository id is invalid",
         )
     try:
         parsed = int(str(value or "").strip())
     except ValueError as exc:
         raise MissingRepoMetadata(
-            project, f"project '{project}' bound GitHub repository id is invalid",
+            project,
+            f"project '{project}' bound GitHub repository id is invalid",
         ) from exc
     if parsed <= 0:
         raise MissingRepoMetadata(
-            project, f"project '{project}' bound GitHub repository id is invalid",
+            project,
+            f"project '{project}' bound GitHub repository id is invalid",
         )
     return parsed
 
 
 def _bound_api_url(state: ProjectGithubState) -> str:
-    binding_url = str(
-        state.binding.get("api_url") if state.binding else ""
-    ).strip()
+    binding_url = str(state.binding.get("api_url") if state.binding else "").strip()
     installation_url = str(
         state.installation.get("api_url") if state.installation else ""
     ).strip()

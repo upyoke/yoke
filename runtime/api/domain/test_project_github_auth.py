@@ -23,7 +23,8 @@ from runtime.api.domain.project_github_auth_test_support import (
     db_path as db_path,
 )
 from yoke_core.domain import (
-    project_github_auth as pga, project_github_auth_tokens,
+    project_github_auth as pga,
+    project_github_auth_tokens,
 )
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.github_app_token_models import GitHubAppTokenError
@@ -58,15 +59,14 @@ class TestHappyPath:
         assert not hasattr(result, "env")
         assert result.installation_id == "12345"
         assert result.token_source == "github_app_installation"
+        assert result.token_issued_at == "2026-07-09T17:00:00+00:00"
         assert result.token_expires_at == "2026-07-09T18:00:00+00:00"
         assert "ghs_install" not in repr(result)
         assert seen["issuer"] == "Iv1.local"
         assert seen["private_key_pem"] == "test-private-key"
         assert seen["installation_id"] == "12345"
         assert seen["repository_ids"] == [4567]
-        assert seen["permissions"] == dict(
-            GITHUB_METADATA_READ_PERMISSION_LEVELS
-        )
+        assert seen["permissions"] == dict(GITHUB_METADATA_READ_PERMISSION_LEVELS)
 
     def test_rejects_binding_without_verified_repository_id(self, db_path: str):
         state = ProjectGithubState(
@@ -106,7 +106,8 @@ class TestHappyPath:
             result.token = "tampered"  # type: ignore[misc]
 
     def test_optional_permission_is_checked_and_added_to_installation_token(
-        self, db_path: str,
+        self,
+        db_path: str,
     ):
         _init_with_projects(db_path)
         permissions = dict(REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS)
@@ -132,7 +133,8 @@ class TestHappyPath:
         }
 
     def test_optional_permission_does_not_replace_full_contract_validation(
-        self, db_path: str,
+        self,
+        db_path: str,
     ):
         _init_with_projects(db_path)
         _bind_yoke(db_path)
@@ -245,7 +247,9 @@ class TestFailureModes:
         assert "issues" in str(info.value)
 
     def test_missing_app_credentials(
-        self, db_path: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        db_path: str,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         _init_with_projects(db_path)
         _bind_yoke(db_path)
@@ -289,7 +293,9 @@ class TestCredentialIsolation:
         assert not hasattr(result, "env")
 
     def test_local_user_provider_does_not_load_private_key(
-        self, app_bound_db: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        app_bound_db: str,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         monkeypatch.setattr(
             project_github_auth_tokens,
@@ -302,7 +308,8 @@ class TestCredentialIsolation:
             api_url="https://api.github.com",
         ):
             result = pga.resolve_project_github_auth(
-                "yoke", db_path=app_bound_db,
+                "yoke",
+                db_path=app_bound_db,
             )
 
         assert result.token == "github-user-token"
@@ -312,7 +319,8 @@ class TestCredentialIsolation:
         )
 
     def test_local_user_provider_error_hides_credential_path(
-        self, app_bound_db: str,
+        self,
+        app_bound_db: str,
     ):
         credential_path = "/private/yoke/github-app-user.json"
 
@@ -322,7 +330,8 @@ class TestCredentialIsolation:
         with pga.bind_local_github_user_token_provider(unavailable_token):
             with pytest.raises(pga.UserAuthorizationUnavailable) as info:
                 pga.resolve_project_github_auth(
-                    "yoke", db_path=app_bound_db,
+                    "yoke",
+                    db_path=app_bound_db,
                 )
 
         assert credential_path not in str(info.value)

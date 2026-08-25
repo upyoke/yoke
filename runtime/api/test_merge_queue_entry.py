@@ -1,9 +1,17 @@
 """Queue-entry and membership reads: auth, refusal naming, mapping."""
 
+from datetime import datetime, timezone
+
 from types import SimpleNamespace
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
+)
+from yoke_core.domain.gh_rest_transport import RestAuthError
 from yoke_core.domain.gh_rest_transport_models import RestResponse
+from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from yoke_core.engines import merge_worktree_pr_queue as queue_mod
+from yoke_core.engines import merge_worktree_pr_graphql as graphql_mod
 from yoke_core.engines.merge_worktree_pr_rest import AuthResolutionFailed
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
@@ -21,17 +29,16 @@ def _response(body) -> RestResponse:
 
 
 def test_enter_merge_queue_success(monkeypatch):
-    monkeypatch.setattr(
-        queue_mod, "resolve_auth", lambda *_a, **_kw: _auth()
-    )
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
     calls = []
 
     def fake_request(req, *, token, **_kw):
         calls.append(req)
         if req.method == "GET":
             return _response({"node_id": "PR_node1"})
-        return _response({"data": {"enablePullRequestAutoMerge": {
-            "pullRequest": {"number": 7}}}})
+        return _response(
+            {"data": {"enablePullRequestAutoMerge": {"pullRequest": {"number": 7}}}}
+        )
 
     monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
     result = queue_mod.enter_merge_queue(_ctx(), "7")
@@ -43,20 +50,87 @@ def test_enter_merge_queue_success(monkeypatch):
 
 
 def test_enter_merge_queue_graphql_refusal_names_reason(monkeypatch):
-    monkeypatch.setattr(
-        queue_mod, "resolve_auth", lambda *_a, **_kw: _auth()
-    )
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
 
     def fake_request(req, *, token, **_kw):
         if req.method == "GET":
             return _response({"node_id": "PR_node1"})
-        return _response({"errors": [
-            {"message": "Pull request Auto merge is not allowed"}]})
+        return _response(
+            {"errors": [{"message": "Pull request Auto merge is not allowed"}]}
+        )
 
     monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
     result = queue_mod.enter_merge_queue(_ctx(), "7")
     assert not result.success
     assert "Auto merge is not allowed" in result.error_detail
+
+
+def test_graphql_401_refreshes_installation_token_once(
+    monkeypatch,
+    capsys,
+):
+    issued_at = datetime(2026, 8, 25, 13, 55, tzinfo=timezone.utc)
+    stale = ProjectGithubAuth(
+        project="yoke",
+        repo="upyoke/yoke",
+        token="stale-installation-token",
+        token_issued_at=issued_at.isoformat(),
+    )
+    fresh = ProjectGithubAuth(
+        project="yoke",
+        repo="upyoke/yoke",
+        token="fresh-installation-token",
+        token_issued_at=datetime(
+            2026,
+            8,
+            25,
+            14,
+            0,
+            tzinfo=timezone.utc,
+        ).isoformat(),
+    )
+    request_tokens: list[str] = []
+    refreshes: list[dict] = []
+
+    def fake_request(req, *, token, **_kwargs):
+        request_tokens.append(token)
+        if len(request_tokens) == 1:
+            raise RestAuthError(
+                "HTTP 401: Bad credentials",
+                status=401,
+                body='{"message":"Bad credentials"}',
+            )
+        return _response({"data": {"repository": {"id": "R_1"}}})
+
+    def fake_resolve(project, **kwargs):
+        refreshes.append({"project": project, **kwargs})
+        return fresh
+
+    monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
+    monkeypatch.setattr(graphql_mod, "resolve_project_github_auth", fake_resolve)
+    monkeypatch.setattr(
+        graphql_mod,
+        "clock",
+        lambda: datetime(2026, 8, 25, 14, 0, tzinfo=timezone.utc),
+    )
+
+    data, err = queue_mod.graphql_with_auth(
+        stale,
+        query="query { viewer { login } }",
+        variables={},
+        required_permissions=PR_READ,
+    )
+
+    assert err is None
+    assert data == {"repository": {"id": "R_1"}}
+    assert request_tokens == ["stale-installation-token", "fresh-installation-token"]
+    assert len(refreshes) == 1
+    assert refreshes[0]["force_refresh"] is True
+    assert refreshes[0]["required_permissions"] == PR_READ
+    telemetry = capsys.readouterr().err
+    assert "status=401 token_age_seconds=300 refresh_attempt=1" in telemetry
+    assert "stale-installation-token" not in telemetry
+    assert "fresh-installation-token" not in telemetry
 
 
 def test_enter_merge_queue_auth_failure_carries_repair_hint(monkeypatch):
@@ -71,33 +145,44 @@ def test_enter_merge_queue_auth_failure_carries_repair_hint(monkeypatch):
 
 
 def test_read_queue_members_maps_entries(monkeypatch):
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
+    body = {
+        "data": {
+            "repository": {
+                "mergeQueue": {
+                    "entries": {
+                        "nodes": [
+                            {
+                                "state": "AWAITING_CHECKS",
+                                "pullRequest": {"number": 11, "headRefName": "YOK-101"},
+                            },
+                            {"pullRequest": {"number": 12, "headRefName": "YOK-102"}},
+                            {"pullRequest": None},
+                        ]
+                    }
+                }
+            }
+        }
+    }
     monkeypatch.setattr(
-        queue_mod, "resolve_auth", lambda *_a, **_kw: _auth()
-    )
-    body = {"data": {"repository": {"mergeQueue": {"entries": {"nodes": [
-        {"state": "AWAITING_CHECKS",
-         "pullRequest": {"number": 11, "headRefName": "YOK-101"}},
-        {"pullRequest": {"number": 12, "headRefName": "YOK-102"}},
-        {"pullRequest": None},
-    ]}}}}}
-    monkeypatch.setattr(
-        queue_mod, "request_with_retry",
+        queue_mod,
+        "request_with_retry",
         lambda req, *, token, **_kw: _response(body),
     )
     members, err = queue_mod.read_queue_members(_ctx())
     assert err is None
     assert [(m.pr_num, m.head_ref, m.state) for m in members] == [
-        ("11", "YOK-101", "AWAITING_CHECKS"), ("12", "YOK-102", ""),
+        ("11", "YOK-101", "AWAITING_CHECKS"),
+        ("12", "YOK-102", ""),
     ]
 
 
 def test_read_queue_members_no_queue_is_named_refusal(monkeypatch):
-    monkeypatch.setattr(
-        queue_mod, "resolve_auth", lambda *_a, **_kw: _auth()
-    )
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
     body = {"data": {"repository": {"mergeQueue": None}}}
     monkeypatch.setattr(
-        queue_mod, "request_with_retry",
+        queue_mod,
+        "request_with_retry",
         lambda req, *, token, **_kw: _response(body),
     )
     members, err = queue_mod.read_queue_members(_ctx())
@@ -107,12 +192,11 @@ def test_read_queue_members_no_queue_is_named_refusal(monkeypatch):
 
 
 def test_read_queue_members_empty_queue_is_empty_list(monkeypatch):
-    monkeypatch.setattr(
-        queue_mod, "resolve_auth", lambda *_a, **_kw: _auth()
-    )
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
     body = {"data": {"repository": {"mergeQueue": {"entries": {"nodes": []}}}}}
     monkeypatch.setattr(
-        queue_mod, "request_with_retry",
+        queue_mod,
+        "request_with_retry",
         lambda req, *, token, **_kw: _response(body),
     )
     members, err = queue_mod.read_queue_members(_ctx())
@@ -122,28 +206,44 @@ def test_read_queue_members_empty_queue_is_empty_list(monkeypatch):
 
 def _wire_runs(monkeypatch, runs):
     monkeypatch.setattr(
-        queue_mod, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+        queue_mod,
+        "resolve_auth_detail",
+        lambda ctx, perms: (_auth(), None),
     )
     monkeypatch.setattr(
-        queue_mod, "request_with_retry",
+        queue_mod,
+        "request_with_retry",
         lambda req, *, token, **_kw: _response({"workflow_runs": runs}),
     )
     monkeypatch.setattr(
-        queue_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
+        queue_mod,
+        "project_ci_workflow_file",
+        lambda _project: "yoke-ci.yml",
     )
 
 
 def test_read_train_run_matches_required_workflow_and_queue_ref_marker(monkeypatch):
-    _wire_runs(monkeypatch, [
-        {"path": ".github/workflows/cla.yml",
-         "head_branch": "gh-readonly-queue/main/pr-42-def",
-         "conclusion": "success", "status": "completed",
-         "head_sha": "a" * 40, "html_url": "https://runs/7"},
-        {"path": ".github/workflows/yoke-ci.yml",
-         "head_branch": "gh-readonly-queue/main/pr-42-def",
-         "conclusion": "failure", "status": "completed",
-         "head_sha": "b" * 40, "html_url": "https://runs/42"},
-    ])
+    _wire_runs(
+        monkeypatch,
+        [
+            {
+                "path": ".github/workflows/cla.yml",
+                "head_branch": "gh-readonly-queue/main/pr-42-def",
+                "conclusion": "success",
+                "status": "completed",
+                "head_sha": "a" * 40,
+                "html_url": "https://runs/7",
+            },
+            {
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-42-def",
+                "conclusion": "failure",
+                "status": "completed",
+                "head_sha": "b" * 40,
+                "html_url": "https://runs/42",
+            },
+        ],
+    )
     run, note = queue_mod.read_train_run(_ctx(), "42")
     assert note is None
     assert run.conclusion == "failure"
@@ -153,12 +253,19 @@ def test_read_train_run_matches_required_workflow_and_queue_ref_marker(monkeypat
 
 def test_read_train_run_never_substitutes_another_trains_run(monkeypatch):
     """Another train's green is not this pull request's, at any recency."""
-    _wire_runs(monkeypatch, [
-        {"path": ".github/workflows/yoke-ci.yml",
-         "head_branch": "gh-readonly-queue/main/pr-7-abc",
-         "conclusion": "success", "status": "completed",
-         "head_sha": "a" * 40, "html_url": "https://runs/7"},
-    ])
+    _wire_runs(
+        monkeypatch,
+        [
+            {
+                "path": ".github/workflows/yoke-ci.yml",
+                "head_branch": "gh-readonly-queue/main/pr-7-abc",
+                "conclusion": "success",
+                "status": "completed",
+                "head_sha": "a" * 40,
+                "html_url": "https://runs/7",
+            },
+        ],
+    )
     run, note = queue_mod.read_train_run(_ctx(), "42")
     assert run is None
     assert "no merge_group workflow run identified" in note
@@ -174,16 +281,21 @@ def test_read_train_run_without_any_run_is_named(monkeypatch):
 
 def test_read_pr_landing_state_includes_mergeable_state(monkeypatch):
     monkeypatch.setattr(
-        queue_mod, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+        queue_mod,
+        "resolve_auth_detail",
+        lambda ctx, perms: (_auth(), None),
     )
     monkeypatch.setattr(
-        queue_mod, "request_with_retry",
-        lambda req, *, token, **_kw: _response({
-            "merged": False,
-            "state": "open",
-            "auto_merge": {"enabled_by": {}},
-            "mergeable_state": "dirty",
-        }),
+        queue_mod,
+        "request_with_retry",
+        lambda req, *, token, **_kw: _response(
+            {
+                "merged": False,
+                "state": "open",
+                "auto_merge": {"enabled_by": {}},
+                "mergeable_state": "dirty",
+            }
+        ),
     )
     state, err = queue_mod.read_pr_landing_state(_ctx(), "42")
     assert err is None

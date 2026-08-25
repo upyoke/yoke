@@ -43,6 +43,7 @@ class InstallationToken:
 
     token: str = field(repr=False)
     expires_at: datetime
+    issued_at: datetime | None = None
     permissions: Mapping[str, str] = field(default_factory=dict)
     repository_selection: str = ""
     repositories: tuple[str, ...] = ()

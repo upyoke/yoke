@@ -113,6 +113,7 @@ def test_mint_installation_token_posts_jwt_and_restrictions() -> None:
     assert headers["accept"] == "application/vnd.github+json"
     assert headers["x-github-api-version"] == "2022-11-28"
     assert token.token == "ghs_install"
+    assert token.issued_at == now
     assert token.expires_at == datetime(2026, 7, 9, 18, 0, tzinfo=timezone.utc)
     assert token.permissions == {"issues": "write"}
     assert token.repository_selection == "selected"
@@ -215,6 +216,42 @@ def test_installation_token_cache_separates_exact_permission_scopes() -> None:
             "permissions": {"metadata": "read", "issues": "write"},
         },
     ]
+
+
+def test_installation_token_cache_force_refresh_replaces_usable_token() -> None:
+    private_pem, _public_pem = _private_key_pair()
+    now = datetime(2026, 7, 9, 17, 0, tzinfo=timezone.utc)
+    calls: list[str] = []
+
+    def fake_urlopen(request, timeout):
+        calls.append(request.full_url)
+        return _FakeResponse(
+            {
+                "token": f"ghs_{len(calls)}",
+                "expires_at": "2026-07-09T18:00:00Z",
+            }
+        )
+
+    cache = installation_tokens.InstallationTokenCache()
+    common = {
+        "issuer": "Iv1.client",
+        "private_key_pem": private_pem,
+        "installation_id": 7,
+        "repositories": ["repo"],
+        "opener": fake_urlopen,
+    }
+    first = cache.get_or_mint(**common, now=now)
+    refreshed = cache.get_or_mint(
+        **common,
+        now=now + timedelta(minutes=1),
+        force_refresh=True,
+    )
+    reused = cache.get_or_mint(**common, now=now + timedelta(minutes=2))
+
+    assert first.token == "ghs_1"
+    assert refreshed.token == reused.token == "ghs_2"
+    assert refreshed.issued_at == now + timedelta(minutes=1)
+    assert len(calls) == 2
 
 
 def test_installation_token_rejects_both_repository_restriction_shapes() -> None:

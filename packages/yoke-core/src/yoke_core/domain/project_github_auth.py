@@ -73,6 +73,7 @@ def resolve_project_github_auth(
     control_plane_config: GitHubAppControlPlaneConfig | None = None,
     required_permissions: Mapping[str, str] | None = None,
     required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
+    force_refresh: bool = False,
 ) -> ProjectGithubAuth:
     """Resolve a verified binding and the mode-appropriate bearer token.
 
@@ -143,7 +144,8 @@ def resolve_project_github_auth(
         )
 
     local_token, user_authorization_error = _local_user_token(
-        state, required_authority,
+        state,
+        required_authority,
     )
     if local_token is not None:
         return _auth_result(
@@ -161,6 +163,7 @@ def resolve_project_github_auth(
             token_permissions=token_permissions,
             token_cache=token_cache,
             token_minter=token_minter,
+            force_refresh=force_refresh,
         )
         token = str(minted.token or "").strip()
         if not token:
@@ -173,9 +176,11 @@ def resolve_project_github_auth(
             raise user_authorization_error
         raise
     result = _auth_result(state, repo, token, installation_permissions)
+    issued_at = getattr(minted, "issued_at", None)
     resolved = ProjectGithubAuth(
         **{
             **result.__dict__,
+            "token_issued_at": issued_at.isoformat() if issued_at else "",
             "token_expires_at": minted.expires_at.isoformat(),
         }
     )
@@ -194,7 +199,8 @@ def _installation_can_perform(required_authority: str) -> bool:
 
 
 def _local_user_token(
-    state: ProjectGithubState, required_authority: str,
+    state: ProjectGithubState,
+    required_authority: str,
 ) -> tuple[Optional[str], Optional[ProjectGithubAuthError]]:
     """Read the machine's user token, or say why an installation may stand in.
 

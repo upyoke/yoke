@@ -70,6 +70,7 @@ def read_pr_changed_files(
         data, err = graphql_with_auth(
             auth,
             query=_PR_FILES_QUERY,
+            required_permissions=PR_READ,
             variables={
                 "owner": owner,
                 "name": name,
@@ -79,9 +80,7 @@ def read_pr_changed_files(
         )
         if err:
             return None, err
-        pull_request = (
-            (data or {}).get("repository") or {}
-        ).get("pullRequest") or {}
+        pull_request = ((data or {}).get("repository") or {}).get("pullRequest") or {}
         files = pull_request.get("files")
         if not isinstance(files, dict):
             return None, (

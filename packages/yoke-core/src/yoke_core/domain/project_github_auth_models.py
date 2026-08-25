@@ -84,6 +84,7 @@ class ProjectGithubAuth:
     repo: str
     token: str = field(repr=False)
     installation_id: str = ""
+    token_issued_at: str = ""
     token_expires_at: str = ""
     token_source: str = GITHUB_AUTHORITY_INSTALLATION
     permissions: Mapping[str, str] = field(default_factory=dict)
