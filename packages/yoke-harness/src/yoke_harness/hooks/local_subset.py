@@ -26,7 +26,7 @@ from yoke_harness.hooks.local_policies import (
     lint_shell_backtick_search,
     lint_tmp_runtime_import,
 )
-from yoke_harness.hooks.local_policy_common import ADVISORY, DENY, NOOP
+from yoke_harness.hooks.local_policy_common import ADVISORY, DENY, NOOP, command_from_payload
 
 
 LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
@@ -59,6 +59,32 @@ class LocalSubsetEvaluation:
     exit_code: int
     denied: bool
     payload_extra: dict | None = None
+    denial_audit: dict | None = None
+
+
+def _denial_audit(module_id: str, mode: str, payload: dict, reason: str) -> dict:
+    """Build the audit fields a denied evaluation carries back to its caller.
+
+    This client-local subset (``local_policies.py``'s guard reimplementations)
+    cannot record a durable event itself — it must stay importable with no
+    ``yoke_core``/DB-driver dependency, per the client/server package
+    boundary. The caller that owns a live connection (``relay.py``) is the
+    one that turns this into a ``HarnessToolCallDenied`` row.
+    """
+    session_id = payload.get("session_id") or ""
+    tool_use_id = payload.get("tool_use_id") or ""
+    turn_id = payload.get("turn_id") or payload.get("message_id") or ""
+    return {
+        "hook": module_id,
+        "check_id": module_id,
+        "guard_key": module_id,
+        "mode": mode,
+        "reason": reason,
+        "command_snippet": command_from_payload(payload),
+        "session_id": session_id if isinstance(session_id, str) else "",
+        "tool_use_id": tool_use_id if isinstance(tool_use_id, str) else "",
+        "turn_id": turn_id if isinstance(turn_id, str) else "",
+    }
 
 
 def _parse_payload(stdin_data: str) -> dict:
@@ -211,6 +237,7 @@ def evaluate_local_subset(
                 exit_code=exit_code,
                 denied=True,
                 payload_extra=payload_extra,
+                denial_audit=_denial_audit(module_id, mode, payload, result.message),
             )
         if result.outcome == ADVISORY and result.additional_context:
             contexts.append(result.additional_context)

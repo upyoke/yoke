@@ -103,6 +103,9 @@ def emit_denied(
     item_id: int,
     mode: str,
     suppression_attempted: bool,
+    reason: str = "",
+    tool_use_id: str = "",
+    turn_id: str = "",
     derivation: Optional[TargetDerivation] = None,
 ) -> None:
     outcome = "suppression_attempted" if suppression_attempted else "blocked"
@@ -121,6 +124,55 @@ def emit_denied(
         session_id=session_id,
         item_id=int(item_id),
     )
+    _emit_canonical_denial(
+        session_id=session_id,
+        attempted_path=attempted_path,
+        lane_path=lane_path,
+        mode=mode,
+        suppression_attempted=suppression_attempted,
+        reason=reason,
+        tool_use_id=tool_use_id,
+        turn_id=turn_id,
+    )
+
+
+def _emit_canonical_denial(
+    *,
+    session_id: str,
+    attempted_path: str,
+    lane_path: str,
+    mode: str,
+    suppression_attempted: bool,
+    reason: str,
+    tool_use_id: str,
+    turn_id: str,
+) -> None:
+    """Also record the cross-guard ``HarnessToolCallDenied`` audit row.
+
+    ``LaneMainWriteDenied`` above carries this guard's own rich context;
+    close-out audits read the shared ``HarnessToolCallDenied`` name, so this
+    guard's denials must land there too — the durable event this guard used
+    to leave unwritten.
+    """
+    try:
+        from yoke_core.hooks.denial import emit_denial_event
+    except Exception:
+        return
+    try:
+        emit_denial_event(
+            hook="yoke_core.domain.lint_lane_main_write",
+            check_id="lint-lane-main-write",
+            reason=reason or f"write to {attempted_path} refused; lane held at {lane_path}",
+            session_id=session_id,
+            tool_use_id=tool_use_id,
+            turn_id=turn_id,
+            command_snippet=attempted_path,
+            outcome="suppression_attempted" if suppression_attempted else "denied",
+            guard_key="lint_lane_main_write",
+            mode=mode,
+        )
+    except Exception:
+        pass
 
 
 def emit_stranded_lane_advisory(

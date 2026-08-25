@@ -37,6 +37,7 @@ from yoke_harness.hooks.identity import (
 )
 from yoke_harness.hooks.launch_context import settle_projection, stamp_hook_input
 from yoke_harness.hooks.guard_version_skew import annotate_guard_version_skew
+from yoke_harness.hooks.denial_relay import relay_denial_audit
 from yoke_harness.hooks.local_subset import (
     evaluate_local_subset,
     render_dry_run,
@@ -62,10 +63,7 @@ def _cursor_degradation_stdout(
 ) -> str:
     if not is_cursor(detect_executor()):
         return preserved_stdout
-    preserved_stdout = cursor_lifecycle_allow_stdout(
-        event_name,
-        preserved_stdout,
-    )
+    preserved_stdout = cursor_lifecycle_allow_stdout(event_name, preserved_stdout)
     if event_name not in _CURSOR_CONTEXT_EVENTS:
         return preserved_stdout
     warning = (
@@ -76,10 +74,7 @@ def _cursor_degradation_stdout(
         payload = json.loads(preserved_stdout) if preserved_stdout else {}
     except (json.JSONDecodeError, TypeError):
         payload = {}
-    if isinstance(payload, dict) and isinstance(
-        payload.get("additional_context"),
-        str,
-    ):
+    if isinstance(payload, dict) and isinstance(payload.get("additional_context"), str):
         payload["additional_context"] += "\n\n" + warning
         return json.dumps(payload)
     return json.dumps({"additional_context": warning})
@@ -223,6 +218,7 @@ def relay_hook_event(
         print_execution_provenance()
         if local.stdout:
             sys.stdout.write(local.stdout)
+        relay_denial_audit(connection, local.denial_audit or {})
         return local.exit_code
 
     allow_stdout = _with_extra_context(

@@ -203,6 +203,8 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         derivation=derivation,
         tool_name=tool_name,
     )
+    tool_use_id = payload_dict.get("tool_use_id")
+    turn_id = payload_dict.get("turn_id") or payload_dict.get("message_id")
     emit_denied(
         session_id=session_id,
         attempted_path=attempted_path,
@@ -211,6 +213,9 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         item_id=claim.item_id,
         mode=mode,
         suppression_attempted=suppression_seen,
+        reason=reason,
+        tool_use_id=tool_use_id if isinstance(tool_use_id, str) else "",
+        turn_id=turn_id if isinstance(turn_id, str) else "",
         derivation=derivation,
     )
 
