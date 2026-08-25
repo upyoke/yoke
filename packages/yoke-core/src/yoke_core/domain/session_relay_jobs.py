@@ -35,6 +35,7 @@ WAKE_REPORT_CODES = frozenset(
     "unsupported_surface version_mismatch".split()
 ) | {RESUMED_RUNNING_RESULT}
 LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
+LAUNCH_PROGRESS_CODE = "progress"
 
 
 def _wake_candidates(
@@ -199,6 +200,15 @@ def report_launch_job(
     evidence: Mapping[str, Any] | None,
     now: str,
 ) -> dict[str, Any]:
+    if result_code == LAUNCH_PROGRESS_CODE:
+        return report_launch_progress(
+            conn,
+            relay_id=relay_id,
+            launch_id=launch_id,
+            lease_id=lease_id,
+            adapter_revision=adapter_revision,
+            evidence=evidence,
+        )
     if result_code not in LAUNCH_REPORT_CODES:
         raise SessionRelayError("result_invalid", "unknown launch relay result code")
     p = marker(conn)
@@ -213,9 +223,20 @@ def report_launch_job(
             "attempt_missing", "this relay holds no such launch attempt lease"
         )
     if prior[0] is not None:
-        if str(prior[1] or "") != result_code or str(prior[2] or "") != str(
+        prior_code = str(prior[1] or "")
+        same_result = prior_code == result_code and str(prior[2] or "") == str(
             native_session_id or ""
-        ):
+        )
+        if prior_code == "relay_lease_expired":
+            return report_launch_progress(
+                conn,
+                relay_id=relay_id,
+                launch_id=launch_id,
+                lease_id=lease_id,
+                adapter_revision=adapter_revision,
+                evidence=evidence,
+            )
+        if not same_result:
             raise SessionRelayError(
                 "report_conflict", "launch attempt was already reported"
             )
@@ -260,10 +281,64 @@ def report_launch_job(
     }
 
 
+def report_launch_progress(
+    conn: Any,
+    *,
+    relay_id: str,
+    launch_id: str,
+    lease_id: str,
+    adapter_revision: str | None,
+    evidence: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge safe attempt facts without completing or extending its lease."""
+    p = marker(conn)
+    row = conn.execute(
+        "SELECT completed_at,result_code,evidence FROM session_launch_attempts "
+        f"WHERE launch_id={p} AND lease_id={p} AND relay_id={p}",
+        (launch_id, lease_id, relay_id),
+    ).fetchone()
+    if row is None:
+        raise SessionRelayError(
+            "attempt_missing", "this relay holds no such launch attempt lease"
+        )
+    merged = merge_redacted_evidence(row[2], evidence)
+    if str(row[1] or "") == "relay_lease_expired":
+        merged = merge_redacted_evidence(merged, {"result_code": "relay_lease_expired"})
+    conn.execute(
+        "UPDATE session_launch_attempts SET adapter_revision="
+        + f"COALESCE({p},adapter_revision),evidence={p} "
+        + f"WHERE launch_id={p} AND lease_id={p} AND relay_id={p}",
+        (
+            str(adapter_revision or "").strip()[:128] or None,
+            merged,
+            launch_id,
+            lease_id,
+            relay_id,
+        ),
+    )
+    launch = conn.execute(
+        f"SELECT state,result_code FROM session_launches WHERE launch_id={p}",
+        (launch_id,),
+    ).fetchone()
+    if str(row[1] or "") == "relay_lease_expired":
+        conn.execute(
+            f"UPDATE session_launches SET result_evidence={p} WHERE launch_id={p}",
+            (merged, launch_id),
+        )
+    conn.commit()
+    return {
+        "launch_id": launch_id,
+        "state": str(launch[0]),
+        "result_code": str(launch[1] or ""),
+    }
+
+
 __all__ = [
+    "LAUNCH_PROGRESS_CODE",
     "LAUNCH_REPORT_CODES",
     "WAKE_REPORT_CODES",
     "claim_wake_job",
     "report_launch_job",
+    "report_launch_progress",
     "report_wake_job",
 ]

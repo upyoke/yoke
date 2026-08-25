@@ -11,17 +11,19 @@ from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
     bootstrap_prompt,
-    canonical_json,
     get_launch,
     marker,
     next_attempt_number,
     parse_time,
-    sha256_text,
     update_launch,
     utc_now,
     value,
 )
 from yoke_core.domain.session_launch_reconciliation import reconcile_launch
+from yoke_core.domain.session_relay_evidence import (
+    merge_redacted_evidence,
+    redacted_evidence_document,
+)
 from yoke_core.domain.session_launch_types import (
     LAUNCH_LEASE_SECONDS,
     LaunchClaim,
@@ -33,18 +35,11 @@ from yoke_core.domain.session_launch_types import (
 _REPORT_RESULTS = frozenset({"native_created", "not_created", "outcome_unknown"})
 
 
-def _bounded_evidence(evidence: dict[str, Any] | None) -> str:
-    rendered = canonical_json(evidence or {})
-    if len(rendered.encode("utf-8")) <= 2048:
-        return rendered
-    return canonical_json({"redacted": "oversize", "sha256": sha256_text(rendered)})
-
-
 def _attempt_by_lease(conn: Any, launch_id: str, lease_id: str) -> Any:
     p = marker(conn)
     row = conn.execute(
         "SELECT attempt_id, attempt_number, started_at, completed_at, "
-        "native_session_id, result_code FROM session_launch_attempts "
+        "native_session_id, result_code, evidence FROM session_launch_attempts "
         f"WHERE launch_id = {p} AND lease_id = {p}",
         (launch_id, lease_id),
     ).fetchone()
@@ -62,21 +57,67 @@ def _complete_attempt(
     result_code: str,
     adapter_revision: str | None,
     evidence: dict[str, Any] | None,
+    prior_evidence: Any = None,
 ) -> None:
     p = marker(conn)
     conn.execute(
         "UPDATE session_launch_attempts SET completed_at = {0}, "
-        "native_session_id = {0}, result_code = {0}, adapter_revision = {0}, "
+        "native_session_id = {0}, result_code = {0}, "
+        "adapter_revision = COALESCE({0}, adapter_revision), "
         "evidence = {0} WHERE attempt_id = {0}".format(p),
         (
             completed_at,
             native_session_id,
             result_code,
             adapter_revision,
-            _bounded_evidence(evidence),
+            merge_redacted_evidence(prior_evidence, evidence),
             attempt_id,
         ),
     )
+
+
+def expire_launch_attempt(
+    conn: Any,
+    *,
+    launch_id: str,
+    lease_id: str,
+    result_code: str,
+    now: str,
+) -> LaunchRecord:
+    """Close an abandoned relay attempt without erasing its progress evidence."""
+    begin_mutation(conn)
+    try:
+        launch = get_launch(conn, launch_id, for_update=True)
+        attempt = _attempt_by_lease(conn, launch_id, lease_id)
+        completed = value(attempt, "completed_at", 3)
+        if completed:
+            conn.commit()
+            return launch
+        evidence = {"result_code": result_code}
+        merged = merge_redacted_evidence(value(attempt, "evidence", 6), evidence)
+        _complete_attempt(
+            conn,
+            attempt_id=str(value(attempt, "attempt_id", 0)),
+            completed_at=now,
+            native_session_id=None,
+            result_code=result_code,
+            adapter_revision=None,
+            evidence=evidence,
+            prior_evidence=value(attempt, "evidence", 6),
+        )
+        result = update_launch(
+            conn,
+            launch_id,
+            delivery_changed_at=now,
+            state="outcome_unknown",
+            result_code=result_code,
+            result_evidence=merged,
+        )
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def claim_assigned_launch(
@@ -214,8 +255,11 @@ def report_launch_attempt(
             result_code=result_code,
             adapter_revision=adapter_revision,
             evidence=evidence,
+            prior_evidence=value(attempt, "evidence", 6),
         )
-        result_evidence = _bounded_evidence(evidence)
+        result_evidence = merge_redacted_evidence(
+            value(attempt, "evidence", 6), evidence
+        )
         if result_code == "native_created":
             if launch.state == "outcome_unknown":
                 result = update_launch(
@@ -257,12 +301,15 @@ def report_launch_attempt(
                 result_evidence=result_evidence,
             )
         else:
+            evidence_code = str(
+                redacted_evidence_document(evidence).get("result_code") or ""
+            ).strip()
             result = update_launch(
                 conn,
                 launch_id,
                 delivery_changed_at=current,
                 state="outcome_unknown",
-                result_code="outcome_unknown",
+                result_code=evidence_code or "outcome_unknown",
                 result_evidence=result_evidence,
             )
         conn.commit()
@@ -274,6 +321,7 @@ def report_launch_attempt(
 
 __all__ = [
     "claim_assigned_launch",
+    "expire_launch_attempt",
     "reconcile_launch",
     "report_launch_attempt",
 ]

@@ -6,7 +6,6 @@ from typing import Any
 
 from yoke_core.domain.session_relay_evidence import (
     redacted_evidence,
-    redacted_evidence_document,
 )
 from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
@@ -68,7 +67,7 @@ def _settle_wake(conn: Any, batch_id: str, *, now: str) -> int:
 
 def _settle_launches(conn: Any, batch_id: str, *, now: str) -> int:
     """Reconcile every launch this batch leased but never reported."""
-    from yoke_core.domain.session_launch_execution import report_launch_attempt
+    from yoke_core.domain.session_launch_execution import expire_launch_attempt
 
     p = marker(conn)
     stranded = conn.execute(
@@ -78,12 +77,11 @@ def _settle_launches(conn: Any, batch_id: str, *, now: str) -> int:
         (batch_id,),
     ).fetchall()
     for launch_id, lease_id in stranded:
-        report_launch_attempt(
+        expire_launch_attempt(
             conn,
             launch_id=str(launch_id),
             lease_id=str(lease_id),
-            result_code="outcome_unknown",
-            evidence=redacted_evidence_document({"result_code": _LEASE_EXPIRED_CODE}),
+            result_code=_LEASE_EXPIRED_CODE,
             now=now,
         )
     return len(stranded)

@@ -20,6 +20,14 @@ from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     store_native_diagnostic,
 )
+from yoke_harness.session_relay_report_delivery import (
+    REPORT_RETRY_SECONDS,
+    checkpoint_launch_result,
+    checkpoint_launch_start,
+    deliver_terminal_report,
+    diagnostic_outcome_fields,
+    retry_pending_reports,
+)
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
 from yoke_harness.session_relay_schedule import (
     poll_is_due,
@@ -155,28 +163,6 @@ def _retain_private_diagnostic(
     return replace(result, evidence=evidence, private_diagnostic=None)
 
 
-def _diagnostic_outcome_fields(
-    inventory: RelayInventory,
-    result: RelayAdapterResult,
-) -> dict[str, object]:
-    evidence = redacted_evidence_document(result.evidence)
-    reference = evidence.get("native_diagnostic_ref")
-    failure_class = evidence.get("native_error_class")
-    availability = evidence.get("diagnostic_availability")
-    if not any((reference, failure_class, availability)):
-        return {}
-    return {
-        "relay_id": inventory.relay_id,
-        "machine_id": inventory.machine_id,
-        "native_diagnostic_ref": reference if isinstance(reference, str) else None,
-        "native_diagnostic_command": evidence.get("native_diagnostic_command"),
-        "diagnostic_expires_at": evidence.get("diagnostic_expires_at"),
-        "diagnostic_availability": availability,
-        "native_error_class": failure_class,
-        "native_error_step": evidence.get("native_error_step"),
-    }
-
-
 def _run_and_report(
     inventory: RelayInventory,
     job: Mapping[str, Any],
@@ -186,16 +172,34 @@ def _run_and_report(
     state_dir: Path | None,
 ) -> ServeOnceJobOutcome:
     """Execute one leased job and settle it under its own lease."""
+    checkpoint_launch_start(
+        dispatcher,
+        RELAY_REPORT_FUNCTION_ID,
+        inventory.relay_id,
+        job,
+        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
+    )
     result = _retain_private_diagnostic(
         runner(job),
         state_dir=state_dir,
         inventory=inventory,
     )
-    diagnostic_fields = _diagnostic_outcome_fields(inventory, result)
-    report = dispatcher(
-        function_id=RELAY_REPORT_FUNCTION_ID,
-        target=TargetRef(kind="global"),
-        payload=_report_payload(inventory, job, result),
+    result = checkpoint_launch_result(
+        dispatcher,
+        RELAY_REPORT_FUNCTION_ID,
+        inventory.relay_id,
+        job,
+        result,
+        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
+    )
+    diagnostic_fields = diagnostic_outcome_fields(
+        inventory.relay_id, inventory.machine_id, result
+    )
+    report = deliver_terminal_report(
+        dispatcher,
+        RELAY_REPORT_FUNCTION_ID,
+        _report_payload(inventory, job, result),
+        state_dir=state_dir,
         timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
     )
     kind = str(job.get("job_kind") or "")
@@ -229,6 +233,17 @@ def _poll(
     sleep: Callable[[float], None] = time.sleep,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
+    if not retry_pending_reports(
+        dispatcher,
+        RELAY_REPORT_FUNCTION_ID,
+        state_dir=state_dir,
+        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
+    ):
+        return ServeOnceOutcome(
+            "report_failed",
+            REPORT_RETRY_SECONDS,
+            error_code="relay_report_pending",
+        )
     response = dispatcher(
         function_id=RELAY_CLAIM_FUNCTION_ID,
         target=TargetRef(kind="global"),
@@ -268,7 +283,8 @@ def _poll(
         if any(outcome.state == "report_failed" for outcome in settled)
         else "reported"
     )
-    return ServeOnceOutcome(state, next_poll, jobs=settled)
+    cadence = REPORT_RETRY_SECONDS if state == "report_failed" else next_poll
+    return ServeOnceOutcome(state, cadence, jobs=settled)
 
 
 def serve_once(

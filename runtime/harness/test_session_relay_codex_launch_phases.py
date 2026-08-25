@@ -186,6 +186,31 @@ def test_phase_evidence_survives_the_worker_and_report_boundaries(
     assert durable["native_launch_pid"] == 4242
 
 
+def test_transport_exception_records_spawn_phase_and_private_diagnostic(
+    tmp_path: Path,
+) -> None:
+    class Exploding:
+        def create(self, _request):
+            raise OSError("spawn refused")
+
+    adapter = build_codex_relay_adapter(
+        cli_transport=Exploding(),
+        desktop_transport=None,
+        version_gate=lambda *_args: True,
+    )
+
+    result = adapter(
+        type("Context", (), {**_request(tmp_path).__dict__, "lease_id": "lease-1"})()
+    )
+
+    assert result.result_code == "outcome_unknown"
+    assert result.evidence["result_code"] == "transport_exception"
+    assert result.evidence["native_launch_phase"] == "spawn"
+    assert result.private_diagnostic is not None
+    assert result.private_diagnostic.error_step == "launch"
+    assert result.private_diagnostic.stderr == b"spawn refused"
+
+
 def test_an_app_server_failure_names_the_method_it_failed(monkeypatch) -> None:
     client = object.__new__(client_module._Client)
     client.timeout = 1.0
