@@ -10,12 +10,36 @@ import io
 import json
 import sys
 
-from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
-    _FakeResponse,
-    cli_main,
-    https_connection,
-    local_subset,
-)
+import pytest
+
+from yoke_core.domain.session_ambient_identity import AMBIENT_ENV_VARS
+from yoke_harness.hooks import relay
+
+from runtime.api.cli.test_yoke_operations_cli_hooks import _FakeResponse, cli_main
+
+
+# ``local_subset`` and ``https_connection`` are fixtures, not values: loading
+# the sibling as a plugin registers them for these tests without importing
+# names that every use as a test parameter then shadows.
+pytest_plugins = ("runtime.api.cli.test_yoke_operations_cli_hooks",)
+
+
+@pytest.fixture(autouse=True)
+def detached_from_runner_session(monkeypatch):
+    """Detach these relay tests from the session the runner itself runs under.
+
+    The relay resolves identity from the whole ambient env chain, so naming
+    a couple of variables by hand leaves the rest of ``AMBIENT_ENV_VARS``
+    free to answer with the runner's own live session id: green on CI,
+    which has no session, and red on every developer machine, which has
+    one. Clearing the contract's chain rather than a hand-written subset
+    keeps the isolation correct as that chain grows. Dropping the anchor
+    write keeps a synthetic payload out of the machine's real
+    process-anchor registry, the next channel that same chain consults.
+    """
+    for name in AMBIENT_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(relay, "_record_client_anchor", lambda *_a, **_k: None)
 
 
 def test_hook_evaluate_https_codex_session_start_captures_and_resolves(
@@ -33,8 +57,6 @@ def test_hook_evaluate_https_codex_session_start_captures_and_resolves(
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.detect_executor", lambda: "codex",
     )
-    monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
     cache_writes: list[tuple] = []
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.write_runtime_cache",
@@ -75,8 +97,6 @@ def test_hook_evaluate_https_codex_unresolved_model_ships_nothing(
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.detect_executor", lambda: "codex",
     )
-    monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
     monkeypatch.setattr(
         "yoke_harness.hooks.identity_relay._codex_resolve_model",
         lambda thread_id=None: None,
