@@ -177,10 +177,7 @@ def list_strategy_doc_claims(
         "ORDER BY c.registered_at DESC, c.id DESC",
         (int(project_id),),
     ).fetchall()
-    return [
-        decorate_claim(dict(row)) or {}
-        for row in rows
-    ]
+    return [decorate_claim(dict(row)) or {} for row in rows]
 
 
 __all__ = [

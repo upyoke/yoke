@@ -142,7 +142,9 @@ def live_execution_refusal(
 ) -> Optional[str]:
     """Render why a document cannot be locked while a Blitz still executes it."""
     execution = live_execution_for_document(
-        conn, project_id=int(project_id), slug=slug,
+        conn,
+        project_id=int(project_id),
+        slug=slug,
     )
     if execution is None:
         return None

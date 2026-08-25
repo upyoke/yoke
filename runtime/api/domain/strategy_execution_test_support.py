@@ -102,6 +102,36 @@ def link_blitz_document(conn, item_id: int, slug: str) -> None:
     conn.commit()
 
 
+#: Document-lock test vocabulary shared by the lock and exclusion suites.
+COORDINATOR_SESSION = "coordinator-session"
+WORKER_SESSION = "worker-session"
+LOCKED_DOC = "AREA-PLAN"
+
+
+def seed_linked_blitz(conn, item_id: int, slug: str = LOCKED_DOC) -> None:
+    """Seed a Blitz item already bound to the document it executes."""
+    seed_blitz_item(conn, item_id, item_id)
+    link_blitz_document(conn, item_id, slug)
+
+
+def lock_document(
+    conn,
+    session_id: str = COORDINATOR_SESSION,
+    slug: str = LOCKED_DOC,
+) -> dict:
+    """Take the session-owned lock the way a coordinator would."""
+    from yoke_core.domain.strategy_execution import acquire_session_doc_claim
+
+    return acquire_session_doc_claim(
+        conn,
+        project_id=1,
+        slug=slug,
+        session_id=session_id,
+        actor_id=1,
+        reason="shaping the plan",
+    )
+
+
 def strategy_function_request(
     function_id: str,
     *,

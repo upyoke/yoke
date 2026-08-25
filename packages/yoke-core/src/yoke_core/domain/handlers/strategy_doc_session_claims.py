@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import (
-    FunctionCallRequest,
-    FunctionError,
-    HandlerOutcome,
-)
+from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain import events as _events
 from yoke_core.domain.handlers.strategy_doc_surface_models import (
     StrategyDocClaimAcquireRequest,

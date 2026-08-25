@@ -110,11 +110,11 @@ def acquire_session_doc_claim(
     )
     if inserted is None:
         winner = active_strategy_doc_claim(
-            conn, project_id=int(project_id), slug=slug,
+            conn,
+            project_id=int(project_id),
+            slug=slug,
         )
-        label = (
-            claim_holder_label(winner) if winner is not None else "another holder"
-        )
+        label = claim_holder_label(winner) if winner is not None else "another holder"
         raise StrategyDocClaimConflictError(
             f"strategy document {slug!r} is held by {label}"
         )

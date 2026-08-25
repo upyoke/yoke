@@ -81,8 +81,10 @@ def acquire_strategy_doc_claim(
             project_id=int(link["project_id"]),
             slug=str(link["strategy_doc_slug"]),
         )
-        if holder is not None and holder["owner_item_id"] is not None and (
-            int(holder["owner_item_id"]) == int(item_id)
+        if (
+            holder is not None
+            and holder["owner_item_id"] is not None
+            and (int(holder["owner_item_id"]) == int(item_id))
         ):
             if commit:
                 conn.commit()
