@@ -6,26 +6,28 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded
+from yoke_cli.commands.adapters.project_snapshot_chunk_sizing import (
+    active_transport_is_https,
+    needs_https_chunking,
+    raise_if_https_chunk_payload_too_large,
+    snapshot_file_chunks,
+)
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
-from yoke_cli.transport.https import TransportError, resolve_https_connection
 from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
     TargetRef,
 )
 from yoke_contracts.path_snapshot import (
-    SNAPSHOT_SYNC_HTTPS_PAYLOAD_LIMIT_BYTES,
     PathSnapshotPayload,
     PathSnapshotSyncPayload,
-    SnapshotFileEntry,
-    snapshot_sync_payload_size_bytes,
 )
 from yoke_contracts.path_snapshot_chunks import (
-    SNAPSHOT_SYNC_CHUNK_TARGET_BYTES,
     PathSnapshotChunkMetadata,
     PathSnapshotChunkSyncPayload,
-    snapshot_chunk_payload_size_bytes,
 )
+
+SNAPSHOT_CHUNK_UPLOAD_MISSING_CODE = "snapshot_chunk_upload_missing"
 
 
 def dispatch_chunked_sync_payload(
@@ -35,8 +37,8 @@ def dispatch_chunked_sync_payload(
     session_id: Optional[str],
     timeout_s: Optional[float],
 ) -> FunctionCallResponse:
-    snapshots = []
-    warnings = []
+    snapshots: List[Dict[str, Any]] = []
+    warnings: List[str] = []
     project_id = None
     rows_by_commit_sha: Dict[str, Dict[str, Any]] = {}
     for snapshot in payload.snapshots:
@@ -45,111 +47,15 @@ def dispatch_chunked_sync_payload(
             snapshots.append(_alias_snapshot_row(snapshot, existing_row))
             warnings.extend(snapshot.warnings)
             continue
-        upload_id = uuid4().hex
-        chunks = snapshot_file_chunks(
+        response = _upload_snapshot_with_restart(
             project=project,
             repo_root=payload.repo_root,
-            upload_id=upload_id,
             snapshot=snapshot,
             hook_mode=payload.hook_mode,
-        )
-        begin = PathSnapshotChunkSyncPayload(
-            project_id=project,
-            repo_root=payload.repo_root,
-            upload_id=upload_id,
-            operation="begin",
-            snapshot=PathSnapshotChunkMetadata(
-                ref=snapshot.ref,
-                commit_sha=snapshot.commit_sha,
-                file_count=len(snapshot.files),
-                chunk_count=len(chunks),
-                symlinks=snapshot.symlinks,
-                warnings=snapshot.warnings,
-            ),
-            hook_mode=payload.hook_mode,
-        )
-        response = dispatch_chunk_payload(
-            project=project, payload=begin, session_id=session_id,
+            session_id=session_id,
             timeout_s=timeout_s,
         )
         if not response.success:
-            return response
-        begin_result = response.result or {}
-        project_id = begin_result.get("project_id", project_id)
-        begin_reuse_row = _begin_reuse_row(snapshot, begin_result)
-        if begin_reuse_row is not None:
-            snapshots.append(begin_reuse_row)
-            warnings.extend(begin_result.get("warnings") or [])
-            rows_by_commit_sha[snapshot.commit_sha] = begin_reuse_row
-            continue
-        if payload.hook_mode:
-            abort_chunk_upload(
-                project=project, upload_id=upload_id,
-                session_id=session_id, timeout_s=timeout_s,
-            )
-            return FunctionCallResponse(
-                success=False,
-                function="project.snapshot.sync",
-                version="v1",
-                error=FunctionError(
-                    code="snapshot_sync_deferred",
-                    message=(
-                        "large path snapshot deferred to keep this write fast; "
-                        "it uploads on the next `yoke project snapshot sync` "
-                        "(nothing is broken)"
-                    ),
-                ),
-            )
-        for chunk_index, files in enumerate(chunks):
-            append = PathSnapshotChunkSyncPayload(
-                project_id=project,
-                repo_root=payload.repo_root,
-                upload_id=upload_id,
-                operation="append",
-                chunk_index=chunk_index,
-                files=files,
-                hook_mode=payload.hook_mode,
-            )
-            try:
-                response = dispatch_chunk_payload(
-                    project=project, payload=append, session_id=session_id,
-                    timeout_s=timeout_s,
-                )
-            except Exception:
-                abort_chunk_upload(
-                    project=project, upload_id=upload_id,
-                    session_id=session_id, timeout_s=timeout_s,
-                )
-                raise
-            if not response.success:
-                abort_chunk_upload(
-                    project=project, upload_id=upload_id,
-                    session_id=session_id, timeout_s=timeout_s,
-                )
-                return response
-        finalize = PathSnapshotChunkSyncPayload(
-            project_id=project,
-            repo_root=payload.repo_root,
-            upload_id=upload_id,
-            operation="finalize",
-            hook_mode=payload.hook_mode,
-        )
-        try:
-            response = dispatch_chunk_payload(
-                project=project, payload=finalize, session_id=session_id,
-                timeout_s=timeout_s,
-            )
-        except Exception:
-            abort_chunk_upload(
-                project=project, upload_id=upload_id,
-                session_id=session_id, timeout_s=timeout_s,
-            )
-            raise
-        if not response.success:
-            abort_chunk_upload(
-                project=project, upload_id=upload_id,
-                session_id=session_id, timeout_s=timeout_s,
-            )
             return response
         result = response.result or {}
         project_id = result.get("project_id", project_id)
@@ -169,6 +75,173 @@ def dispatch_chunked_sync_payload(
             "snapshots": snapshots,
             "warnings": warnings,
         },
+    )
+
+
+def _upload_snapshot_with_restart(**kwargs: Any) -> FunctionCallResponse:
+    """Upload one snapshot, restarting once if its staging went missing.
+
+    Server-side staging is deleted on abort and on a completed finalize, so
+    a call whose response was lost finds nothing to append to or finalize on
+    its retry. A restart mints a fresh upload id, which makes recovering
+    from that window automatic rather than an operator errand.
+    """
+    response = _upload_snapshot(**kwargs)
+    if _staging_went_missing(response):
+        return _upload_snapshot(**kwargs)
+    return response
+
+
+def _staging_went_missing(response: FunctionCallResponse) -> bool:
+    if response.success:
+        return False
+    return getattr(response.error, "code", "") == (
+        SNAPSHOT_CHUNK_UPLOAD_MISSING_CODE
+    )
+
+
+def _upload_snapshot(
+    *,
+    project: Optional[str],
+    repo_root: Optional[str],
+    snapshot: PathSnapshotPayload,
+    hook_mode: bool,
+    session_id: Optional[str],
+    timeout_s: Optional[float],
+) -> FunctionCallResponse:
+    upload_id = uuid4().hex
+    chunks = snapshot_file_chunks(
+        project=project,
+        repo_root=repo_root,
+        upload_id=upload_id,
+        snapshot=snapshot,
+        hook_mode=hook_mode,
+    )
+    begin = PathSnapshotChunkSyncPayload(
+        project_id=project,
+        repo_root=repo_root,
+        upload_id=upload_id,
+        operation="begin",
+        snapshot=PathSnapshotChunkMetadata(
+            ref=snapshot.ref,
+            commit_sha=snapshot.commit_sha,
+            file_count=len(snapshot.files),
+            chunk_count=len(chunks),
+            symlinks=snapshot.symlinks,
+            warnings=snapshot.warnings,
+        ),
+        hook_mode=hook_mode,
+    )
+    response = dispatch_chunk_payload(
+        project=project, payload=begin, session_id=session_id,
+        timeout_s=timeout_s,
+    )
+    if not response.success:
+        return response
+    begin_result = response.result or {}
+    reuse_row = _begin_reuse_row(snapshot, begin_result)
+    if reuse_row is not None:
+        return _upload_result(
+            begin_result, [reuse_row], begin_result.get("warnings") or [],
+        )
+    if hook_mode:
+        _abort(project, upload_id, session_id, timeout_s)
+        return _deferral_response()
+    for chunk_index, files in enumerate(chunks):
+        append = PathSnapshotChunkSyncPayload(
+            project_id=project,
+            repo_root=repo_root,
+            upload_id=upload_id,
+            operation="append",
+            chunk_index=chunk_index,
+            files=files,
+            hook_mode=hook_mode,
+        )
+        response = _dispatch_or_abort(
+            project, upload_id, append, session_id, timeout_s,
+        )
+        if not response.success:
+            return response
+    finalize = PathSnapshotChunkSyncPayload(
+        project_id=project,
+        repo_root=repo_root,
+        upload_id=upload_id,
+        operation="finalize",
+        hook_mode=hook_mode,
+    )
+    response = _dispatch_or_abort(
+        project, upload_id, finalize, session_id, timeout_s,
+    )
+    if not response.success:
+        return response
+    result = response.result or {}
+    return _upload_result(
+        result, result.get("snapshots") or [], result.get("warnings") or [],
+    )
+
+
+def _dispatch_or_abort(
+    project: Optional[str],
+    upload_id: str,
+    payload: PathSnapshotChunkSyncPayload,
+    session_id: Optional[str],
+    timeout_s: Optional[float],
+) -> FunctionCallResponse:
+    try:
+        response = dispatch_chunk_payload(
+            project=project, payload=payload, session_id=session_id,
+            timeout_s=timeout_s,
+        )
+    except Exception:
+        _abort(project, upload_id, session_id, timeout_s)
+        raise
+    if not response.success:
+        _abort(project, upload_id, session_id, timeout_s)
+    return response
+
+
+def _abort(
+    project: Optional[str],
+    upload_id: str,
+    session_id: Optional[str],
+    timeout_s: Optional[float],
+) -> None:
+    abort_chunk_upload(
+        project=project, upload_id=upload_id,
+        session_id=session_id, timeout_s=timeout_s,
+    )
+
+
+def _upload_result(
+    source: Dict[str, Any],
+    rows: List[Dict[str, Any]],
+    warnings: List[str],
+) -> FunctionCallResponse:
+    return FunctionCallResponse(
+        success=True,
+        function="project.snapshot.sync",
+        version="v1",
+        result={
+            "project_id": source.get("project_id"),
+            "snapshots": rows,
+            "warnings": list(warnings),
+        },
+    )
+
+
+def _deferral_response() -> FunctionCallResponse:
+    return FunctionCallResponse(
+        success=False,
+        function="project.snapshot.sync",
+        version="v1",
+        error=FunctionError(
+            code="snapshot_sync_deferred",
+            message=(
+                "large path snapshot deferred to keep this write fast; "
+                "it uploads on the next `yoke project snapshot sync` "
+                "(nothing is broken)"
+            ),
+        ),
     )
 
 
@@ -254,92 +327,11 @@ def abort_chunk_upload(
         return
 
 
-def snapshot_file_chunks(
-    *,
-    project: Optional[str],
-    repo_root: Optional[str],
-    upload_id: str,
-    snapshot: PathSnapshotPayload,
-    hook_mode: bool,
-) -> List[List[SnapshotFileEntry]]:
-    chunks: List[List[SnapshotFileEntry]] = []
-    current: List[SnapshotFileEntry] = []
-    for entry in snapshot.files:
-        candidate = [*current, entry]
-        if current and append_chunk_size(
-            project=project,
-            repo_root=repo_root,
-            upload_id=upload_id,
-            chunk_index=len(chunks),
-            files=candidate,
-            hook_mode=hook_mode,
-        ) > SNAPSHOT_SYNC_CHUNK_TARGET_BYTES:
-            chunks.append(current)
-            current = [entry]
-        else:
-            current = candidate
-        if append_chunk_size(
-            project=project,
-            repo_root=repo_root,
-            upload_id=upload_id,
-            chunk_index=len(chunks),
-            files=current,
-            hook_mode=hook_mode,
-        ) > SNAPSHOT_SYNC_HTTPS_PAYLOAD_LIMIT_BYTES:
-            raise ValueError(
-                "one snapshot file entry is too large for HTTPS chunked "
-                "snapshot sync; repair from a local-core/source-dev env"
-            )
-    if current:
-        chunks.append(current)
-    return chunks
-
-
-def append_chunk_size(
-    *,
-    project: Optional[str],
-    repo_root: Optional[str],
-    upload_id: str,
-    chunk_index: int,
-    files: List[SnapshotFileEntry],
-    hook_mode: bool,
-) -> int:
-    payload = PathSnapshotChunkSyncPayload(
-        project_id=project,
-        repo_root=repo_root,
-        upload_id=upload_id,
-        operation="append",
-        chunk_index=chunk_index,
-        files=files,
-        hook_mode=hook_mode,
-    )
-    return snapshot_chunk_payload_size_bytes(payload)
-
-
-def raise_if_https_chunk_payload_too_large(
-    payload: PathSnapshotChunkSyncPayload,
-) -> None:
-    if not active_transport_is_https():
-        return
-    payload_size = snapshot_chunk_payload_size_bytes(payload)
-    if payload_size <= SNAPSHOT_SYNC_HTTPS_PAYLOAD_LIMIT_BYTES:
-        return
-    raise ValueError(
-        f"snapshot sync chunk payload is {payload_size} bytes, above the "
-        "HTTPS preflight limit of "
-        f"{SNAPSHOT_SYNC_HTTPS_PAYLOAD_LIMIT_BYTES} bytes"
-    )
-
-
-def active_transport_is_https() -> bool:
-    try:
-        return resolve_https_connection() is not None
-    except TransportError:
-        return False
-
-
-def needs_https_chunking(payload: PathSnapshotSyncPayload) -> bool:
-    if not active_transport_is_https():
-        return False
-    payload_size = snapshot_sync_payload_size_bytes(payload)
-    return payload_size > SNAPSHOT_SYNC_HTTPS_PAYLOAD_LIMIT_BYTES
+__all__ = [
+    "SNAPSHOT_CHUNK_UPLOAD_MISSING_CODE",
+    "abort_chunk_upload",
+    "active_transport_is_https",
+    "dispatch_chunk_payload",
+    "dispatch_chunked_sync_payload",
+    "needs_https_chunking",
+]

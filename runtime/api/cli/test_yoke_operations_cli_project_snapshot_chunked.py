@@ -21,7 +21,7 @@ from runtime.api.cli.project_snapshot_cli_test_helpers import (
 
 def _force_https_chunking():
     return patch(
-        "yoke_cli.commands.adapters.project_snapshot_chunked"
+        "yoke_cli.commands.adapters.project_snapshot_chunk_sizing"
         ".snapshot_sync_payload_size_bytes",
         return_value=OVERSIZED_HTTPS_PAYLOAD_BYTES,
     )
@@ -29,7 +29,7 @@ def _force_https_chunking():
 
 def _https_connection():
     return patch(
-        "yoke_cli.commands.adapters.project_snapshot_chunked"
+        "yoke_cli.commands.adapters.project_snapshot_chunk_sizing"
         ".resolve_https_connection",
         return_value=HttpsConnection(api_url="https://env.example", token="t"),
     )
@@ -222,5 +222,102 @@ def test_hook_mode_payload_too_large_defers_cold_upload(tmp_path: Path) -> None:
     assert "yoke project snapshot sync" in err
     assert [call["payload"]["operation"] for call in CALLS] == [
         "begin",
+        "abort",
+    ]
+
+
+def test_chunked_dispatch_restarts_once_when_staging_went_missing(
+    tmp_path: Path,
+) -> None:
+    repo = make_repo(tmp_path)
+    commit_sha = head_sha(repo)
+    success = FunctionCallResponse(
+        success=True,
+        function="project.snapshot.sync",
+        version="v1",
+        result={},
+    )
+    missing = FunctionCallResponse(
+        success=False,
+        function="project.snapshot.sync",
+        version="v1",
+        error=FunctionError(
+            code="snapshot_chunk_upload_missing",
+            message="snapshot chunk upload 'gone' not found",
+        ),
+    )
+    finalized = FunctionCallResponse(
+        success=True,
+        function="project.snapshot.sync",
+        version="v1",
+        result={
+            "project_id": 3,
+            "snapshots": [{
+                "status": "created",
+                "ref": "HEAD",
+                "commit_sha": commit_sha,
+                "snapshot_id": 47,
+                "entry_count": 3,
+                "symlink_count": 0,
+            }],
+            "warnings": [],
+        },
+    )
+    with _force_https_chunking(), _https_connection():
+        rc, out, err = run_cli(
+            "project", "snapshot", "sync", str(repo), "--project", "demo",
+            "--head-only",
+            responses=[
+                success, missing, success, success, success, finalized,
+            ],
+        )
+
+    assert rc == 0
+    assert f"created: HEAD {commit_sha} snapshot=47" in out
+    assert err == ""
+    assert [call["payload"]["operation"] for call in CALLS] == [
+        "begin",
+        "append",
+        "abort",
+        "begin",
+        "append",
+        "finalize",
+    ]
+    assert CALLS[0]["payload"]["upload_id"] != CALLS[3]["payload"]["upload_id"]
+
+
+def test_chunked_dispatch_restarts_only_once(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    success = FunctionCallResponse(
+        success=True,
+        function="project.snapshot.sync",
+        version="v1",
+        result={},
+    )
+    missing = FunctionCallResponse(
+        success=False,
+        function="project.snapshot.sync",
+        version="v1",
+        error=FunctionError(
+            code="snapshot_chunk_upload_missing",
+            message="snapshot chunk upload 'gone' not found",
+        ),
+    )
+    with _force_https_chunking(), _https_connection():
+        rc, out, err = run_cli(
+            "project", "snapshot", "sync", str(repo), "--project", "demo",
+            "--head-only",
+            responses=[success, missing, success, success, missing, success],
+        )
+
+    assert rc == 1
+    assert out == ""
+    assert "not found" in err
+    assert [call["payload"]["operation"] for call in CALLS] == [
+        "begin",
+        "append",
+        "abort",
+        "begin",
+        "append",
         "abort",
     ]

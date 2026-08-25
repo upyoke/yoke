@@ -145,6 +145,93 @@ def test_remove_paths_stops_when_snapshot_sync_does_not_complete():
     dispatch.assert_not_called()
 
 
+def test_remove_paths_proceeds_while_a_large_snapshot_is_deferred():
+    """A deferral withholds only the file inventory, never the lane head.
+
+    Narrowing reads the synced lane head, so refusing on a deferral left
+    narrowing permanently unavailable on repositories large enough to chunk.
+    """
+    with (
+        patch(
+            "yoke_cli.commands.adapters.claims_path_change."
+            "collect_narrow_boundary_evidence",
+            return_value=_EVIDENCE,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.claims_path_change."
+            "sync_local_snapshot_for_write",
+            return_value={
+                "status": "deferred",
+                "message": "large path snapshot deferred",
+                "repair_command": "",
+            },
+        ),
+        patch(
+            "yoke_cli.commands.adapters.claims_path_change.dispatch_and_emit",
+            return_value=0,
+        ) as dispatch,
+    ):
+        result = claims_path_amend(
+            [
+                "--claim-id",
+                "44",
+                "--remove-paths",
+                "src/unused.py",
+                "--integration-target",
+                "main",
+                "--reason",
+                "remove unused path",
+                "--item",
+                "YOK-9408",
+            ]
+        )
+
+    assert result == 0
+    assert dispatch.call_args.kwargs["payload"]["boundary_evidence"] == _EVIDENCE
+
+
+def test_failed_snapshot_sync_refusal_names_the_unblocking_command(capsys):
+    with (
+        patch(
+            "yoke_cli.commands.adapters.claims_path_change."
+            "collect_narrow_boundary_evidence",
+            return_value=_EVIDENCE,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.claims_path_change."
+            "sync_local_snapshot_for_write",
+            return_value={
+                "status": "failed",
+                "message": "relay unavailable",
+                "repair_command": "yoke project snapshot sync /client/worktree",
+            },
+        ),
+        patch(
+            "yoke_cli.commands.adapters.claims_path_change.dispatch_and_emit",
+        ) as dispatch,
+    ):
+        result = claims_path_amend(
+            [
+                "--claim-id",
+                "45",
+                "--remove-paths",
+                "src/unused.py",
+                "--integration-target",
+                "main",
+                "--reason",
+                "remove unused path",
+                "--item",
+                "YOK-9409",
+            ]
+        )
+
+    assert result == 2
+    dispatch.assert_not_called()
+    refusal = capsys.readouterr().err
+    assert "cannot verify narrowing boundary: relay unavailable" in refusal
+    assert "yoke project snapshot sync /client/worktree" in refusal
+
+
 def _git(root, *args: str) -> None:
     environment = {
         **os.environ,
