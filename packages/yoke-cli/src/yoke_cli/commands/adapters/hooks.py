@@ -12,10 +12,13 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import List
+from typing import Callable, List
 
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
-from yoke_contracts.hook_runner.chain_registry import session_orientation_event
+from yoke_contracts.hook_runner.chain_registry import (
+    session_orientation_event,
+    session_orientation_redelivery_event,
+)
 from yoke_contracts.hook_runner.config_owner import (
     CONFIG_OWNER_ENV_VAR,
 )
@@ -148,28 +151,34 @@ def hook_evaluate(args: List[str]) -> int:
             stdin_data,
             cursor=cursor_invocation,
         )
-        if connection is not None:
-            return relay_hook_event(
+
+        def evaluate() -> int:
+            if connection is not None:
+                return relay_hook_event(
+                    parsed.event_name,
+                    connection,
+                    stdin_data=stdin_data,
+                    extra_context=extra_context,
+                )
+            # A bound local-postgres universe is an installed engine
+            # authority, so run the complete packaged chain in-process.
+            # Machines with no bound universe retain the product-safe
+            # client subset.
+            if _active_local_universe():
+                return _evaluate_local_universe_hook(
+                    parsed.event_name,
+                    stdin_data,
+                    extra_context=extra_context,
+                )
+            return evaluate_hook_event(
                 parsed.event_name,
-                connection,
                 stdin_data=stdin_data,
                 extra_context=extra_context,
             )
 
-        # A bound local-postgres universe is an installed engine authority,
-        # so run the complete packaged chain in-process. Machines with no
-        # bound universe retain the product-safe client subset.
-        if _active_local_universe():
-            return _evaluate_local_universe_hook(
-                parsed.event_name,
-                stdin_data,
-                extra_context=extra_context,
-            )
-        return evaluate_hook_event(
-            parsed.event_name,
-            stdin_data=stdin_data,
-            extra_context=extra_context,
-        )
+        if not extra_context:
+            return evaluate()
+        return _evaluate_confirming_orientation(evaluate)
 
     return evaluate_hook_event(parsed.event_name, dry_run=parsed.dry_run)
 
@@ -193,7 +202,10 @@ def _session_orientation(
     touching the engine at all."""
     import importlib
 
-    if event_name != session_orientation_event(cursor=cursor):
+    if event_name not in (
+        session_orientation_event(cursor=cursor),
+        session_orientation_redelivery_event(cursor=cursor),
+    ):
         return ""
     try:
         module = importlib.import_module("yoke_core.domain.session_orientation")
@@ -210,6 +222,37 @@ def _session_orientation(
         )
     except Exception:
         return ""
+
+
+def _evaluate_confirming_orientation(evaluate: Callable[[], int]) -> int:
+    """Run *evaluate*, retiring the session's orientation only once printed.
+
+    Composing the block is not delivering it. A deny prints its own message
+    in place of the merged allow stdout — on Cursor and Codex with an
+    allow's exit code, so the exit status cannot stand in for this — and a
+    hook the harness kills on its own timeout prints nothing at all. Holding
+    the evaluation's stdout is what lets this process report on what it
+    actually printed; the text passes through unchanged, and an unconfirmed
+    block is what the next context-bearing event re-delivers.
+    """
+    import contextlib
+    import importlib
+    import io
+
+    buffered = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buffered):
+            return evaluate()
+    finally:
+        printed = buffered.getvalue()
+        if printed:
+            sys.stdout.write(printed)
+        try:
+            module = importlib.import_module("yoke_core.domain.session_orientation")
+            if module.ORIENTATION_HEADING in printed:
+                module.confirm_orientation_delivery()
+        except Exception:
+            pass
 
 
 def _active_local_universe() -> bool:

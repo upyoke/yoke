@@ -57,9 +57,25 @@ SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
 SESSION_START_EVENT = "SessionStart"
 
 
+# The recurring context-bearing event that re-delivers an orientation block
+# the startup event lost. Claude and Codex accept context on every prompt, so
+# the startup event is its own second chance; Cursor's prompt hook answers
+# block/allow only, leaving the tool-result event as its one repeating
+# injection channel. Both mappings follow the harness manifests'
+# ``inject_events`` capability rather than restating it.
+SESSION_ORIENTATION_REDELIVERY_EVENT = "PostToolUse"
+
+
 def session_orientation_event(*, cursor: bool = False) -> str:
     """Return the context-bearing startup event for one harness family."""
     return SESSION_START_EVENT if cursor else SESSION_ORIENTATION_EVENT
+
+
+def session_orientation_redelivery_event(*, cursor: bool = False) -> str:
+    """Return the event that re-delivers a missed orientation block."""
+    if cursor:
+        return SESSION_ORIENTATION_REDELIVERY_EVENT
+    return SESSION_ORIENTATION_EVENT
 
 
 def chain_for(event_name: str, matcher: str | None = None) -> list[str]:

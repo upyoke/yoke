@@ -27,16 +27,30 @@ rules files do not already carry it — see :func:`_packet_lines`.
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.hook_runner.chain_registry import session_orientation_event
+from yoke_contracts.hook_runner.chain_registry import (
+    session_orientation_event,
+    session_orientation_redelivery_event,
+)
 from yoke_contracts.project_contract.managed_block import (
     carries_main_agent_packet,
+)
+from yoke_core.domain.session_orientation_delivery import (
+    confirm_orientation_delivery,
+    orientation_delivered,
+    record_orientation_attempt,
 )
 
 
 ORIENTATION_HEADING = "## Yoke Orientation"
+
+# Stderr marker for an orientation block that reaches its session late,
+# named like the hook runner's other degradation markers so one grep finds
+# every startup the operator's machine did not deliver cleanly.
+ORIENTATION_REDELIVERED_MARKER = "YOKE_ORIENTATION_REDELIVERED"
 
 # Local-universe evaluation receives client-composed context through
 # ``RunControls.payload_extra``. Cursor's lifecycle dispatcher reads this
@@ -220,7 +234,11 @@ def _orientation_for_hook(
 ) -> Optional[str]:
     from yoke_core.domain.json_helper import loads_text
 
-    if event_name != session_orientation_event(cursor=cursor):
+    startup_event = session_orientation_event(cursor=cursor)
+    if event_name not in (
+        startup_event,
+        session_orientation_redelivery_event(cursor=cursor),
+    ):
         return None
     payload = loads_text(stdin_data) if stdin_data else None
     if not isinstance(payload, dict):
@@ -254,9 +272,15 @@ def _orientation_for_hook(
     root = _project_root(Path(cwd))
     if root is None:
         return None
-    if not _claim_session_orientation(session_id):
+    if orientation_delivered(session_id):
         return None
-    return render_orientation(payload, root) or None
+    lost_earlier = record_orientation_attempt(session_id)
+    block = render_orientation(payload, root)
+    if not block:
+        return None
+    if event_name == startup_event and not lost_earlier:
+        return block
+    return _announce_redelivery(session_id, event_name) + block
 
 
 def _project_root(start: Path) -> Optional[Path]:
@@ -276,29 +300,31 @@ def _project_root(start: Path) -> Optional[Path]:
     return None
 
 
-def _claim_session_orientation(session_id: str) -> bool:
-    """True once for *session_id*; arm the startup-orientation marker.
+def _announce_redelivery(session_id: str, event_name: str) -> str:
+    """Warn the operator about a missed orientation; label it for the agent.
 
-    Each hook event runs in a fresh process, so "already oriented" has to be
-    filesystem state. A marker that cannot be written degrades toward
-    orienting again rather than never — a duplicated orientation block is
-    recoverable, a session that never gets one is not.
+    A session that started without its bearings is otherwise invisible: the
+    block simply never appeared, and nothing later says so. The stderr line
+    names the miss where the operator reads hook output, and the returned
+    line tells the agent why its orientation is arriving mid-session rather
+    than at startup.
     """
-    from yoke_core.domain.project_scratch_dir import hook_marker_path
-
-    marker = hook_marker_path(f"session-orientation-{session_id}")
-    if marker.exists():
-        return False
-    try:
-        marker.touch()
-    except OSError:
-        pass
-    return True
+    sys.stderr.write(
+        f"WARNING: {ORIENTATION_REDELIVERED_MARKER}: session {session_id} "
+        "started without its orientation block; delivering it on "
+        f"{event_name}.\n"
+    )
+    return (
+        "NOTE: this session's startup orientation did not reach it. "
+        "Delivering it now.\n\n"
+    )
 
 
 __all__ = [
     "CLIENT_ORIENTATION_PRESENT_KEY",
     "ORIENTATION_HEADING",
+    "ORIENTATION_REDELIVERED_MARKER",
+    "confirm_orientation_delivery",
     "orientation_for_hook",
     "render_orientation",
 ]

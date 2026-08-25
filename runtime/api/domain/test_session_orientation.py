@@ -23,6 +23,8 @@ from yoke_contracts.project_contract.installed_layer import (
     render_installed_layer_receipt,
 )
 from yoke_core.domain import session_orientation as so
+from yoke_core.domain import session_orientation_delivery as delivery
+from yoke_core.domain.project_scratch_roots import ENV_KEY as SCRATCH_ROOT_ENV_KEY
 
 
 def _payload(root: Path, session_id: str = "sess-abc") -> str:
@@ -55,27 +57,12 @@ def project(tmp_path: Path) -> Path:
 
 @pytest.fixture(autouse=True)
 def isolated_markers(tmp_path_factory, monkeypatch) -> None:
-    """Point the fire-once markers at a per-test scratch root."""
-    root = tmp_path_factory.mktemp("markers")
-    monkeypatch.setattr(
-        so,
-        "_claim_session_orientation",
-        _OrientationClaimSpy(root).claim,
+    """Point the attempt/delivery markers at a per-test scratch root."""
+    monkeypatch.setenv(
+        SCRATCH_ROOT_ENV_KEY,
+        str(tmp_path_factory.mktemp("markers")),
     )
-
-
-class _OrientationClaimSpy:
-    """Filesystem-free stand-in with the real once-per-session semantics."""
-
-    def __init__(self, root: Path) -> None:
-        self.root = root
-        self.seen: set[str] = set()
-
-    def claim(self, session_id: str) -> bool:
-        if session_id in self.seen:
-            return False
-        self.seen.add(session_id)
-        return True
+    monkeypatch.setattr(delivery, "_composed_session", None)
 
 
 def test_first_prompt_gets_oriented(project: Path) -> None:
@@ -91,6 +78,7 @@ def test_only_the_first_prompt_of_a_session_is_oriented(project: Path) -> None:
     # Orientation is startup context, not a per-turn banner: repeating it
     # every prompt would crowd out the conversation it is meant to seed.
     first = so.orientation_for_hook("UserPromptSubmit", _payload(project))
+    so.confirm_orientation_delivery()
     second = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
     assert first is not None
@@ -261,6 +249,7 @@ def test_orientation_names_the_board_only_when_it_exists(project: Path) -> None:
     assert without is not None
     assert "BOARD.md" not in without
 
+    so.confirm_orientation_delivery()
     (project / ".yoke" / "BOARD.md").write_text("# board\n", encoding="utf-8")
     with_board = so.orientation_for_hook(
         "UserPromptSubmit",
