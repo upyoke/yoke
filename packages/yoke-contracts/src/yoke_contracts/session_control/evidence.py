@@ -9,6 +9,13 @@ from typing import Any, Mapping
 _TEXT_FIELDS = frozenset(
     {
         "adapter_revision",
+        # Why the control plane closed an attempt itself, how far the launch
+        # had got, and whether the relay holding it was still connected. A
+        # server-side closure runs because nothing was reported, so these are
+        # the only diagnosable facts such an attempt carries.
+        "closure_reason",
+        "launch_phase_reached",
+        "transport_state",
         "diagnostic_availability",
         "driver_surface",
         "driver_version",
