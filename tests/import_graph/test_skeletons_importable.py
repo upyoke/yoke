@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.product_boundary_isolation import write_sitecustomize
+from runtime.api.load_tolerant_subprocess import run_load_tolerant_subprocess
 
 try:
     import tomllib
@@ -321,14 +322,14 @@ def _run_product_python(
     env.pop("YOKE_ENV", None)
     if extra_env:
         env.update(extra_env)
-    result = subprocess.run(
+    result = run_load_tolerant_subprocess(
         [sys.executable, "-c", textwrap.dedent(code)],
+        purpose="running the isolated product import floor",
         cwd=tmp_path,
         env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        timeout=15,
         check=False,
     )
     assert result.returncode == 0, (

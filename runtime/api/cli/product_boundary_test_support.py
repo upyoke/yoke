@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
 from runtime.api.product_boundary_isolation import write_sitecustomize
+from runtime.api.load_tolerant_subprocess import (
+    run_load_tolerant_subprocess,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -147,14 +149,14 @@ def _run_product_cli(
         "YOKE_MACHINE_CONFIG_FILE": str(config_path),
         "YOKE_MACHINE_HOME": str(yoke_home),
     }
-    result = subprocess.run(
+    result = run_load_tolerant_subprocess(
         [sys.executable, "-c", _HARNESS, *args],
+        purpose="running an isolated product CLI boundary command",
         cwd=client_cwd,
         env=env,
         text=True,
         input=stdin_data,
         capture_output=True,
-        timeout=20,
         check=False,
     )
     stderr, boundary = _extract_boundary(result.stderr)
