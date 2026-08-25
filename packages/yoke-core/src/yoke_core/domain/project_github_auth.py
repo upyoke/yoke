@@ -176,12 +176,11 @@ def resolve_project_github_auth(
             raise user_authorization_error
         raise
     result = _auth_result(state, repo, token, installation_permissions)
+    issued_at = getattr(minted, "issued_at", None)
     resolved = ProjectGithubAuth(
         **{
             **result.__dict__,
-            "token_issued_at": (
-                minted.issued_at.isoformat() if minted.issued_at else ""
-            ),
+            "token_issued_at": issued_at.isoformat() if issued_at else "",
             "token_expires_at": minted.expires_at.isoformat(),
         }
     )
