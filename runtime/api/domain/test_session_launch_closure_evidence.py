@@ -154,7 +154,7 @@ def test_a_silent_relay_at_expiry_reads_as_transport_degradation() -> None:
     assert evidence["transport_state"] == TRANSPORT_RELAY_DISCONNECTED
 
 
-def test_a_late_native_report_replaces_the_expiry_document() -> None:
+def test_a_late_native_report_lands_on_top_of_the_expiry_document() -> None:
     from yoke_core.domain.session_launch_execution import report_launch_attempt
 
     conn = _connection()
@@ -177,8 +177,14 @@ def test_a_late_native_report_replaces_the_expiry_document() -> None:
     )
 
     evidence = json.loads(_attempt(conn, launch.launch_id)[2])
+    # The native facts win where the two documents overlap, and the expiry
+    # context survives underneath: that the control plane had already given
+    # up on this attempt is precisely what makes a late native worth
+    # reconciling rather than a puzzle.
     assert evidence["native_launch_phase"] == "native_running"
-    assert "closure_reason" not in evidence
+    assert evidence["surface"] == "codex-cli"
+    assert evidence["closure_reason"] == "launch_lease_expiry"
+    assert evidence["launch_phase_reached"] == "launching"
 
 
 def test_phase_reached_names_the_furthest_observed_launch_state() -> None:
@@ -201,3 +207,38 @@ def test_transport_state_is_unknown_without_a_relay_row() -> None:
         relay_transport_state(conn, relay_id="machine:absent", now=NOW)
         == TRANSPORT_RELAY_UNKNOWN
     )
+
+
+def test_a_cancelled_launch_still_closes_with_phase_and_transport() -> None:
+    """The one closure no earlier pass reaches still says what it observed.
+
+    Cancelling a launching launch moves it to ``outcome_unknown`` pending
+    reconciliation, which the deadline pass no longer selects. The relay
+    batch expiring is then the first thing to touch the attempt, so that
+    closure has to compose the document rather than inherit one.
+    """
+    from yoke_core.domain.session_launch_requests import cancel_launch
+    from yoke_core.domain.session_relay_expiry import settle_expired_relay_leases
+    from runtime.api.domain.session_launch_test_support import authorization
+
+    conn = _connection()
+    launch = _claimed_launch(conn, key="cancelled-then-expired")
+    _relay_connected_through(conn, "2026-08-22T12:10:00Z")
+    cancel_launch(
+        conn,
+        launch_id=launch.launch_id,
+        auth=authorization(),
+        now="2026-08-22T12:01:00Z",
+    )
+
+    settle_expired_relay_leases(conn, now=LEASE_EXPIRED_AT)
+
+    attempt = _attempt(conn, launch.launch_id)
+    assert attempt[0] == LEASE_EXPIRED_AT
+    evidence = json.loads(attempt[2])
+    assert evidence["result_code"] == "relay_lease_expired"
+    assert evidence["closure_reason"] == "relay_lease_expiry"
+    assert evidence["launch_phase_reached"] == "launching"
+    assert evidence["transport_state"] == TRANSPORT_RELAY_CONNECTED
+    assert evidence["relay_id"] == RELAY_ID
+    assert evidence["machine_id"] == MACHINE_ID

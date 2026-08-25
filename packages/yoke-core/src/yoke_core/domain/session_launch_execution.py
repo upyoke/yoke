@@ -6,6 +6,7 @@ import secrets
 from typing import Any
 from uuid import uuid4
 
+from yoke_core.domain.session_launch_closure_evidence import closure_evidence
 from yoke_core.domain.session_launch_store import (
     add_seconds,
     attestation_digest,
@@ -93,7 +94,22 @@ def expire_launch_attempt(
         if completed:
             conn.commit()
             return launch
-        evidence = {"result_code": result_code}
+        # Compose the observable facts here rather than inheriting whatever an
+        # earlier pass happened to leave behind. The deadline pass only visits
+        # a launch still in flight, so a launch cancelled out of ``launching``
+        # reaches this closure with nothing written, and an attempt closed
+        # with only its result code is the silent death this path exists to
+        # end. Merging keeps any richer document a prior pass did write.
+        evidence = closure_evidence(
+            conn,
+            launch=launch,
+            result_code=result_code,
+            closure_reason="relay_lease_expiry",
+            relay_id=launch.assigned_relay_id,
+            machine_id=launch.assigned_machine_id,
+            started_at=value(attempt, "started_at", 2),
+            now=now,
+        )
         merged = merge_redacted_evidence(value(attempt, "evidence", 6), evidence)
         _complete_attempt(
             conn,
