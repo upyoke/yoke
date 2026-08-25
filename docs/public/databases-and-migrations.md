@@ -32,10 +32,13 @@ ad hoc write SQL against a declared authoritative DB.
 ## Item vs fleet
 
 Rehearsal against the validation surface does not prove every tenant DB.
-Fleet preflight exists for release trains that carry unapplied history; after
-converging each throwaway copy it also re-runs callable invariants for every
-shipped entry that already has ledger membership so a green membership row
-cannot hide a historical verification failure.
+Fleet preflight exists for release trains that carry unapplied history or a
+schema-shape change no current receipt covers; after converging each
+throwaway copy of a live database it also re-runs callable invariants for
+every shipped entry that already has ledger membership so a green membership
+row cannot hide a historical verification failure. The pre-tag release gate
+refuses unless both the history names and this build's schema-shape digest
+are covered for the target environment.
 
 Deep reference: [reference/db-reference.md](reference/db-reference.md) and
 `reference/db-reference/migration-model-capabilities.md`.

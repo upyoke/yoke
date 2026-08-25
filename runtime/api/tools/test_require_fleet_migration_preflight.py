@@ -12,6 +12,18 @@ from runtime.api.tools import require_fleet_migration_preflight as preflight
 from runtime.api.tools import yoke_migration_fleet
 
 
+@pytest.fixture(autouse=True)
+def _history_tests_treat_schema_shape_as_covered(monkeypatch):
+    """History-coverage tests are not the schema-shape contract.
+
+    Schema-shape refusal lives in ``test_schema_shape_release_gate``.
+    """
+    monkeypatch.setattr(
+        "yoke_core.domain.migration_preflight_receipt.uncovered_schema_shape",
+        lambda *_args, **_kwargs: (),
+    )
+
+
 def _history(monkeypatch, *names: str) -> tuple[SimpleNamespace, ...]:
     entries = tuple(
         SimpleNamespace(name=name, content_sha256=(str(index) * 64))

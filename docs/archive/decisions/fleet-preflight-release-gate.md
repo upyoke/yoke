@@ -105,6 +105,23 @@ clean. A receipt covers exactly the environment whose fleet was rehearsed;
 one environment's receipt never satisfies another. Turning the gate on
 therefore requires demonstrating a healthy fleet exactly once.
 
+## Additive schema is the same risk without a history entry
+
+The gate originally keyed coverage only on history entry names. Pure-additive
+schema changes never produce an entry, so they shipped as long as every
+historical entry had some prior receipt. CI creates fresh databases, where
+`CREATE TABLE` covers new columns; aged fleet databases only gain those
+columns if boot converge carries an `ALTER`. The fleet preflight already
+proves that path, because it converges copies of live databases. The receipt
+therefore also records the digest of the source files that emit boot-converge
+DDL, and the gate refuses when that digest is uncovered for the target
+environment.
+
+Union coverage still applies: a digest is rehearsed once per environment, and
+not again until the shape changes. A receipt recorded before this field
+existed covers no current digest, which is the bootstrap for the new
+obligation — one passing preflight per environment clears it.
+
 ## What is deliberately not here
 
 - Where the rehearsal runs. Still an open infrastructure decision, and this

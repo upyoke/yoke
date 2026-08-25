@@ -1,4 +1,4 @@
-"""Refuse a release whose migration history is unsafe to publish.
+"""Refuse a release whose migration history or schema shape is unsafe to publish.
 
 Run this before the release train allocates its annotated tag. The tag is the
 first irreversible act, and a release refused after it leaves a tag naming a
@@ -14,19 +14,20 @@ Usage::
 bound for (``stage`` / ``prod``) — the same name receipts are keyed by, which
 the release train resolves from the deployment run's typed environment
 reference. An admin connection name is also accepted and normalized. The
-optional *product-sha* only enriches the refusal, since coverage is a question
-about history entries rather than about which commit carries them.
+optional *product-sha* only enriches the refusal.
 
 This submits the checked-out name/digest set to the connected control plane's
 semantic identity verifier, reads the receipt store, and reads the checked-out
-history. It does not accept SQL or expose ledger digests. It does not rehearse
-anything, so it runs anywhere the control plane is reachable — which is what
-lets it sit in a release job that could never host the rehearsal itself.
+history plus schema-shape sources. It does not accept SQL or expose ledger
+digests. It does not rehearse anything, so it runs anywhere the control plane
+is reachable — which is what lets it sit in a release job that could never
+host the rehearsal itself.
 
-Exits 0 when permanent packaged bytes match the live ledger and every entry is
-covered. Exits 1 when verified evidence is unsafe (content mismatch or missing
-coverage). Exits 2 when verification is unavailable (authorization, transport,
-or unreadable response) or arguments are invalid.
+Exits 0 when permanent packaged bytes match the live ledger and every history
+entry plus this build's schema-shape digest is covered. Exits 1 when verified
+evidence is unsafe (content mismatch or missing coverage). Exits 2 when
+verification is unavailable (authorization, transport, unreadable response, or
+an unreadable schema-shape digest) or arguments are invalid.
 """
 
 from __future__ import annotations
@@ -187,6 +188,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0 if args else 2
 
     from yoke_core.domain import migration_preflight_receipt as receipt
+    from yoke_core.domain.schema_shape_source import (
+        SchemaShapeSourceError,
+        digest_schema_shape,
+    )
     from runtime.api.tools import yoke_migration_fleet
 
     environment = receipt.target_environment_for_admin_env(args[0])
@@ -199,6 +204,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     history = tuple(entry.name for entry in history_entries)
     print(f"target environment: {environment}")
     print(f"history entries carried by this build: {len(history)}")
+    try:
+        schema_digest = digest_schema_shape()
+    except SchemaShapeSourceError as exc:
+        print(
+            "release verification unavailable before tag: schema-shape "
+            f"digest could not be computed: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+    print(f"schema-shape digest: {schema_digest}")
 
     candidate_entries = [
         {"name": entry.name, "content_sha256": entry.content_sha256}
@@ -256,7 +271,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         print(f"release unsafe before tag: {refusal}", file=sys.stderr)
         return 1
+    schema_missing = receipt.uncovered_schema_shape(schema_digest, rows, environment)
+    if schema_missing:
+        receipt_env = os.environ.get("YOKE_ENV", "")
+        print(
+            "release unsafe before tag: "
+            + receipt.schema_shape_refusal_message(
+                environment,
+                schema_digest,
+                product_sha=product_sha,
+                rehearse_command=_yoke_fleet_rehearse_command(environment, receipt_env),
+            ),
+            file=sys.stderr,
+        )
+        return 1
     print("every history entry this build carries has been rehearsed against the fleet")
+    print("this build's schema shape has been rehearsed against the fleet")
     return 0
 
 
