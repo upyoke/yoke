@@ -1,4 +1,4 @@
-"""Run one fresh relay poll, at most one native job, and one report."""
+"""Run one fresh relay poll, its leased batch of native jobs, and a report each."""
 
 from __future__ import annotations
 
@@ -35,11 +35,10 @@ RELAY_REPORT_TIMEOUT_SECONDS = 10
 
 
 @dataclass(frozen=True)
-class ServeOnceOutcome:
-    """Sanitized process outcome; never carries prompts, bodies, or tokens."""
+class ServeOnceJobOutcome:
+    """One job's sanitized result; never carries prompts, bodies, or tokens."""
 
     state: str
-    next_poll_seconds: int = 0
     job_kind: str | None = None
     job_id: str | None = None
     result_code: str | None = None
@@ -52,6 +51,16 @@ class ServeOnceOutcome:
     diagnostic_availability: str | None = None
     native_error_class: str | None = None
     native_error_step: str | None = None
+
+
+@dataclass(frozen=True)
+class ServeOnceOutcome:
+    """Sanitized process outcome; never carries prompts, bodies, or tokens."""
+
+    state: str
+    next_poll_seconds: int = 0
+    error_code: str | None = None
+    jobs: tuple[ServeOnceJobOutcome, ...] = ()
 
 
 Dispatcher = Callable[..., Any]
@@ -165,6 +174,47 @@ def _diagnostic_outcome_fields(
     }
 
 
+def _run_and_report(
+    inventory: RelayInventory,
+    job: Mapping[str, Any],
+    *,
+    dispatcher: Dispatcher,
+    runner: JobRunner,
+    state_dir: Path | None,
+) -> ServeOnceJobOutcome:
+    """Execute one leased job and settle it under its own lease."""
+    result = _retain_private_diagnostic(
+        runner(job),
+        state_dir=state_dir,
+        inventory=inventory,
+    )
+    diagnostic_fields = _diagnostic_outcome_fields(inventory, result)
+    report = dispatcher(
+        function_id=RELAY_REPORT_FUNCTION_ID,
+        target=TargetRef(kind="global"),
+        payload=_report_payload(inventory, job, result),
+        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
+    )
+    kind = str(job.get("job_kind") or "")
+    job_id = str(job.get("job_id") or "")
+    if not getattr(report, "success", False):
+        return ServeOnceJobOutcome(
+            "report_failed",
+            kind,
+            job_id,
+            result.result_code,
+            _error_code(report),
+            **diagnostic_fields,
+        )
+    return ServeOnceJobOutcome(
+        "reported",
+        kind,
+        job_id,
+        result.result_code,
+        **diagnostic_fields,
+    )
+
+
 def _poll(
     inventory: RelayInventory,
     *,
@@ -173,6 +223,7 @@ def _poll(
     state_dir: Path | None = None,
     broker_only: bool = False,
     broker_lease_id: str | None = None,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
     response = dispatcher(
@@ -189,41 +240,32 @@ def _poll(
         return ServeOnceOutcome("claim_failed", error_code=_error_code(response))
     payload = getattr(response, "result", None) or {}
     next_poll = max(1, int(payload.get("next_poll_seconds") or 1))
-    job = payload.get("job")
-    if not isinstance(job, Mapping):
+    claimed = payload.get("jobs")
+    jobs = [job for job in claimed if isinstance(job, Mapping)] if claimed else []
+    if not jobs:
         return ServeOnceOutcome(str(payload.get("state") or "active"), next_poll)
-    result = _retain_private_diagnostic(
-        runner(job),
-        state_dir=state_dir,
-        inventory=inventory,
-    )
-    diagnostic_fields = _diagnostic_outcome_fields(inventory, result)
-    report = dispatcher(
-        function_id=RELAY_REPORT_FUNCTION_ID,
-        target=TargetRef(kind="global"),
-        payload=_report_payload(inventory, job, result),
-        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
-    )
-    kind = str(job.get("job_kind") or "")
-    job_id = str(job.get("job_id") or "")
-    if not getattr(report, "success", False):
-        return ServeOnceOutcome(
-            "report_failed",
-            next_poll,
-            kind,
-            job_id,
-            result.result_code,
-            _error_code(report),
-            **diagnostic_fields,
+    # Native creates land one at a time so a burst never arrives as a spike.
+    stagger = max(0, int(payload.get("launch_stagger_seconds") or 0))
+    outcomes: list[ServeOnceJobOutcome] = []
+    for index, job in enumerate(jobs):
+        if index and stagger:
+            sleep(stagger)
+        outcomes.append(
+            _run_and_report(
+                inventory,
+                job,
+                dispatcher=dispatcher,
+                runner=runner,
+                state_dir=state_dir,
+            )
         )
-    return ServeOnceOutcome(
-        "reported",
-        next_poll,
-        kind,
-        job_id,
-        result.result_code,
-        **diagnostic_fields,
+    settled = tuple(outcomes)
+    state = (
+        "report_failed"
+        if any(outcome.state == "report_failed" for outcome in settled)
+        else "reported"
     )
+    return ServeOnceOutcome(state, next_poll, jobs=settled)
 
 
 def serve_once(
@@ -233,10 +275,11 @@ def serve_once(
     dispatcher: Dispatcher = call_dispatcher,
     runner: JobRunner = run_registered_job,
     clock: Callable[[], float] = time.time,
+    sleep: Callable[[float], None] = time.sleep,
     broker_only: bool = False,
     broker_lease_id: str | None = None,
 ) -> ServeOnceOutcome:
-    """Respect server cadence and run a single bounded relay transaction."""
+    """Respect server cadence and run one bounded batch of relay transactions."""
     started_at = clock()
     with relay_run_lock(state_dir) as acquired:
         if not acquired:
@@ -250,6 +293,7 @@ def serve_once(
             state_dir=state_dir,
             broker_only=broker_only,
             broker_lease_id=broker_lease_id,
+            sleep=sleep,
         )
         if outcome.next_poll_seconds and not broker_only:
             record_next_poll(
@@ -266,6 +310,7 @@ __all__ = [
     "RELAY_DISPATCH_TIMEOUT_SECONDS",
     "RELAY_REPORT_FUNCTION_ID",
     "RELAY_REPORT_TIMEOUT_SECONDS",
+    "ServeOnceJobOutcome",
     "ServeOnceOutcome",
     "serve_once",
 ]

@@ -210,7 +210,11 @@ def test_serve_once_reports_sanitized_result_and_honors_server_backoff(
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(
                 success=True,
-                result={"state": "active", "next_poll_seconds": 300, "job": job},
+                result={
+                    "state": "active",
+                    "next_poll_seconds": 300,
+                    "jobs": [job],
+                },
             )
         return SimpleNamespace(success=True, result={"state": "awaiting_registration"})
 

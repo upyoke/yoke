@@ -19,6 +19,8 @@ _POLICY_PATHS = {
     "idle_after_minutes": "fleet.relay_idle_after_minutes",
     "idle_poll_minutes": "fleet.relay_idle_poll_minutes",
     "max_wake_attempts": "fleet.max_wake_attempts",
+    "launch_batch": "fleet.relay_launch_batch",
+    "launch_stagger_seconds": "fleet.relay_launch_stagger_seconds",
 }
 
 
@@ -78,6 +80,10 @@ def effective_relay_policy(
         idle_after_minutes=min(policy.idle_after_minutes for policy in policies),
         idle_poll_minutes=min(policy.idle_poll_minutes for policy in policies),
         max_wake_attempts=min(policy.max_wake_attempts for policy in policies),
+        launch_batch=min(policy.launch_batch for policy in policies),
+        launch_stagger_seconds=max(
+            policy.launch_stagger_seconds for policy in policies
+        ),
     )
 
 

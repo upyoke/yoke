@@ -64,7 +64,7 @@ def test_target_hook_activity_closes_broker_job_before_native_mutation() -> None
 
     outcome = _claim_broker(conn, lease.lease_id, "broker-a", 4)
 
-    assert outcome.job is None
+    assert outcome.jobs == ()
     row = conn.execute(
         "SELECT completed_at,result_code FROM session_message_attempts "
         "WHERE attempt_id=?",
@@ -103,7 +103,7 @@ def test_broker_version_mismatch_is_terminal_and_typed() -> None:
         now_provider=lambda: _stamp(seconds=3),
     )
 
-    assert outcome.job is None
+    assert outcome.jobs == ()
     row = conn.execute(
         "SELECT completed_at,result_code FROM session_message_attempts "
         "WHERE attempt_id=?",
@@ -138,7 +138,7 @@ def test_connected_relay_without_target_project_does_not_block_broker() -> None:
     )
     broker = _reserve(conn)
 
-    assert direct.job is None
+    assert direct.jobs == ()
     assert broker is not None
 
 
@@ -146,15 +146,15 @@ def test_broker_native_failure_settles_the_reserved_attempt() -> None:
     conn, _message_id = _seed()
     lease = _instruct(conn)
     outcome = _claim_broker(conn, lease.lease_id, "broker-a", 3)
-    assert outcome.job
+    assert outcome.jobs
 
     report_relay_job(
         conn,
         actor_id=10,
         relay_id=RELAY_ID,
         job_kind="wake",
-        job_id=outcome.job.job_id,
-        lease_id=outcome.job.lease_id,
+        job_id=outcome.jobs[0].job_id,
+        lease_id=outcome.jobs[0].lease_id,
         result_code="failed",
         now=_stamp(seconds=4),
     )
@@ -199,8 +199,8 @@ def test_broker_claim_is_scoped_to_exact_lease_and_verified_peer() -> None:
         )
 
     claimed_second = _claim_broker(conn, second.lease_id, "broker-b", 3)
-    assert claimed_second.job is not None
-    assert claimed_second.job.job_id == second.attempt_id
+    assert len(claimed_second.jobs) == 1
+    assert claimed_second.jobs[0].job_id == second.attempt_id
     report_relay_job(
         conn,
         actor_id=10,
@@ -213,8 +213,8 @@ def test_broker_claim_is_scoped_to_exact_lease_and_verified_peer() -> None:
     )
 
     claimed_first = _claim_broker(conn, first.lease_id, "broker-a", 5)
-    assert claimed_first.job is not None
-    assert claimed_first.job.job_id == first.attempt_id
+    assert len(claimed_first.jobs) == 1
+    assert claimed_first.jobs[0].job_id == first.attempt_id
 
 
 def test_wrong_or_stale_broker_lease_cannot_claim_a_new_reservation() -> None:
@@ -240,7 +240,7 @@ def test_wrong_or_stale_broker_lease_cannot_claim_a_new_reservation() -> None:
     )
 
     wrong = _claim_broker(conn, stale.lease_id, "broker-a", 304)
-    assert wrong.job is None
+    assert wrong.jobs == ()
     row = conn.execute(
         "SELECT result_code,completed_at FROM session_message_attempts "
         "WHERE attempt_id=?",
@@ -260,7 +260,7 @@ def test_ordinary_relay_poll_does_not_steal_broker_reservation() -> None:
         now_provider=lambda: _stamp(seconds=3),
     )
 
-    assert ordinary.job is None
+    assert ordinary.jobs == ()
     row = conn.execute(
         "SELECT result_code,completed_at FROM session_message_attempts "
         "WHERE attempt_id=?",
@@ -330,8 +330,8 @@ def test_direct_and_broker_claims_share_one_recipient_cas(tmp_path) -> None:
                     _heartbeat(),
                     wait_seconds=0,
                     now_provider=lambda: _stamp(seconds=1),
-                ).job
-                is not None
+                ).jobs
+                != ()
             )
         finally:
             worker.close()

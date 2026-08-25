@@ -49,6 +49,8 @@ class RelayPolicy:
     idle_after_minutes: int
     idle_poll_minutes: int
     max_wake_attempts: int
+    launch_batch: int
+    launch_stagger_seconds: int
 
     @property
     def idle_poll_seconds(self) -> int:
@@ -91,12 +93,15 @@ class RelayJob:
 
 @dataclass(frozen=True)
 class RelayClaimOutcome:
+    """One poll's leased work: a launch batch, one wake, or nothing."""
+
     relay_id: str
     machine_id: str
     state: Literal["active", "idle"]
     connected_until: str
     next_poll_seconds: int
-    job: RelayJob | None = None
+    launch_stagger_seconds: int = 0
+    jobs: tuple[RelayJob, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -105,7 +110,8 @@ class RelayClaimOutcome:
             "state": self.state,
             "connected_until": self.connected_until,
             "next_poll_seconds": self.next_poll_seconds,
-            "job": self.job.to_dict() if self.job else None,
+            "launch_stagger_seconds": self.launch_stagger_seconds,
+            "jobs": [job.to_dict() for job in self.jobs],
         }
 
 

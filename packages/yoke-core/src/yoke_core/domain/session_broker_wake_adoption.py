@@ -19,7 +19,7 @@ from yoke_core.domain.session_message_types import parse_timestamp
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
 from yoke_core.domain.session_relay_storage import (
-    mark_relay_job,
+    mark_relay_batch,
     marker,
     shifted,
 )
@@ -128,11 +128,11 @@ def _adopt_attempt(
             ),
         )
         lease_id = str(attempt[0])
-        mark_relay_job(
+        mark_relay_batch(
             conn,
             relay_id=heartbeat.relay_id,
-            lease_id=lease_id,
-            lease_expires_at=shifted(now, seconds=WAKE_LEASE_SECONDS),
+            batch_id=lease_id,
+            expires_at=shifted(now, seconds=WAKE_LEASE_SECONDS),
             now=now,
         )
         if qualification is not None:

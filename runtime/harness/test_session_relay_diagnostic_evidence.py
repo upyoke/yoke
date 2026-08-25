@@ -46,7 +46,7 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(
                 success=True,
-                result={"state": "active", "next_poll_seconds": 60, "job": job},
+                result={"state": "active", "next_poll_seconds": 60, "jobs": [job]},
             )
         return SimpleNamespace(success=True, result={"state": "failed"})
 
@@ -112,7 +112,7 @@ def test_report_failure_keeps_local_diagnostic_ref_and_recipe(
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(
                 success=True,
-                result={"state": "active", "next_poll_seconds": 60, "job": job},
+                result={"state": "active", "next_poll_seconds": 60, "jobs": [job]},
             )
         return SimpleNamespace(
             success=False,
@@ -136,17 +136,17 @@ def test_report_failure_keeps_local_diagnostic_ref_and_recipe(
     )
 
     assert outcome.state == "report_failed"
-    assert outcome.error_code == "control_plane_unreachable"
-    assert outcome.relay_id == f"machine:{MACHINE_ID}"
-    assert outcome.machine_id == MACHINE_ID
-    assert outcome.native_diagnostic_ref is not None
-    assert outcome.native_diagnostic_command == (
-        f"yoke relay diagnostic {outcome.native_diagnostic_ref}"
+    assert outcome.jobs[0].error_code == "control_plane_unreachable"
+    assert outcome.jobs[0].relay_id == f"machine:{MACHINE_ID}"
+    assert outcome.jobs[0].machine_id == MACHINE_ID
+    assert outcome.jobs[0].native_diagnostic_ref is not None
+    assert outcome.jobs[0].native_diagnostic_command == (
+        f"yoke relay diagnostic {outcome.jobs[0].native_diagnostic_ref}"
     )
-    assert outcome.diagnostic_expires_at is not None
+    assert outcome.jobs[0].diagnostic_expires_at is not None
     assert "private lookup" not in repr(outcome)
     retained = read_native_diagnostic(
-        outcome.native_diagnostic_ref,
+        outcome.jobs[0].native_diagnostic_ref,
         state_dir=tmp_path,
         now=1001,
     )
@@ -207,7 +207,7 @@ def test_storage_failure_keeps_typed_operator_outcome_and_location(
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             return SimpleNamespace(
                 success=True,
-                result={"state": "active", "next_poll_seconds": 60, "job": job},
+                result={"state": "active", "next_poll_seconds": 60, "jobs": [job]},
             )
         return SimpleNamespace(success=True, result={"state": "failed"})
 
@@ -228,11 +228,11 @@ def test_storage_failure_keeps_typed_operator_outcome_and_location(
     )
 
     assert outcome.state == "reported"
-    assert outcome.diagnostic_availability == "unavailable"
-    assert outcome.native_error_class == "process_exit"
-    assert outcome.native_error_step == "session_lookup"
-    assert outcome.machine_id == MACHINE_ID
-    assert outcome.relay_id == f"machine:{MACHINE_ID}"
-    assert outcome.native_diagnostic_ref is None
+    assert outcome.jobs[0].diagnostic_availability == "unavailable"
+    assert outcome.jobs[0].native_error_class == "process_exit"
+    assert outcome.jobs[0].native_error_step == "session_lookup"
+    assert outcome.jobs[0].machine_id == MACHINE_ID
+    assert outcome.jobs[0].relay_id == f"machine:{MACHINE_ID}"
+    assert outcome.jobs[0].native_diagnostic_ref is None
     assert "private native failure" not in repr(outcome)
     assert "private filesystem detail" not in repr(outcome)

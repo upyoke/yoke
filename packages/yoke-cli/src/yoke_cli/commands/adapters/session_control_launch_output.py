@@ -187,16 +187,35 @@ def write_relay_summary(
             ("State directory", payload.get("state_dir")),
         ]
     else:
+        claimed = payload.get("jobs")
+        jobs = list(claimed) if isinstance(claimed, (list, tuple)) else []
         fields = [
             ("State", humanize(payload.get("state"))),
-            ("Job type", humanize(payload.get("job_kind"))),
-            ("Job ID", payload.get("job_id")),
-            ("Result", humanize(payload.get("result_code"))),
+            ("Jobs run", len(jobs)),
             ("Error", humanize(payload.get("error_code"))),
             ("Next poll (seconds)", payload.get("next_poll_seconds")),
         ]
-        fields[5:5] = native_diagnostic_fields(payload)
+        for position, job in enumerate(jobs, start=1):
+            fields.extend(_relay_job_fields(job, position))
     write_summary(title, fields, stdout)
+
+
+def _relay_job_fields(
+    job: Mapping[str, Any],
+    position: int,
+) -> list[tuple[str, Any]]:
+    label = f"Job {position}"
+    fields: list[tuple[str, Any]] = [
+        (f"{label} type", humanize(job.get("job_kind"))),
+        (f"{label} ID", job.get("job_id")),
+        (f"{label} result", humanize(job.get("result_code"))),
+        (f"{label} state", humanize(job.get("state"))),
+        (f"{label} error", humanize(job.get("error_code"))),
+    ]
+    fields.extend(
+        (f"{label} {name}", value) for name, value in native_diagnostic_fields(job)
+    )
+    return fields
 
 
 __all__ = ["write_launch_result", "write_relay_summary"]

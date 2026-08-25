@@ -113,11 +113,11 @@ def test_candidate_direct_wake_consumes_grant_before_return(monkeypatch) -> None
         now_provider=lambda: "2026-08-22T16:11:00Z",
     )
 
-    assert outcome.job is not None
-    assert outcome.job.message_id == message_id
-    assert outcome.job.wake_route == "direct"
-    assert outcome.job.private_route_qualification == grant
-    wire = outcome.to_dict()["job"]
+    assert len(outcome.jobs) == 1
+    assert outcome.jobs[0].message_id == message_id
+    assert outcome.jobs[0].wake_route == "direct"
+    assert outcome.jobs[0].private_route_qualification == grant
+    wire = outcome.to_dict()["jobs"][0]
     assert wire["private_route_qualification"]["grant_digest"] == scope.digest
     assert "lease_key" not in repr(wire)
     assert "Body remains" not in repr(wire)
@@ -142,7 +142,7 @@ def test_candidate_without_exact_grant_remains_unclaimed(monkeypatch) -> None:
         now_provider=lambda: "2026-08-22T16:11:00Z",
     )
 
-    assert outcome.job is None
+    assert outcome.jobs == ()
     assert (
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
@@ -164,5 +164,5 @@ def test_canonical_version_stays_first_and_needs_no_grant(monkeypatch) -> None:
         now_provider=lambda: "2026-08-22T16:11:00Z",
     )
 
-    assert outcome.job is not None
-    assert outcome.job.private_route_qualification is None
+    assert len(outcome.jobs) == 1
+    assert outcome.jobs[0].private_route_qualification is None

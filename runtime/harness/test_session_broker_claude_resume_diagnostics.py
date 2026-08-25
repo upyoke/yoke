@@ -151,7 +151,7 @@ def test_exact_broker_lease_resumes_claude_and_reports_private_diagnostic(
     )
 
     assert outcome.state == "reported"
-    assert outcome.result_code == "failed"
+    assert outcome.jobs[0].result_code == "failed"
     assert contexts[0].lease_id == lease.lease_id
     assert contexts[0].wake_route == "broker"
     assert contexts[0].target_session_id == "s4"
@@ -166,7 +166,7 @@ def test_exact_broker_lease_resumes_claude_and_reports_private_diagnostic(
 
     evidence = reports[0]["evidence"]
     reference = evidence["native_diagnostic_ref"]
-    assert reference == outcome.native_diagnostic_ref
+    assert reference == outcome.jobs[0].native_diagnostic_ref
     assert evidence["native_error_step"] == "resume"
     assert NATIVE_STDOUT.decode() not in repr(reports[0])
     assert NATIVE_STDERR.decode() not in repr(reports[0])

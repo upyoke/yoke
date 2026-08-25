@@ -142,9 +142,9 @@ def test_broker_scoped_grant_does_not_claim_direct_availability(monkeypatch) -> 
         now_provider=lambda: "2026-08-22T16:00:03Z",
     )
 
-    assert outcome.job is not None
-    assert outcome.job.wake_route == "broker"
-    assert outcome.job.private_route_qualification == grant
+    assert len(outcome.jobs) == 1
+    assert outcome.jobs[0].wake_route == "broker"
+    assert outcome.jobs[0].private_route_qualification == grant
     row = conn.execute(
         "SELECT released_at,release_reason FROM coordination_leases WHERE id=?",
         (grant.lease_id,),
