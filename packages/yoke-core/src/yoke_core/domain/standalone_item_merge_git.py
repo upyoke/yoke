@@ -73,21 +73,29 @@ def fetch_target(repo_root: str, target: str) -> None:
     _git(repo_root, "fetch", "origin", target)
 
 
-def is_landed(repo_root: str, commit: str, target: str) -> bool:
-    """Whether ``commit`` has reached ``target`` locally or at the remote.
+def containing_ref(repo_root: str, commit: str, target: str) -> str:
+    """Which ref already holds ``commit`` — ``target``, its remote, or empty.
 
     A queue-routed merge lands entirely on GitHub, so the local base branch
     legitimately does not contain the commit until it is fetched; refusing on
-    the local answer alone strands a merge that already happened.
+    the local answer alone strands a merge that already happened. Callers that
+    go on to read the landing need to know which of the two answered, because
+    a diff taken against the ref that does not contain it says nothing.
     """
     if not commit:
-        return False
+        return ""
     if is_ancestor(repo_root, commit, target):
-        return True
+        return target
     if not has_remote(repo_root):
-        return False
+        return ""
     fetch_target(repo_root, target)
-    return is_ancestor(repo_root, commit, f"origin/{target}")
+    remote = f"origin/{target}"
+    return remote if is_ancestor(repo_root, commit, remote) else ""
+
+
+def is_landed(repo_root: str, commit: str, target: str) -> bool:
+    """Whether ``commit`` has reached ``target`` locally or at the remote."""
+    return bool(containing_ref(repo_root, commit, target))
 
 
 def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
@@ -123,6 +131,7 @@ def publish(repo_root: str, target: str) -> tuple[bool, str]:
 __all__ = [
     "branch_exists",
     "changed_files",
+    "containing_ref",
     "fetch_target",
     "git_out",
     "head_of",

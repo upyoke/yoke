@@ -135,6 +135,42 @@ def machine_github_user_authority() -> Iterator[None]:
         yield
 
 
+def _confirm_selected_control_plane(authority: str) -> None:
+    """Refuse before the merge starts when the selected control plane is down.
+
+    Selecting the connection is not the same as reaching it. A local Postgres
+    sibling normally sits behind an SSH forward, and a forward that has died —
+    a changed network, a slept machine — answers the *first* dispatched call
+    of the merge rather than this one, which is how a merge came to fail
+    halfway through with a tunnel error after its control plane had silently
+    moved underneath it. Probing here restarts a recoverable forward and turns
+    an unrecoverable one into a refusal that costs nothing.
+    """
+    try:
+        readiness = importlib.import_module(
+            "yoke_core.domain.connected_env_readiness"
+        )
+    except ImportError as exc:
+        raise LocalMergeControlPlaneAuthorityError(
+            "local merge requires matching yoke-cli and yoke-core releases; "
+            "repair the Yoke installation, then retry"
+        ) from exc
+    try:
+        result = readiness.ensure_ready(force=True)
+    except Exception as exc:  # noqa: BLE001 - every failure is the same refusal
+        raise LocalMergeControlPlaneAuthorityError(
+            f"local merge selected control plane {authority!r}, which is not "
+            f"reachable: {exc}. Restore the connection, then re-run the merge; "
+            "nothing has been merged."
+        ) from exc
+    if not result.ok:
+        raise LocalMergeControlPlaneAuthorityError(
+            f"local merge selected control plane {authority!r}, which is not "
+            f"reachable: {result.message}. Restore the connection, then re-run "
+            "the merge; nothing has been merged."
+        )
+
+
 @contextmanager
 def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
     """Select local Postgres for the same universe before merge admission."""
@@ -166,6 +202,7 @@ def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
     previous = os.environ.get(ENV_OVERRIDE)
     os.environ[ENV_OVERRIDE] = authority
     try:
+        _confirm_selected_control_plane(authority)
         yield selected, authority
     finally:
         if previous is None:

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
@@ -26,15 +27,16 @@ def test_close_out_emits_a_phase_marker_for_each_step(monkeypatch, capsys):
     }
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
     monkeypatch.setattr(
-        merge_cli, "qa_preflight",
+        verify, "qa_preflight",
         lambda *_a, **_k: (LANE_SHA, ""),
     )
     monkeypatch.setattr(
-        merge_cli, "route_standalone_landing",
+        verify, "route_standalone_landing",
         lambda **_k: StandaloneMergeOutcome(
             ok=True, exit_code=0, already_merged=False,
             commit_sha=LANE_SHA, merge_sha=MERGE_SHA,
@@ -49,6 +51,8 @@ def test_close_out_emits_a_phase_marker_for_each_step(monkeypatch, capsys):
 
     monkeypatch.setattr(merge_cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(merge_evidence, "call_dispatcher", dispatch)
+    monkeypatch.setattr(merge_cli.terminal, "call_dispatcher", dispatch)
+    monkeypatch.setattr(merge_cli.terminal.recovery, "claim_error", lambda *_a: "")
 
     exit_code = merge_cli.run(
         ["ITEM-1", "--result", "landed", "--verification", "green"],

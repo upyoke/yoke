@@ -16,12 +16,22 @@ from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
-from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import standalone_item_merge_terminal as terminal
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
+LANE = landed.LandedLane(
+    branch="ITEM-1",
+    target="main",
+    commit_sha=LANE_SHA,
+    merge_sha=MERGE_SHA,
+    touched_files=("a.py",),
+    source="lane branch",
+)
 
 
 def _transition_calls(monkeypatch) -> list:
@@ -34,6 +44,9 @@ def _transition_calls(monkeypatch) -> list:
 
     monkeypatch.setattr(merge_cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(merge_evidence, "call_dispatcher", dispatch)
+    monkeypatch.setattr(terminal, "call_dispatcher", dispatch)
+    # This session holds its claim; the recovery path has its own coverage.
+    monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
     return calls
 
 
@@ -45,16 +58,14 @@ def test_transition_accepts_a_landing_only_the_remote_has_seen(monkeypatch):
         fetched.append((commit, target))
         return commit == LANE_SHA
 
-    monkeypatch.setattr(git, "is_landed", is_landed)
+    monkeypatch.setattr(terminal.git, "is_landed", is_landed)
     calls = _transition_calls(monkeypatch)
 
-    error = merge_cli._transition_to_done(
-        7,
-        "reviewing-implementation",
-        Path("/repo"),
-        "main",
-        LANE_SHA,
-        MERGE_SHA,
+    error = terminal.transition_to_done(
+        item_id=7,
+        source_status="reviewing-implementation",
+        repo_root="/repo",
+        lane=LANE,
     )
 
     assert error == ""
@@ -67,19 +78,17 @@ def test_transition_accepts_the_merge_commit_when_the_lane_head_was_rewritten(
 ):
     """A squash or queue merge can leave only the merge commit reachable."""
     monkeypatch.setattr(
-        git,
+        terminal.git,
         "is_landed",
         lambda repo_root, commit, target: commit == MERGE_SHA,
     )
     calls = _transition_calls(monkeypatch)
 
-    error = merge_cli._transition_to_done(
-        7,
-        "reviewing-implementation",
-        Path("/repo"),
-        "main",
-        LANE_SHA,
-        MERGE_SHA,
+    error = terminal.transition_to_done(
+        item_id=7,
+        source_status="reviewing-implementation",
+        repo_root="/repo",
+        lane=LANE,
     )
 
     assert error == ""
@@ -87,20 +96,18 @@ def test_transition_accepts_the_merge_commit_when_the_lane_head_was_rewritten(
 
 
 def test_transition_still_refuses_a_commit_no_branch_carries(monkeypatch):
-    monkeypatch.setattr(git, "is_landed", lambda *_args: False)
+    monkeypatch.setattr(terminal.git, "is_landed", lambda *_args: False)
 
     def forbidden(**_kw):
         raise AssertionError("an unlanded commit must not transition")
 
-    monkeypatch.setattr(merge_cli, "call_dispatcher", forbidden)
+    monkeypatch.setattr(terminal, "call_dispatcher", forbidden)
 
-    error = merge_cli._transition_to_done(
-        7,
-        "reviewing-implementation",
-        Path("/repo"),
-        "main",
-        LANE_SHA,
-        MERGE_SHA,
+    error = terminal.transition_to_done(
+        item_id=7,
+        source_status="reviewing-implementation",
+        repo_root="/repo",
+        lane=LANE,
     )
 
     assert "is not reachable from 'main'" in error
@@ -133,13 +140,14 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         "_resolve_checkout",
         lambda item, target: (Path("/repo"), "main"),
     )
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "qa_preflight",
         lambda item, *, item_ref, repo_root, branch: (LANE_SHA, ""),
     )
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "route_standalone_landing",
         lambda **_kw: StandaloneMergeOutcome(
             ok=True,
@@ -152,7 +160,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         ),
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
-    monkeypatch.setattr(git, "is_landed", lambda *_args: True)
+    monkeypatch.setattr(terminal.git, "is_landed", lambda *_args: True)
     calls = _transition_calls(monkeypatch)
 
     exit_code = merge_cli.run(
@@ -172,21 +180,8 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     )
 
 
-def test_landed_receipt_reacquires_close_out_authority(monkeypatch):
-    """A retry proves containment before taking a replacement claim."""
-    receipt = receipts.MergeReceipt(
-        branch="ITEM-1",
-        target="main",
-        commit_sha=LANE_SHA,
-        merge_sha=MERGE_SHA,
-        touched_files=("a.py",),
-    )
-    monkeypatch.setattr(recovery.receipts, "load", lambda *_a, **_k: receipt)
-    monkeypatch.setattr(
-        recovery.git,
-        "is_landed",
-        lambda _repo, sha, _target: sha == MERGE_SHA,
-    )
+def test_landed_lane_reacquires_close_out_authority(monkeypatch):
+    """A retry takes a replacement claim only for a proven landing."""
     calls = []
 
     def dispatch(**kwargs):
@@ -196,47 +191,32 @@ def test_landed_receipt_reacquires_close_out_authority(monkeypatch):
     monkeypatch.setattr(recovery, "call_dispatcher", dispatch)
 
     recovered, error = recovery.reacquire_landed_claim(
-        item_id=7,
-        branch="ITEM-1",
-        target="main",
-        repo_root="/repo",
-        project="yoke",
-        session_id="session-1",
+        item_id=7, session_id="session-1", lane=LANE,
     )
 
     assert error == ""
-    assert recovered == receipt
+    assert recovered == LANE
     assert calls[0]["function_id"] == "claims.work.acquire"
     assert calls[0]["actor"].session_id == "session-1"
 
 
-def test_uncontained_receipt_cannot_reacquire_close_out_authority(monkeypatch):
-    receipt = receipts.MergeReceipt(
-        branch="ITEM-1",
-        target="main",
-        commit_sha=LANE_SHA,
-    )
-    monkeypatch.setattr(recovery.receipts, "load", lambda *_a, **_k: receipt)
-    monkeypatch.setattr(recovery.git, "is_landed", lambda *_a: False)
+def test_absent_landing_cannot_reacquire_close_out_authority(monkeypatch):
+    """Without a landing the claim refusal is the caller's own, unchanged."""
     monkeypatch.setattr(
         recovery,
         "call_dispatcher",
         lambda **_kwargs: (_ for _ in ()).throw(
-            AssertionError("an unlanded receipt cannot acquire a claim")
+            AssertionError("an unlanded lane cannot acquire a claim")
         ),
     )
+    monkeypatch.setattr(recovery, "claim_error", lambda *_a: "")
 
     recovered, error = recovery.reacquire_landed_claim(
-        item_id=7,
-        branch="ITEM-1",
-        target="main",
-        repo_root="/repo",
-        project="yoke",
-        session_id="session-1",
+        item_id=7, session_id="session-1", lane=None,
     )
 
     assert recovered is None
-    assert "not contained" in error
+    assert "no landing the base branch contains" in error
 
 
 def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
@@ -248,13 +228,6 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
         "project": {"slug": "yoke"},
         "worktrees": [],
     }
-    receipt = receipts.MergeReceipt(
-        branch="ITEM-1",
-        target="main",
-        commit_sha=LANE_SHA,
-        merge_sha=MERGE_SHA,
-        touched_files=("a.py",),
-    )
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(
         merge_cli,
@@ -266,10 +239,11 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
         "_resolve_checkout",
         lambda *_a: (Path("/repo"), "main"),
     )
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         recovery,
         "reacquire_landed_claim",
-        lambda **_k: (receipt, ""),
+        lambda **_k: (LANE, ""),
     )
     preflight_heads = []
 
@@ -277,9 +251,9 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
         preflight_heads.append(recovered_item["worktrees"][-1]["commit_sha"])
         return LANE_SHA, ""
 
-    monkeypatch.setattr(merge_cli, "qa_preflight", preflight)
+    monkeypatch.setattr(verify, "qa_preflight", preflight)
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "route_standalone_landing",
         lambda **_k: StandaloneMergeOutcome(
             ok=True,
@@ -292,7 +266,7 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
         ),
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda _item_id: None)
-    monkeypatch.setattr(git, "is_landed", lambda *_a: True)
+    monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
     calls = _transition_calls(monkeypatch)
 
     exit_code = merge_cli.run(

@@ -6,7 +6,6 @@ import argparse
 import json
 import os
 import sys
-from pathlib import Path
 from typing import Any, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -14,12 +13,11 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
 )
-from yoke_core.domain import merge_queue_landing_timeout as _timeout
 from yoke_core.domain import standalone_item_merge_evidence as evidence
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
-from yoke_core.domain.merge_queue_route_selection import (
-    route_standalone_landing,
-)
+from yoke_core.domain import standalone_item_merge_terminal as terminal
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.standalone_item_merge_checkout import (
     ensure_usable_cwd as _ensure_usable_cwd,
@@ -30,11 +28,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_branch,
     lane_path,
     lane_resolution_error,
-)
-from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
-from yoke_core.domain.standalone_item_merge_qa import (
-    item_for_merge_phase,
-    preflight as qa_preflight,
+    merge_source_lane,
 )
 from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
 from yoke_contracts.dash_evidence_status import status_argument_kwargs
@@ -76,42 +70,6 @@ def _session_holds_claim(item_id: int, session_id: str) -> str:
 def _announce_close_out(step: str) -> None:
     """Name each close-out step so a killed capture shows where it stopped."""
     print(f"[phase:close-out] {step}", file=sys.stderr, flush=True)
-
-
-def _transition_to_done(
-    item_id: int,
-    source_status: str,
-    repo_root: Path,
-    target: str,
-    commit_sha: str,
-    merge_sha: str = "",
-) -> str:
-    from yoke_core.domain import standalone_item_merge_git as git
-
-    # Either identity proves the landing: a queue or squash merge can rewrite
-    # the lane head, leaving only the merge commit reachable from the target.
-    landed = any(
-        git.is_landed(str(repo_root), sha, target)
-        for sha in (commit_sha, merge_sha)
-        if sha
-    )
-    if not landed:
-        return (
-            f"terminal transition refused: recorded merge commit {commit_sha} "
-            f"is not reachable from '{target}'"
-        )
-    response = call_dispatcher(
-        function_id="lifecycle.transition.execute",
-        target=TargetRef(kind="item", item_id=item_id),
-        payload={
-            "source_status": source_status,
-            "target_status": "done",
-            "reason": "Merged and evidence recorded",
-        },
-    )
-    if response.success:
-        return ""
-    return _relay_error(response, "terminal transition refused")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -186,59 +144,57 @@ def run(argv: List[str]) -> int:
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
     _ensure_usable_cwd(repo_root, lane_path(item))
+    project = str((item.get("project") or {}).get("slug") or "yoke")
+    landed_lane = landed.landed_lane(
+        item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=str(repo_root),
+        project=project,
+        recorded_head=str(
+            (merge_source_lane(item) or {}).get("commit_sha") or ""
+        ),
+    )
     pruned_lane = not active_lanes(item) and recovery.branch_needs_receipt(
         str(repo_root),
         branch,
     )
     if claim_error or pruned_lane:
-        receipt, recovery_error = recovery.reacquire_landed_claim(
+        recovered, recovery_error = recovery.reacquire_landed_claim(
             item_id=item_id,
-            branch=branch,
-            target=target,
-            repo_root=str(repo_root),
-            project=str((item.get("project") or {}).get("slug") or "yoke"),
             session_id=str(args.session_id),
+            lane=landed_lane,
         )
-        if recovery_error or receipt is None:
+        if recovery_error or recovered is None:
             return _fail(
                 f"{item_ref}: {recovery_error or 'claim recovery failed'}",
                 as_json=as_json,
             )
-        item = recovery.with_recorded_head(item, receipt)
-    qa_item = item_for_merge_phase(
-        item,
-        leaves_status_unchanged=bool(args.skip_status),
-    )
-    commit_sha, qa_error = qa_preflight(
-        qa_item,
-        item_ref=item_ref,
-        repo_root=repo_root,
-        branch=branch,
-    )
-    if qa_error:
-        commit_sha, qa_error = commit_bound.recover_and_recheck(
-            qa_item,
-            item_ref=item_ref,
-            repo_root=repo_root,
-            branch=branch,
-            qa_error=qa_error,
-            rerecord=commit_bound.rerecord_hand_run,
-            run_case=commit_bound.rerun_command_case,
-        )
-    if qa_error:
-        return _fail(f"{item_ref}: {qa_error}", as_json=as_json)
+        item = recovery.with_recorded_head(item, recovered)
 
-    outcome = route_standalone_landing(
-        item_id=item_id,
-        branch=branch,
-        commit_sha=commit_sha,
-        target=target,
-        repo_root=str(repo_root),
-        project=str((item.get("project") or {}).get("slug") or "yoke"),
-        item_ref=item_ref,
-        local_merge=not args.pr,
-        resume_command=_timeout.merge_item_resume_command(item_ref, args),
-    )
+    if landed_lane is not None:
+        # Nothing below is safe against a landing that already happened: the
+        # commit-bound QA recovery publishes the lane, and the landing route
+        # asks the queue to take a pull request it has already merged.
+        outcome = landed.converge(
+            item_id=item_id,
+            project=project,
+            repo_root=str(repo_root),
+            lane=landed_lane,
+        )
+    else:
+        outcome, refusal = verify.verify_and_land(
+            item,
+            args,
+            item_ref=item_ref,
+            item_id=item_id,
+            branch=branch,
+            target=target,
+            repo_root=repo_root,
+            project=project,
+        )
+        if refusal:
+            return _fail(f"{item_ref}: {refusal}", as_json=as_json)
     if not outcome.ok:
         return _fail(
             f"{item_ref}: {outcome.error}",
@@ -302,13 +258,19 @@ def run(argv: List[str]) -> int:
 
     if not args.skip_status:
         _announce_close_out("terminal transition")
-        transition_error = _transition_to_done(
-            item_id,
-            status,
-            repo_root,
-            target,
-            outcome.commit_sha,
-            outcome.merge_sha,
+        transition_error = terminal.transition_to_done(
+            item_id=item_id,
+            source_status=status,
+            repo_root=str(repo_root),
+            lane=landed_lane or landed.LandedLane(
+                branch=branch,
+                target=target,
+                commit_sha=outcome.commit_sha,
+                merge_sha=outcome.merge_sha,
+                touched_files=tuple(outcome.touched_files),
+                source="this merge",
+            ),
+            session_id=str(args.session_id),
         )
         if transition_error:
             envelope["ok"] = False

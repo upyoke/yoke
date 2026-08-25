@@ -30,6 +30,7 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 
 from yoke_core.domain import gh_rest_transport
+from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     RestTransportError,
@@ -92,6 +93,25 @@ def _head_sha(row: dict[str, Any]) -> str:
     return str((head or {}).get("sha") or "").strip() if isinstance(head, dict) else ""
 
 
+def _carries_unlanded_work(ctx: MergeContext, lane_head: str) -> bool:
+    """Whether ``lane_head`` holds anything the base branch does not.
+
+    A head that differs from what a pull request merged is not by itself work
+    left over. A lane fast-forwarded onto the base after its own merge points
+    at the merge commit — a different sha that the base branch nonetheless
+    contains — and calling that "commits beyond the pull request that merged
+    it" sends close-out off to open a second pull request for work that has
+    already landed.
+
+    Without a checkout to read, the answer stays the conservative one: treat
+    the difference as unlanded work rather than converge on a merge this
+    process cannot confirm.
+    """
+    if not ctx.repo_root:
+        return True
+    return not git.is_landed(ctx.repo_root, lane_head, ctx.args.target)
+
+
 def find_landable_pull_request(
     ctx: MergeContext, *, lane_head: str = "",
 ) -> Tuple[Optional[str], Optional[str], str]:
@@ -120,7 +140,12 @@ def find_landable_pull_request(
         return url, number, ""
     newest = rows[0]
     merged_head = _head_sha(newest)
-    if lane_head and newest.get("merged_at") and merged_head != lane_head:
+    if (
+        lane_head
+        and newest.get("merged_at")
+        and merged_head != lane_head
+        and _carries_unlanded_work(ctx, lane_head)
+    ):
         _, number = _identify(newest)
         return None, None, (
             f"pull request {number or '?'} merged head "

@@ -7,6 +7,7 @@ from unittest import mock
 
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_commit_bound as commit_bound
 from yoke_core.domain import standalone_item_merge_recovery as merge_recovery
 from runtime.api.domain.test_standalone_item_merge_qa import (
@@ -20,6 +21,7 @@ from runtime.api.domain.test_standalone_item_merge_qa import (
 def _run_merge(tmp_path: Path, monkeypatch, item, *, rerecord, run_case=None):
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(merge_recovery, "branch_needs_receipt", lambda *a: False)
     monkeypatch.setattr(merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"))
     monkeypatch.setattr(
@@ -33,7 +35,7 @@ def _run_merge(tmp_path: Path, monkeypatch, item, *, rerecord, run_case=None):
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
-    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
+    monkeypatch.setattr(verify, "route_standalone_landing", merger)
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
     return merge_cli.run(["YOK-10", "--skip-status"]), merger
 

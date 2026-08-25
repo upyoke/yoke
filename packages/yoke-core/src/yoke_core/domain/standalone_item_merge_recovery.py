@@ -10,8 +10,8 @@ from typing import Any, Optional
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
-from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
 _MISSING_CLAIM = "no live work claim on this item"
 _HOLDER_FUNCTION = "claims.work.holder_get"
@@ -136,36 +136,23 @@ def branch_needs_receipt(repo_root: str, branch: str) -> bool:
 def reacquire_landed_claim(
     *,
     item_id: int,
-    branch: str,
-    target: str,
-    repo_root: str,
-    project: str,
     session_id: str,
-) -> tuple[Optional[receipts.MergeReceipt], str]:
-    """Reclaim close-out authority only after receipt and git agree."""
-    receipt = receipts.load(
-        item_id,
-        branch,
-        target,
-        project=project,
-    )
-    if receipt is None or not receipt.commit_sha:
+    lane: Optional[LandedLane],
+) -> tuple[Optional[LandedLane], str]:
+    """Reclaim close-out authority, but only for a landing already proven.
+
+    Whether the lane landed is decided by
+    :func:`yoke_core.domain.standalone_item_merge_landed.landed_lane`, which
+    reads the checkout and the durable receipt together; an absent ``lane``
+    means it did not, so the claim refusal stands as the caller's own.
+    """
+    if lane is None:
         diagnosis = claim_error(item_id, session_id)
         if diagnosis:
             return None, diagnosis
         return None, (
-            "no active worktree lane and no recorded landing; merge source "
-            "cannot be recovered"
-        )
-    landed = any(
-        git.is_landed(repo_root, sha, target)
-        for sha in (receipt.commit_sha, receipt.merge_sha)
-        if sha
-    )
-    if not landed:
-        return None, (
-            "the durable merge receipt is not contained by "
-            f"{target!r}; refusing automatic work-claim recovery"
+            "no active worktree lane and no landing the base branch "
+            "contains; merge source cannot be recovered"
         )
     caller = _session_id(session_id)
     if not caller:
@@ -182,20 +169,20 @@ def reacquire_landed_claim(
     )
     if not response.success:
         return None, _relay_error(response, "work-claim recovery failed")
-    return receipt, ""
+    return lane, ""
 
 
 def with_recorded_head(
     item: dict[str, Any],
-    receipt: receipts.MergeReceipt,
+    lane: LandedLane,
 ) -> dict[str, Any]:
-    """Present the receipt's verified lane head as the unique active lane."""
+    """Present the landing's verified lane head as the unique active lane."""
     return {
         **item,
         "worktrees": [{
             "state": "active",
-            "branch": receipt.branch,
-            "commit_sha": receipt.commit_sha,
+            "branch": lane.branch,
+            "commit_sha": lane.commit_sha,
         }],
     }
 

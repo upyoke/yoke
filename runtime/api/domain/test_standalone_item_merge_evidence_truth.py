@@ -22,6 +22,8 @@ from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_git as merge_git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain import standalone_item_merge_terminal as terminal
+from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 
 MERGE_SHA = "b" * 40
@@ -129,11 +131,11 @@ class TestEvidenceWriteRetry:
         monkeypatch.setattr(evidence, "recorded_covers_merge", covers)
         transitions: list[str] = []
 
-        def transition(*_args: object) -> str:
+        def transition(**_kwargs: object) -> str:
             transitions.append("done")
             return ""
 
-        monkeypatch.setattr(sim_cli, "_transition_to_done", transition)
+        monkeypatch.setattr(sim_cli.terminal, "transition_to_done", transition)
 
         exit_code = sim_cli.run(
             ["ITEM-1", "--result", "landed", "--verification", "suite green"],
@@ -162,8 +164,8 @@ class TestEvidenceWriteRetry:
             lambda **_k: _section_response(None),
         )
         monkeypatch.setattr(
-            sim_cli, "_transition_to_done",
-            lambda *_a: pytest.fail("close-out must not continue"),
+            sim_cli.terminal, "transition_to_done",
+            lambda **_k: pytest.fail("close-out must not continue"),
         )
 
         exit_code = sim_cli.run(
@@ -209,12 +211,16 @@ class TestTerminalTransitionConvergence:
                 ),
             )
 
-        monkeypatch.setattr(sim_cli, "call_dispatcher", dispatch)
+        monkeypatch.setattr(terminal, "call_dispatcher", dispatch)
         monkeypatch.setattr(evidence, "call_dispatcher", dispatch)
         monkeypatch.setattr(merge_git, "is_landed", lambda *_a: True)
+        monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
 
-        error = sim_cli._transition_to_done(
-            7, "reviewing-implementation", tmp_path, "main", "a" * 40,
+        error = terminal.transition_to_done(
+            item_id=7,
+            source_status="reviewing-implementation",
+            repo_root=str(tmp_path),
+            lane=LandedLane(branch="lane", target="main", commit_sha="a" * 40),
         )
 
         assert "connection dropped" in error
@@ -232,11 +238,15 @@ class TestTerminalTransitionConvergence:
                 error=SimpleNamespace(code="transition_refused", message="denied"),
             )
 
-        monkeypatch.setattr(sim_cli, "call_dispatcher", dispatch)
+        monkeypatch.setattr(terminal, "call_dispatcher", dispatch)
         monkeypatch.setattr(merge_git, "is_landed", lambda *_a: True)
+        monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
 
-        error = sim_cli._transition_to_done(
-            7, "reviewing-implementation", tmp_path, "main", "a" * 40,
+        error = terminal.transition_to_done(
+            item_id=7,
+            source_status="reviewing-implementation",
+            repo_root=str(tmp_path),
+            lane=LandedLane(branch="lane", target="main", commit_sha="a" * 40),
         )
 
         assert error == "denied"

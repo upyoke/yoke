@@ -7,6 +7,7 @@ from unittest import mock
 
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_qa as merge_qa
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain.standalone_item_merge_lane import (
@@ -76,6 +77,7 @@ def _worker_and_integration() -> list[dict]:
 def _wire_cli(monkeypatch, item: dict, tmp_path: Path) -> mock.Mock:
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (tmp_path, "main"),
     )
@@ -85,7 +87,7 @@ def _wire_cli(monkeypatch, item: dict, tmp_path: Path) -> mock.Mock:
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
-    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
+    monkeypatch.setattr(verify, "route_standalone_landing", merger)
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
     return merger
 

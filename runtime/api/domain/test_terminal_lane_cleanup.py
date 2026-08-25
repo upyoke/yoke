@@ -7,6 +7,7 @@ from pathlib import Path
 
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import terminal_lane_cleanup
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 
@@ -32,12 +33,13 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
     timeline: list[str] = []
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main")
     )
-    monkeypatch.setattr(merge_cli, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
+    monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "route_standalone_landing",
         lambda **_k: StandaloneMergeOutcome(
             ok=True,
@@ -52,9 +54,9 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
     monkeypatch.setattr(merge_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda *_a: None)
     monkeypatch.setattr(
-        merge_cli,
-        "_transition_to_done",
-        lambda *_a: timeline.append("done") or "",
+        merge_cli.terminal,
+        "transition_to_done",
+        lambda **_k: timeline.append("done") or "",
     )
     monkeypatch.setattr(
         merge_cli,

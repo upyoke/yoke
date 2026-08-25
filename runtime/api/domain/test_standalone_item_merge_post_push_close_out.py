@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 from yoke_core.domain import standalone_item_merge as merge_boundary
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.project_github_auth_models import (
@@ -119,12 +120,13 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
     }
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    monkeypatch.setattr(merge_cli.landed, "landed_lane", lambda **_kw: None)
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
     )
-    monkeypatch.setattr(merge_cli, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
+    monkeypatch.setattr(verify, "qa_preflight", lambda *_a, **_k: (LANE_SHA, ""))
     monkeypatch.setattr(
-        merge_cli,
+        verify,
         "route_standalone_landing",
         lambda **_k: merge_boundary.StandaloneMergeOutcome(
             ok=False,
@@ -141,9 +143,9 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
         lambda **_k: (_ for _ in ()).throw(AssertionError("no evidence write")),
     )
     monkeypatch.setattr(
-        merge_cli,
-        "_transition_to_done",
-        lambda *_a: (_ for _ in ()).throw(AssertionError("no done transition")),
+        merge_cli.terminal,
+        "transition_to_done",
+        lambda **_k: (_ for _ in ()).throw(AssertionError("no done transition")),
     )
 
     result = merge_cli.run([
