@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.session_launch_surface_domain import (
     REQUESTED_SURFACE_COLUMN_DDL,
@@ -185,6 +186,11 @@ def create_session_control_tables(conn: Any) -> None:
             ON session_relays(state, connected_until);
     """,
     )
+    # CREATE TABLE IF NOT EXISTS never alters an existing table, so a column
+    # introduced after a table first shipped must also converge as an additive
+    # ALTER for databases born before it.
+    if not _column_exists(conn, "session_launch_attempts", "batch_id"):
+        conn.execute("ALTER TABLE session_launch_attempts ADD COLUMN batch_id TEXT")
 
 
 def required_tables() -> tuple[str, ...]:
