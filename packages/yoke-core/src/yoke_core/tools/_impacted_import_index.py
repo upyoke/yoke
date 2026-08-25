@@ -135,6 +135,18 @@ class ImportIndex:
     module_of: dict[str, str]
 
 
+def direct_changed_tests(changed: Iterable[str], index: ImportIndex) -> frozenset[str]:
+    """Modified or added test files that still exist in the tree.
+
+    A changed test is definitionally impacted. Callers include this set
+    before reachability runs, and keep it when a bounded run defers a
+    near-total remainder.
+    """
+    return frozenset(
+        rel for rel in changed if rel in index.module_of and is_test_file(rel)
+    )
+
+
 def build_import_index(repo_root: Path) -> ImportIndex:
     importers: dict[str, set[str]] = {}
     module_of: dict[str, str] = {}
@@ -157,6 +169,7 @@ __all__ = [
     "ImportIndex",
     "TEST_ANCHORS",
     "build_import_index",
+    "direct_changed_tests",
     "is_test_file",
     "module_name_for",
 ]
