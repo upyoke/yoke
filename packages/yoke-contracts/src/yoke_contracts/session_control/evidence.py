@@ -10,6 +10,8 @@ _TEXT_FIELDS = frozenset(
     {
         "adapter_revision",
         "diagnostic_availability",
+        "driver_surface",
+        "driver_version",
         "machine_id",
         "native_binary_source",
         "native_binary",

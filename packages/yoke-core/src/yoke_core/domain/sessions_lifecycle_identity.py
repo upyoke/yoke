@@ -49,7 +49,8 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
         found = conn.execute(
-            f"SELECT 1 FROM projects WHERE id = {marker}", (project_id,),
+            f"SELECT 1 FROM projects WHERE id = {marker}",
+            (project_id,),
         ).fetchone()
     except db_backend.operational_error_types(conn):
         raise SessionError(
@@ -65,7 +66,8 @@ def resolve_session_project_id(conn: Any, explicit: int) -> int:
 
 
 def normalize_observed_identity(
-    executor_version: Optional[str], machine_id: Optional[str],
+    executor_version: Optional[str],
+    machine_id: Optional[str],
 ) -> tuple[Optional[str], Optional[str]]:
     """Validate bounded client-observed identity facts before persistence."""
     from yoke_core.domain.sessions import SessionError
@@ -93,7 +95,10 @@ def normalize_observed_identity(
 def _stored_value(row: Any, key: str, default: str = "") -> str:
     if row is None:
         return default
-    value = row[key]
+    try:
+        value = row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
     return value or default
 
 
@@ -124,6 +129,78 @@ def resolve_reactivation_identity(
         else execution_lane
     )
     return resolved_model, resolved_lane
+
+
+def resolve_reactivation_executor_version(
+    existing: Any,
+    *,
+    incoming_surface: Optional[str],
+    incoming_version: Optional[str],
+) -> Optional[str]:
+    """Keep ``executor_version`` paired with the stored surface.
+
+    A re-registering process may refresh the version only when its resolved
+    surface equals the stored surface. Cross-surface drivers (a CLI wake of a
+    desktop session) leave the stored pair untouched.
+    """
+    stored_surface = _stored_value(existing, "executor_surface") or None
+    stored_version = _stored_value(existing, "executor_version") or None
+    incoming = (incoming_surface or "").strip() or None
+    if incoming == stored_surface:
+        return incoming_version or stored_version
+    return stored_version
+
+
+def record_reactivation_wake_driver(
+    conn: Any,
+    *,
+    session_id: str,
+    driver_surface: Optional[str],
+    driver_version: Optional[str],
+) -> None:
+    """Stamp the re-registering process on the open wake attempt, if any."""
+    surface = (driver_surface or "").strip() or None
+    version = (driver_version or "").strip() or None
+    if surface is None and version is None:
+        return
+    from yoke_contracts.session_control.evidence import redacted_evidence_document
+    from yoke_core.domain import db_backend, json_helper
+
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    try:
+        row = conn.execute(
+            "SELECT attempt_id, evidence FROM session_message_attempts "
+            f"WHERE target_session_id = {marker} "
+            "AND attempt_kind IN ('wake_relay','wake_broker') "
+            "AND completed_at IS NULL "
+            "ORDER BY started_at DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            return
+        try:
+            stored = json_helper.loads_text(str(row["evidence"] or "{}"))
+        except (TypeError, ValueError):
+            stored = {}
+        payload = dict(stored) if isinstance(stored, dict) else {}
+        if surface:
+            payload["driver_surface"] = surface
+        if version:
+            payload["driver_version"] = version
+        conn.execute(
+            f"UPDATE session_message_attempts SET evidence = {marker} "
+            f"WHERE attempt_id = {marker}",
+            (
+                json_helper.dumps_compact(redacted_evidence_document(payload)),
+                row["attempt_id"],
+            ),
+        )
+        conn.commit()
+    except db_backend.operational_error_types(conn):
+        try:
+            conn.rollback()
+        except Exception:
+            pass
 
 
 def refresh_active_duplicate_identity(
@@ -192,7 +269,8 @@ def refresh_active_duplicate_identity(
         observed_values.append(native_thread_id)
     if observed_updates:
         conn.execute(
-            "UPDATE harness_sessions SET " + ", ".join(observed_updates)
+            "UPDATE harness_sessions SET "
+            + ", ".join(observed_updates)
             + f" WHERE session_id = {placeholder}",
             (*observed_values, session_id),
         )
@@ -202,8 +280,10 @@ def refresh_active_duplicate_identity(
 __all__ = [
     "lane_should_upgrade",
     "normalize_observed_identity",
+    "record_reactivation_wake_driver",
     "refresh_active_duplicate_identity",
     "resolve_session_actor_id",
     "resolve_session_project_id",
+    "resolve_reactivation_executor_version",
     "resolve_reactivation_identity",
 ]

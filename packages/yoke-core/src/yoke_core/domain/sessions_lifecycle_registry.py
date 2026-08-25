@@ -14,10 +14,14 @@ from .session_activity_state import (
 )
 from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
 from .sessions_ended_recovery import session_ended_message
-from .sessions_lifecycle_canonicalize import canonicalize_executor as _canonicalize_executor
+from .sessions_lifecycle_canonicalize import (
+    canonicalize_executor as _canonicalize_executor,
+)
 from .sessions_lifecycle_identity import (
     normalize_observed_identity,
+    record_reactivation_wake_driver,
     refresh_active_duplicate_identity,
+    resolve_reactivation_executor_version,
     resolve_reactivation_identity,
     resolve_session_actor_id,
     resolve_session_project_id,
@@ -92,7 +96,7 @@ def register_session(
     resolved_actor_id = resolve_session_actor_id(conn, actor_id)
     resolved_project_id = resolve_session_project_id(conn, project_id)
     executor_version, machine_id = normalize_observed_identity(
-        executor_version, machine_id,
+        executor_version, machine_id
     )
     canonical_executor, display_name = _canonicalize_executor(executor, entrypoint)
     p = _p(conn)
@@ -105,11 +109,13 @@ def register_session(
         "provider, model, execution_lane, workspace, mode, offered_at, "
         "last_heartbeat, ended_at, offer_envelope, actor_id, project_id"
     )
+    # fmt: off
     insert_values: List[Any] = [
         session_id, canonical_executor, display_name, executor_version, machine_id,
         provider, model, execution_lane, workspace, mode, now, now,
         None, envelope_json, resolved_actor_id, resolved_project_id,
     ]
+    # fmt: on
     if has_thread_col:
         insert_cols += ", native_thread_id"
         insert_values.append(native_thread_id)
@@ -133,7 +139,7 @@ def register_session(
         thread_select = ", native_thread_id" if has_thread_col else ""
         existing = conn.execute(
             f"SELECT ended_at, model, actor_id, execution_lane, project_id, "
-            f"executor_version, machine_id{thread_select} "
+            f"executor_version, machine_id, executor_surface{thread_select} "
             f"FROM harness_sessions WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
@@ -157,7 +163,11 @@ def register_session(
             )
 
         resolved_model, resolved_lane = resolve_reactivation_identity(
-            existing, model=model, execution_lane=execution_lane,
+            existing, model=model, execution_lane=execution_lane
+        )
+        driver_version = executor_version
+        executor_version = resolve_reactivation_executor_version(
+            existing, incoming_surface=display_name, incoming_version=driver_version
         )
         explicit_overwrite = actor_id is not None and resolved_actor_id is not None
         implicit_backfill = actor_id is None and resolved_actor_id is not None
@@ -169,24 +179,18 @@ def register_session(
         else:
             actor_clause = ""
 
-        episode_clause = (
-            f", episode_started_at = {p}" if has_episode_col else ""
-        )
+        episode_clause = f", episode_started_at = {p}" if has_episode_col else ""
         thread_clause = (
             f", native_thread_id = COALESCE({p}, native_thread_id)"
-            if has_thread_col else ""
+            if has_thread_col
+            else ""
         )
+        # fmt: off
         params: List[Any] = [
-            provider,
-            resolved_model,
-            resolved_lane,
-            workspace,
-            mode,
-            now,
-            envelope_json,
-            executor_version,
-            machine_id,
+            provider, resolved_model, resolved_lane, workspace, mode, now,
+            envelope_json, executor_version, machine_id,
         ]
+        # fmt: on
         if thread_clause:
             params.append(native_thread_id)
         if episode_clause:
@@ -219,6 +223,12 @@ def register_session(
                 f"Session '{session_id}' is already registered.",
             )
         conn.commit()
+        record_reactivation_wake_driver(
+            conn,
+            session_id=session_id,
+            driver_surface=display_name,
+            driver_version=driver_version,
+        )
         # Reactivation surfaces prior session-ended claims and conditionally
         # auto-reacquires targets that have no active conflicting holder.
         try:
@@ -228,12 +238,8 @@ def register_session(
         model = resolved_model  # reflect the stored value in the event
         execution_lane = resolved_lane
 
-    # Report the stored executor value (which may differ from
-    # the call argument when re-registering a closed session under the same
-    # session_id, since executor is write-once).  Executor stores the
-    # canonical harness_id enum; executor_surface carries the
-    # surface-specific alias when known.  Both fields are write-once on
-    # re-register so attribution stays stable across the session.
+    # Stored executor/surface are write-once across reactivation. Version
+    # stays paired with the stored surface unless the same surface returns.
     stored_row = conn.execute(
         "SELECT executor, executor_surface FROM harness_sessions "
         f"WHERE session_id = {p}",
@@ -243,9 +249,7 @@ def register_session(
         stored_row["executor"] if stored_row is not None else canonical_executor
     )
     stored_display = (
-        stored_row["executor_surface"]
-        if stored_row is not None
-        else display_name
+        stored_row["executor_surface"] if stored_row is not None else display_name
     )
 
     event_context: Dict[str, Any] = {
