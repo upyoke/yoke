@@ -6,6 +6,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from yoke_contracts.session_control import private_route_versions
+from yoke_contracts.session_control.capabilities import (
+    SESSION_SURFACE_CAPABILITIES,
+)
+from yoke_contracts.session_control.private_route_versions import (
+    PrivateRouteVersionQualification,
+)
 from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_ABANDONED_REASON,
     QUALIFICATION_RELEASE_REASON,
@@ -31,6 +38,22 @@ from runtime.api.domain.test_session_message_support import (
 
 
 RELEASE_SHA = "a" * 40
+
+
+@pytest.fixture(autouse=True)
+def _unproven_private_route_policy(monkeypatch) -> None:
+    """Give stage-qualification tests an explicit noncanonical candidate."""
+    qualifications = dict(private_route_versions.PRIVATE_ROUTE_VERSION_QUALIFICATIONS)
+    qualifications[("claude-cli", "message_idle")] = (
+        PrivateRouteVersionQualification.exact(
+            SESSION_SURFACE_CAPABILITIES["claude-cli"].minimum_version
+        )
+    )
+    monkeypatch.setattr(
+        private_route_versions,
+        "PRIVATE_ROUTE_VERSION_QUALIFICATIONS",
+        qualifications,
+    )
 
 
 def _connection():
@@ -126,19 +149,19 @@ def test_open_refuses_prod_or_nonexact_serving_sha(
     assert conn.execute("SELECT COUNT(*) FROM coordination_leases").fetchone()[0] == 0
 
 
-def test_open_refuses_canonical_pin_and_inactive_operator(monkeypatch) -> None:
+def test_open_refuses_canonical_floor_and_inactive_operator(monkeypatch) -> None:
     _stage(monkeypatch)
     conn = _connection()
-    canonical = _scope().model_copy(update={"version": "2.1.238"})
-    with pytest.raises(PrivateRouteQualificationError) as pinned:
+    canonical_floor = _scope().model_copy(update={"version": "2.1.238"})
+    with pytest.raises(PrivateRouteQualificationError) as canonical:
         open_qualification_grant(
             conn,
             project_id=1,
             sender_session_id="s1",
             operator_actor_id=10,
-            scope=canonical,
+            scope=canonical_floor,
         )
-    assert pinned.value.code == "qualification_canonical_route"
+    assert canonical.value.code == "qualification_canonical_route"
 
     conn.execute("UPDATE harness_sessions SET mode='agent' WHERE session_id='s1'")
     with pytest.raises(PrivateRouteQualificationError) as inactive:
@@ -255,7 +278,7 @@ def test_message_lookup_binds_run_sender_project_operation_and_route(
         project_id=1,
         sender_session_id="s1",
         operator_actor_id=10,
-        scope=_scope(run_id="stage-proof-exact"),
+        scope=_scope(run_id="stage-proof-candidate"),
     )
     conn.execute(
         "INSERT INTO session_messages "
@@ -285,7 +308,7 @@ def test_message_lookup_binds_run_sender_project_operation_and_route(
     conn.execute(
         "UPDATE session_messages SET idempotency_key=?,sender_session_id='s2' "
         "WHERE message_id='message-1'",
-        ("fleet-live:stage-proof-exact:claude-cli:wake",),
+        ("fleet-live:stage-proof-candidate:claude-cli:wake",),
     )
     assert (
         qualification_for_message(
