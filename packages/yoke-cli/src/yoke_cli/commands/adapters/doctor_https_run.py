@@ -27,6 +27,7 @@ def dispatch_chunked(
     timeout_s: float,
 ) -> int:
     from yoke_cli.commands.adapters.doctor_https_compose import (
+        false_na_local_runtime_slugs,
         false_na_source_slugs,
         https_relay_needed,
         local_project_only_result,
@@ -35,6 +36,7 @@ def dispatch_chunked(
         prepare_https_only_payload,
         recount,
         run_local_project_checks,
+        run_local_runtime_checks,
         run_local_source_checks,
     )
 
@@ -84,6 +86,18 @@ def dispatch_chunked(
             ),
         )
         composed.append("local_project_checks")
+    local_runtime = false_na_local_runtime_slugs(results)
+    if local_runtime:
+        results = merge_relayed_with_local(
+            results,
+            run_local_runtime_checks(
+                project=project,
+                quick=bool(payload.get("quick")),
+                fix=bool(payload.get("fix")),
+                slugs=local_runtime,
+            ),
+        )
+        composed.append("local_runtime")
     if machine_has_checkout_for(project):
         redo = false_na_source_slugs(results)
         if redo:

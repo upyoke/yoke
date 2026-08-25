@@ -10,6 +10,8 @@ from yoke_cli.config import machine_config
 from yoke_contracts.machine_config.credential_sources import (
     CREDENTIAL_KIND_TOKEN_FILE,
 )
+from yoke_contracts.session_control.function_ids import RELAY_FUNCTION_IDS
+from yoke_core.domain.control_plane_transport import relay
 from yoke_core.domain.session_relay_storage import marker, utc_now
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -18,6 +20,7 @@ from yoke_core.tools.session_relay_plist import relay_launchd_status
 
 SLUG = "session-relay"
 TITLE = "Machine relay login item, heartbeat, and API authorization"
+_RELAY_LIST_FUNCTION_ID = RELAY_FUNCTION_IDS[0]
 
 
 def _machine_id() -> str:
@@ -47,6 +50,23 @@ def _token_reference_active() -> bool:
 
 
 def _recent_relay(conn: Any, machine_id: str, now: str) -> tuple[str, str] | None:
+    if conn is None:
+        result = relay(
+            _RELAY_LIST_FUNCTION_ID,
+            {"state": "active", "limit": 500},
+        )
+        for row in result.get("relays") or []:
+            if not isinstance(row, Mapping):
+                continue
+            if str(row.get("machine_id") or "") != machine_id:
+                continue
+            if str(row.get("liveness") or "") != "connected":
+                continue
+            relay_id = str(row.get("relay_id") or "").strip()
+            last_seen = str(row.get("last_seen_at") or "").strip()
+            if relay_id and last_seen:
+                return relay_id, last_seen
+        return None
     p = marker(conn)
     row = conn.execute(
         "SELECT relay_id,last_seen_at FROM session_relays "
