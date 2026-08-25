@@ -103,6 +103,16 @@ class TestAllowedShapes(unittest.TestCase):
         )
         self.assertIsNone(lint.evaluate_fields("/tmp/foo.py", content))
 
+    def test_tmp_py_import_text_only_in_string_literals_allowed(self) -> None:
+        content = (
+            "from pathlib import Path\n"
+            'OLD = "from yoke_contracts.harness_family_identity import X"\n'
+            "NEW = '''\n"
+            "from yoke_core.domain.sessions import register_session\n"
+            "'''\n"
+        )
+        self.assertIsNone(lint.evaluate_fields("/tmp/edit.py", content))
+
     def test_empty_content_allowed(self) -> None:
         self.assertIsNone(lint.evaluate_fields("/tmp/foo.py", ""))
 
@@ -126,41 +136,46 @@ class TestTmpYokeCheckoutExemption(unittest.TestCase):
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self._tmp, ignore_errors=True)
 
-    def _make_checkout(self, name: str, *, git_as_file: bool,
-                       with_pyproject: bool) -> str:
+    def _make_checkout(
+        self, name: str, *, git_as_file: bool, with_pyproject: bool
+    ) -> str:
         root = os.path.join(self._tmp, name)
-        os.makedirs(os.path.join(root, "runtime", "api", "domain"),
-                    exist_ok=True)
+        os.makedirs(os.path.join(root, "runtime", "api", "domain"), exist_ok=True)
         if git_as_file:
             with open(os.path.join(root, ".git"), "w", encoding="utf-8") as fh:
                 fh.write("gitdir: /elsewhere/.git/worktrees/wt\n")
         else:
             os.makedirs(os.path.join(root, ".git"), exist_ok=True)
         if with_pyproject:
-            with open(os.path.join(root, "pyproject.toml"), "w",
-                      encoding="utf-8") as fh:
+            with open(
+                os.path.join(root, "pyproject.toml"), "w", encoding="utf-8"
+            ) as fh:
                 fh.write("[project]\nname = 'yoke'\n")
         return root
 
     def test_allows_runtime_import_in_tmp_checkout(self) -> None:
-        root = self._make_checkout("yok1888-wf-items", git_as_file=False,
-                                   with_pyproject=True)
+        root = self._make_checkout(
+            "yok1888-wf-items", git_as_file=False, with_pyproject=True
+        )
         target = os.path.join(root, "runtime", "api", "domain", "foo.py")
         self.assertTrue(lint._is_tmp_python_path(target))  # still /tmp
         self.assertIsNone(lint.evaluate_fields(target, self._RUNTIME))
 
     def test_allows_runtime_import_in_tmp_linked_worktree(self) -> None:
         # Linked worktrees carry a ``.git`` *file*, not a directory.
-        root = self._make_checkout("yok1888-wf-linked", git_as_file=True,
-                                   with_pyproject=True)
+        root = self._make_checkout(
+            "yok1888-wf-linked", git_as_file=True, with_pyproject=True
+        )
         target = os.path.join(root, "runtime", "api", "test_foo.py")
         self.assertIsNone(lint.evaluate_fields(target, self._RUNTIME))
 
     def test_allows_package_import_in_tmp_checkout_package_source(self) -> None:
-        root = self._make_checkout("yok1902-wf-package", git_as_file=False,
-                                   with_pyproject=True)
+        root = self._make_checkout(
+            "yok1902-wf-package", git_as_file=False, with_pyproject=True
+        )
         target = os.path.join(
             root,
             "packages",
@@ -178,15 +193,17 @@ class TestTmpYokeCheckoutExemption(unittest.TestCase):
         self.assertIsNotNone(lint.evaluate_fields(target, self._RUNTIME))
 
     def test_blocks_script_outside_runtime_in_checkout(self) -> None:
-        root = self._make_checkout("yok1888-wf-scratch", git_as_file=False,
-                                   with_pyproject=True)
+        root = self._make_checkout(
+            "yok1888-wf-scratch", git_as_file=False, with_pyproject=True
+        )
         target = os.path.join(root, "scratch", "foo.py")
         os.makedirs(os.path.dirname(target), exist_ok=True)
         self.assertIsNotNone(lint.evaluate_fields(target, self._RUNTIME))
 
     def test_blocks_when_git_present_but_no_pyproject(self) -> None:
-        root = self._make_checkout("yok1888-wf-nopyproj", git_as_file=False,
-                                   with_pyproject=False)
+        root = self._make_checkout(
+            "yok1888-wf-nopyproj", git_as_file=False, with_pyproject=False
+        )
         target = os.path.join(root, "runtime", "api", "foo.py")
         self.assertIsNotNone(lint.evaluate_fields(target, self._RUNTIME))
 
@@ -200,21 +217,19 @@ class TestSuppressionToken(unittest.TestCase):
             "from runtime.api import service_client\n"
         )
         with mock.patch.object(lint, "_emit_denial") as emit_mock:
-            decision = lint.evaluate(
-                _record_for(_payload("/tmp/foo.py", content)))
+            decision = lint.evaluate(_record_for(_payload("/tmp/foo.py", content)))
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertTrue(decision.block)
         self.assertIs(decision.next, Next.STOP)
         self.assertEqual(
-            decision.audit_fields["audit_outcome"], "suppression_attempted")
-        self.assertEqual(
-            emit_mock.call_args.kwargs["outcome"], "suppression_attempted")
+            decision.audit_fields["audit_outcome"], "suppression_attempted"
+        )
+        self.assertEqual(emit_mock.call_args.kwargs["outcome"], "suppression_attempted")
 
     def test_token_on_allowed_shape_stays_noop(self) -> None:
         content = "# lint:no-tmp-runtime-import-check\nprint('hi')\n"
         with mock.patch.object(lint, "_emit_denial") as emit_mock:
-            decision = lint.evaluate(
-                _record_for(_payload("/tmp/foo.py", content)))
+            decision = lint.evaluate(_record_for(_payload("/tmp/foo.py", content)))
         self.assertIs(decision.outcome, Outcome.NOOP)
         self.assertIs(decision.next, Next.CONTINUE)
         emit_mock.assert_not_called()
@@ -230,9 +245,7 @@ class TestEvaluateTypedEntry(unittest.TestCase):
         self.assertIs(decision.outcome, Outcome.DENY)
         self.assertIs(decision.next, Next.STOP)
         envelope = json.loads(decision.message)
-        self.assertEqual(
-            envelope["hookSpecificOutput"]["permissionDecision"], "deny"
-        )
+        self.assertEqual(envelope["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_noop_for_allowed_shape(self) -> None:
         payload = _payload("/tmp/foo.md", "# heading\n")

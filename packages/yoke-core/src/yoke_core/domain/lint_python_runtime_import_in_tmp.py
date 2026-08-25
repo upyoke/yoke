@@ -26,6 +26,9 @@ Allowed shapes the lint stays out of:
   scratch scripts hit the ``sys.path[0]`` hazard this lint guards.
 * Editable-install Python anywhere (``pip install -e .`` is declared in
   ``pyproject.toml``; once installed, scripts can live anywhere).
+* Scratch scripts whose only Yoke-import *text* lives in string literals
+  (codemod replacement strings, examples) — those are not import
+  statements. Detection walks ``ast`` ``Import`` / ``ImportFrom`` nodes.
 
 Bypass: ``# lint:no-tmp-runtime-import-check`` on the file content is
 audit-only (recorded as ``outcome=suppression_attempted``) — the rule
@@ -35,6 +38,7 @@ repo tree.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -56,10 +60,8 @@ _TMP_PREFIXES = (
     "/private/var/folders/",
 )
 
-# Lines like ``import yoke_core`` / ``import runtime.api.x`` /
-# ``from yoke_core.foo import bar`` (handles indented + multiline). Block
-# comments and docstring mentions are not import statements so the
-# anchor on ``^\s*(from|import)`` keeps the match precise.
+# Fallback for unparseable files. Parsed files use Import/ImportFrom
+# nodes so string-literal and comment text cannot look like an import.
 _FORBIDDEN_IMPORT_PREFIX_RE = (
     r"(?:"
     r"yoke_core(?:\.[A-Za-z_][\w]*)*|"
@@ -167,8 +169,47 @@ def _under_tmp_yoke_checkout(file_path: str) -> bool:
     return False
 
 
+_FORBIDDEN_IMPORT_ROOTS = frozenset(
+    {
+        "yoke_core",
+        "yoke_cli",
+        "yoke_harness",
+    }
+)
+_RUNTIME_FROM_SUBMODULES = frozenset({"api", "harness", "agents"})
+
+
+def _module_is_forbidden(name: str, *, from_import: bool) -> bool:
+    root, _, rest = name.partition(".")
+    if root in _FORBIDDEN_IMPORT_ROOTS:
+        return True
+    if root != "runtime":
+        return False
+    if not from_import or not rest:
+        return True
+    return rest.split(".", 1)[0] in _RUNTIME_FROM_SUBMODULES
+
+
+def _tree_imports_forbidden(tree: ast.AST) -> bool:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(
+                _module_is_forbidden(alias.name, from_import=False)
+                for alias in node.names
+            ):
+                return True
+        elif isinstance(node, ast.ImportFrom) and not node.level:
+            if _module_is_forbidden(node.module or "", from_import=True):
+                return True
+    return False
+
+
 def _content_imports_runtime(content: str) -> bool:
-    return bool(_RUNTIME_IMPORT_RE.search(content))
+    try:
+        tree = ast.parse(content)
+    except (SyntaxError, ValueError):
+        return bool(_RUNTIME_IMPORT_RE.search(content))
+    return _tree_imports_forbidden(tree)
 
 
 def evaluate_fields(file_path: str, content: str) -> Optional[str]:
@@ -180,7 +221,9 @@ def evaluate_fields(file_path: str, content: str) -> Optional[str]:
         return None
     if not _content_imports_runtime(content):
         return None
-    return append_field_note_footer(_DENY_REASON, rule_id="lint-python-runtime-import-in-tmp")
+    return append_field_note_footer(
+        _DENY_REASON, rule_id="lint-python-runtime-import-in-tmp"
+    )
 
 
 def evaluate_payload(payload: dict) -> Optional[str]:
@@ -189,11 +232,13 @@ def evaluate_payload(payload: dict) -> Optional[str]:
 
 
 def _build_deny_response(reason: str) -> dict:
-    return {"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "deny",
-        "permissionDecisionReason": reason,
-    }}
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
 
 
 def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
@@ -206,12 +251,16 @@ def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None
     file_path, _ = _extract_write_fields(payload)
     try:
         emit_denial_event(
-            hook="lint-python-runtime-import-in-tmp", tool="Write",
-            check_id="python_runtime_import_in_tmp", reason=reason,
+            hook="lint-python-runtime-import-in-tmp",
+            tool="Write",
+            check_id="python_runtime_import_in_tmp",
+            reason=reason,
             session_id=_s(payload.get("session_id")),
             tool_use_id=_s(payload.get("tool_use_id")),
             turn_id=_s(payload.get("turn_id") or payload.get("message_id")),
-            command_snippet=file_path, outcome=outcome)
+            command_snippet=file_path,
+            outcome=outcome,
+        )
     except Exception:
         pass
 
@@ -224,21 +273,30 @@ def evaluate(record: HookContext) -> HookDecision:
     reason = evaluate_fields(file_path, content)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    outcome = ("suppression_attempted" if _BYPASS_TOKEN in content else "denied")
+    outcome = "suppression_attempted" if _BYPASS_TOKEN in content else "denied"
     envelope = json.dumps(_build_deny_response(reason))
     _emit_denial(payload, reason, outcome=outcome)
-    return HookDecision(outcome=Outcome.DENY, message=envelope,
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=envelope,
         audit_fields={"reason": reason, "audit_outcome": outcome},
-        block=True, next=Next.STOP)
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, sid = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload, tool_name="Write",
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        tool_name="Write",
         command_body=None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=sid if isinstance(sid, str) else None)
+        session_id=sid if isinstance(sid, str) else None,
+    )
 
 
 def main() -> int:

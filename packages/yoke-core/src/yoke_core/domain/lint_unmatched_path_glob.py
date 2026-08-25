@@ -1,9 +1,10 @@
 """PreToolUse Bash hook: refuse unquoted path globs that match no files.
 
 zsh NOMATCH aborts the command before the tool runs when an unquoted path
-glob such as ``docs/deploy*`` expands to nothing. Quoted patterns and
-globs that do expand stay out of scope. The denial names ``rg --files``
-as the enumeration alternative.
+glob such as ``docs/deploy*`` expands to nothing. Quoted patterns, heredoc
+bodies (quoted or not — zsh never glob-expands them), and globs that do
+expand stay out of scope. The denial names ``rg --files`` as the
+enumeration alternative.
 """
 
 from __future__ import annotations
@@ -16,6 +17,9 @@ from typing import List, Optional, Tuple
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_session_cwd_target_extract import resolve_payload_cwd
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    strip_heredoc_body_lines,
+)
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-unmatched-path-glob"
@@ -105,7 +109,7 @@ def _strip_redir(token: str) -> str:
 
 def _unquoted_path_globs(command: str) -> List[str]:
     found: List[str] = []
-    for token in _unquoted_tokens(command):
+    for token in _unquoted_tokens(strip_heredoc_body_lines(command)):
         path = _strip_redir(token)
         if "/" in path and any(char in path for char in _GLOB_CHARS):
             found.append(path)
