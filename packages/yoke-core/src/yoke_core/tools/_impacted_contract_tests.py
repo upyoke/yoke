@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from yoke_core.tools import _impacted_ci_only_contract_floor as _ci_only
 from yoke_core.tools._impacted_contract_tests_path_claims import PATH_CLAIM_CONTRACTS
 from yoke_core.tools._impacted_generated_artifact_parity import (
     GENERATED_ARTIFACT_PARITY_TESTS,
@@ -18,12 +19,11 @@ _ALWAYS_RUN_CONTRACTS = (
         "core_contract_floor",
         (
             "runtime/api/cli/test_adapter_inventory_usage_contract.py",
-            "runtime/api/cli/test_yoke_operation_inventory.py",
             "runtime/api/domain/test_engine_artifact_universe_birth.py",
             "runtime/api/test_service_client_structured_api_adapter.py",
-            "runtime/api/tools/test_atlas_integrity_contract.py",
         ),
     ),
+    ("ci_only_contract_floor", _ci_only.CI_ONLY_CONTRACT_FLOOR_TESTS),
     ("repo_cleanliness_contract", REPO_CLEANLINESS_TESTS),
     ("generated_artifact_parity", GENERATED_ARTIFACT_PARITY_TESTS),
 )

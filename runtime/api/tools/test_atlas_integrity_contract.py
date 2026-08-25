@@ -14,6 +14,9 @@ import pytest
 from yoke_core.tools import atlas_integrity_audit as audit_mod
 from yoke_core.tools import atlas_render_docs as ard_mod
 from yoke_core.tools import ci_repo_contracts as crc
+from yoke_core.tools._impacted_ci_only_contract_floor import (
+    CI_ONLY_CONTRACT_FLOOR_TESTS,
+)
 from yoke_core.tools._impacted_generated_artifact_parity import (
     GENERATED_ARTIFACT_PARITY_TESTS,
 )
@@ -142,3 +145,10 @@ def test_live_repo_atlas_integrity(monkeypatch) -> None:
 
 def test_generated_artifact_parity_is_on_the_always_run_floor() -> None:
     assert set(GENERATED_ARTIFACT_PARITY_TESTS) <= set(ALWAYS_RUN_TESTS)
+
+
+def test_atlas_integrity_contract_is_on_the_ci_only_floor() -> None:
+    assert (
+        "runtime/api/tools/test_atlas_integrity_contract.py"
+        in CI_ONLY_CONTRACT_FLOOR_TESTS
+    )
