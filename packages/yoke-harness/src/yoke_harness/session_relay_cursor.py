@@ -11,8 +11,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import time
 from typing import Callable, Protocol
 
+from yoke_harness.session_relay_cursor_identity import (
+    ConversationLookup,
+    LaunchAttestationHandoff,
+    bind_launch_session,
+    conversation_map_lookup,
+)
 from yoke_harness.session_relay_runtime import (
     expected_native_instruction,
     RelayAdapter,
@@ -121,12 +128,13 @@ def _result(
     *,
     native: CursorNativeResult | None = None,
     native_session_id: str | None = None,
+    evidence_code: str | None = None,
 ) -> RelayAdapterResult:
     return RelayAdapterResult(
         result_code,
         native_session_id=native_session_id,
         adapter_revision=CURSOR_ADAPTER_REVISION,
-        evidence=_evidence(result_code, native),
+        evidence=_evidence(evidence_code or result_code, native),
     )
 
 
@@ -183,6 +191,44 @@ def _launch_result(native: CursorNativeResult) -> RelayAdapterResult:
     )
 
 
+def _bound_launch(
+    context: RelayExecutionContext,
+    native: CursorNativeResult,
+    identity_lookup: ConversationLookup,
+    attestation_handoff: LaunchAttestationHandoff | None,
+    sleeper: Callable[[float], None],
+) -> RelayAdapterResult:
+    launched = _launch_result(native)
+    if launched.result_code != "native_created" or not launched.native_session_id:
+        return launched
+    binding = bind_launch_session(
+        launched.native_session_id,
+        identity_lookup,
+        attestation_handoff,
+        context.job_id,
+        str(context.launch_attestation or ""),
+        sleeper=sleeper,
+    )
+    combined = CursorNativeResult(
+        binding.result_code,
+        binding.session_id,
+        native.exit_code,
+        max(0, int(native.duration_ms or 0) + binding.duration_ms),
+    )
+    if binding.result_code != "native_created":
+        return _result(
+            "outcome_unknown",
+            native=combined,
+            native_session_id=binding.session_id,
+            evidence_code=binding.result_code,
+        )
+    return _result(
+        "native_created",
+        native=combined,
+        native_session_id=binding.session_id,
+    )
+
+
 def _wake_result(native: CursorNativeResult) -> RelayAdapterResult:
     code = (
         native.result_code if native.result_code in _WAKE_CODES else "outcome_unknown"
@@ -195,12 +241,17 @@ def build_cursor_adapter(
     subprocess_port: CursorSubprocessPort | None = None,
     acp_port: CursorAcpPort | None = None,
     version_gate: SurfaceVersionGate = _contract_version_gate,
+    identity_lookup: ConversationLookup | None = None,
+    attestation_handoff: LaunchAttestationHandoff | None = None,
+    sleeper: Callable[[float], None] = time.sleep,
 ) -> RelayAdapter:
     """Build one adapter over injected, version-pinned native transports.
 
     Launch goes only to ``acp_port``: the ACP child stays a child of the
     process that started it, so an exchange that cannot finish takes the
     native down with it rather than leaving one running unattended.
+    After create, the adapter binds the conversation-map session and
+    stages the attestation sidecar under that id.
     """
 
     def adapter(context: RelayExecutionContext) -> RelayAdapterResult:
@@ -222,9 +273,16 @@ def build_cursor_adapter(
                     native=CursorNativeResult("native_framing_unavailable"),
                 )
             try:
-                return _launch_result(acp_port.new_session(request))
+                native = acp_port.new_session(request)
             except Exception:
                 return _result("outcome_unknown")
+            return _bound_launch(
+                context,
+                native,
+                identity_lookup or conversation_map_lookup,
+                attestation_handoff,
+                sleeper,
+            )
 
         wake_mode = normalize_wake_mode(context.wake_mode)
         if wake_mode is None:
