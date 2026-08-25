@@ -118,3 +118,27 @@ def test_generated_build_trees_are_out_of_scope(tmp_path: Path) -> None:
         "conn = psycopg.connect(db_backend.resolve_pg_dsn())\n",
     )
     assert hc.scan_for_unguarded_connections(tmp_path, roots=["packages"]) == []
+
+
+def test_directory_removed_during_scan_is_ignored(monkeypatch, tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "stable.py",
+        "import psycopg\n"
+        "from yoke_core.domain import db_backend\n"
+        "conn = psycopg.connect(db_backend.resolve_pg_dsn())\n",
+    )
+    disappearing = tmp_path / "disappearing"
+    disappearing.mkdir()
+    real_scandir = hc.os.scandir
+
+    def remove_before_scan(path):
+        if Path(path) == disappearing:
+            disappearing.rmdir()
+            raise FileNotFoundError(disappearing)
+        return real_scandir(path)
+
+    monkeypatch.setattr(hc.os, "scandir", remove_before_scan)
+
+    findings = hc.scan_for_unguarded_connections(tmp_path, roots=["."])
+    assert [finding.relpath for finding in findings] == ["stable.py"]

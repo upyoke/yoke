@@ -28,6 +28,7 @@ not the connection this guard is about.
 from __future__ import annotations
 
 import ast
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, List, Optional, Sequence
@@ -165,19 +166,30 @@ def _scan_one(repo_root: Path, path: Path) -> List[UnguardedConnection]:
 
 
 def _scanned_files(repo_root: Path, roots: Sequence[str]) -> Iterator[Path]:
+    def tolerate_removed_directory(error: OSError) -> None:
+        if not isinstance(error, FileNotFoundError):
+            raise error
+
     for root in roots:
         base = repo_root / root
         if not base.is_dir():
             continue
-        for path in sorted(base.rglob("*.py")):
-            relative = path.relative_to(repo_root)
-            if GENERATED_TREE_NAMES.intersection(relative.parts):
-                continue
-            if path.name.startswith("test_"):
-                continue
-            if relative.as_posix() == GUARDED_FACTORY:
-                continue
-            yield path
+        for directory, dirnames, filenames in os.walk(
+            base, onerror=tolerate_removed_directory
+        ):
+            dirnames[:] = sorted(
+                name for name in dirnames if name not in GENERATED_TREE_NAMES
+            )
+            for filename in sorted(filenames):
+                if not filename.endswith(".py") or filename.startswith("test_"):
+                    continue
+                path = Path(directory) / filename
+                relative = path.relative_to(repo_root)
+                if GENERATED_TREE_NAMES.intersection(relative.parts):
+                    continue
+                if relative.as_posix() == GUARDED_FACTORY:
+                    continue
+                yield path
 
 
 def scan_for_unguarded_connections(
