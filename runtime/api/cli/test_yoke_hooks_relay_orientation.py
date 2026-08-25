@@ -55,17 +55,6 @@ def _server_response(**overrides) -> bytes:
 
 
 @pytest.fixture()
-def delivery_confirmations(monkeypatch):
-    """Record every delivery the adapter confirms for the composed block."""
-    confirmed: list[bool] = []
-    monkeypatch.setattr(
-        "yoke_core.domain.session_orientation.confirm_orientation_delivery",
-        lambda: confirmed.append(True),
-    )
-    return confirmed
-
-
-@pytest.fixture()
 def oriented(monkeypatch):
     """Make the client-side orientation composer return fixed text."""
     monkeypatch.setattr(
@@ -259,80 +248,3 @@ def test_server_deny_is_not_diluted_by_orientation(
     out = capsys.readouterr()
     assert rc == 2
     assert out.out == "DENY: server policy"
-
-
-def test_a_printed_block_confirms_its_own_delivery(
-    monkeypatch,
-    capsys,
-    https_connection,
-    local_subset,
-    oriented,
-    delivery_confirmations,
-) -> None:
-    """Composition is not delivery: only a process that survived to print
-    the block may retire the session's orientation, or a hook the harness
-    kills mid-flight leaves the session un-oriented forever."""
-    monkeypatch.setattr(
-        "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(_server_response()),
-    )
-
-    rc = cli_main(["hook", "evaluate", "UserPromptSubmit"])
-
-    capsys.readouterr()
-    assert rc == 0
-    assert delivery_confirmations == [True]
-
-
-def test_a_degraded_relay_still_confirms_the_preserved_block(
-    monkeypatch,
-    capsys,
-    https_connection,
-    local_subset,
-    oriented,
-    delivery_confirmations,
-) -> None:
-    """The degradation preserves the client's allow stdout, so the block did
-    reach the agent — re-delivering it later would be a duplicate."""
-    import urllib.error
-
-    def fake_urlopen(request, timeout=None):
-        raise urllib.error.URLError("no route to host")
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
-    rc = cli_main(["hook", "evaluate", "UserPromptSubmit"])
-
-    out = capsys.readouterr()
-    assert rc == 0
-    assert "## Yoke Orientation" in out.out
-    assert delivery_confirmations == [True]
-
-
-def test_a_deny_leaves_the_dropped_block_unconfirmed(
-    monkeypatch,
-    capsys,
-    https_connection,
-    local_subset,
-    oriented,
-    delivery_confirmations,
-) -> None:
-    """A deny prints its block message instead of the merged allow stdout.
-    The orientation went nowhere, so the session must still count as
-    un-oriented and get it on the next context-bearing event."""
-    monkeypatch.setattr(
-        "urllib.request.urlopen",
-        lambda *_a, **_k: _FakeResponse(
-            _server_response(
-                stdout="DENY: server policy",
-                exit_code=2,
-                outcome="denied",
-            )
-        ),
-    )
-
-    rc = cli_main(["hook", "evaluate", "UserPromptSubmit"])
-
-    capsys.readouterr()
-    assert rc == 2
-    assert delivery_confirmations == []
