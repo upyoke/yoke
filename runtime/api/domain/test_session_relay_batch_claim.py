@@ -172,8 +172,8 @@ def test_a_crash_mid_batch_strands_only_the_jobs_never_reported() -> None:
         ).fetchall()
     )
     assert outcomes[first.job_id] == "native_created"
-    assert outcomes[second.job_id] == "outcome_unknown"
-    assert outcomes[third.job_id] == "outcome_unknown"
+    assert outcomes[second.job_id] == "relay_lease_expired"
+    assert outcomes[third.job_id] == "relay_lease_expired"
     assert (
         conn.execute(
             "SELECT lease_id FROM session_relays WHERE relay_id=?",

@@ -244,10 +244,20 @@ def test_serve_once_reports_sanitized_result_and_honors_server_backoff(
 
     assert first.state == "reported"
     assert second.state == "backoff"
-    assert len(calls) == 2
-    report = calls[1]["payload"]
+    assert len(calls) == 4
+    reports = [call["payload"] for call in calls[1:]]
+    assert [report["result"] for report in reports] == [
+        "progress",
+        "progress",
+        "native_created",
+    ]
+    report = reports[-1]
     assert report["native_id"] == "native-1"
-    assert report["evidence"] == {"duration_ms": 12, "surface": "codex-cli"}
+    assert report["evidence"] == {
+        "duration_ms": 12,
+        "native_launch_phase": "native_running",
+        "surface": "codex-cli",
+    }
     assert "native_instruction" not in report
     assert "launch_attestation" not in report
     assert "secret-attestation" not in repr(report)
