@@ -96,6 +96,7 @@ def claim_wake_attempt(
         ("executor_surface", "executor_surface"),
         ("executor_version", "executor_version"),
         ("machine_id", "machine_id"),
+        ("last_injected_at", "last_injected_at"),
     ):
         clause, values = _match(column, candidate.get(key), p)
         recipient_clauses.append(clause)
@@ -110,16 +111,6 @@ def claim_wake_attempt(
         clause, values = _match(column, candidate.get(key), p)
         session_clauses.append(clause)
         session_params.extend(values)
-    freshness_clause = ""
-    if wake_mode is WakeMode.IDLE_TIMEOUT:
-        freshness_clause = (
-            " AND EXISTS (SELECT 1 FROM session_messages m "
-            "WHERE m.message_id=session_message_recipients.message_id "
-            "AND (hs.last_heartbeat IS NULL OR hs.last_heartbeat<=m.created_at) "
-            "AND (hs.last_tool_call_at IS NULL OR hs.last_tool_call_at<=m.created_at) "
-            "AND (session_message_recipients.last_injected_at IS NULL "
-            "OR session_message_recipients.last_injected_at<=m.created_at))"
-        )
     updated = conn.execute(
         "UPDATE session_message_recipients SET wake_attempt_count="
         "wake_attempt_count+1,last_wake_at="
@@ -132,7 +123,6 @@ def claim_wake_attempt(
         "WHERE hs.session_id=session_message_recipients.session_id "
         + f"AND hs.turn_posture={p} AND {posture_at_clause} "
         + f"AND {' AND '.join(session_clauses)}"
-        + freshness_clause
         + ") "
         "AND NOT EXISTS (SELECT 1 FROM session_message_attempts a "
         "WHERE a.message_id=session_message_recipients.message_id "

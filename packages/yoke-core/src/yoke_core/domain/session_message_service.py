@@ -10,7 +10,6 @@ from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
     authorize_universe,
     can_read_project,
-    recipient_wake_after,
 )
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
@@ -85,8 +84,6 @@ def send_message(
     idempotency_key: str | None = None,
     supplied_confirmation_token: str | None = None,
     now: datetime | None = None,
-    urgent: bool = False,
-    wake_after_seconds: int | None = None,
 ) -> dict[str, Any]:
     """Resolve, authorize, and snapshot recipients in the write transaction."""
     current = now or utc_now()
@@ -132,15 +129,7 @@ def send_message(
         expires_at = current + timedelta(
             hours=min(policy.expiry_hours for policy in policies.values())
         )
-        wake_after_by_project = {
-            pid: recipient_wake_after(
-                current,
-                pol.wake_after_idle_minutes,
-                urgent=urgent,
-                wake_after_seconds=wake_after_seconds,
-            )
-            for pid, pol in policies.items()
-        }
+        wake_after_by_project = {pid: current for pid in policies}
         details, created = insert_message(
             conn,
             sender_actor_id=actor_id,

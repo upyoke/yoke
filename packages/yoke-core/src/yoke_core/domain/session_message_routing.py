@@ -24,6 +24,15 @@ def latest_hook_activity(row: dict[str, Any]) -> datetime | None:
     return max(present) if present else None
 
 
+def latest_observed_activity(row: dict[str, Any]) -> datetime | None:
+    candidates = [
+        latest_hook_activity(row),
+        parse_timestamp(row.get("last_heartbeat")),
+    ]
+    present = [value for value in candidates if value is not None]
+    return max(present) if present else None
+
+
 def session_liveness(row: dict[str, Any], *, now: datetime) -> str:
     if row.get("ended_at"):
         return "ended"
@@ -116,4 +125,9 @@ def messageability(
     }
 
 
-__all__ = ["latest_hook_activity", "messageability", "session_liveness"]
+__all__ = [
+    "latest_hook_activity",
+    "latest_observed_activity",
+    "messageability",
+    "session_liveness",
+]

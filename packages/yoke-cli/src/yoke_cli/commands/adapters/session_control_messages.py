@@ -30,13 +30,11 @@ from yoke_contracts.session_execution import is_subagent_execution
 SAY_USAGE = (
     "yoke say (--preview | --stdin) "
     "(--session S | --item ITEM | --epic-task ITEM:N | --process P | "
-    "--project P | --universe) [recipient filters] "
-    "[--urgent | --wake-after-seconds N] [--json]"
+    "--project P | --universe) [recipient filters] [--json]"
 )
 MESSAGE_PREVIEW_USAGE = "yoke session-control message preview [selector] [--json]"
 MESSAGE_SEND_USAGE = (
     "yoke session-control message send --stdin [selector] "
-    "[--urgent | --wake-after-seconds N] "
     "[--idempotency-key K] [--confirmation-token T] [--json]"
 )
 MESSAGE_LIST_USAGE = (
@@ -86,11 +84,6 @@ def _dispatch_selector(
             value = getattr(parsed, key, None)
             if value:
                 payload[key] = value
-        if getattr(parsed, "urgent", False):
-            payload["urgent"] = True
-        seconds = getattr(parsed, "wake_after_seconds", None)
-        if seconds is not None:
-            payload["wake_after_seconds"] = seconds
     return dispatch_and_emit(
         function_id=function_id,
         target=TargetRef(kind="global"),
@@ -129,29 +122,12 @@ def _add_delivery_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_urgency_arguments(parser: argparse.ArgumentParser) -> None:
-    urgency = parser.add_mutually_exclusive_group()
-    urgency.add_argument(
-        "--urgent",
-        action="store_true",
-        help="Arm native wake immediately instead of waiting for fleet idle grace.",
-    )
-    urgency.add_argument(
-        "--wake-after-seconds",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Override fleet idle grace with an explicit delay in seconds.",
-    )
-
-
 def _add_send_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--stdin",
         action="store_true",
         help="Read the message body from stdin so it never appears in argv.",
     )
-    _add_urgency_arguments(parser)
     _add_delivery_arguments(parser)
 
 
@@ -190,7 +166,6 @@ def say(args: List[str]) -> int:
         action="store_true",
         help="Send the message body read from stdin.",
     )
-    _add_urgency_arguments(parser)
     _add_delivery_arguments(parser)
     parsed = parse_or_usage_error(parser, args, SAY_USAGE)
     if parsed is None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import timedelta
 
 import pytest
 
@@ -247,42 +246,10 @@ def _wake_after(conn, message_id: str):
     ).fetchone()[0]
 
 
-def test_default_send_stamps_the_fleet_idle_grace() -> None:
+def test_default_send_stamps_wake_after_at_send_time() -> None:
     conn = message_connection()
     result = _send(conn)
-    assert parse_timestamp(_wake_after(conn, result["message_id"])) == NOW + timedelta(
-        minutes=3
-    )
-
-
-def test_urgent_send_stamps_wake_after_at_send_time() -> None:
-    conn = message_connection()
-    result = send_message(
-        conn,
-        actor_id=10,
-        sender_session_id="s1",
-        selector=selector(session_ids=["s1"]),
-        body="Act now.",
-        now=NOW,
-        urgent=True,
-    )
     assert parse_timestamp(_wake_after(conn, result["message_id"])) == NOW
-
-
-def test_wake_after_seconds_overrides_fleet_idle_grace() -> None:
-    conn = message_connection()
-    result = send_message(
-        conn,
-        actor_id=10,
-        sender_session_id="s1",
-        selector=selector(session_ids=["s1"]),
-        body="Act soon.",
-        now=NOW,
-        wake_after_seconds=30,
-    )
-    assert parse_timestamp(_wake_after(conn, result["message_id"])) == NOW + timedelta(
-        seconds=30
-    )
 
 
 def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:

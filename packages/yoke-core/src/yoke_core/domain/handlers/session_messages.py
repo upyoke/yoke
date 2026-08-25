@@ -85,8 +85,6 @@ def handle_message_send(request: FunctionCallRequest) -> HandlerOutcome:
             body=body.body,
             idempotency_key=body.idempotency_key,
             supplied_confirmation_token=body.confirmation_token,
-            urgent=body.urgent,
-            wake_after_seconds=body.wake_after_seconds,
         )
 
     return _handle(
