@@ -28,13 +28,24 @@ from yoke_core.domain.schema_common import (
     _get_check_constraint_defs,
     _table_exists,
 )
-from yoke_core.domain.strategy_execution_schema import TYPED_OWNER_COLUMNS
 
 
 #: A build without this entry reads the retired column and cannot serve a
 #: database this entry has reached. The sentinel resolves at apply time to
 #: the artifact doing the applying, which by construction carries the entry.
 MINIMUM_SERVING_VERSION = NEXT_RELEASE
+
+#: The typed-owner columns as they stood when this entry was authored.
+#: Deliberately spelled out rather than imported from the live schema
+#: module: the applier loads this module from whichever build is running,
+#: which may be older than the release that introduced the schema-side
+#: constant. A history entry is frozen, so its copy is a snapshot and the
+#: schema module's list stays free to evolve.
+TYPED_OWNER_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("owner_kind", "TEXT NOT NULL DEFAULT 'item'"),
+    ("owner_item_id", "INTEGER DEFAULT NULL"),
+    ("owner_session_id", "TEXT DEFAULT NULL"),
+)
 
 TABLE = "strategy_doc_claims"
 RETIRED_COLUMN = "owning_item_id"
@@ -139,6 +150,7 @@ def invariants(conn: Any) -> None:
 
 __all__ = [
     "MINIMUM_SERVING_VERSION",
+    "TYPED_OWNER_COLUMNS",
     "OWNER_SHAPE_CONSTRAINT",
     "RETIRED_COLUMN",
     "TABLE",
