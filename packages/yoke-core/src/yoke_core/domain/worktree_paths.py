@@ -31,18 +31,61 @@ from yoke_core.domain import machine_config
 # Shared low-level primitives
 # ---------------------------------------------------------------------------
 
+
+def _process_text(blob: object) -> str:
+    if blob is None:
+        return ""
+    if isinstance(blob, bytes):
+        return blob.decode("utf-8", "replace")
+    return str(blob)
+
+
+def captured_process_detail(result: subprocess.CompletedProcess) -> str:
+    """Prefer stderr, then stdout, then a marker so failures are never blank."""
+    return (
+        (result.stderr or "").strip()
+        or (result.stdout or "").strip()
+        or "(no git output)"
+    )
+
+
+def _exception_stderr(cmd: List[str], exc: BaseException) -> str:
+    captured = ""
+    if isinstance(exc, subprocess.TimeoutExpired):
+        captured = _process_text(exc.stderr).strip()
+    prefix = f"{cmd[0] if cmd else '<empty>'}: {type(exc).__name__}: {exc}"
+    return f"{prefix}\n{captured}" if captured else prefix
+
+
 def _run(
     cmd: List[str],
     cwd: Optional[str] = None,
     timeout: int = 30,
 ) -> subprocess.CompletedProcess:
-    """Run a subprocess with timeout, capturing output."""
+    """Run a subprocess with timeout, capturing output.
+
+    Launch failures and timeouts keep their exception class, message, and
+    any already-captured stderr on the returned process so callers can
+    put a real reason in the failure narrative.
+    """
     try:
         return subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return subprocess.CompletedProcess(cmd, returncode=1, stdout="", stderr="")
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        stdout = ""
+        if isinstance(exc, subprocess.TimeoutExpired):
+            stdout = _process_text(exc.stdout)
+        return subprocess.CompletedProcess(
+            cmd,
+            returncode=1,
+            stdout=stdout,
+            stderr=_exception_stderr(cmd, exc),
+        )
 
 
 def is_git_worktree(path: str) -> bool:
@@ -56,6 +99,7 @@ def is_git_worktree(path: str) -> bool:
 # ---------------------------------------------------------------------------
 # Git-context helpers
 # ---------------------------------------------------------------------------
+
 
 def _resolve_context_cwd() -> str:
     """Return the caller's intended cwd, not the launcher's code root."""
@@ -126,7 +170,8 @@ def _strip_worktree_path(path: str) -> str:
     # Machine-local read: worktrees_dir is a checkout layout fact, not
     # shared project policy.
     worktrees_dir = project_settings.get_project_str(
-        project_settings.checkout_root(candidate), "worktrees_dir",
+        project_settings.checkout_root(candidate),
+        "worktrees_dir",
     )
 
     marker = f"/{worktrees_dir}/"
@@ -152,6 +197,7 @@ def _resolve_config_path(repo_root: str) -> str:
 # ---------------------------------------------------------------------------
 # Public path-resolution API
 # ---------------------------------------------------------------------------
+
 
 def resolve_main_root(
     *,
