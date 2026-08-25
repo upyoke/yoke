@@ -44,7 +44,7 @@
         "create": "supported",
         "message_active": "private",
         "message_idle": "private",
-        "message_stopped": "private"
+        "message_stopped": "supported"
       },
       "claude-desktop": {
         "minimum_version": "1.32885.1",

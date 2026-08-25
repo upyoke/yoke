@@ -167,6 +167,13 @@ def test_project_structure_patch_still_requires_project_admin(
             },
         ),
         (
+            "github_actions.failed_log",
+            {
+                "repo": "example-org/externalwebapp",
+                "run_id": "123",
+            },
+        ),
+        (
             "github_actions.variable.get",
             {"repo": "example-org/externalwebapp", "name": "YOKE_CI_ENABLED"},
         ),

@@ -82,7 +82,9 @@ def announce_run(
         stream=stream,
     )
     _emit(
-        f"inspect with `gh run view {run_id} --repo {repo}`; watch with "
+        f"inspect failures with "
+        f"`yoke github-actions failed-log {repo} {run_id} --project <project>`; "
+        f"watch with "
         f"`gh run watch {run_id} --repo {repo}`",
         stream=stream,
     )

@@ -15,6 +15,9 @@ from yoke_cli.commands.adapters.github_actions_workflow import (
     github_actions_trigger,
     github_actions_trigger_once,
 )
+from yoke_cli.commands.adapters.github_actions_failed_log import (
+    github_actions_failed_log,
+)
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -23,6 +26,8 @@ AdapterFn = Callable[[List[str]], int]
 GITHUB_ACTIONS_SUBCOMMAND_REGISTRY: Dict[
     Tuple[str, ...], Tuple[str, AdapterFn]
 ] = {
+    ("github-actions", "failed-log"):
+        ("github_actions.failed_log", github_actions_failed_log),
     ("github-actions", "check-ci"):
         ("github_actions.check_ci", _adapters.github_actions_check_ci),
     ("github-actions", "workflow", "dispatch"):

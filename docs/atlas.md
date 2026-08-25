@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-24T22:32:45Z_
+_Audit generated_at: 2026-08-25T01:56:02Z_
 
 ## 1. Summary
 
-- Function ids registered: **415**
+- Function ids registered: **416**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **341** (341 carry usable `--help`)
-- Operation tracker: **319 wrapped**, 10 tool_cli, 123 permanent, 0 pending
+- `yoke` CLI subcommands: **342** (342 carry usable `--help`)
+- Operation tracker: **320 wrapped**, 10 tool_cli, 123 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **319** (operation tracker confirms 319 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **320** (operation tracker confirms 320 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -85,6 +85,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **319** (operation track
 | github | `yoke github pr create` | `github.pr.create` | ok |
 | github | `yoke github release create-next-tag` | `github.release.create_next_tag` | ok |
 | github_actions | `yoke github-actions check-ci` | `github_actions.check_ci` | ok |
+| github_actions | `yoke github-actions failed-log` | `github_actions.failed_log` | ok |
 | github_actions | `yoke github-actions run jobs-count` | `github_actions.run.jobs_count` | ok |
 | github_actions | `yoke github-actions jobs-count` | `github_actions.run.jobs_count` | ok |
 | github_actions | `yoke github-actions runners status` | `github_actions.runners.status` | ok |
@@ -518,9 +519,10 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 31 |
-| claude-code | 12 |
+| claude-code | 24 |
+| codex | 15 |
 | cursor | 7 |
+| agent | 4 |
 
 ## 8. Contradictions
 

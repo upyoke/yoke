@@ -87,7 +87,10 @@ def test_dispatched_run_is_announced_before_the_wait(
             "https://github.com/acme/widgets/actions/runs/9182736" in lines[identified]
         )
         recovery = "\n".join(lines[identified + 1:])
-        assert "gh run view 9182736 --repo acme/widgets" in recovery
+        assert (
+            "yoke github-actions failed-log acme/widgets 9182736 "
+            "--project <project>"
+        ) in recovery
         assert "gh run watch 9182736 --repo acme/widgets" in recovery
         assert (
             "gh api --method POST "

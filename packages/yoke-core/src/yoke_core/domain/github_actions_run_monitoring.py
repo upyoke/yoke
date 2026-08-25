@@ -39,6 +39,7 @@ __all__ = [
     "CHECK_CI_DEFAULT_TIMEOUT_SEC",
     "check_ci_command",
     "failed_log_command",
+    "format_failed_log_output",
 ]
 
 
@@ -105,6 +106,24 @@ def check_ci_command(
         sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
 
 
+def format_failed_log_output(
+    per_job: Dict[str, str],
+    *,
+    tail_lines: int,
+) -> tuple[str, bool] | None:
+    """Return ``(output, truncated)`` or ``None`` when no log text exists."""
+    log_text = _join_job_logs(per_job)
+    if not log_text:
+        return None
+    lines = log_text.splitlines()
+    truncated = len(lines) > tail_lines
+    if truncated:
+        lines = lines[-tail_lines:]
+        prefix = f"... (showing last {tail_lines} lines of failed-step output)\n"
+        return prefix + "\n".join(lines), True
+    return "\n".join(lines), False
+
+
 def failed_log_command(
     repo: str,
     run_id: str,
@@ -138,17 +157,13 @@ def failed_log_command(
         )
         sys.exit(1)
 
-    log_text = _join_job_logs(per_job)
-    if not log_text:
+    formatted = format_failed_log_output(per_job, tail_lines=tail_lines)
+    if formatted is None:
         print("(no failed-step output captured)", file=sys.stderr)
         sys.exit(1)
 
-    lines = log_text.splitlines()
-    if len(lines) > tail_lines:
-        lines = lines[-tail_lines:]
-        print(f"... (showing last {tail_lines} lines of failed-step output)")
-
-    print("\n".join(lines))
+    output, _truncated = formatted
+    print(output)
     sys.exit(0)
 
 

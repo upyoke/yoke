@@ -20,6 +20,9 @@ from yoke_cli.commands.adapters.github_actions_run_wait import (
 from yoke_cli.commands.adapters.github_actions_runners import (
     GITHUB_ACTIONS_RUNNERS_STATUS_USAGE,
 )
+from yoke_cli.commands.adapters.github_actions_failed_log import (
+    GITHUB_ACTIONS_FAILED_LOG_USAGE,
+)
 from yoke_cli.commands.adapters.github_actions_workflow import (
     GITHUB_ACTIONS_FIND_RUN_USAGE,
     GITHUB_ACTIONS_JOBS_COUNT_USAGE,
@@ -30,6 +33,7 @@ from yoke_cli.commands.adapters.github_actions_workflow import (
 
 USAGE_BY_FUNCTION_ID: Dict[str, str] = {
     "github_actions.check_ci": GITHUB_ACTIONS_CHECK_CI_USAGE,
+    "github_actions.failed_log": GITHUB_ACTIONS_FAILED_LOG_USAGE,
     "github_actions.workflow.dispatch": GITHUB_ACTIONS_TRIGGER_USAGE,
     "github_actions.workflow.dispatch_once": GITHUB_ACTIONS_TRIGGER_ONCE_USAGE,
     "github_actions.workflow.find_run": GITHUB_ACTIONS_FIND_RUN_USAGE,
