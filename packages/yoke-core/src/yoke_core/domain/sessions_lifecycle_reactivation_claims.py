@@ -19,6 +19,10 @@ from .workflow_item_binding_validation import (
 from .work_claim_targets import from_row as work_claim_target_from_row
 
 DEFAULT_REACQUIRE_WINDOW_S = 300
+REACTIVATION_RELEASE_REASONS = ("session_ended", "reclaimed")
+_REACTIVATION_REASON_SQL = (
+    "(" + ", ".join(f"'{reason}'" for reason in REACTIVATION_RELEASE_REASONS) + ")"
+)
 
 
 def _now_iso() -> str:
@@ -155,11 +159,17 @@ def _insert_reacquired_claim(conn: Any, row: Any, *, now_iso: str) -> int:
 def _released_claim_rows(conn: Any, session_id: str) -> list[Any]:
     return conn.execute(
         "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-        "process_key, conflict_group, released_at FROM work_claims "
-        "WHERE session_id = %s AND release_reason = 'session_ended' "
+        "process_key, conflict_group, released_at, release_reason FROM work_claims "
+        "WHERE session_id = %s AND release_reason IN "
+        f"{_REACTIVATION_REASON_SQL} "
         "AND released_at IS NOT NULL ORDER BY id DESC",
         (session_id,),
     ).fetchall()
+
+
+def released_claim_rows_for_reactivation(conn: Any, session_id: str) -> list[Any]:
+    """Return prior session-ended or reclaimed claims for a resumed session."""
+    return _released_claim_rows(conn, session_id)
 
 
 @rollback_workflow_binding_write_errors
@@ -170,7 +180,7 @@ def auto_reacquire_session_ended_claims(
     reacquire_window_s: Optional[int] = None,
     commit: bool = True,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Reacquire recent session-ended claims that have no live conflict."""
+    """Reacquire recent session-ended or reclaimed claims that have no live conflict."""
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
@@ -228,6 +238,8 @@ def auto_reacquire_session_ended_claims(
 
 __all__ = [
     "DEFAULT_REACQUIRE_WINDOW_S",
+    "REACTIVATION_RELEASE_REASONS",
     "auto_reacquire_session_ended_claims",
+    "released_claim_rows_for_reactivation",
     "target_descriptor",
 ]

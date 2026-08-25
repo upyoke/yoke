@@ -7,7 +7,8 @@ Called from sessions_lifecycle_registry.register_session after the
   records *what* prior claims the reactivation surfaced.
 * the new conditional auto-reacquire path re-inserts active
   ``work_claims`` rows for the reactivating session when (a) the prior
-  release happened with ``release_reason='session_ended'`` inside
+  release happened with ``release_reason`` in
+  ``('session_ended', 'reclaimed')`` inside
   ``session_reactivation_reacquire_window_s``, AND (b) no other
   session currently holds an active claim on the same target.
 
@@ -39,6 +40,7 @@ from .sessions_lifecycle_reactivation_claims import (
     DEFAULT_REACQUIRE_WINDOW_S,
     auto_reacquire_session_ended_claims,
     target_descriptor,
+    released_claim_rows_for_reactivation,
 )
 from .sessions_resume_notice import write_pending_resume_notice
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
@@ -67,15 +69,7 @@ def emit_reactivated_with_released_claims(
             f"Session '{session_id}' has already ended.",
         )
 
-    rows = conn.execute(
-        "SELECT id, target_kind, item_id, epic_id, task_num, "
-        "process_key, conflict_group "
-        "FROM work_claims "
-        "WHERE session_id = %s AND release_reason = 'session_ended' "
-        "  AND released_at IS NOT NULL "
-        "ORDER BY id DESC",
-        (session_id,),
-    ).fetchall()
+    rows = released_claim_rows_for_reactivation(conn, session_id)
 
     from .sessions_lifecycle_resumption_emit import emit_session_resumed
 
@@ -135,11 +129,15 @@ def emit_reactivated_with_released_claims(
             ],
         )
 
+    prior_reason = "session_ended"
+    if hasattr(rows[0], "keys"):
+        prior_reason = str(rows[0]["release_reason"] or "session_ended")
     emit_session_resumed(
         session_id=session_id,
         released_claims=released_claims,
         reacquired_claims=reacquired,
         conflicts=conflicts,
+        prior_release_reason=prior_reason,
     )
 
     return released_claims
