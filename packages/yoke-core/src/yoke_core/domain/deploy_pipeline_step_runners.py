@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Dict, List, Optional
 
+from yoke_core.domain import deploy_pipeline_schema_rehearsal
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.deploy_ephemeral_verify import dispatch_ephemeral_verify
 from yoke_core.domain.deploy_pipeline_labels import item_label as _item_label
@@ -133,6 +134,18 @@ def _dispatch_step_runner(
 
         return dispatch_deployment_stage_approval(run_id, name)
     if step_runner == "github-actions-workflow":
+        rehearsal_rc, rehearsal_diag = (
+            deploy_pipeline_schema_rehearsal.ensure_before_dispatch(
+                config,
+                stage_name=name,
+                project=project,
+                environment=environment_name,
+                repository=project_repo_path,
+                release_lineage=release_lineage,
+            )
+        )
+        if rehearsal_rc != 0:
+            return rehearsal_rc, rehearsal_diag
         return _dispatch_github_actions_workflow(
             config,
             name=name,
