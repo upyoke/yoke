@@ -79,13 +79,93 @@ def test_existing_missing_version_with_wire_version_drives_reregister(monkeypatc
     )
 
     drove = register_module.ensure_registered_from_hook(
-        _Conn([{"model": "gpt", "executor_version": None}]),
-        '{"executor_version": "26.818.31338"}',
+        _Conn(
+            [
+                {
+                    "executor_surface": "codex-cli",
+                    "executor_version": None,
+                }
+            ]
+        ),
+        '{"entrypoint": "codex-cli", "executor_version": "0.150.0"}',
         "s-version",
     )
 
     assert drove is True
     assert calls == ["s-version"]
+
+
+def test_existing_null_surface_with_wire_surface_drives_reregister(monkeypatch):
+    _patch_existing_row(monkeypatch)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+    )
+
+    drove = register_module.ensure_registered_from_hook(
+        _Conn([{"executor_surface": None}]),
+        '{"entrypoint": "codex-cli"}',
+        "s-surface",
+    )
+
+    assert drove is True
+    assert calls == ["s-surface"]
+
+
+def test_wire_version_without_surface_does_not_drive_reregister(monkeypatch):
+    _patch_existing_row(monkeypatch)
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda *_a, **_kw: pytest.fail("an unpaired version must not register"),
+    )
+
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn([{"execution_lane": "DARIUS", "executor": "codex"}]),
+            '{"executor_version": "0.150.0"}',
+            "s-version-only",
+        )
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    ("executor", "stored_surface", "wire_surface"),
+    [
+        ("codex", "codex-cli", "codex-desktop"),
+        ("claude-code", "claude-cli", "claude-desktop"),
+        ("cursor", "cursor-desktop", "cursor-cli"),
+    ],
+)
+def test_existing_resolved_surface_is_never_replaced(
+    monkeypatch,
+    executor: str,
+    stored_surface: str,
+    wire_surface: str,
+) -> None:
+    _patch_existing_row(monkeypatch)
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda *_a, **_kw: pytest.fail("resolved surfaces are write-once"),
+    )
+
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn(
+                [
+                    {"executor_surface": stored_surface},
+                    {"execution_lane": "DARIUS", "executor": executor},
+                ]
+            ),
+            f'{{"entrypoint": "{wire_surface}"}}',
+            "s-resolved-surface",
+        )
+        is False
+    )
 
 
 def test_existing_primary_lane_with_wire_lane_drives_reregister(monkeypatch):

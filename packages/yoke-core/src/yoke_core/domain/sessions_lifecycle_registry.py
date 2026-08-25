@@ -153,6 +153,7 @@ def register_session(
                 execution_lane=execution_lane,
                 actor_id=actor_id,
                 resolved_actor_id=resolved_actor_id,
+                executor_surface=display_name,
                 executor_version=executor_version,
                 machine_id=machine_id,
                 native_thread_id=native_thread_id if has_thread_col else None,

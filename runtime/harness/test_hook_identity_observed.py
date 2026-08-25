@@ -33,8 +33,14 @@ def test_executor_version_uses_explicit_then_family_specific_environment(
         is None
     )
     monkeypatch.setattr(
-        "yoke_harness.session_relay_inventory.probe_surface_version",
-        lambda surface: "26.818.31338" if surface == "codex-desktop" else None,
+        "yoke_harness.session_relay_surface_probe_cache.cached_surface_versions",
+        lambda: {"codex-desktop": "26.818.31338"},
+    )
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_surface_probe_cache.refresh_surface_probe_cache",
+        lambda _surface, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("cache must win")
+        ),
     )
     assert (
         identity_observed.client_executor_version(
@@ -44,6 +50,36 @@ def test_executor_version_uses_explicit_then_family_specific_environment(
         )
         == "26.818.31338"
     )
+
+
+def test_executor_version_probes_and_caches_a_resolved_cli_surface(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_surface_probe_cache.cached_surface_versions",
+        lambda: {},
+    )
+    observed: list[str] = []
+
+    def refresh(surface: str, **kwargs):
+        observed.append(surface)
+        assert callable(kwargs["probe"])
+        return ({"advertised_version": "0.150.0"},)
+
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_surface_probe_cache.refresh_surface_probe_cache",
+        refresh,
+    )
+
+    assert (
+        identity_observed.client_executor_version(
+            "codex",
+            executor_surface="codex-cli",
+            environ={},
+        )
+        == "0.150.0"
+    )
+    assert observed == ["codex-cli"]
 
 
 def test_machine_id_enrichment_is_best_effort(monkeypatch) -> None:

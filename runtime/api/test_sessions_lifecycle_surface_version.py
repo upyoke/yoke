@@ -6,8 +6,10 @@ files stay under the 350-line authored cap.
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain import db_backend, json_helper
-from yoke_core.domain.sessions import end_session
+from yoke_core.domain.sessions import SessionError, end_session
 from yoke_core.domain.sessions_lifecycle_identity import (
     resolve_reactivation_executor_version,
 )
@@ -19,6 +21,16 @@ pytest_plugins = ("runtime.api.test_sessions",)
 _APP_VERSION = "1.34493.1"
 _CLI_VERSION = "2.1.245"
 _KEPT_DIGEST = "sha256:kept-wake-instruction"
+
+
+def _stored_surface_pair(connection, session_id: str) -> tuple[str | None, str | None]:
+    row = connection.execute(
+        "SELECT executor_surface, executor_version FROM harness_sessions "
+        f"WHERE session_id = {_p(connection)}",
+        (session_id,),
+    ).fetchone()
+    assert row is not None
+    return row["executor_surface"], row["executor_version"]
 
 
 def _p(connection):
@@ -145,6 +157,70 @@ def test_fresh_cli_session_stamps_cli_version(conn) -> None:
     )
     assert result["executor_surface"] == "claude-cli"
     assert result["executor_version"] == _CLI_VERSION
+
+
+def test_active_null_surface_backfills_resolved_surface_and_version(conn) -> None:
+    session_id = "active-unresolved-codex"
+    created = _register(
+        conn,
+        session_id=session_id,
+        executor="codex",
+        provider="openai",
+        executor_version=None,
+    )
+    assert created["executor_surface"] is None
+    assert created["executor_version"] is None
+
+    with pytest.raises(SessionError, match="already registered"):
+        _register(
+            conn,
+            session_id=session_id,
+            executor="codex",
+            provider="openai",
+            entrypoint="codex-cli",
+            executor_version="0.150.0",
+        )
+
+    assert _stored_surface_pair(conn, session_id) == ("codex-cli", "0.150.0")
+
+
+@pytest.mark.parametrize(
+    ("initial_executor", "provider", "initial_version", "later_executor"),
+    [
+        ("codex-desktop", "openai", "26.818.31338", "codex-cli"),
+        ("claude-desktop", "anthropic", _APP_VERSION, "claude-cli"),
+        ("cursor-desktop", "cursor", "1.7.54", "cursor-cli"),
+    ],
+)
+def test_active_resolved_surface_and_version_are_not_overwritten(
+    conn,
+    initial_executor: str,
+    provider: str,
+    initial_version: str,
+    later_executor: str,
+) -> None:
+    session_id = f"active-resolved-{provider}"
+    _register(
+        conn,
+        session_id=session_id,
+        executor=initial_executor,
+        provider=provider,
+        executor_version=initial_version,
+    )
+
+    with pytest.raises(SessionError, match="already registered"):
+        _register(
+            conn,
+            session_id=session_id,
+            executor=later_executor,
+            provider=provider,
+            executor_version="0.150.0",
+        )
+
+    assert _stored_surface_pair(conn, session_id) == (
+        initial_executor,
+        initial_version,
+    )
 
 
 def test_same_surface_reregistration_refreshes_version(conn) -> None:

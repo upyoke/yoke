@@ -24,6 +24,25 @@ _VERSION_ENV_BY_EXECUTOR = {
         "CURSOR_AGENT_VERSION",
     ),
 }
+_HOOK_SURFACE_PROBE_TIMEOUT_SECONDS = 1.0
+
+
+def _hook_surface_probe(surface: str):
+    """Probe one surface without exceeding a hook's latency budget."""
+    from yoke_harness.session_relay_surface_probes import (
+        CLI_SURFACE_PROBES,
+        probe_cli_surface,
+        probe_surface,
+    )
+
+    command = CLI_SURFACE_PROBES.get(surface)
+    if command:
+        return probe_cli_surface(
+            surface,
+            command,
+            timeout=_HOOK_SURFACE_PROBE_TIMEOUT_SECONDS,
+        )
+    return probe_surface(surface)
 
 
 def client_executor_version(
@@ -32,7 +51,7 @@ def client_executor_version(
     executor_surface: str | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> Optional[str]:
-    """Return a client-observed version without launching vendor clients."""
+    """Return a client-observed version from env or the bounded probe cache."""
     env = os.environ if environ is None else environ
     explicit = str(env.get("YOKE_EXECUTOR_VERSION") or "").strip()
     if explicit:
@@ -43,11 +62,23 @@ def client_executor_version(
         if value:
             return value
     surface = str(executor_surface or "").strip()
-    if surface.endswith("-desktop"):
+    if surface:
         try:
-            from yoke_harness.session_relay_inventory import probe_surface_version
+            from yoke_harness.session_relay_surface_probe_cache import (
+                cached_surface_versions,
+                refresh_surface_probe_cache,
+            )
 
-            return probe_surface_version(surface)
+            cached = cached_surface_versions().get(surface)
+            if cached:
+                return cached
+            refreshed = refresh_surface_probe_cache(
+                surface,
+                probe=_hook_surface_probe,
+            )
+            if refreshed:
+                observed = refreshed[0].get("advertised_version")
+                return str(observed or "").strip() or None
         except Exception:  # noqa: BLE001 - observed identity is best effort
             return None
     return None
