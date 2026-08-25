@@ -15,10 +15,11 @@ active ``work_claims`` row, validated per tool call by
 envelope, and no ``scope:entered`` action is emitted.
 
 Dirty-main guard runs only when creating a new worktree — re-entry
-does not touch main. Errors surface as ``ok=False`` outcomes with a
-``block_kind`` and rendered ``narrative``. CLI: exit 0 (envelope to
-stdout), exit 1 (sanctioned block, narrative to stderr), exit 2
-(usage / bad-input).
+does not touch main. It refuses only overlapping dirt on paths the
+new lane needs, and names a likely holder. Errors surface as
+``ok=False`` outcomes with a ``block_kind`` and rendered ``narrative``.
+CLI: exit 0 (envelope to stdout), exit 1 (sanctioned block, narrative
+to stderr), exit 2 (usage / bad-input).
 
 Step helpers live in :mod:`yoke_core.domain.worktree_preflight_steps`
 so the orchestrator + CLI stay under the 350-line authored-file cap.
@@ -34,17 +35,18 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+from yoke_core.domain.worktree_dirty_main_guard import (
+    evaluate_dirty_main_for_item,
+)
 from yoke_core.domain.worktree_paths import _normalize_repo_root
 from yoke_core.domain.worktree_preflight_steps import (
     BLOCK_CREATE_FAILED,
     BLOCK_DB_LOCK,
-    BLOCK_DIRTY_TRACKED,
     BLOCK_INPUT,
     BLOCK_PATH_CLAIM,
     BLOCK_WORK_CLAIM,
     CWD_MODE_STATIC,
     activate_path_claims,
-    check_dirty_main,
     claim_work,
     classify_activation_failure,
     extract_retry_attempts,
@@ -156,9 +158,7 @@ def run_preflight(
     if not repo_root:
         out.ok = False
         out.block_kind = BLOCK_INPUT
-        out.narrative = (
-            resolution_error or "Could not resolve repo root for preflight."
-        )
+        out.narrative = resolution_error or "Could not resolve repo root for preflight."
         return out
 
     # Step 1 — work claim.
@@ -221,25 +221,21 @@ def run_preflight(
         canonical_path = recorded_lane_path or os.path.join(worktrees_dir, branch)
         canonical_exists = os.path.isdir(canonical_path)
         will_create = not canonical_exists
+        needed_paths: tuple[str, ...] = ()
         if will_create:
-            blocked, kind, paths = check_dirty_main(repo_root)
-            if blocked:
+            verdict = evaluate_dirty_main_for_item(
+                repo_root,
+                item_id=item_id,
+                item_ref=item_ref,
+                session_id=session_id,
+                worktrees_dir=worktrees_dir,
+            )
+            if verdict.blocked:
                 out.ok = False
-                out.block_kind = kind
-                listing = "\n  - ".join(paths[:20])
-                if len(paths) > 20:
-                    listing += f"\n  - ... +{len(paths) - 20} more"
-                kind_label = (
-                    "tracked or staged"
-                    if kind == BLOCK_DIRTY_TRACKED
-                    else "untracked, non-gitignored"
-                )
-                out.narrative = (
-                    f"Cannot create worktree for {item_ref}: main has "
-                    f"{kind_label} files. Commit, stash, remove, or "
-                    f"gitignore them and retry.\n  - {listing}"
-                )
+                out.block_kind = verdict.kind
+                out.narrative = verdict.narrative
                 return out
+            needed_paths = verdict.needed_paths
         # Direct import: a test patching `worktree_cli.create_worktree`
         # does NOT cover this call site. Patch `worktree_create.create_worktree`
         # (or scope `repo_root` to a tempdir) to keep tests off the real repo.
@@ -249,6 +245,7 @@ def run_preflight(
             item_id=item_id,
             project=project,
             repo_root=repo_root,
+            needed_paths=needed_paths,
         )
         if create_result.error:
             out.ok = False
@@ -287,7 +284,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         description="Harness-universal /yoke advance worktree re-entry primitive.",
     )
     parser.add_argument(
-        "--item", required=True, help="PREFIX-N or project-local sequence",
+        "--item",
+        required=True,
+        help="PREFIX-N or project-local sequence",
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--no-worktree", action="store_true")

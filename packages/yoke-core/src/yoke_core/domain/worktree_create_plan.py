@@ -12,7 +12,6 @@ provisioning loop reads top-to-bottom.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Tuple
 
@@ -171,50 +170,30 @@ def preflight_worktree_plan(
     return plan
 
 
-def dirty_main_error(repo_root: str, worktrees_dir: str) -> Optional[str]:
-    """Return a dirty-main blocker message, or ``None`` when clean."""
-    from yoke_core.domain.worktree_paths import _run
+def dirty_main_error(
+    repo_root: str,
+    worktrees_dir: str,
+    needed_paths: Sequence[str] = (),
+) -> Optional[str]:
+    """Return a scoped dirty-main blocker, or ``None`` when there is no overlap."""
+    from yoke_core.domain.worktree_dirty_main_guard import overlapping_dirty_main
+    from yoke_core.domain.worktree_preflight_steps import BLOCK_DIRTY_TRACKED
 
-    tracked = _run(["git", "-C", repo_root, "diff", "--name-only"])
-    staged = _run(["git", "-C", repo_root, "diff", "--name-only", "--cached"])
-    dirty = sorted(
-        {
-            p.strip()
-            for p in (tracked.stdout + "\n" + staged.stdout).splitlines()
-            if p.strip()
-        }
+    blocked, kind, paths = overlapping_dirty_main(
+        repo_root, needed_paths=needed_paths, worktrees_dir=worktrees_dir
     )
-    if dirty:
-        return (
-            "Cannot create worktree: main has tracked or staged changes. "
-            "Commit, stash, or revert them and retry. Dirty paths: "
-            + ", ".join(dirty[:20])
-        )
-    untracked_run = _run(
-        [
-            "git",
-            "-C",
-            repo_root,
-            "ls-files",
-            "--others",
-            "--exclude-standard",
-        ]
+    if not blocked:
+        return None
+    kind_label = (
+        "tracked or staged"
+        if kind == BLOCK_DIRTY_TRACKED
+        else "untracked, non-gitignored"
     )
-    worktrees_rel = os.path.relpath(worktrees_dir, repo_root).rstrip("/")
-    untracked = [
-        p.strip()
-        for p in untracked_run.stdout.splitlines()
-        if p.strip()
-        and p.strip() != "runtime/config"
-        and not p.strip().startswith(worktrees_rel + "/")
-    ]
-    if untracked:
-        return (
-            "Cannot create worktree: main has untracked, non-gitignored files. "
-            "Commit, remove, or gitignore them and retry. Untracked paths: "
-            + ", ".join(untracked[:20])
-        )
-    return None
+    return (
+        "Cannot create worktree: overlapping "
+        f"{kind_label} files on main match paths this lane needs. "
+        "Dirty paths: " + ", ".join(paths[:20])
+    )
 
 
 __all__ = [

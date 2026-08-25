@@ -47,7 +47,21 @@ def _patch_steps(
 ):
     monkeypatch.setattr(wp, "claim_work", lambda item_id: claim_outcome)
     monkeypatch.setattr(wp, "activate_path_claims", lambda item_id: activate_outcome)
-    monkeypatch.setattr(wp, "check_dirty_main", lambda repo_root: dirty_outcome)
+    blocked, kind, paths = dirty_outcome
+    verdict = SimpleNamespace(
+        blocked=blocked,
+        kind=kind,
+        paths=paths,
+        needed_paths=tuple(paths),
+        narrative=(
+            "Cannot create worktree: overlapping files.\n  - " + "\n  - ".join(paths)
+            if blocked
+            else ""
+        ),
+    )
+    monkeypatch.setattr(
+        wp, "evaluate_dirty_main_for_item", lambda *_args, **_kwargs: verdict
+    )
     if create_result is not None:
         from yoke_core.domain import worktree_create
 

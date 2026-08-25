@@ -10,9 +10,7 @@ both modules import from one place.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Tuple
-
-from yoke_core.domain.worktree_paths import _run
+from typing import List, Optional, Sequence, Tuple
 
 
 # Block-kind constants surfaced on ``WorktreePreflightOutcome.block_kind``.
@@ -123,6 +121,7 @@ def extract_retry_attempts(stderr: str) -> Optional[int]:
     if not stderr or _DB_LOCK_STDERR_MARKER not in stderr:
         return None
     import re
+
     match = re.search(r"retried (\d+) times", stderr)
     if match is None:
         return None
@@ -193,21 +192,29 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
     )
     if not listed.success:
         err = listed.error
-        return False, (
-            f"{err.code}: {err.message}"
-            if err is not None
-            else "path-claim list failed"
-        ), []
+        return (
+            False,
+            (
+                f"{err.code}: {err.message}"
+                if err is not None
+                else "path-claim list failed"
+            ),
+            [],
+        )
     claims = (listed.result or {}).get("claims") or []
 
     resolved_heads: dict[int, str] = {}
     if claims:
         checkout = _local_checkout_for_item(item_id)
         if checkout is None:
-            return False, (
-                "claim's item has no machine-local checkout mapping; "
-                "cannot resolve integration head"
-            ), []
+            return (
+                False,
+                (
+                    "claim's item has no machine-local checkout mapping; "
+                    "cannot resolve integration head"
+                ),
+                [],
+            )
         for claim in claims:
             claim_id = int(claim["id"])
             integration_target = str(claim.get("integration_target") or "main")
@@ -234,11 +241,15 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
     )
     if not run.success:
         err = run.error
-        return False, (
-            f"{err.code}: {err.message}"
-            if err is not None
-            else "path-claim activation failed"
-        ), []
+        return (
+            False,
+            (
+                f"{err.code}: {err.message}"
+                if err is not None
+                else "path-claim activation failed"
+            ),
+            [],
+        )
     result = run.result or {}
     outcomes = result.get("outcomes") or []
     activated = [
@@ -254,24 +265,23 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
     return True, "", activated
 
 
-def check_dirty_main(repo_root: str) -> Tuple[bool, str, List[str]]:
-    """Return ``(blocked, kind, paths)`` for tracked/staged/untracked dirt."""
-    tracked = _run(["git", "-C", repo_root, "diff", "--name-only"])
-    staged = _run(["git", "-C", repo_root, "diff", "--name-only", "--cached"])
-    dirty_tracked = [
-        p.strip()
-        for p in (tracked.stdout + "\n" + staged.stdout).splitlines()
-        if p.strip()
-    ]
-    if dirty_tracked:
-        return True, BLOCK_DIRTY_TRACKED, sorted(set(dirty_tracked))
-    untracked_run = _run([
-        "git", "-C", repo_root, "ls-files", "--others", "--exclude-standard",
-    ])
-    untracked = [p.strip() for p in untracked_run.stdout.splitlines() if p.strip()]
-    if untracked:
-        return True, BLOCK_DIRTY_UNTRACKED, untracked
-    return False, "", []
+def check_dirty_main(
+    repo_root: str,
+    needed_paths: Sequence[str] = (),
+    *,
+    worktrees_dir: str = "",
+) -> Tuple[bool, str, List[str]]:
+    """Return ``(blocked, kind, paths)`` for dirt overlapping *needed_paths*.
+
+    Empty *needed_paths* never blocks — ``git worktree add`` does not
+    require a clean main.
+    """
+    from yoke_core.domain.worktree_dirty_main_guard import overlapping_dirty_main
+
+    blocked, kind, paths = overlapping_dirty_main(
+        repo_root, needed_paths=needed_paths, worktrees_dir=worktrees_dir
+    )
+    return blocked, kind, list(paths)
 
 
 def physical_cwd_mode(actual_cwd: str, worktree_path: str) -> str:

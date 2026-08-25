@@ -170,9 +170,7 @@ class TestCreateWorktreeMultiWorktree:
         for branch in branches:
             assert not os.path.isdir(str(git_repo / ".worktrees" / branch))
 
-    def test_duplicate_worktree_path_is_rejected_by_registry(
-        self, git_repo, yoke_db
-    ):
+    def test_duplicate_worktree_path_is_rejected_by_registry(self, git_repo, yoke_db):
         branches = ["epic-99209-a", "epic-99209-b"]
         entries = seed_multiworktree_epic(yoke_db, 99209, branches, str(git_repo))
         conn = connect_test_db(yoke_db)
@@ -196,10 +194,11 @@ class TestCreateWorktreeMultiWorktree:
             repo_root=str(git_repo),
             config_path=_config_path(git_repo),
             db_path=yoke_db,
+            needed_paths=("dirty.txt",),
         )
 
         assert result.error is not None
-        assert "main has untracked" in result.error
+        assert "overlapping" in result.error
         for _, path in entries:
             assert not os.path.isdir(path)
 
