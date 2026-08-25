@@ -14,8 +14,12 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.hooks.types import HookContext, Outcome
 from yoke_contracts.hook_runner.session_cwd import (
+    CLIENT_CLAUDE_JOB_TMP_KEY,
+    CLIENT_CLAUDE_JOB_TMP_SCHEMA,
     CLIENT_SCRATCH_ROOT_KEY,
     CLIENT_SCRATCH_ROOT_SCHEMA,
+    client_claude_job_tmp,
+    client_claude_job_tmp_fact,
     client_scratch_root,
     client_scratch_root_fact,
 )
@@ -27,6 +31,7 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
 
 SESSION_ID = "session-owner"
 CLIENT_ROOT = Path.home() / ".yoke" / "tmp"
+CLAUDE_JOB_DIR = Path.home() / ".claude" / "jobs" / "job-123"
 
 
 @pytest.fixture
@@ -59,13 +64,17 @@ def _capture(stream: str, *, session_id: str = SESSION_ID) -> Path:
     )
 
 
-def _remote_decision(tool_name: str, tool_input: dict) -> Outcome:
+def _remote_decision(
+    tool_name: str, tool_input: dict, *, include_job_tmp: bool = False,
+) -> Outcome:
     payload = {
         "session_id": SESSION_ID,
         "tool_name": tool_name,
         "tool_input": tool_input,
         **client_scratch_root_fact(str(CLIENT_ROOT)),
     }
+    if include_job_tmp:
+        payload.update(client_claude_job_tmp_fact(str(CLAUDE_JOB_DIR)))
     decision = lint_session_cwd.evaluate(HookContext(
         event_name="PreToolUse",
         executor_family="claude",
@@ -84,6 +93,26 @@ def test_client_root_contract_rejects_non_scoped_roots(root: str) -> None:
         CLIENT_SCRATCH_ROOT_KEY: {
             "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
             "root": root,
+        }
+    }) == ""
+
+
+def test_client_job_tmp_contract_is_bounded() -> None:
+    fact = client_claude_job_tmp_fact(str(CLAUDE_JOB_DIR))
+    assert fact == {
+        CLIENT_CLAUDE_JOB_TMP_KEY: {
+            "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
+            "root": str(CLAUDE_JOB_DIR / "tmp"),
+        }
+    }
+    assert client_claude_job_tmp(fact) == str(CLAUDE_JOB_DIR / "tmp")
+    assert client_claude_job_tmp(
+        {}, job_dir=str(CLAUDE_JOB_DIR),
+    ) == str(CLAUDE_JOB_DIR / "tmp")
+    assert client_claude_job_tmp({
+        CLIENT_CLAUDE_JOB_TMP_KEY: {
+            "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
+            "root": str(CLAUDE_JOB_DIR),
         }
     }) == ""
 
@@ -161,4 +190,23 @@ def test_relay_keeps_other_client_scratch_subtrees_claim_gated(
 
     assert _remote_decision(
         "Read", {"file_path": str(dispatch_input)},
+    ) is Outcome.DENY
+
+
+def test_relay_allows_only_the_evidenced_background_job_tmp(
+    conn, claimed_worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "server-scratch"))
+    target = CLAUDE_JOB_DIR / "tmp" / "verification.log"
+
+    assert _remote_decision(
+        "Bash", {"command": f"touch {target}"}, include_job_tmp=True,
+    ) is Outcome.NOOP
+    assert _remote_decision(
+        "Bash", {"command": f"touch {target}"}, include_job_tmp=False,
+    ) is Outcome.DENY
+    assert _remote_decision(
+        "Bash",
+        {"command": f"touch {CLAUDE_JOB_DIR / 'result.json'}"},
+        include_job_tmp=True,
     ) is Outcome.DENY
