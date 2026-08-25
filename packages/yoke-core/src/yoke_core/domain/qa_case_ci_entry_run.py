@@ -17,21 +17,21 @@ landing step later finds the same pull request open and green and simply
 enqueues it. Per-item cost becomes one entry suite plus the train's
 amortized share.
 
-Rebasing is free exactly here and nowhere later: no gate evidence has been
-recorded yet, so nothing is invalidated, and the entry run then tests
-approximately the tree the train will build — which is what keeps the queue
-from bouncing it as out of date.
+Rebasing is safe before evidence exists and tests the tree the train will build.
 """
 
 from __future__ import annotations
 
 import contextlib
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
+from yoke_core.domain import process_group_reaping
 from yoke_core.domain import qa_case_ci_lane, qa_case_ci_progress
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
@@ -72,11 +72,16 @@ def base_branch(project: str, checkout: Path) -> str:
 
 
 def _git(checkout: Path, *args: str, timeout: int = 120) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    env = None
+    if args and args[0] == "rebase":
+        env = os.environ.copy()
+        env[POST_COMMIT_SNAPSHOT_SKIP_ENV] = "1"
+    return process_group_reaping.run_in_process_group(
         ["git", "-C", str(checkout), *args],
         capture_output=True,
         text=True,
         timeout=timeout,
+        env=env,
     )
 
 
@@ -161,7 +166,23 @@ def rebase_lane_onto_base(
             f"could not compare {branch!r} with origin/{target} before "
             f"rebasing: {detail or 'merge-base failed'}"
         )
-    rebased = _git(checkout, "rebase", f"origin/{target}", timeout=600)
+    try:
+        rebased = _git(checkout, "rebase", f"origin/{target}", timeout=600)
+    except subprocess.TimeoutExpired as exc:
+        aborted = _git(checkout, "rebase", "--abort")
+        if aborted.returncode == 0:
+            recovery = "The in-progress rebase was aborted and the lane restored."
+        else:
+            detail = (aborted.stderr or aborted.stdout or "abort failed").strip()
+            recovery = (
+                f"Automatic cleanup failed ({detail}); run `git -C {checkout} "
+                "rebase --abort` to restore the lane."
+            )
+        raise QaCaseExecutionError(
+            f"rebasing {branch!r} onto origin/{target} timed out after "
+            f"{exc.timeout}s. {recovery} Re-run the gate; replayed commits "
+            "already skip Yoke's post-commit snapshot sync."
+        ) from exc
     if rebased.returncode == 0:
         return
     conflicts = _git(checkout, "diff", "--name-only", "--diff-filter=U")

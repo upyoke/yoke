@@ -17,6 +17,7 @@ import pytest
 
 from runtime.api.domain.qa_case_ci_test_helpers import LANE_HEAD, completed_run
 
+from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
 from yoke_core.domain import qa_case_ci_entry_run as entry_run
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
@@ -159,6 +160,20 @@ def test_a_lane_behind_the_base_is_fetched_then_rebased(monkeypatch):
     assert calls[2] == ("rebase", "origin/main")
 
 
+def test_gate_rebase_marks_replayed_commits_to_skip_snapshot_sync(monkeypatch):
+    observed = {}
+
+    def run(argv, **kwargs):
+        observed.update(kwargs)
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr(entry_run.process_group_reaping, "run_in_process_group", run)
+
+    entry_run._git("/tmp/tree", "rebase", "origin/main", timeout=600)
+
+    assert observed["env"][POST_COMMIT_SNAPSHOT_SKIP_ENV] == "1"
+
+
 def test_a_lane_containing_the_base_keeps_its_merge_topology(monkeypatch):
     _clean_worktree(monkeypatch)
     calls = _git_results(monkeypatch, {})
@@ -236,6 +251,30 @@ def test_a_conflicting_rebase_aborts_and_names_the_conflicted_paths(monkeypatch)
         )
 
     assert ("rebase", "--abort") in calls
+
+
+def test_a_timed_out_rebase_aborts_and_returns_a_typed_recovery(monkeypatch):
+    _clean_worktree(monkeypatch)
+    calls = []
+
+    def git(_checkout, *args, timeout=120):
+        calls.append(args)
+        if args[0] == "merge-base":
+            return subprocess.CompletedProcess([], 1, "", "")
+        if args == ("rebase", "origin/main"):
+            raise subprocess.TimeoutExpired(args, timeout)
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(entry_run, "_git", git)
+
+    with pytest.raises(QaCaseExecutionError, match="timed out after 600s") as raised:
+        entry_run.rebase_lane_onto_base(
+            "/tmp/tree", branch="PRJ-9", target="main", project="yoke"
+        )
+
+    assert ("rebase", "--abort") in calls
+    assert "lane restored" in str(raised.value)
+    assert isinstance(raised.value.__cause__, subprocess.TimeoutExpired)
 
 
 # Waiting for the entry run
