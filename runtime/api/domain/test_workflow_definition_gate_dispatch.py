@@ -317,7 +317,8 @@ def test_blitz_lifecycle_claims_refuses_conflict_and_releases_terminally(
         session_id="blitz-contender",
     )
     assert conflict["error_code"] == "GATE_DOC_CLAIM_ACTIVATION_CONFLICT"
-    assert "item 2180" in conflict["error"]
+    # The refusal names the holder by the reference an operator can act on.
+    assert "YOK-2180" in conflict["error"]
 
     outcome = handle_transition(
         FunctionCallRequest(

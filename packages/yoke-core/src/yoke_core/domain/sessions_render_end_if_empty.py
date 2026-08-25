@@ -19,6 +19,22 @@ from .sessions_render_end_chain_pending import (
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
 
 
+def _document_lock_count(conn: Any, session_id: str) -> int:
+    """Count the strategy documents this session still holds directly."""
+    from .schema_common import _table_exists
+
+    if not _table_exists(conn, "strategy_doc_claims"):
+        return 0
+    row = conn.execute(
+        """SELECT COUNT(*) AS cnt
+           FROM strategy_doc_claims
+           WHERE owner_kind = 'session' AND owner_session_id = %s
+             AND released_at IS NULL""",
+        (session_id,),
+    ).fetchone()
+    return int(row["cnt"] or 0)
+
+
 @rollback_workflow_binding_write_errors
 def end_session_if_empty(
     conn: Any,
@@ -26,7 +42,12 @@ def end_session_if_empty(
     *,
     triggered_by: str = "stop-hook",
 ) -> Dict[str, Any]:
-    """End a session only when claims and chain-pending budget are absent."""
+    """End a session only when it holds nothing and has no chain budget left.
+
+    A session-owned strategy-document lock counts as holding something: the
+    non-destructive path never releases what a session holds, and a transient
+    end would otherwise drop a coordinator's document lock on a laptop sleep.
+    """
     session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     if session_id not in session_rows:
         conn.commit()
@@ -58,6 +79,17 @@ def end_session_if_empty(
             "status": "has_claims",
             "ended": False,
             "active_claim_count": int(claim_count),
+        }
+
+    lock_count = _document_lock_count(conn, session_id)
+    if lock_count:
+        conn.commit()
+        return {
+            "session_id": session_id,
+            "status": "has_document_locks",
+            "ended": False,
+            "active_claim_count": 0,
+            "active_document_lock_count": int(lock_count),
         }
 
     state = chain_pending_state(conn, session_id)

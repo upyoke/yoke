@@ -17,6 +17,9 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke strategy claim acquire", "strategy.claim"),
     _w("yoke strategy claim release", "strategy.claim"),
     _w("yoke strategy claim break-glass-release", "strategy.claim"),
+    _w("yoke strategy doc-claim acquire", "strategy.doc_claim"),
+    _w("yoke strategy doc-claim release", "strategy.doc_claim"),
+    _w("yoke strategy doc-claim list", "strategy.doc_claim"),
 )
 
 

@@ -1,4 +1,4 @@
-"""Acquisition, authorization, and release of strategy-document claims."""
+"""Acquisition, authorization, and release of item-owned document claims."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from yoke_core.domain.strategy_execution_state import (
     _require_blitz_item,
     _row,
     active_strategy_doc_claim,
+    claim_holder_label,
 )
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -58,10 +59,11 @@ def acquire_strategy_doc_claim(
     inserted = _row(
         conn.execute(
             "INSERT INTO strategy_doc_claims "
-            "(project_id, strategy_doc_slug, owning_item_id, "
+            "(project_id, strategy_doc_slug, owner_kind, owner_item_id, "
             "registered_by_actor_id, registered_by_session_id, "
             "registered_at) "
-            f"VALUES ({', '.join(marker for _ in range(6))}) "
+            f"VALUES ({marker}, {marker}, 'item', {marker}, "
+            f"{marker}, {marker}, {marker}) "
             "ON CONFLICT DO NOTHING RETURNING id",
             (
                 int(link["project_id"]),
@@ -79,17 +81,21 @@ def acquire_strategy_doc_claim(
             project_id=int(link["project_id"]),
             slug=str(link["strategy_doc_slug"]),
         )
-        if holder is not None and int(holder["owning_item_id"]) == int(item_id):
+        if (
+            holder is not None
+            and holder["owner_item_id"] is not None
+            and (int(holder["owner_item_id"]) == int(item_id))
+        ):
             if commit:
                 conn.commit()
             return holder
         label = (
-            f"item {holder['owning_item_id']} ({holder['item_title']})"
+            claim_holder_label(holder)
             if holder is not None
-            else "another active item"
+            else "another active holder"
         )
         raise StrategyDocClaimConflictError(
-            f"strategy document {link['strategy_doc_slug']!r} is owned by {label}"
+            f"strategy document {link['strategy_doc_slug']!r} is held by {label}"
         )
     claim = active_strategy_doc_claim(conn, item_id=int(item_id)) or {}
     if commit:
@@ -117,11 +123,18 @@ def authorize_strategy_doc_write(
     )
     if claim is None:
         return False
-    item_claim = _active_item_claim(conn, int(claim["owning_item_id"]))
+    if str(claim["owner_kind"]) == "session":
+        if str(claim["owner_session_id"]) == session_id:
+            return True
+        raise StrategyDocClaimAuthorizationError(
+            f"strategy document {slug!r} is held by "
+            f"{claim_holder_label(claim)}; only that session may revise it"
+        )
+    item_claim = _active_item_claim(conn, int(claim["owner_item_id"]))
     if item_claim is None or str(item_claim["session_id"]) != session_id:
         raise StrategyDocClaimAuthorizationError(
             f"strategy document {slug!r} is owned by Blitz item "
-            f"{claim['owning_item_id']}; only the session holding that "
+            f"{claim['owner_item_id']}; only the session holding that "
             "item's active claim may revise it"
         )
     return True

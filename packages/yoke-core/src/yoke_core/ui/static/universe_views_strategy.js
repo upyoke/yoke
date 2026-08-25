@@ -25,9 +25,16 @@ import { relativeTime } from "./universe_time.js";
 
 function executionLabel(doc) {
   if (doc.execution_state === "claimed") {
-    return `claimed · ${doc.execution_item_ref || `item ${doc.execution_item_id}`}`;
+    return `claimed · ${claimHolderLabel(doc)}`;
   }
   return doc.archived ? "archived" : doc.execution_state || "available";
+}
+
+function claimHolderLabel(doc) {
+  if (doc.execution_owner_kind === "session") {
+    return `session ${doc.execution_owner_session_id}`;
+  }
+  return doc.execution_item_ref || `item ${doc.execution_item_id}`;
 }
 
 function scopeLabel(scope, slugById) {

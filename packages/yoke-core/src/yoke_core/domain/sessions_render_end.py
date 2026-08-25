@@ -21,6 +21,7 @@ from .sessions_render_attribution import clear_current_item
 from .sessions_render_end_chain_pending import (
     chain_pending_state as _chain_pending_state,
 )
+from .strategy_doc_session_claims import release_session_doc_claims_for_session
 from .sessions_render_end_claim_release import (
     emit_session_claim_releases_post_commit,
     release_session_claims_transactional,
@@ -190,6 +191,8 @@ def end_session(
             lifecycle_reason="session_end_destructive",
         )
     clear_current_item(conn, session_id, commit=False)
+    # A document lock is session authority, so it ends with the session.
+    release_session_doc_claims_for_session(conn, session_id)
 
     # Mark session as ended
     conn.execute(

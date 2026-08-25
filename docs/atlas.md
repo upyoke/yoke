@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-25T14:17:49Z_
+_Audit generated_at: 2026-08-25T17:13:08Z_
 
 ## 1. Summary
 
-- Function ids registered: **417**
+- Function ids registered: **420**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **344** (344 carry usable `--help`)
-- Operation tracker: **321 wrapped**, 10 tool_cli, 125 permanent, 0 pending
+- `yoke` CLI subcommands: **347** (347 carry usable `--help`)
+- Operation tracker: **324 wrapped**, 10 tool_cli, 125 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **321** (operation tracker confirms 321 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **324** (operation tracker confirms 324 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -281,6 +281,9 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **321** (operation track
 | strategy | `yoke strategy doc list` | `strategy.doc.list` | ok |
 | strategy | `yoke strategy doc replace` | `strategy.doc.replace` | ok |
 | strategy | `yoke strategy doc unarchive` | `strategy.doc.unarchive` | ok |
+| strategy | `yoke strategy doc-claim acquire` | `strategy.doc_claim.acquire` | ok |
+| strategy | `yoke strategy doc-claim list` | `strategy.doc_claim.list` | ok |
+| strategy | `yoke strategy doc-claim release` | `strategy.doc_claim.release` | ok |
 | strategy | `yoke strategy execution get` | `strategy.execution.get` | ok |
 | strategy | `yoke strategy execution link` | `strategy.execution.link` | ok |
 | strategy | `yoke strategy ingest` | `strategy.ingest.run` | ok |
@@ -522,10 +525,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 33 |
-| claude-code | 12 |
-| cursor | 3 |
-| agent | 2 |
+| codex | 41 |
+| claude-code | 8 |
+| cursor | 1 |
 
 ## 8. Contradictions
 

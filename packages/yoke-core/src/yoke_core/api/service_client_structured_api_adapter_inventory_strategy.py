@@ -66,6 +66,22 @@ STRATEGY_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="strategy.doc_claim.acquire",
+        cli_invocation=(
+            "yoke strategy doc-claim acquire SLUG [--reason TEXT] --project P"
+        ),
+    ),
+    AdapterEntry(
+        function_id="strategy.doc_claim.release",
+        cli_invocation=(
+            "yoke strategy doc-claim release SLUG [--reason TEXT] --project P"
+        ),
+    ),
+    _read_entry(
+        function_id="strategy.doc_claim.list",
+        cli_invocation="yoke strategy doc-claim list [--all] --project P",
+    ),
+    AdapterEntry(
         function_id="strategy.claim.break_glass_release",
         cli_invocation=(
             "yoke strategy claim break-glass-release ITEM "

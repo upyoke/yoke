@@ -77,6 +77,61 @@ def seed_session_claim(conn, item_id: int, session_id: str) -> None:
     conn.commit()
 
 
+def seed_session(conn, session_id: str) -> None:
+    """Register one harness session with no work claim of its own."""
+    now = iso8601_now()
+    conn.execute(
+        "INSERT INTO harness_sessions "
+        "(session_id, executor, provider, model, workspace, project_id, "
+        "offered_at, last_heartbeat) "
+        "VALUES (%s, 'codex', 'openai', 'gpt', '/tmp', 1, %s, %s) "
+        "ON CONFLICT (session_id) DO NOTHING",
+        (session_id, now, now),
+    )
+    conn.commit()
+
+
+def link_blitz_document(conn, item_id: int, slug: str) -> None:
+    """Bind a Blitz item to the document it executes."""
+    conn.execute(
+        "INSERT INTO item_strategy_docs "
+        "(item_id, project_id, strategy_doc_slug, linked_at) "
+        "VALUES (%s, 1, %s, %s)",
+        (item_id, slug, iso8601_now()),
+    )
+    conn.commit()
+
+
+#: Document-lock test vocabulary shared by the lock and exclusion suites.
+COORDINATOR_SESSION = "coordinator-session"
+WORKER_SESSION = "worker-session"
+LOCKED_DOC = "AREA-PLAN"
+
+
+def seed_linked_blitz(conn, item_id: int, slug: str = LOCKED_DOC) -> None:
+    """Seed a Blitz item already bound to the document it executes."""
+    seed_blitz_item(conn, item_id, item_id)
+    link_blitz_document(conn, item_id, slug)
+
+
+def lock_document(
+    conn,
+    session_id: str = COORDINATOR_SESSION,
+    slug: str = LOCKED_DOC,
+) -> dict:
+    """Take the session-owned lock the way a coordinator would."""
+    from yoke_core.domain.strategy_execution import acquire_session_doc_claim
+
+    return acquire_session_doc_claim(
+        conn,
+        project_id=1,
+        slug=slug,
+        session_id=session_id,
+        actor_id=1,
+        reason="shaping the plan",
+    )
+
+
 def strategy_function_request(
     function_id: str,
     *,

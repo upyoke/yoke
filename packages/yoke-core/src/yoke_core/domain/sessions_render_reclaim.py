@@ -62,10 +62,12 @@ def reclaim_stale_session(
     conn: Any,
     session_id: str,
 ) -> Dict[str, Any]:
-    """Release all claims and leases from a stale session, then end it.
+    """Release all claims, leases, and document locks from a stale session.
 
     Claims are released with reason 'reclaimed'.  Emits one ``WorkReclaimed``
-    event per released claim with populated ``item_id``/``task_num``.
+    event per released claim with populated ``item_id``/``task_num``.  A
+    session-owned document lock dies with its session for the same reason a
+    work claim does: an abandoned lock would leave its document unclaimable.
     """
     now = _now_iso()
 
@@ -108,8 +110,10 @@ def reclaim_stale_session(
         if cursor.rowcount:
             released_claim_rows.append(claim_row)
     from .coordination_lease_reclaim import release_for_reclaimed_session
+    from .strategy_doc_session_claims import release_session_doc_claims_for_session
 
     release_for_reclaimed_session(conn, session_id)
+    release_session_doc_claims_for_session(conn, session_id, reason="reclaimed")
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
         (now, session_id),
