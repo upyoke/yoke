@@ -87,8 +87,7 @@ def render_level_functions(
         )
         restore_lines.append(
             f"  /usr/bin/find {golden_level} -mindepth 1 -maxdepth 1 {keep} "
-            f"-exec /bin/cp -Rc {{}} {target} ';' "
-            + '2>>"$restore_error_log" || true'
+            f"-exec /bin/cp -Rc {{}} {target} ';' " + '2>>"$restore_error_log" || true'
         )
     clear_lines.extend(("  return 0", "}"))
     restore_lines.extend(("  return 0", "}"))

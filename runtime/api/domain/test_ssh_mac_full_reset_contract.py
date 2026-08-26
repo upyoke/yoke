@@ -127,6 +127,4 @@ def test_rendered_program_stays_inside_one_explicit_home_for_any_shell() -> None
     assert "/Users/tester" not in script
     assert contract.tool_bin_suffix == ".custom/bin"
     syntax = run_zsh_syntax_if_available(script)
-    assert syntax is None or syntax.returncode == 0, (
-        syntax.stderr if syntax else ""
-    )
+    assert syntax is None or syntax.returncode == 0, syntax.stderr if syntax else ""

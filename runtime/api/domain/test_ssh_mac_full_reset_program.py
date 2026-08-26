@@ -127,9 +127,7 @@ def test_clear_and_restore_keep_the_live_privacy_database_and_ssh_key(
     # Everything the baseline holds came back.
     assert (home / ".claude.json").read_text() == '{"loggedIn": true}\n'
     assert (home / "Documents" / "notes.txt").read_text() == "user notes\n"
-    assert (
-        home / "Library" / "Application Support" / "Vendor" / "auth.json"
-    ).exists()
+    assert (home / "Library" / "Application Support" / "Vendor" / "auth.json").exists()
     assert (home / "Library" / "Preferences" / "vendor.plist").exists()
     # Contamination is gone at every depth, including inside a preserved
     # path's own ancestor directory.

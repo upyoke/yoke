@@ -21,13 +21,13 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
     RESET_RESTORED_ENTRIES_PREFIX,
     resolve_full_reset_path_contract,
 )
-
-GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
 from yoke_core.domain.ssh_mac_full_reset_script import (
     FULL_RESET_SCRIPT,
     render_full_reset_script,
 )
 from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
+
+GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
 
 
 def test_ssh_adapter_uses_secret_file_reference_not_secret_argv(

@@ -77,7 +77,9 @@ def test_probe_documents_that_are_not_bounded_argv_are_refused(document: str) ->
 def test_probes_run_in_the_gui_session_and_summarize_without_the_account() -> None:
     recorder = _Recorder(_completed(0, stdout='{"loggedIn": true, "e": "a@b.c"}'))
 
-    result = run_baseline_probes(parse_baseline_probes(_document()), run_gui_command=recorder)
+    result = run_baseline_probes(
+        parse_baseline_probes(_document()), run_gui_command=recorder
+    )
 
     assert result.ok
     assert recorder.calls[0][0] == [

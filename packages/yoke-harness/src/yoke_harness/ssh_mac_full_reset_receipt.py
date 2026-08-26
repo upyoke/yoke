@@ -111,9 +111,7 @@ def success_evidence(
     rows.extend(
         {"path": path, "outcome": "absent"} for path in contract.tool_file_paths
     )
-    rows.extend(
-        {"path": path, "outcome": "absent"} for path in YOKE_ABSENT_TEMP_FILES
-    )
+    rows.extend({"path": path, "outcome": "absent"} for path in YOKE_ABSENT_TEMP_FILES)
     rows.extend(
         {"path": path, "outcome": "restored-from-baseline"}
         for path in contract.startup_files
