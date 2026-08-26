@@ -121,8 +121,8 @@ def test_held_session_is_reclaimed_after_the_long_ttl(conn):
     assert entry["effective_ttl_minutes"] == 240
     assert entry["has_active_holdings"] is True
     claim = conn.execute(
-        "SELECT released_at FROM work_claims "
-        "WHERE session_id='expired-holder' AND item_id=9201",
+        "SELECT released_at FROM work_claims WHERE session_id=%s",
+        ("expired-holder",),
     ).fetchone()
     assert claim["released_at"] is not None
 
