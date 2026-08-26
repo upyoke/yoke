@@ -163,6 +163,7 @@ def test_adapter_reports_and_stages_the_mapped_session(tmp_path: Path) -> None:
     assert result.result_code == "native_created"
     assert result.native_session_id == MAPPED_SESSION_ID
     assert result.evidence["result_code"] == "native_created"
+    assert result.evidence["native_launch_phase"] == "native_running"
     assert ATTESTATION not in repr(result)
 
 
@@ -180,7 +181,7 @@ def test_current_cursor_agent_session_new_payload_parses() -> None:
     assert session_id_from_native_payload({"modes": payload["modes"]}) is None
 
 
-def test_bind_map_miss_uses_the_acp_session_id() -> None:
+def test_bind_map_miss_does_not_treat_the_acp_id_as_registered() -> None:
     handoffs = []
 
     binding = bind_launch_session(
@@ -194,12 +195,12 @@ def test_bind_map_miss_uses_the_acp_session_id() -> None:
         sleeper=lambda _seconds: None,
     )
 
-    assert binding.result_code == "native_created"
+    assert binding.result_code == "registration_unproven"
     assert binding.session_id == CONVERSATION_ID
-    assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
+    assert handoffs == []
 
 
-def test_adapter_map_miss_registers_the_acp_session(tmp_path: Path) -> None:
+def test_adapter_map_miss_fails_closed_with_registration_phase(tmp_path: Path) -> None:
     handoffs = []
     result = build_cursor_adapter(
         acp_port=FakeAcp(),
@@ -210,10 +211,11 @@ def test_adapter_map_miss_registers_the_acp_session(tmp_path: Path) -> None:
         sleeper=lambda _seconds: None,
     )(_launch(tmp_path))
 
-    assert result.result_code == "native_created"
+    assert result.result_code == "not_created"
     assert result.native_session_id == CONVERSATION_ID
-    assert result.evidence["result_code"] == "native_created"
-    assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
+    assert result.evidence["result_code"] == "registration_unproven"
+    assert result.evidence["native_launch_phase"] == "registration"
+    assert handoffs == []
 
 
 def test_unparseable_identity_fails_closed_with_snippet(tmp_path: Path) -> None:

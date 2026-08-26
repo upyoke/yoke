@@ -244,32 +244,64 @@ def contain_stranded_launch_natives(
             reason = "runaway" if runaway else "inactivity"
         elif current - recorded_at < ttl_seconds:
             continue
-        launch_id = str(payload.get("launch_id") or path.stem)
-        pid = payload.get("pid")
-        native_session_id = payload.get("native_session_id")
-        if not isinstance(pid, int) or pid <= 0:
-            _drop(path)
-            continue
-        # A reused pid names a different process entirely; the native this
-        # record was written for is already gone.
-        if process_start_time(pid) != payload.get("process_start_time"):
-            result = "already_exited"
-        else:
-            result = _terminate(pid)
-        _drop(path)
-        outcomes.append(
-            ContainmentOutcome(
-                launch_id=launch_id,
-                pid=pid,
-                result=result,
-                native_session_id=(
-                    str(native_session_id) if native_session_id else None
-                ),
-                supervision_kind=kind,
-                reason=reason,
-            )
-        )
+        outcome = _contain_payload(path, payload, kind=kind, reason=reason)
+        if outcome is not None:
+            outcomes.append(outcome)
     return outcomes
+
+
+def contain_launch_native(
+    launch_id: str,
+    *,
+    state_dir: Path | None = None,
+    reason: str = "create_failed",
+) -> ContainmentOutcome | None:
+    """Reap one supervised launch now — the create already failed to register."""
+    if not launch_id:
+        return None
+    path = _record_path(launch_id, state_dir)
+    try:
+        if not path.is_file() or path.stat().st_size > _MAX_RECORD_BYTES:
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    kind = str(payload.get("supervision_kind") or "launch")
+    if kind != "launch":
+        return None
+    return _contain_payload(path, payload, kind=kind, reason=reason)
+
+
+def _contain_payload(
+    path: Path,
+    payload: dict[str, object],
+    *,
+    kind: str,
+    reason: str,
+) -> ContainmentOutcome | None:
+    launch_id = str(payload.get("launch_id") or path.stem)
+    pid = payload.get("pid")
+    native_session_id = payload.get("native_session_id")
+    if not isinstance(pid, int) or pid <= 0:
+        _drop(path)
+        return None
+    # A reused pid names a different process entirely; the native this
+    # record was written for is already gone.
+    if process_start_time(pid) != payload.get("process_start_time"):
+        result = "already_exited"
+    else:
+        result = _terminate(pid)
+    _drop(path)
+    return ContainmentOutcome(
+        launch_id=launch_id,
+        pid=pid,
+        result=result,
+        native_session_id=str(native_session_id) if native_session_id else None,
+        supervision_kind=kind,
+        reason=reason,
+    )
 
 
 def _drop(path: Path) -> None:
@@ -284,6 +316,7 @@ __all__ = [
     "CONTAINMENT_TTL_SECONDS",
     "SUPERVISION_DIRECTORY_NAME",
     "ContainmentOutcome",
+    "contain_launch_native",
     "contain_stranded_launch_natives",
     "record_supervised_native",
     "release_supervised_native",
