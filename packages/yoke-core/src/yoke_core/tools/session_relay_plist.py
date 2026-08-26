@@ -17,6 +17,11 @@ from yoke_cli.config.session_relay_instance import (
     resolve_relay_instance,
 )
 from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
+from yoke_core.tools.launchctl_boundary import (
+    launch_agents_dir,
+    launchd_target,
+    run_launchctl,
+)
 from yoke_core.tools.session_relay_executable import relay_executable_search_path
 from yoke_core.tools.session_relay_legacy import (
     LegacyRelayError,
@@ -80,7 +85,7 @@ def relay_launchd_paths(
     user_home = (home or Path.home()).expanduser()
     state = selected.state_dir
     return RelayLaunchdPaths(
-        plist=user_home / "Library" / "LaunchAgents" / f"{selected.label}.plist",
+        plist=launch_agents_dir(user_home) / f"{selected.label}.plist",
         state_dir=state,
         stdout_log=state / "relay.stdout.log",
         stderr_log=state / "relay.stderr.log",
@@ -125,10 +130,6 @@ def relay_plist_document(
     }
 
 
-def _launchd_target(label: str, uid: int | None = None) -> str:
-    return f"gui/{os.getuid() if uid is None else uid}/{label}"
-
-
 def _run(
     command: Sequence[str],
     *,
@@ -171,7 +172,7 @@ def relay_launchd_status(
     yoke_home: Path | None = None,
     executable: Path | None = None,
     environ: Mapping[str, str] | None = None,
-    runner: Runner = subprocess.run,
+    runner: Runner = run_launchctl,
     platform: str = sys.platform,
     uid: int | None = None,
     config_path: str | Path | None = None,
@@ -194,7 +195,7 @@ def relay_launchd_status(
     if platform == "darwin":
         loaded = (
             _run(
-                ["launchctl", "print", _launchd_target(paths.label, uid)],
+                ["launchctl", "print", launchd_target(paths.label, uid)],
                 runner=runner,
             ).returncode
             == 0
@@ -217,7 +218,7 @@ def install_relay_launchd(
     yoke_home: Path | None = None,
     executable: Path | None = None,
     environ: Mapping[str, str] | None = None,
-    runner: Runner = subprocess.run,
+    runner: Runner = run_launchctl,
     platform: str = sys.platform,
     uid: int | None = None,
     config_path: str | Path | None = None,
@@ -246,7 +247,7 @@ def install_relay_launchd(
         raise RelayInstallError(str(exc)) from exc
     paths.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     _run(
-        ["launchctl", "bootout", _launchd_target(paths.label, uid)],
+        ["launchctl", "bootout", launchd_target(paths.label, uid)],
         runner=runner,
     )
     _write_plist(
@@ -286,7 +287,7 @@ def uninstall_relay_launchd(
     *,
     home: Path | None = None,
     yoke_home: Path | None = None,
-    runner: Runner = subprocess.run,
+    runner: Runner = run_launchctl,
     platform: str = sys.platform,
     uid: int | None = None,
     config_path: str | Path | None = None,
@@ -302,12 +303,12 @@ def uninstall_relay_launchd(
     )
     paths = relay_launchd_paths(home=home, instance=selected)
     _run(
-        ["launchctl", "bootout", _launchd_target(paths.label, uid)],
+        ["launchctl", "bootout", launchd_target(paths.label, uid)],
         runner=runner,
     )
     if (
         _run(
-            ["launchctl", "print", _launchd_target(paths.label, uid)],
+            ["launchctl", "print", launchd_target(paths.label, uid)],
             runner=runner,
         ).returncode
         == 0

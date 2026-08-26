@@ -29,6 +29,7 @@ _ENGINE_SESSION_SLUGS = (
 _ENGINE_CONFIG_SLUGS = (
     "launcher-authority",
     "session-relay",
+    "session-relay-orphans",
     "project-hook-config-validity",
 )
 

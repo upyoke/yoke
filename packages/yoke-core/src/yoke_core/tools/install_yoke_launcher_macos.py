@@ -91,7 +91,13 @@ def configure_macos_path_for_homebrew(
         )
         parts = ph_output.split('"', 2)
         if len(parts) >= 2:
-            subprocess.check_call(["launchctl", "setenv", "PATH", parts[1]])
+            from yoke_core.tools.launchctl_boundary import run_launchctl
+
+            run_launchctl(
+                ["launchctl", "setenv", "PATH", parts[1]],
+                check=True,
+                capture_output=False,
+            )
             out.write(
                 f"  /etc/paths updated; backup at {backup}\n"
                 f"  launchctl PATH refreshed — new GUI app launches will\n"

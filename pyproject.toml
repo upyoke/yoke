@@ -102,6 +102,9 @@ include = ["runtime*"]
 
 [tool.pytest.ini_options]
 testpaths = ["runtime/api", "tests"]
+markers = [
+    "launchd_integration: loads a real launchd job through the real_launchd_agent fixture",
+]
 # Package split: the four packages/yoke-*/src packages must be on
 # sys.path for BOTH in-process tests and subprocess `python3 -m ...` invocations
 # (service_client / db_router / dispatch CLI tests spawn fresh interpreters). A
