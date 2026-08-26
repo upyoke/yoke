@@ -137,6 +137,7 @@ def spawn_claude_wake(
         attempt_id=context.job_id,
         native_session_id=invocation.session_id,
         binary_source="path",
+        lease_id=context.lease_id,
     )
 
 

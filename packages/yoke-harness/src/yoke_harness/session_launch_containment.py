@@ -82,6 +82,7 @@ def record_supervised_native(
     native_session_id: str | None = None,
     supervision_kind: str = "launch",
     capture_path: Path | None = None,
+    lease_id: str | None = None,
     state_dir: Path | None = None,
     now: float | None = None,
 ) -> bool:
@@ -103,6 +104,10 @@ def record_supervised_native(
         "supervision_kind": supervision_kind,
         "last_activity_at": int(time.time() if now is None else now),
         "capture_path": str(capture_path) if capture_path is not None else None,
+        # The attempt lease the relay leased this resume under. Settling the
+        # attempt happens after the batch that started it has drained, so the
+        # lease has to survive on disk or the outcome has nowhere to land.
+        "lease_id": lease_id or None,
         "recorded_at": int(time.time() if now is None else now),
     }
     try:
@@ -169,7 +174,10 @@ def release_supervised_native(
         return
 
 
-def _records(state_dir: Path | None) -> Iterator[tuple[Path, dict[str, object]]]:
+def supervised_records(
+    state_dir: Path | None = None,
+) -> Iterator[tuple[Path, dict[str, object]]]:
+    """Yield every supervision record, for each reader to project itself."""
     try:
         entries = sorted(_directory(state_dir).glob("*.json"))
     except OSError:
@@ -218,7 +226,7 @@ def contain_stranded_launch_natives(
     """Contain launches past registration and resumes past custody limits."""
     current = time.time() if now is None else now
     outcomes: list[ContainmentOutcome] = []
-    for path, payload in _records(state_dir):
+    for path, payload in supervised_records(state_dir):
         recorded_at = payload.get("recorded_at")
         if not isinstance(recorded_at, int):
             continue
@@ -320,6 +328,7 @@ __all__ = [
     "contain_stranded_launch_natives",
     "record_supervised_native",
     "release_supervised_native",
+    "supervised_records",
     "touch_supervised_resume",
     "touch_supervised_resume_from_environment",
 ]

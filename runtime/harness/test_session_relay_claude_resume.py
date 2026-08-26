@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import signal
+import sys
 
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness import session_relay_claude_native as native_module
@@ -16,11 +17,14 @@ from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 from yoke_harness.session_relay_claude_resume import (
     spawn_detached_claude_resume,
 )
+from yoke_harness import session_relay_resume_watch as resume_watch
+from yoke_harness.session_relay_resume_watch import resume_outcome_path
 from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
 ATTEMPT_ID = "11111111-1111-4111-8111-111111111111"
 SESSION_ID = "22222222-2222-4222-8222-222222222222"
+LEASE_ID = "lease-1"
 
 
 class _Process:
@@ -41,7 +45,7 @@ class _Process:
         self.killed = True
 
 
-def test_resume_spawn_detaches_redirects_and_records_custody(
+def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -65,6 +69,7 @@ def test_resume_spawn_detaches_redirects_and_records_custody(
         attempt_id=ATTEMPT_ID,
         native_session_id=SESSION_ID,
         binary_source="path",
+        lease_id=LEASE_ID,
         state_dir=tmp_path,
         process_factory=factory,
         clock=lambda: 1_777_000_000.0,
@@ -72,7 +77,11 @@ def test_resume_spawn_detaches_redirects_and_records_custody(
 
     assert result is not None and result.pid == process.pid
     argv, kwargs = calls[0]
-    assert argv[:2] == ["/opt/claude", "-p"]
+    # The relay starts the supervisor, which starts the native and stays to
+    # collect the exit status the relay poll will never be around to see.
+    assert argv[:3] == [sys.executable, "-m", resume_watch.__name__]
+    assert argv[3:5] == ["--outcome", str(resume_outcome_path(result.capture_path))]
+    assert argv[5:] == ["--", "/opt/claude", "-p", "--resume", SESSION_ID]
     assert kwargs["cwd"] == tmp_path
     assert kwargs["env"] == {"SAFE": "1"}
     assert kwargs["stdin"] is not None
@@ -84,6 +93,7 @@ def test_resume_spawn_detaches_redirects_and_records_custody(
     assert custody[0][0] == (ATTEMPT_ID, process.pid)
     assert custody[0][1]["supervision_kind"] == "resume"
     assert custody[0][1]["capture_path"] == result.capture_path
+    assert custody[0][1]["lease_id"] == LEASE_ID
 
 
 def test_resume_spawn_stops_native_when_custody_record_cannot_be_written(
