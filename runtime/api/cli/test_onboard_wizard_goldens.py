@@ -34,7 +34,6 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     DIAGNOSIS_NEEDS_FIX,
     STARTUP,
     YOKE_TOKEN_VERIFICATION,
-    VERIFIED_RESOLVED,
     assert_catalog_golden_gate_parity,
     assert_golden,
     make_app,
@@ -44,7 +43,6 @@ from yoke_cli.config import onboard_wizard_path  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config import path_doctor  # noqa: E402
 from yoke_cli.config.onboard_destinations import (  # noqa: E402
-    DESTINATION_HOSTED,
     DESTINATION_LOCAL,
     DESTINATION_SERVER,
 )
@@ -104,6 +102,8 @@ def test_path_preview(monkeypatch: pytest.MonkeyPatch) -> None:
         startup_file=STARTUP,
         ssh_startup_file="~/.zshenv",
         ssh_needs_fix=True,
+        login_needs_fix=True,
+        managed_path_dirs=(_BIN_DIR,),
     )
     monkeypatch.setattr(path_doctor, "diagnose", lambda **_: diagnosis)
     app = make_app()
@@ -112,16 +112,6 @@ def test_path_preview(monkeypatch: pytest.MonkeyPatch) -> None:
         a._goto_path_preview()
 
     assert_golden("path_preview", render(app, drive, title="yoke onboard · Install"))
-
-
-def test_path_verified() -> None:
-    app = make_app()
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_path_verified(STARTUP, VERIFIED_RESOLVED)
-
-    assert_golden("path_verified", render(app, drive, title="yoke onboard · Install"))
-
 
 # --------------------------------------------------------------------------- #
 # Account step: destination picker + per-destination sign-in lanes

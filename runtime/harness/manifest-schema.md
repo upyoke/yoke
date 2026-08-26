@@ -20,6 +20,7 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 |-------|------|----------|-------------|
 | `_generated` | string | Yes | Generated-file marker written by the substrate renderer. Names the renderer (`yoke_core.domain.agents_render`) and the Python source dict the file was rendered from (`yoke_core.domain.agents_render_manifests.CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`). Its presence flags the file as machine-generated — do not hand-edit. |
 | `harness_id` | string | Yes | Stable harness family identifier (e.g., `claude-code`, `codex`). Must match the directory name under `runtime/harness/`. |
+| `cli` | object | Yes | Native command identity and discovery facts shared by PATH repair, relay probes, and launch resolution. See [Native CLI](#native-cli). |
 | `runtime_minimums` | object | Yes | Minimum runtime versions for each operating mode. See [Runtime minimums](#runtime-minimums). |
 | `bootstrap` | object | Yes | Bootstrap mechanism configuration. See [Bootstrap](#bootstrap). |
 | `identity` | object | Yes | Session-identity sources for `executor`, `provider`, `model`, `workspace`. See [Identity](#identity). |
@@ -31,6 +32,25 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 | `canonical_agents` | object | Yes | Canonical-agent body sourcing posture. See [Canonical agents](#canonical-agents). |
 
 All top-level fields are required for every harness manifest. Optional structure lives inside individual fields.
+
+## Native CLI
+
+The canonical source is `yoke_contracts.harness_cli_manifest`; renderers and
+runtime consumers use that one registry rather than spelling harness commands
+again.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `surface_id` | string | Session surface served by this native command (for example, `codex-cli`). |
+| `executable` | string | Command name the vendor installs (for example, `cursor-agent`). |
+| `version_args` | list[string] | Arguments used by the bounded version probe. |
+| `bundled_candidates` | list[string] | Optional absolute executable paths inside a vendor application bundle. Empty when no supported bundled command exists. |
+
+Installer PATH repair reads this manifest registry, resolves each installed
+command from the ambient installer PATH or a declared bundle candidate, and
+adds the resolved parent directory to both login and non-login/SSH startup
+surfaces. Missing commands remain a reported, re-runnable state; the standard
+Yoke tool directory is still added for later installs.
 
 ## Runtime minimums
 

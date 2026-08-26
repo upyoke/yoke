@@ -1,6 +1,14 @@
 {
   "_generated": "by yoke_core.domain.agents_render — do not hand-edit. Source: yoke_core.domain.agents_render_manifests.CLAUDE_MANIFEST.",
   "harness_id": "claude-code",
+  "cli": {
+    "surface_id": "claude-cli",
+    "executable": "claude",
+    "version_args": [
+      "--version"
+    ],
+    "bundled_candidates": []
+  },
   "runtime_minimums": {
     "wrapper_only": "any claude-code build with bash tool support",
     "hook_enhanced": "any claude-code build (PreToolUse/PostToolUse hooks are stable)",

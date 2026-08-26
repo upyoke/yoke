@@ -12,6 +12,7 @@ is caught by the doctor check ``HC-harness-substrate-drift`` (lane R / task 10).
 
 from __future__ import annotations
 
+from yoke_contracts.harness_cli_manifest import harness_cli_manifest
 from yoke_contracts.session_control import capabilities_for_harness
 
 
@@ -22,9 +23,15 @@ def _session_control(harness_id: str) -> dict:
     }
 
 
+_CLAUDE_CLI = harness_cli_manifest("claude-code")
+_CODEX_CLI = harness_cli_manifest("codex")
+_CURSOR_CLI = harness_cli_manifest("cursor")
+
+
 # Claude manifest — runtime/harness/claude/manifest.json
 CLAUDE_MANIFEST: dict = {
-    "harness_id": "claude-code",
+    "harness_id": _CLAUDE_CLI.harness_id,
+    "cli": _CLAUDE_CLI.to_json(),
     "runtime_minimums": {
         "wrapper_only": "any claude-code build with bash tool support",
         "hook_enhanced": "any claude-code build (PreToolUse/PostToolUse hooks are stable)",
@@ -55,7 +62,7 @@ CLAUDE_MANIFEST: dict = {
             "stop_hook",
         ],
     },
-    "session_control": _session_control("claude-code"),
+    "session_control": _session_control(_CLAUDE_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".claude/settings.json",
         "operations": [
@@ -85,7 +92,8 @@ CLAUDE_MANIFEST: dict = {
 
 # Codex manifest — runtime/harness/codex/manifest.json
 CODEX_MANIFEST: dict = {
-    "harness_id": "codex",
+    "harness_id": _CODEX_CLI.harness_id,
+    "cli": _CODEX_CLI.to_json(),
     "runtime_minimums": {
         "wrapper_only": "any codex build with bash tool support",
         "hook_enhanced": "codex >= 0.128.0-alpha.1 with hooks enabled",
@@ -116,7 +124,7 @@ CODEX_MANIFEST: dict = {
             "stop_hook",
         ],
     },
-    "session_control": _session_control("codex"),
+    "session_control": _session_control(_CODEX_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".codex/hooks.json",
         "operations": [
@@ -151,7 +159,8 @@ CODEX_MANIFEST: dict = {
 # stop hooks never fire — only the IDE surface delivers them — so
 # orientation rides the session-start hook, which fires on both surfaces.
 CURSOR_MANIFEST: dict = {
-    "harness_id": "cursor",
+    "harness_id": _CURSOR_CLI.harness_id,
+    "cli": _CURSOR_CLI.to_json(),
     "runtime_minimums": {
         "wrapper_only": "any cursor build with agent terminal support",
         "hook_enhanced": (
@@ -184,7 +193,7 @@ CURSOR_MANIFEST: dict = {
             "stop_hook",
         ],
     },
-    "session_control": _session_control("cursor"),
+    "session_control": _session_control(_CURSOR_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".cursor/hooks.json",
         "operations": [

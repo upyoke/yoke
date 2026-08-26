@@ -1,6 +1,16 @@
 {
   "_generated": "by yoke_core.domain.agents_render — do not hand-edit. Source: yoke_core.domain.agents_render_manifests.CODEX_MANIFEST.",
   "harness_id": "codex",
+  "cli": {
+    "surface_id": "codex-cli",
+    "executable": "codex",
+    "version_args": [
+      "--version"
+    ],
+    "bundled_candidates": [
+      "/Applications/ChatGPT.app/Contents/Resources/codex"
+    ]
+  },
   "runtime_minimums": {
     "wrapper_only": "any codex build with bash tool support",
     "hook_enhanced": "codex >= 0.128.0-alpha.1 with hooks enabled",

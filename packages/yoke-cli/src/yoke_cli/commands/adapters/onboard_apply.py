@@ -6,12 +6,20 @@ from yoke_cli.config import onboard as onboard_config
 from yoke_cli.config import onboard_apply_lock
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_wizard
+from yoke_cli.config import path_doctor
+from yoke_cli.config import path_repair_plan
 from yoke_cli.config.onboard_error_friendly import friendly_permission_error
 
 
 def apply_with_durable_report(kwargs: dict, tui_progress=None) -> dict:
+    if not isinstance(kwargs.get("path_repair"), dict):
+        kwargs = {
+            **kwargs,
+            "path_repair": path_repair_plan.build(path_doctor.diagnose()),
+        }
     report_kwargs = {
-        key: value for key, value in kwargs.items()
+        key: value
+        for key, value in kwargs.items()
         if key not in ("resume_run_id", "resume_payload")
     }
     if not report_kwargs.get("apply"):
@@ -60,8 +68,10 @@ def _run_locked_apply(
 def print_failure_summary(result: onboard_wizard.WizardRunResult) -> None:
     import sys
 
-    print(f"error: {friendly_permission_error(result.error or 'onboarding failed')}",
-          file=sys.stderr)
+    print(
+        f"error: {friendly_permission_error(result.error or 'onboarding failed')}",
+        file=sys.stderr,
+    )
     if result.failed_step:
         print(f"failed step: {result.failed_step}", file=sys.stderr)
     if result.report_path:

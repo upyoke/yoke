@@ -11,6 +11,7 @@ from yoke_contracts.machine_config import schema as machine_schema
 from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import machine_config
+from yoke_cli.config import onboard_apply_path
 from yoke_cli.config import onboard_apply_connection
 from yoke_cli.config import onboard_bridge
 from yoke_cli.config import onboard_destinations
@@ -52,6 +53,7 @@ def build_report(
     machine_github_choice: str = onboard_machine_github.CHOICE_SKIP,
     machine_github_api_url: str | None = None,
     hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP,
+    path_repair: dict[str, Any] | None = None,
     project_mode: str = PROJECT_MODE_MACHINE_ONLY,
     project_remote_url: str | None = None,
     project_checkout: str | Path | None = None,
@@ -95,11 +97,14 @@ def build_report(
         credential_source = {"kind": machine_schema.CREDENTIAL_KIND_DSN_FILE}
     else:
         source = _token_source_summary(
-            token=token, token_file=token_file, source_kind=token_source_kind,
+            token=token,
+            token_file=token_file,
+            source_kind=token_source_kind,
         )
         credential_source = _credential_source_plan(cfg_path, env_name)
     normalized_project_mode = onboard_bridge.normalize_project_mode(
-        project_mode, error_cls=OnboardError,
+        project_mode,
+        error_cls=OnboardError,
     )
     project_inputs = onboard_bridge.project_inputs(
         error_cls=OnboardError,
@@ -147,10 +152,17 @@ def build_report(
             "reused": True,
         }
     plan = onboard_report.build_plan(
-        cfg_path, env_name, api_url, credential_source, source, mode,
-        project_mode=normalized_project_mode, project_inputs=project_inputs,
+        cfg_path,
+        env_name,
+        api_url,
+        credential_source,
+        source,
+        mode,
+        project_mode=normalized_project_mode,
+        project_inputs=project_inputs,
         machine_github=machine_github,
         hosting_choice=hosting_choice,
+        path_repair=path_repair,
         reuse=reuse,
         local_destination=local_destination,
     )
@@ -186,26 +198,40 @@ def build_report(
     if not apply:
         report["message"] = "write plan only; rerun with --yes to apply"
         return report
+    onboard_apply_path.apply(path_repair, progress=progress, report=report)
     onboard_bridge.preflight_project_apply(
-        report.get("project_onboarding"), error_cls=OnboardError,
+        report.get("project_onboarding"),
+        error_cls=OnboardError,
     )
     problems = onboard_credential_replacement.replacement_problems_from_kwargs(locals())
     if problems:
         raise OnboardError(" ".join(problems))
     if local_destination:
         onboard_apply_connection.apply_local_universe(
-            cfg_path, env_name, reuse, progress, report,
+            cfg_path,
+            env_name,
+            reuse,
+            progress,
+            report,
             error_cls=OnboardError,
         )
     else:
         onboard_apply_connection.apply_sign_in_connection(
-            cfg_path, env_name, api_url, reuse, progress, report,
-            token=token, token_file=token_file,
-            token_source_kind=token_source_kind, check_identity=check_identity,
+            cfg_path,
+            env_name,
+            api_url,
+            reuse,
+            progress,
+            report,
+            token=token,
+            token_file=token_file,
+            token_source_kind=token_source_kind,
+            check_identity=check_identity,
             error_cls=OnboardError,
         )
     runtime_steps = tuple(
-        step for step in (
+        step
+        for step in (
             None if reuse.get("temp_root") else ("create-runtime-dir", "temp_root"),
             None if reuse.get("cache_dir") else ("create-runtime-dir", "cache_dir"),
         )
@@ -223,9 +249,7 @@ def build_report(
     relay_steps = tuple(onboard_session_relay.RELAY_PLAN_STEPS)
     if onboard_session_relay.is_supported(local_destination=local_destination):
         onboard_apply_progress.emit_many(progress, relay_steps, "running")
-        installed = onboard_session_relay.install(
-            local_destination=local_destination
-        )
+        installed = onboard_session_relay.install(local_destination=local_destination)
         onboard_apply_progress.emit_many(progress, relay_steps, "done")
         report["session_relay"] = onboard_session_relay.report_fragment(
             planned=True,
@@ -275,14 +299,20 @@ def build_report(
 
 def dumps_json(report: Dict[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True) + "\n"
+
+
 def render_human(report: Dict[str, Any]) -> str:
     return onboard_report.render_human(report)
+
 
 def _credential_source_plan(
     cfg_path: Path,
     env_name: str,
 ) -> dict[str, Any]:
-    return {"kind": "token_file", "path": str(machine_secrets.secret_path(env_name, "token"))}
+    return {
+        "kind": "token_file",
+        "path": str(machine_secrets.secret_path(env_name, "token")),
+    }
 
 
 def _token_source_summary(
@@ -304,8 +334,15 @@ def _ensure_runtime_dirs(config_path: Path) -> None:
 
 
 __all__ = [
-    "OnboardError", "PROJECT_MODE_CLONE_REMOTE", "PROJECT_MODE_CREATE_REPO",
-    "PROJECT_MODE_IMPORT_REMOTE", "PROJECT_MODE_LOCAL_CHECKOUT",
-    "PROJECT_MODE_MACHINE_ONLY", "PROJECT_MODE_SOURCE_DEV_ADMIN", "PROJECT_MODES",
-    "build_report", "dumps_json", "render_human",
+    "OnboardError",
+    "PROJECT_MODE_CLONE_REMOTE",
+    "PROJECT_MODE_CREATE_REPO",
+    "PROJECT_MODE_IMPORT_REMOTE",
+    "PROJECT_MODE_LOCAL_CHECKOUT",
+    "PROJECT_MODE_MACHINE_ONLY",
+    "PROJECT_MODE_SOURCE_DEV_ADMIN",
+    "PROJECT_MODES",
+    "build_report",
+    "dumps_json",
+    "render_human",
 ]

@@ -10,9 +10,21 @@ from pathlib import Path
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
+from yoke_cli.config import onboard_session_relay
 
 # The wizard module imports textual lazily; the wizard-driving tests need it.
 textual = pytest.importorskip("textual")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_machine_side_effects(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "shell-home"))
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    monkeypatch.setattr(
+        onboard_session_relay,
+        "install",
+        lambda **_kwargs: True,
+    )
 
 
 def test_onboard_help_exits_cleanly(capsys) -> None:
@@ -57,7 +69,8 @@ def test_onboard_dry_run_prints_write_plan_without_mutation(
         "secrets/prod.token"
     )
     assert "actor-token" not in out
-    assert payload["plan"]["steps"][0]["action"] == "create-or-validate-dir"
+    actions = [step["action"] for step in payload["plan"]["steps"]]
+    assert "create-or-validate-dir" in actions
     assert "yoke project install" in payload["next_steps"][1]
     assert not config.exists()
 

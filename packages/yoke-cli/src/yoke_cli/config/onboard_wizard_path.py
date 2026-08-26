@@ -1,19 +1,18 @@
 """Install-summary and PATH screens for the ``yoke onboard`` wizard.
 
-The flow diagnoses PATH, previews and applies the managed shell block, verifies
-fresh Terminal and SSH resolution, then advances to the deployment destination.
+The flow diagnoses PATH and queues an exact managed-shell-block plan. Review
+shows the login and non-login/SSH writes; Apply performs and verifies them.
 All screens remain in the Install stepper segment.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from rich.markup import escape
 from textual.widgets import Static
 
-from yoke_cli.config import install_binding, path_doctor
+from yoke_cli.config import install_binding, path_doctor, path_repair_plan
 from yoke_cli.config.onboard_terminal import glyphs
 from yoke_cli.config.onboard_wizard_palette import ACCENT, BRAND as _BRAND, DANGER
 from yoke_cli.config.onboard_wizard_steps import selection_body
@@ -25,9 +24,11 @@ from yoke_cli.config.onboard_wizard_widgets import (
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
 
+
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     _post_install: bool
     _history: list["_View"]
+    result: Any
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
@@ -42,17 +43,16 @@ INSTALL_ROWS = [
 
 # The apply row is first so the safe, idempotent fix is the default.
 PATH_FIX_ROWS = [
-    SelectionRow("fix", "Add yoke to my PATH", "updates your shell startup file"),
+    SelectionRow(
+        "fix",
+        "Add Yoke and harness CLIs to PATH",
+        "Review shows both shell files before Apply",
+    ),
     SelectionRow("preview", "See exactly what changes", ""),
-    SelectionRow("skip", "Skip", ""),
 ]
 
 PATH_OK_ROWS = [
     SelectionRow("continue", "Continue", "your shell is ready"),
-]
-
-PATH_VERIFIED_ROWS = [
-    SelectionRow("continue", "Continue", "choose where your Yoke lives"),
 ]
 
 
@@ -79,7 +79,9 @@ def _resolution_lines(label: str, resolved: list[Any]) -> list[Static]:
     for res in resolved:
         name = escape(res.name)
         if res.path:
-            text = f"  [{ACCENT}]{marks.ok} {name:<7} {marks.arrow} {escape(res.path)}[/]"
+            text = (
+                f"  [{ACCENT}]{marks.ok} {name:<7} {marks.arrow} {escape(res.path)}[/]"
+            )
         else:
             text = f"  [{DANGER}]{marks.fail} {name:<7} not on PATH[/]"
         lines.append(Static(text, classes="onboard-plan-line"))
@@ -124,10 +126,10 @@ def install_summary_body() -> list[Static]:
 
 def path_diagnosis_body(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
     if diagnosis.needs_fix:
-        title = f"Add {_BRAND} to your PATH."
+        title = f"Put {_BRAND} and your harness CLIs on PATH."
         subtitle = (
-            f"Yoke lives in {escape(diagnosis.tool_bin_dir)} "
-            f"(your {escape(diagnosis.current_shell)} shell)."
+            "The installer will keep login and non-login/SSH shells "
+            "independently resolvable."
         )
         rows = PATH_FIX_ROWS
     else:
@@ -149,74 +151,24 @@ def path_diagnosis_body(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
     return widgets
 
 
-def path_preview_body(
-    tool_bin_dir: str,
-    startup_file: str,
-    ssh_startup_file: str | None = None,
-) -> list[Static]:
-    files = [startup_file]
-    if ssh_startup_file and ssh_startup_file not in files:
-        files.append(ssh_startup_file)
+def path_preview_body(plan: dict[str, Any]) -> list[Static]:
     widgets = _heading(
-        f"What {_BRAND} adds to your shell files.",
-        "These lines go in once — re-running never duplicates them.",
+        f"What {_BRAND} will write after you choose Apply.",
+        "Review repeats these exact files and reasons before anything is written.",
     )
-    widgets.extend(
-        Static(f"  • {escape(path)}", classes="onboard-plan-line")
-        for path in files
-    )
+    for line in path_repair_plan.description_lines(plan):
+        widgets.append(Static(f"  • {escape(line)}", classes="onboard-plan-line"))
     widgets.append(Static("", classes="onboard-spacer"))
-    block = path_doctor.render_managed_block(tool_bin_dir)
+    block = path_doctor.render_managed_block(tuple(plan["directories"]))
     widgets.extend(
         Static(f"  {line}", classes="onboard-plan-line") for line in block.splitlines()
     )
     widgets.append(Static("", classes="onboard-spacer"))
     rows = [
-        SelectionRow("apply", "Add it", "writes the files above"),
-        SelectionRow("different", "Choose a different file", ""),
-        SelectionRow("skip", "Skip", ""),
+        SelectionRow("apply", "Add it to Review", "Apply writes the files later"),
+        SelectionRow("different", "Back", "return to the PATH summary"),
     ]
     widgets.extend(selection_body("", "", rows))
-    return widgets
-
-
-def path_verified_body(
-    startup_files: list[str],
-    resolved: list[Any],
-    ssh_resolved: list[Any] | None = None,
-) -> list[Static]:
-    marks = glyphs()
-    widgets = _heading(f"Added {_BRAND} to your PATH.", "")
-    for startup_file in startup_files:
-        widgets.append(
-            Static(
-                f"[{ACCENT}]{marks.ok}[/] Wrote the managed block to {escape(startup_file)}",
-                classes="onboard-plan-line",
-            )
-        )
-    widgets.append(
-        Static(f"[{ACCENT}]{marks.ok}[/] Checked a fresh login shell:", classes="onboard-plan-line")
-    )
-    for res in resolved:
-        if res.path:
-            widgets.append(
-                Static(f"      {res.name} {marks.arrow} {res.path}", classes="onboard-subtitle")
-            )
-    if ssh_resolved:
-        widgets.append(
-            Static(f"[{ACCENT}]{marks.ok}[/] Checked an SSH command:", classes="onboard-plan-line")
-        )
-        for res in ssh_resolved:
-            if res.path:
-                widgets.append(
-                    Static(f"      {res.name} {marks.arrow} {res.path}", classes="onboard-subtitle")
-                )
-    widgets.append(Static("", classes="onboard-spacer"))
-    widgets.append(
-        Static(f"Your next terminal will find {_BRAND}.", classes="onboard-title")
-    )
-    widgets.append(Static("", classes="onboard-spacer"))
-    widgets.extend(selection_body("", "", PATH_VERIFIED_ROWS))
     return widgets
 
 
@@ -248,6 +200,7 @@ class PathFlow:
         from yoke_cli.config.onboard_wizard_app import _View
 
         diagnosis = path_doctor.diagnose()
+        self.result.path_repair = path_repair_plan.build(diagnosis)
 
         def builder() -> list[Static]:
             return path_diagnosis_body(diagnosis)
@@ -258,89 +211,49 @@ class PathFlow:
 
     def _on_path_diagnosis(self: _Shell, choice: str) -> None:
         if choice == "fix":
-            self._apply_path_fix()
+            self._start_connect()
             return
         if choice == "preview":
             self._goto_path_preview()
             return
-        # "skip" or "continue" both advance into the rest of onboarding.
+        # An all-clear diagnosis has only "continue".
         self._start_connect()
 
     def _goto_path_preview(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        diagnosis = path_doctor.diagnose()
-        bindir = diagnosis.tool_bin_dir
-        startup = diagnosis.startup_file
-        ssh_startup = (
-            diagnosis.ssh_startup_file if diagnosis.ssh_needs_fix else None
-        )
+        plan = self.result.path_repair or path_repair_plan.build(path_doctor.diagnose())
+        self.result.path_repair = plan
 
         def builder() -> list[Static]:
-            return path_preview_body(bindir, startup, ssh_startup)
+            return path_preview_body(plan)
 
         self._goto(_View(STEP_INSTALL, builder, self._on_path_preview))
 
     def _on_path_preview(self: _Shell, choice: str) -> None:
         if choice == "apply":
-            self._apply_path_fix()
+            self._start_connect()
             return
         if choice == "different":
             self._return_to_path_diagnosis()
             return
-        # "skip" leaves the startup file untouched and advances.
-        self._start_connect()
 
     def _return_to_path_diagnosis(self: _Shell) -> None:
         target = getattr(self, "_path_diagnosis_view", None)
         for index in range(len(self._history) - 1, -1, -1):
             if self._history[index] is target:
-                del self._history[index + 1:]
+                del self._history[index + 1 :]
                 self._render_current()
                 return
         self._goto_path_diagnosis()
-
-    def _apply_path_fix(self: _Shell) -> None:
-        diagnosis = path_doctor.diagnose()
-        shell = diagnosis.current_shell
-        bindir = diagnosis.tool_bin_dir
-        startup = Path(diagnosis.startup_file)
-        written = [str(startup)]
-        path_doctor.apply_fix(startup, bindir)
-        if diagnosis.ssh_needs_fix and diagnosis.ssh_startup_file:
-            ssh_startup = Path(diagnosis.ssh_startup_file)
-            if ssh_startup != startup:
-                path_doctor.apply_fix(ssh_startup, bindir)
-                written.append(str(ssh_startup))
-        resolved = path_doctor.verify_fresh_login(shell)
-        ssh_resolved = path_doctor.verify_ssh_command(shell)
-        self._goto_path_verified(written, resolved, ssh_resolved)
-
-    def _goto_path_verified(
-        self: _Shell,
-        startup: list[str],
-        resolved: list[Any],
-        ssh_resolved: list[Any] | None = None,
-    ) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        def builder() -> list[Static]:
-            return path_verified_body(startup, resolved, ssh_resolved)
-
-        self._goto(_View(STEP_INSTALL, builder, self._on_path_verified))
-
-    def _on_path_verified(self: _Shell, _choice: str) -> None:
-        self._start_connect()
 
 
 __all__ = [
     "INSTALL_ROWS",
     "PATH_FIX_ROWS",
     "PATH_OK_ROWS",
-    "PATH_VERIFIED_ROWS",
     "PathFlow",
     "install_summary_body",
     "path_diagnosis_body",
     "path_preview_body",
-    "path_verified_body",
 ]

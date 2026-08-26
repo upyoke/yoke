@@ -1,6 +1,14 @@
 {
   "_generated": "by yoke_core.domain.agents_render — do not hand-edit. Source: yoke_core.domain.agents_render_manifests.CURSOR_MANIFEST.",
   "harness_id": "cursor",
+  "cli": {
+    "surface_id": "cursor-cli",
+    "executable": "cursor-agent",
+    "version_args": [
+      "--version"
+    ],
+    "bundled_candidates": []
+  },
   "runtime_minimums": {
     "wrapper_only": "any cursor build with agent terminal support",
     "hook_enhanced": "cursor-agent >= 2026.07.23 / Cursor IDE >= 3.14 (hooks.json v1)",

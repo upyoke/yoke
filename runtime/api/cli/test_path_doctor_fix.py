@@ -16,24 +16,37 @@ def test_path_fix_writes_login_and_ssh_targets_on_the_first_run(
     applied: list[Path] = []
     diagnosis = SimpleNamespace(
         current_shell="zsh",
-        tool_bin_dir="/Users/tester/.local/bin",
-        startup_file=str(login),
-        ssh_needs_fix=True,
-        ssh_startup_file=str(ssh),
     )
+    plan = {
+        "shell": "zsh",
+        "tool_bin_dir": "/Users/tester/.local/bin",
+        "login_file": str(login),
+        "ssh_file": str(ssh),
+        "directories": ["/Users/tester/.local/bin"],
+        "directory_tools": {
+            "/Users/tester/.local/bin": ["uv", "uvx", "yoke"],
+        },
+        "harness_clis": [],
+        "unresolved_harness_clis": [],
+        "targets": [
+            {"surface": "login", "path": str(login)},
+            {"surface": "ssh", "path": str(ssh)},
+        ],
+    }
     resolved = [
         ToolResolution("uv", "/Users/tester/.local/bin/uv"),
         ToolResolution("yoke", "/Users/tester/.local/bin/yoke"),
     ]
 
     monkeypatch.setattr(adapter.doctor, "diagnose", lambda: diagnosis)
+    monkeypatch.setattr(adapter.path_repair_plan, "build", lambda _diag: plan)
     monkeypatch.setattr(
         adapter.doctor,
         "render_managed_block",
-        lambda _bindir: "managed block",
+        lambda _directories: "managed block",
     )
 
-    def apply_fix(target: Path, _bindir: str) -> bool:
+    def apply_fix(target: Path, _directories) -> bool:
         applied.append(target)
         return True
 
@@ -41,14 +54,16 @@ def test_path_fix_writes_login_and_ssh_targets_on_the_first_run(
     monkeypatch.setattr(
         adapter.doctor,
         "verify_fresh_login",
-        lambda _shell: resolved,
+        lambda _shell, **_kwargs: resolved,
     )
     monkeypatch.setattr(
         adapter.doctor,
         "verify_ssh_command",
-        lambda _shell: resolved,
+        lambda _shell, **_kwargs: resolved,
     )
 
     assert adapter.path_fix(["--yes", "--json"]) == 0
     assert applied == [login, ssh]
-    assert '"ssh_verified": true' in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert '"login_verified": true' in output
+    assert '"ssh_verified": true' in output

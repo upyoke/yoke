@@ -7,10 +7,12 @@ import os
 from pathlib import Path
 import shutil
 
+from yoke_contracts.harness_cli_manifest import harness_cli_executables
+
 from yoke_core.tools.install_yoke_launcher_core import TARGET_PRIORITY
 
 
-_RELAY_CLI_EXECUTABLES = ("claude", "codex", "cursor-agent")
+_RELAY_CLI_EXECUTABLES = harness_cli_executables()
 
 
 def relay_executable_search_path(
