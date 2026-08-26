@@ -26,6 +26,7 @@ from yoke_harness.hooks.local_policies import (
     deny_stdout,
     hint_file_line,
     lint_destructive_git,
+    lint_local_privacy,
     lint_main_commit,
     lint_shell_backtick_search,
     lint_tmp_runtime_import,
@@ -42,6 +43,7 @@ LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
     {
         "yoke_core.domain.lint_main_commit",
         "yoke_core.domain.lint_shell_backtick_search",
+        "yoke_core.domain.lint_local_privacy",
         "yoke_core.domain.lint_destructive_git",
         "yoke_core.domain.lint_python_runtime_import_in_tmp",
         "yoke_core.domain.hint_file_line_limit_approach",
@@ -158,6 +160,7 @@ def _local_modules(
 _POLICY_EVALUATORS = {
     "yoke_core.domain.lint_main_commit": lint_main_commit,
     "yoke_core.domain.lint_shell_backtick_search": lint_shell_backtick_search,
+    "yoke_core.domain.lint_local_privacy": lint_local_privacy,
     "yoke_core.domain.lint_destructive_git": lint_destructive_git,
     "yoke_core.domain.lint_python_runtime_import_in_tmp": lint_tmp_runtime_import,
     "yoke_core.domain.hint_file_line_limit_approach": hint_file_line,

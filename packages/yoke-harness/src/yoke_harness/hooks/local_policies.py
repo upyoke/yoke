@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 
+from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
 from yoke_contracts.hook_runner.main_commit import (
     NO_MAIN_CHECK_SUPPRESSION,
     git_invocations as main_commit_git_invocations,
@@ -104,7 +105,9 @@ def lint_destructive_git(payload: dict) -> PolicyResult:
         threatened = modified if shape != "git clean -f" else untracked
         if shape.startswith("git stash"):
             stash = git(cwd, "stash", "list")
-            threatened = stash.stdout.splitlines() if stash and stash.returncode == 0 else []
+            threatened = (
+                stash.stdout.splitlines() if stash and stash.returncode == 0 else []
+            )
         if not threatened:
             continue
         listed = "\n  ".join(threatened[:10])
@@ -189,7 +192,7 @@ def _segment_until_shell_separator(text: str) -> str:
 def lint_shell_backtick_search(payload: dict) -> PolicyResult:
     command = command_from_payload(payload)
     for match in _GREP_LIKE_RE.finditer(command):
-        segment = _segment_until_shell_separator(command[match.end():])
+        segment = _segment_until_shell_separator(command[match.end() :])
         for span in _double_quoted_spans(segment):
             if _has_unescaped_backtick(span):
                 return PolicyResult(
@@ -199,6 +202,17 @@ def lint_shell_backtick_search(payload: dict) -> PolicyResult:
                     "there; use single quotes for literal Markdown/code searches.",
                 )
     return PolicyResult(NOOP)
+
+
+def lint_local_privacy(payload: dict) -> PolicyResult:
+    violation = classify_shell_command(
+        command_from_payload(payload),
+        home=Path.home(),
+        cwd=payload.get("cwd") if isinstance(payload.get("cwd"), str) else Path.cwd(),
+    )
+    if violation is None:
+        return PolicyResult(NOOP)
+    return PolicyResult(DENY, violation.reason())
 
 
 def lint_tmp_runtime_import(payload: dict) -> PolicyResult:
@@ -247,7 +261,9 @@ def db_error_advisory(payload: dict) -> PolicyResult:
                 f"HARD STOP: This Bash command created a stray repo-root yoke.db at {stray}."
             )
     schema_hint = _SCHEMA_HINT_RE.search(output)
-    if schema_hint and any(token in command for token in ("sqlite3", "db_router query")):
+    if schema_hint and any(
+        token in command for token in ("sqlite3", "db_router query")
+    ):
         kind = schema_hint.group(1).lower()
         name = schema_hint.group(2) or "(unnamed)"
         messages.append(
@@ -273,7 +289,9 @@ def deny_stdout(reason: str, event_name: str, executor: str) -> tuple[str, int]:
         return json.dumps(body), 0
     body = {
         HOOK_SPECIFIC_OUTPUT_KEY: {
-            "hookEventName": "PreToolUse" if event_name == "apply_patch" else event_name,
+            "hookEventName": "PreToolUse"
+            if event_name == "apply_patch"
+            else event_name,
             "permissionDecision": "deny",
             "permissionDecisionReason": reason,
         }
@@ -282,12 +300,14 @@ def deny_stdout(reason: str, event_name: str, executor: str) -> tuple[str, int]:
 
 
 def advisory_stdout(contexts: list[str], event_name: str) -> str:
-    return json.dumps({
-        HOOK_SPECIFIC_OUTPUT_KEY: {
-            "hookEventName": event_name,
-            "additionalContext": "\n\n".join(contexts),
+    return json.dumps(
+        {
+            HOOK_SPECIFIC_OUTPUT_KEY: {
+                "hookEventName": event_name,
+                "additionalContext": "\n\n".join(contexts),
+            }
         }
-    })
+    )
 
 
 __all__ = [
@@ -297,6 +317,7 @@ __all__ = [
     "deny_stdout",
     "hint_file_line",
     "lint_destructive_git",
+    "lint_local_privacy",
     "lint_main_commit",
     "lint_shell_backtick_search",
     "lint_tmp_runtime_import",

@@ -11,7 +11,6 @@ import subprocess
 from runtime.api.domain.ssh_mac_full_reset_test_support import zsh_binary
 from yoke_cli.config import path_doctor
 from yoke_core.domain.ssh_mac_full_reset_contract import (
-    FULL_DISK_ACCESS_PROBE_PATH,
     GOLDEN_MANIFEST_SUFFIX,
     RESET_FAILURE_PREFIX,
     RESET_PHASES,
@@ -31,15 +30,35 @@ def _assignment(name: str, value: str) -> str:
     return f"{name}={shlex.quote(value)}"
 
 
-def _run_functions(lines: tuple[str, ...], **kwargs) -> subprocess.CompletedProcess:
+def _isolated_shell_env(
+    shell_home: Path, env: dict[str, str] | None = None
+) -> dict[str, str]:
+    shell_home.mkdir(parents=True, exist_ok=True)
+    for startup_file in (".zshenv", ".zprofile", ".zshrc", ".zlogin"):
+        (shell_home / startup_file).touch(exist_ok=True)
+    return {
+        **(env or os.environ),
+        "HOME": str(shell_home),
+        "ZDOTDIR": str(shell_home),
+    }
+
+
+def _run_functions(
+    lines: tuple[str, ...],
+    *,
+    shell_home: Path,
+    env: dict[str, str] | None = None,
+    **kwargs,
+) -> subprocess.CompletedProcess:
     binary = zsh_binary()
     assert binary is not None
     return subprocess.run(
-        [binary],
+        [binary, "-f"],
         input="\n".join(lines),
         text=True,
         capture_output=True,
         check=False,
+        env=_isolated_shell_env(shell_home, env),
         **kwargs,
     )
 
@@ -94,13 +113,16 @@ def _clear_and_restore(golden: Path, home: Path, error_log: Path) -> tuple[str, 
     )
 
 
-def test_zsh_program_closes_home_validation_failure_to_a_phase_marker() -> None:
+def test_zsh_program_closes_home_validation_failure_to_a_phase_marker(
+    tmp_path: Path,
+) -> None:
     binary = _require_zsh()
     result = subprocess.run(
         [binary, "-c", FULL_RESET_SCRIPT, "yoke-reset", "/tmp/not-a-test-home", "/tmp"],
         text=True,
         capture_output=True,
         check=False,
+        env=_isolated_shell_env(tmp_path / "shell-home"),
     )
     assert result.returncode == 1
     assert result.stdout.strip() == (
@@ -115,7 +137,10 @@ def test_clear_and_restore_keep_the_live_privacy_database_and_ssh_key(
     golden, home = _baseline_pair(tmp_path)
     error_log = tmp_path / "restore-errors.log"
 
-    result = _run_functions(_clear_and_restore(golden, home, error_log))
+    result = _run_functions(
+        _clear_and_restore(golden, home, error_log),
+        shell_home=tmp_path / "shell-home",
+    )
 
     assert result.returncode == 0, result.stderr
     # Both preserved paths are the LIVE copies, not the captured ones: the
@@ -156,35 +181,36 @@ def test_restore_refuses_when_any_entry_could_not_be_copied(
         f"/bin/chmod 700 {shlex.quote(str(home / 'Library' / 'Application Support'))}",
     )
 
-    result = _run_functions(lines)
+    result = _run_functions(lines, shell_home=tmp_path / "shell-home")
 
     assert "RESTORE_REFUSED" in result.stdout, result.stdout + result.stderr
     assert error_log.read_text() != ""
 
 
-def test_full_disk_access_probe_is_the_grant_not_the_channel(
+def test_full_disk_access_probe_uses_readability_as_the_grant_signal(
     tmp_path: Path,
 ) -> None:
     _require_zsh()
+    readable_probe = _write(tmp_path / "fake-tcc.db", "unit-test probe\n")
     granted = _run_functions(
         (
             _function_program(),
-            _assignment("full_disk_access_probe", FULL_DISK_ACCESS_PROBE_PATH),
+            _assignment("full_disk_access_probe", str(readable_probe)),
             "assert_full_disk_access || print -r -- FDA_DENIED",
-        )
+        ),
+        shell_home=tmp_path / "shell-home",
     )
     denied = _run_functions(
         (
             _function_program(),
             _assignment("full_disk_access_probe", str(tmp_path / "absent-database")),
             "assert_full_disk_access || print -r -- FDA_DENIED",
-        )
+        ),
+        shell_home=tmp_path / "shell-home",
     )
     assert "FDA_DENIED" in denied.stdout
-    # The probe reads a real protected database, so a host that grants the
-    # running process Full Disk Access passes and one that does not fails.
     assert granted.returncode == 0
-    assert Path(FULL_DISK_ACCESS_PROBE_PATH).exists()
+    assert "FDA_DENIED" not in granted.stdout
 
 
 def test_validate_golden_refuses_a_baseline_the_clear_would_destroy(
@@ -204,7 +230,8 @@ def test_validate_golden_refuses_a_baseline_the_clear_would_destroy(
             _assignment("golden", str(inside)),
             _assignment("manifest_suffix", GOLDEN_MANIFEST_SUFFIX),
             "validate_golden || print -r -- GOLDEN_REFUSED",
-        )
+        ),
+        shell_home=tmp_path / "shell-home",
     )
 
     assert "GOLDEN_REFUSED" in result.stdout, result.stdout + result.stderr
@@ -236,7 +263,8 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
             *_clear_and_restore(golden, home, error_log),
             *verify_lines,
             "verify_restored_home || print -r -- VERIFY_FAILED",
-        )
+        ),
+        shell_home=tmp_path / "shell-home",
     )
     assert "VERIFY_FAILED" not in clean.stdout, clean.stdout + clean.stderr
 
@@ -248,7 +276,8 @@ def test_verify_reports_surviving_yoke_state_after_a_restore(
             _assignment("golden", str(golden)),
             *verify_lines,
             "verify_restored_home || print -r -- VERIFY_FAILED",
-        )
+        ),
+        shell_home=tmp_path / "shell-home",
     )
     assert "VERIFY_FAILED" in contaminated.stdout
 
@@ -274,7 +303,11 @@ def test_zsh_program_verifies_shells_without_inheriting_dirty_path(
         "shell_surface_is_clean -lic || print -r -- SURFACE_DIRTY",
     )
 
-    result = _run_functions(lines, env=dirty_env)
+    result = _run_functions(
+        lines,
+        shell_home=tmp_path / "shell-home",
+        env=dirty_env,
+    )
 
     assert "SURFACE_DIRTY" not in result.stdout, result.stdout + result.stderr
 
@@ -287,16 +320,18 @@ def test_shell_surface_check_reports_a_resolvable_tool(tmp_path: Path) -> None:
     planted.write_text("#!/bin/sh\nexit 0\n")
     planted.chmod(0o755)
     dirty_env = {**os.environ, "PATH": f"{tool_bin}:{os.environ.get('PATH', '')}"}
+    shell_home = tmp_path / "shell-home"
+    _write(shell_home / ".zprofile", f"export PATH={tool_bin}:$PATH\n")
     lines = (
         _function_program(),
         _assignment("shell_path", binary),
-        _assignment("clean_shell_path", f"{tool_bin}:/usr/bin:/bin"),
+        _assignment("clean_shell_path", "/usr/bin:/bin"),
         _assignment("tool_bin_dir", str(tool_bin)),
         "tools=(yoke-reset-probe)",
-        "shell_surface_is_clean -c || print -r -- SURFACE_DIRTY",
+        "shell_surface_is_clean -lic || print -r -- SURFACE_DIRTY",
     )
 
-    result = _run_functions(lines, env=dirty_env)
+    result = _run_functions(lines, shell_home=shell_home, env=dirty_env)
 
     # The earlier program swallowed this failure inside an unchecked loop, so a
     # dirty surface has to be observable on its own before it can gate anything.

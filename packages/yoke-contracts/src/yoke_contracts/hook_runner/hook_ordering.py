@@ -39,7 +39,8 @@ PreToolUse Bash chain order rationale:
     shell choreography. Runs after the structured-field transform shell
     lint because both inspect command shape; this one is keyed on the
     adapter inventory (function-id coverage).
-12. ``lint_shell_backtick_search`` / ``lint_unmatched_path_glob`` —
+12. ``lint_shell_backtick_search`` / ``lint_local_privacy`` /
+    ``lint_unmatched_path_glob`` —
     shell-footgun deniers (backticks in double-quoted grep/rg; unquoted
     path globs that match no files, teaching ``rg --files``). Shape parse
     first; unmatched globs then check the command cwd.
@@ -145,6 +146,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_structured_field_transform_shell",
     "yoke_core.domain.lint_shell_quoted_function_payload",
     "yoke_core.domain.lint_shell_backtick_search",
+    "yoke_core.domain.lint_local_privacy",
     "yoke_core.domain.lint_unmatched_path_glob",
     "yoke_core.domain.lint_no_agent_runtime_api_import_from_c",
     "yoke_core.domain.lint_no_agent_curl_against_yoke_api",
