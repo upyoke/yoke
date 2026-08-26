@@ -12,7 +12,6 @@ to the live ``yoke.db``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
 
 import pytest
 
@@ -231,7 +230,7 @@ class TestEnvelopeValidation:
 
     def test_locked_kind_family_accepts_derived_kind(self, initialized_db: str):
         """test_roots is locked to 'tree' — attachment_kind may be omitted."""
-        result = ps.apply_patch(
+        ps.apply_patch(
             "test",
             ops=[_put("test_roots", "tests/", {"purpose": "x"}, entry_key="root")],
             db_path=initialized_db,
