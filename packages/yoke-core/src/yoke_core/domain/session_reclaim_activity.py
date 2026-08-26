@@ -14,8 +14,9 @@ from .session_reclaim_progress import (
     current_episode_progress_stamp,
     live_activity_stamp,
     newest_activity_stamp,
+    open_tool_call_is_live,
+    open_tool_call_started_at,
     read_session_state,
-    session_has_open_tool_call,
     session_turn_is_running,
 )
 
@@ -49,7 +50,7 @@ class ReclaimActivityEvidence:
     activity_at: Optional[str]
     ended_at: Optional[str]
     turn_posture: Optional[str]
-    open_tool_call: bool
+    open_tool_call_at: Optional[str]
 
     def as_payload(self) -> dict:
         return {
@@ -61,12 +62,18 @@ class ReclaimActivityEvidence:
             "claim_claimed_at": self.claim_claimed_at,
             "activity_at": self.activity_at,
             "turn_posture": self.turn_posture,
-            "open_tool_call": self.open_tool_call,
+            "open_tool_call": self.open_tool_call_at is not None,
+            "open_tool_call_at": self.open_tool_call_at,
         }
 
     @property
+    def open_tool_call_live(self) -> bool:
+        """Whether the open tool-call row still evidences work in flight."""
+        return open_tool_call_is_live(self.open_tool_call_at, self.activity_at)
+
+    @property
     def in_flight(self) -> bool:
-        return self.open_tool_call or session_turn_is_running(self.turn_posture)
+        return self.open_tool_call_live or session_turn_is_running(self.turn_posture)
 
 
 @dataclass(frozen=True)
@@ -157,7 +164,7 @@ def read_activity_signals(
         session_id,
         claim_id,
     )
-    open_tool_call = session_has_open_tool_call(conn, session_id)
+    open_tool_call_at = open_tool_call_started_at(conn, session_id)
 
     activity_at = newest_activity_stamp(
         claim_last_heartbeat,
@@ -184,7 +191,7 @@ def read_activity_signals(
         activity_at=activity_at,
         ended_at=ended_at,
         turn_posture=turn_posture,
-        open_tool_call=open_tool_call,
+        open_tool_call_at=open_tool_call_at,
     )
 
 
@@ -292,7 +299,7 @@ def classify_reclaimable(
     if (
         progress_threshold_minutes is not None
         and progress_at is not None
-        and not evidence.open_tool_call
+        and not evidence.open_tool_call_live
     ):
         progress_stale = activity_is_stale(
             progress_at,

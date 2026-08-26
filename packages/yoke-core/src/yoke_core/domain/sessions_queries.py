@@ -15,7 +15,11 @@ from .sessions_queries_base import (
     normalize_session_item_id,
     resolve_claimed_work_context,
 )
-from .sessions_queries_chain import read_chain_checkpoint, update_chain_checkpoint
+from .sessions_queries_chain import (
+    clear_chain_checkpoint,
+    read_chain_checkpoint,
+    update_chain_checkpoint,
+)
 from .sessions_queries_lookup import (
     get_claim_for_work_unit,
     list_claims_for_session,
@@ -37,6 +41,7 @@ __all__ = [
     "_filter_schedule_for_offer",
     "update_chain_checkpoint",
     "read_chain_checkpoint",
+    "clear_chain_checkpoint",
     "list_harness_sessions",
     "list_claims_for_session",
     "get_claim_for_work_unit",

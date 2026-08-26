@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time as _time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
@@ -13,8 +13,10 @@ from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
     current_episode_progress_stamp,
-    latest_activity,
+    in_flight_activity_is_hard_stale,
+    read_activity_signals,
 )
+from .session_reclaim_progress import parse_stamp
 from .session_staleness import activity_is_stale
 from .sessions_analytics_core import DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
 from .sessions_analytics import (
@@ -26,23 +28,17 @@ from .sessions_analytics import (
     SessionError,
 )
 from .sessions_queries import _now_iso
+from .sessions_render_end_chain_pending import chain_pending_state
 from .sessions_render import reclaim_stale_session
 from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
-from yoke_harness.hooks.identity import is_codex
 
 
 def _minutes_since(iso_value: Optional[str]) -> int:
-    if not iso_value:
+    ts = parse_stamp(iso_value)
+    if ts is None:
         return 0
-    try:
-        ts = datetime.fromisoformat(str(iso_value).replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return 0
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    delta = datetime.now(timezone.utc) - ts
-    return max(0, int(delta.total_seconds() // 60))
+    return max(0, int((datetime.now(timezone.utc) - ts).total_seconds() // 60))
 
 
 def clean_stale_harness_sessions(
@@ -145,17 +141,22 @@ def clean_stale_harness_sessions(
             else None
         )
 
-        activity_at = latest_activity(conn, sid, executor=executor)
-        is_stale = (
-            activity_is_stale(
+        evidence = read_activity_signals(
+            conn, sid, base_ttl_minutes=effective_ttl, overrides={}
+        )
+        activity_at = evidence.activity_at
+        if evidence.in_flight:
+            is_stale = in_flight_activity_is_hard_stale(
+                activity_at,
+                effective_ttl_minutes=effective_ttl,
+            )
+        else:
+            is_stale = activity_is_stale(
                 activity_at,
                 executor=None,
                 base_ttl_minutes=effective_ttl,
                 executor_ttl_overrides={},
             )
-            if activity_at is not None
-            else True
-        )
         stale_minutes = _minutes_since(activity_at) if activity_at else 0
 
         entry = {
@@ -174,24 +175,26 @@ def clean_stale_harness_sessions(
             episode_started_at,
         )
         if tool_count > 0 and progress_at:
-            try:
-                latest_event_dt = datetime.fromisoformat(
-                    str(progress_at).replace("Z", "+00:00")
-                )
-                if latest_event_dt.tzinfo is None:
-                    latest_event_dt = latest_event_dt.replace(tzinfo=timezone.utc)
-                progress_stale_flag = latest_event_dt < (
-                    datetime.now(timezone.utc)
-                    - timedelta(minutes=effective_progress_ttl)
-                )
-            except (TypeError, ValueError):
-                progress_stale_flag = False
+            progress_stale_flag = activity_is_stale(
+                progress_at,
+                executor=None,
+                base_ttl_minutes=effective_progress_ttl,
+                executor_ttl_overrides={},
+            )
 
         if not is_stale:
             if progress_stale_flag:
                 progress_stale.append({**entry, "reason": "progress_stale"})
                 continue
-            if is_codex(executor):
+            # Spared despite the base threshold — by an executor TTL override
+            # or by live in-flight evidence. A session still inside the base
+            # threshold is simply fresh and needs no explanation.
+            if activity_is_stale(
+                activity_at,
+                executor=None,
+                base_ttl_minutes=stale_threshold_minutes,
+                executor_ttl_overrides={},
+            ):
                 skipped_between_turns.append({**entry, "reason": "between_turns"})
             continue
 
@@ -254,8 +257,8 @@ def clean_stale_harness_sessions(
             )
             continue
 
-        # Count active claims before release so the reclaim event can report
-        # released_claim_count accurately.
+        # Read before the reclaim clears it, so the event reports what it collected.
+        chain_state = chain_pending_state(conn, sid)
         claim_count_row = conn.execute(
             """SELECT COUNT(*) AS cnt FROM work_claims
                WHERE session_id = %s AND released_at IS NULL""",
@@ -286,6 +289,8 @@ def clean_stale_harness_sessions(
                 "effective_ttl_minutes": recheck.evidence.effective_ttl_minutes,
                 "has_active_holdings": has_active_holdings,
                 "released_claim_count": released_claim_count,
+                "chain_checkpoint_cleared": chain_state.chainable,
+                "chain_checkpoint_step": chain_state.step,
                 "janitor_now": now_iso,
             },
         )
