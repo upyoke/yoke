@@ -38,6 +38,7 @@ from yoke_core.domain.sessions_offer_revalidation import (
 )
 from yoke_core.domain.sessions_queries_chain import read_chain_skip_memory
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from yoke_core.domain.work_claim_targets import make_process_target
 
 
 @pytest.fixture
@@ -153,8 +154,7 @@ class TestYok1599SubstrateReentry:
             )
         memory = read_chain_skip_memory(conn, "terminal-session")
         assert (
-            classify_terminal_reason(memory)
-            == "all_candidates_recoverable_substrate"
+            classify_terminal_reason(memory) == "all_candidates_recoverable_substrate"
         )
         # remediation_owner is on each entry so the summary can
         # render the remediation owner without
@@ -176,9 +176,7 @@ class TestYok1599HolderViaCanonicalSurface:
     def test_holder_returns_canonical_claim_facts(self, conn):
         _seed_item(conn, item_id=1599, status="implementing")
         _register(conn, session_id="other-live-session")
-        claim = claim_work(
-            conn, session_id="other-live-session", item_id=1599
-        )
+        claim = claim_work(conn, session_id="other-live-session", item_id=1599)
         ctx = holder_session_for_item(conn, 1599)
         # The rendered context contains all five canonical facts.
         assert ctx["claim_id"] == claim["id"]
@@ -202,18 +200,20 @@ class TestYok1599HolderViaCanonicalSurface:
         # but has the wrong ``target_kind`` — the canonical query
         # ignores it.
         _seed_item(conn, item_id=1599, status="implementing")
-        _register(conn, session_id="legacy-shape-session")
+        _register(conn, session_id="process-shape-session")
         # Insert a process-target claim manually so the helper does
         # not pick it up by mistake.
         p = _p(conn)
         conn.execute(
             f"""INSERT INTO work_claims
-               (session_id, target_kind, item_id, process_key,
-                claim_type, claimed_at, last_heartbeat, conflict_group)
-               VALUES ({p}, 'process', NULL, 'STRATEGIZE',
-                       'exclusive', '2026-05-06T00:00:00Z',
-                       '2026-05-06T00:00:00Z', 'STRATEGIZE')""",
-            ("legacy-shape-session",),
+               (session_id, target_kind, scope, claim_type, claimed_at,
+                last_heartbeat)
+               VALUES ({p}, 'process', {p}, 'exclusive',
+                       '2026-05-06T00:00:00Z', '2026-05-06T00:00:00Z')""",
+            (
+                "process-shape-session",
+                make_process_target("STRATEGIZE", "yoke").scope_json(),
+            ),
         )
         conn.commit()
         ctx = holder_session_for_item(conn, 1599)

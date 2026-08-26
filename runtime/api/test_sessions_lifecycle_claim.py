@@ -33,6 +33,7 @@ from yoke_core.domain.sessions import (
     release_all_claims,
     release_claim,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @pytest.fixture(autouse=True)
@@ -51,15 +52,16 @@ class TestClaimWork:
         _register(conn)
         result = claim_work(conn, session_id="sess-1", item_id=9999)
         assert result["session_id"] == "sess-1"
-        assert result["item_id"] == 9999
         assert result["target_kind"] == "item"
+        assert result["scope"] == {"item_id": 9999}
+        assert "item_id" not in result
         assert result["claim_type"] == "exclusive"
         assert result["released_at"] is None
 
     def test_claim_accepts_resolved_integer_item(self, conn):
         _register(conn)
         result = claim_work(conn, session_id="sess-1", item_id=9999)
-        assert result["item_id"] == 9999
+        assert result["scope"] == {"item_id": 9999}
 
     def test_claim_sets_current_item_attribution(self, conn):
         _register(conn)
@@ -116,7 +118,7 @@ class TestClaimWork:
         # This should auto-reap sess-stale and succeed
         result = claim_work(conn, session_id="sess-new", item_id=99)
         assert result["session_id"] == "sess-new"
-        assert result["item_id"] == 99
+        assert result["scope"] == {"item_id": 99}
         # Verify the stale session's claim was released
         stale_claim = conn.execute(
             "SELECT released_at, release_reason FROM work_claims "
@@ -187,12 +189,12 @@ class TestClaimWork:
                     side = connect_test_db(self._db_path)
                     try:
                         side.execute(
-                            "INSERT INTO work_claims (session_id, target_kind, item_id, "
+                            "INSERT INTO work_claims (session_id, target_kind, scope, "
                             "claim_type, claimed_at, last_heartbeat) "
                             "VALUES (%s, 'item', %s, 'exclusive', %s, %s)",
                             (
                                 "sess-2",
-                                9999,
+                                make_item_target(9999).scope_json(),
                                 "2026-04-03T00:00:00Z",
                                 "2026-04-03T00:00:00Z",
                             ),

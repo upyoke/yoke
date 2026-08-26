@@ -21,6 +21,13 @@ LANE = "/repo/.worktrees/lane"
 OTHER_LANE = "/repo/.worktrees/other"
 
 
+def _holder(claim_id: int, lanes: list[str], item_id: int = 42) -> dict:
+    return {
+        "claim_id": claim_id, "session_id": "sess-1", "target_kind": "item",
+        "scope": {"item_id": item_id}, "lane_worktrees": lanes,
+    }
+
+
 class _Error:
     def __init__(self, message: str) -> None:
         self.message = message
@@ -76,7 +83,7 @@ def test_lookup_goes_through_the_registered_read(
             result={
                 "current_item_before_implementation": True,
                 "holders": [
-                    {"claim_id": 1, "lane_worktrees": [LANE]},
+                    _holder(1, [LANE]),
                 ]
             }
         ),
@@ -98,9 +105,9 @@ def test_lanes_from_several_claims_are_merged_without_duplicates(
         _Response(
             result={
                 "holders": [
-                    {"claim_id": 1, "lane_worktrees": [LANE, OTHER_LANE]},
-                    {"claim_id": 2, "lane_worktrees": [LANE]},
-                    {"claim_id": 3, "lane_worktrees": []},
+                    _holder(1, [LANE, OTHER_LANE]),
+                    _holder(2, [LANE], item_id=43),
+                    _holder(3, [], item_id=44),
                 ]
             }
         ),
@@ -115,7 +122,7 @@ def test_claim_without_a_lane_contributes_nothing(
     # must not be mistaken for an unreachable lookup.
     _dispatch(
         monkeypatch,
-        _Response(result={"holders": [{"claim_id": 1, "lane_worktrees": []}]}),
+        _Response(result={"holders": [_holder(1, [])]}),
     )
     lookup = resolve_claim_worktrees("sess-1")
     assert lookup.worktrees == ()
@@ -213,7 +220,7 @@ def test_reachable_lookup_with_a_lane_still_refuses_an_outside_tree(
     _dispatch(
         monkeypatch,
         _Response(
-            result={"holders": [{"claim_id": 1, "lane_worktrees": [str(lane)]}]}
+            result={"holders": [_holder(1, [str(lane)])]}
         ),
     )
     verdict = verification_tree_binding.evaluate_run(

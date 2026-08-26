@@ -33,6 +33,7 @@ from . import db_backend
 from .release_intent_classification import is_non_terminal_release_intent
 from .schema_common import _get_columns as _schema_get_columns
 from .session_reclaim_activity import latest_activity
+from .work_claim_targets import scope_int_sql
 
 
 # Latest released claim per item, joined to the still-live owner session.
@@ -45,7 +46,7 @@ from .session_reclaim_activity import latest_activity
 _DEFENDED_CLAIM_SQL = """
 SELECT
     wc.id AS claim_id,
-    wc.item_id,
+    {item_expr} AS item_id,
     wc.session_id,
     wc.released_at,
     wc.release_reason,
@@ -55,13 +56,13 @@ FROM work_claims wc
 JOIN harness_sessions hs ON hs.session_id = wc.session_id
 WHERE wc.released_at IS NOT NULL
   AND wc.target_kind = 'item'
-  AND wc.item_id IS NOT NULL
+  AND {item_expr} IS NOT NULL
   AND hs.ended_at IS NULL
   AND wc.id = (
     SELECT MAX(wc2.id)
     FROM work_claims wc2
     WHERE wc2.target_kind = 'item'
-      AND wc2.item_id = wc.item_id
+      AND {item2_expr} = {item_expr}
   )
 ORDER BY wc.id DESC
 """
@@ -84,7 +85,9 @@ def _checkpoint_outcome(offer_envelope_raw: Any) -> Optional[str]:
         envelope = json.loads(str(offer_envelope_raw))
     except (json.JSONDecodeError, TypeError, ValueError):
         return None
-    checkpoint = envelope.get("chain_checkpoint") if isinstance(envelope, dict) else None
+    checkpoint = (
+        envelope.get("chain_checkpoint") if isinstance(envelope, dict) else None
+    )
     if not isinstance(checkpoint, dict):
         return None
     outcome = checkpoint.get("handler_outcome")
@@ -92,7 +95,8 @@ def _checkpoint_outcome(offer_envelope_raw: Any) -> Optional[str]:
 
 
 def _classify_defense(
-    release_reason: Optional[str], release_intent: Optional[str],
+    release_reason: Optional[str],
+    release_intent: Optional[str],
 ) -> tuple[Optional[str], Optional[str]]:
     """Return ``(defense_class, release_reason_intent)`` or ``(None, ...)``.
 
@@ -133,7 +137,11 @@ def routed_ownership_exclusions(
             else "NULL"
         )
         rows = conn.execute(
-            _DEFENDED_CLAIM_SQL.format(intent_expr=intent_expr)
+            _DEFENDED_CLAIM_SQL.format(
+                intent_expr=intent_expr,
+                item_expr=scope_int_sql(conn, "wc.scope", "item_id"),
+                item2_expr=scope_int_sql(conn, "wc2.scope", "item_id"),
+            )
         ).fetchall()
     except db_backend.operational_error_types(conn):
         # Missing schema — frontier callers treat the empty mapping as
@@ -153,7 +161,8 @@ def routed_ownership_exclusions(
         if requesting_session_id and owner_session == requesting_session_id:
             continue
         defense_class, intent = _classify_defense(
-            row["release_reason"], row["release_intent"],
+            row["release_reason"],
+            row["release_intent"],
         )
         if defense_class is None:
             continue

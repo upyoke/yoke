@@ -56,8 +56,12 @@ class TestCrossProjectCommitsCutoff:
     def _seed_done_non_yoke(self, conn, item_id: int, project: str) -> None:
         _seed_project(conn, project)
         _insert_item(
-            conn, item_id, f"Item {item_id}", project=project,
-            workflow_id="issue", status="done",
+            conn,
+            item_id,
+            f"Item {item_id}",
+            project=project,
+            workflow_id="issue",
+            status="done",
         )
         conn.commit()
 
@@ -66,7 +70,9 @@ class TestCrossProjectCommitsCutoff:
         self._seed_done_non_yoke(conn, item_id=999, project="externalwebapp")
         cutoff = "2026-04-18"
         _write_cutoff(
-            tmp_path, "hc_cross_project_commits_min_commit_date", cutoff,
+            tmp_path,
+            "hc_cross_project_commits_min_commit_date",
+            cutoff,
         )
 
         captured_argv = []
@@ -76,8 +82,12 @@ class TestCrossProjectCommitsCutoff:
             return _make_completed(returncode=0, stdout="")
 
         rec = RecordCollector()
-        with _patch_repo_root(tmp_path), patch(
-            "yoke_core.engines.doctor_report._run", side_effect=fake_run,
+        with (
+            _patch_repo_root(tmp_path),
+            patch(
+                "yoke_core.engines.doctor_report._run",
+                side_effect=fake_run,
+            ),
         ):
             hc_cross_project_commits(conn, _args(), rec)
 
@@ -97,8 +107,12 @@ class TestCrossProjectCommitsCutoff:
             return _make_completed(returncode=0, stdout="")
 
         rec = RecordCollector()
-        with _patch_repo_root(tmp_path), patch(
-            "yoke_core.engines.doctor_report._run", side_effect=fake_run,
+        with (
+            _patch_repo_root(tmp_path),
+            patch(
+                "yoke_core.engines.doctor_report._run",
+                side_effect=fake_run,
+            ),
         ):
             hc_cross_project_commits(conn, _args(), rec)
 
@@ -131,11 +145,7 @@ CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL,
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL DEFAULT '',
     last_heartbeat TEXT NOT NULL DEFAULT '',
@@ -185,10 +195,14 @@ def _seed_clobber_session(conn, session_id: str, offered_at: str) -> None:
 class TestOfferEnvelopeClobberCutoff:
     def test_below_cutoff_excluded(self, clobber_conn, tmp_path):
         _seed_clobber_session(
-            clobber_conn, "sess-old", offered_at="2026-04-01T00:00:00+00:00",
+            clobber_conn,
+            "sess-old",
+            offered_at="2026-04-01T00:00:00+00:00",
         )
         _seed_clobber_session(
-            clobber_conn, "sess-new", offered_at="2026-05-14T00:00:00+00:00",
+            clobber_conn,
+            "sess-new",
+            offered_at="2026-05-14T00:00:00+00:00",
         )
         _write_cutoff(
             tmp_path,
@@ -200,24 +214,22 @@ class TestOfferEnvelopeClobberCutoff:
         with _patch_repo_root(tmp_path):
             hc_offer_envelope_clobber_lost_chain(clobber_conn, _args(), rec)
 
-        result, detail = _results(rec)[
-            "HC-offer-envelope-clobber-lost-chain"
-        ]
+        result, detail = _results(rec)["HC-offer-envelope-clobber-lost-chain"]
         assert result == "WARN"
         assert "sess-old" not in detail
         assert "sess-new" in detail
 
     def test_no_cutoff_keeps_legacy_behavior(self, clobber_conn, tmp_path):
         _seed_clobber_session(
-            clobber_conn, "sess-old", offered_at="2026-04-01T00:00:00+00:00",
+            clobber_conn,
+            "sess-old",
+            offered_at="2026-04-01T00:00:00+00:00",
         )
 
         rec = RecordCollector()
         with _patch_repo_root(tmp_path):
             hc_offer_envelope_clobber_lost_chain(clobber_conn, _args(), rec)
 
-        result, detail = _results(rec)[
-            "HC-offer-envelope-clobber-lost-chain"
-        ]
+        result, detail = _results(rec)["HC-offer-envelope-clobber-lost-chain"]
         assert result == "WARN"
         assert "sess-old" in detail

@@ -22,8 +22,22 @@ from runtime.api.backlog_mutations_test_helpers import (
     _session_attribution,
 )
 from yoke_core.domain import backlog
+from yoke_core.domain.work_claim_targets import make_item_target
 
 pytest_plugins = ("runtime.api.backlog_mutations_test_helpers",)
+
+
+def _mark_claim_handed_off(db_path, item_id: int) -> None:
+    conn = _conn(db_path)
+    target = make_item_target(item_id)
+    conn.execute(
+        "UPDATE work_claims "
+        "SET released_at='2026-01-01T00:05:00Z', release_reason='handed_off' "
+        "WHERE target_kind = %s AND scope = %s AND released_at IS NULL",
+        (target.kind, target.scope_json()),
+    )
+    conn.commit()
+    conn.close()
 
 
 class TestExecuteUpdate:
@@ -198,16 +212,7 @@ class TestExecuteUpdate:
         _seed_item(tmp_db, id=10, status="reviewed-implementation")
         _seed_session(tmp_db)
         _seed_claim(tmp_db, item_id="10")
-        conn = _conn(tmp_db)
-        conn.execute(
-            """
-            UPDATE work_claims
-            SET released_at='2026-01-01T00:05:00Z', release_reason='handed_off'
-            WHERE item_id='10' AND released_at IS NULL
-            """
-        )
-        conn.commit()
-        conn.close()
+        _mark_claim_handed_off(tmp_db, 10)
 
         out = io.StringIO()
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
@@ -228,16 +233,7 @@ class TestExecuteUpdate:
         _seed_session(tmp_db, session_id="sess-1")
         _seed_session(tmp_db, session_id="sess-2")
         _seed_claim(tmp_db, session_id="sess-2", item_id="10")
-        conn = _conn(tmp_db)
-        conn.execute(
-            """
-            UPDATE work_claims
-            SET released_at='2026-01-01T00:05:00Z', release_reason='handed_off'
-            WHERE item_id='10' AND released_at IS NULL
-            """
-        )
-        conn.commit()
-        conn.close()
+        _mark_claim_handed_off(tmp_db, 10)
 
         out = io.StringIO()
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
@@ -259,16 +255,7 @@ class TestExecuteUpdate:
         _seed_item(tmp_db, id=10, status="implemented")
         _seed_session(tmp_db)
         _seed_claim(tmp_db, item_id="10")
-        conn = _conn(tmp_db)
-        conn.execute(
-            """
-            UPDATE work_claims
-            SET released_at='2026-01-01T00:05:00Z', release_reason='handed_off'
-            WHERE item_id='10' AND released_at IS NULL
-            """
-        )
-        conn.commit()
-        conn.close()
+        _mark_claim_handed_off(tmp_db, 10)
 
         out = io.StringIO()
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):

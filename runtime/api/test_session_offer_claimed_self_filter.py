@@ -158,7 +158,10 @@ class TestRetryRecomputeMirrorsIncident:
         # Without a rendering connection the frontier builder falls back
         # to the bare internal-id string.
         assert action.context["selected_item"] == "1723"
-        ok, err = validate_charge_claim_invariant(action, {"item_id": 1723})
+        ok, err = validate_charge_claim_invariant(
+            action,
+            {"target_kind": "item", "scope": {"item_id": 1723}},
+        )
         assert ok is True, err
 
 

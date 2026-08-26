@@ -27,6 +27,7 @@ from yoke_core.domain.workflow_item_binding_lock import (
 )
 from yoke_core.domain.workflow_item_versioning import migrate_item_workflow_pin
 from yoke_core.domain.workflow_registry import publish_workflow_version
+from yoke_core.domain.work_claim_targets import decode_scope, make_item_target
 
 
 def _join(worker: threading.Thread) -> None:
@@ -163,16 +164,17 @@ def test_runtime_claim_lands_before_incompatible_migration_review(
     assert "live work claims" in str(migration_error)
     assert _pin(test_db) == (int(source["version_id"]), "implementing")
     live_claims = test_db.execute(
-        "SELECT session_id, target_kind, item_id, epic_id, task_num "
+        "SELECT session_id, target_kind, scope "
         "FROM work_claims WHERE released_at IS NULL",
     ).fetchall()
     assert len(live_claims) == 1
     assert live_claims[0][0] == "runtime-claim-session"
     assert live_claims[0][1] == target_kind
-    parent_id = live_claims[0][2] if target_kind == "item" else live_claims[0][3]
-    assert int(parent_id) == ITEM_ID
+    scope = decode_scope(live_claims[0][2])
+    parent_key = "item_id" if target_kind == "item" else "epic_id"
+    assert int(scope[parent_key]) == ITEM_ID
     if target_kind == "epic_task":
-        assert int(live_claims[0][4]) == 1
+        assert int(scope["task_num"]) == 1
 
 
 def test_stale_cleanup_finishes_before_migration_first_parent_lock_wait(
@@ -231,8 +233,9 @@ def test_stale_cleanup_finishes_before_migration_first_parent_lock_wait(
         assert about_to_lock_parent.wait(timeout=10)
         stale_row = test_db.execute(
             "SELECT released_at FROM work_claims "
-            "WHERE session_id='stale-runtime-holder' AND item_id=%s",
-            (ITEM_ID,),
+            "WHERE session_id='stale-runtime-holder' "
+            "AND target_kind='item' AND scope=%s",
+            (make_item_target(ITEM_ID).scope_json(),),
         ).fetchone()
         assert stale_row[0] is not None
         outcomes["migration"] = migrate_item_workflow_pin(
@@ -253,8 +256,9 @@ def test_stale_cleanup_finishes_before_migration_first_parent_lock_wait(
     assert outcomes["claim"] == (f"Claimed: YOK-{ITEM_ID} by runtime-successor")
     assert _pin(test_db) == (int(target["version_id"]), "implementing")
     active_rows = test_db.execute(
-        "SELECT session_id FROM work_claims WHERE item_id=%s AND released_at IS NULL",
-        (ITEM_ID,),
+        "SELECT session_id FROM work_claims WHERE target_kind='item' "
+        "AND scope=%s AND released_at IS NULL",
+        (make_item_target(ITEM_ID).scope_json(),),
     ).fetchall()
     assert [row[0] for row in active_rows] == ["runtime-successor"]
 
@@ -272,11 +276,15 @@ def test_process_claim_retains_public_response_without_item_parent(test_db) -> N
 
     assert result == "Claimed: process:strategy:yoke by runtime-process-session"
     row = test_db.execute(
-        "SELECT target_kind, process_key, conflict_group "
+        "SELECT target_kind, scope "
         "FROM work_claims WHERE session_id='runtime-process-session' "
         "AND released_at IS NULL"
     ).fetchone()
-    assert tuple(row) == ("process", "strategy:yoke", "strategy:yoke")
+    assert row[0] == "process"
+    assert decode_scope(row[1]) == {
+        "conflict_group": "strategy:yoke",
+        "process_key": "strategy:yoke",
+    }
 
 
 def test_runtime_claim_rejects_terminal_item_after_parent_lock(test_db) -> None:

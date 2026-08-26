@@ -161,6 +161,8 @@ def _item_coordination_blockers(
     touch_paths: tuple[str, ...],
     integration_target: str,
 ) -> list[ConflictMatch]:
+    from yoke_core.domain.work_claim_targets import scope_int_sql
+
     marker = _p(conn)
     worktree_select = (
         ", iw.path AS worktree_path, iw.branch AS worktree_branch"
@@ -178,7 +180,8 @@ def _item_coordination_blockers(
         else ", NULL AS work_claim_id"
     )
     claim_join = (
-        " LEFT JOIN work_claims wc ON wc.item_id = i.id "
+        f" LEFT JOIN work_claims wc ON "
+        f"{scope_int_sql(conn, 'wc.scope', 'item_id')} = i.id "
         "AND wc.target_kind = 'item' AND wc.released_at IS NULL"
         if _table_exists(conn, "work_claims")
         else ""

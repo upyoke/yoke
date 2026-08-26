@@ -29,6 +29,7 @@ from yoke_core.domain.workflow_item_migration_review_bindings import (
 from yoke_core.domain.workflow_effective_policies import (
     resolve_effective_workflow_policies,
 )
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 _LIVE_PATH_CLAIM_STATES = ("planned", "blocked", "active")
@@ -53,12 +54,14 @@ def _claim_conflicts(
     bind = marker(conn)
     work_claims = []
     if _table_exists(conn, "work_claims"):
+        item_scope = scope_int_sql(conn, "scope", "item_id")
+        epic_scope = scope_int_sql(conn, "scope", "epic_id")
         work_claims = dict_rows(
             conn.execute(
                 "SELECT id, target_kind FROM work_claims "
                 "WHERE released_at IS NULL AND ("
-                f"(target_kind = 'item' AND item_id = {bind}) OR "
-                f"(target_kind = 'epic_task' AND epic_id = {bind}))",
+                f"(target_kind = 'item' AND {item_scope} = {bind}) OR "
+                f"(target_kind = 'epic_task' AND {epic_scope} = {bind}))",
                 (item_id, item_id),
             )
         )
@@ -79,16 +82,16 @@ def _claim_conflicts(
             )
 
     source_path_policy = resolve_effective_workflow_policies(
-        source, posture,
+        source,
+        posture,
     ).path_claims
     target_path_policy = resolve_effective_workflow_policies(
-        target, posture,
+        target,
+        posture,
     ).path_claims
     if _table_exists(conn, "path_claims"):
         states = ", ".join(bind for _ in _LIVE_PATH_CLAIM_STATES)
-        owner = (
-            f"owner_kind = 'item' AND owner_item_id = {bind}"
-        )
+        owner = f"owner_kind = 'item' AND owner_item_id = {bind}"
         owner_params = (item_id,)
         rows = conn.execute(
             f"SELECT id FROM path_claims WHERE state IN ({states}) AND {owner} LIMIT 1",
@@ -125,8 +128,7 @@ def _claim_conflicts(
                 conn,
                 item_id,
                 task_scoped=(
-                    target_path_policy
-                    == WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK
+                    target_path_policy == WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK
                 ),
             )
             if coverage["verdict"] != "pass":
@@ -147,10 +149,12 @@ def _file_budget_conflicts(
     posture: Mapping[str, Any],
 ) -> list[str]:
     source_policy = resolve_effective_workflow_policies(
-        source, posture,
+        source,
+        posture,
     ).file_budget
     target_policy = resolve_effective_workflow_policies(
-        target, posture,
+        target,
+        posture,
     ).file_budget
     if (
         source_policy == target_policy
@@ -172,8 +176,7 @@ def _file_budget_conflicts(
     if coverage["verdict"] == "pass":
         return []
     return [
-        "target File Budget policy requires current coverage: "
-        f"{coverage['reason']}"
+        f"target File Budget policy requires current coverage: {coverage['reason']}"
     ]
 
 
@@ -297,14 +300,16 @@ def item_migration_binding_conflicts(
         target_stage=target_stage,
         posture=posture,
     )
-    conflicts.extend(_file_budget_conflicts(
-        conn,
-        item_id=item_id,
-        source=source,
-        target=target,
-        target_stage=target_stage,
-        posture=posture,
-    ))
+    conflicts.extend(
+        _file_budget_conflicts(
+            conn,
+            item_id=item_id,
+            source=source,
+            target=target,
+            target_stage=target_stage,
+            posture=posture,
+        )
+    )
     conflicts.extend(
         review_binding_conflicts(
             conn,

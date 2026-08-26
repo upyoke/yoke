@@ -25,6 +25,7 @@ from yoke_core.domain.sessions_render_end_claim_release import (
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
+    make_epic_task_target,
 )
 
 pytest_plugins = ("runtime.api.test_sessions",)
@@ -38,8 +39,7 @@ def _seed_claim_targets(conn):
 
 def _claim_rows(conn, session_id: str):
     return conn.execute(
-        """SELECT id, target_kind, item_id, epic_id, task_num,
-                  process_key, conflict_group
+        """SELECT id, target_kind, scope
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
            ORDER BY claimed_at ASC, id ASC""",
@@ -69,11 +69,9 @@ class TestReleaseSessionClaims:
         assert len(released) == 1
         entry = released[0]
         assert entry["target_kind"] == TARGET_KIND_ITEM
-        assert entry["item_id"] == 501
+        assert entry["scope"] == {"item_id": 501}
         assert "claim_id" in entry
         # No epic_task / process keys on item-target payload
-        assert "epic_id" not in entry
-        assert "process_key" not in entry
 
         # Claim is now released with the canonical reason
         stored = conn.execute(
@@ -87,11 +85,11 @@ class TestReleaseSessionClaims:
         # Insert an epic_task work-claim directly; claim_work() is item-only.
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, epic_id, task_num,
+               (session_id, target_kind, scope,
                 claim_type, claimed_at, last_heartbeat)
-               VALUES (%s, 'epic_task', 4242, 3, 'exclusive',
+               VALUES (%s, 'epic_task', %s, 'exclusive',
                        '2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')""",
-            ("sess-1",),
+            ("sess-1", make_epic_task_target(4242, 3).scope_json()),
         )
         conn.commit()
 
@@ -105,9 +103,7 @@ class TestReleaseSessionClaims:
         assert len(released) == 1
         entry = released[0]
         assert entry["target_kind"] == TARGET_KIND_EPIC_TASK
-        assert entry["epic_id"] == 4242
-        assert entry["task_num"] == 3
-        assert "item_id" not in entry
+        assert entry["scope"] == {"epic_id": 4242, "task_num": 3}
 
     def test_end_session_via_no_flags_constant(self):
         """The via marker is stable so audit callers can query for it."""
@@ -130,4 +126,4 @@ class TestEndSessionResponseEnvelope:
         result = end_session(conn, "sess-1")
         assert "released_claims" in result
         assert len(result["released_claims"]) == 1
-        assert result["released_claims"][0]["item_id"] == 777
+        assert result["released_claims"][0]["scope"] == {"item_id": 777}

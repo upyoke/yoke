@@ -24,11 +24,7 @@ CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL,
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
@@ -67,11 +63,12 @@ def _insert_claim(
     item_id: int,
     claimed_at: str,
 ) -> int:
+    from yoke_core.domain.work_claim_targets import make_item_target
     cursor = conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat) "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
         "VALUES (%s, 'item', %s, 'exclusive', %s, %s) RETURNING id",
-        (session_id, item_id, claimed_at, claimed_at),
+        (session_id, make_item_target(item_id).scope_json(), claimed_at, claimed_at),
     )
     row = cursor.fetchone()
     cursor.close()

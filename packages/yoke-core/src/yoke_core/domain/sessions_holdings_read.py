@@ -18,28 +18,12 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
-
-_CLAIM_ROWS_SQL = (
-    "SELECT wc.session_id, wc.target_kind, wc.item_id, wc.epic_id, "
-    "wc.task_num, wc.process_key, wc.conflict_group, wc.claimed_at, "
-    "wc.reason, COALESCE(task_lane.lane_role, item_lane.lane_role) "
-    "AS lane_role "
-    "FROM work_claims wc "
-    "LEFT JOIN epic_tasks et ON wc.target_kind = 'epic_task' "
-    "AND et.epic_id = wc.epic_id AND et.task_num = wc.task_num "
-    "LEFT JOIN item_worktrees task_lane "
-    "ON task_lane.id = et.item_worktree_id "
-    "AND task_lane.state = 'active' "
-    "LEFT JOIN item_worktrees item_lane ON item_lane.id = ("
-    "SELECT iw.id FROM item_worktrees iw "
-    "WHERE wc.target_kind = 'item' AND iw.item_id = wc.item_id "
-    "AND iw.state = 'active' "
-    "ORDER BY CASE iw.lane_role WHEN 'integration' THEN 0 "
-    "WHEN 'implementation' THEN 1 ELSE 2 END, iw.id LIMIT 1"
-    ") "
-    "WHERE wc.released_at IS NULL ORDER BY wc.claimed_at ASC"
+from yoke_core.domain.sessions_holdings_claim_rows import active_claim_rows
+from yoke_core.domain.work_claim_targets import (
+    from_row as work_claim_target_from_row,
+    scope_int_sql,
 )
+from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
 
 
 def _p(conn: Any) -> str:
@@ -124,11 +108,20 @@ def _render_target(
                 "item_project_sequence": found["project_sequence"],
             }
         fallback_ref = format_item_ref(
-            None, DEFAULT_PUBLIC_ITEM_PREFIX, None, item_id=item_num,
+            None,
+            DEFAULT_PUBLIC_ITEM_PREFIX,
+            None,
+            item_id=item_num,
         )
         return fallback_ref, {}
     if kind == "epic_task":
         return f"epic {claim.get('epic_id')} task {claim.get('task_num')}", {}
+    if kind == "steering":
+        steering = work_claim_target_from_row(claim)
+        return steering.render(), {
+            "scope": dict(steering.scope),
+            "project_id": steering.project_id,
+        }
     return str(claim.get("process_key") or ""), {}
 
 
@@ -146,7 +139,7 @@ def active_claims_by_session(
     roles used for focus/role matching. Item-target refs resolve through
     one batched identity read rather than a query per claim.
     """
-    rows = conn.execute(_CLAIM_ROWS_SQL).fetchall()
+    rows = active_claim_rows(conn)
     raw_by_session: Dict[str, List[Dict[str, Any]]] = {}
     for row in rows:
         claim = dict(row)
@@ -308,8 +301,8 @@ def claimed_blitz_worktree_ids_by_session(
         rows = conn.execute(
             "SELECT wc.session_id AS session_id, iw.id AS worktree_id "
             "FROM work_claims wc "
-            "JOIN items i ON i.id = wc.item_id "
-            "JOIN item_worktrees iw ON iw.item_id = wc.item_id "
+            f"JOIN items i ON i.id = {scope_int_sql(conn, 'wc.scope', 'item_id')} "
+            f"JOIN item_worktrees iw ON iw.item_id = {scope_int_sql(conn, 'wc.scope', 'item_id')} "
             "AND iw.state = 'active' "
             "WHERE wc.released_at IS NULL AND wc.target_kind = 'item' "
             "AND iw.lane_role IN ('worker', 'integration') "

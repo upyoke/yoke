@@ -9,6 +9,7 @@ import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.runtime_settings import get_int
+from yoke_core.domain.work_claim_targets import scope_int_sql
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
@@ -19,23 +20,26 @@ _DEFAULT_STALE_TTL_MINUTES = 20
 _IDEA_DRAFT_MODES = ("idea", "refine")
 _LIST_PREVIEW = 20
 
-_SCAN_SQL = """
-SELECT
-    wc.id              AS claim_id,
-    wc.item_id         AS item_id,
-    wc.session_id      AS session_id,
-    i.status           AS item_status,
-    hs.mode            AS session_mode,
-    hs.ended_at        AS session_ended_at,
-    hs.last_heartbeat  AS session_last_heartbeat
-FROM work_claims wc
-JOIN items i ON i.id = wc.item_id
-LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id
-WHERE wc.released_at IS NULL
-  AND wc.target_kind = 'item'
-  AND wc.item_id IS NOT NULL
-  AND i.status IN ('release', 'idea')
-"""
+
+def _scan_sql(conn: Any) -> str:
+    item_id = scope_int_sql(conn, "wc.scope", "item_id")
+    return f"""
+    SELECT
+        wc.id              AS claim_id,
+        {item_id}          AS item_id,
+        wc.session_id      AS session_id,
+        i.status           AS item_status,
+        hs.mode            AS session_mode,
+        hs.ended_at        AS session_ended_at,
+        hs.last_heartbeat  AS session_last_heartbeat
+    FROM work_claims wc
+    JOIN items i ON i.id = {item_id}
+    LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id
+    WHERE wc.released_at IS NULL
+      AND wc.target_kind = 'item'
+      AND {item_id} IS NOT NULL
+      AND i.status IN ('release', 'idea')
+    """
 
 
 def _heartbeat_age_minutes(value: Optional[str], now: datetime) -> Optional[float]:
@@ -66,7 +70,7 @@ def hc_work_claim_status_mismatch(
     now = datetime.now(timezone.utc)
 
     try:
-        rows = conn.execute(_SCAN_SQL).fetchall()
+        rows = conn.execute(_scan_sql(conn)).fetchall()
     except db_backend.database_error_types(conn) as exc:
         rec.record(
             _HC_NAME, _HC_DESC, "PASS", f"required columns missing — skipping: {exc}"

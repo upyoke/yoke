@@ -120,7 +120,7 @@ class TestEventEmission:
         result = end_session(conn, "ev-4")
 
         assert result["ended_at"] is not None
-        assert result["released_claims"][0]["item_id"] == 201
+        assert result["released_claims"][0]["scope"] == {"item_id": 201}
         assert result["released_claims"][0]["claim_id"] == claim_a["id"]
 
         release_events = [

@@ -62,6 +62,19 @@ def test_enrich_session_current_item_id_gains_ref() -> None:
     assert out["session"]["current_item_ref"] == "PLAT-1950"
 
 
+def test_enrich_preserves_canonical_claim_scope() -> None:
+    conn = MagicMock()
+    with patch(
+        "yoke_core.domain.project_identity.render_item_ref",
+    ) as render:
+        out = enrich_result_item_refs(
+            {"target_kind": "item", "scope": {"item_id": 42}},
+            conn=conn,
+        )
+    assert out["scope"] == {"item_id": 42}
+    render.assert_not_called()
+
+
 def test_enrich_without_conn_opens_and_closes() -> None:
     fake_conn = MagicMock()
     with patch(

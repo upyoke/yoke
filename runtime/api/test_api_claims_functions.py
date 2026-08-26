@@ -126,8 +126,7 @@ class TestClaimsWork(_ClaimsHandlerSuite):
     def test_acquire_records_row_and_returns_claim_id(self):
         fake_row = {
             "id": 1234, "session_id": "s-1", "target_kind": "item",
-            "item_id": 42, "epic_id": None, "task_num": None,
-            "process_key": None, "conflict_group": None,
+            "scope": {"item_id": 42},
         }
         with patch(
             "yoke_core.domain.sessions_lifecycle_claim.claim_work",
@@ -141,6 +140,7 @@ class TestClaimsWork(_ClaimsHandlerSuite):
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["claim_id"], 1234)
         self.assertEqual(resp.result["session_id"], "s-1")
+        self.assertEqual(resp.result["scope"], {"item_id": 42})
 
     def test_release_requires_self_only(self):
         """Release rejects when caller isn't the holder."""
@@ -180,7 +180,7 @@ class TestClaimsWork(_ClaimsHandlerSuite):
     def test_holder_get_returns_row(self):
         fake_row = {
             "id": 1, "session_id": "s-1", "target_kind": "item",
-            "item_id": 42, "epic_id": None, "task_num": None,
+            "scope": {"item_id": 42},
         }
         with patch(
             "yoke_core.domain.sessions_queries_lookup.get_claim_for_work_unit",
@@ -196,6 +196,7 @@ class TestClaimsWork(_ClaimsHandlerSuite):
             ))
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["holder"]["claim_id"], 1)
+        self.assertEqual(resp.result["holder"]["scope"], {"item_id": 42})
 
 
 # ---------------------------------------------------------------------------

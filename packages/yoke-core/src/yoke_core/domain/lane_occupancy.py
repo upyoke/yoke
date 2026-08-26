@@ -29,6 +29,7 @@ from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.lint_session_cwd_path_authority import is_inside
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,10 @@ class LaneOccupant:
 
 
 def occupying_claim(
-    conn: Any, *, target: str, session_id: str,
+    conn: Any,
+    *,
+    target: str,
+    session_id: str,
 ) -> Optional[LaneOccupant]:
     """Return the foreign claim over ``target``'s lane, or ``None``.
 
@@ -111,13 +115,16 @@ def _active_lane_claims(conn: Any) -> List[LaneOccupant]:
         if has_items and has_projects
         else ""
     )
+    item_id = scope_int_sql(conn, "wc.scope", "item_id")
+    epic_id = scope_int_sql(conn, "wc.scope", "epic_id")
     try:
         rows = conn.execute(
             "SELECT iw.path, iw.item_id, wc.id, wc.session_id, "
             f"{ref_select} "
             "FROM item_worktrees iw "
             "JOIN work_claims wc "
-            "  ON (wc.item_id = iw.item_id OR wc.epic_id = iw.item_id) "
+            f"  ON ((wc.target_kind = 'item' AND {item_id} = iw.item_id) "
+            f"OR (wc.target_kind = 'epic_task' AND {epic_id} = iw.item_id)) "
             f"{ref_join} "
             "WHERE iw.released_at IS NULL AND wc.released_at IS NULL "
             "ORDER BY iw.id, wc.id",
@@ -128,10 +135,18 @@ def _active_lane_claims(conn: Any) -> List[LaneOccupant]:
 
     out: List[LaneOccupant] = []
     for row in rows:
-        values = list(row) if not hasattr(row, "keys") else [
-            row["path"], row["item_id"], row["id"], row["session_id"],
-            row["public_item_prefix"], row["project_sequence"],
-        ]
+        values = (
+            list(row)
+            if not hasattr(row, "keys")
+            else [
+                row["path"],
+                row["item_id"],
+                row["id"],
+                row["session_id"],
+                row["public_item_prefix"],
+                row["project_sequence"],
+            ]
+        )
         lane_path = str(values[0] or "").strip()
         claim_session = str(values[3] or "")
         if not lane_path or not claim_session:

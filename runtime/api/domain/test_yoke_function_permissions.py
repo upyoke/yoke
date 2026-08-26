@@ -5,41 +5,20 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel
 
-from yoke_core.domain.actor_permissions import (
-    PERM_CLAIMS_ACQUIRE,
-    PERM_CLAIMS_RELEASE,
-    PERM_DB_READ_RAW,
-    PERM_EVENTS_READ,
-    PERM_EVENTS_WRITE,
-    PERM_ITEMS_READ,
-    PERM_ITEMS_WRITE,
-    ROLE_OPERATOR,
-    ROLE_OWNER,
-    ROLE_VIEWER,
-    PermissionDenied,
-    grant_actor_project_role,
-    require_permission,
-)
+from yoke_core.domain.actor_permissions import PERM_CLAIMS_ACQUIRE, PERM_CLAIMS_RELEASE, PERM_DB_READ_RAW, PERM_EVENTS_READ, PERM_EVENTS_WRITE, PERM_ITEMS_READ, PERM_ITEMS_WRITE, ROLE_OPERATOR, ROLE_OWNER, ROLE_VIEWER, PermissionDenied, grant_actor_project_role, require_permission
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.actor_permissions import seed_roles_and_permissions
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
-from yoke_core.domain.schema_init_actor_path_claim_tables import (
-    create_actor_path_claim_tables,
-)
+from yoke_core.domain.schema_init_actor_path_claim_tables import create_actor_path_claim_tables
 from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_tables import create_core_tables
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
-from yoke_core.domain.yoke_function_permissions import (
-    check_dispatch_permission,
-    permission_key_for,
-)
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_core.domain.yoke_function_permissions import check_dispatch_permission, permission_key_for
 from yoke_core.domain.yoke_function_registry import RegistryEntry
+from yoke_core.domain.work_claim_targets import make_process_target
+from yoke_core.domain.work_processes import PROCESS_DOCTOR
 
 
 class EmptyModel(BaseModel):
@@ -50,9 +29,7 @@ def _conn():
     from runtime.api.fixtures import pg_testdb
 
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     create_core_tables(conn)
     seed_project_identities(conn)
     create_path_registry_tables(conn)
@@ -72,50 +49,21 @@ def _create_ephemeral_env_table(conn) -> None:
             status TEXT,
             created_at TEXT
         )
-        """,
+        """
     )
 
 
 def _entry(function_id: str) -> RegistryEntry:
-    return RegistryEntry(
-        function_id=function_id,
-        handler=lambda _request: None,
-        request_model=EmptyModel,
-        response_model=EmptyModel,
-        stability="stable",
-        owner_module=__name__,
-        target_kinds=("item",),
-        side_effects=("render_body",),
-        emitted_event_names=(),
-        guardrails=(),
-        adapter_status="live",
-    )
+    return RegistryEntry(function_id=function_id, handler=lambda _request: None, request_model=EmptyModel, response_model=EmptyModel, stability="stable", owner_module=__name__, target_kinds=("item",), side_effects=("render_body",), emitted_event_names=(), guardrails=(), adapter_status="live")
 
 
 def _read_entry(function_id: str) -> RegistryEntry:
     entry = _entry(function_id)
-    return RegistryEntry(
-        function_id=entry.function_id,
-        handler=entry.handler,
-        request_model=entry.request_model,
-        response_model=entry.response_model,
-        stability=entry.stability,
-        owner_module=entry.owner_module,
-        target_kinds=entry.target_kinds,
-        side_effects=(),
-        emitted_event_names=entry.emitted_event_names,
-        guardrails=entry.guardrails,
-        adapter_status=entry.adapter_status,
-    )
+    return RegistryEntry(function_id=entry.function_id, handler=entry.handler, request_model=entry.request_model, response_model=entry.response_model, stability=entry.stability, owner_module=entry.owner_module, target_kinds=entry.target_kinds, side_effects=(), emitted_event_names=entry.emitted_event_names, guardrails=entry.guardrails, adapter_status=entry.adapter_status)
 
 
 def _request(actor_id: int, project: str) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function="items.structured_field.replace",
-        actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
-        target=TargetRef(kind="item", project_id=project),
-        payload={},
-    )
+    return FunctionCallRequest(function="items.structured_field.replace", actor=ActorContext(actor_id=str(actor_id), session_id="s-1"), target=TargetRef(kind="item", project_id=project), payload={})
 
 
 def test_dispatch_permission_allows_role_project_and_denies_missing_project_role():
@@ -123,13 +71,7 @@ def test_dispatch_permission_allows_role_project_and_denies_missing_project_role
     try:
         actor_id = seed_human_actor(conn)
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
-            conn,
-            actor_id=actor_id,
-            project_id=yoke_id,
-            role_name=ROLE_OWNER,
-            granted_by_actor_id=actor_id,
-        )
+        grant_actor_project_role(conn, actor_id=actor_id, project_id=yoke_id, role_name=ROLE_OWNER, granted_by_actor_id=actor_id)
         entry = _entry("items.structured_field.replace")
 
         allowed = check_dispatch_permission(conn, entry, _request(actor_id, "yoke"))
@@ -151,20 +93,9 @@ def test_project_scoped_github_write_denies_omitted_project_context():
     try:
         actor_id = seed_human_actor(conn)
         externalwebapp_id = resolve_project_id(conn, "externalwebapp")
-        grant_actor_project_role(
-            conn,
-            actor_id=actor_id,
-            project_id=externalwebapp_id,
-            role_name=ROLE_OWNER,
-            granted_by_actor_id=actor_id,
-        )
+        grant_actor_project_role(conn, actor_id=actor_id, project_id=externalwebapp_id, role_name=ROLE_OWNER, granted_by_actor_id=actor_id)
         entry = _entry("github_actions.secret.set")
-        request = FunctionCallRequest(
-            function=entry.function_id,
-            actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
-            target=TargetRef(kind="global"),
-            payload={"repo": "upyoke/yoke", "name": "CI", "value": "secret"},
-        )
+        request = FunctionCallRequest(function=entry.function_id, actor=ActorContext(actor_id=str(actor_id), session_id="s-1"), target=TargetRef(kind="global"), payload={"repo": "upyoke/yoke", "name": "CI", "value": "secret"})
 
         denied = check_dispatch_permission(conn, entry, request)
 
@@ -177,33 +108,17 @@ def test_project_scoped_github_write_denies_omitted_project_context():
 
 
 def test_shepherd_dependency_writes_require_item_write_permission():
-    assert permission_key_for(
-        _read_entry("shepherd.dependency_list.run")
-    ) == "items.read"
-    assert permission_key_for(
-        _entry("shepherd.dependency_add.run")
-    ) == "items.write"
-    assert permission_key_for(
-        _entry("shepherd.dependency_update.run")
-    ) == "items.write"
-    assert permission_key_for(
-        _entry("shepherd.dependency_remove.run")
-    ) == "items.write"
-    assert permission_key_for(
-        _entry("shepherd.verdict.run")
-    ) == "items.write"
-    assert permission_key_for(
-        _entry("shepherd.caveat_disposition.run")
-    ) == "items.write"
+    assert permission_key_for(_read_entry("shepherd.dependency_list.run")) == "items.read"
+    assert permission_key_for(_entry("shepherd.dependency_add.run")) == "items.write"
+    assert permission_key_for(_entry("shepherd.dependency_update.run")) == "items.write"
+    assert permission_key_for(_entry("shepherd.dependency_remove.run")) == "items.write"
+    assert permission_key_for(_entry("shepherd.verdict.run")) == "items.write"
+    assert permission_key_for(_entry("shepherd.caveat_disposition.run")) == "items.write"
 
 
 def test_qa_writes_require_item_write_permission():
-    assert permission_key_for(
-        _entry("qa.requirement.waive")
-    ) == "items.write"
-    assert permission_key_for(
-        _read_entry("qa.requirement.get")
-    ) == "items.read"
+    assert permission_key_for(_entry("qa.requirement.waive")) == "items.write"
+    assert permission_key_for(_read_entry("qa.requirement.get")) == "items.read"
 
 
 def test_ephemeral_env_update_requires_item_write_on_env_project():
@@ -213,26 +128,10 @@ def test_ephemeral_env_update_requires_item_write_on_env_project():
         actor_id = seed_human_actor(conn)
         externalwebapp_id = resolve_project_id(conn, "externalwebapp")
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
-            conn,
-            actor_id=actor_id,
-            project_id=externalwebapp_id,
-            role_name=ROLE_OWNER,
-            granted_by_actor_id=actor_id,
-        )
-        cursor = conn.execute(
-            "INSERT INTO ephemeral_environments "
-            "(project_id, branch, status, created_at) "
-            "VALUES (%s, 'YOK-10', 'pending', 'now') RETURNING id",
-            (externalwebapp_id,),
-        )
+        grant_actor_project_role(conn, actor_id=actor_id, project_id=externalwebapp_id, role_name=ROLE_OWNER, granted_by_actor_id=actor_id)
+        cursor = conn.execute("INSERT INTO ephemeral_environments (project_id, branch, status, created_at) VALUES (%s, 'YOK-10', 'pending', 'now') RETURNING id", (externalwebapp_id,))
         env_id = int(cursor.fetchone()[0])
-        request = FunctionCallRequest(
-            function="ephemeral_env.update",
-            actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
-            target=TargetRef(kind="global"),
-            payload={"env_id": env_id, "field": "status", "value": "healthy"},
-        )
+        request = FunctionCallRequest(function="ephemeral_env.update", actor=ActorContext(actor_id=str(actor_id), session_id="s-1"), target=TargetRef(kind="global"), payload={"env_id": env_id, "field": "status", "value": "healthy"})
         entry = _entry("ephemeral_env.update")
 
         allowed = check_dispatch_permission(conn, entry, request)
@@ -240,10 +139,7 @@ def test_ephemeral_env_update_requires_item_write_on_env_project():
         assert allowed.error is None
         assert allowed.project_slug == "externalwebapp"
 
-        conn.execute(
-            "UPDATE ephemeral_environments SET project_id = %s WHERE id = %s",
-            (yoke_id, env_id),
-        )
+        conn.execute("UPDATE ephemeral_environments SET project_id = %s WHERE id = %s", (yoke_id, env_id))
         denied = check_dispatch_permission(conn, entry, request)
         assert denied.error is not None
         assert denied.project_slug == "yoke"
@@ -262,33 +158,13 @@ def test_db_read_run_uses_raw_permission_and_role_boundary():
         owner_id = seed_human_actor(conn)
         operator_id = seed_human_actor(conn)
         viewer_id = seed_human_actor(conn)
-        for actor_id, role_name in (
-            (owner_id, ROLE_OWNER),
-            (operator_id, ROLE_OPERATOR),
-            (viewer_id, ROLE_VIEWER),
-        ):
-            grant_actor_project_role(
-                conn,
-                actor_id=actor_id,
-                project_id=yoke_id,
-                role_name=role_name,
-                granted_by_actor_id=actor_id,
-            )
+        for actor_id, role_name in ((owner_id, ROLE_OWNER), (operator_id, ROLE_OPERATOR), (viewer_id, ROLE_VIEWER)):
+            grant_actor_project_role(conn, actor_id=actor_id, project_id=yoke_id, role_name=role_name, granted_by_actor_id=actor_id)
 
-        assert require_permission(
-            conn,
-            actor_id=owner_id,
-            project_id=yoke_id,
-            permission_key=PERM_DB_READ_RAW,
-        ).allowed
+        assert require_permission(conn, actor_id=owner_id, project_id=yoke_id, permission_key=PERM_DB_READ_RAW).allowed
         for actor_id in (operator_id, viewer_id):
             with pytest.raises(PermissionDenied):
-                require_permission(
-                    conn,
-                    actor_id=actor_id,
-                    project_id=yoke_id,
-                    permission_key=PERM_DB_READ_RAW,
-                )
+                require_permission(conn, actor_id=actor_id, project_id=yoke_id, permission_key=PERM_DB_READ_RAW)
     finally:
         conn.close()
 
@@ -297,25 +173,15 @@ def test_events_and_ouroboros_permissions_split_reads_and_writes():
     assert permission_key_for(_entry("events.emit")) == PERM_EVENTS_WRITE
     assert permission_key_for(_read_entry("events.query.run")) == PERM_EVENTS_READ
     assert permission_key_for(_entry("ouroboros.entry.insert")) == PERM_EVENTS_WRITE
-    assert permission_key_for(
-        _entry("ouroboros.entry.mark_reviewed")
-    ) == PERM_EVENTS_WRITE
-    assert (
-        permission_key_for(_entry("ouroboros.entry.mark_archived"))
-        == PERM_EVENTS_WRITE
-    )
-    assert (
-        permission_key_for(_read_entry("ouroboros.entry.list"))
-        == PERM_EVENTS_READ
-    )
+    assert permission_key_for(_entry("ouroboros.entry.mark_reviewed")) == PERM_EVENTS_WRITE
+    assert permission_key_for(_entry("ouroboros.entry.mark_archived")) == PERM_EVENTS_WRITE
+    assert permission_key_for(_read_entry("ouroboros.entry.list")) == PERM_EVENTS_READ
     assert permission_key_for(_entry("ouroboros.field_note.append")) is None
     assert permission_key_for(_read_entry("ouroboros.field_note.list")) is None
     assert permission_key_for(_read_entry("ouroboros.field_note.get")) is None
 
 
-def _process_acquire_request(
-    actor_id: int, *, project: str | None,
-) -> FunctionCallRequest:
+def _process_acquire_request(actor_id: int, *, project: str | None) -> FunctionCallRequest:
     """Build a ``claims.work.acquire --process`` request as the CLI adapter does.
 
     The adapter sends a ``kind='global'`` envelope target and nests the project
@@ -325,12 +191,7 @@ def _process_acquire_request(
     target_spec: dict = {"kind": "process", "process_key": "STRATEGIZE"}
     if project is not None:
         target_spec["project"] = project
-    return FunctionCallRequest(
-        function="claims.work.acquire",
-        actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
-        target=TargetRef(kind="global"),
-        payload={"target": target_spec},
-    )
+    return FunctionCallRequest(function="claims.work.acquire", actor=ActorContext(actor_id=str(actor_id), session_id="s-1"), target=TargetRef(kind="global"), payload={"target": target_spec})
 
 
 def test_process_work_claim_resolves_project_from_payload_target():
@@ -338,31 +199,21 @@ def test_process_work_claim_resolves_project_from_payload_target():
     try:
         actor_id = seed_human_actor(conn)
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
-            conn,
-            actor_id=actor_id,
-            project_id=yoke_id,
-            role_name=ROLE_OWNER,
-            granted_by_actor_id=actor_id,
-        )
+        grant_actor_project_role(conn, actor_id=actor_id, project_id=yoke_id, role_name=ROLE_OWNER, granted_by_actor_id=actor_id)
         entry = _entry("claims.work.acquire")
         assert permission_key_for(entry) == PERM_CLAIMS_ACQUIRE
 
         # The per-project process authority is read from the nested target
         # spec; before this branch existed the resolver saw no project hint
         # and denied with "could not resolve a target project".
-        allowed = check_dispatch_permission(
-            conn, entry, _process_acquire_request(actor_id, project="yoke"),
-        )
+        allowed = check_dispatch_permission(conn, entry, _process_acquire_request(actor_id, project="yoke"))
         assert allowed.error is None
         assert allowed.permission_key == PERM_CLAIMS_ACQUIRE
         assert allowed.project_slug == "yoke"
 
         # A process target that names no project still cannot resolve one —
         # the no-fallback contract holds (matches the handler's own guard).
-        unresolvable = check_dispatch_permission(
-            conn, entry, _process_acquire_request(actor_id, project=None),
-        )
+        unresolvable = check_dispatch_permission(conn, entry, _process_acquire_request(actor_id, project=None))
         assert unresolvable.error is not None
         assert unresolvable.error.error is not None
         assert unresolvable.error.error.code == "permission_denied"
@@ -372,13 +223,7 @@ def test_process_work_claim_resolves_project_from_payload_target():
 
 
 def _seed_session(conn, *, session_id: str, project_id: int) -> None:
-    conn.execute(
-        "INSERT INTO harness_sessions "
-        "(session_id, executor, provider, model, workspace, project_id, "
-        "offered_at, last_heartbeat) VALUES "
-        "(%s, 'codex', 'openai', 'gpt', '/tmp/work', %s, 'now', 'now')",
-        (session_id, project_id),
-    )
+    conn.execute("INSERT INTO harness_sessions (session_id, executor, provider, model, workspace, project_id, offered_at, last_heartbeat) VALUES (%s, 'codex', 'openai', 'gpt', '/tmp/work', %s, 'now', 'now')", (session_id, project_id))
 
 
 def test_exact_process_claim_release_resolves_server_held_project():
@@ -386,32 +231,12 @@ def test_exact_process_claim_release_resolves_server_held_project():
     try:
         actor_id = seed_human_actor(conn)
         yoke_id = resolve_project_id(conn, "yoke")
-        grant_actor_project_role(
-            conn,
-            actor_id=actor_id,
-            project_id=yoke_id,
-            role_name=ROLE_OWNER,
-            granted_by_actor_id=actor_id,
-        )
+        grant_actor_project_role(conn, actor_id=actor_id, project_id=yoke_id, role_name=ROLE_OWNER, granted_by_actor_id=actor_id)
         _seed_session(conn, session_id="s-release", project_id=yoke_id)
-        claim_id = int(
-            conn.execute(
-                "INSERT INTO work_claims "
-                "(session_id, target_kind, process_key, conflict_group, "
-                "claimed_at, last_heartbeat) VALUES "
-                "('s-release', 'process', 'DOCTOR', 'doctor:yoke', "
-                "'now', 'now') RETURNING id"
-            ).fetchone()[0]
-        )
+        target = make_process_target(PROCESS_DOCTOR, "yoke")
+        claim_id = int(conn.execute("INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, last_heartbeat) VALUES ('s-release', %s, %s, 'now', 'now') RETURNING id", (target.kind, target.scope_json())).fetchone()[0])
         entry = _entry("claims.work.release")
-        request = FunctionCallRequest(
-            function=entry.function_id,
-            actor=ActorContext(
-                actor_id=str(actor_id), session_id="s-release",
-            ),
-            target=TargetRef(kind="claim", claim_id=claim_id),
-            payload={"claim_id": claim_id, "reason": "completed"},
-        )
+        request = FunctionCallRequest(function=entry.function_id, actor=ActorContext(actor_id=str(actor_id), session_id="s-release"), target=TargetRef(kind="claim", claim_id=claim_id), payload={"claim_id": claim_id, "reason": "completed"})
 
         allowed = check_dispatch_permission(conn, entry, request)
 
@@ -428,12 +253,7 @@ def test_session_scoped_claim_release_needs_no_single_project_target():
     try:
         actor_id = seed_human_actor(conn)
         entry = _entry("claims.work.release_session_scoped")
-        request = FunctionCallRequest(
-            function=entry.function_id,
-            actor=ActorContext(actor_id=str(actor_id), session_id="s-release"),
-            target=TargetRef(kind="global"),
-            payload={},
-        )
+        request = FunctionCallRequest(function=entry.function_id, actor=ActorContext(actor_id=str(actor_id), session_id="s-release"), target=TargetRef(kind="global"), payload={})
 
         allowed = check_dispatch_permission(conn, entry, request)
 
@@ -449,12 +269,7 @@ def test_holder_list_allows_calling_session_without_project_target():
     try:
         actor_id = seed_human_actor(conn)
         entry = _read_entry("claims.work.holder_list")
-        request = FunctionCallRequest(
-            function=entry.function_id,
-            actor=ActorContext(actor_id=str(actor_id), session_id="s-current"),
-            target=TargetRef(kind="global"),
-            payload={"session_id": "s-current"},
-        )
+        request = FunctionCallRequest(function=entry.function_id, actor=ActorContext(actor_id=str(actor_id), session_id="s-current"), target=TargetRef(kind="global"), payload={"session_id": "s-current"})
 
         allowed = check_dispatch_permission(conn, entry, request)
 
@@ -468,21 +283,9 @@ def test_holder_list_allows_calling_session_without_project_target():
 def test_strategy_carry_summary_stays_read_only_by_contract():
     from yoke_core.domain.handlers import strategy_operations
 
-    by_id = {
-        row["function_id"]: row
-        for row in strategy_operations.REGISTRATIONS
-    }
+    by_id = {row["function_id"]: row for row in strategy_operations.REGISTRATIONS}
 
     assert by_id["strategy.carry.summary"]["side_effects"] == []
-    assert (
-        by_id["strategy.carry.register_new"]["side_effects"]
-        == ["db_write"]
-    )
-    assert (
-        permission_key_for(_read_entry("strategy.carry.summary"))
-        == PERM_ITEMS_READ
-    )
-    assert (
-        permission_key_for(_entry("strategy.carry.register_new"))
-        == PERM_ITEMS_WRITE
-    )
+    assert by_id["strategy.carry.register_new"]["side_effects"] == ["db_write"]
+    assert permission_key_for(_read_entry("strategy.carry.summary")) == PERM_ITEMS_READ
+    assert permission_key_for(_entry("strategy.carry.register_new")) == PERM_ITEMS_WRITE

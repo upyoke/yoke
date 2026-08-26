@@ -37,6 +37,7 @@ from .workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from .work_claim_targets import scope_int_sql
 
 
 def _p(conn) -> str:
@@ -63,11 +64,13 @@ def reclaim_stale_item_claims(
 
     p = _p(conn)
     _minutes_modifier = f"{p} || ' minutes'"
+    claimed_item_id = scope_int_sql(conn, "wc.scope", "item_id")
     candidate_rows = conn.execute(
-        f"""SELECT wc.id, wc.session_id, wc.item_id, wc.task_num
+        f"""SELECT wc.id, wc.session_id, {claimed_item_id} AS item_id,
+                  NULL AS task_num
            FROM work_claims wc
            LEFT JOIN harness_sessions ases ON ases.session_id = wc.session_id
-           WHERE wc.target_kind='item' AND wc.item_id = {p}
+           WHERE wc.target_kind='item' AND {claimed_item_id} = {p}
              AND wc.released_at IS NULL
              AND wc.claim_type = 'exclusive'
              AND (

@@ -11,6 +11,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 SESSION_REGRESSION = "test-sess-yok-1784"
@@ -36,8 +37,7 @@ CREATE TABLE epic_tasks (
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-    item_id INTEGER, epic_id INTEGER, task_num INTEGER,
-    process_key TEXT, released_at TEXT
+    scope TEXT, released_at TEXT
 );
 """
 
@@ -119,9 +119,9 @@ def seed_worktree_claim_rows(
         ),
     )
     connection.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id) "
+        "INSERT INTO work_claims (session_id, target_kind, scope) "
         f"VALUES ({placeholder}, 'item', {placeholder})",
-        (session_id, 1784),
+        (session_id, make_item_target(1784).scope_json()),
     )
     connection.commit()
     connection.close()

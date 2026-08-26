@@ -16,6 +16,13 @@ from yoke_core.domain.project_identity import (
     AmbiguousProjectRefError,
     resolve_project_id,
 )
+from yoke_core.domain.work_claim_targets import (
+    TARGET_KIND_EPIC_TASK,
+    TARGET_KIND_ITEM,
+    TARGET_KIND_PROCESS,
+    TARGET_KIND_STEERING,
+    from_row as work_claim_target_from_row,
+)
 
 
 def _p(conn: Any) -> str:
@@ -135,19 +142,20 @@ def resolve_work_claim_project(
     """
     p = _p(conn)
     row = conn.execute(
-        "SELECT target_kind, item_id, epic_id, conflict_group "
-        f"FROM work_claims WHERE id = {p}",
+        f"SELECT target_kind, scope FROM work_claims WHERE id = {p}",
         (claim_id,),
     ).fetchone()
     if row is None:
         return None
-    target_kind = str(row[0])
-    if target_kind in {"item", "epic_task"}:
-        item_id = row[1] if target_kind == "item" else row[2]
-        return resolve_item_project(conn, int(item_id))
-    if target_kind != "process":
+    target = work_claim_target_from_row({"target_kind": row[0], "scope": row[1]})
+    if target.kind in {TARGET_KIND_ITEM, TARGET_KIND_EPIC_TASK}:
+        return resolve_item_project(conn, int(target.item_id or target.epic_id))
+    if target.kind == TARGET_KIND_STEERING:
+        project_id = int(target.project_id)
+        return project_id, slug_for_project_id(conn, project_id)
+    if target.kind != TARGET_KIND_PROCESS:
         return None
-    conflict_group = str(row[3] or "")
+    conflict_group = str(target.conflict_group or "")
     _, separator, project_ref = conflict_group.rpartition(":")
     if not separator or not project_ref:
         return None

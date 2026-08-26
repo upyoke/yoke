@@ -17,6 +17,7 @@ from runtime.api.domain.handlers.capabilities_list_test_support import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.capabilities_list_read import list_capabilities
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 class TestKindAndStateDerivation:
@@ -92,11 +93,12 @@ class TestKindAndStateDerivation:
                 now,
             ),
         )
+        target = make_item_target(int(item["id"]))
         test_db.execute(
             "INSERT INTO work_claims("
-            "session_id,target_kind,item_id,claimed_at,last_heartbeat"
-            ") VALUES (%s,'item',%s,%s,%s)",
-            ("session-machine", int(item["id"]), now, now),
+            "session_id,target_kind,scope,claimed_at,last_heartbeat"
+            ") VALUES (%s,%s,%s,%s,%s)",
+            ("session-machine", target.kind, target.scope_json(), now, now),
         )
         test_db.execute(
             "INSERT INTO coordination_leases("

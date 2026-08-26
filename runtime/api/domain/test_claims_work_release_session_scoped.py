@@ -17,6 +17,7 @@ from unittest import mock
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain import claims_work_release_session_scoped as mod
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _DDL = """
@@ -32,8 +33,8 @@ CREATE TABLE harness_sessions (
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, target_kind TEXT NOT NULL,
-    item_id INTEGER, epic_id INTEGER, task_num INTEGER, process_key TEXT,
-    conflict_group TEXT, claim_type TEXT NOT NULL DEFAULT 'exclusive',
+    scope TEXT NOT NULL,
+    claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL, released_at TEXT,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN
         ('completed','released','reclaimed','handed_off','expired','session_ended'))
@@ -48,15 +49,17 @@ CREATE TABLE events (
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def _build_conn():
     """Build a disposable-Postgres session/work-claim double."""
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(conn, _DDL)
     return conn
 
@@ -78,11 +81,17 @@ def _insert_item_claim(conn, session_id, item_id, *, released=False):
         (item_id,),
     )
     cur = conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, "
+        "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, "
         "claimed_at, last_heartbeat, released_at, release_reason) "
         "VALUES (%s, 'item', %s, 'exclusive', %s, %s, %s, %s) RETURNING id",
-        (session_id, item_id, _now(), _now(),
-         _now() if released else None, "released" if released else None),
+        (
+            session_id,
+            make_item_target(item_id).scope_json(),
+            _now(),
+            _now(),
+            _now() if released else None,
+            "released" if released else None,
+        ),
     )
     claim_id = int(cur.fetchone()[0])
     conn.commit()
@@ -90,9 +99,14 @@ def _insert_item_claim(conn, session_id, item_id, *, released=False):
 
 
 class _ConnCM:
-    def __init__(self, conn): self._conn = conn
-    def __enter__(self): return self._conn
-    def __exit__(self, *args): return None
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __enter__(self):
+        return self._conn
+
+    def __exit__(self, *args):
+        return None
 
 
 def _patches(conn):
@@ -101,8 +115,12 @@ def _patches(conn):
             "yoke_core.domain.claims_work_release_session_scoped.db_helpers.connect",
             side_effect=lambda: _ConnCM(conn),
         ),
-        mock.patch("yoke_core.domain.sessions_lifecycle_release._sa._emit_session_event"),
-        mock.patch("yoke_core.domain.sessions_render_end_claim_release._sa._emit_session_event"),
+        mock.patch(
+            "yoke_core.domain.sessions_lifecycle_release._sa._emit_session_event"
+        ),
+        mock.patch(
+            "yoke_core.domain.sessions_render_end_claim_release._sa._emit_session_event"
+        ),
     )
 
 
@@ -116,7 +134,9 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
         with p1, p2, p3:
             result = mod.release_all_claims_for_session("sess-A")
         self.assertEqual(result["released_count"], 2)
-        self.assertEqual({e["claim_id"] for e in result["released_claims"]}, {cid1, cid2})
+        self.assertEqual(
+            {e["claim_id"] for e in result["released_claims"]}, {cid1, cid2}
+        )
         rows = conn.execute(
             "SELECT release_reason FROM work_claims "
             "WHERE session_id='sess-A' AND released_at IS NOT NULL"
@@ -214,15 +234,19 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
         def capture(name, **kwargs):
             captured.append((name, kwargs.get("context") or {}))
 
-        with mock.patch(
-            "yoke_core.domain.claims_work_release_session_scoped.db_helpers.connect",
-            side_effect=lambda: _ConnCM(conn),
-        ), mock.patch(
-            "yoke_core.domain.sessions_lifecycle_release._sa._emit_session_event",
-            side_effect=capture,
-        ), mock.patch(
-            "yoke_core.domain.sessions_render_end_claim_release._sa._emit_session_event",
-            side_effect=capture,
+        with (
+            mock.patch(
+                "yoke_core.domain.claims_work_release_session_scoped.db_helpers.connect",
+                side_effect=lambda: _ConnCM(conn),
+            ),
+            mock.patch(
+                "yoke_core.domain.sessions_lifecycle_release._sa._emit_session_event",
+                side_effect=capture,
+            ),
+            mock.patch(
+                "yoke_core.domain.sessions_render_end_claim_release._sa._emit_session_event",
+                side_effect=capture,
+            ),
         ):
             mod.release_all_claims_for_session("sess-evt")
         wr = [(n, c) for n, c in captured if n == "WorkReleased"]
@@ -233,7 +257,9 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
         agg = [(n, c) for n, c in captured if n == "HarnessSessionEndReleasedClaims"]
         self.assertEqual(len(agg), 1)
         self.assertEqual(agg[0][1].get("via"), "agent_handoff_session_scoped")
-        self.assertEqual(agg[0][1].get("release_reason"), mod.AGENT_HANDOFF_RELEASE_REASON)
+        self.assertEqual(
+            agg[0][1].get("release_reason"), mod.AGENT_HANDOFF_RELEASE_REASON
+        )
 
     def test_reuses_release_session_claims_no_duplicated_loop(self):
         # Verify route through shared helper, not a re-implementation.
@@ -243,18 +269,31 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
         called_with = {}
 
         def fake_release(conn_arg, sid, *, active_claim_rows, release_reason, via):
-            called_with.update({
-                "sid": sid, "count": len(active_claim_rows),
-                "reason": release_reason, "via": via,
-            })
-            return [{"claim_id": 999, "target_kind": "item", "item_id": 700}]
+            called_with.update(
+                {
+                    "sid": sid,
+                    "count": len(active_claim_rows),
+                    "reason": release_reason,
+                    "via": via,
+                }
+            )
+            return [
+                {
+                    "claim_id": 999,
+                    "target_kind": "item",
+                    "scope": {"item_id": 700},
+                }
+            ]
 
-        with mock.patch(
-            "yoke_core.domain.claims_work_release_session_scoped.db_helpers.connect",
-            side_effect=lambda: _ConnCM(conn),
-        ), mock.patch(
-            "yoke_core.domain.claims_work_release_session_scoped.release_session_claims",
-            side_effect=fake_release,
+        with (
+            mock.patch(
+                "yoke_core.domain.claims_work_release_session_scoped.db_helpers.connect",
+                side_effect=lambda: _ConnCM(conn),
+            ),
+            mock.patch(
+                "yoke_core.domain.claims_work_release_session_scoped.release_session_claims",
+                side_effect=fake_release,
+            ),
         ):
             result = mod.release_all_claims_for_session("sess-reuse")
         self.assertEqual(called_with["sid"], "sess-reuse")

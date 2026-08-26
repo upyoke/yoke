@@ -12,6 +12,7 @@ from yoke_core.domain.path_claim_task_coverage import (
     task_budget_paths,
 )
 from yoke_core.domain.project_checkout_locations import worktree_path_for_branch
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def _p(conn: Any) -> str:
@@ -89,10 +90,12 @@ def _selected_tasks(
 ) -> tuple[int, ...]:
     marker = _p(conn)
     if lane_role == "integration":
+        claimed_item_id = scope_int_sql(conn, "scope", "item_id")
         parent = conn.execute(
             "SELECT 1 FROM work_claims "
             f"WHERE session_id = {marker} AND target_kind = 'item' "
-            f"AND item_id = {marker} AND released_at IS NULL LIMIT 1",
+            f"AND {claimed_item_id} = {marker} "
+            "AND released_at IS NULL LIMIT 1",
             (str(session_id), int(item_id)),
         ).fetchone()
         if parent is None:
@@ -104,15 +107,19 @@ def _selected_tasks(
             (int(item_id),),
         ).fetchall()
     else:
+        claimed_epic_id = scope_int_sql(conn, "wc.scope", "epic_id")
+        claimed_task_num = scope_int_sql(conn, "wc.scope", "task_num")
         rows = conn.execute(
-            "SELECT DISTINCT wc.task_num FROM work_claims wc "
+            f"SELECT DISTINCT {claimed_task_num} AS task_num "
+            "FROM work_claims wc "
             "JOIN epic_tasks et "
-            "  ON et.epic_id = wc.epic_id AND et.task_num = wc.task_num "
+            f"  ON et.epic_id = {claimed_epic_id} "
+            f"AND et.task_num = {claimed_task_num} "
             f"WHERE wc.session_id = {marker} "
             "AND wc.target_kind = 'epic_task' "
-            f"AND wc.epic_id = {marker} AND wc.released_at IS NULL "
+            f"AND {claimed_epic_id} = {marker} AND wc.released_at IS NULL "
             f"AND {eligible_task_status_clause('et.status')} "
-            f"AND et.item_worktree_id = {marker} ORDER BY wc.task_num",
+            f"AND et.item_worktree_id = {marker} ORDER BY task_num",
             (str(session_id), int(item_id), int(lane_id)),
         ).fetchall()
     return tuple(int(_value(row, "task_num", 0)) for row in rows)

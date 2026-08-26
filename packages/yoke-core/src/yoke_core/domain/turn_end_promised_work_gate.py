@@ -92,13 +92,16 @@ def _emit_unavailable(context: HookContext) -> None:
 
 def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     from yoke_core.domain import db_backend
+    from yoke_core.domain.work_claim_targets import scope_int_sql
 
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     row = conn.execute(
         f"""SELECT i.id AS item_id, i.status
               FROM work_claims wc
-              JOIN items i ON i.id = wc.item_id
+              JOIN items i ON i.id = {item_id_scope}
              WHERE wc.session_id = {placeholder}
+               AND wc.target_kind = 'item'
                AND wc.released_at IS NULL
              ORDER BY wc.id DESC
              LIMIT 1""",

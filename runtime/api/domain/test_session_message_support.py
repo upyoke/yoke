@@ -123,8 +123,7 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
-            target_kind TEXT NOT NULL, item_id INTEGER, epic_id INTEGER,
-            task_num INTEGER, process_key TEXT, claimed_at TEXT NOT NULL,
+            target_kind TEXT NOT NULL, scope TEXT NOT NULL, claimed_at TEXT NOT NULL,
             released_at TEXT
         );
         """
@@ -158,11 +157,11 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             ('s4',1,'codex','codex-cli','0.148.0a15','m4','direct',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}',NULL);
         INSERT INTO work_claims (
-            id,session_id,target_kind,item_id,epic_id,task_num,process_key,claimed_at
+            id,session_id,target_kind,scope,claimed_at
         ) VALUES
-            (1,'s1','item',101,NULL,NULL,NULL,'{NOW_TEXT}'),
-            (2,'s2','epic_task',NULL,101,1,NULL,'{NOW_TEXT}'),
-            (3,'s3','process',NULL,NULL,NULL,'build-beta','{NOW_TEXT}');
+            (1,'s1','item','{{"item_id":101}}','{NOW_TEXT}'),
+            (2,'s2','epic_task','{{"epic_id":101,"task_num":1}}','{NOW_TEXT}'),
+            (3,'s3','process','{{"conflict_group":"build-beta","process_key":"build-beta"}}','{NOW_TEXT}');
         """
     )
     create_session_control_tables(conn)

@@ -33,6 +33,24 @@ def test_typed_anchors_union_then_deduplicate_authoritative_claims() -> None:
     assert recipients[2].authorized_project_ids == {2}
 
 
+def test_project_anchor_includes_session_holding_steering_claim() -> None:
+    conn = message_connection()
+    conn.execute(
+        """INSERT INTO work_claims (
+               id, session_id, target_kind, scope, claimed_at
+           ) VALUES (4, 's3', 'steering', '{"project_id":1}', ?)""",
+        (NOW.isoformat(),),
+    )
+
+    recipients = resolve_recipients(conn, selector(projects=["alpha"]), now=NOW)
+
+    assert [row.session_id for row in recipients] == ["s1", "s2", "s3", "s4"]
+    steering_recipient = next(row for row in recipients if row.session_id == "s3")
+    assert steering_recipient.project_id == 1
+    assert steering_recipient.authorized_project_ids == {1}
+    assert steering_recipient.resolution == ["project:alpha"]
+
+
 @pytest.mark.parametrize(
     ("filters", "expected"),
     [

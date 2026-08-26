@@ -16,6 +16,7 @@ resolver.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
@@ -81,14 +82,15 @@ def build_claim_details(
     the scope label so audit callers can tell why a claim is in the
     current episode without joining against the work_claims table.
     """
+
     def _key(entry: Mapping[str, Any]):
         return (
             entry.get("target_kind"),
-            entry.get("item_id"),
-            entry.get("epic_id"),
-            entry.get("task_num"),
-            entry.get("process_key"),
-            entry.get("conflict_group"),
+            json.dumps(
+                entry.get("scope") or {},
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
         )
 
     reacquired_index = {_key(e): e for e in reacquired_claims}
@@ -100,17 +102,11 @@ def build_claim_details(
         if key in reacquired_index:
             scope = "reacquired"
             extra = {
-                k: v
-                for k, v in reacquired_index[key].items()
-                if k == "new_claim_id"
+                k: v for k, v in reacquired_index[key].items() if k == "new_claim_id"
             }
         elif key in conflict_index:
             scope = "conflict"
-            extra = {
-                k: v
-                for k, v in conflict_index[key].items()
-                if k not in entry
-            }
+            extra = {k: v for k, v in conflict_index[key].items() if k not in entry}
         else:
             scope = "inherited"
             extra = {}

@@ -22,7 +22,7 @@ CREATE TABLE item_worktrees (id INTEGER PRIMARY KEY,
     lane_role TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, released_at TEXT);
 CREATE TABLE work_claims (id INTEGER PRIMARY KEY, session_id TEXT,
-    target_kind TEXT, item_id INTEGER, claim_type TEXT,
+    target_kind TEXT, scope TEXT, claim_type TEXT,
     claimed_at TEXT, last_heartbeat TEXT, released_at TEXT);
 CREATE TABLE path_claims (id INTEGER PRIMARY KEY, state TEXT,
     blocked_reason TEXT, owner_kind TEXT, owner_item_id INTEGER);

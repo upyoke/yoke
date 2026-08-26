@@ -26,6 +26,7 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain import db_backend, lint_session_cwd_status
 from yoke_core.domain.lint_session_cwd_validate import validate_targets
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 # The pre-status authority shape: no ``items.status`` column. The
@@ -45,8 +46,7 @@ CREATE TABLE epic_tasks (
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-    item_id INTEGER, epic_id INTEGER, task_num INTEGER,
-    process_key TEXT, released_at TEXT
+    scope TEXT, released_at TEXT
 );
 """
 
@@ -77,9 +77,7 @@ class TestValidatorFailOpen:
                 verdict = validate_targets(
                     tuple_conn,
                     session_id="sid-1",
-                    targets=(
-                        str(repo / ".worktrees" / "YOK-9001" / "x.py"),
-                    ),
+                    targets=(str(repo / ".worktrees" / "YOK-9001" / "x.py"),),
                 )
                 assert verdict.allow is True
             finally:
@@ -118,16 +116,18 @@ class TestValidatorFailOpen:
             ),
         )
         c.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id) "
+            "INSERT INTO work_claims (session_id, target_kind, scope) "
             "VALUES (%s, 'item', %s)",
-            ("sid-1", 9001),
+            ("sid-1", make_item_target(9001).scope_json()),
         )
         c.commit()
         target = repo / ".worktrees" / "YOK-9001" / "x.py"
         target.write_text("# stub")
         try:
             verdict = validate_targets(
-                c, session_id="sid-1", targets=(str(target),),
+                c,
+                session_id="sid-1",
+                targets=(str(target),),
             )
             assert verdict.allow is True
         finally:
@@ -156,14 +156,15 @@ class TestStatusHelperFunctions:
     def test_is_pre_implementing_status_rejects_implementing_class(self):
         issue = builtin_workflow_runtime("issue")
         for status in (
-            "implementing", "reviewing-implementation",
-            "reviewed-implementation", "polishing-implementation",
-            "implemented", "release", "done",
+            "implementing",
+            "reviewing-implementation",
+            "reviewed-implementation",
+            "polishing-implementation",
+            "implemented",
+            "release",
+            "done",
         ):
-            assert not lint_session_cwd_status.is_pre_implementing_status(
-                issue,
-                status
-            )
+            assert not lint_session_cwd_status.is_pre_implementing_status(issue, status)
 
     def test_is_pre_implementing_status_handles_none(self):
         assert (
@@ -175,17 +176,19 @@ class TestStatusHelperFunctions:
         )
 
     def test_read_mode_falls_back_to_default_when_workspace_missing(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ):
         # No workspace env vars; subprocess returns empty.
         for var in ("CLAUDE_PROJECT_DIR", "CODEX_PROJECT_DIR"):
             monkeypatch.delenv(var, raising=False)
         monkeypatch.setattr(
-            lint_session_cwd_status, "_toplevel", lambda: "",
+            lint_session_cwd_status,
+            "_toplevel",
+            lambda: "",
         )
         assert (
-            lint_session_cwd_status.read_mode()
-            == lint_session_cwd_status.DEFAULT_MODE
+            lint_session_cwd_status.read_mode() == lint_session_cwd_status.DEFAULT_MODE
         )
 
     def test_command_has_suppression_token_finds_token(self):
@@ -193,7 +196,5 @@ class TestStatusHelperFunctions:
         assert lint_session_cwd_status.command_has_suppression_token(
             f"echo hi  {token}"
         )
-        assert not lint_session_cwd_status.command_has_suppression_token(
-            "echo hi"
-        )
+        assert not lint_session_cwd_status.command_has_suppression_token("echo hi")
         assert not lint_session_cwd_status.command_has_suppression_token("")

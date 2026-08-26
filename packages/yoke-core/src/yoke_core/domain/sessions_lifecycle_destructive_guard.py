@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .sessions_render_end_chain_pending import chain_pending_state
+from .work_claim_targets import from_row as target_from_row
 
 
 @dataclass(frozen=True)
@@ -80,14 +81,18 @@ def evaluate_destructive_end(
 
 def _format_claim_details(active_claim_rows) -> list[dict]:
     """Materialise the JSON-safe claim detail rows the lifecycle events carry."""
-    return [
-        {
-            "claim_id": r["id"],
-            "item_id": str(r["item_id"]) if r["item_id"] is not None else None,
-            "task_num": r["task_num"],
-        }
-        for r in active_claim_rows
-    ]
+    details: list[dict] = []
+    for row in active_claim_rows:
+        target = target_from_row(row)
+        item_id = target.item_id if target.item_id is not None else target.epic_id
+        details.append(
+            {
+                "claim_id": row["id"],
+                "item_id": str(item_id) if item_id is not None else None,
+                "task_num": target.task_num,
+            }
+        )
+    return details
 
 
 def prepare_release_claims_branch(

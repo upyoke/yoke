@@ -18,6 +18,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.yoke_function_registry import register
 from yoke_core.domain.yoke_function_dispatch import dispatch
+from yoke_core.domain.work_claim_targets import WorkClaimTarget
 from runtime.api.domain.test_yoke_function_dispatch_claims import (
     _ClaimMatrixSuite,
     _Req,
@@ -35,47 +36,75 @@ class TestSelfOnlyTargetResolution(_ClaimMatrixSuite):
 
     def test_item_target_resolves_session_claim(self):
         register(
-            "selfitem.family.op", _ok_handler, _Req, _Resp,
+            "selfitem.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["item", "claim"]),
             claim_required_kind="self_only",
         )
         with patch.object(
-            claims_module, "_session_claim_id_for_target", return_value=77,
+            claims_module,
+            "_session_claim_id_for_target",
+            return_value=77,
         ):
-            resp = dispatch(_make_request(
-                "selfitem.family.op", kind="item", item_id=42,
-            ))
+            resp = dispatch(
+                _make_request(
+                    "selfitem.family.op",
+                    kind="item",
+                    item_id=42,
+                )
+            )
         self.assertTrue(resp.success)
 
     def test_item_target_without_claim_fails(self):
         register(
-            "selfitem2.family.op", _ok_handler, _Req, _Resp,
+            "selfitem2.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["item", "claim"]),
             claim_required_kind="self_only",
         )
         with patch.object(
-            claims_module, "_session_claim_id_for_target", return_value=None,
+            claims_module,
+            "_session_claim_id_for_target",
+            return_value=None,
         ):
-            resp = dispatch(_make_request(
-                "selfitem2.family.op", kind="item", item_id=42,
-            ))
+            resp = dispatch(
+                _make_request(
+                    "selfitem2.family.op",
+                    kind="item",
+                    item_id=42,
+                )
+            )
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "claim_required")
 
     def test_epic_task_target_resolves_session_claim(self):
         register(
-            "selfepic.family.op", _ok_handler, _Req, _Resp,
+            "selfepic.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["epic_task", "claim"]),
             claim_required_kind="self_only",
         )
         with patch.object(
-            claims_module, "_session_claim_id_for_target", return_value=88,
+            claims_module,
+            "_session_claim_id_for_target",
+            return_value=88,
         ):
-            resp = dispatch(_make_request(
-                "selfepic.family.op",
-                kind="epic_task", item_id=0, epic_id=1872, task_num=20,
-            ))
+            resp = dispatch(
+                _make_request(
+                    "selfepic.family.op",
+                    kind="epic_task",
+                    item_id=0,
+                    epic_id=1872,
+                    task_num=20,
+                )
+            )
         self.assertTrue(resp.success)
 
 
@@ -95,9 +124,7 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         apply_fixture_ddl(
             self.conn,
             "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
-            "session_id TEXT, target_kind TEXT, item_id INTEGER, "
-            "epic_id INTEGER, task_num INTEGER, process_key TEXT, "
-            "conflict_group TEXT, released_at TEXT);",
+            "session_id TEXT, target_kind TEXT, scope TEXT, released_at TEXT);",
         )
         from contextlib import contextmanager
 
@@ -115,16 +142,38 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         self._connect.stop()
         self.conn.close()
 
-    def _seed(self, *, session_id, target_kind, item_id=None, epic_id=None,
-              task_num=None, process_key=None, conflict_group=None,
-              released_at=None) -> int:
+    def _seed(
+        self,
+        *,
+        session_id,
+        target_kind,
+        item_id=None,
+        epic_id=None,
+        task_num=None,
+        process_key=None,
+        conflict_group=None,
+        project_id=None,
+        released_at=None,
+    ) -> int:
+        raw_scope = {
+            "item": {"item_id": item_id},
+            "epic_task": {"epic_id": epic_id, "task_num": task_num},
+            "process": {
+                "process_key": process_key,
+                "conflict_group": conflict_group,
+            },
+            "steering": {"project_id": project_id},
+        }[target_kind]
+        scope = WorkClaimTarget(target_kind, raw_scope).scope_json()
         cur = self.conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, "
-            "epic_id, task_num, process_key, conflict_group, released_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "INSERT INTO work_claims (session_id, target_kind, scope, "
+            "released_at) VALUES (%s, %s, %s, %s) "
+            "RETURNING id",
             (
-                session_id, target_kind, item_id, epic_id, task_num,
-                process_key, conflict_group, released_at,
+                session_id,
+                target_kind,
+                scope,
+                released_at,
             ),
         )
         claim_id = int(cur.fetchone()[0])
@@ -132,29 +181,36 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         return claim_id
 
     def test_same_session_scoped(self):
-        self._seed(session_id="sid-other", target_kind="epic_task",
-                   epic_id=1872, task_num=20)
+        self._seed(
+            session_id="sid-other", target_kind="epic_task", epic_id=1872, task_num=20
+        )
         target = TargetRef(kind="epic_task", epic_id=1872, task_num=20)
         self.assertIsNone(
             claims_module._session_claim_id_for_target(target, "sid-self")
         )
 
     def test_released_rows_skipped(self):
-        self._seed(session_id="sid-e", target_kind="epic_task",
-                   epic_id=1872, task_num=20,
-                   released_at="2026-05-27T13:00:00Z")
-        target = TargetRef(kind="epic_task", epic_id=1872, task_num=20)
-        self.assertIsNone(
-            claims_module._session_claim_id_for_target(target, "sid-e")
+        self._seed(
+            session_id="sid-e",
+            target_kind="epic_task",
+            epic_id=1872,
+            task_num=20,
+            released_at="2026-05-27T13:00:00Z",
         )
+        target = TargetRef(kind="epic_task", epic_id=1872, task_num=20)
+        self.assertIsNone(claims_module._session_claim_id_for_target(target, "sid-e"))
 
     def test_epic_task_does_not_match_parent_item_claim(self):
         item_claim = self._seed(
-            session_id="sid-e", target_kind="item", item_id=1872,
+            session_id="sid-e",
+            target_kind="item",
+            item_id=1872,
         )
         task_claim = self._seed(
-            session_id="sid-e", target_kind="epic_task",
-            epic_id=1872, task_num=20,
+            session_id="sid-e",
+            target_kind="epic_task",
+            epic_id=1872,
+            task_num=20,
         )
         target = TargetRef(kind="epic_task", epic_id=1872, task_num=20)
         resolved = claims_module._session_claim_id_for_target(target, "sid-e")
@@ -163,7 +219,9 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
 
     def test_item_target_resolves_latest_active(self):
         claim_id = self._seed(
-            session_id="sid-e", target_kind="item", item_id=42,
+            session_id="sid-e",
+            target_kind="item",
+            item_id=42,
         )
         target = TargetRef(kind="item", item_id=42)
         self.assertEqual(
@@ -184,7 +242,9 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
             released_at="2026-08-10T13:00:00Z",
         )
         newer = self._seed(
-            session_id="sid-e", target_kind="item", item_id=42,
+            session_id="sid-e",
+            target_kind="item",
+            item_id=42,
         )
         target = TargetRef(kind="item", item_id=42)
         resolved = claims_module._session_claim_id_for_target(target, "sid-e")
@@ -201,8 +261,10 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         target = TargetRef(kind="global")
         self.assertEqual(
             claims_module._session_claim_id_for_target(
-                target, "sid-e",
-                process_key="STRATEGIZE", project="yoke",
+                target,
+                "sid-e",
+                process_key="STRATEGIZE",
+                project="yoke",
             ),
             claim_id,
         )
@@ -217,10 +279,25 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         target = TargetRef(kind="global")
         self.assertIsNone(
             claims_module._session_claim_id_for_target(
-                target, "sid-e",
-                process_key="STRATEGIZE", project="yoke",
+                target,
+                "sid-e",
+                process_key="STRATEGIZE",
+                project="yoke",
             )
         )
+
+    def test_claim_id_uses_session_owner_for_steering(self):
+        claim_id = self._seed(
+            session_id="sid-authority",
+            target_kind="steering",
+            project_id=1,
+        )
+
+        row = claims_module._claim_row_for_id(claim_id)
+
+        self.assertEqual(row["session_id"], "sid-authority")
+        self.assertEqual(row["operational_session_id"], "sid-authority")
+        self.assertEqual(row["target_kind"], "steering")
 
 
 if __name__ == "__main__":

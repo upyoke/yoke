@@ -40,6 +40,7 @@ from typing import Optional
 from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain.claim_recovery import canonical_item_ref
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def _resolve_session_id() -> str:
@@ -93,12 +94,11 @@ def _db_available() -> bool:
 def _fetch_claim(item_id: int) -> Optional[dict]:
     """Return the active item-target claim row for ``item_id``, or None.
 
-    The typed-target cutover stores ``item_id`` as a bare integer and
-    requires ``target_kind='item'`` for item-scoped claims. Process and
-    epic-task targets are not surfaced through this verifier — status
-    mutation gates are item-scoped.
+    Item claims store canonical ``scope={"item_id":N}`` and require
+    ``target_kind='item'``. Process and epic-task targets are not surfaced
+    through this verifier — status mutation gates are item-scoped.
 
-    Schema: ``id | session_id | target_kind | item_id | claim_type | claimed_at``.
+    Storage: ``id | session_id | target_kind | scope | claim_type | claimed_at``.
     """
     try:
         from yoke_core.domain import db_helpers
@@ -106,11 +106,14 @@ def _fetch_claim(item_id: int) -> Optional[dict]:
         return None
     try:
         with db_helpers.connect() as conn:
+            item_scope = scope_int_sql(conn, "scope", "item_id")
             row = db_helpers.query_one(
                 conn,
-                "SELECT id, session_id, item_id, claim_type, claimed_at "
+                f"SELECT id, session_id, {item_scope} AS item_id, "
+                "claim_type, claimed_at "
                 "FROM work_claims "
-                "WHERE target_kind='item' AND item_id = %s AND released_at IS NULL "
+                f"WHERE target_kind='item' AND {item_scope} = %s "
+                "AND released_at IS NULL "
                 "ORDER BY claimed_at DESC LIMIT 1",
                 (int(item_id),),
             )

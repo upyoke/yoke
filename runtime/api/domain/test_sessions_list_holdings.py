@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from yoke_core.domain.sessions_list_read import list_sessions
+from yoke_core.domain.work_claim_targets import make_item_target, make_steering_target
 
 
 def _iso(minutes_ago: int = 0) -> str:
@@ -18,7 +19,9 @@ def _iso(minutes_ago: int = 0) -> str:
     return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _insert_session(conn, session_id: str, *, current_item_id: str | None = None) -> None:
+def _insert_session(
+    conn, session_id: str, *, current_item_id: str | None = None
+) -> None:
     now = _iso()
     conn.execute(
         "INSERT INTO harness_sessions ("
@@ -45,9 +48,32 @@ def _insert_session(conn, session_id: str, *, current_item_id: str | None = None
 def _insert_item_claim(conn, session_id: str, item_id: int) -> None:
     conn.execute(
         "INSERT INTO work_claims ("
-        "session_id, target_kind, item_id, claimed_at, last_heartbeat, reason"
+        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason"
         ") VALUES (%s, 'item', %s, %s, %s, %s)",
-        (session_id, item_id, _iso(), _iso(), "implementation"),
+        (
+            session_id,
+            make_item_target(item_id).scope_json(),
+            _iso(),
+            _iso(),
+            "implementation",
+        ),
+    )
+    conn.commit()
+
+
+def _insert_steering_claim(conn, session_id: str) -> None:
+    now = _iso()
+    conn.execute(
+        "INSERT INTO work_claims ("
+        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason"
+        ") VALUES (%s, 'steering', %s, %s, %s, %s)",
+        (
+            session_id,
+            make_steering_target(1).scope_json(),
+            now,
+            now,
+            "strategy review",
+        ),
     )
     conn.commit()
 
@@ -155,6 +181,18 @@ def test_item_claim_carries_public_drill_in_coordinates(test_db):
     assert claim["item_project_sequence"] == 4200
 
 
+def test_steering_claim_carries_project_coordinates(test_db):
+    _insert_session(test_db, "s-steering")
+    _insert_steering_claim(test_db, "s-steering")
+
+    claim = list_sessions()[0]["claims"][0]
+
+    assert claim["target_kind"] == "steering"
+    assert claim["target"] == "steering for project 1"
+    assert claim["scope"] == {"project_id": 1}
+    assert claim["project_id"] == 1
+
+
 def test_item_owned_lease_stays_off_sessions_that_do_not_claim_the_item(test_db):
     insert_item(test_db, id=41, title="claimed work")
     _insert_session(test_db, "s-holder", current_item_id="41")
@@ -204,7 +242,10 @@ def test_claimed_focus_without_a_lane_reports_the_item_role(test_db):
 def test_claimed_focus_with_an_active_lane_reports_that_lane_role(test_db):
     insert_item(test_db, id=64, title="claimed work")
     insert_item_worktree(
-        test_db, item_id=64, branch="YOK-64", lane_role="integration",
+        test_db,
+        item_id=64,
+        branch="YOK-64",
+        lane_role="integration",
     )
     _insert_session(test_db, "s-lane", current_item_id="64")
     _insert_item_claim(test_db, "s-lane", 64)
@@ -216,13 +257,22 @@ def test_claimed_focus_with_an_active_lane_reports_that_lane_role(test_db):
 def test_claimed_blitz_worktrees_project_onto_the_holding_session(test_db):
     insert_item(test_db, id=80, workflow_id="blitz", title="blitz epic")
     worker = insert_item_worktree(
-        test_db, item_id=80, branch="blitz/80-w", lane_role="worker",
+        test_db,
+        item_id=80,
+        branch="blitz/80-w",
+        lane_role="worker",
     )
     integration = insert_item_worktree(
-        test_db, item_id=80, branch="blitz/80-i", lane_role="integration",
+        test_db,
+        item_id=80,
+        branch="blitz/80-i",
+        lane_role="integration",
     )
     insert_item_worktree(
-        test_db, item_id=80, branch="blitz/80-impl", lane_role="implementation",
+        test_db,
+        item_id=80,
+        branch="blitz/80-impl",
+        lane_role="implementation",
     )
     _insert_session(test_db, "s-blitz", current_item_id="80")
     _insert_item_claim(test_db, "s-blitz", 80)

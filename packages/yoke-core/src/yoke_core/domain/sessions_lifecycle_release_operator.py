@@ -29,6 +29,7 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from .work_claim_targets import from_row as target_from_row, scope_int_sql
 
 
 def _p(conn: Any) -> str:
@@ -37,8 +38,7 @@ def _p(conn: Any) -> str:
 
 def _claim_by_id(conn: Any, claim_id: int, p: str) -> Any:
     return conn.execute(
-        "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-        "process_key, released_at "
+        "SELECT id, session_id, target_kind, scope, released_at "
         f"FROM work_claims WHERE id = {p}",
         (claim_id,),
     ).fetchone()
@@ -50,10 +50,10 @@ def _active_item_claim(
     session_id: Optional[str],
     p: str,
 ) -> Any:
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     query_parts = [
-        "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-        "process_key, released_at "
-        f"FROM work_claims WHERE target_kind='item' AND item_id = {p} "
+        "SELECT id, session_id, target_kind, scope, released_at "
+        f"FROM work_claims WHERE target_kind='item' AND {item_scope} = {p} "
         "AND released_at IS NULL"
     ]
     params: list[Any] = [item_id]
@@ -151,17 +151,16 @@ def operator_override_release_claim(
         found_session_id = row["session_id"]
 
     found_claim_id = row["id"]
+    target = target_from_row(row)
 
     current_row = conn.execute(
-        "SELECT current_item_id "
-        f"FROM harness_sessions WHERE session_id = {p}",
+        f"SELECT current_item_id FROM harness_sessions WHERE session_id = {p}",
         (found_session_id,),
     ).fetchone()
     if (
         current_row is not None
         and current_row["current_item_id"] is not None
-        and normalize_claim_item_id(str(current_row["current_item_id"]))
-        == normalized
+        and normalize_claim_item_id(str(current_row["current_item_id"])) == normalized
     ):
         release_current_item_focus(conn, found_session_id, commit=False)
 
@@ -185,13 +184,14 @@ def operator_override_release_claim(
         EVENT_WORK_RELEASED,
         session_id=found_session_id,
         item_id=normalized,
-        task_num=row["task_num"],
+        task_num=target.task_num,
         context={
             "claim_id": found_claim_id,
             "release_reason": "released",
             "release_reason_intent": "operator-override",
             "operator_reason": operator_reason,
             "target_kind": row["target_kind"],
+            "scope": dict(target.scope),
         },
     )
 
@@ -199,7 +199,7 @@ def operator_override_release_claim(
         EVENT_OPERATOR_CLAIM_OVERRIDE,
         session_id=found_session_id,
         item_id=normalized,
-        task_num=row["task_num"],
+        task_num=target.task_num,
         context={
             "claim_id": found_claim_id,
             "item_id": normalized,
@@ -214,7 +214,7 @@ def operator_override_release_claim(
         "claim_id": found_claim_id,
         "item_id": normalized,
         "session_id": found_session_id,
-        "task_num": row["task_num"],
+        "task_num": target.task_num,
         "operator_reason": operator_reason,
     }
 

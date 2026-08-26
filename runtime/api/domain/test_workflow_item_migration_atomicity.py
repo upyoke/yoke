@@ -27,6 +27,7 @@ from yoke_core.domain.workflow_item_binding_lock import (
 from yoke_core.domain.workflow_item_versioning import (
     migrate_item_workflow_pin,
 )
+from yoke_core.domain.work_claim_targets import make_epic_task_target
 
 
 def _connections(test_db) -> tuple[Any, Any]:
@@ -214,8 +215,9 @@ def test_migration_first_serializes_work_claim_release(test_db) -> None:
     _seed_work_claim(test_db)
     claim_id = int(
         test_db.execute(
-            "SELECT id FROM work_claims WHERE epic_id = %s AND released_at IS NULL",
-            (ITEM_ID,),
+            "SELECT id FROM work_claims "
+            "WHERE target_kind='epic_task' AND scope=%s AND released_at IS NULL",
+            (make_epic_task_target(ITEM_ID, 1).scope_json(),),
         ).fetchone()[0]
     )
     migration_conn, release_conn = _connections(test_db)

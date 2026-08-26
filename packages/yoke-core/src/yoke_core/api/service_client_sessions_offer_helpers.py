@@ -119,8 +119,9 @@ def validate_charge_claim_invariant(
             f"(selected_item={ctx_selected}). The ownership block could not "
             "acquire any candidate; refusing to emit a charge directive."
         )
-    claim_item = new_claim.get("item_id")
-    # selected_item is the rendered public ref while new_claim.item_id is
+    from yoke_core.domain.work_claim_targets import item_id_from_row
+    claim_item = item_id_from_row(new_claim)
+    # selected_item is the rendered public ref while new_claim.scope.item_id is
     # the bare internal integer; resolve both to internal ids before
     # comparing (project sequences may diverge from internal ids). The
     # conn-less fallback keeps the legacy numeric-tail comparison.

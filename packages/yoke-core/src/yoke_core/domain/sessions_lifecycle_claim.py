@@ -14,7 +14,10 @@ from .sessions_queries import _now_iso, normalize_claim_item_id
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
+    TARGET_KIND_STEERING,
     WorkClaimTarget,
+    conflict_match_clause,
+    exact_match_clause,
     make_item_target,
 )
 from . import workflow_item_binding_lock as binding_lock
@@ -28,42 +31,14 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _self_claim_clause(target: WorkClaimTarget, p: str) -> tuple[str, list[Any]]:
+def _self_claim_clause(conn: Any, target: WorkClaimTarget) -> tuple[str, list[Any]]:
     """SQL fragment + params matching an active claim by THIS session for ``target``."""
-    if target.kind == TARGET_KIND_ITEM:
-        return (
-            f"target_kind='item' AND item_id = {p}",
-            [target.item_id],
-        )
-    if target.kind == TARGET_KIND_EPIC_TASK:
-        return (
-            f"target_kind='epic_task' AND epic_id = {p} AND task_num = {p}",
-            [target.epic_id, target.task_num],
-        )
-    return (
-        f"target_kind='process' AND process_key = {p}",
-        [target.process_key],
-    )
+    return exact_match_clause(conn, target)
 
 
-def _conflict_clause(target: WorkClaimTarget, p: str) -> tuple[str, list[Any]]:
+def _conflict_clause(conn: Any, target: WorkClaimTarget) -> tuple[str, list[Any]]:
     """SQL fragment + params matching any active conflicting claim by another session."""
-    if target.kind == TARGET_KIND_ITEM:
-        return (
-            f"target_kind='item' AND item_id = {p}",
-            [target.item_id],
-        )
-    if target.kind == TARGET_KIND_EPIC_TASK:
-        return (
-            f"target_kind='epic_task' AND epic_id = {p} AND task_num = {p}",
-            [target.epic_id, target.task_num],
-        )
-    # Process-target conflicts share the conflict_group; this is what makes
-    # STRATEGIZE and FEED on the same project mutually exclusive.
-    return (
-        f"target_kind='process' AND conflict_group = {p}",
-        [target.conflict_group],
-    )
+    return conflict_match_clause(conn, target)
 
 
 def _insert_typed_claim(
@@ -84,13 +59,12 @@ def _insert_typed_claim(
     ALREADY_CLAIMED semantics as the rowcount path.
     """
     p = _p(conn)
-    conflict_clause, conflict_params = _conflict_clause(target, p)
+    conflict_clause, conflict_params = _conflict_clause(conn, target)
     cursor = conn.execute(
         f"""INSERT INTO work_claims
-           (session_id, target_kind, item_id, epic_id, task_num,
-            process_key, conflict_group, claim_type,
+           (session_id, target_kind, scope, claim_type,
             claimed_at, last_heartbeat, released_at, release_reason)
-           SELECT {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'exclusive', {p}, {p}, NULL, NULL
+           SELECT {p}, {p}, {p}, 'exclusive', {p}, {p}, NULL, NULL
            WHERE NOT EXISTS (
                SELECT 1 FROM work_claims
                WHERE {conflict_clause}
@@ -101,11 +75,7 @@ def _insert_typed_claim(
         (
             session_id,
             target.kind,
-            target.item_id,
-            target.epic_id,
-            target.task_num,
-            target.process_key,
-            target.conflict_group,
+            target.scope_json(),
             now,
             now,
             *conflict_params,
@@ -129,7 +99,7 @@ def _resolve_active_holder(
     so the ALREADY_CLAIMED message names the winning session.
     """
     p = _p(conn)
-    conflict_clause, conflict_params = _conflict_clause(target, p)
+    conflict_clause, conflict_params = _conflict_clause(conn, target)
     winner = conn.execute(
         f"SELECT session_id FROM work_claims "
         f"WHERE {conflict_clause} AND released_at IS NULL "
@@ -174,11 +144,16 @@ def claim_work(
                 "Must specify target=WorkClaimTarget(...) or item_id=...",
             )
         target = make_item_target(int(normalize_claim_item_id(item_id)))
+    if target.kind == TARGET_KIND_STEERING:
+        raise SessionError(
+            "INVALID_CLAIM",
+            "Steering requires the project-serialized steering acquisition path.",
+        )
 
     now = _now_iso()
     p = _p(conn)
-    self_clause, self_params = _self_claim_clause(target, p)
-    conflict_clause, conflict_params = _conflict_clause(target, p)
+    self_clause, self_params = _self_claim_clause(conn, target)
+    conflict_clause, conflict_params = _conflict_clause(conn, target)
 
     sess_row = conn.execute(
         f"SELECT ended_at FROM harness_sessions WHERE session_id = {p}",

@@ -23,6 +23,7 @@ from yoke_core.domain.sessions_analytics_core import (
 from yoke_core.domain.sessions_lifecycle_reactivation import (
     emit_reactivated_with_released_claims,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -61,8 +62,8 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
 _CREATE_WORK_CLAIMS = """
 CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, target_kind TEXT NOT NULL,
-    item_id INTEGER, epic_id INTEGER, task_num INTEGER, process_key TEXT,
-    conflict_group TEXT, claim_type TEXT NOT NULL DEFAULT 'exclusive',
+    scope TEXT NOT NULL,
+    claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
     released_at TEXT, release_reason TEXT
 );
@@ -140,13 +141,13 @@ def _insert_claim(
 ) -> int:
     cursor = conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat, "
         " released_at, release_reason) "
         "VALUES (%s, 'item', %s, 'exclusive', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', "
         "%s, %s) RETURNING id",
         (
             session_id,
-            item_id,
+            make_item_target(item_id).scope_json(),
             "2026-01-01T01:00:00Z" if released else None,
             release_reason if released else None,
         ),
@@ -223,7 +224,7 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["target_kind"], "item")
-        self.assertEqual(result[0]["item_id"], 200)
+        self.assertEqual(result[0]["scope"], {"item_id": 200})
         emit_event.assert_called_once()
         event_name = emit_event.call_args.args[0]
         event_kwargs = emit_event.call_args.kwargs
@@ -232,7 +233,7 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
         self.assertEqual(event_kwargs["context"]["released_claim_count"], 1)
         self.assertEqual(
             event_kwargs["context"]["released_claims"],
-            [{"target_kind": "item", "item_id": 200}],
+            [{"target_kind": "item", "scope": {"item_id": 200}}],
         )
 
     def test_release_outside_window_does_not_insert_new_work_claim(self) -> None:
@@ -279,11 +280,14 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
             result = emit_reactivated_with_released_claims(conn, "sess-4")
 
         self.assertEqual(len(result), 2)
-        item_ids = {r["item_id"] for r in result}
+        item_ids = {r["scope"]["item_id"] for r in result}
         self.assertEqual(item_ids, {401, 402})
         emit_event.assert_called_once()
         claims = emit_event.call_args.kwargs["context"]["released_claims"]
-        self.assertEqual({claim["item_id"] for claim in claims}, {401, 402})
+        self.assertEqual(
+            {claim["scope"]["item_id"] for claim in claims},
+            {401, 402},
+        )
 
     def test_active_claim_not_included_in_advisory(self) -> None:
         """Active claim is not listed in reactivation advisory."""
@@ -300,12 +304,12 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
         ) as emit_event:
             result = emit_reactivated_with_released_claims(conn, "sess-5")
 
-        item_ids = {r["item_id"] for r in result}
+        item_ids = {r["scope"]["item_id"] for r in result}
         self.assertIn(500, item_ids)
         self.assertNotIn(501, item_ids)
         emit_event.assert_called_once()
         claims = emit_event.call_args.kwargs["context"]["released_claims"]
-        self.assertEqual([claim["item_id"] for claim in claims], [500])
+        self.assertEqual([claim["scope"]["item_id"] for claim in claims], [500])
 
 
 if __name__ == "__main__":

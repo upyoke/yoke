@@ -244,6 +244,9 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 |---|---|---|
 | `claims.work.acquire` | `None` (chicken-and-egg — handler asserts no active claim) | `yoke_core.domain.handlers.claims_work.acquire` |
 | `claims.work.release` | `"self_only"` | `yoke_core.domain.handlers.claims_work.release` |
+| `claims.steering.acquire` | `None` (handler refuses a second live project seat) | `yoke_core.domain.handlers.claims_steering.handle_acquire` |
+| `claims.steering.release` | `"self_only"` | same handler; ordinary work-claim release by claim id |
+| `claims.steering.list` | `None` (project-scoped read) | same handler; project/holder/active filters |
 | `claims.path.register` | `"item"` | `yoke_core.domain.handlers.claims_path.register` (routes through `path_claims_resolve`) |
 | `claims.path.widen` | `"item"` | same handler → `claims_path.widen` |
 | `claims.path.release` | `"item"` | same handler → `claims_path.release` |

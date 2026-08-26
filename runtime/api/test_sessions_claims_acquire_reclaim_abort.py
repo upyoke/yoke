@@ -31,6 +31,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
     _now_literal,
     apply_ddl_statements,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 pytest_plugins = ("runtime.api.sessions_api_stale_test_helpers",)
 
@@ -132,11 +133,12 @@ def _seed_holder_with_claim(
         if claim_heartbeat_ago_min > 0
         else _now_literal()
     )
+    target = make_item_target(item_id)
     conn.execute(
         """INSERT INTO work_claims
-           (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-           VALUES (%s, 'item', %s, 'exclusive', %s, %s)""",
-        (holder_session_id, item_id, claim_hb, claim_hb),
+           (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+           VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+        (holder_session_id, target.kind, target.scope_json(), claim_hb, claim_hb),
     )
     conn.commit()
 
@@ -152,6 +154,15 @@ def _attempt_claim(conn, attempting_session_id: str, item_id: int):
         "item",
         item_id=item_id,
     )
+
+
+def _claim_row(conn, session_id: str, item_id: int):
+    target = make_item_target(item_id)
+    return conn.execute(
+        "SELECT released_at, release_reason FROM work_claims "
+        "WHERE session_id = %s AND target_kind = %s AND scope = %s",
+        (session_id, target.kind, target.scope_json()),
+    ).fetchone()
 
 
 def _read_events(conn, event_name: str):
@@ -182,10 +193,7 @@ class TestCmdClaimReclaimRace:
         # B took over the claim.
         assert "Claimed:" in result
         # Holder's claim row was released with reason='reclaimed'.
-        old_row = c.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'holder-A' AND item_id = 4001""",
-        ).fetchone()
+        old_row = _claim_row(c, "holder-A", 4001)
         assert old_row["released_at"] is not None
         assert old_row["release_reason"] == "reclaimed"
         # WorkReclaimed event fired; ReclaimAborted did not.
@@ -213,10 +221,7 @@ class TestCmdClaimReclaimRace:
             _attempt_claim(c, "challenger-B", item_id=4002)
 
         # Holder's row stays untouched.
-        old_row = c.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'holder-A' AND item_id = 4002""",
-        ).fetchone()
+        old_row = _claim_row(c, "holder-A", 4002)
         assert old_row["released_at"] is None
         assert old_row["release_reason"] is None
 
@@ -252,10 +257,7 @@ class TestCmdClaimReclaimRace:
         with pytest.raises(PermissionError, match="already claimed by session"):
             _attempt_claim(c, "challenger-B", item_id=4004)
 
-        old_row = c.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'holder-A' AND item_id = 4004""",
-        ).fetchone()
+        old_row = _claim_row(c, "holder-A", 4004)
         assert old_row["released_at"] is None
         assert old_row["release_reason"] is None
         # No abort event is expected: the row was not snapshot-eligible.
@@ -278,10 +280,7 @@ class TestCmdClaimReclaimRace:
         result = _attempt_claim(c, "challenger-B", item_id=4003)
 
         assert "Claimed:" in result
-        old_row = c.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'holder-A' AND item_id = 4003""",
-        ).fetchone()
+        old_row = _claim_row(c, "holder-A", 4003)
         assert old_row["released_at"] is not None
         assert old_row["release_reason"] == "reclaimed"
         reclaimed = _read_events(c, "WorkReclaimed")

@@ -23,6 +23,7 @@ from runtime.api.domain.test_session_turn_posture_migration import (
 )
 from yoke_core.domain.sessions import end_session_if_empty
 from yoke_core.domain.sessions_lifecycle_registry import register_session
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
@@ -59,12 +60,13 @@ def _insert_session(
             (session_id, workspace, mode, now, now, envelope),
         )
         if claim_item is not None:
+            target = make_item_target(claim_item)
             conn.execute(
                 """INSERT INTO work_claims
-                   (session_id, target_kind, item_id, claim_type,
+                   (session_id, target_kind, scope, claim_type,
                     claimed_at, last_heartbeat)
-                   VALUES (%s, 'item', %s, 'exclusive', %s, %s)""",
-                (session_id, claim_item, now, now),
+                   VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+                (session_id, target.kind, target.scope_json(), now, now),
             )
         conn.commit()
     finally:

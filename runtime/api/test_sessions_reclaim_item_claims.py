@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """Tests for ``reclaim_stale_item_claims`` final-recheck path.
 
 Item-scoped sweep at session-offer time must use the same activity
@@ -9,17 +10,15 @@ aborts the reclaim and emits ``ReclaimAborted`` with
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from runtime.api.test_sessions import _register  # noqa: F401  (plain helper)
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
-    _now_literal,
     apply_ddl_statements,
     conn,  # noqa: F401  (backend-aware pytest fixture)
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _EVENTS_TABLE = """
@@ -75,13 +74,23 @@ def _seed_holder(
         (holder_hb, holder_hb, holder_session_id),
     )
     claim_hb = _ago_minutes(claim_heartbeat_ago_min)
+    target = make_item_target(item_id)
     conn.execute(
         """INSERT INTO work_claims
-           (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-           VALUES (%s, 'item', %s, 'exclusive', %s, %s)""",
-        (holder_session_id, item_id, claim_hb, claim_hb),
+           (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+           VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+        (holder_session_id, target.kind, target.scope_json(), claim_hb, claim_hb),
     )
     conn.commit()
+
+
+def _claim_row(conn, session_id: str, item_id: int):
+    target = make_item_target(item_id)
+    return conn.execute(
+        "SELECT released_at, release_reason FROM work_claims "
+        "WHERE session_id = %s AND target_kind = %s AND scope = %s",
+        (session_id, target.kind, target.scope_json()),
+    ).fetchone()
 
 
 def _insert_tool_event(conn, session_id: str, ago_minutes: int) -> None:
@@ -107,17 +116,27 @@ def _capture_session_events(monkeypatch):
     """
     captured = []
     from yoke_core.domain import sessions_render_reclaim as _srr
+
     real_emit = _srr._sa._emit_session_event
 
-    def capture(event_name, *, session_id, item_id=None, task_num=None,
-                context=None, outcome="completed"):
-        captured.append({
-            "event_name": event_name,
-            "session_id": session_id,
-            "item_id": item_id,
-            "task_num": task_num,
-            "context": context,
-        })
+    def capture(
+        event_name,
+        *,
+        session_id,
+        item_id=None,
+        task_num=None,
+        context=None,
+        outcome="completed",
+    ):
+        captured.append(
+            {
+                "event_name": event_name,
+                "session_id": session_id,
+                "item_id": item_id,
+                "task_num": task_num,
+                "context": context,
+            }
+        )
         return real_emit(
             event_name,
             session_id=session_id,
@@ -145,18 +164,18 @@ class TestReclaimStaleItemClaimsRecheck:
         )
 
         from yoke_core.domain.sessions import reclaim_stale_item_claims
+
         released = reclaim_stale_item_claims(c, "5001", stale_threshold_minutes=10)
 
         assert released == 1
-        row = c.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'holder-A' AND item_id = 5001""",
-        ).fetchone()
+        row = _claim_row(c, "holder-A", 5001)
         assert row["released_at"] is not None
         assert row["release_reason"] == "reclaimed"
 
     def test_aborts_when_holder_session_heartbeat_is_fresh(
-        self, conn_with_events, monkeypatch,
+        self,
+        conn_with_events,
+        monkeypatch,
     ):
         """Stale claim heartbeat but fresh session heartbeat → abort."""
         c = conn_with_events
@@ -164,19 +183,17 @@ class TestReclaimStaleItemClaimsRecheck:
             c,
             holder_session_id="holder-A",
             item_id=5002,
-            holder_heartbeat_ago_min=1,    # session heartbeated recently
-            claim_heartbeat_ago_min=30,    # claim row is stale (snapshot)
+            holder_heartbeat_ago_min=1,  # session heartbeated recently
+            claim_heartbeat_ago_min=30,  # claim row is stale (snapshot)
         )
         captured = _capture_session_events(monkeypatch)
 
         from yoke_core.domain.sessions import reclaim_stale_item_claims
+
         released = reclaim_stale_item_claims(c, "5002", stale_threshold_minutes=10)
 
         assert released == 0
-        row = c.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'holder-A' AND item_id = 5002""",
-        ).fetchone()
+        row = _claim_row(c, "holder-A", 5002)
         assert row["released_at"] is None
         assert row["release_reason"] is None
 
@@ -189,7 +206,9 @@ class TestReclaimStaleItemClaimsRecheck:
         assert ctx["reclaimed_by_item_offer"] is True
 
     def test_fresh_claim_heartbeat_is_not_a_reclaim_candidate(
-        self, conn_with_events, monkeypatch,
+        self,
+        conn_with_events,
+        monkeypatch,
     ):
         c = conn_with_events
         _seed_holder(
@@ -202,13 +221,11 @@ class TestReclaimStaleItemClaimsRecheck:
         captured = _capture_session_events(monkeypatch)
 
         from yoke_core.domain.sessions import reclaim_stale_item_claims
+
         released = reclaim_stale_item_claims(c, "5004", stale_threshold_minutes=10)
 
         assert released == 0
-        row = c.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'holder-A' AND item_id = 5004""",
-        ).fetchone()
+        row = _claim_row(c, "holder-A", 5004)
         assert row["released_at"] is None
         assert row["release_reason"] is None
         # No abort event is expected: the row was not snapshot-eligible.
@@ -216,7 +233,9 @@ class TestReclaimStaleItemClaimsRecheck:
         assert len(aborted) == 0
 
     def test_aborts_when_recent_tool_event_exists(
-        self, conn_with_events, monkeypatch,
+        self,
+        conn_with_events,
+        monkeypatch,
     ):
         """Event-side: stale heartbeats but a fresh tool event → abort."""
         c = conn_with_events
@@ -231,6 +250,7 @@ class TestReclaimStaleItemClaimsRecheck:
         captured = _capture_session_events(monkeypatch)
 
         from yoke_core.domain.sessions import reclaim_stale_item_claims
+
         released = reclaim_stale_item_claims(c, "5003", stale_threshold_minutes=10)
 
         assert released == 0

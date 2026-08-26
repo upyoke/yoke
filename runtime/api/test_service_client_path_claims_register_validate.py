@@ -37,6 +37,7 @@ from runtime.api.domain._path_claims_test_helpers import _apply_path_claim_schem
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_columns import apply_harness_session_columns
 from yoke_core.api.service_client_path_claims import cmd_path_claim_register
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _capture(func, *args):
@@ -121,11 +122,11 @@ def path_claims_db_real_repo(tmp_path, monkeypatch):
                     (actor_id, session_id),
                 )
             conn.execute(
-                "INSERT INTO work_claims (session_id, target_kind, item_id, "
+                "INSERT INTO work_claims (session_id, target_kind, scope, "
                 "claim_type, claimed_at, last_heartbeat) "
-                f"VALUES ({p}, 'item', 40002, 'exclusive', "
+                f"VALUES ({p}, 'item', {p}, 'exclusive', "
                 "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
-                (session_id,),
+                (session_id, make_item_target(40002).scope_json()),
             )
             conn.commit()
         finally:
@@ -137,13 +138,17 @@ class TestRegisterIntegrationTargetValidation:
     """``path-claim-register`` validates integration_target before mutation."""
 
     def test_supplied_unresolved_target_rejected_with_trunk_recommendation(
-        self, path_claims_db_real_repo,
+        self,
+        path_claims_db_real_repo,
     ):
         rc, output = _capture(
             cmd_path_claim_register,
-            "--item", "YOK-40002",
-            "--integration-target", "YOK-40002",
-            "--paths", "src/foo.py",
+            "--item",
+            "YOK-40002",
+            "--integration-target",
+            "YOK-40002",
+            "--paths",
+            "src/foo.py",
         )
         assert rc == 1
         payload = json.loads(output)
@@ -153,12 +158,15 @@ class TestRegisterIntegrationTargetValidation:
         assert "main" in payload["message"]
 
     def test_omitted_integration_target_defaults_to_project_trunk(
-        self, path_claims_db_real_repo,
+        self,
+        path_claims_db_real_repo,
     ):
         rc, output = _capture(
             cmd_path_claim_register,
-            "--item", "YOK-40002",
-            "--paths", "src/foo.py",
+            "--item",
+            "YOK-40002",
+            "--paths",
+            "src/foo.py",
         )
         assert rc == 0, output
         payload = json.loads(output)
@@ -166,13 +174,17 @@ class TestRegisterIntegrationTargetValidation:
         assert payload["claim"]["integration_target"] == "main"
 
     def test_supplied_valid_target_still_accepted(
-        self, path_claims_db_real_repo,
+        self,
+        path_claims_db_real_repo,
     ):
         rc, output = _capture(
             cmd_path_claim_register,
-            "--item", "YOK-40002",
-            "--integration-target", "main",
-            "--paths", "src/foo.py",
+            "--item",
+            "YOK-40002",
+            "--integration-target",
+            "main",
+            "--paths",
+            "src/foo.py",
         )
         assert rc == 0, output
         payload = json.loads(output)

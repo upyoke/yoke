@@ -26,6 +26,7 @@ from runtime.api.fixtures.file_test_db import (
     connect_test_db,
     init_test_db,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @pytest.fixture
@@ -42,8 +43,11 @@ def env(tmp_path: Path) -> Iterator[dict]:
 def patch_cutoff(monkeypatch: pytest.MonkeyPatch):
     def _set(value: int) -> None:
         monkeypatch.setattr(
-            _cutoff, "read_min_event_id_cutoff", lambda: value,
+            _cutoff,
+            "read_min_event_id_cutoff",
+            lambda: value,
         )
+
     return _set
 
 
@@ -64,21 +68,28 @@ def _add_session(conn: Any, sid: str) -> None:
 
 
 def _add_claim(
-    conn: Any, sid: str, item_id: int,
+    conn: Any,
+    sid: str,
+    item_id: int,
     claimed_at: str = "2026-05-17T11:00:00Z",
 ) -> None:
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id,"
+        "INSERT INTO work_claims (session_id, target_kind, scope,"
         " claimed_at, last_heartbeat)"
         " VALUES (%s, 'item', %s, %s, %s)",
-        (sid, item_id, claimed_at, claimed_at),
+        (sid, make_item_target(item_id).scope_json(), claimed_at, claimed_at),
     )
     conn.commit()
 
 
 def _add_event_with_id(
-    conn: Any, *, target_id: int, name: str, sid: str,
-    item_id: int, context: dict,
+    conn: Any,
+    *,
+    target_id: int,
+    name: str,
+    sid: str,
+    item_id: int,
+    context: dict,
     created_at: str = "2026-05-17T12:00:00Z",
 ) -> int:
     envelope = {
@@ -93,8 +104,15 @@ def _add_event_with_id(
         " created_at)"
         " VALUES (%s, %s, 'backend', %s, 'INFO', 'lifecycle', 'function_call',"
         " %s, %s, %s, %s)",
-        (target_id, envelope["event_id"], sid, name, str(item_id),
-         json.dumps(envelope), created_at),
+        (
+            target_id,
+            envelope["event_id"],
+            sid,
+            name,
+            str(item_id),
+            json.dumps(envelope),
+            created_at,
+        ),
     )
     conn.commit()
     return target_id
@@ -115,8 +133,12 @@ def test_cutoff_suppresses_pre_cutoff_event_ids(env, patch_cutoff):
     _add_session(conn, other)
     _add_claim(conn, holder, 900)
     _add_event_with_id(
-        conn, target_id=500, name="YokeFunctionCalled", sid=other,
-        item_id=900, context={"function": "items.structured_field.replace"},
+        conn,
+        target_id=500,
+        name="YokeFunctionCalled",
+        sid=other,
+        item_id=900,
+        context={"function": "items.structured_field.replace"},
     )
     patch_cutoff(1000)
     rec = _run(conn)
@@ -136,8 +158,12 @@ def test_cutoff_does_not_suppress_post_cutoff_event_ids(env, patch_cutoff):
     _add_session(conn, other)
     _add_claim(conn, holder, 901)
     _add_event_with_id(
-        conn, target_id=2000, name="YokeFunctionCalled", sid=other,
-        item_id=901, context={"function": "items.structured_field.replace"},
+        conn,
+        target_id=2000,
+        name="YokeFunctionCalled",
+        sid=other,
+        item_id=901,
+        context={"function": "items.structured_field.replace"},
     )
     patch_cutoff(1000)
     rec = _run(conn)
@@ -159,8 +185,12 @@ def test_cutoff_zero_means_no_filtering(env, patch_cutoff):
     _add_session(conn, other)
     _add_claim(conn, holder, 902)
     _add_event_with_id(
-        conn, target_id=10, name="YokeFunctionCalled", sid=other,
-        item_id=902, context={"function": "items.structured_field.replace"},
+        conn,
+        target_id=10,
+        name="YokeFunctionCalled",
+        sid=other,
+        item_id=902,
+        context={"function": "items.structured_field.replace"},
     )
     patch_cutoff(0)
     rec = _run(conn)
@@ -173,18 +203,28 @@ def test_correlated_harness_preview_does_not_warn(env, patch_cutoff):
     _add_session(conn, sid)
     _add_claim(conn, sid, 903)
     _add_event_with_id(
-        conn, target_id=10, name="YokeFunctionCalled", sid=sid,
-        item_id=903, context={"function": "lifecycle.transition.execute"},
+        conn,
+        target_id=10,
+        name="YokeFunctionCalled",
+        sid=sid,
+        item_id=903,
+        context={"function": "lifecycle.transition.execute"},
     )
     envelope = {
         "event_id": str(uuid.uuid4()),
         "event_name": "HarnessToolCallCompleted",
         "session_id": sid,
-        "context": {"detail": {"tool_response_preview": json.dumps({
-            "success": True,
-            "function": "lifecycle.transition.execute",
-            "result": {"item_id": 903},
-        })}},
+        "context": {
+            "detail": {
+                "tool_response_preview": json.dumps(
+                    {
+                        "success": True,
+                        "function": "lifecycle.transition.execute",
+                        "result": {"item_id": 903},
+                    }
+                )
+            }
+        },
     }
     conn.execute(
         "INSERT INTO events (id, event_id, source_type, session_id, severity,"
@@ -199,10 +239,14 @@ def test_correlated_harness_preview_does_not_warn(env, patch_cutoff):
         "event_id": str(uuid.uuid4()),
         "event_name": "HarnessToolCallCompleted",
         "session_id": sid,
-        "context": {"detail": {"tool_response_preview": (
-            "preview {\"success\": true, \"function\": "
-            "\"lifecycle.transition.execute\", \"result\": {\"item_id\": 903}}"
-        )}},
+        "context": {
+            "detail": {
+                "tool_response_preview": (
+                    'preview {"success": true, "function": '
+                    '"lifecycle.transition.execute", "result": {"item_id": 903}}'
+                )
+            }
+        },
     }
     conn.execute(
         "INSERT INTO events (id, event_id, source_type, session_id, severity,"
@@ -221,7 +265,10 @@ def test_correlated_harness_preview_does_not_warn(env, patch_cutoff):
 
 def test_apply_event_id_cutoff_helper_skips_when_cutoff_zero():
     where, params = _cutoff.apply_event_id_cutoff(
-        "event_name=%s", ["x"], cutoff=0, marker="%s",
+        "event_name=%s",
+        ["x"],
+        cutoff=0,
+        marker="%s",
     )
     assert where == "event_name=%s"
     assert params == ["x"]
@@ -229,7 +276,10 @@ def test_apply_event_id_cutoff_helper_skips_when_cutoff_zero():
 
 def test_apply_event_id_cutoff_helper_appends_clause():
     where, params = _cutoff.apply_event_id_cutoff(
-        "event_name=%s", ["x"], cutoff=500, marker="%s",
+        "event_name=%s",
+        ["x"],
+        cutoff=500,
+        marker="%s",
     )
     assert where == "event_name=%s AND events.id >= %s"
     assert params == ["x", 500]

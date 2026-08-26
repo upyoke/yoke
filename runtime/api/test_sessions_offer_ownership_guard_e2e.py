@@ -53,25 +53,28 @@ class TestOwnershipGuardEndToEnd(_ReleaseGapDbCase):
     ) -> None:
         conn = self.make_db()
         seed_item(conn)
-        register_live_session(
-            conn, SESSION_A, current_item_id=str(SYNTHETIC_ITEM_ID))
+        register_live_session(conn, SESSION_A, current_item_id=str(SYNTHETIC_ITEM_ID))
         register_live_session(conn, SESSION_B)
         claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
 
         before = evaluate_ownership_guard(
-            conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
+            conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID
+        )
         self.assertTrue(before.owned, "pre-loss self-claim must own")
 
         # Mid-chain: session A's claim is reclaimed; session B takes it.
         release_work_claim_for_execution(
-            conn, SESSION_A, make_item_target(SYNTHETIC_ITEM_ID), "reclaimed")
+            conn, SESSION_A, make_item_target(SYNTHETIC_ITEM_ID), "reclaimed"
+        )
         claim_work(conn, session_id=SESSION_B, item_id=SYNTHETIC_ITEM_ID)
 
         after = evaluate_ownership_guard(
-            conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
+            conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID
+        )
         self.assertFalse(after.owned, "guard must refuse stale resume")
         self.assertEqual(
-            after.holder_session_id, SESSION_B,
+            after.holder_session_id,
+            SESSION_B,
             "Guard surfaces the current live holder for diagnosis.",
         )
         self.assertFalse(after.defense_in_flight)
@@ -79,19 +82,26 @@ class TestOwnershipGuardEndToEnd(_ReleaseGapDbCase):
         # Session A's loop records a non-chainable terminal checkpoint
         # instead of dispatching — the runtime contract.
         checkpoint = update_chain_checkpoint(
-            conn, SESSION_A, step=2, action="resume",
-            chainable=False, handler_outcome="blocked",
-            item_id=str(SYNTHETIC_ITEM_ID))
+            conn,
+            SESSION_A,
+            step=2,
+            action="resume",
+            chainable=False,
+            handler_outcome="blocked",
+            item_id=str(SYNTHETIC_ITEM_ID),
+        )
         self.assertEqual(checkpoint["handler_outcome"], "blocked")
         self.assertEqual(checkpoint["chainable"], False)
 
         # Defense-in-depth: no fresh live claim row on the item for
         # session A — duplicate dispatch did not land.
+        target = make_item_target(SYNTHETIC_ITEM_ID)
         rows = conn.execute(
             "SELECT id FROM work_claims WHERE session_id = %s "
-            "AND target_kind='item' AND item_id = %s "
+            "AND target_kind = %s AND scope = %s "
             "AND released_at IS NULL",
-            (SESSION_A, SYNTHETIC_ITEM_ID)).fetchall()
+            (SESSION_A, target.kind, target.scope_json()),
+        ).fetchall()
         self.assertEqual(len(rows), 0, "no duplicate live claim on item")
 
 

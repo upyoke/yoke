@@ -27,6 +27,7 @@ from yoke_core.domain.lint_session_cwd_validate import (
     FOREIGN_LANE_FAILURE_CLASS,
 )
 from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
+from yoke_core.domain.work_claim_targets import make_item_target
 
 HOLDER = "sid-holder"
 INTRUDER = "sid-intruder"
@@ -85,7 +86,9 @@ class TestOccupancy:
     def test_foreign_live_claim_is_reported(self, conn, repo):
         lane = _held_lane(conn, repo)
         found = occupying_claim(
-            conn, target=str(lane / "src" / "a.py"), session_id=INTRUDER,
+            conn,
+            target=str(lane / "src" / "a.py"),
+            session_id=INTRUDER,
         )
         assert found is not None
         assert found.session_id == HOLDER
@@ -94,28 +97,43 @@ class TestOccupancy:
 
     def test_own_lane_is_not_an_occupant(self, conn, repo):
         lane = _held_lane(conn, repo)
-        assert occupying_claim(
-            conn, target=str(lane / "a.py"), session_id=HOLDER,
-        ) is None
+        assert (
+            occupying_claim(
+                conn,
+                target=str(lane / "a.py"),
+                session_id=HOLDER,
+            )
+            is None
+        )
 
     def test_lane_without_live_claim_is_not_an_occupant(self, conn, repo):
         lane = _held_lane(conn, repo)
+        target = make_item_target(HELD_ITEM)
         conn.execute(
             "UPDATE work_claims SET released_at = '2026-01-01T00:00:00Z' "
-            "WHERE item_id = %s",
-            (HELD_ITEM,),
+            "WHERE target_kind = %s AND scope = %s",
+            (target.kind, target.scope_json()),
         )
         conn.commit()
-        assert occupying_claim(
-            conn, target=str(lane / "a.py"), session_id=INTRUDER,
-        ) is None
+        assert (
+            occupying_claim(
+                conn,
+                target=str(lane / "a.py"),
+                session_id=INTRUDER,
+            )
+            is None
+        )
 
     def test_path_outside_every_lane_is_not_an_occupant(self, conn, repo):
         _held_lane(conn, repo)
-        assert occupying_claim(
-            conn, target=str(repo / "runtime" / "api" / "a.py"),
-            session_id=INTRUDER,
-        ) is None
+        assert (
+            occupying_claim(
+                conn,
+                target=str(repo / "runtime" / "api" / "a.py"),
+                session_id=INTRUDER,
+            )
+            is None
+        )
 
 
 class TestForeignLaneDenial:
@@ -123,11 +141,13 @@ class TestForeignLaneDenial:
 
     def _write_into_held_lane(self, conn, repo, session_id):
         lane = _held_lane(conn, repo)
-        return lint_session_cwd.evaluate_pre_tool_use({
-            "session_id": session_id,
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(lane / "src" / "a.py")},
-        })
+        return lint_session_cwd.evaluate_pre_tool_use(
+            {
+                "session_id": session_id,
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(lane / "src" / "a.py")},
+            }
+        )
 
     def test_caller_with_no_claims_is_denied(self, conn, repo):
         verdict = self._write_into_held_lane(conn, repo, INTRUDER)
@@ -135,10 +155,15 @@ class TestForeignLaneDenial:
         assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
 
     def test_caller_claiming_another_item_with_a_lane_is_denied(
-        self, conn, repo,
+        self,
+        conn,
+        repo,
     ):
         seed_item(
-            conn, item_id=OTHER_ITEM, branch="other-lane", repo_path=repo,
+            conn,
+            item_id=OTHER_ITEM,
+            branch="other-lane",
+            repo_path=repo,
         )
         seed_item_claim(conn, INTRUDER, item_id=OTHER_ITEM)
         (repo / ".worktrees" / "other-lane").mkdir(parents=True)
@@ -147,7 +172,9 @@ class TestForeignLaneDenial:
         assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
 
     def test_caller_claiming_another_item_without_a_lane_is_denied(
-        self, conn, repo,
+        self,
+        conn,
+        repo,
     ):
         seed_item(conn, item_id=OTHER_ITEM, branch=None)
         seed_item_claim(conn, INTRUDER, item_id=OTHER_ITEM)

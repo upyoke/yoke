@@ -33,7 +33,7 @@ class TestRegisterSessionReactivationWiring(_ReactivationDBTest):
 
         with mock.patch(
             "yoke_core.domain.sessions_lifecycle_registry.emit_reactivated_with_released_claims",
-            return_value=[{"target_kind": "item", "item_id": 999}],
+            return_value=[{"target_kind": "item", "scope": {"item_id": 999}}],
         ) as advisory:
             # register_session must not raise on reactivation
             register_session(

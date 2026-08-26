@@ -89,9 +89,10 @@ class TestWorkClaimOwnership:
         assert rc == 0
 
     def test_uses_env_session_id_when_flag_absent(
-        self, fake_db, monkeypatch, capsys
+        self, fake_db, monkeypatch, capsys, harness_family
     ):
         clear_session_env(monkeypatch)
+        harness_family("claude-code")
         monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "env-session")
         seed_item(fake_db, 1704, owner=42, source=None)
         seed_work_claim(fake_db, item_id=1704, session_id="other")

@@ -32,6 +32,7 @@ from yoke_core.domain.yoke_function_registry import (
     register,
     reset_registry_for_tests,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _SESSION_ID = "test-session-scalar"
@@ -119,11 +120,11 @@ def _seed_work_claim(db_path, item_id=1, session_id=_SESSION_ID):
     p = _p(conn)
     conn.execute(
         f"""INSERT INTO work_claims
-           (session_id, target_kind, item_id, claim_type, claimed_at,
+           (session_id, target_kind, scope, claim_type, claimed_at,
             last_heartbeat)
            VALUES ({p}, 'item', {p}, 'exclusive',
                    '2026-04-01T00:00:00Z', '2026-04-01T00:00:00Z')""",
-        (session_id, item_id),
+        (session_id, make_item_target(item_id).scope_json()),
     )
     conn.commit()
     conn.close()

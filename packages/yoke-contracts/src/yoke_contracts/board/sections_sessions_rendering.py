@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
@@ -65,18 +66,41 @@ def _claims_for_session(
     db: BoardDBLike, session_id: str, active_only: bool
 ) -> List[Tuple]:
     released_filter = "AND wc.released_at IS NULL" if active_only else ""
-    return db.query_quiet(
-        f"""
-        SELECT wc.item_id, wc.epic_id, wc.task_num, wc.claim_type,
-               wc.claimed_at, wc.released_at, wc.release_reason,
-               wc.target_kind, wc.process_key
+    params = (session_id,)
+    scope_sql = f"""
+        SELECT wc.scope, wc.claim_type, wc.claimed_at, wc.released_at,
+               wc.release_reason, wc.target_kind
         FROM work_claims wc
         WHERE wc.session_id = %s
         {released_filter}
         ORDER BY wc.claimed_at DESC
-        """,
-        (session_id,),
+        """
+    rows = db.query_quiet(
+        scope_sql,
+        params,
     )
+    claims: List[Tuple] = []
+    for row in rows:
+        raw_scope = row[0]
+        try:
+            scope = raw_scope if isinstance(raw_scope, dict) else json.loads(raw_scope)
+        except (TypeError, ValueError):
+            scope = {}
+        kind = str(row[5] or "")
+        claims.append(
+            (
+                scope.get("item_id") if kind == "item" else None,
+                scope.get("epic_id") if kind == "epic_task" else None,
+                scope.get("task_num") if kind == "epic_task" else None,
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                kind,
+                scope.get("process_key") if kind == "process" else None,
+            )
+        )
+    return claims
 
 
 def _render_lane(

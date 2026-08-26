@@ -15,7 +15,7 @@ emitted. The cleanup helper here closes both halves of that gap:
 
 Both shapes of invariant failure are covered:
 
-- Mismatched ``selected_item`` vs ``new_claim.item_id`` — release the
+- Mismatched ``selected_item`` vs ``new_claim.scope.item_id`` — release the
   exact offer-time claim and emit the event.
 - ``charge`` action without ``new_claim`` — emit the event with null
   claim fields and do not attempt a release.
@@ -38,6 +38,7 @@ from yoke_core.domain.sessions_lifecycle_release import (
 from yoke_core.api.service_client_sessions_offer_helpers import (
     validate_charge_claim_invariant,
 )
+from yoke_core.domain.work_claim_targets import item_id_from_row
 
 OFFER_INVARIANT_FAILED_REASON = "offer-invariant-failed"
 
@@ -61,7 +62,7 @@ def _release_offer_time_claim(
     """
     if not new_claim:
         return None
-    claim_item_id = new_claim.get("item_id")
+    claim_item_id = item_id_from_row(new_claim)
     if claim_item_id is None:
         return None
     try:

@@ -14,12 +14,13 @@ from yoke_core.engines.doctor_hc_work_claim_status_mismatch import (
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_core.domain.work_claim_targets import encode_scope
 
 
 _FULL_DDL = """
 CREATE TABLE work_claims (
  id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, target_kind TEXT NOT NULL,
- item_id INTEGER, epic_id INTEGER, task_num INTEGER, process_key TEXT,
+ scope TEXT NOT NULL,
  claimed_at TEXT, last_heartbeat TEXT, released_at TEXT
 );
 CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT NOT NULL);
@@ -87,17 +88,26 @@ def _seed(
         (item_id, status),
     )
     conn.execute(
-        "INSERT INTO work_claims (id, session_id, target_kind, item_id, "
-        "epic_id, task_num, process_key, claimed_at, last_heartbeat, released_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
+        "INSERT INTO work_claims (id, session_id, target_kind, scope, "
+        "claimed_at, last_heartbeat, released_at) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
         (
             claim_id,
             session_id,
             target_kind,
-            item_id if target_kind == "item" else None,
-            extra.get("epic_id"),
-            extra.get("task_num"),
-            extra.get("process_key"),
+            encode_scope(
+                {"item_id": item_id}
+                if target_kind == "item"
+                else {
+                    "epic_id": extra["epic_id"],
+                    "task_num": extra["task_num"],
+                }
+                if target_kind == "epic_task"
+                else {
+                    "process_key": extra["process_key"],
+                    "conflict_group": "doctor:test",
+                }
+            ),
             _iso_ago(5),
             _iso_ago(1),
             released_at,

@@ -142,6 +142,7 @@ class TestDaemonRetry:
         harness_family("codex")
         env_override = {
             "CODEX_THREAD_ID": "codex-session",
+            "CODEX_SESSION_ID": "",
             "YOKE_SESSION_ID": "",
             "CLAUDE_CODE_SESSION_ID": "",
         }

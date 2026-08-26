@@ -22,6 +22,7 @@ from yoke_core.domain.sessions import (
     clean_stale_harness_sessions,
     heartbeat,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 class Clock:
@@ -92,8 +93,8 @@ def test_running_command_survives_while_dead_session_is_reclaimed(conn):
     ).fetchone()
     assert live["ended_at"] is None
     live_claim = conn.execute(
-        "SELECT released_at FROM work_claims WHERE item_id=%s",
-        (810,),
+        "SELECT released_at FROM work_claims WHERE target_kind='item' AND scope=%s",
+        (make_item_target(810).scope_json(),),
     ).fetchone()
     assert live_claim["released_at"] is None
 
@@ -131,7 +132,7 @@ def test_client_poll_loop_outlives_the_stale_ttl_without_losing_claim(conn):
 
     assert result["total_reclaimed"] == 1
     live_claim = conn.execute(
-        "SELECT released_at FROM work_claims WHERE item_id=%s",
-        (810,),
+        "SELECT released_at FROM work_claims WHERE target_kind='item' AND scope=%s",
+        (make_item_target(810).scope_json(),),
     ).fetchone()
     assert live_claim["released_at"] is None

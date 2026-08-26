@@ -8,6 +8,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def rollback_workflow_binding_write_errors(function: Any) -> Any:
@@ -78,9 +79,7 @@ def lock_path_claim_workflow_binding(
     if not _table_exists(conn, "path_claims"):
         return ()
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    item_expression = (
-        "CASE WHEN owner_kind = 'item' THEN owner_item_id ELSE NULL END"
-    )
+    item_expression = "CASE WHEN owner_kind = 'item' THEN owner_item_id ELSE NULL END"
     row = conn.execute(
         f"SELECT {item_expression} AS item_id FROM path_claims WHERE id = {marker}",
         (int(claim_id),),
@@ -110,19 +109,16 @@ def lock_work_claims_workflow_bindings(
     normalized = tuple(sorted({int(claim_id) for claim_id in claim_ids}))
     if not normalized or not _table_exists(conn, "work_claims"):
         return ()
-    if not _column_exists(conn, "work_claims", "item_id"):
+    if not _column_exists(conn, "work_claims", "scope"):
         return ()
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join(marker for _ in normalized)
-    item_expression = "item_id"
-    if all(
-        _column_exists(conn, "work_claims", column)
-        for column in ("target_kind", "epic_id")
-    ):
-        item_expression = (
-            "CASE WHEN target_kind = 'item' THEN item_id "
-            "WHEN target_kind = 'epic_task' THEN epic_id ELSE NULL END"
-        )
+    item_scope = scope_int_sql(conn, "scope", "item_id")
+    epic_scope = scope_int_sql(conn, "scope", "epic_id")
+    item_expression = (
+        f"CASE WHEN target_kind = 'item' THEN {item_scope} "
+        f"WHEN target_kind = 'epic_task' THEN {epic_scope} ELSE NULL END"
+    )
     rows = conn.execute(
         f"SELECT {item_expression} AS item_id FROM work_claims "
         f"WHERE id IN ({placeholders}) ORDER BY id",

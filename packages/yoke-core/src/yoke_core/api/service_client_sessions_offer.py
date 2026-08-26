@@ -45,6 +45,7 @@ from yoke_core.api.service_client_sessions_frontier import (
     build_frontier_state_from_schedule as _build_frontier_state_from_schedule,
 )
 from yoke_core.domain.sessions_identity_read import resolve_session_identity
+from yoke_core.domain.work_claim_targets import item_id_from_row
 
 
 def _resolve_monkeypatchable(name: str):
@@ -192,7 +193,7 @@ def run_session_offer(
         # Reconcile eager offer-time claim when decision is not charge.
         _new_claim = ownership.get("new_claim")
         if _new_claim and result.action.value != "charge":
-            _override_item = _new_claim.get("item_id")
+            _override_item = item_id_from_row(_new_claim)
             if _override_item:
                 _release_result = release_item_claim_for_execution(
                     conn,

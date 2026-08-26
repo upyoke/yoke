@@ -74,10 +74,7 @@ def _terminal_owner(
                 owners.add(_Owner("item", item_id))
                 continue
             for task_row in task_rows:
-                if (
-                    str(_row_value(task_row, "status", 2))
-                    not in TASK_TERMINAL_SUCCESS
-                ):
+                if str(_row_value(task_row, "status", 2)) not in TASK_TERMINAL_SUCCESS:
                     return None
                 owners.add(
                     _Owner(
@@ -88,9 +85,10 @@ def _terminal_owner(
                 )
         if not rows:
             return None
-        if any(owner.item_id not in {
-            int(_row_value(row, "item_id", 1)) for row in rows
-        } for owner in owners):
+        if any(
+            owner.item_id not in {int(_row_value(row, "item_id", 1)) for row in rows}
+            for owner in owners
+        ):
             # A task link whose parent disagrees with the universal lane owner
             # is corrupt; pruning must preserve it for diagnosis.
             return None
@@ -106,18 +104,24 @@ def _has_active_authority(
 ) -> bool:
     """Conservatively treat lookup failure as active authority."""
     marker = _p(conn)
+    from yoke_core.domain.work_claim_targets import scope_int_sql
+
     try:
         if owner.kind == "item":
+            item_scope = scope_int_sql(conn, "scope", "item_id")
             row = conn.execute(
                 "SELECT 1 FROM work_claims WHERE released_at IS NULL "
-                f"AND target_kind = 'item' AND item_id = {marker} LIMIT 1",
+                f"AND target_kind = 'item' AND {item_scope} = {marker} LIMIT 1",
                 (owner.item_id,),
             ).fetchone()
         else:
+            epic_scope = scope_int_sql(conn, "scope", "epic_id")
+            task_scope = scope_int_sql(conn, "scope", "task_num")
             row = conn.execute(
                 "SELECT 1 FROM work_claims WHERE released_at IS NULL "
                 "AND target_kind = 'epic_task' "
-                f"AND epic_id = {marker} AND task_num = {marker} LIMIT 1",
+                f"AND {epic_scope} = {marker} "
+                f"AND {task_scope} = {marker} LIMIT 1",
                 (owner.item_id, owner.task_num),
             ).fetchone()
         if row is not None:
@@ -153,9 +157,7 @@ def registered_worktrees(
     run_git: Callable[..., Any], repo_root: str
 ) -> list[_Worktree] | None:
     """Every worktree git has registered, or ``None`` when it cannot say."""
-    result = run_git(
-        ["worktree", "list", "--porcelain"], cwd=repo_root, capture=True
-    )
+    result = run_git(["worktree", "list", "--porcelain"], cwd=repo_root, capture=True)
     if result.returncode != 0:
         return None
     entries: list[_Worktree] = []
@@ -164,9 +166,7 @@ def registered_worktrees(
         if line.startswith("worktree "):
             path = Path(line.removeprefix("worktree ")).resolve()
         elif line.startswith("branch refs/heads/") and path is not None:
-            entries.append(
-                _Worktree(path, line.removeprefix("branch refs/heads/"))
-            )
+            entries.append(_Worktree(path, line.removeprefix("branch refs/heads/")))
             path = None
         elif not line:
             path = None
@@ -288,8 +288,11 @@ def prune_managed_worktrees(
             emit(f"Preserving unmerged worktree branch: {entry.branch}")
             continue
         if not _delete_remote_before_local(
-            run_git=run_git, emit=emit, repo_root=repo_root,
-            branch=entry.branch, target=target,
+            run_git=run_git,
+            emit=emit,
+            repo_root=repo_root,
+            branch=entry.branch,
+            target=target,
         ):
             continue
         removed = run_git(
@@ -302,9 +305,7 @@ def prune_managed_worktrees(
             continue
         emit(f"Pruned terminal merged worktree: {entry.path}")
         checked_out.discard(entry.branch)
-        deleted = run_git(
-            ["branch", "-d", entry.branch], cwd=repo_root, capture=True
-        )
+        deleted = run_git(["branch", "-d", entry.branch], cwd=repo_root, capture=True)
         if deleted.returncode != 0:
             emit(f"Preserved local branch after delete refusal: {entry.branch}")
 
@@ -328,8 +329,11 @@ def prune_managed_worktrees(
         if not _merged(run_git, repo_root, branch, base):
             continue
         if not _delete_remote_before_local(
-            run_git=run_git, emit=emit, repo_root=repo_root,
-            branch=branch, target=target,
+            run_git=run_git,
+            emit=emit,
+            repo_root=repo_root,
+            branch=branch,
+            target=target,
         ):
             continue
         deleted = run_git(["branch", "-d", branch], cwd=repo_root, capture=True)

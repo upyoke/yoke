@@ -9,6 +9,10 @@ import pytest
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.work_claim_targets import (
+    make_epic_task_target,
+    make_item_target,
+)
 
 _LIVE_DDL = (
     "CREATE TABLE projects(id INTEGER PRIMARY KEY,slug TEXT UNIQUE NOT NULL);"
@@ -30,8 +34,8 @@ _LIVE_DDL = (
     "epic_id INTEGER NOT NULL,task_num INTEGER NOT NULL,file_path TEXT NOT NULL,"
     "UNIQUE(epic_id,task_num,file_path));"
     "CREATE TABLE work_claims(id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "session_id TEXT NOT NULL,target_kind TEXT NOT NULL,item_id INTEGER,"
-    "epic_id INTEGER,task_num INTEGER,released_at TEXT,claimed_at TEXT,"
+    "session_id TEXT NOT NULL,target_kind TEXT NOT NULL,scope TEXT NOT NULL,"
+    "released_at TEXT,claimed_at TEXT,"
     "last_heartbeat TEXT);"
     "CREATE TABLE epic_dispatch_chains(id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "epic_id INTEGER NOT NULL,item_worktree_id INTEGER);"
@@ -183,13 +187,12 @@ def live_db(tmp_path):
                 )
                 conn.execute(
                     "INSERT INTO work_claims"
-                    "(session_id,target_kind,epic_id,task_num,"
+                    "(session_id,target_kind,scope,"
                     "claimed_at,last_heartbeat) "
-                    f"VALUES({p},'epic_task',{p},{p},{p},{p})",
+                    f"VALUES({p},'epic_task',{p},{p},{p})",
                     (
                         kw["session_id"],
-                        kw["item_id"],
-                        task_num,
+                        make_epic_task_target(kw["item_id"], task_num).scope_json(),
                         "2026-07-28T00:00:00Z",
                         "2026-07-28T00:00:00Z",
                     ),
@@ -197,11 +200,11 @@ def live_db(tmp_path):
                 next_lane_id += 1
             conn.execute(
                 "INSERT INTO work_claims"
-                "(session_id,target_kind,item_id,claimed_at,last_heartbeat) "
+                "(session_id,target_kind,scope,claimed_at,last_heartbeat) "
                 f"VALUES({p},'item',{p},{p},{p})",
                 (
                     kw["session_id"],
-                    kw["item_id"],
+                    make_item_target(kw["item_id"]).scope_json(),
                     "2026-07-28T00:00:00Z",
                     "2026-07-28T00:00:00Z",
                 ),

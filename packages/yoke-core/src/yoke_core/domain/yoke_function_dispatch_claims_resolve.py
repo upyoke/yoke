@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.work_processes import conflict_group_for
+from yoke_core.domain.work_claim_targets import (
+    exact_match_clause,
+    make_epic_task_target,
+    make_item_target,
+    make_process_target,
+)
 
 
 def _placeholder(conn: Any) -> str:
@@ -27,7 +32,8 @@ def claim_row_for_id(claim_id: int) -> Optional[dict[str, Any]]:
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             row = conn.execute(
-                "SELECT id, session_id FROM work_claims "
+                "SELECT id, session_id, target_kind "
+                "FROM work_claims "
                 f"WHERE id = {p} AND released_at IS NULL",
                 (int(claim_id),),
             ).fetchone()
@@ -35,7 +41,12 @@ def claim_row_for_id(claim_id: int) -> Optional[dict[str, Any]]:
         return None
     if row is None:
         return None
-    return {"id": row[0], "session_id": row[1]}
+    return {
+        "id": row[0],
+        "session_id": row[1],
+        "operational_session_id": row[1],
+        "target_kind": row[2],
+    }
 
 
 def session_claim_id_for_target(
@@ -58,41 +69,29 @@ def session_claim_id_for_target(
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             if process_key:
-                group = conflict_group_for(
+                claim_target = make_process_target(
                     str(process_key).strip().upper(),
                     (project or "yoke").strip() or "yoke",
                 )
-                row = conn.execute(
-                    "SELECT id FROM work_claims "
-                    f"WHERE session_id = {p} AND target_kind = 'process' "
-                    f"AND process_key = {p} AND conflict_group = {p} "
-                    "AND released_at IS NULL "
-                    "ORDER BY id DESC LIMIT 1",
-                    (actor_session, str(process_key).strip().upper(), group),
-                ).fetchone()
             elif target.kind == "item" and target.item_id is not None:
-                row = conn.execute(
-                    "SELECT id FROM work_claims "
-                    f"WHERE session_id = {p} AND target_kind = 'item' "
-                    f"AND item_id = {p} AND released_at IS NULL "
-                    "ORDER BY id DESC LIMIT 1",
-                    (actor_session, int(target.item_id)),
-                ).fetchone()
+                claim_target = make_item_target(int(target.item_id))
             elif (
                 target.kind == "epic_task"
                 and target.epic_id is not None
                 and target.task_num is not None
             ):
-                row = conn.execute(
-                    "SELECT id FROM work_claims "
-                    f"WHERE session_id = {p} AND target_kind = 'epic_task' "
-                    f"AND epic_id = {p} AND task_num = {p} "
-                    "AND released_at IS NULL "
-                    "ORDER BY id DESC LIMIT 1",
-                    (actor_session, int(target.epic_id), int(target.task_num)),
-                ).fetchone()
+                claim_target = make_epic_task_target(
+                    int(target.epic_id), int(target.task_num)
+                )
             else:
                 return None
+            match, params = exact_match_clause(conn, claim_target)
+            row = conn.execute(
+                "SELECT id FROM work_claims "
+                f"WHERE session_id = {p} AND {match} "
+                "AND released_at IS NULL ORDER BY id DESC LIMIT 1",
+                (actor_session, *params),
+            ).fetchone()
     except Exception:
         return None
     if row is None:

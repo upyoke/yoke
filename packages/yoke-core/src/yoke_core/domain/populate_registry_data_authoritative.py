@@ -31,7 +31,12 @@ from yoke_core.domain.populate_registry_data_lifecycle import (  # noqa: F401
     EXPECTED_LOW_CADENCE_ACTIVE,
     PURGED_EVENT_NAMES,
 )
+from yoke_core.domain.sessions_lifecycle_claim_events import (
+    EVENT_STEERING_CLAIMED,
+    EVENT_STEERING_RELEASED,
+)
 
+# fmt: off
 # Authoritative metadata layer — see module docstring for ordering and apply contract.
 AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("AdapterDispatchChosen", "workflow", "adapter_dispatch", "cli", "INFO", "Emitted when a downstream adapter path is chosen for charge/resume"),
@@ -166,6 +171,8 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("HookExecutionFailed", "system", "hook_execution_failure", "yoke_core.hooks", "WARN", "Runner-native event emitted when a hook chain step fails (import error, missing evaluate, subprocess timeout, decode error, exception, or nonzero exit). Carries module, hook_event, executor, failure, session_id, item_id, tool_name, duration_ms."),
     ("HookGuardrailEvaluated", "system", "hook_guardrail_evaluated", "yoke_core.hooks", "DEBUG", "Runner-native per-chain-step event recording one guardrail evaluation. Carries module, hook_event, executor, decision_outcome, session_id, item_id, tool_name, duration_ms. DEBUG severity: highest-volume event in the system and redundant with HookDispatchTelemetry (per-invocation aggregate) + HarnessToolCallDenied/HookExecutionFailed (WARN); dropped at the default INFO write floor, capturable on demand by lowering severity_config to DEBUG. Suppression-token audit evidence rides on HarnessToolCallDenied with event_outcome='suppression_attempted'."),
     ("VerdictRendered", "workflow", "verdict_rendered", "shepherd", "STATUS", "Shepherd verdict rendered (emitted from shepherd_verdicts)"),
+    (EVENT_STEERING_CLAIMED, "lifecycle", "steering_claim", "yoke_core.domain.steering_claims", "INFO", "A session acquired the steering seat for one project."),
+    (EVENT_STEERING_RELEASED, "lifecycle", "steering_claim", "yoke_core.domain.steering_claims", "INFO", "A session-owned project steering claim was released normally or reclaimed."),
     ("WorkClaimed", "system", "session_lifecycle", "api", "INFO", "A work unit was claimed by a session"),
     ("WorkHandedOff", "system", "session_lifecycle", "api", "INFO", "A work claim has been handed off from one session to another"),
     ("WorktreeHandoffEmitted", "lifecycle", "worktree_handoff", "yoke_core.domain.worktree_handoff", "STATUS", "RETIRED — parent-stop semantics replaced by per-call claim-based lint authority; worktree creation is no longer a session boundary."),

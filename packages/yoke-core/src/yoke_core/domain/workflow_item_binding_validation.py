@@ -21,6 +21,7 @@ from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
     TARGET_KIND_PROCESS,
+    TARGET_KIND_STEERING,
     WorkClaimTarget,
 )
 
@@ -83,7 +84,7 @@ def item_binding_runtime_state(
 
 def validate_work_claim_target(conn: Any, target: WorkClaimTarget) -> None:
     """Validate an item/task claim against current ownership policy."""
-    if target.kind == TARGET_KIND_PROCESS:
+    if target.kind in {TARGET_KIND_PROCESS, TARGET_KIND_STEERING}:
         return
     item_id = target.item_id if target.kind == TARGET_KIND_ITEM else target.epic_id
     state = item_binding_runtime_state(conn, int(item_id))

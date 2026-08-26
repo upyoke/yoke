@@ -37,6 +37,7 @@ from yoke_core.domain.sessions import (
 from yoke_core.domain.sessions_lifecycle_reactivation_claims import (
     auto_reacquire_session_ended_claims,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @pytest.fixture
@@ -182,10 +183,12 @@ class TestInFlightSweepAndScheduler:
 
         clean_stale_harness_sessions(c)
 
+        target = make_item_target(9101)
         row = c.execute(
             "SELECT released_at, release_reason FROM work_claims "
-            "WHERE session_id = 'live-worker' AND item_id = 9101 "
-            "ORDER BY id DESC LIMIT 1"
+            "WHERE session_id = 'live-worker' AND target_kind = %s "
+            "AND scope = %s ORDER BY id DESC LIMIT 1",
+            (target.kind, target.scope_json()),
         ).fetchone()
         assert row["released_at"] is None
         assert row["release_reason"] is None
@@ -238,9 +241,12 @@ class TestInFlightSweepAndScheduler:
 
         clean_stale_harness_sessions(c)
 
+        target = make_item_target(9103)
         row = c.execute(
             "SELECT released_at,release_reason FROM work_claims "
-            "WHERE session_id='abandoned-worker' AND item_id=9103"
+            "WHERE session_id='abandoned-worker' AND target_kind = %s "
+            "AND scope = %s",
+            (target.kind, target.scope_json()),
         ).fetchone()
         assert row["released_at"] is not None
         assert row["release_reason"] == "reclaimed"
@@ -268,11 +274,14 @@ class TestReclaimedClaimReactivation:
 
         assert conflicts == []
         assert len(reacquired) == 1
-        assert reacquired[0]["item_id"] == 9102
+        assert reacquired[0]["target_kind"] == "item"
+        assert reacquired[0]["scope"] == {"item_id": 9102}
+        target = make_item_target(9102)
         active = c.execute(
             "SELECT COUNT(*) AS n FROM work_claims "
-            "WHERE session_id = 'resume-worker' AND item_id = 9102 "
-            "AND released_at IS NULL"
+            "WHERE session_id = 'resume-worker' AND target_kind = %s "
+            "AND scope = %s AND released_at IS NULL",
+            (target.kind, target.scope_json()),
         ).fetchone()
         assert int(active["n"] if hasattr(active, "keys") else active[0]) == 1
 

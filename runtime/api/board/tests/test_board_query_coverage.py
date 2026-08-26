@@ -25,15 +25,16 @@ from yoke_core.board.db import BoardDB
 from yoke_core.board.renderer import _assemble
 from runtime.api.board.tests.helpers import insert_item, insert_task
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 QueryIdentity = tuple[str, str, str]
 
-# This is the frozen version-1 query plan, excluding reads that already carry
+# This is the frozen version-2 query plan, excluding reads that already carry
 # a payload-coverage probe. Do not refresh it for an ordinary query change:
 # add a has_query/has_query_quiet fallback instead. A data-version bump is the
 # boundary that may deliberately replace this baseline.
-_UNGUARDED_V1_FINGERPRINTS = frozenset(
+_UNGUARDED_V2_FINGERPRINTS = frozenset(
     """
 0fa286506e2c42a3fa9e391401af38e616135903aa1eab25b4cce61474f5a228
 24f55081286881f2007f337d28690652586bf2e8c0e46251e813a4bc11a7fa8d
@@ -58,6 +59,8 @@ _UNGUARDED_V1_FINGERPRINTS = frozenset(
 a1d844952f3952ef7750861612dc77efd1d2f01a9e611efaf2d01967d30874ed
 a290bbaa0c634437fe063b7de2eb6ae3923b301d3d7acf31bc0fa41c0cd969b6
 a5b8e2e6c28a0b131487edcc25089d935edb15b787993414e43f1b81367a8f6f
+a507544d5fd204dd58d61fdf75fb503eb72200410b90d3ac1650ac61c3f75893
+b54e190f596c58d8082c4312911ba7382e5c9ab1f5d12975ae7838ff7866f217
 bc5e196a6811af1eb718cfa0980475f2c1e38dc5e286b3daed6e6b4c193f8007
 bfcc6c0acbbe3c45cc6edbe9c402118f148ccacd77fbed147bdf0870263e8d66
 c7501216013d2ab7f3c27ce59ff5151a951cfb88f1c0e54aae07b98bbdc450f1
@@ -151,15 +154,16 @@ def representative_board_db(tmp_path):
                     "8101",
                 ),
             )
+            target = make_item_target(8101)
             conn.execute(
                 "INSERT INTO work_claims "
-                "(id, session_id, target_kind, item_id, claimed_at, last_heartbeat) "
+                "(id, session_id, target_kind, scope, claimed_at, last_heartbeat) "
                 "VALUES (%s, %s, %s, %s, %s, %s)",
                 (
                     8101,
                     "coverage-session",
-                    "item",
-                    8101,
+                    target.kind,
+                    target.scope_json(),
                     "2026-08-18T12:00:00Z",
                     "2026-08-18T12:01:00Z",
                 ),
@@ -241,13 +245,13 @@ def test_board_query_changes_require_a_replay_fallback(
     uncovered = {
         identity
         for identity in unguarded
-        if _query_fingerprint(identity) not in _UNGUARDED_V1_FINGERPRINTS
+        if _query_fingerprint(identity) not in _UNGUARDED_V2_FINGERPRINTS
     }
 
     assert not uncovered, (
         "The board render plan issued a new or changed read without a payload-"
         "coverage probe. Guard it with has_query/has_query_quiet and serve a "
-        "recorded fallback; do not refresh the version-1 baseline. After merge, "
+        "recorded fallback; do not refresh the version-2 baseline. After merge, "
         "run `yoke board rebuild --force --json` and check `result.status`.\n\n"
         + _describe(uncovered)
         + "\n\nCurrent unguarded fingerprints:\n"

@@ -10,6 +10,7 @@ from yoke_core.domain.sessions import (
     claim_work,
     clean_stale_harness_sessions,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     _now_literal,
@@ -73,7 +74,9 @@ class TestCleanStaleHarnessSessions:
         ).fetchone()
         assert row["ended_at"] is not None
         claim_row = conn.execute(
-            "SELECT release_reason FROM work_claims WHERE item_id = '100'",
+            "SELECT release_reason FROM work_claims "
+            "WHERE target_kind='item' AND scope = %s",
+            (make_item_target(100).scope_json(),),
         ).fetchone()
         assert claim_row["release_reason"] == "reclaimed"
 
@@ -336,7 +339,9 @@ class TestCleanStaleHarnessSessions:
         assert sess_row["ended_at"] is None
 
         claim_row = c.execute(
-            "SELECT released_at, release_reason FROM work_claims WHERE item_id = 700",
+            "SELECT released_at, release_reason FROM work_claims "
+            "WHERE target_kind='item' AND scope = %s",
+            (make_item_target(700).scope_json(),),
         ).fetchone()
         assert claim_row["released_at"] is None
         assert claim_row["release_reason"] is None

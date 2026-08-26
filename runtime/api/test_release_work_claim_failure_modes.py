@@ -30,6 +30,7 @@ from yoke_core.domain.sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_ITEM_NOT_FOUND,
     RELEASE_FAILURE_NOT_OWNED,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.test_sessions import (
     _insert_claimable_items,
     _register,
@@ -76,7 +77,10 @@ class TestReleaseFailureModes:
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             result = release_item_claim_for_execution(
-                conn, intruder_sid, item_id, "handoff-to-polish",
+                conn,
+                intruder_sid,
+                item_id,
+                "handoff-to-polish",
             )
 
         assert result["released"] is False
@@ -98,8 +102,8 @@ class TestReleaseFailureModes:
         # Original claim untouched.
         row = conn.execute(
             "SELECT released_at FROM work_claims WHERE session_id=%s "
-            "AND item_id='700'",
-            (owner_sid,),
+            "AND target_kind='item' AND scope=%s",
+            (owner_sid, make_item_target(item_id).scope_json()),
         ).fetchone()
         assert row["released_at"] is None
 
@@ -110,7 +114,10 @@ class TestReleaseFailureModes:
         claim_work(conn, session_id=owner_sid, item_id=item_id)
         # First release succeeds.
         first = release_item_claim_for_execution(
-            conn, owner_sid, item_id, "finalize-exit",
+            conn,
+            owner_sid,
+            item_id,
+            "finalize-exit",
         )
         assert first["released"] is True
 
@@ -118,7 +125,10 @@ class TestReleaseFailureModes:
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             second = release_item_claim_for_execution(
-                conn, owner_sid, item_id, "finalize-exit",
+                conn,
+                owner_sid,
+                item_id,
+                "finalize-exit",
             )
 
         assert second["released"] is False
@@ -138,7 +148,10 @@ class TestReleaseFailureModes:
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             result = release_item_claim_for_execution(
-                conn, sid, item_id, "handoff-to-usher",
+                conn,
+                sid,
+                item_id,
+                "handoff-to-usher",
             )
 
         assert result["released"] is False
@@ -159,7 +172,10 @@ class TestReleaseFailureModes:
             "yoke_core.domain.sessions_analytics._emit_event",
         ) as mock_emit:
             result = release_item_claim_for_execution(
-                conn, owner_sid, item_id, "handoff-to-polish",
+                conn,
+                owner_sid,
+                item_id,
+                "handoff-to-polish",
             )
 
         assert result["released"] is True
@@ -181,19 +197,20 @@ class TestReleaseNewestActiveClaim:
         item_id = 730
         _register(conn, session_id=owner_sid)
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, "
+            "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, "
             "claimed_at, last_heartbeat, released_at, release_reason, reason) "
             "VALUES (%s, 'item', %s, 'exclusive', "
             "'2026-08-10T12:00:00Z', '2026-08-10T12:00:00Z', "
             "'2026-08-10T12:30:00Z', 'released', 'draft-in-progress')",
-            (owner_sid, item_id),
+            (owner_sid, make_item_target(item_id).scope_json()),
         )
         conn.commit()
         older_id = int(
             conn.execute(
-                "SELECT id FROM work_claims WHERE session_id=%s AND item_id=%s "
+                "SELECT id FROM work_claims WHERE session_id=%s "
+                "AND target_kind='item' AND scope=%s "
                 "AND released_at IS NOT NULL ORDER BY id ASC LIMIT 1",
-                (owner_sid, item_id),
+                (owner_sid, make_item_target(item_id).scope_json()),
             ).fetchone()[0]
         )
         active = claim_work(conn, session_id=owner_sid, item_id=item_id)
@@ -201,7 +218,10 @@ class TestReleaseNewestActiveClaim:
         assert newer_id > older_id
 
         result = release_item_claim_for_execution(
-            conn, owner_sid, item_id, "handoff-to-polish",
+            conn,
+            owner_sid,
+            item_id,
+            "handoff-to-polish",
         )
 
         assert result["released"] is True

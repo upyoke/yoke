@@ -27,6 +27,7 @@ from yoke_core.domain.strategy_execution import (
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 ITEM_ID = 2081
@@ -308,8 +309,9 @@ def test_terminal_cleanup_strategy_claim_rolls_back_with_status(test_db) -> None
         (ITEM_ID,),
     ).fetchone()
     work_claim = test_db.execute(
-        "SELECT released_at FROM work_claims WHERE item_id=%s AND session_id=%s",
-        (ITEM_ID, SESSION_ID),
+        "SELECT released_at FROM work_claims "
+        "WHERE target_kind='item' AND scope=%s AND session_id=%s",
+        (make_item_target(ITEM_ID).scope_json(), SESSION_ID),
     ).fetchone()
     restored_claim = active_strategy_doc_claim(test_db, item_id=ITEM_ID)
     assert str(status[0]) == "implementing"

@@ -173,8 +173,9 @@ def test_reactivation_does_not_restore_a_claim_disallowed_by_new_pin(
     )
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM work_claims WHERE epic_id=%s AND released_at IS NULL",
-            (item_id,),
+            "SELECT COUNT(*) FROM work_claims "
+            "WHERE target_kind='epic_task' AND scope=%s AND released_at IS NULL",
+            (make_epic_task_target(item_id, 1).scope_json(),),
         ).fetchone()[0]
         == 0
     )

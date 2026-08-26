@@ -16,7 +16,12 @@ from .workflow_item_binding_validation import (
     WorkflowItemBindingError,
     validate_work_claim_target,
 )
-from .work_claim_targets import from_row as work_claim_target_from_row
+from .work_claim_targets import (
+    TARGET_KIND_STEERING,
+    conflict_match_clause,
+    exact_match_clause,
+    from_row as work_claim_target_from_row,
+)
 
 DEFAULT_REACQUIRE_WINDOW_S = 300
 REACTIVATION_RELEASE_REASONS = ("session_ended", "reclaimed")
@@ -55,82 +60,31 @@ def _resolve_reacquire_window_s(override_s: Optional[int] = None) -> int:
 
 def target_descriptor(row: Any) -> Dict[str, Any]:
     """Render the stable event descriptor for one claim target row."""
-    entry: Dict[str, Any] = {"target_kind": row["target_kind"]}
-    if row["item_id"] is not None:
-        entry["item_id"] = row["item_id"]
-    if row["epic_id"] is not None:
-        entry["epic_id"] = row["epic_id"]
-    if row["task_num"] is not None:
-        entry["task_num"] = row["task_num"]
-    if row["process_key"] is not None:
-        entry["process_key"] = row["process_key"]
-    if row["conflict_group"] is not None:
-        entry["conflict_group"] = row["conflict_group"]
-    return entry
+    target = work_claim_target_from_row(dict(row))
+    return {"target_kind": target.kind, "scope": dict(target.scope)}
 
 
 def _target_key(row: Any) -> Tuple[Any, ...]:
-    return (
-        row["target_kind"],
-        row["item_id"],
-        row["epic_id"],
-        row["task_num"],
-        row["process_key"],
-        row["conflict_group"],
-    )
+    target = work_claim_target_from_row(dict(row))
+    return (target.kind, target.scope_json())
 
 
 def _conflict_holder(conn: Any, row: Any) -> Tuple[Optional[str], bool]:
     """Return ``(other_holder, self_already_active)`` for this target."""
-    target_kind = row["target_kind"]
-    sql = (
-        "SELECT session_id FROM work_claims "
-        "WHERE released_at IS NULL AND target_kind = %s"
-    )
-    params: List[Any] = [target_kind]
-    if target_kind == "item":
-        sql += " AND item_id = %s AND session_id <> %s"
-        params.extend([row["item_id"], row["session_id"]])
-    elif target_kind == "epic_task":
-        sql += " AND epic_id = %s AND task_num = %s AND session_id <> %s"
-        params.extend([row["epic_id"], row["task_num"], row["session_id"]])
-    elif target_kind == "process":
-        sql += " AND process_key = %s AND conflict_group = %s AND session_id <> %s"
-        params.extend(
-            [
-                row["process_key"],
-                row["conflict_group"],
-                row["session_id"],
-            ]
-        )
-    else:
-        return None, False
-    hit = conn.execute(sql + " LIMIT 1", tuple(params)).fetchone()
+    target = work_claim_target_from_row(dict(row))
+    conflict_sql, conflict_params = conflict_match_clause(conn, target)
+    hit = conn.execute(
+        "SELECT session_id FROM work_claims WHERE released_at IS NULL "
+        f"AND {conflict_sql} AND session_id <> %s LIMIT 1",
+        (*conflict_params, row["session_id"]),
+    ).fetchone()
     if hit:
         return hit["session_id"], False
-
-    self_sql = (
-        "SELECT 1 FROM work_claims WHERE released_at IS NULL AND target_kind = %s"
-    )
-    self_params: List[Any] = [target_kind]
-    if target_kind == "item":
-        self_sql += " AND item_id = %s AND session_id = %s"
-        self_params.extend([row["item_id"], row["session_id"]])
-    elif target_kind == "epic_task":
-        self_sql += " AND epic_id = %s AND task_num = %s AND session_id = %s"
-        self_params.extend([row["epic_id"], row["task_num"], row["session_id"]])
-    else:
-        self_sql += " AND process_key = %s AND conflict_group = %s AND session_id = %s"
-        self_params.extend(
-            [
-                row["process_key"],
-                row["conflict_group"],
-                row["session_id"],
-            ]
-        )
+    self_sql, self_params = exact_match_clause(conn, target)
     active_self = conn.execute(
-        self_sql + " LIMIT 1",
-        tuple(self_params),
+        "SELECT 1 FROM work_claims WHERE released_at IS NULL "
+        f"AND {self_sql} AND session_id = %s LIMIT 1",
+        (*self_params, row["session_id"]),
     ).fetchone()
     return None, active_self is not None
 
@@ -144,10 +98,10 @@ def _insert_reacquired_claim(conn: Any, row: Any, *, now_iso: str) -> int:
     )
     cursor = conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, epic_id, task_num, "
-        f" process_key, conflict_group, claim_type, claimed_at, last_heartbeat{reason_cols}) "
-        "SELECT %s, target_kind, item_id, epic_id, task_num, "
-        f"       process_key, conflict_group, 'exclusive', %s, %s{reason_cols} "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat"
+        f"{reason_cols}) "
+        "SELECT %s, target_kind, scope, 'exclusive', %s, %s"
+        f"{reason_cols} "
         "FROM work_claims WHERE id = %s "
         "RETURNING id",
         (row["session_id"], now_iso, now_iso, row["id"]),
@@ -158,8 +112,8 @@ def _insert_reacquired_claim(conn: Any, row: Any, *, now_iso: str) -> int:
 
 def _released_claim_rows(conn: Any, session_id: str) -> list[Any]:
     return conn.execute(
-        "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-        "process_key, conflict_group, released_at, release_reason FROM work_claims "
+        "SELECT id, session_id, target_kind, scope, released_at, release_reason "
+        "FROM work_claims "
         "WHERE session_id = %s AND release_reason IN "
         f"{_REACTIVATION_REASON_SQL} "
         "AND released_at IS NOT NULL ORDER BY id DESC",
@@ -196,6 +150,16 @@ def auto_reacquire_session_ended_claims(
             conn.commit()
         return [], []
 
+    from .steering_claims import lock_project
+
+    for project_id in sorted(
+        {
+            int(work_claim_target_from_row(dict(row)).project_id)
+            for row in rows
+            if row["target_kind"] == TARGET_KIND_STEERING
+        }
+    ):
+        lock_project(conn, project_id)
     lock_work_claims_workflow_bindings(
         conn,
         (int(row["id"]) for row in rows),

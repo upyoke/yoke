@@ -22,6 +22,7 @@ from runtime.api.test_constants import TEST_MODEL_ID
 from runtime.api.test_service_client_sessions_helpers import (
     session_offer_db,  # noqa: F401 - re-exported fixture
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _iso_now() -> str:
@@ -46,15 +47,17 @@ def _seed_session(conn: Any, session_id: str) -> None:
 
 
 def _seed_offer_time_claim(
-    conn: Any, session_id: str, item_id: int,
+    conn: Any,
+    session_id: str,
+    item_id: int,
 ) -> int:
     now = _iso_now()
     cur = conn.execute(
         """INSERT INTO work_claims
-            (session_id, target_kind, item_id, claim_type,
+            (session_id, target_kind, scope, claim_type,
              claimed_at, last_heartbeat)
             VALUES (%s, 'item', %s, 'exclusive', %s, %s) RETURNING id""",
-        (session_id, item_id, now, now),
+        (session_id, make_item_target(item_id).scope_json(), now, now),
     )
     claim_id = int(cur.fetchone()[0])
     conn.commit()
@@ -80,10 +83,12 @@ def _make_charge_action(
 
 
 def _active_claim_count(conn: Any, session_id: str, item_id: int) -> int:
+    target = make_item_target(item_id)
     return conn.execute(
         "SELECT COUNT(*) FROM work_claims "
-        "WHERE session_id=%s AND item_id=%s AND released_at IS NULL",
-        (session_id, item_id),
+        "WHERE session_id=%s AND target_kind=%s AND scope=%s "
+        "AND released_at IS NULL",
+        (session_id, target.kind, target.scope_json()),
     ).fetchone()[0]
 
 
@@ -131,7 +136,7 @@ def test_mismatched_claim_releases_exact_claim_and_emits_event(invariant_db):
                 wrong_selected,
                 {"selected_item": wrong_selected, "next_step": "advance"},
             ),
-            new_claim={"id": claim_id, "item_id": held_item_id},
+            new_claim={"id": claim_id, **make_item_target(held_item_id).descriptor()},
             ownership={
                 "chain_skip_memory": [
                     {"item_id": held_item_id, "reason": "irrelevant", "chain_step": 1},
@@ -154,7 +159,11 @@ def test_mismatched_claim_releases_exact_claim_and_emits_event(invariant_db):
     assert ctx["action"] == "charge"
     assert ctx["selected_item"] == wrong_selected
     assert ctx["schedule_selected_item"] == wrong_selected
-    assert ctx["new_claim"] == {"claim_id": claim_id, "item_id": held_item_id}
+    assert ctx["new_claim"] == {
+        "claim_id": claim_id,
+        "target_kind": "item",
+        "scope": {"item_id": held_item_id},
+    }
     assert ctx["surface"] == CLI_SURFACE
     assert ctx["invariant_message"] == err
     assert ctx["retry_skip_summary"] == [
@@ -203,7 +212,7 @@ def test_matching_claim_passes_through_without_event_or_release(invariant_db):
             conn,
             session_id=sid,
             result=_make_charge_action(f"YOK-{held_item_id}"),
-            new_claim={"id": claim_id, "item_id": held_item_id},
+            new_claim={"id": claim_id, **make_item_target(held_item_id).descriptor()},
             ownership={"chain_skip_memory": []},
             surface=CLI_SURFACE,
         )
@@ -217,5 +226,8 @@ def test_matching_claim_passes_through_without_event_or_release(invariant_db):
 
 
 def test_event_registered_in_authoritative_table():
-    from yoke_core.domain.populate_registry_data_authoritative import AUTHORITATIVE_METADATA
+    from yoke_core.domain.populate_registry_data_authoritative import (
+        AUTHORITATIVE_METADATA,
+    )
+
     assert "SessionOfferInvariantFailed" in {row[0] for row in AUTHORITATIVE_METADATA}

@@ -17,6 +17,7 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     load_item_workflow_runtime,
 )
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 @dataclass(frozen=True)
@@ -53,11 +54,13 @@ def ensure_item_accepts_active_resources(conn: Any, item_id: int) -> None:
 def _lock_active_work_claims(conn: Any, item_id: int) -> list[dict[str, Any]]:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+    item_scope = scope_int_sql(conn, "scope", "item_id")
+    epic_scope = scope_int_sql(conn, "scope", "epic_id")
     cursor = conn.execute(
-        "SELECT id, session_id, target_kind, item_id, epic_id, task_num "
+        "SELECT id, session_id, target_kind, scope "
         "FROM work_claims WHERE released_at IS NULL AND "
-        f"((target_kind='item' AND item_id={marker}) OR "
-        f"(target_kind='epic_task' AND epic_id={marker})) "
+        f"((target_kind='item' AND {item_scope}={marker}) OR "
+        f"(target_kind='epic_task' AND {epic_scope}={marker})) "
         f"ORDER BY id{suffix}",
         (int(item_id), int(item_id)),
     )

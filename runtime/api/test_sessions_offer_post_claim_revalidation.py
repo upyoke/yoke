@@ -33,6 +33,7 @@ from yoke_core.domain.scheduler_skip_reasons import (
 from yoke_core.domain.sessions_lifecycle import claim_work as _real_claim_work
 from yoke_core.domain.sessions_offer import session_offer_with_ownership
 from yoke_core.domain.sessions_queries_chain import read_chain_skip_memory
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.routed_ownership_test_helpers import (
     SESSION_A,
     SYNTHETIC_ITEM_ID,
@@ -80,15 +81,17 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
         self.assertEqual(offer.get("action_hint"), "charge")
         new_claim = offer.get("new_claim")
         self.assertIsNotNone(new_claim)
-        self.assertEqual(str(new_claim.get("item_id")), str(SYNTHETIC_ITEM_ID))
+        self.assertEqual(new_claim["scope"], {"item_id": SYNTHETIC_ITEM_ID})
 
         skip_memory = read_chain_skip_memory(conn, SESSION_A)
         post_claim_entries = [
-            e for e in skip_memory
+            e
+            for e in skip_memory
             if e.get("skip_reason") == SKIP_REASON_STALE_LIFECYCLE_POST_CLAIM
         ]
         self.assertEqual(
-            post_claim_entries, [],
+            post_claim_entries,
+            [],
             "No drift means no post-claim stale skip should be recorded.",
         )
 
@@ -113,7 +116,8 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
             offer = _offer(conn)
 
         self.assertEqual(
-            offer.get("action_hint"), "no_work",
+            offer.get("action_hint"),
+            "no_work",
             "Drift on the only candidate should produce no_work.",
         )
         self.assertIsNone(
@@ -121,20 +125,23 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
             "Just-acquired claim must be released on post-claim drift.",
         )
 
+        target = make_item_target(SYNTHETIC_ITEM_ID)
         rows = conn.execute(
             "SELECT id FROM work_claims WHERE session_id = %s "
-            "AND target_kind='item' AND item_id = %s "
+            "AND target_kind = %s AND scope = %s "
             "AND released_at IS NULL",
-            (SESSION_A, SYNTHETIC_ITEM_ID),
+            (SESSION_A, target.kind, target.scope_json()),
         ).fetchall()
         self.assertEqual(
-            len(rows), 0,
+            len(rows),
+            0,
             "Post-claim stale must release the acquired claim row.",
         )
 
         skip_memory = read_chain_skip_memory(conn, SESSION_A)
         post_claim_entries = [
-            e for e in skip_memory
+            e
+            for e in skip_memory
             if e.get("skip_reason") == SKIP_REASON_STALE_LIFECYCLE_POST_CLAIM
         ]
         self.assertEqual(len(post_claim_entries), 1)
@@ -143,7 +150,8 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
         self.assertEqual(entry["current_status"], "reviewed-implementation")
         self.assertEqual(entry["chain_step"], 1)
         self.assertIn(
-            "claim_id", entry,
+            "claim_id",
+            entry,
             "Post-claim skip entry must carry the released claim_id.",
         )
 
@@ -163,6 +171,7 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         register_live_session(conn, SESSION_A)
 
         from yoke_core.domain import sessions_offer_candidates
+
         original_recompute_and_pin = (
             sessions_offer_candidates.recompute_and_pin_for_claim
         )
@@ -171,12 +180,14 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         def _spy(*args, **kwargs):
             captured["acquired_item_id"] = kwargs["candidate"].item_id
             result_schedule, pinned = original_recompute_and_pin(
-                *args, **kwargs,
+                *args,
+                **kwargs,
             )
             captured["pinned"] = pinned
             captured["selected_after_pin"] = (
                 result_schedule.selected_step.item_id
-                if result_schedule.selected_step else None
+                if result_schedule.selected_step
+                else None
             )
             return result_schedule, pinned
 
@@ -205,35 +216,44 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         self.assertEqual(offer.get("action_hint"), "charge")
         new_claim = offer.get("new_claim")
         self.assertIsNotNone(new_claim)
-        self.assertEqual(
-            str(new_claim.get("item_id")), str(SYNTHETIC_ITEM_ID),
-        )
+        self.assertEqual(new_claim["scope"], {"item_id": SYNTHETIC_ITEM_ID})
 
     def test_pin_helper_returns_false_when_acquired_item_missing(self) -> None:
         """pin_schedule_to_acquired_item returns False when
         the acquired item is absent from the recomputed ranked_steps."""
         from yoke_core.domain.scheduler_types import (
-            ClaimState, NextStep, ScheduledStep, SchedulerResult,
+            ClaimState,
+            NextStep,
+            ScheduledStep,
+            SchedulerResult,
         )
         from yoke_core.domain.sessions_offer_claim_pin import (
             pin_schedule_to_acquired_item,
         )
 
         step_other = ScheduledStep(
-            item_id="YOK-9998", workflow_id="issue",
-            workflow_version_id=1, workflow_version=1, status="refined-idea",
-            title="Other", priority="medium",
-            next_step=NextStep.ADVANCE, rank=0,
-            claim_state=ClaimState.UNCLAIMED, adapter="conduct",
+            item_id="YOK-9998",
+            workflow_id="issue",
+            workflow_version_id=1,
+            workflow_version=1,
+            status="refined-idea",
+            title="Other",
+            priority="medium",
+            next_step=NextStep.ADVANCE,
+            rank=0,
+            claim_state=ClaimState.UNCLAIMED,
+            adapter="conduct",
         )
         schedule = SchedulerResult(
-            ranked_steps=[step_other], selected_step=step_other,
+            ranked_steps=[step_other],
+            selected_step=step_other,
         )
 
         # Acquired item missing -> pin returns False.
         self.assertFalse(
             pin_schedule_to_acquired_item(
-                schedule, acquired_item_id="YOK-9999",
+                schedule,
+                acquired_item_id="YOK-9999",
             )
         )
         # selected_step unchanged.
@@ -243,33 +263,50 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         """pin_schedule_to_acquired_item rewrites
         selected_step to the matching ranked entry."""
         from yoke_core.domain.scheduler_types import (
-            ClaimState, NextStep, ScheduledStep, SchedulerResult,
+            ClaimState,
+            NextStep,
+            ScheduledStep,
+            SchedulerResult,
         )
         from yoke_core.domain.sessions_offer_claim_pin import (
             pin_schedule_to_acquired_item,
         )
 
         step_a = ScheduledStep(
-            item_id="YOK-9998", workflow_id="issue",
-            workflow_version_id=1, workflow_version=1, status="refined-idea",
-            title="A", priority="medium",
-            next_step=NextStep.ADVANCE, rank=0,
-            claim_state=ClaimState.UNCLAIMED, adapter="conduct",
+            item_id="YOK-9998",
+            workflow_id="issue",
+            workflow_version_id=1,
+            workflow_version=1,
+            status="refined-idea",
+            title="A",
+            priority="medium",
+            next_step=NextStep.ADVANCE,
+            rank=0,
+            claim_state=ClaimState.UNCLAIMED,
+            adapter="conduct",
         )
         step_b = ScheduledStep(
-            item_id="YOK-9999", workflow_id="issue",
-            workflow_version_id=1, workflow_version=1, status="refined-idea",
-            title="B", priority="medium",
-            next_step=NextStep.ADVANCE, rank=1,
-            claim_state=ClaimState.UNCLAIMED, adapter="conduct",
+            item_id="YOK-9999",
+            workflow_id="issue",
+            workflow_version_id=1,
+            workflow_version=1,
+            status="refined-idea",
+            title="B",
+            priority="medium",
+            next_step=NextStep.ADVANCE,
+            rank=1,
+            claim_state=ClaimState.UNCLAIMED,
+            adapter="conduct",
         )
         schedule = SchedulerResult(
-            ranked_steps=[step_a, step_b], selected_step=step_a,
+            ranked_steps=[step_a, step_b],
+            selected_step=step_a,
         )
 
         self.assertTrue(
             pin_schedule_to_acquired_item(
-                schedule, acquired_item_id="YOK-9999",
+                schedule,
+                acquired_item_id="YOK-9999",
             )
         )
         self.assertEqual(schedule.selected_step.item_id, "YOK-9999")

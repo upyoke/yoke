@@ -41,6 +41,7 @@ from yoke_core.domain.yoke_function_registry import (
     register,
     reset_registry_for_tests,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _SESSION_ID = "test-session-lifecycle"
@@ -82,7 +83,9 @@ def registered_lifecycle(test_db):
         register(**entry)
     p_event = patch.object(events_module, "emit_event")
     p_idem = patch.object(
-        dispatch_module, "_idempotency_lookup", return_value=None,
+        dispatch_module,
+        "_idempotency_lookup",
+        return_value=None,
     )
     p_event.start()
     p_idem.start()
@@ -107,7 +110,9 @@ def _post_lifecycle(test_db, envelope, claim_row=_UNSET):
     """
     target = _claim_held() if claim_row is _UNSET else claim_row
     with patch.object(
-        claims_module, "who_claims_for_item", return_value=target,
+        claims_module,
+        "who_claims_for_item",
+        return_value=target,
     ):
         with _client_for_db(test_db["db_path"]) as client:
             return client.post("/v1/functions/call", json=envelope)
@@ -133,13 +138,14 @@ def _seed_qa_requirement(db_path, item_id, qa_phase="verification"):
 def _seed_work_claim(db_path, item_id=1, session_id=_SESSION_ID):
     conn = connect_test_db(db_path)
     p = _p(conn)
+    target = make_item_target(item_id)
     conn.execute(
         f"""INSERT INTO work_claims
-           (session_id, target_kind, item_id, claim_type, claimed_at,
+           (session_id, target_kind, scope, claim_type, claimed_at,
             last_heartbeat)
-           VALUES ({p}, 'item', {p}, 'exclusive',
+           VALUES ({p}, {p}, {p}, 'exclusive',
                    '2026-04-01T00:00:00Z', '2026-04-01T00:00:00Z')""",
-        (session_id, item_id),
+        (session_id, target.kind, target.scope_json()),
     )
     conn.commit()
     conn.close()
@@ -155,7 +161,10 @@ class TestLifecycleTransitionRoutesThroughExecuteUpdate:
     ``service_client advance/...`` (i.e. ``backlog.execute_update``)."""
 
     def test_typed_payload_writes_status(
-        self, registered_lifecycle, test_db, monkeypatch,
+        self,
+        registered_lifecycle,
+        test_db,
+        monkeypatch,
     ):
         _seed_qa_requirement(test_db["db_path"], 1)
         _seed_work_claim(test_db["db_path"], 1)
@@ -163,7 +172,8 @@ class TestLifecycleTransitionRoutesThroughExecuteUpdate:
         resp = _post_lifecycle(
             test_db,
             _lifecycle_envelope(
-                1, "reviewing-implementation",
+                1,
+                "reviewing-implementation",
                 source_status="implementing",
                 reason="implementation complete; ready for review",
                 qa_bypass=True,
@@ -183,7 +193,10 @@ class TestLifecycleTransitionRoutesThroughExecuteUpdate:
         assert row[0] == "reviewing-implementation"
 
     def test_cancel_requires_and_records_one_line_reason(
-        self, registered_lifecycle, test_db, monkeypatch,
+        self,
+        registered_lifecycle,
+        test_db,
+        monkeypatch,
     ):
         _seed_work_claim(test_db["db_path"], 1)
         _clear_process_session_env(monkeypatch)
@@ -204,12 +217,16 @@ class TestLifecycleTransitionRoutesThroughExecuteUpdate:
         )
         assert valid.status_code == 200, valid.text
         conn = connect_test_db(test_db["db_path"])
-        row = conn.execute("SELECT status, resolution FROM items WHERE id = 1").fetchone()
+        row = conn.execute(
+            "SELECT status, resolution FROM items WHERE id = 1"
+        ).fetchone()
         conn.close()
         assert tuple(row) == ("cancelled", "superseded by the current implementation")
 
     def test_cancel_rejects_multiline_reason(
-        self, registered_lifecycle, test_db,
+        self,
+        registered_lifecycle,
+        test_db,
     ):
         response = _post_lifecycle(
             test_db,
@@ -221,13 +238,16 @@ class TestLifecycleTransitionRoutesThroughExecuteUpdate:
 
 class TestLifecycleTransitionPreconditions:
     def test_source_status_mismatch_returns_precondition_failed(
-        self, registered_lifecycle, test_db,
+        self,
+        registered_lifecycle,
+        test_db,
     ):
         """source_status mismatch is a structural precondition, not a gate."""
         resp = _post_lifecycle(
             test_db,
             _lifecycle_envelope(
-                1, "reviewing-implementation",
+                1,
+                "reviewing-implementation",
                 source_status="reviewing-implementation",
             ),
         )
@@ -236,7 +256,9 @@ class TestLifecycleTransitionPreconditions:
         assert resp.json()["error"]["code"] == "precondition_failed"
 
     def test_missing_item_without_project_fails_closed(
-        self, registered_lifecycle, test_db,
+        self,
+        registered_lifecycle,
+        test_db,
     ):
         resp = _post_lifecycle(
             test_db,
@@ -250,7 +272,10 @@ class TestLifecycleTransitionGateMapping:
     """QA gate failures map to lifecycle_gate_unmet."""
 
     def test_gate_unmet_returns_lifecycle_gate_unmet(
-        self, registered_lifecycle, test_db, monkeypatch,
+        self,
+        registered_lifecycle,
+        test_db,
+        monkeypatch,
     ):
         # Item 1 in 'implementing' with no qa_requirements -> GATE_QA_REVIEWING.
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-isolation")
@@ -283,12 +308,15 @@ class TestLifecycleTransitionClaimRequired:
 
     def test_claim_required_kind_is_item(self, registered_lifecycle):
         from yoke_core.domain.yoke_function_registry import lookup
+
         entry = lookup(_FUNCTION_ID)
         assert entry is not None
         assert entry.claim_required_kind == "item"
 
     def test_call_without_claim_returns_claim_required(
-        self, registered_lifecycle, test_db,
+        self,
+        registered_lifecycle,
+        test_db,
     ):
         resp = _post_lifecycle(
             test_db,
@@ -299,7 +327,9 @@ class TestLifecycleTransitionClaimRequired:
         assert resp.json()["error"]["code"] == "claim_required"
 
     def test_call_with_mismatched_session_returns_claim_required(
-        self, registered_lifecycle, test_db,
+        self,
+        registered_lifecycle,
+        test_db,
     ):
         resp = _post_lifecycle(
             test_db,

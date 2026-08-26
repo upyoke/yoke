@@ -12,6 +12,7 @@ from runtime.api.api_items_test_helpers import (
     make_test_db_fixture,
 )
 from runtime.api.test_api_hooks_evaluate_route import _request_body
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @pytest.fixture()
@@ -26,7 +27,10 @@ def client(hooks_db):
 
 
 def _seed_recent_claim_denial_state(
-    *, session_id: str, holder_session_id: str, item_id: int,
+    *,
+    session_id: str,
+    holder_session_id: str,
+    item_id: int,
 ) -> None:
     from yoke_core.domain import db_helpers
 
@@ -66,12 +70,12 @@ def _seed_recent_claim_denial_state(
         )
         conn.execute(
             """INSERT INTO work_claims
-               (id, session_id, target_kind, item_id, claim_type,
+               (id, session_id, target_kind, scope, claim_type,
                 claimed_at, last_heartbeat, released_at, release_reason)
                VALUES (%s, %s, 'item', %s, 'exclusive',
                        '2026-06-16T17:59:00Z', '2026-06-16T18:00:00Z',
                        NULL, NULL)""",
-            (902, holder_session_id, item_id),
+            (902, holder_session_id, make_item_target(item_id).scope_json()),
         )
         conn.commit()
     finally:
@@ -91,19 +95,21 @@ def test_hooks_evaluate_runs_claim_ownership_guard_server_side(client) -> None:
     body = _request_body(
         event_name="PreToolUse",
         executor="claude",
-        stdin=json.dumps({
-            "tool_name": "Bash",
-            "tool_input": {
-                "command": (
-                    "python3 -m yoke_core.cli.db_router "
-                    f"items update {item_id} status implementing"
-                )
-            },
-            "cwd": "/client/repo",
-            "session_id": session_id,
-            "tool_use_id": "mutation-after-denial",
-            "project_id": 1,
-        }),
+        stdin=json.dumps(
+            {
+                "tool_name": "Bash",
+                "tool_input": {
+                    "command": (
+                        "python3 -m yoke_core.cli.db_router "
+                        f"items update {item_id} status implementing"
+                    )
+                },
+                "cwd": "/client/repo",
+                "session_id": session_id,
+                "tool_use_id": "mutation-after-denial",
+                "project_id": 1,
+            }
+        ),
     )
 
     response = client.post("/v1/hooks/evaluate", json=body)
@@ -114,7 +120,7 @@ def test_hooks_evaluate_runs_claim_ownership_guard_server_side(client) -> None:
     assert payload["outcome"] == "denied"
     assert "claim-boundary bypass after live claim denial" in payload["stdout"]
     assert holder in payload["stdout"]
-    assert "yoke_core.domain.lint_claim_ownership_mutations" not in (
-        payload["degraded"]
+    assert (
+        "yoke_core.domain.lint_claim_ownership_mutations" not in (payload["degraded"])
     )
     assert "yoke_core.domain.lint_workspace_cwd_match" not in payload["degraded"]

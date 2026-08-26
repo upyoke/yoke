@@ -28,6 +28,7 @@ from .runtime_settings import get_seconds
 from .session_reclaim_activity import latest_activity
 from .yoke_function_dispatch_claims import who_claims_for_item
 from . import db_backend
+from .work_claim_targets import scope_int_sql
 
 
 STATUS_RESUMABLE = "resumable"
@@ -115,6 +116,7 @@ def _age_seconds(ts: object, now: datetime) -> Optional[int]:
 def _connect_default() -> Any:
     """Open the canonical control-plane DB via db_helpers."""
     from . import db_helpers
+
     return db_helpers.connect()
 
 
@@ -137,7 +139,7 @@ def _row_value(row, key: str):
 def _prior_session_for_epic(
     conn: Any, epic_id: int, current_session_id: str
 ) -> Optional[str]:
-    """Return the most recent ``work_claims.session_id`` for ``epic_id``,
+    """Return the most recent claim session for the epic's item scope,
     excluding the current session's own claim rows.
 
     "Prior" means "before the current invocation." The current session's
@@ -148,9 +150,10 @@ def _prior_session_for_epic(
     only prior rows belong to the current session, return ``None`` and
     let the caller fall through to "no prior session row" semantics.
     """
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     row = conn.execute(
         "SELECT session_id FROM work_claims "
-        f"WHERE target_kind='item' AND item_id={_p(conn)} "
+        f"WHERE target_kind='item' AND {item_scope}={_p(conn)} "
         f"AND session_id <> {_p(conn)} "
         "ORDER BY claimed_at DESC, id DESC LIMIT 1",
         (int(epic_id), str(current_session_id)),
@@ -176,9 +179,7 @@ def _session_activity_row(
     return latest_activity(conn, session_id), _row_value(row, "ended_at")
 
 
-def _task_last_activity_at(
-    conn: Any, epic_id: int, task_num: int
-) -> Optional[object]:
+def _task_last_activity_at(conn: Any, epic_id: int, task_num: int) -> Optional[object]:
     """Return ``epic_tasks.last_activity_at`` for ``(epic_id, task_num)``.
 
     First-class task-freshness state, stamped by every epic-task mutation
@@ -254,9 +255,7 @@ def evaluate_chain_head_freshness(
         conn = _connect_default()
         owns_conn = True
     try:
-        prior_sid = _prior_session_for_epic(
-            conn, epic_id, str(current_session_id)
-        )
+        prior_sid = _prior_session_for_epic(conn, epic_id, str(current_session_id))
         prior_ended = False
         prior_age_s: Optional[int] = None
         if prior_sid:
@@ -272,12 +271,8 @@ def evaluate_chain_head_freshness(
         if owns_conn:
             conn.close()
 
-    heartbeat_within_window = (
-        prior_age_s is not None and prior_age_s < window
-    )
-    task_activity_within_window = (
-        recent_age_s is not None and recent_age_s < window
-    )
+    heartbeat_within_window = prior_age_s is not None and prior_age_s < window
+    task_activity_within_window = recent_age_s is not None and recent_age_s < window
 
     evidence = FreshnessEvidence(
         holder_session_id=holder_session_id,
@@ -312,7 +307,8 @@ def evaluate_chain_head_freshness(
 
     rationale_parts: list[str] = [
         "parent claim held by current session"
-        if holder_is_self else "no live holder of parent claim"
+        if holder_is_self
+        else "no live holder of parent claim"
     ]
     if prior_sid is None:
         rationale_parts.append("no prior session row")
@@ -326,9 +322,7 @@ def evaluate_chain_head_freshness(
             f"outside freshness window {window}s"
         )
     if recent_age_s is None:
-        rationale_parts.append(
-            f"no recorded task activity for ({epic_id},{task_num})"
-        )
+        rationale_parts.append(f"no recorded task activity for ({epic_id},{task_num})")
     else:
         rationale_parts.append(
             f"most recent task activity age {recent_age_s}s outside "

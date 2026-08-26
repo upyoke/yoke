@@ -34,6 +34,7 @@ from yoke_core.domain.sessions_lifecycle_resumption_emit import (
     EVENT_HARNESS_SESSION_RESUMED,
     build_claim_details,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _CREATE_SESSIONS = """
@@ -63,11 +64,7 @@ CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL,
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
@@ -151,13 +148,13 @@ def _insert_claim(
 ) -> int:
     cursor = conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat, "
         " released_at, release_reason) "
         "VALUES (%s, 'item', %s, 'exclusive', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', "
         "%s, %s) RETURNING id",
         (
             session_id,
-            item_id,
+            make_item_target(item_id).scope_json(),
             "2026-01-01T01:00:00Z" if released else None,
             release_reason if released else None,
         ),
@@ -192,7 +189,11 @@ class TestEmitSessionResumedFromReactivation(_PgResumptionTestCase):
         conn = self.conn
         _insert_session(conn, "sess-resume")
         _insert_claim(
-            conn, "sess-resume", 700, released=True, release_reason="session_ended",
+            conn,
+            "sess-resume",
+            700,
+            released=True,
+            release_reason="session_ended",
         )
 
         with mock.patch(
@@ -204,7 +205,10 @@ class TestEmitSessionResumedFromReactivation(_PgResumptionTestCase):
         kwargs = resumed.call_args.kwargs
         self.assertEqual(kwargs["session_id"], "sess-resume")
         self.assertEqual(len(kwargs["released_claims"]), 1)
-        self.assertEqual(kwargs["released_claims"][0]["item_id"], 700)
+        self.assertEqual(
+            kwargs["released_claims"][0]["scope"],
+            {"item_id": 700},
+        )
 
     def test_emits_resumption_event_for_claim_free_reactivation(self) -> None:
         # A session that was claim-free when the transient end closed it
@@ -232,40 +236,44 @@ class TestBuildClaimDetails(unittest.TestCase):
 
     def test_released_only_marks_inherited(self) -> None:
         details = build_claim_details(
-            released_claims=[{"target_kind": "item", "item_id": 1}],
+            released_claims=[{"target_kind": "item", "scope": {"item_id": 1}}],
             reacquired_claims=[],
             conflicts=[],
         )
         self.assertEqual(len(details), 1)
         self.assertEqual(details[0]["episode_scope"], "inherited")
-        self.assertEqual(details[0]["item_id"], 1)
+        self.assertEqual(details[0]["scope"], {"item_id": 1})
 
     def test_reacquired_marks_reacquired_and_carries_new_claim_id(self) -> None:
         details = build_claim_details(
-            released_claims=[{"target_kind": "item", "item_id": 2}],
+            released_claims=[{"target_kind": "item", "scope": {"item_id": 2}}],
             reacquired_claims=[
-                {"target_kind": "item", "item_id": 2, "new_claim_id": 42},
+                {
+                    "target_kind": "item",
+                    "scope": {"item_id": 2},
+                    "new_claim_id": 42,
+                },
             ],
             conflicts=[],
         )
-        match = [d for d in details if d["item_id"] == 2]
+        match = [d for d in details if d["scope"]["item_id"] == 2]
         self.assertEqual(len(match), 1)
         self.assertEqual(match[0]["episode_scope"], "reacquired")
         self.assertEqual(match[0]["new_claim_id"], 42)
 
     def test_conflict_marks_conflict(self) -> None:
         details = build_claim_details(
-            released_claims=[{"target_kind": "item", "item_id": 3}],
+            released_claims=[{"target_kind": "item", "scope": {"item_id": 3}}],
             reacquired_claims=[],
             conflicts=[
                 {
                     "target_kind": "item",
-                    "item_id": 3,
+                    "scope": {"item_id": 3},
                     "holder_session_id": "other-sess",
                 },
             ],
         )
-        match = [d for d in details if d["item_id"] == 3]
+        match = [d for d in details if d["scope"]["item_id"] == 3]
         self.assertEqual(len(match), 1)
         self.assertEqual(match[0]["episode_scope"], "conflict")
         self.assertEqual(match[0]["holder_session_id"], "other-sess")
@@ -292,10 +300,14 @@ class TestResumptionEventEmission(unittest.TestCase):
             emit_session_resumed(
                 session_id="sess-marker",
                 released_claims=[
-                    {"target_kind": "item", "item_id": 11},
+                    {"target_kind": "item", "scope": {"item_id": 11}},
                 ],
                 reacquired_claims=[
-                    {"target_kind": "item", "item_id": 11, "new_claim_id": 99},
+                    {
+                        "target_kind": "item",
+                        "scope": {"item_id": 11},
+                        "new_claim_id": 99,
+                    },
                 ],
                 conflicts=[],
             )

@@ -15,16 +15,11 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import check_claim_boundary_audit_cutoff as _cutoff
-from yoke_core.engines.doctor_hc_claim_boundary_audit import (
-    hc_claim_boundary_audit,
-)
+from yoke_core.engines.doctor_hc_claim_boundary_audit import hc_claim_boundary_audit
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from runtime.api.fixtures import pg_testdb
-from runtime.api.fixtures.file_test_db import (
-    apply_fixture_schema_ddl,
-    connect_test_db,
-    init_test_db,
-)
+from runtime.api.fixtures.file_test_db import apply_fixture_schema_ddl, connect_test_db, init_test_db
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _p(conn) -> str:
@@ -41,26 +36,15 @@ def _disable_event_id_cutoff(monkeypatch: pytest.MonkeyPatch):
     yield
 
 
-def _add_event(
-    conn, name: str, sid: str,
-    item_id: int | None, context: dict,
-    created_at: str = "2026-05-17T12:00:00Z",
-) -> int:
+def _add_event(conn, name: str, sid: str, item_id: int | None, context: dict, created_at: str = "2026-05-17T12:00:00Z") -> int:
     p = _p(conn)
-    envelope = {
-        "event_id": str(uuid.uuid4()),
-        "event_name": name,
-        "session_id": sid,
-        "context": context,
-    }
+    envelope = {"event_id": str(uuid.uuid4()), "event_name": name, "session_id": sid, "context": context}
     cur = conn.execute(
         "INSERT INTO events (event_id, source_type, session_id, severity,"
         " event_kind, event_type, event_name, item_id, envelope, created_at)"
         f" VALUES ({p}, 'backend', {p}, 'INFO', 'lifecycle', 'function_call',"
         f" {p}, {p}, {p}, {p}) RETURNING id",
-        (envelope["event_id"], sid, name,
-         str(item_id) if item_id is not None else None,
-         json.dumps(envelope), created_at),
+        (envelope["event_id"], sid, name, str(item_id) if item_id is not None else None, json.dumps(envelope), created_at),
     )
     conn.commit()
     return int(cur.fetchone()[0])
@@ -79,17 +63,11 @@ def _add_session(conn, sid: str) -> None:
     conn.commit()
 
 
-def _add_claim(
-    conn, sid: str, item_id: int,
-    claimed_at: str = "2026-05-17T11:30:00Z",
-    released_at: str | None = None,
-) -> None:
+def _add_claim(conn, sid: str, item_id: int, claimed_at: str = "2026-05-17T11:30:00Z", released_at: str | None = None) -> None:
     p = _p(conn)
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id,"
-        " claimed_at, last_heartbeat, released_at)"
-        f" VALUES ({p}, 'item', {p}, {p}, {p}, {p})",
-        (sid, item_id, claimed_at, claimed_at, released_at),
+        f"INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, last_heartbeat, released_at) VALUES ({p}, 'item', {p}, {p}, {p}, {p})",
+        (sid, make_item_target(item_id).scope_json(), claimed_at, claimed_at, released_at),
     )
     conn.commit()
 
@@ -116,9 +94,7 @@ def _run(conn) -> RecordCollector:
 
 def test_self_skip_on_minimal_schema():
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     try:
         rec = _run(conn)
     finally:
@@ -140,10 +116,7 @@ def test_function_call_fail_when_caller_not_holder(env):
     _add_session(conn, holder)
     _add_session(conn, other)
     _add_claim(conn, holder, 900)
-    _add_event(
-        conn, "YokeFunctionCalled", other, 900,
-        {"function": "items.structured_field.replace"},
-    )
+    _add_event(conn, "YokeFunctionCalled", other, 900, {"function": "items.structured_field.replace"})
     rec = _run(conn)
     result = rec.results[0]
     assert result.result == "FAIL"
@@ -157,10 +130,7 @@ def test_function_call_warn_when_no_live_claim(env):
     conn = env["conn"]
     caller = _sid("c")
     _add_session(conn, caller)
-    _add_event(
-        conn, "YokeFunctionCalled", caller, 901,
-        {"function": "items.section.upsert"},
-    )
+    _add_event(conn, "YokeFunctionCalled", caller, 901, {"function": "items.section.upsert"})
     rec = _run(conn)
     result = rec.results[0]
     assert result.result == "WARN"
@@ -177,21 +147,12 @@ def test_function_call_warns_on_unattributed_harness_pair_shape(env):
     _add_session(conn, holder)
     _add_session(conn, caller)
     _add_claim(conn, holder, 912, claimed_at="2026-05-17T11:00:00Z")
-    _add_event(
-        conn, "YokeFunctionCalled", holder, 912,
-        {"function": "items.structured_field.replace"},
-    )
+    _add_event(conn, "YokeFunctionCalled", holder, 912, {"function": "items.structured_field.replace"})
     envelope = {
         "event_id": str(uuid.uuid4()),
         "event_name": "HarnessToolCallCompleted",
         "session_id": caller,
-        "context": {"detail": {
-            "tool_response_preview": (
-                '{"success": true, "function": '
-                '"items.structured_field.replace", "result": '
-                '{"item_id": 912}}'
-            )
-        }},
+        "context": {"detail": {"tool_response_preview": ('{"success": true, "function": "items.structured_field.replace", "result": {"item_id": 912}}')}},
     }
     p = _p(conn)
     conn.execute(
@@ -216,10 +177,7 @@ def test_function_call_pass_when_caller_is_holder(env):
     sid = _sid("d")
     _add_session(conn, sid)
     _add_claim(conn, sid, 902, claimed_at="2026-05-17T11:00:00Z")
-    _add_event(
-        conn, "YokeFunctionCalled", sid, 902,
-        {"function": "items.structured_field.replace"},
-    )
+    _add_event(conn, "YokeFunctionCalled", sid, 902, {"function": "items.structured_field.replace"})
     rec = _run(conn)
     assert rec.results[0].result == "PASS"
 
@@ -228,10 +186,7 @@ def test_function_call_ignores_read_functions(env):
     conn = env["conn"]
     sid = _sid("e")
     _add_session(conn, sid)
-    _add_event(
-        conn, "YokeFunctionCalled", sid, 903,
-        {"function": "items.body.read"},
-    )
+    _add_event(conn, "YokeFunctionCalled", sid, 903, {"function": "items.body.read"})
     rec = _run(conn)
     assert rec.results[0].result == "PASS"
 
@@ -240,13 +195,7 @@ def test_release_override_warn_missing_operator_rationale(env):
     conn = env["conn"]
     sid = _sid("f")
     _add_session(conn, sid)
-    _add_event(
-        conn, "ItemClaimReleaseOverride", sid, 904,
-        {
-            "prior_owner_session_id": sid, "claim_id": 99,
-            "operator_rationale": "",
-        },
-    )
+    _add_event(conn, "ItemClaimReleaseOverride", sid, 904, {"prior_owner_session_id": sid, "claim_id": 99, "operator_rationale": ""})
     rec = _run(conn)
     result = rec.results[0]
     assert result.result == "WARN"
@@ -260,11 +209,7 @@ def test_release_override_fail_on_cross_session(env):
     _add_session(conn, holder)
     _add_session(conn, other)
     _add_event(
-        conn, "ItemClaimReleaseOverride", other, 905,
-        {
-            "prior_owner_session_id": holder, "claim_id": 100,
-            "operator_rationale": "work-item coordination",
-        },
+        conn, "ItemClaimReleaseOverride", other, 905, {"prior_owner_session_id": holder, "claim_id": 100, "operator_rationale": "work-item coordination"}
     )
     rec = _run(conn)
     result = rec.results[0]
@@ -278,11 +223,7 @@ def test_release_override_pass_same_session_with_rationale(env):
     sid = _sid("3")
     _add_session(conn, sid)
     _add_event(
-        conn, "ItemClaimReleaseOverride", sid, 906,
-        {
-            "prior_owner_session_id": sid, "claim_id": 101,
-            "operator_rationale": "self-release with rationale",
-        },
+        conn, "ItemClaimReleaseOverride", sid, 906, {"prior_owner_session_id": sid, "claim_id": 101, "operator_rationale": "self-release with rationale"}
     )
     rec = _run(conn)
     assert rec.results[0].result == "PASS"
@@ -294,10 +235,7 @@ def test_path_claim_amendment_fail_when_caller_not_holder(env):
     _add_session(conn, holder)
     _add_session(conn, other)
     _add_claim(conn, holder, 907, claimed_at="2026-05-17T11:00:00Z")
-    _add_event(
-        conn, "PathClaimAmended", other, 907,
-        {"claim_id": 50, "amendment_kind": "widen"},
-    )
+    _add_event(conn, "PathClaimAmended", other, 907, {"claim_id": 50, "amendment_kind": "widen"})
     rec = _run(conn)
     result = rec.results[0]
     assert result.result == "FAIL"
@@ -309,10 +247,7 @@ def test_path_claim_amendment_warn_no_live_claim(env):
     conn = env["conn"]
     sid = _sid("6")
     _add_session(conn, sid)
-    _add_event(
-        conn, "PathClaimAmended", sid, 908,
-        {"claim_id": 51, "amendment_kind": "widen"},
-    )
+    _add_event(conn, "PathClaimAmended", sid, 908, {"claim_id": 51, "amendment_kind": "widen"})
     rec = _run(conn)
     result = rec.results[0]
     assert result.result == "WARN"
@@ -325,15 +260,8 @@ def test_fail_severity_dominates_when_mixed(env):
     _add_session(conn, a)
     _add_session(conn, b)
     _add_claim(conn, a, 910, claimed_at="2026-05-17T11:00:00Z")
-    _add_event(
-        conn, "YokeFunctionCalled", b, 910,
-        {"function": "items.structured_field.replace"},
-    )
-    _add_event(
-        conn, "YokeFunctionCalled", b, 911,
-        {"function": "items.section.upsert"},
-        created_at="2026-05-17T12:01:00Z",
-    )
+    _add_event(conn, "YokeFunctionCalled", b, 910, {"function": "items.structured_field.replace"})
+    _add_event(conn, "YokeFunctionCalled", b, 911, {"function": "items.section.upsert"}, created_at="2026-05-17T12:01:00Z")
     rec = _run(conn)
     result = rec.results[0]
     assert result.result == "FAIL"

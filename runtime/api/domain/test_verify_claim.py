@@ -10,7 +10,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
+from yoke_contracts.harness_family_identity import CLAUDE_FAMILY
 from yoke_core.domain import verify_claim as mod
+from yoke_core.domain.work_claim_targets import make_item_target
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -35,7 +37,13 @@ class TestSessionAndBypass(unittest.TestCase):
             "CLAUDE_CODE_SESSION_ID": "sid-claude",
             "CODEX_THREAD_ID": "sid-codex",
         }
-        with mock.patch.dict(os.environ, env, clear=False):
+        with (
+            mock.patch.dict(os.environ, env, clear=False),
+            mock.patch(
+                "yoke_core.domain.session_ambient_identity.nearest_harness_family",
+                return_value=CLAUDE_FAMILY,
+            ),
+        ):
             self.assertEqual(mod._resolve_session_id(), "sid-claude")
 
     def test_resolve_bypass_direct(self) -> None:
@@ -68,9 +76,11 @@ class TestSessionAndBypass(unittest.TestCase):
 
 class TestVerify(unittest.TestCase):
     def test_bypass_path_returns_verified(self) -> None:
-        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
-             mock.patch.object(mod, "_resolve_bypass", return_value="cascade:YOK-1"), \
-             mock.patch.object(mod, "_emit_lifecycle_event") as emit_mock:
+        with (
+            mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"),
+            mock.patch.object(mod, "_resolve_bypass", return_value="cascade:YOK-1"),
+            mock.patch.object(mod, "_emit_lifecycle_event") as emit_mock,
+        ):
             code, payload = mod.verify(42)
         self.assertEqual(code, 0)
         self.assertTrue(payload["verified"])
@@ -79,9 +89,11 @@ class TestVerify(unittest.TestCase):
         self.assertEqual(emit_mock.call_args[0][0], "ClaimVerificationBypassed")
 
     def test_no_session_denies(self) -> None:
-        with mock.patch.object(mod, "_resolve_session_id", return_value=""), \
-             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
-             mock.patch.object(mod, "_emit_lifecycle_event") as emit_mock:
+        with (
+            mock.patch.object(mod, "_resolve_session_id", return_value=""),
+            mock.patch.object(mod, "_resolve_bypass", return_value=""),
+            mock.patch.object(mod, "_emit_lifecycle_event") as emit_mock,
+        ):
             code, payload = mod.verify(42)
         self.assertEqual(code, 1)
         self.assertFalse(payload["verified"])
@@ -91,9 +103,11 @@ class TestVerify(unittest.TestCase):
         self.assertEqual(emit_mock.call_args[0][0], "ClaimVerificationDenied")
 
     def test_degraded_db_allows(self) -> None:
-        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
-             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
-             mock.patch.object(mod, "_db_available", return_value=False):
+        with (
+            mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"),
+            mock.patch.object(mod, "_resolve_bypass", return_value=""),
+            mock.patch.object(mod, "_db_available", return_value=False),
+        ):
             code, payload = mod.verify(42)
         self.assertEqual(code, 0)
         self.assertTrue(payload["verified"])
@@ -101,33 +115,38 @@ class TestVerify(unittest.TestCase):
         self.assertEqual(payload["claimant"], "degraded")
 
     def test_no_active_claim_denies(self) -> None:
-        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
-             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
-             mock.patch.object(mod, "_db_available", return_value=True), \
-             mock.patch.object(mod, "_fetch_claim", return_value=None), \
-             mock.patch.object(mod, "_emit_lifecycle_event"):
+        with (
+            mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"),
+            mock.patch.object(mod, "_resolve_bypass", return_value=""),
+            mock.patch.object(mod, "_db_available", return_value=True),
+            mock.patch.object(mod, "_fetch_claim", return_value=None),
+            mock.patch.object(mod, "_emit_lifecycle_event"),
+        ):
             code, payload = mod.verify(42)
         self.assertEqual(code, 1)
         self.assertFalse(payload["verified"])
         self.assertIn("no active claim", payload["reason"])
 
     def test_no_active_claim_uses_canonical_public_ref(self) -> None:
-        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
-             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
-             mock.patch.object(mod, "_db_available", return_value=True), \
-             mock.patch.object(mod, "_fetch_claim", return_value=None), \
-             mock.patch.object(mod, "canonical_item_ref", return_value="BUZ-7"), \
-             mock.patch.object(mod, "_emit_lifecycle_event"):
+        with (
+            mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"),
+            mock.patch.object(mod, "_resolve_bypass", return_value=""),
+            mock.patch.object(mod, "_db_available", return_value=True),
+            mock.patch.object(mod, "_fetch_claim", return_value=None),
+            mock.patch.object(mod, "canonical_item_ref", return_value="BUZ-7"),
+            mock.patch.object(mod, "_emit_lifecycle_event"),
+        ):
             code, payload = mod.verify(42)
         self.assertEqual(code, 1)
         self.assertIn("BUZ-7", payload["reason"])
         self.assertNotIn("YOK-42", payload["reason"])
 
     def test_matching_claim_verifies(self) -> None:
-        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
-             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
-             mock.patch.object(mod, "_db_available", return_value=True), \
-             mock.patch.object(
+        with (
+            mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"),
+            mock.patch.object(mod, "_resolve_bypass", return_value=""),
+            mock.patch.object(mod, "_db_available", return_value=True),
+            mock.patch.object(
                 mod,
                 "_fetch_claim",
                 return_value={
@@ -137,7 +156,8 @@ class TestVerify(unittest.TestCase):
                     "claim_type": "exclusive",
                     "claimed_at": "ts",
                 },
-            ) as fetch_mock:
+            ) as fetch_mock,
+        ):
             code, payload = mod.verify(42)
         self.assertEqual(code, 0)
         self.assertTrue(payload["verified"])
@@ -146,10 +166,11 @@ class TestVerify(unittest.TestCase):
         fetch_mock.assert_called_once_with(42)
 
     def test_wrong_session_denies(self) -> None:
-        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
-             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
-             mock.patch.object(mod, "_db_available", return_value=True), \
-             mock.patch.object(
+        with (
+            mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"),
+            mock.patch.object(mod, "_resolve_bypass", return_value=""),
+            mock.patch.object(mod, "_db_available", return_value=True),
+            mock.patch.object(
                 mod,
                 "_fetch_claim",
                 return_value={
@@ -159,7 +180,9 @@ class TestVerify(unittest.TestCase):
                     "claim_type": "exclusive",
                     "claimed_at": "ts",
                 },
-            ), mock.patch.object(mod, "_emit_lifecycle_event"):
+            ),
+            mock.patch.object(mod, "_emit_lifecycle_event"),
+        ):
             code, payload = mod.verify(42)
         self.assertEqual(code, 1)
         self.assertIn("different session", payload["reason"])
@@ -169,7 +192,7 @@ class TestVerify(unittest.TestCase):
 _WORK_CLAIMS_DDL = (
     "CREATE TABLE work_claims ("
     "id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT, "
-    "item_id INTEGER, claim_type TEXT, claimed_at TEXT, "
+    "scope TEXT, claim_type TEXT, claimed_at TEXT, "
     "released_at TEXT)"
 )
 
@@ -207,10 +230,8 @@ def _apply_work_claims_schema() -> None:
 class TestFetchClaimIdForms(unittest.TestCase):
     """Ensure _fetch_claim resolves item-target claims by integer item id.
 
-    The legacy YOK-N text-id form was retired with the typed-target cutover;
-    item claims now store the bare integer in ``item_id`` with
-    ``target_kind='item'``, so the YOK-N → item lookup pair query path
-    is no longer exercised here.
+    Item claims store the bare integer inside ``scope`` with
+    ``target_kind='item'``.
     """
 
     def test_bare_int_item_id_found(self) -> None:
@@ -229,15 +250,18 @@ class TestFetchClaimIdForms(unittest.TestCase):
                 p = _placeholder(seed)
                 seed.execute(
                     "INSERT INTO work_claims "
-                    "(session_id, target_kind, item_id, claim_type, claimed_at) "
+                    "(session_id, target_kind, scope, claim_type, claimed_at) "
                     f"VALUES ({p}, 'item', {p}, {p}, {p})",
-                    ("sid-a", 42, "exclusive", "2026-01-01T00:00:00Z"),
+                    (
+                        "sid-a",
+                        make_item_target(42).scope_json(),
+                        "exclusive",
+                        "2026-01-01T00:00:00Z",
+                    ),
                 )
                 seed.commit()
                 seed.close()
-                with mock.patch.dict(
-                    os.environ, {"YOKE_DB": db_path}, clear=False
-                ):
+                with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                     claim = mod._fetch_claim(42)
         self.assertIsNotNone(claim)
         assert claim is not None
@@ -260,17 +284,20 @@ class TestFetchClaimIdForms(unittest.TestCase):
                 p = _placeholder(seed)
                 seed.execute(
                     "INSERT INTO work_claims "
-                    "(session_id, target_kind, item_id, claim_type, "
+                    "(session_id, target_kind, scope, claim_type, "
                     "claimed_at, released_at) "
                     f"VALUES ({p}, 'item', {p}, {p}, {p}, {p})",
-                    ("sid-a", 42, "exclusive",
-                     "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
+                    (
+                        "sid-a",
+                        make_item_target(42).scope_json(),
+                        "exclusive",
+                        "2026-01-01T00:00:00Z",
+                        "2026-01-02T00:00:00Z",
+                    ),
                 )
                 seed.commit()
                 seed.close()
-                with mock.patch.dict(
-                    os.environ, {"YOKE_DB": db_path}, clear=False
-                ):
+                with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                     claim = mod._fetch_claim(42)
         self.assertIsNone(claim)
 
@@ -289,21 +316,24 @@ class TestMain(unittest.TestCase):
         self.assertIn("expected PREFIX-N", err)
 
     def test_emits_json_envelope(self) -> None:
-        with mock.patch(
-            "yoke_core.domain.yok_n_parser.parse_item_argument",
-            return_value=TEST_ITEM_ID,
-        ), mock.patch.object(
-            mod,
-            "verify",
-            return_value=(
-                0,
-                {
-                    "verified": True,
-                    "session_id": "sid",
-                    "claimant": "sid",
-                    "reason": "ok",
-                    "bypassed": False,
-                },
+        with (
+            mock.patch(
+                "yoke_core.domain.yok_n_parser.parse_item_argument",
+                return_value=TEST_ITEM_ID,
+            ),
+            mock.patch.object(
+                mod,
+                "verify",
+                return_value=(
+                    0,
+                    {
+                        "verified": True,
+                        "session_id": "sid",
+                        "claimant": "sid",
+                        "reason": "ok",
+                        "bypassed": False,
+                    },
+                ),
             ),
         ):
             rc, out, _ = self._run(["--item-id", str(TEST_ITEM_ID)])

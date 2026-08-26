@@ -1,5 +1,6 @@
 """Shared schema strings, scheduler_db fixture, and strategy-doc seeding
 used by the scheduler test sibling modules. Imported, not pytest-collected."""
+
 from __future__ import annotations
 
 import pytest
@@ -42,12 +43,8 @@ WORK_CLAIMS_SCHEMA = """
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process')),
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
@@ -55,12 +52,7 @@ CREATE TABLE work_claims (
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
     reason TEXT DEFAULT NULL,
     reason_intent TEXT DEFAULT NULL,
-    release_reason_intent TEXT DEFAULT NULL,
-    CHECK (
-      (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL)
-    )
+    release_reason_intent TEXT DEFAULT NULL
 );
 """
 
@@ -129,10 +121,8 @@ SCHEMA = (
 def _item_num(item_id) -> int:
     """Return the bare internal integer for an item token.
 
-    ``work_claims.item_id`` is an integer column and the scheduler's
-    internal currency is the bare ``items.id``. Tests may still pass a
-    legacy ``YOK-N`` string; strip it here before writing to the integer
-    column.
+    The claim scope's ``item_id`` is the bare ``items.id``. Tests may still
+    pass a ``YOK-N`` string; strip it before building the scope object.
     """
     text = str(item_id)
     if text.upper().startswith("YOK-"):
@@ -193,7 +183,8 @@ def scheduler_db(tmp_path):
         ]
         for item_id, title, requested_workflow_id, status, priority in items:
             workflow_id, workflow_version_id = _workflow_pin(
-                conn, requested_workflow_id,
+                conn,
+                requested_workflow_id,
             )
             conn.execute(
                 """INSERT INTO items

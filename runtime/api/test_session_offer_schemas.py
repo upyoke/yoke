@@ -72,22 +72,16 @@ WORK_CLAIMS_SCHEMA = """
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process')),
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
     released_at TEXT,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
-    CHECK (
-      (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL)
-    ),
+    reason TEXT,
+    reason_intent TEXT,
+    release_reason_intent TEXT,
     FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
 );
 """
@@ -194,7 +188,8 @@ def _apply_session_offer_schema() -> None:
         from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, "issue",
+            conn,
+            "issue",
         )
         conn.execute(
             "UPDATE items SET workflow_id = %s, workflow_version_id = %s",
@@ -249,10 +244,12 @@ def session_offer_db(tmp_path, monkeypatch):
         app.dependency_overrides[get_db_readonly] = _override_db_readonly
         app.dependency_overrides[get_db_readwrite] = _override_db_readwrite
 
-        with patch("yoke_core.api.main.get_db_path", _override_db_path), \
-             patch("yoke_core.api.main.get_config_path", _override_config_path), \
-             patch("yoke_core.api.main.get_db_readonly", _override_db_readonly), \
-             patch("yoke_core.api.main.get_db_readwrite", _override_db_readwrite):
+        with (
+            patch("yoke_core.api.main.get_db_path", _override_db_path),
+            patch("yoke_core.api.main.get_config_path", _override_config_path),
+            patch("yoke_core.api.main.get_db_readonly", _override_db_readonly),
+            patch("yoke_core.api.main.get_db_readwrite", _override_db_readwrite),
+        ):
             from runtime.api.test_service_client_sessions_helpers import (
                 _map_offer_workspace_home,
             )

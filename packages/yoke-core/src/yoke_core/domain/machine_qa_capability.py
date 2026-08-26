@@ -37,6 +37,7 @@ from yoke_core.domain.project_identity import (
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 HOST_CONTROL_EXECUTOR_ID = "host_control"
@@ -85,7 +86,7 @@ def _lease_item(
             "id",
             "session_id",
             "target_kind",
-            "item_id",
+            "scope",
             "released_at",
             "claimed_at",
         ),
@@ -98,9 +99,10 @@ def _lease_item(
     ):
         return None
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     row = conn.execute(
-        "SELECT wc.item_id, i.title FROM work_claims wc "
-        "JOIN items i ON i.id=wc.item_id "
+        f"SELECT {item_id_scope} AS item_id, i.title FROM work_claims wc "
+        f"JOIN items i ON i.id={item_id_scope} "
         f"WHERE wc.session_id={marker} AND wc.target_kind='item' "
         "AND wc.released_at IS NULL "
         "ORDER BY wc.claimed_at DESC, wc.id DESC LIMIT 1",

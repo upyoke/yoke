@@ -28,6 +28,7 @@ from runtime.api.test_service_client_sessions_helpers import (  # noqa: F401,F81
     session_offer_db,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -38,7 +39,8 @@ class TestSessionEndIfEmptyChainPending:
     """Two CLI-boundary shapes specific to the chain-pending decline branch."""
 
     def test_session_end_if_empty_returns_chain_pending_with_next_action(
-        self, session_offer_db,
+        self,
+        session_offer_db,
     ):
         """A claimless session with a chainable checkpoint must not be ended.
 
@@ -74,10 +76,10 @@ class TestSessionEndIfEmptyChainPending:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at,
+               (session_id, target_kind, scope, claim_type, claimed_at,
                 last_heartbeat, released_at, release_reason)
-               VALUES (%s, 'item', 10, 'exclusive', %s, %s, %s, 'handed_off')""",
-            (sid, _FRESH_TS, _FRESH_TS, _FRESH_TS),
+               VALUES (%s, 'item', %s, 'exclusive', %s, %s, %s, 'handed_off')""",
+            (sid, make_item_target(10).scope_json(), _FRESH_TS, _FRESH_TS, _FRESH_TS),
         )
         conn.commit()
         conn.close()
@@ -129,13 +131,17 @@ class TestSessionEndIfEmptyChainPending:
         assert envelope["context"]["triggered_by"] == "stop-hook"
 
     def test_session_end_if_empty_ends_when_chain_budget_exhausted(
-        self, session_offer_db,
+        self,
+        session_offer_db,
     ):
         """Shape (d): chainable but ``step >= max_chain_steps`` -> ``ended``."""
         sid = "end-if-empty-chain-exhausted"
         checkpoint = {
-            "step": 3, "action": "charge", "chainable": True,
-            "handler_outcome": "completed", "item_id": ITEM_ID,
+            "step": 3,
+            "action": "charge",
+            "chainable": True,
+            "handler_outcome": "completed",
+            "item_id": ITEM_ID,
         }
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(

@@ -111,7 +111,7 @@ class TestSessionOfferPersistence:
         ).fetchone()
         conn.close()
         assert claim is not None
-        assert claim["item_id"] is not None
+        assert json.loads(claim["scope"])["item_id"] is not None
 
     def test_concurrent_session_offers_no_double_assign(self, session_offer_db):
         """Two concurrent offers never both get same item."""

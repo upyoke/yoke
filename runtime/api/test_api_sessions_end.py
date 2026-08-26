@@ -24,6 +24,7 @@ from runtime.api.test_service_client import (
     _service_client_cmd,
     _with_source_pythonpath,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
@@ -78,9 +79,9 @@ class TestSessionEndEndpoint:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ({p}, 'item', 10, 'exclusive', {p}, {p})""".format(p=p),
-            (session_id, now, now),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ({p}, 'item', {p}, 'exclusive', {p}, {p})""".format(p=p),
+            (session_id, make_item_target(10).scope_json(), now, now),
         )
         conn.commit()
         conn.close()
@@ -98,10 +99,12 @@ class TestSessionEndEndpoint:
         row = conn.execute(
             "SELECT ended_at FROM harness_sessions WHERE session_id = 'api-chain-pending'",
         ).fetchone()
+        target = make_item_target(ITEM_ID)
         claim = conn.execute(
             """SELECT released_at FROM work_claims
                WHERE session_id = 'api-chain-pending'
-                 AND target_kind='item' AND item_id = 10""",
+                 AND target_kind = %s AND scope = %s""",
+            (target.kind, target.scope_json()),
         ).fetchone()
         conn.close()
 
@@ -128,7 +131,9 @@ class TestSessionEndEndpoint:
     def test_end_session_override_with_rationale_no_claims_succeeds(self):
         """Override + rationale ends the session via the API path."""
         checkpoint = {
-            "step": 1, "action": "resume", "chainable": True,
+            "step": 1,
+            "action": "resume",
+            "chainable": True,
             "handler_outcome": "completed",
         }
         conn = connect_test_db(self.db_info["db_path"])
@@ -189,11 +194,13 @@ class TestServiceClientSessionOffer:
         conn.close()
 
         result = subprocess.run(
-            _service_client_cmd([
-                "session-offer",
-                "--session-id",
-                "DARIUS-test-session",
-            ]),
+            _service_client_cmd(
+                [
+                    "session-offer",
+                    "--session-id",
+                    "DARIUS-test-session",
+                ]
+            ),
             env=_with_source_pythonpath(env),
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -214,10 +221,13 @@ class TestServiceClientSessionOffer:
         env["YOKE_DB"] = session_offer_db["db_path"]
 
         result = subprocess.run(
-            _service_client_cmd([
-                "session-offer",
-                "--executor", "DARIUS",
-            ]),
+            _service_client_cmd(
+                [
+                    "session-offer",
+                    "--executor",
+                    "DARIUS",
+                ]
+            ),
             env=_with_source_pythonpath(env),
             cwd=_REPO_ROOT,
             capture_output=True,

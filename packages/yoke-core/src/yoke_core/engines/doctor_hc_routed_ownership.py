@@ -21,6 +21,7 @@ from yoke_core.domain.release_intent_classification import (
     NON_TERMINAL_RELEASE_INTENTS,
 )
 from yoke_core.domain.runtime_settings import get_seconds
+from yoke_core.domain.work_claim_targets import scope_int_sql
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
@@ -39,10 +40,19 @@ _LIST_PREVIEW = 10
 
 # Statuses where ``classify_next_action`` returns a non-WAIT/SKIP adapter.
 _SCHEDULABLE_STATUSES = (
-    "idea", "refining-idea", "refined-idea",
-    "planning", "plan-drafted", "refining-plan", "planned",
-    "implementing", "reviewing-implementation", "reviewed-implementation",
-    "polishing-implementation", "implemented", "release",
+    "idea",
+    "refining-idea",
+    "refined-idea",
+    "planning",
+    "plan-drafted",
+    "refining-plan",
+    "planned",
+    "implementing",
+    "reviewing-implementation",
+    "reviewed-implementation",
+    "polishing-implementation",
+    "implemented",
+    "release",
 )
 
 
@@ -84,11 +94,12 @@ def _live_non_terminal_releases(conn: Any) -> List[Any]:
     """
     if not _column_present(conn, "work_claims", "release_reason_intent"):
         return []
-    sql = """
+    item_id = scope_int_sql(conn, "wc.scope", "item_id")
+    sql = f"""
     SELECT
         hs.session_id AS session_id,
         wc.id AS claim_id,
-        wc.item_id AS item_id,
+        {item_id} AS item_id,
         wc.released_at AS released_at,
         hs.last_heartbeat AS last_heartbeat,
         wc.release_reason_intent AS release_intent
@@ -96,7 +107,7 @@ def _live_non_terminal_releases(conn: Any) -> List[Any]:
     JOIN work_claims wc ON wc.session_id = hs.session_id
     WHERE hs.ended_at IS NULL
       AND wc.target_kind = 'item'
-      AND wc.item_id IS NOT NULL
+      AND {item_id} IS NOT NULL
       AND wc.released_at IS NOT NULL
       AND wc.release_reason_intent IS NOT NULL
     """
@@ -130,7 +141,7 @@ def hc_routed_ownership_live_frame_no_defense(
         requesting_session_id=None,
     )
     # ``routed_ownership_exclusions`` is keyed by the internal
-    # ``items.id`` — the same currency as ``work_claims.item_id``.
+    # ``items.id`` — the same currency as the item target's scope value.
     defended_items: Dict[int, dict] = dict(defended)
 
     lines: List[str] = []

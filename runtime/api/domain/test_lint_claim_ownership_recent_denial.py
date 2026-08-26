@@ -16,6 +16,7 @@ from unittest import mock
 from yoke_core.domain import db_backend
 from yoke_core.domain import lint_claim_ownership_mutations as lint
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.domain.test_lint_claim_ownership_mutations import (
     _AMBIENT,
@@ -47,7 +48,7 @@ def _state_schema(
             conn.execute(
                 "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
                 "session_id TEXT NOT NULL, target_kind TEXT NOT NULL, "
-                "item_id INTEGER, claim_type TEXT NOT NULL DEFAULT 'exclusive', "
+                "scope TEXT NOT NULL, claim_type TEXT NOT NULL DEFAULT 'exclusive', "
                 "claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL, "
                 "released_at TEXT, release_reason TEXT)"
             )
@@ -61,14 +62,21 @@ def _state_schema(
                     (idx, session_id, f"tu-{idx}", now, now, command),
                 )
             for idx, (session_id, item_id, released) in enumerate(
-                holders, start=1,
+                holders,
+                start=1,
             ):
                 conn.execute(
                     "INSERT INTO work_claims (id, session_id, target_kind, "
-                    "item_id, claimed_at, last_heartbeat, released_at) "
+                    "scope, claimed_at, last_heartbeat, released_at) "
                     "VALUES (%s, %s, 'item', %s, %s, %s, %s)",
-                    (idx, session_id, item_id, now, now,
-                     now if released else None),
+                    (
+                        idx,
+                        session_id,
+                        make_item_target(item_id).scope_json(),
+                        now,
+                        now,
+                        now if released else None,
+                    ),
                 )
             conn.commit()
         finally:
@@ -85,17 +93,20 @@ def _seed_state_db(
     """Yield a backend-aware ``db_path`` token for a seeded state DB."""
     tmp = Path(tempfile.mkdtemp(prefix="claim-ownership-"))
     with init_test_db(
-        tmp, apply_schema=_state_schema(list(rows), list(holders)),
+        tmp,
+        apply_schema=_state_schema(list(rows), list(holders)),
     ) as path:
         yield path
 
 
 class TestRecentDenialBranch(unittest.TestCase):
     def test_recent_attempt_with_live_foreign_holder_denies(self) -> None:
-        rows = [(
-            _AMBIENT,
-            "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
-        )]
+        rows = [
+            (
+                _AMBIENT,
+                "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+            )
+        ]
         holders = [("holder-xyz", 1718, False)]
         cmd = "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin"
         with _seed_state_db(rows, holders) as db_path:
@@ -111,37 +122,45 @@ class TestRecentDenialBranch(unittest.TestCase):
         for label, rows, holders, cmd in [
             (
                 "unrelated item",
-                [(
-                    _AMBIENT,
-                    "python3 -m yoke_core.api.service_client claim-work --item YOK-1712",
-                )],
+                [
+                    (
+                        _AMBIENT,
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1712",
+                    )
+                ],
                 [("holder-xyz", 1712, False)],
                 "python3 -m yoke_core.cli.db_router items update 9999 spec --stdin",
             ),
             (
                 "different session attempted, not ambient",
-                [(
-                    "other-session",
-                    "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
-                )],
+                [
+                    (
+                        "other-session",
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+                    )
+                ],
                 [("holder-xyz", 1718, False)],
                 "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin",
             ),
             (
                 "claim-work succeeded (ambient is the holder)",
-                [(
-                    _AMBIENT,
-                    "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
-                )],
+                [
+                    (
+                        _AMBIENT,
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+                    )
+                ],
                 [(_AMBIENT, 1718, False)],
                 "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin",
             ),
             (
                 "holder released since the denial",
-                [(
-                    _AMBIENT,
-                    "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
-                )],
+                [
+                    (
+                        _AMBIENT,
+                        "python3 -m yoke_core.api.service_client claim-work --item YOK-1718",
+                    )
+                ],
                 [("holder-xyz", 1718, True)],
                 "python3 -m yoke_core.cli.db_router items update 1718 spec --stdin",
             ),
@@ -149,7 +168,9 @@ class TestRecentDenialBranch(unittest.TestCase):
             with self.subTest(label):
                 with _seed_state_db(rows, holders) as db_path:
                     with mock.patch.object(
-                        lint, "_resolve_db_path", return_value=db_path,
+                        lint,
+                        "_resolve_db_path",
+                        return_value=db_path,
                     ):
                         self.assertIsNone(lint.evaluate_payload(_payload(cmd)))
 
@@ -160,7 +181,9 @@ class TestRecentDenialBranch(unittest.TestCase):
             # connect to fail so the fail-open branch is what's exercised.
             if db_backend.is_postgres():
                 with mock.patch.object(
-                    lint, "connect", side_effect=RuntimeError("no db"),
+                    lint,
+                    "connect",
+                    side_effect=RuntimeError("no db"),
                 ):
                     self.assertIsNone(lint.evaluate_payload(_payload(cmd)))
             else:

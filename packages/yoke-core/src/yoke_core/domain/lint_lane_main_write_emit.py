@@ -40,16 +40,8 @@ def _emit(
                 outcome,
                 "--context",
                 json.dumps(context, separators=(",", ":")),
-                *(
-                    ["--session-id", session_id]
-                    if session_id
-                    else []
-                ),
-                *(
-                    ["--item-id", str(int(item_id))]
-                    if item_id is not None
-                    else []
-                ),
+                *(["--session-id", session_id] if session_id else []),
+                *(["--item-id", str(int(item_id))] if item_id is not None else []),
             ]
         )
         emit_event_cli.emit(args)
@@ -162,7 +154,8 @@ def _emit_canonical_denial(
         emit_denial_event(
             hook="yoke_core.domain.lint_lane_main_write",
             check_id="lint-lane-main-write",
-            reason=reason or f"write to {attempted_path} refused; lane held at {lane_path}",
+            reason=reason
+            or f"write to {attempted_path} refused; lane held at {lane_path}",
             session_id=session_id,
             tool_use_id=tool_use_id,
             turn_id=turn_id,
@@ -199,24 +192,31 @@ def emit_stranded_lane_advisory(
 
 
 def claim_heartbeat_is_stale(
-    conn: Any, session_id: str, claim: ClaimedWorktree,
+    conn: Any,
+    session_id: str,
+    claim: ClaimedWorktree,
 ) -> bool:
     """True when the matching work claim's heartbeat is past the stale TTL."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    from yoke_core.domain.work_claim_targets import scope_int_sql
+
     try:
         if claim.task_num is None:
+            item_scope = scope_int_sql(conn, "scope", "item_id")
             row = conn.execute(
                 "SELECT last_heartbeat FROM work_claims "
                 f"WHERE session_id = {marker} AND released_at IS NULL "
-                f"AND target_kind = 'item' AND item_id = {marker}",
+                f"AND target_kind = 'item' AND {item_scope} = {marker}",
                 (session_id, int(claim.item_id)),
             ).fetchone()
         else:
+            epic_scope = scope_int_sql(conn, "scope", "epic_id")
+            task_scope = scope_int_sql(conn, "scope", "task_num")
             row = conn.execute(
                 "SELECT last_heartbeat FROM work_claims "
                 f"WHERE session_id = {marker} AND released_at IS NULL "
-                f"AND target_kind = 'epic_task' AND epic_id = {marker} "
-                f"AND task_num = {marker}",
+                f"AND target_kind = 'epic_task' AND {epic_scope} = {marker} "
+                f"AND {task_scope} = {marker}",
                 (session_id, int(claim.item_id), int(claim.task_num)),
             ).fetchone()
     except db_backend.operational_error_types(conn):
@@ -228,7 +228,10 @@ def claim_heartbeat_is_stale(
 
 
 def stranded_advisory_already_recorded(
-    conn: Any, *, session_id: str, item_id: int,
+    conn: Any,
+    *,
+    session_id: str,
+    item_id: int,
 ) -> bool:
     """True when this session+item already has a stranded-lane advisory."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"

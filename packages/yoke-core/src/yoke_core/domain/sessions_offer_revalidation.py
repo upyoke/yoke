@@ -16,11 +16,9 @@ from typing import Any, Dict, Optional, Tuple
 from . import db_backend
 from .item_ref_resolution import resolve_internal_item_id
 from .scheduler_events import emit_chain_budget_unused, emit_scheduler_offer_skipped
-from .scheduler_skip_reasons import (
-    SKIP_REASON_STALE_LIFECYCLE,
-    SKIP_REASON_STALE_LIFECYCLE_POST_CLAIM,
-)
+from .scheduler_skip_reasons import SKIP_REASON_STALE_LIFECYCLE, SKIP_REASON_STALE_LIFECYCLE_POST_CLAIM
 from .sessions_queries_chain import append_chain_skip_entry
+from .work_claim_targets import scope_int_sql
 
 
 _SKIP_REASON_TO_TERMINAL = {
@@ -62,12 +60,7 @@ def normalize_item_id(item_id: Any) -> Optional[int]:
         return None
 
 
-def revalidate_candidate_status(
-    conn: Any,
-    *,
-    item_id: Any,
-    expected_status: str,
-) -> Tuple[bool, Optional[str]]:
+def revalidate_candidate_status(conn: Any, *, item_id: Any, expected_status: str) -> Tuple[bool, Optional[str]]:
     """Confirm the candidate's DB status still matches the schedule snapshot.
 
     Between schedule computation and claim acquisition another
@@ -87,10 +80,7 @@ def revalidate_candidate_status(
     return current == expected_status, current
 
 
-def holder_session_for_item(
-    conn: Any,
-    item_id: Any,
-) -> Dict[str, Any]:
+def holder_session_for_item(conn: Any, item_id: Any) -> Dict[str, Any]:
     """Return canonical context about the live exclusive claim on ``item_id``.
 
     Skip events and ``/yoke do`` recovery
@@ -108,12 +98,14 @@ def holder_session_for_item(
     bare = resolve_internal_item_id(conn, item_id)
     if bare is None:
         return {}
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     row = conn.execute(
-        """SELECT session_id, id, claimed_at, claim_type, item_id FROM work_claims
-           WHERE target_kind = 'item' AND item_id = {p}
+        """SELECT session_id, id, claimed_at, claim_type,
+                  {item_scope} AS item_id FROM work_claims
+           WHERE target_kind = 'item' AND {item_scope} = {p}
                  AND claim_type = 'exclusive'
                  AND released_at IS NULL
-           ORDER BY claimed_at DESC, id DESC LIMIT 1""".format(p=_p(conn)),
+           ORDER BY claimed_at DESC, id DESC LIMIT 1""".format(item_scope=item_scope, p=_p(conn)),
         (bare,),
     ).fetchone()
     if row is None:
@@ -127,13 +119,7 @@ def holder_session_for_item(
             "claim_type": row["claim_type"],
             "item_id": row["item_id"],
         }
-    return {
-        "holder_session_id": row[0],
-        "claim_id": row[1],
-        "claimed_at": row[2],
-        "claim_type": row[3],
-        "item_id": row[4],
-    }
+    return {"holder_session_id": row[0], "claim_id": row[1], "claimed_at": row[2], "claim_type": row[3], "item_id": row[4]}
 
 
 def record_offer_skip(
@@ -157,11 +143,7 @@ def record_offer_skip(
     can trace the path through ``/yoke do``.
     """
     holder = holder_context or {}
-    entry: Dict[str, Any] = {
-        "item_id": str(item_id),
-        "skip_reason": skip_reason,
-        "chain_step": chain_step,
-    }
+    entry: Dict[str, Any] = {"item_id": str(item_id), "skip_reason": skip_reason, "chain_step": chain_step}
     if expected_status is not None:
         entry["expected_status"] = expected_status
     if current_status is not None:
@@ -240,10 +222,7 @@ _TRAIL_OPTIONAL_KEYS = (
 
 
 def _compact_skip_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
-    compact: Dict[str, Any] = {
-        "item_id": entry.get("item_id"),
-        "skip_reason": entry.get("skip_reason"),
-    }
+    compact: Dict[str, Any] = {"item_id": entry.get("item_id"), "skip_reason": entry.get("skip_reason")}
     for key in _TRAIL_OPTIONAL_KEYS:
         if key in entry:
             compact[key] = entry[key]
@@ -254,9 +233,7 @@ def map_terminal_reason_to_wait_reason(terminal_reason: Optional[str]) -> str:
     """Translate a classified ``terminal_reason`` into a wait_reason label."""
     if not terminal_reason:
         return "no_actionable_work_on_frontier"
-    return _TERMINAL_REASON_TO_WAIT_REASON.get(
-        terminal_reason, "no_actionable_work_on_frontier"
-    )
+    return _TERMINAL_REASON_TO_WAIT_REASON.get(terminal_reason, "no_actionable_work_on_frontier")
 
 
 def build_no_work_wait_context(
@@ -277,9 +254,7 @@ def build_no_work_wait_context(
     holder ids when the only blocker is ``live_claim_conflict``, and the
     standard lane-filtered signals.
     """
-    this_step_entries = [
-        e for e in skip_memory if e.get("chain_step") == chain_step
-    ]
+    this_step_entries = [e for e in skip_memory if e.get("chain_step") == chain_step]
     summary = [_compact_skip_entry(e) for e in this_step_entries]
     holder_ids: list[str] = []
     seen: set[str] = set()
@@ -306,12 +281,7 @@ def build_no_work_wait_context(
 
 
 def emit_chain_budget_unused_if_remaining(
-    *,
-    session_id: str,
-    chain_step: int,
-    max_chain_steps: int,
-    skip_memory: list[Dict[str, Any]],
-    project: str,
+    *, session_id: str, chain_step: int, max_chain_steps: int, skip_memory: list[Dict[str, Any]], project: str
 ) -> Optional[str]:
     """Emit ``ChainBudgetUnused`` on a non-chainable offer with budget left.
 
@@ -326,10 +296,7 @@ def emit_chain_budget_unused_if_remaining(
     entries this step (the caller treats that as a no-candidates scheduler
     outcome and does not classify a terminal reason).
     """
-    this_step_entries = [
-        entry for entry in skip_memory
-        if entry.get("chain_step") == chain_step
-    ]
+    this_step_entries = [entry for entry in skip_memory if entry.get("chain_step") == chain_step]
     if not this_step_entries:
         return None
     terminal_reason = classify_terminal_reason(this_step_entries)

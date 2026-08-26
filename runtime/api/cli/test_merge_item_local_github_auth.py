@@ -139,7 +139,8 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
             success=True,
             result={
                 "holder": {
-                    "item_id": 42,
+                    "target_kind": "item",
+                    "scope": {"item_id": 42},
                     "session_id": "session-1",
                 }
             },

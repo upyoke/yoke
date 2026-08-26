@@ -60,22 +60,16 @@ _STALE_DB_SCHEMA = """
             CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process')),
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
     released_at TEXT,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
-    CHECK (
-      (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL)
-    ),
+    reason TEXT,
+    reason_intent TEXT,
+    release_reason_intent TEXT,
     FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
 );
             CREATE TABLE events (
@@ -173,10 +167,14 @@ class TestSessionsDbScript:
             "/tmp/work",
         )
         assert first.returncode == 0
-        claim = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-9999")
+        claim = self._run_script(
+            db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-9999"
+        )
         assert claim.returncode == 0
 
-        duplicate = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-9999")
+        duplicate = self._run_script(
+            db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-9999"
+        )
 
         assert duplicate.returncode == 0
         assert "already owned" in duplicate.stdout
@@ -195,7 +193,9 @@ class TestSessionsDbScript:
         end = self._run_script(db_path, "end", "sess-1")
         assert end.returncode == 0
 
-        claim = self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-99")
+        claim = self._run_script(
+            db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-99"
+        )
 
         assert claim.returncode != 0
         assert "already ended" in claim.stderr
@@ -240,11 +240,20 @@ class TestSessionsDbScript:
 
     def test_stale_excludes_sessions_with_active_claims(self, db_path):
         """A session holding an active work claim is never stale."""
-        self._run_script(db_path, "begin", "sess-1", "claude-code",
-                         "anthropic", TEST_MODEL_ID, "/tmp/work")
+        self._run_script(
+            db_path,
+            "begin",
+            "sess-1",
+            "claude-code",
+            "anthropic",
+            TEST_MODEL_ID,
+            "/tmp/work",
+        )
 
         # Claim an item so the session holds an active claim
-        self._run_script(db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-99")
+        self._run_script(
+            db_path, "claim", "sess-1", "--target-kind", "item", "--item-id", "YOK-99"
+        )
 
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=120)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -268,8 +277,15 @@ class TestSessionsDbScript:
 
     def test_stale_excludes_sessions_with_recent_tool_activity(self, db_path):
         """Recent tool activity keeps a session non-stale despite old heartbeat."""
-        self._run_script(db_path, "begin", "sess-1", "claude-code",
-                         "anthropic", TEST_MODEL_ID, "/tmp/work")
+        self._run_script(
+            db_path,
+            "begin",
+            "sess-1",
+            "claude-code",
+            "anthropic",
+            TEST_MODEL_ID,
+            "/tmp/work",
+        )
 
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=120)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"

@@ -17,6 +17,7 @@ display-width budget.
 
 from __future__ import annotations
 
+import json
 from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
@@ -25,7 +26,7 @@ from yoke_contracts.board.sections_sessions_layout import _dedup_lease_rows
 from yoke_contracts.item_ref import format_item_ref
 
 
-PATH_GLYPH = "\U0001f4c1"   # 📁
+PATH_GLYPH = "\U0001f4c1"  # 📁
 LEASE_GLYPH = "\U0001f512"  # 🔒
 PROCESS_GLYPH = "🔩"
 
@@ -51,8 +52,7 @@ def path_claims_for_session(
     2. Typed process-owned via a work_claim this session holds:
        ``owner_kind='process'`` AND ``owner_work_claim_id`` resolves
        to a ``work_claims`` row with ``session_id = session_id``.
-    Item-owned claims are intentionally excluded here; they roll up through
-    :func:`_path_claims_for_items`.
+    Item-owned claims are excluded here; they roll up through :func:`_path_claims_for_items`.
 
     Rows: (claim_id, item_id, work_claim_id, released_at, cancelled_at,
     release_reason, cancel_reason, declared_count). Terminal rows
@@ -60,7 +60,8 @@ def path_claims_for_session(
     """
     terminal_filter = (
         " AND pc.released_at IS NULL AND pc.cancelled_at IS NULL "
-        if active_only else ""
+        if active_only
+        else ""
     )
     return db.query_quiet(
         f"""
@@ -107,7 +108,8 @@ def _path_claims_for_items(
         return []
     terminal_filter = (
         " AND pc.released_at IS NULL AND pc.cancelled_at IS NULL "
-        if active_only else ""
+        if active_only
+        else ""
     )
     placeholders = ",".join("%s" for _ in item_ids)
     return db.query_quiet(
@@ -142,10 +144,7 @@ def leases_for_session(
     owner_kind / owner_item_id when the recorded payload has them.
     Terminal leases are filtered when ``active_only`` is True.
     """
-    terminal_filter = (
-        " AND released_at IS NULL "
-        if active_only else ""
-    )
+    terminal_filter = " AND released_at IS NULL " if active_only else ""
     typed_sql = f"""
         SELECT cl.id, cl.lease_key, cl.released_at, cl.release_reason,
                cl.owner_kind, cl.owner_item_id
@@ -154,7 +153,9 @@ def leases_for_session(
           (cl.owner_kind = 'session' AND cl.owner_session_id = %s)
           OR cl.session_id = %s
           OR (cl.owner_kind = 'item' AND cl.owner_item_id IN (
-              SELECT item_id FROM work_claims WHERE session_id = %s
+              SELECT CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER)
+              FROM work_claims wc
+              WHERE wc.session_id = %s AND wc.target_kind = 'item'
           ))
         )
         {terminal_filter}
@@ -177,17 +178,21 @@ def leases_for_session(
 
 
 def _process_anchor(db: BoardDBLike, work_claim_id: Optional[int]) -> Optional[str]:
-    """Resolve a work_claim_id to its process_key, when present and process-kind."""
+    """Resolve a work-claim id to its process key, when process-kind."""
     if work_claim_id is None:
         return None
     row = db.query_quiet(
-        "SELECT process_key FROM work_claims WHERE id = %s",
+        "SELECT scope FROM work_claims WHERE id = %s AND target_kind = 'process'",
         (work_claim_id,),
     )
     if not row:
         return None
-    first = row[0]
-    process_key = first[0] if first else None
+    raw_scope = row[0][0] if row[0] else None
+    try:
+        scope = raw_scope if isinstance(raw_scope, dict) else json.loads(raw_scope)
+    except (TypeError, ValueError):
+        return None
+    process_key = scope.get("process_key") if isinstance(scope, dict) else None
     if isinstance(process_key, str) and process_key:
         return process_key
     return None
@@ -214,8 +219,12 @@ def _roll_up_path_claims(
         declared_count = row[7] or 0
         bucket = rolled.setdefault(
             item_id,
-            {"count": 0, "release_reason": None, "work_claim_id": None,
-             "any_active": False},
+            {
+                "count": 0,
+                "release_reason": None,
+                "work_claim_id": None,
+                "any_active": False,
+            },
         )
         bucket["count"] = int(bucket["count"]) + int(declared_count)
         if released_at is None and cancelled_at is None:
@@ -249,7 +258,9 @@ def build_session_keycaps(
     Claims stays occupancy-shaped, not an audit log.
     """
     path_rows = path_claims_for_session(
-        db, session_id, active_only=active_only,
+        db,
+        session_id,
+        active_only=active_only,
     )
     lease_rows = _dedup_lease_rows(
         leases_for_session(db, session_id, active_only=active_only),
@@ -261,14 +272,15 @@ def build_session_keycaps(
     # rows so the Claims column reflects file authority even when the
     # path claim has no session owner. Deduplicate by claim id so a
     # row that is both session-linked and item-linked is counted once.
-    work_item_ids_int: List[int] = sorted({
-        int(item_id) for _, item_id, _ in work_claim_targets
-        if item_id is not None
-    })
+    work_item_ids_int: List[int] = sorted(
+        {int(item_id) for _, item_id, _ in work_claim_targets if item_id is not None}
+    )
     if active_only and work_item_ids_int:
         seen_ids = {row[0] for row in path_rows}
         item_rows = _path_claims_for_items(
-            db, work_item_ids_int, active_only=active_only,
+            db,
+            work_item_ids_int,
+            active_only=active_only,
         )
         merged_rows = list(path_rows) + [
             row for row in item_rows if row[0] not in seen_ids
@@ -324,7 +336,6 @@ def build_session_keycaps(
             decorated_targets.append(f"{LEASE_GLYPH} {lease_key} ({ref})")
         else:
             decorated_targets.append(f"{LEASE_GLYPH} {lease_key}")
-
     return decorated_targets
 
 

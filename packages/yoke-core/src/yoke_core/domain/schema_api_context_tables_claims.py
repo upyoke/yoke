@@ -17,6 +17,9 @@ from yoke_core.domain.schema_api_context_tables_leases import LEASE_TABLES
 from yoke_core.domain.schema_api_context_tables_path_claim_bindings import (
     PATH_CLAIM_BINDING_TABLES,
 )
+from yoke_core.domain.schema_api_context_tables_work_claims import (
+    WORK_CLAIM_TABLES,
+)
 
 
 CLAIMS_TABLES: dict[str, dict] = {
@@ -144,74 +147,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             "ledger for audit queries."
         ),
     },
-    "work_claims": {
-        "columns": [
-            ("id", "INTEGER"),
-            ("session_id", "TEXT"),
-            ("target_kind", "TEXT"),
-            ("item_id", "INTEGER"),
-            ("epic_id", "INTEGER"),
-            ("task_num", "INTEGER"),
-            ("process_key", "TEXT"),
-            ("conflict_group", "TEXT"),
-            ("claim_type", "TEXT"),
-            ("claimed_at", "TEXT"),
-            ("last_heartbeat", "TEXT"),
-            ("released_at", "TEXT"),
-            ("release_reason", "TEXT"),
-            ("reason", "TEXT"),
-            ("reason_intent", "TEXT"),
-            ("release_reason_intent", "TEXT"),
-        ],
-        "notes": (
-            "Typed targets via target_kind plus the matching specialized "
-            "columns: item_id (kind=item), (epic_id, task_num) "
-            "(kind=epic_task), (process_key, conflict_group) "
-            "(kind=process). There is no single generic target column on "
-            "this table — pick the matching kind-specific columns above. "
-            "There is also NO `target_path` column (stale guess); worktree "
-            "and path coverage live outside work_claims. "
-            "claim_type is the kind discriminator (e.g. 'exclusive'); "
-            "non-terminal state is derived from `released_at IS NULL` — "
-            "the table has no separate state/status column. Primary key "
-            "is `id`; there is NO `claim_id` column. "
-            "Disambiguation from path_claims: owner_kind / owner_item_id / "
-            "owner_session_id / registered_by_actor_id / "
-            "registered_by_session_id are path_claims columns, NOT "
-            "work_claims — do not cross-apply the typed-owner vocabulary "
-            "here; a work_claims row's authority is just session_id + "
-            "target_kind + item_id/epic_id/task_num. The claim timestamp "
-            "is `claimed_at` (there is no `created_at` on this table). For "
-            "holder lookups prefer `yoke claims work holder-get PREFIX-N` "
-            "over a raw SELECT against this table. When you have a PATH "
-            "rather than an item — you are about to write somewhere and "
-            "do not know who owns it — ask "
-            "`yoke claims work holder-get --path /abs/path`; an empty "
-            "holder means no active claimed lane contains it. Writing "
-            "into a lane another live session holds is refused before the "
-            "write lands (failure_class=foreign_lane, event "
-            "SessionCwdForeignLaneDenied) for EVERY caller, including one "
-            "holding no claim at all — holding no claim is not permission, "
-            "it is the shape that walks into somebody else's lane. Two "
-            "processes in one worktree share its git index, so staged "
-            "changes from either land in whichever one commits first. "
-            "Canonical SELECTs: all active claims a session holds — "
-            "`SELECT id, item_id, epic_id, task_num, claim_type, "
-            "claimed_at FROM work_claims WHERE session_id = ? AND "
-            "released_at IS NULL`; all sessions currently claiming a "
-            "given item — `SELECT session_id, claim_type, claimed_at "
-            "FROM work_claims WHERE item_id = ? AND released_at IS NULL`. "
-            "Acquire/release intent is first-class state on the row: "
-            "`reason` is the verbatim --reason supplied at acquire, "
-            "`reason_intent` its canonical-vocabulary classification "
-            "(NULL = free text), and `release_reason_intent` the "
-            "caller-supplied intent at release (vs the schema-enum "
-            "release_reason). These previously lived only in "
-            "WorkClaimed/WorkReleased event envelopes — read the columns, "
-            "never the events ledger (telemetry-only); NULL means no "
-            "intent was recorded."
-        ),
-    },
+    **WORK_CLAIM_TABLES,
     "path_claims": {
         "columns": [
             ("id", "INTEGER"),

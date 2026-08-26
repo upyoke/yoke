@@ -46,7 +46,7 @@ def pin_schedule_to_acquired_item(
 
     Returns ``False`` when the recomputed ``ranked_steps`` does NOT
     contain the acquired item. The comparison normalizes both sides to
-    ``str`` so callers that pass either the raw ``new_claim["item_id"]``
+    ``str`` so callers that pass either the decoded ``new_claim.scope.item_id``
     or ``candidate.item_id`` (both bare internal ids, possibly int or
     str typed) work uniformly.
     """

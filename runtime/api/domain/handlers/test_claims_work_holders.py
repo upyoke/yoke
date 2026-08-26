@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_helpers
 from yoke_core.domain.handlers import claims_work_holders
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _request(payload: dict) -> FunctionCallRequest:
@@ -38,15 +39,12 @@ class _KeepOpenConn:
 
 def test_holder_list_filters_by_session_id(monkeypatch) -> None:
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(
         conn,
         "CREATE TABLE work_claims ("
-        "id INTEGER, session_id TEXT, target_kind TEXT, item_id INTEGER, "
-        "epic_id INTEGER, task_num INTEGER, process_key TEXT, "
-        "conflict_group TEXT, claimed_at TEXT, last_heartbeat TEXT, "
+        "id INTEGER, session_id TEXT, target_kind TEXT, scope TEXT, "
+        "claimed_at TEXT, last_heartbeat TEXT, "
         "released_at TEXT)",
     )
     for row in (
@@ -56,9 +54,9 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
     ):
         conn.execute(
             "INSERT INTO work_claims "
-            "(id, session_id, target_kind, item_id, claimed_at, released_at) "
+            "(id, session_id, target_kind, scope, claimed_at, released_at) "
             "VALUES (%s, %s, 'item', %s, %s, %s)",
-            row,
+            (row[0], row[1], make_item_target(row[2]).scope_json(), row[3], row[4]),
         )
     conn.commit()
     monkeypatch.setattr(
@@ -72,9 +70,7 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
         lambda _conn, _session_id: True,
     )
 
-    outcome = claims_work_holders.handle_holder_list(
-        _request({"session_id": "held-a"})
-    )
+    outcome = claims_work_holders.handle_holder_list(_request({"session_id": "held-a"}))
 
     assert outcome.primary_success
     assert outcome.result_payload["current_item_before_implementation"] is True
@@ -86,9 +82,7 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
             "claim_id": 1,
             "session_id": "held-a",
             "target_kind": "item",
-            "item_id": 10,
-            "epic_id": None,
-            "task_num": None,
+            "scope": {"item_id": 10},
             "claimed_at": "2026-01-02T00:00:00Z",
             "last_heartbeat": None,
             "lane_worktrees": [],
@@ -99,15 +93,12 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
 def _seeded_lane_db():
     """A universe with one active lane held by one live claim."""
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(
         conn,
         "CREATE TABLE work_claims ("
-        "id INTEGER, session_id TEXT, target_kind TEXT, item_id INTEGER, "
-        "epic_id INTEGER, task_num INTEGER, process_key TEXT, "
-        "conflict_group TEXT, claimed_at TEXT, last_heartbeat TEXT, "
+        "id INTEGER, session_id TEXT, target_kind TEXT, scope TEXT, "
+        "claimed_at TEXT, last_heartbeat TEXT, "
         "released_at TEXT)",
     )
     apply_fixture_ddl(
@@ -119,9 +110,10 @@ def _seeded_lane_db():
     )
     conn.execute(
         "INSERT INTO work_claims "
-        "(id, session_id, target_kind, item_id, claimed_at, released_at) "
-        "VALUES (7, 'holding-session', 'item', 4242, "
-        "'2026-01-02T00:00:00Z', NULL)"
+        "(id, session_id, target_kind, scope, claimed_at, released_at) "
+        "VALUES (7, 'holding-session', 'item', %s, "
+        "'2026-01-02T00:00:00Z', NULL)",
+        (make_item_target(4242).scope_json(),),
     )
     conn.execute(
         "INSERT INTO item_worktrees "
@@ -155,7 +147,7 @@ def test_holder_get_by_path_finds_the_lane_holder(monkeypatch) -> None:
     assert outcome.primary_success
     holder = outcome.result_payload["holder"]
     assert holder["session_id"] == "holding-session"
-    assert holder["item_id"] == 4242
+    assert holder["scope"] == {"item_id": 4242}
     assert holder["lane_worktrees"] == ["/repo/.worktrees/held"]
 
 

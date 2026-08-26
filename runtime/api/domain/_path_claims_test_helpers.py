@@ -36,6 +36,7 @@ from yoke_core.domain.schema_init_columns import apply_harness_session_columns
 from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_tables import create_core_tables
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -137,17 +138,14 @@ def seed_target(conn: Any, *, path_string: str) -> int:
 def local_human(conn: Any) -> int:
     """Resolve the seeded local human actor id, falling back to a fresh row."""
     row = conn.execute(
-        "SELECT actor_id FROM actor_labels "
-        "WHERE label='ben' AND surface='github_label'"
+        "SELECT actor_id FROM actor_labels WHERE label='ben' AND surface='github_label'"
     ).fetchone()
     return int(row["actor_id"]) if row else seed_human_actor(conn)
 
 
 def seed_item(conn: Any, *, item_id: int, status: str = "idea") -> int:
     """Insert a minimal ``items`` row and return its id."""
-    workflow_id, workflow_version_id = resolve_current_workflow_pin(
-        conn, "issue"
-    )
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
         "status, priority, created_at, updated_at, project_id, "
@@ -218,7 +216,8 @@ def count_refresh_events(conn: Any, *, claim_id: int) -> int:
         "WHERE event_name = 'PathClaimBlockedReasonRefreshed'"
     ).fetchall()
     return sum(
-        1 for row in rows
+        1
+        for row in rows
         if json.loads(row["envelope"])["context"]["claim_id"] == claim_id
     )
 
@@ -232,9 +231,7 @@ subcommand so the new ambient ownership guard sees a matching active
 """
 
 
-def seed_test_holder_session(
-    conn: Any, session_id: str = HOLDER_SESSION_ID
-) -> None:
+def seed_test_holder_session(conn: Any, session_id: str = HOLDER_SESSION_ID) -> None:
     """Insert the canonical test holder ``harness_sessions`` row idempotently."""
     actor_id = local_human(conn)
     if _column_exists(conn, "harness_sessions", "actor_id"):
@@ -278,16 +275,18 @@ def register_test_claim(conn: Any, **kwargs: Any) -> int:
 
 
 def seed_work_claim_for(
-    conn: Any, *, item_id: int,
+    conn: Any,
+    *,
+    item_id: int,
     session_id: str = HOLDER_SESSION_ID,
 ) -> None:
     """Insert a live ``work_claims`` row owned by the test holder."""
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id, "
+        "INSERT INTO work_claims (session_id, target_kind, scope, "
         "claimed_at, last_heartbeat) "
         "VALUES (%s, 'item', %s, '2026-05-01T00:00:00Z', "
         "'2026-05-01T00:00:00Z')",
-        (session_id, int(item_id)),
+        (session_id, make_item_target(int(item_id)).scope_json()),
     )
 
 

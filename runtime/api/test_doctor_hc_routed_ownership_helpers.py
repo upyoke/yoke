@@ -21,6 +21,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -47,11 +48,7 @@ CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL,
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL DEFAULT '',
     last_heartbeat TEXT NOT NULL DEFAULT '',
@@ -152,16 +149,18 @@ def _insert_released_claim(
     release_reason_intent: Optional[str] = None,
 ) -> int:
     p = _p(conn)
+    target = make_item_target(item_id)
     row = conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         " last_heartbeat, released_at, release_reason, "
         " release_reason_intent) "
-        f"VALUES ({p}, 'item', {p}, 'exclusive', {p}, {p}, {p}, {p}, {p}) "
+        f"VALUES ({p}, {p}, {p}, 'exclusive', {p}, {p}, {p}, {p}, {p}) "
         "RETURNING id",
         (
             session_id,
-            item_id,
+            target.kind,
+            target.scope_json(),
             _iso(-released_age_s - 60),
             _iso(-released_age_s),
             _iso(-released_age_s),

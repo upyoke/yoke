@@ -30,13 +30,10 @@ from .sessions_analytics import (
 )
 from .sessions_lifecycle_release import (
     _POST_COMMIT_RECEIPT_KEY,
-    emit_work_release_post_commit,
     release_work_claim_for_execution,
 )
+from .sessions_lifecycle_claim_release import emit_claim_release_post_commit
 from .work_claim_targets import (
-    TARGET_KIND_EPIC_TASK,
-    TARGET_KIND_ITEM,
-    TARGET_KIND_PROCESS,
     WorkClaimTarget,
     from_row,
 )
@@ -49,16 +46,7 @@ AGENT_HANDOFF_RELEASE_VIA = "agent_handoff_session_scoped"
 
 def _describe_target(target: WorkClaimTarget) -> Dict[str, Any]:
     """Render the kind-specific identifiers for the response payload."""
-    desc: Dict[str, Any] = {"target_kind": target.kind}
-    if target.kind == TARGET_KIND_ITEM:
-        desc["item_id"] = target.item_id
-    elif target.kind == TARGET_KIND_EPIC_TASK:
-        desc["epic_id"] = target.epic_id
-        desc["task_num"] = target.task_num
-    elif target.kind == TARGET_KIND_PROCESS:
-        desc["process_key"] = target.process_key
-        desc["conflict_group"] = target.conflict_group
-    return desc
+    return {"target_kind": target.kind, "scope": dict(target.scope)}
 
 
 def _release_session_claim_rows(
@@ -73,16 +61,7 @@ def _release_session_claim_rows(
     released: List[Dict[str, Any]] = []
     post_commit_receipts: List[Dict[str, Any]] = []
     for row in active_claim_rows:
-        target = from_row(
-            {
-                "target_kind": row["target_kind"],
-                "item_id": row["item_id"],
-                "epic_id": row["epic_id"],
-                "task_num": row["task_num"],
-                "process_key": row["process_key"],
-                "conflict_group": row["conflict_group"],
-            }
-        )
+        target = from_row(dict(row))
         result = release_work_claim_for_execution(
             conn,
             session_id,
@@ -121,13 +100,14 @@ def emit_session_claim_releases_post_commit(
     """Emit deferred per-claim and aggregate events after a batch commit."""
     if emit_individual:
         for receipt in post_commit_receipts:
-            emit_work_release_post_commit(conn, receipt)
+            emit_claim_release_post_commit(conn, receipt)
 
     if released:
         first_item: Optional[str] = None
         for entry in released:
-            if entry.get("item_id") is not None:
-                first_item = str(entry["item_id"])
+            scope = entry.get("scope") or {}
+            if entry.get("target_kind") == "item" and scope.get("item_id") is not None:
+                first_item = str(scope["item_id"])
                 break
         _sa._emit_session_event(
             EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
@@ -172,8 +152,8 @@ def release_session_claims(
     Routes each release through :func:`release_work_claim_for_execution`
     with ``allow_non_terminal=True`` so process-owned path-claim cascade
     and target-kind semantics are consistent with every other claim
-    release path. The default remains backwards compatible: each typed
-    release commits and emits success telemetry before the aggregate event.
+    release path. By default each typed release commits and emits success
+    telemetry before the aggregate event.
     Session end uses :func:`release_session_claims_transactional` so every
     release, the terminal session row, and focus cleanup commit together.
     """

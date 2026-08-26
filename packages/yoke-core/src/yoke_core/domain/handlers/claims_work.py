@@ -54,11 +54,7 @@ class AcquireResponse(BaseModel):
     claim_id: int
     session_id: str
     target_kind: str
-    item_id: Optional[int] = None
-    epic_id: Optional[int] = None
-    task_num: Optional[int] = None
-    process_key: Optional[str] = None
-    conflict_group: Optional[str] = None
+    scope: Dict[str, Any]
     linked_path_claim_ids: List[int] = Field(default_factory=list)
 
 
@@ -150,16 +146,14 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
             code = _ACQUIRE_ERROR_CODES.get(exc.code, "claim_failed")
             return _err(code, f"{exc.code}: {exc}")
 
+    from yoke_core.domain.work_claim_targets import from_row as target_from_row
+    acquired_target = target_from_row(row)
+
     return HandlerOutcome(
         result_payload={
             "claim_id": int(row["id"]),
             "session_id": str(row["session_id"]),
-            "target_kind": str(row["target_kind"]),
-            "item_id": row["item_id"],
-            "epic_id": row["epic_id"],
-            "task_num": row["task_num"],
-            "process_key": row["process_key"],
-            "conflict_group": row["conflict_group"],
+            **acquired_target.descriptor(),
             "linked_path_claim_ids": list(row.get("linked_path_claim_ids") or []),
         },
     )

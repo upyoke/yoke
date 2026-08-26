@@ -57,6 +57,7 @@ from yoke_core.domain.schema_init_columns import (
     apply_additive_schema,
     apply_harness_session_columns,
     apply_legacy_data_migrations,
+    apply_work_claim_scope_column,
 )
 from yoke_core.domain.schema_init_tables import (
     create_core_tables,
@@ -181,6 +182,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     was_born = universe_is_born_on(conn)
 
     create_core_tables(conn)
+    apply_work_claim_scope_column(conn)
     create_actor_identity_tables(conn)
     # actor_ui_preferences FKs into actors, so this follows the identity step.
     create_ui_preference_tables(conn)

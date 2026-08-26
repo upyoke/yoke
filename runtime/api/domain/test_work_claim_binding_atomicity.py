@@ -19,6 +19,7 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.sessions import SessionError, claim_work, handoff_claim
 from yoke_core.domain.sessions_lifecycle_claim_release import release_claim_by_id
+from yoke_core.domain.work_claim_targets import decode_scope
 
 
 _CONCURRENCY_TIMEOUT_SECONDS = 30
@@ -113,11 +114,10 @@ def test_cross_item_stale_cleanup_does_not_invert_target_locks(
         not isinstance(outcomes[name], BaseException) for name in ("fresh-a", "fresh-b")
     )
     holders = test_db.execute(
-        "SELECT session_id,item_id FROM work_claims "
-        "WHERE released_at IS NULL AND item_id IN (%s,%s) ORDER BY item_id",
-        item_ids,
+        "SELECT session_id,scope FROM work_claims "
+        "WHERE released_at IS NULL AND target_kind='item' ORDER BY session_id",
     ).fetchall()
-    assert [(row[0], int(row[1])) for row in holders] == [
+    assert [(row[0], int(decode_scope(row[1])["item_id"])) for row in holders] == [
         ("fresh-a", item_ids[0]),
         ("fresh-b", item_ids[1]),
     ]

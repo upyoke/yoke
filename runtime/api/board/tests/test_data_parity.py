@@ -25,51 +25,30 @@ from yoke_contracts.board.sections_definition_queries import (
     query_item_rows,
     query_precomputed_epic_task_rows,
 )
-from yoke_core.board.data import (
-    BoardDataMissError,
-    ReplayBoardDB,
-    collect_board_data,
-    entry_key,
-)
+from yoke_core.board.data import BOARD_DATA_VERSION, BoardDataMissError, ReplayBoardDB, collect_board_data, entry_key
 from yoke_core.board.db import BoardDB
 from yoke_core.board.renderer import _assemble
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
-def _direct_render(
-    db_path, scope, config_path, *, seed, repo_root=None, vision_entries=(),
-):
+def _direct_render(db_path, scope, config_path, *, seed, repo_root=None, vision_entries=()):
     """The pre-data-layer render shape: one live BoardDB, one assembly."""
     config = parse_config(config_path, repo_root=repo_root)
     art_config = parse_art_config(config_path, repo_root=repo_root)
     with BoardDB(db_path) as db:
-        return _assemble(
-            db, config, art_config, scope, seed, repo_root,
-            list(vision_entries),
-        )
+        return _assemble(db, config, art_config, scope, seed, repo_root, list(vision_entries))
 
 
-def _data_fed_render(
-    db_path, scope, config_path, *, seed, repo_root=None, vision_entries=(),
-):
+def _data_fed_render(db_path, scope, config_path, *, seed, repo_root=None, vision_entries=()):
     """Collect → JSON round-trip → replay render, same inputs."""
     config = parse_config(config_path, repo_root=repo_root)
     art_config = parse_art_config(config_path, repo_root=repo_root)
     with BoardDB(db_path) as db:
-        payload = collect_board_data(
-            db,
-            scope=scope,
-            config=config,
-            repo_root=repo_root,
-            vision_entries=vision_entries,
-        )
+        payload = collect_board_data(db, scope=scope, config=config, repo_root=repo_root, vision_entries=vision_entries)
     # Prove transport fidelity: everything survives a JSON round trip.
     payload = json.loads(json.dumps(payload))
     replay = ReplayBoardDB.from_payload(payload)
-    return _assemble(
-        replay, config, art_config, scope, seed, repo_root,
-        list(vision_entries),
-    )
+    return _assemble(replay, config, art_config, scope, seed, repo_root, list(vision_entries))
 
 
 def test_parity_populated_board(populated_db, config_file):
@@ -96,10 +75,7 @@ def test_parity_velocity_meter_strategy_events(populated_db, tmp_path):
     cfg = tmp_path / "config"
     cfg.write_text("dashboard_velocity_meter=true\n")
     today = date.today().isoformat()
-    insert_event(
-        populated_db, "StrategyDocReplaced", "yoke",
-        f"{today}T09:00:00Z", {"old_bytes": 10, "new_bytes": 3300},
-    )
+    insert_event(populated_db, "StrategyDocReplaced", "yoke", f"{today}T09:00:00Z", {"old_bytes": 10, "new_bytes": 3300})
     direct = _direct_render(populated_db, "yoke", str(cfg), seed=42)
     fed = _data_fed_render(populated_db, "yoke", str(cfg), seed=42)
     assert fed == direct
@@ -129,15 +105,12 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
             CREATE TABLE IF NOT EXISTS work_claims (
                 id INTEGER PRIMARY KEY,
                 session_id TEXT,
-                item_id INTEGER,
-                epic_id INTEGER,
-                task_num INTEGER,
+                scope TEXT NOT NULL,
                 claim_type TEXT,
                 claimed_at TEXT,
                 released_at TEXT,
                 release_reason TEXT,
-                target_kind TEXT,
-                process_key TEXT
+                target_kind TEXT
             )
         """)
         conn.execute("""
@@ -175,25 +148,28 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
                 owner_work_claim_id INTEGER
             )
         """)
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO harness_sessions
                 (session_id, executor, executor_surface, provider, model,
                  execution_lane, mode, workspace, project_id, offered_at,
                  last_heartbeat)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (
-            "mac-yoke",
-            "claude-code",
-            "claude-desktop",
-            "anthropic",
-            "claude-opus",
-            "primary",
-            "wait",
-            "/Users/testy/code/yoke",
-            1,
-            "2026-06-30T12:00:00Z",
-            "2026-06-30T12:01:00Z",
-        ))
+        """,
+            (
+                "mac-yoke",
+                "claude-code",
+                "claude-desktop",
+                "anthropic",
+                "claude-opus",
+                "primary",
+                "wait",
+                "/Users/testy/code/yoke",
+                1,
+                "2026-06-30T12:00:00Z",
+                "2026-06-30T12:01:00Z",
+            ),
+        )
         conn.commit()
     finally:
         conn.close()
@@ -202,21 +178,10 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
     config = parse_config(config_file, repo_root=repo_root)
     art_config = parse_art_config(config_file, repo_root=repo_root)
     with BoardDB(populated_db) as db:
-        payload = collect_board_data(
-            db,
-            scope="yoke",
-            config=config,
-            repo_root=repo_root,
-        )
+        payload = collect_board_data(db, scope="yoke", config=config, repo_root=repo_root)
 
     assert "session_workspace_aliases" not in payload
-    rendered = render_board_from_payload(
-        json.loads(json.dumps(payload)),
-        scope="yoke",
-        config=config,
-        art_config=art_config,
-        repo_root=repo_root,
-    )
+    rendered = render_board_from_payload(json.loads(json.dumps(payload)), scope="yoke", config=config, art_config=art_config, repo_root=repo_root)
     assert "mac-yoke" in rendered
     assert "yoke" in rendered
 
@@ -226,19 +191,17 @@ def test_parity_all_scope_with_zen_and_vision(populated_db, tmp_path):
     SQL parameter, so record and replay must agree through the injected
     entries, not a cwd walk."""
     cfg = tmp_path / "config"
-    cfg.write_text(textwrap.dedent("""\
+    cfg.write_text(
+        textwrap.dedent("""\
         dashboard_velocity=true
         dashboard_weather=true
         dashboard_velocity_meter=true
         timeline_widget=always
-    """))
+    """)
+    )
     vision = [("1mo", "autonomous"), ("6mo", "fleet")]
-    direct = _direct_render(
-        populated_db, "all", str(cfg), seed=3, vision_entries=vision,
-    )
-    fed = _data_fed_render(
-        populated_db, "all", str(cfg), seed=3, vision_entries=vision,
-    )
+    direct = _direct_render(populated_db, "all", str(cfg), seed=3, vision_entries=vision)
+    fed = _data_fed_render(populated_db, "all", str(cfg), seed=3, vision_entries=vision)
     assert fed == direct
 
 
@@ -252,52 +215,29 @@ def test_replay_miss_raises_loudly(populated_db, config_file):
 
 
 def test_item_rows_fall_back_to_legacy_recorded_query():
-    legacy_row = [
-        7, "Legacy", "dash", "idea", "medium", 0, 0, 7,
-        "Yoke", "2026-08-03T00:00:00Z", "yoke", "YOK", 7, "none",
-    ]
+    legacy_row = [7, "Legacy", "dash", "idea", "medium", 0, 0, 7, "Yoke", "2026-08-03T00:00:00Z", "yoke", "YOK", 7, "none"]
     legacy_sql = _items_sql("", definition_metadata=False)
-    replay = ReplayBoardDB.from_payload({
-        "version": 1,
-        "entries": [{
-            "kind": "query",
-            "sql": legacy_sql,
-            "params": None,
-            "rows": [legacy_row],
-        }],
-    })
+    replay = ReplayBoardDB.from_payload({"version": BOARD_DATA_VERSION, "entries": [{"kind": "query", "sql": legacy_sql, "params": None, "rows": [legacy_row]}]})
 
     assert not replay.has_query(_items_sql("", definition_metadata=True))
-    assert query_item_rows(replay, "") == [(
-        *legacy_row[:-1], None, None, legacy_row[-1],
-    )]
+    assert query_item_rows(replay, "") == [(*legacy_row[:-1], None, None, legacy_row[-1])]
 
 
 def test_epic_task_rows_fall_back_to_legacy_recorded_queries():
     detail_sql = _epic_task_rows_sql(definition_metadata=False)
     batch_sql = _precomputed_epic_tasks_sql("", definition_metadata=False)
-    replay = ReplayBoardDB.from_payload({
-        "version": 1,
-        "entries": [
-            {
-                "kind": "query",
-                "sql": detail_sql,
-                "params": [7],
-                "rows": [[1, "Task", "done"]],
-            },
-            {
-                "kind": "query_quiet",
-                "sql": batch_sql,
-                "params": None,
-                "rows": [[7, 1, "Task", "done"]],
-            },
-        ],
-    })
+    replay = ReplayBoardDB.from_payload(
+        {
+            "version": BOARD_DATA_VERSION,
+            "entries": [
+                {"kind": "query", "sql": detail_sql, "params": [7], "rows": [[1, "Task", "done"]]},
+                {"kind": "query_quiet", "sql": batch_sql, "params": None, "rows": [[7, 1, "Task", "done"]]},
+            ],
+        }
+    )
 
     assert query_epic_task_rows(replay, 7) == [(1, "Task", "done", None)]
-    assert query_precomputed_epic_task_rows(replay, "") == [
-        (7, 1, "Task", "done", None),
-    ]
+    assert query_precomputed_epic_task_rows(replay, "") == [(7, 1, "Task", "done", None)]
 
 
 def test_payload_versions_must_match(populated_db, config_file):
@@ -313,9 +253,7 @@ def test_payload_versions_must_match(populated_db, config_file):
 
 def test_entry_key_stable_across_json_round_trip():
     live = entry_key("query", "SELECT 1", (5, "x"))
-    round_tripped = entry_key(
-        "query", "SELECT 1", tuple(json.loads(json.dumps([5, "x"])))
-    )
+    round_tripped = entry_key("query", "SELECT 1", tuple(json.loads(json.dumps([5, "x"]))))
     assert live == round_tripped
 
 

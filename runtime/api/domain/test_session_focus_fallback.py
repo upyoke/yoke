@@ -22,6 +22,7 @@ from yoke_core.domain.sessions import (
     release_item_claim_for_execution,
     set_current_item,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _focus(conn, session_id: str) -> tuple[object, object]:
@@ -50,7 +51,10 @@ def _claim_pair(conn, session_id: str = "sess-1"):
 def test_execution_release_falls_back_to_newest_remaining_item(conn):
     _claim_pair(conn)
     result = release_item_claim_for_execution(
-        conn, "sess-1", 2, "finalize-exit",
+        conn,
+        "sess-1",
+        2,
+        "finalize-exit",
     )
     assert result["released"] is True
     current, recent = _focus(conn, "sess-1")
@@ -88,10 +92,12 @@ def test_operator_override_of_focused_claim_falls_back(conn):
 def test_terminal_cleanup_falls_back_to_remaining_item_claim(conn):
     _claim_pair(conn)
     set_current_item(conn, "sess-1", 1)
+    target = make_item_target(1)
     conn.execute(
         "UPDATE work_claims SET released_at = %s, release_reason = 'completed' "
-        "WHERE session_id = 'sess-1' AND item_id = 1 AND released_at IS NULL",
-        ("2026-08-22T00:00:00Z",),
+        "WHERE session_id = 'sess-1' AND target_kind = %s AND scope = %s "
+        "AND released_at IS NULL",
+        ("2026-08-22T00:00:00Z", target.kind, target.scope_json()),
     )
     conn.commit()
     cleared = clear_terminal_item_focuses(conn, 1, ("sess-1",))

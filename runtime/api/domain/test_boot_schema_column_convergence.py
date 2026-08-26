@@ -28,7 +28,7 @@ _INCIDENT_COLUMN = ("session_launch_attempts", "batch_id")
 # table must instead restore through boot convergence and leave this digest
 # unchanged.
 _BORN_WITH_COLUMN_DIGEST = (
-    "46790153e2f57c5250bc6043be83de7bb7340f79edd1e5321631e7a39face7de"
+    "b2d22bf4c33f8d111329ebde988ad354dbcea97b2d0a12f5bee78204810106a4"
 )
 
 
@@ -38,9 +38,7 @@ def _apply_complete_control_plane_schema() -> None:
 
 
 def _column_map(conn) -> dict[str, frozenset[str]]:
-    return {
-        table: frozenset(_get_columns(conn, table)) for table in _get_tables(conn)
-    }
+    return {table: frozenset(_get_columns(conn, table)) for table in _get_tables(conn)}
 
 
 def _record_boot_column_lookups(conn, monkeypatch) -> set[tuple[str, str]]:
@@ -69,9 +67,7 @@ def _drop_without_cascade(conn, table: str, column: str) -> bool:
         )
     except Error:
         conn.execute(
-            sql.SQL("ROLLBACK TO SAVEPOINT {}").format(
-                sql.Identifier(_DROP_SAVEPOINT)
-            )
+            sql.SQL("ROLLBACK TO SAVEPOINT {}").format(sql.Identifier(_DROP_SAVEPOINT))
         )
         conn.execute(
             sql.SQL("RELEASE SAVEPOINT {}").format(sql.Identifier(_DROP_SAVEPOINT))

@@ -9,13 +9,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from yoke_core.domain.check_claim_boundary_audit_correlation import (
-    extract_function_response,
-    has_correlated_function_call,
-)
-from yoke_core.domain.check_claim_boundary_audit_cutoff import (
-    select_events as _select_events,
-)
+from yoke_core.domain.check_claim_boundary_audit_correlation import extract_function_response, has_correlated_function_call
+from yoke_core.domain.check_claim_boundary_audit_cutoff import select_events as _select_events
 from yoke_core.domain.check_claim_boundary_audit_function_evidence import (
     claim_verification_snapshot,
     claimed_mutation_function_names,
@@ -23,15 +18,9 @@ from yoke_core.domain.check_claim_boundary_audit_function_evidence import (
     function_audit_metadata,
     target_item_id,
 )
-from yoke_core.domain.check_claim_boundary_audit_rows import (
-    ensure_row_factory as _ensure_row_factory,
-)
-from yoke_core.domain.check_claim_boundary_audit_select import (
-    select_unattributed_harness_events,
-)
-from yoke_core.domain.check_claim_boundary_audit_path_claims import (
-    path_claim_event_has_matching_item_owner,
-)
+from yoke_core.domain.check_claim_boundary_audit_rows import ensure_row_factory as _ensure_row_factory
+from yoke_core.domain.check_claim_boundary_audit_select import select_unattributed_harness_events
+from yoke_core.domain.check_claim_boundary_audit_path_claims import path_claim_event_has_matching_item_owner
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 
 
@@ -76,20 +65,18 @@ def _context(row: Any) -> dict:
     return ctx if isinstance(ctx, dict) else {}
 
 
-def _live_claim_holder_at(
-    conn: Any,
-    item_id: int,
-    created_at: str,
-) -> Optional[str]:
+def _live_claim_holder_at(conn: Any, item_id: int, created_at: str) -> Optional[str]:
     from yoke_core.domain import db_backend
+    from yoke_core.domain.work_claim_targets import scope_int_sql
 
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     cur = conn.execute(
         f"""
         SELECT session_id
         FROM work_claims
         WHERE target_kind='item'
-          AND item_id={p}
+          AND {item_scope}={p}
           AND claimed_at <= {p}
           AND (released_at IS NULL OR released_at >= {p})
         ORDER BY claimed_at DESC
@@ -121,33 +108,41 @@ def _classify_holder_caller(
 ) -> Optional[Finding]:
     if not caller:
         return Finding(
-            severity="WARN", finding_class=finding_class,
-            event_id=event_id, item_id=item_id,
-            holder_session_id=holder, caller_session_id=None,
-            mutation_surface=surface, rationale=no_caller_rationale,
+            severity="WARN",
+            finding_class=finding_class,
+            event_id=event_id,
+            item_id=item_id,
+            holder_session_id=holder,
+            caller_session_id=None,
+            mutation_surface=surface,
+            rationale=no_caller_rationale,
         )
     if holder is None:
         return Finding(
-            severity="WARN", finding_class=finding_class,
-            event_id=event_id, item_id=item_id,
-            holder_session_id=None, caller_session_id=caller,
-            mutation_surface=surface, rationale=no_holder_rationale,
+            severity="WARN",
+            finding_class=finding_class,
+            event_id=event_id,
+            item_id=item_id,
+            holder_session_id=None,
+            caller_session_id=caller,
+            mutation_surface=surface,
+            rationale=no_holder_rationale,
         )
     if holder != caller:
         return Finding(
-            severity="FAIL", finding_class=finding_class,
-            event_id=event_id, item_id=item_id,
-            holder_session_id=holder, caller_session_id=caller,
-            mutation_surface=surface, rationale=mismatch_rationale,
+            severity="FAIL",
+            finding_class=finding_class,
+            event_id=event_id,
+            item_id=item_id,
+            holder_session_id=holder,
+            caller_session_id=caller,
+            mutation_surface=surface,
+            rationale=mismatch_rationale,
         )
     return None
 
 
-def scan_function_call_attribution(
-    conn: Any,
-    *,
-    since: Optional[str] = None,
-) -> List[Finding]:
+def scan_function_call_attribution(conn: Any, *, since: Optional[str] = None) -> List[Finding]:
     if not _table_present(conn, "events"):
         return []
     if not _table_present(conn, "work_claims"):
@@ -168,20 +163,20 @@ def scan_function_call_attribution(
         if snapshot is not None:
             mismatch = classify_claim_verification(snapshot, metadata, caller)
             if mismatch is not None:
-                findings.append(Finding(
-                    severity=mismatch.severity,
-                    finding_class="function_call_attribution_mismatch",
-                    event_id=int(row["id"]),
-                    item_id=item_id_int,
-                    holder_session_id=mismatch.holder_session_id,
-                    caller_session_id=mismatch.caller_session_id,
-                    mutation_surface=fn_name,
-                    rationale=mismatch.rationale,
-                ))
+                findings.append(
+                    Finding(
+                        severity=mismatch.severity,
+                        finding_class="function_call_attribution_mismatch",
+                        event_id=int(row["id"]),
+                        item_id=item_id_int,
+                        holder_session_id=mismatch.holder_session_id,
+                        caller_session_id=mismatch.caller_session_id,
+                        mutation_surface=fn_name,
+                        rationale=mismatch.rationale,
+                    )
+                )
             continue
-        holder = _live_claim_holder_at(
-            conn, item_id_int, row["created_at"],
-        )
+        holder = _live_claim_holder_at(conn, item_id_int, row["created_at"])
         finding = _classify_holder_caller(
             finding_class="function_call_attribution_mismatch",
             event_id=int(row["id"]),
@@ -189,24 +184,13 @@ def scan_function_call_attribution(
             holder=holder,
             caller=caller,
             surface=fn_name,
-            no_caller_rationale=(
-                "caller session not recorded on the event — "
-                "incomplete attribution evidence"
-            ),
-            no_holder_rationale=(
-                "no live work claim recorded at event time — cannot "
-                "verify authorisation"
-            ),
-            mismatch_rationale=(
-                "function call recorded under a session that did not "
-                "hold the work claim at event time"
-            ),
+            no_caller_rationale=("caller session not recorded on the event — incomplete attribution evidence"),
+            no_holder_rationale=("no live work claim recorded at event time — cannot verify authorisation"),
+            mismatch_rationale=("function call recorded under a session that did not hold the work claim at event time"),
         )
         if finding is not None:
             findings.append(finding)
-    for row in select_unattributed_harness_events(
-        conn, since, mutating_functions=claimed_mutation_function_names(),
-    ):
+    for row in select_unattributed_harness_events(conn, since, mutating_functions=claimed_mutation_function_names()):
         flags = str(row["anomaly_flags"] or "")
         if "unattributed" not in flags:
             continue
@@ -214,32 +198,26 @@ def scan_function_call_attribution(
         metadata = function_audit_metadata({}, fn_name)
         if metadata is None or not metadata.is_claimed_mutation:
             continue
-        if has_correlated_function_call(
-            conn, harness_row=row, function_name=fn_name, item_id=item_id_int,
-        ):
+        if has_correlated_function_call(conn, harness_row=row, function_name=fn_name, item_id=item_id_int):
             continue
-        findings.append(Finding(
-            severity="WARN",
-            finding_class="function_call_attribution_mismatch",
-            event_id=int(row["id"]),
-            item_id=item_id_int,
-            holder_session_id=None,
-            caller_session_id=row["session_id"],
-            mutation_surface=fn_name,
-            rationale=(
-                "ambient HarnessToolCallCompleted returned a mutating "
-                "function response but durable YokeFunctionCalled "
-                "attribution is not correlated"
-            ),
-        ))
+        findings.append(
+            Finding(
+                severity="WARN",
+                finding_class="function_call_attribution_mismatch",
+                event_id=int(row["id"]),
+                item_id=item_id_int,
+                holder_session_id=None,
+                caller_session_id=row["session_id"],
+                mutation_surface=fn_name,
+                rationale=(
+                    "ambient HarnessToolCallCompleted returned a mutating function response but durable YokeFunctionCalled attribution is not correlated"
+                ),
+            )
+        )
     return findings
 
 
-def scan_non_operator_claim_release_overrides(
-    conn: Any,
-    *,
-    since: Optional[str] = None,
-) -> List[Finding]:
+def scan_non_operator_claim_release_overrides(conn: Any, *, since: Optional[str] = None) -> List[Finding]:
     if not _table_present(conn, "events"):
         return []
     _ensure_row_factory(conn)
@@ -251,39 +229,36 @@ def scan_non_operator_claim_release_overrides(
         caller = row["session_id"]
         item_id_int = _coerce_item_id(row["item_id"])
         if not rationale_text:
-            findings.append(Finding(
-                severity="WARN",
-                finding_class="non_operator_claim_release_override",
-                event_id=int(row["id"]),
-                item_id=item_id_int,
-                holder_session_id=prior_owner,
-                caller_session_id=caller,
-                mutation_surface="ItemClaimReleaseOverride",
-                rationale="override missing operator_rationale evidence",
-            ))
+            findings.append(
+                Finding(
+                    severity="WARN",
+                    finding_class="non_operator_claim_release_override",
+                    event_id=int(row["id"]),
+                    item_id=item_id_int,
+                    holder_session_id=prior_owner,
+                    caller_session_id=caller,
+                    mutation_surface="ItemClaimReleaseOverride",
+                    rationale="override missing operator_rationale evidence",
+                )
+            )
             continue
         if prior_owner and prior_owner != caller:
-            findings.append(Finding(
-                severity="FAIL",
-                finding_class="non_operator_claim_release_override",
-                event_id=int(row["id"]),
-                item_id=item_id_int,
-                holder_session_id=prior_owner,
-                caller_session_id=caller,
-                mutation_surface="ItemClaimReleaseOverride",
-                rationale=(
-                    "cross-session claim release without operator-only "
-                    "attribution; caller != prior owner"
-                ),
-            ))
+            findings.append(
+                Finding(
+                    severity="FAIL",
+                    finding_class="non_operator_claim_release_override",
+                    event_id=int(row["id"]),
+                    item_id=item_id_int,
+                    holder_session_id=prior_owner,
+                    caller_session_id=caller,
+                    mutation_surface="ItemClaimReleaseOverride",
+                    rationale=("cross-session claim release without operator-only attribution; caller != prior owner"),
+                )
+            )
     return findings
 
 
-def scan_path_claim_amendments_without_owning_claim(
-    conn: Any,
-    *,
-    since: Optional[str] = None,
-) -> List[Finding]:
+def scan_path_claim_amendments_without_owning_claim(conn: Any, *, since: Optional[str] = None) -> List[Finding]:
     if not _table_present(conn, "events"):
         return []
     if not _table_present(conn, "work_claims"):
@@ -297,14 +272,10 @@ def scan_path_claim_amendments_without_owning_claim(
         # PathClaimAmended carries path-claim provenance. For item-owned
         # claims, the claim row is the authority; event.session_id may be the
         # registering session after a live work-claim handoff.
-        if path_claim_event_has_matching_item_owner(
-            conn, row, item_id=item_id_int,
-        ):
+        if path_claim_event_has_matching_item_owner(conn, row, item_id=item_id_int):
             continue
         caller = row["session_id"]
-        holder = _live_claim_holder_at(
-            conn, item_id_int, row["created_at"],
-        )
+        holder = _live_claim_holder_at(conn, item_id_int, row["created_at"])
         finding = _classify_holder_caller(
             finding_class="path_claim_mutation_without_owning_claim",
             event_id=int(row["id"]),
@@ -312,34 +283,22 @@ def scan_path_claim_amendments_without_owning_claim(
             holder=holder,
             caller=caller,
             surface="PathClaimAmended",
-            no_caller_rationale=(
-                "caller session not recorded on the event — "
-                "incomplete attribution evidence"
-            ),
-            no_holder_rationale=(
-                "path-claim amendment recorded without any live work "
-                "claim on the item — cannot verify ownership"
-            ),
-            mismatch_rationale=(
-                "path-claim amendment recorded under a session that "
-                "did not hold the live work claim at event time"
-            ),
+            no_caller_rationale=("caller session not recorded on the event — incomplete attribution evidence"),
+            no_holder_rationale=("path-claim amendment recorded without any live work claim on the item — cannot verify ownership"),
+            mismatch_rationale=("path-claim amendment recorded under a session that did not hold the live work claim at event time"),
         )
         if finding is not None:
             findings.append(finding)
     return findings
 
 
-def scan_all(
-    conn: Any,
-    *,
-    since: Optional[str] = None,
-) -> List[Finding]:
+def scan_all(conn: Any, *, since: Optional[str] = None) -> List[Finding]:
     return [
         *scan_function_call_attribution(conn, since=since),
         *scan_non_operator_claim_release_overrides(conn, since=since),
         *scan_path_claim_amendments_without_owning_claim(conn, since=since),
     ]
+
 
 __all__ = [
     "Finding",

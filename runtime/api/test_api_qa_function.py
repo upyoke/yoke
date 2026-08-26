@@ -8,50 +8,33 @@ from unittest.mock import patch
 
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers import qa, qa_run
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _request(function_id: str, target: TargetRef, payload=None) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function=function_id,
-        actor=ActorContext(actor_id="op", session_id="s-1"),
-        target=target,
-        payload=payload or {},
-    )
+    return FunctionCallRequest(function=function_id, actor=ActorContext(actor_id="op", session_id="s-1"), target=target, payload=payload or {})
 
 
 class TestQaRequirementUpdate(unittest.TestCase):
     def test_rejects_missing_target(self):
-        req = _request(
-            "qa.requirement.update", TargetRef(kind="global"),
-            payload={"field": "blocking_mode", "value": "blocking"},
-        )
+        req = _request("qa.requirement.update", TargetRef(kind="global"), payload={"field": "blocking_mode", "value": "blocking"})
         outcome = qa.handle_qa_requirement_update(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
 
     def test_rejects_unupdatable_field(self):
         req = _request(
-            "qa.requirement.update",
-            TargetRef(kind="qa_requirement", qa_requirement_id=10),
-            payload={"field": "qa_kind", "value": "ac_verification"},
+            "qa.requirement.update", TargetRef(kind="qa_requirement", qa_requirement_id=10), payload={"field": "qa_kind", "value": "ac_verification"}
         )
         outcome = qa.handle_qa_requirement_update(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "field_not_updatable")
 
     def test_rejects_invalid_blocking_mode(self):
-        req = _request(
-            "qa.requirement.update",
-            TargetRef(kind="qa_requirement", qa_requirement_id=10),
-            payload={"field": "blocking_mode", "value": "wat"},
-        )
+        req = _request("qa.requirement.update", TargetRef(kind="qa_requirement", qa_requirement_id=10), payload={"field": "blocking_mode", "value": "wat"})
         outcome = qa.handle_qa_requirement_update(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -63,10 +46,7 @@ class TestQaRequirementUpdate(unittest.TestCase):
             def __getitem__(self, k):
                 return super().__getitem__(k)
 
-        existing = _Row(
-            qa_kind="ac_verification", qa_phase="verification",
-            item_id="42", epic_id=None, task_num=None, deployment_run_id=None,
-        )
+        existing = _Row(qa_kind="ac_verification", qa_phase="verification", item_id="42", epic_id=None, task_num=None, deployment_run_id=None)
 
         executed_sql: list = []
 
@@ -86,20 +66,11 @@ class TestQaRequirementUpdate(unittest.TestCase):
             def close(self):
                 captured["closed"] = True
 
-        with patch(
-            "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
-        ):
-            with patch(
-                "yoke_core.domain.db_helpers.query_one",
-                return_value=existing,
-            ):
-                with patch(
-                    "yoke_core.domain.qa_events.emit_qa_requirement_event",
-                ) as emit:
+        with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
+            with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
+                with patch("yoke_core.domain.qa_events.emit_qa_requirement_event") as emit:
                     req = _request(
-                        "qa.requirement.update",
-                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                        payload={"field": "blocking_mode", "value": "blocking"},
+                        "qa.requirement.update", TargetRef(kind="qa_requirement", qa_requirement_id=10), payload={"field": "blocking_mode", "value": "blocking"}
                     )
                     outcome = qa.handle_qa_requirement_update(req)
         self.assertTrue(outcome.primary_success)
@@ -109,11 +80,7 @@ class TestQaRequirementUpdate(unittest.TestCase):
 
 class TestQaRunRecordVerdict(unittest.TestCase):
     def test_rejects_invalid_verdict(self):
-        req = _request(
-            "qa.run.record_verdict",
-            TargetRef(kind="qa_requirement", qa_requirement_id=7),
-            payload={"performed_by": "agent", "verdict": "maybe"},
-        )
+        req = _request("qa.run.record_verdict", TargetRef(kind="qa_requirement", qa_requirement_id=7), payload={"performed_by": "agent", "verdict": "maybe"})
         outcome = qa_run.handle_qa_run_record_verdict(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -125,17 +92,10 @@ class TestQaRunRecordVerdict(unittest.TestCase):
             def close(self):
                 pass
 
-        with patch(
-            "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
-        ):
-            with patch(
-                "yoke_core.domain.db_helpers.query_one",
-                return_value=existing,
-            ):
+        with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
+            with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
                 req = _request(
-                    "qa.run.record_verdict",
-                    TargetRef(kind="qa_requirement", qa_requirement_id=7),
-                    payload={"performed_by": "agent", "verdict": "pass"},
+                    "qa.run.record_verdict", TargetRef(kind="qa_requirement", qa_requirement_id=7), payload={"performed_by": "agent", "verdict": "pass"}
                 )
                 outcome = qa_run.handle_qa_run_record_verdict(req)
         self.assertFalse(outcome.primary_success)
@@ -160,16 +120,9 @@ class TestQaRunRecordVerdict(unittest.TestCase):
             def close(self):
                 pass
 
-        with patch(
-            "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
-        ):
-            with patch(
-                "yoke_core.domain.db_helpers.query_one",
-                return_value=existing,
-            ):
-                with patch(
-                    "yoke_core.domain.qa_events.emit_qa_run_event",
-                ) as emit:
+        with patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()):
+            with patch("yoke_core.domain.db_helpers.query_one", return_value=existing):
+                with patch("yoke_core.domain.qa_events.emit_qa_run_event") as emit:
                     req = _request(
                         "qa.run.record_verdict",
                         TargetRef(kind="qa_requirement", qa_requirement_id=7),
@@ -186,6 +139,8 @@ class TestQaRunRecordVerdict(unittest.TestCase):
         self.assertEqual(outcome.result_payload["verdict"], "undetermined")
         self.assertIn("final assertion", outcome.result_payload["verdict_reason"])
         emit.assert_called_once()
+
+
 class TestQaRequirementClaimDispatch(unittest.TestCase):
     """Real-dispatch coverage for qa.requirement.update + qa.run.record_verdict
     when the caller passes only ``target.qa_requirement_id``.
@@ -201,15 +156,7 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
         with test_database() as conn:
             now = iso8601_now()
             insert_item(conn, id=42, title="T", status="implementing")
-            insert_qa_requirement(
-                conn,
-                id=10,
-                item_id=42,
-                qa_kind="ac_verification",
-                qa_phase="verification",
-                blocking_mode="blocking",
-                success_policy="",
-            )
+            insert_qa_requirement(conn, id=10, item_id=42, qa_kind="ac_verification", qa_phase="verification", blocking_mode="blocking", success_policy="")
             conn.execute(
                 "INSERT INTO harness_sessions "
                 "(session_id, executor, provider, model, workspace, "
@@ -219,10 +166,10 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
             )
             conn.execute(
                 "INSERT INTO work_claims "
-                "(id, session_id, item_id, target_kind, claimed_at, "
+                "(id, session_id, scope, target_kind, claimed_at, "
                 " last_heartbeat, released_at) "
-                "VALUES (1, %s, 42, 'item', %s, %s, NULL)",
-                (holder_session_id, now, now),
+                "VALUES (1, %s, %s, 'item', %s, %s, NULL)",
+                (holder_session_id, make_item_target(42).scope_json(), now, now),
             )
             conn.commit()
             yield conn
@@ -230,25 +177,19 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
     def _stub_handler(self, function_id, result_payload):
         from dataclasses import replace
         from yoke_core.domain import yoke_function_registry
-        from yoke_core.domain.yoke_function_dispatch import (
-            _ensure_handlers_registered,
-        )
+        from yoke_core.domain.yoke_function_dispatch import _ensure_handlers_registered
         from yoke_contracts.api.function_call import HandlerOutcome
 
         _ensure_handlers_registered()
         entry = yoke_function_registry.lookup(function_id)
         assert entry is not None, f"{function_id} must be registered"
-        stubbed = replace(
-            entry,
-            handler=lambda _req: HandlerOutcome(result_payload=result_payload),
-        )
+        stubbed = replace(entry, handler=lambda _req: HandlerOutcome(result_payload=result_payload))
         yoke_function_registry._REGISTRY[function_id] = stubbed
         return function_id, entry  # original entry, restored in finally
 
-    def _dispatch_with_stubs(
-        self, request, holder_session_id, *, stub_handler=None
-    ):
+    def _dispatch_with_stubs(self, request, holder_session_id, *, stub_handler=None):
         from yoke_core.domain import yoke_function_dispatch
+
         yoke_function_dispatch._ensure_handlers_registered()
 
         # bind_actor_identity returns BoundIdentity(bound_request,
@@ -268,17 +209,15 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
         if stub_handler:
             restored = self._stub_handler(*stub_handler)
         try:
-            with patch(
-                "yoke_core.domain.yoke_function_dispatch.bind_actor_identity",
-                side_effect=lambda entry, req, **_kw: _BoundStub(req),
-            ), patch(
-                "yoke_core.domain.yoke_function_dispatch.emit_called",
-                return_value=None,
+            with (
+                patch("yoke_core.domain.yoke_function_dispatch.bind_actor_identity", side_effect=lambda entry, req, **_kw: _BoundStub(req)),
+                patch("yoke_core.domain.yoke_function_dispatch.emit_called", return_value=None),
             ):
                 return yoke_function_dispatch.dispatch(request)
         finally:
             if restored is not None:
                 from yoke_core.domain import yoke_function_registry
+
                 function_id, original_entry = restored
                 yoke_function_registry._REGISTRY[function_id] = original_entry
 
@@ -290,10 +229,7 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=10),
                 payload={"field": "blocking_mode", "value": "blocking"},
             )
-            response = self._dispatch_with_stubs(
-                request, "held-session",
-                stub_handler=("qa.requirement.update", {"ok": True}),
-            )
+            response = self._dispatch_with_stubs(request, "held-session", stub_handler=("qa.requirement.update", {"ok": True}))
         self.assertTrue(response.success, response.error)
         self.assertEqual(response.result, {"ok": True})
 
@@ -305,10 +241,7 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=10),
                 payload={"performed_by": "agent", "verdict": "pass"},
             )
-            response = self._dispatch_with_stubs(
-                request, "held-session",
-                stub_handler=("qa.run.record_verdict", {"ok": True}),
-            )
+            response = self._dispatch_with_stubs(request, "held-session", stub_handler=("qa.run.record_verdict", {"ok": True}))
         self.assertTrue(response.success, response.error)
 
     def test_missing_claim_names_resolved_item_id(self):
@@ -320,9 +253,7 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=10),
                 payload={"field": "blocking_mode", "value": "blocking"},
             )
-            response = self._dispatch_with_stubs(
-                request, "caller-session",
-            )
+            response = self._dispatch_with_stubs(request, "caller-session")
         self.assertFalse(response.success)
         self.assertEqual(response.error.code, "claim_required")
         # Resolved item_id (42), not "target id is missing".
@@ -337,9 +268,7 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=9999),
                 payload={"performed_by": "agent", "verdict": "pass"},
             )
-            response = self._dispatch_with_stubs(
-                request, "held-session",
-            )
+            response = self._dispatch_with_stubs(request, "held-session")
         self.assertFalse(response.success)
         self.assertEqual(response.error.code, "not_found")
         self.assertIn("9999", response.error.message)

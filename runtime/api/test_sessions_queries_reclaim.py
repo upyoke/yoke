@@ -23,6 +23,26 @@ from yoke_core.domain.sessions import (
 )
 from yoke_core.domain.harness_capability_registry import shared_downstream_paths
 from yoke_core.domain.sessions_queries import resolve_harness_capabilities
+from yoke_core.domain.work_claim_targets import make_item_target
+
+
+def _insert_item_claim(conn, session_id: str, item_id: int, claimed_at: str) -> None:
+    target = make_item_target(item_id)
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
+        "VALUES (%s, %s, %s, 'exclusive', %s, %s)",
+        (session_id, target.kind, target.scope_json(), claimed_at, claimed_at),
+    )
+
+
+def _claim_row(conn, session_id: str, item_id: int):
+    target = make_item_target(item_id)
+    return conn.execute(
+        "SELECT released_at, release_reason FROM work_claims "
+        "WHERE session_id = %s AND target_kind = %s AND scope = %s",
+        (session_id, target.kind, target.scope_json()),
+    ).fetchone()
 
 
 class TestSessionOfferReclaim:
@@ -56,7 +76,9 @@ class TestSessionOfferReclaim:
         _conn, ws = ownership_conn
         manifest_dir = os.path.join(ws, "runtime", "harness", "codex")
         os.makedirs(manifest_dir, exist_ok=True)
-        with open(os.path.join(manifest_dir, "manifest.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(manifest_dir, "manifest.json"), "w", encoding="utf-8"
+        ) as handle:
             json.dump({"supports": {"command_source": "shared_yoke_registry"}}, handle)
 
         result = resolve_harness_capabilities("codex-desktop", ws)
@@ -102,12 +124,7 @@ class TestSessionOfferReclaim:
                VALUES ('stale-sess', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('stale-sess', 'item', 100, 'exclusive', %s, %s)""",
-            (stale_iso, stale_iso),
-        )
+        _insert_item_claim(conn, "stale-sess", 100, stale_iso)
         conn.commit()
 
         result = session_offer_with_ownership(
@@ -122,13 +139,10 @@ class TestSessionOfferReclaim:
         # The offering session should acquire the item
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
-        assert result["new_claim"]["item_id"] == 100
+        assert result["new_claim"]["scope"] == {"item_id": 100}
 
         # The stale claim should be released
-        stale_claim = conn.execute(
-            """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'stale-sess' AND target_kind='item' AND item_id = 100"""
-        ).fetchone()
+        stale_claim = _claim_row(conn, "stale-sess", 100)
         assert stale_claim["released_at"] is not None
         assert stale_claim["release_reason"] == "reclaimed"
 
@@ -147,12 +161,7 @@ class TestSessionOfferReclaim:
                VALUES ('ended-sess', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s, %s)""",
             (ended_iso, ended_iso, ended_iso),
         )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('ended-sess', 'item', 100, 'exclusive', %s, %s)""",
-            (ended_iso, ended_iso),
-        )
+        _insert_item_claim(conn, "ended-sess", 100, ended_iso)
         conn.commit()
 
         result = session_offer_with_ownership(
@@ -166,7 +175,7 @@ class TestSessionOfferReclaim:
 
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
-        assert result["new_claim"]["item_id"] == 100
+        assert result["new_claim"]["scope"] == {"item_id": 100}
 
     def test_offer_only_stale_work_returns_charge(self, ownership_conn):
         """If only stale-claimed work exists on the frontier,
@@ -183,12 +192,7 @@ class TestSessionOfferReclaim:
                VALUES ('sole-stale', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sole-stale', 'item', 100, 'exclusive', %s, %s)""",
-            (stale_iso, stale_iso),
-        )
+        _insert_item_claim(conn, "sole-stale", 100, stale_iso)
         conn.commit()
 
         result = session_offer_with_ownership(
@@ -217,12 +221,7 @@ class TestSessionOfferReclaim:
                VALUES ('live-sess', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (fresh_iso, fresh_iso),
         )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('live-sess', 'item', 100, 'exclusive', %s, %s)""",
-            (fresh_iso, fresh_iso),
-        )
+        _insert_item_claim(conn, "live-sess", 100, fresh_iso)
         conn.commit()
 
         result = session_offer_with_ownership(
@@ -237,8 +236,5 @@ class TestSessionOfferReclaim:
         # The live claim is NOT reclaimed -- competing session gets no_work
         assert result["action_hint"] == "no_work"
         # The live claim is still active
-        live_claim = conn.execute(
-            """SELECT released_at FROM work_claims
-               WHERE session_id = 'live-sess' AND target_kind='item' AND item_id = 100"""
-        ).fetchone()
+        live_claim = _claim_row(conn, "live-sess", 100)
         assert live_claim["released_at"] is None

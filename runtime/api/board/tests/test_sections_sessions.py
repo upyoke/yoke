@@ -3,10 +3,10 @@
 Covers:
 
 * :func:`_render_claim_target` — the existing INTEGER ``item_id`` coercion.
-* :func:`build_session_keycaps` — the three keycap shapes contributed by
-  this work item (work-claim only, work+path-claim decoration, orphan path-
+* :func:`build_session_keycaps` — work-claim-only, work+path-claim decoration,
+  orphan path-
   claim parens shape, lease keycap, same-item path-claim roll-up,
-  multi-item path-claim separation, ``item_id IS NULL`` process anchor
+  multi-item path-claim separation, process-scope anchor
   fallback, lease_key dedupe, and no release-reason decoration).
 """
 
@@ -20,11 +20,8 @@ import pytest
 from yoke_core.board.db import BoardDB
 from yoke_contracts.board.sections_sessions import _render_claim_target
 from yoke_contracts.board.sections_sessions_extra_claims import build_session_keycaps
-from runtime.api.fixtures.file_test_db import (
-    apply_inline_ddl,
-    connect_test_db,
-    init_test_db,
-)
+from runtime.api.fixtures.file_test_db import apply_inline_ddl, connect_test_db, init_test_db
+from yoke_core.domain.work_claim_targets import make_process_target
 
 
 def test_render_claim_target_with_int_item_id():
@@ -51,8 +48,8 @@ _SCHEMA = """
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT,
-    item_id INTEGER,
-    process_key TEXT
+    target_kind TEXT NOT NULL,
+    scope TEXT NOT NULL
 );
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
@@ -99,17 +96,25 @@ def board_db(tmp_path: Path):
 
 
 def _insert_path_claim(
-    db, *, claim_id: int, session_id, item_id, declared_count: int,
-    work_claim_id=None, released_at=None, cancelled_at=None,
-    release_reason=None, cancel_reason=None,
-    owner_kind=None, owner_item_id=None, owner_session_id=None,
+    db,
+    *,
+    claim_id: int,
+    session_id,
+    item_id,
+    declared_count: int,
+    work_claim_id=None,
+    released_at=None,
+    cancelled_at=None,
+    release_reason=None,
+    cancel_reason=None,
+    owner_kind=None,
+    owner_item_id=None,
+    owner_session_id=None,
     owner_work_claim_id=None,
 ) -> None:
     # Derive the typed authority from the convenient test inputs when not
     # explicitly provided: item > process > session.
-    if owner_kind is None and not any(
-        (owner_item_id, owner_session_id, owner_work_claim_id)
-    ):
+    if owner_kind is None and not any((owner_item_id, owner_session_id, owner_work_claim_id)):
         if item_id is not None:
             owner_kind, owner_item_id = "item", item_id
         elif work_claim_id is not None:
@@ -123,30 +128,20 @@ def _insert_path_claim(
             "owner_session_id, owner_work_claim_id, "
             "released_at, cancelled_at, release_reason, cancel_reason) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (claim_id, owner_kind, owner_item_id, owner_session_id,
-             owner_work_claim_id,
-             released_at, cancelled_at, release_reason, cancel_reason),
+            (claim_id, owner_kind, owner_item_id, owner_session_id, owner_work_claim_id, released_at, cancelled_at, release_reason, cancel_reason),
         )
         for _ in range(declared_count):
-            raw.execute(
-                "INSERT INTO path_claim_targets (claim_id) VALUES (%s)",
-                (claim_id,),
-            )
+            raw.execute("INSERT INTO path_claim_targets (claim_id) VALUES (%s)", (claim_id,))
         raw.commit()
     finally:
         raw.close()
 
 
-def _insert_lease(
-    db, *, lease_id: int, session_id: str, lease_key: str,
-    released_at=None, release_reason=None,
-) -> None:
+def _insert_lease(db, *, lease_id: int, session_id: str, lease_key: str, released_at=None, release_reason=None) -> None:
     raw = connect_test_db(db.path)
     try:
         raw.execute(
-            "INSERT INTO coordination_leases "
-            "(id, project_id, lease_key, session_id, released_at, release_reason) "
-            "VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO coordination_leases (id, project_id, lease_key, session_id, released_at, release_reason) VALUES (%s, %s, %s, %s, %s, %s)",
             (lease_id, "yoke", lease_key, session_id, released_at, release_reason),
         )
         raw.commit()
@@ -158,8 +153,8 @@ def _insert_work_claim(db, *, claim_id: int, process_key: str) -> None:
     raw = connect_test_db(db.path)
     try:
         raw.execute(
-            "INSERT INTO work_claims (id, session_id, process_key) VALUES (%s, %s, %s)",
-            (claim_id, "sess-A", process_key),
+            "INSERT INTO work_claims (id, session_id, target_kind, scope) VALUES (%s, %s, 'process', %s)",
+            (claim_id, "sess-A", make_process_target(process_key, "yoke").scope_json()),
         )
         raw.commit()
     finally:
@@ -169,178 +164,99 @@ def _insert_work_claim(db, *, claim_id: int, process_key: str) -> None:
 class TestActiveSessionKeycaps:
     def test_work_claim_only(self, board_db: BoardDB) -> None:
         targets: List[Tuple] = [("YOK-1663", 1663, None)]
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", targets, active_only=True,
-        )
+        keycaps = build_session_keycaps(board_db, "sess-A", targets, active_only=True)
         assert keycaps == ["YOK-1663"]
 
-    def test_work_claim_with_same_item_path_claim_decoration(
-        self, board_db: BoardDB,
-    ) -> None:
-        _insert_path_claim(
-            board_db, claim_id=10, session_id="sess-A", item_id=1663,
-            declared_count=23,
-        )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True,
-        )
+    def test_work_claim_with_same_item_path_claim_decoration(self, board_db: BoardDB) -> None:
+        _insert_path_claim(board_db, claim_id=10, session_id="sess-A", item_id=1663, declared_count=23)
+        keycaps = build_session_keycaps(board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True)
         assert keycaps == ["YOK-1663 \U0001f4c123"]
 
     def test_item_owned_no_work_claim_hidden(self, board_db: BoardDB) -> None:
         # Typed contract: item-owned claim registered by session is
         # provenance only; no work_claim on the item → no decoration.
-        _insert_path_claim(
-            board_db, claim_id=11, session_id="sess-A", item_id=1664,
-            declared_count=5,
-        )
-        assert build_session_keycaps(
-            board_db, "sess-A", [], active_only=True,
-        ) == []
+        _insert_path_claim(board_db, claim_id=11, session_id="sess-A", item_id=1664, declared_count=5)
+        assert build_session_keycaps(board_db, "sess-A", [], active_only=True) == []
 
     def test_session_owned_renders_bare(self, board_db: BoardDB) -> None:
         # True session-owned (owner_kind='session', no item / work_claim).
-        _insert_path_claim(
-            board_db, claim_id=21, session_id="sess-A", item_id=None,
-            owner_kind="session", owner_session_id="sess-A",
-            declared_count=5,
-        )
-        assert build_session_keycaps(
-            board_db, "sess-A", [], active_only=True,
-        ) == ["\U0001f4c15"]
+        _insert_path_claim(board_db, claim_id=21, session_id="sess-A", item_id=None, owner_kind="session", owner_session_id="sess-A", declared_count=5)
+        assert build_session_keycaps(board_db, "sess-A", [], active_only=True) == ["\U0001f4c15"]
 
-    def test_same_item_multiple_path_claims_roll_up(
-        self, board_db: BoardDB,
-    ) -> None:
-        _insert_path_claim(
-            board_db, claim_id=12, session_id="sess-A", item_id=1663,
-            declared_count=10,
-        )
-        _insert_path_claim(
-            board_db, claim_id=13, session_id="sess-A", item_id=1663,
-            declared_count=13,
-        )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True,
-        )
+    def test_same_item_multiple_path_claims_roll_up(self, board_db: BoardDB) -> None:
+        _insert_path_claim(board_db, claim_id=12, session_id="sess-A", item_id=1663, declared_count=10)
+        _insert_path_claim(board_db, claim_id=13, session_id="sess-A", item_id=1663, declared_count=13)
+        keycaps = build_session_keycaps(board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True)
         assert keycaps == ["YOK-1663 \U0001f4c123"]
 
     def test_multi_item_path_claims_split(self, board_db: BoardDB) -> None:
         # Item-owned claim for 1664 is hidden when session has no
         # work_claim on 1664 — only the 1663 claim that matches a
         # held work_claim decorates the row.
-        _insert_path_claim(
-            board_db, claim_id=14, session_id="sess-A", item_id=1663,
-            declared_count=7,
-        )
-        _insert_path_claim(
-            board_db, claim_id=15, session_id="sess-A", item_id=1664,
-            declared_count=4,
-        )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True,
-        )
+        _insert_path_claim(board_db, claim_id=14, session_id="sess-A", item_id=1663, declared_count=7)
+        _insert_path_claim(board_db, claim_id=15, session_id="sess-A", item_id=1664, declared_count=4)
+        keycaps = build_session_keycaps(board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True)
         assert keycaps == ["YOK-1663 \U0001f4c17"]
 
     def test_process_anchor_when_item_id_null(self, board_db: BoardDB) -> None:
         _insert_work_claim(board_db, claim_id=99, process_key="FEED")
-        _insert_path_claim(
-            board_db, claim_id=16, session_id="sess-A", item_id=None,
-            work_claim_id=99, declared_count=3,
-        )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [], active_only=True,
-        )
+        _insert_path_claim(board_db, claim_id=16, session_id="sess-A", item_id=None, work_claim_id=99, declared_count=3)
+        keycaps = build_session_keycaps(board_db, "sess-A", [], active_only=True)
         assert keycaps == ["\U0001f4c13 (🔩 FEED)"]
 
-    def test_lease_keycap_separate_from_work_claim(
-        self, board_db: BoardDB,
-    ) -> None:
-        _insert_lease(
-            board_db, lease_id=1, session_id="sess-A",
-            lease_key="LIVE_DB_MIGRATION:primary",
-        )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True,
-        )
+    def test_lease_keycap_separate_from_work_claim(self, board_db: BoardDB) -> None:
+        _insert_lease(board_db, lease_id=1, session_id="sess-A", lease_key="LIVE_DB_MIGRATION:primary")
+        keycaps = build_session_keycaps(board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True)
         assert keycaps == ["YOK-1663", "\U0001f512 LIVE_DB_MIGRATION:primary"]
 
     def test_all_three_primitives_concurrent(self, board_db: BoardDB) -> None:
         # Item-owned claim for 1664 is hidden (no work_claim on 1664).
         # Item-owned claim for 1663 decorates the work_claim row.
         # Lease appears as a separate keycap.
-        _insert_path_claim(
-            board_db, claim_id=17, session_id="sess-A", item_id=1663,
-            declared_count=23,
-        )
-        _insert_path_claim(
-            board_db, claim_id=18, session_id="sess-A", item_id=1664,
-            declared_count=5,
-        )
-        _insert_lease(
-            board_db, lease_id=2, session_id="sess-A",
-            lease_key="LIVE_DB_MIGRATION:primary",
-        )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True,
-        )
-        assert keycaps == [
-            "YOK-1663 \U0001f4c123",
-            "\U0001f512 LIVE_DB_MIGRATION:primary",
-        ]
+        _insert_path_claim(board_db, claim_id=17, session_id="sess-A", item_id=1663, declared_count=23)
+        _insert_path_claim(board_db, claim_id=18, session_id="sess-A", item_id=1664, declared_count=5)
+        _insert_lease(board_db, lease_id=2, session_id="sess-A", lease_key="LIVE_DB_MIGRATION:primary")
+        keycaps = build_session_keycaps(board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True)
+        assert keycaps == ["YOK-1663 \U0001f4c123", "\U0001f512 LIVE_DB_MIGRATION:primary"]
 
 
 class TestClosedSessionKeycaps:
     def test_terminal_work_claim_omits_release_reason(self, board_db: BoardDB) -> None:
-        keycaps = build_session_keycaps(
-            board_db, "sess-A",
-            [("YOK-1663", 1663, "completed")],
-            active_only=False,
-        )
+        keycaps = build_session_keycaps(board_db, "sess-A", [("YOK-1663", 1663, "completed")], active_only=False)
         assert keycaps == ["YOK-1663"]
 
     def test_terminal_session_owned_orphan_omits_reason(self, board_db: BoardDB) -> None:
         # Closed session-owned orphan: bare "📁N". Item-owned terminal
         # claims stay out — provenance is not authority.
         _insert_path_claim(
-            board_db, claim_id=19, session_id="sess-A", item_id=None,
-            owner_kind="session", owner_session_id="sess-A",
-            declared_count=5, released_at="2026-05-01T00:00:00Z",
+            board_db,
+            claim_id=19,
+            session_id="sess-A",
+            item_id=None,
+            owner_kind="session",
+            owner_session_id="sess-A",
+            declared_count=5,
+            released_at="2026-05-01T00:00:00Z",
             release_reason="merged",
         )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [], active_only=False,
-        )
+        keycaps = build_session_keycaps(board_db, "sess-A", [], active_only=False)
         assert keycaps == ["\U0001f4c15"]
 
     def test_terminal_lease_omits_release_reason(self, board_db: BoardDB) -> None:
         _insert_lease(
-            board_db, lease_id=3, session_id="sess-A",
-            lease_key="LIVE_DB_MIGRATION:primary",
-            released_at="2026-05-01T00:00:00Z",
-            release_reason="completed",
+            board_db, lease_id=3, session_id="sess-A", lease_key="LIVE_DB_MIGRATION:primary", released_at="2026-05-01T00:00:00Z", release_reason="completed"
         )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [], active_only=False,
-        )
+        keycaps = build_session_keycaps(board_db, "sess-A", [], active_only=False)
         assert keycaps == ["\U0001f512 LIVE_DB_MIGRATION:primary"]
 
-    def test_active_filter_hides_released_path_and_lease(
-        self, board_db: BoardDB,
-    ) -> None:
+    def test_active_filter_hides_released_path_and_lease(self, board_db: BoardDB) -> None:
         _insert_path_claim(
-            board_db, claim_id=20, session_id="sess-A", item_id=1664,
-            declared_count=5, released_at="2026-05-01T00:00:00Z",
-            release_reason="merged",
+            board_db, claim_id=20, session_id="sess-A", item_id=1664, declared_count=5, released_at="2026-05-01T00:00:00Z", release_reason="merged"
         )
         _insert_lease(
-            board_db, lease_id=4, session_id="sess-A",
-            lease_key="LIVE_DB_MIGRATION:primary",
-            released_at="2026-05-01T00:00:00Z",
-            release_reason="completed",
+            board_db, lease_id=4, session_id="sess-A", lease_key="LIVE_DB_MIGRATION:primary", released_at="2026-05-01T00:00:00Z", release_reason="completed"
         )
-        keycaps = build_session_keycaps(
-            board_db, "sess-A", [], active_only=True,
-        )
+        keycaps = build_session_keycaps(board_db, "sess-A", [], active_only=True)
         assert keycaps == []
 
 

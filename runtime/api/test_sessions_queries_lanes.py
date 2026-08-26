@@ -43,7 +43,7 @@ class TestSessionOfferLanes:
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r1["action_hint"] == "charge"
-        first_claimed = r1["new_claim"]["item_id"]
+        first_claimed = r1["new_claim"]["scope"]["item_id"]
 
         # Second session should get the other item
         r2 = session_offer_with_ownership(
@@ -51,7 +51,7 @@ class TestSessionOfferLanes:
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r2["action_hint"] == "charge"
-        second_claimed = r2["new_claim"]["item_id"]
+        second_claimed = r2["new_claim"]["scope"]["item_id"]
         assert first_claimed != second_claimed
 
     def test_offer_prefers_compatible_lower_ranked_item(self, ownership_conn):
@@ -98,7 +98,7 @@ class TestSessionOfferLanes:
 
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
-        assert result["new_claim"]["item_id"] == 101
+        assert result["new_claim"]["scope"] == {"item_id": 101}
         assert result["schedule_result"].selected_step is not None
         assert result["schedule_result"].selected_step.item_id == 101
         assert [step.item_id for step in result["schedule_result"].ranked_steps] == [101]
@@ -346,4 +346,4 @@ class TestSessionOfferLanes:
         assert "advance" not in result["supported_paths"]
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
-        assert result["new_claim"]["item_id"] == 101
+        assert result["new_claim"]["scope"] == {"item_id": 101}

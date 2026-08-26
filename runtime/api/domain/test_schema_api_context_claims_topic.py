@@ -43,10 +43,7 @@ def test_claims_packet_teaches_release_work_claim_variants() -> None:
     body = sac.render_topic_packet("claims")
     assert "yoke claims work release --item PREFIX-N --reason TEXT" in body
     assert "yoke claims work release --claim-id <id> --reason TEXT" in body
-    assert (
-        "yoke claims work release --epic-id E --task-num K --reason TEXT"
-        in body
-    )
+    assert "yoke claims work release --epic-id E --task-num K --reason TEXT" in body
     assert "yoke claims work release --all-mine" in body
 
 
@@ -58,14 +55,22 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     """
     body = sac.render_topic_packet("claims")
     assert (
-        "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress"
-        in body
+        "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress" in body
     )
-    assert (
-        "yoke claims work release --item PREFIX-N --reason rewrite-complete" in body
-    )
+    assert "yoke claims work release --item PREFIX-N --reason rewrite-complete" in body
     # Doctrine sentence — no new skill.
     assert "no new skill" in body.lower()
+
+
+def test_claims_packet_teaches_project_steering_claim_lifecycle() -> None:
+    body = sac.render_topic_packet("claims")
+    assert 'steering={"project_id":N}' in body
+    assert "one live session-owned seat per project" in body
+    assert "strategy-document locks remain in strategy_doc_claims" in body
+    assert "yoke claims steering acquire --project P [--reason TEXT]" in body
+    assert "yoke claims steering list --project P --active-only" in body
+    assert "yoke claims steering release CLAIM_ID --reason TEXT" in body
+    assert "stale-session reclaim free the steering seat" in body
 
 
 def test_claims_packet_teaches_live_progress_log_content_flags() -> None:

@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 #: The one workflow whose items execute a strategy document.
@@ -75,6 +76,7 @@ def _active_item_claim(
     item_id: int,
 ) -> Optional[dict[str, Any]]:
     marker = _marker(conn)
+    item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     return _row(
         conn.execute(
             "SELECT wc.id, wc.session_id, wc.claimed_at, "
@@ -82,7 +84,7 @@ def _active_item_claim(
             "FROM work_claims wc "
             "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id "
             "WHERE wc.target_kind = 'item' "
-            f"AND wc.item_id = {marker} AND wc.released_at IS NULL "
+            f"AND {item_id_scope} = {marker} AND wc.released_at IS NULL "
             "ORDER BY wc.claimed_at DESC LIMIT 1",
             (int(item_id),),
         )

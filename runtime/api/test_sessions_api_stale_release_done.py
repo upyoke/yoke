@@ -20,6 +20,7 @@ from yoke_core.domain.sessions import (
     release_claims_for_done_item,
 )
 from runtime.api.sessions_api_stale_test_helpers import _now_literal
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 class TestReleaseClaimsForDoneItem:
@@ -75,9 +76,9 @@ class TestReleaseClaimsForDoneItem:
         with pytest.raises(db_backend.integrity_error_types()):
             conn.execute(
                 """INSERT INTO work_claims
-                   (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-                   VALUES ('sess-b', 'item', 9999, 'exclusive', %s, %s)""",
-                (_ts, _ts),
+                   (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+                   VALUES ('sess-b', 'item', %s, 'exclusive', %s, %s)""",
+                (make_item_target(9999).scope_json(), _ts, _ts),
             )
 
     @patch("yoke_core.domain.sessions_analytics._emit_event")
@@ -88,8 +89,9 @@ class TestReleaseClaimsForDoneItem:
 
         release_claims_for_done_item(conn, 9999)
 
-        released_calls = [c for c in mock_emit.call_args_list
-                          if c[0][0] == EVENT_WORK_RELEASED]
+        released_calls = [
+            c for c in mock_emit.call_args_list if c[0][0] == EVENT_WORK_RELEASED
+        ]
         assert len(released_calls) == 1
         kw = released_calls[0][1]
         assert kw["session_id"] == "stale-sess"

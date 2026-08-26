@@ -18,11 +18,12 @@ from yoke_core.domain import schema_api_context as sac
 def test_work_claims_note_disambiguates_from_path_claims() -> None:
     """work_claims must not inherit the path_claims typed-owner columns."""
     body = sac.render_topic_packet("claims")
-    # The path_claims typed-owner columns are named as NOT work_claims.
-    assert "path_claims columns, NOT work_claims" in body
-    assert "do not cross-apply the typed-owner vocabulary" in body
-    # The real authority columns + claim timestamp are named.
-    assert "session_id + target_kind + item_id/epic_id/task_num" in body
+    # The canonical target pair and exact kind-specific scopes are named.
+    assert "target_kind plus one canonical JSON object in scope" in body
+    assert 'item={"item_id":N}' in body
+    assert 'steering={"project_id":N}' in body
+    # Retired specialized columns are explicitly absent.
+    assert "There is no specialized target column" in body
     assert "`claimed_at`" in body
     # Holder lookups steer to the registered holder command over a raw SELECT.
     assert "yoke claims work holder-get" in body

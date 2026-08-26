@@ -104,8 +104,14 @@ def seed_item(conn: Any) -> None:
         f"VALUES ({p}, {p}, {p}, {p}, 'refined-idea', 'high', 1, "
         f"{p}, {p}, {p}, 'user', 0, {p})",
         (
-            SYNTHETIC_ITEM_ID, "Routed item under test", workflow_id,
-            workflow_version_id, SYNTHETIC_ITEM_ID, _SEED_TS, _SEED_TS, spec,
+            SYNTHETIC_ITEM_ID,
+            "Routed item under test",
+            workflow_id,
+            workflow_version_id,
+            SYNTHETIC_ITEM_ID,
+            _SEED_TS,
+            _SEED_TS,
+            spec,
         ),
     )
     conn.commit()
@@ -134,15 +140,21 @@ def register_live_session(
         f"VALUES ({p}, 'claude-code', 'anthropic', '{TEST_MODEL_ID}', "
         f" 'primary', NULL, NULL, {p}, 'wait', {p}, {p}, NULL, NULL, {p}, {p})",
         (
-            session_id, WORKSPACE, now, now,
-            current_item_id, now if current_item_id else None,
+            session_id,
+            WORKSPACE,
+            now,
+            now,
+            current_item_id,
+            now if current_item_id else None,
         ),
     )
     conn.commit()
 
 
 def release_with_non_terminal_intent(
-    conn: Any, session_id: str, item_id: int,
+    conn: Any,
+    session_id: str,
+    item_id: int,
 ) -> None:
     """Run the production release helper with an incident intent.
 
@@ -153,7 +165,10 @@ def release_with_non_terminal_intent(
     """
     target = make_item_target(item_id)
     result = release_work_claim_for_execution(
-        conn, session_id, target, "readiness-check-blocked",
+        conn,
+        session_id,
+        target,
+        "readiness-check-blocked",
     )
     assert result["released"] is True, (
         f"release_work_claim_for_execution should succeed; got {result!r}"
@@ -166,15 +181,19 @@ def build_release_gap_fixture(conn: Any) -> None:
     """Seed the timeline: session A claims and non-terminal-releases."""
     seed_item(conn)
     register_live_session(
-        conn, SESSION_A, current_item_id=str(SYNTHETIC_ITEM_ID),
+        conn,
+        SESSION_A,
+        current_item_id=str(SYNTHETIC_ITEM_ID),
     )
     register_live_session(conn, SESSION_B)
     claim_work(conn, session_id=SESSION_A, item_id=SYNTHETIC_ITEM_ID)
     p = _p(conn)
+    item_scope = make_item_target(SYNTHETIC_ITEM_ID).scope_json()
     claim_id_row = conn.execute(
-        f"SELECT id FROM work_claims WHERE session_id = {p} AND item_id = {p} "
+        f"SELECT id FROM work_claims WHERE session_id = {p} "
+        f"AND target_kind='item' AND scope = {p} "
         "AND released_at IS NULL",
-        (SESSION_A, SYNTHETIC_ITEM_ID),
+        (SESSION_A, item_scope),
     ).fetchone()
     assert claim_id_row is not None, "session A's live claim row should exist"
     release_with_non_terminal_intent(conn, SESSION_A, SYNTHETIC_ITEM_ID)
@@ -192,7 +211,8 @@ class _ReleaseGapDbCase(unittest.TestCase):
     @pytest.fixture(autouse=True)
     def _release_gap_db(self, tmp_path):
         with init_test_db(
-            tmp_path, apply_schema=apply_release_gap_schema,
+            tmp_path,
+            apply_schema=apply_release_gap_schema,
         ) as db_path:
             self._db_path = db_path
             yield

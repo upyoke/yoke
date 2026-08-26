@@ -108,10 +108,15 @@ CREATE TABLE IF NOT EXISTS work_claims (
   id INTEGER PRIMARY KEY,
   session_id TEXT NOT NULL,
   target_kind TEXT NOT NULL DEFAULT 'item',
-  item_id INTEGER,
+  scope TEXT NOT NULL,
+  claim_type TEXT NOT NULL DEFAULT 'exclusive',
   claimed_at TEXT NOT NULL,
   last_heartbeat TEXT,
-  released_at TEXT
+  released_at TEXT,
+  release_reason TEXT,
+  reason TEXT,
+  reason_intent TEXT,
+  release_reason_intent TEXT
 );
 """
 

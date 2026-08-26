@@ -190,39 +190,44 @@ Shell access: the Python harness-session CLI (`begin|touch|end|get|list|stale|re
 
 ## Table: work_claims
 
-Tracks active harness-session work-unit occupancy through one of three typed targets. Claims with `released_at IS NULL` are active; exclusive claims prevent another session from claiming the same target. The CHECK constraint enforces "exactly one target population per row":
+Tracks active harness-session occupancy through one canonical target pair: `target_kind` names the target vocabulary and `scope` stores the exact kind-specific JSON object. Claims with `released_at IS NULL` are active.
 
-- **Item target** (`target_kind='item'`): `item_id` is the bare integer item id; `epic_id`/`task_num`/`process_key`/`conflict_group` MUST be NULL. This is the shape that backs `/yoke advance`, `/yoke polish`, etc.
-- **Epic-task target** (`target_kind='epic_task'`): `epic_id` + `task_num` populated, all other target columns NULL. Reserved for future direct epic-task occupancy; today's epic-task work hangs off the parent item claim.
-- **Process target** (`target_kind='process'`): `process_key` (e.g. `STRATEGIZE`, `FEED`, `DOCTOR`) + `conflict_group` populated; all other target columns NULL. Owned by recurring control-plane commands such as `/yoke strategize`, `/yoke feed`, and `/yoke doctor`. The `conflict_group` template `strategy-control-plane:<project>` makes any STRATEGIZE/FEED overlap on the same project reject at acquisition time via the unique partial index.
+- **Item** (`target_kind='item'`): `scope={"item_id":N}`.
+- **Epic task** (`target_kind='epic_task'`): `scope={"epic_id":N,"task_num":N}`.
+- **Process** (`target_kind='process'`): `scope={"process_key":K,"conflict_group":G}`. STRATEGIZE and FEED share `strategy-control-plane:<project>` and therefore conflict.
+- **Steering** (`target_kind='steering'`): `scope={"project_id":N}`. There is one live session-owned steering seat per project. Strategy-document locking remains in `strategy_doc_claims`; work claims do not carry document slugs.
+
+Domain validation requires exactly the keys for the named kind. Storage has no specialized target, typed-owner, or registration-provenance columns.
 
 ```sql
 id INTEGER PRIMARY KEY
 session_id TEXT NOT NULL -- FK to harness_sessions.session_id
-target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process'))
-item_id INTEGER -- bare integer item id (target_kind='item' only)
-epic_id INTEGER -- target_kind='epic_task' only
-task_num INTEGER -- target_kind='epic_task' only
-process_key TEXT -- target_kind='process' only (e.g. STRATEGIZE, FEED)
-conflict_group TEXT -- target_kind='process' only; backs the unique partial index
+target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering'))
+scope TEXT NOT NULL -- canonical JSON object; exact shape is validated by target_kind
 claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive')
 claimed_at TEXT NOT NULL
 last_heartbeat TEXT NOT NULL
 released_at TEXT
 release_reason TEXT -- completed, released, reclaimed, handed_off, expired, session_ended
+reason TEXT -- verbatim acquisition rationale
+reason_intent TEXT -- canonical acquisition intent
+release_reason_intent TEXT -- caller's release intent
 ```
 
-Indexes: `idx_work_claims_session(session_id)`, `idx_work_claims_item(item_id)`, `idx_work_claims_epic_task(epic_id, task_num)`, `idx_work_claims_process(process_key)`, `idx_work_claims_heartbeat(last_heartbeat)`.
+Indexes: `idx_work_claims_session(session_id)`, `idx_work_claims_session_released(session_id, released_at)`, and `idx_work_claims_heartbeat(last_heartbeat)`.
 
-Active-claim exclusivity invariants — three partial unique indexes, each scoped to `released_at IS NULL` so historical released overlap rows remain queryable evidence:
+Active-claim exclusivity invariants — four partial unique indexes, each scoped to `released_at IS NULL` so historical released overlap rows remain queryable evidence:
 
-- `idx_work_claims_active_item ON work_claims(item_id) WHERE released_at IS NULL AND target_kind='item'` — at most one unreleased item claim per `item_id`.
-- `idx_work_claims_active_epic_task ON work_claims(epic_id, task_num) WHERE released_at IS NULL AND target_kind='epic_task'` — at most one unreleased epic-task claim per `(epic_id, task_num)`.
-- `idx_work_claims_active_process_conflict ON work_claims(conflict_group) WHERE released_at IS NULL AND target_kind='process'` — at most one unreleased process claim per `conflict_group` (backs STRATEGIZE/FEED/DOCTOR mutual exclusion).
+- `idx_work_claims_active_item ON work_claims(scope) WHERE released_at IS NULL AND target_kind='item'`.
+- `idx_work_claims_active_epic_task ON work_claims(scope) WHERE released_at IS NULL AND target_kind='epic_task'`.
+- `idx_work_claims_active_process_conflict` indexes `scope.conflict_group` where the process claim is active.
+- `idx_work_claims_active_steering ON work_claims(scope) WHERE released_at IS NULL AND target_kind='steering'`.
 
 The item and epic-task indexes are the authoritative storage-level prevention layer for concurrent writers from separate database connections; the application-level `WHERE NOT EXISTS` check inside `claim_work` remains in place for readable holder lookups, but the partial unique indexes are what guarantee two writers cannot both leave unreleased active rows for the same work unit. A losing concurrent writer surfaces as `SessionError("ALREADY_CLAIMED")` with the winning session id preserved in the message.
 
-Shell access: the typed `claim-work` / `release-work-claim` service-client surface (`yoke_core.api.service_client_work_claims`) and the harness-session claim CLI. API: `/v1/sessions/{id}/claims`, `/v1/claims/{id}/release`, `/v1/claims/by-work-unit`.
+Steering acquisition locks the project row before checking the unique project scope. Ordinary release and stale-session reclamation free the steering seat.
+
+Shell access: item/process targets use `yoke claims work`; steering uses `yoke claims steering acquire --project P [--reason TEXT]`, `list [--project P] [--active-only]`, and `release CLAIM_ID --reason TEXT`. All dispatch through `/v1/functions/call`.
 
 ### Live claim-holder lookup
 
@@ -232,11 +237,11 @@ The canonical recipe for "which session currently holds the work claim on `PREFI
 yoke claims work holder-get PREFIX-N
 ```
 
-It returns the active `work_claims` row (`released_at IS NULL`) — `claim_id`, holder `session_id`, `target_kind`, the target columns, `claimed_at`, and `last_heartbeat` — in one call. The typed work-claim model means the lookup matches on `target_kind='item'` plus the bare integer `item_id`; do not write ad-hoc SQL using guessed owner columns, guessed claim-session columns, retired item-claim table names, or generic target columns. The same recipe is the canonical example in the generated agent context packet (`yoke_core.domain.schema_api_context`, topic `claims`).
+It returns the active `work_claims` row (`released_at IS NULL`) — `claim_id`, holder `session_id`, `target_kind`, `scope`, `claimed_at`, and `last_heartbeat` — in one call. Item lookup matches `target_kind='item'` plus canonical `scope={"item_id":N}`; do not query removed specialized or owner columns. The same recipe is the canonical example in the generated agent context packet (`yoke_core.domain.schema_api_context`, topic `claims`).
 
 Inside the Yoke source repo only, the in-tree `python3 -m yoke_core.hooks.sessions_cli who-claims <item-id>` helper additionally joins the owning `harness_sessions` row (surfacing `executor` and `mode`) and accepts `--current-episode`. That module is not importable from an installed Yoke, so it is an operator/debug recipe for this repo, never a portable one.
 
-`work_claims` is the **active session occupancy** primitive — what a harness session is doing right now. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT live shared-operation truth (that lives in `coordination_leases`). Process path claims attribute back to their owning process work-claim through `path_claims.owner_work_claim_id`.
+`work_claims` is the **active session occupancy** primitive — including which session currently steers a project or strategy-doc scope. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT a dangerous shared-operation lock (that lives in `coordination_leases`). Process path claims attribute back to their owning process work-claim through `path_claims.owner_work_claim_id`.
 
 ## Table: coordination_leases
 

@@ -6,7 +6,12 @@ from typing import Any, Dict, Optional
 
 from . import db_backend
 from .sessions_analytics import SessionError
-from .sessions_queries import _now_iso, normalize_claim_item_id, normalize_session_item_id
+from .sessions_queries import (
+    _now_iso,
+    normalize_claim_item_id,
+    normalize_session_item_id,
+)
+from .work_claim_targets import scope_int_sql
 
 
 def _p(conn: Any) -> str:
@@ -27,14 +32,15 @@ def focus_fallback_item_id(
     item-focus fallback. Returns ``None`` when nothing remains.
     """
     params: list[Any] = [session_id]
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     sql = (
-        "SELECT item_id FROM work_claims "
+        f"SELECT {item_scope} AS item_id FROM work_claims "
         f"WHERE session_id = {_p(conn)} AND target_kind = 'item' "
-        "AND released_at IS NULL AND item_id IS NOT NULL"
+        f"AND released_at IS NULL AND {item_scope} IS NOT NULL"
     )
     if excluding_item_id is not None:
         excluded = normalize_claim_item_id(str(excluding_item_id))
-        sql += f" AND item_id <> {_p(conn)}"
+        sql += f" AND {item_scope} <> {_p(conn)}"
         params.append(int(excluded) if excluded.isdigit() else excluded)
     sql += " ORDER BY claimed_at DESC, id DESC LIMIT 1"
     row = conn.execute(sql, tuple(params)).fetchone()
@@ -59,9 +65,11 @@ def attribution_takes_focus(
     claimed = {
         normalize_claim_item_id(str(row["item_id"]))
         for row in conn.execute(
-            "SELECT item_id FROM work_claims "
+            f"SELECT {scope_int_sql(conn, 'scope', 'item_id')} AS item_id "
+            "FROM work_claims "
             f"WHERE session_id = {_p(conn)} AND target_kind = 'item' "
-            "AND released_at IS NULL AND item_id IS NOT NULL",
+            f"AND released_at IS NULL AND "
+            f"{scope_int_sql(conn, 'scope', 'item_id')} IS NOT NULL",
             (session_id,),
         ).fetchall()
     }

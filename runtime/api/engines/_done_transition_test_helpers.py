@@ -33,7 +33,9 @@ def dt_db(tmp_path, monkeypatch):
         pg_testdb.dsn_for_test_database(db_name),
     )
     try:
-        apply_fixture_ddl(conn, """
+        apply_fixture_ddl(
+            conn,
+            """
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY,
             slug TEXT NOT NULL UNIQUE,
@@ -115,11 +117,7 @@ def dt_db(tmp_path, monkeypatch):
             id INTEGER PRIMARY KEY,
             session_id TEXT,
             target_kind TEXT,
-            item_id INTEGER,
-            epic_id INTEGER,
-            task_num INTEGER,
-            process_key TEXT,
-            conflict_group TEXT,
+            scope TEXT NOT NULL,
             claim_type TEXT,
             claimed_at TEXT,
             last_heartbeat TEXT,
@@ -158,7 +156,8 @@ def dt_db(tmp_path, monkeypatch):
             name TEXT NOT NULL,
             target_env TEXT
         );
-        """)
+        """,
+        )
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
@@ -221,6 +220,7 @@ def _insert_item(db_path, item_id, **kwargs):
     cols = ", ".join(["id"] + list(defaults.keys()))
     vals = [item_id] + list(defaults.values())
     from yoke_core.domain import db_backend
+
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join([p] * (1 + len(defaults)))
     conn.execute(f"INSERT INTO items ({cols}) VALUES ({placeholders})", vals)

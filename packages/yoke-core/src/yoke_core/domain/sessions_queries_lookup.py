@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from . import db_backend
 from .harness_capability_registry import downstream_paths_for_manifest
 from .sessions_queries_base import _row_to_dict, normalize_claim_item_id
+from .work_claim_targets import from_row as target_from_row, scope_int_sql
 
 
 def _p(conn: Any) -> str:
@@ -47,7 +48,8 @@ def list_harness_sessions(
     for r in rows:
         d = _row_to_dict(r)
         derived = resolve_harness_capabilities(
-            str(d.get("executor") or ""), str(d.get("workspace") or ""),
+            str(d.get("executor") or ""),
+            str(d.get("workspace") or ""),
         )
         d["capabilities"] = list(derived["downstream_paths"])
         result.append(d)
@@ -73,7 +75,12 @@ def list_claims_for_session(
             "ORDER BY claimed_at DESC",
             (session_id,),
         ).fetchall()
-    return [_row_to_dict(r) for r in rows]
+    claims: List[Dict[str, Any]] = []
+    for row in rows:
+        claim = _row_to_dict(row)
+        claim["scope"] = dict(target_from_row(claim).scope)
+        claims.append(claim)
+    return claims
 
 
 def get_claim_for_work_unit(
@@ -92,13 +99,19 @@ def get_claim_for_work_unit(
     normalized = normalize_claim_item_id(item_id)
     if not normalized.isdigit():
         return None
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     row = conn.execute(
         "SELECT * FROM work_claims "
-        f"WHERE target_kind='item' AND item_id = {_p(conn)} AND released_at IS NULL "
+        f"WHERE target_kind='item' AND {item_scope} = {_p(conn)} "
+        "AND released_at IS NULL "
         "ORDER BY claimed_at DESC LIMIT 1",
         (int(normalized),),
     ).fetchone()
-    return _row_to_dict(row) if row else None
+    if row is None:
+        return None
+    result = _row_to_dict(row)
+    result["scope"] = dict(target_from_row(result).scope)
+    return result
 
 
 # ---------------------------------------------------------------------------

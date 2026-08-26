@@ -27,7 +27,9 @@ from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
     TARGET_KIND_PROCESS,
+    TARGET_KIND_STEERING,
     WorkClaimTarget,
+    exact_match_clause,
 )
 
 RELEASE_FAILURE_NOT_OWNED = "not_owned"
@@ -35,12 +37,14 @@ RELEASE_FAILURE_ALREADY_TERMINAL = "already_terminal"
 RELEASE_FAILURE_ITEM_NOT_FOUND = "item_not_found"
 RELEASE_FAILURE_DOMAIN_ERROR = "domain_error"
 
-ALL_RELEASE_FAILURE_REASONS = frozenset({
-    RELEASE_FAILURE_NOT_OWNED,
-    RELEASE_FAILURE_ALREADY_TERMINAL,
-    RELEASE_FAILURE_ITEM_NOT_FOUND,
-    RELEASE_FAILURE_DOMAIN_ERROR,
-})
+ALL_RELEASE_FAILURE_REASONS = frozenset(
+    {
+        RELEASE_FAILURE_NOT_OWNED,
+        RELEASE_FAILURE_ALREADY_TERMINAL,
+        RELEASE_FAILURE_ITEM_NOT_FOUND,
+        RELEASE_FAILURE_DOMAIN_ERROR,
+    }
+)
 
 
 def _p(conn: Any) -> str:
@@ -48,18 +52,7 @@ def _p(conn: Any) -> str:
 
 
 def _target_clauses(conn: Any, target: WorkClaimTarget) -> tuple[str, list[Any]]:
-    p = _p(conn)
-    if target.kind == TARGET_KIND_ITEM:
-        return (f"target_kind='item' AND item_id = {p}", [target.item_id])
-    if target.kind == TARGET_KIND_EPIC_TASK:
-        return (
-            f"target_kind='epic_task' AND epic_id = {p} AND task_num = {p}",
-            [target.epic_id, target.task_num],
-        )
-    return (
-        f"target_kind='process' AND process_key = {p}",
-        [target.process_key],
-    )
+    return exact_match_clause(conn, target)
 
 
 def diagnose_target_release_miss(
@@ -92,9 +85,7 @@ def diagnose_target_release_miss(
     ).fetchone()
     if historical is not None:
         holder = (
-            historical["session_id"]
-            if hasattr(historical, "keys")
-            else historical[0]
+            historical["session_id"] if hasattr(historical, "keys") else historical[0]
         )
         return RELEASE_FAILURE_ALREADY_TERMINAL, holder
 
@@ -108,15 +99,15 @@ def diagnose_release_miss(
 ) -> tuple[str, Optional[str]]:
     """Legacy item-id form. Kept as a thin shim."""
     from .work_claim_targets import make_item_target
+
     if not item_lookup or not item_lookup.isdigit():
         return RELEASE_FAILURE_ITEM_NOT_FOUND, None
-    return diagnose_target_release_miss(
-        conn, make_item_target(int(item_lookup))
-    )
+    return diagnose_target_release_miss(conn, make_item_target(int(item_lookup)))
 
 
 def read_item_status(
-    conn: Any, normalized_item_id: str,
+    conn: Any,
+    normalized_item_id: str,
 ) -> Optional[str]:
     """Best-effort current ``items.status`` lookup, ``None`` on miss."""
     if not normalized_item_id.isdigit():
@@ -150,8 +141,10 @@ def emit_target_release_failed(
         item_id_for_event = str(target.item_id)
     elif target.kind == TARGET_KIND_EPIC_TASK:
         item_id_for_event = str(target.epic_id)
-    else:
+    elif target.kind == TARGET_KIND_PROCESS:
         item_id_for_event = f"process:{target.process_key}"
+    else:
+        item_id_for_event = None
     context: Dict[str, Any] = {
         "item_id": item_id_for_event,
         "caller_session_id": caller_session_id,
@@ -165,6 +158,9 @@ def emit_target_release_failed(
     if target.kind == TARGET_KIND_PROCESS:
         context["process_key"] = target.process_key
         context["conflict_group"] = target.conflict_group
+    elif target.kind == TARGET_KIND_STEERING:
+        context["scope"] = dict(target.scope)
+        context["project_id"] = target.project_id
     if extra:
         context.update(extra)
     _sa._emit_event(
@@ -192,6 +188,7 @@ def emit_release_failed(
 ) -> None:
     """Legacy emit shim — wraps the typed form for item targets."""
     from .work_claim_targets import make_item_target
+
     target = (
         make_item_target(int(item_id_normalized))
         if item_id_normalized.isdigit()

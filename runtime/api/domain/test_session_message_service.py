@@ -20,6 +20,7 @@ from yoke_core.domain.session_message_service import (
     send_message,
 )
 from yoke_core.domain.session_message_types import SessionMessageError, parse_timestamp
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.domain.test_session_message_support import (
     NOW,
     message_connection,
@@ -82,11 +83,12 @@ def test_sender_idempotency_deduplicates_without_retargeting_claim_changes() -> 
     target = selector(item_refs=["ALP-1"])
     first = _send(conn, target=target, key="same-intent")
     conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (str(NOW),))
+    claim_target = make_item_target(101)
     conn.execute(
         "INSERT INTO work_claims "
-        "(id,session_id,target_kind,item_id,claimed_at) "
-        "VALUES (4,'s2','item',101,?)",
-        (str(NOW),),
+        "(id,session_id,target_kind,scope,claimed_at) "
+        "VALUES (4,'s2',?,?,?)",
+        (claim_target.kind, claim_target.scope_json(), str(NOW)),
     )
     conn.commit()
 
@@ -171,11 +173,12 @@ def test_confirmed_send_refuses_recipient_drift_after_preview() -> None:
     preview = preview_message(conn, actor_id=10, selector=target, now=NOW)
     assert [row["session_id"] for row in preview["recipients"]] == ["s1"]
     conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (str(NOW),))
+    claim_target = make_item_target(101)
     conn.execute(
         "INSERT INTO work_claims "
-        "(id,session_id,target_kind,item_id,claimed_at) "
-        "VALUES (4,'s2','item',101,?)",
-        (str(NOW),),
+        "(id,session_id,target_kind,scope,claimed_at) "
+        "VALUES (4,'s2',?,?,?)",
+        (claim_target.kind, claim_target.scope_json(), str(NOW)),
     )
     conn.commit()
 

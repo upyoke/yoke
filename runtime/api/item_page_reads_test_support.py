@@ -61,9 +61,9 @@ def _connection() -> sqlite3.Connection:
         );
         CREATE TABLE work_claims (
           id INTEGER PRIMARY KEY,
-          item_id INTEGER,
           session_id TEXT,
           target_kind TEXT,
+          scope TEXT NOT NULL,
           claim_type TEXT,
           claimed_at TEXT,
           released_at TEXT
@@ -232,8 +232,10 @@ def _connection() -> sqlite3.Connection:
     conn.execute("INSERT INTO harness_sessions VALUES ('session-z', 3, 'codex')")
     conn.execute(
         """
-        INSERT INTO work_claims VALUES (
-          9, 51, 'session-z', 'item', 'exclusive',
+        INSERT INTO work_claims (
+          id, session_id, target_kind, scope, claim_type, claimed_at, released_at
+        ) VALUES (
+          9, 'session-z', 'item', '{"item_id":51}', 'exclusive',
           '2026-07-26T10:00:00Z', NULL
         )
         """
