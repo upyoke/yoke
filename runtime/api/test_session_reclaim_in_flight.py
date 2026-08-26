@@ -30,6 +30,9 @@ from yoke_core.domain.session_reclaim_activity import (
 )
 from yoke_core.domain.session_reclaim_activity_bulk import latest_activity_by_session
 from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+)
 from yoke_core.domain.sessions import (
     claim_work,
     clean_stale_harness_sessions,
@@ -222,7 +225,11 @@ class TestInFlightSweepAndScheduler:
     ):
         c = conn_with_events
         _insert_claimable_item(c, 9103)
-        old_minutes = 20 * IN_FLIGHT_HARD_TTL_MULTIPLIER + 1
+        old_minutes = (
+            DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
+            * IN_FLIGHT_HARD_TTL_MULTIPLIER
+            + 1
+        )
         _seed_session(c, "abandoned-worker", heartbeat_ago_min=old_minutes)
         claim_work(c, session_id="abandoned-worker", item_id=9103)
         old = _ago_minutes(old_minutes)

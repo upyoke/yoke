@@ -18,6 +18,9 @@ from yoke_core.domain import (
     sessions_render_reclaim,
 )
 from yoke_core.domain.sessions import SessionError, claim_work, handoff_claim
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+)
 from yoke_core.domain.sessions_lifecycle_claim_release import release_claim_by_id
 from yoke_core.domain.work_claim_targets import decode_scope
 
@@ -50,9 +53,10 @@ def test_cross_item_stale_cleanup_does_not_invert_target_locks(
             session_id="stale-holder",
             item_id=item_id,
         )
-    stale_at = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    stale_at = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
     test_db.execute(
         "UPDATE harness_sessions SET last_heartbeat=%s WHERE session_id='stale-holder'",
         (stale_at,),

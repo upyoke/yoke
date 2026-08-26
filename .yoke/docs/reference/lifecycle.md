@@ -139,9 +139,10 @@ explicit operator calls (`session-end --release-claims`) and fail closed with
 `agent_presence_evidence` on the terminal events. On reactivation, conditional
 auto-reacquire restores prior session_ended claims within
 `session_reactivation_reacquire_window_s` when no conflicting holder exists;
-truly dead sessions are reclaimed by the stale-session sweep
-(`session_stale_ttl_minutes`). See `docs/harness-substrate.md` for the full
-contract.
+truly dead sessions are reclaimed by the stale-session sweep: empty sessions
+use `session_stale_ttl_minutes`, while sessions with active claims or locks use
+`session_stale_ttl_with_holdings_minutes`. See `docs/harness-substrate.md` for
+the full contract.
 
 ### Polish handoff
 

@@ -5,6 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
+from yoke_contracts.machine_config.settings_keys import (
+    SESSION_STALE_TTL_WITH_HOLDINGS_KEY,
+    machine_setting_default,
+)
+
 from . import db_backend
 from .runtime_settings import get_int
 from .schema_common import _table_exists
@@ -30,6 +35,10 @@ class SessionError(Exception):
 # ---------------------------------------------------------------------------
 
 DEFAULT_STALE_THRESHOLD_MINUTES = get_int("session_stale_ttl_minutes", 20)
+DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES = get_int(
+    SESSION_STALE_TTL_WITH_HOLDINGS_KEY,
+    int(machine_setting_default(SESSION_STALE_TTL_WITH_HOLDINGS_KEY)),
+)
 DEFAULT_PROGRESS_THRESHOLD_MINUTES = 90
 EXECUTOR_STALE_TTL_OVERRIDES_MINUTES: Dict[str, int] = {
     "codex": get_int("session_stale_ttl_minutes_codex_override", 60),
@@ -262,6 +271,7 @@ def _emit_event(
     """
     try:
         from .events import emit_event as _native_emit
+
         _native_emit(
             event_name,
             event_kind=event_kind,

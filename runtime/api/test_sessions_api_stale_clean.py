@@ -45,12 +45,12 @@ class TestCleanStaleHarnessSessions:
         """Stale heartbeat + zero tool events = never_engaged."""
         conn = conn_with_events
         _register(conn, session_id="stale-offer")
-        _ts30 = _ago_minutes(30)
+        _ts300 = _ago_minutes(300)
         conn.execute(
             """UPDATE harness_sessions
                SET offered_at = %s, last_heartbeat = %s
                WHERE session_id = 'stale-offer'""",
-            (_ts30, _ts30),
+            (_ts300, _ts300),
         )
         conn.commit()
         claim_work(conn, session_id="stale-offer", item_id=100)
@@ -58,7 +58,7 @@ class TestCleanStaleHarnessSessions:
             """UPDATE work_claims
                SET claimed_at = %s, last_heartbeat = %s
                WHERE session_id = 'stale-offer'""",
-            (_ts30, _ts30),
+            (_ts300, _ts300),
         )
         conn.commit()
 
@@ -84,12 +84,12 @@ class TestCleanStaleHarnessSessions:
         """Stale heartbeat + has tool events = heartbeat_stale."""
         conn = conn_with_events
         _register(conn, session_id="dead-worker")
-        _ts30 = _ago_minutes(30)
+        _ts300 = _ago_minutes(300)
         conn.execute(
             """UPDATE harness_sessions
                SET offered_at = %s, last_heartbeat = %s
                WHERE session_id = 'dead-worker'""",
-            (_ts30, _ts30),
+            (_ts300, _ts300),
         )
         conn.commit()
         claim_work(conn, session_id="dead-worker", item_id=200)
@@ -97,12 +97,12 @@ class TestCleanStaleHarnessSessions:
             """UPDATE work_claims
                SET claimed_at = %s, last_heartbeat = %s
                WHERE session_id = 'dead-worker'""",
-            (_ts30, _ts30),
+            (_ts300, _ts300),
         )
         conn.commit()
 
         # Insert tool events so it's not never-engaged
-        _stamp_tool_activity(conn, "dead-worker", 25)
+        _stamp_tool_activity(conn, "dead-worker", 275)
         conn.commit()
 
         result = clean_stale_harness_sessions(conn, stale_threshold_minutes=10)
@@ -118,11 +118,11 @@ class TestCleanStaleHarnessSessions:
         _register(conn, session_id="wedged-sess")
         claim_work(conn, session_id="wedged-sess", item_id=300)
 
-        _stamp_tool_activity(conn, "wedged-sess", 120)
+        _stamp_tool_activity(conn, "wedged-sess", 300)
         conn.execute(
             "UPDATE harness_sessions SET episode_started_at = %s "
             "WHERE session_id = 'wedged-sess'",
-            (_ago_minutes(120),),
+            (_ago_minutes(300),),
         )
         conn.commit()
 
@@ -244,12 +244,12 @@ class TestCleanStaleHarnessSessions:
         """
         c = conn_with_events
         _register(c, session_id="racy-sess")
-        _ts30 = _ago_minutes(30)
+        _ts300 = _ago_minutes(300)
         c.execute(
             """UPDATE harness_sessions
                SET offered_at = %s, last_heartbeat = %s
                WHERE session_id = 'racy-sess'""",
-            (_ts30, _ts30),
+            (_ts300, _ts300),
         )
         c.commit()
         claim_work(c, session_id="racy-sess", item_id=700)
@@ -264,7 +264,7 @@ class TestCleanStaleHarnessSessions:
             """UPDATE work_claims
                SET claimed_at = %s, last_heartbeat = %s
                WHERE session_id = 'racy-sess' AND released_at IS NULL""",
-            (_ts30, _ts30),
+            (_ts300, _ts300),
         )
         c.commit()
 
