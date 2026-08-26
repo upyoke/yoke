@@ -30,7 +30,13 @@ def _parser() -> argparse.ArgumentParser:
         description=(
             "Run the canonical six-cell production acceptance or stage candidate "
             "qualification from a clean, release-bound Yoke source checkout. "
-            "Bindings are read only by the runner."
+            "Bindings are read only by the runner. The sixth cell proves route "
+            "selection rather than one fixed route: on a machine whose relay is "
+            "connected the plane must wake the target directly, on a machine "
+            "without one it must wake through the bound same-machine peer, and "
+            "either way that wake must deliver end to end. The branch the run "
+            "machine cannot present is recorded as designed not-exercisable, "
+            "naming the relay condition, and never fails the cell."
         ),
     )
     parser.add_argument("--project", required=True)

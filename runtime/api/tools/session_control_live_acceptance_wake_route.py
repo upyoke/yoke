@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.surface_versions import (
     machine_stopped_wake_supported,
     surface_operation_supported,
 )
+
+
+MACHINE_SELECTED_ROUTE = "machine_selected"
 
 
 def expected_wake_route(
@@ -31,4 +34,42 @@ def expected_wake_route(
     )
 
 
-__all__ = ["expected_wake_route"]
+def surface_route_mismatch(cells: Sequence[Any]) -> Any | None:
+    """Return the first surface cell whose authored route contradicts its machine.
+
+    A candidate subset is exempt: selection removes the installed versions its
+    surviving cells would then be judged against.
+    """
+    surfaces = [cell for cell in cells if cell.acceptance_role == "surface"]
+    machine_versions = {cell.surface: cell.expected_version for cell in surfaces}
+    return next(
+        (
+            cell
+            for cell in surfaces
+            if cell.wake_route
+            != expected_wake_route(
+                cell.surface, cell.expected_version, machine_versions
+            )
+        ),
+        None,
+    )
+
+
+def selected_route(*, relay_fresh: bool) -> str:
+    """Return the route the plane must choose for one machine's relay presence.
+
+    A machine whose persistent relay is still connected carries the wake
+    itself, and the plane declines to recruit a peer for it; a machine without
+    one is reachable only through a same-machine peer's one-hop broker. The
+    route is therefore a property of the machine at wake time, never one a
+    matrix cell can pin in advance.
+    """
+    return "direct" if relay_fresh else "broker"
+
+
+__all__ = [
+    "MACHINE_SELECTED_ROUTE",
+    "expected_wake_route",
+    "selected_route",
+    "surface_route_mismatch",
+]

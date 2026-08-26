@@ -10,6 +10,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 )
 from runtime.api.tools.session_control_live_acceptance_wake_route import (
     expected_wake_route,
+    selected_route,
 )
 from runtime.api.tools.test_session_control_live_acceptance_contract import _matrix
 
@@ -42,3 +43,8 @@ def test_matrix_wake_route_expectation_follows_the_installed_cli() -> None:
         parse_matrix(raw)
 
     assert raised.value.code == "surface_wake_route_invalid"
+
+
+def test_machine_relay_presence_selects_direct_or_the_one_hop_broker() -> None:
+    assert selected_route(relay_fresh=True) == "direct"
+    assert selected_route(relay_fresh=False) == "broker"

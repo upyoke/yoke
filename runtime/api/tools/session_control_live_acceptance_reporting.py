@@ -108,6 +108,7 @@ def passed_cell_report(
     wake_outcome: str,
     wake_deduplicated: bool,
     launch: dict[str, Any] | None,
+    route_selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     report = _observed_cell(
         cell,
@@ -125,6 +126,8 @@ def passed_cell_report(
             "wake_deduplicated": wake_deduplicated,
         }
     )
+    if route_selection is not None:
+        report["route_selection"] = route_selection
     return _with_launch(report, launch)
 
 

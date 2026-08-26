@@ -11,6 +11,12 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceContractError,
     acceptance_operation,
 )
+from runtime.api.tools.session_control_live_acceptance_route_selection import (
+    broker_hop_carries_wake,
+)
+from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    MACHINE_SELECTED_ROUTE,
+)
 from yoke_contracts.session_control.surface_versions import (
     surface_version_meets_floor,
 )
@@ -63,7 +69,7 @@ def _validate_broker(
     cell: AcceptanceCell,
     target: dict[str, Any],
 ) -> None:
-    if cell.route != "broker":
+    if cell.route != MACHINE_SELECTED_ROUTE:
         return
     broker = _read_session(
         client,
@@ -207,7 +213,10 @@ def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) 
 
 
 def wakeable_identify_baseline(cell: AcceptanceCell) -> bool:
-    return cell.mode == "identify" and cell.route in {"direct", "broker"}
+    return cell.mode == "identify" and cell.route in {
+        "direct",
+        MACHINE_SELECTED_ROUTE,
+    }
 
 
 def _validate_wakeable_ended_shape(
@@ -231,7 +240,9 @@ def _validate_wakeable_ended_shape(
         raise AcceptanceContractError(
             "waiting_wake_interface_mismatch", surface=cell.surface
         )
-    if routing.get("wake_available") is not True:
+    if routing.get("wake_available") is not True and not broker_hop_carries_wake(
+        row, cell=cell
+    ):
         raise AcceptanceContractError("waiting_wake_mismatch", surface=cell.surface)
 
 
@@ -303,10 +314,9 @@ def wait_for_waiting_registration(
                     "waiting_wake_interface_mismatch", surface=cell.surface
                 )
             available = routing.get("wake_available") is True
-            availability_relaxed = (
-                one_shot_private_wake_candidate
-                and cell.route == "direct"
-                and not available
+            availability_relaxed = not available and (
+                (one_shot_private_wake_candidate and cell.route == "direct")
+                or broker_hop_carries_wake(row, cell=cell)
             )
             if available != (cell.route != "none") and not availability_relaxed:
                 raise AcceptanceContractError(

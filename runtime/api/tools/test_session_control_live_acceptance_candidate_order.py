@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.tools.session_control_live_acceptance_contract import (
+    SCHEMA_VERSION,
     ACCEPTANCE_SURFACES,
     AcceptanceContractError,
     parse_candidate_matrix,
@@ -44,7 +45,7 @@ def _broker_cell(surface: str) -> dict:
         "session_id": "broker-target",
         "machine_id": "machine-1",
         "acceptance_role": "broker",
-        "wake_route": "broker",
+        "wake_route": "machine_selected",
         "broker_session_id": "broker-peer",
     }
 
@@ -52,7 +53,7 @@ def _broker_cell(surface: str) -> dict:
 def test_acceptance_matrix_runs_every_surface_before_any_broker() -> None:
     parsed = parse_readiness_matrix(
         {
-            "schema": 2,
+            "schema": SCHEMA_VERSION,
             "project": "yoke",
             "cells": [
                 _broker_cell("codex-cli"),
@@ -80,7 +81,7 @@ def test_candidate_matrix_refuses_broker_proofs_with_a_named_reason(
     with pytest.raises(AcceptanceContractError) as raised:
         parse_candidate_matrix(
             {
-                "schema": 2,
+                "schema": SCHEMA_VERSION,
                 "project": "yoke",
                 "cells": [_broker_cell(surface)],
             }

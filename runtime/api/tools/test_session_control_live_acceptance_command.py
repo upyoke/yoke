@@ -12,6 +12,7 @@ import pytest
 
 from runtime.api.tools import session_control_live_acceptance_command as command
 from runtime.api.tools.session_control_live_acceptance_contract import (
+    SCHEMA_VERSION,
     ACCEPTANCE_SURFACES,
     AcceptanceContractError,
 )
@@ -77,7 +78,7 @@ def test_matrix_builder_owns_the_exact_six_modes_roles_and_routes() -> None:
     bindings = command.LiveAcceptanceBindings.model_validate(_bindings())
     document = command.build_acceptance_matrix_document("yoke", bindings)
 
-    assert document["schema"] == 2
+    assert document["schema"] == SCHEMA_VERSION
     assert document["project"] == "yoke"
     cells = document["cells"]
     assert len(cells) == 6
@@ -98,7 +99,7 @@ def test_matrix_builder_owns_the_exact_six_modes_roles_and_routes() -> None:
     broker = cells[-1]
     assert broker["surface"] == command.BROKER_ACCEPTANCE_SURFACE
     assert broker["acceptance_role"] == "broker"
-    assert broker["wake_route"] == "broker"
+    assert broker["wake_route"] == "machine_selected"
     assert broker["session_id"] == "broker-target"
     assert broker["broker_session_id"] == "broker-peer"
 

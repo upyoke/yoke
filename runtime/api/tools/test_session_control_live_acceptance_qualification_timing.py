@@ -91,7 +91,7 @@ class _Qualification:
         self.granted_operation = acceptance_operation(client.cell.surface)
         self.events: list[tuple[str, str, int]] = []
 
-    def open(self, _cell: AcceptanceCell, operation: str):
+    def open(self, _cell: AcceptanceCell, operation: str, _route: str = ""):
         self.events.append(("open", operation, len(self.client.calls)))
         grant = operation if operation == self.granted_operation else None
         if hasattr(self.client, "grant_active"):

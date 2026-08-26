@@ -66,7 +66,9 @@ class _Qualification:
         self.granted_operation = acceptance_operation(client.cell.surface)
         self.granted_call_counts: list[int] = []
 
-    def open(self, _cell: AcceptanceCell, operation: str) -> str | None:
+    def open(
+        self, _cell: AcceptanceCell, operation: str, _route: str = ""
+    ) -> str | None:
         if operation != self.granted_operation:
             return None
         self.granted_call_counts.append(len(self.client.calls))

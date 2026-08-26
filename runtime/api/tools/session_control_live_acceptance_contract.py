@@ -9,7 +9,8 @@ import re
 from typing import Any
 
 from runtime.api.tools.session_control_live_acceptance_wake_route import (
-    expected_wake_route,
+    MACHINE_SELECTED_ROUTE,
+    surface_route_mismatch,
 )
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
@@ -18,7 +19,7 @@ from yoke_contracts.session_control.surface_versions import (
 )
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ACCEPTANCE_SURFACES = (
     "claude-cli",
     "claude-desktop",
@@ -45,16 +46,11 @@ _CELL_KEYS = frozenset(
     }
 )
 _ACCEPTANCE_ROLES = frozenset({"surface", "broker"})
-_WAKE_ROUTES = frozenset({"direct", "broker", "none"})
+_WAKE_ROUTES = frozenset({"direct", MACHINE_SELECTED_ROUTE, "none"})
 
 
 def acceptance_operation(surface: str) -> str:
     return "message_active" if surface == "claude-desktop" else "message_stopped"
-
-
-def _version_acceptance_supported(surface: str, version: str) -> bool:
-    operation = acceptance_operation(surface)
-    return surface_operation_supported(surface, version, operation)
 
 
 class AcceptanceContractError(ValueError):
@@ -146,7 +142,9 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
         code="expected_version_missing",
         surface=surface,
     )
-    if evidence_required and not _version_acceptance_supported(surface, version):
+    if evidence_required and not surface_operation_supported(
+        surface, version, acceptance_operation(surface)
+    ):
         raise AcceptanceContractError("expected_version_unproven", surface=surface)
     mode = require_text(raw.get("mode"), code="mode_missing", surface=surface)
     if mode not in {"create", "identify"}:
@@ -189,8 +187,14 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
                 "broker_session_id_forbidden", surface=surface
             )
     else:
-        if wake_route != "broker":
-            raise AcceptanceContractError("broker_wake_route_required", surface=surface)
+        # The broker-capable cell proves route SELECTION, not one fixed route:
+        # the plane picks direct or broker from the machine's own relay
+        # presence, so pinning either one here makes the cell unsatisfiable on
+        # the other kind of machine.
+        if wake_route != MACHINE_SELECTED_ROUTE:
+            raise AcceptanceContractError(
+                "broker_route_selection_required", surface=surface
+            )
         if mode != "identify":
             raise AcceptanceContractError("broker_identify_required", surface=surface)
         if surface in _IDENTIFY_ONLY_SURFACES:
@@ -212,24 +216,6 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
         wake_route=wake_route,
         broker_session_id=broker_session_id,
     )
-
-
-def _validate_wake_routes(cells: tuple[AcceptanceCell, ...]) -> None:
-    """Check authored routes against the complete matrix's own machine.
-
-    A candidate subset is exempt: selection removes the installed versions its
-    surviving cells would then be judged against.
-    """
-    surfaces = [cell for cell in cells if cell.acceptance_role == "surface"]
-    machine_versions = {cell.surface: cell.expected_version for cell in surfaces}
-    for cell in surfaces:
-        expected = expected_wake_route(
-            cell.surface, cell.expected_version, machine_versions
-        )
-        if cell.wake_route != expected:
-            raise AcceptanceContractError(
-                "surface_wake_route_invalid", surface=cell.surface
-            )
 
 
 def _parse_matrix(
@@ -280,7 +266,10 @@ def _parse_matrix(
             )
         )
         return AcceptanceMatrix(project=project, cells=ordered)
-    _validate_wake_routes(cells)
+    if mismatched := surface_route_mismatch(cells):
+        raise AcceptanceContractError(
+            "surface_wake_route_invalid", surface=mismatched.surface
+        )
     surface_cells = tuple(cell for cell in cells if cell.acceptance_role == "surface")
     surfaces = tuple(cell.surface for cell in surface_cells)
     if len(surfaces) != len(set(surfaces)):
