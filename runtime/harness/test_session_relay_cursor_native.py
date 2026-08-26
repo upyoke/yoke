@@ -89,6 +89,7 @@ def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
     command, options = spawns[0]
     assert command[:3] == ["/opt/cursor-agent", "--resume", SESSION_ID]
     assert "--trust" in command
+    assert "--force" in command
     assert command[-1] == CHECK_INBOX
     assert "CODEX_SESSION_ID" not in options["env"]
     assert options["env"]["YOKE_EXECUTOR"] == "cursor"

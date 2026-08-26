@@ -7,6 +7,9 @@ from pathlib import Path
 import shutil
 from typing import Callable
 
+from yoke_contracts.session_control.launch_permission_bypass import (
+    CLAUDE_BYPASS_ARGUMENTS,
+)
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness.session_relay_claude_identity import resolve_background_agent
 from yoke_harness.session_relay_claude_process import (
@@ -42,13 +45,19 @@ class ClaudeNativeInvocation:
             return (
                 self.executable,
                 "-p",
+                *CLAUDE_BYPASS_ARGUMENTS,
                 "--resume",
                 self.session_id,
                 self.instruction,
                 "--output-format",
                 "json",
             )
-        arguments = [self.executable, "--session-id", self.session_id]
+        arguments = [
+            self.executable,
+            "--session-id",
+            self.session_id,
+            *CLAUDE_BYPASS_ARGUMENTS,
+        ]
         if self.model:
             arguments.extend(("--model", self.model))
         arguments.extend(("--bg", self.instruction))

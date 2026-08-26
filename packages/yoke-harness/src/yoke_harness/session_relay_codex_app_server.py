@@ -5,6 +5,10 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from yoke_contracts.session_control.launch_permission_bypass import (
+    codex_thread_bypass_parameters,
+    codex_turn_bypass_parameters,
+)
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
     CodexNativeRequest,
@@ -71,6 +75,7 @@ def _start_turn(client: _Client, thread_id: str, request: CodexNativeRequest) ->
                 "threadId": thread_id,
                 "input": _text_input(request.native_instruction),
                 "clientUserMessageId": _client_message_id(request, thread_id),
+                **codex_turn_bypass_parameters(),
             },
         )
     )
@@ -135,6 +140,7 @@ class CodexAppServerTransport:
             params: dict[str, Any] = {
                 "cwd": str(request.checkout.resolve()),
                 "serviceName": request.presentation or "yoke_session_relay",
+                **codex_thread_bypass_parameters(),
             }
             if request.requested_model:
                 params["model"] = request.requested_model
@@ -205,6 +211,8 @@ class CodexAppServerTransport:
                     return _outcome(self.binary, "outcome_unknown", phase="turn_start")
                 turn_id = str(active[0]["id"])
                 mutated = True
+                # Steering carries no policy of its own; the in-progress turn
+                # keeps the unattended posture its thread was started with.
                 client.request(
                     "turn/steer",
                     {
@@ -216,7 +224,15 @@ class CodexAppServerTransport:
                 )
             elif native_status in _RESUMABLE_NATIVE_STATUSES:
                 resumed = _identity(
-                    _thread(client.request("thread/resume", {"threadId": identity[0]}))
+                    _thread(
+                        client.request(
+                            "thread/resume",
+                            {
+                                "threadId": identity[0],
+                                **codex_thread_bypass_parameters(),
+                            },
+                        )
+                    )
                 )
                 if resumed != identity:
                     raise CodexAppServerError(

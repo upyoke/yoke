@@ -196,7 +196,7 @@ def test_cli_instruction_crosses_stdin_not_process_arguments(
     assert bodies == [INSTRUCTION.encode()]
 
 
-def test_codex_launches_inherit_policy_without_read_only_overrides(
+def test_codex_launches_run_unattended_on_both_transports(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -207,11 +207,10 @@ def test_codex_launches_inherit_policy_without_read_only_overrides(
         "exec",
         "--json",
         "--skip-git-repo-check",
+        "--dangerously-bypass-approvals-and-sandbox",
         "--model",
         "gpt-5.6",
     ]
-    assert "sandbox" not in " ".join(command).casefold()
-    assert "approval" not in " ".join(command).casefold()
 
     class Client:
         def __init__(self) -> None:
@@ -238,8 +237,11 @@ def test_codex_launches_inherit_policy_without_read_only_overrides(
 
     assert outcome.state == "accepted"
     params = next(value for method, value in client.calls if method == "thread/start")
-    assert "sandbox" not in params
-    assert "approvalPolicy" not in params
+    assert params["sandbox"] == "danger-full-access"
+    assert params["approvalPolicy"] == "never"
+    turn = next(value for method, value in client.calls if method == "turn/start")
+    assert turn["approvalPolicy"] == "never"
+    assert turn["sandboxPolicy"] == {"type": "dangerFullAccess"}
 
 
 def test_cli_drain_thread_is_non_daemon(monkeypatch) -> None:

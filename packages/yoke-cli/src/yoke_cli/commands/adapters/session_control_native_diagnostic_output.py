@@ -6,6 +6,16 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
+from yoke_contracts.session_control.launch_permission_bypass import (
+    CLAUDE_BYPASS_DISCLAIMER_RECOVERY,
+)
+
+
+# A failure class the operator can act on names its own recovery step here,
+# so the answer arrives with the diagnosis instead of in a separate manual.
+_FAILURE_RECOVERY = {
+    "permission_bypass_unaccepted": CLAUDE_BYPASS_DISCLAIMER_RECOVERY,
+}
 
 
 def native_diagnostic_fields(
@@ -31,9 +41,16 @@ def native_diagnostic_fields(
     fields: list[tuple[str, Any]] = [
         ("Native failure", failure_class),
         ("Failure step", safe.get("native_error_step")),
-        ("Diagnostic availability", availability),
-        ("Diagnostic location", location),
     ]
+    recovery = _FAILURE_RECOVERY.get(str(failure_class or ""))
+    if recovery:
+        fields.append(("Recovery", recovery))
+    fields.extend(
+        [
+            ("Diagnostic availability", availability),
+            ("Diagnostic location", location),
+        ]
+    )
     if reference:
         fields.extend(
             [

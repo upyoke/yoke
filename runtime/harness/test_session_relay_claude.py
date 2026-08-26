@@ -101,6 +101,7 @@ def test_create_reports_and_stages_the_actual_background_session() -> None:
         CLAUDE,
         "--session-id",
         LAUNCH_ID,
+        "--dangerously-skip-permissions",
         "--model",
         "claude-opus-4-1",
         "--bg",

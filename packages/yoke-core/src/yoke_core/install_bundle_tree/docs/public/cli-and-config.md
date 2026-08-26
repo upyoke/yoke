@@ -43,6 +43,26 @@ except on a fresh write or an explicit config repair.
 name the key and the config file. Every launch path — operator create and
 any later worker launcher — must call the same resolver.
 
+## Launched sessions run unattended
+
+A session the launch plane starts is an autonomous worker with nobody
+watching its terminal, so every launch and every wake engages the harness
+permission bypass: Claude Code is launched with
+`--dangerously-skip-permissions`, Codex with approvals and sandbox bypassed
+(`--dangerously-bypass-approvals-and-sandbox` on the CLI route, the same
+posture as thread parameters on the app-server route), and Cursor with
+`--force` alongside `--trust` on the CLI route. Cursor's ACP launch route
+takes no such flag: the relay answers each permission request itself and
+owns the terminals commands run in, so it is unattended already. This is
+unconditional for launched sessions and changes nothing about a session you
+start yourself.
+
+One native gate can still refuse: Claude Code declines a bypassed background
+launch until the machine has accepted the bypass disclaimer once. The launch
+reports `permission_bypass_unaccepted` with the recovery step — run
+`claude --dangerously-skip-permissions` interactively on that machine, accept
+the prompt, then retry.
+
 ## Connections
 
 A connection is how this machine reaches a universe:
