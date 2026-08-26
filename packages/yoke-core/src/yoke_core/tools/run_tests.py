@@ -34,17 +34,18 @@ Return codes match pytest (0 = all pass, nonzero = failures/errors).
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 from typing import List, Sequence, TextIO
 
+from yoke_contracts import schema_authority
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding_startup
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
+    isolate_from_administering_machine_config,
 )
 from yoke_core.tools import _source_pythonpath
 from yoke_core.tools.impacted_project_test_roots import (
@@ -213,7 +214,9 @@ def run(
         extra=extra,
     )
     cmd = pytest_argv(argv, cwd=root)
-    env = os.environ.copy()
+    env = isolate_from_administering_machine_config(
+        schema_authority.environment_without_administering_selection()
+    )
     # Ensure pytest imports Yoke packages from this checkout, even when an
     # editable install still points at the main tree.
     env = _source_pythonpath.with_source_pythonpath(env, root)
