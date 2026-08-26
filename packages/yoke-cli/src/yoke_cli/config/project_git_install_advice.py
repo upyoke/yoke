@@ -107,8 +107,9 @@ def install_advice(
         return GitInstallAdvice(
             "Windows",
             None,
-            "Native Windows onboarding is not supported yet. Use WSL/Linux or "
-            "macOS; inside WSL, install git with that distro's package manager.",
+            "Native Windows onboarding is not supported. Install WSL, open "
+            "Ubuntu, then rerun curl -fsSL https://upyoke.com/install | sh. "
+            "Inside WSL, install git with that distro's package manager.",
         )
 
     if "linux" in name:

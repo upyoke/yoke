@@ -7,7 +7,8 @@ yoke status
 ```
 
 Prerequisites: a shell, `curl`, and `uv` (the installer can install `uv` with
-consent). You are not asked to bring your own Python.
+consent). You are not asked to bring your own Python. Native Windows is
+unsupported; WSL follows the Linux path.
 
 ## Onboard wizard
 
