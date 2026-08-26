@@ -97,6 +97,9 @@ def canonical_example_payload() -> dict[str, Any]:
             },
         ],
         "settings": {},
+        "preferred_session_models": {
+            "cursor-cli": "cursor-grok-4.6-high-fast",
+        },
     })
 
 def canonical_example_text() -> str:

@@ -47,14 +47,18 @@ def _environment(
         executor="cursor",
         executor_version=request.surface_version,
         provider="cursor",
+        model=launch.requested_model if launch else None,
         markers={"CURSOR_INVOKED_AS": "cursor-agent"},
         launch_id=launch.launch_id if launch else None,
         launch_attestation=launch.launch_attestation if launch else None,
     )
 
 
-def _session_params(checkout: Path) -> dict[str, object]:
-    return {"cwd": str(checkout.resolve()), "mcpServers": []}
+def _session_params(checkout: Path, model: str | None = None) -> dict[str, object]:
+    params: dict[str, object] = {"cwd": str(checkout.resolve()), "mcpServers": []}
+    if model:
+        params["model"] = model
+    return params
 
 
 def _prompt_params(session_id: str, instruction: str) -> dict[str, object]:
@@ -272,7 +276,10 @@ class CursorAcpTransport:
         session_id: str | None = None
         try:
             client = self._client(request.checkout, request)
-            result = client.request("session/new", _session_params(request.checkout))
+            result = client.request(
+                "session/new",
+                _session_params(request.checkout, request.requested_model),
+            )
             session_id = session_id_from_native_payload(result)
             if session_id is None:
                 client.close()

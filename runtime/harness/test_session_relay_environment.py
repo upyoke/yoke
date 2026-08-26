@@ -65,6 +65,18 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     }
 
 
+def test_native_environment_stamps_resolved_model_for_registration() -> None:
+    environment = native_session_environment(
+        executor="cursor",
+        executor_version="2026.08.11-e8db854",
+        provider="cursor",
+        model="cursor-grok-4.6-high-fast",
+        environ={"YOKE_MODEL": "parent-model"},
+    )
+
+    assert environment["YOKE_MODEL"] == "cursor-grok-4.6-high-fast"
+
+
 def test_wake_environment_drops_stale_launch_context() -> None:
     environment = native_session_environment(
         executor="cursor",
