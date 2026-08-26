@@ -25,6 +25,9 @@ the destination picker.
 
 ## After onboard
 
+Reload PATH if the installer added it (this terminal only), then open Claude
+Code, Codex, or Cursor in your project folder and run `/yoke onboard`.
+
 ```bash
 yoke status          # machine, env, credentials, checkouts
 yoke ui              # local workbench (local mode)
