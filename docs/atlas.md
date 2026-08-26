@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-26T18:32:15Z_
+_Audit generated_at: 2026-08-26T19:54:03Z_
 
 ## 1. Summary
 
-- Function ids registered: **423**
+- Function ids registered: **424**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **350** (350 carry usable `--help`)
-- Operation tracker: **327 wrapped**, 10 tool_cli, 126 permanent, 0 pending
-- Skill-body recipes: 288 total (236 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **351** (351 carry usable `--help`)
+- Operation tracker: **328 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- Skill-body recipes: 292 total (240 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **327** (operation tracker confirms 327 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **328** (operation tracker confirms 328 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -213,6 +213,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **327** (operation track
 | qa | `yoke qa project-default set` | `qa.project_default.set` | ok |
 | qa | `yoke qa project-default unset` | `qa.project_default.unset` | ok |
 | qa | `yoke qa project-method register` | `qa.project_method.register` | ok |
+| qa | `yoke qa registered-command set` | `qa.registered_command.set` | ok |
 | qa | `yoke qa requirement add` | `qa.requirement.add` | ok |
 | qa | `yoke qa requirement add-batch` | `qa.requirement.add_batch` | ok |
 | qa | `yoke qa requirement get` | `qa.requirement.get` | ok |
@@ -529,9 +530,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 33 |
-| claude-code | 11 |
-| cursor | 6 |
+| codex | 35 |
+| claude-code | 13 |
+| cursor | 2 |
 
 ## 8. Contradictions
 
