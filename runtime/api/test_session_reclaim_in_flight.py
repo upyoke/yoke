@@ -103,7 +103,7 @@ class TestInFlightReclaim:
 
         assert result.is_reclaimable is False
         assert result.reason == REASON_FRESH
-        assert result.evidence.open_tool_call is True
+        assert result.evidence.open_tool_call_live is True
 
     def test_waiting_turn_with_stale_heartbeats_is_reclaimable(self, conn_with_events):
         c = conn_with_events
@@ -301,7 +301,7 @@ class TestReclaimedClaimReactivation:
         evidence = read_activity_signals(c, "flag-sess")
 
         assert evidence.in_flight is True
-        assert evidence.open_tool_call is True
+        assert evidence.open_tool_call_at is not None
         payload = evidence.as_payload()
         assert payload["turn_posture"] == "running"
         assert payload["open_tool_call"] is True

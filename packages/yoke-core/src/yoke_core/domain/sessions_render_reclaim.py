@@ -17,6 +17,7 @@ from .sessions_lifecycle_registry import _get_claim, _get_session
 from .sessions_queries import (
     _now_iso,
     _row_to_dict,
+    clear_chain_checkpoint,
     normalize_claim_item_id,
 )
 from .sessions_render_attribution import clear_current_item, set_current_item
@@ -72,6 +73,9 @@ def reclaim_stale_session(
     event per released claim with populated ``item_id``/``task_num``.  A
     session-owned document lock dies with its session for the same reason a
     work claim does: an abandoned lock would leave its document unclaimable.
+    The session's chain checkpoint dies with it too: chain budget is a live
+    session's to spend, and a reclaimed session's leftover checkpoint would
+    keep refusing later end attempts with ``chain_pending``.
     """
     now = _now_iso()
 
@@ -120,6 +124,7 @@ def reclaim_stale_session(
 
     release_for_reclaimed_session(conn, session_id)
     release_session_doc_claims_for_session(conn, session_id, reason="reclaimed")
+    clear_chain_checkpoint(conn, session_id)
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
         (now, session_id),

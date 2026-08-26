@@ -13,7 +13,8 @@ from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
     current_episode_progress_stamp,
-    latest_activity,
+    in_flight_activity_is_hard_stale,
+    read_activity_signals,
 )
 from .session_staleness import activity_is_stale
 from .sessions_analytics_core import DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
@@ -26,10 +27,10 @@ from .sessions_analytics import (
     SessionError,
 )
 from .sessions_queries import _now_iso
+from .sessions_render_end_chain_pending import chain_pending_state
 from .sessions_render import reclaim_stale_session
 from .scratch_auto_prune import ScratchPruneResult, auto_prune_stale_scratch
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
-from yoke_harness.hooks.identity import is_codex
 
 
 def _minutes_since(iso_value: Optional[str]) -> int:
@@ -145,17 +146,22 @@ def clean_stale_harness_sessions(
             else None
         )
 
-        activity_at = latest_activity(conn, sid, executor=executor)
-        is_stale = (
-            activity_is_stale(
+        evidence = read_activity_signals(
+            conn, sid, base_ttl_minutes=effective_ttl, overrides={}
+        )
+        activity_at = evidence.activity_at
+        if evidence.in_flight:
+            is_stale = in_flight_activity_is_hard_stale(
+                activity_at,
+                effective_ttl_minutes=effective_ttl,
+            )
+        else:
+            is_stale = activity_at is None or activity_is_stale(
                 activity_at,
                 executor=None,
                 base_ttl_minutes=effective_ttl,
                 executor_ttl_overrides={},
             )
-            if activity_at is not None
-            else True
-        )
         stale_minutes = _minutes_since(activity_at) if activity_at else 0
 
         entry = {
@@ -191,7 +197,7 @@ def clean_stale_harness_sessions(
             if progress_stale_flag:
                 progress_stale.append({**entry, "reason": "progress_stale"})
                 continue
-            if is_codex(executor):
+            if evidence.in_flight:
                 skipped_between_turns.append({**entry, "reason": "between_turns"})
             continue
 
@@ -254,8 +260,8 @@ def clean_stale_harness_sessions(
             )
             continue
 
-        # Count active claims before release so the reclaim event can report
-        # released_claim_count accurately.
+        # Read before the reclaim clears it, so the event reports what it collected.
+        chain_state = chain_pending_state(conn, sid)
         claim_count_row = conn.execute(
             """SELECT COUNT(*) AS cnt FROM work_claims
                WHERE session_id = %s AND released_at IS NULL""",
@@ -286,6 +292,8 @@ def clean_stale_harness_sessions(
                 "effective_ttl_minutes": recheck.evidence.effective_ttl_minutes,
                 "has_active_holdings": has_active_holdings,
                 "released_claim_count": released_claim_count,
+                "chain_checkpoint_cleared": chain_state.chainable,
+                "chain_checkpoint_step": chain_state.step,
                 "janitor_now": now_iso,
             },
         )

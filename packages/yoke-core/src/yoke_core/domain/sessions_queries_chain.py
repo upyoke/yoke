@@ -150,6 +150,41 @@ def read_chain_checkpoint(
     return envelope.get("chain_checkpoint")
 
 
+def clear_chain_checkpoint(
+    conn: Any,
+    session_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Drop the chain checkpoint so a collected session keeps no chain budget.
+
+    Chain budget belongs to a live session. Without this, a checkpoint left by
+    a session the stale sweep reclaimed keeps refusing every later end attempt
+    with ``chain_pending`` — budget from a session that no longer exists
+    blocking the cleanup of that same session. Writes in the caller's
+    transaction so the checkpoint dies with the session it belonged to.
+
+    Returns the removed checkpoint, or ``None`` when there was none.
+    """
+    row = conn.execute(
+        f"SELECT offer_envelope FROM harness_sessions WHERE session_id = {_p(conn)}",
+        (session_id,),
+    ).fetchone()
+    if row is None or not row["offer_envelope"]:
+        return None
+    try:
+        envelope = json.loads(row["offer_envelope"])
+    except (json.JSONDecodeError, TypeError):
+        return None
+    checkpoint = envelope.pop("chain_checkpoint", None)
+    if checkpoint is None:
+        return None
+    conn.execute(
+        f"UPDATE harness_sessions SET offer_envelope = {_p(conn)} "
+        f"WHERE session_id = {_p(conn)}",
+        (json.dumps(envelope), session_id),
+    )
+    return checkpoint
+
+
 def read_chain_skip_memory(
     conn: Any,
     session_id: str,

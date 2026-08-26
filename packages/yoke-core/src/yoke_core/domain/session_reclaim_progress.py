@@ -2,13 +2,34 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from . import db_backend
 from .schema_common import _get_columns as _schema_get_columns
 
 _TURN_RUNNING = "running"
+
+# One hook writes ``last_tool_call_at`` and the open ``session_tool_calls`` row,
+# so the two stamps of a live call land within seconds of each other. Only a
+# gap wider than that separates a running call from an unclosed leftover.
+OPEN_TOOL_CALL_WRITE_SKEW_SECONDS = 60
+
+
+def _parse_stamp(value: Optional[str]) -> Optional[datetime]:
+    """Parse an ISO-8601 stamp; ``None`` when absent or unreadable."""
+    if not value:
+        return None
+    text = str(value).strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def newest_activity_stamp(*values: Optional[str]) -> Optional[str]:
@@ -90,24 +111,57 @@ def read_session_state(
     )
 
 
-def session_has_open_tool_call(conn: Any, session_id: str) -> bool:
-    """True when a ``session_tool_calls`` row is still unfinished."""
+def open_tool_call_started_at(conn: Any, session_id: str) -> Optional[str]:
+    """Start stamp of the newest unfinished ``session_tool_calls`` row.
+
+    The stamp travels with the marker so callers can ask whether the open row
+    is still credible evidence of live work. A bare "a row is open" boolean
+    cannot: a harness that never writes ``completed_at`` leaves rows open
+    forever, and every reader that trusted the boolean treated such a session
+    as permanently busy.
+    """
     try:
         columns = set(_schema_get_columns(conn, "session_tool_calls"))
     except db_backend.operational_error_types():
-        return False
+        return None
     if "completed_at" not in columns or "session_id" not in columns:
-        return False
+        return None
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
         row = conn.execute(
-            "SELECT 1 FROM session_tool_calls "
-            f"WHERE session_id = {marker} AND completed_at IS NULL LIMIT 1",
+            "SELECT MAX(started_at) AS started_at FROM session_tool_calls "
+            f"WHERE session_id = {marker} AND completed_at IS NULL",
             (session_id,),
         ).fetchone()
     except db_backend.operational_error_types():
+        return None
+    if row is None:
+        return None
+    started_at = row["started_at"] if hasattr(row, "keys") else row[0]
+    return str(started_at) if started_at else None
+
+
+def open_tool_call_is_live(
+    open_tool_call_at: Optional[str],
+    activity_at: Optional[str],
+) -> bool:
+    """Whether an open tool-call row still evidences work in flight.
+
+    A harness stamps ``harness_sessions.last_tool_call_at`` and inserts the
+    ``session_tool_calls`` row from the same hook, so a genuinely running call
+    is the session's newest recorded activity. Activity recorded well after the
+    call opened proves the opposite: the session kept working and the row was
+    never closed, so it is residue rather than liveness.
+    """
+    if open_tool_call_at is None:
         return False
-    return row is not None
+    marker_at = _parse_stamp(open_tool_call_at)
+    if marker_at is None:
+        return False
+    newest_at = _parse_stamp(activity_at)
+    if newest_at is None:
+        return True
+    return newest_at - marker_at <= timedelta(seconds=OPEN_TOOL_CALL_WRITE_SKEW_SECONDS)
 
 
 def session_turn_is_running(turn_posture: Optional[str]) -> bool:
@@ -116,10 +170,12 @@ def session_turn_is_running(turn_posture: Optional[str]) -> bool:
 
 
 __all__ = [
+    "OPEN_TOOL_CALL_WRITE_SKEW_SECONDS",
     "current_episode_progress_stamp",
     "live_activity_stamp",
     "newest_activity_stamp",
+    "open_tool_call_is_live",
+    "open_tool_call_started_at",
     "read_session_state",
-    "session_has_open_tool_call",
     "session_turn_is_running",
 ]

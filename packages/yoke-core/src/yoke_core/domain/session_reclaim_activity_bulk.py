@@ -24,7 +24,7 @@ from .session_reclaim_activity import (
     newest_activity_stamp as _newest,
     resolve_effective_ttl,
 )
-from .session_reclaim_progress import live_activity_stamp
+from .session_reclaim_progress import live_activity_stamp, open_tool_call_is_live
 
 
 def _p(conn: Any) -> str:
@@ -134,7 +134,13 @@ def _mark_in_flight_live(
     marker: str,
     placeholders: str,
 ) -> None:
-    """Treat a running turn or open tool call as live for every listed session."""
+    """Treat a running turn or a live open tool call as present activity.
+
+    An open ``session_tool_calls`` row only counts while it is still the
+    session's newest recorded activity; the same grounding the single-session
+    classifier applies, so a harness that never closes its rows cannot make a
+    session permanently unreclaimable here either.
+    """
     live_stamp = live_activity_stamp()
 
     def mark_live(row: Any) -> None:
@@ -157,11 +163,18 @@ def _mark_in_flight_live(
     tool_columns = _columns(conn, "session_tool_calls")
     if "completed_at" in tool_columns and "session_id" in tool_columns:
         sql = (
-            f"SELECT DISTINCT session_id FROM session_tool_calls "
-            f"WHERE completed_at IS NULL AND session_id IN ({placeholders})"
+            "SELECT session_id, MAX(started_at) AS started_at "
+            f"FROM session_tool_calls "
+            f"WHERE completed_at IS NULL AND session_id IN ({placeholders}) "
+            "GROUP BY session_id"
         )
         for row in _rows(conn, sql, ids):
-            mark_live(row)
+            session_id = str(_value(row, "session_id", 0))
+            if open_tool_call_is_live(
+                _value(row, "started_at", 1),
+                activity.get(session_id),
+            ):
+                mark_live(row)
 
 
 __all__ = ["latest_activity_by_session"]
