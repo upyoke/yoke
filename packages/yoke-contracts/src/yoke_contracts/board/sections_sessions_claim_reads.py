@@ -36,11 +36,6 @@ _COORDINATION_KEY_SQL = (
 )
 
 
-PATH_GLYPH = "\U0001f4c1"  # 📁
-LEASE_GLYPH = "\U0001f512"  # 🔒
-PROCESS_GLYPH = "🔩"
-
-
 def path_claims_for_session(
     db: BoardDBLike,
     session_id: str,

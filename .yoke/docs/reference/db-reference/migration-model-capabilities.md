@@ -256,7 +256,7 @@ and
 call it on `audit_conn` immediately after opening, so a webapp project's
 first governed apply bootstraps the table automatically. Operators and
 agents do not declare or provision `migration_audit` themselves; the
-project capability only names the authoritative DB. `coordination_leases`
+project capability only names the authoritative DB. The migration-territory claim
 stays Yoke-side (`LIVE_DB_MIGRATION:<model_name>` leases live on the
 control plane), so the helper deliberately does not bootstrap it on
 project authoritative DBs.

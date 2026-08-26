@@ -33,6 +33,11 @@ from yoke_contracts.coordination_claim_keys import (
 )
 from yoke_contracts.item_ref import format_item_ref
 
+
+PATH_GLYPH = "\U0001f4c1"  # 📁
+LEASE_GLYPH = "\U0001f512"  # 🔒
+PROCESS_GLYPH = "🔩"
+
 def _process_anchor(db: BoardDBLike, work_claim_id: Optional[int]) -> Optional[str]:
     """Resolve a work-claim id to its process key, when process-kind."""
     if work_claim_id is None:

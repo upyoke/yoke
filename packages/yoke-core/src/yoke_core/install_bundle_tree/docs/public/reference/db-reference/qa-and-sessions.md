@@ -252,39 +252,63 @@ It returns the active `work_claims` row (`released_at IS NULL`) — `claim_id`, 
 
 Inside the Yoke source repo only, the in-tree `python3 -m yoke_core.hooks.sessions_cli who-claims <item-id>` helper additionally joins the owning `harness_sessions` row (surfacing `executor` and `mode`) and accepts `--current-episode`. That module is not importable from an installed Yoke, so it is an operator/debug recipe for this repo, never a portable one.
 
-`work_claims` is the **active session occupancy** primitive — including which session currently steers a project or strategy-doc scope. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT a dangerous shared-operation lock (that lives in `coordination_leases`). Process path claims attribute back to their owning process work-claim through `path_claims.owner_work_claim_id`.
+`work_claims` is the **active session occupancy** primitive — including which session currently steers a project or strategy-doc scope. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT a dangerous shared-operation lock (that is the sticky coordination kinds below). Process path claims attribute back to their owning process work-claim through `path_claims.owner_work_claim_id`.
 
-## Table: coordination_leases
+## Shared-operation coordination claims
 
-Shared-operation lease primitive keyed on `(project_id, lease_key)`. A live row is exclusive ownership of a dangerous shared-state operation for the duration of a single attempt. `LIVE_DB_MIGRATION:<model_name>` is the first consumer; new shared-operation consumers pick their own `lease_key` convention without adding another lock table.
+Three `work_claims` target kinds coordinate a resource that is not a unit
+of backlog work. They live in the same table as every other claim, so one
+system carries session binding, heartbeat, telemetry, and the board's
+Claims column for every hold.
 
-`coordination_leases` is the third claim/lease primitive alongside `work_claims` (active session occupancy) and `path_claims` (repo mutation authority). The three are orthogonal — a single session may hold a work_claim on an item, path_claims on its files, and a coordination_lease on a shared operation concurrently.
+| target_kind | scope | Coordinates |
+|---|---|---|
+| `migration_serialization` | `{"project_id":N,"model":M,"item_id":N}` | Migration territory for one model, owned by the authoring item |
+| `qa_admission` | `{"machine_id":ID}` | One physical test machine, globally |
+| `route_qualification` | `{"project_id":N,"grant_key":K}` | One private-route qualification grant |
 
-```sql
-id INTEGER PRIMARY KEY
-project_id TEXT NOT NULL
-lease_key TEXT NOT NULL              -- e.g. LIVE_DB_MIGRATION:primary
-session_id TEXT NOT NULL             -- acquire-time registration, not the holder
-actor_id TEXT                        -- operator attribution
-acquired_at TEXT NOT NULL
-heartbeat_at TEXT                    -- last liveness signal
-released_at TEXT
-release_reason TEXT
-owner_kind TEXT NOT NULL             -- item | session | process
-owner_item_id INTEGER                -- when owner_kind=item
-owner_session_id TEXT                -- when owner_kind=session
-owner_work_claim_id INTEGER          -- when owner_kind=process
-released_by_session_id TEXT          -- true releasing session
-released_by_actor_id TEXT
-```
+Each has a unique partial index over its exclusivity unit, so a second
+holder is refused at the database rather than by a read-then-write race.
+`migration_serialization` conflicts on `(project_id, model)` — the
+`item_id` in scope records who owns the hold, not what is held, which is
+what lets the same item re-enter and heartbeat while any other lane is
+refused. `qa_admission` has no project in scope on purpose: a physical
+machine is one resource whichever project drives the run.
 
-Indexes: `idx_coordination_leases_live` (unique partial: `(project_id, lease_key) WHERE released_at IS NULL` — enforces exclusive live ownership) plus `idx_coordination_leases_session(session_id)`, `idx_coordination_leases_heartbeat(heartbeat_at)`, and `idx_coordination_leases_owner_item(owner_item_id)`.
+**Stickiness is the property that separates these kinds from the rest.**
+`migration_serialization` and `qa_admission` are sticky: the stale-session
+sweep, the session-end release, and the claim-free end check all skip
+them, because the migration and the remote suite keep running after the
+session that started them goes quiet. Recovery is the audited human
+operator release, never an automatic reclaim. `route_qualification` is
+liveness-bound like the backlog kinds — a grant is only valid while its
+operator session lives — so the sweep reclaims it normally.
 
-The holder is `owner_kind` plus the matching owner column. Migration rehearsal and live-apply holds are item-owned: they survive session end and are never auto-released when a session is reclaimed. `operator_release` records the true operator session on `released_by_session_id` and refuses when that session is unknown — it never copies the prior holder label.
+Each claim is addressed by one operator key: `LIVE_DB_MIGRATION:<model>`,
+`QA_HOST:<machine>`, and the qualification grant token. The key is the
+only handle an operator needs.
 
-Domain API: `yoke_core.domain.coordination_leases` exports `acquire_lease`, `heartbeat_lease`, `release_lease`, `active_lease`, `get_lease`, plus the sibling `list_leases` / `stale_lease_candidates` (listing diagnostics) and `operator_release` (human-only recovery). List filters include `--item N` (`owner_item_id`). Service-client surface: `coordination-lease-{acquire,heartbeat,list,release}` under `python3 -m yoke_core.api.service_client ...`. Lease lifecycle emits `LeaseAcquired`, `LeaseHeartbeated`, `LeaseReleased`, and (operator override only) `OperatorLeaseRelease`.
+Domain API: `yoke_core.domain.coordination_claims` exports `acquire`,
+`heartbeat`, `release`, `active_claim`, and `get_claim`, plus the siblings
+`coordination_claims_listing` (`list_claims`, `stale_claim_candidates`)
+and `coordination_claims_operator` (`operator_release`, human-only).
+`yoke_core.domain.coordination_claim_keys` is the only place keys and
+targets convert. Read them with `yoke coordination-claim list
+[--project P] [--key K] [--item N] [--active-only]`; recover a stranded
+one with `yoke coordination-claim release --project P --key K --reason R`,
+which emits a WARN `OperatorLeaseRelease` before the release mutation
+lands, refuses to run from a hook context, and keeps the operator's words
+on the row in `release_reason_intent`. Lifecycle emits `LeaseAcquired`,
+`LeaseHeartbeated`, and `LeaseReleased`.
 
-Doctor surfaces stale (`heartbeat_at` older than 60 minutes) or orphaned (owning `harness_sessions.ended_at IS NOT NULL`) live **session-owned** leases via the `coordination-leases-stale-or-orphan` HC; item-owned holds are excluded. Completed live-apply audit rows whose `source_branch` never reached `integration_target` show up under `coordination-leases-unmerged-source`. Recovery still flows through the human-only operator-release path — neither HC auto-releases.
+Doctor surfaces stale (heartbeat older than 60 minutes) or orphaned
+(holding `harness_sessions.ended_at IS NOT NULL`) live session-held claims
+via the `coordination-claims-stale-or-orphan` HC; item-owned migration
+territory is excluded, because no session liveness applies to it.
+Completed live-apply audit rows whose `source_branch` never reached
+`integration_target` show up under `coordination-claims-unmerged-source`.
+Recovery still flows through the human-only operator-release path —
+neither HC auto-releases.
 
 ### BOARD.md Claims column rendering
 
@@ -298,10 +322,10 @@ The Active Harness Sessions and Recent Sessions tables share one Claims column t
 | work_claim + same-item path_claim decoration | `PREFIX-N 📁<total>`           | `PREFIX-N 📁23`                    |
 | path_claim orphan       | `📁<total> (PREFIX-N)`         | `📁5 (PREFIX-N)`                   |
 | path_claim process anchor | `📁<total> (⚙ process_key)` | `📁3 (⚙ FEED)`                     |
-| coordination_lease      | `🔒 <lease_key>`            | `🔒 LIVE_DB_MIGRATION:primary`     |
-| coordination_lease (item-owned) | `🔒 <lease_key> (PREFIX-N)` | `🔒 LIVE_DB_MIGRATION:primary (PREFIX-N)` |
+| coordination claim      | `🔒 <key>`                  | `🔒 QA_HOST:mac-mini-lab`          |
+| coordination claim (item-owned) | `🔒 <key> (PREFIX-N)` | `🔒 LIVE_DB_MIGRATION:primary (PREFIX-N)` |
 
-Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; leases never decorate work_claims; ordering inside a row is work_claims → orphan path_claim keycaps → leases. Repeat work claims on the same rendered target and repeat coordination leases on the same `lease_key` each collapse to the most recent row (one keycap). Release reasons are not rendered on Claims — drill into claim/lease detail surfaces for audit history. Released path_claims and leases do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.
+Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; coordination claims never decorate work_claims; ordering inside a row is work_claims → orphan path_claim keycaps → coordination claims. Repeat work claims on the same rendered target and repeat coordination claims on the same key each collapse to the most recent row (one keycap). Release reasons are not rendered on Claims — drill into claim detail surfaces for audit history. Released path_claims and coordination claims do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.
 
 ### Session Offer
 
