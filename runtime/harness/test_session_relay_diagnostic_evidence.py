@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from yoke_harness import session_relay
+from yoke_harness import session_relay_diagnostic_retention as diagnostic_retention
 from yoke_harness.session_relay_inventory import RelayInventory
 from yoke_harness.session_relay_native_diagnostics import read_native_diagnostic
 from yoke_harness.session_relay_runtime import (
@@ -163,8 +164,10 @@ def test_storage_failure_reports_unavailable_without_raw_streams(
     def unavailable(*_args, **_kwargs):
         raise NativeDiagnosticError("private filesystem detail")
 
-    monkeypatch.setattr(session_relay, "store_native_diagnostic", unavailable)
-    result = session_relay._retain_private_diagnostic(
+    monkeypatch.setattr(
+        diagnostic_retention, "store_native_diagnostic", unavailable
+    )
+    result = diagnostic_retention.retain_private_diagnostic(
         RelayAdapterResult(
             "failed",
             evidence={"result_code": "native_exit"},
@@ -211,7 +214,9 @@ def test_storage_failure_keeps_typed_operator_outcome_and_location(
             )
         return SimpleNamespace(success=True, result={"state": "failed"})
 
-    monkeypatch.setattr(session_relay, "store_native_diagnostic", unavailable)
+    monkeypatch.setattr(
+        diagnostic_retention, "store_native_diagnostic", unavailable
+    )
     outcome = session_relay.serve_once(
         state_dir=tmp_path,
         inventory_provider=_inventory,

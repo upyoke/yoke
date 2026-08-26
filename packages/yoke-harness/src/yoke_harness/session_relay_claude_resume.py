@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import time
 from typing import Callable, Mapping, Sequence
 from uuid import UUID
@@ -16,6 +17,11 @@ from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_native_diagnostics import (
     NATIVE_DIAGNOSTIC_TTL_SECONDS,
+)
+from yoke_harness import session_relay_resume_watch
+from yoke_harness.session_relay_resume_watch import (
+    OUTCOME_SUFFIX,
+    resume_outcome_path,
 )
 from yoke_harness.session_relay_schedule import relay_state_dir
 
@@ -27,7 +33,12 @@ ProcessFactory = Callable[..., subprocess.Popen[bytes]]
 
 @dataclass(frozen=True)
 class ClaudeResumeProcess:
-    """Safe spawn facts returned before the resumed turn completes."""
+    """Safe spawn facts returned before the resumed turn completes.
+
+    ``pid`` names the leader of the resume's process group — the supervisor
+    that waits for the native and records how it ended. Containing the resume
+    means signalling that group, so one pid still covers the whole resume.
+    """
 
     pid: int
     binary: str
@@ -56,7 +67,9 @@ def _capture_directory(state_dir: Path | None) -> Path:
 
 def _cleanup_captures(directory: Path, *, now: float) -> None:
     try:
-        captures = tuple(directory.glob("*.capture"))
+        captures = tuple(directory.glob("*.capture")) + tuple(
+            directory.glob(f"*{OUTCOME_SUFFIX}")
+        )
     except OSError:
         return
     for path in captures:
@@ -101,6 +114,7 @@ def spawn_detached_claude_resume(
     attempt_id: str,
     native_session_id: str,
     binary_source: str,
+    lease_id: str = "",
     state_dir: Path | None = None,
     process_factory: ProcessFactory = subprocess.Popen,
     clock: Callable[[], float] = time.time,
@@ -113,9 +127,21 @@ def spawn_detached_claude_resume(
         capture_path, capture = _capture_file(directory, attempt_id)
     except (OSError, TypeError, ValueError):
         return None
+    # The native runs under a supervisor rather than directly: the relay poll
+    # that starts a resume is gone long before the turn ends, so the only place
+    # its exit status can be collected is a process that outlives them both.
+    supervised = [
+        sys.executable,
+        "-m",
+        session_relay_resume_watch.__name__,
+        "--outcome",
+        str(resume_outcome_path(capture_path)),
+        "--",
+        *(str(value) for value in argv),
+    ]
     try:
         process = process_factory(
-            list(argv),
+            supervised,
             cwd=checkout,
             env=dict(environment),
             stdin=subprocess.DEVNULL,
@@ -134,11 +160,13 @@ def spawn_detached_claude_resume(
         native_session_id=native_session_id,
         supervision_kind="resume",
         capture_path=capture_path,
+        lease_id=lease_id,
         state_dir=state_dir,
         now=now,
     ):
         _stop_uncontained(process)
         capture_path.unlink(missing_ok=True)
+        resume_outcome_path(capture_path).unlink(missing_ok=True)
         return None
     started_at = datetime.fromtimestamp(now, timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"

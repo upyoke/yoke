@@ -53,6 +53,17 @@ _MAX_RECORD_BYTES = 4096
 
 
 @dataclass(frozen=True)
+class SupervisedResume:
+    """One detached resume this machine started, and whether it still runs."""
+
+    attempt_id: str
+    pid: int
+    lease_id: str
+    capture_path: Path | None
+    running: bool
+
+
+@dataclass(frozen=True)
 class ContainmentOutcome:
     """What the sweep did with one supervised native."""
 
@@ -82,6 +93,7 @@ def record_supervised_native(
     native_session_id: str | None = None,
     supervision_kind: str = "launch",
     capture_path: Path | None = None,
+    lease_id: str | None = None,
     state_dir: Path | None = None,
     now: float | None = None,
 ) -> bool:
@@ -103,6 +115,10 @@ def record_supervised_native(
         "supervision_kind": supervision_kind,
         "last_activity_at": int(time.time() if now is None else now),
         "capture_path": str(capture_path) if capture_path is not None else None,
+        # The attempt lease the relay leased this resume under. Settling the
+        # attempt happens after the batch that started it has drained, so the
+        # lease has to survive on disk or the outcome has nowhere to land.
+        "lease_id": lease_id or None,
         "recorded_at": int(time.time() if now is None else now),
     }
     try:
@@ -183,6 +199,33 @@ def _records(state_dir: Path | None) -> Iterator[tuple[Path, dict[str, object]]]
             continue
         if isinstance(payload, dict):
             yield path, payload
+
+
+def supervised_resumes(
+    *,
+    state_dir: Path | None = None,
+) -> tuple[SupervisedResume, ...]:
+    """Return every recorded detached resume with its live process verdict."""
+    resumes: list[SupervisedResume] = []
+    for _path, payload in _records(state_dir):
+        if str(payload.get("supervision_kind") or "") != "resume":
+            continue
+        pid = payload.get("pid")
+        if not isinstance(pid, int) or pid <= 0:
+            continue
+        capture = payload.get("capture_path")
+        resumes.append(
+            SupervisedResume(
+                attempt_id=str(payload.get("launch_id") or ""),
+                pid=pid,
+                lease_id=str(payload.get("lease_id") or ""),
+                capture_path=Path(capture) if isinstance(capture, str) else None,
+                # A reused pid names a different process, so the resume this
+                # record was written for is gone either way.
+                running=process_start_time(pid) == payload.get("process_start_time"),
+            )
+        )
+    return tuple(resumes)
 
 
 def _terminate(pid: int) -> str:
@@ -316,10 +359,12 @@ __all__ = [
     "CONTAINMENT_TTL_SECONDS",
     "SUPERVISION_DIRECTORY_NAME",
     "ContainmentOutcome",
+    "SupervisedResume",
     "contain_launch_native",
     "contain_stranded_launch_natives",
     "record_supervised_native",
     "release_supervised_native",
+    "supervised_resumes",
     "touch_supervised_resume",
     "touch_supervised_resume_from_environment",
 ]
