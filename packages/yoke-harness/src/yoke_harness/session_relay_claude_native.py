@@ -75,7 +75,6 @@ def discover_claude_cli(finder: ExecutableFinder | None = None) -> str | None:
 def _environment(invocation: ClaudeNativeInvocation) -> dict[str, str]:
     return native_session_environment(
         executor="claude-code",
-        executor_version=invocation.surface_version,
         provider="anthropic",
         model=invocation.model,
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},

@@ -9,8 +9,10 @@ from typing import Callable, Mapping, Sequence
 
 from yoke_harness.session_relay_schedule import relay_state_dir
 from yoke_harness.session_relay_surface_probes import (
+    CLI_SURFACE_PROBES,
     KNOWN_SURFACE_PROBES,
     SurfaceProbeResult,
+    probe_cli_surface,
     probe_surface,
     probe_surfaces,
 )
@@ -18,6 +20,7 @@ from yoke_harness.session_relay_surface_probes import (
 
 SURFACE_VERSION_MAX_AGE_SECONDS = 15 * 60
 SURFACE_PROBE_CACHE_FILE_NAME = "surface-probes.json"
+SURFACE_VERSION_PROBE_BUDGET_SECONDS = 1.0
 
 
 def _cache_path(state_dir: Path | None) -> Path:
@@ -145,9 +148,78 @@ def refresh_surface_probe_cache(
     return _diagnostics(results, document, time.time() if now is None else now)
 
 
+def _cached_version(
+    surface: str,
+    state_dir: Path | None,
+    now: float | None,
+) -> str | None:
+    """Read the shared cache, tolerating a machine that has no relay state."""
+    try:
+        return cached_surface_versions(state_dir=state_dir, now=now).get(surface)
+    except Exception:  # noqa: BLE001 - an unreachable cache costs only the shortcut
+        return None
+
+
+def bounded_surface_probe(
+    surface: str,
+    *,
+    timeout: float = SURFACE_VERSION_PROBE_BUDGET_SECONDS,
+) -> SurfaceProbeResult:
+    """Ask one surface for its version without exceeding a caller's budget."""
+    command = CLI_SURFACE_PROBES.get(surface)
+    if command:
+        return probe_cli_surface(surface, command, timeout=timeout)
+    return probe_surface(surface)
+
+
+def observed_surface_version(
+    surface: str | None,
+    *,
+    state_dir: Path | None = None,
+    timeout: float = SURFACE_VERSION_PROBE_BUDGET_SECONDS,
+    now: float | None = None,
+) -> str | None:
+    """Return the version the surface's own executable reports, or ``None``.
+
+    Every reader of a machine's surface version answers from here: the relay
+    heartbeat that advertises the machine, the launch preview that quotes that
+    advertisement, and the registration of each session running on it. A
+    launcher's environment hand-off is deliberately not a source, because it
+    describes what some earlier process believed rather than what this one
+    runs, and a pooled or pre-warmed harness process inherits that belief long
+    after the binary underneath it has been replaced.
+
+    An observation younger than ``SURFACE_VERSION_MAX_AGE_SECONDS`` answers
+    directly; otherwise the surface is probed under ``timeout`` and the fresh
+    observation is cached for the next reader. ``None`` means the surface
+    could not be observed at all — an unknown surface, a missing executable,
+    or a probe that failed — and is recorded as an unknown version rather than
+    guessed at.
+    """
+    name = str(surface or "").strip()
+    if not name:
+        return None
+    cached = _cached_version(name, state_dir, now)
+    if cached:
+        return cached
+    result = bounded_surface_probe(name, timeout=timeout)
+    if result.verdict != "ok" or not result.version:
+        return None
+    try:
+        update_surface_probe_cache((result,), state_dir=state_dir)
+    except Exception:  # noqa: BLE001 - see _cached_version
+        # A cache that cannot be written loses only the next reader's
+        # shortcut; the observation this reader just made still stands.
+        pass
+    return result.version
+
+
 __all__ = [
     "SURFACE_VERSION_MAX_AGE_SECONDS",
+    "SURFACE_VERSION_PROBE_BUDGET_SECONDS",
+    "bounded_surface_probe",
     "cached_surface_versions",
+    "observed_surface_version",
     "refresh_surface_probe_cache",
     "update_surface_probe_cache",
 ]

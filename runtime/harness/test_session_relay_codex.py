@@ -66,7 +66,8 @@ def context(
         native_instruction=INSTRUCTION,
         target_session_id=(
             ("native-1" if job_kind == "wake" else None)
-            if target_session_id == "unset" else target_session_id
+            if target_session_id == "unset"
+            else target_session_id
         ),
         target_native_thread_id=target_native_thread_id,
         launch_attestation=SECRET if job_kind == "launch" else None,
@@ -224,7 +225,6 @@ def test_cli_side_channel_never_inherits_parent_session(
     monkeypatch.setenv("YOKE_SESSION_ID", "parent-yoke-session")
     monkeypatch.setenv("CODEX_SESSION_ID", "parent-codex-session")
     monkeypatch.setenv("CODEX_THREAD_ID", "parent-codex-thread")
-    monkeypatch.setenv("YOKE_EXECUTOR_VERSION", "parent-version")
     request = adapter_module._request(context(tmp_path))[0]
     env = _launch_environment(request)
     command = _base_command("/opt/codex", request) + [request.native_instruction]
@@ -233,7 +233,6 @@ def test_cli_side_channel_never_inherits_parent_session(
     assert "CODEX_SESSION_ID" not in env
     assert "CODEX_THREAD_ID" not in env
     assert env["YOKE_EXECUTOR"] == "codex"
-    assert env["YOKE_EXECUTOR_VERSION"] == "0.148.0-alpha.15"
     assert env["YOKE_PROVIDER"] == "openai"
     assert env["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"] == "codex-cli"
     assert json.loads(env[LAUNCH_CONTEXT_ENV]) == {

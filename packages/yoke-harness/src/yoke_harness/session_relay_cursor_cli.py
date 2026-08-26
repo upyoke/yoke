@@ -40,10 +40,9 @@ def _session_id(value: str) -> str | None:
         return None
 
 
-def _environment(*, surface_version: str) -> dict[str, str]:
+def _environment() -> dict[str, str]:
     return native_session_environment(
         executor="cursor",
-        executor_version=surface_version,
         provider="cursor",
         markers={"CURSOR_INVOKED_AS": "cursor-agent"},
     )
@@ -81,7 +80,6 @@ class CursorCliTransport:
         checkout: Path,
         session_id: str,
         instruction: str,
-        surface_version: str,
         model: str | None = None,
     ) -> tuple[subprocess.Popen[bytes] | None, int | None]:
         command = [
@@ -102,7 +100,7 @@ class CursorCliTransport:
             process = self.process_factory(
                 command,
                 cwd=checkout,
-                env=_environment(surface_version=surface_version),
+                env=_environment(),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -128,7 +126,6 @@ class CursorCliTransport:
             checkout=request.checkout,
             session_id=session_id,
             instruction=request.native_instruction,
-            surface_version=request.surface_version,
         )
         if process is None:
             return CursorNativeResult("failed", duration_ms=_elapsed_ms(started))

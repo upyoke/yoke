@@ -70,7 +70,6 @@ def parse_hook_registration_facts(
 
 
 def enrich_local_observed_facts(
-    executor: str,
     executor_version: str,
     machine_id: str,
     *,
@@ -86,12 +85,7 @@ def enrich_local_observed_facts(
         )
 
         return (
-            executor_version
-            or client_executor_version(
-                executor,
-                executor_surface=executor_surface,
-            )
-            or "",
+            executor_version or client_executor_version(executor_surface) or "",
             machine_id or client_machine_id() or "",
         )
     except Exception:  # noqa: BLE001 - registration enrichment is best effort
