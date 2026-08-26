@@ -1,0 +1,15 @@
+[
+  {
+    "case_key": "installer-exploration",
+    "position": 1,
+    "method_id": "exploratory-mission",
+    "instructions": "Start from the fresh dedicated test machine with no project checkout or supplied project context. Install the current public stable release as a new user and choose your own sequence through the terminal, browser, and visible macOS desktop. Explore welcome and prerequisite framing, PATH diagnosis and repair, hosted browser authorization and its wait state, backlog-only GitHub choice, machine-only Review and Apply, the successful installer handoff, token-file permissions without reading credentials, and the resulting local-universe status. Look for confusing, broken, missing, unsafe, or unnecessarily difficult behavior beyond those landmarks. Do not turn the landmarks into a scripted checklist; follow the product as a user would and investigate what you find.",
+    "expected_outcome": "Return a ranked, actionable report whose findings distinguish observed behavior from expected behavior and include enough detail to reproduce or fix each issue. Name every important area that could not be verified and why. Use more than one available substrate, discard routine screen perception, and stay within the runtime-supplied artifact limit using only deliberate proof of findings. If a permission dialog, interactive sign-in, or approval needs a person, return HUMAN_GATE with the exact action and resume state instead of waiting, failing, or silently skipping it.",
+    "method_config": {
+      "executor": "naive_target_session"
+    },
+    "host_baselines": ["fresh-host"],
+    "entry_surface": null,
+    "required_completion": null
+  }
+]
