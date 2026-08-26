@@ -17,6 +17,9 @@ from typing import Any, Dict, Iterable, List, Optional
 from yoke_core.domain.session_contract import NextAction
 from yoke_core.domain.sessions_analytics_core import _emit_event
 from yoke_core.domain.sessions_queries_base import normalize_claim_item_id
+from yoke_core.domain.work_claim_targets import (
+    from_row as target_from_row, item_id_from_row,
+)
 
 
 def _summarise_skip_memory(skip_memory: Iterable[Any]) -> List[Dict[str, Any]]:
@@ -39,9 +42,10 @@ def _summarise_skip_memory(skip_memory: Iterable[Any]) -> List[Dict[str, Any]]:
 def _summarise_new_claim(new_claim: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not new_claim:
         return None
+    target = target_from_row(new_claim)
     return {
         "claim_id": new_claim.get("id") or new_claim.get("claim_id"),
-        "item_id": new_claim.get("item_id"),
+        **target.descriptor(),
     }
 
 
@@ -51,13 +55,14 @@ def _resolve_item_id_for_index(
 ) -> Optional[int]:
     """Pick the indexed item id for the event row.
 
-    Prefer the new_claim's item_id (numeric, authoritative). Fall back to
+    Prefer the new_claim's scope item_id (numeric, authoritative). Fall back to
     the YOK-N-prefixed selected_item when the claim is absent (the second
     invariant-failure shape).
     """
-    if new_claim_payload and new_claim_payload.get("item_id") is not None:
-        raw_item_id = new_claim_payload["item_id"]
-        return raw_item_id if isinstance(raw_item_id, int) else None
+    if new_claim_payload:
+        claim_item_id = item_id_from_row(new_claim_payload)
+        if claim_item_id is not None:
+            return claim_item_id
     if not selected_item:
         return None
     normalized = normalize_claim_item_id(str(selected_item))
@@ -78,7 +83,7 @@ def emit_session_offer_invariant_failed(
     """Emit SessionOfferInvariantFailed for an aborted charge offer.
 
     Records action, selected_item, schedule_selected_item, new_claim
-    {claim_id, item_id}, retry_skip_summary, invariant_message, surface,
+    {claim_id, target_kind, scope}, retry_skip_summary, invariant_message, surface,
     and (optionally) the release_outcome so subsequent diagnostics can
     query the domain event directly.
     """

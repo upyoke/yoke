@@ -76,6 +76,8 @@ class TestQuerySurface:
         claim_work(conn, session_id="sess-1", item_id=2)
         claims = list_claims_for_session(conn, "sess-1")
         assert len(claims) == 2
+        assert {claim["scope"]["item_id"] for claim in claims} == {1, 2}
+        assert all("item_id" not in claim for claim in claims)
 
     def test_list_claims_active_only(self, conn):
         _register(conn)
@@ -93,6 +95,8 @@ class TestQuerySurface:
         result = get_claim_for_work_unit(conn, item_id=9999)
         assert result is not None
         assert result["session_id"] == "sess-1"
+        assert result["scope"] == {"item_id": 9999}
+        assert "item_id" not in result
 
     def test_get_claim_for_epic_parent_item(self, conn):
         """epic task ownership uses parent item claim."""
@@ -206,13 +210,16 @@ class TestSessionOfferWithOwnership:
         )
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
-        assert result["new_claim"]["item_id"] == 100
+        assert result["new_claim"]["target_kind"] == "item"
+        assert result["new_claim"]["scope"] == {"item_id": 100}
+        assert "item_id" not in result["new_claim"]
         # Verify claim exists in DB
         claim_row = conn.execute(
             "SELECT * FROM work_claims WHERE session_id = 'test-sess-claim' AND released_at IS NULL"
         ).fetchone()
         assert claim_row is not None
-        assert claim_row["item_id"] == 100
+        assert claim_row["target_kind"] == "item"
+        assert claim_row["scope"] == '{"item_id":100}'
 
     def test_concurrent_offers_no_double_assign(self, ownership_conn):
         """Two concurrent offers never both claim the same item."""
@@ -225,7 +232,7 @@ class TestSessionOfferWithOwnership:
             provider="anthropic", model="opus", workspace=ws,
         )
         assert r1["action_hint"] == "charge"
-        assert r1["new_claim"]["item_id"] == 100
+        assert r1["new_claim"]["scope"] == {"item_id": 100}
 
         # Second session with a different session_id should NOT get the same item
         r2 = session_offer_with_ownership(
@@ -253,4 +260,4 @@ class TestSessionOfferWithOwnership:
         )
         assert r2["action_hint"] == "resume"
         assert len(r2["claims"]) > 0
-        assert r2["claims"][0]["item_id"] == 100
+        assert r2["claims"][0]["scope"] == {"item_id": 100}

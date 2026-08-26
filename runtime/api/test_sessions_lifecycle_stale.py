@@ -130,7 +130,7 @@ class TestHandoff:
         c = claim_work(conn, session_id="sess-1", item_id=9999)
         new_claim = handoff_claim(conn, c["id"], "sess-2")
         assert new_claim["session_id"] == "sess-2"
-        assert new_claim["item_id"] == 9999
+        assert new_claim["scope"] == {"item_id": 9999}
         # Old claim should be handed_off
         old = conn.execute(
             "SELECT release_reason FROM work_claims WHERE id = %s", (c["id"],)

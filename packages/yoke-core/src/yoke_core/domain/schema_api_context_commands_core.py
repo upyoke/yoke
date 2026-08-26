@@ -96,8 +96,8 @@ CORE_COMMANDS: list[dict] = [
             "they answer the question. Raw diagnostic SELECTs use "
             "`yoke db read`; `db_router query` is the source-dev/"
             "operator-debug break-glass fallback inside a Yoke checkout, "
-            "not the agent default. ``work_claims`` has no ``state``, "
-            "``reason``, or ``worktree_path`` columns."
+            "not the agent default. ``work_claims`` has no ``state`` or "
+            "``worktree_path`` columns."
         ),
     },
     {

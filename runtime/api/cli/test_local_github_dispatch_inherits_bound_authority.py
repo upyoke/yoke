@@ -199,7 +199,10 @@ def test_merge_child_close_out_sync_proves_through_the_pinned_plane(
         "call_dispatcher",
         lambda **_kwargs: SimpleNamespace(
             success=True,
-            result={"holder": {"item_id": 42, "session_id": "session-1"}},
+            result={"holder": {
+                "target_kind": "item", "scope": {"item_id": 42},
+                "session_id": "session-1",
+            }},
             error=None,
         ),
     )

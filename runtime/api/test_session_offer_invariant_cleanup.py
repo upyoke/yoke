@@ -136,7 +136,7 @@ def test_mismatched_claim_releases_exact_claim_and_emits_event(invariant_db):
                 wrong_selected,
                 {"selected_item": wrong_selected, "next_step": "advance"},
             ),
-            new_claim={"id": claim_id, "item_id": held_item_id},
+            new_claim={"id": claim_id, **make_item_target(held_item_id).descriptor()},
             ownership={
                 "chain_skip_memory": [
                     {"item_id": held_item_id, "reason": "irrelevant", "chain_step": 1},
@@ -159,7 +159,11 @@ def test_mismatched_claim_releases_exact_claim_and_emits_event(invariant_db):
     assert ctx["action"] == "charge"
     assert ctx["selected_item"] == wrong_selected
     assert ctx["schedule_selected_item"] == wrong_selected
-    assert ctx["new_claim"] == {"claim_id": claim_id, "item_id": held_item_id}
+    assert ctx["new_claim"] == {
+        "claim_id": claim_id,
+        "target_kind": "item",
+        "scope": {"item_id": held_item_id},
+    }
     assert ctx["surface"] == CLI_SURFACE
     assert ctx["invariant_message"] == err
     assert ctx["retry_skip_summary"] == [
@@ -208,7 +212,7 @@ def test_matching_claim_passes_through_without_event_or_release(invariant_db):
             conn,
             session_id=sid,
             result=_make_charge_action(f"YOK-{held_item_id}"),
-            new_claim={"id": claim_id, "item_id": held_item_id},
+            new_claim={"id": claim_id, **make_item_target(held_item_id).descriptor()},
             ownership={"chain_skip_memory": []},
             surface=CLI_SURFACE,
         )

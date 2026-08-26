@@ -82,9 +82,7 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
             "claim_id": 1,
             "session_id": "held-a",
             "target_kind": "item",
-            "item_id": 10,
-            "epic_id": None,
-            "task_num": None,
+            "scope": {"item_id": 10},
             "claimed_at": "2026-01-02T00:00:00Z",
             "last_heartbeat": None,
             "lane_worktrees": [],
@@ -149,7 +147,7 @@ def test_holder_get_by_path_finds_the_lane_holder(monkeypatch) -> None:
     assert outcome.primary_success
     holder = outcome.result_payload["holder"]
     assert holder["session_id"] == "holding-session"
-    assert holder["item_id"] == 4242
+    assert holder["scope"] == {"item_id": 4242}
     assert holder["lane_worktrees"] == ["/repo/.worktrees/held"]
 
 

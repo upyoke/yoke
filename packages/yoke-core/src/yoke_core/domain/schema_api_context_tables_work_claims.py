@@ -31,7 +31,7 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             "claim_type is 'exclusive'; non-terminal state is derived from "
             "released_at IS NULL, with no state/status column. Primary key "
             "is id; there is no claim_id column. The claim timestamp is "
-            "claimed_at, not created_at. For holder lookups prefer `yoke "
+            "`claimed_at`, not `created_at`. For holder lookups prefer `yoke "
             "claims work holder-get PREFIX-N`; for a path use `yoke claims "
             "work holder-get --path /abs/path`. Writing into another live "
             "session's lane is refused (failure_class=foreign_lane, event "

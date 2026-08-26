@@ -28,11 +28,15 @@ WORKER_SESSION_ID = "11111111-2222-3333-4444-555555555555"
 _PROBE = """
 import json
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
-from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+from yoke_core.domain import session_ambient_identity
+
+# This Python child still has pytest's process tree above it. Pin the
+# harness family the probe models: a real launched Claude worker.
+session_ambient_identity.nearest_harness_family = lambda: "claude-code"
 
 raw, _progress = mint_watcher_capture_pair("pytest", project="yoke")
 print(json.dumps({
-    "session_id": resolve_ambient_session_id(),
+    "session_id": session_ambient_identity.resolve_ambient_session_id(),
     "watcher_capture": str(raw),
 }))
 """

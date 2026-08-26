@@ -12,6 +12,7 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
+from yoke_core.domain.work_claim_targets import item_id_from_row
 
 _MISSING_CLAIM = "no live work claim on this item"
 _HOLDER_FUNCTION = "claims.work.holder_get"
@@ -85,10 +86,9 @@ def _claim_error_from_lookup(
         return f"{_MISSING_CLAIM}; acquire one with `yoke claims work acquire`"
     if not isinstance(holder, Mapping):
         return _lookup_failure(connection, "holder response was malformed")
-    holder_item = holder.get("item_id")
     try:
-        matches_item = int(holder_item) == int(item_id)
-    except (TypeError, ValueError):
+        matches_item = item_id_from_row(holder) == int(item_id)
+    except (KeyError, TypeError, ValueError):
         matches_item = False
     if not matches_item:
         return _lookup_failure(connection, "holder named a different item")

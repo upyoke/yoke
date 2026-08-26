@@ -135,8 +135,8 @@ class TestRoutedOwnershipReleaseGap(_ReleaseGapDbCase):
 
         if new_claim is not None:
             self.assertNotEqual(
-                str(new_claim.get("item_id")),
-                str(SYNTHETIC_ITEM_ID),
+                new_claim["scope"],
+                {"item_id": SYNTHETIC_ITEM_ID},
                 (
                     "Session B was handed the routed item even though "
                     "session A's routed frame is still live with a "

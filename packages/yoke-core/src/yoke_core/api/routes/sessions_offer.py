@@ -50,6 +50,9 @@ from yoke_core.domain.session_decision_process_gate import (
 )
 from yoke_core.domain.sessions_offer_envelope_merge import persist_offer_diagnostics
 from yoke_core.domain.sessions_identity_read import resolve_session_identity
+from yoke_core.domain.work_claim_targets import (
+    from_row as target_from_row, item_id_from_row,
+)
 from yoke_core.api.routes.session_offer_models import SessionOfferRequest
 
 router = APIRouter()
@@ -152,11 +155,12 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
         if ownership["action_hint"] == "resume":
             active_claims = []
             for c in ownership["claims"]:
+                target = target_from_row(c)
                 claim_ctx = resolve_claimed_work_context(conn, c)
                 active_claims.append(ClaimedWork(
-                    item_id=display_claim_item_id(c.get("item_id"), conn),
-                    epic_id=c.get("epic_id"),
-                    task_num=c.get("task_num"),
+                    item_id=display_claim_item_id(target.item_id, conn),
+                    epic_id=target.epic_id,
+                    task_num=target.task_num,
                     status=claim_ctx.get("status"),
                     workflow_id=claim_ctx.get("workflow_id"),
                     workflow_version_id=claim_ctx.get("workflow_version_id"),
@@ -242,7 +246,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
 
         _new_claim = ownership.get("new_claim")
         if _new_claim and result.action.value != "charge":
-            _override_item = _new_claim.get("item_id")
+            _override_item = item_id_from_row(_new_claim)
             if _override_item:
                 _release_result = _main.release_item_claim_for_execution(
                     conn,

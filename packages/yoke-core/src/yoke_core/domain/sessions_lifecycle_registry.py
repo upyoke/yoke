@@ -59,7 +59,7 @@ def _get_claim(conn: Any, claim_id: int) -> Dict[str, Any]:
     if row is None:
         raise SessionError("NOT_FOUND", f"Claim {claim_id} not found.")
     claim = _row_to_dict(row)
-    claim.update(target_from_row(claim).scope)
+    claim["scope"] = dict(target_from_row(claim).scope)
     return claim
 
 

@@ -72,7 +72,7 @@ class TestNoFlagsAutoRelease:
         assert len(result["released_claims"]) == 1
         entry = result["released_claims"][0]
         assert entry["target_kind"] == "item"
-        assert entry["item_id"] == PRIMARY_ITEM_ID
+        assert entry["scope"] == {"item_id": PRIMARY_ITEM_ID}
         assert "claim_id" in entry
 
     def test_ac2_no_claims_path_unchanged(self, conn):
@@ -136,7 +136,7 @@ class TestNoFlagsAutoRelease:
         assert ctx["released_count"] == 1
         assert ctx["release_reason"] == "session_ended"
         assert ctx["via"] == "no_flags"
-        assert ctx["released_claims"][0]["item_id"] == PRIMARY_ITEM_ID
+        assert ctx["released_claims"][0]["scope"] == {"item_id": PRIMARY_ITEM_ID}
 
         ended_events = [
             c
@@ -158,7 +158,7 @@ class TestNoFlagsAutoRelease:
         assert result["ended_at"] is not None
         assert _active_claim_count(conn, "sess-1") == 0
         assert len(result["released_claims"]) == 2
-        item_ids = {entry["item_id"] for entry in result["released_claims"]}
+        item_ids = {entry["scope"]["item_id"] for entry in result["released_claims"]}
         assert item_ids == {PRIMARY_ITEM_ID, SECONDARY_ITEM_ID}
 
     def test_historical_incident_regression(self, conn):

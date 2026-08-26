@@ -124,7 +124,7 @@ class TestHarnessSessions:
 
         args, kwargs = mock_emit.call_args
         assert args[0] == "WorkReleased"
-        assert kwargs["item_id"] == str(TEST_ITEM_ID)
+        assert kwargs["item_id"] == TEST_ITEM_ID
         assert kwargs["context"]["detail"]["claim_id"] == row[0]
 
 

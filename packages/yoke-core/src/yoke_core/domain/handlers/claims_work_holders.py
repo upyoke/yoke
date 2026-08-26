@@ -31,9 +31,7 @@ class HolderRow(BaseModel):
     claim_id: int
     session_id: str
     target_kind: str
-    item_id: Optional[int] = None
-    epic_id: Optional[int] = None
-    task_num: Optional[int] = None
+    scope: Dict[str, Any]
     claimed_at: Optional[str] = None
     last_heartbeat: Optional[str] = None
     # Recorded paths of the claim's active worktree lanes. Carried on the
@@ -228,12 +226,14 @@ def _lane_worktrees(conn: Any, rows: List[Dict[str, Any]]) -> Dict[int, List[str
     """
     from yoke_core.domain import db_backend
     from yoke_core.domain.schema_common import _table_exists
+    from yoke_core.domain.work_claim_targets import from_row as target_from_row
 
-    owners = {
-        int(row["item_id"] or row["epic_id"]): int(row["claim_id"])
-        for row in rows
-        if row.get("item_id") or row.get("epic_id")
-    }
+    owners: Dict[int, int] = {}
+    for row in rows:
+        target = target_from_row(row)
+        owner_id = target.item_id or target.epic_id
+        if owner_id is not None:
+            owners[int(owner_id)] = int(row["claim_id"])
     # A holder read stays answerable on a schema that carries claims but
     # no lane table — minimal fixtures and partially-converged universes
     # both hit this — so the lanes are reported as unknown rather than
@@ -276,10 +276,7 @@ def _holder_row_to_dict(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any
     return {
         "claim_id": int(row.get("id") if "id" in row else row.get("claim_id")),
         "session_id": str(row.get("session_id") or ""),
-        "target_kind": target.kind,
-        "item_id": target.item_id,
-        "epic_id": target.epic_id,
-        "task_num": target.task_num,
+        **target.descriptor(),
         "claimed_at": row.get("claimed_at"),
         "last_heartbeat": row.get("last_heartbeat"),
     }

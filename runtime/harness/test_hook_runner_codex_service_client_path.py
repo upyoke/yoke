@@ -32,6 +32,7 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
 
     _pin_local_transport(monkeypatch)
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.delenv("CODEX_SESSION_ID", raising=False)
     monkeypatch.setattr(
         "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
@@ -103,6 +104,8 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
         return None
 
     _pin_local_transport(monkeypatch)
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.delenv("CODEX_SESSION_ID", raising=False)
     monkeypatch.setattr(
         "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
@@ -223,6 +226,9 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
     from yoke_core.hooks import registration as hook_runner_register
 
     calls: list[dict] = []
+
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.delenv("CODEX_SESSION_ID", raising=False)
 
     def fake_register(**kwargs):  # noqa: ANN003
         calls.append(kwargs)

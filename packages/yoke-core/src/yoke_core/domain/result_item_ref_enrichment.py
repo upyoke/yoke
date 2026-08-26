@@ -98,7 +98,7 @@ def enrich_result_item_refs(
     try:
         _enrich_mapping(out, active)
         for key, value in list(out.items()):
-            if isinstance(value, dict):
+            if key != "scope" and isinstance(value, dict):
                 nested = dict(value)
                 _enrich_mapping(nested, active)
                 out[key] = nested

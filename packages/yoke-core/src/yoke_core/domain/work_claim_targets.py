@@ -153,6 +153,10 @@ class WorkClaimTarget:
     def insert_columns(self) -> Dict[str, Any]:
         return {"target_kind": self.kind, "scope": self.scope_json()}
 
+    def descriptor(self) -> Dict[str, Any]:
+        """Return the canonical JSON boundary shape for this target."""
+        return {"target_kind": self.kind, "scope": dict(self.scope)}
+
     def render(self) -> str:
         from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
@@ -198,6 +202,12 @@ def from_row(row: Mapping[str, Any]) -> WorkClaimTarget:
         kind=str(row["target_kind"]),
         scope=decode_scope(row["scope"]),
     )
+
+
+def item_id_from_row(row: Mapping[str, Any]) -> Optional[int]:
+    """Return the item id when ``row`` carries an item target."""
+    target = from_row(row)
+    return target.item_id if target.kind == TARGET_KIND_ITEM else None
 
 
 def validate_target(target: WorkClaimTarget) -> None:
@@ -263,6 +273,7 @@ __all__ = [
     "encode_scope",
     "exact_match_clause",
     "from_row",
+    "item_id_from_row",
     "make_epic_task_target",
     "make_item_target",
     "make_process_target",

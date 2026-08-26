@@ -81,7 +81,7 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
         self.assertEqual(offer.get("action_hint"), "charge")
         new_claim = offer.get("new_claim")
         self.assertIsNotNone(new_claim)
-        self.assertEqual(str(new_claim.get("item_id")), str(SYNTHETIC_ITEM_ID))
+        self.assertEqual(new_claim["scope"], {"item_id": SYNTHETIC_ITEM_ID})
 
         skip_memory = read_chain_skip_memory(conn, SESSION_A)
         post_claim_entries = [
@@ -216,10 +216,7 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         self.assertEqual(offer.get("action_hint"), "charge")
         new_claim = offer.get("new_claim")
         self.assertIsNotNone(new_claim)
-        self.assertEqual(
-            str(new_claim.get("item_id")),
-            str(SYNTHETIC_ITEM_ID),
-        )
+        self.assertEqual(new_claim["scope"], {"item_id": SYNTHETIC_ITEM_ID})
 
     def test_pin_helper_returns_false_when_acquired_item_missing(self) -> None:
         """pin_schedule_to_acquired_item returns False when

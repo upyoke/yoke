@@ -40,7 +40,10 @@ def test_bound_holder_authorizes_the_same_session_without_a_second_read(
     )
     lookup = _lookup(
         result={
-            "holder": {"item_id": 7, "session_id": "session-1"},
+            "holder": {
+                "target_kind": "item", "scope": {"item_id": 7},
+                "session_id": "session-1",
+            },
         },
         connection="prod",
     )
@@ -81,7 +84,10 @@ def test_explicit_empty_holder_is_the_direct_missing_claim_diagnosis() -> None:
 def test_bound_holder_for_a_different_item_is_not_authority() -> None:
     lookup = _lookup(
         result={
-            "holder": {"item_id": 8, "session_id": "session-1"},
+            "holder": {
+                "target_kind": "item", "scope": {"item_id": 8},
+                "session_id": "session-1",
+            },
         }
     )
 

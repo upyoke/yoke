@@ -35,6 +35,7 @@ from runtime.api.test_service_client import (
     _service_client_cmd,
     _with_source_pythonpath,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _p(conn) -> str:
@@ -223,10 +224,12 @@ def test_layer1_dispatcher_release_canonicalizes_and_emits(
     conn = connect_test_db(db_path)
     try:
         p = _p(conn)
+        target = make_item_target(item_num)
         row = conn.execute(
             f"SELECT id FROM work_claims WHERE session_id = {p} "
-            f"AND item_id = {p} AND released_at IS NULL",
-            (drafter_id, item_num),
+            f"AND target_kind = {p} AND scope = {p} "
+            "AND released_at IS NULL",
+            (drafter_id, target.kind, target.scope_json()),
         ).fetchone()
     finally:
         conn.close()

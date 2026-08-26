@@ -152,8 +152,8 @@ def release_session_claims(
     Routes each release through :func:`release_work_claim_for_execution`
     with ``allow_non_terminal=True`` so process-owned path-claim cascade
     and target-kind semantics are consistent with every other claim
-    release path. The default remains backwards compatible: each typed
-    release commits and emits success telemetry before the aggregate event.
+    release path. By default each typed release commits and emits success
+    telemetry before the aggregate event.
     Session end uses :func:`release_session_claims_transactional` so every
     release, the terminal session row, and focus cleanup commit together.
     """

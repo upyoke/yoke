@@ -27,7 +27,9 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
         from yoke_core.domain.sessions_resume_block import render_resume_block_lines
 
         notice = {
-            "released_claims": [{"target_kind": "item", "item_id": 17}],
+            "released_claims": [
+                {"target_kind": "item", "scope": {"item_id": 17}},
+            ],
             "reacquired_count": 1,
             "conflict_count": 1,
         }
@@ -53,7 +55,9 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
         notice = json.dumps(
             {
                 "reactivated_at": _iso(),
-                "released_claims": [{"target_kind": "item", "item_id": 18}],
+                "released_claims": [
+                    {"target_kind": "item", "scope": {"item_id": 18}},
+                ],
                 "reacquired_count": 0,
                 "conflict_count": 1,
             }
@@ -115,7 +119,7 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
         self.assertIsNotNone(notice)
         self.assertEqual(
             notice["released_claims"],
-            [{"target_kind": "item", "item_id": 700}],
+            [{"target_kind": "item", "scope": {"item_id": 700}}],
         )
         self.assertEqual(notice["reacquired_count"], 1)
         self.assertEqual(notice["conflict_count"], 0)

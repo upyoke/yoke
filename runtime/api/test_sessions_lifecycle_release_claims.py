@@ -128,7 +128,7 @@ class TestSessionEndReleaseClaims:
             "WHERE session_id='sess-1' AND released_at IS NULL"
         ).fetchone()
         assert active["cnt"] == 0
-        assert result["released_claims"][0]["item_id"] == PRIMARY_ITEM_ID
+        assert result["released_claims"][0]["scope"] == {"item_id": PRIMARY_ITEM_ID}
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_release_claims_no_claims_noop(self, mock_emit, conn):

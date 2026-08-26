@@ -26,6 +26,7 @@ from yoke_core.api.service_client_sessions_offer_helpers import (
     build_no_work_wait_action,
     should_return_no_work_wait,
 )
+from yoke_core.domain.work_claim_targets import from_row as target_from_row
 
 
 def _resolve_build_frontier_state(resolve_monkeypatchable: Callable[[str], Any]):
@@ -74,12 +75,13 @@ def dispatch_decision_engine(
     if ownership["action_hint"] == "resume":
         active_claims: List[ClaimedWork] = []
         for claim in ownership["claims"]:
+            target = target_from_row(claim)
             claim_ctx = resolve_claimed_work_context(conn, claim)
             active_claims.append(
                 ClaimedWork(
-                    item_id=display_claim_item_id(claim.get("item_id"), conn),
-                    epic_id=claim.get("epic_id"),
-                    task_num=claim.get("task_num"),
+                    item_id=display_claim_item_id(target.item_id, conn),
+                    epic_id=target.epic_id,
+                    task_num=target.task_num,
                     status=claim_ctx.get("status"),
                     workflow_id=claim_ctx.get("workflow_id"),
                     workflow_version_id=claim_ctx.get("workflow_version_id"),

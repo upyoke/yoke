@@ -13,7 +13,6 @@ import threading
 from yoke_core.tools.build_release import create_seeded_pip_venv
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
 
 
 BASE_PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -44,7 +43,7 @@ def test_onboard_product_wheel_plans_and_writes_machine_config_with_inert_engine
     token_file = machine_home / "token"
     token_file.write_text("product-token\n", encoding="utf-8")
     gh_marker = tmp_path / "gh-called"
-    fake_bin = _fake_github_cli(tmp_path, gh_marker)
+    fake_bin = _fake_external_command_bin(tmp_path, gh_marker)
     env = _product_env(machine_home, venv_dir, extra_path=fake_bin)
 
     # Engine present: the wheel channel ships yoke-core to every machine.
@@ -258,6 +257,7 @@ def _product_env(
     return {
         "HOME": str(machine_home.parent),
         "PATH": ":".join(path_parts),
+        "XDG_BIN_HOME": str(venv_dir / "bin"),
         "YOKE_MACHINE_HOME": str(machine_home),
         "PYTHONNOUSERSITE": "1",
         "LANG": os.environ.get("LANG", "C.UTF-8"),
@@ -265,7 +265,7 @@ def _product_env(
     }
 
 
-def _fake_github_cli(tmp_path: Path, marker: Path) -> Path:
+def _fake_external_command_bin(tmp_path: Path, marker: Path) -> Path:
     fake_bin = tmp_path / "fake-bin"
     fake_bin.mkdir()
     gh = fake_bin / "gh"
@@ -277,6 +277,27 @@ def _fake_github_cli(tmp_path: Path, marker: Path) -> Path:
         encoding="utf-8",
     )
     gh.chmod(0o755)
+    launchctl = fake_bin / "launchctl"
+    launchctl.write_text(
+        "#!/usr/bin/env python3\n"
+        "import plistlib\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "state = Path(__file__).with_name('launchctl-state')\n"
+        "command = sys.argv[1]\n"
+        "target = sys.argv[-1]\n"
+        "if command == 'bootout':\n"
+        "    state.unlink(missing_ok=True)\n"
+        "elif command == 'bootstrap':\n"
+        "    with Path(target).open('rb') as handle:\n"
+        "        label = plistlib.load(handle)['Label']\n"
+        "    state.write_text(f'{sys.argv[-2]}/{label}\\n', encoding='utf-8')\n"
+        "elif command == 'print':\n"
+        "    loaded = state.read_text('utf-8').strip() if state.exists() else ''\n"
+        "    raise SystemExit(0 if loaded == target else 1)\n",
+        encoding="utf-8",
+    )
+    launchctl.chmod(0o755)
     return fake_bin
 
 

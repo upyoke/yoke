@@ -178,7 +178,7 @@ def test_releasing_the_lock_hands_the_blitz_to_a_worker(tmp_db: str) -> None:
             target=make_item_target(3106),
             reason="execute the Blitz",
         )
-        assert work_claim["item_id"] == 3106
+        assert work_claim["scope"] == {"item_id": 3106}
         document_claim = acquire_strategy_doc_claim(
             conn,
             item_id=3106,

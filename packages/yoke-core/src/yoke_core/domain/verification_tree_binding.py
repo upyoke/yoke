@@ -37,9 +37,7 @@ identity in its environment and the control plane on its disk, and silently
 answers "nothing to check" everywhere else — which is exactly how a guard
 ends up inert on the installations it was written for, and precisely the
 live configuration the drift was observed in.
-
 Refusal wording: :mod:`yoke_core.domain.verification_tree_binding_messages`.
-
 Nothing here blocks a run it could not judge: an unresolvable session, a
 checkout with no git metadata, or an unreachable control plane all let the
 run proceed, because the check exists to catch drift, not to become a new
@@ -63,6 +61,7 @@ from yoke_core.domain.verification_tree_binding_messages import (
     TREE_BINDING_REFUSAL_TEMPLATE,
     UNVERIFIED_BINDING_NOTICE,
 )
+from yoke_core.domain.work_claim_targets import item_id_from_row
 
 
 @dataclass(frozen=True)
@@ -207,8 +206,8 @@ def resolve_claim_worktrees(session_id: str) -> ClaimLookup:
             candidate = str(path).strip()
             if candidate and candidate not in lanes:
                 lanes.append(candidate)
-                if lane_item_id is None and holder.get("item_id") is not None:
-                    lane_item_id = int(holder["item_id"])
+                if lane_item_id is None:
+                    lane_item_id = item_id_from_row(holder)
     planning = result.get("current_item_before_implementation")
     return ClaimLookup(
         worktrees=tuple(lanes), lane_item_id=lane_item_id,

@@ -78,7 +78,7 @@ def list_claims_for_session(
     claims: List[Dict[str, Any]] = []
     for row in rows:
         claim = _row_to_dict(row)
-        claim.update(target_from_row(claim).scope)
+        claim["scope"] = dict(target_from_row(claim).scope)
         claims.append(claim)
     return claims
 
@@ -110,7 +110,7 @@ def get_claim_for_work_unit(
     if row is None:
         return None
     result = _row_to_dict(row)
-    result.update(target_from_row(result).scope)
+    result["scope"] = dict(target_from_row(result).scope)
     return result
 
 

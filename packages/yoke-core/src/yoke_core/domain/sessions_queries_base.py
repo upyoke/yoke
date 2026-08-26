@@ -121,9 +121,11 @@ def resolve_claimed_work_context(
     claim: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Resolve current routing metadata for a raw claim row."""
-    item_id = claim.get("item_id")
-    epic_id = claim.get("epic_id")
-    task_num = claim.get("task_num")
+    from .work_claim_targets import from_row as target_from_row
+    target = target_from_row(claim)
+    item_id = target.item_id
+    epic_id = target.epic_id
+    task_num = target.task_num
     workflow: Optional[WorkflowRuntime] = None
     status: Optional[str] = claim.get("status")
     required_path: Optional[str] = claim.get("required_path")
