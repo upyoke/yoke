@@ -147,17 +147,17 @@ yoke test-machine verify --project <project>
 Provision the host once before saving the capability. The general procedure —
 disk encryption, automatic login, sleep, remote access and its separate full
 disk access grant, developer tools, privacy grants, and authenticated harness
-CLIs, each with an observable check — is the `machine-qa` Pack's
-[host-provisioning.md](packs/machine-qa/host-provisioning.md). Follow it there;
-a second copy here is how this checklist went stale before.
+CLIs, each with an observable check — ships in the
+[`machine-qa` Pack](../packs/machine-qa) and installs as
+`docs/packs/machine-qa/host-provisioning.md`. Follow it there; a second copy
+here is how this checklist went stale before.
 
 This project's Test Mac adds only host-specific facts on top of it:
 
 - It uses its existing `screen` command as the `host_control` backend, which
   prefers `tmux` when both exist; do not add Homebrew or `tmux` for it.
-- Its saved `host` is the machine's stable private-network name. A rebuilt
-  host is a new node with a new address, so an address stored here breaks
-  silently the next time the machine is rebuilt.
+- Its saved `host` is the machine's stable private-network name; a rebuilt
+  host is a new node with a new address, so a stored address breaks silently.
 - Yoke is not provisioned onto it. Yoke arrives the way a user installs it,
   which keeps an installer mission a real test.
 
