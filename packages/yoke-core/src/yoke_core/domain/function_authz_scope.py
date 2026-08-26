@@ -53,6 +53,7 @@ from yoke_core.domain.function_authz_scope_client_local import (
 from yoke_core.domain.function_authz_scope_control_plane import (
     CONTROL_PLANE_AUTHZ_BY_ID,
 )
+from yoke_core.domain.function_authz_scope_prefixes import AUTHZ_BY_PREFIX
 from yoke_core.domain.function_authz_types import (
     ACTOR_SESSION,
     CLIENT_LOCAL,
@@ -206,28 +207,6 @@ _BY_ID: dict[str, AuthzSpec] = {
     "charge.schedule": AuthzSpec(ACTOR_SESSION, None),
     **CLIENT_LOCAL_BY_ID,
 }
-# Prefix families where every member shares a scope.
-_BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
-    # Global learning channel; handlers retain optional project list filters.
-    ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
-    # Flow reads/runs are org-scoped; project-scoped create is excepted above.
-    ("deployment_flows.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
-    ("deployment_runs.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
-    # Sign-in admission administration (invites, identity links, auto-join
-    # domain) governs who can enter the org → org admin, reads included
-    # (invite listings expose member emails).
-    ("identity.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
-    # GitHub Actions config uses the project's stored GitHub App auth against its repo →
-    # project admin on the target project (writes); reads still need the target.
-    ("github_actions.", AuthzSpec(PROJECT, PERM_PROJECT_ADMIN)),
-    # Project-local install/refresh/uninstall write the caller's own checkout.
-    ("project.install", AuthzSpec(CLIENT_LOCAL, None)),
-    ("project.refresh", AuthzSpec(CLIENT_LOCAL, None)),
-    ("project.uninstall", AuthzSpec(CLIENT_LOCAL, None)),
-    ("harness.machine_report.", AuthzSpec(ACTOR_SESSION, None)),
-    ("session_control.", AuthzSpec(ACTOR_SESSION, None)),
-)
-
 
 def classify(
     function_id: str,
@@ -247,7 +226,7 @@ def classify(
     spec = _BY_ID.get(function_id)
     if spec is not None:
         return spec
-    for prefix, prefix_spec in _BY_PREFIX:
+    for prefix, prefix_spec in AUTHZ_BY_PREFIX:
         if function_id.startswith(prefix):
             return prefix_spec
     if project_permission is not None:
@@ -277,7 +256,7 @@ def is_explicit_client_local(function_id: str) -> bool:
     spec = _BY_ID.get(function_id)
     if spec is not None:
         return spec.scope == CLIENT_LOCAL
-    for prefix, prefix_spec in _BY_PREFIX:
+    for prefix, prefix_spec in AUTHZ_BY_PREFIX:
         if function_id.startswith(prefix):
             return prefix_spec.scope == CLIENT_LOCAL
     return False

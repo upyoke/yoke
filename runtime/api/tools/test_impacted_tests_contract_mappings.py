@@ -25,7 +25,7 @@ def test_contract_companions_survive_bounded_shared_fixture_deferral(
     shared_fixture = f"{impacted_tests.SHARED_TEST_FIXTURE_PATHS[1]}shared.py"
     changed = (
         shared_fixture,
-        f"{contracts.MIGRATION_HISTORY_SOURCE_PREFIX}0099_example.py",
+        f"{contracts.MIGRATION_HISTORY_SOURCE_PREFIXES[0]}0099_example.py",
         contracts.EPIC_RESOLUTION_SOURCE_PATH,
         sorted(path_claims.PATH_CLAIM_SOURCE_PATHS)[0],
         *path_claims.SURVEY_ADVISORY_SOURCE_PATHS,

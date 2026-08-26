@@ -48,6 +48,23 @@ def test_cli_registry_change_selects_the_registry_usage_parity_tests(tmp_path):
     assert f"product_cli_boundary_contract:{registry}" in selection.telemetry()
 
 
+def test_registering_a_handler_selects_the_authorization_classification(tmp_path):
+    """A newly registered function id reaches its authz contract by registry."""
+    root = _tiny_repo(tmp_path)
+    registrar = (
+        "packages/yoke-core/src/yoke_core/domain/handlers/_register_widgets.py"
+    )
+    authz_test = "runtime/api/domain/test_function_authz_scope_routing.py"
+    _write(root, registrar, "def register(registry): pass\n")
+    _write(root, authz_test, "def test_every_function_is_classified(): pass\n")
+
+    selection = select([registrar], build_import_index(root))
+
+    assert selection.full_sweep is False
+    assert authz_test in selection.files
+    assert f"handler_registration_contract:{registrar}" in selection.telemetry()
+
+
 def test_repo_cleanliness_floor_names_its_global_widening_trigger(tmp_path):
     root = _tiny_repo(tmp_path)
     payload = "packages/yoke-cli/src/yoke_cli/transport/control_plane_payload.py"

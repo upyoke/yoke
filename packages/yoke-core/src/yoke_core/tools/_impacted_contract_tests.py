@@ -6,6 +6,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from yoke_core.tools import _impacted_ci_only_contract_floor as _ci_only
 from yoke_core.tools._impacted_contract_tests_path_claims import PATH_CLAIM_CONTRACTS
+from yoke_core.tools._impacted_contract_prefix_families import (
+    AGENT_SKILL_CONTRACT_TESTS,
+    AGENT_SKILL_SOURCE_PREFIXES,
+    HANDLER_REGISTRATION_CONTRACT_TESTS,
+    MACHINE_QA_PACK_CONTRACT_TESTS,
+    MACHINE_QA_PACK_SOURCE_PREFIXES,
+    MIGRATION_HISTORY_CONTRACT_TESTS,
+    MIGRATION_HISTORY_SOURCE_PREFIXES,
+    PREFIX_CONTRACT_TESTS,
+    PRODUCT_CLI_BOUNDARY_TESTS,
+)
 from yoke_core.tools._impacted_generated_artifact_parity import (
     GENERATED_ARTIFACT_PARITY_TESTS,
 )
@@ -30,45 +41,6 @@ _ALWAYS_RUN_CONTRACTS = (
 
 ALWAYS_RUN_TESTS = tuple(
     test for _rule, tests in _ALWAYS_RUN_CONTRACTS for test in tests
-)
-
-AGENT_SKILL_CONTRACT_TESTS = (
-    # Skill command prose has no import edge to its contract checks.
-    "runtime/api/engines/test_doctor_hc_atlas.py",
-    "runtime/api/test_agent_authored_filing_instruction_resolution.py",
-    "runtime/api/test_direct_workflow_skills.py",
-    "runtime/api/test_file_budget_workflow_teaching.py",
-    "runtime/api/test_idea_db_claim_recipe_fail_closed.py",
-    "runtime/api/test_skill_doc_regressions_advance.py",
-    "runtime/api/test_skill_doc_regressions_conduct_claims.py",
-    "runtime/api/test_skill_doc_regressions_conduct_core.py",
-    "runtime/api/test_skill_doc_regressions_conduct_simulation.py",
-    "runtime/api/test_skill_doc_regressions_conduct_task_claims.py",
-    "runtime/api/test_skill_doc_regressions_dash_qa_gate_order.py",
-    "runtime/api/test_skill_doc_regressions_engineer.py",
-    "runtime/api/test_skill_doc_regressions_file_budget.py",
-    "runtime/api/test_skill_doc_regressions_file_budget_agents.py",
-    "runtime/api/test_skill_doc_regressions_impacted_bounded.py",
-    "runtime/api/test_skill_doc_regressions_misc.py",
-    "runtime/api/test_skill_doc_regressions_onboard.py",
-    "runtime/api/test_skill_doc_regressions_path_claim_coordination.py",
-    "runtime/api/test_skill_doc_regressions_plan_merge.py",
-    "runtime/api/test_skill_doc_regressions_refine_obvious_file_budget.py",
-    "runtime/api/test_skill_doc_regressions_refine_polish.py",
-    "runtime/api/test_skill_doc_regressions_refine_release_sequencing.py",
-    "runtime/api/test_skill_doc_regressions_shepherd_pm.py",
-    "runtime/api/test_skill_doc_regressions_strategize.py",
-    "runtime/api/test_skill_doc_regressions_usher_collect.py",
-    "runtime/api/test_skill_prose_schema_drift.py",
-    "runtime/api/domain/test_db_claim_prose_check_buckets.py",
-    "runtime/api/domain/test_idea_db_claim_buckets.py",
-    "runtime/api/domain/test_install_bundle_tree_sync.py",
-    "runtime/api/domain/test_migration_instruction_coherence.py",
-)
-
-AGENT_SKILL_SOURCE_PREFIXES = (
-    ".agents/skills/yoke/",
-    "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke/",
 )
 
 ITEM_WORKTREE_SCHEMA_TESTS = (
@@ -100,46 +72,7 @@ SCHEMA_CONVERGE_CONTRACT_TESTS = (
     "runtime/api/cli/test_yoke_schema_converge_command.py",
 )
 
-MIGRATION_HISTORY_CONTRACT_TESTS = (
-    "runtime/api/domain/test_universe_portability_migration_content_bridge.py",
-    "runtime/api/engines/test_doctor_schema_drift_expected.py",
-)
-
-MACHINE_QA_PACK_CONTRACT_TESTS = ("runtime/api/domain/test_machine_qa.py",)
-
 EPIC_QA_READ_CONTRACT_TESTS = ("runtime/api/test_epic_full_review.py",)
-
-PRODUCT_CLI_BOUNDARY_TESTS = (
-    # Registry rows and usage entries agree through dict keys, not imports,
-    # so reachability cannot see a route added without its usage string.
-    "runtime/api/cli/test_yoke_cli_manifest.py",
-    "runtime/api/cli/test_yoke_operations_cli.py",
-    "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
-    "runtime/api/cli/test_yoke_product_boundary_hooks.py",
-    "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py",
-    "runtime/api/cli/test_yoke_product_boundary_import_edges.py",
-    "runtime/api/cli/test_yoke_product_boundary_inventory.py",
-    "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
-    "runtime/api/test_installer_package_boundaries.py",
-    "runtime/api/test_parity_db_router_item_list.py",
-    "runtime/api/test_parity_render.py",
-    "runtime/api/test_service_client_item_list.py",
-    "runtime/api/test_service_client_items.py",
-    "tests/import_graph/test_skeletons_importable.py",
-)
-
-PRODUCT_CLI_SOURCE_PREFIXES = (
-    "packages/yoke-cli/src/yoke_cli/",
-    "packages/yoke-core/src/yoke_core/api/service_client_items",
-    "packages/yoke-core/src/yoke_core/domain/items_projection.py",
-)
-
-MIGRATION_HISTORY_SOURCE_PREFIX = "packages/yoke-core/src/yoke_core/domain/migrations/"
-
-MACHINE_QA_PACK_SOURCE_PREFIXES = (
-    "packs/machine-qa/",
-    "packages/yoke-core/src/yoke_core/install_bundle_tree/packs/machine-qa/",
-)
 
 EPIC_RESOLUTION_SOURCE_PATH = (
     "packages/yoke-core/src/yoke_core/domain/epic_resolution.py"
@@ -284,42 +217,12 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
         tests.update(contract_tests)
         widening_triggers.extend(f"{rule}:{path}" for path in hits)
 
-    product_cli_hits = tuple(
-        path for path in changed_paths if path.startswith(PRODUCT_CLI_SOURCE_PREFIXES)
-    )
-    if product_cli_hits:
-        tests.update(PRODUCT_CLI_BOUNDARY_TESTS)
-        widening_triggers.extend(
-            f"product_cli_boundary_contract:{path}" for path in product_cli_hits
-        )
-    migration_hits = tuple(
-        path
-        for path in changed_paths
-        if path.startswith(MIGRATION_HISTORY_SOURCE_PREFIX)
-    )
-    if migration_hits:
-        tests.update(MIGRATION_HISTORY_CONTRACT_TESTS)
-        widening_triggers.extend(
-            f"migration_history_contract:{path}" for path in migration_hits
-        )
-
-    machine_qa_pack_hits = tuple(
-        path
-        for path in changed_paths
-        if any(path.startswith(prefix) for prefix in MACHINE_QA_PACK_SOURCE_PREFIXES)
-    )
-    if machine_qa_pack_hits:
-        tests.update(MACHINE_QA_PACK_CONTRACT_TESTS)
-        widening_triggers.extend(
-            f"machine_qa_pack_contract:{path}" for path in machine_qa_pack_hits
-        )
-
-    skill_hits = tuple(
-        path for path in changed_paths if path.startswith(AGENT_SKILL_SOURCE_PREFIXES)
-    )
-    if skill_hits:
-        tests.update(AGENT_SKILL_CONTRACT_TESTS)
-        widening_triggers.extend(f"agent_skill_contract:{path}" for path in skill_hits)
+    for rule, prefixes, contract_tests in PREFIX_CONTRACT_TESTS:
+        hits = tuple(path for path in changed_paths if path.startswith(prefixes))
+        if not hits:
+            continue
+        tests.update(contract_tests)
+        widening_triggers.extend(f"{rule}:{path}" for path in hits)
     return ContractSelection(frozenset(tests), tuple(widening_triggers))
 
 
@@ -338,7 +241,9 @@ __all__ = [
     "MACHINE_QA_PACK_CONTRACT_TESTS",
     "MACHINE_QA_PACK_SOURCE_PREFIXES",
     "MIGRATION_HISTORY_CONTRACT_TESTS",
-    "MIGRATION_HISTORY_SOURCE_PREFIX",
+    "MIGRATION_HISTORY_SOURCE_PREFIXES",
+    "HANDLER_REGISTRATION_CONTRACT_TESTS",
+    "PREFIX_CONTRACT_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",
     "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
