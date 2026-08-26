@@ -8,6 +8,7 @@ import shutil
 from typing import Callable
 
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
+from yoke_harness.session_relay_claude_identity import resolve_background_agent
 from yoke_harness.session_relay_claude_process import (
     ClaudeProcessResult,
     run_bounded_claude_process,
@@ -102,14 +103,34 @@ def lookup_claude_session(invocation: ClaudeNativeInvocation) -> ClaudeProcessRe
     )
 
 
+def _wake_argv(
+    invocation: ClaudeNativeInvocation,
+    session_lookup: ClaudeSessionLookup,
+) -> tuple[str, ...] | None:
+    resolution = resolve_background_agent(
+        invocation.session_id,
+        lambda: session_lookup(invocation),
+    )
+    if resolution.short_id is not None:
+        return (invocation.executable, "respawn", resolution.short_id)
+    if resolution.result_code == "background_agent_not_found":
+        return invocation.argv
+    return None
+
+
 def spawn_claude_wake(
     context: RelayExecutionContext,
     invocation: ClaudeNativeInvocation,
+    *,
+    session_lookup: ClaudeSessionLookup = lookup_claude_session,
 ) -> ClaudeResumeProcess | None:
+    argv = _wake_argv(invocation, session_lookup)
+    if argv is None:
+        return None
     environment = _environment(invocation)
     environment[RESUME_ATTEMPT_ENV] = context.job_id
     return spawn_detached_claude_resume(
-        invocation.argv,
+        argv,
         checkout=invocation.cwd,
         environment=environment,
         attempt_id=context.job_id,
