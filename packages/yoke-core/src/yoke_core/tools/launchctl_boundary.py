@@ -11,13 +11,15 @@ whole fleet depends on.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 import plistlib
 import subprocess
 import sys
+from typing import Any, Callable
 
 from yoke_cli.config.session_relay_instance import PROD_RELAY_LABEL
 
@@ -192,6 +194,30 @@ def bootout_labels(
         )
 
 
+@contextmanager
+def integration_domain(env: Any, *, marked: bool) -> Iterator[Callable[[str], None]]:
+    """Lend a marked test the real launchd domain, and take it back after.
+
+    ``env`` is any pytest ``monkeypatch``-shaped object: the opt-in has to
+    be an environment variable so a spawned child inherits it, and undoing
+    it belongs to whoever set it. Yields a callable that registers a label
+    for unconditional bootout when the test ends, however it ends.
+    """
+    if not marked:
+        raise LaunchdBoundaryError(
+            "loading a real launchd job requires the `launchd_integration` "
+            "marker, so every test that touches the real domain stays "
+            "greppable. Mark the test, or stub the launchctl runner."
+        )
+    env.delenv(SANDBOX_ENV, raising=False)
+    env.setenv(REAL_LAUNCHD_OPT_IN_ENV, "1")
+    loaded: list[str] = []
+    try:
+        yield loaded.append
+    finally:
+        bootout_labels(loaded)
+
+
 def _record_and_simulate(
     sandbox: Path,
     command: list[str],
@@ -237,6 +263,7 @@ __all__ = [
     "REAL_LAUNCHD_OPT_IN_ENV",
     "SANDBOX_ENV",
     "bootout_labels",
+    "integration_domain",
     "launch_agents_dir",
     "launchd_target",
     "names_canonical_relay",

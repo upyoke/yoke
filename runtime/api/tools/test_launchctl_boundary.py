@@ -7,10 +7,8 @@ from pathlib import Path
 import plistlib
 import subprocess
 import sys
-from types import SimpleNamespace
 
 import pytest
-from _pytest.outcomes import Failed
 
 from yoke_core.tools import launchctl_boundary as boundary
 
@@ -121,38 +119,28 @@ def test_bootout_labels_unloads_every_registered_label(
     ]
 
 
-def test_the_integration_fixture_requires_its_marker(
+def test_an_unmarked_test_never_gets_the_real_domain(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The sanctioned door stays greppable: no marker, no real domain."""
-    import conftest
-
-    fixture = conftest._real_launchd_agent
-    request = SimpleNamespace(node=SimpleNamespace(get_closest_marker=lambda _n: None))
-
-    with pytest.raises(Failed, match="launchd_integration"):
-        next(fixture(request, monkeypatch))
+    with pytest.raises(boundary.LaunchdBoundaryError, match="launchd_integration"):
+        with boundary.integration_domain(monkeypatch, marked=False):
+            pass
 
 
-def test_the_marked_integration_fixture_boots_out_what_it_loaded(
+def test_the_marked_domain_boots_out_what_it_registered(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import conftest
+    sandbox = tmp_path / "launchd-sandbox"
 
-    sandbox = _sandbox(tmp_path, monkeypatch)
-    request = SimpleNamespace(
-        node=SimpleNamespace(get_closest_marker=lambda _n: object())
-    )
-    generator = conftest._real_launchd_agent(request, monkeypatch)
-    register = next(generator)
-    register("com.upyoke.relay.abc123")
-    # The opt-in hands the boundary the real domain; put the sandbox back so
-    # this test records the teardown instead of running it.
-    monkeypatch.setenv(boundary.SANDBOX_ENV, str(sandbox))
-
-    with pytest.raises(StopIteration):
-        next(generator)
+    with boundary.integration_domain(monkeypatch, marked=True) as register:
+        assert boundary.real_launchd_opted_in()
+        assert boundary.sandbox_root() is None
+        register("com.upyoke.relay.abc123")
+        # Put the sandbox back so the teardown records its bootout rather
+        # than running it against the operator's real domain.
+        monkeypatch.setenv(boundary.SANDBOX_ENV, str(sandbox))
 
     recorded = boundary.recorded_commands(sandbox)
     assert [entry[1] for entry in recorded] == ["bootout"]

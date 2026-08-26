@@ -304,29 +304,15 @@ def _sandbox_launchd_registrations(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     return sandbox
 
 
-def _real_launchd_agent(
-    request: pytest.FixtureRequest,
-    monkeypatch: pytest.MonkeyPatch,
-):
+@pytest.fixture()
+def real_launchd_agent(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
     """The one sanctioned door to a real launchd agent, with teardown attached.
 
     Yields a callable that registers a label for unconditional bootout when
     the test ends, however it ends. The canonical relay label stays refused
     even here — this fixture buys a real domain, never the machine's live
-    daemon.
+    daemon. An unmarked test is refused before the domain changes hands.
     """
-    if request.node.get_closest_marker("launchd_integration") is None:
-        pytest.fail(
-            "real_launchd_agent loads a real launchd job; mark the test "
-            "`@pytest.mark.launchd_integration` so it is greppable."
-        )
-    monkeypatch.delenv(launchctl_boundary.SANDBOX_ENV, raising=False)
-    monkeypatch.setenv(launchctl_boundary.REAL_LAUNCHD_OPT_IN_ENV, "1")
-    loaded: list[str] = []
-    try:
-        yield loaded.append
-    finally:
-        launchctl_boundary.bootout_labels(loaded)
-
-
-real_launchd_agent = pytest.fixture(name="real_launchd_agent")(_real_launchd_agent)
+    marked = request.node.get_closest_marker("launchd_integration") is not None
+    with launchctl_boundary.integration_domain(monkeypatch, marked=marked) as register:
+        yield register
