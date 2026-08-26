@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import socket
 from typing import Callable
 
 from yoke_cli.config import machine_config
 from yoke_contracts.engine_version import local_handshake_version
+from yoke_contracts.machine_config.machine_name import machine_display_name
 from yoke_contracts.machine_config.runtime import ensure_machine_id
 from yoke_harness.session_relay_surface_probe_cache import (
     cached_surface_versions,
@@ -89,7 +89,7 @@ def _inventory(versions: dict[str, str]) -> RelayInventory:
     return RelayInventory(
         relay_id=f"machine:{machine_id}",
         machine_id=machine_id,
-        hostname=socket.gethostname(),
+        hostname=machine_display_name(),
         relay_version=local_handshake_version() or "source",
         project_ids=project_ids,
         surface_versions=versions,
