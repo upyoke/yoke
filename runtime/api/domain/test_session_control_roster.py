@@ -93,7 +93,7 @@ def _add_session(
     project_id: int = 10,
 ) -> None:
     conn.execute(
-        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             "session-1",
             project_id,

@@ -27,6 +27,7 @@ def _connection() -> sqlite3.Connection:
             last_heartbeat TEXT,
             last_tool_call_at TEXT,
             ended_at TEXT,
+            terminated_at TEXT,
             turn_posture TEXT,
             turn_posture_at TEXT,
             offer_envelope TEXT
@@ -91,7 +92,7 @@ def _add_session(
     envelope: dict | None = None,
 ) -> None:
     conn.execute(
-        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             session_id,
             1,
@@ -100,6 +101,7 @@ def _add_session(
             "machine-1",
             "2026-08-22T12:00:00Z",
             "2026-08-22T12:00:00Z",
+            None,
             None,
             "waiting",
             "2026-08-22T12:00:00Z",
