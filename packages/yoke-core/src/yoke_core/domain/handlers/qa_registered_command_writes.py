@@ -68,7 +68,6 @@ def handle_registered_command_set(request: FunctionCallRequest) -> HandlerOutcom
     payload, error = _payload(request)
     if error is not None:
         return error
-    assert payload is not None
 
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.project_identity import resolve_project
@@ -97,11 +96,9 @@ def handle_registered_command_set(request: FunctionCallRequest) -> HandlerOutcom
     except ValueError as exc:
         return _error("incompatible", str(exc), "$.payload")
 
-    ci_workflow = str(result.get("ci_workflow") or "")
     result["method_id"] = (
-        CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
+        CI_COMMAND_METHOD_ID if result["ci_workflow"] else LOCAL_COMMAND_METHOD_ID
     )
-    result["ci_workflow"] = ci_workflow
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)
 
 

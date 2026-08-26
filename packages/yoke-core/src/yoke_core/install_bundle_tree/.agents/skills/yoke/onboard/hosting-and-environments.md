@@ -158,7 +158,7 @@ substitute for the binding above.
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status verification-command-binding=configured \
-  --evidence verification-command-binding="registered-command-quick bound to {quick_argv}; {ci_workflow_file declaration or 'local command runner (no Actions test workflow)'}"
+  --evidence verification-command-binding="registered-command-quick bound to {quick_argv}; runner {command|command-ci}; {ci_workflow_file or 'no Actions test workflow declared'}"
 ```
 
 For the explicit skip, mark `verification-command-binding=not-needed` with the
@@ -168,7 +168,10 @@ operator's reason as evidence. When the operator has not decided yet, mark it
 
 ### Project Structure policy rows
 
-Capture the project-wide policy the profile implies (command definitions, merge verification, context routing) through the registered patch surface:
+Capture the project-wide policy the profile implies — test roots, context
+routing, ownership defaults, integration targets — through the registered patch
+surface. These rows are descriptive project structure; the command the QA gate
+runs is bound above, not here:
 
 ```bash
 yoke project-structure patch apply --project {project} --ops-json '{json_ops}'
