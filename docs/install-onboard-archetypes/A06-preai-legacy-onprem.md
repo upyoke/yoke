@@ -85,7 +85,8 @@ describe GitLab+Jenkins. Profile still lists GitHub binding mode
 **User:** `disabled` GitHub; defer hosting. No `registry-oidc` (that is GitHub
 Actions OIDC).
 
-There is no `yoke gitlab connect`. Issue sync cannot create GitLab issues.
+GitLab has no connect adapter (the live one is `yoke github connect`).
+Issue sync cannot create GitLab issues.
 Merge is local engine (`merge_queue` capability is GitHub).
 
 Usher Route A works if no deployment_flow. A persistent AWS flow would be a
