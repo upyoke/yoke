@@ -1,4 +1,10 @@
-"""Machine-local CLI lifecycle for the one-shot fleet relay."""
+"""Machine-local CLI lifecycle for the standing fleet relay.
+
+``serve`` is the installed service: one standing process per machine.
+``serve-once`` remains the manual and broker one-shot — the one-hop
+broker contract hands a peer session an exact lease to serve right now,
+which is a single transaction, not a service.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +31,7 @@ RELAY_STATUS_USAGE = "yoke relay status [--json]"
 RELAY_SERVE_ONCE_USAGE = (
     "yoke relay serve-once [--broker --broker-lease LEASE_ID] [--json]"
 )
+RELAY_SERVE_USAGE = "yoke relay serve [--json]"
 RELAY_DIAGNOSTIC_USAGE = "yoke relay diagnostic <opaque-ref>"
 RELAY_PROBE_SURFACE_USAGE = "yoke relay probe-surface [--surface S] [--json]"
 
@@ -209,6 +216,46 @@ def relay_serve_once(args: List[str]) -> int:
     # A reported native failure is a settled relay transaction, not a request to
     # rerun the native action. Only a failed control-plane boundary exits nonzero.
     return 1 if str(payload.get("state") or "").endswith("_failed") else 0
+
+
+def relay_serve(args: List[str]) -> int:
+    """Run the standing machine relay until the machine stops it."""
+    parsed = parse_or_usage_error(
+        _parser("yoke relay serve", RELAY_SERVE_USAGE),
+        args,
+        RELAY_SERVE_USAGE,
+    )
+    if parsed is None:
+        return 2
+    if is_subagent_execution():
+        return usage_error(FLEET_OWNERSHIP_GUIDANCE)
+    from yoke_harness.session_relay_daemon import serve_forever
+    from yoke_harness.session_relay_inventory import collect_cached_inventory
+    from yoke_harness.session_relay_surface_probe_cache import (
+        refresh_surface_probe_cache,
+    )
+
+    _contain_stranded_natives()
+    try:
+        outcome = serve_forever(
+            inventory_provider=collect_cached_inventory,
+            inventory_refresher=refresh_surface_probe_cache,
+        )
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "code": "relay_serve_failed",
+                    "message": str(exc),
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 1
+    _emit(asdict(outcome), json_mode=parsed.json_mode, title="RELAY DAEMON")
+    return 0 if outcome.reason != "locked" else 1
 
 
 def relay_probe_surface(args: List[str]) -> int:

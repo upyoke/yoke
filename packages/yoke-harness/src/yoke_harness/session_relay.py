@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 import logging
 from pathlib import Path
 import time
@@ -76,6 +77,10 @@ class ServeOnceOutcome:
 
 Dispatcher = Callable[..., Any]
 JobRunner = Callable[[Mapping[str, Any]], RelayAdapterResult]
+# Hands one leased job's settlement off to a caller that owns its lifetime.
+# A caller that supplies one keeps polling while the job runs; the default
+# is to settle inline, which is what a one-shot run must do.
+JobDispatch = Callable[[Callable[[], "ServeOnceJobOutcome"]], None]
 
 
 def _error_code(response: Any) -> str:
@@ -169,6 +174,7 @@ def _poll(
     broker_only: bool = False,
     broker_lease_id: str | None = None,
     sleep: Callable[[float], None] = time.sleep,
+    dispatch_job: JobDispatch | None = None,
 ) -> ServeOnceOutcome:
     ensure_handlers_loaded()
     if not retry_pending_reports(
@@ -214,15 +220,22 @@ def _poll(
     for index, job in enumerate(jobs):
         if index and stagger:
             sleep(stagger)
-        outcomes.append(
-            _run_and_report(
-                inventory,
-                job,
-                dispatcher=dispatcher,
-                runner=runner,
-                state_dir=state_dir,
-            )
+        settle = partial(
+            _run_and_report,
+            inventory,
+            job,
+            dispatcher=dispatcher,
+            runner=runner,
+            state_dir=state_dir,
         )
+        if dispatch_job is not None:
+            dispatch_job(settle)
+            continue
+        outcomes.append(settle())
+    if dispatch_job is not None:
+        # The jobs outlive this cycle by design, so their outcomes are not
+        # this cycle's to report; the caller settles them.
+        return ServeOnceOutcome("dispatched", next_poll)
     settled = tuple(outcomes)
     state = (
         "report_failed"
@@ -231,6 +244,61 @@ def _poll(
     )
     cadence = REPORT_RETRY_SECONDS if state == "report_failed" else next_poll
     return ServeOnceOutcome(state, cadence, jobs=settled)
+
+
+def run_serve_cycle(
+    *,
+    state_dir: Path | None = None,
+    inventory_provider: Callable[[], RelayInventory] = collect_inventory,
+    inventory_refresher: Callable[[], object] | None = None,
+    dispatcher: Dispatcher = call_dispatcher,
+    runner: JobRunner = run_registered_job,
+    clock: Callable[[], float] = time.time,
+    sleep: Callable[[float], None] = time.sleep,
+    broker_only: bool = False,
+    broker_lease_id: str | None = None,
+    dispatch_job: JobDispatch | None = None,
+) -> ServeOnceOutcome:
+    """Run one cadence-respecting batch inside a run lock the caller holds.
+
+    Split from :func:`serve_once` so a caller that holds the lock for many
+    cycles reuses the same transaction body. The lock is what keeps two
+    relays off one machine's jobs; taking it per cycle would let a second
+    process interleave between cycles of the first.
+    """
+    started_at = clock()
+    if not broker_only and not poll_is_due(state_dir, now=started_at):
+        return ServeOnceOutcome("backoff")
+    inventory = inventory_provider()
+    pool = ThreadPoolExecutor(max_workers=1) if inventory_refresher else None
+    refresh = pool.submit(inventory_refresher) if pool else None
+    try:
+        outcome = _poll(
+            inventory,
+            dispatcher=dispatcher,
+            runner=runner,
+            state_dir=state_dir,
+            broker_only=broker_only,
+            broker_lease_id=broker_lease_id,
+            sleep=sleep,
+            dispatch_job=dispatch_job,
+        )
+    finally:
+        if refresh:
+            try:
+                refresh.result()
+            except Exception:
+                _LOGGER.warning("relay surface probe refresh failed", exc_info=True)
+        if pool:
+            pool.shutdown()
+    if outcome.next_poll_seconds and not broker_only:
+        record_next_poll(
+            outcome.next_poll_seconds,
+            state_dir,
+            started_at=started_at,
+            now=clock(),
+        )
+    return outcome
 
 
 def serve_once(
@@ -246,41 +314,20 @@ def serve_once(
     broker_lease_id: str | None = None,
 ) -> ServeOnceOutcome:
     """Respect server cadence and run one bounded batch of relay transactions."""
-    started_at = clock()
     with relay_run_lock(state_dir) as acquired:
         if not acquired:
             return ServeOnceOutcome("locked")
-        if not broker_only and not poll_is_due(state_dir, now=started_at):
-            return ServeOnceOutcome("backoff")
-        inventory = inventory_provider()
-        pool = ThreadPoolExecutor(max_workers=1) if inventory_refresher else None
-        refresh = pool.submit(inventory_refresher) if pool else None
-        try:
-            outcome = _poll(
-                inventory,
-                dispatcher=dispatcher,
-                runner=runner,
-                state_dir=state_dir,
-                broker_only=broker_only,
-                broker_lease_id=broker_lease_id,
-                sleep=sleep,
-            )
-        finally:
-            if refresh:
-                try:
-                    refresh.result()
-                except Exception:
-                    _LOGGER.warning("relay surface probe refresh failed", exc_info=True)
-            if pool:
-                pool.shutdown()
-        if outcome.next_poll_seconds and not broker_only:
-            record_next_poll(
-                outcome.next_poll_seconds,
-                state_dir,
-                started_at=started_at,
-                now=clock(),
-            )
-        return outcome
+        return run_serve_cycle(
+            state_dir=state_dir,
+            inventory_provider=inventory_provider,
+            inventory_refresher=inventory_refresher,
+            dispatcher=dispatcher,
+            runner=runner,
+            clock=clock,
+            sleep=sleep,
+            broker_only=broker_only,
+            broker_lease_id=broker_lease_id,
+        )
 
 
 __all__ = [
@@ -289,6 +336,8 @@ __all__ = [
     "RELAY_REPORT_FUNCTION_ID",
     "RELAY_REPORT_TIMEOUT_SECONDS",
     "ServeOnceJobOutcome",
+    "JobDispatch",
     "ServeOnceOutcome",
+    "run_serve_cycle",
     "serve_once",
 ]

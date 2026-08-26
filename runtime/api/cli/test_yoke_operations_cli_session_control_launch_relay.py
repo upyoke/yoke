@@ -333,6 +333,7 @@ def test_relay_serve_once_calls_the_machine_helper(monkeypatch, capsys) -> None:
         "probe-surface",
         "uninstall",
         "status",
+        "serve",
         "serve-once",
     )
     expected = {("relay", verb) for verb in verbs}

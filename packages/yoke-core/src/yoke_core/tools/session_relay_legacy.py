@@ -22,6 +22,9 @@ class LegacyRelayError(RuntimeError):
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
+# Serving verbs a pinned prod relay plist may end with.
+PINNED_PROD_RELAY_VERBS: frozenset[str] = frozenset({"serve", "serve-once"})
+
 
 def _canonical(raw: object) -> Path:
     return Path(str(raw or "")).expanduser().resolve(strict=False)
@@ -38,7 +41,13 @@ def _is_pinned_prod(path: Path, instance: RelayInstance) -> bool:
         if not isinstance(environment, Mapping) or len(arguments) < 5:
             return False
         selected = str(arguments[-3])
-        if list(arguments[-4:]) != ["--env", selected, "relay", "serve-once"]:
+        # A pinned prod relay is recognized by either serving verb: the
+        # standing `serve` this machine installs today, and the `serve-once`
+        # an older install still runs. Recognizing only one would let this
+        # sweep retire the very relay it is meant to protect.
+        if list(arguments[-4:-1]) != ["--env", selected, "relay"]:
+            return False
+        if str(arguments[-1]) not in PINNED_PROD_RELAY_VERBS:
             return False
         if document.get("Label") != PROD_RELAY_LABEL:
             return False

@@ -16,7 +16,6 @@ from yoke_cli.config.session_relay_instance import (
     RelayInstance,
     resolve_relay_instance,
 )
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
 from yoke_core.tools.session_relay_executable import relay_executable_search_path
 from yoke_core.tools.session_relay_legacy import (
@@ -26,12 +25,12 @@ from yoke_core.tools.session_relay_legacy import (
 
 
 RELAY_LAUNCHD_LABEL = PROD_RELAY_LABEL
-_RELAY_POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
-# launchd must wake frequently enough to honor every valid server cadence. The
-# relay's disk-backed due time still prevents calls before the server asks.
-RELAY_START_INTERVAL_SECONDS = int(
-    _RELAY_POLL_POLICY.minimum or _RELAY_POLL_POLICY.default
-)
+# The relay polls on its own internal cadence, so launchd's job is custody,
+# not scheduling: keep the one process alive and restart it if it dies.
+# Scheduling from launchd would recreate the cost this daemon exists to
+# remove — a fresh interpreter per poll, and a job whose lifetime ends with
+# the spawn that leased it.
+RELAY_KEEP_ALIVE = True
 
 
 class RelayInstallError(RuntimeError):
@@ -108,7 +107,7 @@ def relay_plist_document(
             "--env",
             resolved.environment,
             "relay",
-            "serve-once",
+            "serve",
         ],
         "EnvironmentVariables": {
             "PATH": relay_executable_search_path(
@@ -120,7 +119,7 @@ def relay_plist_document(
         },
         "ProcessType": "Background",
         "RunAtLoad": True,
-        "StartInterval": RELAY_START_INTERVAL_SECONDS,
+        "KeepAlive": RELAY_KEEP_ALIVE,
         "StandardOutPath": str(resolved.stdout_log),
         "StandardErrorPath": str(resolved.stderr_log),
     }
@@ -163,7 +162,7 @@ def _document_is_current(
             observed = plistlib.load(handle)
     except (OSError, ValueError, plistlib.InvalidFileException):
         return False
-    return observed == expected and "KeepAlive" not in observed
+    return observed == expected and "StartInterval" not in observed
 
 
 def relay_launchd_status(
@@ -331,7 +330,7 @@ def uninstall_relay_launchd(
 
 __all__ = [
     "RELAY_LAUNCHD_LABEL",
-    "RELAY_START_INTERVAL_SECONDS",
+    "RELAY_KEEP_ALIVE",
     "RelayInstallError",
     "RelayLaunchdPaths",
     "RelayLaunchdStatus",
