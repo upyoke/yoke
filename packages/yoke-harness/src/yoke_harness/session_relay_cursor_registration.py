@@ -1,4 +1,4 @@
-"""Prove a Cursor launch registered, or reap the native that did not."""
+"""Bind a Cursor launch to its session, or say the proof is outstanding."""
 
 from __future__ import annotations
 
@@ -37,10 +37,12 @@ def complete_bound_launch(
 ) -> RelayAdapterResult:
     """Bind only after the conversation map proves hooks fired.
 
-    ACP ``session/new`` can return a UUID while the spawned agent never
-    runs a hook-firing turn. Treat that as unregistered: drive the
-    documented prompt-mode resume once, wait again, and reap if the map
-    still misses — all inside a window shorter than the relay lease.
+    ACP ``session/new`` can return a UUID while the spawned agent has not yet
+    run a hook-firing turn. Wait for the map, drive the documented prompt-mode
+    resume once, and wait again — all inside a window shorter than the relay
+    lease. A map that still misses is reported as a created native with its
+    registration outstanding rather than as a failed create: see
+    :func:`_registration_pending`.
     """
     from yoke_harness.session_relay_cursor import (
         CursorNativeResult,
@@ -72,8 +74,8 @@ def complete_bound_launch(
             sleeper=sleeper,
         )
     if resolution.session_id is None:
-        contain_launch_native(str(context.job_id), state_dir=state_dir)
         if uuid_session_id(conversation_id) is None:
+            contain_launch_native(str(context.job_id), state_dir=state_dir)
             return _result(
                 "not_created",
                 native=CursorNativeResult(
@@ -84,18 +86,11 @@ def complete_bound_launch(
                 ),
                 evidence_code="identity_parse_failed",
             )
-        failed = CursorNativeResult(
-            "registration_unproven",
+        return _registration_pending(
+            context,
+            typed,
             conversation_id,
-            typed.exit_code,
-            typed.duration_ms,
-            phase="registration",
-        )
-        return _result(
-            "not_created",
-            native=failed,
-            native_session_id=conversation_id,
-            evidence_code="registration_unproven",
+            attestation_handoff,
         )
     binding = bind_launch_session(
         conversation_id,
@@ -131,6 +126,49 @@ def complete_bound_launch(
         "native_created",
         native=combined,
         native_session_id=binding.session_id,
+    )
+
+
+def _registration_pending(
+    context: RelayExecutionContext,
+    typed: object,
+    conversation_id: str,
+    attestation_handoff: LaunchAttestationHandoff | None,
+) -> RelayAdapterResult:
+    """Report a created native whose first hook has not landed yet.
+
+    A Cursor cold start regularly outlives this adapter's map-proof window,
+    and a native reaped at that moment is a healthy worker killed for being
+    slow — measured: the relay gave up at 54s and the session registered ten
+    seconds later, then ran unattested because its launch was already closed.
+    The control plane already owns a registration deadline, and the machine
+    already owns a supervision record that reaps a native which never
+    registers, so the answer is to hand both the created native and say the
+    proof is still outstanding, not to invent a third verdict here.
+
+    The attestation is staged under the ACP conversation id, which is the id
+    a Cursor session registers under, so a late first hook can still bind
+    even where the environment channel is unavailable.
+    """
+    from yoke_harness.session_relay_cursor import CursorNativeResult, _result
+
+    token = str(context.launch_attestation or "").strip()
+    if token and attestation_handoff is not None:
+        try:
+            attestation_handoff(context.job_id, token, binding_id=conversation_id)
+        except Exception:
+            pass
+    pending = CursorNativeResult(
+        "native_created",
+        conversation_id,
+        getattr(typed, "exit_code", None),
+        getattr(typed, "duration_ms", None),
+        phase="registration_pending",
+    )
+    return _result(
+        "native_created",
+        native=pending,
+        native_session_id=conversation_id,
     )
 
 

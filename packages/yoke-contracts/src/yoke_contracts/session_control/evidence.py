@@ -33,6 +33,14 @@ _TEXT_FIELDS = frozenset(
         "native_launch_phase",
         "native_started_at",
         "relay_id",
+        # Which session the launch was talking about, why the control plane
+        # turned it away, and the model labels the two sides carried. A native
+        # that tried and was refused is otherwise indistinguishable from one
+        # that never came up — exactly the pair an operator must tell apart.
+        "registered_model",
+        "registration_refusal_code",
+        "registration_session_id",
+        "requested_model",
         "result_code",
         "surface",
     }

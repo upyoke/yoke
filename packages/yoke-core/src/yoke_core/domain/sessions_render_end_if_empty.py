@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from . import sessions_analytics as _sa
+from .session_launch_abandonment import settle_and_notify
 from .sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_session
@@ -142,6 +143,7 @@ def end_session_if_empty(
         session_id=session_id,
         context={"reason": "session_empty_auto_ended"},
     )
+    settle_and_notify(conn, session_id, end_reason="session_empty_auto_ended")
     return {
         "session_id": session_id,
         "status": "ended",

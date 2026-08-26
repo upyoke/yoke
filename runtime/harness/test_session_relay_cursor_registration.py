@@ -85,10 +85,12 @@ def test_prompt_mode_turn_then_map_hit_registers(tmp_path: Path) -> None:
     assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": MAPPED_SESSION_ID})]
 
 
-def test_unproven_registration_reaps_the_supervised_native(tmp_path: Path) -> None:
+def test_unproven_registration_hands_over_a_pending_native(tmp_path: Path) -> None:
+    """A slow cold start is a native still coming up, not a failed create."""
     import subprocess
     import sys
 
+    handoffs = []
     process = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(30)"],
         stdout=subprocess.DEVNULL,
@@ -106,6 +108,53 @@ def test_unproven_registration_reaps_the_supervised_native(tmp_path: Path) -> No
             _launch(tmp_path),
             CursorNativeResult("native_created", CONVERSATION_ID, duration_ms=10),
             lambda _conversation_id: None,
+            lambda launch_id, secret, **kwargs: (
+                handoffs.append((launch_id, secret, kwargs)) or True
+            ),
+            sleeper=lambda _seconds: None,
+            wait_seconds=0.5,
+            turn_wait_seconds=0.5,
+            state_dir=tmp_path,
+        )
+
+        assert result.result_code == "native_created"
+        assert result.native_session_id == CONVERSATION_ID
+        assert result.evidence["native_launch_phase"] == "registration_pending"
+        # The attestation rides the ACP conversation id, which is the id a
+        # Cursor session registers under, so a late first hook can still bind.
+        assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
+        # Custody stays with the sweep, which reaps only past the deadline.
+        assert process.poll() is None
+        assert (tmp_path / "session-launch-supervision" / f"{LAUNCH_ID}.json").exists()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
+def test_unparseable_native_identity_still_reaps_the_supervised_native(
+    tmp_path: Path,
+) -> None:
+    import subprocess
+    import sys
+
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    try:
+        assert record_supervised_native(
+            LAUNCH_ID,
+            process.pid,
+            native_session_id="not-a-uuid",
+            state_dir=tmp_path,
+        )
+        result = complete_bound_launch(
+            _launch(tmp_path),
+            CursorNativeResult("native_created", "not-a-uuid", duration_ms=10),
+            lambda _conversation_id: None,
             lambda *_args, **_kwargs: True,
             sleeper=lambda _seconds: None,
             wait_seconds=0.5,
@@ -114,12 +163,8 @@ def test_unproven_registration_reaps_the_supervised_native(tmp_path: Path) -> No
         )
 
         assert result.result_code == "not_created"
-        assert result.evidence["result_code"] == "registration_unproven"
-        assert result.evidence["native_launch_phase"] == "registration"
+        assert result.evidence["result_code"] == "identity_parse_failed"
         assert process.poll() is not None
-        assert not (
-            tmp_path / "session-launch-supervision" / f"{LAUNCH_ID}.json"
-        ).exists()
     finally:
         if process.poll() is None:
             process.kill()

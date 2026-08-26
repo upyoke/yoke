@@ -235,7 +235,6 @@ def test_dropped_first_hook_recovers_through_ordinary_message_delivery() -> None
     [
         ("session-surface", "codex-desktop", "machine-1", "gpt-5", "surface_mismatch"),
         ("session-machine", "codex-cli", "wrong", "gpt-5", "machine_mismatch"),
-        ("session-model", "codex-cli", "machine-1", "gpt-4", "model_mismatch"),
         (
             "different-native",
             "codex-cli",

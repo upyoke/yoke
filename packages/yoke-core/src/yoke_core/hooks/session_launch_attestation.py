@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
+from yoke_core.domain.session_launch_binding_evidence import (
+    record_registration_refusal,
+)
 from yoke_core.domain.session_launch_registration import (
     complete_launch_injection,
     prepare_launch_registration,
@@ -59,6 +62,46 @@ def render_launch_instructions(injection: LaunchRegistrationInjection) -> str:
     )
 
 
+# A launch still ``launching`` has simply not had its relay report land yet,
+# and the sidecar retries until it does. Recording that race would say only
+# that the two sides are milliseconds apart.
+_BENIGN_REFUSALS = frozenset({"invalid_state", "late_registration"})
+
+
+def _prepare_or_record_refusal(
+    conn: Any,
+    *,
+    attestation: LaunchAttestation,
+    session_id: str,
+) -> LaunchRegistrationInjection:
+    """Bind the launch, or leave the refusal on the launch row before raising.
+
+    A native that came up, ran its hook, and was turned away is otherwise
+    invisible: the refusal reaches an operator only as a WARN in one hook's
+    telemetry, while the launch row it explains keeps its optimistic state
+    right up to the deadline that finally closes it with nothing attached.
+    """
+    try:
+        return prepare_launch_registration(
+            conn,
+            launch_id=attestation.launch_id,
+            attestation=attestation.token,
+            session_id=session_id,
+        )
+    except SessionLaunchError as exc:
+        if exc.code not in _BENIGN_REFUSALS:
+            try:
+                record_registration_refusal(
+                    conn,
+                    launch_id=attestation.launch_id,
+                    code=exc.code,
+                    session_id=session_id,
+                )
+            except Exception:
+                pass
+        raise
+
+
 def evaluate_launch_attestation(
     record: HookContext,
     *,
@@ -75,10 +118,9 @@ def evaluate_launch_attestation(
             )
         conn = connect()
         try:
-            injection = prepare_launch_registration(
+            injection = _prepare_or_record_refusal(
                 conn,
-                launch_id=attestation.launch_id,
-                attestation=attestation.token,
+                attestation=attestation,
                 session_id=record.session_id,
             )
         finally:

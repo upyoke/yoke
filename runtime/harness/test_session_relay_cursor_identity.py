@@ -200,7 +200,7 @@ def test_bind_map_miss_does_not_treat_the_acp_id_as_registered() -> None:
     assert handoffs == []
 
 
-def test_adapter_map_miss_fails_closed_with_registration_phase(tmp_path: Path) -> None:
+def test_adapter_map_miss_hands_over_a_pending_native(tmp_path: Path) -> None:
     handoffs = []
     result = build_cursor_adapter(
         acp_port=FakeAcp(),
@@ -211,11 +211,10 @@ def test_adapter_map_miss_fails_closed_with_registration_phase(tmp_path: Path) -
         sleeper=lambda _seconds: None,
     )(_launch(tmp_path))
 
-    assert result.result_code == "not_created"
+    assert result.result_code == "native_created"
     assert result.native_session_id == CONVERSATION_ID
-    assert result.evidence["result_code"] == "registration_unproven"
-    assert result.evidence["native_launch_phase"] == "registration"
-    assert handoffs == []
+    assert result.evidence["native_launch_phase"] == "registration_pending"
+    assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
 
 
 def test_unparseable_identity_fails_closed_with_snippet(tmp_path: Path) -> None:

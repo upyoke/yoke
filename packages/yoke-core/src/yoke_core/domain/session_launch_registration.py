@@ -5,6 +5,10 @@ from __future__ import annotations
 import hmac
 from typing import Any
 
+from yoke_core.domain.session_launch_binding_evidence import (
+    bound_registration_evidence,
+    late_registration_evidence,
+)
 from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
@@ -59,8 +63,9 @@ def _require_exact_binding(
         raise SessionLaunchError("surface_mismatch", "registered surface differs")
     if launch.assigned_machine_id and facts["machine_id"] != launch.assigned_machine_id:
         raise SessionLaunchError("machine_mismatch", "registered machine differs")
-    if launch.requested_model and facts["model"] != launch.requested_model:
-        raise SessionLaunchError("model_mismatch", "registered model differs")
+    # Model is deliberately absent. Identity is already proven above, and the
+    # two sides label the model differently, so session_launch_binding_evidence
+    # records both labels rather than comparing them.
 
 
 def _insert_pending_recipient(
@@ -148,6 +153,9 @@ def prepare_launch_registration(
                 attestation_consumed_at=current,
                 completed_at=current,
                 result_code="late_registration",
+                result_evidence=late_registration_evidence(
+                    conn, launch=launch, session_id=session_id, now=current
+                ),
             )
             conn.commit()
             raise SessionLaunchError(
@@ -175,6 +183,7 @@ def prepare_launch_registration(
             registered_session_id=session_id,
             attestation_consumed_at=current,
             result_code="registration_bound",
+            result_evidence=bound_registration_evidence(launch, facts["model"]),
         )
         body, body_hash, sender_actor_id = instruction_message(conn, launch.message_id)
         conn.commit()

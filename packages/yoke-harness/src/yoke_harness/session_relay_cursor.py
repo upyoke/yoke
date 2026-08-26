@@ -19,11 +19,13 @@ from yoke_harness.session_relay_cursor_identity import (
     LaunchAttestationHandoff,
     conversation_map_lookup,
 )
+from yoke_harness.session_relay_native_diagnostics import classify_native_failure
 from yoke_harness.session_relay_runtime import (
     expected_native_instruction,
     RelayAdapter,
     RelayAdapterResult,
     RelayExecutionContext,
+    RelayPrivateDiagnostic,
     WakeMode,
     normalize_wake_mode,
     wake_operation,
@@ -86,6 +88,10 @@ class CursorNativeResult:
     identity_output_snippet: str | None = field(default=None, repr=False)
     identity_parse_expectation: str | None = field(default=None, repr=False)
     phase: str | None = None
+    # What the native wrote to stderr before it failed. Never reported over
+    # the relay wire; the serve loop retains it machine-locally and reports
+    # only an opaque reference.
+    native_stderr: bytes = field(default=b"", repr=False)
 
 
 class CursorSubprocessPort(Protocol):
@@ -128,6 +134,20 @@ def _evidence(
     return evidence
 
 
+def _private_diagnostic(
+    native: CursorNativeResult | None,
+) -> RelayPrivateDiagnostic | None:
+    """Carry the native's own words to the machine-local retention layer."""
+    stderr = bytes(getattr(native, "native_stderr", b"") or b"")
+    if not stderr:
+        return None
+    return RelayPrivateDiagnostic(
+        classify_native_failure(stderr),
+        error_step="native_command",
+        stderr=stderr,
+    )
+
+
 def _result(
     result_code: str,
     *,
@@ -140,6 +160,7 @@ def _result(
         native_session_id=native_session_id,
         adapter_revision=CURSOR_ADAPTER_REVISION,
         evidence=_evidence(evidence_code or result_code, native),
+        private_diagnostic=_private_diagnostic(native),
     )
 
 

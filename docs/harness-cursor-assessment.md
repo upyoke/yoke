@@ -290,6 +290,46 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
    `subagentStart`/`Task`, conditional-block audit, managed project-install
    layer.
 
+## Launched-worker turn semantics and binding (measured 2026-08-26)
+
+Six consecutive `cursor-cli` launch failures over two days, against a
+`cursor-agent` probing healthy at `2026.08.25-3e8eec8`, resolved into three
+facts — read from control-plane rows, not inferred.
+
+**A launch never creates a Cursor session with `-p`.** `cursor-agent -p` runs
+one print-mode turn against a session that already exists and exits, owning
+and registering nothing — hence `CursorCliTransport` is resume-only and
+launches go through ACP (`session/new` + `session/prompt`). A launched worker
+is therefore not "one response and done": the ACP session keeps taking turns
+while the agent works, and needs no continuation nudge. What bounds the relay's
+attention is `CURSOR_ACP_TURN_SECONDS`, after which its drain thread stops
+following the prompt; measured natives worked for minutes past that (79 and 71
+tool calls over 9 and 6 minutes), so the drain is not what ends a worker.
+
+**A Cursor cold start regularly outlives the relay's registration proof.**
+`complete_bound_launch` waited `CURSOR_REGISTRATION_WAIT_SECONDS`, a
+prompt-mode registration turn, then `CURSOR_REGISTRATION_TURN_WAIT_SECONDS`
+for the conversation map to prove hooks had fired. Launch `e058a2e9` gave up
+at 54s with `registration_unproven` and reaped the native; session `9d8017c0`
+registered ten seconds later and ran 43 tool calls with its launch already
+closed. A map miss is now a created native with
+`native_launch_phase=registration_pending`: the registration deadline decides
+the outcome, and the supervision record still reaps a native that never
+registers.
+
+**Model labels are two vocabularies, and equality between them refused every
+correctly-bound launch.** A launch requests the string `cursor-agent --model`
+accepts (the machine-config preferred model, e.g `cursor-grok-4.6-high-fast`);
+a Cursor session registers the concrete model `afterAgentThought` reports,
+read by `cursor_model_spool` from the payload's `model_id` (e.g `grok-4.6`). The launch binding compared the two for
+equality, so launches `e2b0473e` and `8e88bd1f` — natives that registered
+under exactly the `native_session_id` the relay recorded and ran 71 and 79
+tool calls — were refused `model_mismatch` on every attestation retry, never
+received their instruction, surveyed unassigned, and were reaped claim-free
+while their launch rows read `late_registration`. The native session id proves
+exact identity already, so the binding records `requested_model` /
+`registered_model` as evidence instead of refusing.
+
 ## Open questions
 
 - IDE `sessionEnd` semantics on window close, reload, and machine sleep —
@@ -298,6 +338,8 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
   reopening (episode model).
 - Print-mode subagent lifecycle: `Task` dispatch fires no
   `subagentStart`/`subagentStop` in `-p` mode — vendor gap or intended?
+- Whether the conversation map can land early enough to be launch
+  registration proof again, rather than the optimistic fast path it now is.
 - Minimum Cursor version for the hook surface (the manifest's
   `hook_enhanced` floor) — the measured builds are single data points.
 - `beforeShellExecution` vs `preToolUse(Shell)`: run the Bash chain on one,

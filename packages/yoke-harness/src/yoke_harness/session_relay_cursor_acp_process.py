@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from dataclasses import replace
 import json
 import os
@@ -108,6 +110,12 @@ def _outcome_payload(outcome: CursorNativeResult) -> dict[str, object]:
         payload["identity_output_snippet"] = outcome.identity_output_snippet
     if outcome.identity_parse_expectation:
         payload["identity_parse_expectation"] = outcome.identity_parse_expectation
+    if outcome.native_stderr:
+        # The worker owns the pipe; the parent owns the retention. Base64
+        # because this hand-off is JSON and the native writes arbitrary bytes.
+        payload["native_stderr_b64"] = base64.b64encode(outcome.native_stderr).decode(
+            "ascii"
+        )
     return payload
 
 
@@ -119,6 +127,11 @@ def _outcome_from_payload(payload: object) -> CursorNativeResult | None:
     duration_ms = payload.get("duration_ms")
     snippet = payload.get("identity_output_snippet")
     expectation = payload.get("identity_parse_expectation")
+    encoded = payload.get("native_stderr_b64")
+    try:
+        stderr = base64.b64decode(encoded, validate=True) if encoded else b""
+    except (TypeError, ValueError, binascii.Error):
+        stderr = b""
     return CursorNativeResult(
         str(payload["result_code"]),
         str(native) if isinstance(native, str) and native else None,
@@ -128,6 +141,7 @@ def _outcome_from_payload(payload: object) -> CursorNativeResult | None:
         identity_parse_expectation=(
             expectation if isinstance(expectation, str) else None
         ),
+        native_stderr=stderr,
     )
 
 
