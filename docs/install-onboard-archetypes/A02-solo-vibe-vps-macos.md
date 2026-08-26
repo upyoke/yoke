@@ -116,6 +116,23 @@ Seed work: issues for "tame the repo" / "describe the droplet". If a persistent
 flow was registered, Usher Route B will try to run it against an environment
 that has no AWS apply.
 
+## Test setup
+
+**Reality:** vibe-coded Node shop. Maybe a leftover `npm test` script; no
+`.github/workflows`. Flaky or empty if present.
+
+**Bind today:** local `command` method if a real argv is registered. No
+Actions file → do not declare `ci_workflow_file`. `merge_queue` requires
+that capability plus GitHub — she has GitHub, not a queue.
+
+**Onboard:** survey may see `package.json` scripts; profile does not propose
+registering them. Writing `verification_profiles.test_command` would not
+create the gate.
+
+**Ask that should happen:** "Register `npm test` as `quick`, attest no
+trustworthy suite, or scaffold?" Recommend register if the script exists
+and exits 0 on main; else attested no-tests. Never invent Actions.
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -124,4 +141,4 @@ that has no AWS apply.
 | DigitalOcean | Missing. Should be a hosting provider row next to AWS, or a "existing VPS, no Yoke apply" posture | "Yoke cannot apply infrastructure for DigitalOcean yet; skip cloud apply" | Record SSH host as documentation; manual deploy stays operator-owned |
 | CI | GitHub without Actions is valid; `ci_workflow_file` capability optional | QA `command-ci` unreachable → local `command` method, named reason | Do not invent a workflow file |
 
-Ledger: G-hosting-aws-only, G-no-deploy-default-flow, G-paas-or-vps-non-aws.
+Ledger: G-hosting-aws-only, G-no-deploy-default-flow, G-paas-or-vps-non-aws, G-test-setup-unasked, G-no-tests-posture, G-ci-workflow-undeclared.

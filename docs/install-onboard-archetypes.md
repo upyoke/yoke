@@ -28,11 +28,17 @@ forbidden. Sources:
 | Idea deploy-default | `.agents/skills/yoke/idea/infer-and-create.md` |
 | Usher routing | `.agents/skills/yoke/usher/deploy.md` |
 | Windows git advice | `project_git_install_advice.py` |
+| QA command routing | `qa_command_plan_registration.py`, `qa_command_scope_routing.py` |
+| CI / merge-queue caps | `projects_seed_ci_workflow.py` |
+| Project Structure test families | `project_structure.py` (`test_roots`, `verification_profiles`) |
+| Scaffold tests + `ci.yml` | `packs/webapp-scaffold` README |
 
 ## Dimensions (not an enumeration)
 
-The population is a product of six independent axes. The full cross-product is
-not useful; the sample below spans each value at least once.
+The population is a product of seven independent axes. The full cross-product
+is not useful; the sample below spans each value at least once. **Test
+setup** is first-class: done/merged gates run the registered verification
+command, not a surveyed README.
 
 | Axis | Values |
 |---|---|
@@ -42,6 +48,7 @@ not useful; the sample below spans each value at least once.
 | OS | macOS · Windows · Linux |
 | VCS / CI | no remote · GitHub with CI · GitHub without CI · other forge |
 | Deploy shape | none · manual · CI/CD pipeline · app store |
+| Test setup | none · scaffold-only · local suite · GitHub Actions · other-CI · monorepo · XCTest · flaky legacy |
 
 ## Sample (12 archetypes)
 
@@ -97,6 +104,9 @@ Facts:
 - The `vps-hosting` Pack provisions **AWS EC2**, not DigitalOcean.
 - Native Windows install fails in the shim (`Darwin|Linux` only). Native
   Windows onboarding git advice: "not supported yet. Use WSL/Linux or macOS".
+- Neither wire-up nor the harness profile asks how tests run. The QA gate
+  still expects a `registered-command-*` plan (see
+  [test setup](install-onboard-archetypes/test-setup.md)).
 
 Where a requirement should be declared, what the refusal should say, and what a
 project without that structure should get instead: see each archetype's crux
@@ -105,6 +115,9 @@ block and the [gap ledger](install-onboard-archetypes/gap-ledger.md).
 ## How to read an archetype file
 
 Each file has: dimension vector · fit / break / gaps · literal install+wizard
-transcript · literal `/yoke onboard` skill transcript · crux (declare / refuse /
-instead) · ledger IDs. Follow-up items are indexed in the
-[gap ledger](install-onboard-archetypes/gap-ledger.md) (YOK-2464–YOK-2474).
+transcript · literal `/yoke onboard` skill transcript · **Test setup**
+(reality / bind / onboard / the question that should be asked) · crux ·
+ledger IDs. The shared surface map is
+[test-setup.md](install-onboard-archetypes/test-setup.md). Follow-up items
+are indexed in the [gap ledger](install-onboard-archetypes/gap-ledger.md)
+(YOK-2464–YOK-2474 and YOK-2477–YOK-2481).

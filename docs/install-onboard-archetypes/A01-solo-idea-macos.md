@@ -245,6 +245,25 @@ Init: `yoke onboard checklist init --project notebook-app --checkout ~/code/note
    Empty → omit `--deployment-flow` on `yoke items create`. Non-empty → every
    seeded issue gets the default flow.
 
+## Test setup
+
+**Reality:** empty repo — **no tests**. If they accept `webapp-scaffold`,
+pytest / Vitest / Playwright examples and `.github/workflows/ci.yml` land
+unregistered.
+
+**Bind today:** after scaffold, `registered-command-quick` can name the
+Pack's test argv; `ci_workflow_file` can name `ci.yml`. No environment →
+`yoke qa plan create` refuses (`--environment` required).
+
+**Onboard:** wizard never asks. Profile never proposes a command or
+`ci_workflow_file`. Seed attaches a plan only if CURRENT-PLAN already names
+one.
+
+**Ask that should happen:** "No tests yet — install the scaffold suite,
+attest no-tests, or stop?" Recommend scaffold, else attested no-tests
+(`implementation_review`). Refuse inventing `command-ci`. See
+[test-setup.md](test-setup.md).
+
 ## Crux
 
 | Requirement | Where it should be declared | Refusal when absent | Instead |
@@ -252,5 +271,6 @@ Init: `yoke onboard checklist init --project notebook-app --checkout ~/code/note
 | Deployment / environment | Execution-profile confirmation: hosting and env are optional; default flow may be merge-only (`target_tier` NULL) or unset | Usher Route A / omit `--deployment-flow`; never stamp a persistent flow | Local merge, no pipeline |
 | GitHub merge target | Already optional (Skip GitHub / keep local) | GitHub automation disabled until App sees the repo | Local default branch `main` |
 | Migration | Not asked; N/A for empty repo | — | No `migration_model` |
+| Tests | Profile test-setup box (missing) | Do not register a command that is not in the tree | Scaffold suite or attested no-tests |
 
-Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-installer-handoff-cursor.
+Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-installer-handoff-cursor, G-test-setup-unasked, G-no-tests-posture, G-scaffold-tests-unregistered, G-qa-plan-needs-env.

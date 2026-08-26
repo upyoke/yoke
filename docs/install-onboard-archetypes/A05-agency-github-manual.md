@@ -80,6 +80,21 @@ Seeded items should omit `--deployment-flow` (`deploy-defaults get` empty).
 If a previous client confirmation wrote a **project** default, it is per
 project — this new slug starts empty unless she confirms flows.
 
+## Test setup
+
+**Reality:** per-client marketing/site repos. Often **no tests**, or a
+Playwright check nobody runs. GitHub without Actions.
+
+**Bind today:** local `command` only if a script exists. No
+`ci_workflow_file`. No `merge_queue`.
+
+**Onboard:** each new project survey is silent on tests; seed never
+attaches a plan.
+
+**Ask that should happen:** per client — register a command, scaffold a
+tiny suite, or attest no-tests. Agency default should be attested
+no-tests unless the SOW paid for QA. See [test-setup.md](test-setup.md).
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -88,4 +103,4 @@ project — this new slug starts empty unless she confirms flows.
 | Private GitHub | App installation must include the client repo | Pending binding; project GitHub `disabled` | Issues stay in Yoke DB only (`github_sync_mode` disabled) |
 | Agency identity | Owner picker "Where on GitHub?" / `your account` vs `organization` | Cannot publish under the wrong owner | Pick org; do not paste tokens |
 
-Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-forge-github-only (private App access friction).
+Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-forge-github-only (private App access friction), G-test-setup-unasked, G-no-tests-posture.

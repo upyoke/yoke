@@ -95,6 +95,24 @@ lie.
 Migration: legacy DB exists. Onboard never asks `migration_model`. Governed
 rehearsal is a later capability; absence is silent.
 
+## Test setup
+
+**Reality:** flaky JUnit on Jenkins, maybe containerized. GitLab CI or
+`Jenkinsfile`. Not GitHub Actions.
+
+**Bind today:** a local `command` can wrap `mvn test` / `docker compose
+run` **if** that argv is honest on the operator machine. `ci_workflow_file`
+cannot name Jenkins. `merge_queue` is GitHub-only. `command-ci` against
+Actions would be a lie.
+
+**Onboard:** survey may see `Jenkinsfile` / `pom.xml`. Nothing registers
+`mvn test`. No other-CI capability exists.
+
+**Ask that should happen:** "Register a local Maven/container command, or
+attest that Jenkins stays the gate and Yoke uses `implementation_review`?"
+Refuse treating GitLab CI as `ci_workflow_file`. Ledger:
+G-legacy-suite-unmapped, G-command-ci-misbind.
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -104,4 +122,4 @@ rehearsal is a later capability; absence is silent.
 | Deploy environment | On-prem Jenkins not a `step_runner` | Do not create AWS persistent flows | Empty default; document Jenkins as external |
 | Self-host server | Wizard expects URL+token **already** | Cannot enter team-server without a live API | `yoke self-host init` first (`docs/self-host.md`) |
 
-Ledger: G-forge-github-only, G-onprem-selfhost-gap, G-migration-undeclared, G-no-deploy-default-flow.
+Ledger: G-forge-github-only, G-onprem-selfhost-gap, G-migration-undeclared, G-no-deploy-default-flow, G-test-setup-unasked, G-legacy-suite-unmapped, G-command-ci-misbind.

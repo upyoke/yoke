@@ -63,6 +63,23 @@ Existing Actions remain a hint. Yoke cannot register a persistent flow that
 deploys to Render. If they accept the default AWS profile, step 7 tries AWS
 apply they do not want.
 
+## Test setup
+
+**Reality:** mature app with GitHub Actions (test + maybe Render deploy) and
+a local Jest/pytest suite. Native Windows never reaches this; after WSL the
+suite is Linux.
+
+**Bind today:** declare the **test** workflow as `ci_workflow_file`;
+register `quick`/`full`. `command-ci` works because GitHub App + Actions
+exist. Do not treat the Render deploy job as the verification workflow.
+
+**Onboard:** no test box. After WSL, survey sees workflows and does not
+write the capability.
+
+**Ask that should happen (WSL):** which YAML is the required check; local
+argv for `worktree_run` fallback. Refuse `merge_queue` unless they already
+run merge-when-ready.
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -71,4 +88,4 @@ apply they do not want.
 | PaaS environment | Execution profile hosting box | "No PaaS provider in the wizard; skip cloud apply" | Merge-only / empty default; keep Render as external deploy |
 | GitHub CI | App binding | Unreachable CI method names the reason | `command-ci` when `ci_workflow_file` exists; else local |
 
-Ledger: G-windows-native-install, G-windows-wsl-teaching, G-paas-hosting.
+Ledger: G-windows-native-install, G-windows-wsl-teaching, G-paas-hosting, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind.

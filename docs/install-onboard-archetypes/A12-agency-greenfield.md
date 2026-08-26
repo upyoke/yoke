@@ -44,6 +44,22 @@ yoke aws exec --project {p} -- sts get-caller-identity --output json
 
 Then step 7 `[y/N]` apply. Only **then** should a persistent default flow exist.
 
+## Test setup
+
+**Reality:** wizard-created empty git repo — **no tests**. Phase-2 AWS does
+not change that.
+
+**Bind today:** same as A01. `yoke qa plan create` needs an environment;
+creating stage/prod only so a plan can exist is the G-qa-plan-needs-env
+lie.
+
+**Onboard:** no test question. CURRENT-PLAN will name client tickets, not a
+reusable QA plan, so seed will not attach one.
+
+**Ask that should happen:** scaffold vs attested no-tests before any item
+can hit reviewing-implementation. Recommend scaffold if they accepted
+`webapp-scaffold`; else attest no-tests.
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -52,4 +68,4 @@ Then step 7 `[y/N]` apply. Only **then** should a persistent default flow exist.
 | Deploy on items | Idea uses `deploy-defaults get` | If get returns a flow, Usher Route B / exit 7 on skip-deploy | Keep defaults empty until hosting verified |
 | Migration | Still N/A | — | Add `migration_model` when a DB exists |
 
-Ledger: G-execution-profile-no-hosting-still-envs, G-no-deploy-default-flow.
+Ledger: G-execution-profile-no-hosting-still-envs, G-no-deploy-default-flow, G-test-setup-unasked, G-no-tests-posture, G-qa-plan-needs-env.

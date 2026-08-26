@@ -92,6 +92,25 @@ are merge-only or unset.
 
 Seed: `yoke items create … --deployment-flow {default}`.
 
+## Test setup
+
+**Reality:** active product. Likely Jest or pytest plus
+`.github/workflows/deploy.yml` (and maybe a test workflow). CI already
+deploys.
+
+**Bind today:** register the **test** argv as `quick`/`full`. Declare
+`ci_workflow_file.workflow_file` only for the workflow that runs that
+suite (not the deploy workflow). `command-ci` then `ci_run`. `merge_queue`
+only if the org already uses merge-when-ready and the workflow has
+`merge_group`.
+
+**Onboard:** survey sees CI as a deploy **hint**. Step 5 does not write
+`ci_workflow_file`. Seed will not attach `registered-command-quick`.
+
+**Ask that should happen:** "Which workflow is the required status check?
+Which local argv is `quick` vs `full`? Queue or standalone merge?" Refuse
+binding `command-ci` to a deploy-only YAML.
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -100,4 +119,4 @@ Seed: `yoke items create … --deployment-flow {default}`.
 | Existing CI | `.github/workflows` is a **hint**, not a Yoke flow | Do not fail onboard if Actions already deploy | Map or ignore; never dual-write two production pipelines silently |
 | Migration | If the app has Postgres, `migration_model` is a project capability — not asked here | Rehearsal refuses HTTPS product connections | Declare model later; idea items that mutate DB need a DB claim |
 
-Ledger: G-byo-aws-identity, G-no-deploy-default-flow (deferred apply), G-installer-handoff-cursor.
+Ledger: G-byo-aws-identity, G-no-deploy-default-flow (deferred apply), G-installer-handoff-cursor, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind.

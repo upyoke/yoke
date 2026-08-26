@@ -57,6 +57,22 @@ fails (no infra).
 Seed from CURRENT-PLAN should be implementation issues **without** a deploy
 flow.
 
+## Test setup
+
+**Reality:** vibe-coded — **no tests**, no CI. The explicit no-tests
+archetype (with A01/A08/A12).
+
+**Bind today:** nothing honest. `webapp-scaffold` would conflict and must
+map, not overwrite — so Pack tests do not land.
+
+**Onboard:** survey records "no tests" as a fact and never asks what the
+QA gate should mean.
+
+**Ask that should happen:** offer a **minimal** suite (one pytest/vitest
+file, not a full Pack overwrite); if declined, **attest no-tests** so
+reviewing-implementation seeds `implementation_review`. Refuse registering
+`pytest` or `command-ci`. Recommendation in [test-setup.md](test-setup.md).
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -65,4 +81,4 @@ flow.
 | CI | Optional `ci_workflow_file` | QA command-ci unreachable named reason | Local tests when they exist |
 | Merge target | GitHub App bind | Skip GitHub → local only | They did bind — PRs possible |
 
-Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs.
+Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-test-setup-unasked, G-no-tests-posture.

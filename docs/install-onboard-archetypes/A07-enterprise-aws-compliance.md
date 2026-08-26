@@ -59,6 +59,26 @@ long-lived keys.
 Step 7 apply under `yoke aws exec` is the sanctioned resolver path — still
 needs *some* `aws-admin` material on the operator machine.
 
+## Test setup
+
+**Reality:** monorepo — many suites (unit / contract / integration),
+CODEOWNERS, required status checks, possibly containerized. GitHub Actions
+or an internal Actions runner fleet.
+
+**Bind today:** `ci_workflow_file` plus optional `scope_workflows` for
+`quick` vs `full`. `merge_queue` only if the org already uses the GitHub
+merge queue and the workflow has `merge_group`. Local `command` must name
+the same slice CI runs, or the gate diverges.
+
+**Onboard:** bind `org/monorepo` does not ask which workflow is required.
+If the App is skipped, `command-ci` and `merge_queue` are unreachable
+(named reason).
+
+**Ask that should happen:** required-check filename; `quick` vs `full`
+argv; queue vs standalone. Refuse mapping one `pytest` to a 40-job
+monorepo. G-legacy-suite-unmapped (many suites), G-merge-queue-github-only
+when App is forbidden.
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -68,4 +88,4 @@ needs *some* `aws-admin` material on the operator machine.
 | Data residency | Destination picker (this machine / team server / upyoke.com) | Hosted beta refusal | Team server on-prem |
 | Migration | Not in wizard | Silent | Architecture/capability later |
 
-Ledger: G-byo-aws-identity, G-forge-github-only (org App policy), G-enterprise-static-keys.
+Ledger: G-byo-aws-identity, G-forge-github-only (org App policy), G-enterprise-static-keys, G-test-setup-unasked, G-ci-workflow-undeclared, G-legacy-suite-unmapped, G-merge-queue-github-only.

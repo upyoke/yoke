@@ -26,6 +26,14 @@ filled in the last column.
 | G-migration-undeclared | missing-config-surface | migrated | No onboard question for `migration_model` / "no DB to migrate" | A03 A06 A07 | YOK-2472 |
 | G-byo-aws-identity | missing-config-surface | deployed | Hosting collects a new IAM user access key pair only | A03 A07 | YOK-2473 |
 | G-idea-default-flow | blocker | released | `infer-and-create.md`: non-empty deploy-defaults **always** assigned | all with a default flow | YOK-2474 |
+| G-test-setup-unasked | blocker | merged / done | Wizard and profile never ask how tests run; gates still expect a registered command | all | YOK-2477 |
+| G-no-tests-posture | missing-config-surface | merged / done | No attested no-tests declaration; no-tests repos get an empty or invented gate | A01 A05 A08 A10 A12 | YOK-2478 |
+| G-scaffold-tests-unregistered | friction | merged / done | `webapp-scaffold` lands tests + `ci.yml`; onboard does not declare `ci_workflow_file` or `registered-command-*` | A01 A12 | YOK-2477 |
+| G-ci-workflow-undeclared | friction | merged | Survey sees Actions; onboard never writes `ci_workflow_file` | A02 A03 A04 A07 A09 | YOK-2479 |
+| G-command-ci-misbind | blocker | merged / done | Deploy YAML / Jenkins / GitLab / fastlane store-upload treated as the verification workflow | A03 A04 A06 A09 A11 | YOK-2479 |
+| G-qa-plan-needs-env | blocker | merged / done | `yoke qa plan create` requires `--environment`; no-host projects cannot register a plan honestly | A01 A09 A12 | YOK-2480 |
+| G-legacy-suite-unmapped | missing-config-surface | merged / done | JUnit/Jenkins, PHPUnit, XCTest, monorepo many suites have no scope map | A06 A07 A09 A11 | YOK-2481 |
+| G-merge-queue-github-only | missing-config-surface | merged | `merge_queue` requires `ci_workflow_file` + `github`; App skip / other forge cannot declare it | A06 A07 A11 | YOK-2479 |
 
 ## Declare / refuse / instead (crux)
 
@@ -63,6 +71,22 @@ needs a validation DB.
 
 **Instead:** no governed mutation (`db_claim` state `none`) until declared.
 
+### Test setup (done / merged gate)
+
+**Declare:** at profile confirmation — one of: registered
+`registered-command-quick` (and `full` if different) plus optional
+`ci_workflow_file` / `merge_queue`; or an operator-attested no-tests
+posture. Surfaces in [test-setup.md](test-setup.md).
+
+**Refuse:** `command-ci` without a declared GitHub Actions workflow that
+runs that command. `merge_queue` without GitHub + `ci_workflow_file`.
+Inventing `pytest` for a repo that has none.
+
+**Instead:** offer scaffold (or Pack tests) first; if declined, attested
+no-tests → seed `implementation_review`. Local `command` when CI is not
+GitHub Actions. Never write `verification_profiles.test_command` and
+treat it as the gate.
+
 ### Installed (OS / PATH / uv)
 
 **Declare:** Darwin/Linux only in the shim. uv consent. PATH doctor in the
@@ -80,3 +104,6 @@ wizard.
 - Onboard step 5 entry with deferred hosting: `hosting-and-environments.md`
 - Usher Route A/B and exit 7: `.agents/skills/yoke/usher/deploy.md`
 - Merge-only `target_tier`: `docs/public/reference/db-reference/projects-and-flows.md`
+- QA scopes and `command` vs `command-ci`: `qa_command_plan_registration.py`
+- `ci_workflow_file` / `merge_queue` templates: `projects_seed_ci_workflow.py`
+- `yoke qa plan create` requires `--environment`: `qa_catalog.py`

@@ -48,6 +48,23 @@ Usher: Route A (`--skip-deploy`). Exit 7 only if a real flow was assigned.
 CI: Actions exist → project may declare `ci_workflow_file`. That is GitHub
 CI for tests/signing, not Yoke `core-container-deploy`.
 
+## Test setup
+
+**Reality:** XCTest / Gradle + `fastlane` + `.github/workflows/testflight.yml`.
+Not a web pytest tree. Simulator or device needed.
+
+**Bind today:** `ci_workflow_file` can name the **test** workflow (not
+TestFlight). Local `command` is `xcodebuild` / `fastlane test` on macOS.
+`e2e`/`smoke` stay local unless `scope_workflows` says otherwise. No
+HTTPS env → `yoke qa plan create --environment` has nothing honest to
+name.
+
+**Onboard:** survey sees `fastlane/` and does not register XCTest.
+
+**Ask that should happen:** which Actions file is unit/UI tests vs store
+upload; register that as `quick`. Refuse binding `command-ci` to
+`testflight.yml` if that job ships a build.
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -56,4 +73,4 @@ CI for tests/signing, not Yoke `core-container-deploy`.
 | Deployment flow | Profile delivery; merge-only `target_tier` NULL | Usher Route A; idea omits `--deployment-flow` | External TestFlight remains Actions |
 | Domain | Step 6 default subdomain | Skip `domain-setup=not-needed` | No hostname |
 
-Ledger: G-app-store-deploy, G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs.
+Ledger: G-app-store-deploy, G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind, G-legacy-suite-unmapped, G-qa-plan-needs-env.

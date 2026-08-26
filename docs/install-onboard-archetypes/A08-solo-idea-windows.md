@@ -39,6 +39,18 @@ Does not run. There is no Windows harness install path in this installer.
 After WSL, the transcript is A01 (create project, skip GitHub, skip hosting)
 with Linux PATH files (`.profile`) instead of `.zprofile`.
 
+## Test setup
+
+**Reality:** no repo yet; native Windows never reaches a suite.
+
+**Bind today:** none until WSL. Then A01 — no-tests or unregistered scaffold.
+
+**Onboard:** does not run. After WSL the same missing test-setup question
+as A01.
+
+**Ask that should happen (on WSL):** scaffold vs attested no-tests. See
+[test-setup.md](test-setup.md).
+
 ## Crux
 
 | Requirement | Declare | Refusal | Instead |
@@ -46,4 +58,4 @@ with Linux PATH files (`.profile`) instead of `.zprofile`.
 | Supported OS | Installer `uname` gate | Current fail string | Same string **plus** WSL install + rerun `curl -fsSL https://upyoke.com/install \| sh` inside Ubuntu |
 | Deploy / env | N/A — never onboarded | — | Same as A01 once on WSL |
 
-Ledger: G-windows-native-install, G-windows-wsl-teaching.
+Ledger: G-windows-native-install, G-windows-wsl-teaching, G-test-setup-unasked, G-no-tests-posture.
