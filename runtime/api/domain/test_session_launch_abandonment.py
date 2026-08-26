@@ -110,7 +110,7 @@ def test_worker_that_ended_without_claiming_flips_its_launch() -> None:
     evidence = json.loads(flipped.result_evidence)
     assert evidence["result_code"] == ABANDONED_RESULT_CODE
     assert evidence["closure_reason"] == "session_empty_auto_ended"
-    assert evidence["registration_refusal_session_id"] == WORKER
+    assert evidence["registration_session_id"] == WORKER
 
 
 def test_worker_that_held_a_claim_keeps_its_successful_launch() -> None:

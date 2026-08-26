@@ -125,7 +125,7 @@ def test_refused_registration_is_written_onto_the_launch_once_per_code() -> None
 
     evidence = _evidence(conn, launch.launch_id)
     assert evidence["registration_refusal_code"] == "surface_mismatch"
-    assert evidence["registration_refusal_session_id"] == "session-refused"
+    assert evidence["registration_session_id"] == "session-refused"
     assert repeated.result_evidence == first.result_evidence
     assert repeated.state == "awaiting_registration"
 
@@ -149,7 +149,7 @@ def test_late_registration_records_what_the_server_could_still_observe() -> None
     assert evidence["result_code"] == "late_registration"
     assert evidence["closure_reason"] == "registration_after_deadline"
     assert evidence["launch_phase_reached"] == "awaiting_registration"
-    assert evidence["registration_refusal_session_id"] == "session-late-evidence"
+    assert evidence["registration_session_id"] == "session-late-evidence"
 
 
 def test_registration_deadline_is_never_a_zero_evidence_verdict() -> None:

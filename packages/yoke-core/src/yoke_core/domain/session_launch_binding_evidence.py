@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain import json_helper
+from yoke_core.domain.session_launch_closure_evidence import closure_evidence
 from yoke_core.domain.session_launch_store import (
     begin_mutation,
     get_launch,
@@ -52,8 +54,6 @@ def late_registration_evidence(
     now: str,
 ) -> str:
     """Say which session registered too late, and how far the launch got."""
-    from yoke_core.domain.session_launch_closure_evidence import closure_evidence
-
     document = closure_evidence(
         conn,
         launch=launch,
@@ -64,14 +64,12 @@ def late_registration_evidence(
         started_at=launch.awaiting_registration_at,
         now=now,
     )
-    document["registration_refusal_session_id"] = session_id
+    document["registration_session_id"] = session_id
     return merge_redacted_evidence(launch.result_evidence, document)
 
 
 def _recorded_refusal(stored_evidence: Any) -> str:
     """Return the refusal code already recorded on this launch, if any."""
-    from yoke_core.domain import json_helper
-
     try:
         stored = json_helper.loads_text(str(stored_evidence))
     except (TypeError, ValueError):
@@ -88,7 +86,7 @@ def record_registration_refusal(
     launch_id: str,
     code: str,
     session_id: str | None,
-) -> LaunchRecord | None:
+) -> LaunchRecord:
     """Write one refused registration attempt onto its launch, keeping state.
 
     Only the evidence column moves: a refusal is a diagnosable fact, not a
@@ -107,7 +105,7 @@ def record_registration_refusal(
             return launch
         evidence: dict[str, str] = {"registration_refusal_code": refusal}
         if str(session_id or "").strip():
-            evidence["registration_refusal_session_id"] = str(session_id).strip()
+            evidence["registration_session_id"] = str(session_id).strip()
         result = update_launch(
             conn,
             launch_id,

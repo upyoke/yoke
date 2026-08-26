@@ -125,9 +125,7 @@ def test_unproven_registration_hands_over_a_pending_native(tmp_path: Path) -> No
         assert handoffs == [(LAUNCH_ID, ATTESTATION, {"binding_id": CONVERSATION_ID})]
         # Custody stays with the sweep, which reaps only past the deadline.
         assert process.poll() is None
-        assert (
-            tmp_path / "session-launch-supervision" / f"{LAUNCH_ID}.json"
-        ).exists()
+        assert (tmp_path / "session-launch-supervision" / f"{LAUNCH_ID}.json").exists()
     finally:
         if process.poll() is None:
             process.kill()

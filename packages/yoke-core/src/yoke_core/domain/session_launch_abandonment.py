@@ -101,7 +101,7 @@ def settle_abandoned_launch(
             "result_code": ABANDONED_RESULT_CODE,
             "closure_reason": str(end_reason or "session_ended")[:128],
             "launch_phase_reached": "registered_and_injected",
-            "registration_refusal_session_id": session_id,
+            "registration_session_id": session_id,
         }
         flipped = update_launch(
             conn,
