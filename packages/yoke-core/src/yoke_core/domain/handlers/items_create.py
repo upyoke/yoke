@@ -10,6 +10,14 @@ is exactly what an https ``/yoke idea`` needs.
 Production creates carry a typed entry surface. The selected immutable
 workflow version decides whether that surface may create the item.
 
+A create through a non-web surface also attests that its filer retrieved
+the operator execution-instruction blocks for the target workflow and
+project first (``execution_instructions_considered``). The web form
+renders those blocks in its own UI and promotion carries an already-filed
+item forward, so both stay exempt; so do previews and disposable test
+databases. This is the one central check — CLI adapters expose the flag
+and pass it through, they never set it for the caller.
+
 Target is ``kind="global"`` with the project named in the payload
 (``project``); authz classifies ``items.create`` as PROJECT scope and
 resolves the target project from that payload field, so a token actor
@@ -68,6 +76,14 @@ class ItemCreateRequest(BaseModel):
         description="Definition-bounded verification, gate, and delivery choices.",
     )
     dry_run: bool = Field(False, description="Preview only; no row, no GitHub sync.")
+    execution_instructions_considered: bool = Field(
+        False,
+        description=(
+            "The filer retrieved this workflow and project's operator "
+            "execution instructions before authoring. Required for every "
+            "non-web entry surface."
+        ),
+    )
 
 
 class ItemCreateResponse(BaseModel):
@@ -83,6 +99,9 @@ class ItemCreateResponse(BaseModel):
     item_ref: Optional[str] = None
     dry_run: bool = False
     log: str = ""
+    # The attestation this create was accepted under, so the receipt an
+    # auditor reads carries the answer rather than the absence of a refusal.
+    execution_instructions_considered: bool = False
     # Resolved operator execution-instruction blocks for the created item,
     # so a creator that executes immediately still receives them without a
     # re-fetch (the read surfaces prepend the same blocks above the body).
@@ -116,7 +135,20 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         source = str(request.actor.actor_id)
 
     from yoke_core.domain.backlog_create_op import execute_create
-    from yoke_core.domain.item_entry_surface import MISSING_ENTRY_SURFACE_MESSAGE
+    from yoke_core.domain.item_entry_surface import (
+        MISSING_ENTRY_SURFACE_MESSAGE,
+        enforce_execution_instructions_considered,
+    )
+
+    unconsidered = enforce_execution_instructions_considered(
+        workflow=payload.workflow,
+        project=payload.project,
+        entry_surface=payload.entry_surface,
+        considered=payload.execution_instructions_considered,
+        dry_run=payload.dry_run,
+    )
+    if unconsidered:
+        return _error("execution_instructions_not_considered", unconsidered)
 
     captured = io.StringIO()
     result: Dict[str, Any] = execute_create(
@@ -163,6 +195,9 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         item_ref=result.get("item_ref"),
         dry_run=bool(result.get("dry_run", False)),
         log=captured.getvalue(),
+        execution_instructions_considered=(
+            payload.execution_instructions_considered
+        ),
         execution_instructions=execution_instructions,
     )
     return HandlerOutcome(
@@ -182,7 +217,10 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "target_kinds": ["global"],
         "side_effects": ["item_insert", "github_sync", "rebuild_board"],
         "emitted_event_names": ["YokeFunctionCalled"],
-        "guardrails": ["workflow_entry_surface"],
+        "guardrails": [
+            "workflow_entry_surface",
+            "execution_instructions_considered",
+        ],
         "adapter_status": "live",
         "claim_required_kind": None,
     },

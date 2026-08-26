@@ -78,8 +78,12 @@ def render_item_entry_surface_block() -> list[str]:
         "a typed entry surface (`web_form`, `cli`, `harness_skill`, or "
         "`promotion`). The selected immutable workflow version must allow "
         "that surface. `/yoke idea` uses `yoke items create ... "
-        "--entry-surface harness_skill`; dry-run and test-isolated DB "
-        "targets may omit the surface.",
+        "--entry-surface harness_skill "
+        "--execution-instructions-considered`; dry-run and test-isolated "
+        "DB targets may omit both. That flag attests you ran `yoke "
+        "workflow execution-instruction resolve --workflow W --project P` "
+        "before authoring; every non-web surface is refused without it, "
+        "and no adapter sets it for you.",
     ]
 
 

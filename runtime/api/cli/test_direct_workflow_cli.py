@@ -45,6 +45,7 @@ def test_dash_filing_uses_cli_provenance_and_tightening_posture(monkeypatch):
         "--path-claims",
         "--approval-on-done",
         "--deployment",
+        "--execution-instructions-considered",
     ]) == 0
 
     assert captured["function_id"] == "items.create"
@@ -59,7 +60,18 @@ def test_dash_filing_uses_cli_provenance_and_tightening_posture(monkeypatch):
             "deployment": True,
         },
         "project": "yoke",
+        "execution_instructions_considered": True,
     }
+
+
+def test_dash_filing_never_attests_for_the_caller(monkeypatch):
+    captured = _capture(monkeypatch, dash)
+
+    assert dash.dash_file(["Tighten footer", "Fix the footer copy."]) == 0
+
+    # The flag records what the filer did before authoring; an adapter
+    # that defaulted it to true would attest a read that never happened.
+    assert captured["payload"]["execution_instructions_considered"] is False
 
 
 def test_dash_filing_help_lists_priority_choices(capsys):

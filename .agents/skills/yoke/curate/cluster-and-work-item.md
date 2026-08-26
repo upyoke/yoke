@@ -170,7 +170,7 @@ Invoke:
 
 ```bash
 yoke workflow execution-instruction resolve --workflow issue --project {project}
-yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill
+yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill --execution-instructions-considered
 ```
 
 Immediately write a body with the cluster context:

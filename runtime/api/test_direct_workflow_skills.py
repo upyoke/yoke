@@ -153,6 +153,7 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
                 "harness_skill",
                 "--project",
                 "yoke",
+                "--execution-instructions-considered",
             ]
         )
         == 0
@@ -166,6 +167,7 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
         "entry_surface": "harness_skill",
         "project": "yoke",
         "dry_run": False,
+        "execution_instructions_considered": True,
     }
 
     definition = BLITZ_WORKFLOW_DEFINITION["definition"]

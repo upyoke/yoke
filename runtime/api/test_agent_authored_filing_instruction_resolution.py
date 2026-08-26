@@ -1,12 +1,31 @@
-"""Agent filing recipes resolve scoped instructions before authoring."""
+"""Agent filing recipes resolve scoped instructions before authoring.
+
+Every recipe that files through a non-web entry surface also carries the
+attestation flag, because ``items.create`` refuses the filing without it
+and no adapter sets it for the caller.
+"""
 
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).parents[2]
 SKILLS = ROOT / ".agents" / "skills" / "yoke"
 RESOLVER = "yoke workflow execution-instruction resolve"
 FUNCTION_ID = "workflow.execution_instruction.resolve"
+ATTESTATION = "--execution-instructions-considered"
+
+#: Every recipe file whose filing command reaches ``items.create``
+#: through a non-web entry surface.
+FILING_RECIPES = (
+    "dash/SKILL.md",
+    "idea/infer-and-create.md",
+    "curate/cluster-and-work-item.md",
+    "onboard/seed-work.md",
+    "conduct/simulation-gate-escalation.md",
+    "feed/materialize.md",
+)
 
 
 def _read(relative: str) -> str:
@@ -27,7 +46,8 @@ def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
     _ordered(
         filing,
         f"{RESOLVER} --workflow dash --project PROJECT",
-        'yoke dash "<title>" "<instruction>" --json',
+        'yoke dash "<title>" "<instruction>" '
+        f'{ATTESTATION} --json',
     )
 
     escalation = text.split("## Escalate", 1)[1]
@@ -99,3 +119,14 @@ def test_onboard_and_conduct_resolve_before_seed_or_gap_filing() -> None:
     )
     assert FUNCTION_ID in onboard
     assert FUNCTION_ID in conduct
+
+
+@pytest.mark.parametrize("recipe", FILING_RECIPES)
+def test_every_filing_recipe_attests_the_resolved_instructions(recipe) -> None:
+    text = _read(recipe)
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("yoke items create", "yoke dash \"")) or (
+            "$(yoke items create" in stripped
+        ):
+            assert ATTESTATION in stripped, (recipe, stripped)

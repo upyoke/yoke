@@ -32,13 +32,13 @@ Present the full proposed list — titles, priorities, flow — in one block and
 After the single confirmation, create the items one at a time through the registered create surface. Run each command **bare** — no output wrapping — and read the printed PREFIX-N from the adapter output before filing the next:
 
 ```bash
-yoke items create "{title}" issue --entry-surface harness_skill --project {project} --deployment-flow {flow_id} --priority {priority}
+yoke items create "{title}" issue --entry-surface harness_skill --execution-instructions-considered --project {project} --deployment-flow {flow_id} --priority {priority}
 ```
 
 When no flow applies, omit `--deployment-flow`:
 
 ```bash
-yoke items create "{title}" issue --entry-surface harness_skill --project {project} --priority {priority}
+yoke items create "{title}" issue --entry-surface harness_skill --execution-instructions-considered --project {project} --priority {priority}
 ```
 
 Every seeded item enters at `idea` status; `/yoke refine` owns its spec body next — do not assemble bodies, claims, or dependencies here through lower-level surfaces. Echo each created id with the CURRENT-PLAN outcome it came from.

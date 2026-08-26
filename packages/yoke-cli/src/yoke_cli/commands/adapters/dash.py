@@ -27,7 +27,8 @@ from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
 from yoke_cli.commands.adapters.lane_tree import item_lane_tree, verification_tree
 
 DASH_FILE_USAGE = (
-    "yoke dash TITLE INSTRUCTION [--project P] [--priority P] "
+    "yoke dash TITLE INSTRUCTION --execution-instructions-considered "
+    "[--project P] [--priority P] "
     "[--verification-plan ID_OR_SLUG | --verification-method ID] [--path-claims] "
     "[--approval-on-done] [--deployment] [--session-id S] [--json]"
 )
@@ -68,6 +69,17 @@ def dash_file(args: List[str]) -> int:
     parser.add_argument("--path-claims", action="store_true")
     parser.add_argument("--approval-on-done", action="store_true")
     parser.add_argument("--deployment", action="store_true")
+    parser.add_argument(
+        "--execution-instructions-considered",
+        dest="execution_instructions_considered",
+        action="store_true",
+        help=(
+            "Attest that this filer retrieved the operator execution "
+            "instructions for this workflow and project first (yoke "
+            "workflow execution-instruction resolve). Required for "
+            "this surface."
+        ),
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DASH_FILE_USAGE)
@@ -102,6 +114,11 @@ def dash_file(args: List[str]) -> int:
         "workflow": "dash",
         "entry_surface": "cli",
         "workflow_posture": posture,
+        # Passed through, never inferred: the flag attests what the filer
+        # did before authoring, which this adapter cannot observe.
+        "execution_instructions_considered": (
+            parsed.execution_instructions_considered
+        ),
     }
     if project is not None:
         payload["project"] = project

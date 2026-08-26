@@ -28,7 +28,8 @@ __all__ = ["items_create", "ITEMS_CREATE_USAGE"]
 
 
 ITEMS_CREATE_USAGE = (
-    "yoke items create TITLE [WORKFLOW] [--priority P] [--project NAME] "
+    "yoke items create TITLE [WORKFLOW] --execution-instructions-considered "
+    "[--priority P] [--project NAME] "
     "[--deployment-flow FLOW] [--status STATUS] [--source ACTOR] "
     "[--owner ACTOR] [--entry-surface SURFACE] [--dry-run] "
     "[--session-id S] [--json]"
@@ -68,6 +69,17 @@ def items_create(args: List[str]) -> int:
     )
     parser.add_argument("--dry-run", dest="dry_run", action="store_true",
                         help="Preview only; no row created, no GitHub sync.")
+    parser.add_argument(
+        "--execution-instructions-considered",
+        dest="execution_instructions_considered",
+        action="store_true",
+        help=(
+            "Attest that this filer retrieved the operator execution "
+            "instructions for this workflow and project first (yoke "
+            "workflow execution-instruction resolve). Required for "
+            "this surface."
+        ),
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_CREATE_USAGE)
@@ -77,6 +89,11 @@ def items_create(args: List[str]) -> int:
     payload: Dict[str, Any] = {
         "title": parsed.title,
         "dry_run": bool(parsed.dry_run),
+        # Passed through, never inferred: the flag attests what the filer
+        # did before authoring, which this adapter cannot observe.
+        "execution_instructions_considered": bool(
+            parsed.execution_instructions_considered
+        ),
     }
     if parsed.workflow is not None:
         payload["workflow"] = parsed.workflow
