@@ -11,6 +11,7 @@ import time
 
 from yoke_harness.session_launch_containment import (
     CONTAINMENT_TTL_SECONDS,
+    contain_launch_native,
     contain_stranded_launch_natives,
     record_supervised_native,
     release_supervised_native,
@@ -252,3 +253,23 @@ def test_recent_capture_output_keeps_silent_resume_alive(tmp_path: Path) -> None
     finally:
         process.kill()
         process.wait()
+
+
+def test_failed_create_reaps_immediately_inside_the_ttl_window(tmp_path: Path) -> None:
+    process = _sleeper()
+    try:
+        record_supervised_native(
+            LAUNCH_ID, process.pid, native_session_id=SESSION_ID, state_dir=tmp_path
+        )
+
+        outcome = contain_launch_native(LAUNCH_ID, state_dir=tmp_path)
+
+        assert outcome is not None
+        assert outcome.reason == "create_failed"
+        assert outcome.result in {"terminated", "killed"}
+        assert not _record_file(tmp_path).exists()
+        assert process.poll() is not None
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()

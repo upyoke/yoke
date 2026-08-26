@@ -17,7 +17,6 @@ from typing import Callable, Protocol
 from yoke_harness.session_relay_cursor_identity import (
     ConversationLookup,
     LaunchAttestationHandoff,
-    bind_launch_session,
     conversation_map_lookup,
 )
 from yoke_harness.session_relay_runtime import (
@@ -86,6 +85,7 @@ class CursorNativeResult:
     duration_ms: int | None = None
     identity_output_snippet: str | None = field(default=None, repr=False)
     identity_parse_expectation: str | None = field(default=None, repr=False)
+    phase: str | None = None
 
 
 class CursorSubprocessPort(Protocol):
@@ -122,6 +122,9 @@ def _evidence(
         evidence["identity_output_snippet"] = snippet
     if expectation:
         evidence["identity_parse_expectation"] = expectation
+    phase = getattr(native, "phase", None)
+    if phase:
+        evidence["native_launch_phase"] = phase
     return evidence
 
 
@@ -193,51 +196,6 @@ def _launch_result(native: CursorNativeResult) -> RelayAdapterResult:
     )
 
 
-def _bound_launch(
-    context: RelayExecutionContext,
-    native: CursorNativeResult,
-    identity_lookup: ConversationLookup,
-    attestation_handoff: LaunchAttestationHandoff | None,
-    sleeper: Callable[[float], None],
-) -> RelayAdapterResult:
-    launched = _launch_result(native)
-    if launched.result_code != "native_created" or not launched.native_session_id:
-        return launched
-    binding = bind_launch_session(
-        launched.native_session_id,
-        identity_lookup,
-        attestation_handoff,
-        context.job_id,
-        str(context.launch_attestation or ""),
-        sleeper=sleeper,
-    )
-    combined = CursorNativeResult(
-        binding.result_code,
-        binding.session_id,
-        native.exit_code,
-        max(0, int(native.duration_ms or 0) + binding.duration_ms),
-        identity_output_snippet=binding.output_snippet,
-        identity_parse_expectation=binding.parse_expectation,
-    )
-    if binding.result_code != "native_created":
-        report = (
-            "not_created"
-            if binding.result_code == "identity_parse_failed"
-            else "outcome_unknown"
-        )
-        return _result(
-            report,
-            native=combined,
-            native_session_id=binding.session_id,
-            evidence_code=binding.result_code,
-        )
-    return _result(
-        "native_created",
-        native=combined,
-        native_session_id=binding.session_id,
-    )
-
-
 def _wake_result(native: CursorNativeResult) -> RelayAdapterResult:
     code = (
         native.result_code if native.result_code in _WAKE_CODES else "outcome_unknown"
@@ -284,13 +242,22 @@ def build_cursor_adapter(
             try:
                 native = acp_port.new_session(request)
             except Exception:
-                return _result("outcome_unknown")
-            return _bound_launch(
+                return _result(
+                    "outcome_unknown",
+                    native=CursorNativeResult("transport_exception", phase="spawn"),
+                    evidence_code="transport_exception",
+                )
+            from yoke_harness.session_relay_cursor_registration import (
+                complete_bound_launch,
+            )
+
+            return complete_bound_launch(
                 context,
                 native,
                 identity_lookup or conversation_map_lookup,
                 attestation_handoff,
                 sleeper,
+                registration_turn=subprocess_port,
             )
 
         wake_mode = normalize_wake_mode(context.wake_mode)

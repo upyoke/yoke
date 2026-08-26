@@ -1,9 +1,9 @@
 """Bounded Cursor launch identity from ACP output and the conversation map.
 
-``session/new`` on current cursor-agent returns a UUID ``sessionId``. A
-fresh launch registers under that same id, so a map miss is not a parse
-failure: the ACP value is the registration identity. The map still wins
-when it already holds a different UUID (a worktree fold). Unparseable
+``session/new`` on current cursor-agent returns a UUID ``sessionId``.
+Registration still requires the first turn to fire hooks and write the
+conversation map; a map miss is not proof the session registered. The
+map wins when it holds a UUID (including a worktree fold). Unparseable
 output records a bounded snippet and the parse expectation so the
 attempt can fail closed and be retried.
 """
@@ -20,6 +20,11 @@ from uuid import UUID
 
 CURSOR_IDENTITY_LOOKUP_ATTEMPTS = 4
 CURSOR_IDENTITY_RETRY_SECONDS = 0.1
+# Bounded well under the 300s relay lease so a stalled spawn fails fast
+# and the launch can re-dispense instead of burning the lease silently.
+CURSOR_REGISTRATION_WAIT_SECONDS = 20.0
+CURSOR_REGISTRATION_RETRY_SECONDS = 0.5
+CURSOR_REGISTRATION_TURN_WAIT_SECONDS = 15.0
 IDENTITY_SNIPPET_LIMIT = 512
 ACP_SESSION_PARSE_EXPECTATION = "JSON-RPC session/new result.sessionId UUID"
 LaunchAttestationHandoff = Callable[..., bool]
@@ -145,6 +150,47 @@ def resolve_conversation_session(
     )
 
 
+def wait_for_conversation_session(
+    conversation_id: str,
+    lookup: ConversationLookup,
+    *,
+    wait_seconds: float = CURSOR_REGISTRATION_WAIT_SECONDS,
+    retry_seconds: float = CURSOR_REGISTRATION_RETRY_SECONDS,
+    sleeper: Callable[[float], None] = time.sleep,
+) -> CursorIdentityResolution:
+    """Poll the conversation map until hooks register, or the wait elapses."""
+    retry = max(0.01, float(retry_seconds))
+    attempts = max(1, int(max(0.0, float(wait_seconds)) / retry))
+    started = time.monotonic()
+    result_code = "registration_unproven"
+    last_output = ""
+    for attempt in range(1, attempts + 1):
+        try:
+            mapped = lookup(conversation_id)
+        except Exception:
+            result_code = "identity_lookup_failed"
+        else:
+            last_output = str(mapped).strip() if mapped else ""
+            if last_output:
+                return CursorIdentityResolution(
+                    last_output,
+                    "identity_resolved",
+                    max(0, int((time.monotonic() - started) * 1000)),
+                    attempt,
+                )
+            result_code = "registration_unproven"
+        if attempt < attempts:
+            sleeper(retry)
+    return CursorIdentityResolution(
+        None,
+        result_code,
+        max(0, int((time.monotonic() - started) * 1000)),
+        attempts,
+        bounded_identity_snippet(last_output or "<empty>", conversation_id),
+        ACP_SESSION_PARSE_EXPECTATION,
+    )
+
+
 def bind_launch_session(
     conversation_id: str,
     lookup: ConversationLookup,
@@ -160,11 +206,11 @@ def bind_launch_session(
         lookup,
         sleeper=sleeper,
     )
-    session_id = resolution.session_id or uuid_session_id(conversation_id)
+    session_id = resolution.session_id
     if session_id is None:
         return CursorLaunchBinding(
-            "identity_parse_failed",
-            None,
+            "registration_unproven",
+            uuid_session_id(conversation_id),
             resolution.duration_ms,
             resolution.output_snippet or bounded_identity_snippet(conversation_id),
             resolution.parse_expectation or ACP_SESSION_PARSE_EXPECTATION,
@@ -201,6 +247,9 @@ __all__ = [
     "ACP_SESSION_PARSE_EXPECTATION",
     "CURSOR_IDENTITY_LOOKUP_ATTEMPTS",
     "CURSOR_IDENTITY_RETRY_SECONDS",
+    "CURSOR_REGISTRATION_RETRY_SECONDS",
+    "CURSOR_REGISTRATION_TURN_WAIT_SECONDS",
+    "CURSOR_REGISTRATION_WAIT_SECONDS",
     "IDENTITY_SNIPPET_LIMIT",
     "ConversationLookup",
     "CursorIdentityResolution",
@@ -212,4 +261,5 @@ __all__ = [
     "resolve_conversation_session",
     "session_id_from_native_payload",
     "uuid_session_id",
+    "wait_for_conversation_session",
 ]
