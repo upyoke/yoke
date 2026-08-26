@@ -45,6 +45,7 @@ class ConflictSurveyStatusResponse(BaseModel):
     fingerprint: str
     observed_at: str
     blockers: List[dict[str, Any]]
+    no_changes: bool
 
 
 def _error(code: str, message: str) -> HandlerOutcome:
@@ -111,6 +112,7 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
                     fingerprint="",
                     observed_at="",
                     blockers=[],
+                    no_changes=False,
                 ).model_dump(),
             )
         recorded = record.payload or {}
@@ -121,6 +123,7 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
                 item_id=item_id,
                 touch_paths=recorded.get("touch_paths") or (),
                 integration_target=integration_target,
+                no_changes=recorded.get("no_changes") is True,
             )
         except (LookupError, ValueError) as exc:
             return _error("survey_refused", str(exc))
@@ -135,6 +138,7 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
             integration_target=survey.integration_target,
             fingerprint=survey.fingerprint,
             observed_at=survey.observed_at,
+            no_changes=survey.no_changes,
             blockers=[
                 {
                     "kind": blocker.kind,

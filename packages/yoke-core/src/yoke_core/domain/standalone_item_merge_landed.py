@@ -156,6 +156,7 @@ def converge(
         f"branch {lane.branch!r} already landed on {lane.target!r} "
         f"({lane.source}); close-out converged without re-merging"
     ]
+    merge_sha = lane.merge_sha or lane.commit_sha
     stamp_error = stamp_merged_at(item_id)
     if stamp_error:
         warnings.append(f"merged_at not recorded: {stamp_error}")
@@ -163,7 +164,7 @@ def converge(
         item_id,
         receipts.MergeReceipt(
             branch=lane.branch, target=lane.target,
-            commit_sha=lane.commit_sha, merge_sha=lane.merge_sha,
+            commit_sha=lane.commit_sha, merge_sha=merge_sha,
             touched_files=lane.touched_files,
         ),
         project=project,
@@ -188,7 +189,7 @@ def converge(
         exit_code=0,
         already_merged=True,
         commit_sha=lane.commit_sha,
-        merge_sha=lane.merge_sha,
+        merge_sha=merge_sha,
         touched_files=lane.touched_files,
         pushed=pushed,
         warnings=tuple(warnings),

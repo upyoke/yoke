@@ -38,6 +38,7 @@ def evaluate(
                 integration_target=str(
                     recorded.get("integration_target") or "main"
                 ),
+                no_changes=recorded.get("no_changes") is True,
             )
         except (LookupError, ValueError) as exc:
             return {

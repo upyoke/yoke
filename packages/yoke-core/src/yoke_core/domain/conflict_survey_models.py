@@ -23,6 +23,7 @@ class ConflictSurvey:
     blockers: tuple[ConflictMatch, ...]
     observed_at: str
     fingerprint: str
+    no_changes: bool = False
 
     @property
     def clear(self) -> bool:
@@ -38,6 +39,7 @@ class ConflictSurvey:
             "observed_at": self.observed_at,
             "fingerprint": self.fingerprint,
             "clear": self.clear,
+            "no_changes": self.no_changes,
         }
 
 

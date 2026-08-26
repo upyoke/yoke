@@ -79,9 +79,12 @@ def _recover_survey_timeout(
         str(row.get("path") or "") for row in payload.get("path_sizes") or []
     ]
     durable_paths = [str(path) for path in durable.get("touch_paths") or []]
-    target_matches = durable_paths == expected_paths and str(
-        durable.get("integration_target") or "main"
-    ) == str(payload.get("integration_target") or "main")
+    target_matches = (
+        durable_paths == expected_paths
+        and bool(durable.get("no_changes")) == bool(payload.get("no_changes"))
+        and str(durable.get("integration_target") or "main")
+        == str(payload.get("integration_target") or "main")
+    )
     if state != DURABLE_RECORDED or not durable.get("found") or not target_matches:
         mismatch = (
             " for a different touch set" if state == DURABLE_RECORDED else ""
@@ -100,6 +103,7 @@ def _recover_survey_timeout(
         "touch_paths": durable_paths,
         "integration_target": str(durable.get("integration_target") or "main"),
         "path_sizes": list(payload.get("path_sizes") or []),
+        "no_changes": bool(durable.get("no_changes")),
         "recorded": True,
         "touch_path_update": "replace",
         "recovered_from_durable_state": True,
