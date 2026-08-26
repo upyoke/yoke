@@ -60,6 +60,7 @@ def _patch_db(monkeypatch, *, claim, at_cap=False, emitted=None):
 
 def test_stop_chain_registers_gate_before_dispatch() -> None:
     assert ordered_pipeline_for("Stop") == [
+        "yoke_core.domain.turn_end_steering_report",
         "yoke_core.domain.turn_end_promised_work_gate",
         "yoke_core.hooks.session_message_delivery",
         "yoke_core.hooks.session_launch_attestation",
