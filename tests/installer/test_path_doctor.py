@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import os
+import subprocess
 
 from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
@@ -13,7 +13,7 @@ from yoke_cli.product_boundary_teaching import generate_teaching_audit
 
 
 def test_render_block_has_markers_and_dir():
-    block = doctor.render_managed_block("/home/u/.local/bin")
+    block = doctor.render_managed_block(("/home/u/.local/bin",))
     assert doctor.MANAGED_BEGIN in block
     assert doctor.MANAGED_END in block
     assert "/home/u/.local/bin" in block
@@ -21,11 +21,11 @@ def test_render_block_has_markers_and_dir():
 
 def test_apply_fix_creates_and_is_idempotent(tmp_path):
     target = tmp_path / ".zprofile"
-    assert doctor.apply_fix(target, "/home/u/.local/bin") is True
+    assert doctor.apply_fix(target, ("/home/u/.local/bin",)) is True
     assert target.exists()
     before = target.read_bytes()
     # A second consecutive call is a no-op.
-    assert doctor.apply_fix(target, "/home/u/.local/bin") is False
+    assert doctor.apply_fix(target, ("/home/u/.local/bin",)) is False
     assert target.read_bytes() == before
     assert target.read_text().count(doctor.MANAGED_BEGIN) == 1
 
@@ -33,7 +33,7 @@ def test_apply_fix_creates_and_is_idempotent(tmp_path):
 def test_apply_fix_preserves_user_content(tmp_path):
     target = tmp_path / ".zprofile"
     target.write_text("export FOO=1\n")
-    doctor.apply_fix(target, "/opt/bin")
+    doctor.apply_fix(target, ("/opt/bin",))
     text = target.read_text()
     assert "export FOO=1" in text
     assert text.count(doctor.MANAGED_BEGIN) == 1
@@ -41,8 +41,8 @@ def test_apply_fix_preserves_user_content(tmp_path):
 
 def test_apply_fix_replaces_old_block(tmp_path):
     target = tmp_path / ".zprofile"
-    doctor.apply_fix(target, "/old/bin")
-    doctor.apply_fix(target, "/new/bin")
+    doctor.apply_fix(target, ("/old/bin",))
+    doctor.apply_fix(target, ("/new/bin",))
     text = target.read_text()
     assert text.count(doctor.MANAGED_BEGIN) == 1
     assert "/new/bin" in text
@@ -50,7 +50,7 @@ def test_apply_fix_replaces_old_block(tmp_path):
 
 
 def test_managed_block_moves_tool_bin_to_front_without_duplicates(tmp_path):
-    block = doctor.render_managed_block(str(tmp_path / ".local" / "bin"))
+    block = doctor.render_managed_block((str(tmp_path / ".local" / "bin"),))
     script = tmp_path / "profile"
     script.write_text(
         f'PATH="/usr/bin:{tmp_path / ".local" / "bin"}:/bin";\n'
@@ -105,6 +105,7 @@ def test_path_state_contract_closes_xdg_tools_markers_and_startup_files(tmp_path
     assert contract.managed_begin == doctor.MANAGED_BEGIN
     assert contract.managed_end == doctor.MANAGED_END
     assert contract.tools == doctor.TOOLS
+    assert contract.harness_clis == doctor.HARNESS_CLIS
     assert contract.yoke_bin == str(tool_dir / "yoke")
     assert contract.tool_paths == tuple(str(tool_dir / tool) for tool in doctor.TOOLS)
     assert contract.supported_startup_files == tuple(
@@ -221,7 +222,8 @@ def test_top_level_help_teaches_concrete_path_commands(capsys):
 def test_path_help_recipes_resolve_in_teaching_audit(tmp_path):
     audit = generate_teaching_audit(repo_root=tmp_path, include_help=True)
     rows = [
-        row for row in audit.surfaces
+        row
+        for row in audit.surfaces
         if row.source == "yoke --help" and row.recipe.startswith("yoke path ")
     ]
 

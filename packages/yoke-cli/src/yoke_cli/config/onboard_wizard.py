@@ -93,6 +93,7 @@ class WizardResult:
     # reports it, and the review reads the machine store for the reuse line.
     hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP
     hosting_verification: dict[str, Any] | None = None
+    path_repair: dict[str, Any] | None = None
     project_mode: str = onboard_project.PROJECT_MODE_MACHINE_ONLY
     project_remote_url: str | None = None
     project_checkout: str | None = None
@@ -208,6 +209,7 @@ class WizardResult:
             "machine_github_choice": self.machine_github_choice,
             "machine_github_api_url": self.machine_github_api_url,
             "hosting_choice": self.hosting_choice,
+            "path_repair": self.path_repair,
             "project_mode": self.project_mode,
             "project_remote_url": self.project_remote_url,
             "project_checkout": self.project_checkout,

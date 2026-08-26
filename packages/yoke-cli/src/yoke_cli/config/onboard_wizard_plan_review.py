@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from yoke_cli.config import aws_admin_capability
+from yoke_cli.config import onboard_path_plan
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_reuse_feedback
 from yoke_cli.config.onboard_plan_labels import friendly_line as _friendly_line
@@ -45,28 +46,42 @@ _WRITE_MARKER = "•"
 _REUSE_MARKER = "✔"
 
 _MACHINE_ACTIONS = {
-    "create-or-validate-dir", "set-active-env", "set-https-api-url",
+    "create-or-validate-dir",
+    "set-active-env",
+    "set-https-api-url",
     "local-universe-init",
-    "store-token-reference", "machine-github-connection", "create-runtime-dir",
+    "store-token-reference",
+    "machine-github-connection",
+    "create-runtime-dir",
     "project-checkout-register",
     "install-cursor-user-lifecycle-hooks",
-    "install-session-relay-plist", "load-session-relay-login-item",
+    "install-session-relay-plist",
+    "load-session-relay-login-item",
     "reuse-session-relay-token",
+    onboard_path_plan.PATH_REPAIR_ACTION,
     aws_admin_capability.HOSTING_CAPABILITY_ACTION,
 }
 _REPO_ACTIONS = {
-    "project-create-checkout", "project-clone-remote",
-    "project-import-remote", "project-onboard-local-checkout",
-    "project-rehome-push", "project-fork-remotes",
-    "project-install-scaffold", "project-refresh-scaffold",
-    "project-install-agent-rules", "project-install-tool-permissions",
+    "project-create-checkout",
+    "project-clone-remote",
+    "project-import-remote",
+    "project-onboard-local-checkout",
+    "project-rehome-push",
+    "project-fork-remotes",
+    "project-install-scaffold",
+    "project-refresh-scaffold",
+    "project-install-agent-rules",
+    "project-install-tool-permissions",
     "project-install-harness-hooks",
     "project-install-git-hooks",
     "project-write-board-art",
 }
 _CORE_ACTIONS = {
-    "project-source-choice", "project-github-auth-choice", "project-onboard",
+    "project-source-choice",
+    "project-github-auth-choice",
+    "project-onboard",
 }
+
 
 def render_write_plan(plan: dict[str, Any]) -> list[Static]:
     from textual.widgets import Static
@@ -127,10 +142,16 @@ def classify_plan(plan: dict[str, Any]) -> dict[str, list[str]]:
         target = str(step.get("target", ""))
         if action == "stop-before-project-or-github":
             continue
-        text = _friendly_line(action, target, project_name)
+        text = (
+            onboard_path_plan.friendly_line(step)
+            if action == onboard_path_plan.PATH_REPAIR_ACTION
+            else _friendly_line(action, target, project_name)
+        )
         if action in _MACHINE_ACTIONS:
             grouped["machine"].append(text)
-        elif action == "project-source-dev-admin" or (is_admin and action in _REPO_ACTIONS):
+        elif action == "project-source-dev-admin" or (
+            is_admin and action in _REPO_ACTIONS
+        ):
             grouped["admin"].append(text)
         elif action in _REPO_ACTIONS:
             grouped["repo"].append(text)
@@ -150,9 +171,7 @@ def _groups_for_plan(
     if not _uses_local_database(plan):
         return groups
     replacement = (
-        "Already in the local Yoke database"
-        if reuse else
-        "In the local Yoke database"
+        "Already in the local Yoke database" if reuse else "In the local Yoke database"
     )
     return tuple(
         (replacement, css, key) if key == "core" else (label, css, key)

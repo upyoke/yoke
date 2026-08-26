@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from yoke_contracts.harness_cli_manifest import harness_cli_executables
+
 
 # Marker text is a product contract used by reset and idempotent repair.
 # Do not reword it without updating both consumers.
@@ -14,6 +16,8 @@ MANAGED_BEGIN = "# >>> BEGIN YOKE MANAGED PATH >>>"
 MANAGED_END = "# <<< END YOKE MANAGED PATH <<<"
 
 TOOLS = ("uv", "uvx", "yoke")
+HARNESS_CLIS = harness_cli_executables()
+PATH_TOOLS = (*TOOLS, *HARNESS_CLIS)
 SUPPORTED_SHELLS = ("zsh", "bash")
 
 
@@ -29,6 +33,7 @@ class PathStateContract:
     managed_begin: str
     managed_end: str
     tools: tuple[str, ...]
+    harness_clis: tuple[str, ...]
     tool_paths: tuple[str, ...]
     yoke_bin: str
 
@@ -38,6 +43,10 @@ class PathStateContract:
             Path(self.tool_bin_dir) / "yoke"
         ):
             raise ValueError("PATH contract tool paths differ from product authority")
+        if self.harness_clis != HARNESS_CLIS:
+            raise ValueError(
+                "PATH contract harness CLIs differ from manifest authority"
+            )
 
 
 def tool_bin_dir(env: Mapping[str, str] | None = None) -> str:
@@ -116,14 +125,17 @@ def resolve_path_state_contract(
         managed_begin=MANAGED_BEGIN,
         managed_end=MANAGED_END,
         tools=TOOLS,
+        harness_clis=HARNESS_CLIS,
         tool_paths=tuple(str(Path(bindir) / tool) for tool in TOOLS),
         yoke_bin=str(Path(bindir) / "yoke"),
     )
 
 
 __all__ = [
+    "HARNESS_CLIS",
     "MANAGED_BEGIN",
     "MANAGED_END",
+    "PATH_TOOLS",
     "SUPPORTED_SHELLS",
     "TOOLS",
     "PathStateContract",

@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_path_plan
 from yoke_cli.config import onboard_project_modes
 from yoke_cli.config import onboard_session_relay
 from yoke_cli.config.onboard_report_render import render_human
@@ -42,11 +43,12 @@ def build_plan(
     project_inputs: dict[str, Any],
     machine_github: dict[str, Any],
     hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP,
+    path_repair: dict[str, Any] | None = None,
     reuse: dict[str, Any] | None = None,
     local_destination: bool = False,
 ) -> dict[str, Any]:
     reuse = dict(reuse or {})
-    steps = []
+    steps = onboard_path_plan.steps(path_repair)
     if not reuse.get("yoke_home"):
         steps.append(
             {
@@ -101,9 +103,7 @@ def build_plan(
         steps.append({"action": "create-runtime-dir", "target": "temp_root"})
     if not reuse.get("cache_dir"):
         steps.append({"action": "create-runtime-dir", "target": "cache_dir"})
-    steps.extend(
-        onboard_session_relay.plan_steps(local_destination=local_destination)
-    )
+    steps.extend(onboard_session_relay.plan_steps(local_destination=local_destination))
     if project_mode == PROJECT_MODE_MACHINE_ONLY:
         steps.append({"action": "stop-before-project-or-github", "target": mode})
     else:
@@ -160,6 +160,7 @@ def build_plan(
             "temp_root": str(cfg_path.parent / "tmp"),
             "cache_dir": str(cfg_path.parent / "cache"),
         },
+        "path_repair": path_repair,
         "project_mutation": project_mode != PROJECT_MODE_MACHINE_ONLY,
         "machine_github_mutation": bool(machine_github.get("writes_machine_secret"))
         and not bool(reuse.get("machine_github")),
@@ -293,10 +294,12 @@ def _post_checkout_steps(
         steps.append({"action": "project-install-tool-permissions", "target": ""})
         steps.append({"action": "project-install-harness-hooks", "target": ""})
         steps.append({"action": "project-install-git-hooks", "target": ""})
-        steps.append({
-            "action": "install-cursor-user-lifecycle-hooks",
-            "target": "~/.cursor/hooks.json",
-        })
+        steps.append(
+            {
+                "action": "install-cursor-user-lifecycle-hooks",
+                "target": "~/.cursor/hooks.json",
+            }
+        )
         if _needs_board_art(project_inputs):
             steps.append({"action": "project-write-board-art", "target": ""})
     return steps

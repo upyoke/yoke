@@ -13,21 +13,23 @@ import subprocess
 import time
 from typing import Callable, Sequence
 
+from yoke_contracts.harness_cli_manifest import (
+    HARNESS_CLI_MANIFESTS,
+    harness_cli_probe_commands,
+)
 
 SURFACE_PROBE_TIMEOUT_SECONDS = 30.0
 _VERSION_PATTERN = re.compile(r"\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?")
-CLI_SURFACE_PROBES = {
-    "claude-cli": ("claude", "--version"),
-    "codex-cli": ("codex", "--version"),
-    "cursor-cli": ("cursor-agent", "--version"),
-}
+CLI_SURFACE_PROBES = harness_cli_probe_commands()
 APP_SURFACE_PROBES = {
     "claude-desktop": Path("/Applications/Claude.app/Contents/Info.plist"),
     "codex-desktop": Path("/Applications/ChatGPT.app/Contents/Info.plist"),
     "cursor-desktop": Path("/Applications/Cursor.app/Contents/Info.plist"),
 }
 _CLI_FALLBACKS = {
-    "codex": APP_SURFACE_PROBES["codex-desktop"].parent / "Resources" / "codex",
+    manifest.executable: tuple(Path(raw) for raw in manifest.bundled_candidates)
+    for manifest in HARNESS_CLI_MANIFESTS
+    if manifest.bundled_candidates
 }
 KNOWN_SURFACE_PROBES = tuple((*CLI_SURFACE_PROBES, *APP_SURFACE_PROBES))
 
@@ -84,9 +86,9 @@ def resolve_native_cli_source(command_name: str) -> ResolvedNativeCli | None:
     found = shutil.which(command_name)
     if found:
         return ResolvedNativeCli(found, "path")
-    fallback = _CLI_FALLBACKS.get(command_name)
-    if fallback is not None and fallback.is_file() and os.access(fallback, os.X_OK):
-        return ResolvedNativeCli(str(fallback), "bundled")
+    for fallback in _CLI_FALLBACKS.get(command_name, ()):
+        if fallback.is_file() and os.access(fallback, os.X_OK):
+            return ResolvedNativeCli(str(fallback), "bundled")
     return None
 
 

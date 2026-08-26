@@ -1,4 +1,4 @@
-"""``yoke path`` — diagnose and repair PATH for uv / uvx / yoke.
+"""``yoke path`` — diagnose and repair PATH for Yoke and harness CLIs.
 
 Client-local command (no dispatcher function id), registered in
 :mod:`yoke_cli.commands.installer_local`. A thin CLI over
@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import List
 
 from yoke_cli.config import path_doctor as doctor
+from yoke_cli.config import path_repair_plan
+
 
 def _resolutions(resolved: list[doctor.ToolResolution]) -> dict[str, str | None]:
     return {res.name: res.path for res in resolved}
@@ -29,6 +31,7 @@ def _diagnosis_json(diag: doctor.PathDiagnosis) -> dict:
         "future_adds_bin": diag.future_adds_bin,
         "managed_block_present": diag.managed_block_present,
         "future_resolved": _resolutions(diag.future_resolved),
+        "login_needs_fix": diag.login_needs_fix,
         "ssh_startup_file": diag.ssh_startup_file,
         "ssh_adds_bin": diag.ssh_adds_bin,
         "ssh_managed_block_present": diag.ssh_managed_block_present,
@@ -38,26 +41,39 @@ def _diagnosis_json(diag: doctor.PathDiagnosis) -> dict:
         "yoke_shadowed_by": diag.yoke_shadowed_by,
         "future_yoke_shadowed_by": diag.future_yoke_shadowed_by,
         "ssh_yoke_shadowed_by": diag.ssh_yoke_shadowed_by,
+        "managed_path_dirs": list(diag.managed_path_dirs),
+        "harness_clis": [row.to_json() for row in diag.harness_clis],
         "needs_fix": diag.needs_fix,
     }
 
 
 def _render_diagnosis(diag: doctor.PathDiagnosis) -> str:
-    future_map = _resolutions(diag.future_resolved)
-    future_ok = bool(future_map.get("yoke")) and bool(future_map.get("uv"))
+    plan = path_repair_plan.build(diag)
+    future_ok = path_repair_plan.verification_ok(diag.future_resolved, plan)
+    ssh_ok = path_repair_plan.verification_ok(diag.ssh_resolved, plan)
     lines = [
         f"current shell : {diag.current_shell}",
         f"tool bin dir  : {diag.tool_bin_dir}",
         f"on PATH now   : {'yes' if diag.current_on_path else 'no'}",
-        f"startup file  : {diag.startup_file}",
-        f"future shell  : {'resolves Yoke' if future_ok else 'would NOT find yoke/uv'}",
+        f"login file    : {diag.startup_file}",
+        "login shell   : "
+        + ("resolves required tools" if future_ok else "needs PATH repair"),
     ]
     if diag.ssh_startup_file:
-        lines.extend([
-            f"ssh file      : {diag.ssh_startup_file}",
-            "ssh command   : "
-            + ("resolves Yoke" if not diag.ssh_needs_fix else "would NOT find yoke/uv"),
-        ])
+        lines.extend(
+            [
+                f"ssh file      : {diag.ssh_startup_file}",
+                "ssh command   : "
+                + ("resolves required tools" if ssh_ok else "needs PATH repair"),
+                "ssh reason    : non-login shells never read the login startup file",
+            ]
+        )
+    lines.append("managed dirs  : " + ", ".join(diag.managed_path_dirs))
+    for resolution in diag.harness_clis:
+        lines.append(
+            f"{resolution.executable:14}: "
+            + (resolution.path or "not installed; repair remains re-runnable")
+        )
     for label, winner in (
         ("current yoke", diag.yoke_shadowed_by),
         ("future yoke", diag.future_yoke_shadowed_by),
@@ -93,27 +109,24 @@ def path_fix(args: List[str]) -> int:
     parsed = parser.parse_args(args)
 
     diag = doctor.diagnose()
-    bindir = diag.tool_bin_dir
-    block = doctor.render_managed_block(bindir)
+    plan = path_repair_plan.build(diag)
+    directories = tuple(plan["directories"])
+    block = doctor.render_managed_block(directories)
     if parsed.print_block:
         print(block)
         return 0
 
     shell = diag.current_shell
-    target = (
-        Path(parsed.file)
+    target_list = (
+        [Path(parsed.file)]
         if parsed.file
-        else Path(diag.startup_file)
+        else [Path(path) for path in path_repair_plan.target_paths(plan)]
     )
-    extra_targets = []
-    if not parsed.file and diag.ssh_needs_fix and diag.ssh_startup_file:
-        ssh_target = Path(diag.ssh_startup_file)
-        if ssh_target != target:
-            extra_targets.append(ssh_target)
-    target_list = [target, *extra_targets]
-    print("Yoke will add a managed PATH block to:")
-    for item in target_list:
-        print(f"  {item}")
+    print("Yoke keeps login and non-login/SSH PATH outcomes separate:")
+    for line in path_repair_plan.description_lines(plan):
+        print(f"  {line}")
+    if not target_list:
+        print("  Both startup surfaces already contain the current managed block.")
     print()
     print(block + "\n")
     if not parsed.yes:
@@ -125,22 +138,20 @@ def path_fix(args: List[str]) -> int:
             print("No changes made.")
             return 0
 
-    changes = [doctor.apply_fix(item, bindir) for item in target_list]
+    changes = [doctor.apply_fix(item, directories) for item in target_list]
     changed = any(changes)
-    resolved = doctor.verify_fresh_login(shell)
-    ssh_resolved = doctor.verify_ssh_command(shell)
-    verified = all(res.path for res in resolved if res.name in ("uv", "yoke"))
-    ssh_verified = all(
-        res.path for res in ssh_resolved if res.name in ("uv", "yoke")
-    )
+    resolved = doctor.verify_fresh_login(shell, managed_path_dirs=directories)
+    ssh_resolved = doctor.verify_ssh_command(shell, managed_path_dirs=directories)
+    login_verified = path_repair_plan.verification_ok(resolved, plan)
+    ssh_verified = path_repair_plan.verification_ok(ssh_resolved, plan)
     if parsed.json_mode:
         print(
             json.dumps(
                 {
                     "applied": changed,
-                    "file": str(target),
                     "files": [str(item) for item in target_list],
-                    "verified": verified,
+                    "directories": list(directories),
+                    "login_verified": login_verified,
                     "ssh_verified": ssh_verified,
                     "resolved": _resolutions(resolved),
                     "ssh_resolved": _resolutions(ssh_resolved),
@@ -158,7 +169,7 @@ def path_fix(args: List[str]) -> int:
         print("  SSH command probe:")
         for res in ssh_resolved:
             print(f"  {res.name:6} -> {res.path or 'not found'}")
-    if not verified:
+    if not login_verified:
         print(
             "Note: a fresh login shell could not resolve yoke/uv yet; "
             "open a new terminal to confirm."
@@ -175,13 +186,23 @@ def path_verify(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke path verify")
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parser.parse_args(args)
-    resolved = doctor.verify_fresh_login()
-    ssh_resolved = doctor.verify_ssh_command()
+    diag = doctor.diagnose()
+    resolved = doctor.verify_fresh_login(
+        diag.current_shell, managed_path_dirs=diag.managed_path_dirs
+    )
+    ssh_resolved = doctor.verify_ssh_command(
+        diag.current_shell, managed_path_dirs=diag.managed_path_dirs
+    )
     if parsed.json_mode:
-        print(json.dumps({
-            "resolved": _resolutions(resolved),
-            "ssh_resolved": _resolutions(ssh_resolved),
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "resolved": _resolutions(resolved),
+                    "ssh_resolved": _resolutions(ssh_resolved),
+                },
+                indent=2,
+            )
+        )
     else:
         for res in resolved:
             print(f"  {res.name:6} -> {res.path or 'not found'}")
@@ -193,12 +214,18 @@ def path_verify(args: List[str]) -> int:
 
 
 def path_group(args: List[str]) -> int:
-    print("yoke path — diagnose and repair PATH for uv / uvx / yoke")
+    print("yoke path — repair login and SSH PATH for Yoke and harness CLIs")
     print()
     print("Subcommands:")
-    print("  yoke path check [--json]                       diagnose current + future shell PATH")
-    print("  yoke path fix [--yes] [--file PATH] [--print-block]  preview, consent, write a managed block, verify")
-    print("  yoke path verify [--json]                      check a fresh login shell resolves the tools")
+    print(
+        "  yoke path check [--json]                       diagnose current + future shell PATH"
+    )
+    print(
+        "  yoke path fix [--yes] [--file PATH] [--print-block]  preview, consent, write a managed block, verify"
+    )
+    print(
+        "  yoke path verify [--json]                      check a fresh login shell resolves the tools"
+    )
     return 0
 
 
