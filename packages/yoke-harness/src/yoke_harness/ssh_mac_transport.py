@@ -16,7 +16,13 @@ from yoke_contracts.machine_qa_execution import (
     GUI_SESSION_CONTEXT,
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
+from yoke_harness.ssh_mac_baseline_probes import (
+    BaselineProbeError,
+    parse_baseline_probes,
+    run_baseline_probes,
+)
 from yoke_harness.ssh_mac_full_reset import execute_full_test_mac_reset
+from yoke_harness.ssh_mac_full_reset_contract import GOLDEN_PROBES_SUFFIX
 from yoke_harness.ssh_mac_gui_session import (
     classify_macos_session_context_failure,
     run_terminal_app_command,
@@ -47,6 +53,9 @@ class SshMacTransport:
         self._key_path = Path(key_path)
         self._host = str(settings["host"])
         self._user = str(settings["user"])
+        self.golden_baseline_path = (
+            str(settings.get("golden_baseline_path") or "") or None
+        )
         facts = self._host_facts()
         self.home = str(facts["home"])
         self.shell = str(facts["shell"])
@@ -143,13 +152,63 @@ class SshMacTransport:
         )
 
     def reset_installer_test_host(self) -> HostActionResult:
-        """Reach the registered clean Test Mac baseline without exposing tokens."""
+        """Restore the declared golden baseline over the dedicated host's home."""
         return execute_full_test_mac_reset(
             run_remote=self._run,
             upload_text=self._upload_full_reset_script,
             home=self.home,
+            golden_baseline_path=self.golden_baseline_path,
             path_state=self.path_state,
         )
+
+    def prove_user_equivalent(self) -> HostActionResult:
+        """Run the probes the declared baseline carries beside itself.
+
+        Separate from the restore because they answer different questions. The
+        restore asks whether the home is the captured one; this asks whether
+        that home still works, which structure alone cannot say — a credential
+        can come back byte-identical and expired.
+        """
+        golden = self.golden_baseline_path or ""
+        document = self._read_remote_file(golden + GOLDEN_PROBES_SUFFIX)
+        if document is None:
+            return HostActionResult(
+                False,
+                {"probes": [], "declared": False},
+                "baseline_probes_not_declared",
+            )
+        try:
+            probes = parse_baseline_probes(document)
+        except BaselineProbeError:
+            return HostActionResult(
+                False,
+                {"probes": [], "declared": True},
+                "baseline_probes_invalid",
+            )
+        return run_baseline_probes(
+            probes,
+            run_gui_command=lambda argv, timeout: self.run_command(
+                argv,
+                required_session_context=GUI_SESSION_CONTEXT,
+                timeout=timeout,
+            ),
+        )
+
+    def _read_remote_file(self, path: str) -> str | None:
+        """Return one regular remote file as text, or None when it is absent."""
+        reader = (
+            'target="$1"; '
+            '[[ "$target" == /* ]] || exit 64; '
+            'if [[ -e "$target" ]]; then '
+            '[[ -f "$target" && ! -L "$target" ]] || exit 65; '
+            '/usr/bin/base64 < "$target"; '
+            "fi"
+        )
+        result = self._run(self._zsh_command(reader, path))
+        if result.returncode:
+            raise RuntimeError("host_control file read failed")
+        encoded = result.stdout.strip()
+        return base64.b64decode(encoded).decode("utf-8") if encoded else None
 
     def _upload_full_reset_script(self, path: str, content: str) -> None:
         writer = 'umask 077; /bin/cat > "$1"'

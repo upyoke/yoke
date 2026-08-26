@@ -12,7 +12,10 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
     RESET_LOAD_AVERAGE_PREFIX,
     RESET_PROCESS_REAPED_PREFIX,
+    RESET_RESTORED_ENTRIES_PREFIX,
 )
+
+GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
 
 
 class FakeResetTransport:
@@ -44,18 +47,14 @@ class FakeResetTransport:
 
 def closed_reset_stdout(
     *,
-    stage: str = "RESTORED",
-    prod: str = "ABSENT",
-    evidence: str = "MOVED",
+    restored_entries: int = 22,
     reaped: int = 0,
     load_average: str = "1.20",
 ) -> str:
-    """Return the six-line success receipt the reset parser accepts."""
+    """Return the four-line success receipt the restore parser accepts."""
     return "\n".join(
         (
-            f"YOKE_TOKEN_STAGE_{stage}",
-            f"YOKE_TOKEN_PROD_{prod}",
-            f"YOKE_INSTALLER_EVIDENCE_{evidence}",
+            f"{RESET_RESTORED_ENTRIES_PREFIX}{restored_entries}",
             f"{RESET_PROCESS_REAPED_PREFIX}{reaped}",
             f"{RESET_LOAD_AVERAGE_PREFIX}{load_average}",
             FULL_RESET_MARKER,

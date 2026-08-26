@@ -14,6 +14,7 @@ from yoke_cli.config.path_doctor import (
 
 from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
+    golden_baseline_clears_home,
     resolve_full_reset_path_contract,
 )
 from yoke_harness.ssh_mac_full_reset_receipt import (
@@ -72,14 +73,27 @@ def execute_full_test_mac_reset(
     run_remote: ResetRunner,
     upload_text: ResetUploader,
     home: str,
+    golden_baseline_path: str | None,
     path_state: PathStateContract | None = None,
 ) -> HostActionResult:
-    """Run the full reset with closed output and deterministic script cleanup."""
+    """Restore the declared golden baseline with closed output and cleanup."""
     if not is_safe_test_mac_home(home):
         return HostActionResult(
             False,
             {"paths": []},
             "unsafe_test_mac_home",
+        )
+    if not golden_baseline_path:
+        return HostActionResult(
+            False,
+            {"paths": []},
+            "test_mac_golden_baseline_not_declared",
+        )
+    if not golden_baseline_clears_home(golden_baseline_path, home=home):
+        return HostActionResult(
+            False,
+            {"paths": []},
+            "test_mac_golden_baseline_unsafe",
         )
     selected_path_state = path_state or resolve_path_state_contract(
         env={"HOME": home, "SHELL": "/bin/zsh"}
@@ -119,8 +133,12 @@ def execute_full_test_mac_reset(
                 error_code = "test_mac_reset_script_mode_failed"
             else:
                 result = run_remote(
-                    _command(FULL_RESET_REMOTE_PATH, home),
-                    timeout=300,
+                    _command(
+                        FULL_RESET_REMOTE_PATH,
+                        home,
+                        golden_baseline_path,
+                    ),
+                    timeout=900,
                 )
                 if int(result.returncode) == 0:
                     outcomes = closed_outcomes(str(result.stdout))
@@ -153,10 +171,18 @@ def execute_full_test_mac_reset(
         error_code = "test_mac_reset_script_cleanup_failed"
 
     if reset_ok and outcomes is not None:
-        return HostActionResult(True, success_evidence(reset_contract, outcomes))
+        return HostActionResult(
+            True,
+            success_evidence(
+                reset_contract,
+                outcomes,
+                golden_baseline_path=golden_baseline_path,
+            ),
+        )
     failure_evidence: dict[str, object] = {
         "paths": [
             {"path": home, "outcome": "reset-failed"},
+            {"path": golden_baseline_path, "outcome": "not-restored"},
             {
                 "path": FULL_RESET_REMOTE_PATH,
                 "outcome": "removed" if cleanup_ok else "cleanup-failed",

@@ -203,8 +203,16 @@ def test_baselines_keep_full_reset_distinct_from_shell_preconfiguration() -> Non
     fresh = run_host_baseline(control, "fresh-host")
     assert fresh.ok
     assert control.full_reset_calls == 1
+    # The Yoke managed block is gone with everything else Yoke wrote, but the
+    # user's own tool directory stays on their PATH: a machine stripped back to
+    # bare is not a fresh host, it is a machine no real user has.
     assert "old" not in control.files["/Users/tester/.zprofile"]
-    assert ".local/bin" not in control.files["/Users/tester/.zprofile"]
+    assert ".local/bin" in control.files["/Users/tester/.zprofile"]
+    assert "YOKE MANAGED PATH" not in control.files["/Users/tester/.zprofile"]
+    assert fresh.evidence["baseline_state"]["preserved_entries"] == [
+        ".ssh",
+        "Library/Application Support/com.apple.TCC",
+    ]
     preconfigured = run_host_baseline(control, "shell-preconfigured")
     assert preconfigured.ok
     assert preconfigured.evidence["observed_present"] == {

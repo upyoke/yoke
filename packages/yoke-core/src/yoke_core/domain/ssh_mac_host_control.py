@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import shlex
 from collections.abc import Callable
 from typing import Any, Mapping, Sequence
@@ -38,21 +37,7 @@ class SshMacHostControl(SshMacTransport):
         self._pending_terminal_size: tuple[int, int] | None = None
 
     def read_text(self, path: str) -> str | None:
-        reader = (
-            'target="$1"; '
-            '[[ "$target" == /* ]] || exit 64; '
-            'if [[ -e "$target" ]]; then '
-            '[[ -f "$target" && ! -L "$target" ]] || exit 65; '
-            '/usr/bin/base64 < "$target"; '
-            "fi"
-        )
-        result = self._run(
-            self._zsh_command(reader, path),
-        )
-        if result.returncode:
-            raise RuntimeError("host_control file read failed")
-        encoded = result.stdout.strip()
-        return base64.b64decode(encoded).decode("utf-8") if encoded else None
+        return self._read_remote_file(path)
 
     def write_text(self, path: str, content: str) -> None:
         if not self._upload_bytes(path, content.encode("utf-8")):

@@ -34,6 +34,7 @@ class HostControl(Protocol):
     home: str
     shell: str
     xdg_bin_home: str | None
+    golden_baseline_path: str | None
 
     def check_connection(self) -> HostActionResult: ...
 
@@ -48,6 +49,8 @@ class HostControl(Protocol):
     ) -> "MachineQaFixtureOperationRunner": ...
 
     def reset_installer_test_host(self) -> HostActionResult: ...
+
+    def prove_user_equivalent(self) -> HostActionResult: ...
 
     def probe_path(self, surface: str) -> Sequence[str]: ...
 

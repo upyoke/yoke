@@ -166,8 +166,8 @@ session (`self_approving: true` on `machine_qa.operator_gate`). No operator
 browser action is needed; redeeming the one-time code in another browser
 consumes it and breaks the gate (`machine_browser_tab_missing`).
 
-The saved settings document contains exactly `resource_name`, `host`, `user`,
-and `operating_notes`. It contains no credentials. `ssh_private_key` is the
+The saved settings document contains `resource_name`, `host`, `user`,
+`operating_notes`, and an optional `golden_baseline_path`. No credentials. `ssh_private_key` is the
 only Test Mac credential. Store it on the machine that runs `host_control`:
 
 ```text
@@ -191,17 +191,17 @@ Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The runner receives resolved
 secrets only for its subprocess and must redact them from evidence.
 
-The registered `fresh-host` baseline performs the complete installer reset as
-the dedicated test user, using only guaranteed macOS shell primitives. It
-removes Yoke and uv state, launchers, temporary installer files, managed and
-handwritten tool-path startup entries, and the children of `~/code`. It
-preserves stage and production token bytes opaquely in mode-restricted
-`~/yoke-smoke-tokens`, relocates prior campaign evidence into a mode-restricted
-`~/yoke-smoke-evidence/reset.*` directory, and then proves `.yoke`, command
-resolution, and the split login PATH are clean before emitting
-`YOKE_MAC_WIPE_OK`. It never removes `.ssh` or Command Line Tools; returning a
-Mac to a no-Command-Line-Tools state remains a separate destructive operator
-decision.
+The registered `fresh-host` baseline restores the host's declared golden
+baseline. Its target state is USER-EQUIVALENT, not bare: a real user arrives
+with harness apps installed and signed in, so a machine stripped to nothing is
+not a fresh host. Restoring a captured copy of the whole home, kept outside it,
+is provably complete where enumerating residue never can be, and a host
+declaring no `golden_baseline_path` cannot reach this baseline. Success is
+gated on proof: no Yoke state, launcher, or tool file present, no Yoke tool
+resolving in the login or SSH shell, every captured entry returned, and every
+declared probe reporting its program signed in. The live `.ssh` directory and
+`com.apple.TCC` privacy database survive the clear, and the restoring process
+must hold Full Disk Access, which the operation asserts rather than assumes.
 
 ## Evidence
 

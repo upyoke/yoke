@@ -13,52 +13,40 @@ from runtime.api.domain.machine_qa_fixture_test_support import (
 )
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.ssh_mac_full_reset_contract import (
-    EVIDENCE_SOURCE_PATH,
-    HOMEBREW_PATH,
-    RESET_RELATIVE_DIRECTORIES,
-    RESET_RELATIVE_FILES,
-    RESET_TEMP_FILES,
-    RETAINED_EVIDENCE_DIRECTORY,
-    STARTUP_FILE_NAMES,
-    TOKEN_BACKUP_DIRECTORY,
-    TOKEN_LOCATIONS,
+    PRESERVED_HOME_ENTRIES,
+    YOKE_ABSENT_RELATIVE_DIRECTORIES,
+    YOKE_ABSENT_RELATIVE_FILES,
+    YOKE_ABSENT_TEMP_FILES,
 )
 
-
-def _clean_startup_text(content: str) -> str:
-    output: list[str] = []
-    skipping = False
-    for line in content.splitlines(keepends=True):
-        if "BEGIN YOKE MANAGED PATH" in line or "BEGIN YOKE TEST HOST BASELINE" in line:
-            skipping = True
-            continue
-        if "END YOKE MANAGED PATH" in line or "END YOKE TEST HOST BASELINE" in line:
-            skipping = False
-            continue
-        if skipping:
-            continue
-        if "uv was installed" in line:
-            continue
-        if '. "$HOME/.local/bin/env"' in line:
-            continue
-        if 'source "$HOME/.local/bin/env"' in line:
-            continue
-        if ".local/bin" in line and "PATH" in line:
-            continue
-        output.append(line)
-    return "".join(output)
+GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
+# What the captured baseline puts back: a real user's shell, their own tools on
+# their own PATH, and no Yoke anywhere.
+BASELINE_STARTUP_FILES = {
+    "/Users/tester/.zprofile": 'export PATH="$HOME/.local/bin:$PATH"\n',
+    "/Users/tester/.zshenv": "",
+}
+BASELINE_PATHS = frozenset(
+    {
+        "/Users/tester/.local/bin/claude",
+        "/Users/tester/.claude.json",
+        "/Users/tester/Documents/notes.txt",
+    }
+)
 
 
 class FakeHostControl:
     home = "/Users/tester"
     shell = "/bin/zsh"
     xdg_bin_home = None
+    golden_baseline_path = GOLDEN_BASELINE_PATH
 
     def __init__(
         self,
         *,
         refuse_ssh_state: bool = False,
         refuse_full_reset: bool = False,
+        refuse_user_equivalence: bool = False,
     ) -> None:
         self.files: dict[str, str] = {
             "/Users/tester/.zprofile": (
@@ -70,26 +58,24 @@ class FakeHostControl:
         }
         self.refuse_ssh_state = refuse_ssh_state
         self.refuse_full_reset = refuse_full_reset
+        self.refuse_user_equivalence = refuse_user_equivalence
         self.case_calls = 0
         self.full_reset_calls = 0
         self.fixture_remotes: list[FakeRemote] = []
-        self.token_files = {
-            source: (label.casefold() + "-token-bytes").encode()
-            for source, _backup, label in TOKEN_LOCATIONS
-        }
-        self.token_backups: dict[str, bytes] = {}
         self.existing_paths = {
             "/Users/tester/.yoke/config.json",
-            "/Users/tester/.yoke/installer-smoke-evidence/campaign/report.json",
             "/Users/tester/.ssh/authorized_keys",
             "/Library/Developer/CommandLineTools/usr/bin/git",
             "/Users/tester/code/checkout/.git/config",
-            HOMEBREW_PATH,
+            *BASELINE_PATHS,
             *(
                 f"/Users/tester/{suffix}"
-                for suffix in (*RESET_RELATIVE_DIRECTORIES, *RESET_RELATIVE_FILES)
+                for suffix in (
+                    *YOKE_ABSENT_RELATIVE_DIRECTORIES,
+                    *YOKE_ABSENT_RELATIVE_FILES,
+                )
             ),
-            *RESET_TEMP_FILES,
+            *YOKE_ABSENT_TEMP_FILES,
         }
 
     def check_connection(self) -> HostActionResult:
@@ -127,6 +113,7 @@ class FakeHostControl:
         return fixture_runner(remote)
 
     def reset_installer_test_host(self) -> HostActionResult:
+        """Model the restore: the home becomes the baseline, minus what is kept."""
         self.full_reset_calls += 1
         if self.refuse_full_reset:
             return HostActionResult(
@@ -134,72 +121,51 @@ class FakeHostControl:
                 {"paths": [{"path": self.home, "outcome": "reset-failed"}]},
                 "test_mac_reset_failed",
             )
-        preserved_tokens = dict(self.token_files)
-        self.token_backups = {
-            f"{self.home}/{TOKEN_BACKUP_DIRECTORY}/{backup}": preserved_tokens[source]
-            for source, backup, _label in TOKEN_LOCATIONS
-            if source in preserved_tokens
-        }
-        evidence = f"{self.home}/{EVIDENCE_SOURCE_PATH}"
-        retained_evidence = f"{self.home}/{RETAINED_EVIDENCE_DIRECTORY}"
-        moved_evidence = {
-            retained_evidence
-            + "/reset.fake/installer-smoke-evidence"
-            + path.removeprefix(evidence)
-            for path in self.existing_paths
-            if path == evidence or path.startswith(evidence + "/")
-        }
-        protected = {
+        preserved = {
             path
             for path in self.existing_paths
-            if path.startswith(f"{self.home}/.ssh/")
-            or path.startswith("/Library/Developer/CommandLineTools/")
-        }
-        reset_targets = {
-            f"{self.home}/{suffix}"
-            for suffix in (*RESET_RELATIVE_DIRECTORIES, *RESET_RELATIVE_FILES)
-        }
-        reset_targets.update(RESET_TEMP_FILES)
-        self.existing_paths = {
-            path
-            for path in self.existing_paths
-            if path in protected
-            or (
-                not any(
-                    path == target or path.startswith(target.rstrip("/") + "/")
-                    for target in reset_targets
-                )
-                and not path.startswith(f"{self.home}/code/")
-                and not (
-                    path.startswith(f"{self.home}/.yoke/") and path not in protected
-                )
+            if any(
+                path.startswith(f"{self.home}/{entry}/")
+                for entry in PRESERVED_HOME_ENTRIES
             )
+            or not path.startswith(f"{self.home}/")
         }
-        self.existing_paths.update(moved_evidence)
-        self.token_files.clear()
-        self.token_files.update(preserved_tokens)
-        for name in STARTUP_FILE_NAMES:
-            path = f"{self.home}/{name}"
-            if path in self.files:
-                self.files[path] = _clean_startup_text(self.files[path])
+        self.existing_paths = {*BASELINE_PATHS, *preserved}
+        self.files = dict(BASELINE_STARTUP_FILES)
         return HostActionResult(
             True,
             {
                 "paths": [
+                    {"path": self.golden_baseline_path, "outcome": "restored"},
                     {"path": self.home, "outcome": "reset-complete"},
-                    {
-                        "path": f"{self.home}/{TOKEN_BACKUP_DIRECTORY}",
-                        "outcome": "mode-0700",
-                    },
-                    {"path": evidence, "outcome": "moved"},
-                    {"path": retained_evidence, "outcome": "preserved"},
+                    *(
+                        {"path": f"{self.home}/{entry}", "outcome": "preserved"}
+                        for entry in PRESERVED_HOME_ENTRIES
+                    ),
                 ],
+                "baseline_state": {
+                    "golden_baseline_path": self.golden_baseline_path,
+                    "restored_entries": len(BASELINE_PATHS),
+                    "preserved_entries": list(PRESERVED_HOME_ENTRIES),
+                },
                 "process_state": {
                     "reaped_processes": 0,
                     "surviving_matches": 0,
                     "load_average": 1.0,
                 },
             },
+        )
+
+    def prove_user_equivalent(self) -> HostActionResult:
+        if self.refuse_user_equivalence:
+            return HostActionResult(
+                False,
+                {"probes": [{"name": "harness cli signed in", "ok": False}]},
+                "baseline_probe_failed",
+            )
+        return HostActionResult(
+            True,
+            {"probes": [{"name": "harness cli signed in", "ok": True}]},
         )
 
     def probe_path(self, surface: str) -> list[str]:
