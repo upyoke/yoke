@@ -148,6 +148,23 @@ def run_baseline_probes(
     return HostActionResult(True, {"probes": rows})
 
 
+def reach_user_equivalent_baseline(control: Any) -> HostActionResult:
+    """Restore the declared baseline, then prove the restored host works.
+
+    One composition for both baseline entry points, so the restore and its
+    proof cannot drift apart depending on which caller reached them.
+    """
+    restored = control.reset_installer_test_host()
+    if not restored.ok:
+        return restored
+    proven = control.prove_user_equivalent()
+    return HostActionResult(
+        proven.ok,
+        {**restored.evidence, "user_equivalence": proven.evidence},
+        proven.error_code,
+    )
+
+
 __all__ = [
     "PROBE_ARGUMENT_LIMIT",
     "PROBE_LIMIT",
@@ -155,5 +172,6 @@ __all__ = [
     "BaselineProbe",
     "BaselineProbeError",
     "parse_baseline_probes",
+    "reach_user_equivalent_baseline",
     "run_baseline_probes",
 ]

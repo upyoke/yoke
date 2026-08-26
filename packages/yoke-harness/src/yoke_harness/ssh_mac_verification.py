@@ -21,6 +21,9 @@ from yoke_contracts.machine_qa_execution import (
     HostControlExecutionContract,
     VERIFICATION_BASELINES,
 )
+from yoke_harness.ssh_mac_baseline_probes import (
+    reach_user_equivalent_baseline,
+)
 from yoke_harness.ssh_mac_full_reset_contract import INSTALLER_TEMP_PATH
 from yoke_harness.ssh_mac_transport import SshMacTransport
 from yoke_harness.test_machine_types import HostActionResult
@@ -85,14 +88,14 @@ class SshMacVerificationControl(SshMacTransport):
     def reach_baseline(self, name: str) -> HostActionResult:
         """Reach one server-approved verification baseline."""
         if name == VERIFICATION_BASELINES[0]:
-            return self.reset_installer_test_host()
+            return reach_user_equivalent_baseline(self)
         if name == VERIFICATION_BASELINES[1]:
             return self._reach_shell_preconfigured()
         raise ValueError(f"unknown host baseline {name!r}")
 
     def _reach_shell_preconfigured(self) -> HostActionResult:
         name = VERIFICATION_BASELINES[1]
-        reset = self.reset_installer_test_host()
+        reset = reach_user_equivalent_baseline(self)
         if not reset.ok:
             return HostActionResult(
                 False,

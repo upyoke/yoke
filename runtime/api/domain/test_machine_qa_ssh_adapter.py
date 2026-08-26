@@ -18,8 +18,11 @@ from yoke_core.domain.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
     RESET_LOAD_AVERAGE_PREFIX,
     RESET_PROCESS_REAPED_PREFIX,
+    RESET_RESTORED_ENTRIES_PREFIX,
     resolve_full_reset_path_contract,
 )
+
+GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
 from yoke_core.domain.ssh_mac_full_reset_script import (
     FULL_RESET_SCRIPT,
     render_full_reset_script,
@@ -54,6 +57,7 @@ def test_ssh_adapter_uses_secret_file_reference_not_secret_argv(
             "host": "test-mac.local",
             "user": "yoke-test",
             "operating_notes": "",
+            "golden_baseline_path": GOLDEN_BASELINE_PATH,
         },
         secrets={"ssh_private_key": "top-secret"},
         secret_paths={"ssh_private_key": str(key_path)},
@@ -79,9 +83,7 @@ def test_full_reset_ssh_path_never_invokes_remote_python_or_clt(
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = "\n".join(
                 (
-                    "YOKE_TOKEN_STAGE_RESTORED",
-                    "YOKE_TOKEN_PROD_RESTORED",
-                    "YOKE_INSTALLER_EVIDENCE_MOVED",
+                    f"{RESET_RESTORED_ENTRIES_PREFIX}22",
                     f"{RESET_PROCESS_REAPED_PREFIX}0",
                     f"{RESET_LOAD_AVERAGE_PREFIX}2.50",
                     FULL_RESET_MARKER,
@@ -102,6 +104,7 @@ def test_full_reset_ssh_path_never_invokes_remote_python_or_clt(
             "host": "test-mac.local",
             "user": "yoke-test",
             "operating_notes": "",
+            "golden_baseline_path": GOLDEN_BASELINE_PATH,
         },
         secrets={"ssh_private_key": "top-secret"},
         secret_paths={"ssh_private_key": str(key_path)},
@@ -133,9 +136,7 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
         elif remote.startswith(FULL_RESET_REMOTE_PATH):
             stdout = "\n".join(
                 (
-                    "YOKE_TOKEN_STAGE_ABSENT",
-                    "YOKE_TOKEN_PROD_ABSENT",
-                    "YOKE_INSTALLER_EVIDENCE_ABSENT",
+                    f"{RESET_RESTORED_ENTRIES_PREFIX}22",
                     f"{RESET_PROCESS_REAPED_PREFIX}0",
                     f"{RESET_LOAD_AVERAGE_PREFIX}1.05",
                     FULL_RESET_MARKER,
@@ -157,6 +158,7 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
                 "host": "test-mac.local",
                 "user": "yoke-test",
                 "operating_notes": "",
+                "golden_baseline_path": GOLDEN_BASELINE_PATH,
             },
             secrets={"ssh_private_key": "top-secret"},
             secret_paths={"ssh_private_key": str(key_path)},
@@ -217,6 +219,7 @@ def test_fixture_file_transfers_use_guaranteed_mac_primitives(
                 "host": "test-mac.local",
                 "user": "yoke-test",
                 "operating_notes": "",
+                "golden_baseline_path": GOLDEN_BASELINE_PATH,
             },
             secrets={"ssh_private_key": "top-secret"},
             secret_paths={"ssh_private_key": str(key_path)},

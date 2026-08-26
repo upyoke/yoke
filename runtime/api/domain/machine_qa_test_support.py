@@ -46,6 +46,7 @@ class FakeHostControl:
         *,
         refuse_ssh_state: bool = False,
         refuse_full_reset: bool = False,
+        refuse_user_equivalence: bool = False,
     ) -> None:
         self.files: dict[str, str] = {
             "/Users/tester/.zprofile": (
@@ -57,6 +58,7 @@ class FakeHostControl:
         }
         self.refuse_ssh_state = refuse_ssh_state
         self.refuse_full_reset = refuse_full_reset
+        self.refuse_user_equivalence = refuse_user_equivalence
         self.case_calls = 0
         self.full_reset_calls = 0
         self.fixture_remotes: list[FakeRemote] = []
@@ -146,17 +148,24 @@ class FakeHostControl:
                     "restored_entries": len(BASELINE_PATHS),
                     "preserved_entries": list(PRESERVED_HOME_ENTRIES),
                 },
-                "user_equivalence": {
-                    "probes": [
-                        {"name": "harness cli signed in", "ok": True}
-                    ]
-                },
                 "process_state": {
                     "reaped_processes": 0,
                     "surviving_matches": 0,
                     "load_average": 1.0,
                 },
             },
+        )
+
+    def prove_user_equivalent(self) -> HostActionResult:
+        if self.refuse_user_equivalence:
+            return HostActionResult(
+                False,
+                {"probes": [{"name": "harness cli signed in", "ok": False}]},
+                "baseline_probe_failed",
+            )
+        return HostActionResult(
+            True,
+            {"probes": [{"name": "harness cli signed in", "ok": True}]},
         )
 
     def probe_path(self, surface: str) -> list[str]:

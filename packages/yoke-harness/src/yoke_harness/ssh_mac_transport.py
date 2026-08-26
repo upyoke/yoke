@@ -152,28 +152,23 @@ class SshMacTransport:
         )
 
     def reset_installer_test_host(self) -> HostActionResult:
-        """Restore the declared golden baseline and prove it is user-equivalent.
-
-        The restore is not finished when the files are back. A home that is
-        structurally the captured one can still hold a credential that expired
-        while it sat in the baseline, so the declared probes run here rather
-        than in either caller: reaching this baseline means the host works,
-        not merely that it was overwritten.
-        """
-        restored = execute_full_test_mac_reset(
+        """Restore the declared golden baseline over the dedicated host's home."""
+        return execute_full_test_mac_reset(
             run_remote=self._run,
             upload_text=self._upload_full_reset_script,
             home=self.home,
             golden_baseline_path=self.golden_baseline_path,
             path_state=self.path_state,
         )
-        if not restored.ok:
-            return restored
-        probed = self._prove_user_equivalent()
-        evidence = {**restored.evidence, "user_equivalence": probed.evidence}
-        return HostActionResult(probed.ok, evidence, probed.error_code)
 
-    def _prove_user_equivalent(self) -> HostActionResult:
+    def prove_user_equivalent(self) -> HostActionResult:
+        """Run the probes the declared baseline carries beside itself.
+
+        Separate from the restore because they answer different questions. The
+        restore asks whether the home is the captured one; this asks whether
+        that home still works, which structure alone cannot say — a credential
+        can come back byte-identical and expired.
+        """
         golden = self.golden_baseline_path or ""
         document = self._read_remote_file(golden + GOLDEN_PROBES_SUFFIX)
         if document is None:

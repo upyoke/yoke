@@ -10,8 +10,10 @@ from yoke_harness.ssh_mac_baseline_probes import (
     BaselineProbe,
     BaselineProbeError,
     parse_baseline_probes,
+    reach_user_equivalent_baseline,
     run_baseline_probes,
 )
+from yoke_harness.test_machine_types import HostActionResult
 
 
 def _document(**overrides) -> str:
@@ -147,3 +149,46 @@ def test_an_unreachable_gui_session_is_named_rather_than_read_as_a_pass() -> Non
     assert not result.ok
     assert result.error_code == "baseline_probe_unavailable"
     assert result.evidence["probes"][0]["outcome"] == "unavailable"
+
+
+class _Control:
+    def __init__(self, *, restored: HostActionResult, proven: HostActionResult):
+        self._restored = restored
+        self._proven = proven
+        self.proved = 0
+
+    def reset_installer_test_host(self) -> HostActionResult:
+        return self._restored
+
+    def prove_user_equivalent(self) -> HostActionResult:
+        self.proved += 1
+        return self._proven
+
+
+def test_a_restored_host_that_cannot_sign_in_does_not_reach_the_baseline() -> None:
+    control = _Control(
+        restored=HostActionResult(True, {"paths": [], "baseline_state": {}}),
+        proven=HostActionResult(False, {"probes": []}, "baseline_probe_failed"),
+    )
+
+    result = reach_user_equivalent_baseline(control)
+
+    # The point of the baseline is a machine a real user would have. Files back
+    # but nobody signed in is not that, so restoring is necessary and not
+    # sufficient.
+    assert not result.ok
+    assert result.error_code == "baseline_probe_failed"
+    assert result.evidence["user_equivalence"] == {"probes": []}
+
+
+def test_a_failed_restore_is_never_probed() -> None:
+    control = _Control(
+        restored=HostActionResult(False, {"paths": []}, "test_mac_reset_failed"),
+        proven=HostActionResult(True, {"probes": []}),
+    )
+
+    result = reach_user_equivalent_baseline(control)
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_failed"
+    assert control.proved == 0
