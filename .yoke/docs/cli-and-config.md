@@ -28,6 +28,14 @@ surface; CLI adapters are the operator/debug shape. Prefer
 environment is active, API URLs, local paths. Secrets for capabilities live
 under `~/.yoke/secrets/` (not in the repo).
 
+`preferred_session_models` is the surface-to-model map yoke-launched
+sessions consult when create carries no explicit `--model`. Precedence:
+explicit `--model` > this map > the vendor default. Model availability is
+bound to the accounts on this machine, so the map stays machine-local.
+`yoke session-control launch create --list-models` names each configured
+default and the key it came from. Every launch path — operator create and
+any later worker launcher — must call the same resolver.
+
 ## Connections
 
 A connection is how this machine reaches a universe:
