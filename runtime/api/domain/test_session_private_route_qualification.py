@@ -101,7 +101,7 @@ def test_opened_grant_has_fixed_ttl_and_consumes_exactly_once(monkeypatch) -> No
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"]
-    assert row["release_reason"] == QUALIFICATION_RELEASE_REASON
+    assert row["release_reason_intent"] == QUALIFICATION_RELEASE_REASON
     with pytest.raises(PrivateRouteQualificationError) as consumed:
         consume_qualification_grant(conn, grant)
     assert consumed.value.code == "qualification_grant_consumed"

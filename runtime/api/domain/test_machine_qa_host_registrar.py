@@ -158,7 +158,7 @@ def test_one_physical_host_admits_one_execution_across_every_project() -> None:
     for caught in (from_other_project, from_same_project):
         assert caught.value.machine == SHARED_HOST
         assert caught.value.lease.session_id == "yoke-session"
-        assert caught.value.lease.project_id == 1
+        assert caught.value.lease.key == host_claim_key(SHARED_HOST)
 
 
 def test_a_leased_shared_host_reads_as_in_use_for_every_naming_project() -> None:

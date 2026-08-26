@@ -167,4 +167,4 @@ def test_broker_scoped_grant_does_not_claim_direct_availability(monkeypatch) -> 
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"] == "2026-08-22T16:00:03Z"
-    assert row["release_reason"] == QUALIFICATION_RELEASE_REASON
+    assert row["release_reason_intent"] == QUALIFICATION_RELEASE_REASON

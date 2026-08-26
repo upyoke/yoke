@@ -242,6 +242,9 @@ def make_conn() -> sqlite3.Connection:
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
             actor_id INTEGER,
+            executor TEXT,
+            last_heartbeat TEXT,
+            last_tool_call_at TEXT,
             ended_at TEXT
         );
         CREATE TABLE work_claims (

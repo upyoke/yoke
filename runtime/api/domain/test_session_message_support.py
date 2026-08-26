@@ -22,23 +22,13 @@ NOW_TEXT = "2026-08-22T16:00:00Z"
 
 
 def add_coordination_claim_schema(conn: sqlite3.Connection) -> None:
-    """Add the claim shape a route-qualification grant is stored as."""
+    """Add the exclusivity index a route-qualification grant relies on.
+
+    ``message_connection`` already creates ``work_claims``; the grant only
+    needs its kind's live-row uniqueness on top.
+    """
     conn.executescript(
         """
-        CREATE TABLE IF NOT EXISTS work_claims (
-            id INTEGER PRIMARY KEY,
-            session_id TEXT NOT NULL,
-            target_kind TEXT NOT NULL,
-            scope TEXT NOT NULL,
-            claim_type TEXT NOT NULL DEFAULT 'exclusive',
-            claimed_at TEXT NOT NULL,
-            last_heartbeat TEXT,
-            released_at TEXT,
-            release_reason TEXT,
-            reason TEXT,
-            reason_intent TEXT,
-            release_reason_intent TEXT
-        );
         CREATE UNIQUE INDEX IF NOT EXISTS
             idx_work_claims_active_route_qualification
             ON work_claims(scope)
@@ -124,8 +114,11 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
-            target_kind TEXT NOT NULL, scope TEXT NOT NULL, claimed_at TEXT NOT NULL,
-            released_at TEXT
+            target_kind TEXT NOT NULL, scope TEXT NOT NULL,
+            claim_type TEXT NOT NULL DEFAULT 'exclusive',
+            claimed_at TEXT NOT NULL,
+            last_heartbeat TEXT, released_at TEXT, release_reason TEXT,
+            reason TEXT, reason_intent TEXT, release_reason_intent TEXT
         );
         """
     )
@@ -186,7 +179,7 @@ def selector(**values: object) -> RecipientSelector:
 __all__ = [
     "NOW",
     "NOW_TEXT",
-    "add_coordination_lease_schema",
+    "add_coordination_claim_schema",
     "message_connection",
     "selector",
 ]

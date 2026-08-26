@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.db_helpers import iso8601_now
+
 
 def seed_qa_session(conn: Any, *session_ids: str, actor_id: int = 2) -> None:
     """Register the sessions a host-control execution claims the host as.
@@ -42,9 +44,10 @@ def seed_qa_session(conn: Any, *session_ids: str, actor_id: int = 2) -> None:
     else:
         for session_id in session_ids:
             conn.execute(
-                "INSERT OR IGNORE INTO harness_sessions(session_id,actor_id) "
-                "VALUES(?,?)",
-                (session_id, actor_id),
+                "INSERT OR IGNORE INTO harness_sessions"
+                "(session_id,actor_id,executor,last_heartbeat) "
+                "VALUES(?,?,'codex',?)",
+                (session_id, actor_id, iso8601_now()),
             )
     conn.commit()
 

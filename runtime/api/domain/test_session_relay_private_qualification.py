@@ -136,7 +136,7 @@ def test_candidate_direct_wake_consumes_grant_before_return(monkeypatch) -> None
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"] == "2026-08-22T16:11:00Z"
-    assert row["release_reason"] == QUALIFICATION_RELEASE_REASON
+    assert row["release_reason_intent"] == QUALIFICATION_RELEASE_REASON
 
 
 def test_candidate_without_exact_grant_remains_unclaimed(monkeypatch) -> None:

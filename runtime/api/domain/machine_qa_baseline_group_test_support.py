@@ -76,6 +76,9 @@ ACTING_SESSIONS = (
     "session-machine-submit-atomicity",
     "session-machine-two-phase",
     "session-machine-artifact",
+    "session-agent-mission",
+    "settlement-session",
+    "deployment-machine",
 )
 
 

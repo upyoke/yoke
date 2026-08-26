@@ -184,15 +184,15 @@ def test_handler_refuses_wrong_project_actor_and_unregistered_session(
     ).fetchone()[0] == 0
 
 
-def test_ordinary_coordination_lease_cannot_forge_reserved_key() -> None:
+def test_an_ordinary_coordination_claim_cannot_forge_a_reserved_key() -> None:
     request = FunctionCallRequest.model_validate(
         {
-            "function": "claims.coordination_lease.acquire",
+            "function": "claims.coordination_claim.acquire",
             "actor": {"actor_id": "10", "session_id": "s1"},
             "target": {"kind": "global"},
             "payload": {
                 "project_id": "alpha",
-                "lease_key": f"{QUALIFICATION_LEASE_PREFIX}forged",
+                "key": f"{QUALIFICATION_LEASE_PREFIX}forged",
             },
         }
     )
@@ -200,7 +200,7 @@ def test_ordinary_coordination_lease_cannot_forge_reserved_key() -> None:
     outcome = claims_coordination_claim.handle_acquire(request)
 
     assert outcome.primary_success is False
-    assert outcome.error and outcome.error.code == "lease_key_reserved"
+    assert outcome.error and outcome.error.code == "claim_key_reserved"
 
 
 def test_reserved_grant_cannot_be_heartbeated_or_forged_released(
@@ -228,20 +228,20 @@ def test_reserved_grant_cannot_be_heartbeated_or_forged_released(
         )
 
     heartbeat = claims_coordination_claim.handle_heartbeat(
-        request("claims.coordination_lease.heartbeat", {"lease_id": lease_id})
+        request("claims.coordination_claim.heartbeat", {"claim_id": lease_id})
     )
     release = claims_coordination_claim.handle_release(
         request(
-            "claims.coordination_lease.release",
-            {"lease_id": lease_id, "reason": QUALIFICATION_RELEASE_REASON},
+            "claims.coordination_claim.release",
+            {"claim_id": lease_id, "reason": QUALIFICATION_RELEASE_REASON},
         )
     )
 
-    assert heartbeat.error and heartbeat.error.code == "lease_key_reserved"
-    assert release.error and release.error.code == "lease_key_reserved"
+    assert heartbeat.error and heartbeat.error.code == "claim_key_reserved"
+    assert release.error and release.error.code == "claim_key_reserved"
     row = conn.execute(
         "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (lease_id,),
     ).fetchone()
     assert row["released_at"] is None
-    assert row["release_reason"] is None
+    assert row["release_reason_intent"] is None
