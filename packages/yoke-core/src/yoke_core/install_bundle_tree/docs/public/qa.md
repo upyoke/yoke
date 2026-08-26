@@ -18,6 +18,30 @@ full suite and then re-run it through QA.
 yoke qa case run --requirement-id <id>
 ```
 
+## Binding your project's command
+
+Bind the command the gate runs — one call per scope, no environment needed:
+
+```bash
+yoke qa registered-command set --project <p> --scope quick --command "<argv>"
+```
+
+That converges the whole binding: the `registered-command-quick` plan, its
+case, the runner the case uses, and the project-default attachments at the
+gating transitions. Add `--scope full` only when its argv differs.
+
+Declaring a GitHub Actions **test** workflow routes those scopes to CI:
+
+```bash
+yoke projects capability-settings set --project <p> --cap-type ci_workflow_file \
+  --new --settings-json '{"workflow_file":"ci.yml"}'
+```
+
+Without that declaration the scopes run locally in the item's worktree, which
+is a correct configuration rather than a downgrade. A project-structure
+`verification_profiles.test_command` entry is descriptive and is never the
+gate command.
+
 When the project binds CI for quick/full scopes, commit and let the case
 runner push the lane branch; the verdict names the CI run URL and head sha.
 

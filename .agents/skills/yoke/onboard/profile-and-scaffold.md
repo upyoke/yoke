@@ -31,6 +31,38 @@ Present the whole profile in one block — a smart proposal, never a blank inter
 - **Capabilities** — `aws-admin` (hosting), the project GitHub binding mode, product-specific keys named by the plan.
 - **Environments** — stage + prod on a default site, plus the default deploy flow for the slug.
 - **Domain posture** — start on the default subdomain; bring-your-own later.
+- **Test setup** — how this project's tests run, and therefore what the
+  `reviewing-implementation` gate will execute. See the box below.
+
+### The test-setup box
+
+Every profile carries this box. It is never omitted and never inferred
+silently, because the gate that blocks `reviewing-implementation` runs the
+project's **registered verification command**, and a project that never
+declares one reaches that gate with nothing to run.
+
+Propose exactly one of three named outcomes, from the step 1 repo survey:
+
+1. **A surveyed command.** The survey found a real suite — a `pytest`
+   invocation, `npm test`, `go test ./...`, whatever the repo actually runs.
+   Propose its argv as `quick`, and a broader argv as `full` when the two
+   genuinely differ. Propose the argv the repo runs; never invent one, and
+   never propose a command whose executable is absent from the repo.
+2. **A scaffold suite.** The profile installs a scaffold Pack that lands
+   tests — `webapp-scaffold` ships FastAPI tests, Vitest, Playwright
+   examples, and `.github/workflows/ci.yml`. Propose the Pack's own test
+   command, and note that its workflow becomes the CI declaration in step 5.
+3. **An explicit skip.** The operator declines a suite — an idea-only repo, a
+   content site, a client who will not pay for tests yet. Record the skip as
+   a decision, not an omission. Nothing is registered, and the gate falls back
+   to the `implementation_review` requirement that advance seeds when no plan
+   and no acceptance criteria exist. Never substitute a fabricated `pytest`,
+   and never declare CI or a merge queue for a project with no suite.
+
+A descriptive `verification_profiles.test_command` project-structure entry is
+**not** one of these outcomes. It records what the project's tests are for a
+human reader; it is not consulted by the gate. Writing it and stopping leaves
+the project exactly as unbound as writing nothing.
 
 ### Confirm (stop 1 of 2)
 
@@ -39,12 +71,12 @@ The operator confirms or adjusts the whole profile; edits refine the proposal in
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status human-interview=verified \
-  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; envs stage+prod; domain {posture}"
+  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; envs stage+prod; domain {posture}; test setup {surveyed-command|scaffold-suite|explicit-skip}"
 ```
 
 After confirmation, run steps 3–6 straight through unattended. The next stop is the infrastructure approval gate in step 7.
 
-**Failure floor:** unresolved profile unknowns (unclear deploy target, unnamed required credential) → `human-interview=blocked` with the open questions as blocker text; stop.
+**Failure floor:** unresolved profile unknowns (unclear deploy target, unnamed required credential, an undecided test-setup box) → `human-interview=blocked` with the open questions as blocker text; stop.
 
 ## Step 3: Install The Scaffold Pack
 

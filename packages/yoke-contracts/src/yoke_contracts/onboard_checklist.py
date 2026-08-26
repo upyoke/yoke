@@ -144,7 +144,12 @@ ROW_SPECS = (
     ChecklistRowSpec("infra-apply-first-deploy", "17e",
                      "Infra apply + first deploy", LAYER_AGENTIC, "yoke onboard",
                      "Gated infra apply, first stage deploy, and smoke check."),
-    ChecklistRowSpec("work-seeding", "17f", "Work seeding",
+    ChecklistRowSpec("verification-command-binding", "17f",
+                     "Verification command binding", LAYER_VERIFICATION,
+                     "yoke onboard",
+                     "Bind the project's test command as the QA gate, or "
+                     "record that it has no suite to bind."),
+    ChecklistRowSpec("work-seeding", "17g", "Work seeding",
                      LAYER_AGENTIC, "yoke onboard",
                      "File the first backlog items from CURRENT-PLAN via idea intake."),
     ChecklistRowSpec("verification", "18", "Verification", LAYER_VERIFICATION,

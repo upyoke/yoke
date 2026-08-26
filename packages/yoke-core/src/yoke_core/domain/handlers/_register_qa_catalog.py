@@ -5,6 +5,9 @@ from __future__ import annotations
 from yoke_core.domain.handlers import qa_catalog_reads as _reads
 from yoke_core.domain.handlers import qa_plan_edit as _edit
 from yoke_core.domain.handlers import qa_plan_writes as _writes
+from yoke_core.domain.handlers import (
+    qa_registered_command_writes as _registered_command,
+)
 
 
 def _read(
@@ -127,6 +130,27 @@ def register(registry) -> None:
         side_effects=["qa_plan_cases_replace"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["project_scope_required", "snapshot_preserved"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "qa.registered_command.set",
+        _registered_command.handle_registered_command_set,
+        _registered_command.RegisteredCommandSetRequest,
+        _registered_command.RegisteredCommandSetResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.qa_registered_command_writes"
+        ),
+        target_kinds=["global"],
+        side_effects=[
+            "qa_plans_upsert",
+            "qa_plan_cases_replace",
+            "qa_plan_project_defaults_upsert",
+        ],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["project_scope_required", "all_pass_policy"],
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,

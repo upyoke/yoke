@@ -69,7 +69,7 @@ yoke onboard checklist --run-id {run_id} \
 
 - **Entry:** scaffold present (installed or mapped); hosting verified or explicitly deferred.
 - **Skip:** registrations already match the profile → skip; Packs already in the `.yoke/packs.json` receipt skip individually.
-- **Rows:** `environment-registration`, `project-structure-setup`, `delivery-setup`.
+- **Rows:** `environment-registration`, `project-structure-setup`, `delivery-setup`, `verification-command-binding`.
 
 ### Install the infra Packs
 
@@ -111,9 +111,67 @@ yoke project-structure deploy-defaults get --project {project}
 
 A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
 
+### Bind the confirmed test setup
+
+This applies the test-setup box the operator confirmed in step 2. It runs here,
+after the scaffold Pack has landed its tests and its `.github/workflows/ci.yml`,
+so the declaration describes files that actually exist.
+
+**A surveyed command or a scaffold suite** binds in one call per scope:
+
+```bash
+yoke qa registered-command set --project {project} --scope quick --command "{quick_argv}"
+```
+
+Add the `full` scope only when its argv genuinely differs from `quick`:
+
+```bash
+yoke qa registered-command set --project {project} --scope full --command "{full_argv}"
+```
+
+One call converges the whole binding — the `registered-command-{scope}` plan,
+its case row, the runner the case uses, and the project-default attachments at
+the transitions that gate. It needs no environment, because a command case runs
+in the item's worktree or in CI, never against a site behind a base URL.
+
+**When a GitHub Actions workflow runs that command**, declare it first, so the
+binding above routes the case to CI instead of the local runner:
+
+```bash
+yoke projects capability-settings set --project {project} --cap-type ci_workflow_file \
+  --new --settings-json '{"workflow_file":"{ci_yml_filename}"}'
+```
+
+Name the **test** workflow — the one that runs the registered command. A deploy
+or release workflow is not a verification workflow; declaring one there makes
+the gate report a green that proves nothing. With no declaration the scopes keep
+the local `command` runner, which is a correct outcome, not a downgrade.
+
+**An explicit skip** registers nothing. Record the decision and move on; the
+`reviewing-implementation` gate falls back to the `implementation_review`
+requirement that advance seeds when no plan and no acceptance criteria exist.
+
+A `verification_profiles.test_command` entry in the policy rows below is
+descriptive only. It is never read by the gate, so writing it is not a
+substitute for the binding above.
+
+```bash
+yoke onboard checklist --run-id {run_id} \
+  --row-status verification-command-binding=configured \
+  --evidence verification-command-binding="registered-command-quick bound to {quick_argv}; runner {command|command-ci}; {ci_workflow_file or 'no Actions test workflow declared'}"
+```
+
+For the explicit skip, mark `verification-command-binding=not-needed` with the
+operator's reason as evidence. When the operator has not decided yet, mark it
+`deferred`; when the argv cannot be verified against the repo, mark it
+`blocked` with the missing executable named.
+
 ### Project Structure policy rows
 
-Capture the project-wide policy the profile implies (command definitions, merge verification, context routing) through the registered patch surface:
+Capture the project-wide policy the profile implies — test roots, context
+routing, ownership defaults, integration targets — through the registered patch
+surface. These rows are descriptive project structure; the command the QA gate
+runs is bound above, not here:
 
 ```bash
 yoke project-structure patch apply --project {project} --ops-json '{json_ops}'

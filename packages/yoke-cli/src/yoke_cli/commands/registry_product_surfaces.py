@@ -50,6 +50,10 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
         "qa.plan_cases.replace",
         qa_catalog.qa_plan_cases_replace,
     ),
+    ("qa", "registered-command", "set"): (
+        "qa.registered_command.set",
+        qa_catalog_defaults.qa_registered_command_set,
+    ),
     ("qa", "project-default", "set"): (
         "qa.project_default.set",
         qa_catalog_defaults.qa_plan_project_default_set,
