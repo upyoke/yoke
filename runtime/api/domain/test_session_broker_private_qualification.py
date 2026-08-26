@@ -115,7 +115,7 @@ def test_exact_direct_grant_prevents_peer_broker_reservation(monkeypatch) -> Non
 
     assert lease is None
     row = conn.execute(
-        "SELECT released_at FROM coordination_leases WHERE id=?",
+        "SELECT released_at FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"] is None
@@ -163,7 +163,7 @@ def test_broker_scoped_grant_does_not_claim_direct_availability(monkeypatch) -> 
     assert outcome.jobs[0].wake_route == "broker"
     assert outcome.jobs[0].private_route_qualification == grant
     row = conn.execute(
-        "SELECT released_at,release_reason FROM coordination_leases WHERE id=?",
+        "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"] == "2026-08-22T16:00:03Z"

@@ -22,7 +22,7 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.api.service_client_structured_api_adapter import adapter_for
 from yoke_core.domain.handlers import (
     _register_session_control,
-    claims_coordination_lease,
+    claims_coordination_claim,
     session_qualification,
 )
 from yoke_core.domain import yoke_function_registry
@@ -114,7 +114,7 @@ def test_registration_is_operator_override_and_stage_guarded() -> None:
         entry = yoke_function_registry.lookup("session_control.qualification.open")
         assert entry is not None
         assert entry.claim_required_kind == "operator_override"
-        assert entry.side_effects == ("coordination_leases_insert",)
+        assert entry.side_effects == ("work_claims_insert",)
         assert entry.target_kinds == ("global",)
         assert "stage_only_exact_release" in entry.guardrails
         adapter = adapter_for("session_control.qualification.open")
@@ -127,8 +127,8 @@ def test_registration_is_operator_override_and_stage_guarded() -> None:
         relay_claim = yoke_function_registry.lookup("session_control.relay.claim")
         assert acknowledge is not None
         assert relay_claim is not None
-        assert "coordination_leases_update_released_at" in acknowledge.side_effects
-        assert "coordination_leases_update_released_at" in relay_claim.side_effects
+        assert "work_claims_update_released_at" in acknowledge.side_effects
+        assert "work_claims_update_released_at" in relay_claim.side_effects
     finally:
         yoke_function_registry.reset_registry_for_tests()
 
@@ -178,7 +178,10 @@ def test_handler_refuses_wrong_project_actor_and_unregistered_session(
         unknown_session.error
         and unknown_session.error.code == "operator_session_unregistered"
     )
-    assert conn.execute("SELECT COUNT(*) FROM coordination_leases").fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+        "('migration_serialization','qa_admission','route_qualification')"
+    ).fetchone()[0] == 0
 
 
 def test_ordinary_coordination_lease_cannot_forge_reserved_key() -> None:
@@ -194,7 +197,7 @@ def test_ordinary_coordination_lease_cannot_forge_reserved_key() -> None:
         }
     )
 
-    outcome = claims_coordination_lease.handle_acquire(request)
+    outcome = claims_coordination_claim.handle_acquire(request)
 
     assert outcome.primary_success is False
     assert outcome.error and outcome.error.code == "lease_key_reserved"
@@ -224,10 +227,10 @@ def test_reserved_grant_cannot_be_heartbeated_or_forged_released(
             }
         )
 
-    heartbeat = claims_coordination_lease.handle_heartbeat(
+    heartbeat = claims_coordination_claim.handle_heartbeat(
         request("claims.coordination_lease.heartbeat", {"lease_id": lease_id})
     )
-    release = claims_coordination_lease.handle_release(
+    release = claims_coordination_claim.handle_release(
         request(
             "claims.coordination_lease.release",
             {"lease_id": lease_id, "reason": QUALIFICATION_RELEASE_REASON},
@@ -237,7 +240,7 @@ def test_reserved_grant_cannot_be_heartbeated_or_forged_released(
     assert heartbeat.error and heartbeat.error.code == "lease_key_reserved"
     assert release.error and release.error.code == "lease_key_reserved"
     row = conn.execute(
-        "SELECT released_at,release_reason FROM coordination_leases WHERE id=?",
+        "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (lease_id,),
     ).fetchone()
     assert row["released_at"] is None

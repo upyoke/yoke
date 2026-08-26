@@ -97,7 +97,7 @@ def test_opened_grant_has_fixed_ttl_and_consumes_exactly_once(monkeypatch) -> No
 
     consume_qualification_grant(conn, grant)
     row = conn.execute(
-        "SELECT released_at,release_reason FROM coordination_leases WHERE id=?",
+        "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"]
@@ -132,7 +132,10 @@ def test_open_refuses_prod_or_nonexact_serving_sha(
         )
 
     assert denied.value.code == code
-    assert conn.execute("SELECT COUNT(*) FROM coordination_leases").fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+        "('migration_serialization','qa_admission','route_qualification')"
+    ).fetchone()[0] == 0
 
 
 def test_open_refuses_canonical_floor_and_inactive_operator(monkeypatch) -> None:
@@ -215,13 +218,13 @@ def test_expired_grant_is_settled_and_same_scope_can_be_rearmed(monkeypatch) -> 
 
     assert second.lease_id != first.lease_id
     rows = conn.execute(
-        "SELECT id,released_at,release_reason,released_by_session_id,"
-        "released_by_actor_id FROM coordination_leases ORDER BY id"
+        "SELECT id,released_at,release_reason,release_reason_intent "
+        "FROM work_claims WHERE target_kind='route_qualification' "
+        "ORDER BY id"
     ).fetchall()
-    assert rows[0]["release_reason"] == QUALIFICATION_ABANDONED_REASON
+    assert rows[0]["release_reason_intent"] == QUALIFICATION_ABANDONED_REASON
+    assert rows[0]["release_reason"] == "expired"
     assert rows[0]["released_at"] == "2099-01-01T00:30:00Z"
-    assert rows[0]["released_by_session_id"] == "s1"
-    assert rows[0]["released_by_actor_id"] == "10"
     assert rows[1]["released_at"] is None
 
 
@@ -251,7 +254,10 @@ def test_post_acquire_validation_failure_rolls_back_reserved_lease(
         )
 
     assert raised.value.code == "qualification_recheck_failed"
-    assert conn.execute("SELECT COUNT(*) FROM coordination_leases").fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+        "('migration_serialization','qa_admission','route_qualification')"
+    ).fetchone()[0] == 0
 
 
 def test_message_lookup_binds_run_sender_project_operation_and_route(

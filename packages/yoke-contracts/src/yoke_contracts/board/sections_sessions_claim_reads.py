@@ -170,7 +170,14 @@ def coordination_claims_for_session(
         {terminal_filter}
         ORDER BY cc.id DESC
         """
-    return db.query_quiet(typed_sql, (session_id, session_id))
+    params = (session_id, session_id)
+    # Replay coverage: a payload recorded before this read existed has no
+    # entry for it, and the board must render without coordination keycaps
+    # rather than fail the whole rebuild.
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(typed_sql, params):
+        return []
+    return db.query_quiet(typed_sql, params)
 
 
 
