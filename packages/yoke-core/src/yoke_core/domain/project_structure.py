@@ -137,6 +137,15 @@ NET_NEW_FAMILIES: Dict[str, Dict[str, Optional[str]]] = {
         "multiplicity": "singleton",
         "locked_kind": None,
     },
+    # ``hosting_posture`` holds what the project decided about who runs its
+    # hosting: Yoke on AWS, or nobody Yoke can reach. Singleton per project.
+    # Absence means the question is still open, so onboarding asks it once
+    # rather than assuming AWS.
+    "hosting_posture": {
+        "attachment": "project",
+        "multiplicity": "singleton",
+        "locked_kind": None,
+    },
 }
 
 

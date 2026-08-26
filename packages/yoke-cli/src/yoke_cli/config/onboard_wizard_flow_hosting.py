@@ -5,9 +5,13 @@ project: it is stored under that project's slug on this machine. Runs that
 onboard no deployable project — machine-only, and developing Yoke itself —
 pass straight through to Review.
 
-The step is skippable by design. Skipping strands nothing — the same
-capability is reachable later from ``/yoke onboard``, from
-``yoke projects capability secret set``, or from a wizard re-run.
+The step has three answers, not two, because "I run the hosting myself" and
+"I have not decided" are different facts. Deciding later strands nothing — the
+same capability is reachable from ``/yoke onboard``, from
+``yoke projects capability secret set``, or from a wizard re-run — but it also
+tells the project nothing, so ``/yoke onboard`` keeps asking. Declaring that
+Yoke manages no host settles the question: apply records it on the project and
+onboarding stops proposing cloud credentials and infrastructure Packs.
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from yoke_cli.config import onboard_project_modes as project_modes
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
 from yoke_cli.config.onboard_wizard_state import _FormField
 from yoke_cli.config.onboard_wizard_step_ids import STEP_HOSTING
+from yoke_contracts import hosting_posture
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
@@ -72,6 +77,9 @@ class HostingFlow:
         self._goto(_View(STEP_HOSTING, builder, self._on_hosting_choice))
 
     def _on_hosting_choice(self: _Shell, choice: str) -> None:
+        if choice == "no-managed-host":
+            self._goto_hosting_no_managed_host()
+            return
         if choice != "connect":
             self._skip_hosting()
             return
@@ -80,7 +88,43 @@ class HostingFlow:
         self._submit_pending_form()
 
     def _skip_hosting(self: _Shell) -> None:
-        self.result.hosting_choice = hosting.HOSTING_CHOICE_SKIP
+        self.result.hosting_choice = hosting_posture.POSTURE_UNDECIDED
+        self.result.hosting_provider_note = None
+        self.result.hosting_verification = None
+        self._goto_finish()
+
+    # ── declared: the operator runs the hosting ─────────────
+
+    def _goto_hosting_no_managed_host(self: _Shell) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        def builder():
+            self._begin_form(
+                hosting_steps.HOSTING_NO_MANAGED_HOST_FIELDS,
+                on_done=self._after_no_managed_host_note,
+            )
+            return hosting_steps.hosting_no_managed_host_body()
+
+        self._goto(_View(
+            STEP_HOSTING, builder, self._on_no_managed_host_choice,
+        ))
+
+    def _on_no_managed_host_choice(self: _Shell, choice: str) -> None:
+        if choice == "back":
+            self._goto_hosting_connect()
+            return
+        # The note is optional, so the row commits whatever the box holds --
+        # including nothing.
+        self._submit_pending_form()
+
+    def _after_no_managed_host_note(
+        self: _Shell, values: dict[str, str],
+    ) -> None:
+        note = values[hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key].strip()
+        self.result.hosting_choice = hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST
+        self.result.hosting_provider_note = note or None
+        # Nothing was verified because nothing was collected; the posture is
+        # the whole record.
         self.result.hosting_verification = None
         self._goto_finish()
 
@@ -124,7 +168,7 @@ class HostingFlow:
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self.result.hosting_choice = hosting.HOSTING_CHOICE_CONNECT
+        self.result.hosting_choice = hosting_posture.POSTURE_YOKE_MANAGED_AWS
         self.result.hosting_verification = {
             "checked": True,
             "ok": True,
@@ -166,10 +210,10 @@ class HostingFlow:
             title = "Couldn't save the hosting credential."
             details = [
                 "Re-entering the two values retries the save.",
-                "Skipping leaves hosting for a later `/yoke onboard` run.",
+                "Deciding later leaves hosting for a `/yoke onboard` run.",
             ]
             rows = hosting_steps.HOSTING_RETRY_ROWS
-        self.result.hosting_choice = hosting.HOSTING_CHOICE_SKIP
+        self.result.hosting_choice = hosting_posture.POSTURE_UNDECIDED
         self.result.hosting_verification = None
         self._goto(_View(
             STEP_HOSTING,
@@ -183,9 +227,14 @@ class HostingFlow:
         if choice == "retry":
             self._goto_hosting_connect()
             return
+        if choice == "no-managed-host":
+            # Reaching an error screen is a common way to discover that AWS was
+            # never the right answer, so the declaration is offered here too.
+            self._goto_hosting_no_managed_host()
+            return
         if choice == "keep":
             # The pair is already on disk; only the proof is missing.
-            self.result.hosting_choice = hosting.HOSTING_CHOICE_CONNECT
+            self.result.hosting_choice = hosting_posture.POSTURE_YOKE_MANAGED_AWS
             self._goto_finish()
             return
         self._skip_hosting()

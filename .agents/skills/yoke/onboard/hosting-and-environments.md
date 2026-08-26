@@ -4,9 +4,35 @@ Step 4 verifies (or connects) the hosting capability. Step 5 installs the infra 
 
 ## Step 4: Hosting Capability
 
-- **Entry:** the confirmed profile requires hosting.
-- **Skip:** `aws-admin` capability present AND the live identity probe passes (redacted evidence only) — the normal case when hosting was connected during wire-up.
+- **Entry:** the project has not declared that Yoke manages no host.
+- **Skip:** the declared posture is `no-yoke-managed-host`, or the `aws-admin` capability is present AND the live identity probe passes (redacted evidence only) — the latter being the normal case when hosting was connected during wire-up.
 - **Rows:** `hosting-setup`, `capability-setup`.
+
+### Read the declared posture first
+
+A project can say that its hosting is somebody else's job. Read that before asking for anything:
+
+```bash
+yoke project-structure get --project {project} --family hosting_posture --json
+```
+
+A payload of `{"posture": "no-yoke-managed-host"}` settles the row without a credential, a probe, or an `aws-admin` capability. Mark it and move straight to `capability-setup`:
+
+```bash
+yoke onboard checklist --run-id {run_id} \
+  --row-status hosting-setup=not-needed \
+  --evidence hosting-setup="project declares no Yoke-managed host (runs on {provider}); no cloud credential requested"
+```
+
+`not-needed` and `deferred` are different answers and must stay that way: the first is a decision the operator made, the second is a question still open. Never mark a declared posture `deferred`, and never ask for AWS credentials on top of one — that is the failure this declaration exists to prevent.
+
+An empty read means the question is still open. Ask it once here, record the answer through the same family so the next run does not ask again, then continue down the matching branch:
+
+```bash
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"hosting_posture","attachment":"project","payload":{"posture":"no-yoke-managed-host","provider":"{where it runs}"}}]'
+```
+
+Use `"posture": "aws-admin"` for the branch where Yoke manages AWS hosting. `provider` is optional prose recording where the code actually runs; Yoke never acts on it.
 
 ### Skip probe
 
@@ -43,7 +69,7 @@ yoke projects capability secret set --project {project} --cap-type aws-admin --k
 yoke projects capability-settings set --project {project} --cap-type aws-admin --key region --value {region}
 ```
 
-Non-secret settings live on the project capability; secret material lands only in the machine-local capability secret store. Verify with the same identity probe above, then mark `hosting-setup=configured` with redacted evidence. The operator may instead defer hosting entirely (`hosting-setup=deferred` with the reason); step 7 then stays unreachable and step 8 still runs.
+Non-secret settings live on the project capability; secret material lands only in the machine-local capability secret store. Verify with the same identity probe above, then mark `hosting-setup=configured` with redacted evidence and record the matching posture (`"posture": "aws-admin"`) so later runs skip the question. The operator may instead defer hosting entirely (`hosting-setup=deferred` with the reason, writing no posture row); step 7 then stays unreachable and step 8 still runs.
 
 ### Remaining capabilities
 

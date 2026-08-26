@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, TextIO
 
-from yoke_cli.config import aws_admin_capability
+from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_machine_github
@@ -88,10 +88,16 @@ class WizardResult:
     machine_github_api_url: str | None = None
     machine_github_verification: dict[str, Any] | None = None
     machine_github_saved: bool = False
-    # Hosting step answer. "aws-admin" once the pair is stored on this machine
-    # (verified or explicitly kept unverified); "skip" otherwise. The plan
-    # reports it, and the review reads the machine store for the reuse line.
-    hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP
+    # Hosting step answer, as one of the three declared postures: managed-AWS
+    # once the credential pair is stored on this machine (verified or
+    # explicitly kept unverified), no-Yoke-managed-host when the operator says
+    # they run the hosting, undecided when they defer. The plan reports it, the
+    # review reads the machine store for the reuse line, and apply writes the
+    # two declared values to the project.
+    hosting_choice: str = hosting_posture.POSTURE_UNDECIDED
+    # Where the code actually runs, when the operator named it. Prose only:
+    # Yoke stores it as documentation beside the posture and never acts on it.
+    hosting_provider_note: str | None = None
     hosting_verification: dict[str, Any] | None = None
     path_repair: dict[str, Any] | None = None
     project_mode: str = onboard_project.PROJECT_MODE_MACHINE_ONLY
@@ -209,6 +215,7 @@ class WizardResult:
             "machine_github_choice": self.machine_github_choice,
             "machine_github_api_url": self.machine_github_api_url,
             "hosting_choice": self.hosting_choice,
+            "hosting_provider_note": self.hosting_provider_note,
             "path_repair": self.path_repair,
             "project_mode": self.project_mode,
             "project_remote_url": self.project_remote_url,

@@ -36,12 +36,6 @@ CAPABILITY_TYPE = secret_contract.AWS_ADMIN_CAPABILITY
 ACCESS_KEY_ID_KEY = "access_key_id"
 SECRET_ACCESS_KEY_KEY = "secret_access_key"
 
-# The write-plan action and its two targets: one action id shared by the plan
-# builder, the friendly-label renderer, and the plan classifier.
-HOSTING_CAPABILITY_ACTION = "hosting-capability-secret"
-HOSTING_CHOICE_CONNECT = CAPABILITY_TYPE
-HOSTING_CHOICE_SKIP = "skip"
-
 # CloudFormation stack the one-click link creates, and the region the console
 # opens in when the shell names none.
 BOOTSTRAP_STACK_NAME = "yoke-aws-admin"
@@ -283,9 +277,6 @@ __all__ = [
     "CAPABILITY_TYPE",
     "CallerIdentity",
     "DEFAULT_REGION",
-    "HOSTING_CAPABILITY_ACTION",
-    "HOSTING_CHOICE_CONNECT",
-    "HOSTING_CHOICE_SKIP",
     "HostingCredentialError",
     "HostingVerificationError",
     "SECRET_ACCESS_KEY_KEY",

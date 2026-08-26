@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import aws_admin_capability
+from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_path_plan
 from yoke_cli.config import onboard_project_modes
@@ -42,7 +42,7 @@ def build_plan(
     project_mode: str,
     project_inputs: dict[str, Any],
     machine_github: dict[str, Any],
-    hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP,
+    hosting_choice: str = hosting_posture.POSTURE_UNDECIDED,
     path_repair: dict[str, Any] | None = None,
     reuse: dict[str, Any] | None = None,
     local_destination: bool = False,
@@ -93,9 +93,9 @@ def build_plan(
     ):
         steps.append(
             {
-                "action": aws_admin_capability.HOSTING_CAPABILITY_ACTION,
+                "action": hosting_posture.HOSTING_POSTURE_ACTION,
                 "target": str(
-                    hosting_choice or aws_admin_capability.HOSTING_CHOICE_SKIP
+                    hosting_choice or hosting_posture.POSTURE_UNDECIDED
                 ),
             }
         )

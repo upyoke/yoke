@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import onboard_path_plan
+from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_reuse_feedback
 from yoke_cli.config.onboard_plan_labels import friendly_line as _friendly_line
@@ -59,7 +59,7 @@ _MACHINE_ACTIONS = {
     "load-session-relay-login-item",
     "reuse-session-relay-token",
     onboard_path_plan.PATH_REPAIR_ACTION,
-    aws_admin_capability.HOSTING_CAPABILITY_ACTION,
+    hosting_posture.HOSTING_POSTURE_ACTION,
 }
 _REPO_ACTIONS = {
     "project-create-checkout",

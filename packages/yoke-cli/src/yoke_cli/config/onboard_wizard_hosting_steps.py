@@ -21,9 +21,24 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 
 HOSTING_CONNECT_TITLE = "Connect your hosting provider?"
 HOSTING_CONNECT_SUBTITLE = (
-    "AWS for now. One click creates the deploy credential; paste its two "
-    "values below."
+    "AWS is the one Yoke can run for you. Hosting it yourself is a fine "
+    "answer — say so and Yoke leaves it alone."
 )
+
+# The screen for the operator who runs their own hosting. It asks for nothing
+# Yoke needs, because Yoke will not touch that host; the one field exists so
+# the project record says where the code actually runs.
+HOSTING_NO_MANAGED_HOST_TITLE = "Yoke will manage no host for this project."
+HOSTING_PROVIDER_NOTE_FIELD = _FormField(
+    key="provider-note",
+    label="Where does it run? (optional)",
+    placeholder="Render, a DigitalOcean droplet, dokku, an on-prem box...",
+)
+HOSTING_NO_MANAGED_HOST_FIELDS = (HOSTING_PROVIDER_NOTE_FIELD,)
+HOSTING_NO_MANAGED_HOST_ROWS = [
+    SelectionRow("record", "Record it & continue", "no credential, no infra"),
+    SelectionRow("back", "Back", "connect a hosting provider after all"),
+]
 
 # The two halves of one credential, collected together: they are minted by the
 # same click and are useless apart, so the screen that explains them is also the
@@ -45,21 +60,27 @@ HOSTING_CREDENTIAL_FIELDS = (HOSTING_ACCESS_KEY_FIELD, HOSTING_SECRET_KEY_FIELD)
 
 HOSTING_CONNECT_ROWS = [
     SelectionRow("connect", "Save & verify", "redacted caller-identity check"),
-    SelectionRow("skip", "Skip for now", "connect later via /yoke onboard or re-run"),
+    SelectionRow("no-managed-host", "I host this myself",
+                 "Yoke applies no infrastructure"),
+    SelectionRow("skip", "Decide later", "/yoke onboard asks again"),
 ]
 HOSTING_VERIFIED_ROWS = [
     SelectionRow("continue", "Continue to Review", "last step"),
 ]
 HOSTING_RETRY_ROWS = [
     SelectionRow("retry", "Re-enter the two values", "paste them again"),
-    SelectionRow("skip", "Skip for now", "connect later via /yoke onboard or re-run"),
+    SelectionRow("no-managed-host", "I host this myself",
+                 "Yoke applies no infrastructure"),
+    SelectionRow("skip", "Decide later", "/yoke onboard asks again"),
 ]
 # The AWS CLI is only the verifier — its absence never invalidates a credential
 # the operator already pasted, so keeping it unverified is the leading row.
 HOSTING_UNVERIFIED_ROWS = [
     SelectionRow("keep", "Keep it without verifying", "check it later with yoke aws exec"),
     SelectionRow("retry", "Re-enter the two values", "paste them again"),
-    SelectionRow("skip", "Skip for now", "connect later via /yoke onboard or re-run"),
+    SelectionRow("no-managed-host", "I host this myself",
+                 "Yoke applies no infrastructure"),
+    SelectionRow("skip", "Decide later", "/yoke onboard asks again"),
 ]
 
 # Fallback for a build with no published bootstrap template (a source
@@ -102,6 +123,36 @@ def hosting_connect_body(
         ),
         Static("", classes="onboard-spacer"),
         SelectionList(HOSTING_CONNECT_ROWS),
+    ]
+
+
+def hosting_no_managed_host_body() -> list[Static]:
+    """The declared-elsewhere screen: what Yoke stops doing, and one prose line."""
+    return [
+        Static(HOSTING_NO_MANAGED_HOST_TITLE, classes="onboard-title"),
+        Static("", classes="onboard-subtitle"),
+        Static(
+            "  Yoke records the decision and stops proposing hosting:",
+            classes="onboard-plan-line",
+        ),
+        Static(
+            "  no cloud credential, no infrastructure Packs, no cloud apply.",
+            classes="onboard-plan-line",
+        ),
+        Static("", classes="onboard-spacer"),
+        Static(
+            "  Merging, verification, and the delivery loop are unaffected.",
+            classes="onboard-subtitle",
+        ),
+        Static("", classes="onboard-spacer"),
+        *form_field_widgets(HOSTING_NO_MANAGED_HOST_FIELDS),
+        Static(
+            "  Kept as a note on the project so future readers know where it "
+            "runs.",
+            classes="onboard-subtitle",
+        ),
+        Static("", classes="onboard-spacer"),
+        SelectionList(HOSTING_NO_MANAGED_HOST_ROWS),
     ]
 
 
@@ -168,6 +219,10 @@ __all__ = [
     "HOSTING_CONNECT_SUBTITLE",
     "HOSTING_CONNECT_TITLE",
     "HOSTING_CREDENTIAL_FIELDS",
+    "HOSTING_NO_MANAGED_HOST_FIELDS",
+    "HOSTING_NO_MANAGED_HOST_ROWS",
+    "HOSTING_NO_MANAGED_HOST_TITLE",
+    "HOSTING_PROVIDER_NOTE_FIELD",
     "HOSTING_RETRY_ROWS",
     "HOSTING_SECRET_KEY_FIELD",
     "HOSTING_UNVERIFIED_ROWS",
@@ -175,5 +230,6 @@ __all__ = [
     "NO_LINK_LINE",
     "hosting_connect_body",
     "hosting_error_body",
+    "hosting_no_managed_host_body",
     "hosting_verified_body",
 ]

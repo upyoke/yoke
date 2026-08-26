@@ -28,6 +28,8 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 
 **Project-level context routing** — read the project-wide always-included docs and per-topic doc lists via `python3 -m yoke_core.domain.context_routing get-always <project>`, `... get-topic <project> <topic>`, and `... list-topics <project>`. From Python: `yoke_core.domain.context_routing.{get_always_docs, get_topic_docs, list_topics, get_topic_map}`. Entries live in `project_structure` with `family='context_routing'`, `attachment_value='project'`, `entry_key='always'` for the project-wide set or any other topic name for topic-keyed sets, payload `{"docs": ["<repo-relative-path>", ...]}`. Absence is a valid state; consumers treat missing entries as "no routing configured for that key" and fall back to discovery heuristics.
 
+**Project-level hosting posture** — read what the project decided about who runs its hosting via `yoke project-structure get --project <project> --family hosting_posture --json`. Entries live in `project_structure` with `family='hosting_posture'`, `attachment_value='project'`, payload `{"posture": "aws-admin" | "no-yoke-managed-host", "provider": "<optional prose>", "note": "<optional prose>"}`. `aws-admin` means Yoke manages hosting on AWS through the capability of that name; `no-yoke-managed-host` means the operator runs the hosting and Yoke applies no infrastructure, asks for no hosting credential, and proposes no infra Packs. `provider` and `note` are operator prose recording where the code actually runs — never acted on. Absence is a valid state meaning the question is still open, so onboarding asks it once rather than assuming AWS; the undecided state is never written as a row. Vocabulary: `yoke_contracts.hosting_posture`.
+
 Seed data: a fresh universe seeds no project rows — projects enter through
 onboarding (`yoke projects create` / `yoke project install`). QA plan
 attachments declare which project checks run at each workflow transition.
@@ -69,10 +71,11 @@ project_structure   -- family entries with identity
 **Families (fully instantiated):**
 
 `architecture_model`, `areas`, `context_routing`, `deploy_defaults`,
-`integration_targets`, `mappings`, `ownership_defaults`, `test_roots`,
-`verification_profiles`.
+`hosting_posture`, `integration_targets`, `mappings`, `ownership_defaults`,
+`test_roots`, `verification_profiles`.
 
-`deploy_defaults` and `architecture_model` are project-attached singletons.
+`deploy_defaults`, `architecture_model`, and `hosting_posture` are
+project-attached singletons.
 `context_routing` is a project-attached keyed set whose payload is
 `{"docs": [str, ...]}` and whose reserved `entry_key="always"` denotes the
 project-wide always-included set.

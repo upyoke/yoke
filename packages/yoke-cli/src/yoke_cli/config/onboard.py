@@ -8,7 +8,8 @@ from typing import Any, Dict
 
 from yoke_contracts.machine_config import schema as machine_schema
 
-from yoke_cli.config import aws_admin_capability
+from yoke_cli.config import onboard_apply_hosting_posture
+from yoke_contracts import hosting_posture
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_path
@@ -52,7 +53,8 @@ def build_report(
     check_identity: bool,
     machine_github_choice: str = onboard_machine_github.CHOICE_SKIP,
     machine_github_api_url: str | None = None,
-    hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP,
+    hosting_choice: str = hosting_posture.POSTURE_UNDECIDED,
+    hosting_provider_note: str | None = None,
     path_repair: dict[str, Any] | None = None,
     project_mode: str = PROJECT_MODE_MACHINE_ONLY,
     project_remote_url: str | None = None,
@@ -292,6 +294,12 @@ def build_report(
             progress=progress,
             service_api_url=api_url or None,
             local_connection_selected=local_destination,
+        )
+        report["hosting_posture"] = onboard_apply_hosting_posture.record(
+            project=str(project_slug or ""),
+            posture=hosting_choice,
+            provider_note=hosting_provider_note,
+            config_path=cfg_path,
         )
         report["message"] = "machine config and project handoff written"
     return report

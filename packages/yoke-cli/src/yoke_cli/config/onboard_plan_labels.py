@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_cli.config import aws_admin_capability
+from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_project
 from yoke_cli.config.project_clone_support import (
@@ -34,6 +34,18 @@ _LOCAL_UNIVERSE_LABELS = {
 }
 
 
+# One line per hosting posture. Only the managed-AWS answer writes a
+# credential, so only that line promises one.
+_HOSTING_POSTURE_LABELS = {
+    hosting_posture.POSTURE_YOKE_MANAGED_AWS:
+        "Save your AWS hosting credential (owner-only)",
+    hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST:
+        "Record that Yoke manages no host for this project",
+    hosting_posture.POSTURE_UNDECIDED:
+        "Decide hosting later",
+}
+
+
 def friendly_line(action: str, target: str, project_name: str = "") -> str:
     """Render one plan step as a plain "what (and where/why)" line."""
     if action == "create-or-validate-dir":
@@ -49,11 +61,9 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == "machine-github-connection":
         return (onboard_github_copy.MACHINE_GITHUB_REVIEW if target == "connect"
                 else onboard_github_copy.MACHINE_GITHUB_SKIP_REVIEW)
-    if action == aws_admin_capability.HOSTING_CAPABILITY_ACTION:
-        return (
-            "Save your AWS hosting credential (owner-only)"
-            if target == aws_admin_capability.HOSTING_CHOICE_CONNECT
-            else "Skip connecting a hosting provider for now"
+    if action == hosting_posture.HOSTING_POSTURE_ACTION:
+        return _HOSTING_POSTURE_LABELS.get(
+            target, _HOSTING_POSTURE_LABELS[hosting_posture.POSTURE_UNDECIDED]
         )
     if action == "create-runtime-dir":
         return f"Set up the {_RUNTIME_DIR_LABELS.get(target, target)} directory"

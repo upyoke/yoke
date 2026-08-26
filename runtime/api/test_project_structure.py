@@ -16,6 +16,7 @@ from typing import Any, Dict
 
 import pytest
 
+from yoke_contracts import hosting_posture
 from yoke_core.domain import project_structure as ps
 from yoke_core.domain.schema_common import _table_exists
 
@@ -75,6 +76,7 @@ class TestConstitutionInvariants:
             "deploy_defaults",
             "context_routing",
             "architecture_model",
+            "hosting_posture",
         }
         assert set(ps.NET_NEW_FAMILIES) == expected
 
@@ -111,6 +113,76 @@ class TestSchemaInit:
     def test_init_is_idempotent(self, db_path: str):
         ps.cmd_init(db_path=db_path)
         ps.cmd_init(db_path=db_path)  # second call must not error
+
+
+class TestHostingPosturePayload:
+    """The hosting declaration is a closed answer, not free text."""
+
+    def test_declared_posture_round_trips_with_optional_prose(
+        self, initialized_db: str,
+    ):
+        ps.apply_patch(
+            "test",
+            ops=[_put(
+                hosting_posture.HOSTING_POSTURE_FAMILY,
+                "project",
+                {
+                    "posture": hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST,
+                    "provider": "Render",
+                },
+            )],
+            db_path=initialized_db,
+        )
+        slice_ = ps.read_structure(
+            "test",
+            hosting_posture.HOSTING_POSTURE_FAMILY,
+            db_path=initialized_db,
+        )
+        assert len(slice_["entries"]) == 1
+        assert slice_["entries"][0]["payload"]["provider"] == "Render"
+
+    def test_unknown_posture_is_refused_by_name(self, initialized_db: str):
+        with pytest.raises(ps.ValidationError) as excinfo:
+            ps.apply_patch(
+                "test",
+                ops=[_put(
+                    hosting_posture.HOSTING_POSTURE_FAMILY,
+                    "project",
+                    {"posture": "render"},
+                )],
+                db_path=initialized_db,
+            )
+        message = str(excinfo.value)
+        for legal in hosting_posture.DECLARED_HOSTING_POSTURES:
+            assert legal in message
+
+    def test_undecided_is_absence_not_a_row(self, initialized_db: str):
+        """Storing "not answered" would give one state two spellings."""
+        with pytest.raises(ps.ValidationError, match="remove the entry"):
+            ps.apply_patch(
+                "test",
+                ops=[_put(
+                    hosting_posture.HOSTING_POSTURE_FAMILY,
+                    "project",
+                    {"posture": hosting_posture.POSTURE_UNDECIDED},
+                )],
+                db_path=initialized_db,
+            )
+
+    def test_non_string_prose_is_refused(self, initialized_db: str):
+        with pytest.raises(ps.ValidationError, match="must be a string or absent"):
+            ps.apply_patch(
+                "test",
+                ops=[_put(
+                    hosting_posture.HOSTING_POSTURE_FAMILY,
+                    "project",
+                    {
+                        "posture": hosting_posture.POSTURE_YOKE_MANAGED_AWS,
+                        "provider": 3,
+                    },
+                )],
+                db_path=initialized_db,
+            )
 
 
 class TestEnvelopeValidation:
