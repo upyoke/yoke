@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
+import time
 from types import SimpleNamespace
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_cursor_acp as acp_module
 from yoke_harness import session_relay_cursor_cli as cli_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
-from yoke_harness.session_relay_cursor import CursorCreateRequest, CursorWakeRequest
+from yoke_harness.session_relay_cursor import (
+    CursorCreateRequest,
+    CursorNativeResult,
+    CursorWakeRequest,
+    build_cursor_adapter,
+)
 from yoke_harness.session_relay_cursor_acp import CursorAcpTransport
+from yoke_harness.session_relay_cursor_acp_stderr import BoundedStderr
 from yoke_harness.session_relay_cursor_cli import CursorCliTransport
+from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
 LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
@@ -215,3 +224,80 @@ def test_acp_launch_parse_failure_carries_output_snippet(
     assert result.identity_parse_expectation
     assert client.closed is True
     assert client.prompts == []
+
+
+def _drained(payload: bytes) -> BoundedStderr:
+    drain = BoundedStderr(io.BytesIO(payload))
+    for _attempt in range(200):
+        if drain.tail() == payload:
+            break
+        time.sleep(0.01)
+    return drain
+
+
+def test_bounded_stderr_keeps_only_the_recent_tail() -> None:
+    drain = BoundedStderr(io.BytesIO(b"abcdefghij"), limit=4)
+    for _attempt in range(200):
+        if drain.tail() == b"ghij":
+            break
+        time.sleep(0.01)
+    assert drain.tail() == b"ghij"
+
+
+def test_acp_launch_failure_carries_what_the_native_said(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    client = FakeAcpClient()
+    client.new_session_result = {"models": {"currentModelId": "default[]"}}
+    client.stderr = _drained(b"cursor-agent: not logged in\n")
+    client.process = SimpleNamespace(pid=4321, poll=lambda: 3)
+    transport = CursorAcpTransport(worker=True)
+    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
+
+    result = transport.new_session(_create_request(tmp_path))
+
+    assert result.result_code == "not_created"
+    assert result.native_stderr == b"cursor-agent: not logged in\n"
+    assert result.exit_code == 3
+
+
+def test_failed_create_reaches_the_relay_as_a_private_diagnostic(
+    tmp_path: Path,
+) -> None:
+    """Native words never ride the report wire; the relay retains them locally."""
+
+    class FailingAcp:
+        def new_session(self, request):
+            return CursorNativeResult(
+                "not_created",
+                native_stderr=b"no conversation found with session id\n",
+            )
+
+        def prompt_session(self, request):
+            raise AssertionError("launch must not prompt")
+
+    context = RelayExecutionContext(
+        job_kind="launch",
+        job_id=LAUNCH_ID,
+        lease_id="lease-launch",
+        surface="cursor-cli",
+        surface_version="2026.08.11-e8db854",
+        project_id=7,
+        checkout=tmp_path,
+        native_instruction=BOOTSTRAP,
+        launch_attestation=ATTESTATION,
+    )
+    result = build_cursor_adapter(
+        acp_port=FailingAcp(),
+        identity_lookup=lambda _conversation_id: None,
+        attestation_handoff=lambda *_args, **_kwargs: True,
+        sleeper=lambda _seconds: None,
+    )(context)
+
+    assert result.result_code == "not_created"
+    assert result.private_diagnostic is not None
+    assert result.private_diagnostic.failure_class == "no_conversation_found"
+    assert result.private_diagnostic.stderr.startswith(b"no conversation found")
+    # The redacted evidence the relay reports carries none of it.
+    assert "no conversation" not in str(result.evidence)

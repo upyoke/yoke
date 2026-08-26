@@ -11,6 +11,13 @@ a registered session runs behind.  The refusal clause below is therefore
 part of the instruction rather than a nicety — it names stopping as the
 outcome when registration does not succeed.
 
+The claim-first clause is the other half of the same lesson.  A worker that
+surveys before it claims holds nothing, and a session holding nothing is
+exactly what the non-destructive session end reaps as idle: one launched
+worker spent 79 tool calls reading the codebase, was auto-ended claim-free
+mid-mandate, and left its item looking untouched.  Claiming first makes that
+reaping structurally impossible for a worker that is actually working.
+
 One builder, so the store that persists the prompt and the adapters that
 refuse anything else cannot drift apart into two sentences that no longer
 compare equal.
@@ -25,13 +32,17 @@ LAUNCH_BOOTSTRAP_REFUSAL = (
     "If registration does not succeed, stop: take no repository, worktree, "
     "or backlog action, and claim no work."
 )
+LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
+    "If your message assigns you a work item, acquire that item's work claim "
+    "as your first action, before any survey or reading."
+)
 
 
 def native_launch_bootstrap(launch_id: str) -> str:
-    """Return the launch sentence, including its fail-safe refusal clause."""
+    """Return the launch sentence: act, claim first, and stop if unregistered."""
     return (
         f"Yoke launch `{launch_id}`: register, pull your message, act. "
-        f"{LAUNCH_BOOTSTRAP_REFUSAL}"
+        f"{LAUNCH_BOOTSTRAP_CLAIM_FIRST} {LAUNCH_BOOTSTRAP_REFUSAL}"
     )
 
 
@@ -42,6 +53,7 @@ def native_launch_bootstrap_sha256(launch_id: str) -> str:
 
 
 __all__ = [
+    "LAUNCH_BOOTSTRAP_CLAIM_FIRST",
     "LAUNCH_BOOTSTRAP_REFUSAL",
     "native_launch_bootstrap",
     "native_launch_bootstrap_sha256",

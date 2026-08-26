@@ -11,6 +11,7 @@ from .sessions_analytics import (
     EVENT_WORK_RELEASED,
     SessionError,
 )
+from .session_launch_abandonment import settle_and_notify
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_claim, _get_session
 from .sessions_queries import (
@@ -127,6 +128,7 @@ def reclaim_stale_session(
 
     for claim_row in released_claim_rows:
         emit_reclaimed_work_claim(session_id, claim_row)
+    settle_and_notify(conn, session_id, end_reason="stale_session_reclaimed")
 
     return _get_session(conn, session_id)
 

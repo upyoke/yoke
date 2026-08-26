@@ -103,6 +103,43 @@ def _expire_launching(
     )
 
 
+def _expire_at_deadline(
+    conn: Any,
+    launch: LaunchRecord,
+    *,
+    now: str,
+) -> LaunchRecord:
+    """Close a launch at its deadline, saying what the server last observed.
+
+    A launch that reached ``awaiting_registration`` and then ran out of time
+    is the shape an operator has to diagnose most often, and it used to land
+    with a bare terminal code: no phase, no relay, no transport state, nothing
+    to separate "the native never came up" from "the native came up and could
+    not bind". The same facts the lease-expiry closure records are true here
+    and are written while they still are.
+    """
+    registration = launch.state == "awaiting_registration"
+    result_code = "registration_deadline" if registration else "launch_deadline"
+    evidence = closure_evidence(
+        conn,
+        launch=launch,
+        result_code=result_code,
+        closure_reason="deadline_expiry",
+        relay_id=launch.assigned_relay_id,
+        machine_id=launch.assigned_machine_id,
+        started_at=launch.awaiting_registration_at or launch.launching_at,
+        now=now,
+    )
+    return update_launch(
+        conn,
+        launch.launch_id,
+        state="failed" if registration else "expired",
+        completed_at=now,
+        result_code=result_code,
+        result_evidence=merge_redacted_evidence(launch.result_evidence, evidence),
+    )
+
+
 def settle_launch_deadlines(
     conn: Any,
     *,
@@ -131,22 +168,7 @@ def settle_launch_deadlines(
                         _expire_launching(conn, launch, attempt=row, now=current)
                     )
             elif deadline_passed:
-                final_state = (
-                    "failed" if launch.state == "awaiting_registration" else "expired"
-                )
-                changed.append(
-                    update_launch(
-                        conn,
-                        launch.launch_id,
-                        state=final_state,
-                        completed_at=current,
-                        result_code=(
-                            "registration_deadline"
-                            if final_state == "failed"
-                            else "launch_deadline"
-                        ),
-                    )
-                )
+                changed.append(_expire_at_deadline(conn, launch, now=current))
         conn.commit()
         return changed
     except Exception:

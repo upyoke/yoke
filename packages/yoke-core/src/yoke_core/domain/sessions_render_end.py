@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
+from .session_launch_abandonment import settle_and_notify
 from .sessions_analytics import (
     EVENT_HARNESS_SESSION_ENDED,
     SessionError,
@@ -240,6 +241,7 @@ def end_session(
         session_id=session_id,
         context=end_context,
     )
+    settle_and_notify(conn, session_id, end_reason="session_ended")
 
     session_row = _get_session(conn, session_id)
     if released_claims:

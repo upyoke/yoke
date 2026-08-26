@@ -123,10 +123,12 @@ def validated_registration(
         raise AcceptanceContractError(
             "registration_machine_mismatch", surface=cell.surface
         )
-    if cell.model and row.get("model") != cell.model:
-        raise AcceptanceContractError(
-            "registration_model_mismatch", surface=cell.surface
-        )
+    # The model is not asserted equal to the one requested. A launch requests
+    # the string the native command line accepts and a session registers the
+    # model its harness reports, which are different vocabularies on Cursor
+    # (`cursor-grok-4.6-high-fast` against `grok-4.6`); the launch binding
+    # records that difference rather than treating it as identity, and so
+    # does this runner.
     _validate_target_state(row, cell=cell)
     liveness = row.get("liveness")
     if liveness == "ended" and allow_ended:

@@ -23,6 +23,10 @@ from yoke_harness.session_relay_cursor_identity import (
     bounded_identity_snippet,
     session_id_from_native_payload,
 )
+from yoke_harness.session_relay_cursor_acp_stderr import (
+    BoundedStderr,
+    native_diagnostic_fields,
+)
 from yoke_harness.session_relay_cursor_acp_terminal import (
     CursorAcpTerminalRegistry,
     respond_to_agent_request,
@@ -90,12 +94,13 @@ class _Client:
                 env=env,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 bufsize=0,
                 start_new_session=True,
             )
         except OSError as exc:
             raise CursorAcpError("ACP unavailable") from exc
+        self.stderr = BoundedStderr(self.process.stderr)
         if self.process.stdin is None or self.process.stdout is None:
             self.process.terminate()
             raise CursorAcpError("ACP pipes unavailable")
@@ -203,9 +208,10 @@ class _Client:
             self.selector.close()
         except Exception:
             pass
-        if self.process.stdin is not None:
+        for pipe in (self.process.stdin, self.process.stderr):
             try:
-                self.process.stdin.close()
+                if pipe is not None:
+                    pipe.close()
             except OSError:
                 pass
         if self.process.poll() is None:
@@ -282,12 +288,14 @@ class CursorAcpTransport:
             )
             session_id = session_id_from_native_payload(result)
             if session_id is None:
+                diagnostic = native_diagnostic_fields(client)
                 client.close()
                 return CursorNativeResult(
                     "not_created",
                     duration_ms=max(0, int((time.monotonic() - started) * 1000)),
                     identity_output_snippet=bounded_identity_snippet(result),
                     identity_parse_expectation=ACP_SESSION_PARSE_EXPECTATION,
+                    **diagnostic,
                 )
             # From here the native can act, so it becomes containable: if it
             # never registers, the sweep has the process it must terminate.
@@ -303,10 +311,12 @@ class CursorAcpTransport:
                 duration_ms=max(0, int((time.monotonic() - started) * 1000)),
             )
         except CursorAcpError:
+            diagnostic = native_diagnostic_fields(client)
             if client is not None:
                 client.close()
             return CursorNativeResult(
-                "outcome_unknown" if session_id else "not_created"
+                "outcome_unknown" if session_id else "not_created",
+                **diagnostic,
             )
 
     def prompt_session(self, request: CursorWakeRequest) -> CursorNativeResult:
@@ -327,9 +337,13 @@ class CursorAcpTransport:
                 duration_ms=max(0, int((time.monotonic() - started) * 1000)),
             )
         except CursorAcpError:
+            diagnostic = native_diagnostic_fields(client)
             if client is not None:
                 client.close()
-            return CursorNativeResult("outcome_unknown" if loaded else "not_found")
+            return CursorNativeResult(
+                "outcome_unknown" if loaded else "not_found",
+                **diagnostic,
+            )
 
 
 __all__ = ["CURSOR_ACP_TIMEOUT_SECONDS", "CursorAcpError", "CursorAcpTransport"]
