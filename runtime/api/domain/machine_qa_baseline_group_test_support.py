@@ -79,6 +79,7 @@ ACTING_SESSIONS = (
     "session-agent-mission",
     "settlement-session",
     "deployment-machine",
+    "session-machine-plan",
 )
 
 

@@ -34,7 +34,8 @@ from yoke_core.domain.qa_plan_execution_state import (
     finish_plan_execution,
     lock_plan_execution,
 )
-from yoke_core.domain.machine_qa_capability import lease_key
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
 ACTOR = ActorContext(actor_id="2", session_id="session-machine-plan")
@@ -195,12 +196,11 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
         session_id=ACTOR.session_id,
     )
     case = execution["roster"][0]
+    seed_qa_session(test_db, "another-session")
     held = acquire(
         test_db,
-        1,
-        lease_key("mac-mini-lab"),
+        make_qa_admission_target("mac-mini-lab"),
         "another-session",
-        actor_id="9",
     )
 
     waiting = handle_plan_case_begin(
@@ -217,7 +217,7 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
     assert waiting.result_payload["execution_id"] == str(execution["id"])
     assert waiting.result_payload["cursor_ordinal"] == 0
     lease_context = waiting.result_payload["lease_context"]
-    assert lease_context["holder_session_id"] == "another-session"
+    assert lease_context["holder_session_id"] == "session another-session"
     assert "heartbeat age" in lease_context["wait_message"]
     assert "yoke coordination-claim release" in lease_context["wait_message"]
     stored = lock_plan_execution(test_db, str(execution["id"]))
