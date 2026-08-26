@@ -66,7 +66,8 @@ def context(
         native_instruction=INSTRUCTION,
         target_session_id=(
             ("native-1" if job_kind == "wake" else None)
-            if target_session_id == "unset" else target_session_id
+            if target_session_id == "unset"
+            else target_session_id
         ),
         target_native_thread_id=target_native_thread_id,
         launch_attestation=SECRET if job_kind == "launch" else None,
