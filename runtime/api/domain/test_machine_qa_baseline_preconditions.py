@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from yoke_core.domain.coordination_leases import Lease
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.host_control_runner import TestMachineMaterial
 from yoke_core.domain.machine_qa_execution import MachineQaLease
 
@@ -28,7 +28,7 @@ def _execution(control: FakeHostControl) -> MachineQaLease:
             },
             secrets={"ssh_private_key": "top-secret"},
         ),
-        lease=Lease(
+        lease=CoordinationClaim(
             id=4,
             project_id=1,
             lease_key="QA_HOST:mac-mini-lab",

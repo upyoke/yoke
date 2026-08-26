@@ -159,10 +159,11 @@ def acquire(
         current = active_claim(conn, target)
         if current is not None:
             raise held_error(conn, current) from exc
-        raise CoordinationClaimHeldError(
-            f"Coordination claim {target.render()} already held "
-            "(unknown holder)"
-        ) from exc
+        # Nothing holds the target, so this was not contention. A claim row
+        # is session-bound by foreign key; reporting a missing or unknown
+        # holder session as "already held" would send the caller looking
+        # for a lock that does not exist.
+        raise
     if use_savepoint:
         conn.execute("RELEASE SAVEPOINT coordination_claim_acquire")
     claim_id = int(cur.fetchone()[0])

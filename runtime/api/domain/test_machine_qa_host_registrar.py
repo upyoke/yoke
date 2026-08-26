@@ -17,7 +17,6 @@ from yoke_core.domain.machine_qa_execution_protocol import (
     MachineQaProtocolLeaseHeld,
     begin_host_control_execution,
 )
-from yoke_core.domain.machine_qa_host_registrar import host_lease_project_id
 
 from runtime.api.domain.machine_qa_test_support import (
     make_conn,

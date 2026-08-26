@@ -28,7 +28,7 @@ from yoke_core.domain.machine_qa_local_execution import (
     execute_machine_case_contract,
 )
 from yoke_core.domain import machine_qa_execution_protocol
-from yoke_core.domain.coordination_leases import acquire_lease, release_lease
+from yoke_core.domain.coordination_claims import acquire, release
 from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
     finish_plan_execution,

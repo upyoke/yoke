@@ -19,7 +19,7 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     grant_actor_project_role,
 )
-from yoke_core.domain.coordination_leases import get_lease
+from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.session_private_route_qualification import (
     PrivateRouteQualificationError,
     consume_qualification_grant,

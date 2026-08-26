@@ -24,7 +24,7 @@ from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_ready,
 )
 from yoke_core.domain.agent_mission_review import agent_mission_dispatch_contract
-from yoke_core.domain.coordination_leases import get_lease
+from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
 from yoke_core.domain.host_control_runner import (
     clear_host_control_factory,

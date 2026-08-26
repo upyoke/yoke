@@ -3,7 +3,7 @@ migration_audit table's final shape after the legacy ``status`` cutover.
 
 These tests target ``yoke_core.domain.migration_harness`` even though the
 shared schema bootstrap they exercise lives next to the coordination-lease
-tests; previously they were colocated in test_coordination_leases.py.
+tests; previously they were colocated in the coordination-claim suite.
 """
 
 from __future__ import annotations

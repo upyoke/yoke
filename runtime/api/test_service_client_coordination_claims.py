@@ -250,7 +250,7 @@ class TestList:
         finally:
             conn.close()
         _seed_claim(db_path, session_id="sess-2")
-        rc = cmd_coordination_claim_list(["--active-only"])
+        assert cmd_coordination_claim_list(["--active-only"]) == 0
         out, _ = _capture(None, capsys)
         envelope = json.loads(out[-1])
         assert len(envelope["claims"]) == 1

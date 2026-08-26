@@ -13,7 +13,7 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
     materialize_installer_campaign,
 )
 from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
-from yoke_core.domain.coordination_leases import Lease
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.function_authz_scope import PROJECT, classify
 from yoke_core.domain.handlers.machine_qa_case import (
@@ -105,7 +105,7 @@ def test_group_begin_lease_contention_records_nonterminal_waiting_cases(
     )
     fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
     held = MachineQaProtocolLeaseHeld(
-        lease=Lease(
+        lease=CoordinationClaim(
             id=17,
             project_id=1,
             lease_key="QA_HOST:mac-mini-lab",
@@ -193,7 +193,7 @@ def test_single_case_begin_contention_preserves_rerun_identity(
     )
     target = next(row for row in rows if row["host_baseline"] == "shell-preconfigured")
     held = MachineQaProtocolLeaseHeld(
-        lease=Lease(
+        lease=CoordinationClaim(
             id=18,
             project_id=1,
             lease_key="QA_HOST:mac-mini-lab",

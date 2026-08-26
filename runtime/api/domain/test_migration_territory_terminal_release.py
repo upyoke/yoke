@@ -11,10 +11,13 @@ from runtime.api.domain.strategy_execution_test_support import (
     seed_session_claim,
 )
 from runtime.api.fixtures.pg_testdb import connect_test_database
-from yoke_core.domain.coordination_leases import active_lease, get_lease
+from yoke_core.domain.coordination_claims import active_claim, get_claim
+from yoke_core.domain.work_claim_targets import (
+    make_migration_serialization_target,
+)
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.item_terminal_resources import release_for_terminal_transition
-from yoke_core.domain.migration_territory_lease import enter
+from yoke_core.domain.migration_territory_claim import enter
 from yoke_core.domain.schema_init_tables import create_governed_tables
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
 from yoke_core.domain.work_claim_targets import make_item_target
@@ -83,20 +86,23 @@ def test_terminal_status_releases_owned_model_territory(test_db, target_status):
     test_db.commit()
 
     assert receipt.migration_territories_released == 1
-    assert active_lease(test_db, 1, LEASE_KEY) is None
-    settled = get_lease(test_db, lease_id)
-    assert settled.release_reason == f"item-terminal:{target_status}"
+    assert active_claim(test_db, make_migration_serialization_target(1, MODEL, 1)) is None
+    settled = get_claim(test_db, lease_id)
+    assert settled.release_reason_intent == f"item-terminal:{target_status}"
 
 
 def test_terminal_status_does_not_release_foreign_holder(test_db):
     item_id = 4204
     _seed_owner(test_db, item_id=item_id, session_id="item-owner")
-    owned = active_lease(test_db, 1, LEASE_KEY)
+    owned = active_claim(test_db, make_migration_serialization_target(1, MODEL, 1))
     assert owned is not None
     test_db.execute(
-        "UPDATE coordination_leases SET owner_item_id=4299, "
-        "session_id='foreign-owner' WHERE id=%s",
-        (owned.id,),
+        "UPDATE work_claims SET scope=%s, session_id='foreign-owner' "
+        "WHERE id=%s",
+        (
+            make_migration_serialization_target(1, MODEL, 4299).scope_json(),
+            owned.id,
+        ),
     )
     test_db.commit()
 
@@ -104,7 +110,7 @@ def test_terminal_status_does_not_release_foreign_holder(test_db):
     test_db.commit()
 
     assert receipt.migration_territories_released == 0
-    held = active_lease(test_db, 1, LEASE_KEY)
+    held = active_claim(test_db, make_migration_serialization_target(1, MODEL, 1))
     assert held is not None and held.session_id == "foreign-owner"
 
 
@@ -123,7 +129,7 @@ def test_terminal_status_uses_historical_owner_after_claim_release(test_db):
     test_db.commit()
 
     assert receipt.migration_territories_released == 1
-    assert get_lease(test_db, lease_id).release_reason == "item-terminal:done"
+    assert get_claim(test_db, lease_id).release_reason_intent == "item-terminal:done"
 
 
 def test_terminal_release_follows_item_owner_not_shared_session(test_db):
@@ -147,8 +153,8 @@ def test_terminal_release_follows_item_owner_not_shared_session(test_db):
     first = _transition(test_db, item_id=first_id, target_status="done")
     test_db.commit()
     assert first.migration_territories_released == 1
-    assert get_lease(test_db, lease_id).release_reason == "item-terminal:done"
-    assert active_lease(test_db, 1, LEASE_KEY) is None
+    assert get_claim(test_db, lease_id).release_reason_intent == "item-terminal:done"
+    assert active_claim(test_db, make_migration_serialization_target(1, MODEL, 1)) is None
 
     second = _transition(test_db, item_id=second_id, target_status="stopped")
     test_db.commit()
@@ -166,12 +172,12 @@ def test_terminal_release_rolls_back_with_status_transition(test_db):
             target_status="cancelled",
         )
         assert receipt.migration_territories_released == 1
-        assert get_lease(transition_conn, lease_id).released_at is not None
+        assert get_claim(transition_conn, lease_id).released_at is not None
         transition_conn.rollback()
     finally:
         transition_conn.close()
 
-    assert active_lease(test_db, 1, LEASE_KEY) is not None
+    assert active_claim(test_db, make_migration_serialization_target(1, MODEL, 1)) is not None
     status = test_db.execute(
         "SELECT status FROM items WHERE id=%s",
         (item_id,),

@@ -12,9 +12,15 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain.coordination_leases import LeaseHeldError, active_lease
+from yoke_core.domain.coordination_claims import (
+    CoordinationClaimHeldError,
+    active_claim,
+)
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.migration_apply_contract import LEASE_KEY_PREFIX
+from yoke_core.domain.coordination_claim_keys import MIGRATION_KEY_PREFIX
+from yoke_core.domain.work_claim_targets import (
+    make_migration_serialization_target,
+)
 from yoke_core.domain.migration_apply_rehearse import rehearse
 from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — fixtures
     _seed_apply_item,
@@ -22,13 +28,15 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — 
 )
 from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures
 
-LEASE_KEY = f"{LEASE_KEY_PREFIX}primary"
+LEASE_KEY = f"{MIGRATION_KEY_PREFIX}primary"
 
 
 def _held(control_db: str):
     conn = connect(control_db)
     try:
-        return active_lease(conn, "yoke", LEASE_KEY)
+        return active_claim(
+            conn, make_migration_serialization_target(1, "primary", 1)
+        )
     finally:
         conn.close()
 
@@ -103,7 +111,7 @@ def test_a_second_session_is_refused_and_told_who_holds_it(apply_env) -> None:
     )
     _seed_apply_item(apply_env["control_db"], item_id=6005)
 
-    with pytest.raises(LeaseHeldError, match="item 6004") as exc:
+    with pytest.raises(CoordinationClaimHeldError, match="item 6004") as exc:
         rehearse(
             6005,
             session_id="session-b",
@@ -111,8 +119,8 @@ def test_a_second_session_is_refused_and_told_who_holds_it(apply_env) -> None:
             worktree_path=apply_env["worktree"],
         )
     assert "heartbeat age" in str(exc.value)
-    assert "yoke coordination-lease release" in str(exc.value)
+    assert "yoke coordination-claim release" in str(exc.value)
     assert "migration entry may collide" in str(exc.value)
     assert "Coordinate with the holder or wait" in str(exc.value)
     assert "signal to escalate to an operator" in str(exc.value)
-    assert "not permission to release the lease or continue" in str(exc.value)
+    assert "not permission to release the claim or continue" in str(exc.value)
