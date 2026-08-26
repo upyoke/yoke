@@ -32,6 +32,7 @@ _PUBLIC_FIELDS = (
     "awaiting_registration_at",
     "completed_at",
     "result_code",
+    "origin",
 )
 
 

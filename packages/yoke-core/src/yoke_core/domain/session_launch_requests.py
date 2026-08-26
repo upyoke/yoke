@@ -46,6 +46,7 @@ def _same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> bo
             launch.requested_model == request.model,
             launch.presentation_preference == request.presentation,
             launch.allow_surface_fallback == request.allow_surface_fallback,
+            launch.origin == request.origin,
             body_hash == sha256_text(request.instructions),
             body == request.instructions,
         )
@@ -86,7 +87,7 @@ def _insert_launch(
         "requested_surface, selected_surface, requested_machine_id, requested_model, "
         "presentation_preference, allow_surface_fallback, message_id, "
         "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
-        "deadline_at, created_at, assigned_at"
+        "deadline_at, created_at, assigned_at, origin"
     )
     values = (
         launch_id,
@@ -107,6 +108,7 @@ def _insert_launch(
         deadline_at,
         created_at,
         created_at,
+        request.origin,
     )
     row = conn.execute(
         f"INSERT INTO session_launches ({columns}) "

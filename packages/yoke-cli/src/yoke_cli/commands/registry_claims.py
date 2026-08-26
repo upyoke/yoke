@@ -1,4 +1,4 @@
-"""Coordination-lease list entries for the aggregate ``yoke`` registry."""
+"""Steering and coordination-lease entries for the aggregate ``yoke`` registry."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from yoke_cli.commands.adapters.claims_steering import (
     claims_steering_list,
     claims_steering_release,
 )
+from yoke_cli.commands.adapters.steering_backstop import steering_backstop_evaluate
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -33,6 +34,10 @@ CLAIMS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("claims", "coordination-lease", "list"): (
         "claims.coordination_lease.list",
         claims_coordination_lease_list,
+    ),
+    ("steering", "backstop", "evaluate"): (
+        "steering.backstop.evaluate",
+        steering_backstop_evaluate,
     ),
 }
 

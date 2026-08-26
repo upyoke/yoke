@@ -230,6 +230,16 @@ Steering acquisition locks the project row before checking the unique project sc
 
 Shell access: item/process targets use `yoke claims work`; steering uses `yoke claims steering acquire --project P [--reason TEXT]`, `list [--project P] [--active-only]`, and `release CLAIM_ID --reason TEXT`. All dispatch through `/v1/functions/call`.
 
+### Steering launch backstop
+
+The steering holder keeps its scope staffed without displacing the sessions people open themselves: `yoke steering backstop evaluate --project P` (function id `steering.backstop.evaluate`, `--dry-run` to decide without launching) staffs work the scheduler already calls runnable that carries no live work claim and has now waited longer than the project's grace period. Both lanes coexist — humans keep pulling work normally, and the backstop only covers the gaps they left.
+
+Two `project-policy` keys tune it: `steering_backstop_unpicked_minutes` (default `20`) is how long pickable work waits before the backstop staffs it, and `steering_backstop_worker_budget` (default `2`) caps the workers one scope may have in flight at once. Unpicked age is measured from the moment the work last became pickable — the later of the item's last change and the last release of a claim on it — so a released claim restarts the clock rather than making stale work look ancient.
+
+Launches ride the ordinary launch plane (`session_launches`, `assigned` -> `launching` -> `awaiting_registration` -> `succeeded`); no new spawn mechanics exist. Each row records `origin`: `operator` for a hand-requested launch, `steering_backstop` for a staffed one, so an operator's own launches never spend the backstop's budget. Each staffed worker's instruction names its one item and the steering session to report back to (`yoke say --stdin --session <holder>`), so launched workers report by construction rather than through hook redirection.
+
+Re-evaluating is safe twice over: work that already has a staffed worker on the way is skipped (`already_staffed`) and still spends the budget, and every gap carries one deterministic idempotency key, so a launch the first evaluation filed is returned deduplicated rather than filed again.
+
 ### Live claim-holder lookup
 
 The canonical recipe for "which session currently holds the work claim on `PREFIX-N`?" is the registered read (function id `claims.work.holder_get`):

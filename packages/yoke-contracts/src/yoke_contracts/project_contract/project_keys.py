@@ -47,11 +47,27 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, Tuple[str, str]] = {
         "5",
         "dispatch attempts per epic task before the chain halts",
     ),
+    "steering_backstop_unpicked_minutes": (
+        "20",
+        "how long runnable unclaimed work waits before steering staffs it",
+    ),
+    "steering_backstop_worker_budget": (
+        "2",
+        "concurrent workers the steering backstop may have in flight",
+    ),
 }
 
 # Typed int form of the ``wip_cap`` source default — import this instead of
 # restating the numeric literal at call sites and response-model defaults.
 DEFAULT_WIP_CAP = int(RECOGNIZED_PROJECT_KEYS["wip_cap"][0])
+
+# Typed int forms of the steering-backstop defaults, for the same reason.
+DEFAULT_STEERING_BACKSTOP_UNPICKED_MINUTES = int(
+    RECOGNIZED_PROJECT_KEYS["steering_backstop_unpicked_minutes"][0]
+)
+DEFAULT_STEERING_BACKSTOP_WORKER_BUDGET = int(
+    RECOGNIZED_PROJECT_KEYS["steering_backstop_worker_budget"][0]
+)
 
 LOCAL_PROJECT_KEYS = frozenset({"worktrees_dir"})
 DB_PROJECT_POLICY_KEYS = tuple(
