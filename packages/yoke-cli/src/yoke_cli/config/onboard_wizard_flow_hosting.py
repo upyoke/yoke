@@ -18,12 +18,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Protocol
 
+from yoke_contracts import hosting_posture
 from yoke_cli.config import aws_admin_capability as hosting
 from yoke_cli.config import onboard_project_modes as project_modes
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
 from yoke_cli.config.onboard_wizard_state import _FormField
 from yoke_cli.config.onboard_wizard_step_ids import STEP_HOSTING
-from yoke_contracts import hosting_posture
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View

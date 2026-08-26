@@ -8,12 +8,13 @@ from typing import Any, Dict
 
 from yoke_contracts.machine_config import schema as machine_schema
 
-from yoke_cli.config import onboard_apply_hosting_posture
 from yoke_contracts import hosting_posture
+
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_path
 from yoke_cli.config import onboard_apply_connection
+from yoke_cli.config import onboard_apply_hosting_posture
 from yoke_cli.config import onboard_bridge
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github

@@ -16,26 +16,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.transport.dispatcher import call_dispatcher
+from yoke_contracts import hosting_posture
+from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.config.project_onboard_support import (
     ProjectDispatchError,
     machine_config_path,
 )
-from yoke_contracts import hosting_posture
-from yoke_contracts.api.function_call import TargetRef
-
-
-def build_payload(
-    posture: str,
-    *,
-    provider_note: str | None = None,
-) -> dict[str, Any]:
-    """The ``hosting_posture`` family payload for one declared posture."""
-    payload: dict[str, Any] = {"posture": posture}
-    note = (provider_note or "").strip()
-    if note:
-        payload["provider"] = note
-    return payload
+from yoke_cli.transport.dispatcher import call_dispatcher
 
 
 def record(
@@ -52,11 +39,15 @@ def record(
     """
     if not hosting_posture.is_declared(posture):
         return None
+    payload: dict[str, Any] = {"posture": posture}
+    note = (provider_note or "").strip()
+    if note:
+        payload["provider"] = note
     ops = [{
         "op": "put",
         "family": hosting_posture.HOSTING_POSTURE_FAMILY,
         "attachment": "project",
-        "payload": build_payload(posture, provider_note=provider_note),
+        "payload": payload,
     }]
     with machine_config_path(config_path):
         response = call_dispatcher(
@@ -73,4 +64,4 @@ def record(
     return response.result or {}
 
 
-__all__ = ["build_payload", "record"]
+__all__ = ["record"]

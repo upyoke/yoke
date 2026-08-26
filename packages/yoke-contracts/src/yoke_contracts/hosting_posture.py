@@ -37,13 +37,6 @@ POSTURE_NO_YOKE_MANAGED_HOST = "no-yoke-managed-host"
 #: stored: absence of the row *is* this value.
 POSTURE_UNDECIDED = "undecided"
 
-#: Every legal posture, in the order the wizard offers them.
-HOSTING_POSTURES = (
-    POSTURE_YOKE_MANAGED_AWS,
-    POSTURE_NO_YOKE_MANAGED_HOST,
-    POSTURE_UNDECIDED,
-)
-
 #: The postures that are written down. ``undecided`` is expressed by the
 #: absence of a row, the same way an absent ``deploy_defaults`` entry expresses
 #: "no project default" — writing a row that says "nothing was decided" would
@@ -69,7 +62,6 @@ def is_declared(posture: str | None) -> bool:
 
 __all__ = [
     "DECLARED_HOSTING_POSTURES",
-    "HOSTING_POSTURES",
     "HOSTING_POSTURE_ACTION",
     "HOSTING_POSTURE_FAMILY",
     "POSTURE_NO_YOKE_MANAGED_HOST",
