@@ -12,6 +12,7 @@ from yoke_harness.session_relay_claude_native import (
     ClaudeNativeInvocation,
     spawn_claude_wake,
 )
+from yoke_harness.session_relay_claude_process import ClaudeProcessResult
 from yoke_harness.session_relay_claude_resume import (
     spawn_detached_claude_resume,
 )
@@ -167,7 +168,11 @@ def test_native_wake_environment_carries_only_its_resume_attempt(
         resume=True,
     )
 
-    spawn_claude_wake(context, invocation)
+    spawn_claude_wake(
+        context,
+        invocation,
+        session_lookup=lambda _invocation: ClaudeProcessResult(0, 1, "[]"),
+    )
 
     assert captured["attempt_id"] == ATTEMPT_ID
     assert captured["environment"][RESUME_ATTEMPT_ENV] == ATTEMPT_ID
