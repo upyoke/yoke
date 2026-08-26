@@ -166,6 +166,13 @@ worktree; hold it for the whole Dash. This mirrors `/yoke idea` and
 yoke claims work acquire --item ITEM --reason "Dash execution"
 ```
 
+For a launched worker this is survival, not just order. A session holding no
+claim is what the non-destructive session end reaps as idle, so a worker that
+surveys before it claims can be ended mid-mandate: one spent 79 tool calls
+reading the codebase, was auto-ended claim-free, and left its item looking
+untouched. Claim before the first read, and that reaping becomes structurally
+impossible.
+
 Then read the item detail and workflow-effective projections:
 
 ```text
