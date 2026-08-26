@@ -11,8 +11,8 @@ jumping to fallback inference is wrong.
 _project_default_flow=$(yoke project-structure deploy-defaults get --project "${_project}" || true)
 ```
 
-Empty stdout means no default — go to **Fallback** below and omit
-`--deployment-flow`.
+Empty stdout means no default — go to **Fallback** below and
+omit `--deployment-flow`.
 
 When the lookup prints a flow id, classify it before assigning:
 
