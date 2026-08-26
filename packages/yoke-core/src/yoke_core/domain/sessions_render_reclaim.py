@@ -68,7 +68,12 @@ def reclaim_stale_session(
     conn: Any,
     session_id: str,
 ) -> Dict[str, Any]:
-    """Release all claims, leases, and document locks from a stale session.
+    """Release the liveness-bound claims and locks of a stale session.
+
+    Sticky claim kinds are exempt by design: the migration or remote suite
+    they name keeps running after the session goes quiet, so reclaiming
+    would hand a live resource to a second holder. Those stay until their
+    own work releases them or an operator does.
 
     Claims are released with reason 'reclaimed'.  Emits one ``WorkReclaimed``
     event per released claim with populated ``item_id``/``task_num``.  A

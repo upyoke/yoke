@@ -36,7 +36,11 @@ def release_all_claims(
     session_id: str,
     reason: str = "released",
 ) -> int:
-    """Release all active claims for a session.  Returns count released."""
+    """Release a session's liveness-bound claims. Returns count released.
+
+    Sticky kinds survive an explicit session end for the same reason they
+    survive the sweep: the resource they hold is still in use.
+    """
     now = _now_iso()
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     rows = conn.execute(

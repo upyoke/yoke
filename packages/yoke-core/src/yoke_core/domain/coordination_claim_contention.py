@@ -49,7 +49,7 @@ class ClaimContention:
     claim_id: int
     project_id: int
     key: str
-    holder_session_id: str
+    holder_label: str
     acquired_at: str
     heartbeat_at: str | None
     heartbeat_age_seconds: int | None
@@ -66,7 +66,7 @@ class ClaimContention:
         )
         return (
             f"{lead} {self.key} (project {self.project_id}): already held by "
-            f"session {self.holder_session_id} since {self.acquired_at}; "
+            f"{self.holder_label} since {self.acquired_at}; "
             f"heartbeat age {_age_label(self.heartbeat_age_seconds)} "
             f"(stale TTL {self.effective_stale_ttl_minutes}m). Human-only "
             f"operator release: `{self.operator_release_command}`."
@@ -76,7 +76,7 @@ class ClaimContention:
         return {
             "id": self.claim_id,
             "key": self.key,
-            "holder_session_id": self.holder_session_id,
+            "holder_session_id": self.holder_label,
             "acquired_at": self.acquired_at,
             "heartbeat_at": self.heartbeat_at,
             "heartbeat_age_seconds": self.heartbeat_age_seconds,
@@ -107,7 +107,9 @@ def describe_claim_contention(
     current = current.astimezone(timezone.utc)
     item_owned = claim.owner_item_id is not None
     holder = (
-        f"item {claim.owner_item_id}" if item_owned else str(claim.session_id)
+        f"item {claim.owner_item_id}"
+        if item_owned
+        else f"session {claim.session_id}"
     )
     heartbeat_at = claim.last_heartbeat or claim.claimed_at
     heartbeat_age = _age_seconds(heartbeat_at, current)
@@ -126,7 +128,7 @@ def describe_claim_contention(
         claim_id=int(claim.id),
         project_id=int(claim.project_id or 0),
         key=claim.key,
-        holder_session_id=holder,
+        holder_label=holder,
         acquired_at=str(claim.claimed_at),
         heartbeat_at=str(heartbeat_at) if heartbeat_at is not None else None,
         heartbeat_age_seconds=heartbeat_age,
@@ -148,7 +150,7 @@ def waiting_claim_evidence(
     return {
         "id": int(claim.id),
         "key": claim.key,
-        "holder_session_id": str(claim.session_id),
+        "holder_session_id": f"session {claim.session_id}",
         "acquired_at": str(claim.claimed_at),
         "heartbeat_at": claim.last_heartbeat,
     }
