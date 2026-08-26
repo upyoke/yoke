@@ -126,6 +126,13 @@ def test_exact_direct_grant_prevents_peer_broker_reservation(monkeypatch) -> Non
 
 def test_broker_scoped_grant_does_not_claim_direct_availability(monkeypatch) -> None:
     conn, grant, heartbeat = _candidate_connection(monkeypatch, route="broker")
+    # A fresh persistent relay holds the machine lock; expire it so the
+    # broker grant can still prove the hop without contending that lock.
+    conn.execute(
+        "UPDATE session_relays SET connected_until=?",
+        ((NOW - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),),
+    )
+    conn.commit()
 
     lease = lease_broker_wake_for_hook(
         conn,

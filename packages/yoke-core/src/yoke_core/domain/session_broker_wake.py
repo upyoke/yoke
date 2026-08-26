@@ -8,7 +8,11 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
-from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain import db_backend
+from yoke_core.domain.session_broker_wake_recruit import (
+    machine_has_fresh_relay,
+    should_defer_operator_facing_broker,
+)
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
@@ -18,7 +22,6 @@ from yoke_core.domain.session_message_types import (
 )
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_evidence import redacted_evidence
-from yoke_core.domain.session_relay_private_qualification import authorize_wake_versions
 from yoke_core.domain.session_relay_storage import (
     marker,
 )
@@ -98,30 +101,6 @@ def direct_wake_waits_for_broker(
     )
 
 
-def _direct_relay_available(conn: Any, candidate: Mapping[str, Any], now: str) -> bool:
-    p = marker(conn)
-    rows = conn.execute(
-        "SELECT surface_versions,project_checkouts FROM session_relays "
-        f"WHERE machine_id={p} AND state IN ('active','idle') "
-        f"AND connected_until>{p}",
-        (candidate["machine_id"], now),
-    ).fetchall()
-    for versions_raw, projects_raw in rows:
-        try:
-            versions = json_helper.loads_text(str(versions_raw))
-            projects = json_helper.loads_text(str(projects_raw))
-        except (TypeError, ValueError):
-            continue
-        if not isinstance(versions, dict) or not isinstance(projects, list):
-            continue
-        if str(candidate["project_id"]) not in {str(value) for value in projects}:
-            continue
-        authorized = authorize_wake_versions(conn, candidate, versions, route="direct")
-        if authorized[0] is not None:
-            return True
-    return False
-
-
 def _broker_session(conn: Any, session_id: str) -> Mapping[str, Any] | None:
     p = marker(conn)
     row = conn.execute(
@@ -162,7 +141,6 @@ def _candidate_routes(
     candidates = wake_eligible_recipients(
         conn, now=now, bypass_waiting_retry_cooldown=True
     )
-    stamp = timestamp(now)
     eligible: list[dict[str, Any]] = []
     for row in candidates:
         if row.get("machine_id") != broker.get("machine_id"):
@@ -186,8 +164,6 @@ def _candidate_routes(
             )
         )
         if waiting_cooldown and not direct_failed:
-            continue
-        if _direct_relay_available(conn, row, stamp) and not direct_failed:
             continue
         eligible.append(row)
     return eligible
@@ -318,14 +294,24 @@ def lease_broker_wake_for_hook(
         return None
     if _open_broker_role(conn, broker_session_id):
         return None
-    for candidate in _candidate_routes(
+    stamp = timestamp(current)
+    if machine_has_fresh_relay(conn, str(broker.get("machine_id") or ""), stamp):
+        return None
+    candidates = _candidate_routes(
         conn, broker_session_id=broker_session_id, now=current
+    )
+    if should_defer_operator_facing_broker(
+        conn,
+        broker=broker,
+        exclude_session_ids={str(row["session_id"]) for row in candidates},
     ):
+        return None
+    for candidate in candidates:
         lease = _reserve_candidate(
             conn,
             broker_session_id=broker_session_id,
             candidate=candidate,
-            now=timestamp(current),
+            now=stamp,
         )
         if lease is not None:
             return lease
