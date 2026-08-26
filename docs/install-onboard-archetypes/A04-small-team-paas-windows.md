@@ -47,8 +47,8 @@ Git install advice if they somehow reached project git later
 ## Transcript — only supported continuation (WSL Ubuntu)
 
 They install WSL, then in Ubuntu: `curl -fsSL https://upyoke.com/install | sh`.
-Linux passes. uv consent uses Astral (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-unless they have brew (they don't). Default Yes. Wizard launches.
+Linux passes. uv consent uses Astral (shim `YOKE_UV_INSTALLER_URL`) unless they
+have brew (they don't). Default Yes. Wizard launches.
 
 PATH: Linux `.profile`. Account: This machine (or team server if they self-host).
 GitHub Connect. Project: Existing folder under `/home/chen/work/api` (clone of

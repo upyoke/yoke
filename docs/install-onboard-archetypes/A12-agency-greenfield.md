@@ -53,7 +53,7 @@ not change that.
 creating stage/prod only so a plan can exist is the G-qa-plan-needs-env
 lie.
 
-**Onboard:** no test question. CURRENT-PLAN will name client tickets, not a
+**Onboard:** no test question. CURRENT-PLAN will name client work items, not a
 reusable QA plan, so seed will not attach one.
 
 **Ask that should happen:** scaffold vs attested no-tests before any item

@@ -4,7 +4,7 @@
 CI · **app store**.
 
 Jules ships TestFlight / Play Console from GitHub Actions (`fastlane`). There
-is no HTTPS product environment. They want Yoke for tickets and agent coding,
+is no HTTPS product environment. They want Yoke for backlog items and agent coding,
 not a web deploy.
 
 ## Fit / break / gaps
