@@ -30,25 +30,11 @@ After project is decided, resolve and print this machine's local checkout for th
 
 ### b. Infer deployment flow
 
-**This deploy-default lookup MUST run before deciding `_deployment_flow`.** For every project with a configured default, the lookup is non-skippable — running the fallback inference below without first running the lookup is wrong, not optional. The helper prints the flow id when a default is set and prints nothing when no default exists:
-```bash
-_project_default_flow=$(yoke project-structure deploy-defaults get --project "${_project}" || true)
-```
-
-If `_project_default_flow` is non-empty, use it as the deployment flow without further inference:
-- Set `_deployment_flow` to `_project_default_flow`
-- Print: `Deployment flow: {_deployment_flow} (project default)`
-
-The fallback inference below applies only when the lookup returns nothing:
-```bash
-_flow_list=$(yoke workflows definition get --project "${_project}" 2>/dev/null || true)
-```
-
-- If `_flow_list` is empty -> no deployment flow applies; leave `_deployment_flow` empty
-- If `_flow_list` contains exactly one non-internal flow -> auto-select it
-- If `_flow_list` contains multiple flows -> infer from context (deployment-related work -> the deploy flow; docs/process work -> no flow, leaving `_deployment_flow` empty). Only ask if genuinely ambiguous.
-
-If a flow applies, set `_deployment_flow` to its registered id (e.g., `yoke-internal`, `example-project-internal`). If no flow applies, leave `_deployment_flow` empty. NEVER store the literal string `none` — it is not a registered flow id and the CLI will reject it.
+Read and follow [infer-deployment-flow.md](infer-deployment-flow.md) before
+setting `_deployment_flow`. That sibling owns the lookup, the persistent vs
+merge-only/`-internal` attach rule, the omit cases (non-delivery work or no
+healthy hosting), fallback inference when get is empty, and the ban on
+storing the literal `none`.
 
 ### c. Infer workflow
 
