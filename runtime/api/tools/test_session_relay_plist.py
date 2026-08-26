@@ -1,4 +1,4 @@
-"""Launchd convergence tests for the fresh-process machine relay."""
+"""Launchd convergence tests for the standing machine relay."""
 
 from __future__ import annotations
 
@@ -15,10 +15,9 @@ from yoke_cli.config.session_relay_instance import (
     RelayInstanceError,
     resolve_relay_instance,
 )
-from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_core.tools.session_relay_plist import (
+    RELAY_KEEP_ALIVE,
     RELAY_LAUNCHD_LABEL,
-    RELAY_START_INTERVAL_SECONDS,
     install_relay_launchd,
     relay_launchd_paths,
     relay_launchd_status,
@@ -63,7 +62,15 @@ def _instance(tmp_path: Path, environment: str):
     )
 
 
-def test_plist_runs_canonical_yoke_once_without_keepalive(tmp_path: Path) -> None:
+def test_plist_keeps_one_standing_relay_alive_without_scheduling_it(
+    tmp_path: Path,
+) -> None:
+    """launchd supervises the daemon; the daemon owns its own cadence.
+
+    Scheduling from launchd is what this service moved away from: a fresh
+    interpreter per poll, and a job whose lifetime ended with the spawn
+    that leased it.
+    """
     paths = relay_launchd_paths(home=tmp_path, instance=_instance(tmp_path, "prod"))
     executable = tmp_path / "bin" / "yoke"
     document = relay_plist_document(executable=executable, paths=paths)
@@ -73,12 +80,11 @@ def test_plist_runs_canonical_yoke_once_without_keepalive(tmp_path: Path) -> Non
         "--env",
         "prod",
         "relay",
-        "serve-once",
+        "serve",
     ]
-    policy_minimum = FLEET_KEY_SPECS["fleet.relay_poll_seconds"].minimum
-    assert document["StartInterval"] == RELAY_START_INTERVAL_SECONDS == policy_minimum
+    assert document["KeepAlive"] is RELAY_KEEP_ALIVE is True
     assert document["RunAtLoad"] is True
-    assert "KeepAlive" not in document
+    assert "StartInterval" not in document
     assert str(paths.stdout_log).startswith(str(tmp_path / ".yoke" / "relay"))
 
 
@@ -190,7 +196,7 @@ def test_prod_and_stage_have_isolated_labels_paths_and_pinned_commands(
         "--env",
         "stage",
         "relay",
-        "serve-once",
+        "serve",
     ]
     assert document["EnvironmentVariables"][machine_config.CONFIG_FILE_ENV] == str(
         config_path.resolve()

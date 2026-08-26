@@ -113,7 +113,7 @@ def hc_session_relay(
             TITLE,
             "FAIL",
             "; ".join(problems)
-            + ". Repair: `yoke relay install`, then `yoke relay serve-once`.",
+            + ". Repair: `yoke relay install`, which loads the standing relay.",
         )
         return
     relay_id, last_seen = recent

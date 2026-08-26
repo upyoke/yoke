@@ -32,11 +32,13 @@ from yoke_cli.commands.adapters.session_control_relay import (
     RELAY_INSTALL_USAGE,
     RELAY_PROBE_SURFACE_USAGE,
     RELAY_SERVE_ONCE_USAGE,
+    RELAY_SERVE_USAGE,
     RELAY_STATUS_USAGE,
     RELAY_UNINSTALL_USAGE,
     relay_diagnostic,
     relay_install,
     relay_probe_surface,
+    relay_serve,
     relay_serve_once,
     relay_status,
     relay_uninstall,
@@ -156,6 +158,7 @@ SESSION_CONTROL_TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("relay", "uninstall"): relay_uninstall,
     ("relay", "status"): relay_status,
     ("relay", "serve-once"): relay_serve_once,
+    ("relay", "serve"): relay_serve,
 }
 
 SESSION_CONTROL_TOOL_SHAPED_USAGE = {
@@ -166,6 +169,7 @@ SESSION_CONTROL_TOOL_SHAPED_USAGE = {
     "yoke relay uninstall": RELAY_UNINSTALL_USAGE,
     "yoke relay status": RELAY_STATUS_USAGE,
     "yoke relay serve-once": RELAY_SERVE_ONCE_USAGE,
+    "yoke relay serve": RELAY_SERVE_USAGE,
 }
 
 

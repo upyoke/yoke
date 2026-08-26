@@ -37,6 +37,7 @@ PERMANENT_ROWS: tuple[_Row, ...] = tuple(
         "install",
         "uninstall",
         "status",
+        "serve",
         "serve-once",
         "diagnostic",
         "probe-surface",
