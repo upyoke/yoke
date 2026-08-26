@@ -192,18 +192,16 @@ bodies, prompts, logs, captures, or artifacts. The runner receives resolved
 secrets only for its subprocess and must redact them from evidence.
 
 The registered `fresh-host` baseline restores the host's declared golden
-baseline as the dedicated test user. Its target state is USER-EQUIVALENT, not
-bare: a real user arrives with harness apps installed and signed in, so a
-machine stripped to nothing is not a fresh host. Restoring a captured copy of the whole home, kept outside it,
+baseline. Its target state is USER-EQUIVALENT, not bare: a real user arrives
+with harness apps installed and signed in, so a machine stripped to nothing is
+not a fresh host. Restoring a captured copy of the whole home, kept outside it,
 is provably complete where enumerating residue never can be, and a host
 declaring no `golden_baseline_path` cannot reach this baseline. Success is
 gated on proof: no Yoke state, launcher, or tool file present, no Yoke tool
 resolving in the login or SSH shell, every captured entry returned, and every
 declared probe reporting its program signed in. The live `.ssh` directory and
-`com.apple.TCC` privacy database survive the clear, the first because it
-carries the connection driving the restore and the second because only a person
-can re-establish its grants. The restoring process must hold Full Disk
-Access, which the operation asserts rather than assumes.
+`com.apple.TCC` privacy database survive the clear, and the restoring process
+must hold Full Disk Access, which the operation asserts rather than assumes.
 
 ## Evidence
 
