@@ -139,7 +139,7 @@ class TestSessionOfferReclaim:
         # The offering session should acquire the item
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
-        assert result["new_claim"]["item_id"] == 100
+        assert result["new_claim"]["scope"] == {"item_id": 100}
 
         # The stale claim should be released
         stale_claim = _claim_row(conn, "stale-sess", 100)
@@ -175,7 +175,7 @@ class TestSessionOfferReclaim:
 
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
-        assert result["new_claim"]["item_id"] == 100
+        assert result["new_claim"]["scope"] == {"item_id": 100}
 
     def test_offer_only_stale_work_returns_charge(self, ownership_conn):
         """If only stale-claimed work exists on the frontier,

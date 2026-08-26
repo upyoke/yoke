@@ -52,15 +52,16 @@ class TestClaimWork:
         _register(conn)
         result = claim_work(conn, session_id="sess-1", item_id=9999)
         assert result["session_id"] == "sess-1"
-        assert result["item_id"] == 9999
         assert result["target_kind"] == "item"
+        assert result["scope"] == {"item_id": 9999}
+        assert "item_id" not in result
         assert result["claim_type"] == "exclusive"
         assert result["released_at"] is None
 
     def test_claim_accepts_resolved_integer_item(self, conn):
         _register(conn)
         result = claim_work(conn, session_id="sess-1", item_id=9999)
-        assert result["item_id"] == 9999
+        assert result["scope"] == {"item_id": 9999}
 
     def test_claim_sets_current_item_attribution(self, conn):
         _register(conn)
@@ -117,7 +118,7 @@ class TestClaimWork:
         # This should auto-reap sess-stale and succeed
         result = claim_work(conn, session_id="sess-new", item_id=99)
         assert result["session_id"] == "sess-new"
-        assert result["item_id"] == 99
+        assert result["scope"] == {"item_id": 99}
         # Verify the stale session's claim was released
         stale_claim = conn.execute(
             "SELECT released_at, release_reason FROM work_claims "

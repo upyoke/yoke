@@ -314,7 +314,7 @@ class TestChargeClaimInvariant:
 
         ok, err = validate_charge_claim_invariant(
             self._charge_action("10"),
-            {"item_id": 99},
+            {"target_kind": "item", "scope": {"item_id": 99}},
         )
         assert ok is False
         assert err is not None
@@ -327,7 +327,7 @@ class TestChargeClaimInvariant:
 
         ok, err = validate_charge_claim_invariant(
             self._charge_action("10"),
-            {"item_id": 10},
+            {"target_kind": "item", "scope": {"item_id": 10}},
         )
         assert ok is True
         assert err is None
