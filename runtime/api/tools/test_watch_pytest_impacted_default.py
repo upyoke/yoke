@@ -7,6 +7,7 @@ from yoke_core.tools._impacted_selection import Selection
 
 
 def _stub_binding(monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_SESSION_ID", "test-session-autouse")
     monkeypatch.setattr(
         watch_pytest.verification_tree_binding,
         "evaluate_run",

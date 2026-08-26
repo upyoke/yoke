@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from yoke_contracts import schema_authority
 from yoke_core.domain import qa_gate_timeout, verification_tree_binding
 from yoke_core.domain import (
     verification_tree_binding_pytest_startup as _tree_binding_startup,
@@ -51,6 +52,7 @@ from yoke_core.tools import (
 from yoke_core.tools._pytest_parallel import (
     apply_postgres_xdist_auto_env,
     apply_parallel_default,
+    isolate_from_administering_machine_config,
     split_no_parallel,
 )
 from yoke_core.tools import _watch_pytest_wall_clock
@@ -223,7 +225,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     no_parallel, pytest_args = split_no_parallel(pytest_args)
     pytest_args = apply_parallel_default(pytest_args, no_parallel=no_parallel)
     source_root = _source_pythonpath.repo_root(run_root)
-    pytest_env = apply_postgres_xdist_auto_env(pytest_args)
+    pytest_env = apply_postgres_xdist_auto_env(
+        pytest_args,
+        isolate_from_administering_machine_config(
+            schema_authority.environment_without_administering_selection()
+        ),
+    )
     pytest_env = _source_pythonpath.with_source_pythonpath(pytest_env, source_root)
     # Already judged above; the child's startup check inherits that answer.
     pytest_env = _tree_binding_startup.with_binding_evaluated(pytest_env)

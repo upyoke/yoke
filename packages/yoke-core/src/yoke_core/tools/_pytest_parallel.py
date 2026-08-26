@@ -32,7 +32,10 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from typing import Optional, Sequence
+
+from yoke_contracts.machine_config import runtime as machine_config_runtime
 
 
 DEFAULT_PARALLEL_WORKERS = "auto"
@@ -156,6 +159,31 @@ def apply_postgres_xdist_auto_env(
         resolved[PYTEST_XDIST_AUTO_WORKERS_ENV] = workers
         _prepare_local_pg_testcluster(resolved)
     return resolved
+
+
+def isolate_from_administering_machine_config(env: dict[str, str]) -> dict[str, str]:
+    """Hide the parent's machine config from a pytest child.
+
+    ``environment_without_administering_selection`` swaps a ``*-db-admin``
+    selection for its served sibling. When that sibling — or the original
+    selection — is itself prod-flagged (hosted HTTPS ``prod``), the child
+    would still refuse fixture-owned schema work. An empty machine home
+    makes the guard a no-op without pointing the suite at another universe.
+    """
+    isolated = dict(env)
+    isolated[machine_config_runtime.HOME_ENV] = tempfile.mkdtemp(
+        prefix="yoke-pytest-non-admin-"
+    )
+    isolated.pop(machine_config_runtime.CONFIG_FILE_ENV, None)
+    if not isolated.get("YOKE_SESSION_ID"):
+        from yoke_core.domain.session_ambient_identity import (
+            resolve_ambient_session_id,
+        )
+
+        session_id = resolve_ambient_session_id()
+        if session_id:
+            isolated["YOKE_SESSION_ID"] = session_id
+    return isolated
 
 
 def split_no_parallel(args: Sequence[str]) -> tuple[bool, list[str]]:

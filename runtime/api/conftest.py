@@ -16,7 +16,6 @@ from __future__ import annotations
 import os
 import pathlib
 
-from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -190,11 +189,15 @@ def _ensure_test_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
     Tests that intentionally exercise the missing-session branch override
     this with ``monkeypatch.delenv``; pytest fixture ordering guarantees
     the local override wins.
+
+    A conversation-shaped Cursor env var is not a resolved session id.
+    ``_isolate_machine_config`` hides the cursor-session-map, so presence
+    of that var must not skip the synthetic stamp or in-process watcher
+    calls cannot mint capture paths.
     """
-    if not any(
-        os.environ.get(name)
-        for name in AMBIENT_ENV_VARS
-    ):
+    from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+
+    if not resolve_ambient_session_id():
         monkeypatch.setenv("YOKE_SESSION_ID", "test-session-autouse")
 
 
