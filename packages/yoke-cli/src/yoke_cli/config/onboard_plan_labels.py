@@ -48,7 +48,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Save your API token (owner-only)"
     if action == "machine-github-connection":
         return (onboard_github_copy.MACHINE_GITHUB_REVIEW if target == "connect"
-                else "Skip connecting GitHub for now")
+                else onboard_github_copy.MACHINE_GITHUB_SKIP_REVIEW)
     if action == aws_admin_capability.HOSTING_CAPABILITY_ACTION:
         return (
             "Save your AWS hosting credential (owner-only)"
@@ -131,7 +131,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
             return "Keep this folder's existing GitHub remote"
         if target == "source-dev":
             return "Use Yoke's GitHub \"origin\" remote from the clone"
-        return ("Don't set up Yoke with access to a GitHub remote"
+        return (onboard_github_copy.PROJECT_GITHUB_SKIP_REVIEW
                 if target in ("skip", "")
                 else onboard_github_copy.PROJECT_GITHUB_REVIEW)
     humanized = action.replace("-", " ").replace("_", " ").strip().capitalize()

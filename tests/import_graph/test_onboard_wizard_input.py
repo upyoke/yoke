@@ -19,11 +19,17 @@ from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 
 
-def test_first_tilde_reaches_new_input_after_view_swap() -> None:
+def test_first_tilde_reaches_new_input_after_view_swap(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
     asyncio.run(_assert_first_tilde_reaches_new_input())
 
 
-def test_plain_glyph_body_accepts_input_focus_handoff() -> None:
+def test_plain_glyph_body_accepts_input_focus_handoff(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
     asyncio.run(_assert_plain_glyph_body_accepts_input_focus_handoff())
 
 
@@ -102,7 +108,7 @@ async def _assert_plain_glyph_body_accepts_input_focus_handoff() -> None:
         app._goto_input(
             STEP_PROJECT,
             "Clone a project from GitHub.",
-            "Paste the public repo's git URL.",
+            "Paste a public GitHub repo URL.",
             placeholder="https://github.com/acme/project.git",
             on_done=captured.append,
         )

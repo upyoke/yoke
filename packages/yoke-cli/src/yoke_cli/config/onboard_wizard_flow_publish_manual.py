@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from yoke_contracts import github_app_snapshot
 from yoke_cli.config import github_machine
+from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard_widgets import (
@@ -57,8 +58,8 @@ class ManualPublishFlow:
                         ),
                         SelectionRow(
                             DISABLED,
-                            "Skip GitHub",
-                            "leave this project local",
+                            onboard_github_copy.MACHINE_GITHUB_SKIP_LABEL,
+                            onboard_github_copy.MACHINE_GITHUB_SKIP_DESC,
                         ),
                         SelectionRow(BACK, "Back", "change the publish choice"),
                     ],
@@ -156,7 +157,11 @@ class ManualPublishFlow:
                 SelectionRow(
                     CHECK_REPOSITORIES, "Check again", "refresh GitHub access"
                 ),
-                SelectionRow(DISABLED, "Skip GitHub", "leave this project local"),
+                SelectionRow(
+                    DISABLED,
+                    onboard_github_copy.MACHINE_GITHUB_SKIP_LABEL,
+                    onboard_github_copy.MACHINE_GITHUB_SKIP_DESC,
+                ),
                 SelectionRow(BACK, "Back", "return to manual-create guidance"),
             )
         )
@@ -222,7 +227,11 @@ class ManualPublishFlow:
                         SelectionRow(
                             CHECK_REPOSITORIES, "Check again", "retry live access"
                         ),
-                        SelectionRow(DISABLED, "Skip GitHub", "leave it local"),
+                        SelectionRow(
+                            DISABLED,
+                            onboard_github_copy.MACHINE_GITHUB_SKIP_LABEL,
+                            onboard_github_copy.MACHINE_GITHUB_SKIP_DESC,
+                        ),
                         SelectionRow(BACK, "Back", "return to the prior screen"),
                     ],
                     ok=False,

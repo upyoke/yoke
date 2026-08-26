@@ -107,7 +107,29 @@ def test_local_checkout_rejects_detached_head_before_publish(
     assert str(shell.error) == "detached HEAD"
 
 
+@pytest.mark.parametrize(
+    "remote",
+    (
+        "https://gitlab.com/example/project.git",
+        "https://bitbucket.org/example/project.git",
+    ),
+)
 def test_local_checkout_does_not_bind_foreign_remote(
+    tmp_path, monkeypatch, remote,
+) -> None:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    _local_checkout_seams(monkeypatch, branch="main", remote=remote)
+    shell = _LocalCheckoutShell(checkout)
+
+    shell._after_local_checkout_source(str(checkout))
+
+    assert shell.error is None
+    assert shell.slug_visits == 1
+    assert shell.result.project_github_repo is None
+
+
+def test_local_checkout_does_not_bind_unconfigured_github_deployment(
     tmp_path, monkeypatch,
 ) -> None:
     checkout = tmp_path / "checkout"
@@ -115,7 +137,12 @@ def test_local_checkout_does_not_bind_foreign_remote(
     _local_checkout_seams(
         monkeypatch,
         branch="main",
-        remote="https://gitlab.com/example/project.git",
+        remote="https://github.com/example/project.git",
+    )
+    monkeypatch.setattr(
+        onboard_local_checkout_identity.github_state,
+        "clone_web_url",
+        lambda _result: "https://ghe.example",
     )
     shell = _LocalCheckoutShell(checkout)
 

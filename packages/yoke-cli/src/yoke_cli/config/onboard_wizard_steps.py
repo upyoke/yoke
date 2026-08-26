@@ -25,8 +25,6 @@ from yoke_cli.config.onboard_wizard_project_fields import (
     slug_from_checkout,
 )
 
-# Apply result screens live in a sibling module; re-export so steps.apply_* stays
-# the single import surface for the flow and tests.
 from yoke_cli.config.onboard_wizard_apply_steps import (  # noqa: F401
     APPLY_FAILURE_ROWS,
     APPLY_FAILURE_RESUME_ROW,
@@ -63,6 +61,13 @@ from yoke_cli.config.onboard_wizard_widgets import (
     SelectionRow,
 )
 
+
+def _github_skip_row(value: str) -> SelectionRow:
+    return SelectionRow(
+        value, onboard_github_copy.MACHINE_GITHUB_SKIP_LABEL,
+        onboard_github_copy.MACHINE_GITHUB_SKIP_DESC)
+
+
 MODE_ROWS = [
     SelectionRow(
         onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
@@ -71,8 +76,8 @@ MODE_ROWS = [
     ),
     SelectionRow(
         onboard_project.PROJECT_MODE_CLONE_REMOTE,
-        "Clone a project from GitHub",
-        "into a new folder",
+        onboard_github_copy.CLONE_FROM_GITHUB_LABEL,
+        onboard_github_copy.CLONE_FROM_GITHUB_DESC,
     ),
     SelectionRow(
         onboard_project.PROJECT_MODE_CREATE_REPO,
@@ -97,28 +102,22 @@ MACHINE_GITHUB_ROWS = [
         "Connect GitHub",
         "open the Yoke GitHub App flow",
     ),
-    SelectionRow(onboard_machine_github.CHOICE_SKIP, "Skip GitHub", "connect later"),
+    _github_skip_row(onboard_machine_github.CHOICE_SKIP),
 ]
 
 YOKE_TOKEN_SOURCE_ROWS = [
     SelectionRow("prompt", "Paste it now", "saved to ~/.yoke/secrets"),
     SelectionRow("file", "Read it from a file", "path on disk"),
 ]
-
-VERIFY_OK_ROWS = [
-    SelectionRow("continue", "Continue", ""),
-]
-
+VERIFY_OK_ROWS = [SelectionRow("continue", "Continue", "")]
 YOKE_TOKEN_VERIFY_RETRY_ROWS = [
     SelectionRow("retry", "Try again", "paste a different token"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
-
 HOSTED_MACHINE_RETRY_ROWS = [
     SelectionRow("retry", "Try again", "start a fresh browser sign-in"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
-
 PROBE_RETRY_ROWS = [
     SelectionRow("retry", "Try again", "rerun the check"),
     SelectionRow("back", "Back", "choose a different option"),
@@ -126,19 +125,19 @@ PROBE_RETRY_ROWS = [
 
 GITHUB_APP_UNAVAILABLE_ROWS = [
     SelectionRow("reconnect", "Reconnect GitHub", "replace saved authorization"),
-    SelectionRow("backlog", "Skip GitHub", "continue without GitHub"),
+    _github_skip_row("backlog"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
 GITHUB_APP_PENDING_ROWS = [
     SelectionRow("check", "Check access", "after finishing in GitHub"),
-    SelectionRow("backlog", "Skip GitHub", "continue without GitHub"),
+    _github_skip_row("backlog"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
 PROJECT_GITHUB_ACCESS_ROWS = [
     SelectionRow("refresh", "Check access", "after updating the App in GitHub"),
-    SelectionRow("backlog", "Skip GitHub", "continue without GitHub"),
+    _github_skip_row("backlog"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
@@ -257,9 +256,6 @@ def verification_body(
     *,
     ok: bool,
 ) -> list[Static]:
-    # One error convention everywhere: a bold red ✗ title, with the explanatory
-    # detail in calm neutral text (not red). Success keeps a plain title and a
-    # green message.
     if ok:
         widgets = [
             Static(title, classes="onboard-title"),

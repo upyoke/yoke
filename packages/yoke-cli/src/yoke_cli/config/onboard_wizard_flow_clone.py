@@ -10,6 +10,7 @@ import webbrowser
 from yoke_contracts import github_origin
 from yoke_contracts.github_app_installation_permissions import ACCESS_WRITE
 from yoke_cli.config import github_app_machine_access
+from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_steps as steps
@@ -23,10 +24,8 @@ from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 
 fetch_private_repos = onboard_wizard_clone_visibility.fetch_private_repos
 
-
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
-
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
@@ -70,8 +69,8 @@ class CloneFlow(CloneSourceFlow):
 
     def _goto_clone_url_input(self: _Shell) -> None:
         self._goto_input(
-            STEP_PROJECT, "Clone a project from GitHub.",
-            "Paste the public repo's git URL — Yoke checks it anonymously.",
+            STEP_PROJECT, onboard_github_copy.CLONE_FROM_GITHUB_TITLE,
+            onboard_github_copy.CLONE_FROM_GITHUB_SUBTITLE,
             placeholder=f"{github_state.clone_web_url(self.result)}/acme/project.git",
             on_done=self._after_remote,
             allow_placeholder=False,

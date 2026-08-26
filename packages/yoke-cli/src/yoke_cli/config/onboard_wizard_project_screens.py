@@ -14,6 +14,7 @@ from __future__ import annotations
 from textual.widgets import Static
 
 from yoke_contracts import github_origin
+from yoke_cli.config import onboard_github_copy
 from yoke_cli.config.onboard_wizard_steps import selection_body
 from yoke_cli.config.onboard_wizard_widgets import SelectionRow
 from yoke_cli.config.project_clone_support import (
@@ -38,7 +39,10 @@ PUBLISH_ROWS = [
 CLONE_VISIBILITY_PUBLIC = "public"
 CLONE_VISIBILITY_PRIVATE = "private"
 CLONE_VISIBILITY_ROWS = [
-    SelectionRow(CLONE_VISIBILITY_PUBLIC, "Public", "paste its git URL"),
+    SelectionRow(
+        CLONE_VISIBILITY_PUBLIC, "Public",
+        onboard_github_copy.CLONE_VISIBILITY_PUBLIC_DESC,
+    ),
     SelectionRow(CLONE_VISIBILITY_PRIVATE, "Private", "pick from your GitHub repos"),
 ]
 
