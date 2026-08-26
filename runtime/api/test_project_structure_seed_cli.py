@@ -46,8 +46,11 @@ class TestSeed:
     # ``architecture_model`` is in the optional set until Slice 6
     # authors the concrete yoke architecture_model.payload seed, which lands
     # there alongside the AGENTS.md architecture-model documentation surface.
+    # Operator-authored declarations. A seed cannot know a project's default
+    # flow, its architecture, or who runs its hosting, and for all three the
+    # absence of an entry is a meaningful answer rather than a gap.
     _SEED_COVERAGE_OPTIONAL = {
-        "deploy_defaults", "architecture_model",
+        "deploy_defaults", "architecture_model", "hosting_posture",
     }
 
     def test_seed_yoke_populates_every_required_net_new_family(

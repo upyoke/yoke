@@ -20,9 +20,11 @@ from yoke_cli.config.onboard_wizard_state import _FormField
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 
 HOSTING_CONNECT_TITLE = "Connect your hosting provider?"
+# One line on purpose: the screen already carries two credential boxes and
+# three rows, and a second subtitle line pushes the rows below the fold —
+# which would hide the very answer this step exists to offer.
 HOSTING_CONNECT_SUBTITLE = (
-    "AWS is the one Yoke can run for you. Hosting it yourself is a fine "
-    "answer — say so and Yoke leaves it alone."
+    "AWS is the one Yoke can run for you; hosting it yourself is a fine answer."
 )
 
 # The screen for the operator who runs their own hosting. It asks for nothing
