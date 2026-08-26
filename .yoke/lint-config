@@ -65,6 +65,9 @@ lint_shell_quoted_function_payload=deny
 # Refuse grep/rg search text with backticks inside double quotes.
 lint_shell_backtick_search=deny
 
+# Refuse local GUI automation and privacy-managed filesystem access. [protected]
+lint_local_privacy=deny
+
 # Refuse unquoted path globs that match no files; teach rg --files.
 lint_unmatched_path_glob=deny
 

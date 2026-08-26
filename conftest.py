@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shlex
 import sys
 
 import pytest
 
+from yoke_contracts.hook_runner.local_privacy_guard import (
+    LOCAL_PRIVACY_INTEGRATION_ENV,
+    classify_subprocess_args,
+)
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import verification_tree_binding_pytest_startup as _binding
 
@@ -126,6 +131,37 @@ def _forbid_real_browser_launches(
         )
 
 
+@pytest.fixture(autouse=True)
+def _forbid_local_privacy_access(monkeypatch: pytest.MonkeyPatch):
+    """Fail before a unit test can prompt on the operator's Mac."""
+    import subprocess
+
+    real_popen = subprocess.Popen
+
+    def _guarded_popen(*popen_args, **kwargs):
+        child_env = kwargs.get("env")
+        allow = (
+            child_env.get(LOCAL_PRIVACY_INTEGRATION_ENV)
+            if isinstance(child_env, dict)
+            else os.environ.get(LOCAL_PRIVACY_INTEGRATION_ENV)
+        )
+        if allow != "1":
+            args = popen_args[0] if popen_args else kwargs.get("args", ())
+            violation = classify_subprocess_args(
+                args,
+                home=Path.home(),
+                cwd=kwargs.get("cwd") or Path.cwd(),
+            )
+            if violation is not None:
+                pytest.fail(
+                    "Automated tests may not cross a local privacy boundary.\n"
+                    + violation.reason()
+                )
+        return real_popen(*popen_args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", _guarded_popen)
+
+
 @pytest.fixture()
 def harness_family(monkeypatch: pytest.MonkeyPatch):
     """Pin the harness family the process tree would otherwise name.
@@ -152,7 +188,9 @@ def harness_family(monkeypatch: pytest.MonkeyPatch):
             session_ambient_identity,
         ):
             monkeypatch.setattr(
-                module, "nearest_harness_family", lambda *_a, **_k: family,
+                module,
+                "nearest_harness_family",
+                lambda *_a, **_k: family,
             )
 
     return _pin
@@ -183,11 +221,13 @@ def _isolate_commit_cache(tmp_path, monkeypatch: pytest.MonkeyPatch):
     from yoke_contracts.board import activity_cache as _activity_cache
 
     monkeypatch.setattr(
-        _commit_cache, "_cache_path",
+        _commit_cache,
+        "_cache_path",
         lambda: tmp_path / "cache" / ".commit-cache.json",
     )
     monkeypatch.setattr(
-        _activity_cache, "_cache_path",
+        _activity_cache,
+        "_cache_path",
         lambda: tmp_path / "cache" / "board-activity-day-counts.json",
     )
     _commit_cache._reset_memo_for_tests()

@@ -149,6 +149,12 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         "Refuse grep/rg search text with backticks inside double quotes.",
     ),
     GuardSpec(
+        "lint_local_privacy",
+        f"{_MODULE_PREFIX}lint_local_privacy",
+        True,
+        "Refuse local GUI automation and privacy-managed filesystem access.",
+    ),
+    GuardSpec(
         "lint_unmatched_path_glob",
         f"{_MODULE_PREFIX}lint_unmatched_path_glob",
         False,
