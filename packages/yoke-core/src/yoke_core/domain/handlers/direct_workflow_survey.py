@@ -29,9 +29,10 @@ class SurveyPathSize(BaseModel):
 
 
 class SurveyRequest(BaseModel):
-    paths: List[str] = Field(..., min_length=1)
+    paths: List[str] = Field(default_factory=list)
     integration_target: str = "main"
     path_sizes: List[SurveyPathSize] = Field(default_factory=list)
+    no_changes: bool = False
 
 
 class SurveyResponse(BaseModel):
@@ -43,6 +44,7 @@ class SurveyResponse(BaseModel):
     touch_paths: List[str]
     integration_target: str
     path_sizes: List[dict[str, Any]]
+    no_changes: bool
     recorded: bool
     touch_path_update: Literal["replace"] = "replace"
     recovered_from_durable_state: bool = False
@@ -96,6 +98,16 @@ def handle_survey(
                 f"item {item_id} uses workflow {workflow_id!r}, "
                 f"not {expected_workflow!r}",
             )
+        if payload.no_changes and expected_workflow != "dash":
+            return _error(
+                "invalid_payload",
+                "no_changes is available only for Dash conflict surveys",
+            )
+        if payload.no_changes == bool(payload.paths):
+            return _error(
+                "invalid_payload",
+                "provide intended paths or no_changes=true, but not both",
+            )
         if expected_workflow == "dash":
             sized_paths = [row.path for row in payload.path_sizes]
             if sized_paths != [path.removeprefix("./") for path in payload.paths]:
@@ -121,6 +133,7 @@ def handle_survey(
                 item_id=item_id,
                 touch_paths=payload.paths,
                 integration_target=payload.integration_target,
+                no_changes=payload.no_changes,
             )
             recorded = record_conflict_survey(
                 conn,
@@ -153,6 +166,7 @@ def handle_survey(
             touch_paths=list(survey.touch_paths),
             integration_target=survey.integration_target,
             path_sizes=[row.model_dump() for row in payload.path_sizes],
+            no_changes=survey.no_changes,
             recorded=recorded,
         ).model_dump(),
     )

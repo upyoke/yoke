@@ -159,6 +159,23 @@ def test_dash_survey_reports_client_local_headroom(monkeypatch):
     assert "survey-touch-path-update|replace" in out.getvalue()
 
 
+def test_dash_survey_records_explicit_no_change_without_sizing(monkeypatch):
+    captured = _capture(monkeypatch, dash)
+    monkeypatch.setattr(
+        dash, "item_lane_tree",
+        lambda *_a, **_k: pytest.fail("an empty survey has no tree to size"),
+    )
+    monkeypatch.setattr(
+        dash, "survey_path_sizes",
+        lambda *_a, **_k: pytest.fail("an empty survey has no paths to size"),
+    )
+
+    assert dash.dash_survey(["YOK-9", "--no-changes"]) == 0
+    assert captured["payload"]["paths"] == []
+    assert captured["payload"]["path_sizes"] == []
+    assert captured["payload"]["no_changes"] is True
+
+
 @pytest.mark.parametrize(("handler", "args", "function_id"), [
     (
         dash.dash_survey,

@@ -59,7 +59,7 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
     ]
 
 
-def _clean_paths(paths: Iterable[str]) -> tuple[str, ...]:
+def _clean_paths(paths: Iterable[str], no_changes: bool = False) -> tuple[str, ...]:
     cleaned: list[str] = []
     seen: set[str] = set()
     for value in paths:
@@ -69,7 +69,9 @@ def _clean_paths(paths: Iterable[str]) -> tuple[str, ...]:
         if path not in seen:
             cleaned.append(path)
             seen.add(path)
-    if not cleaned:
+    if no_changes and cleaned:
+        raise ValueError("no-change conflict survey cannot include intended paths")
+    if not cleaned and not no_changes:
         raise ValueError("conflict survey requires at least one intended path")
     return tuple(cleaned)
 
@@ -105,9 +107,10 @@ def survey_conflicts(
     item_id: int,
     touch_paths: Iterable[str],
     integration_target: str = "main",
+    no_changes: bool = False,
 ) -> ConflictSurvey:
     """Survey registered and imminent overlaps for one direct work item."""
-    clean_paths = _clean_paths(touch_paths)
+    clean_paths = _clean_paths(touch_paths, no_changes)
     item = _item(conn, item_id)
     blockers = direct_workflow_blockers(
         conn,
@@ -139,6 +142,7 @@ def survey_conflicts(
         {
             "item_id": int(item_id),
             "integration_target": integration_target,
+            "no_changes": no_changes,
             "touch_paths": clean_paths,
             "blockers": [asdict(blocker) for blocker in blockers],
         },
@@ -152,6 +156,7 @@ def survey_conflicts(
         blockers=tuple(blockers),
         observed_at=iso8601_now(),
         fingerprint=hashlib.sha256(digest_input).hexdigest(),
+        no_changes=no_changes,
     )
 
 

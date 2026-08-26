@@ -17,6 +17,7 @@ from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallResponse,
     FunctionError,
+    TargetRef,
 )
 from yoke_contracts.conflict_survey import DURABLE_ABSENT, DURABLE_RECORDED
 
@@ -33,7 +34,9 @@ def _transport_failure() -> FunctionCallResponse:
     )
 
 
-def _status_response(state: str, *, path: str = "pkg/change.py"):
+def _status_response(
+    state: str, *, path: str = "pkg/change.py", no_changes: bool = False,
+):
     recorded = state == DURABLE_RECORDED
     return FunctionCallResponse(
         success=True,
@@ -45,11 +48,12 @@ def _status_response(state: str, *, path: str = "pkg/change.py"):
             "durable_state": state,
             "found": recorded,
             "clear": recorded,
-            "touch_paths": [path] if recorded else [],
+            "touch_paths": [path] if recorded and not no_changes else [],
             "integration_target": "main",
             "fingerprint": "durable-fingerprint" if recorded else "",
             "observed_at": "2026-08-19T12:00:00Z" if recorded else "",
             "blockers": [],
+            "no_changes": no_changes,
         },
     )
 
@@ -129,6 +133,27 @@ def test_timeout_with_absent_row_renders_a_durable_state_error(
     assert emitted["error"]["code"] == "https_transport_failed"
     assert "durable survey state is absent" in emitted["error"]["message"]
     assert len(status_calls) == 1
+
+
+def test_timeout_recovers_matching_explicit_no_change_survey(monkeypatch):
+    monkeypatch.setattr(
+        dash_survey_recovery, "call_dispatcher",
+        lambda **_kwargs: _status_response(DURABLE_RECORDED, no_changes=True),
+    )
+    recover = dash_survey_recovery.build_survey_timeout_recovery(
+        TargetRef(kind="item", item_id=9),
+        {"paths": [], "path_sizes": [], "integration_target": "main",
+         "no_changes": True},
+    )
+
+    response = recover(
+        _transport_failure(),
+        ActorContext(actor_id="op", session_id="session"),
+    )
+
+    assert response.success is True
+    assert response.result["touch_paths"] == []
+    assert response.result["no_changes"] is True
 
 
 def test_status_human_output_names_absence(monkeypatch):

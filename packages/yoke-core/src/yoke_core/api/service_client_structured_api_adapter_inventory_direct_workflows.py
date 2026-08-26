@@ -9,7 +9,8 @@ DIRECT_WORKFLOW_ADAPTERS = [
     AdapterEntry(
         function_id="direct_workflow.dash.survey",
         cli_invocation=(
-            "yoke direct-workflow dash survey ITEM --path PATH "
+            "yoke direct-workflow dash survey ITEM "
+            "(--path PATH | --no-changes) "
             "[--integration-target BRANCH]"
         ),
     ),

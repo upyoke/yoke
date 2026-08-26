@@ -32,7 +32,8 @@ DASH_FILE_USAGE = (
     "[--approval-on-done] [--deployment] [--session-id S] [--json]"
 )
 DASH_SURVEY_USAGE = (
-    "yoke direct-workflow dash survey ITEM --path PATH [--path PATH ...] "
+    "yoke direct-workflow dash survey ITEM "
+    "(--path PATH [--path PATH ...] | --no-changes) "
     "[--integration-target BRANCH] [--project P] [--session-id S] [--json]"
 )
 DASH_EVIDENCE_USAGE = (
@@ -126,25 +127,28 @@ def dash_survey(args: List[str]) -> int:
     parser = _item_parser(
         "yoke direct-workflow dash survey", DASH_SURVEY_USAGE,
     )
-    parser.add_argument("--path", dest="paths", action="append", required=True)
+    scope = parser.add_mutually_exclusive_group(required=True)
+    scope.add_argument("--path", dest="paths", action="append")
+    scope.add_argument("--no-changes", action="store_true")
     parser.add_argument("--integration-target", default="main")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DASH_SURVEY_USAGE)
     if parsed is None:
         return 2
+    paths = parsed.paths or []
     # Size the item's tree, not whatever checkout this command runs from.
     # A live lane is the tree being changed; before a lane exists, the
     # item project's machine-mapped checkout is the tree — caller cwd is
     # the wrong repo for a cross-project item.
-    lane = item_lane_tree(parsed.item, parsed.project, parsed.session_id)
-    tree_root = lane.path if lane.live else (lane.checkout or None)
-    try:
-        path_sizes = survey_path_sizes(
-            parsed.paths, tree_root=tree_root,
-        )
-    except RuntimeError as exc:
-        return usage_error(str(exc))
+    path_sizes = []
+    if paths:
+        lane = item_lane_tree(parsed.item, parsed.project, parsed.session_id)
+        tree_root = lane.path if lane.live else (lane.checkout or None)
+        try:
+            path_sizes = survey_path_sizes(paths, tree_root=tree_root)
+        except RuntimeError as exc:
+            return usage_error(str(exc))
 
     def _human(response, stdout, stderr) -> None:
         result = response.result or {}
@@ -175,9 +179,10 @@ def dash_survey(args: List[str]) -> int:
 
     target = item_target("item", parsed.item, parsed.project)
     payload = {
-        "paths": parsed.paths,
+        "paths": paths,
         "integration_target": parsed.integration_target,
         "path_sizes": path_sizes,
+        "no_changes": parsed.no_changes,
     }
     return dispatch_and_emit(
         function_id="direct_workflow.dash.survey",

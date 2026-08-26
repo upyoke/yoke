@@ -93,8 +93,12 @@ def classify_survey_payload(
     if PENDING_REQUEST_KEY in parsed:
         return survey_contract.DURABLE_PENDING, None
     paths = parsed.get("touch_paths")
-    valid_paths = isinstance(paths, list) and bool(paths) and all(
-        isinstance(path, str) and clean_path(path) for path in paths
+    no_changes = parsed.get("no_changes") is True
+    valid_paths = isinstance(paths, list) and (
+        (not paths and no_changes)
+        or (bool(paths) and not no_changes and all(
+            isinstance(path, str) and clean_path(path) for path in paths
+        ))
     )
     if (
         parsed.get("schema") != 1

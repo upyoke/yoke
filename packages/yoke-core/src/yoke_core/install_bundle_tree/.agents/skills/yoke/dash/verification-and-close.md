@@ -7,7 +7,9 @@ inspecting its tail.
 
 If the instruction is investigative, the durable result may be a
 well-grounded no-change finding. Do not invent a code change merely to
-produce a diff.
+produce a diff. Record that exact outcome with
+`yoke direct-workflow dash survey ITEM --no-changes --json` wherever the
+sequence below requires the actual touch set; never substitute a placeholder.
 
 ### 5. Bind the committed tree, verify, and close review
 
@@ -31,6 +33,7 @@ executing a case:
 
 ```text
 yoke direct-workflow dash survey ITEM --path <actual-file> [--path <actual-file> ...] --json
+yoke direct-workflow dash survey ITEM --no-changes --json  # genuine no-change only
 ```
 
 A reported overlap remains advisory. Read the overlapping path, holding item,
@@ -141,6 +144,7 @@ survey with every actual file:
 
 ```text
 yoke direct-workflow dash survey ITEM --path <actual-file> [--path <actual-file> ...] --json
+yoke direct-workflow dash survey ITEM --no-changes --json  # genuine no-change only
 ```
 
 Read any reported contacts as advisories here too; a recorded overlap does not

@@ -31,7 +31,7 @@ function-call envelope:
 | `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
 | `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `items.structured_field.section_upsert` | Item target; a posture-enabled File Budget section | `yoke items structured-field section-upsert ITEM --section "File Budget" ...` |
-| `direct_workflow.dash.survey` | `paths` plus optional `integration_target` (defaults to `main`) | `yoke direct-workflow dash survey ITEM --path PATH --json` |
+| `direct_workflow.dash.survey` | `paths` or explicit `no_changes`, plus optional `integration_target` | `yoke direct-workflow dash survey ITEM (--path PATH \| --no-changes) --json` |
 | `direct_workflow.conflict_survey.status` | Item target; empty payload — rediscover the live survey | `yoke direct-workflow conflict-survey status ITEM --json` |
 | `claims.path.register` | Item target; complete paths plus mode and optional planned/exception posture | `yoke claims path register --item ITEM --paths PATHS ...` |
 | `qa.plan.materialize` | Item target; the transition whose attached plans become case rows | `yoke qa plan materialize --item ITEM --transition T --json` |
@@ -198,7 +198,11 @@ Record the survey:
 
 ```text
 yoke direct-workflow dash survey ITEM --path <path> [--path <path> ...] --json
+yoke direct-workflow dash survey ITEM --no-changes --json
 ```
+
+Use the second, empty-intent form only for a grounded no-change outcome. The
+forms are exclusive; never invent a placeholder path for a no-change Dash.
 
 Every survey call replaces the entire stored touch set; it never widens the
 previous set. Repeat every still-required path on every call. To rediscover
