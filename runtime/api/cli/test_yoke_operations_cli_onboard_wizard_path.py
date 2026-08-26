@@ -268,12 +268,12 @@ def test_path_continue_accepts_ctrl_j(monkeypatch) -> None:
     monkeypatch.setattr(
         path_doctor,
         "verify_fresh_login",
-        lambda shell=None: _all_clear_diagnosis().future_resolved,
+        lambda shell=None, **_: _all_clear_diagnosis().future_resolved,
     )
     monkeypatch.setattr(
         path_doctor,
         "verify_ssh_command",
-        lambda shell=None: _all_clear_diagnosis().ssh_resolved,
+        lambda shell=None, **_: _all_clear_diagnosis().ssh_resolved,
     )
     app = _app()
 

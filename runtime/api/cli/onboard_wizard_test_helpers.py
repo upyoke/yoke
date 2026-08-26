@@ -43,12 +43,14 @@ def stub_path_doctor(monkeypatch) -> None:
     """
     monkeypatch.setattr(path_doctor, "diagnose", lambda **_: all_clear_diagnosis())
     monkeypatch.setattr(
-        path_doctor, "verify_fresh_login",
-        lambda shell=None: all_clear_diagnosis().future_resolved,
+        path_doctor,
+        "verify_fresh_login",
+        lambda shell=None, **_: all_clear_diagnosis().future_resolved,
     )
     monkeypatch.setattr(
-        path_doctor, "verify_ssh_command",
-        lambda shell=None: all_clear_diagnosis().ssh_resolved,
+        path_doctor,
+        "verify_ssh_command",
+        lambda shell=None, **_: all_clear_diagnosis().ssh_resolved,
     )
     stub_token_verifiers(monkeypatch)
     stub_board_art(monkeypatch)
