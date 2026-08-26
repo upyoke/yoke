@@ -151,7 +151,7 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
     assert tuple(final) == (_stamp(seconds=4), "accepted", "codex-relay-v4")
 
 
-def test_failed_direct_route_waits_for_and_immediately_offers_broker() -> None:
+def test_failed_direct_route_skips_broker_while_relay_is_fresh() -> None:
     conn, _message_id = _seed()
     direct = claim_relay_job(
         conn,
@@ -185,12 +185,12 @@ def test_failed_direct_route_waits_for_and_immediately_offers_broker() -> None:
     )
 
     assert repeat.jobs == ()
-    assert broker is not None
+    assert broker is None
     assert (
         conn.execute(
             "SELECT wake_attempt_count FROM session_message_recipients"
         ).fetchone()[0]
-        == 2
+        == 1
     )
 
 

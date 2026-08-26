@@ -118,7 +118,7 @@ def test_broker_version_mismatch_is_terminal_and_typed() -> None:
     )
 
 
-def test_connected_relay_without_target_project_does_not_block_broker() -> None:
+def test_connected_relay_without_target_project_skips_broker() -> None:
     conn, _message_id = _seed()
     unrelated = RelayHeartbeat(
         relay_id=RELAY_ID,
@@ -139,7 +139,7 @@ def test_connected_relay_without_target_project_does_not_block_broker() -> None:
     broker = _reserve(conn)
 
     assert direct.jobs == ()
-    assert broker is not None
+    assert broker is None
 
 
 def test_broker_native_failure_settles_the_reserved_attempt() -> None:
