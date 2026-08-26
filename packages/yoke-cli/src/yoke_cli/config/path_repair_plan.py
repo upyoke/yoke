@@ -18,7 +18,10 @@ def build(diagnosis: path_doctor.PathDiagnosis) -> dict[str, Any]:
     if diagnosis.ssh_startup_file and diagnosis.ssh_needs_fix:
         targets.append({"surface": SSH_SURFACE, "path": diagnosis.ssh_startup_file})
 
-    directory_tools = {directory: [] for directory in diagnosis.managed_path_dirs}
+    managed_path_dirs = tuple(
+        dict.fromkeys((diagnosis.tool_bin_dir, *diagnosis.managed_path_dirs))
+    )
+    directory_tools = {directory: [] for directory in managed_path_dirs}
     directory_tools.setdefault(diagnosis.tool_bin_dir, []).extend(path_doctor.TOOLS)
     for resolution in diagnosis.harness_clis:
         if resolution.directory:
@@ -30,7 +33,7 @@ def build(diagnosis: path_doctor.PathDiagnosis) -> dict[str, Any]:
         "tool_bin_dir": diagnosis.tool_bin_dir,
         "login_file": diagnosis.startup_file,
         "ssh_file": diagnosis.ssh_startup_file or None,
-        "directories": list(diagnosis.managed_path_dirs),
+        "directories": list(managed_path_dirs),
         "directory_tools": {
             directory: list(dict.fromkeys(names))
             for directory, names in directory_tools.items()

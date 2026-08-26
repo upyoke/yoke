@@ -24,7 +24,7 @@ def test_cli_probe_uses_app_bundle_when_command_is_not_on_path(
 ) -> None:
     bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
     monkeypatch.setattr(probe_module.shutil, "which", lambda _name: None)
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": bundled})
+    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
 
     assert inventory_module.probe_cli_version(("codex", "--version")) == (
         "0.149.0-alpha.4.3"
@@ -35,7 +35,7 @@ def test_cli_probe_prefers_path_over_app_bundle(monkeypatch, tmp_path: Path) -> 
     on_path = _version_script(tmp_path / "path", "codex-cli 1.2.3\n")
     bundled = _version_script(tmp_path / "bundle", "codex-cli 9.9.9\n")
     monkeypatch.setattr(probe_module.shutil, "which", lambda _name: str(on_path))
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": bundled})
+    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
 
     assert inventory_module.probe_cli_version(("codex", "--version")) == "1.2.3"
 
@@ -47,7 +47,7 @@ def test_cli_probe_returns_none_when_path_and_bundle_are_absent(
     monkeypatch.setattr(
         probe_module,
         "_CLI_FALLBACKS",
-        {"codex": tmp_path / "missing-codex"},
+        {"codex": (tmp_path / "missing-codex",)},
     )
 
     assert inventory_module.probe_cli_version(("codex", "--version")) is None
@@ -65,7 +65,7 @@ def test_launch_transports_resolve_the_binary_the_probe_advertised(
 
     bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
     monkeypatch.setattr(probe_module.shutil, "which", lambda _name: None)
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": bundled})
+    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
 
     assert inventory_module.probe_cli_version(("codex", "--version"))
     resolved = CodexCliTransport()._resolve_binary()
@@ -82,7 +82,7 @@ def test_a_standalone_install_on_path_wins_over_the_desktop_bundle(
     # which one ran it.
     standalone = _version_script(tmp_path / "path", "codex-cli 0.150.0\n")
     bundled = _version_script(tmp_path / "bundle", "codex-cli 0.149.0-alpha.4.3\n")
-    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": bundled})
+    monkeypatch.setattr(probe_module, "_CLI_FALLBACKS", {"codex": (bundled,)})
     monkeypatch.setattr(probe_module.shutil, "which", lambda _name: str(standalone))
 
     resolved = inventory_module.resolve_native_cli_source("codex")
