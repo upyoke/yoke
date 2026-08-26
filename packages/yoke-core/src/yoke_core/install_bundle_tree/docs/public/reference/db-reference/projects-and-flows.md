@@ -37,9 +37,10 @@ attachments declare which project checks run at each workflow transition.
 Items receive a `deployment_flow` via a two-tiered enforcement model:
 
 **Auto-default at idea time:**
-- Read the project's `deploy_defaults` entry via `yoke project-structure deploy-defaults get --project <project>`; when present, use its flow automatically.
+- Read the project's `deploy_defaults` entry via `yoke project-structure deploy-defaults get --project <project>` first. Empty get omits `--deployment-flow` and falls back to context inference. Never store the literal `none`.
+- Merge-only or `-internal` defaults attach so Usher Route A stays automatic.
+- A persistent default (`target_tier=persistent` / has a target environment) is not applied to clearly non-delivery work (docs, research) or when hosting is not healthy (unresolved/empty target environment), unless the operator or title is deploy work.
 - The Yoke control-plane project's configured default is `yoke-internal` (operator-authored `deploy_defaults`, not a seed).
-- External projects use their configured `deploy_defaults` entry, or fall back to context inference when none is set.
 
 **Hard enforcement at planning gate:**
 - Shepherd `planning_to_plan_drafted` transition blocks if `deployment_flow` is NULL on an epic
