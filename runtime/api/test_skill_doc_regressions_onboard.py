@@ -278,7 +278,10 @@ def test_onboard_teaches_environment_and_flow_registration():
         line for line in text.splitlines()
         if line.startswith("yoke project-structure patch apply ")
     ]
-    assert len(patch_commands) == 3
+    # hosting posture, deploy defaults, project-wide policy rows, architecture
+    # model — every project-level declaration this doc teaches writes through
+    # the one patch surface.
+    assert len(patch_commands) == 4
     assert all("--project {project} --ops-json " in line for line in patch_commands)
     assert all("--item" not in line for line in patch_commands)
 

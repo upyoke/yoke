@@ -141,7 +141,7 @@ def test_plan_names_a_skipped_hosting_answer() -> None:
 
     assert row["target"] == hosting_posture.POSTURE_UNDECIDED
     assert onboard_plan_labels.friendly_line(row["action"], row["target"]) == (
-        "Skip connecting a hosting provider for now"
+        "Decide hosting later"
     )
 
 

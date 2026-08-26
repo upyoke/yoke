@@ -50,9 +50,9 @@ DECLARED_ROW = "no-managed-host"
 )
 def test_every_skippable_screen_also_offers_the_declaration(rows) -> None:
     """Wherever an operator can defer, they can also tell the truth instead."""
-    keys = [row.key for row in rows]
-    assert DECLARED_ROW in keys
-    assert "skip" in keys
+    values = [row.value for row in rows]
+    assert DECLARED_ROW in values
+    assert "skip" in values
 
 
 def test_the_subtitle_does_not_present_aws_as_the_only_world() -> None:
