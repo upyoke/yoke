@@ -1,4 +1,4 @@
-"""Tests for the coordination-lease doctor health checks."""
+"""Tests for the coordination-claim doctor health checks."""
 
 from __future__ import annotations
 
@@ -11,36 +11,51 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.engines.doctor_hc_coordination_leases import (
-    hc_coordination_leases_stale_or_orphan,
-    hc_coordination_leases_unmerged_source,
+from yoke_core.engines.doctor_hc_coordination_claims import (
+    hc_coordination_claims_stale_or_orphan,
+    hc_coordination_claims_unmerged_source,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-_LEASES_DDL = """
-CREATE TABLE coordination_leases (
+_CLAIMS_DDL = """
+CREATE TABLE work_claims (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    project_id TEXT NOT NULL,
-    lease_key TEXT NOT NULL,
     session_id TEXT NOT NULL,
-    actor_id TEXT,
-    acquired_at TEXT NOT NULL,
-    heartbeat_at TEXT,
+    target_kind TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    claim_type TEXT NOT NULL DEFAULT 'exclusive',
+    claimed_at TEXT NOT NULL,
+    last_heartbeat TEXT,
     released_at TEXT,
     release_reason TEXT,
-    owner_kind TEXT NOT NULL DEFAULT 'session',
-    owner_item_id INTEGER,
-    owner_session_id TEXT,
-    owner_work_claim_id INTEGER,
-    released_by_session_id TEXT,
-    released_by_actor_id TEXT
+    release_reason_intent TEXT
 );
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     ended_at TEXT
 );
 """
+
+
+def _insert_claim(conn, **kwargs) -> None:
+    """Insert one coordination claim row directly, no domain layer."""
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(session_id, target_kind, scope, claimed_at, last_heartbeat, "
+        "released_at, release_reason) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        (
+            kwargs["session_id"],
+            kwargs.get("target_kind", "qa_admission"),
+            kwargs.get("scope", '{"machine_id":"mac-mini-lab"}'),
+            kwargs["claimed_at"],
+            kwargs.get("last_heartbeat"),
+            kwargs.get("released_at"),
+            kwargs.get("release_reason"),
+        ),
+    )
+    conn.commit()
 
 _AUDIT_DDL = """
 CREATE TABLE migration_audit (
@@ -67,8 +82,8 @@ def _make_conn(ddl: Optional[str] = None):
 
 
 @pytest.fixture
-def leases_conn():
-    c = _make_conn(_LEASES_DDL)
+def claims_conn():
+    c = _make_conn(_CLAIMS_DDL)
     yield c
     c.close()
 
@@ -87,90 +102,97 @@ def _iso_ago(*, minutes: int = 0, days: int = 0) -> str:
 
 def _run_stale(conn) -> RecordCollector:
     rec = RecordCollector()
-    hc_coordination_leases_stale_or_orphan(conn, DoctorArgs(), rec)
+    hc_coordination_claims_stale_or_orphan(conn, DoctorArgs(), rec)
     return rec
 
 
 def _run_unmerged(conn) -> RecordCollector:
     rec = RecordCollector()
-    hc_coordination_leases_unmerged_source(conn, DoctorArgs(), rec)
+    hc_coordination_claims_unmerged_source(conn, DoctorArgs(), rec)
     return rec
 
 
 class TestStaleOrOrphan:
-    def test_pass_when_no_leases(self, leases_conn) -> None:
-        rec = _run_stale(leases_conn)
+    def test_pass_when_no_claims(self, claims_conn) -> None:
+        rec = _run_stale(claims_conn)
         assert rec.results[-1].result == "PASS"
 
-    def test_pass_for_fresh_heartbeat(self, leases_conn) -> None:
-        leases_conn.execute(
-            "INSERT INTO coordination_leases "
-            "(project_id, lease_key, session_id, acquired_at, heartbeat_at) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            ("yoke", "LIVE_DB_MIGRATION:primary", "sess-fresh",
-             _iso_ago(minutes=1), _iso_ago(minutes=1)),
+    def test_pass_for_fresh_heartbeat(self, claims_conn) -> None:
+        _insert_claim(
+            claims_conn,
+            session_id="sess-fresh",
+            claimed_at=_iso_ago(minutes=1),
+            last_heartbeat=_iso_ago(minutes=1),
         )
-        leases_conn.commit()
-        rec = _run_stale(leases_conn)
+        rec = _run_stale(claims_conn)
         assert rec.results[-1].result == "PASS"
 
-    def test_warn_for_stale_heartbeat(self, leases_conn) -> None:
-        leases_conn.execute(
-            "INSERT INTO coordination_leases "
-            "(project_id, lease_key, session_id, acquired_at, heartbeat_at) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            ("yoke", "LIVE_DB_MIGRATION:primary", "sess-stale",
-             _iso_ago(days=1), _iso_ago(minutes=120)),
+    def test_warn_for_stale_heartbeat(self, claims_conn) -> None:
+        _insert_claim(
+            claims_conn,
+            session_id="sess-stale",
+            claimed_at=_iso_ago(days=1),
+            last_heartbeat=_iso_ago(minutes=120),
         )
-        leases_conn.commit()
-        rec = _run_stale(leases_conn)
+        rec = _run_stale(claims_conn)
         result = rec.results[-1]
         assert result.result == "WARN"
         assert "stale" in result.detail.lower() or "orphan" in result.detail.lower()
         assert "sess-stale" in result.detail
-        assert "yoke coordination-lease release" in result.detail
+        assert "QA_HOST:mac-mini-lab" in result.detail
+        assert "yoke coordination-claim release" in result.detail
 
-    def test_warn_for_orphan_when_session_ended(self, leases_conn) -> None:
-        now = _iso_ago(minutes=0)
-        leases_conn.execute(
+    def test_warn_for_orphan_when_session_ended(self, claims_conn) -> None:
+        claims_conn.execute(
             "INSERT INTO harness_sessions (session_id, ended_at) VALUES (%s, %s)",
-            ("sess-ended", now),
+            ("sess-ended", _iso_ago(minutes=0)),
         )
-        leases_conn.execute(
-            "INSERT INTO coordination_leases "
-            "(project_id, lease_key, session_id, acquired_at, heartbeat_at) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            ("yoke", "LIVE_DB_MIGRATION:primary", "sess-ended",
-             _iso_ago(minutes=1), _iso_ago(minutes=1)),
+        _insert_claim(
+            claims_conn,
+            session_id="sess-ended",
+            claimed_at=_iso_ago(minutes=1),
+            last_heartbeat=_iso_ago(minutes=1),
         )
-        leases_conn.commit()
-        rec = _run_stale(leases_conn)
+        rec = _run_stale(claims_conn)
         assert rec.results[-1].result == "WARN"
         assert "sess-ended" in rec.results[-1].detail
 
-    def test_item_owned_stale_lease_is_excluded(self, leases_conn) -> None:
-        leases_conn.execute(
-            "INSERT INTO coordination_leases "
-            "(project_id, lease_key, session_id, acquired_at, heartbeat_at, "
-            " owner_kind, owner_item_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            ("yoke", "LIVE_DB_MIGRATION:primary", "rehearse-old",
-             _iso_ago(days=1), _iso_ago(minutes=120), "item", 7),
+    def test_item_owned_territory_is_excluded(self, claims_conn) -> None:
+        """No session liveness applies, so an old heartbeat is not a signal."""
+        _insert_claim(
+            claims_conn,
+            session_id="rehearse-old",
+            target_kind="migration_serialization",
+            scope='{"item_id":7,"model":"primary","project_id":1}',
+            claimed_at=_iso_ago(days=1),
+            last_heartbeat=_iso_ago(minutes=120),
         )
-        leases_conn.commit()
-        rec = _run_stale(leases_conn)
+        rec = _run_stale(claims_conn)
         assert rec.results[-1].result == "PASS"
 
-    def test_released_leases_excluded(self, leases_conn) -> None:
-        leases_conn.execute(
-            "INSERT INTO coordination_leases "
-            "(project_id, lease_key, session_id, acquired_at, heartbeat_at, "
-            " released_at, release_reason) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            ("yoke", "LIVE_DB_MIGRATION:primary", "sess-done",
-             _iso_ago(days=1), _iso_ago(days=1),
-             _iso_ago(minutes=0), "completed"),
+    def test_backlog_claims_are_excluded(self, claims_conn) -> None:
+        """This check owns shared resources, not backlog occupancy."""
+        _insert_claim(
+            claims_conn,
+            session_id="sess-item",
+            target_kind="item",
+            scope='{"item_id":7}',
+            claimed_at=_iso_ago(days=1),
+            last_heartbeat=_iso_ago(minutes=120),
         )
-        leases_conn.commit()
-        rec = _run_stale(leases_conn)
+        rec = _run_stale(claims_conn)
+        assert rec.results[-1].result == "PASS"
+
+    def test_released_claims_excluded(self, claims_conn) -> None:
+        _insert_claim(
+            claims_conn,
+            session_id="sess-done",
+            claimed_at=_iso_ago(days=1),
+            last_heartbeat=_iso_ago(days=1),
+            released_at=_iso_ago(minutes=0),
+            release_reason="completed",
+        )
+        rec = _run_stale(claims_conn)
         assert rec.results[-1].result == "PASS"
 
     def test_skip_when_table_missing(self) -> None:
@@ -184,9 +206,9 @@ class TestStaleOrOrphan:
 
     def test_skip_when_heartbeat_column_missing(self) -> None:
         conn = _make_conn(
-            "CREATE TABLE coordination_leases (id INTEGER PRIMARY KEY, "
-            "project_id TEXT, lease_key TEXT, session_id TEXT, "
-            "acquired_at TEXT, released_at TEXT, release_reason TEXT);"
+            "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
+            "session_id TEXT, target_kind TEXT, scope TEXT, "
+            "claimed_at TEXT, released_at TEXT, release_reason TEXT);"
         )
         try:
             rec = _run_stale(conn)

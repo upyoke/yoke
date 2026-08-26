@@ -188,9 +188,12 @@ def _claim_key_sql(conn) -> str:
         key_prefix_for_kind,
     )
 
+    # The scope read is parenthesized: `||` binds tighter than the JSON
+    # path operator, so an unparenthesized right side turns the prefix
+    # literal into a jsonb operand and the query fails at parse time.
     branches = " ".join(
         f"WHEN '{kind}' THEN '{key_prefix_for_kind(kind)}' || "
-        f"{_scope_text(conn, COORDINATION_SCOPE_KEY[kind])}"
+        f"({_scope_text(conn, COORDINATION_SCOPE_KEY[kind])})"
         for kind in COORDINATION_TARGET_KINDS
     )
     return f"CASE cl.target_kind {branches} END"
