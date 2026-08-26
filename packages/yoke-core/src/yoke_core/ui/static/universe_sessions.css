@@ -127,6 +127,43 @@
   color: inherit;
 }
 
+.universe-app-root .session-latest-message {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.universe-app-root .session-message-badge {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.universe-app-root .session-message-badge.is-pending,
+.universe-app-root .session-message-badge.is-injected {
+  background: color-mix(in srgb, var(--yoke-warn) 15%, transparent);
+  color: var(--yoke-warn);
+}
+
+.universe-app-root .session-message-badge.is-acknowledged {
+  background: color-mix(in srgb, var(--yoke-good) 15%, transparent);
+  color: var(--yoke-good);
+}
+
+.universe-app-root .session-end-blocker {
+  color: var(--yoke-warn);
+  font-weight: 600;
+}
+
+.universe-app-root .session-stale-context {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
 .universe-app-root .session-foot {
   display: flex;
   align-items: center;

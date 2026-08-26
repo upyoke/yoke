@@ -40,7 +40,8 @@ def _connection() -> sqlite3.Connection:
             ended_at TEXT,
             terminated_at TEXT,
             turn_posture TEXT,
-            turn_posture_at TEXT
+            turn_posture_at TEXT,
+            offer_envelope TEXT
         );
         CREATE TABLE session_relays (
             relay_id TEXT PRIMARY KEY,
@@ -105,6 +106,7 @@ def _add_session(
             None,
             posture,
             "2026-08-22T12:00:00Z",
+            None,
         ),
     )
 
