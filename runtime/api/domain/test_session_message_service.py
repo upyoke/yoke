@@ -252,12 +252,9 @@ def test_default_send_stamps_wake_after_at_send_time() -> None:
     assert parse_timestamp(_wake_after(conn, result["message_id"])) == NOW
 
 
-def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:
+def test_acknowledgment_is_self_only() -> None:
     conn = message_connection()
     message_id = _send(conn)["message_id"]
-    with pytest.raises(SessionMessageError) as pending:
-        acknowledge_message(conn, message_id=message_id, session_id="s1", now=NOW)
-    assert pending.value.code == "invalid_state"
     with pytest.raises(SessionMessageError) as other:
         acknowledge_message(conn, message_id=message_id, session_id="s2", now=NOW)
     assert other.value.code == "acknowledge_self_only"
@@ -270,6 +267,27 @@ def test_acknowledgment_is_self_only_and_requires_prior_injection() -> None:
     acknowledged = acknowledge_message(
         conn, message_id=message_id, session_id="s1", now=NOW
     )
+    assert acknowledged["recipients"][0]["state"] == "acknowledged"
+    assert (
+        lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
+        is None
+    )
+
+
+def test_recipient_may_acknowledge_a_receipt_still_pending() -> None:
+    """A native wake names the message id without carrying its body.
+
+    The session that follows that instruction can reach the acknowledgement
+    before any hook event has flipped its receipt to `injected`, so refusing
+    there would deny receipt of a message the sender can see was received.
+    """
+    conn = message_connection()
+    message_id = _send(conn)["message_id"]
+
+    acknowledged = acknowledge_message(
+        conn, message_id=message_id, session_id="s1", now=NOW
+    )
+
     assert acknowledged["recipients"][0]["state"] == "acknowledged"
     assert (
         lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)

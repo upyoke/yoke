@@ -43,6 +43,20 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
 6. Confirm the print-mode gaps are still gaps (assessment doc must be
    updated if the vendor closes them): no `beforeSubmitPrompt`, no `stop`,
    no `subagentStart`/`subagentStop` despite a `Task` dispatch.
+6b. Confirm which config a tool call actually fires. In a workspace that
+   carries BOTH `.cursor/hooks.json` and `.claude/settings.json`, Cursor
+   routes every tool call through the imported Claude `PreToolUse` /
+   `PostToolUse` hooks and does **not** fire its own
+   `beforeShellExecution` / `afterShellExecution` / `preToolUse` /
+   `postToolUse`; only `sessionStart`, `sessionEnd`, and `stop` fire on
+   both configs. Verify by running one shell command and one file read and
+   watching which hook commands execute. That asymmetry is why the
+   imported-Claude deduplication covers lifecycle events only
+   (`CURSOR_DUAL_CONFIG_RUNNER_EVENTS`): treating an imported tool hook as
+   a duplicate discards the tool call's only hook invocation, which
+   silently costs the session every guard, telemetry write, heartbeat, and
+   inbound message injection. If a newer build starts firing both for tool
+   events, widen that set rather than reintroducing a blanket skip.
 
 ## Hook-enhanced — IDE surface
 

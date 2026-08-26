@@ -213,6 +213,11 @@ def list_message_ids(
     return [str(row[0]) for row in rows]
 
 
+# Receipt states a session may acknowledge from. Ordered so the SQL
+# placeholder tuple stays stable across calls.
+_ACKNOWLEDGEABLE_STATES: tuple[str, ...] = ("pending", "injected")
+
+
 def acknowledge_recipient(
     conn: Any,
     *,
@@ -238,16 +243,30 @@ def acknowledge_recipient(
     state = str(row[0])
     if state == "acknowledged":
         return message_details(conn, message_id)
-    if state != "injected":
+    # A recipient acknowledging its own receipt is the strongest possible
+    # evidence of delivery, so `pending` is accepted alongside `injected`.
+    # A native wake names the message id without carrying its body, and the
+    # session that follows that instruction can reach the acknowledgement
+    # before any hook event has flipped the row to `injected` — refusing
+    # there would deny receipt of a message the sender can see was received.
+    # Terminal states stay refused: expired and cancelled receipts are over.
+    if state not in _ACKNOWLEDGEABLE_STATES:
         raise SessionMessageError(
             "invalid_state", f"recipient state {state!r} cannot be acknowledged"
         )
+    slots = ",".join(marker for _ in _ACKNOWLEDGEABLE_STATES)
     cursor = conn.execute(
         "UPDATE session_message_recipients SET state='acknowledged', "
         f"acknowledged_at={marker}, injection_lease_id=NULL, "
         "injection_leased_at=NULL, injection_lease_expires_at=NULL "
-        f"WHERE message_id={marker} AND session_id={marker} AND state='injected'",
-        (timestamp(acknowledged_at), message_id, session_id),
+        f"WHERE message_id={marker} AND session_id={marker} "
+        f"AND state IN ({slots})",
+        (
+            timestamp(acknowledged_at),
+            message_id,
+            session_id,
+            *_ACKNOWLEDGEABLE_STATES,
+        ),
     )
     if cursor.rowcount != 1:
         raise SessionMessageError(
