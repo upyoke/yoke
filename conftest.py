@@ -43,6 +43,7 @@ if _tree_binding.refusal is not None:
     raise SystemExit(_binding.TREE_BINDING_REFUSED_EXIT_STATUS)
 
 from yoke_core.tools import build_release  # noqa: E402
+from yoke_core.tools import launchctl_boundary  # noqa: E402
 
 
 PRODUCT_WHEELHOUSE_PACKAGES = build_release.PRODUCT_PACKAGE_NAMES
@@ -280,3 +281,52 @@ def _write_product_wheelhouse_sentinel(wheelhouse: Path) -> None:
         json.dumps(payload, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+@pytest.fixture(autouse=True)
+def _sandbox_launchd_registrations(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Keep every test off the operator's real launchd domain.
+
+    A unique per-environment label is not isolation: a job named for a
+    throwaway config still bootstraps into the operator's login domain,
+    notifies them once per registration, and outlives the run. Worse, the
+    installer retires an unpinned legacy job on the way in, so a test that
+    reached real launchctl could boot out the canonical relay the whole
+    fleet launches through.
+
+    The sandbox is an environment variable rather than a monkeypatch
+    because the leak came through a child process: the onboard apply path
+    spawns the relay installer, and only an inherited variable reaches it.
+    """
+    sandbox = tmp_path / "launchd-sandbox"
+    monkeypatch.setenv(launchctl_boundary.SANDBOX_ENV, str(sandbox))
+    monkeypatch.delenv(launchctl_boundary.REAL_LAUNCHD_OPT_IN_ENV, raising=False)
+    return sandbox
+
+
+def _real_launchd_agent(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The one sanctioned door to a real launchd agent, with teardown attached.
+
+    Yields a callable that registers a label for unconditional bootout when
+    the test ends, however it ends. The canonical relay label stays refused
+    even here — this fixture buys a real domain, never the machine's live
+    daemon.
+    """
+    if request.node.get_closest_marker("launchd_integration") is None:
+        pytest.fail(
+            "real_launchd_agent loads a real launchd job; mark the test "
+            "`@pytest.mark.launchd_integration` so it is greppable."
+        )
+    monkeypatch.delenv(launchctl_boundary.SANDBOX_ENV, raising=False)
+    monkeypatch.setenv(launchctl_boundary.REAL_LAUNCHD_OPT_IN_ENV, "1")
+    loaded: list[str] = []
+    try:
+        yield loaded.append
+    finally:
+        launchctl_boundary.bootout_labels(loaded)
+
+
+real_launchd_agent = pytest.fixture(name="real_launchd_agent")(_real_launchd_agent)

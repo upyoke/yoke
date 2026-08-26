@@ -194,7 +194,7 @@ _SHAPES = (
             "worktree-health",
         ),
     ),
-    (_LOCAL, ("session-relay",)),
+    (_LOCAL, ("session-relay", "session-relay-orphans")),
     (
         _EXT,
         (

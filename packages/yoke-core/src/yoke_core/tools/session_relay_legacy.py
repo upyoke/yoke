@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-import os
 from pathlib import Path
 import plistlib
 import subprocess
@@ -14,6 +13,7 @@ from yoke_cli.config.session_relay_instance import (
     RelayInstance,
     prod_https_environments,
 )
+from yoke_core.tools.launchctl_boundary import launch_agents_dir, launchd_target
 
 
 class LegacyRelayError(RuntimeError):
@@ -86,12 +86,11 @@ def retire_unpinned_legacy_relay(
     """Remove the old active-env-following job before installing non-prod."""
     if instance.prod:
         return False
-    user_home = (home or Path.home()).expanduser()
-    legacy_path = user_home / "Library" / "LaunchAgents" / f"{PROD_RELAY_LABEL}.plist"
+    legacy_path = launch_agents_dir(home) / f"{PROD_RELAY_LABEL}.plist"
     if _is_pinned_prod(legacy_path, instance):
         return False
 
-    target = f"gui/{os.getuid() if uid is None else uid}/{PROD_RELAY_LABEL}"
+    target = launchd_target(PROD_RELAY_LABEL, uid)
     _run(["launchctl", "bootout", target], runner=runner)
     probe = _run(["launchctl", "print", target], runner=runner)
     if probe.returncode == 0:
