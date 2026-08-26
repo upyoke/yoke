@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import json
 import shlex
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from . import db_backend
 from .sessions_handler_outcome import NON_USEFUL_STEP_OUTCOMES, OUTCOME_COMPLETED
-from .sessions_queries import normalize_claim_item_id, read_chain_checkpoint
+from .sessions_queries import normalize_claim_item_id
 
 
 _DEFAULT_MAX_CHAIN_STEPS = 3
@@ -51,13 +52,17 @@ class ChainPendingState:
     item_id: Optional[str]
 
 
-def chain_pending_state(
-    conn: Any,
-    session_id: str,
-) -> ChainPendingState:
-    """Read the persisted chain checkpoint and decide whether the session is pending."""
-    checkpoint = read_chain_checkpoint(conn, session_id)
-    if checkpoint is None:
+def chain_pending_state_from_envelope(envelope: Any) -> ChainPendingState:
+    """Decide chain-pending state from a stored offer-envelope value."""
+    if isinstance(envelope, str):
+        try:
+            envelope = json.loads(envelope)
+        except (json.JSONDecodeError, TypeError):
+            envelope = None
+    if not isinstance(envelope, Mapping):
+        envelope = {}
+    checkpoint = envelope.get("chain_checkpoint")
+    if not isinstance(checkpoint, Mapping):
         return ChainPendingState(
             pending=False,
             step=0,
@@ -74,17 +79,10 @@ def chain_pending_state(
     action = checkpoint.get("action")
     item_id = checkpoint.get("item_id")
 
-    max_steps = _DEFAULT_MAX_CHAIN_STEPS
-    envelope_row = conn.execute(
-        f"SELECT offer_envelope FROM harness_sessions WHERE session_id = {_p(conn)}",
-        (session_id,),
-    ).fetchone()
-    if envelope_row and envelope_row["offer_envelope"]:
-        try:
-            env = json.loads(envelope_row["offer_envelope"])
-            max_steps = int(env.get("max_chain_steps", _DEFAULT_MAX_CHAIN_STEPS))
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
+    try:
+        max_steps = int(envelope.get("max_chain_steps", _DEFAULT_MAX_CHAIN_STEPS))
+    except (TypeError, ValueError):
+        max_steps = _DEFAULT_MAX_CHAIN_STEPS
 
     pending = chainable and step < max_steps and is_chain_pending_outcome(
         handler_outcome,
@@ -100,6 +98,20 @@ def chain_pending_state(
         item_id=(
             normalize_claim_item_id(str(item_id)) if item_id is not None else None
         ),
+    )
+
+
+def chain_pending_state(
+    conn: Any,
+    session_id: str,
+) -> ChainPendingState:
+    """Read the persisted chain checkpoint and decide whether the session is pending."""
+    row = conn.execute(
+        f"SELECT offer_envelope FROM harness_sessions WHERE session_id = {_p(conn)}",
+        (session_id,),
+    ).fetchone()
+    return chain_pending_state_from_envelope(
+        row["offer_envelope"] if row is not None else None,
     )
 
 
@@ -182,6 +194,7 @@ def chain_pending_outcomes() -> frozenset[str]:
 __all__ = [
     "ChainPendingState",
     "chain_pending_state",
+    "chain_pending_state_from_envelope",
     "chain_pending_outcomes",
     "is_chain_pending_outcome",
     "last_released_at",

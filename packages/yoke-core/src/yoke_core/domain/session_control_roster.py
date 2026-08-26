@@ -17,6 +17,7 @@ from yoke_contracts.session_control.resume import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
+from yoke_core.domain.session_control_diagnostics import session_diagnostics
 from yoke_core.domain.session_message_routing import messageability
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -50,7 +51,8 @@ def _identity_facts(
     marker = _marker(conn)
     rows = conn.execute(
         "SELECT session_id,project_id,executor_surface,executor_version,machine_id,"
-        "last_heartbeat,last_tool_call_at,ended_at,terminated_at,turn_posture,turn_posture_at "
+        "last_heartbeat,last_tool_call_at,ended_at,terminated_at,turn_posture,"
+        "turn_posture_at,offer_envelope "
         "FROM harness_sessions WHERE session_id IN ("
         + ",".join(marker for _ in ids)
         + ")",
@@ -168,6 +170,7 @@ def _project_row(
     connected_relays: dict[str, tuple[dict[str, Any], ...]],
     worktree: str | None,
     resume_state: str | None,
+    diagnostics: Mapping[str, Any],
 ) -> dict[str, Any]:
     merged = {**row, **identity}
     machine_id = str(merged.get("machine_id") or "")
@@ -207,6 +210,7 @@ def _project_row(
         if relay_connected
         else ("unavailable" if machine_id else ""),
         "messageability": routing,
+        **diagnostics,
     }
 
 
@@ -238,6 +242,7 @@ def session_control_roster_result(
             (str(row.get("session_id") or "") for row in rows),
         )
         connected = connected_relay_routes(conn, now=now)
+        diagnostics = session_diagnostics(conn, rows, identities)
         projected = [
             _project_row(
                 row,
@@ -245,6 +250,7 @@ def session_control_roster_result(
                 connected_relays=connected,
                 worktree=worktrees.get(str(row.get("session_id") or "")),
                 resume_state=resume_states.get(str(row.get("session_id") or "")),
+                diagnostics=diagnostics.get(str(row.get("session_id") or ""), {}),
             )
             for row in rows
         ]

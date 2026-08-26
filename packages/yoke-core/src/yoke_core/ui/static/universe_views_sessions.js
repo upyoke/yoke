@@ -18,6 +18,7 @@ import {
   whoColumn,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
+import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
 import {
   appendSessionMessaging,
   sessionRosterFilters,
@@ -157,6 +158,7 @@ export function sessionCard(documentNode, row, who, mode, onMessage) {
   appendHoldings(documentNode, body, row);
   appendRuntime(documentNode, body, row);
   appendAge(documentNode, body, row);
+  appendSessionDiagnostics(documentNode, body, row);
   appendSessionMessaging(documentNode, body, row, onMessage);
   card.appendChild(body);
   appendFooter(documentNode, card, row, who, mode);

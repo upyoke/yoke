@@ -10,6 +10,9 @@ from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
     native_diagnostic_fields,
 )
+from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import (
+    roster_diagnostics,
+)
 
 
 BODY_EXCERPT_CHARACTERS = 72
@@ -153,6 +156,7 @@ def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("RESUME", lambda row: humanize(row.get("resume_state")), 18),
             ("RELAY", lambda row: humanize(row.get("relay")), 12),
             ("MESSAGEABLE", _messageable, 18),
+            ("DIAGNOSTICS", roster_diagnostics, None),
         )
     write_table("SESSIONS", columns, rows, stdout, empty="No sessions found.")
 

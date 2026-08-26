@@ -19,6 +19,10 @@ SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "resume_state",
     "relay",
     "messageability",
+    "latest_message",
+    "end_blocker",
+    "effective_stale_ttl_minutes",
+    "stale_eligible_at",
 )
 
 

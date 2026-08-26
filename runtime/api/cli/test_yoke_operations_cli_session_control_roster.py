@@ -55,6 +55,17 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
                         "messageable": True,
                         "relay_connected": True,
                     },
+                    "latest_message": {
+                        "state": "pending",
+                        "created_at": "2026-08-22T12:00:00Z",
+                    },
+                    "end_blocker": {
+                        "status": "chain_pending",
+                        "checkpoint_step": 2,
+                        "max_chain_steps": 3,
+                    },
+                    "effective_stale_ttl_minutes": 60,
+                    "stale_eligible_at": "2099-08-22T13:00:00Z",
                 }
             ],
         }
@@ -92,6 +103,7 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
     assert "SESSION" in lines[1]
     assert "PROJECT" in lines[1]
     assert "MESSAGEABLE" in lines[1]
+    assert "DIAGNOSTICS" in lines[1]
     assert "RESUME" in lines[1]
     assert FULL_SESSION_ID in rendered
     assert FULL_MACHINE_ID in rendered
@@ -100,6 +112,9 @@ def test_roster_dispatches_existing_registered_read_and_renders_headed_table(
     assert "connected" in rendered
     assert "resumed running" in rendered
     assert "yes" in rendered
+    assert "message pending" in rendered
+    assert "chain pending 2/3" in rendered
+    assert "TTL 60m" in rendered
     assert "|" not in rendered
 
 

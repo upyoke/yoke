@@ -12,6 +12,7 @@ from .sessions_lifecycle_registry import _get_session
 from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
 from .sessions_render_end_chain_pending import (
+    ChainPendingState,
     chain_pending_state,
     last_released_at,
     next_action_command,
@@ -34,6 +35,38 @@ def _document_lock_count(conn: Any, session_id: str) -> int:
         (session_id,),
     ).fetchone()
     return int(row["cnt"] or 0)
+
+
+def end_session_blocker_facts(
+    *,
+    active_claim_count: int = 0,
+    active_document_lock_count: int = 0,
+    chain_state: ChainPendingState | None = None,
+) -> Dict[str, Any] | None:
+    """Return the structured reason an otherwise-live session cannot end."""
+    if active_claim_count:
+        return {
+            "status": "has_claims",
+            "active_claim_count": int(active_claim_count),
+        }
+    if active_document_lock_count:
+        return {
+            "status": "has_document_locks",
+            "active_claim_count": 0,
+            "active_document_lock_count": int(active_document_lock_count),
+        }
+    if chain_state is not None and chain_state.pending:
+        return {
+            "status": "chain_pending",
+            "active_claim_count": 0,
+            "checkpoint_step": chain_state.step,
+            "max_chain_steps": chain_state.max_chain_steps,
+            "handler_outcome": chain_state.handler_outcome,
+            "chainable": chain_state.chainable,
+            "action": chain_state.action,
+            "item_id": chain_state.item_id,
+        }
+    return None
 
 
 @rollback_workflow_binding_write_errors
@@ -77,9 +110,8 @@ def end_session_if_empty(
         conn.commit()
         return {
             "session_id": session_id,
-            "status": "has_claims",
             "ended": False,
-            "active_claim_count": int(claim_count),
+            **end_session_blocker_facts(active_claim_count=int(claim_count)),
         }
 
     lock_count = _document_lock_count(conn, session_id)
@@ -87,10 +119,10 @@ def end_session_if_empty(
         conn.commit()
         return {
             "session_id": session_id,
-            "status": "has_document_locks",
             "ended": False,
-            "active_claim_count": 0,
-            "active_document_lock_count": int(lock_count),
+            **end_session_blocker_facts(
+                active_document_lock_count=int(lock_count),
+            ),
         }
 
     state = chain_pending_state(conn, session_id)
@@ -105,15 +137,8 @@ def end_session_if_empty(
         )
         result = {
             "session_id": session_id,
-            "status": "chain_pending",
             "ended": False,
-            "active_claim_count": 0,
-            "checkpoint_step": state.step,
-            "max_chain_steps": state.max_chain_steps,
-            "handler_outcome": state.handler_outcome,
-            "chainable": state.chainable,
-            "action": state.action,
-            "item_id": state.item_id,
+            **end_session_blocker_facts(chain_state=state),
             "last_release_at": last_release_at,
             "triggered_by": triggered_by,
             "next_action": next_action,
@@ -153,4 +178,4 @@ def end_session_if_empty(
     }
 
 
-__all__ = ["end_session_if_empty"]
+__all__ = ["end_session_blocker_facts", "end_session_if_empty"]
