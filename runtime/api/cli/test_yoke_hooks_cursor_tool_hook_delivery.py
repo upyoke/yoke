@@ -33,19 +33,23 @@ def _write_cursor_owner(
     if isinstance(native_events, str):
         native_events = (native_events,)
     (cursor / "hooks.json").write_text(
-        json.dumps({
-            "version": 1,
-            "hooks": {
-                native_event: [{
-                    "command": (
-                        "env YOKE_HOOK_CONFIG_OWNER=cursor-project "
-                        f"yoke hook evaluate {runner_event}"
-                    ),
-                    "timeout": 30,
-                }]
-                for native_event in native_events
-            },
-        }),
+        json.dumps(
+            {
+                "version": 1,
+                "hooks": {
+                    native_event: [
+                        {
+                            "command": (
+                                "env YOKE_HOOK_CONFIG_OWNER=cursor-project "
+                                f"yoke hook evaluate {runner_event}"
+                            ),
+                            "timeout": 30,
+                        }
+                    ]
+                    for native_event in native_events
+                },
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -83,13 +87,12 @@ def test_imported_claude_tool_hook_is_never_a_duplicate(
         "YOKE_HOOK_CONFIG_OWNER": "claude",
         "CURSOR_PROJECT_DIR": str(tmp_path),
     }
-    payload = (
-        '{"session_id":"cursor-tool",'
-        '"conversation_id":"cursor-tool"}'
-    )
+    payload = '{"session_id":"cursor-tool","conversation_id":"cursor-tool"}'
 
     assert not should_skip_config_duplicate(
-        runner_event, environment, payload,
+        runner_event,
+        environment,
+        payload,
     )
 
 
@@ -101,7 +104,10 @@ def test_imported_claude_tool_hook_is_never_a_duplicate(
     ),
 )
 def test_imported_claude_tool_hook_reaches_transport(
-    monkeypatch, tmp_path, runner_event, native_events,
+    monkeypatch,
+    tmp_path,
+    runner_event,
+    native_events,
 ) -> None:
     """The tool call's one hook must run the chain, not exit early."""
     _write_cursor_owner(tmp_path, native_events, runner_event)
