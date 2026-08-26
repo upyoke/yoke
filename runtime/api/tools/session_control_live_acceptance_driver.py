@@ -28,6 +28,9 @@ from runtime.api.tools.session_control_live_acceptance_reporting import (
     failed_cell_report,
     passed_cell_report,
 )
+from runtime.api.tools.session_control_live_acceptance_route_selection import (
+    resolve_route_selection,
+)
 from runtime.api.tools import session_control_live_acceptance_roster as roster
 
 
@@ -135,9 +138,7 @@ class LiveAcceptanceDriver:
                 session_id=session_id,
                 allow_ended=allow_ended,
             )
-            grant = None
-            if qualification is not None:
-                grant = qualification.open(cell, "message_active")
+            grant = qualification and qualification.open(cell, "message_active")
             try:
                 initial_id, initial_deduplicated = self._send_twice(
                     cell,
@@ -151,6 +152,7 @@ class LiveAcceptanceDriver:
                     initial_id,
                     timeout=timeout,
                     poll=poll,
+                    expected_route=resolve_route_selection(baseline, cell=cell)[0],
                     require_wake=baseline["liveness"] == "ended",
                 )
             finally:
@@ -185,7 +187,10 @@ class LiveAcceptanceDriver:
                 waiting=waiting,
                 launch=launch,
             )
-        grant = qualification.open(cell, "message_stopped") if candidate else None
+        route, selection = resolve_route_selection(waiting, cell=cell)
+        grant = (
+            qualification.open(cell, "message_stopped", route) if candidate else None
+        )
         try:
             wake_id, wake_deduplicated = self._send_twice(
                 cell,
@@ -193,13 +198,14 @@ class LiveAcceptanceDriver:
                 key=f"fleet-live:{run_id}:{cell.acceptance_key}:wake",
                 phase="stopped-session wake",
             )
-            if cell.route != "none":
+            if route != "none":
                 wake = self._wait_ack(
                     cell,
                     session_id,
                     wake_id,
                     timeout=timeout,
                     poll=poll,
+                    expected_route=route,
                     require_wake=True,
                 )
                 wake_outcome = "acknowledged"
@@ -219,6 +225,7 @@ class LiveAcceptanceDriver:
                     cell=cell,
                     session_id=session_id,
                     message_id=wake_id,
+                    expected_route=route,
                 )
                 if wake["wake_attempt_count"] != wake["native_wake"]["attempt_count"]:
                     raise AcceptanceContractError(
@@ -250,6 +257,7 @@ class LiveAcceptanceDriver:
             wake_outcome=wake_outcome,
             wake_deduplicated=wake_deduplicated,
             launch=launch,
+            route_selection=selection,
         )
 
     def _send_twice(
@@ -310,9 +318,8 @@ class LiveAcceptanceDriver:
             "acknowledged_at": str(row.get("acknowledged_at") or ""),
             "last_wake_at": str(row.get("last_wake_at") or ""),
             "attempt_evidence": {
-                "attempts": message.get("attempts"),
-                "attempt_count": message.get("attempt_count"),
-                "attempts_truncated": message.get("attempts_truncated"),
+                key: message.get(key)
+                for key in ("attempts", "attempt_count", "attempts_truncated")
             },
         }
 
@@ -324,6 +331,7 @@ class LiveAcceptanceDriver:
         *,
         timeout: float,
         poll: float,
+        expected_route: str = "direct",
         require_wake: bool = False,
     ) -> dict[str, Any]:
         return wait_for_ack(
@@ -335,5 +343,6 @@ class LiveAcceptanceDriver:
             poll=poll,
             sleep=self.sleep,
             monotonic=self.monotonic,
+            expected_route=expected_route,
             require_wake=require_wake,
         )

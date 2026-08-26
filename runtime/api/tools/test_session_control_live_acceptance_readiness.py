@@ -6,8 +6,12 @@ import json
 
 from runtime.api.tools import session_control_live_acceptance_readiness as readiness
 from runtime.api.tools.session_control_live_acceptance_contract import (
+    SCHEMA_VERSION,
     ACCEPTANCE_SURFACES,
     parse_readiness_matrix,
+)
+from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    MACHINE_SELECTED_ROUTE,
 )
 from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
     require_exact_desktop_active_policy,
@@ -30,7 +34,7 @@ CURRENT_VERSIONS = {
 
 def _matrix(versions: dict[str, str]) -> dict:
     return {
-        "schema": 2,
+        "schema": SCHEMA_VERSION,
         "project": "yoke",
         "cells": [
             {
@@ -55,7 +59,7 @@ def _matrix(versions: dict[str, str]) -> dict:
                 "session_id": "broker-target-session",
                 "machine_id": "machine-1",
                 "acceptance_role": "broker",
-                "wake_route": "broker",
+                "wake_route": MACHINE_SELECTED_ROUTE,
                 "broker_session_id": "broker-peer-session",
             }
         ],

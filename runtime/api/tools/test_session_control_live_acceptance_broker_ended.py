@@ -1,4 +1,4 @@
-"""Ended target and broker baselines for broker-routed acceptance."""
+"""Ended target and peer baselines for the route-selection acceptance cell."""
 
 from __future__ import annotations
 
@@ -27,8 +27,9 @@ class _EndedBrokerClient(_ScenarioClient):
         *,
         broker_overrides: dict[str, Any] | None = None,
         broker_routing_overrides: dict[str, Any] | None = None,
+        machine_relay_fresh: bool = True,
     ) -> None:
-        super().__init__(cell)
+        super().__init__(cell, machine_relay_fresh=machine_relay_fresh)
         self.broker_overrides = broker_overrides or {}
         self.broker_routing_overrides = broker_routing_overrides or {}
 
@@ -58,7 +59,8 @@ class _EndedBrokerClient(_ScenarioClient):
                 {
                     "wake_interface": "supported",
                     "wake_operation": "message_stopped",
-                    "wake_available": True,
+                    "wake_available": self.machine_relay_fresh,
+                    "relay_connected": self.machine_relay_fresh,
                     **routing_overrides,
                 }
             )
@@ -84,9 +86,16 @@ class _EndedBrokerClient(_ScenarioClient):
         return result
 
 
-def test_ended_target_and_broker_are_valid_wakeable_baselines() -> None:
+def test_ended_target_and_peer_are_valid_wakeable_baselines() -> None:
+    """A relay-less machine keeps its ended baselines wakeable through the peer.
+
+    Roster wake availability is derived from the machine relay the broker hop
+    exists to replace, so the absent-relay branch must accept an unavailable
+    machine route rather than refuse the baseline it is there to prove.
+    """
     cell = _broker_cell()
-    report = _driver(_EndedBrokerClient(cell))._run_cell(
+    client = _EndedBrokerClient(cell, machine_relay_fresh=False)
+    report = _driver(client)._run_cell(
         "yoke",
         cell,
         run_id="release-ended-broker",
@@ -97,6 +106,7 @@ def test_ended_target_and_broker_are_valid_wakeable_baselines() -> None:
 
     assert report["status"] == "passed"
     assert report["baseline_liveness"] == "ended"
+    assert report["route_selection"]["selected_route"] == "broker"
     assert report["initial_message"]["native_wake"]["attempt_kind"] == "wake_broker"
     assert report["wake_message"]["native_wake"]["broker_session_id"] == (
         "broker-peer-session"
@@ -113,7 +123,7 @@ def test_ended_target_and_broker_are_valid_wakeable_baselines() -> None:
         ({}, {"wake_available": False}, "waiting_wake_mismatch"),
     ),
 )
-def test_ended_broker_requires_an_unclaimed_supported_waiting_shape(
+def test_ended_peer_requires_an_unclaimed_supported_waiting_shape(
     overrides: dict[str, Any],
     routing_overrides: dict[str, Any],
     code: str,

@@ -6,6 +6,9 @@ from typing import Any
 
 import pytest
 
+from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    MACHINE_SELECTED_ROUTE,
+)
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
@@ -181,7 +184,7 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
         (
             _desktop_cell(
                 acceptance_role="broker",
-                wake_route="broker",
+                wake_route=MACHINE_SELECTED_ROUTE,
                 broker_session_id="broker-session",
             ),
             _ended_row(),

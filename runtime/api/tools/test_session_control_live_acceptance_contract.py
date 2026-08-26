@@ -10,6 +10,7 @@ import pytest
 from runtime.api.tools import session_control_live_acceptance_client as client_module
 from runtime.api.tools.session_control_live_acceptance_client import YokeCliClient
 from runtime.api.tools.session_control_live_acceptance_contract import (
+    SCHEMA_VERSION,
     ACCEPTANCE_SURFACES,
     AcceptanceContractError,
     parse_candidate_matrix,
@@ -35,7 +36,7 @@ VERSIONS = {
 
 def _matrix() -> dict:
     return {
-        "schema": 2,
+        "schema": SCHEMA_VERSION,
         "project": "yoke",
         "cells": [
             {
@@ -60,7 +61,7 @@ def _matrix() -> dict:
                 "session_id": "broker-target-session",
                 "machine_id": "machine-1",
                 "acceptance_role": "broker",
-                "wake_route": "broker",
+                "wake_route": "machine_selected",
                 "broker_session_id": "broker-peer-session",
             }
         ],
@@ -81,7 +82,7 @@ def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
         "0.149.0-alpha.4.3",
     ]
     assert parsed.cells[-1].acceptance_role == "broker"
-    assert parsed.cells[-1].route == "broker"
+    assert parsed.cells[-1].route == "machine_selected"
 
 
 @pytest.mark.parametrize(
@@ -115,7 +116,7 @@ def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
         (lambda raw: raw["cells"].pop(), "broker_cell_count_invalid"),
         (
             lambda raw: raw["cells"][-1].update(wake_route="direct"),
-            "broker_wake_route_required",
+            "broker_route_selection_required",
         ),
         (
             lambda raw: raw["cells"][-1].update(mode="create", session_id=None),

@@ -26,14 +26,20 @@ class OpenedQualification:
     grant: PrivateRouteQualificationGrant
 
 
-def _route(cell: AcceptanceCell, operation: str) -> str:
+def _route(cell: AcceptanceCell, operation: str, route: str | None) -> str:
+    """Qualify the route actually exercised, never the cell's authored label.
+
+    A broker-capable cell carries no fixed route, so its caller resolves the
+    plane's live selection first and passes it here.
+    """
     if operation == "message_active":
         return "hook"
-    if cell.route not in {"direct", "broker"}:
+    resolved = route or cell.route
+    if resolved not in {"direct", "broker"}:
         raise AcceptanceContractError(
             "qualification_route_invalid", surface=cell.surface
         )
-    return cell.route
+    return resolved
 
 
 def _open_one(
@@ -106,7 +112,12 @@ class QualificationCoordinator:
         self._lease_ids: set[int] = set()
         self._lease_keys: set[str] = set()
 
-    def open(self, cell: AcceptanceCell, operation: str) -> OpenedQualification | None:
+    def open(
+        self,
+        cell: AcceptanceCell,
+        operation: str,
+        route: str | None = None,
+    ) -> OpenedQualification | None:
         if operation != acceptance_operation(cell.surface):
             return None
         if surface_operation_supported(cell.surface, cell.expected_version, operation):
@@ -117,7 +128,7 @@ class QualificationCoordinator:
             surface=cell.surface,
             version=cell.expected_version,
             operation=operation,
-            route=_route(cell, operation),
+            route=_route(cell, operation, route),
         )
         if scope.lease_key in self._lease_keys:
             raise AcceptanceContractError(

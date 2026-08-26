@@ -10,6 +10,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 from runtime.api.tools.session_control_live_acceptance_driver import (
     LiveAcceptanceDriver,
 )
+from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    MACHINE_SELECTED_ROUTE,
+    selected_route,
+)
 from runtime.api.tools.test_session_control_live_acceptance_clock import AcceptanceClock
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
@@ -32,6 +36,8 @@ class _ScenarioClient:
         missing_instruction_digest: bool = False,
         broker_machine_mismatch: bool = False,
         attempts_truncated: bool = False,
+        machine_relay_fresh: bool = True,
+        wake_route_defect: bool = False,
     ) -> None:
         self.cell = cell
         self.session_id = cell.session_id or f"{cell.surface}-created-session"
@@ -43,6 +49,8 @@ class _ScenarioClient:
         self.missing_instruction_digest = missing_instruction_digest
         self.broker_machine_mismatch = broker_machine_mismatch
         self.attempts_truncated = attempts_truncated
+        self.machine_relay_fresh = machine_relay_fresh
+        self.wake_route_defect = wake_route_defect
         self.calls: list[tuple[list[str], str | None]] = []
         self.create_count = 0
         self.send_counts: dict[str, int] = {}
@@ -66,11 +74,8 @@ class _ScenarioClient:
                 **self._recipient(),
                 "resolution_evidence": {"anchor": "launch", "launch_id": "launch-1"},
             }
-            return {
-                "messages": [
-                    {"message_id": "launch-message", "recipients": [recipient]}
-                ]
-            }
+            message = {"message_id": "launch-message", "recipients": [recipient]}
+            return {"messages": [message]}
         if argv[:2] == ["say", "--preview"]:
             return {"recipient_count": 1, "recipients": [self._recipient()]}
         if argv[:2] == ["say", "--stdin"]:
@@ -78,6 +83,14 @@ class _ScenarioClient:
         if argv[:2] == ["messages", "get"]:
             return self._message(argv[2])
         raise AssertionError(f"unexpected acceptance call: {argv!r}")
+
+    @property
+    def selected_route(self) -> str:
+        """Mirror the plane: a fresh machine relay wakes directly, else a peer hops."""
+        if self.cell.route != MACHINE_SELECTED_ROUTE:
+            return self.cell.route
+        fresh = self.machine_relay_fresh != self.wake_route_defect
+        return selected_route(relay_fresh=fresh)
 
     def _recipient(self) -> dict[str, Any]:
         return {
@@ -104,11 +117,13 @@ class _ScenarioClient:
                         "supported" if self.cell.route != "none" else "none"
                     ),
                     "wake_operation": "message_stopped",
-                    "wake_available": self.cell.route != "none",
+                    "wake_available": self.machine_relay_fresh
+                    and self.cell.route != "none",
+                    "relay_connected": self.machine_relay_fresh,
                 },
             }
         ]
-        if self.cell.route == "broker":
+        if self.cell.route == MACHINE_SELECTED_ROUTE:
             rows.append(
                 {
                     "session_id": self.cell.broker_session_id,
@@ -188,9 +203,8 @@ class _ScenarioClient:
         }
         attempts = []
         if supported_wake:
-            expected_broker = (
-                self.cell.broker_session_id if self.cell.route == "broker" else None
-            )
+            hopped = self.selected_route == "broker"
+            expected_broker = self.cell.broker_session_id if hopped else None
             if self.broker_identity_mismatch:
                 expected_broker = "wrong-broker-session"
             evidence = {}
@@ -203,9 +217,7 @@ class _ScenarioClient:
                     "attempt_id": "wake-attempt-1",
                     "target_session_id": self.session_id,
                     "broker_session_id": expected_broker,
-                    "attempt_kind": (
-                        "wake_broker" if self.cell.route == "broker" else "wake_relay"
-                    ),
+                    "attempt_kind": "wake_broker" if hopped else "wake_relay",
                     "adapter_revision": "acceptance-adapter-v1",
                     "started_at": "2026-08-23T12:00:00Z",
                     "completed_at": "2026-08-23T12:00:01Z",

@@ -23,6 +23,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     validate_run_id,
 )
 from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    MACHINE_SELECTED_ROUTE,
     expected_wake_route,
 )
 from yoke_contracts.session_execution import is_subagent_execution
@@ -69,7 +70,7 @@ class _AcceptanceVersions(BaseModel):
 
 
 class BrokerAcceptanceBinding(BaseModel):
-    """Exact stopped target and same-machine peer used for broker proof."""
+    """Exact stopped target and same-machine peer used for route-selection proof."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -132,7 +133,12 @@ def build_acceptance_matrix_document(
     *,
     qualification_candidate: bool = False,
 ) -> dict[str, Any]:
-    """Build the only supported five-surface plus one-broker matrix."""
+    """Build the only supported five-surface plus one route-selection matrix.
+
+    The last cell binds a stopped target and a same-machine peer without
+    pinning a route: the plane selects direct or broker from that machine's
+    relay presence, and the cell proves the selection plus delivery.
+    """
     versions = bindings.versions.model_dump(by_alias=True)
     cells: list[dict[str, Any]] = []
     for surface in ACCEPTANCE_SURFACES:
@@ -155,7 +161,7 @@ def build_acceptance_matrix_document(
             "session_id": bindings.broker.target_session_id,
             "machine_id": bindings.broker.machine_id,
             "acceptance_role": "broker",
-            "wake_route": "broker",
+            "wake_route": MACHINE_SELECTED_ROUTE,
             "broker_session_id": bindings.broker.peer_session_id,
         }
     )

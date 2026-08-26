@@ -17,6 +17,9 @@ from runtime.api.tools.session_control_live_acceptance_evidence import (
 from runtime.api.tools.test_session_control_live_acceptance_clock import (
     AcceptanceClock,
 )
+from runtime.api.tools.session_control_live_acceptance_wake_route import (
+    MACHINE_SELECTED_ROUTE,
+)
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
@@ -51,7 +54,12 @@ def _attempt(
     }
 
 
-def _parse(cell: AcceptanceCell, attempts: list[dict[str, Any]]) -> dict[str, Any]:
+def _parse(
+    cell: AcceptanceCell,
+    attempts: list[dict[str, Any]],
+    *,
+    expected_route: str = "direct",
+) -> dict[str, Any]:
     return native_wake_evidence(
         {
             "attempts": attempts,
@@ -61,6 +69,7 @@ def _parse(cell: AcceptanceCell, attempts: list[dict[str, Any]]) -> dict[str, An
         cell=cell,
         session_id="target-session",
         message_id=MESSAGE_ID,
+        expected_route=expected_route,
     )
 
 
@@ -133,6 +142,7 @@ def test_ack_waits_for_running_resume_to_settle() -> None:
         poll=1,
         sleep=clock.sleep,
         monotonic=clock.monotonic,
+        expected_route="direct",
         require_wake=True,
     )
 
@@ -157,6 +167,7 @@ def test_ack_reports_a_named_timeout_when_resume_never_settles() -> None:
             poll=1,
             sleep=clock.sleep,
             monotonic=clock.monotonic,
+            expected_route="direct",
             require_wake=True,
         )
 
@@ -202,7 +213,7 @@ def test_broker_success_still_requires_the_exact_peer() -> None:
         "0.149.0-alpha.4",
         "identify",
         acceptance_role="broker",
-        wake_route="broker",
+        wake_route=MACHINE_SELECTED_ROUTE,
         broker_session_id="broker-session",
     )
     attempts = [
@@ -215,5 +226,5 @@ def test_broker_success_still_requires_the_exact_peer() -> None:
         ),
     ]
     with pytest.raises(AcceptanceContractError) as failure:
-        _parse(cell, attempts)
+        _parse(cell, attempts, expected_route="broker")
     assert failure.value.code == "wake_broker_identity_mismatch"

@@ -134,7 +134,14 @@ def native_wake_evidence(
     cell: AcceptanceCell,
     session_id: str,
     message_id: str,
+    expected_route: str,
 ) -> dict[str, Any]:
+    """Check one settled wake against the route the caller resolved for it.
+
+    The expectation is an argument rather than a cell field because a
+    broker-capable cell's route is chosen by the plane from live machine
+    state; only an unsupported cell's route is knowable from the matrix.
+    """
     if not isinstance(value, dict) or value.get("attempts_truncated") is not False:
         raise AcceptanceContractError(
             "attempt_evidence_incomplete", surface=cell.surface
@@ -153,7 +160,7 @@ def native_wake_evidence(
     wake_attempts = [
         attempt for attempt in attempts if attempt.get("attempt_kind") in _WAKE_KINDS
     ]
-    if cell.route == "none":
+    if expected_route == "none":
         return _unsupported_wake_evidence(
             wake_attempts, cell=cell, session_id=session_id
         )
@@ -176,14 +183,14 @@ def native_wake_evidence(
     for retry in wake_attempts[:selected_index]:
         _require_attempt_metadata(retry, surface=cell.surface, completed_required=True)
     attempt = wake_attempts[selected_index]
-    expected_kind = "wake_broker" if cell.route == "broker" else "wake_relay"
+    expected_kind = "wake_broker" if expected_route == "broker" else "wake_relay"
     if attempt.get("attempt_kind") != expected_kind:
         raise AcceptanceContractError("wake_route_mismatch", surface=cell.surface)
     if attempt.get("target_session_id") != session_id:
         raise AcceptanceContractError(
             "wake_target_identity_mismatch", surface=cell.surface
         )
-    expected_broker = cell.broker_session_id if cell.route == "broker" else None
+    expected_broker = cell.broker_session_id if expected_route == "broker" else None
     if attempt.get("broker_session_id") != expected_broker:
         raise AcceptanceContractError(
             "wake_broker_identity_mismatch", surface=cell.surface
@@ -204,7 +211,7 @@ def native_wake_evidence(
             "native_instruction_evidence_missing", surface=cell.surface
         )
     return {
-        "route": cell.route,
+        "route": expected_route,
         "attempt_id": attempt["attempt_id"],
         "attempt_kind": expected_kind,
         "broker_session_id": expected_broker,
@@ -269,6 +276,7 @@ def wait_for_ack(
     poll: float,
     sleep: Callable[[float], None],
     monotonic: Callable[[], float],
+    expected_route: str,
     require_wake: bool = False,
     minimum_injections: int = 1,
 ) -> dict[str, Any]:
@@ -296,6 +304,7 @@ def wait_for_ack(
                         cell=cell,
                         session_id=session_id,
                         message_id=message_id,
+                        expected_route=expected_route,
                     )
                 except AcceptanceContractError as exc:
                     raise _receipt_failure(
