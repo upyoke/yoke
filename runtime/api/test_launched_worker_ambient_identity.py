@@ -53,7 +53,6 @@ def _worker_environment(tmp_path: Path) -> dict[str, str]:
     machine_home.mkdir(parents=True, exist_ok=True)
     environment = native_session_environment(
         executor="claude-code",
-        executor_version="2.1.241",
         provider="anthropic",
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
         environ={
@@ -80,7 +79,6 @@ def test_relay_strips_the_launching_sessions_identity(tmp_path: Path) -> None:
     """A worker that inherited the launcher's id would act as the launcher."""
     environment = native_session_environment(
         executor="claude-code",
-        executor_version="2.1.241",
         environ={name: "launching-session" for name in AMBIENT_ENV_VARS},
     )
 

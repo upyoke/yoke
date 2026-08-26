@@ -47,7 +47,6 @@ class _NativePhaseError(Exception):
 def _launch_environment(request: CodexNativeRequest) -> dict[str, str]:
     return native_session_environment(
         executor="codex",
-        executor_version=request.surface_version,
         provider="openai",
         model=request.requested_model,
         markers={"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": request.surface},

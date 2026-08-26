@@ -49,7 +49,6 @@ def _environment(
     launch = request if isinstance(request, CursorCreateRequest) else None
     return native_session_environment(
         executor="cursor",
-        executor_version=request.surface_version,
         provider="cursor",
         model=launch.requested_model if launch else None,
         markers={"CURSOR_INVOKED_AS": "cursor-agent"},

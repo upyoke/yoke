@@ -236,10 +236,7 @@ def relay_identity_payload(
         "model": client_model(event_name, payload, executor),
         "execution_lane": client_lane(event_name, executor),
         "project_id": client_project_id(payload),
-        "executor_version": client_executor_version(
-            executor,
-            executor_surface=entrypoint,
-        ),
+        "executor_version": client_executor_version(entrypoint),
         "machine_id": client_machine_id(),
         "native_thread_id": client_native_thread_id(executor),
     }

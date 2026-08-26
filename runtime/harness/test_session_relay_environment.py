@@ -18,7 +18,6 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
         "CODEX_THREAD_ID": "parent-codex-thread",
         ACTOR_ROLE_ENV_VAR: "worker",
         "YOKE_EXECUTOR": "codex",
-        "YOKE_EXECUTOR_VERSION": "parent-version",
         "YOKE_PROVIDER": "openai",
         "YOKE_MODEL": "parent-model",
         "CLAUDE_CODE_ENTRYPOINT": "desktop",
@@ -35,7 +34,6 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
 
     environment = native_session_environment(
         executor="claude-code",
-        executor_version="2.1.238",
         provider="anthropic",
         markers={"CLAUDE_CODE_ENTRYPOINT": "cli"},
         launch_id="12345678-1234-4234-8234-123456789abc",
@@ -47,7 +45,6 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     assert all(name not in environment for name in AMBIENT_ENV_VARS)
     assert ACTOR_ROLE_ENV_VAR not in environment
     assert environment["YOKE_EXECUTOR"] == "claude-code"
-    assert environment["YOKE_EXECUTOR_VERSION"] == "2.1.238"
     assert environment["YOKE_PROVIDER"] == "anthropic"
     assert environment["SHELL"] == "/bin/sh"
     assert "BASH_ENV" not in environment
@@ -68,7 +65,6 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
 def test_native_environment_stamps_resolved_model_for_registration() -> None:
     environment = native_session_environment(
         executor="cursor",
-        executor_version="2026.08.11-e8db854",
         provider="cursor",
         model="cursor-grok-4.6-high-fast",
         environ={"YOKE_MODEL": "parent-model"},
@@ -80,7 +76,6 @@ def test_native_environment_stamps_resolved_model_for_registration() -> None:
 def test_wake_environment_drops_stale_launch_context() -> None:
     environment = native_session_environment(
         executor="cursor",
-        executor_version="2026.08.11-e8db854",
         environ={LAUNCH_CONTEXT_ENV: '{"launch_id":"stale"}'},
     )
 

@@ -114,7 +114,6 @@ def _register_from_hook(
     if not entrypoint and executor in {"claude", "claude-code"}:
         entrypoint = "claude-cli"
     executor_version, machine_id = enrich_local_observed_facts(
-        executor,
         facts.executor_version,
         facts.machine_id,
         executor_surface=entrypoint,

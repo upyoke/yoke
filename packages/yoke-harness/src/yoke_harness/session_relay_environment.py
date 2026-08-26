@@ -18,7 +18,6 @@ _PARENT_HARNESS_ENV = frozenset(
         RESUME_ATTEMPT_ENV,
         LAUNCH_CONTEXT_ENV,
         "YOKE_EXECUTOR",
-        "YOKE_EXECUTOR_VERSION",
         "YOKE_PROVIDER",
         "YOKE_MODEL",
         "CLAUDE_CODE_ENTRYPOINT",
@@ -38,7 +37,6 @@ _NATIVE_AUTOMATION_SHELL = "/bin/sh"
 def native_session_environment(
     *,
     executor: str,
-    executor_version: str,
     provider: str | None = None,
     model: str | None = None,
     markers: Mapping[str, str] | None = None,
@@ -46,13 +44,18 @@ def native_session_environment(
     launch_attestation: str | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
-    """Return a child environment with no parent-session identity facts."""
+    """Return a child environment with no parent-session identity facts.
+
+    The child is told which executor it is, never which version: a harness
+    that serves a launch from a pre-warmed process pool hands the job to a
+    process started long before, so a version stamped here outlives the
+    binary it described. Every reader observes the surface instead.
+    """
     env = dict(os.environ if environ is None else environ)
     for name in _PARENT_HARNESS_ENV:
         env.pop(name, None)
     env["SHELL"] = _NATIVE_AUTOMATION_SHELL
     env["YOKE_EXECUTOR"] = executor
-    env["YOKE_EXECUTOR_VERSION"] = executor_version
     if provider:
         env["YOKE_PROVIDER"] = provider
     if model:
