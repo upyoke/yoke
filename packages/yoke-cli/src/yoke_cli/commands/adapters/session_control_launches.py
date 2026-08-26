@@ -22,18 +22,18 @@ from yoke_contracts.session_control.models import LaunchState
 
 LAUNCH_PREVIEW_USAGE = (
     "yoke session-control launch preview --project P --surface S "
-    "[--machine M] [--model M] [--allow-surface-fallback] [--json]"
+    "[--machine M] [--model M] [--allow-surface-fallback] [--list-models] [--json]"
 )
 LAUNCH_CREATE_USAGE = (
     "yoke session-control launch create --project P --surface S --stdin "
     "--idempotency-key K [--machine M] [--model M] [--presentation P] "
-    "[--allow-surface-fallback] [--json]"
+    "[--allow-surface-fallback] [--list-models] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     "yoke sessions create --project P --surface S "
     "(--preview | --stdin --idempotency-key K) "
     "[--machine M] [--model M] [--presentation P] "
-    "[--allow-surface-fallback] [--json]"
+    "[--allow-surface-fallback] [--list-models] [--json]"
 )
 LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
 LAUNCH_LIST_USAGE = (
@@ -54,16 +54,41 @@ def _add_launch_selector(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--allow-surface-fallback", action="store_true")
 
 
+def _maybe_list_models(args: List[str]) -> int | None:
+    if "--list-models" not in args:
+        return None
+    from yoke_contracts.machine_config.preferred_session_models import (
+        list_preferred_models,
+        render_list_models,
+    )
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--surface", dest="executor_surface", default=None)
+    add_json_arg(parser)
+    parsed, _unknown = parser.parse_known_args(args)
+    report = list_preferred_models(parsed.executor_surface)
+    print(render_list_models(report, json_mode=parsed.json_mode), end="")
+    return 0
+
+
 def _preview_payload(parsed: argparse.Namespace) -> dict[str, Any]:
+    from yoke_contracts.machine_config.preferred_session_models import (
+        resolve_launch_model,
+    )
+
     payload: dict[str, Any] = {
         "project": parsed.project,
         "executor_surface": parsed.executor_surface,
         "allow_surface_fallback": parsed.allow_surface_fallback,
     }
-    for key in ("machine_id", "model"):
-        value = getattr(parsed, key)
-        if value:
-            payload[key] = value
+    machine_id = getattr(parsed, "machine_id", None)
+    if machine_id:
+        payload["machine_id"] = machine_id
+    resolved = resolve_launch_model(
+        getattr(parsed, "model", None), parsed.executor_surface
+    )
+    if resolved.model:
+        payload["model"] = resolved.model
     return payload
 
 
@@ -86,6 +111,9 @@ def _dispatch_launch(
 
 
 def session_launch_preview(args: List[str]) -> int:
+    listed = _maybe_list_models(args)
+    if listed is not None:
+        return listed
     parser = argparse.ArgumentParser(
         prog="yoke session-control launch preview",
         description=LAUNCH_PREVIEW_USAGE,
@@ -126,6 +154,9 @@ def _launch_create_parser(
 
 
 def _create(args: List[str], *, alias: bool) -> int:
+    listed = _maybe_list_models(args)
+    if listed is not None:
+        return listed
     usage = SESSIONS_CREATE_USAGE if alias else LAUNCH_CREATE_USAGE
     prog = "yoke sessions create" if alias else "yoke session-control launch create"
     parser = _launch_create_parser(prog, usage, preview=alias)

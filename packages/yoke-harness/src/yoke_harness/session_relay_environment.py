@@ -40,6 +40,7 @@ def native_session_environment(
     executor: str,
     executor_version: str,
     provider: str | None = None,
+    model: str | None = None,
     markers: Mapping[str, str] | None = None,
     launch_id: str | None = None,
     launch_attestation: str | None = None,
@@ -54,6 +55,8 @@ def native_session_environment(
     env["YOKE_EXECUTOR_VERSION"] = executor_version
     if provider:
         env["YOKE_PROVIDER"] = provider
+    if model:
+        env["YOKE_MODEL"] = model
     if markers:
         env.update(markers)
     if launch_id and launch_attestation:

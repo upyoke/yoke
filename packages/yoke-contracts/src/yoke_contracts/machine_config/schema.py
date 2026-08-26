@@ -102,6 +102,10 @@ def normalize_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     else:
         normalized["projects"] = []
     normalized["settings"] = dict(settings) if isinstance(settings, Mapping) else {}
+    from yoke_contracts.machine_config.preferred_session_models import (
+        PREFERRED_SESSION_MODELS_KEY, preferred_session_models)
+    if PREFERRED_SESSION_MODELS_KEY in raw:
+        normalized[PREFERRED_SESSION_MODELS_KEY] = preferred_session_models(raw)
     normalize_github_payload(raw, normalized)
     if isinstance(connections, Mapping):
         normalized["connections"] = {
@@ -193,6 +197,9 @@ def validate_payload(
     if settings is not None and not isinstance(settings, Mapping):
         issues.append(_error(
             "settings_invalid", "settings must be an object", path="settings"))
+    from yoke_contracts.machine_config.preferred_session_models import (
+        validate_preferred_session_models)
+    issues.extend(validate_preferred_session_models(raw))
     return issues
 
 def active_connection(

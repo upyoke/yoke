@@ -49,6 +49,7 @@ def _launch_environment(request: CodexNativeRequest) -> dict[str, str]:
         executor="codex",
         executor_version=request.surface_version,
         provider="openai",
+        model=request.requested_model,
         markers={"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": request.surface},
         launch_id=request.job_id if request.job_kind == "launch" else None,
         launch_attestation=request.launch_attestation,

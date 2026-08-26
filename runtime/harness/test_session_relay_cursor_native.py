@@ -180,6 +180,16 @@ def test_acp_launch_creates_a_session_and_makes_it_containable(
 
     assert result.result_code == "native_created"
     assert result.native_session_id == SESSION_ID
+    assert client.requests == [
+        (
+            "session/new",
+            {
+                "cwd": str(tmp_path.resolve()),
+                "mcpServers": [],
+                "model": "composer-2",
+            },
+        )
+    ]
     assert client.prompts == [(SESSION_ID, BOOTSTRAP)]
     # The relay owns the process, so it records what it would have to kill.
     assert recorded == [(LAUNCH_ID, client.process.pid, SESSION_ID)]
