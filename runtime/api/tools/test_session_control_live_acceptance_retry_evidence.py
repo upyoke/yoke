@@ -142,6 +142,7 @@ def test_ack_waits_for_running_resume_to_settle() -> None:
         poll=1,
         sleep=clock.sleep,
         monotonic=clock.monotonic,
+        expected_route="direct",
         require_wake=True,
     )
 
@@ -166,6 +167,7 @@ def test_ack_reports_a_named_timeout_when_resume_never_settles() -> None:
             poll=1,
             sleep=clock.sleep,
             monotonic=clock.monotonic,
+            expected_route="direct",
             require_wake=True,
         )
 
