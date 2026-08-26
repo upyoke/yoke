@@ -131,6 +131,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         function: "sessions.list",
         payload: { project: "1", liveness: "ended", limit: 500 },
       },
+      {
+        function: "sessions.list",
+        payload: { project: "1", liveness: "terminated", limit: 500 },
+      },
     ],
   );
   assert.equal(byClass(root, "title")[0].textContent, "Sessions");
@@ -212,7 +216,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   await settle();
   assert.equal(
     requests.filter((request) => request.function === "sessions.list").length,
-    6,
+    8,
   );
   assert.equal(byClass(root, "session-card").length, 1);
   assert.deepEqual(

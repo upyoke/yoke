@@ -15,10 +15,12 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     write_roster_result,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.session_control.liveness import LIVENESS_STATES
 
 
 SESSION_ROSTER_USAGE = (
-    "yoke sessions list [--project P] [--liveness active|stale|ended] "
+    "yoke sessions list [--project P] "
+    "[--liveness active|stale|ended|terminated] "
     "[--limit N] [--session S] [--json]"
 )
 SESSION_ROSTER_HELP = """Find registered top-level sessions and their delivery readiness.
@@ -40,7 +42,7 @@ def session_control_roster_list(args: List[str]) -> int:
     parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument(
         "--liveness",
-        choices=("active", "stale", "ended"),
+        choices=LIVENESS_STATES,
         default=None,
         help="Only show sessions in this liveness state.",
     )

@@ -35,6 +35,7 @@ from yoke_core.domain.sessions_lifecycle_claim_events import (
     EVENT_STEERING_CLAIMED,
     EVENT_STEERING_RELEASED,
 )
+from yoke_core.domain.session_termination_events import EVENT_SESSION_TERMINATED
 
 # fmt: off
 # Authoritative metadata layer — see module docstring for ordering and apply contract.
@@ -134,6 +135,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("SectionUpserted", "system", "data_mutation", "cli", "INFO", "item_sections row upserted and body regenerated"),
     ("SessionCwdBindingFailOpen", "lifecycle", "session_cwd", "yoke_core.domain.lint_session_cwd_emit", "WARN", "Expected low-cadence session-cwd fallback alarm emitted when cwd binding cannot be resolved and the guard falls open."),
     ("SessionCwdBindingHealthCheckFailed", "lifecycle", "session_cwd", "yoke_core.domain.lint_session_cwd_emit", "WARN", "Expected low-cadence doctor alarm emitted when session-cwd binding health detects inconsistent worktree binding."),
+    (EVENT_SESSION_TERMINATED, "system", "session_lifecycle", "yoke_core.domain.session_termination", "WARN", "A verified operator or the active project steering session permanently ended a session, cancelled its open message recipients, disabled reactivation and wake, and queued best-effort native reaping. Context carries the terminator, authority, reason, cancellation count, reaping state, prior end state, and chain override posture."),
     ("HarnessSessionEndRejectedActiveClaim", "system", "session_lifecycle", "api", "WARN", "end_session() rejected termination because the session holds active claims"),
     ("HarnessSessionEndReleasedClaims", "system", "session_lifecycle", "api", "INFO", "A session-end force path released one or more active claims before ending the session"),
     ("HarnessSessionEnded", "system", "session_lifecycle", "api", "INFO", "A session has been ended (no active claims at termination time)"),

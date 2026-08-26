@@ -22,6 +22,8 @@ from yoke_harness.session_relay_runtime import RelayExecutionContext
 
 
 CLAUDE_NATIVE_TIMEOUT_SECONDS = 20
+CLAUDE_AGENT_LIST_ARGUMENTS = ("agents", "--all", "--json")
+CLAUDE_BACKGROUND_STOP_COMMAND = "stop"
 
 
 @dataclass(frozen=True)
@@ -100,7 +102,7 @@ def run_claude_process(invocation: ClaudeNativeInvocation) -> ClaudeProcessResul
 def lookup_claude_session(invocation: ClaudeNativeInvocation) -> ClaudeProcessResult:
     return _run_claude_command(
         invocation,
-        (invocation.executable, "agents", "--all", "--json"),
+        (invocation.executable, *CLAUDE_AGENT_LIST_ARGUMENTS),
     )
 
 
@@ -163,6 +165,8 @@ def native_invocation(
 
 
 __all__ = [
+    "CLAUDE_AGENT_LIST_ARGUMENTS",
+    "CLAUDE_BACKGROUND_STOP_COMMAND",
     "CLAUDE_NATIVE_TIMEOUT_SECONDS",
     "ClaudeNativeInvocation",
     "ClaudeProcessRunner",

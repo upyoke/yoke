@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.liveness import LIVENESS_CHOICES
 
-
 MessageState = Literal["pending", "injected", "acknowledged", "expired", "cancelled"]
 LaunchState = Literal[
     "queued",
@@ -268,7 +267,7 @@ class RelayClaimResponse(BaseModel):
 class RelayReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relay_id: str
-    job_kind: Literal["wake", "launch"]
+    job_kind: Literal["wake", "launch", "terminate"]
     job_id: str
     lease_id: str
     result: str
@@ -279,7 +278,7 @@ class RelayReportRequest(BaseModel):
 
 class RelayReportResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
-    job_kind: Literal["wake", "launch"]
+    job_kind: Literal["wake", "launch", "terminate"]
     result: Dict[str, Any]
 
 

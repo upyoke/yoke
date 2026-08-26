@@ -127,8 +127,9 @@ export function loadSessions(context, panel, getScope) {
       const liveRows = rows.filter((row) => ["active", "stale"].includes(
         String(row.liveness || "").toLowerCase(),
       ));
-      const endedRows = rows.filter((row) =>
-        String(row.liveness || "").toLowerCase() === "ended");
+      const endedRows = rows.filter((row) => ["ended", "terminated"].includes(
+        String(row.liveness || "").toLowerCase(),
+      ));
       panel.setCount(`${liveRows.length} live`);
       const headers = [
         "Session", "Project",

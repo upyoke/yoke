@@ -36,9 +36,7 @@ from yoke_core.domain import db_backend
 #: new episode. Rendered with the ended row's own stored identity.
 RECOVERY_COMMAND = "yoke sessions begin"
 
-_RECOVERY_PREFIX = (
-    "Re-register this session id to start a new episode: "
-)
+_RECOVERY_PREFIX = "Re-register this session id to start a new episode: "
 
 
 #: Returned by :func:`_safe_fetchone` when the read itself could not run,
@@ -88,15 +86,16 @@ def session_registration_state(
     ``row_found`` is ``True`` when a ``harness_sessions`` row exists,
     ``False`` on a positive no-row finding, and ``None`` when the lookup
     itself failed (so callers can distinguish "unregistered" from
-    "unknown"). ``ended`` is ``True`` only on a positive finding that the
-    row carries ``ended_at`` — an unknown lookup never claims a session
-    is closed.
+    "unknown"). ``ended`` is ``True`` only for an ordinarily ended row that
+    hooks may reactivate. A permanently terminated row deliberately reports
+    ``False`` so the caller treats it as registered without driving revival;
+    an unknown lookup likewise never claims a session is closed.
     """
     if not session_id:
         return False, None, False
     row = _safe_fetchone(
         conn,
-        f"SELECT actor_id, ended_at FROM harness_sessions "
+        f"SELECT actor_id, ended_at, terminated_at FROM harness_sessions "
         f"WHERE session_id = {_p(conn)}",
         (session_id,),
     )
@@ -105,7 +104,11 @@ def session_registration_state(
     if row is None:
         return False, None, False
     try:
-        return True, row["actor_id"], row["ended_at"] is not None
+        return (
+            True,
+            row["actor_id"],
+            row["ended_at"] is not None and row["terminated_at"] is None,
+        )
     except Exception:  # noqa: BLE001 — an unreadable row is "unknown", not a raise
         return None, None, False
 
@@ -148,6 +151,13 @@ def session_ended_message(conn: Any, session_id: str) -> str:
     Every registered surface that refuses an ended session shares this
     sentence so the operator always reads the same recovery recipe.
     """
+    row = _safe_fetchone(
+        conn,
+        f"SELECT terminated_at FROM harness_sessions WHERE session_id = {_p(conn)}",
+        (session_id,),
+    )
+    if row is not _LOOKUP_FAILED and row is not None and row["terminated_at"]:
+        return f"Session '{session_id}' has been permanently terminated."
     base = f"Session '{session_id}' has already ended."
     try:
         command = session_ended_recovery_command(conn, session_id)

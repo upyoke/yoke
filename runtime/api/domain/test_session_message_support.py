@@ -118,6 +118,8 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             executor TEXT, executor_surface TEXT, executor_version TEXT,
             machine_id TEXT, execution_lane TEXT, last_heartbeat TEXT,
             last_tool_call_at TEXT, offered_at TEXT, ended_at TEXT,
+            terminated_at TEXT, terminated_by_actor_id INTEGER,
+            terminated_by_session_id TEXT, termination_reason TEXT,
             turn_posture TEXT NOT NULL DEFAULT 'unknown', turn_posture_at TEXT,
             model TEXT, native_thread_id TEXT
         );

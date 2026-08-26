@@ -176,7 +176,7 @@ def wake_eligible_recipients(
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
-            "hs.last_tool_call_at,hs.ended_at,hs.turn_posture,"
+            "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select} "
             "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
@@ -282,6 +282,7 @@ def wake_eligible_recipients(
                     "last_heartbeat": row["last_heartbeat"],
                     "last_tool_call_at": row["last_tool_call_at"],
                     "ended_at": row["ended_at"],
+                    "terminated_at": row["terminated_at"],
                     "wake_after": row["wake_after"],
                     "injection_lease_id": row["injection_lease_id"],
                     "injection_lease_expires_at": row["injection_lease_expires_at"],

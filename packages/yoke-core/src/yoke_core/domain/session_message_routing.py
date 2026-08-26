@@ -11,6 +11,7 @@ from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
     surface_version_supported,
 )
+from yoke_contracts.session_control.liveness import LIVENESS_TERMINATED
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_message_types import parse_timestamp
 
@@ -34,6 +35,8 @@ def latest_observed_activity(row: dict[str, Any]) -> datetime | None:
 
 
 def session_liveness(row: dict[str, Any], *, now: datetime) -> str:
+    if row.get("terminated_at"):
+        return LIVENESS_TERMINATED
     if row.get("ended_at"):
         return "ended"
     raw_activity = max(
@@ -92,6 +95,13 @@ def messageability(
     the wake route is derived from those rather than from the registered
     surface alone.
     """
+    if liveness == LIVENESS_TERMINATED:
+        return {
+            "messageable": False,
+            "hook_injection": False,
+            "wake_interface": "none",
+            "reason": "session_terminated",
+        }
     surface = str(row.get("executor_surface") or "")
     capability = capability_for_surface(surface)
     if capability is None:

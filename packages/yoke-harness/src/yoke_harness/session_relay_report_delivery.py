@@ -44,7 +44,7 @@ def _safe_payload(value: object) -> dict[str, object] | None:
         not isinstance(value.get(name), str) or not value.get(name) for name in required
     ):
         return None
-    if value["job_kind"] not in {"launch", "wake"}:
+    if value["job_kind"] not in {"launch", "wake", "terminate"}:
         return None
     payload: dict[str, object] = {name: value[name] for name in required}
     for name in ("native_id", "adapter_revision"):
@@ -96,7 +96,7 @@ def deliver_terminal_report(
     safe = _safe_payload(payload)
     if safe is None:
         raise ValueError("relay report payload is invalid")
-    if safe["job_kind"] != "launch":
+    if safe["job_kind"] == "wake":
         return _dispatch(dispatcher, function_id, safe, timeout_s=timeout_s)
     pending = _write_pending(safe, state_dir)
     try:

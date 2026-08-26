@@ -32,6 +32,11 @@ from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     SessionRelayError,
 )
+from yoke_core.domain.session_termination_reap import (
+    claim_termination_reap,
+    release_expired_termination_leases,
+    report_termination_reap,
+)
 
 
 def claim_relay_job(
@@ -82,6 +87,7 @@ def claim_relay_job(
     )
 
     reconcile_spawned_wake_attempts(conn, now=current)
+    release_expired_termination_leases(conn, now=current)
     settle_expired_relay_leases(conn, now=current)
     expire_due_recipients(conn, now=parse_timestamp(current))
     conn.commit()
@@ -106,18 +112,25 @@ def claim_relay_job(
     started = monotonic()
     while True:
         current = now_provider()
-        jobs: tuple[Any, ...] = (
-            ()
+        termination = (
+            None
             if broker_only
-            else tuple(
-                claim_launch_batch(
-                    conn,
-                    heartbeat,
-                    now=current,
-                    cap=policy.launch_batch,
+            else claim_termination_reap(conn, heartbeat, now=current)
+        )
+        jobs: tuple[Any, ...] = (termination,) if termination is not None else ()
+        if not jobs:
+            jobs = (
+                ()
+                if broker_only
+                else tuple(
+                    claim_launch_batch(
+                        conn,
+                        heartbeat,
+                        now=current,
+                        cap=policy.launch_batch,
+                    )
                 )
             )
-        )
         if not jobs:
             wake = claim_wake_job(
                 conn,
@@ -229,7 +242,25 @@ def report_relay_job(
             evidence=evidence,
             now=current,
         )
-    raise SessionRelayError("job_kind_invalid", "relay job kind must be launch or wake")
+    if job_kind == "terminate":
+        if native_session_id:
+            raise SessionRelayError(
+                "native_id_forbidden",
+                "termination reports never carry a native session id",
+            )
+        return report_termination_reap(
+            conn,
+            relay_id=relay_id,
+            target_session_id=job_id,
+            lease_id=lease_id,
+            result_code=result_code,
+            adapter_revision=adapter_revision,
+            evidence=evidence,
+            now=current,
+        )
+    raise SessionRelayError(
+        "job_kind_invalid", "relay job kind must be launch, wake, or terminate"
+    )
 
 
 __all__ = ["claim_relay_job", "report_relay_job"]

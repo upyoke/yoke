@@ -36,7 +36,7 @@ export function sessionRosterFilters(documentNode, onChange) {
     host.appendChild(field.wrapper);
   }
   const liveness = input(documentNode, "Liveness", "select");
-  for (const value of ["", "active", "stale", "ended"]) {
+  for (const value of ["", "active", "stale", "ended", "terminated"]) {
     liveness.control.appendChild(option(
       documentNode, value, value || "Any liveness",
     ));
@@ -95,6 +95,9 @@ export function sessionRosterFilters(documentNode, onChange) {
 }
 
 function unavailableReason(routing) {
+  if (routing.reason === "session_terminated") {
+    return "Messaging unavailable: this session is permanently terminated.";
+  }
   if (routing.reason === "version_below_floor_or_unknown") {
     return routing.minimum_version
       ? `Messaging unavailable: executor version ${routing.minimum_version} or newer is required.`

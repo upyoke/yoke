@@ -28,7 +28,7 @@ _INCIDENT_COLUMN = ("session_launch_attempts", "batch_id")
 # table must instead restore through boot convergence and leave this digest
 # unchanged.
 _BORN_WITH_COLUMN_DIGEST = (
-    "b2d22bf4c33f8d111329ebde988ad354dbcea97b2d0a12f5bee78204810106a4"
+    "ebd02b164f79d7bd37f1a18de05b55c339c961d603b81e0242ec7fc2eb5fa2a8"
 )
 
 
@@ -105,9 +105,11 @@ def test_every_droppable_boot_schema_column_converges(
             boot_lookups = _record_boot_column_lookups(conn, monkeypatch)
 
             born_with = all_columns - boot_lookups
-            assert _column_pair_digest(born_with) == _BORN_WITH_COLUMN_DIGEST, (
+            born_with_digest = _column_pair_digest(born_with)
+            assert born_with_digest == _BORN_WITH_COLUMN_DIGEST, (
                 "create-only columns changed; add boot convergence for columns on "
-                f"existing tables or justify a newly introduced table: {sorted(born_with)}"
+                "existing tables or justify a newly introduced table; "
+                f"digest={born_with_digest}: {sorted(born_with)}"
             )
 
             expected_additive = all_columns & boot_lookups

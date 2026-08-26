@@ -22,7 +22,7 @@ import {
   appendSessionMessaging,
   sessionRosterFilters,
 } from "./universe_session_roster_filters.js";
-const ROSTER_STATES = new Set(["active", "stale", "ended"]);
+const ROSTER_STATES = new Set(["active", "stale", "ended", "terminated"]);
 const WORKTREE_ROLES = new Set(["integration", "worker"]);
 function statRow(documentNode, facts) {
   const row = el(documentNode, "div", "stat-row sessions-stats");

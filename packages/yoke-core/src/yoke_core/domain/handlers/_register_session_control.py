@@ -7,11 +7,17 @@ from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationOpenRequest,
     PrivateRouteQualificationOpenResponse,
 )
+from yoke_contracts.session_control.termination import (
+    SessionTerminateRequest,
+    SessionTerminateResponse,
+)
 from yoke_core.domain.handlers import session_launch as _launch
 from yoke_core.domain.handlers import session_messages as _messages
 from yoke_core.domain.handlers import session_messages_receipts as _receipts
 from yoke_core.domain.handlers import session_relay as _relay
+from yoke_core.domain.handlers import session_termination as _termination
 from yoke_core.domain.handlers import session_qualification as _qualification
+from yoke_core.domain.session_termination_events import EVENT_SESSION_TERMINATED
 
 
 def _register(
@@ -26,6 +32,7 @@ def _register(
     adapter_status="live",
     guardrails=None,
     claim_required_kind=None,
+    emitted_event_names=None,
 ) -> None:
     registry.register(
         function_id,
@@ -36,7 +43,7 @@ def _register(
         owner_module=owner_module,
         target_kinds=["global"],
         side_effects=side_effects,
-        emitted_event_names=["YokeFunctionCalled"],
+        emitted_event_names=emitted_event_names or ["YokeFunctionCalled"],
         guardrails=guardrails
         or ["verified_actor", "handler_enforced_project_authority"],
         adapter_status=adapter_status,
@@ -46,6 +53,25 @@ def _register(
 
 
 def register(registry) -> None:
+    _register(
+        registry,
+        "session_control.session.terminate",
+        _termination.handle_session_terminate,
+        SessionTerminateRequest,
+        SessionTerminateResponse,
+        side_effects=[
+            "harness_sessions_update",
+            "work_claims_update",
+            "session_message_recipients_update",
+            "session_termination_reaps_upsert",
+        ],
+        owner_module=_termination.__name__,
+        guardrails=[
+            "verified_actor",
+            "handler_enforced_operator_or_steering_authority",
+        ],
+        emitted_event_names=["YokeFunctionCalled", EVENT_SESSION_TERMINATED],
+    )
     _register(
         registry,
         "session_control.qualification.open",

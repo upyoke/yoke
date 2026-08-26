@@ -10,6 +10,8 @@ Yoke directed it to do (``execution_lane`` + ``mode``, both stored on
 Liveness is derived server-side so no consumer re-encodes TTL numbers:
 
 * ``ended`` — ``ended_at`` is set.
+* ``terminated`` — ``terminated_at`` is set; unlike an ordinary end, it is
+  permanently non-reactivatable and non-wakeable.
 * ``stale`` — not ended, and the latest activity timestamp
   (``MAX(last_heartbeat, last_tool_call_at)``) is older than the
   executor-aware TTL from
@@ -28,6 +30,7 @@ from yoke_contracts.session_control.liveness import (
     LIVENESS_ENDED,
     LIVENESS_STALE,
     LIVENESS_STATES,
+    LIVENESS_TERMINATED,
 )
 from yoke_core.domain import db_helpers
 from yoke_core.domain.actors import (
@@ -154,10 +157,12 @@ def list_sessions(
         if normalized_session_id:
             clauses.append("s.session_id = %s")
             where_params.append(normalized_session_id)
-        if liveness == LIVENESS_ENDED:
-            clauses.append("s.ended_at IS NOT NULL")
+        if liveness == LIVENESS_TERMINATED:
+            clauses.append("s.terminated_at IS NOT NULL")
+        elif liveness == LIVENESS_ENDED:
+            clauses.append("s.ended_at IS NOT NULL AND s.terminated_at IS NULL")
         elif liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):
-            clauses.append("s.ended_at IS NULL")
+            clauses.append("s.ended_at IS NULL AND s.terminated_at IS NULL")
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
         # Timestamps are uniform ISO-8601 text, so lexicographic GREATEST
@@ -183,7 +188,9 @@ def list_sessions(
                 row.get("last_heartbeat"),
                 row.get("last_tool_call_at"),
             )
-            if row.get("ended_at"):
+            if row.get("terminated_at"):
+                state = LIVENESS_TERMINATED
+            elif row.get("ended_at"):
                 state = LIVENESS_ENDED
             elif activity_is_stale(
                 activity_at,
@@ -259,6 +266,10 @@ def list_sessions(
                     "workspace": row.get("workspace"),
                     "offered_at": row.get("offered_at"),
                     "ended_at": row.get("ended_at"),
+                    "terminated_at": row.get("terminated_at"),
+                    "terminated_by_actor_id": row.get("terminated_by_actor_id"),
+                    "terminated_by_session_id": row.get("terminated_by_session_id"),
+                    "termination_reason": row.get("termination_reason"),
                     "current_item": current_item_display,
                     "current_item_project_id": row.get(
                         "current_item_project_id",
@@ -297,6 +308,7 @@ __all__ = [
     "LIVENESS_ENDED",
     "LIVENESS_STALE",
     "LIVENESS_STATES",
+    "LIVENESS_TERMINATED",
     "MAX_SESSIONS_LIST_LIMIT",
     "PER_PROJECT_SESSIONS_LIST_CAP",
     "SESSION_LIST_FIELDS",

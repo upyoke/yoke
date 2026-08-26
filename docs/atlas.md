@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-26T19:54:03Z_
+_Audit generated_at: 2026-08-26T20:36:07Z_
 
 ## 1. Summary
 
-- Function ids registered: **424**
+- Function ids registered: **425**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **351** (351 carry usable `--help`)
-- Operation tracker: **328 wrapped**, 10 tool_cli, 126 permanent, 0 pending
-- Skill-body recipes: 292 total (240 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **353** (353 carry usable `--help`)
+- Operation tracker: **330 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- Skill-body recipes: 293 total (241 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **328** (operation tracker confirms 328 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **330** (operation tracker confirms 330 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -253,6 +253,8 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **328** (operation track
 | session_control | `yoke messages send` | `session_control.message.send` | ok |
 | session_control | `yoke say` | `session_control.message.send` | ok |
 | session_control | `yoke session-control qualification open` | `session_control.qualification.open` | ok |
+| session_control | `yoke session-control session terminate` | `session_control.session.terminate` | ok |
+| session_control | `yoke sessions terminate` | `session_control.session.terminate` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
@@ -530,9 +532,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 35 |
+| codex | 37 |
 | claude-code | 13 |
-| cursor | 2 |
 
 ## 8. Contradictions
 

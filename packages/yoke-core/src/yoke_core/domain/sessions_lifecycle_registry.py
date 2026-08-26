@@ -63,11 +63,6 @@ def _get_claim(conn: Any, claim_id: int) -> Dict[str, Any]:
     return claim
 
 
-# ---------------------------------------------------------------------------
-# Session registration
-# ---------------------------------------------------------------------------
-
-
 def register_session(
     conn: Any,
     *,
@@ -141,11 +136,16 @@ def register_session(
             conn.rollback()
         thread_select = ", native_thread_id" if has_thread_col else ""
         existing = conn.execute(
-            f"SELECT ended_at, model, actor_id, execution_lane, project_id, "
+            f"SELECT ended_at, terminated_at, model, actor_id, execution_lane, project_id, "
             f"executor_version, machine_id, executor_surface{thread_select} "
             f"FROM harness_sessions WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
+        if existing is not None and existing["terminated_at"] is not None:
+            raise SessionError(
+                "SESSION_TERMINATED",
+                f"Session '{session_id}' is permanently terminated.",
+            )
         if existing is None or existing["ended_at"] is None:
             refresh_active_duplicate_identity(
                 conn,
