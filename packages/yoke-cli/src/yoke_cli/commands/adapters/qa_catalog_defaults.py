@@ -1,4 +1,4 @@
-"""Flag adapters for project-default QA plan attachment commands."""
+"""Flag adapters for project-default QA plan attachment and command binding."""
 
 from __future__ import annotations
 
@@ -6,6 +6,29 @@ import argparse
 from typing import List
 
 from yoke_cli.commands.adapters.qa_catalog import _configure_attachment, _global
+
+
+def qa_registered_command_set(args: List[str]) -> int:
+    usage = (
+        "yoke qa registered-command set --project P --scope quick|full|e2e|smoke "
+        "--command ARGV [--json]"
+    )
+
+    def configure(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--scope", required=True)
+        parser.add_argument("--command", required=True)
+
+    return _global(
+        args,
+        prog="yoke qa registered-command set",
+        usage=usage,
+        function_id="qa.registered_command.set",
+        configure=configure,
+        payload=lambda parsed: {
+            "scope": parsed.scope,
+            "command": parsed.command,
+        },
+    )
 
 
 def qa_plan_project_default_set(args: List[str]) -> int:
@@ -61,4 +84,5 @@ def qa_plan_project_default_unset(args: List[str]) -> int:
 __all__ = [
     "qa_plan_project_default_set",
     "qa_plan_project_default_unset",
+    "qa_registered_command_set",
 ]

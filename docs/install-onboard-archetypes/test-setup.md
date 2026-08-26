@@ -13,13 +13,12 @@ No test, CI, QA-plan, or merge-queue question exists
 (`onboard_wizard_steps.py` step map).
 
 **Harness `/yoke onboard`.** Step 1 repo survey *reads* "test config"
-(`strategy-conversation.md`). Step 2's confirmed profile lists Packs,
-capabilities (`aws-admin`, GitHub mode), environments, domain — **not** a
-test command, `ci_workflow_file`, or `merge_queue`
-(`profile-and-scaffold.md`). Step 5 says capture "command definitions, merge
-verification" via `yoke project-structure patch apply` with no payload
-recipe (`hosting-and-environments.md`). Step 8 attaches a QA plan only
-"when the plan names a reusable test plan" (`seed-work.md`).
+(`strategy-conversation.md`). Step 2's confirmed profile now carries a
+**test-setup box** with three named outcomes — surveyed command, scaffold
+suite, or explicit skip (`profile-and-scaffold.md`). Step 5 binds the
+confirmed outcome and records the `verification-command-binding` checklist
+row (`hosting-and-environments.md`). Step 8 attaches a QA plan only "when
+the plan names a reusable test plan" (`seed-work.md`).
 
 ## Live bind surfaces (verified)
 
@@ -27,7 +26,7 @@ recipe (`hosting-and-environments.md`). Step 8 attaches a QA plan only
 |---|---|---|
 | Test trees | `yoke project-structure patch apply` family `test_roots` | Path selectors the impacted selector reads |
 | Descriptive command | family `verification_profiles` payload `test_command` | **Not** the QA gate. Advance qa-seeding says do not seed free-form `quick`/`full` from project-structure command settings |
-| Gate command | Plan slug `registered-command-{scope}` for `quick` / `full` / `e2e` / `smoke` | `ensure_registered_command_plan` — yoke seed writes this **only** for project `yoke`. Public create: `yoke qa plan create SLUG --project P --environment ENV` then `yoke qa plan-cases replace` |
+| Gate command | Plan slug `registered-command-{scope}` for `quick` / `full` / `e2e` / `smoke` | `yoke qa registered-command set --project P --scope SCOPE --command ARGV` — one call converges the plan, its case, the runner, and the project-default attachments; no environment. The same `ensure_registered_command_plan` the yoke seed calls |
 | CI routing | `yoke projects capability-settings set --project P --cap-type ci_workflow_file --new --settings-json '{"workflow_file":"ci.yml"}'` | Filename under `.github/workflows/` (optional `scope_workflows` map). Empty declaration keeps the **local** `command` method |
 | Merge queue | `yoke projects capability-settings set --project P --cap-type merge_queue --new --settings-json '{}'` | Presence-only. Template `requires` `ci_workflow_file` and `github`. Absent → standalone merge engine |
 | Attach to an item | `yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition reviewing-implementation` | Seed-work already teaches this when CURRENT-PLAN names a plan |
@@ -44,12 +43,15 @@ Routing (`qa_command_plan_registration.py` / `qa_command_scope_routing.py`):
 - `merge_queue` makes the QA executor open/reuse the landing PR and record
   that PR's entry run (`dash/verification-and-close.md`).
 
-`yoke qa plan create` **requires** `--environment`. A project with no site
-or environment cannot create a plan through the public adapter.
+`yoke qa plan create` still **requires** `--environment`, so a plan authored
+through that adapter is tied to a site. The registered-command binding above
+does not go through it and needs no environment. Extending the environmentless
+shape to the remaining plan-authoring surfaces is G-qa-plan-needs-env.
 
 `webapp-scaffold` 1.1.2 installs FastAPI tests, Vitest, Playwright examples,
-and `.github/workflows/ci.yml`. It does **not** write `ci_workflow_file` or
-a `registered-command-*` plan.
+and `.github/workflows/ci.yml`. The Pack itself still writes neither
+`ci_workflow_file` nor a `registered-command-*` plan; onboard step 5 now
+declares both from the confirmed test-setup box, after the Pack has applied.
 
 ## Bind / refuse / silent mis-bind
 
@@ -66,10 +68,12 @@ declared. `merge_queue` without GitHub + `ci_workflow_file`. HTTPS
 **Silent mis-binds today.**
 
 1. Writing `verification_profiles.test_command` and believing the
-   reviewing-implementation gate will run it — it will not.
+   reviewing-implementation gate will run it — it will not. The family
+   reference and the public QA doc now both say so outright.
 2. Confirming the stock profile, installing `webapp-scaffold` (tests +
-   `ci.yml` land), never declaring the capability or plan — later Dash/issue
-   gates have no project-default case, or they inherit nothing.
+   `ci.yml` land), never declaring the capability or plan — closed by the
+   step-2 box plus the step-5 binding; the box has no silent default, so
+   the profile cannot be confirmed without an answer.
 3. Treating Jenkins / GitLab CI / Bitbucket Pipelines / `fastlane` as
    `ci_workflow_file` — that capability is a **GitHub Actions filename**.
 4. Declaring `command-ci` against a workflow that deploys but does not run
@@ -80,7 +84,7 @@ declared. `merge_queue` without GitHub + `ci_workflow_file`. HTTPS
 
 ## No-tests: what the QA gate should mean
 
-Three options, all missing as an onboard question:
+Three options, now all offered as the step-2 onboard question:
 
 1. **Offer to scaffold a minimal suite.** Greenfield + `webapp-scaffold`
    already drops tests and `ci.yml`. Existing empty idea repo: same offer.
@@ -99,6 +103,13 @@ profile confirmation. If the operator declines — idea-only, content site,
 client will not pay for tests yet — record attested no-tests and seed
 `implementation_review` instead of a `registered-command-quick` that cannot
 run. Always refuse (3) for CI/queue lies. Never skip the question.
+
+The question is now asked: the step-2 box offers all three outcomes and the
+`verification-command-binding` checklist row records which one was chosen.
+What remains open is the durable *declaration* for outcome (2) — today the
+skip registers nothing and relies on advance's `implementation_review`
+fallback, rather than on a project row a reader can inspect. That declaration
+is G-no-tests-posture.
 
 There is no `no_tests` capability or project-structure family today. That
 is G-no-tests-posture.

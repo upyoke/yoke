@@ -77,6 +77,10 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa plan-cases replace --project P --plan-id N --stdin",
     ),
     AdapterEntry(
+        "qa.registered_command.set",
+        "yoke qa registered-command set --project P --scope SCOPE --command ARGV",
+    ),
+    AdapterEntry(
         "qa.project_default.set",
         "yoke qa project-default set --project P --plan-id N --workflow W --transition T",
     ),

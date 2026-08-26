@@ -38,6 +38,7 @@ _EXECUTION_READINESS_ROWS = (
     "environment-registration",
     "domain-setup",
     "infra-apply-first-deploy",
+    "verification-command-binding",
     "work-seeding",
 )
 _ADOPTION_ROWS = (
@@ -215,6 +216,31 @@ def test_onboard_teaches_strategy_seed_topup_and_all_five_docs():
     assert "yoke strategy doc replace" in text
     assert "--base-updated-at" in text
     assert "yoke claims work acquire --process STRATEGIZE" in text
+
+
+def test_onboard_profile_always_carries_a_test_setup_box():
+    """The wizard never asks how tests run, so the profile confirmation must."""
+    text = _read(ONBOARD_DIR / "profile-and-scaffold.md")
+    assert "### The test-setup box" in text
+    # All three outcomes are named; none is a silent default.
+    assert "surveyed command" in text.lower()
+    assert "scaffold suite" in text.lower()
+    assert "explicit skip" in text.lower()
+    # A descriptive project-structure entry is not one of the outcomes.
+    assert "verification_profiles.test_command" in text
+
+
+def test_onboard_binds_the_confirmed_test_setup_to_the_gate():
+    """AC-bearing gate commands come from the binding, not from prose."""
+    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
+    assert (
+        "yoke qa registered-command set --project {project} --scope quick" in text
+    )
+    assert "--scope full" in text
+    assert "--cap-type ci_workflow_file" in text
+    assert "verification-command-binding=configured" in text
+    # The declaration must name the workflow that runs the command.
+    assert "deploy" in text and "not a verification workflow" in text
 
 
 def test_onboard_teaches_hosting_probe_and_stdin_secrets():

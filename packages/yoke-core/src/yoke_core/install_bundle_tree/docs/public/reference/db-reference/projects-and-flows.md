@@ -77,6 +77,18 @@ project_structure   -- family entries with identity
 `{"docs": [str, ...]}` and whose reserved `entry_key="always"` denotes the
 project-wide always-included set.
 
+`verification_profiles` is **descriptive, not executable**. Its
+`test_command` payload records what a project's verification is for a human
+reader; no gate reads it. The command the `reviewing-implementation` gate
+actually runs is the project's registered QA plan case, bound with:
+
+```sh
+yoke qa registered-command set --project P --scope quick --command "<argv>"
+```
+
+Writing `verification_profiles.test_command` and stopping there leaves the
+project with no gate command at all.
+
 Path-attached operating context lives in `path_context_values` (per-target, keyed by family) under the path-context substrate. Project Structure contains only the project-level families listed above.
 
 Project Structure has no placeholder or named-only family slots. The `family-list` CLI prints only the live family vocabulary and grammar metadata.

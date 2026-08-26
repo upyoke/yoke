@@ -55,7 +55,7 @@ A re-run walks the same steps, detects each already-satisfied step through its s
 
 Exactly two stops:
 
-1. **Execution-profile confirmation** (step 2) — the whole derived profile is confirmed or adjusted once; nothing mutates before it.
+1. **Execution-profile confirmation** (step 2) — the whole derived profile is confirmed or adjusted once; nothing mutates before it. The profile always carries a test-setup box; the wizard never asks how a project's tests run, so this skill must.
 2. **Infrastructure approval gate** (step 7) — the full apply/deploy preview takes an explicit yes; `[y/N]` defaults No.
 
 Between the profile confirmation and the infrastructure gate, the applying steps (scaffold install, hosting verification, environment/site/flow registration, domain record) run straight through unattended. Credential creation is the exception: it always remains user-action plus explicit approval, and the secret values pass only through `--value-stdin` prompts. First-work seeding (step 8) takes one batched confirmation of the proposed item list.
@@ -70,7 +70,7 @@ Execute the steps in order. Read each sub-file when its step is next; each file 
 | 2 | Derive the execution profile | [profile-and-scaffold.md](profile-and-scaffold.md) | Strategy docs accepted | Only when steps 3–8 all already satisfy their skip predicates (nothing left to apply); otherwise re-derive and re-confirm — the profile is never persisted |
 | 3 | Install the scaffold Pack | [profile-and-scaffold.md](profile-and-scaffold.md) | Confirmed profile includes a scaffold Pack (an existing app maps instead of installing) | `.yoke/packs.json` receipt already records the Pack |
 | 4 | Hosting capability | [hosting-and-environments.md](hosting-and-environments.md) | Profile requires hosting | `aws-admin` capability present AND live identity probe passes |
-| 5 | Infra Packs + environments/sites/flow | [hosting-and-environments.md](hosting-and-environments.md) | Scaffold present (installed or mapped); hosting verified or explicitly deferred | Registrations already match the profile; recorded Packs skip individually |
+| 5 | Infra Packs + environments/sites/flow + verification binding | [hosting-and-environments.md](hosting-and-environments.md) | Scaffold present (installed or mapped); hosting verified or explicitly deferred | Registrations already match the profile and the confirmed test setup is already bound; recorded Packs skip individually |
 | 6 | Domain | [domain-and-deploy.md](domain-and-deploy.md) | Environments registered | Domain posture already recorded |
 | 7 | Gated infra apply + first deploy | [domain-and-deploy.md](domain-and-deploy.md) | Every earlier step satisfied | Infra applied and the deploy live and healthy |
 | 8 | Seed the first work | [seed-work.md](seed-work.md) | CURRENT-PLAN exists (a deferred deploy does not block seeding) | This run already recorded seeded items on its checklist row |
@@ -83,7 +83,7 @@ Checklist rows written per step:
 | 2 | `human-interview` |
 | 3 | `scaffold-install`, `documentation-context-setup` |
 | 4 | `hosting-setup`, `capability-setup` |
-| 5 | `environment-registration`, `project-structure-setup`, `delivery-setup` |
+| 5 | `environment-registration`, `project-structure-setup`, `delivery-setup`, `verification-command-binding` |
 | 6 | `domain-setup` |
 | 7 | `infra-apply-first-deploy` |
 | 8 | `work-seeding`, `lifecycle-readiness`, `verification` |
