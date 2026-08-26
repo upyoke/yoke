@@ -23,10 +23,10 @@ from yoke_contracts.session_control.resume import (
     RESUMED_COMPLETED_RESULT,
     RESUMED_DIED_RESULT,
 )
+from yoke_contracts.process_ancestry import process_start_time
 from yoke_harness.session_launch_containment import (
-    SupervisedResume,
     release_supervised_native,
-    supervised_resumes,
+    supervised_records,
 )
 from yoke_harness.session_relay_diagnostic_retention import retain_private_diagnostic
 from yoke_harness.session_relay_native_diagnostics import classify_native_failure
@@ -43,6 +43,17 @@ from yoke_harness.session_relay_runtime import (
 
 CAPTURE_TAIL_BYTES = 32 * 1024
 Dispatcher = Callable[..., Any]
+
+
+@dataclass(frozen=True)
+class SupervisedResume:
+    """One detached resume this machine started, and whether it still runs."""
+
+    attempt_id: str
+    pid: int
+    lease_id: str
+    capture_path: Path | None
+    running: bool
 
 
 @dataclass(frozen=True)
@@ -111,13 +122,36 @@ def _finished(record: SupervisedResume) -> FinishedNativeResume | None:
     )
 
 
+def supervised_resumes(state_dir: Path | None = None) -> tuple[SupervisedResume, ...]:
+    """Project the machine's supervision records onto the resumes among them."""
+    resumes: list[SupervisedResume] = []
+    for _path, payload in supervised_records(state_dir):
+        if str(payload.get("supervision_kind") or "") != "resume":
+            continue
+        pid = payload.get("pid")
+        if not isinstance(pid, int) or pid <= 0:
+            continue
+        capture = payload.get("capture_path")
+        resumes.append(
+            SupervisedResume(
+                attempt_id=str(payload.get("launch_id") or ""),
+                pid=pid,
+                lease_id=str(payload.get("lease_id") or ""),
+                capture_path=Path(capture) if isinstance(capture, str) else None,
+                # A reused pid names a different process, so the resume this
+                # record was written for is gone either way.
+                running=process_start_time(pid) == payload.get("process_start_time"),
+            )
+        )
+    return tuple(resumes)
+
+
 def finished_native_resumes(
     *,
     state_dir: Path | None = None,
 ) -> tuple[FinishedNativeResume, ...]:
     """Return every supervised resume whose process has finished running."""
-    records = supervised_resumes(state_dir=state_dir)
-    finished = (_finished(record) for record in records)
+    finished = (_finished(record) for record in supervised_resumes(state_dir))
     return tuple(record for record in finished if record is not None)
 
 
@@ -174,6 +208,8 @@ def settle_finished_native_resumes(
 __all__ = [
     "CAPTURE_TAIL_BYTES",
     "FinishedNativeResume",
+    "SupervisedResume",
     "finished_native_resumes",
     "settle_finished_native_resumes",
+    "supervised_resumes",
 ]

@@ -12,15 +12,13 @@ from yoke_contracts.session_control.resume import (
     RESUMED_COMPLETED_RESULT,
     RESUMED_DIED_RESULT,
 )
-from yoke_harness import session_launch_containment
-from yoke_harness.session_launch_containment import (
-    record_supervised_native,
-    supervised_resumes,
-)
+from yoke_harness import session_relay_resume_settlement as settlement
+from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_claude_resume import spawn_detached_claude_resume
 from yoke_harness.session_relay_resume_settlement import (
     finished_native_resumes,
     settle_finished_native_resumes,
+    supervised_resumes,
 )
 from yoke_harness.session_relay_resume_watch import (
     resume_outcome_path,
@@ -107,7 +105,7 @@ def test_native_exiting_nonzero_settles_the_attempt_with_a_failure_result(
     assert report["evidence"]["diagnostic_availability"] == "relay_local"
     assert report["evidence"]["native_diagnostic_ref"].startswith("nd-")
     assert REFUSAL not in str(report["evidence"])
-    assert supervised_resumes(state_dir=tmp_path) == ()
+    assert supervised_resumes(tmp_path) == ()
     assert not resume_outcome_path(resumed.capture_path).exists()
 
 
@@ -178,11 +176,7 @@ def test_a_vanished_resume_without_an_outcome_settles_as_died(
     )
     # The supervisor was killed alongside the native it was waiting on, so no
     # outcome was ever written and the recorded process is gone.
-    monkeypatch.setattr(
-        session_launch_containment,
-        "process_start_time",
-        lambda pid: None,
-    )
+    monkeypatch.setattr(settlement, "process_start_time", lambda pid: None)
 
     finished = finished_native_resumes(state_dir=tmp_path)
 
@@ -215,4 +209,4 @@ def test_a_failed_report_keeps_the_record_for_the_next_poll(tmp_path: Path) -> N
     )
 
     assert settled == ()
-    assert len(supervised_resumes(state_dir=tmp_path)) == 1
+    assert len(supervised_resumes(tmp_path)) == 1

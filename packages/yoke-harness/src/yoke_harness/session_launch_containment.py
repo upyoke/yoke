@@ -53,17 +53,6 @@ _MAX_RECORD_BYTES = 4096
 
 
 @dataclass(frozen=True)
-class SupervisedResume:
-    """One detached resume this machine started, and whether it still runs."""
-
-    attempt_id: str
-    pid: int
-    lease_id: str
-    capture_path: Path | None
-    running: bool
-
-
-@dataclass(frozen=True)
 class ContainmentOutcome:
     """What the sweep did with one supervised native."""
 
@@ -185,7 +174,10 @@ def release_supervised_native(
         return
 
 
-def _records(state_dir: Path | None) -> Iterator[tuple[Path, dict[str, object]]]:
+def supervised_records(
+    state_dir: Path | None = None,
+) -> Iterator[tuple[Path, dict[str, object]]]:
+    """Yield every supervision record, for each reader to project itself."""
     try:
         entries = sorted(_directory(state_dir).glob("*.json"))
     except OSError:
@@ -199,33 +191,6 @@ def _records(state_dir: Path | None) -> Iterator[tuple[Path, dict[str, object]]]
             continue
         if isinstance(payload, dict):
             yield path, payload
-
-
-def supervised_resumes(
-    *,
-    state_dir: Path | None = None,
-) -> tuple[SupervisedResume, ...]:
-    """Return every recorded detached resume with its live process verdict."""
-    resumes: list[SupervisedResume] = []
-    for _path, payload in _records(state_dir):
-        if str(payload.get("supervision_kind") or "") != "resume":
-            continue
-        pid = payload.get("pid")
-        if not isinstance(pid, int) or pid <= 0:
-            continue
-        capture = payload.get("capture_path")
-        resumes.append(
-            SupervisedResume(
-                attempt_id=str(payload.get("launch_id") or ""),
-                pid=pid,
-                lease_id=str(payload.get("lease_id") or ""),
-                capture_path=Path(capture) if isinstance(capture, str) else None,
-                # A reused pid names a different process, so the resume this
-                # record was written for is gone either way.
-                running=process_start_time(pid) == payload.get("process_start_time"),
-            )
-        )
-    return tuple(resumes)
 
 
 def _terminate(pid: int) -> str:
@@ -261,7 +226,7 @@ def contain_stranded_launch_natives(
     """Contain launches past registration and resumes past custody limits."""
     current = time.time() if now is None else now
     outcomes: list[ContainmentOutcome] = []
-    for path, payload in _records(state_dir):
+    for path, payload in supervised_records(state_dir):
         recorded_at = payload.get("recorded_at")
         if not isinstance(recorded_at, int):
             continue
@@ -359,12 +324,11 @@ __all__ = [
     "CONTAINMENT_TTL_SECONDS",
     "SUPERVISION_DIRECTORY_NAME",
     "ContainmentOutcome",
-    "SupervisedResume",
     "contain_launch_native",
     "contain_stranded_launch_natives",
     "record_supervised_native",
     "release_supervised_native",
-    "supervised_resumes",
+    "supervised_records",
     "touch_supervised_resume",
     "touch_supervised_resume_from_environment",
 ]
