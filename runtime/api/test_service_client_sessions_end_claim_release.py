@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """CLI regression for session-end no-flags auto-release payloads.
 
 Covers the released_claims surface on the ``session-end`` command for

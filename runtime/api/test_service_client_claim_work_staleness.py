@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """claim-work stale-window alignment regressions."""
 
 from __future__ import annotations

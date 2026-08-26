@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """Focused scheduler claim-staleness tests."""
 
 from __future__ import annotations

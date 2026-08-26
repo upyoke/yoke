@@ -22,7 +22,6 @@ This file groups two test layers:
 
 from __future__ import annotations
 
-import os
 import re
 import uuid
 from datetime import datetime, timedelta, timezone

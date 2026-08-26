@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """Tests for ``reclaim_stale_item_claims`` final-recheck path.
 
 Item-scoped sweep at session-offer time must use the same activity
@@ -9,14 +10,11 @@ aborts the reclaim and emits ``ReclaimAborted`` with
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from runtime.api.test_sessions import _register  # noqa: F401  (plain helper)
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
-    _now_literal,
     apply_ddl_statements,
     conn,  # noqa: F401  (backend-aware pytest fixture)
 )

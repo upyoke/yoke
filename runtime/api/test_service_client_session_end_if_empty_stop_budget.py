@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """Focused regression: ``session-end-if-empty`` returns typed Stop statuses.
 
 Separate from ``test_service_client_sessions_end_cleanup.py`` so the
