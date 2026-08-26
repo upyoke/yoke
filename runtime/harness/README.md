@@ -106,8 +106,8 @@ Stop also runs the promised-work gate before that cleanup. When the session hold
 
 `clean_stale_harness_sessions` is the shared janitor for both harnesses.  It:
 
-- Derives activity as `MAX(harness_sessions.last_heartbeat, MAX(events.created_at WHERE session_id=...))` so a session that went silent on the shell heartbeat but is still emitting events is still considered fresh.
-- Uses a config-tunable default TTL from machine-config `session_stale_ttl_minutes` (default 20).
+- Derives activity from first-class session heartbeat, active-claim timestamps, and `harness_sessions.last_tool_call_at`; the events ledger remains telemetry rather than liveness state.
+- Uses `session_stale_ttl_minutes` (default 20) for sessions with no active holdings and `session_stale_ttl_with_holdings_minutes` (default 240) for sessions holding a work claim, session-owned strategy-document claim, or session-owned coordination lease.
 - Is **executor-aware** via `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES`.  Codex sessions automatically use a longer window because Codex has no true session-end event and operators routinely step away between turns — the overrides table lets us keep claimless-turn-idle alive without touching Claude Code semantics.
 - Emits one `HarnessSessionStaleReclaimed` event per reclaimed session with `stale_minutes`, `last_event_at`, `released_claim_count`, `executor`, and `reason`.  Per-claim `WorkReclaimed` events still fire from `reclaim_stale_session` for audit continuity.
 - Reports `skipped_between_turns` separately for Codex sessions whose activity is fresh — the janitor is never the right tool to end a Codex session between turns.

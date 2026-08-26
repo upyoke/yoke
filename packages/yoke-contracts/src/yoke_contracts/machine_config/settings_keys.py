@@ -26,6 +26,8 @@ from yoke_contracts.project_contract.project_keys import (
     SESSION_ROUTING_CAPABILITY,
 )
 
+SESSION_STALE_TTL_WITH_HOLDINGS_KEY = "session_stale_ttl_with_holdings_minutes"
+
 # Machine-owned keys: (source default, one-line meaning). The default is the
 # value the reader falls back to when the key is absent, so an unset key and a
 # key set to its default behave identically.
@@ -41,6 +43,11 @@ MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
     "session_stale_ttl_minutes": (
         "20",
         "idle minutes before the stale-session sweep reclaims a session",
+    ),
+    SESSION_STALE_TTL_WITH_HOLDINGS_KEY: (
+        "240",
+        "idle minutes before the stale-session sweep reclaims a session "
+        "with active holdings",
     ),
     "session_stale_ttl_minutes_codex_override": (
         "60",
@@ -261,6 +268,7 @@ def _sorted_keys(settings: Mapping[str, object]) -> Iterable[str]:
 __all__ = [
     "MACHINE_SETTING_KEYS",
     "MACHINE_SETTING_PREFIXES",
+    "SESSION_STALE_TTL_WITH_HOLDINGS_KEY",
     "db_owned_capability_for",
     "db_owned_settings",
     "is_recognized",

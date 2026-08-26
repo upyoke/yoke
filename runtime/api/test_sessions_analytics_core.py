@@ -12,8 +12,6 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-import pytest
-
 from yoke_core.domain import runtime_settings
 
 
@@ -30,7 +28,9 @@ class TestStaleTtlConfigIndirection:
         config_path.write_text("# empty\n", encoding="utf-8")
         assert (
             runtime_settings.get_int(
-                "session_stale_ttl_minutes", 20, config_path=config_path,
+                "session_stale_ttl_minutes",
+                20,
+                config_path=config_path,
             )
             == 20
         )
@@ -40,9 +40,35 @@ class TestStaleTtlConfigIndirection:
         _write_config(config_path, session_stale_ttl_minutes=45)
         assert (
             runtime_settings.get_int(
-                "session_stale_ttl_minutes", 20, config_path=config_path,
+                "session_stale_ttl_minutes",
+                20,
+                config_path=config_path,
             )
             == 45
+        )
+
+    def test_holdings_key_falls_through_when_unset(self, tmp_path: Path):
+        config_path = tmp_path / "config"
+        config_path.write_text("# empty\n", encoding="utf-8")
+        assert (
+            runtime_settings.get_int(
+                "session_stale_ttl_with_holdings_minutes",
+                240,
+                config_path=config_path,
+            )
+            == 240
+        )
+
+    def test_holdings_key_override_changes_value(self, tmp_path: Path):
+        config_path = tmp_path / "config"
+        _write_config(config_path, session_stale_ttl_with_holdings_minutes=360)
+        assert (
+            runtime_settings.get_int(
+                "session_stale_ttl_with_holdings_minutes",
+                240,
+                config_path=config_path,
+            )
+            == 360
         )
 
     def test_codex_override_key_falls_through_when_unset(self, tmp_path: Path):
@@ -82,10 +108,14 @@ class TestStaleTtlConfigIndirection:
         captured: dict[str, int] = {}
 
         def fake_get_int(
-            key: str, default: int, *, config_path=None,  # noqa: ARG001
+            key: str,
+            default: int,
+            *,
+            config_path=None,  # noqa: ARG001
         ) -> int:
             value = {
                 "session_stale_ttl_minutes": 17,
+                "session_stale_ttl_with_holdings_minutes": 211,
                 "session_stale_ttl_minutes_codex_override": 71,
                 "session_stale_ttl_minutes_cursor_override": 73,
             }.get(key, default)
@@ -93,7 +123,8 @@ class TestStaleTtlConfigIndirection:
             return value
 
         monkeypatch.setattr(
-            "yoke_core.domain.runtime_settings.get_int", fake_get_int,
+            "yoke_core.domain.runtime_settings.get_int",
+            fake_get_int,
         )
 
         # Force a re-import so module-load-time reads pick up the patched
@@ -104,15 +135,17 @@ class TestStaleTtlConfigIndirection:
 
         assert sessions_analytics_core.DEFAULT_STALE_THRESHOLD_MINUTES == 17
         assert (
-            sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["codex"]
-            == 71
+            sessions_analytics_core.DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES == 211
         )
         assert (
-            sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["cursor"]
-            == 73
+            sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["codex"] == 71
+        )
+        assert (
+            sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["cursor"] == 73
         )
         assert captured == {
             "session_stale_ttl_minutes": 17,
+            "session_stale_ttl_with_holdings_minutes": 211,
             "session_stale_ttl_minutes_codex_override": 71,
             "session_stale_ttl_minutes_cursor_override": 73,
         }

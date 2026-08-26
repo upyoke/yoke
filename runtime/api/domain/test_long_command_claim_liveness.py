@@ -39,7 +39,7 @@ def _claimable_items(conn):
 
 
 def _age_session(conn, session_id: str) -> None:
-    old = _ago_minutes(30)
+    old = _ago_minutes(300)
     conn.execute(
         "UPDATE harness_sessions SET offered_at=%s, last_heartbeat=%s "
         "WHERE session_id=%s",

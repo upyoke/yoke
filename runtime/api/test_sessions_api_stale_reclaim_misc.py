@@ -173,11 +173,11 @@ class TestStaleReclaimYOK1350:
             """UPDATE harness_sessions
                SET last_heartbeat = %s
                WHERE session_id = 'stale-ev'""",
-            (_ago_minutes(30),),
+            (_ago_minutes(300),),
         )
         conn.commit()
         claim_work(conn, session_id="stale-ev", item_id=777)
-        stale_claim_ts = _ago_minutes(30)
+        stale_claim_ts = _ago_minutes(300)
         conn.execute(
             """UPDATE work_claims
                SET claimed_at = %s, last_heartbeat = %s
@@ -190,7 +190,8 @@ class TestStaleReclaimYOK1350:
             clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
 
         stale_calls = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c.args and c.args[0] == "HarnessSessionStaleReclaimed"
         ]
         assert len(stale_calls) == 1
@@ -199,7 +200,8 @@ class TestStaleReclaimYOK1350:
         assert "stale_minutes" in ctx
         assert "last_event_at" in ctx
         assert ctx["released_claim_count"] == 1
-        assert ctx["effective_ttl_minutes"] == 20
+        assert ctx["effective_ttl_minutes"] == 240
+        assert ctx["has_active_holdings"] is True
 
 
 class TestRegistrySeeder:
@@ -275,8 +277,11 @@ class TestStaleSessionSweepEvent:
         """Sweep emits event even with no sessions to reclaim."""
         result = clean_stale_harness_sessions(conn)
         assert result["total_reclaimed"] == 0
-        calls = [c for c in mock_emit.call_args_list
-                 if c[0][0] == EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED]
+        calls = [
+            c
+            for c in mock_emit.call_args_list
+            if c[0][0] == EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED
+        ]
         assert len(calls) == 1
         ctx = calls[0][1]["context"]
         assert ctx["total_scanned"] == 0

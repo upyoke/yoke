@@ -154,16 +154,17 @@ expires_at TEXT NOT NULL
 
 ## Table: harness_sessions
 
-Tracks active harness sessions offering themselves to Yoke for work assignment. Identity fields align with the session-offer contract. Sessions with `ended_at IS NULL` are considered active. Stale sessions (heartbeat older than threshold) are reclaimable.
+Tracks active harness sessions offering themselves to Yoke for work assignment. Identity fields align with the session-offer contract. Sessions with `ended_at IS NULL` are considered active. The stale-session sweep uses activity recency plus the session's active holdings to select its reclaim threshold.
 
-**Stale-heartbeat threshold (canonical reference).** The reclaim window is config-tunable, not a code literal. Two machine-config keys govern it:
+**Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:
 
-- `session_stale_ttl_minutes` (default `20`) — applies to any executor without a per-executor override.
-- `session_stale_ttl_minutes_codex_override` (default `60`) — applies to `codex` and `codex-*` executors. Codex has no true SessionEnd, so between-turn idle is normal; the longer window prevents force-ending sessions whose operator stepped away between turns.
+- `session_stale_ttl_minutes` (default `20`) — the short tier for a session with no active work claim, no session-owned strategy-document claim, and no session-owned coordination lease. Per-executor overrides still apply to this tier.
+- `session_stale_ttl_with_holdings_minutes` (default `240`) — the minimum tier for a session holding any of those three active resources. It prevents a long foreground command from losing its claim or lock merely because no tool-boundary heartbeat landed.
+- `session_stale_ttl_minutes_codex_override` (default `60`) — the short-tier override for `codex` and `codex-*` executors. Codex has no true SessionEnd, so between-turn idle is normal.
 
-Resolver: `yoke_core.domain.sessions_analytics_core.DEFAULT_STALE_THRESHOLD_MINUTES` (the default) and `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES` (the per-executor map). The per-executor lookup at `yoke_core.domain.sessions_render_reclaim._resolve_effective_ttl` honors `claude-*` and `codex-*` prefix fallbacks. Downstream documentation should cite the config keys above by name rather than the current literal values — values may shift; the key names are stable.
+Resolver: `yoke_core.domain.sessions_analytics_core` owns both source thresholds, `yoke_core.domain.session_cleanup_holdings` resolves the holding sessions, and `yoke_core.domain.sessions_render_reclaim._resolve_effective_ttl` applies executor overrides. The holdings tier is a floor, so an operator's longer executor override is never shortened. Downstream documentation should cite the config keys above by name rather than the current literal values — values may shift; the key names are stable.
 
-**A running long command counts as activity.** A gate run takes far longer than the default TTL while the session that started it sits idle waiting, so every long command — registered Command cases and watcher-backed suites alike — runs through `yoke_core.tools._watch_runner.run_watcher`, which refreshes the owning session's heartbeat (and, through `heartbeat`, its active claims) once per `yoke_core.domain.session_liveness_pump.HEARTBEAT_INTERVAL_SECONDS` while the child runs. The refresh stops when the process does, so a killed or crashed run goes stale on the normal schedule rather than holding its claims indefinitely.
+**Long commands and sparse tool boundaries.** Registered Command cases and watcher-backed suites run through `yoke_core.tools._watch_runner.run_watcher`, which refreshes the owning session and active claims while the child runs. A generic foreground command may not pass through that watcher or reach another tool boundary before the short TTL. The holdings tier is the sweep-side safety net for that silent interval; a crashed holder still becomes reclaimable after the longer configured window.
 
 ```sql
 session_id TEXT PRIMARY KEY -- globally unique session ID (from contract)
