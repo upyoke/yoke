@@ -32,7 +32,7 @@ EXCLUDED_TABLE_OWNERSHIP = {
         "capability_secrets", "project_capabilities",
     }),
     "retired_nonportable": frozenset({
-        "coordination_leases", "harness_sessions", "merge_locks",
+        "harness_sessions", "merge_locks",
         "session_tool_calls", "work_claims",
     }),
 }

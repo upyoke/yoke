@@ -28,6 +28,7 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.fixtures.schema_ddl_project_environments import _PROJECT_ENVIRONMENT_TABLE_DDL
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
 from yoke_core.api.main import app, get_db_path, get_db_readonly, get_db_readwrite
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 # Shared schema: ITEMS_SCHEMA (imported) + the family tables the API tests need.
 # item_sections backs the section / progress-log writes; harness_sessions backs
@@ -36,10 +37,10 @@ _SCHEMA_DDL = (
     PROJECTS_SCHEMA
     + ITEMS_SCHEMA
     + _PROJECT_ENVIRONMENT_TABLE_DDL
-    + """
+    + f"""
 CREATE TABLE project_capabilities (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, type TEXT NOT NULL,
-    settings TEXT DEFAULT '{}', verified_at TEXT, created_at TEXT NOT NULL,
+    settings TEXT DEFAULT '{{}}', verified_at TEXT, created_at TEXT NOT NULL,
     UNIQUE(project_id, type)
 );
 CREATE TABLE strategy_docs (
@@ -116,7 +117,7 @@ CREATE TABLE harness_sessions (
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,

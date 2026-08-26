@@ -24,11 +24,11 @@ from yoke_core.domain.capability_machine_secrets import (
 from yoke_core.domain.capability_type_definitions import (
     capability_type_definition,
 )
-from yoke_core.domain.coordination_leases import active_lease
+from yoke_core.domain.coordination_claim_keys import QA_HOST_KEY_PREFIX
+from yoke_core.domain.coordination_claims import active_claim
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.machine_qa_host_registrar import (
     assert_sole_host_registrar,
-    host_lease_project_id,
 )
 from yoke_core.domain.project_identity import (
     DEFAULT_PUBLIC_ITEM_PREFIX,
@@ -37,7 +37,8 @@ from yoke_core.domain.project_identity import (
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.work_claim_target_sql import scope_int_sql
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
 HOST_CONTROL_EXECUTOR_ID = "host_control"
@@ -48,7 +49,6 @@ TEST_MACHINE_FEATURES = (
     "post-install shell",
 )
 TEST_MACHINE_BASELINES = VERIFICATION_BASELINES
-_LEASE_PREFIX = "QA_HOST:"
 
 
 def validate_test_machine_json(raw_json: str) -> str:
@@ -68,17 +68,29 @@ def validate_test_machine_json(raw_json: str) -> str:
     )
 
 
-def lease_key(resource_name: str) -> str:
-    """Exclusive coordination key for one physical test resource."""
-    return _LEASE_PREFIX + validate_test_machine_resource_name(resource_name)
+def host_claim_target(resource_name: str):
+    """Return the exclusive coordination target for one physical host.
+
+    A physical machine is globally unique, and so is its claim: the scope
+    names the machine and nothing else, so whichever project drives a run
+    contends for the same single row.
+    """
+    return make_qa_admission_target(
+        validate_test_machine_resource_name(resource_name)
+    )
 
 
-def _lease_item(
+def host_claim_key(resource_name: str) -> str:
+    """Render the operator-facing key addressing one physical host."""
+    return QA_HOST_KEY_PREFIX + validate_test_machine_resource_name(resource_name)
+
+
+def _holder_item(
     conn: Any,
     *,
     session_id: str,
 ) -> dict[str, Any] | None:
-    """Return the work item whose execution owns a machine lease, if known."""
+    """Return the work item whose execution owns a machine claim, if known."""
     if not all(_table_exists(conn, table) for table in ("work_claims", "items")):
         return None
     required_columns = {
@@ -229,13 +241,9 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
     ).fetchone()
     receipt = json.loads(str(verification[2] or "{}")) if verification else {}
     resource_name = settings["resource_name"]
-    lease = active_lease(
-        conn,
-        host_lease_project_id(conn, resource_name),
-        lease_key(resource_name),
-    )
-    lease_item = (
-        _lease_item(conn, session_id=lease.session_id) if lease is not None else None
+    claim = active_claim(conn, host_claim_target(resource_name))
+    claim_item = (
+        _holder_item(conn, session_id=claim.session_id) if claim is not None else None
     )
     methods = [
         method
@@ -282,14 +290,14 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
         ],
         "active_lease": (
             {
-                "id": lease.id,
-                "session_id": lease.session_id,
-                "actor_id": lease.actor_id,
-                "acquired_at": lease.acquired_at,
-                "heartbeat_at": lease.heartbeat_at,
-                "item": lease_item,
+                "id": claim.id,
+                "session_id": claim.session_id,
+                "actor_id": claim.actor_id,
+                "acquired_at": claim.claimed_at,
+                "heartbeat_at": claim.last_heartbeat,
+                "item": claim_item,
             }
-            if lease is not None
+            if claim is not None
             else None
         ),
         "methods": [
@@ -304,7 +312,8 @@ __all__ = [
     "TEST_MACHINE_BASELINES",
     "TEST_MACHINE_FEATURES",
     "TestMachineCapabilityError",
-    "lease_key",
+    "host_claim_key",
+    "host_claim_target",
     "replace_test_machine_settings",
     "test_machine_detail",
     "validate_test_machine_json",

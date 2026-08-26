@@ -25,6 +25,7 @@ from runtime.api.test_dependency_schema import (
     ITEM_DEPENDENCIES_SCHEMA,
     PROJECTS_SCHEMA,
 )
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 from yoke_core.api.main import (
     app,
     get_config_path,
@@ -68,11 +69,11 @@ CREATE TABLE harness_sessions (
 );
 """
 
-WORK_CLAIMS_SCHEMA = """
+WORK_CLAIMS_SCHEMA = f"""
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,

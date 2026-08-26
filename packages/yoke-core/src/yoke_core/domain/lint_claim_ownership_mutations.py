@@ -41,8 +41,8 @@ _SERVICE_CLIENT_MUTATIONS: frozenset[str] = frozenset(
         "execute-structured-write execute-update execute-update-cli "
         "execute-create execute-create-cli execute-batch-update "
         "execute-batch-update-cli execute-close update-item db-claim-amend "
-        "backlog-github coordination-lease-acquire coordination-lease-release "
-        "coordination-lease-heartbeat"
+        "backlog-github coordination-claim-acquire coordination-claim-release "
+        "coordination-claim-heartbeat"
     ).split()
 )
 

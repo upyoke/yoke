@@ -17,13 +17,14 @@ from runtime.api.test_dependency_schema import (
 )
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 # Session/claim/event/actor tables the session-offer surface reads. ``actors``
 # is required on Postgres: register_session's validate_actor_id probe queries it
 # (the facade re-raises a missing relation as no-such-table). INTEGER PRIMARY KEY
 # and inline FK clauses are translated/stripped by the facade so the same DDL
 # applies on both backends through backend-routed statement execution.
-_SESSION_OFFER_SCHEMA_DDL = """
+_SESSION_OFFER_SCHEMA_DDL = f"""
     CREATE TABLE harness_sessions (
         session_id TEXT PRIMARY KEY,
         executor TEXT NOT NULL,
@@ -60,7 +61,7 @@ _SESSION_OFFER_SCHEMA_DDL = """
     CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,

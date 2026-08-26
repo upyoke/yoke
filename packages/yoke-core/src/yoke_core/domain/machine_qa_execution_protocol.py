@@ -1,4 +1,4 @@
-"""Server-side lease authority for two-phase host-control execution."""
+"""Server-side claim authority for two-phase host-control execution."""
 
 from __future__ import annotations
 
@@ -6,19 +6,22 @@ import hmac
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.coordination_leases import (
+from yoke_core.domain.coordination_claim_record import (
+    FROM_CLAUSE,
     SELECT_COLUMNS,
-    Lease,
-    LeaseHeldError,
-    LeaseStaleHolderError,
-    LeaseNotFoundError,
-    active_lease,
-    acquire_lease,
-    get_lease,
-    release_lease,
-    row_to_lease,
+    CoordinationClaim,
+    row_to_claim,
 )
-from yoke_core.domain.coordination_lease_contention import LeaseContention
+from yoke_core.domain.coordination_claims import (
+    CoordinationClaimHeldError,
+    CoordinationClaimNotFoundError,
+    CoordinationClaimStaleHolderError,
+    acquire,
+    active_claim,
+    get_claim,
+    release,
+)
+from yoke_core.domain.coordination_claim_contention import ClaimContention
 from yoke_core.domain.host_control_runner import (
     TestMachineContract,
     load_test_machine_contract,
@@ -28,8 +31,10 @@ from yoke_core.domain.machine_qa_execution_contract import (
     HostControlOperation,
     issue_execution_contract,
 )
-from yoke_core.domain.machine_qa_capability import lease_key
-from yoke_core.domain.machine_qa_host_registrar import host_lease_project_id
+from yoke_core.domain.machine_qa_capability import (
+    host_claim_key,
+    host_claim_target,
+)
 
 HOST_CONTROL_SUBMISSION_RECEIPT_KEY = "host_control_submission"
 
@@ -44,9 +49,9 @@ class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
     def __init__(
         self,
         *,
-        lease: Lease,
+        lease: CoordinationClaim,
         machine: str,
-        contention: LeaseContention | None = None,
+        contention: ClaimContention | None = None,
     ) -> None:
         super().__init__(f"test machine {machine!r} is in use by another execution")
         self.lease = lease
@@ -108,25 +113,27 @@ def host_control_submission_receipt_matches(
     )
 
 
-def _lock_submission_lease(conn: Any, lease_id: int) -> Lease:
+def _lock_submission_claim(conn: Any, claim_id: int) -> CoordinationClaim:
     if not db_backend.connection_is_postgres(conn):
         if not bool(getattr(conn, "in_transaction", False)):
             conn.execute("BEGIN IMMEDIATE")
-        return get_lease(conn, lease_id)
+        return get_claim(conn, claim_id)
     marker = "%s"
     row = conn.execute(
-        f"SELECT {SELECT_COLUMNS} FROM coordination_leases "
-        f"WHERE id={marker} FOR UPDATE",
-        (lease_id,),
+        f"SELECT {SELECT_COLUMNS} {FROM_CLAUSE} "
+        f"WHERE wc.id={marker} FOR UPDATE OF wc",
+        (claim_id,),
     ).fetchone()
     if row is None:
-        raise LeaseNotFoundError(f"Coordination lease id={lease_id} not found")
-    return row_to_lease(row)
+        raise CoordinationClaimNotFoundError(
+            f"Coordination claim id={claim_id} not found"
+        )
+    return row_to_claim(row)
 
 
 def _issue(
     machine: TestMachineContract,
-    lease: Lease,
+    lease: CoordinationClaim,
     *,
     operation: HostControlOperation,
     checks: Sequence[str],
@@ -141,7 +148,7 @@ def _issue(
     return issue_execution_contract(
         operation=operation,
         lease_id=lease.id,
-        lease_key=lease.lease_key,
+        lease_key=lease.key,
         project_id=machine.project_id,
         project=machine.project,
         settings=machine.settings,
@@ -161,7 +168,6 @@ def begin_host_control_execution(
     *,
     project: str,
     session_id: str,
-    actor_id: str | None,
     operation: HostControlOperation,
     checks: Sequence[str] = (),
     baselines: Sequence[str] = (),
@@ -172,31 +178,20 @@ def begin_host_control_execution(
     case_position: int | None = None,
     baseline_position: int | None = None,
 ) -> HostControlExecutionContract:
-    """Validate settings and acquire the serial host lease."""
+    """Validate settings and acquire the serial host claim."""
     if not str(session_id or "").strip():
         raise MachineQaProtocolError(
             "host-control execution requires an owning session"
         )
     machine = load_test_machine_contract(conn, project=project)
     resource_name = machine.settings["resource_name"]
-    resource_lease_key = lease_key(resource_name)
-    lease_project_id = host_lease_project_id(conn, resource_name)
+    target = host_claim_target(resource_name)
     try:
-        lease = acquire_lease(
-            conn,
-            lease_project_id,
-            resource_lease_key,
-            session_id,
-            actor_id=actor_id,
-        )
-    except LeaseStaleHolderError as exc:
+        lease = acquire(conn, target, session_id, reason="machine-qa-execution")
+    except CoordinationClaimStaleHolderError as exc:
         raise MachineQaProtocolError(str(exc)) from None
-    except LeaseHeldError as exc:
-        held = active_lease(
-            conn,
-            lease_project_id,
-            resource_lease_key,
-        )
+    except CoordinationClaimHeldError as exc:
+        held = active_claim(conn, target)
         if held is None:
             raise MachineQaProtocolError(
                 "test-machine lease changed while acquiring; retry execution"
@@ -229,19 +224,16 @@ def _validate_lease_owner(
     actor_id: str | None,
     lease_id: int,
     allow_released: bool,
-) -> tuple[Lease, TestMachineContract]:
+) -> tuple[CoordinationClaim, TestMachineContract]:
     try:
-        lease = _lock_submission_lease(conn, int(lease_id))
-    except LeaseNotFoundError as exc:
+        lease = _lock_submission_claim(conn, int(lease_id))
+    except CoordinationClaimNotFoundError as exc:
         raise MachineQaProtocolError(
             f"host-control lease {lease_id} was not issued"
         ) from exc
     machine = load_test_machine_contract(conn, project=project)
     resource_name = machine.settings["resource_name"]
-    expected_key = lease_key(resource_name)
-    if lease.project_id != host_lease_project_id(conn, resource_name) or (
-        lease.is_active and lease.lease_key != expected_key
-    ):
+    if lease.is_active and lease.key != host_claim_key(resource_name):
         raise MachineQaProtocolError(
             "host-control lease does not match the submitted target"
         )
@@ -278,7 +270,7 @@ def validate_host_control_submission(
     ordinal: int | None = None,
     case_position: int | None = None,
     baseline_position: int | None = None,
-) -> tuple[Lease, HostControlExecutionContract]:
+) -> tuple[CoordinationClaim, HostControlExecutionContract]:
     """Lock the lease and validate actor, target, and issued contract."""
     lease, machine = _validate_lease_owner(
         conn,
@@ -313,12 +305,12 @@ def validate_host_control_submission(
 
 def complete_host_control_execution(
     conn: Any,
-    lease: Lease,
+    lease: CoordinationClaim,
     *,
     reason: str,
 ) -> None:
-    """Release a successfully recorded execution's lease."""
-    release_lease(conn, lease.id, reason)
+    """Release a successfully recorded execution's claim."""
+    release(conn, lease.id, reason, canonical_reason="completed")
 
 
 __all__ = [

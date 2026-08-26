@@ -5,7 +5,9 @@ Split from ``runtime.api.test_sessions`` (350-line authored cap). Both
 definition.
 """
 
-_SESSIONS_AND_CLAIMS_DDL = """
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+
+_SESSIONS_AND_CLAIMS_DDL = f"""
         CREATE TABLE IF NOT EXISTS harness_sessions (
             session_id TEXT PRIMARY KEY,
             executor TEXT NOT NULL,
@@ -55,7 +57,7 @@ _SESSIONS_AND_CLAIMS_DDL = """
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL CONSTRAINT work_claims_target_kind_check
-      CHECK(target_kind IN ('item','epic_task','process','steering')),
+      CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,

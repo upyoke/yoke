@@ -1,10 +1,10 @@
 """Project authority for one physical QA host shared across projects.
 
-A physical test machine is a globally unique resource, but a coordination
-lease is unique per ``(project_id, lease_key)``. Anchoring every host lease
-to the project that registered the machine keeps one physical host behind
-one lease row no matter which project drives the run, and the registration
-guard below keeps that registrar unique so the anchor stays well defined.
+A physical test machine is a globally unique resource, and its coordination
+claim says so: the claim scope names the machine alone, so one host sits
+behind one row no matter which project drives the run. What still needs
+declaring is who operates the machine, which is what the registration guard
+below keeps unique.
 """
 
 from __future__ import annotations
@@ -75,17 +75,6 @@ def host_registrations(conn: Any) -> list[HostRegistration]:
     return registrations
 
 
-def host_lease_project_id(conn: Any, resource_name: str) -> int:
-    """Return the project whose lease row serializes this physical host."""
-    canonical = validate_test_machine_resource_name(resource_name)
-    for registration in host_registrations(conn):
-        if registration.resource_name == canonical:
-            return registration.project_id
-    raise TestMachineCapabilityError(
-        f"test machine {canonical!r} is not registered by any project"
-    )
-
-
 def assert_sole_host_registrar(
     conn: Any,
     *,
@@ -108,6 +97,5 @@ def assert_sole_host_registrar(
 __all__ = [
     "HostRegistration",
     "assert_sole_host_registrar",
-    "host_lease_project_id",
     "host_registrations",
 ]

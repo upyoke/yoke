@@ -27,6 +27,7 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
 @rollback_workflow_binding_write_errors
@@ -40,7 +41,8 @@ def release_all_claims(
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     rows = conn.execute(
         "SELECT id FROM work_claims "
-        "WHERE session_id = %s AND released_at IS NULL ORDER BY id",
+        "WHERE session_id = %s AND released_at IS NULL "
+        f"AND {LIVENESS_BOUND_SQL} ORDER BY id",
         (session_id,),
     ).fetchall()
     claim_ids = tuple(int(row["id"]) for row in rows)

@@ -157,7 +157,6 @@ def handle_verify_begin(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             project=parsed.project,
             session_id=request.actor.session_id,
-            actor_id=request.actor.actor_id,
             operation="verify",
             checks=("connection", "terminal_bridge"),
             baselines=("fresh-host", "shell-preconfigured"),

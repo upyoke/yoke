@@ -115,7 +115,7 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
         return parsed
     assert isinstance(parsed, AgentMissionPlanCaseReadyRequest)
 
-    from yoke_core.domain.coordination_leases import heartbeat_lease
+    from yoke_core.domain.coordination_claims import heartbeat
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
     from yoke_core.domain.machine_qa_execution_protocol import (
@@ -181,7 +181,7 @@ def handle_agent_mission_ready(request: FunctionCallRequest) -> HandlerOutcome:
                 result=result,
                 commit=False,
             )
-            heartbeat_lease(commit_deferred_connection(conn), lease.id)
+            heartbeat(commit_deferred_connection(conn), lease.id)
             conn.commit()
             from yoke_core.domain import qa_events
 
@@ -310,7 +310,7 @@ def register(registry: Any) -> None:
             stability="stable",
             owner_module=__name__,
             target_kinds=["item", "deployment_run"],
-            side_effects=["qa_plan_execution_write", "coordination_lease_heartbeat"],
+            side_effects=["qa_plan_execution_write", "coordination_claim_heartbeat"],
             emitted_event_names=events,
             guardrails=[
                 "qa_subject_authority",

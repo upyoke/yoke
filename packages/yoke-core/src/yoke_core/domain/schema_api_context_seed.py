@@ -135,7 +135,6 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "path_claim_amendments",
         "actors",
         "actor_labels",
-        "coordination_leases",
         "harness_machine_reports",
     ),
     "auth": (
@@ -188,7 +187,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # rendered today rather than an arbitrary prose target. The claims topic now
 # also names harness_machine_reports (install-glue presence plus exact Codex
 # normalized-handler trust hashes)
-# and coordination_leases typed-owner / release-provenance columns. The core
+# and the sticky shared-operation work-claim kinds. The core
 # topic additionally carries the declared package roots, so every role learns
 # where a module physically lives instead of guessing a repo-root directory
 # named after the package. The core topic also carries the ci-run watcher

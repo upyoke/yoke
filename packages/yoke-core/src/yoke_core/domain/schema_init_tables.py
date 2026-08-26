@@ -304,41 +304,4 @@ def create_governed_tables(conn: Any) -> None:
     ensure_migration_audit_table(conn)
     ensure_yoke_migration_ledger(conn, repair_existing_guards=False)
 
-    # coordination_leases — shared-operation lease primitive keyed on
-    # (project_id, lease_key).  The migration consumer scopes per-model
-    # via ``LIVE_DB_MIGRATION:<model_name>``; future shared-operation
-    # consumers pick their own key conventions without adding another
-    # lock table.  Ordinary work ownership remains in ``work_claims``;
-    # repo mutation authority remains in ``path_claims``.
-    execute_schema_script(
-        conn,
-        """
-        CREATE TABLE IF NOT EXISTS coordination_leases (
-            id INTEGER PRIMARY KEY,
-            project_id INTEGER NOT NULL REFERENCES projects(id),
-            lease_key TEXT NOT NULL,
-            session_id TEXT NOT NULL,
-            actor_id TEXT,
-            acquired_at TEXT NOT NULL,
-            heartbeat_at TEXT,
-            released_at TEXT,
-            release_reason TEXT,
-            owner_kind TEXT NOT NULL DEFAULT 'session',
-            owner_item_id INTEGER,
-            owner_session_id TEXT,
-            owner_work_claim_id INTEGER,
-            released_by_session_id TEXT,
-            released_by_actor_id TEXT
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS
-            idx_coordination_leases_live ON coordination_leases(project_id, lease_key)
-            WHERE released_at IS NULL;
-        CREATE INDEX IF NOT EXISTS
-            idx_coordination_leases_session ON coordination_leases(session_id);
-        CREATE INDEX IF NOT EXISTS
-            idx_coordination_leases_heartbeat ON coordination_leases(heartbeat_at);
-    """,
-    )
-    # Additive-column indexes belong on apply_coordination_lease_columns.
-    # CREATE INDEX here aborts when CREATE TABLE IF NOT EXISTS no-ops.
     conn.commit()

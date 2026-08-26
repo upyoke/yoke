@@ -16,7 +16,8 @@ from yoke_harness.ssh_mac_gui_session import (
 )
 from yoke_contracts.machine_qa_execution import GUI_SESSION_CONTEXT
 
-from yoke_core.domain.coordination_leases import Lease
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.host_control_runner import (
     resolve_contract_host_control,
 )
@@ -58,12 +59,13 @@ def _execution(
         conn=None,
         control=control,
         material=material,
-        lease=Lease(
+        lease=CoordinationClaim(
             id=contract.lease_id,
-            project_id=contract.project_id,
-            lease_key=contract.lease_key,
+            target=make_qa_admission_target(
+                contract.settings["resource_name"]
+            ),
             session_id="server-owned",
-            acquired_at="server-issued",
+            claimed_at="server-issued",
         ),
         owns_lease=False,
         progress_callback=progress_callback,

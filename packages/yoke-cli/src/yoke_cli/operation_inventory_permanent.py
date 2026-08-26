@@ -33,28 +33,28 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     *SESSION_CONTROL_PERMANENT_ROWS,
     # Coordination-lease family — operator break-glass.
     _p(
-        "python3 -m yoke_core.api.service_client coordination-lease-acquire",
-        "claims.coordination_lease",
+        "python3 -m yoke_core.api.service_client coordination-claim-acquire",
+        "claims.coordination_claim",
         REASON_OPERATOR_BREAK_GLASS,
     ),
     _p(
-        "python3 -m yoke_core.api.service_client coordination-lease-heartbeat",
-        "claims.coordination_lease",
+        "python3 -m yoke_core.api.service_client coordination-claim-heartbeat",
+        "claims.coordination_claim",
         REASON_OPERATOR_BREAK_GLASS,
     ),
     _p(
-        "python3 -m yoke_core.api.service_client coordination-lease-list",
-        "claims.coordination_lease",
+        "python3 -m yoke_core.api.service_client coordination-claim-list",
+        "claims.coordination_claim",
         REASON_OPERATOR_BREAK_GLASS,
     ),
     _p(
-        "python3 -m yoke_core.api.service_client coordination-lease-release",
-        "claims.coordination_lease",
+        "python3 -m yoke_core.api.service_client coordination-claim-release",
+        "claims.coordination_claim",
         REASON_OPERATOR_BREAK_GLASS,
     ),
     _p(
-        "yoke coordination-lease release",
-        "coordination_lease",
+        "yoke coordination-claim release",
+        "coordination_claim",
         REASON_OPERATOR_BREAK_GLASS,
     ),
     # claims.path operator-only paths.

@@ -91,7 +91,6 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "api_tokens",
     "capability_secrets",
     "caveat_dispositions",
-    "coordination_leases",
     "deployment_run_items",
     "deployment_run_qa",
     "projects",

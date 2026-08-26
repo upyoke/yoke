@@ -36,6 +36,7 @@ from yoke_core.hooks.sessions_focus import (
     _now_iso,
     _require_active_session,
 )
+from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
 def _target(kind: object, scope: object) -> WorkClaimTarget:
@@ -111,7 +112,7 @@ def cmd_release_all(conn, session_id: str, reason: str = "released") -> str:
         conn,
         "SELECT id, target_kind, scope "
         "FROM work_claims WHERE session_id=%s AND released_at IS NULL "
-        "ORDER BY claimed_at ASC, id ASC",
+        f"AND {LIVENESS_BOUND_SQL} ORDER BY claimed_at ASC, id ASC",
         (session_id,),
     )
     conn.execute(
@@ -178,7 +179,7 @@ def cmd_reclaim(conn, session_id: str) -> str:
         conn,
         "SELECT id, target_kind, scope "
         "FROM work_claims WHERE session_id=%s AND released_at IS NULL "
-        "ORDER BY claimed_at ASC, id ASC",
+        f"AND {LIVENESS_BOUND_SQL} ORDER BY claimed_at ASC, id ASC",
         (session_id,),
     )
     _clear_current_item(conn, session_id)

@@ -25,9 +25,6 @@ FAIL_BACKUP = "backup_failed"
 FAIL_LIVE_APPLY = "live_apply_failed"
 FAIL_LIVE_VERIFY = "live_verify_failed"
 
-LEASE_KEY_PREFIX = "LIVE_DB_MIGRATION:"
-
-
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
@@ -136,7 +133,6 @@ __all__ = [
     "FAIL_BACKUP",
     "FAIL_LIVE_APPLY",
     "FAIL_LIVE_VERIFY",
-    "LEASE_KEY_PREFIX",
     "MigrationApplyError",
     "ProfileNotApplyError",
     "CompatibilityClassError",

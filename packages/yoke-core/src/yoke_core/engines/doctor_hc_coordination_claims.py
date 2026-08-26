@@ -1,10 +1,12 @@
-"""HC-coordination-leases: shared-operation lease liveness + audit provenance.
+"""HC-coordination-claims: shared-operation liveness + audit provenance.
 
 Two related signals on the governed shared-operation primitive:
 
-* **Stale/orphan leases.** Active rows in ``coordination_leases`` whose
-  ``heartbeat_at`` is older than the configured stale window OR whose owning
-  ``harness_sessions`` row has ended_at set. Doctor reports them as a WARN —
+* **Stale/orphan claims.** Active shared-operation ``work_claims`` rows
+  whose heartbeat is older than the configured stale window OR whose
+  holding ``harness_sessions`` row has ended_at set. These kinds are
+  sticky — no sweep reclaims them — so surfacing them is the only way an
+  operator learns a resource is stranded. Doctor reports them as a WARN;
   recovery still flows through the human-only operator-release surface.
 * **Unmerged live-apply source.** Completed ``migration_audit`` rows whose
   ``source_branch`` is not an ancestor of ``integration_target`` (typically
@@ -13,7 +15,7 @@ Two related signals on the governed shared-operation primitive:
   source commit did not survive merge.
 
 Both checks self-skip cleanly on minimal-schema test fixtures, and they
-never auto-release leases or rewrite audit rows. Surface only.
+never auto-release claims or rewrite audit rows. Surface only.
 """
 
 from __future__ import annotations
@@ -22,15 +24,19 @@ import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from yoke_contracts.coordination_lease_recovery import OPERATOR_RELEASE_USAGE
+from yoke_contracts.coordination_claim_keys import (
+    COORDINATION_TARGET_KINDS,
+    TARGET_KIND_MIGRATION_SERIALIZATION,
+)
+from yoke_contracts.coordination_claim_recovery import OPERATOR_RELEASE_USAGE
 import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-_HC_STALE_NAME = "HC-coordination-leases-stale-or-orphan"
-_HC_STALE_DESC = "Stale/orphan shared-operation coordination leases"
-_HC_UNMERGED_NAME = "HC-coordination-leases-unmerged-source"
+_HC_STALE_NAME = "HC-coordination-claims-stale-or-orphan"
+_HC_STALE_DESC = "Stale/orphan shared-operation coordination claims"
+_HC_UNMERGED_NAME = "HC-coordination-claims-unmerged-source"
 _HC_UNMERGED_DESC = (
     "Completed live-apply audit rows whose source branch never reached "
     "the integration target"
@@ -40,40 +46,40 @@ _STALE_WINDOW_MIN = 60
 _LIST_PREVIEW = 10
 
 
-def hc_coordination_leases_stale_or_orphan(
+def hc_coordination_claims_stale_or_orphan(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
-    """Report active leases that look stale or orphaned."""
-    if not _base._table_exists(conn, "coordination_leases"):
+    """Report active shared-operation claims that look stale or orphaned."""
+    if not _base._table_exists(conn, "work_claims"):
         rec.record(_HC_STALE_NAME, _HC_STALE_DESC, "PASS",
-                   "coordination_leases table missing — skipping")
+                   "work_claims table missing — skipping")
         return
-    if not _base._column_exists(conn, "coordination_leases", "heartbeat_at"):
-        rec.record(_HC_STALE_NAME, _HC_STALE_DESC, "PASS",
-                   "heartbeat_at column missing — skipping")
-        return
+    for column in ("target_kind", "scope", "last_heartbeat"):
+        if not _base._column_exists(conn, "work_claims", column):
+            rec.record(_HC_STALE_NAME, _HC_STALE_DESC, "PASS",
+                       f"{column} column missing — skipping")
+            return
 
     threshold_iso = _iso_minutes_ago(_STALE_WINDOW_MIN)
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    owner_filter = ""
-    session_expr = "cl.session_id"
-    if _base._column_exists(conn, "coordination_leases", "owner_kind"):
-        owner_filter = "AND COALESCE(cl.owner_kind, 'session') <> 'item' "
-        session_expr = "COALESCE(cl.owner_session_id, cl.session_id)"
+    kinds_sql = ", ".join(f"'{kind}'" for kind in COORDINATION_TARGET_KINDS)
+    project_expr = _scope_text(conn, "project_id")
+    key_expr = _claim_key_sql(conn)
     rows = conn.execute(
-        "SELECT cl.id, cl.project_id, cl.lease_key, cl.session_id, "
-        "cl.heartbeat_at, cl.acquired_at, hs.ended_at AS session_ended_at "
-        "FROM coordination_leases AS cl "
-        "LEFT JOIN harness_sessions AS hs "
-        f"ON hs.session_id = {session_expr} "
-        "WHERE cl.released_at IS NULL "
-        f"  {owner_filter}"
+        f"SELECT cl.id, {project_expr} AS project_id, {key_expr} AS lease_key, "
+        "cl.session_id, cl.last_heartbeat AS heartbeat_at, "
+        "cl.claimed_at AS acquired_at, hs.ended_at AS session_ended_at "
+        "FROM work_claims AS cl "
+        "LEFT JOIN harness_sessions AS hs ON hs.session_id = cl.session_id "
+        f"WHERE cl.target_kind IN ({kinds_sql}) "
+        "  AND cl.released_at IS NULL "
+        f"  AND cl.target_kind <> '{TARGET_KIND_MIGRATION_SERIALIZATION}' "
         "  AND ( "
-        "    cl.heartbeat_at IS NULL "
-        f"    OR cl.heartbeat_at < {p} "
+        "    cl.last_heartbeat IS NULL "
+        f"    OR cl.last_heartbeat < {p} "
         "    OR hs.ended_at IS NOT NULL "
         "  ) "
-        "ORDER BY COALESCE(cl.heartbeat_at, cl.acquired_at) ASC, cl.id ASC",
+        "ORDER BY COALESCE(cl.last_heartbeat, cl.claimed_at) ASC, cl.id ASC",
         (threshold_iso,),
     ).fetchall()
 
@@ -82,7 +88,7 @@ def hc_coordination_leases_stale_or_orphan(
         return
 
     issues: List[str] = [
-        f"- {len(rows)} active lease(s) look stale or orphaned "
+        f"- {len(rows)} active claim(s) look stale or orphaned "
         f"(heartbeat_at older than {_STALE_WINDOW_MIN}m or owning session ended). "
         "Recovery is operator-driven: "
         f"`{OPERATOR_RELEASE_USAGE}`."
@@ -100,14 +106,13 @@ def hc_coordination_leases_stale_or_orphan(
     if len(rows) > _LIST_PREVIEW:
         issues.append(f"  ... and {len(rows) - _LIST_PREVIEW} more")
     issues.append(
-        "- Inspect via: `python3 -m yoke_core.api.service_client "
-        "coordination-lease-list --active-only`"
+        "- Inspect via: `yoke coordination-claim list --active-only`"
     )
 
     rec.record(_HC_STALE_NAME, _HC_STALE_DESC, "WARN", "\n".join(issues))
 
 
-def hc_coordination_leases_unmerged_source(
+def hc_coordination_claims_unmerged_source(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
     """Report completed live-apply audit rows whose source branch never merged."""
@@ -170,6 +175,27 @@ def hc_coordination_leases_unmerged_source(
     rec.record(_HC_UNMERGED_NAME, _HC_UNMERGED_DESC, "WARN", "\n".join(issues))
 
 
+def _scope_text(conn, key: str) -> str:
+    from yoke_core.domain.work_claim_target_sql import scope_text_sql
+
+    return scope_text_sql(conn, "cl.scope", key)
+
+
+def _claim_key_sql(conn) -> str:
+    """Render each coordination claim's operator key in SQL."""
+    from yoke_contracts.coordination_claim_keys import (
+        COORDINATION_SCOPE_KEY,
+        key_prefix_for_kind,
+    )
+
+    branches = " ".join(
+        f"WHEN '{kind}' THEN '{key_prefix_for_kind(kind)}' || "
+        f"{_scope_text(conn, COORDINATION_SCOPE_KEY[kind])}"
+        for kind in COORDINATION_TARGET_KINDS
+    )
+    return f"CASE cl.target_kind {branches} END"
+
+
 def _iso_minutes_ago(minutes: int) -> str:
     return (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -211,6 +237,6 @@ def _branch_merged(
 
 
 __all__ = [
-    "hc_coordination_leases_stale_or_orphan",
-    "hc_coordination_leases_unmerged_source",
+    "hc_coordination_claims_stale_or_orphan",
+    "hc_coordination_claims_unmerged_source",
 ]

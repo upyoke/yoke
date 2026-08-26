@@ -19,6 +19,7 @@ from .sessions_render_end_chain_pending import (
     next_offer_step,
 )
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
+from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
 def _document_lock_count(conn: Any, session_id: str) -> int:
@@ -101,9 +102,10 @@ def end_session_if_empty(
         }
 
     claim_count = conn.execute(
-        """SELECT COUNT(*) AS cnt
+        f"""SELECT COUNT(*) AS cnt
            FROM work_claims
-           WHERE session_id = %s AND released_at IS NULL""",
+           WHERE session_id = %s AND released_at IS NULL
+             AND {LIVENESS_BOUND_SQL}""",
         (session_id,),
     ).fetchone()["cnt"]
     if claim_count:

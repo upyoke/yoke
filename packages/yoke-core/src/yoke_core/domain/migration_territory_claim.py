@@ -3,7 +3,9 @@
 This is *workflow* serialization: it stops a second work item authoring a
 migration against the same model while one is already mid-flight. The window
 it has to cover is "from starting a migration until it lands", not "while a
-command runs", which is why the lease is held past the call that takes it.
+command runs", which is why the claim is held past the call that takes it —
+and why its kind is sticky, exempt from the stale-session sweep that would
+otherwise hand the model to a second lane mid-authorship.
 
 That makes it a different lock from the one the boot applier uses. The
 applier takes a per-database advisory lock for *execution* correctness — two
@@ -19,22 +21,23 @@ from collections.abc import Collection
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.coordination_lease_record import OWNER_KIND_ITEM
-from yoke_core.domain.coordination_leases import (
-    Lease,
-    LeaseHeldError,
-    acquire_lease,
-    active_lease,
-    get_lease,
-    heartbeat_lease,
-    release_lease,
+from yoke_core.domain.coordination_claims import (
+    CoordinationClaim,
+    CoordinationClaimHeldError,
+    acquire,
+    active_claim,
+    get_claim,
+    heartbeat,
+    held_error,
+    release,
 )
-from yoke_core.domain.migration_apply_contract import LEASE_KEY_PREFIX
+from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.work_claim_targets import (
+    make_migration_serialization_target,
+)
 from yoke_core.domain import db_mutation_profile as dmp
 
-
-def lease_key_for(model_name: str) -> str:
-    return f"{LEASE_KEY_PREFIX}{model_name}"
+ACQUIRE_REASON = "migration-territory"
 
 
 def enter(
@@ -45,52 +48,46 @@ def enter(
     item_id: int,
     session_id: Optional[str],
     commit: bool = True,
-) -> Lease:
+) -> CoordinationClaim:
     """Claim migration territory for *model_name*, or reuse an owned claim.
 
     Authority is item-owned so the hold survives session end. Re-entering
     from the same item heartbeats; any other holder raises
-    ``LeaseHeldError``.
+    :class:`CoordinationClaimHeldError`.
     """
-    key = lease_key_for(model_name)
-    registered = session_id or ""
-    held = active_lease(conn, project, key, for_update=True)
+    target = make_migration_serialization_target(
+        resolve_project_id(conn, project), model_name, int(item_id)
+    )
+    held = active_claim(conn, target, for_update=True)
     if held is not None:
-        if (
-            held.owner_kind == OWNER_KIND_ITEM
-            and held.owner_item_id == int(item_id)
-        ):
-            return heartbeat_lease(conn, held.id, commit=commit)
+        if held.owner_item_id == int(item_id):
+            return heartbeat(conn, held.id, commit=commit)
         raise _held_as_error(conn, held)
-    return acquire_lease(
+    return acquire(
         conn,
-        project,
-        key,
-        registered,
-        owner_kind=OWNER_KIND_ITEM,
-        owner_item_id=int(item_id),
+        target,
+        session_id or "",
+        reason=ACQUIRE_REASON,
         commit=commit,
     )
 
 
-def _held_as_error(conn: Any, held: Lease) -> LeaseHeldError:
-    from yoke_core.domain.coordination_leases import _held_error
-
-    base = _held_error(conn, held)
+def _held_as_error(conn: Any, held: CoordinationClaim) -> CoordinationClaimHeldError:
+    base = held_error(conn, held)
     message = (
         f"{base} Migration territory is already owned by another lane, so "
         "its migration entry may collide with this one. Coordinate with the "
-        "holder or wait; do not retry or proceed around the lease. An old "
+        "holder or wait; do not retry or proceed around the claim. An old "
         "heartbeat is a signal to escalate to an operator, not permission to "
-        "release the lease or continue."
+        "release the claim or continue."
     )
     return type(base)(message, contention=base.contention)
 
 
-def leave(conn: Any, lease_id: int, reason: str) -> Lease:
-    """Release migration territory and return the settled lease row."""
-    release_lease(conn, lease_id, reason)
-    return get_lease(conn, lease_id)
+def leave(conn: Any, claim_id: int, reason: str) -> CoordinationClaim:
+    """Release migration territory and return the settled claim row."""
+    release(conn, claim_id, reason)
+    return get_claim(conn, claim_id)
 
 
 def _p(conn: Any) -> str:
@@ -126,30 +123,28 @@ def release_for_terminal_item(
     model_name = _declared_model(row[1])
     if model_name is None:
         return None
-    lease = active_lease(
+    claim = active_claim(
         conn,
-        int(row[0]),
-        lease_key_for(model_name),
+        make_migration_serialization_target(
+            int(row[0]), model_name, int(item_id)
+        ),
         for_update=True,
     )
-    if (
-        lease is None
-        or lease.owner_kind != OWNER_KIND_ITEM
-        or lease.owner_item_id != int(item_id)
-    ):
+    if claim is None or claim.owner_item_id != int(item_id):
         return None
-    release_lease(
+    release(
         conn,
-        lease.id,
+        claim.id,
         f"item-terminal:{target_status}",
+        canonical_reason="completed",
         commit=False,
     )
-    return lease.id
+    return claim.id
 
 
 __all__ = [
+    "ACQUIRE_REASON",
     "enter",
     "leave",
-    "lease_key_for",
     "release_for_terminal_item",
 ]

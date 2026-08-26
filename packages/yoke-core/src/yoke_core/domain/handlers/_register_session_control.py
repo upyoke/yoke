@@ -78,7 +78,7 @@ def register(registry) -> None:
         _qualification.handle_qualification_open,
         PrivateRouteQualificationOpenRequest,
         PrivateRouteQualificationOpenResponse,
-        side_effects=["coordination_leases_insert"],
+        side_effects=["work_claims_insert"],
         owner_module=_qualification.__name__,
         guardrails=[
             "operator_override_required",
@@ -123,7 +123,7 @@ def register(registry) -> None:
             _models.MessageMutationResponse,
             [
                 "session_message_recipients_update",
-                "coordination_leases_update_released_at",
+                "work_claims_update_released_at",
             ],
         ),
         (
@@ -234,7 +234,7 @@ def register(registry) -> None:
         side_effects=[
             "session_relays_upsert",
             "session_control_jobs_lease",
-            "coordination_leases_update_released_at",
+            "work_claims_update_released_at",
         ],
         owner_module=_relay.__name__,
         adapter_status="internal",

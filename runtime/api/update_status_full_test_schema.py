@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from runtime.api.fixtures.schema_ddl_github_app import _GITHUB_APP_DDL
 from yoke_core.domain.sql_json import json_get
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 
 _SCHEMA_DDL = (
@@ -144,7 +145,7 @@ SELECT id,
              {json_get("envelope", "$.note")}) AS note
 FROM events WHERE event_type = 'task_status_change';
 """
-    + """\
+    + f"""\
 CREATE TABLE IF NOT EXISTS epic_task_files (
     id INTEGER PRIMARY KEY,
     epic_id INTEGER NOT NULL,
@@ -176,7 +177,7 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
 CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
@@ -202,7 +203,7 @@ CREATE TABLE IF NOT EXISTS project_capabilities (
     config TEXT,
     verified_at TEXT,
     created_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
-    settings TEXT DEFAULT '{}',
+    settings TEXT DEFAULT '{{}}',
     UNIQUE(project_id, type)
 );
 CREATE TABLE IF NOT EXISTS capability_secrets (

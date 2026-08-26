@@ -95,9 +95,13 @@ class PrivateRouteQualificationScope(BaseModel):
         ).encode("utf-8")
 
     @property
+    def grant_key(self) -> str:
+        """The scope encoded as one opaque token, self-describing."""
+        return urlsafe_b64encode(self.canonical_bytes()).decode("ascii").rstrip("=")
+
+    @property
     def lease_key(self) -> str:
-        encoded = urlsafe_b64encode(self.canonical_bytes()).decode("ascii").rstrip("=")
-        return f"{QUALIFICATION_LEASE_PREFIX}{encoded}"
+        return f"{QUALIFICATION_LEASE_PREFIX}{self.grant_key}"
 
     @property
     def digest(self) -> str:

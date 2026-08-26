@@ -1,4 +1,4 @@
-"""Lease, baseline, verdict, and evidence runtime for Machine QA methods."""
+"""Claim, baseline, verdict, and evidence runtime for Machine QA methods."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ from dataclasses import dataclass
 from collections.abc import Callable
 from typing import Any, Mapping
 
-from yoke_core.domain.coordination_leases import (
-    Lease,
-    LeaseHeldError,
-    LeaseStaleHolderError,
-    acquire_lease,
-    active_lease,
-    release_lease,
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
+from yoke_core.domain.coordination_claims import (
+    CoordinationClaimHeldError,
+    CoordinationClaimStaleHolderError,
+    acquire,
+    active_claim,
+    release,
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.host_baseline_operations import (
@@ -38,8 +38,7 @@ from yoke_core.domain.machine_qa_case_result import (
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
-from yoke_core.domain.machine_qa_capability import lease_key
-from yoke_core.domain.machine_qa_host_registrar import host_lease_project_id
+from yoke_core.domain.machine_qa_capability import host_claim_target
 from yoke_core.domain.machine_verification_recording import (
     record_test_machine_verification,
 )
@@ -52,7 +51,7 @@ class MachineQaLease:
     conn: Any
     control: HostControl
     material: TestMachineMaterial
-    lease: Lease
+    lease: CoordinationClaim
     owns_lease: bool = True
     progress_callback: Callable[[], None] | None = None
     allowed_operator_urls: tuple[str, ...] = ()
@@ -193,7 +192,7 @@ class MachineQaLease:
                 raise MachineQaExecutionError(
                     "owned test-machine lease has no authority connection"
                 )
-            release_lease(self.conn, self.lease.id, reason)
+            release(self.conn, self.lease.id, reason)
         self.closed = True
 
     def __enter__(self) -> "MachineQaLease":
@@ -208,29 +207,22 @@ def acquire_machine_qa_lease(
     *,
     project: str,
     session_id: str,
-    actor_id: str | None = None,
 ) -> MachineQaLease:
-    """Materialize the approved adapter, then acquire its resource lease."""
+    """Materialize the approved adapter, then acquire its resource claim.
+
+    The holding actor is the acquiring session's own actor, read from the
+    session row rather than passed in, so a claim can never disagree with
+    the identity that took it.
+    """
     control, material = resolve_host_control(conn, project=project)
     resource_name = str(material.settings["resource_name"])
-    resource_lease_key = lease_key(resource_name)
-    lease_project_id = host_lease_project_id(conn, resource_name)
+    target = host_claim_target(resource_name)
     try:
-        lease = acquire_lease(
-            conn,
-            lease_project_id,
-            resource_lease_key,
-            session_id,
-            actor_id=actor_id,
-        )
-    except LeaseStaleHolderError as exc:
+        lease = acquire(conn, target, session_id, reason="machine-qa-execution")
+    except CoordinationClaimStaleHolderError as exc:
         raise MachineQaExecutionError(str(exc)) from None
-    except LeaseHeldError as exc:
-        held = active_lease(
-            conn,
-            lease_project_id,
-            resource_lease_key,
-        )
+    except CoordinationClaimHeldError as exc:
+        held = active_claim(conn, target)
         if held is None:
             raise MachineQaExecutionError(
                 "test-machine lease changed while acquiring; retry execution"
@@ -253,7 +245,6 @@ def verify_test_machine(
     *,
     project: str,
     session_id: str,
-    actor_id: str | None = None,
 ) -> dict[str, Any]:
     """Verify connection, control bridge, and both registered baselines."""
     checks: list[dict[str, Any]] = []
@@ -262,7 +253,6 @@ def verify_test_machine(
         conn,
         project=project,
         session_id=session_id,
-        actor_id=actor_id,
     ) as execution:
         for name, action in (
             ("connection", execution.control.check_connection),

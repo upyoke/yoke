@@ -14,7 +14,7 @@ from yoke_core.domain.handlers.machine_qa_case_evidence import (
     record_machine_case_result as _record_machine_case_result,
 )
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
-from yoke_core.domain.coordination_lease_contention import waiting_lease_evidence
+from yoke_core.domain.coordination_claim_contention import waiting_claim_evidence
 from yoke_core.domain.machine_qa_execution_contract import (
     HostControlExecutionContract,
 )
@@ -89,7 +89,7 @@ def _waiting_result(held: Any) -> MachineCaseResult:
             "runner_id": "host_control",
             "machine": held.machine,
             "case_started": False,
-            "lease": waiting_lease_evidence(held.lease, held.contention),
+            "lease": waiting_claim_evidence(held.lease, held.contention),
         },
     )
 
@@ -153,7 +153,6 @@ def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 project=str(case["project"]),
                 session_id=request.actor.session_id,
-                actor_id=request.actor.actor_id,
                 operation="case",
                 baselines=(
                     (str(case["host_baseline"]),) if case.get("host_baseline") else ()

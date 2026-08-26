@@ -1,13 +1,13 @@
-"""BOARD.md path-claim and coordination-lease keycap rendering.
+"""BOARD.md path-claim and coordination-claim keycap rendering.
 
 Sibling of :mod:`yoke_contracts.board.sections_sessions`. Owns the path-claim
-and coordination-lease decoration logic for the existing Claims column:
+and coordination-claim decoration logic for the existing Claims column:
 
 * ``PREFIX-N 📁<total>`` — work_claim with same-item path_claim decoration.
 * ``📁<total> (PREFIX-N)`` — orphan path_claim with parens shape.
 * ``📁<total> (🔩 <process_key>)`` — process-anchored orphan via the owning
   work claim.
-* ``🔒 <lease_key>`` — coordination lease, project-scoped.
+* ``🔒 <key>`` — shared-operation coordination claim.
 
 Keeps :mod:`sections_sessions` lean: the wire-in layer fetches claims and
 calls :func:`build_session_keycaps` for the final ordered, decorated target
@@ -23,159 +23,15 @@ from typing import Dict, List, Optional, Tuple
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import item_ref
 from yoke_contracts.board.sections_sessions_layout import _dedup_lease_rows
+from yoke_contracts.board.sections_sessions_claim_reads import (
+    _path_claims_for_items,
+    coordination_claims_for_session,
+    path_claims_for_session,
+)
+from yoke_contracts.coordination_claim_keys import (
+    TARGET_KIND_MIGRATION_SERIALIZATION,
+)
 from yoke_contracts.item_ref import format_item_ref
-
-
-PATH_GLYPH = "\U0001f4c1"  # 📁
-LEASE_GLYPH = "\U0001f512"  # 🔒
-PROCESS_GLYPH = "🔩"
-
-
-def path_claims_for_session(
-    db: BoardDBLike,
-    session_id: str,
-    *,
-    active_only: bool,
-) -> List[Tuple]:
-    """Fetch orphan path_claims attributable to ``session_id``.
-
-    Returns only true session-owned or process-owned-via-held-work-claim
-    rows — item-owned claims an item owns are intentionally NOT returned
-    here even when the session registered them; they roll into the
-    work-claim file count via :func:`_path_claims_for_items`. The
-    registering session is provenance, not authority.
-
-    Two match branches (any one returns the row):
-
-    1. Typed session-owned: ``owner_kind='session'`` AND
-       ``owner_session_id = session_id``.
-    2. Typed process-owned via a work_claim this session holds:
-       ``owner_kind='process'`` AND ``owner_work_claim_id`` resolves
-       to a ``work_claims`` row with ``session_id = session_id``.
-    Item-owned claims are excluded here; they roll up through :func:`_path_claims_for_items`.
-
-    Rows: (claim_id, item_id, work_claim_id, released_at, cancelled_at,
-    release_reason, cancel_reason, declared_count). Terminal rows
-    (released OR cancelled) are filtered when ``active_only`` is True.
-    """
-    terminal_filter = (
-        " AND pc.released_at IS NULL AND pc.cancelled_at IS NULL "
-        if active_only
-        else ""
-    )
-    return db.query_quiet(
-        f"""
-        SELECT pc.id, pc.owner_item_id AS item_id,
-               pc.owner_work_claim_id AS work_claim_id,
-               pc.released_at, pc.cancelled_at,
-               pc.release_reason, pc.cancel_reason,
-               (SELECT COUNT(*)
-                FROM path_claim_targets pct
-                WHERE pct.claim_id = pc.id) AS declared_count
-        FROM path_claims pc
-        WHERE (
-          (pc.owner_kind = 'session' AND pc.owner_session_id = %s) OR
-          (pc.owner_kind = 'process' AND pc.owner_work_claim_id IN (
-              SELECT id FROM work_claims WHERE session_id = %s
-          ))
-        )
-        {terminal_filter}
-        ORDER BY pc.id ASC
-        """,
-        (session_id, session_id),
-    )
-
-
-def _path_claims_for_items(
-    db: BoardDBLike,
-    item_ids: List[int],
-    *,
-    active_only: bool,
-) -> List[Tuple]:
-    """Fetch typed item-owned path_claims for the given ``item_ids``.
-
-    Normal work-item file ownership is the typed ``owner_kind='item'``
-    (with the typed ``owner_item_id`` column). Active-session rendering rolls these in so the
-    Claims column reflects the same file authority everyone else
-    sees, regardless of which session registered the claim.
-
-    Row shape mirrors :func:`path_claims_for_session`. Terminal rows
-    are filtered when ``active_only`` is True. Returns an empty list
-    when ``item_ids`` is empty so callers do not need to guard the
-    no-work-claim case before invoking.
-    """
-    if not item_ids:
-        return []
-    terminal_filter = (
-        " AND pc.released_at IS NULL AND pc.cancelled_at IS NULL "
-        if active_only
-        else ""
-    )
-    placeholders = ",".join("%s" for _ in item_ids)
-    return db.query_quiet(
-        f"""
-        SELECT pc.id, pc.owner_item_id AS item_id,
-               pc.owner_work_claim_id AS work_claim_id,
-               pc.released_at, pc.cancelled_at,
-               pc.release_reason, pc.cancel_reason,
-               (SELECT COUNT(*)
-                FROM path_claim_targets pct
-                WHERE pct.claim_id = pc.id) AS declared_count
-        FROM path_claims pc
-        WHERE (
-          (pc.owner_kind = 'item' AND pc.owner_item_id IN ({placeholders}))
-        )
-        {terminal_filter}
-        ORDER BY pc.id ASC
-        """,
-        tuple(item_ids),
-    )
-
-
-def leases_for_session(
-    db: BoardDBLike,
-    session_id: str,
-    *,
-    active_only: bool,
-) -> List[Tuple]:
-    """Fetch coordination_leases for ``session_id``.
-
-    Rows: (lease_id, lease_key, released_at, release_reason) plus
-    owner_kind / owner_item_id when the recorded payload has them.
-    Terminal leases are filtered when ``active_only`` is True.
-    """
-    terminal_filter = " AND released_at IS NULL " if active_only else ""
-    typed_sql = f"""
-        SELECT cl.id, cl.lease_key, cl.released_at, cl.release_reason,
-               cl.owner_kind, cl.owner_item_id
-        FROM coordination_leases cl
-        WHERE (
-          (cl.owner_kind = 'session' AND cl.owner_session_id = %s)
-          OR cl.session_id = %s
-          OR (cl.owner_kind = 'item' AND cl.owner_item_id IN (
-              SELECT CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER)
-              FROM work_claims wc
-              WHERE wc.session_id = %s AND wc.target_kind = 'item'
-          ))
-        )
-        {terminal_filter}
-        ORDER BY cl.id DESC
-        """
-    typed_params = (session_id, session_id, session_id)
-    probe = getattr(db, "has_query_quiet", None)
-    if callable(probe) and not probe(typed_sql, typed_params):
-        return db.query_quiet(
-            f"""
-            SELECT id, lease_key, released_at, release_reason
-            FROM coordination_leases
-            WHERE session_id = %s
-            {terminal_filter}
-            ORDER BY id DESC
-            """,
-            (session_id,),
-        )
-    return db.query_quiet(typed_sql, typed_params)
-
 
 def _process_anchor(db: BoardDBLike, work_claim_id: Optional[int]) -> Optional[str]:
     """Resolve a work-claim id to its process key, when process-kind."""
@@ -263,7 +119,7 @@ def build_session_keycaps(
         active_only=active_only,
     )
     lease_rows = _dedup_lease_rows(
-        leases_for_session(db, session_id, active_only=active_only),
+        coordination_claims_for_session(db, session_id, active_only=active_only),
     )
 
     # Normal work-item file ownership lives on path_claims.owner_item_id and is
@@ -323,12 +179,15 @@ def build_session_keycaps(
                 cell = f"{PATH_GLYPH}{count}"
         decorated_targets.append(cell)
 
-    # Coordination leases — always separate keycaps, never decorate work_claims.
+    # Coordination claims — always separate keycaps, never decorate work_claims.
     for lease_row in lease_rows:
         lease_key = lease_row[1] or "?"
-        owner_kind = lease_row[4] if len(lease_row) > 4 else None
+        target_kind = lease_row[4] if len(lease_row) > 4 else None
         owner_item_id = lease_row[5] if len(lease_row) > 5 else None
-        if owner_kind == "item" and owner_item_id is not None:
+        if (
+            target_kind == TARGET_KIND_MIGRATION_SERIALIZATION
+            and owner_item_id is not None
+        ):
             try:
                 ref = item_ref(db, int(owner_item_id))
             except Exception:
@@ -344,6 +203,5 @@ __all__ = [
     "PATH_GLYPH",
     "PROCESS_GLYPH",
     "build_session_keycaps",
-    "leases_for_session",
     "path_claims_for_session",
 ]

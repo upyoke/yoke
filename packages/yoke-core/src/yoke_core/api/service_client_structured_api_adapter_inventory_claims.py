@@ -81,20 +81,20 @@ CLAIMS_ADAPTERS = [
         "yoke claims path coordination-decision-build",
     ),
     AdapterEntry(
-        "claims.coordination_lease.acquire",
-        "python3 -m yoke_core.api.service_client coordination-lease-acquire",
+        "claims.coordination_claim.acquire",
+        "python3 -m yoke_core.api.service_client coordination-claim-acquire",
     ),
     AdapterEntry(
-        "claims.coordination_lease.heartbeat",
-        "python3 -m yoke_core.api.service_client coordination-lease-heartbeat",
+        "claims.coordination_claim.heartbeat",
+        "python3 -m yoke_core.api.service_client coordination-claim-heartbeat",
     ),
     AdapterEntry(
-        "claims.coordination_lease.release",
-        "python3 -m yoke_core.api.service_client coordination-lease-release",
+        "claims.coordination_claim.release",
+        "python3 -m yoke_core.api.service_client coordination-claim-release",
     ),
     AdapterEntry(
-        "claims.coordination_lease.list",
-        "python3 -m yoke_core.api.service_client coordination-lease-list",
+        "claims.coordination_claim.list",
+        "python3 -m yoke_core.api.service_client coordination-claim-list",
     ),
     AdapterEntry(
         "claims.steering.acquire",

@@ -60,7 +60,7 @@ from yoke_core.domain.migration_apply_contract import (
     STATE_TEST_VERIFIED, STATE_REHEARSED, STATE_BACKUP_CREATED,
     STATE_LIVE_APPLIED, STATE_LIVE_VERIFIED, STATE_COMPLETED,
     FAIL_TEST_COPY, FAIL_TEST_APPLY, FAIL_TEST_VERIFY, FAIL_BACKUP,
-    FAIL_LIVE_APPLY, FAIL_LIVE_VERIFY, LEASE_KEY_PREFIX,
+    FAIL_LIVE_APPLY, FAIL_LIVE_VERIFY,
     MigrationApplyError, ProfileNotApplyError, CompatibilityClassError,
     RehearsalStaleError, RehearsalMissingError, ModuleResolutionError,
     ModuleContractError, ModuleAttemptResult,
@@ -69,7 +69,7 @@ from yoke_core.domain.migration_apply_contract import (
 from yoke_core.domain.migration_apply_format import (
     format_rehearse,
 )
-from yoke_core.domain.coordination_leases import LeaseHeldError
+from yoke_core.domain.coordination_claims import CoordinationClaimHeldError
 from yoke_core.domain.migration_apply_rehearse import rehearse
 from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
 
@@ -128,7 +128,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             result = rehearse(item_id)
             print(format_rehearse(result))
             return 0 if result.all_succeeded else 1
-    except (LeaseHeldError, MigrationApplyError) as exc:
+    except (CoordinationClaimHeldError, MigrationApplyError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     return 1
@@ -140,7 +140,6 @@ __all__ = [
     "FAIL_TEST_APPLY",
     "FAIL_TEST_COPY",
     "FAIL_TEST_VERIFY",
-    "LEASE_KEY_PREFIX",
     "CompatibilityClassError",
     "MigrationApplyError",
     "ModuleAttemptResult",

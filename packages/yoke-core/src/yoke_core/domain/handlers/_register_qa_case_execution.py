@@ -45,7 +45,7 @@ def register(registry) -> None:
             target_kinds=["item", "deployment_run"],
             side_effects=[
                 "qa_plan_execution_write",
-                "coordination_lease_heartbeat_or_release",
+                "coordination_claim_heartbeat_or_release",
             ],
             emitted_event_names=["YokeFunctionCalled"],
             guardrails=[

@@ -18,6 +18,7 @@ from yoke_contracts.executor_labels import (
     CANONICAL_HARNESS_IDS,
     KNOWN_SURFACE_LABELS,
 )
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 
 def create_session_tables(conn: Any) -> None:
@@ -88,7 +89,7 @@ def create_session_tables(conn: Any) -> None:
           id INTEGER PRIMARY KEY,
           session_id TEXT NOT NULL,
           target_kind TEXT NOT NULL CONSTRAINT work_claims_target_kind_check
-            CHECK(target_kind IN ('item','epic_task','process','steering')),
+            CHECK({TARGET_KIND_CHECK_SQL}),
           scope TEXT NOT NULL,
           claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
           claimed_at TEXT NOT NULL,
