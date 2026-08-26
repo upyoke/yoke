@@ -10,12 +10,14 @@ from __future__ import annotations
 LIVENESS_ACTIVE = "active"
 LIVENESS_STALE = "stale"
 LIVENESS_ENDED = "ended"
+LIVENESS_TERMINATED = "terminated"
 
 #: The states a session row can be in, in narrowing-to-widening order.
 LIVENESS_STATES: tuple[str, ...] = (
     LIVENESS_ACTIVE,
     LIVENESS_STALE,
     LIVENESS_ENDED,
+    LIVENESS_TERMINATED,
 )
 
 #: Widening sentinel: every state, named explicitly by the caller.
@@ -32,4 +34,5 @@ __all__ = [
     "LIVENESS_ENDED",
     "LIVENESS_STALE",
     "LIVENESS_STATES",
+    "LIVENESS_TERMINATED",
 ]

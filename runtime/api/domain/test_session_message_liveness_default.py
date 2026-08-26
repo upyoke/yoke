@@ -109,9 +109,7 @@ def test_a_named_session_survives_a_bulk_anchor_in_the_same_selector() -> None:
 def test_an_item_anchor_reaching_an_ended_holder_is_unaffected() -> None:
     conn = _connection_with_inactive_sessions()
     try:
-        conn.execute(
-            "UPDATE work_claims SET session_id=? WHERE id=1", (ENDED,)
-        )
+        conn.execute("UPDATE work_claims SET session_id=? WHERE id=1", (ENDED,))
         conn.commit()
 
         assert _resolved(conn, item_refs=["ALP-1"]) == [ENDED]
@@ -133,7 +131,12 @@ def test_preview_names_the_applied_liveness_filter() -> None:
         )
 
         assert default["applied_liveness"] == ["active"]
-        assert widened["applied_liveness"] == ["active", "stale", "ended"]
+        assert widened["applied_liveness"] == [
+            "active",
+            "stale",
+            "ended",
+            "terminated",
+        ]
     finally:
         conn.close()
 
@@ -145,7 +148,12 @@ def test_an_exact_anchor_preview_names_every_state() -> None:
             conn, actor_id=10, selector=selector(session_ids=["s1"]), now=NOW
         )
 
-        assert preview["applied_liveness"] == ["active", "stale", "ended"]
+        assert preview["applied_liveness"] == [
+            "active",
+            "stale",
+            "ended",
+            "terminated",
+        ]
     finally:
         conn.close()
 

@@ -52,7 +52,10 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     executor_version TEXT, machine_id TEXT, workspace TEXT NOT NULL DEFAULT '',
     project_id INTEGER NOT NULL,
     mode TEXT NOT NULL DEFAULT 'wait', offered_at TEXT NOT NULL,
-    last_heartbeat TEXT NOT NULL, ended_at TEXT, offer_envelope TEXT,
+    last_heartbeat TEXT NOT NULL, ended_at TEXT,
+    terminated_at TEXT, terminated_by_actor_id INTEGER,
+    terminated_by_session_id TEXT, termination_reason TEXT,
+    offer_envelope TEXT,
     actor_id INTEGER, last_tool_call_at TEXT,
     tool_call_count INTEGER NOT NULL DEFAULT 0,
     episode_started_at TEXT, pending_resume_notice TEXT

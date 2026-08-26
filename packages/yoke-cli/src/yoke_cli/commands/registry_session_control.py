@@ -49,6 +49,9 @@ from yoke_cli.commands.adapters.session_control_qualification import (
 from yoke_cli.commands.adapters.session_control_roster import (
     session_control_roster_list,
 )
+from yoke_cli.commands.adapters.session_control_termination import (
+    session_terminate,
+)
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -113,6 +116,10 @@ SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
         session_launch_reconcile,
     ),
     ("sessions", "list"): ("sessions.list", session_control_roster_list),
+    ("session-control", "session", "terminate"): (
+        "session_control.session.terminate",
+        session_terminate,
+    ),
 }
 
 
@@ -146,6 +153,10 @@ SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute
     ("sessions", "create"): (
         "session_control.launch.create",
         sessions_create,
+    ),
+    ("sessions", "terminate"): (
+        "session_control.session.terminate",
+        session_terminate,
     ),
 }
 

@@ -29,7 +29,10 @@ _LONG_AGO_MINUTES = 60 * 24 * 30
 
 def _request(payload: dict | None = None) -> FunctionCallRequest:
     return FunctionCallRequest(
-        function="sessions.list", actor=ActorContext(actor_id=None, session_id=""), target=TargetRef(kind="global"), payload=payload or {}
+        function="sessions.list",
+        actor=ActorContext(actor_id=None, session_id=""),
+        target=TargetRef(kind="global"),
+        payload=payload or {},
     )
 
 
@@ -40,6 +43,7 @@ def _insert_session(
     last_heartbeat: str,
     last_tool_call_at: str | None = None,
     ended_at: str | None = None,
+    terminated_at: str | None = None,
     executor: str = "claude-code",
     lane: str = "primary",
     mode: str = "wait",
@@ -51,8 +55,8 @@ def _insert_session(
         "INSERT INTO harness_sessions ("
         "session_id, executor, provider, model, execution_lane, workspace, "
         "project_id, mode, offered_at, last_heartbeat, last_tool_call_at, "
-        "ended_at, actor_id, current_item_id"
-        ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "ended_at, terminated_at, actor_id, current_item_id"
+        ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             session_id,
             executor,
@@ -66,6 +70,7 @@ def _insert_session(
             last_heartbeat,
             last_tool_call_at,
             ended_at,
+            terminated_at,
             actor_id,
             current_item_id,
         ),
@@ -77,26 +82,51 @@ def _insert_item_claim(conn, session_id: str, item_id: int) -> None:
     target = make_item_target(item_id)
     conn.execute(
         "INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, last_heartbeat, reason) VALUES (%s, %s, %s, %s, %s, %s)",
-        (session_id, target.kind, target.scope_json(), _iso(), _iso(), "implementation"),
+        (
+            session_id,
+            target.kind,
+            target.scope_json(),
+            _iso(),
+            _iso(),
+            "implementation",
+        ),
     )
     conn.commit()
 
 
 class TestLivenessDerivation:
-    def test_active_stale_and_ended_states(self, test_db):
+    def test_active_stale_ended_and_terminated_states(self, test_db):
         _insert_session(test_db, "s-active", last_heartbeat=_iso())
         _insert_session(test_db, "s-stale", last_heartbeat=_iso(_LONG_AGO_MINUTES))
-        _insert_session(test_db, "s-ended", last_heartbeat=_iso(_LONG_AGO_MINUTES), ended_at=_iso(_LONG_AGO_MINUTES))
+        _insert_session(
+            test_db,
+            "s-ended",
+            last_heartbeat=_iso(_LONG_AGO_MINUTES),
+            ended_at=_iso(_LONG_AGO_MINUTES),
+        )
+        _insert_session(
+            test_db,
+            "s-terminated",
+            last_heartbeat=_iso(_LONG_AGO_MINUTES),
+            ended_at=_iso(_LONG_AGO_MINUTES),
+            terminated_at=_iso(_LONG_AGO_MINUTES),
+        )
 
         by_id = {row["session_id"]: row for row in list_sessions()}
         assert by_id["s-active"]["liveness"] == "active"
         assert by_id["s-stale"]["liveness"] == "stale"
         assert by_id["s-ended"]["liveness"] == "ended"
+        assert by_id["s-terminated"]["liveness"] == "terminated"
 
     def test_recent_tool_call_keeps_an_old_heartbeat_session_active(self, test_db):
         # Tool activity keeps the session live even with an old heartbeat.
         recent_tool_call = _iso()
-        _insert_session(test_db, "s-tooling", last_heartbeat=_iso(_LONG_AGO_MINUTES), last_tool_call_at=recent_tool_call)
+        _insert_session(
+            test_db,
+            "s-tooling",
+            last_heartbeat=_iso(_LONG_AGO_MINUTES),
+            last_tool_call_at=recent_tool_call,
+        )
         rows = list_sessions()
         assert rows[0]["session_id"] == "s-tooling"
         assert rows[0]["liveness"] == "active"
@@ -104,11 +134,25 @@ class TestLivenessDerivation:
 
     def test_liveness_filter_and_rejection(self, test_db):
         _insert_session(test_db, "s-active", last_heartbeat=_iso())
-        _insert_session(test_db, "s-ended", last_heartbeat=_iso(_LONG_AGO_MINUTES), ended_at=_iso(_LONG_AGO_MINUTES))
+        _insert_session(
+            test_db,
+            "s-ended",
+            last_heartbeat=_iso(_LONG_AGO_MINUTES),
+            ended_at=_iso(_LONG_AGO_MINUTES),
+        )
+        _insert_session(
+            test_db,
+            "s-terminated",
+            last_heartbeat=_iso(_LONG_AGO_MINUTES),
+            ended_at=_iso(_LONG_AGO_MINUTES),
+            terminated_at=_iso(_LONG_AGO_MINUTES),
+        )
         active_only = list_sessions(liveness="active")
         assert [row["session_id"] for row in active_only] == ["s-active"]
         ended_only = list_sessions(liveness="ended")
         assert [row["session_id"] for row in ended_only] == ["s-ended"]
+        terminated_only = list_sessions(liveness="terminated")
+        assert [row["session_id"] for row in terminated_only] == ["s-terminated"]
         with pytest.raises(ValueError):
             list_sessions(liveness="running")
 
@@ -128,7 +172,14 @@ class TestClaimsAndAttribution:
             "session_id, target_kind, scope, claimed_at, last_heartbeat, "
             "released_at, release_reason"
             ") VALUES (%s, %s, %s, %s, %s, %s, 'completed')",
-            ("s-holder", target.kind, target.scope_json(), _iso(120), _iso(120), _iso(60)),
+            (
+                "s-holder",
+                target.kind,
+                target.scope_json(),
+                _iso(120),
+                _iso(120),
+                _iso(60),
+            ),
         )
         test_db.commit()
 
@@ -144,7 +195,13 @@ class TestClaimsAndAttribution:
         process_target = make_process_target(PROCESS_FEED, "yoke")
         test_db.execute(
             "INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, last_heartbeat) VALUES (%s, %s, %s, %s, %s)",
-            ("s-typed", process_target.kind, process_target.scope_json(), _iso(), _iso()),
+            (
+                "s-typed",
+                process_target.kind,
+                process_target.scope_json(),
+                _iso(),
+                _iso(),
+            ),
         )
         task_target = make_epic_task_target(9, 3)
         test_db.execute(
@@ -153,21 +210,30 @@ class TestClaimsAndAttribution:
         )
         test_db.commit()
 
-        targets = {claim["target_kind"]: claim["target"] for claim in list_sessions()[0]["claims"]}
+        targets = {
+            claim["target_kind"]: claim["target"]
+            for claim in list_sessions()[0]["claims"]
+        }
         assert targets["process"] == PROCESS_FEED
         assert targets["epic_task"] == "epic 9 task 3"
 
     def test_system_actor_attribution_is_honest(self, test_db):
-        row = test_db.execute("SELECT id FROM actors WHERE kind = 'system' LIMIT 1").fetchone()
+        row = test_db.execute(
+            "SELECT id FROM actors WHERE kind = 'system' LIMIT 1"
+        ).fetchone()
         system_actor_id = int(dict(row)["id"])
-        _insert_session(test_db, "s-system", last_heartbeat=_iso(), actor_id=system_actor_id)
+        _insert_session(
+            test_db, "s-system", last_heartbeat=_iso(), actor_id=system_actor_id
+        )
         rows = list_sessions()
         assert rows[0]["actor_kind"] == "system"
         assert rows[0]["actor_id"] == system_actor_id
         assert rows[0]["actor_label"]
 
     def test_current_item_renders_display_form(self, test_db):
-        _insert_session(test_db, "s-on-item", last_heartbeat=_iso(), current_item_id="17")
+        _insert_session(
+            test_db, "s-on-item", last_heartbeat=_iso(), current_item_id="17"
+        )
         assert list_sessions()[0]["current_item"] == "YOK-17"
 
     def test_roster_renders_public_ref_not_internal_id(self, test_db):
@@ -226,7 +292,10 @@ class TestHandler:
     def test_handler_project_filter_scopes_rows(self, test_db):
         create_session_control_tables(test_db)
         test_db.commit()
-        test_db.execute("INSERT INTO projects (id, slug, name, created_at) VALUES (%s, %s, %s, %s)", (77, "other", "Other", _iso()))
+        test_db.execute(
+            "INSERT INTO projects (id, slug, name, created_at) VALUES (%s, %s, %s, %s)",
+            (77, "other", "Other", _iso()),
+        )
         test_db.commit()
         _insert_session(test_db, "s-yoke", last_heartbeat=_iso())
         _insert_session(test_db, "s-other", last_heartbeat=_iso(), project_id=77)
@@ -251,7 +320,10 @@ class TestHandler:
     def test_handler_requires_global_target(self):
         outcome = handle_sessions_list(
             FunctionCallRequest(
-                function="sessions.list", actor=ActorContext(actor_id=None, session_id=""), target=TargetRef(kind="item", item_id=1), payload={}
+                function="sessions.list",
+                actor=ActorContext(actor_id=None, session_id=""),
+                target=TargetRef(kind="item", item_id=1),
+                payload={},
             )
         )
         assert not outcome.primary_success

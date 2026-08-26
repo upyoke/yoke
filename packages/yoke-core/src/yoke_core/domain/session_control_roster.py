@@ -50,7 +50,7 @@ def _identity_facts(
     marker = _marker(conn)
     rows = conn.execute(
         "SELECT session_id,project_id,executor_surface,executor_version,machine_id,"
-        "last_heartbeat,last_tool_call_at,ended_at,turn_posture,turn_posture_at "
+        "last_heartbeat,last_tool_call_at,ended_at,terminated_at,turn_posture,turn_posture_at "
         "FROM harness_sessions WHERE session_id IN ("
         + ",".join(marker for _ in ids)
         + ")",

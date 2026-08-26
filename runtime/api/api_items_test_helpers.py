@@ -105,7 +105,10 @@ CREATE TABLE harness_sessions (
     project_id INTEGER NOT NULL DEFAULT 1,
     executor TEXT, executor_surface TEXT, provider TEXT, model TEXT,
     execution_lane TEXT, executor_version TEXT, machine_id TEXT, workspace TEXT, mode TEXT,
-    offered_at TEXT, last_heartbeat TEXT, ended_at TEXT, offer_envelope TEXT,
+    offered_at TEXT, last_heartbeat TEXT, ended_at TEXT,
+    terminated_at TEXT, terminated_by_actor_id INTEGER,
+    terminated_by_session_id TEXT, termination_reason TEXT,
+    offer_envelope TEXT,
     current_item_id TEXT, current_item_set_at TEXT,
     recent_item_id TEXT, recent_item_status TEXT, recent_item_recorded_at TEXT,
     last_seen_main_sha TEXT, last_drift_check_at TEXT

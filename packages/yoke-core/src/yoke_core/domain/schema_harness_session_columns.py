@@ -34,6 +34,10 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("turn_posture", TURN_POSTURE_COLUMN_DDL),
         ("turn_posture_at", TURN_POSTURE_AT_COLUMN_DDL),
         ("native_thread_id", "TEXT DEFAULT NULL"),
+        ("terminated_at", "TEXT DEFAULT NULL"),
+        ("terminated_by_actor_id", "INTEGER DEFAULT NULL"),
+        ("terminated_by_session_id", "TEXT DEFAULT NULL"),
+        ("termination_reason", "TEXT DEFAULT NULL"),
     ):
         _add_column_if_not_exists(conn, "harness_sessions", column, ddl)
     conn.commit()

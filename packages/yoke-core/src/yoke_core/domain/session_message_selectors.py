@@ -46,7 +46,7 @@ def _session_rows(conn: Any) -> dict[str, dict[str, Any]]:
     rows = conn.execute(
         "SELECT session_id, project_id, executor, executor_surface, "
         "executor_version, machine_id, execution_lane, last_heartbeat, "
-        "last_tool_call_at, ended_at FROM harness_sessions ORDER BY session_id"
+        "last_tool_call_at, ended_at, terminated_at FROM harness_sessions ORDER BY session_id"
     ).fetchall()
     return {str(row["session_id"]): row_dict(row) for row in rows}
 

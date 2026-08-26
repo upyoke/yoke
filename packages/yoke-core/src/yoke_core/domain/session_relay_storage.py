@@ -253,6 +253,13 @@ def clear_relay_batch_when_drained(
     ).fetchone()
     if wake is not None:
         return
+    termination = conn.execute(
+        "SELECT 1 FROM session_termination_reaps "
+        f"WHERE lease_id={p} AND state='leased' LIMIT 1",
+        (batch_id,),
+    ).fetchone()
+    if termination is not None:
+        return
     conn.execute(
         "UPDATE session_relays SET lease_id=NULL,lease_expires_at=NULL "
         f"WHERE relay_id={p} AND lease_id={p}",

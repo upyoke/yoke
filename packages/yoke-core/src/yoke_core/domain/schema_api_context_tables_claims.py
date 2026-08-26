@@ -45,6 +45,10 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("turn_posture", "TEXT"),
             ("turn_posture_at", "TEXT"),
             ("ended_at", "TEXT"),
+            ("terminated_at", "TEXT"),
+            ("terminated_by_actor_id", "INTEGER"),
+            ("terminated_by_session_id", "TEXT"),
+            ("termination_reason", "TEXT"),
             ("last_tool_call_at", "TEXT"),
             ("tool_call_count", "INTEGER"),
             ("episode_started_at", "TEXT"),
@@ -87,13 +91,15 @@ CLAIMS_TABLES: dict[str, dict] = {
             "`status` column on harness_sessions; use mode for queue "
             "posture and recent_item_status for the most recent item "
             "lifecycle snapshot. There is NO `active` column; use "
-            "ended_at / last_heartbeat plus work_claims for liveness and "
+            "ended_at / terminated_at / last_heartbeat plus work_claims for liveness and "
             "ownership. There is likewise NO `state` column — the posture "
             "column is `mode` and the recent-item lifecycle snapshot is "
             "`recent_item_status`, neither named `state` — and NO "
             "`started_at` column: the session-offer timestamp is "
             "`offered_at`, with liveness / teardown on last_heartbeat / "
-            "ended_at. Native turn posture is first-class state: "
+            "ended_at. terminated_at is the permanent do-not-reactivate / "
+            "do-not-wake terminal state; its actor, session, and reason "
+            "columns record the authority that set it. Native turn posture is first-class state: "
             "turn_posture is running|waiting|unknown and turn_posture_at "
             "orders accepted hook/activity observations independently of "
             "claims, chain progress, and ended_at. Tool-call liveness is "

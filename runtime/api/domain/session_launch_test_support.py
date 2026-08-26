@@ -64,6 +64,7 @@ def relay_connection(
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_heartbeat TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN ended_at TEXT")
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN terminated_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
     conn.execute(
         "ALTER TABLE harness_sessions ADD COLUMN turn_posture TEXT "

@@ -52,6 +52,25 @@ D and stop the loop, never release a claim this session no longer owns.
 
 ### Step D: Session Cleanup
 
+#### Steering-owned worker termination
+
+When the steering loop launched or resumed a separate worker session, terminate
+that worker after its item reaches `done` or when the steering decision
+permanently aborts the worker:
+
+```bash
+yoke sessions terminate <worker-session-id> --reason "<completed or abort reason>"
+```
+
+This registered operation is the worker-lifecycle primitive. It ends the
+session with destructive claim release, cancels its undelivered messages,
+makes it permanently non-wakeable, and requests best-effort native-process
+reaping. A native task/process stop by itself is not session termination, and
+must not substitute for this command. If an intentional abort must cross a
+persisted chain-pending guard, the steering decision must also supply
+`--override-chain-end --chain-end-rationale "<why the pending chain is abandoned>"`;
+normal completed-worker cleanup does not assert the override.
+
 **The harness owns session lifetime — the loop does NOT terminate the session itself.** Before returning control at any terminal Step D handoff, explicitly release every active claim this session still owns:
 
 ```bash

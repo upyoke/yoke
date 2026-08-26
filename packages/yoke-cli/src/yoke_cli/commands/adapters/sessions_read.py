@@ -20,7 +20,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 SESSIONS_LIST_USAGE = (
-    "yoke sessions list [--project P] [--liveness active|stale|ended] "
+    "yoke sessions list [--project P] [--liveness active|stale|ended|terminated] "
     "[--limit N] [--session S] [--session-id S] [--json]"
 )
 
@@ -28,21 +28,22 @@ SESSIONS_LIST_USAGE = (
 def _cell(row: Dict[str, Any], field: str) -> str:
     value = row.get(field)
     if field == "claims":
-        return ",".join(
-            str(claim.get("target") or "") for claim in (value or [])
-        )
+        return ",".join(str(claim.get("target") or "") for claim in (value or []))
     return "" if value is None else str(value)
 
 
 def sessions_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke sessions list", description=SESSIONS_LIST_USAGE,
+        prog="yoke sessions list",
+        description=SESSIONS_LIST_USAGE,
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--liveness", default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
-        "--session", default=None, dest="session_filter",
+        "--session",
+        default=None,
+        dest="session_filter",
         help="Single-session liveness projection for exactly this id "
         "(--session-id remains the caller-identity override).",
     )

@@ -11,7 +11,7 @@ from yoke_contracts.session_control.private_route_qualification import (
 )
 
 
-RelayJobKind = Literal["launch", "wake"]
+RelayJobKind = Literal["launch", "wake", "terminate"]
 WAKE_LEASE_SECONDS = 90
 MAX_RELAY_LONG_POLL_SECONDS = 55
 RELAY_LONG_POLL_STEP_SECONDS = 1
@@ -70,6 +70,7 @@ class RelayJob:
     message_id: str | None = None
     target_session_id: str | None = None
     target_native_thread_id: str | None = None
+    target_launch_id: str | None = None
     requested_model: str | None = None
     presentation: str | None = None
     wake_mode: WakeMode | None = None

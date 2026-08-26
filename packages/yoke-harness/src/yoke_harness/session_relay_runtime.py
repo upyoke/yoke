@@ -171,6 +171,10 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
 
 
 def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
+    if str(job.get("job_kind") or "") == "terminate":
+        from yoke_harness.session_relay_termination import reap_terminated_session
+
+        return reap_terminated_session(job)
     try:
         context = execution_context(job)
     except (TypeError, ValueError):

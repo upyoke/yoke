@@ -14,6 +14,7 @@ from uuid import UUID
 
 from yoke_cli.config import machine_config
 from yoke_harness.session_launch_containment import release_supervised_native
+from yoke_harness.session_relay_termination import adopt_launched_session
 
 
 LAUNCH_CONTEXT_ENV = "YOKE_SESSION_LAUNCH_CONTEXT"
@@ -187,7 +188,12 @@ def mark_launch_attestation_delivered(
     )
     # Delivery only happens inside a registered session's own hook, so this is
     # the local proof that the native no longer needs containing.
-    release_supervised_native(projection.launch_id)
+    adopt_launched_session(
+        projection.launch_id,
+        projection.binding_id,
+        state_dir=state_dir,
+    )
+    release_supervised_native(projection.launch_id, state_dir=state_dir)
     if projection.binding_id:
         try:
             _handoff_path(projection.binding_id, state_dir).unlink(missing_ok=True)

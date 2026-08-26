@@ -40,12 +40,13 @@ def _begin_mutation(conn: Any) -> None:
 
 
 def _eligible_hook_event(conn: Any, session_id: str, hook_event: str) -> bool:
-    marker = _p(conn)
     row = conn.execute(
-        f"SELECT executor_surface FROM harness_sessions WHERE session_id={marker}",
+        f"SELECT executor_surface,terminated_at FROM harness_sessions WHERE session_id={_p(conn)}",
         (session_id,),
     ).fetchone()
     if row is None:
+        return False
+    if row[1] is not None:
         return False
     capability = capability_for_surface(str(row[0] or ""))
     return capability is not None and hook_event in capability.inject_events

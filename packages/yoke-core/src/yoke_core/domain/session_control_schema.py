@@ -19,6 +19,7 @@ SESSION_CONTROL_TABLES = (
     "session_launches",
     "session_launch_attempts",
     "session_relays",
+    "session_termination_reaps",
 )
 
 
@@ -184,6 +185,25 @@ def create_session_control_tables(conn: Any) -> None:
             ON session_relays(machine_id, connected_until);
         CREATE INDEX IF NOT EXISTS idx_session_relays_state_connected
             ON session_relays(state, connected_until);
+
+        CREATE TABLE IF NOT EXISTS session_termination_reaps (
+            target_session_id TEXT PRIMARY KEY REFERENCES harness_sessions(session_id),
+            project_id INTEGER NOT NULL REFERENCES projects(id),
+            machine_id TEXT,
+            executor_surface TEXT,
+            target_native_thread_id TEXT,
+            launch_id TEXT REFERENCES session_launches(launch_id),
+            state TEXT NOT NULL
+                CHECK(state IN ('pending','leased','succeeded','failed','unavailable')),
+            requested_at TEXT NOT NULL,
+            lease_id TEXT,
+            lease_expires_at TEXT,
+            completed_at TEXT,
+            result_code TEXT,
+            evidence TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_session_termination_reaps_machine_state
+            ON session_termination_reaps(machine_id, state, requested_at);
     """,
     )
     # CREATE TABLE IF NOT EXISTS never alters an existing table, so a column
