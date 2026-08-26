@@ -7,6 +7,9 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+)
 from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
@@ -48,13 +51,13 @@ def _seed_conflict(
     conn.close()
 
 
-def test_claim_work_reclaims_base_ttl_stale_claim(session_offer_db):
+def test_claim_work_reclaims_holdings_ttl_stale_claim(session_offer_db):
     db_path = session_offer_db["db_path"]
     _seed_conflict(
         db_path,
         session_offer_db["tmp_dir"],
         executor="claude-desktop",
-        minutes_ago=25,
+        minutes_ago=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 5,
     )
 
     result = _run_client(

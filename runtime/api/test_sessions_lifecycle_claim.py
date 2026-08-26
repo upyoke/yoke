@@ -7,10 +7,14 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-
-_STALE_TS_60 = (datetime.now(timezone.utc) - timedelta(minutes=60)).strftime(
-    "%Y-%m-%dT%H:%M:%SZ"
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
 )
+
+_STALE_TS_WITH_HOLDINGS = (
+    datetime.now(timezone.utc)
+    - timedelta(minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60)
+).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 from runtime.api.test_sessions import (
     _apply_on_backend,
@@ -108,12 +112,12 @@ class TestClaimWork:
         conn.execute(
             "UPDATE harness_sessions SET last_heartbeat = %s "
             "WHERE session_id = 'sess-stale'",
-            (_STALE_TS_60,),
+            (_STALE_TS_WITH_HOLDINGS,),
         )
         conn.execute(
             "UPDATE work_claims SET claimed_at = %s, last_heartbeat = %s "
             "WHERE session_id = 'sess-stale'",
-            (_STALE_TS_60, _STALE_TS_60),
+            (_STALE_TS_WITH_HOLDINGS, _STALE_TS_WITH_HOLDINGS),
         )
         # This should auto-reap sess-stale and succeed
         result = claim_work(conn, session_id="sess-new", item_id=99)
