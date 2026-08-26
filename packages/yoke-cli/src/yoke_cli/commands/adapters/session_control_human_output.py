@@ -276,6 +276,8 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
         ]
         if message_id:
             fields.insert(0, ("Message ID", message_id))
+        if result.get("applied_liveness"):
+            fields.append(("Liveness", ", ".join(result["applied_liveness"])))
         if "deduplicated" in result:
             fields.append(("Deduplicated", bool(result.get("deduplicated"))))
         if result.get("confirmation_token"):

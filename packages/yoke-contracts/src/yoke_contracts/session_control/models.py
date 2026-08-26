@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
+from yoke_contracts.session_control.liveness import LIVENESS_CHOICES
 
 
 MessageState = Literal["pending", "injected", "acknowledged", "expired", "cancelled"]
@@ -45,6 +46,12 @@ class RecipientSelector(BaseModel):
         unknown = sorted(set(self.executor_surfaces) - set(KNOWN_SURFACE_LABELS))
         if unknown:
             raise ValueError(f"unknown executor surfaces: {', '.join(unknown)}")
+        unknown_liveness = sorted(set(self.liveness) - set(LIVENESS_CHOICES))
+        if unknown_liveness:
+            raise ValueError(
+                f"unknown liveness states: {', '.join(unknown_liveness)}; "
+                f"choose from {', '.join(LIVENESS_CHOICES)}"
+            )
         if not any(
             (
                 self.session_ids,

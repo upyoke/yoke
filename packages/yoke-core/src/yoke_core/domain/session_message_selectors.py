@@ -15,6 +15,11 @@ from yoke_core.domain.project_identity import (
     resolve_project,
     resolve_project_slug,
 )
+from yoke_core.domain.session_message_liveness import (
+    applied_liveness,
+    is_bulk_evidence,
+    narrows_bulk_by_default,
+)
 from yoke_core.domain.session_message_routing import messageability, session_liveness
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -200,7 +205,13 @@ def _claim_metadata(
     return roles, lanes
 
 
-def _passes_filters(selector: RecipientSelector, recipient: ResolvedRecipient) -> bool:
+def _passes_filters(
+    selector: RecipientSelector,
+    recipient: ResolvedRecipient,
+    *,
+    explicit_liveness: tuple[str, ...] = (),
+    bulk_liveness: tuple[str, ...] = (),
+) -> bool:
     checks = (
         (selector.executor_families, {recipient.executor}),
         (selector.executor_surfaces, {recipient.executor_surface or ""}),
@@ -208,12 +219,20 @@ def _passes_filters(selector: RecipientSelector, recipient: ResolvedRecipient) -
         (selector.execution_lanes, {recipient.execution_lane}),
         (selector.worktree_lanes, recipient.worktree_lanes),
         (selector.machine_ids, {recipient.machine_id or ""}),
-        (selector.liveness, {recipient.liveness}),
+        # Expanded, so the ``all`` sentinel widens instead of matching nothing.
+        (explicit_liveness, {recipient.liveness}),
     )
-    return all(
+    if not all(
         not requested or bool(set(requested) & available)
         for requested, available in checks
-    )
+    ):
+        return False
+    # The bulk default narrows only recipients that a population anchor
+    # reached. A session the sender named, or an item/epic-task/process
+    # anchor resolved to, was chosen deliberately and keeps every state.
+    if bulk_liveness and is_bulk_evidence(recipient.resolution):
+        return recipient.liveness in bulk_liveness
+    return True
 
 
 def resolve_recipients(
@@ -222,8 +241,16 @@ def resolve_recipients(
     *,
     now: datetime | None = None,
 ) -> list[ResolvedRecipient]:
-    """Resolve unioned anchors, then intersect filters and deduplicate."""
+    """Resolve unioned anchors, then intersect filters and deduplicate.
+
+    A bulk anchor the sender did not qualify resolves against active
+    sessions only; see :mod:`yoke_core.domain.session_message_liveness`.
+    """
     current = now or utc_now()
+    narrows_by_default = narrows_bulk_by_default(selector)
+    states = applied_liveness(selector)
+    explicit_liveness = () if narrows_by_default or not selector.liveness else states
+    bulk_liveness = states if narrows_by_default else ()
     sessions = _session_rows(conn)
     claims = _claim_rows(conn)
     hits = _anchor_hits(conn, selector, sessions, claims)
@@ -265,7 +292,12 @@ def resolve_recipients(
             worktree_lanes=worktree_lanes,
             execution_lane=str(row.get("execution_lane") or ""),
         )
-        if _passes_filters(selector, recipient):
+        if _passes_filters(
+            selector,
+            recipient,
+            explicit_liveness=explicit_liveness,
+            bulk_liveness=bulk_liveness,
+        ):
             resolved.append(recipient)
     return resolved
 
@@ -284,4 +316,4 @@ def confirmation_token(
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-__all__ = ["confirmation_token", "resolve_recipients"]
+__all__ = ["applied_liveness", "confirmation_token", "resolve_recipients"]

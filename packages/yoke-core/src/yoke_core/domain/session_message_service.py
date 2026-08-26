@@ -11,6 +11,7 @@ from yoke_core.domain.session_message_authorization import (
     authorize_universe,
     can_read_project,
 )
+from yoke_core.domain.session_message_liveness import applied_liveness
 from yoke_core.domain.session_message_selectors import (
     confirmation_token,
     resolve_recipients,
@@ -43,6 +44,14 @@ def _public_recipients(recipients: list[ResolvedRecipient]) -> list[dict[str, An
     return [recipient.public() for recipient in recipients]
 
 
+def _selector_snapshot(selector: RecipientSelector) -> dict[str, Any]:
+    """Record the selector plus the liveness it actually resolved against."""
+    return {
+        **selector.model_dump(mode="json"),
+        "applied_liveness": list(applied_liveness(selector)),
+    }
+
+
 def preview_message(
     conn: Any,
     *,
@@ -59,6 +68,7 @@ def preview_message(
     return {
         "recipients": public,
         "recipient_count": len(public),
+        "applied_liveness": list(applied_liveness(selector)),
         "confirmation_token": confirmation_token(selector, recipients),
     }
 
@@ -135,7 +145,7 @@ def send_message(
             sender_actor_id=actor_id,
             sender_session_id=sender_session_id,
             body=body,
-            selector_snapshot=selector.model_dump(mode="json"),
+            selector_snapshot=_selector_snapshot(selector),
             idempotency_key=idempotency_key,
             created_at=current,
             expires_at=expires_at,
