@@ -63,7 +63,20 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
             slug TEXT NOT NULL, name TEXT NOT NULL,
             public_item_prefix TEXT NOT NULL
         );
-        CREATE TABLE actors (id INTEGER PRIMARY KEY);
+        CREATE TABLE actors (
+            id INTEGER PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT 'human',
+            system_component TEXT
+        );
+        CREATE TABLE actor_labels (
+            id INTEGER PRIMARY KEY,
+            actor_id INTEGER NOT NULL REFERENCES actors(id),
+            surface TEXT NOT NULL,
+            label TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(surface, label),
+            UNIQUE(actor_id, surface)
+        );
         CREATE TABLE roles (
             id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE,
             description TEXT, created_at TEXT NOT NULL
@@ -122,6 +135,9 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         INSERT INTO projects (id,org_id,slug,name,public_item_prefix) VALUES
             (1,1,'alpha','Alpha','ALP'), (2,1,'beta','Beta','BET');
         INSERT INTO actors (id) VALUES (10),(11),(12),(13);
+        INSERT INTO actor_labels (actor_id,surface,label,created_at) VALUES
+            (10,'display','Ada','2026-08-22T12:00:00Z'),
+            (11,'display','Grace','2026-08-22T12:00:00Z');
         INSERT INTO items (id,project_id,project_sequence) VALUES
             (101,1,1),(201,2,1);
         INSERT INTO item_worktrees (id,item_id,lane_role,state,branch,path) VALUES

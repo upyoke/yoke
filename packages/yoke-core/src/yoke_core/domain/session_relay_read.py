@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
+from yoke_core.domain.actors import ActorError
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_relay_storage import marker
 from yoke_core.domain.session_relay_types import SessionRelayError
@@ -25,6 +27,17 @@ def _document(value: Any, fallback: Any) -> Any:
         return json.loads(str(value or ""))
     except (TypeError, ValueError):
         return fallback
+
+
+def _owner_names(conn: Any, actor_ids: set[int]) -> dict[int, str]:
+    """Resolve each owning actor once, so a roster is not one query per card."""
+    names: dict[int, str] = {}
+    for actor_id in sorted(actor_ids):
+        try:
+            names[actor_id] = actor_display_name(conn, actor_id)
+        except ActorError:
+            names[actor_id] = ""
+    return names
 
 
 def list_visible_relays(
@@ -55,11 +68,18 @@ def list_visible_relays(
     rows = conn.execute(
         "SELECT relay_id,machine_id,hostname,relay_version,surface_versions,"
         "project_checkouts,first_seen_at,last_seen_at,connected_until,state,"
-        "last_job_at FROM session_relays"
+        "last_job_at,actor_id FROM session_relays"
         + where
         + " ORDER BY last_seen_at DESC,relay_id",
         tuple(params),
     ).fetchall()
+
+    # A machine roster holds many more relays than distinct owners, so
+    # resolve each owner's name once rather than once per card.
+    owners = _owner_names(
+        conn,
+        {int(_value(row, "actor_id", 11)) for row in rows},
+    )
 
     result: list[dict[str, Any]] = []
     for row in rows:
@@ -77,6 +97,10 @@ def list_visible_relays(
         result.append(
             {
                 "relay_id": str(_value(row, "relay_id", 0)),
+                # The owner's name, never the raw actor id: a relay is visible
+                # to everyone who shares one of its projects, and they need to
+                # know whose machine they are about to launch onto.
+                "owner": owners.get(int(_value(row, "actor_id", 11)), ""),
                 "machine_id": str(_value(row, "machine_id", 1)),
                 "hostname": str(_value(row, "hostname", 2)),
                 "relay_version": _value(row, "relay_version", 3),

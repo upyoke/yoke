@@ -21,6 +21,7 @@ function relayCard(documentNode, relay) {
   card.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
   for (const [label, value] of [
+    ["owner", relay.owner],
     ["machine", relay.machine_id],
     ["relay version", relay.relay_version],
     ["relay state", relay.state],
