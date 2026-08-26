@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 import time
@@ -15,11 +15,8 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.function_ids import RELAY_FUNCTION_IDS
+from yoke_harness.session_relay_diagnostic_retention import retain_private_diagnostic
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
-from yoke_harness.session_relay_native_diagnostics import (
-    NativeDiagnosticError,
-    store_native_diagnostic,
-)
 from yoke_harness.session_relay_report_delivery import (
     REPORT_RETRY_SECONDS,
     checkpoint_launch_result,
@@ -27,6 +24,9 @@ from yoke_harness.session_relay_report_delivery import (
     deliver_terminal_report,
     diagnostic_outcome_fields,
     retry_pending_reports,
+)
+from yoke_harness.session_relay_resume_settlement import (
+    settle_finished_native_resumes,
 )
 from yoke_harness.session_relay_runtime import RelayAdapterResult, run_registered_job
 from yoke_harness.session_relay_schedule import (
@@ -76,25 +76,6 @@ class ServeOnceOutcome:
 
 Dispatcher = Callable[..., Any]
 JobRunner = Callable[[Mapping[str, Any]], RelayAdapterResult]
-_NATIVE_FAILURE_CLASSES = frozenset(
-    {
-        "adapter_exception",
-        "background_session_in_use",
-        "native_exception",
-        "no_conversation_found",
-        "process_exit",
-    }
-)
-_NATIVE_ERROR_STEPS = frozenset(
-    {
-        "launch",
-        "native_command",
-        "resume",
-        "session_lookup",
-        "session_stop",
-        "state_poll",
-    }
-)
 
 
 def _error_code(response: Any) -> str:
@@ -119,50 +100,6 @@ def _report_payload(
     }
 
 
-def _retain_private_diagnostic(
-    result: RelayAdapterResult,
-    *,
-    state_dir: Path | None,
-    inventory: RelayInventory | None = None,
-) -> RelayAdapterResult:
-    private = result.private_diagnostic
-    if private is None:
-        return result
-    failure_class = (
-        private.failure_class
-        if private.failure_class in _NATIVE_FAILURE_CLASSES
-        else "adapter_exception"
-    )
-    evidence = dict(result.evidence)
-    evidence["native_error_class"] = failure_class
-    evidence["native_error_step"] = (
-        private.error_step
-        if private.error_step in _NATIVE_ERROR_STEPS
-        else "native_command"
-    )
-    if inventory is not None:
-        evidence["relay_id"] = inventory.relay_id
-        evidence["machine_id"] = inventory.machine_id
-    try:
-        receipt = store_native_diagnostic(
-            private.stdout,
-            private.stderr,
-            state_dir=state_dir,
-        )
-    except NativeDiagnosticError:
-        evidence["diagnostic_availability"] = "unavailable"
-    else:
-        evidence.update(
-            {
-                "diagnostic_availability": "relay_local",
-                "diagnostic_expires_at": receipt.expires_at,
-                "native_diagnostic_ref": receipt.reference,
-                "native_error_sha256": receipt.fingerprint_sha256,
-            }
-        )
-    return replace(result, evidence=evidence, private_diagnostic=None)
-
-
 def _run_and_report(
     inventory: RelayInventory,
     job: Mapping[str, Any],
@@ -179,10 +116,11 @@ def _run_and_report(
         job,
         timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
     )
-    result = _retain_private_diagnostic(
+    result = retain_private_diagnostic(
         runner(job),
         state_dir=state_dir,
-        inventory=inventory,
+        relay_id=inventory.relay_id,
+        machine_id=inventory.machine_id,
     )
     result = checkpoint_launch_result(
         dispatcher,
@@ -244,6 +182,14 @@ def _poll(
             REPORT_RETRY_SECONDS,
             error_code="relay_report_pending",
         )
+    settle_finished_native_resumes(
+        dispatcher,
+        RELAY_REPORT_FUNCTION_ID,
+        relay_id=inventory.relay_id,
+        machine_id=inventory.machine_id,
+        state_dir=state_dir,
+        timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
+    )
     response = dispatcher(
         function_id=RELAY_CLAIM_FUNCTION_ID,
         target=TargetRef(kind="global"),

@@ -14,6 +14,7 @@ RESUME_RUNAWAY_SECONDS = 60 * 60
 RESUMED_RUNNING_RESULT = "resumed_running"
 RESUMED_COMPLETED_RESULT = "resumed_completed"
 RESUMED_DIED_RESULT = "resumed_died"
+RESUME_EXITED_NONZERO_RESULT = "resume_exited_nonzero"
 RESUME_NEVER_STARTED_RESULT = "resume_never_started"
 RESUME_RUNAWAY_RESULT = "resume_runaway"
 
@@ -21,8 +22,20 @@ RESUME_TERMINAL_RESULTS = frozenset(
     {
         RESUMED_COMPLETED_RESULT,
         RESUMED_DIED_RESULT,
+        RESUME_EXITED_NONZERO_RESULT,
         RESUME_NEVER_STARTED_RESULT,
         RESUME_RUNAWAY_RESULT,
+    }
+)
+# What the machine that started a resume can observe about it directly: the
+# native exited cleanly, exited with a failure, or vanished without leaving an
+# outcome behind. The remaining terminal results are inferred from session
+# activity by the control plane, and no relay ever reports them.
+RESUME_RELAY_SETTLEMENT_RESULTS = frozenset(
+    {
+        RESUMED_COMPLETED_RESULT,
+        RESUMED_DIED_RESULT,
+        RESUME_EXITED_NONZERO_RESULT,
     }
 )
 RESUME_RESULT_CODES = frozenset({RESUMED_RUNNING_RESULT, *RESUME_TERMINAL_RESULTS})
@@ -41,8 +54,10 @@ def resume_roster_state(result_code: object) -> str | None:
 
 __all__ = [
     "RESUME_ATTEMPT_ENV",
+    "RESUME_EXITED_NONZERO_RESULT",
     "RESUME_INACTIVITY_SECONDS",
     "RESUME_NEVER_STARTED_RESULT",
+    "RESUME_RELAY_SETTLEMENT_RESULTS",
     "RESUME_RESULT_CODES",
     "RESUME_RUNAWAY_RESULT",
     "RESUME_RUNAWAY_SECONDS",

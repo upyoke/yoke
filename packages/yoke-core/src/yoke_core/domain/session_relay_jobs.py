@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
-from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
+from yoke_contracts.session_control.resume import (
+    RESUME_RELAY_SETTLEMENT_RESULTS,
+    RESUMED_RUNNING_RESULT,
+)
 from yoke_core.domain.session_broker_wake import direct_wake_waits_for_broker
 from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
 from yoke_core.domain.session_relay_evidence import (
@@ -33,7 +36,8 @@ from yoke_core.domain.session_relay_private_qualification import (
 WAKE_REPORT_CODES = frozenset(
     "accepted failed not_found outcome_unknown thread_id_unknown "
     "unsupported_surface version_mismatch".split()
-) | {RESUMED_RUNNING_RESULT}
+    + [RESUMED_RUNNING_RESULT, *RESUME_RELAY_SETTLEMENT_RESULTS]
+)
 LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
 LAUNCH_PROGRESS_CODE = "progress"
 
@@ -163,15 +167,16 @@ def report_wake_job(
         raise SessionRelayError("report_conflict", "wake attempt was already reported")
     if str(row[2] or "") == result_code == RESUMED_RUNNING_RESULT:
         return {"attempt_id": attempt_id, "result_code": result_code}
-    require_relay_batch(conn, relay_id=relay_id, now=now)
+    # A detached resume settles after its batch drained; its lease is authority.
+    if str(row[2] or "") != RESUMED_RUNNING_RESULT:
+        require_relay_batch(conn, relay_id=relay_id, now=now)
     completed_at = None if result_code == RESUMED_RUNNING_RESULT else now
     conn.execute(
         "UPDATE session_message_attempts SET completed_at="
         + p
         + ",result_code="
         + p
-        + ",adapter_revision="
-        + p
+        + f",adapter_revision=COALESCE({p},adapter_revision)"
         + ",evidence="
         + p
         + f" WHERE attempt_id={p}",

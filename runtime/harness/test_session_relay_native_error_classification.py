@@ -15,7 +15,9 @@ from yoke_contracts.session_control.evidence import (
     native_diagnostic_command,
     redacted_evidence_document,
 )
-from yoke_harness import session_relay
+from yoke_harness.session_relay_diagnostic_retention import (
+    retain_private_diagnostic,
+)
 from yoke_harness.session_relay_claude import (
     ClaudeProcessResult,
     run_claude_cli_adapter,
@@ -56,7 +58,7 @@ def test_claude_failure_class_and_reference_are_safe_durable_evidence(
         attestation_handoff=lambda *args, **kwargs: True,
     )
 
-    retained = session_relay._retain_private_diagnostic(result, state_dir=tmp_path)
+    retained = retain_private_diagnostic(result, state_dir=tmp_path)
     durable = redacted_evidence_document(retained.evidence)
 
     assert durable["native_error_class"] == "no_conversation_found"
