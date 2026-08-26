@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.onboard_wizard_widgets import SelectionList
@@ -71,7 +72,7 @@ async def start_clone(app, pilot, *, connect_github: bool) -> None:
     expected_body = (
         "Is the repo public or private?"
         if connect_github
-        else "Paste the public repo's git URL"
+        else onboard_github_copy.CLONE_FROM_GITHUB_SUBTITLE
     )
     text = await wait_for_body_text(app, pilot, expected_body)
     assert expected_body in text

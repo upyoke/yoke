@@ -32,7 +32,8 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         ("store-token-reference", "prod.token"): "Save your API token (owner-only)",
         ("machine-github-connection", "connect"):
             onboard_github_copy.MACHINE_GITHUB_REVIEW,
-        ("machine-github-connection", "skip"): "Skip connecting GitHub for now",
+        ("machine-github-connection", "skip"):
+            onboard_github_copy.MACHINE_GITHUB_SKIP_REVIEW,
         ("create-runtime-dir", "temp_root"): "Set up the scratch directory",
         ("create-runtime-dir", "cache_dir"): "Set up the cache directory",
         ("project-source-choice", onboard_project.PROJECT_MODE_CREATE_REPO):
@@ -69,7 +70,7 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         ("project-github-auth-choice", GITHUB_ADOPTION_APP_BINDING):
             onboard_github_copy.PROJECT_GITHUB_REVIEW,
         ("project-github-auth-choice", "skip"):
-            "Don't set up Yoke with access to a GitHub remote",
+            onboard_github_copy.PROJECT_GITHUB_SKIP_REVIEW,
         ("project-github-auth-choice", "keep-existing-remote"):
             "Keep this folder's existing GitHub remote",
         ("project-github-auth-choice", "existing-project"):
