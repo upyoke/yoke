@@ -51,6 +51,12 @@ IDLE_TICK_SECONDS = 0.5
 # by its own attempt record, so waiting past this only delays the restart.
 DRAIN_TIMEOUT_SECONDS = 120
 
+# How often the serving source is re-fingerprinted. The check stats every
+# module in the serving packages, so running it on every tick would spend
+# thousands of syscalls a second to answer a question that changes only
+# when someone deploys — the continuous burn this daemon exists to remove.
+SOURCE_CHECK_INTERVAL_SECONDS = 30
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -158,6 +164,7 @@ def serve_forever(
     max_job_workers: int = 4,
     reload_argv: Sequence[str] | None = None,
     reload_exec: Callable[..., None] = exec_reload,
+    source_check_interval_seconds: float = SOURCE_CHECK_INTERVAL_SECONDS,
     install_signals: bool = True,
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
@@ -180,6 +187,7 @@ def serve_forever(
             max_job_workers=max_job_workers,
             reload_argv=reload_argv,
             reload_exec=reload_exec,
+            source_check_interval_seconds=source_check_interval_seconds,
             **cycle_kwargs,
         )
     finally:
@@ -197,6 +205,7 @@ def _serve_under_lock(
     max_job_workers: int,
     reload_argv: Sequence[str] | None,
     reload_exec: Callable[..., None],
+    source_check_interval_seconds: float,
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
     """Hold the machine's relay lock for as long as this daemon serves."""
@@ -207,6 +216,7 @@ def _serve_under_lock(
         supervisor = _Supervisor(ThreadPoolExecutor(max_workers=max_job_workers))
         cycles = 0
         last_state = ""
+        next_source_check = time.monotonic() + source_check_interval_seconds
         try:
             while not stop.is_set():
                 outcome = cycle(
@@ -216,9 +226,12 @@ def _serve_under_lock(
                 )
                 cycles += 1
                 last_state = getattr(outcome, "state", "")
-                if source_changed(baseline):
-                    stop.set("source_changed")
-                    break
+                now = time.monotonic()
+                if now >= next_source_check:
+                    next_source_check = now + source_check_interval_seconds
+                    if source_changed(baseline):
+                        stop.set("source_changed")
+                        break
                 if stop_after_cycles is not None and cycles >= stop_after_cycles:
                     stop.set("cycle_cap")
                     break
@@ -241,6 +254,7 @@ def _serve_under_lock(
 __all__ = [
     "DRAIN_TIMEOUT_SECONDS",
     "IDLE_TICK_SECONDS",
+    "SOURCE_CHECK_INTERVAL_SECONDS",
     "DaemonOutcome",
     "serve_forever",
 ]

@@ -96,6 +96,7 @@ def test_source_change_replaces_the_process_rather_than_stopping(
         state_dir=tmp_path,
         cycle=_cycle_returning(),
         idle_tick_seconds=0.01,
+        source_check_interval_seconds=0,
         install_signals=False,
         reload_exec=lambda argv=None, **_kw: reloaded.append(argv),
     )
@@ -103,6 +104,31 @@ def test_source_change_replaces_the_process_rather_than_stopping(
     assert outcome.reason == "source_changed"
     assert outcome.cycles == 1
     assert reloaded == [None]
+
+
+def test_source_is_not_re_fingerprinted_on_every_tick(tmp_path, monkeypatch) -> None:
+    """Stat-walking every module per tick is the burn this daemon removes."""
+    import yoke_harness.session_relay_daemon as daemon
+
+    checks: list[str] = []
+    monkeypatch.setattr(daemon, "source_fingerprint", lambda roots=None: "steady")
+    monkeypatch.setattr(
+        daemon,
+        "source_changed",
+        lambda previous, roots=None: bool(checks.append(previous)) or False,
+    )
+
+    outcome = serve_forever(
+        state_dir=tmp_path,
+        cycle=_cycle_returning(),
+        stop_after_cycles=5,
+        idle_tick_seconds=0.001,
+        source_check_interval_seconds=3600,
+        install_signals=False,
+    )
+
+    assert outcome.cycles == 5
+    assert checks == []
 
 
 def test_unchanged_source_keeps_serving_without_reloading(
@@ -119,6 +145,7 @@ def test_unchanged_source_keeps_serving_without_reloading(
         cycle=_cycle_returning(),
         stop_after_cycles=2,
         idle_tick_seconds=0.001,
+        source_check_interval_seconds=0,
         install_signals=False,
         reload_exec=lambda argv=None, **_kw: reloaded.append(argv),
     )
