@@ -144,24 +144,22 @@ yoke test-machine settings-replace \
 yoke test-machine verify --project <project>
 ```
 
-Provision the host once before saving the capability:
+Provision the host once before saving the capability. The general procedure —
+disk encryption, automatic login, sleep, remote access and its separate full
+disk access grant, developer tools, privacy grants, and authenticated harness
+CLIs, each with an observable check — is the `machine-qa` Pack's
+[host-provisioning.md](packs/machine-qa/host-provisioning.md). Follow it there;
+a second copy here is how this checklist went stale before.
 
-1. Create a dedicated macOS test user and make the host reachable through a
-   private network.
-2. Enable **System Settings → General → Sharing → Remote Login** for that user,
-   install the operator public key in `~/.ssh/authorized_keys`, and verify a
-   batch SSH login. Do not expose SSH with router port forwarding.
-3. Verify either `tmux` or GNU Screen is available with
-   `command -v tmux || command -v screen`. `host_control` detects the backend,
-   preferring `tmux` when both exist. The dedicated Test Mac uses its existing
-   `screen` command; do not add Homebrew or `tmux` only for this integration.
-4. In **System Settings → Privacy & Security**, grant the logged-in
-   Terminal.app Automation access to Terminal and Screen Recording access.
-   Keep the Mac logged in and unlocked for screenshots. These are interactive
-   macOS permission grants on the host, not credentials or tokens that Yoke
-   stores.
-5. Disable automatic system and display sleep for the test interval. Restore
-   the operator's normal sleep policy when the dedicated test interval ends.
+This project's Test Mac adds only host-specific facts on top of it:
+
+- It uses its existing `screen` command as the `host_control` backend, which
+  prefers `tmux` when both exist; do not add Homebrew or `tmux` for it.
+- Its saved `host` is the machine's stable private-network name. A rebuilt
+  host is a new node with a new address, so an address stored here breaks
+  silently the next time the machine is rebuilt.
+- Yoke is not provisioned onto it. Yoke arrives the way a user installs it,
+  which keeps an installer mission a real test.
 
 The `machine_browser_approval` gate self-approves in the host's visible Safari
 session (`self_approving: true` on `machine_qa.operator_gate`). No operator
@@ -184,7 +182,10 @@ it to the remote host, the project checkout, or control-plane settings. Host
 baselines run as the dedicated test user and do not invoke `sudo`; no sudo
 credential is required. After provisioning or changing any setting, SSH key,
 or required macOS permission, run `yoke test-machine verify`; the capability
-is not ready until connectivity and terminal-control checks pass.
+is not ready until connectivity and terminal-control checks pass. That command
+is **destructive** — it performs the full host reset before installing the
+current release. It is a readiness gate, not a reachability probe; answer "can
+I see the machine?" with a plain SSH command.
 
 Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The runner receives resolved
