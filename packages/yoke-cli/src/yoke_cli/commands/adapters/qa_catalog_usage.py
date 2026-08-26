@@ -17,6 +17,10 @@ USAGE_BY_FUNCTION_ID = {
     "qa.activity.list": ("yoke qa activity list --project P [--deployment-run-id RUN]"),
     "qa.plan.create": ("yoke qa plan create SLUG --project P --environment ENV"),
     "qa.plan_cases.replace": "yoke qa plan-cases replace --project P --plan-id N --stdin",
+    "qa.registered_command.set": (
+        "yoke qa registered-command set --project P "
+        "--scope quick|full|e2e|smoke --command ARGV"
+    ),
     "qa.project_default.set": (
         "yoke qa project-default set --project P --plan-id N "
         "--workflow W --transition T"
