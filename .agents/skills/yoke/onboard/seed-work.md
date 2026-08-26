@@ -71,6 +71,35 @@ yoke qa requirement add --item {ITEM} --qa-kind ac_verification \
   --workflow-transition reviewed-implementation
 ```
 
+When the confirmed test setup is **review-only**, preserve that posture on
+every seeded item instead of attaching a project-default command plan. Add the
+blocking review that owns the gate:
+
+```bash
+yoke qa requirement add --item {ITEM} --qa-kind implementation_review \
+  --qa-phase verification --blocking-mode blocking \
+  --requirement-source explicit \
+  --success-policy "Implementation matches the item acceptance criteria under review" \
+  --workflow-transition reviewed-implementation
+```
+
+Then add the exact known-red or flaky suite as advisory executable evidence:
+
+```bash
+yoke qa requirement add --item {ITEM} --method-id command \
+  --qa-phase verification --blocking-mode non_blocking \
+  --requirement-source explicit \
+  --instructions "Run the declared legacy suite for advisory evidence." \
+  --expected-outcome "Record the current suite result without gating the item." \
+  --method-config '{"command":"{legacy_argv}"}' \
+  --workflow-transition reviewed-implementation
+```
+
+Use the roots, argv, and known condition from the profile confirmed in this
+same onboarding run. Do not turn this advisory case into `command-ci` or a
+blocking `registered-command-*` plan merely because another CI system can run
+it.
+
 Mark the row with the created ids as evidence:
 
 ```bash

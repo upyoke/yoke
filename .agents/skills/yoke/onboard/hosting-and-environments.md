@@ -129,13 +129,20 @@ Add the `full` scope only when its argv genuinely differs from `quick`:
 yoke qa registered-command set --project {project} --scope full --command "{full_argv}"
 ```
 
+The command value is the repo's exact shell argv, not a pytest-shaped field.
+Maven, PHPUnit, XCTest, and containerized suites are ordinary examples:
+`mvn -q -DskipITs test`, `vendor/bin/phpunit --testsuite unit`,
+`xcodebuild test -scheme App`, or `docker compose run --rm tests`. Keep a
+fast reliable slice in `quick`; bind the broader invocation separately as
+`full` rather than pretending the same command represents both scopes.
+
 One call converges the whole binding — the `registered-command-{scope}` plan,
 its case row, the runner the case uses, and the project-default attachments at
 the transitions that gate. It needs no environment, because a command case runs
 in the item's worktree or in CI, never against a site behind a base URL.
 
-**When a GitHub Actions workflow runs that command**, declare it first, so the
-binding above routes the case to CI instead of the local runner:
+**Only when a GitHub Actions test workflow runs that command**, declare it
+first, so the binding above routes the case to CI instead of the local runner:
 
 ```bash
 yoke projects capability-settings set --project {project} --cap-type ci_workflow_file \
@@ -144,8 +151,18 @@ yoke projects capability-settings set --project {project} --cap-type ci_workflow
 
 Name the **test** workflow — the one that runs the registered command. A deploy
 or release workflow is not a verification workflow; declaring one there makes
-the gate report a green that proves nothing. With no declaration the scopes keep
-the local `command` runner, which is a correct outcome, not a downgrade.
+the gate report a green that proves nothing. Jenkins, GitLab CI, Bitbucket
+Pipelines, `fastlane`, and an XCTest or container command without a matching
+Actions test workflow are not `ci_workflow_file`; keep those scopes on the
+local `command` runner. With no declaration the scopes keep that runner, which
+is a correct outcome, not a downgrade.
+
+**A review-only suite** registers no project-default command. Carry its test
+roots, exact legacy argv, and known-red or flaky condition into step 8. Each
+seeded item then gets a blocking `implementation_review` requirement plus a
+non-blocking `command` requirement for the declared argv. This records the
+suite's current result without letting it manufacture either a green gate or a
+permanent blocking failure.
 
 **An explicit skip** registers nothing. Record the decision and move on; the
 `reviewing-implementation` gate falls back to the `implementation_review`
@@ -166,6 +183,10 @@ operator's reason as evidence. When the operator has not decided yet, mark it
 `deferred`; when the argv cannot be verified against the repo, mark it
 `blocked` with the missing executable named.
 
+For a review-only suite, mark `verification-command-binding=configured` with
+evidence such as `review-only suite: {legacy_argv}; no project-default command;
+blocking implementation_review plus advisory command requirements at seeding`.
+
 ### Project Structure policy rows
 
 Capture the project-wide policy the profile implies — test roots, context
@@ -174,8 +195,12 @@ surface. These rows are descriptive project structure; the command the QA gate
 runs is bound above, not here:
 
 ```bash
-yoke project-structure patch apply --project {project} --ops-json '{json_ops}'
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"test_roots","attachment":"apps/api/tests/","entry_key":"api","payload":{"purpose":"API suite"}},{"op":"put","family":"test_roots","attachment":"apps/web/tests/","entry_key":"web","payload":{"purpose":"Web suite"}}]'
 ```
+
+Use one keyed `put` operation per surveyed test tree. Multiple roots describe
+the repository; they do not require `quick` to run every suite. The separately
+registered `full` argv is where the broader aggregate belongs.
 
 ### Architecture map (scan-derive-accept; skippable)
 
