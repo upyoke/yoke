@@ -18,6 +18,7 @@ import pytest
 
 pytest.importorskip("textual")
 
+from yoke_cli.config import aws_admin_capability as hosting  # noqa: E402
 from yoke_contracts import hosting_posture  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 

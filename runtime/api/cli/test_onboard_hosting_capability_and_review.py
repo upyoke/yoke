@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_cli.config import aws_admin_capability as hosting
 from yoke_contracts import hosting_posture
 from yoke_cli.config import onboard_plan_labels
 from yoke_cli.config import onboard_project
@@ -135,7 +136,7 @@ def test_plan_names_a_skipped_hosting_answer() -> None:
     row = next(
         step
         for step in plan["steps"]
-        if step["action"] == hosting.HOSTING_CAPABILITY_ACTION
+        if step["action"] == hosting_posture.HOSTING_POSTURE_ACTION
     )
 
     assert row["target"] == hosting_posture.POSTURE_UNDECIDED
@@ -153,7 +154,7 @@ def test_a_saved_credential_moves_out_of_the_write_plan() -> None:
     )
 
     assert all(
-        step["action"] != hosting.HOSTING_CAPABILITY_ACTION for step in plan["steps"]
+        step["action"] != hosting_posture.HOSTING_POSTURE_ACTION for step in plan["steps"]
     )
     assert onboard_reuse_feedback.grouped_lines_for_plan(plan)["machine"] == [
         "The aws-admin hosting credential (2 values, redacted · saved at Save & verify)"
@@ -175,7 +176,7 @@ def test_runs_without_a_deploy_target_plan_no_hosting_row(project_mode: str) -> 
     )
 
     assert all(
-        step["action"] != hosting.HOSTING_CAPABILITY_ACTION for step in plan["steps"]
+        step["action"] != hosting_posture.HOSTING_POSTURE_ACTION for step in plan["steps"]
     )
     assert onboard_project_modes.offers_hosting_credential(project_mode) is False
 
