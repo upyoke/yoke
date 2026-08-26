@@ -11,6 +11,7 @@ from typing import Any
 from yoke_contracts.hook_runner.config_owner import (
     CONFIG_OWNER_ENV_VAR,
     CURSOR_COMPATIBILITY_RUNNER_ALIASES,
+    CURSOR_DUAL_CONFIG_RUNNER_EVENTS,
     CURSOR_EXECUTOR_ID,
     CURSOR_LIFECYCLE_COMMAND_MARKERS,
     CURSOR_NATIVE_RUNNER_EVENTS,
@@ -143,6 +144,11 @@ def should_skip_config_duplicate(
     """Return whether another active Cursor config owns this invocation."""
     payload = _payload(stdin_data)
     if is_cursor_imported_claude_hook(environment, payload):
+        # Only the events Cursor fires on both configs can be duplicates.
+        # A tool-shaped event fires on the imported Claude config alone, so
+        # skipping it would drop the tool call's only hook invocation.
+        if event_name not in CURSOR_DUAL_CONFIG_RUNNER_EVENTS:
+            return False
         return (
             _project_cursor_config_owns_event(
                 event_name, environment, payload,

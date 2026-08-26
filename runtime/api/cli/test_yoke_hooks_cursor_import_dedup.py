@@ -99,22 +99,6 @@ def test_cursor_imported_claude_hook_runs_without_native_owner(
         ("SessionStart", "sessionStart", "SessionStart"),
         ("SessionEnd", "sessionEnd", "SessionEnd"),
         ("UserPromptSubmit", "beforeSubmitPrompt", "UserPromptSubmit"),
-        (
-            "PreToolUse",
-            ("beforeShellExecution", "preToolUse"),
-            "PreToolUse",
-        ),
-        (
-            "PermissionRequest",
-            ("beforeShellExecution", "preToolUse"),
-            "PreToolUse",
-        ),
-        (
-            "PostToolUse",
-            ("afterShellExecution", "postToolUse"),
-            "PostToolUse",
-        ),
-        ("PostToolUseFailure", "postToolUseFailure", "PostToolUseFailure"),
         ("Stop", "stop", "Stop"),
     ),
 )
@@ -135,35 +119,6 @@ def test_native_cursor_owner_covers_imported_claude_event(
     )
 
     assert should_skip_config_duplicate(
-        runner_event, environment, payload,
-    )
-
-
-@pytest.mark.parametrize(
-    ("runner_event", "native_event", "native_runner_event"),
-    (
-        ("PreToolUse", "preToolUse", "PreToolUse"),
-        ("PermissionRequest", "beforeShellExecution", "PreToolUse"),
-        ("PostToolUse", "postToolUse", "PostToolUse"),
-    ),
-)
-def test_partial_native_tool_owner_keeps_claude_compatibility_hook(
-    tmp_path,
-    runner_event,
-    native_event,
-    native_runner_event,
-) -> None:
-    _write_cursor_owner(tmp_path, native_event, native_runner_event)
-    environment = {
-        "YOKE_HOOK_CONFIG_OWNER": "claude",
-        "CURSOR_PROJECT_DIR": str(tmp_path),
-    }
-    payload = (
-        '{"session_id":"cursor-partial",'
-        '"conversation_id":"cursor-partial"}'
-    )
-
-    assert not should_skip_config_duplicate(
         runner_event, environment, payload,
     )
 
