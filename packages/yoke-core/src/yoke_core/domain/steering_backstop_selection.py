@@ -134,14 +134,10 @@ def select_backstop_work(
     for candidate in ordered:
         age = candidate.unpicked_seconds(now)
         if candidate.item_id in staffed:
-            withheld.append(
-                WithheldCandidate(candidate, WITHHELD_ALREADY_STAFFED, age)
-            )
+            withheld.append(WithheldCandidate(candidate, WITHHELD_ALREADY_STAFFED, age))
             continue
         if age < int(unpicked_after_seconds):
-            withheld.append(
-                WithheldCandidate(candidate, WITHHELD_WITHIN_GRACE, age)
-            )
+            withheld.append(WithheldCandidate(candidate, WITHHELD_WITHIN_GRACE, age))
             continue
         if len(staff) >= headroom:
             withheld.append(

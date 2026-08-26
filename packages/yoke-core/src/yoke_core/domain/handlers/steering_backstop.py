@@ -106,9 +106,7 @@ def handle_evaluate(request: FunctionCallRequest) -> HandlerOutcome:
             auth=_authorization(conn, request, project_id),
             executor_surface=surface,
             unpicked_after_seconds=60
-            * get_project_int_for_id(
-                project_id, "steering_backstop_unpicked_minutes"
-            ),
+            * get_project_int_for_id(project_id, "steering_backstop_unpicked_minutes"),
             worker_budget=get_project_int_for_id(
                 project_id, "steering_backstop_worker_budget"
             ),

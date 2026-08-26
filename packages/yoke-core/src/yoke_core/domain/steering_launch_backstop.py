@@ -303,9 +303,7 @@ def _emit_evaluated(session_id: str, result: dict[str, Any]) -> None:
             "dry_run": result["dry_run"],
             "worker_budget": result["worker_budget"],
             "workers_in_flight": result["workers_in_flight"],
-            "newly_staffed_item_ids": [
-                entry["item_id"] for entry in result["staff"]
-            ],
+            "newly_staffed_item_ids": [entry["item_id"] for entry in result["staff"]],
             "launched_count": len(result["launched"]),
             "refused_count": len(result["refused"]),
             "withheld_count": len(result["withheld"]),

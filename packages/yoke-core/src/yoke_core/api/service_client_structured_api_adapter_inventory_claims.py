@@ -110,6 +110,10 @@ CLAIMS_ADAPTERS = [
             "yoke claims steering list [--project P] [--session-id S] [--active-only]"
         ),
     ),
+    AdapterEntry(
+        "steering.backstop.evaluate",
+        "yoke steering backstop evaluate --project P [--dry-run]",
+    ),
 ]
 
 
