@@ -19,6 +19,11 @@ from runtime.api.domain.conduct_fan_out_claim_test_support import (
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain.lint_session_cwd_validate import validate_targets
 from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
+from yoke_core.domain.work_claim_targets import (
+    decode_scope,
+    make_epic_task_target,
+    make_item_target,
+)
 
 
 # Multi-worktree case: >=2 distinct worktree paths across tasks.
@@ -41,11 +46,14 @@ class TestMultiWorktreeFanOutLifecycle:
             lanes=self.LANES,
         )
         active = conn.execute(
-            "SELECT epic_id, task_num FROM work_claims "
+            "SELECT scope FROM work_claims "
             "WHERE session_id='sid-orch' AND target_kind='epic_task' "
-            "AND released_at IS NULL ORDER BY task_num"
+            "AND released_at IS NULL ORDER BY id"
         ).fetchall()
-        assert [(r["epic_id"], r["task_num"]) for r in active] == [
+        assert [
+            (decode_scope(r["scope"])["epic_id"], decode_scope(r["scope"])["task_num"])
+            for r in active
+        ] == [
             (1872, 1),
             (1872, 10),
             (1872, 20),
@@ -258,12 +266,14 @@ class TestItemAndEpicTaskClaimsCoexist:
         for branch in ("YOK-1872", "YOK-1872-substrate"):
             (repo / ".worktrees" / branch).mkdir(parents=True, exist_ok=True)
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id) "
-            "VALUES ('sid-orch', 'item', 1872)"
+            "INSERT INTO work_claims (session_id, target_kind, scope) "
+            "VALUES ('sid-orch', 'item', %s)",
+            (make_item_target(1872).scope_json(),),
         )
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, epic_id, "
-            "task_num) VALUES ('sid-orch', 'epic_task', 1872, 1)"
+            "INSERT INTO work_claims (session_id, target_kind, scope) "
+            "VALUES ('sid-orch', 'epic_task', %s)",
+            (make_epic_task_target(1872, 1).scope_json(),),
         )
         conn.commit()
         paths = sorted(

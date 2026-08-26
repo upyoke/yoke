@@ -12,6 +12,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 class TestReleaseAllClaims:
@@ -31,16 +32,16 @@ class TestReleaseAllClaims:
             (sid, session_offer_db["tmp_dir"]),
         )
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, claimed_at, "
-            "last_heartbeat) VALUES (%s, 'item', 50, 'exclusive', "
+            "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
+            "last_heartbeat) VALUES (%s, 'item', %s, 'exclusive', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid,),
+            (sid, make_item_target(50).scope_json()),
         )
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, claimed_at, "
-            "last_heartbeat) VALUES (%s, 'item', 51, 'exclusive', "
+            "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
+            "last_heartbeat) VALUES (%s, 'item', %s, 'exclusive', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid,),
+            (sid, make_item_target(51).scope_json()),
         )
         conn.commit()
         conn.close()
@@ -69,8 +70,13 @@ class TestReleaseAllClaims:
         db_path = session_offer_db["db_path"]
 
         result = _run_client(
-            ["release-all-claims", "--session-id", "nonexistent",
-             "--reason", "cleanup"],
+            [
+                "release-all-claims",
+                "--session-id",
+                "nonexistent",
+                "--reason",
+                "cleanup",
+            ],
             db_path=db_path,
         )
         assert result.returncode == 0
@@ -93,18 +99,25 @@ class TestReleaseAllClaims:
             (sid, session_offer_db["tmp_dir"]),
         )
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, claimed_at, "
-            "last_heartbeat) VALUES (%s, 'item', 77, 'exclusive', "
+            "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
+            "last_heartbeat) VALUES (%s, 'item', %s, 'exclusive', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid,),
+            (sid, make_item_target(77).scope_json()),
         )
         conn.commit()
         conn.close()
 
         # Release the only claim
         result = _run_client(
-            ["release-work-claim", "--session-id", sid,
-             "--item", "YOK-77", "--reason", "done"],
+            [
+                "release-work-claim",
+                "--session-id",
+                sid,
+                "--item",
+                "YOK-77",
+                "--reason",
+                "done",
+            ],
             db_path=db_path,
         )
         assert result.returncode == 0
@@ -136,10 +149,10 @@ class TestClaimReleaseOverride:
             (sid, session_offer_db["tmp_dir"]),
         )
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, claimed_at, "
-            "last_heartbeat) VALUES (%s, 'item', 10, 'exclusive', "
+            "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
+            "last_heartbeat) VALUES (%s, 'item', %s, 'exclusive', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid,),
+            (sid, make_item_target(10).scope_json()),
         )
         conn.commit()
         conn.close()
@@ -158,8 +171,8 @@ class TestClaimReleaseOverride:
         conn = connect_test_db(db_path)
         row = conn.execute(
             "SELECT released_at, release_reason FROM work_claims "
-            "WHERE session_id = %s AND item_id = 10",
-            (sid,),
+            "WHERE session_id = %s AND target_kind='item' AND scope = %s",
+            (sid, make_item_target(10).scope_json()),
         ).fetchone()
         conn.close()
         assert row is not None
@@ -179,10 +192,10 @@ class TestClaimReleaseOverride:
             (sid, session_offer_db["tmp_dir"]),
         )
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, claimed_at, "
-            "last_heartbeat) VALUES (%s, 'item', 10, 'exclusive', "
+            "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
+            "last_heartbeat) VALUES (%s, 'item', %s, 'exclusive', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')",
-            (sid,),
+            (sid, make_item_target(10).scope_json()),
         )
         conn.commit()
         conn.close()

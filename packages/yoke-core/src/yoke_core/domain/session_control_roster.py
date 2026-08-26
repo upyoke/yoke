@@ -24,6 +24,7 @@ from yoke_core.domain.session_relay_machine_versions import (
 )
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_candidate_supported
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 SESSION_CONTROL_ROSTER_FIELDS = tuple(
@@ -92,18 +93,21 @@ def _active_worktrees(
     if not ids:
         return {}
     marker = _marker(conn)
+    epic_id = scope_int_sql(conn, "wc.scope", "epic_id")
+    task_num = scope_int_sql(conn, "wc.scope", "task_num")
+    item_id = scope_int_sql(conn, "wc.scope", "item_id")
     rows = conn.execute(
         "SELECT wc.session_id,"
         "COALESCE(task_lane.path,item_lane.path,'') AS worktree_path,"
         "COALESCE(task_lane.branch,item_lane.branch,'') AS worktree_branch "
         "FROM work_claims wc "
         "LEFT JOIN epic_tasks et ON wc.target_kind='epic_task' "
-        "AND et.epic_id=wc.epic_id AND et.task_num=wc.task_num "
+        f"AND et.epic_id={epic_id} AND et.task_num={task_num} "
         "LEFT JOIN item_worktrees task_lane ON task_lane.id=et.item_worktree_id "
         "AND task_lane.state='active' "
         "LEFT JOIN item_worktrees item_lane ON item_lane.id=("
         "SELECT iw.id FROM item_worktrees iw WHERE wc.target_kind='item' "
-        "AND iw.item_id=wc.item_id AND iw.state='active' "
+        f"AND iw.item_id={item_id} AND iw.state='active' "
         "ORDER BY CASE iw.lane_role WHEN 'integration' THEN 0 ELSE 1 END,"
         "iw.id LIMIT 1) "
         "WHERE wc.released_at IS NULL AND wc.session_id IN ("

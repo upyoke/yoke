@@ -13,7 +13,8 @@ from runtime.api.fixtures.schema_ddl_github_app import _GITHUB_APP_DDL
 from yoke_core.domain.sql_json import json_get
 
 
-_SCHEMA_DDL = """\
+_SCHEMA_DDL = (
+    """\
 CREATE TABLE IF NOT EXISTS sprints (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -126,22 +127,24 @@ CREATE TABLE IF NOT EXISTS item_activity_days (
     day TEXT NOT NULL,
     UNIQUE(project_id, item_id, day)
 );
-""" + f"""\
+"""
+    + f"""\
 CREATE VIEW IF NOT EXISTS epic_task_history AS
 SELECT id,
     CAST(REPLACE(item_id, 'YOK-', '') AS INTEGER) AS epic_id,
     task_num, created_at AS timestamp,
-    COALESCE({json_get('envelope', '$.context.detail.from_status')},
-             {json_get('envelope', '$.context.from_status')},
-             {json_get('envelope', '$.from_status')}) AS from_status,
-    COALESCE({json_get('envelope', '$.context.detail.to_status')},
-             {json_get('envelope', '$.context.to_status')},
-             {json_get('envelope', '$.to_status')}) AS to_status,
-    COALESCE({json_get('envelope', '$.context.detail.note')},
-             {json_get('envelope', '$.context.note')},
-             {json_get('envelope', '$.note')}) AS note
+    COALESCE({json_get("envelope", "$.context.detail.from_status")},
+             {json_get("envelope", "$.context.from_status")},
+             {json_get("envelope", "$.from_status")}) AS from_status,
+    COALESCE({json_get("envelope", "$.context.detail.to_status")},
+             {json_get("envelope", "$.context.to_status")},
+             {json_get("envelope", "$.to_status")}) AS to_status,
+    COALESCE({json_get("envelope", "$.context.detail.note")},
+             {json_get("envelope", "$.context.note")},
+             {json_get("envelope", "$.note")}) AS note
 FROM events WHERE event_type = 'task_status_change';
-""" + """\
+"""
+    + """\
 CREATE TABLE IF NOT EXISTS epic_task_files (
     id INTEGER PRIMARY KEY,
     epic_id INTEGER NOT NULL,
@@ -173,22 +176,13 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
 CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process')),
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
     released_at TEXT,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
-    CHECK (
-      (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL)
-    ),
     FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
 );
 CREATE TABLE IF NOT EXISTS projects (
@@ -237,6 +231,8 @@ CREATE TABLE IF NOT EXISTS deployment_flows (
     id TEXT PRIMARY KEY,
     project_id INTEGER
 );
-""" + _GITHUB_APP_DDL
+"""
+    + _GITHUB_APP_DDL
+)
 
 __all__ = ("_SCHEMA_DDL",)

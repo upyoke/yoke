@@ -17,6 +17,7 @@ from yoke_core.domain.strategy_execution import (
     acquire_strategy_doc_claim,
     active_strategy_doc_claim,
 )
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def _marker(conn: Any) -> str:
@@ -49,10 +50,11 @@ def _activation_prerequisites(
             "Acquire the item work claim and retry from that session.",
         )
     marker = _marker(conn)
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     claim = conn.execute(
         "SELECT session_id FROM work_claims "
         "WHERE target_kind = 'item' "
-        f"AND item_id = {marker} AND released_at IS NULL "
+        f"AND {item_scope} = {marker} AND released_at IS NULL "
         "ORDER BY claimed_at DESC, id DESC LIMIT 1",
         (int(item_id),),
     ).fetchone()

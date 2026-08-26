@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from yoke_contracts.board.query_key import canonicalize_sql
 
-BOARD_DATA_VERSION = 1
+BOARD_DATA_VERSION = 2
 
 
 class BoardDataError(RuntimeError):

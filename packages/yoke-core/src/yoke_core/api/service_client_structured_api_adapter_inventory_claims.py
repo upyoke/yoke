@@ -97,19 +97,17 @@ CLAIMS_ADAPTERS = [
         "python3 -m yoke_core.api.service_client coordination-lease-list",
     ),
     AdapterEntry(
-        "claims.steering_scope.acquire",
-        "yoke claims steering-scope acquire --project P "
-        "[--strategy-doc SLUG] [--reason TEXT]",
+        "claims.steering.acquire",
+        "yoke claims steering acquire --project P [--reason TEXT]",
     ),
     AdapterEntry(
-        "claims.steering_scope.release",
-        "yoke claims steering-scope release CLAIM_ID --reason TEXT",
+        "claims.steering.release",
+        "yoke claims steering release CLAIM_ID --reason TEXT",
     ),
     read_entry(
-        function_id="claims.steering_scope.list",
+        function_id="claims.steering.list",
         cli_invocation=(
-            "yoke claims steering-scope list [--project P] "
-            "[--session-id S] [--active-only]"
+            "yoke claims steering list [--project P] [--session-id S] [--active-only]"
         ),
     ),
 ]

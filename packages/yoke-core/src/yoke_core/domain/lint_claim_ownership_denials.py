@@ -52,9 +52,12 @@ def recent_claim_denial_holder(
         )
         if not attempted:
             return None
+        from yoke_core.domain.work_claim_targets import scope_int_sql
+
+        item_scope = scope_int_sql(conn, "scope", "item_id")
         holder_row = conn.execute(
             "SELECT session_id FROM work_claims "
-            "WHERE target_kind='item' AND item_id=%s "
+            f"WHERE target_kind='item' AND {item_scope}=%s "
             "AND released_at IS NULL AND claim_type='exclusive' "
             "AND session_id <> %s LIMIT 1",
             (item_id, session_id),

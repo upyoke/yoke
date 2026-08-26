@@ -62,20 +62,15 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     assert "no new skill" in body.lower()
 
 
-def test_claims_packet_teaches_steering_scope_claim_lifecycle() -> None:
+def test_claims_packet_teaches_project_steering_claim_lifecycle() -> None:
     body = sac.render_topic_packet("claims")
-    assert "kind=steering_scope" in body
-    assert "[] means the whole project" in body
-    assert "Intersecting live steering scopes" in body
-    assert "steering claim holder" in body
-    assert "owner_kind='session'" in body
-    assert "registration provenance, not authority" in body
-    assert (
-        "yoke claims steering-scope acquire --project P [--strategy-doc SLUG]" in body
-    )
-    assert "yoke claims steering-scope list --project P --active-only" in body
-    assert "yoke claims steering-scope release CLAIM_ID --reason TEXT" in body
-    assert "stale-session reclaim free the steering scope" in body
+    assert 'steering={"project_id":N}' in body
+    assert "one live session-owned seat per project" in body
+    assert "strategy-document locks remain in strategy_doc_claims" in body
+    assert "yoke claims steering acquire --project P [--reason TEXT]" in body
+    assert "yoke claims steering list --project P --active-only" in body
+    assert "yoke claims steering release CLAIM_ID --reason TEXT" in body
+    assert "stale-session reclaim free the steering seat" in body
 
 
 def test_claims_packet_teaches_live_progress_log_content_flags() -> None:

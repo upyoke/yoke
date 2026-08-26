@@ -22,6 +22,10 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_item_worktree,
 )
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.work_claim_targets import (
+    make_epic_task_target,
+    make_item_target,
+)
 
 _PROJECT_IDS = {"yoke": 1, "externalwebapp": 2}
 
@@ -103,22 +107,25 @@ def seed_item_claim(conn: Any, session_id: str, item_id: int) -> None:
     now = iso8601_now()
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claimed_at, last_heartbeat) "
+        "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
         "VALUES (%s, 'item', %s, %s, %s)",
-        (session_id, item_id, now, now),
+        (session_id, make_item_target(item_id).scope_json(), now, now),
     )
     conn.commit()
 
 
 def seed_epic_task_claim(
-    conn: Any, session_id: str, epic_id: int, task_num: int,
+    conn: Any,
+    session_id: str,
+    epic_id: int,
+    task_num: int,
 ) -> None:
     now = iso8601_now()
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, epic_id, task_num, "
+        "(session_id, target_kind, scope, "
         "claimed_at, last_heartbeat) "
-        "VALUES (%s, 'epic_task', %s, %s, %s, %s)",
-        (session_id, epic_id, task_num, now, now),
+        "VALUES (%s, 'epic_task', %s, %s, %s)",
+        (session_id, make_epic_task_target(epic_id, task_num).scope_json(), now, now),
     )
     conn.commit()

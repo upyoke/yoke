@@ -15,21 +15,12 @@ from typing import Any, List
 import pytest
 
 from runtime.api.fixtures.backlog import insert_item
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
+from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from yoke_core.domain import backlog, backlog_update_op
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.work_claim_targets import make_item_target
-from yoke_core.domain.handlers.items_flags import (
-    handle_block,
-    handle_freeze,
-    handle_thaw,
-    handle_unblock,
-)
+from yoke_core.domain.handlers.items_flags import handle_block, handle_freeze, handle_thaw, handle_unblock
 
 
 SESSION = "flag-verb-session"
@@ -39,11 +30,7 @@ SESSION = "flag-verb-session"
 def _isolate_write_side_effects(monkeypatch) -> None:
     """Keep the flag writes off GitHub and off the board renderer."""
     monkeypatch.setattr(backlog_update_op, "run_post_db_sync", lambda **_kwargs: 0)
-    monkeypatch.setattr(
-        backlog_update_op._rendering,
-        "_maybe_rebuild_board",
-        lambda *_args, **_kwargs: None,
-    )
+    monkeypatch.setattr(backlog_update_op._rendering, "_maybe_rebuild_board", lambda *_args, **_kwargs: None)
 
 
 def _seed_session(conn: Any, session_id: str) -> None:
@@ -71,34 +58,22 @@ def _caller_session(test_db) -> None:
 
 
 def _live_claims(conn: Any, item_id: int) -> list:
+    target = make_item_target(item_id)
     rows = conn.execute(
-        "SELECT session_id FROM work_claims WHERE target_kind='item' "
-        "AND item_id = %s AND released_at IS NULL",
-        (item_id,),
+        "SELECT session_id FROM work_claims WHERE target_kind = %s AND scope = %s AND released_at IS NULL", (target.kind, target.scope_json())
     ).fetchall()
     return [str(row["session_id"]) for row in rows]
 
 
 def _request(item_id: int, **payload: Any) -> FunctionCallRequest:
     return FunctionCallRequest(
-        function="items.freeze.run",
-        actor=ActorContext(actor_id="1", session_id=SESSION),
-        target=TargetRef(kind="item", item_id=item_id),
-        payload=payload,
+        function="items.freeze.run", actor=ActorContext(actor_id="1", session_id=SESSION), target=TargetRef(kind="item", item_id=item_id), payload=payload
     )
 
 
 def _flags(conn: Any, item_id: int) -> tuple:
-    row = conn.execute(
-        "SELECT frozen, blocked, blocked_reason, status FROM items WHERE id = %s",
-        (item_id,),
-    ).fetchone()
-    return (
-        bool(row["frozen"]),
-        bool(row["blocked"]),
-        row["blocked_reason"],
-        row["status"],
-    )
+    row = conn.execute("SELECT frozen, blocked, blocked_reason, status FROM items WHERE id = %s", (item_id,)).fetchone()
+    return (bool(row["frozen"]), bool(row["blocked"]), row["blocked_reason"], row["status"])
 
 
 def _record_write_order(monkeypatch) -> List[str]:
@@ -174,18 +149,14 @@ class TestBlockAndUnblock:
         assert seen == ["blocked_reason", "blocked"]
 
     def test_block_replaces_the_reason_when_already_blocked(self, test_db) -> None:
-        insert_item(
-            test_db, id=8203, status="implementing", blocked=1, blocked_reason="old",
-        )
+        insert_item(test_db, id=8203, status="implementing", blocked=1, blocked_reason="old")
         outcome = handle_block(_request(8203, reason="new reason"))
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["changed"] is True
         assert _flags(test_db, 8203)[1:3] == (True, "new reason")
 
     def test_block_is_a_no_op_when_the_reason_is_unchanged(self, test_db) -> None:
-        insert_item(
-            test_db, id=8204, status="implementing", blocked=1, blocked_reason="same",
-        )
+        insert_item(test_db, id=8204, status="implementing", blocked=1, blocked_reason="same")
         outcome = handle_block(_request(8204, reason="same"))
         assert outcome.primary_success
         assert outcome.result_payload["changed"] is False
@@ -216,12 +187,8 @@ class TestBlockAndUnblock:
         frozen, blocked, reason, _status = _flags(test_db, 8208)
         assert (frozen, blocked, reason) == (True, True, "parked and blocked")
 
-    def test_unblock_clears_the_flag_before_the_reason(
-        self, test_db, monkeypatch,
-    ) -> None:
-        insert_item(
-            test_db, id=8209, status="implementing", blocked=1, blocked_reason="why",
-        )
+    def test_unblock_clears_the_flag_before_the_reason(self, test_db, monkeypatch) -> None:
+        insert_item(test_db, id=8209, status="implementing", blocked=1, blocked_reason="why")
         seen = _record_write_order(monkeypatch)
         outcome = handle_unblock(_request(8209))
         assert outcome.primary_success, outcome.error
@@ -235,10 +202,7 @@ class TestBlockAndUnblock:
         assert outcome.result_payload["changed"] is False
 
     def test_unblock_works_on_a_frozen_item(self, test_db) -> None:
-        insert_item(
-            test_db, id=8211, status="implementing", frozen=1, blocked=1,
-            blocked_reason="parked",
-        )
+        insert_item(test_db, id=8211, status="implementing", frozen=1, blocked=1, blocked_reason="parked")
         outcome = handle_unblock(_request(8211))
         assert outcome.primary_success, outcome.error
         assert _flags(test_db, 8211)[:3] == (True, False, None)
@@ -254,10 +218,7 @@ class TestMissingTargets:
     def test_non_item_target_is_rejected(self, test_db) -> None:
         del test_db
         request = FunctionCallRequest(
-            function="items.freeze.run",
-            actor=ActorContext(actor_id="1", session_id=SESSION),
-            target=TargetRef(kind="global"),
-            payload={},
+            function="items.freeze.run", actor=ActorContext(actor_id="1", session_id=SESSION), target=TargetRef(kind="global"), payload={}
         )
         outcome = handle_freeze(request)
         assert not outcome.primary_success
@@ -267,9 +228,7 @@ class TestMissingTargets:
 class TestImplicitClaim:
     """The claim still governs the write; the caller just does not spell it."""
 
-    def test_the_command_takes_and_releases_a_claim_it_acquired(
-        self, test_db,
-    ) -> None:
+    def test_the_command_takes_and_releases_a_claim_it_acquired(self, test_db) -> None:
         insert_item(test_db, id=8301, status="implementing")
         assert _live_claims(test_db, 8301) == []
         outcome = handle_freeze(_request(8301))
@@ -277,14 +236,9 @@ class TestImplicitClaim:
         assert _flags(test_db, 8301)[0] is True
         assert _live_claims(test_db, 8301) == []
 
-    def test_a_claim_the_caller_already_held_survives_the_call(
-        self, test_db,
-    ) -> None:
+    def test_a_claim_the_caller_already_held_survives_the_call(self, test_db) -> None:
         insert_item(test_db, id=8302, status="implementing")
-        claim_work(
-            test_db, session_id=SESSION, target=make_item_target(8302),
-            reason="already working",
-        )
+        claim_work(test_db, session_id=SESSION, target=make_item_target(8302), reason="already working")
         test_db.commit()
         outcome = handle_freeze(_request(8302))
         assert outcome.primary_success, outcome.error
@@ -294,10 +248,7 @@ class TestImplicitClaim:
     def test_a_foreign_holder_refuses_the_write(self, test_db) -> None:
         insert_item(test_db, id=8303, status="implementing")
         _seed_session(test_db, "someone-else")
-        claim_work(
-            test_db, session_id="someone-else", target=make_item_target(8303),
-            reason="mid-flight",
-        )
+        claim_work(test_db, session_id="someone-else", target=make_item_target(8303), reason="mid-flight")
         test_db.commit()
         outcome = handle_freeze(_request(8303))
         assert not outcome.primary_success
@@ -306,15 +257,10 @@ class TestImplicitClaim:
         assert _flags(test_db, 8303)[0] is False
         assert _live_claims(test_db, 8303) == ["someone-else"]
 
-    def test_a_foreign_holder_refuses_block_before_any_write(
-        self, test_db,
-    ) -> None:
+    def test_a_foreign_holder_refuses_block_before_any_write(self, test_db) -> None:
         insert_item(test_db, id=8304, status="implementing")
         _seed_session(test_db, "other-agent")
-        claim_work(
-            test_db, session_id="other-agent", target=make_item_target(8304),
-            reason="mid-flight",
-        )
+        claim_work(test_db, session_id="other-agent", target=make_item_target(8304), reason="mid-flight")
         test_db.commit()
         outcome = handle_block(_request(8304, reason="stop this"))
         assert not outcome.primary_success

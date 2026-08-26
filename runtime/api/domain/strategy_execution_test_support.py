@@ -21,6 +21,7 @@ from yoke_core.domain.strategy_docs_create import create_doc
 from yoke_core.domain.strategy_execution_schema import (
     ensure_strategy_execution_schema,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @contextmanager
@@ -70,9 +71,9 @@ def seed_session_claim(conn, item_id: int, session_id: str) -> None:
     )
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         "last_heartbeat) VALUES (%s, 'item', %s, 'exclusive', %s, %s)",
-        (session_id, item_id, now, now),
+        (session_id, make_item_target(item_id).scope_json(), now, now),
     )
     conn.commit()
 
@@ -156,9 +157,11 @@ def handoff_item_claim(
     after: str,
 ) -> None:
     now = iso8601_now()
+    target = make_item_target(item_id)
     conn.execute(
         "UPDATE work_claims SET released_at = %s, release_reason = 'handed_off' "
-        "WHERE item_id = %s AND session_id = %s AND released_at IS NULL",
-        (now, item_id, before),
+        "WHERE target_kind = %s AND scope = %s AND session_id = %s "
+        "AND released_at IS NULL",
+        (now, target.kind, target.scope_json(), before),
     )
     seed_session_claim(conn, item_id, after)

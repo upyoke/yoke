@@ -22,6 +22,7 @@ from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_core.domain.work_claim_targets import make_item_target
 
 pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
@@ -55,7 +56,9 @@ class TestSessionOfferCharge:
         assert data["action"] == "charge"
         assert data["chainable"] is True
 
-    def test_cmd_session_offer_drift_review_failure_returns_escalate(self, session_offer_db, monkeypatch, capsys):
+    def test_cmd_session_offer_drift_review_failure_returns_escalate(
+        self, session_offer_db, monkeypatch, capsys
+    ):
         """CLI surfaces drift-review failures as escalate JSON."""
         import yoke_core.api.service_client as service_client
 
@@ -63,13 +66,18 @@ class TestSessionOfferCharge:
             raise RuntimeError("boom")
 
         sid = "drift-review-fail-session"
-        _pre_register_session(session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(
+            session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"]
+        )
         monkeypatch.setenv("YOKE_DB", session_offer_db["db_path"])
         monkeypatch.setattr(service_client, "assess_post_delivery_drift", _raise)
 
-        rc = service_client.cmd_session_offer([
-            "--session-id", sid,
-        ])
+        rc = service_client.cmd_session_offer(
+            [
+                "--session-id",
+                sid,
+            ]
+        )
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -78,7 +86,9 @@ class TestSessionOfferCharge:
         assert data["context"]["trigger"] == "drift_review"
         assert "boom" in data["context"]["error"]
 
-    def test_cmd_session_offer_frontier_only_charge_does_not_emit_checkpoint(self, session_offer_db, monkeypatch, capsys):
+    def test_cmd_session_offer_frontier_only_charge_does_not_emit_checkpoint(
+        self, session_offer_db, monkeypatch, capsys
+    ):
         """charge-winning frontier reviews must stay uncheckpointed."""
         import yoke_core.api.service_client as service_client
         from yoke_core.domain.drift_review import DriftReviewResult
@@ -89,7 +99,9 @@ class TestSessionOfferCharge:
             emitted.append(kwargs)
 
         sid = "frontier-only-session"
-        _pre_register_session(session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(
+            session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"]
+        )
         monkeypatch.setenv("YOKE_DB", session_offer_db["db_path"])
         monkeypatch.setattr(
             service_client,
@@ -104,9 +116,12 @@ class TestSessionOfferCharge:
         )
         monkeypatch.setattr(service_client, "emit_drift_review_completed", _record_emit)
 
-        rc = service_client.cmd_session_offer([
-            "--session-id", sid,
-        ])
+        rc = service_client.cmd_session_offer(
+            [
+                "--session-id",
+                sid,
+            ]
+        )
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -117,7 +132,9 @@ class TestSessionOfferCharge:
     def test_session_offer_charge_includes_scheduler_next_step(self, session_offer_db):
         """Charge responses expose the scheduler's routing decision."""
         sid = "charge-next-step-session"
-        _pre_register_session(session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(
+            session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"]
+        )
         result = _run_client(
             [
                 "session-offer",
@@ -170,12 +187,13 @@ class TestSessionOfferCharge:
                                '/tmp', %s, %s)""",
                     (owner_session, now, now),
                 )
+            target = make_item_target(item_id)
             conn.execute(
                 """INSERT INTO work_claims
-                   (session_id, target_kind, item_id, claim_type,
+                   (session_id, target_kind, scope, claim_type,
                     claimed_at, last_heartbeat)
-                   VALUES (%s, 'item', %s, 'exclusive', %s, %s)""",
-                (owner_session, item_id, now, now),
+                   VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+                (owner_session, target.kind, target.scope_json(), now, now),
             )
             conn.commit()
         finally:
@@ -280,10 +298,16 @@ class TestSessionOfferCharge:
         assert ctx.get("selected_item") in (None, "")
         assert data["action"] != "charge"
 
-    def test_session_offer_persists_full_trace_with_session_scoped_events(self, session_offer_db):
+    def test_session_offer_persists_full_trace_with_session_scoped_events(
+        self, session_offer_db
+    ):
         """The charge decision chain is queryable by session_id end-to-end."""
         session_id = "trace-sess"
-        _pre_register_session(session_offer_db["db_path"], session_id, workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(
+            session_offer_db["db_path"],
+            session_id,
+            workspace=session_offer_db["tmp_dir"],
+        )
         result = _run_client(
             [
                 "session-offer",

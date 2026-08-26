@@ -56,20 +56,8 @@ _SESSION_OFFER_SCHEMA_DDL = """
     CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering_scope')),
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
-    steering_project_id INTEGER,
-    steering_strategy_doc_slugs TEXT,
-    owner_kind TEXT,
-    owner_item_id INTEGER,
-    owner_session_id TEXT,
-    owner_work_claim_id INTEGER,
-    registered_by_actor_id INTEGER,
-    registered_by_session_id TEXT,
+    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
@@ -78,16 +66,6 @@ _SESSION_OFFER_SCHEMA_DDL = """
     reason TEXT DEFAULT NULL,
     reason_intent TEXT DEFAULT NULL,
     release_reason_intent TEXT DEFAULT NULL,
-    CHECK (
-      (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
-      (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
-      (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
-      (target_kind='steering_scope' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NOT NULL AND steering_strategy_doc_slugs IS NOT NULL)
-    ),
-    CHECK (
-      (target_kind<>'steering_scope' AND owner_kind IS NULL AND owner_item_id IS NULL AND owner_session_id IS NULL AND owner_work_claim_id IS NULL AND registered_by_actor_id IS NULL AND registered_by_session_id IS NULL) OR
-      (target_kind='steering_scope' AND owner_kind='session' AND owner_item_id IS NULL AND owner_session_id=session_id AND owner_work_claim_id IS NULL AND registered_by_actor_id IS NOT NULL AND registered_by_session_id IS NOT NULL)
-    ),
     FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
 );
 
@@ -160,7 +138,10 @@ def _apply_session_offer_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_ddl_statements(
-            conn, PROJECTS_SCHEMA, ITEMS_SCHEMA, ITEM_DEPENDENCIES_SCHEMA,
+            conn,
+            PROJECTS_SCHEMA,
+            ITEMS_SCHEMA,
+            ITEM_DEPENDENCIES_SCHEMA,
             _SESSION_OFFER_SCHEMA_DDL,
         )
         from yoke_core.domain.workflow_registry import (
@@ -200,7 +181,8 @@ def _apply_session_offer_schema() -> None:
                VALUES (12, 10, 'activation', 'status:done', 'shepherd', 'Task 12 depends on task 10', '2026-04-20T00:00:00Z')"""
         )
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, "issue",
+            conn,
+            "issue",
         )
         conn.execute(
             "UPDATE items SET workflow_id = %s, workflow_version_id = %s",
@@ -257,21 +239,36 @@ def session_offer_db(tmp_path, monkeypatch):
         yield {"db_path": db_path, "tmp_dir": workspace}
 
 
-def _pre_register_session(db_path: str, session_id: str, executor: str = "claude-code",
-                          provider: str = "anthropic", model: str = TEST_MODEL_ID,
-                          workspace: str = "/tmp", lane: str = "primary"):
+def _pre_register_session(
+    db_path: str,
+    session_id: str,
+    executor: str = "claude-code",
+    provider: str = "anthropic",
+    model: str = TEST_MODEL_ID,
+    workspace: str = "/tmp",
+    lane: str = "primary",
+):
     """Pre-register a session in the DB so session-offer can find it.
 
     Uses session-begin which is idempotent — safe to call multiple times.
     """
-    r = _run_client([
-        "session-begin",
-        "--session-id", session_id,
-        "--executor", executor,
-        "--provider", provider,
-        "--model", model,
-        "--workspace", workspace,
-        "--project-id", "1",
-    ], db_path=db_path)
+    r = _run_client(
+        [
+            "session-begin",
+            "--session-id",
+            session_id,
+            "--executor",
+            executor,
+            "--provider",
+            provider,
+            "--model",
+            model,
+            "--workspace",
+            workspace,
+            "--project-id",
+            "1",
+        ],
+        db_path=db_path,
+    )
     assert r.returncode == 0, f"session-begin failed: {r.stderr}"
     return r

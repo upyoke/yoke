@@ -65,7 +65,8 @@ def _err(code: str, message: str) -> HandlerOutcome:
 
 
 def _current_item_before_implementation(
-    conn: Any, session_id: str,
+    conn: Any,
+    session_id: str,
 ) -> Optional[bool]:
     """Server-computed lifecycle posture for the session's current item."""
     from yoke_core.domain import db_backend
@@ -87,7 +88,8 @@ def _current_item_before_implementation(
     stage_id = str(row["status"] if hasattr(row, "keys") else row[1])
     try:
         return load_item_workflow_runtime(
-            conn, item_id,
+            conn,
+            item_id,
         ).is_before_implementation(stage_id)
     except Exception:
         return None
@@ -108,7 +110,8 @@ def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
         item_id = int(request.target.item_id)
     if item_id is None:
         return _err(
-            "payload_invalid", "holder.get requires an item id or a path",
+            "payload_invalid",
+            "holder.get requires an item id or a path",
         )
 
     from yoke_core.domain.sessions_queries_lookup import (
@@ -172,17 +175,19 @@ def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     from yoke_core.domain import db_backend, db_helpers
+    from yoke_core.domain.work_claim_targets import scope_int_sql
 
     with db_helpers.connect() as conn:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         sql = (
-            "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-            "process_key, conflict_group, claimed_at, last_heartbeat "
+            "SELECT id, session_id, target_kind, scope, "
+            "claimed_at, last_heartbeat "
             "FROM work_claims WHERE released_at IS NULL"
         )
         params: List[Any] = []
         if body.item_id is not None:
-            sql += f" AND target_kind='item' AND item_id = {p}"
+            item_scope = scope_int_sql(conn, "scope", "item_id")
+            sql += f" AND target_kind='item' AND {item_scope} = {p}"
             params.append(int(body.item_id))
         if body.session_id:
             sql += f" AND session_id = {p}"
@@ -193,15 +198,18 @@ def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
         lanes = _lane_worktrees(conn, holders)
         before_implementation = (
             _current_item_before_implementation(conn, body.session_id)
-            if body.session_id else None
+            if body.session_id
+            else None
         )
 
     for holder in holders:
         holder["lane_worktrees"] = lanes.get(holder["claim_id"], [])
-    return HandlerOutcome(result_payload={
-        "holders": holders,
-        "current_item_before_implementation": before_implementation,
-    })
+    return HandlerOutcome(
+        result_payload={
+            "holders": holders,
+            "current_item_before_implementation": before_implementation,
+        }
+    )
 
 
 def _lane_worktrees(conn: Any, rows: List[Dict[str, Any]]) -> Dict[int, List[str]]:
@@ -262,13 +270,16 @@ def _row_dict(row: Any) -> Dict[str, Any]:
 def _holder_row_to_dict(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if row is None:
         return None
+    from yoke_core.domain.work_claim_targets import from_row as target_from_row
+
+    target = target_from_row(row)
     return {
         "claim_id": int(row.get("id") if "id" in row else row.get("claim_id")),
         "session_id": str(row.get("session_id") or ""),
-        "target_kind": str(row.get("target_kind") or "item"),
-        "item_id": row.get("item_id"),
-        "epic_id": row.get("epic_id"),
-        "task_num": row.get("task_num"),
+        "target_kind": target.kind,
+        "item_id": target.item_id,
+        "epic_id": target.epic_id,
+        "task_num": target.task_num,
         "claimed_at": row.get("claimed_at"),
         "last_heartbeat": row.get("last_heartbeat"),
     }

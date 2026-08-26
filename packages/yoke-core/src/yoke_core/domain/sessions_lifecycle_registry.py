@@ -28,6 +28,7 @@ from .sessions_lifecycle_identity import (
 )
 from .sessions_lifecycle_reactivation import emit_reactivated_with_released_claims
 from .sessions_queries import _now_iso, _row_to_dict
+from .work_claim_targets import from_row as target_from_row
 
 
 def _p(conn: Any) -> str:
@@ -57,7 +58,9 @@ def _get_claim(conn: Any, claim_id: int) -> Dict[str, Any]:
     ).fetchone()
     if row is None:
         raise SessionError("NOT_FOUND", f"Claim {claim_id} not found.")
-    return _row_to_dict(row)
+    claim = _row_to_dict(row)
+    claim.update(target_from_row(claim).scope)
+    return claim
 
 
 # ---------------------------------------------------------------------------

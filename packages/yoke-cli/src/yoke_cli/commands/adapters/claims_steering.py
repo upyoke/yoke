@@ -1,4 +1,4 @@
-"""CLI adapters for the ``claims.steering_scope.*`` family."""
+"""CLI adapters for the ``claims.steering.*`` family."""
 
 from __future__ import annotations
 
@@ -15,31 +15,29 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 
 
-STEERING_SCOPE_ACQUIRE_USAGE = (
-    "yoke claims steering-scope acquire --project P "
-    "[--strategy-doc SLUG ...] [--reason TEXT] [--json]"
+STEERING_ACQUIRE_USAGE = (
+    "yoke claims steering acquire --project P [--reason TEXT] [--json]"
 )
-STEERING_SCOPE_RELEASE_USAGE = (
-    "yoke claims steering-scope release CLAIM_ID --reason TEXT [--json]"
+STEERING_RELEASE_USAGE = (
+    "yoke claims steering release CLAIM_ID --reason TEXT [--json]"
 )
-STEERING_SCOPE_LIST_USAGE = (
-    "yoke claims steering-scope list [--project P] [--session-id S] "
+STEERING_LIST_USAGE = (
+    "yoke claims steering list [--project P] [--session-id S] "
     "[--active-only] [--json]"
 )
 
 
-def _scope_label(claim: Dict[str, Any]) -> str:
-    slugs = list(claim.get("steering_strategy_doc_slugs") or [])
-    return ",".join(slugs) if slugs else "whole-project"
+def _project_id(claim: Dict[str, Any]) -> Any:
+    scope = claim.get("scope") or {}
+    return scope.get("project_id", "") if isinstance(scope, dict) else ""
 
 
 def _print_acquired(response: Any, stdout, _stderr) -> None:
     claim = (response.result or {}).get("claim") or {}
     print(
-        f"acquired steering-scope claim {claim.get('id', '')}: "
-        f"project={claim.get('steering_project_id', '')} "
-        f"scope={_scope_label(claim)} "
-        f"holder={claim.get('owner_session_id') or claim.get('session_id') or ''}",
+        f"acquired steering claim {claim.get('id', '')}: "
+        f"project={_project_id(claim)} "
+        f"holder={claim.get('session_id', '')}",
         file=stdout,
     )
 
@@ -47,10 +45,9 @@ def _print_acquired(response: Any, stdout, _stderr) -> None:
 def _print_released(response: Any, stdout, _stderr) -> None:
     claim = (response.result or {}).get("claim") or {}
     print(
-        f"released steering-scope claim {claim.get('id', '')}: "
-        f"project={claim.get('steering_project_id', '')} "
-        f"scope={_scope_label(claim)} "
-        f"holder={claim.get('owner_session_id') or claim.get('session_id') or ''}",
+        f"released steering claim {claim.get('id', '')}: "
+        f"project={_project_id(claim)} "
+        f"holder={claim.get('session_id', '')}",
         file=stdout,
     )
 
@@ -58,49 +55,36 @@ def _print_released(response: Any, stdout, _stderr) -> None:
 def _print_claims(response: Any, stdout, _stderr) -> None:
     claims = (response.result or {}).get("claims") or []
     if not claims:
-        print("no steering-scope claims", file=stdout)
+        print("no steering claims", file=stdout)
         return
-    print("claim_id\tproject\tscope\tholder\tstate\tclaimed_at", file=stdout)
+    print("claim_id\tproject\tholder\tstate\tclaimed_at", file=stdout)
     for claim in claims:
         print(
             f"{claim.get('id', '')}\t"
-            f"{claim.get('steering_project_id', '')}\t"
-            f"{_scope_label(claim)}\t"
-            f"{claim.get('owner_session_id') or claim.get('session_id') or ''}\t"
+            f"{_project_id(claim)}\t"
+            f"{claim.get('session_id', '')}\t"
             f"{'released' if claim.get('released_at') else 'active'}\t"
             f"{claim.get('claimed_at', '')}",
             file=stdout,
         )
 
 
-def claims_steering_scope_acquire(args: List[str]) -> int:
+def claims_steering_acquire(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke claims steering-scope acquire",
-        description=STEERING_SCOPE_ACQUIRE_USAGE,
+        prog="yoke claims steering acquire",
+        description=STEERING_ACQUIRE_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
-    parser.add_argument(
-        "--strategy-doc",
-        dest="strategy_docs",
-        action="append",
-        default=[],
-        help=(
-            "Strategy-document slug in the steering scope; repeat for more. "
-            "Omit for the whole project."
-        ),
-    )
     parser.add_argument("--reason", default=None, help="Optional acquire rationale.")
     add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, STEERING_SCOPE_ACQUIRE_USAGE)
+    parsed = parse_or_usage_error(parser, args, STEERING_ACQUIRE_USAGE)
     if parsed is None:
         return 2
-    payload: Dict[str, Any] = {
-        "strategy_doc_slugs": list(parsed.strategy_docs),
-    }
+    payload: Dict[str, Any] = {}
     if parsed.reason:
         payload["reason"] = parsed.reason
     return dispatch_and_emit(
-        function_id="claims.steering_scope.acquire",
+        function_id="claims.steering.acquire",
         target=TargetRef(
             kind="global",
             project_id=client_project_context(parsed.project),
@@ -112,15 +96,15 @@ def claims_steering_scope_acquire(args: List[str]) -> int:
     )
 
 
-def claims_steering_scope_release(args: List[str]) -> int:
+def claims_steering_release(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke claims steering-scope release",
-        description=STEERING_SCOPE_RELEASE_USAGE,
+        prog="yoke claims steering release",
+        description=STEERING_RELEASE_USAGE,
     )
-    parser.add_argument("claim_id", help="Steering-scope work_claims.id.")
+    parser.add_argument("claim_id", help="Steering work_claims.id.")
     parser.add_argument("--reason", required=True, help="Release rationale.")
     add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, STEERING_SCOPE_RELEASE_USAGE)
+    parsed = parse_or_usage_error(parser, args, STEERING_RELEASE_USAGE)
     if parsed is None:
         return 2
     try:
@@ -128,7 +112,7 @@ def claims_steering_scope_release(args: List[str]) -> int:
     except ValueError:
         return usage_error("CLAIM_ID must be an integer")
     return dispatch_and_emit(
-        function_id="claims.steering_scope.release",
+        function_id="claims.steering.release",
         target=TargetRef(kind="claim", claim_id=claim_id),
         payload={"reason": parsed.reason},
         session_id=None,
@@ -137,10 +121,10 @@ def claims_steering_scope_release(args: List[str]) -> int:
     )
 
 
-def claims_steering_scope_list(args: List[str]) -> int:
+def claims_steering_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke claims steering-scope list",
-        description=STEERING_SCOPE_LIST_USAGE,
+        prog="yoke claims steering list",
+        description=STEERING_LIST_USAGE,
     )
     parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument("--session-id", default=None, help="Filter by claim holder.")
@@ -150,7 +134,7 @@ def claims_steering_scope_list(args: List[str]) -> int:
         help="Restrict to claims that have not been released.",
     )
     add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, STEERING_SCOPE_LIST_USAGE)
+    parsed = parse_or_usage_error(parser, args, STEERING_LIST_USAGE)
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {}
@@ -159,7 +143,7 @@ def claims_steering_scope_list(args: List[str]) -> int:
     if parsed.active_only:
         payload["active_only"] = True
     return dispatch_and_emit(
-        function_id="claims.steering_scope.list",
+        function_id="claims.steering.list",
         target=TargetRef(
             kind="global",
             project_id=client_project_context(parsed.project),
@@ -172,18 +156,18 @@ def claims_steering_scope_list(args: List[str]) -> int:
 
 
 USAGE_BY_FUNCTION_ID = {
-    "claims.steering_scope.acquire": STEERING_SCOPE_ACQUIRE_USAGE,
-    "claims.steering_scope.release": STEERING_SCOPE_RELEASE_USAGE,
-    "claims.steering_scope.list": STEERING_SCOPE_LIST_USAGE,
+    "claims.steering.acquire": STEERING_ACQUIRE_USAGE,
+    "claims.steering.release": STEERING_RELEASE_USAGE,
+    "claims.steering.list": STEERING_LIST_USAGE,
 }
 
 
 __all__ = [
-    "STEERING_SCOPE_ACQUIRE_USAGE",
-    "STEERING_SCOPE_LIST_USAGE",
-    "STEERING_SCOPE_RELEASE_USAGE",
+    "STEERING_ACQUIRE_USAGE",
+    "STEERING_LIST_USAGE",
+    "STEERING_RELEASE_USAGE",
     "USAGE_BY_FUNCTION_ID",
-    "claims_steering_scope_acquire",
-    "claims_steering_scope_list",
-    "claims_steering_scope_release",
+    "claims_steering_acquire",
+    "claims_steering_list",
+    "claims_steering_release",
 ]

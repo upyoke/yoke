@@ -27,6 +27,7 @@ from yoke_core.domain.item_execution_status_helpers import (
     parse_iso,
 )
 from yoke_core.domain.workflow_registry_sql import marker as _p
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _conn = connect_test_db
@@ -103,13 +104,13 @@ def test_active_claim_includes_holder_age_and_heartbeat(core_db) -> None:
     try:
         _add_item(conn, 20)
         conn.execute(
-            "INSERT INTO work_claims(session_id, target_kind, item_id, "
+            "INSERT INTO work_claims(session_id, target_kind, scope, "
             "claim_type, claimed_at, last_heartbeat) "
             f"VALUES ({p},{p},{p},{p},{p},{p})",
             (
                 "session-A",
                 "item",
-                20,
+                make_item_target(20).scope_json(),
                 "exclusive",
                 "2026-05-08T11:30:00Z",
                 "2026-05-08T11:58:00Z",

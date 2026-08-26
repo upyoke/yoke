@@ -84,7 +84,7 @@ CORE_COMMANDS: list[dict] = [
             "--limit 20\n"
             "# All active work claims (diagnostic SQL fallback):\n"
             "yoke db read \"SELECT "
-            "id, session_id, target_kind, item_id, epic_id, task_num, "
+            "id, session_id, target_kind, scope, "
             "claim_type, claimed_at FROM work_claims WHERE released_at IS "
             "NULL\"\n"
             "# Recent events on a work item:\n"

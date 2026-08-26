@@ -41,6 +41,7 @@ from yoke_core.domain.yoke_function_registry import (
     register,
     reset_registry_for_tests,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 SESSION_ID = "db-gate-transport-session"
@@ -118,15 +119,17 @@ def _stage(
 
 def _seed_work_claim(conn) -> None:
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    target = make_item_target(ITEM_ID)
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         "last_heartbeat) "
-        f"VALUES ({marker}, 'item', {marker}, 'exclusive', "
+        f"VALUES ({marker}, {marker}, {marker}, 'exclusive', "
         f"{marker}, {marker})",
         (
             SESSION_ID,
-            ITEM_ID,
+            target.kind,
+            target.scope_json(),
             "2026-08-22T00:00:00Z",
             "2026-08-22T00:00:00Z",
         ),

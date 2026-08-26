@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _now_iso() -> str:
@@ -19,7 +20,10 @@ def _now_iso() -> str:
 
 
 def _insert_session(
-    db_path: str, session_id: str, workspace: str, *,
+    db_path: str,
+    session_id: str,
+    workspace: str,
+    *,
     ended: bool = False,
 ) -> None:
     conn = connect_test_db(db_path)
@@ -32,7 +36,10 @@ def _insert_session(
                VALUES (%s, 'codex', 'openai', 'gpt-5.4', 'primary',
                        %s, 'charge', %s, %s, %s)""",
             (
-                session_id, workspace, now, now,
+                session_id,
+                workspace,
+                now,
+                now,
                 now if ended else None,
             ),
         )
@@ -45,12 +52,13 @@ def _insert_claim(db_path: str, session_id: str, item_id: int) -> None:
     conn = connect_test_db(db_path)
     try:
         now = _now_iso()
+        target = make_item_target(item_id)
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type,
+               (session_id, target_kind, scope, claim_type,
                 claimed_at, last_heartbeat)
-               VALUES (%s, 'item', %s, 'exclusive', %s, %s)""",
-            (session_id, item_id, now, now),
+               VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+            (session_id, target.kind, target.scope_json(), now, now),
         )
         conn.commit()
     finally:

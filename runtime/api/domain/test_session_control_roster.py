@@ -18,6 +18,7 @@ from yoke_core.domain.session_control_roster import (
     SESSION_CONTROL_ROSTER_FIELDS,
     session_control_roster_result,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 NOW = datetime(2026, 8, 22, 12, 1, tzinfo=timezone.utc)
@@ -52,9 +53,7 @@ def _connection() -> sqlite3.Connection:
             id INTEGER PRIMARY KEY,
             session_id TEXT,
             target_kind TEXT,
-            item_id INTEGER,
-            epic_id INTEGER,
-            task_num INTEGER,
+            scope TEXT,
             claimed_at TEXT,
             released_at TEXT
         );
@@ -147,14 +146,12 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
         (1, TEST_ITEM_ID, "/repo/.worktrees/item-42", "item-42", "active", "worker"),
     )
     conn.execute(
-        "INSERT INTO work_claims VALUES (?,?,?,?,?,?,?,?)",
+        "INSERT INTO work_claims VALUES (?,?,?,?,?,?)",
         (
             1,
             "session-1",
             "item",
-            TEST_ITEM_ID,
-            None,
-            None,
+            make_item_target(TEST_ITEM_ID).scope_json(),
             "2026-08-22T11:00:00Z",
             None,
         ),

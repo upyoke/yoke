@@ -4,20 +4,22 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_contracts.board.data import ReplayBoardDB, entry_key
+from yoke_contracts.board.data import BOARD_DATA_VERSION, ReplayBoardDB, entry_key
 from yoke_contracts.board.query_key import canonicalize_sql
 
 
 def test_layout_only_changes_share_one_key() -> None:
     multiline = """
-        SELECT item_id,
+        SELECT scope,
                session_id
           FROM work_claims
-         WHERE item_id = %s
+         WHERE scope = %s
     """
-    wrapped = "SELECT item_id, session_id FROM work_claims WHERE item_id = %s"
+    wrapped = "SELECT scope, session_id FROM work_claims WHERE scope = %s"
 
-    assert entry_key("query", multiline, [42]) == entry_key("query", wrapped, [42])
+    assert entry_key("query", multiline, ['{"item_id":42}']) == entry_key(
+        "query", wrapped, ['{"item_id":42}']
+    )
 
 
 @pytest.mark.parametrize(
@@ -64,19 +66,19 @@ def test_real_sql_and_interpolated_filter_changes_keep_distinct_keys() -> None:
 
 def test_payload_replay_uses_the_same_canonical_sql_as_recording() -> None:
     payload = {
-        "version": 1,
+        "version": BOARD_DATA_VERSION,
         "entries": [
             {
                 "kind": "query_quiet",
-                "sql": "SELECT item_id,\n       session_id FROM work_claims",
+                "sql": "SELECT scope,\n       session_id FROM work_claims",
                 "params": None,
-                "rows": [[42, "session-1"]],
+                "rows": [['{"item_id":42}', "session-1"]],
             }
         ],
     }
 
     replay = ReplayBoardDB.from_payload(payload)
 
-    assert replay.query_quiet("  SELECT item_id, session_id\n  FROM work_claims  ") == [
-        (42, "session-1")
+    assert replay.query_quiet("  SELECT scope, session_id\n  FROM work_claims  ") == [
+        ('{"item_id":42}', "session-1")
     ]

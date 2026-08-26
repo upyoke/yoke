@@ -27,6 +27,7 @@ from yoke_core.domain.path_claims_blocked_coordination_repair import (
 )
 from yoke_core.domain.path_claims_register import activate_with_events
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 @dataclass
@@ -254,9 +255,10 @@ def check_work_claim_ownership(
     if not session_id:
         return None
     p = _p(conn)
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     row = conn.execute(
         "SELECT session_id FROM work_claims "
-        f"WHERE target_kind='item' AND item_id={p} "
+        f"WHERE target_kind='item' AND {item_scope}={p} "
         "AND released_at IS NULL AND claim_type='exclusive' "
         "ORDER BY claimed_at DESC LIMIT 1",
         (item_id,),
@@ -267,9 +269,7 @@ def check_work_claim_ownership(
     return None if other == session_id else other
 
 
-def resolve_item_actor(
-    conn: Any, item_id: int
-) -> tuple[Optional[int], Optional[str]]:
+def resolve_item_actor(conn: Any, item_id: int) -> tuple[Optional[int], Optional[str]]:
     """Resolve an item's owning actor as ``COALESCE(owner, source)``.
 
     Returns ``(actor_id, None)`` on success or ``(None, error)`` when

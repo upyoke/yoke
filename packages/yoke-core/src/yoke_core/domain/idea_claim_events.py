@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.work_claim_targets import from_row as work_claim_target_from_row
 
 
 CLAIM_REASON_DRAFT = "draft-in-progress"
@@ -38,7 +39,9 @@ def is_idea_release_intent(release_reason_intent: Optional[str]) -> bool:
     return release_reason_intent == RELEASE_REASON_IDEA_COMPLETE
 
 
-def compute_duration_ms(claimed_at_iso: Optional[str], released_at_iso: Optional[str]) -> int:
+def compute_duration_ms(
+    claimed_at_iso: Optional[str], released_at_iso: Optional[str]
+) -> int:
     """Return clamped non-negative milliseconds between two ISO timestamps."""
     if not claimed_at_iso or not released_at_iso:
         return 0
@@ -65,20 +68,25 @@ def _parse_iso(value: str) -> datetime:
 def _lookup_claim_row(conn: Any, claim_id: int) -> Optional[Dict[str, Any]]:
     p = _p(conn)
     row = conn.execute(
-        "SELECT claimed_at, released_at, item_id, session_id "
+        "SELECT claimed_at, released_at, target_kind, scope, session_id "
         f"FROM work_claims WHERE id = {p}",
         (claim_id,),
     ).fetchone()
     if row is None:
         return None
-    if hasattr(row, "keys"):
-        return dict(row)
-    return {
-        "claimed_at": row[0],
-        "released_at": row[1],
-        "item_id": row[2],
-        "session_id": row[3],
-    }
+    payload = (
+        dict(row)
+        if hasattr(row, "keys")
+        else {
+            "claimed_at": row[0],
+            "released_at": row[1],
+            "target_kind": row[2],
+            "scope": row[3],
+            "session_id": row[4],
+        }
+    )
+    payload["item_id"] = work_claim_target_from_row(payload).item_id
+    return payload
 
 
 def _lookup_claim_reason_intent(conn: Any, claim_id: int) -> Optional[str]:

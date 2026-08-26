@@ -10,6 +10,8 @@ from .session_staleness import activity_is_stale
 from .scheduler_types import ClaimState
 from .sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
 from .yok_n_parser import parse_item_id_or_none
+from .work_claim_targets import scope_int_sql
+
 
 def _evaluate_claim_states(
     conn: Any,
@@ -33,8 +35,9 @@ def _evaluate_claim_states(
         # not surfaced as item-level scheduler blockers. Liveness comes
         # from :func:`latest_activity_by_session` post-fetch (last_tool_call_at +
         # heartbeats) so the SQL no longer reads heartbeat columns directly.
+        item_scope = scope_int_sql(conn, "wc.scope", "item_id")
         claim_rows = conn.execute(
-            """SELECT wc.item_id, wc.session_id,
+            f"""SELECT {item_scope} AS item_id, wc.session_id,
                       ases.ended_at AS session_ended_at,
                       ases.executor AS executor,
                       wc.claimed_at AS claimed_at
@@ -52,8 +55,9 @@ def _evaluate_claim_states(
         try:
             # Some test and transitional schemas have a partial work_claims
             # table; still treat non-self live item claims as blocking.
+            item_scope = scope_int_sql(conn, "scope", "item_id")
             claim_rows = conn.execute(
-                """SELECT item_id, session_id
+                f"""SELECT {item_scope} AS item_id, session_id
                    FROM work_claims
                    WHERE released_at IS NULL
                      AND target_kind='item'"""
@@ -103,7 +107,8 @@ def _evaluate_claim_states(
                 executor=executor,
                 base_ttl_minutes=stale_threshold_minutes,
             )
-            if len(row) > 2 else False
+            if len(row) > 2
+            else False
         )
 
         if session_id and claim_session == session_id:

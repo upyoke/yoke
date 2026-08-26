@@ -25,6 +25,11 @@ from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     machine_surface_versions,
 )
+from yoke_core.domain.work_claim_targets import (
+    TARGET_KIND_STEERING,
+    scope_int_sql,
+    scope_text_sql,
+)
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
@@ -47,10 +52,16 @@ def _session_rows(conn: Any) -> dict[str, dict[str, Any]]:
 
 
 def _claim_rows(conn: Any) -> list[dict[str, Any]]:
+    item_id = scope_int_sql(conn, "wc.scope", "item_id")
+    epic_id = scope_int_sql(conn, "wc.scope", "epic_id")
+    task_num = scope_int_sql(conn, "wc.scope", "task_num")
+    project_id = scope_int_sql(conn, "wc.scope", "project_id")
+    process_key = scope_text_sql(conn, "wc.scope", "process_key")
     rows = conn.execute(
-        "SELECT wc.session_id, wc.target_kind, wc.item_id, wc.epic_id, "
-        "wc.task_num, wc.process_key, "
-        "COALESCE(item.project_id, epic.project_id, wc.steering_project_id, "
+        f"SELECT wc.session_id, wc.target_kind, {item_id} AS item_id, "
+        f"{epic_id} AS epic_id, {task_num} AS task_num, "
+        f"{process_key} AS process_key, "
+        f"COALESCE(item.project_id, epic.project_id, {project_id}, "
         "hs.project_id) "
         "AS anchor_project_id, "
         "COALESCE(task_lane.lane_role, item_lane.lane_role, '') AS work_role, "
@@ -58,14 +69,14 @@ def _claim_rows(conn: Any) -> list[dict[str, Any]]:
         "COALESCE(task_lane.path, item_lane.path, '') AS worktree_path "
         "FROM work_claims wc "
         "JOIN harness_sessions hs ON hs.session_id=wc.session_id "
-        "LEFT JOIN items item ON wc.target_kind='item' AND item.id=wc.item_id "
-        "LEFT JOIN items epic ON wc.target_kind='epic_task' AND epic.id=wc.epic_id "
+        f"LEFT JOIN items item ON wc.target_kind='item' AND item.id={item_id} "
+        f"LEFT JOIN items epic ON wc.target_kind='epic_task' AND epic.id={epic_id} "
         "LEFT JOIN epic_tasks et ON wc.target_kind='epic_task' "
-        "AND et.epic_id=wc.epic_id AND et.task_num=wc.task_num "
+        f"AND et.epic_id={epic_id} AND et.task_num={task_num} "
         "LEFT JOIN item_worktrees task_lane ON task_lane.id=et.item_worktree_id "
         "AND task_lane.state='active' "
         "LEFT JOIN item_worktrees item_lane ON item_lane.id=("
-        "SELECT iw.id FROM item_worktrees iw WHERE iw.item_id=wc.item_id "
+        f"SELECT iw.id FROM item_worktrees iw WHERE iw.item_id={item_id} "
         "AND wc.target_kind='item' AND iw.state='active' "
         "ORDER BY iw.id LIMIT 1) "
         "WHERE wc.released_at IS NULL ORDER BY wc.claimed_at, wc.id"
@@ -184,7 +195,7 @@ def _anchor_hits(
                 _add_hit(hits, session_id, f"project:{identity.slug}", identity.id)
         for claim in claims:
             if (
-                claim["target_kind"] == "steering_scope"
+                claim["target_kind"] == TARGET_KIND_STEERING
                 and int(claim["anchor_project_id"]) == identity.id
             ):
                 _add_hit(

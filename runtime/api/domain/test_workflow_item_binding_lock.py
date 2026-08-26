@@ -11,6 +11,11 @@ from yoke_core.domain.workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from yoke_core.domain.work_claim_targets import (
+    make_epic_task_target,
+    make_item_target,
+    make_process_target,
+)
 
 
 def _connection(path_claim_columns: str) -> sqlite3.Connection:
@@ -52,12 +57,12 @@ def test_typed_path_claim_schema_uses_only_item_owner() -> None:
         conn.close()
 
 
-def test_legacy_work_claim_schema_locks_item_id() -> None:
+def test_work_claim_schema_without_scope_is_ignored() -> None:
     conn = _connection("item_id INTEGER")
     try:
         conn.execute("CREATE TABLE work_claims (id INTEGER, item_id INTEGER)")
         conn.execute("INSERT INTO work_claims (id, item_id) VALUES (1, 42)")
-        assert lock_work_claims_workflow_bindings(conn, (1,)) == (42,)
+        assert lock_work_claims_workflow_bindings(conn, (1,)) == ()
     finally:
         conn.close()
 
@@ -66,15 +71,15 @@ def test_typed_work_claim_schema_locks_item_and_epic_parents() -> None:
     conn = _connection("item_id INTEGER")
     try:
         conn.execute(
-            "CREATE TABLE work_claims ("
-            "id INTEGER, target_kind TEXT, item_id INTEGER, epic_id INTEGER)"
+            "CREATE TABLE work_claims (id INTEGER, target_kind TEXT, scope TEXT)"
         )
-        conn.execute(
-            "INSERT INTO work_claims "
-            "(id, target_kind, item_id, epic_id) VALUES "
-            "(1, 'item', 42, NULL), "
-            "(2, 'epic_task', NULL, 99), "
-            "(3, 'process', NULL, NULL)"
+        conn.executemany(
+            "INSERT INTO work_claims (id, target_kind, scope) VALUES (?, ?, ?)",
+            (
+                (1, "item", make_item_target(42).scope_json()),
+                (2, "epic_task", make_epic_task_target(99, 1).scope_json()),
+                (3, "process", make_process_target("DOCTOR", "yoke").scope_json()),
+            ),
         )
         assert lock_work_claims_workflow_bindings(conn, (3, 2, 1)) == (42, 99)
     finally:

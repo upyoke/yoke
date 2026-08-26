@@ -29,7 +29,7 @@ Quick reference for the columns most often mis-named in agent SQL. The DB-comman
 - `project_capabilities`: use `type` (NOT `capability`/`name`/`capability_type`), `config` for full JSON (may contain secrets), `settings` for non-sensitive JSON.
 - `projects`: use `id` (NOT `project_id`/`name`) and `github_repo` (NOT `repo_url`/`github_url`). Checkout paths are machine-local config, not `projects` columns. Work-item-level deployment-flow defaulting lives in the `deploy_defaults` Project Structure family, not as a column on `projects`.
 - **Domain names**: `epic` (NOT `epics`), `events registry` (NOT `registry`), `runs` (NOT `deploy-events`); board rebuild is `yoke board rebuild`.
-- **Live-claim holder lookup**: use `yoke claims work holder-get PREFIX-N`; inspect project/doc steering holders with `yoke claims steering-scope list --project P --active-only`. The typed `work_claims` model uses `target_kind`, specialized target columns, typed owner authority, and separate registration provenance. See [qa-and-sessions.md § Live claim-holder lookup](db-reference/qa-and-sessions.md).
+- **Live-claim holder lookup**: use `yoke claims work holder-get PREFIX-N`; inspect project steering holders with `yoke claims steering list --project P --active-only`. The typed `work_claims` model uses `target_kind` plus one canonical JSON `scope`; session ownership is `session_id`. See [qa-and-sessions.md § Live claim-holder lookup](db-reference/qa-and-sessions.md).
 
 ## Agent-context packet
 
@@ -51,7 +51,7 @@ When this reference changes (a new column, a renamed table, a new wrapper comman
 **Topics today:**
 
 - `core` — control plane + structured fields (`epic_tasks`, `epic_progress_notes`, `events`) plus item-dependency wrapper recipes (`shepherd dependency-list`, `dependency-add`, `dependency-update`, `dependency-remove`).
-- `claims` — `harness_sessions`, `work_claims`, `path_claims` plus work, steering-scope, and path-claim wrappers.
+- `claims` — `harness_sessions`, `work_claims`, `path_claims` plus work, steering, and path-claim wrappers.
 - `qa` — `qa_requirements`, `qa_runs`, the QA discovery wrappers (`yoke qa requirement list`, `yoke qa run list`, `yoke qa run add`), and the reviewed-implementation gate preview surfaced through `/yoke advance PREFIX-N reviewed-implementation`. The packet teaches that running the test suite alone does not satisfy the gate — agents must route reviewed-implementation transitions through `/yoke advance PREFIX-N reviewed-implementation`, never raw `items update`.
 - `project` — `project_structure` declarations plus project QA plans and
   deployment defaults. Executable verification belongs to immutable QA plan
@@ -67,7 +67,7 @@ substrate contract. The doctrine is mirrored in `docs/agents.md`.
 ## Topic Index
 
 - [items-and-epics.md](db-reference/items-and-epics.md) — `items`, `item_sections`, `shepherd_verdicts`, `caveat_dispositions`, `item_dependencies`, `ouroboros_entries`, `epic_tasks`, `epic_task_files`, `epic_dispatch_chains`, `item_progress_view`, `epic_progress_notes`. Includes the **Backlog ontology** note (items are flat rows; epic decomposition lives in `epic_tasks` keyed on `(epic_id, task_num)` where `epic_id` is the epic item's own `items.id`), the **DB Claim — unified amendment workflow**, and the `deploy_stage` cache contract.
-- [qa-and-sessions.md](db-reference/qa-and-sessions.md) — `qa_requirements`, `qa_runs`, `qa_artifacts`, `release_entries`, `merge_locks`, `harness_sessions`, `work_claims`. Includes session offers, chain checkpoints, and steering-scope claim overlap/reclamation.
+- [qa-and-sessions.md](db-reference/qa-and-sessions.md) — `qa_requirements`, `qa_runs`, `qa_artifacts`, `release_entries`, `merge_locks`, `harness_sessions`, `work_claims`. Includes session offers, chain checkpoints, and project steering-claim reclamation.
 - [projects-and-flows.md](db-reference/projects-and-flows.md) — `projects`, the Project Structure aggregate (state/entries/audit), `sites`, `environments`, `project_capabilities`, `capability_secrets`, `capability_templates`, `deployment_flows`. Includes deployment-flow defaulting rules and seed data.
 - [events-and-deployments.md](db-reference/events-and-deployments.md) — `events`, `severity_config`, `event_registry`, `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_preview_environments`, `ephemeral_environments`. Includes the branch-naming contract.
 - [qa-cli-and-body-write.md](db-reference/qa-cli-and-body-write.md) — qa domain CLI subcommand reference, the structured-field body write path, error propagation, project-aware GitHub sync, canonical write pattern.
@@ -315,7 +315,7 @@ Some `TEXT` columns carry JSON payloads. These columns are `TEXT` today and beco
 | `qa_runs` | `raw_result` | JSON-encoded tool output per `.yoke/docs/reference/qa-platform.md` |
 | `qa_artifacts` | `metadata` | JSON metadata envelope per `.yoke/docs/reference/qa-platform.md` |
 | `deployment_flows` | `stages` | JSON array of stage objects |
-| `work_claims` | `steering_strategy_doc_slugs` | canonical JSON string array; empty means whole-project steering scope |
+| `work_claims` | `scope` | canonical typed-target JSON object selected by `target_kind` |
 
 These columns are annotated `-- → JSONB on Postgres` at their declaration site in the schema blocks in the topic files.
 

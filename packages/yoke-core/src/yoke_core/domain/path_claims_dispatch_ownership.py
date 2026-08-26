@@ -30,6 +30,7 @@ from yoke_core.domain.project_identity import (
 from yoke_core.api.service_client_shared_session_resolver import (
     current_session_id as _current_session_id,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 class OwnershipDenial(Exception):
@@ -85,8 +86,7 @@ class OwnershipDenial(Exception):
             "caller_session_id": self.caller_session_id,
             "holder_session_id": self.holder_session_id,
             "recovery": (
-                "yoke claims work acquire "
-                f'--item {self.item_ref} --reason "<intent>"'
+                f'yoke claims work acquire --item {self.item_ref} --reason "<intent>"'
             ),
         }
         if self.claim_id is not None:
@@ -109,8 +109,7 @@ def _p(conn: Any) -> str:
 def _item_id_for_claim(conn: Any, claim_id: int) -> Optional[int]:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT owner_item_id FROM path_claims "
-        f"WHERE id = {p} AND owner_kind = 'item'",
+        f"SELECT owner_item_id FROM path_claims WHERE id = {p} AND owner_kind = 'item'",
         (int(claim_id),),
     ).fetchone()
     value = _row_value(row, "owner_item_id")
@@ -121,12 +120,13 @@ def _item_id_for_claim(conn: Any, claim_id: int) -> Optional[int]:
 
 def _active_holder_session_id(conn: Any, item_id: int) -> Optional[str]:
     p = _p(conn)
+    target = make_item_target(item_id)
     row = conn.execute(
         "SELECT session_id FROM work_claims "
-        f"WHERE target_kind = 'item' AND item_id = {p} "
+        f"WHERE target_kind = 'item' AND scope = {p} "
         "AND released_at IS NULL "
         "ORDER BY id DESC LIMIT 1",
-        (int(item_id),),
+        (target.scope_json(),),
     ).fetchone()
     value = _row_value(row, "session_id")
     return str(value) if value else None

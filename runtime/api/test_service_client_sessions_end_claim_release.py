@@ -17,29 +17,34 @@ from runtime.api.test_service_client_sessions_helpers import (
     session_offer_db,  # noqa: F401
     _pre_register_session,
 )
+from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 
 
 _FRESH_TS = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _insert_item_claim(conn, session_id: str, item_id: int) -> None:
+    target = make_item_target(item_id)
     conn.execute(
         """INSERT INTO work_claims
-           (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-           VALUES (%s, 'item', %s, 'exclusive', %s, %s)""",
-        (session_id, item_id, _FRESH_TS, _FRESH_TS),
+           (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+           VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+        (session_id, target.kind, target.scope_json(), _FRESH_TS, _FRESH_TS),
     )
 
 
 def _insert_epic_task_claim(
-    conn, session_id: str, epic_id: int, task_num: int,
+    conn,
+    session_id: str,
+    epic_id: int,
+    task_num: int,
 ) -> None:
+    target = make_epic_task_target(epic_id, task_num)
     conn.execute(
         """INSERT INTO work_claims
-           (session_id, target_kind, epic_id, task_num,
-            claim_type, claimed_at, last_heartbeat)
-           VALUES (%s, 'epic_task', %s, %s, 'exclusive', %s, %s)""",
-        (session_id, epic_id, task_num, _FRESH_TS, _FRESH_TS),
+           (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+           VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+        (session_id, target.kind, target.scope_json(), _FRESH_TS, _FRESH_TS),
     )
 
 
@@ -57,7 +62,8 @@ class TestSessionEndAutoReleasePayload:
         conn.close()
 
         result = _run_client(
-            ["session-end", "--session-id", sid], db_path=db,
+            ["session-end", "--session-id", sid],
+            db_path=db,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         data = json.loads(result.stdout)
@@ -65,7 +71,7 @@ class TestSessionEndAutoReleasePayload:
         assert data["released_claims"] == [
             {
                 "target_kind": "item",
-                "item_id": 301,
+                "scope": {"item_id": 301},
                 "claim_id": data["released_claims"][0]["claim_id"],
             }
         ]
@@ -84,19 +90,20 @@ class TestSessionEndAutoReleasePayload:
         conn.close()
 
         result = _run_client(
-            ["session-end", "--session-id", sid], db_path=db,
+            ["session-end", "--session-id", sid],
+            db_path=db,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         data = json.loads(result.stdout)
         assert len(data["released_claims"]) == 3
-        item_ids = sorted(entry["item_id"] for entry in data["released_claims"])
+        item_ids = sorted(entry["scope"]["item_id"] for entry in data["released_claims"])
         assert item_ids == [401, 402, 403]
         for entry in data["released_claims"]:
             assert entry["target_kind"] == "item"
             assert "claim_id" in entry
 
     def test_epic_task_claim_payload(self, session_offer_db):
-        """Epic_task targets surface epic_id + task_num, not item_id."""
+        """Epic-task targets retain their typed scope object."""
         sid = "claim-release-epic-task"
         db = session_offer_db["db_path"]
         ws = session_offer_db["tmp_dir"]
@@ -107,15 +114,17 @@ class TestSessionEndAutoReleasePayload:
         conn.close()
 
         result = _run_client(
-            ["session-end", "--session-id", sid], db_path=db,
+            ["session-end", "--session-id", sid],
+            db_path=db,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         data = json.loads(result.stdout)
         assert len(data["released_claims"]) == 1
         entry = data["released_claims"][0]
         assert entry["target_kind"] == "epic_task"
-        assert entry["epic_id"] == 5000
-        assert entry["task_num"] == 7
+        assert entry["scope"] == {"epic_id": 5000, "task_num": 7}
+        assert "epic_id" not in entry
+        assert "task_num" not in entry
         assert "item_id" not in entry
         assert "claim_id" in entry
 
@@ -131,7 +140,8 @@ class TestSessionEndAutoReleasePayload:
         conn.close()
 
         result = _run_client(
-            ["session-end", "--session-id", sid], db_path=db,
+            ["session-end", "--session-id", sid],
+            db_path=db,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         data = json.loads(result.stdout)
@@ -141,14 +151,12 @@ class TestSessionEndAutoReleasePayload:
             e for e in data["released_claims"] if e["target_kind"] == "item"
         ]
         task_entries = [
-            e for e in data["released_claims"]
-            if e["target_kind"] == "epic_task"
+            e for e in data["released_claims"] if e["target_kind"] == "epic_task"
         ]
         assert len(item_entries) == 1
-        assert item_entries[0]["item_id"] == 901
+        assert item_entries[0]["scope"] == {"item_id": 901}
         assert len(task_entries) == 1
-        assert task_entries[0]["epic_id"] == 6000
-        assert task_entries[0]["task_num"] == 2
+        assert task_entries[0]["scope"] == {"epic_id": 6000, "task_num": 2}
 
     def test_no_claims_omits_released_claims_key(self, session_offer_db):
         sid = "claim-release-empty"
@@ -157,7 +165,8 @@ class TestSessionEndAutoReleasePayload:
         _pre_register_session(db, sid, workspace=ws)
 
         result = _run_client(
-            ["session-end", "--session-id", sid], db_path=db,
+            ["session-end", "--session-id", sid],
+            db_path=db,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         data = json.loads(result.stdout)

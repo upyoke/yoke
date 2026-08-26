@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401
 
@@ -16,7 +17,9 @@ def _iso(minutes_ago: int) -> str:
     )
 
 
-def _seed_conflict(db_path: str, tmp_dir: str, *, executor: str, minutes_ago: int) -> None:
+def _seed_conflict(
+    db_path: str, tmp_dir: str, *, executor: str, minutes_ago: int
+) -> None:
     seen_at = _iso(minutes_ago)
     fresh_at = _iso(0)
     conn = connect(db_path)
@@ -35,10 +38,10 @@ def _seed_conflict(db_path: str, tmp_dir: str, *, executor: str, minutes_ago: in
         (tmp_dir, fresh_at, fresh_at),
     )
     conn.execute(
-        """INSERT INTO work_claims (session_id, target_kind, item_id, claim_type,
+        """INSERT INTO work_claims (session_id, target_kind, scope, claim_type,
            claimed_at, last_heartbeat)
-           VALUES ('owner-session', 'item', '10', 'exclusive', %s, %s)""",
-        (seen_at, seen_at),
+           VALUES ('owner-session', 'item', %s, 'exclusive', %s, %s)""",
+        (make_item_target(10).scope_json(), seen_at, seen_at),
     )
     conn.commit()
     conn.close()

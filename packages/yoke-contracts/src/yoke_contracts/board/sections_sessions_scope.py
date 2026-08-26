@@ -48,8 +48,7 @@ def session_rows(
         surface_col="",
     )
     return [
-        (row[0], row[1], None, *row[2:])
-        for row in db.query_quiet(legacy_sql, params)
+        (row[0], row[1], None, *row[2:]) for row in db.query_quiet(legacy_sql, params)
     ]
 
 
@@ -102,8 +101,7 @@ def session_lane_presentation(
     except (TypeError, ValueError):
         return lane_presentation(str(lane or ""))
     sql = (
-        "SELECT settings FROM project_capabilities "
-        "WHERE project_id = %s AND type = %s"
+        "SELECT settings FROM project_capabilities WHERE project_id = %s AND type = %s"
     )
     params = (normalized_project_id, SESSION_ROUTING_CAPABILITY)
     has_query_quiet = getattr(db, "has_query_quiet", None)
@@ -158,17 +156,25 @@ def _claim_scope_filter(
         "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL" if active_only else ""
     )
     lease_terminal = "AND cl.released_at IS NULL" if active_only else ""
+    parent_id = (
+        "CASE WHEN wc.target_kind = 'item' "
+        "THEN CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER) "
+        "WHEN wc.target_kind = 'epic_task' "
+        "THEN CAST(wc.scope::jsonb ->> 'epic_id' AS INTEGER) END"
+    )
+    item_id = "CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER)"
     return (
         f"""
             SELECT wc.session_id
             FROM work_claims wc
-            JOIN items wi ON wi.id = wc.item_id
+            JOIN items wi ON wi.id = {parent_id}
             WHERE wi.project_id = %s {wc_terminal}
             UNION
             SELECT wc.session_id
             FROM path_claims pc
             JOIN items pi ON pi.id = pc.owner_item_id
-            JOIN work_claims wc ON wc.item_id = pc.owner_item_id
+            JOIN work_claims wc ON wc.target_kind = 'item'
+              AND {item_id} = pc.owner_item_id
             WHERE pc.owner_kind = 'item'
               AND pi.project_id = %s {pc_terminal} {wc_terminal}
             UNION
@@ -214,17 +220,25 @@ def _claim_scope_filter_for_projects(
         "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL" if active_only else ""
     )
     lease_terminal = "AND cl.released_at IS NULL" if active_only else ""
+    parent_id = (
+        "CASE WHEN wc.target_kind = 'item' "
+        "THEN CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER) "
+        "WHEN wc.target_kind = 'epic_task' "
+        "THEN CAST(wc.scope::jsonb ->> 'epic_id' AS INTEGER) END"
+    )
+    item_id = "CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER)"
     return (
         f"""
             SELECT wc.session_id
             FROM work_claims wc
-            JOIN items wi ON wi.id = wc.item_id
+            JOIN items wi ON wi.id = {parent_id}
             WHERE wi.project_id IN ({markers}) {wc_terminal}
             UNION
             SELECT wc.session_id
             FROM path_claims pc
             JOIN items pi ON pi.id = pc.owner_item_id
-            JOIN work_claims wc ON wc.item_id = pc.owner_item_id
+            JOIN work_claims wc ON wc.target_kind = 'item'
+              AND {item_id} = pc.owner_item_id
             WHERE pc.owner_kind = 'item'
               AND pi.project_id IN ({markers}) {pc_terminal} {wc_terminal}
             UNION

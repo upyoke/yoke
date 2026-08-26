@@ -17,6 +17,7 @@ from yoke_core.domain.sessions import (
     EVENT_WORK_RELEASED,
     claim_work,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from runtime.api.sessions_api_stale_test_helpers import (
@@ -50,7 +51,10 @@ class TestReleaseItemClaimForExecution:
         assert row["current_item_id"] == "500"
 
         result = release_item_claim_for_execution(
-            conn, "exec-sess", 500, "finalize-exit",
+            conn,
+            "exec-sess",
+            500,
+            "finalize-exit",
         )
         assert result["released"] is True
         # Caller intent preserved
@@ -67,7 +71,8 @@ class TestReleaseItemClaimForExecution:
         # claim released with canonical enum (CHECK constraint)
         claim_row = conn.execute(
             "SELECT released_at, release_reason FROM work_claims "
-            "WHERE session_id='exec-sess' AND item_id='500'",
+            "WHERE session_id='exec-sess' AND target_kind='item' AND scope=%s",
+            (make_item_target(500).scope_json(),),
         ).fetchone()
         assert claim_row["released_at"] is not None
         assert claim_row["release_reason"] == "released"
@@ -79,13 +84,17 @@ class TestReleaseItemClaimForExecution:
         _register(conn, session_id="handoff-sess")
         claim_work(conn, session_id="handoff-sess", item_id=510)
         result = release_item_claim_for_execution(
-            conn, "handoff-sess", 510, "handoff-to-polish",
+            conn,
+            "handoff-sess",
+            510,
+            "handoff-to-polish",
         )
         assert result["reason_intent"] == "handoff-to-polish"
         assert result["reason_stored"] == "handed_off"
         claim_row = conn.execute(
             "SELECT release_reason FROM work_claims "
-            "WHERE session_id='handoff-sess' AND item_id='510'",
+            "WHERE session_id='handoff-sess' AND target_kind='item' AND scope=%s",
+            (make_item_target(510).scope_json(),),
         ).fetchone()
         assert claim_row["release_reason"] == "handed_off"
 
@@ -109,7 +118,10 @@ class TestReleaseItemClaimForExecution:
 
         with pytest.raises(ValueError, match="polishing-implementation"):
             release_item_claim_for_execution(
-                conn, "active-status-sess", 530, "completed",
+                conn,
+                "active-status-sess",
+                530,
+                "completed",
             )
 
         row = conn.execute(
@@ -118,7 +130,8 @@ class TestReleaseItemClaimForExecution:
         assert row["current_item_id"] == "530"
         claim_row = conn.execute(
             "SELECT released_at FROM work_claims "
-            "WHERE session_id='active-status-sess' AND item_id='530'",
+            "WHERE session_id='active-status-sess' AND target_kind='item' AND scope=%s",
+            (make_item_target(530).scope_json(),),
         ).fetchone()
         assert claim_row["released_at"] is None
 
@@ -141,7 +154,10 @@ class TestReleaseItemClaimForExecution:
         claim_work(conn, session_id="implemented-sess", item_id=531)
 
         result = release_item_claim_for_execution(
-            conn, "implemented-sess", 531, "completed",
+            conn,
+            "implemented-sess",
+            531,
+            "completed",
         )
         assert result["released"] is True
         assert result["reason_stored"] == "completed"
@@ -154,7 +170,10 @@ class TestReleaseItemClaimForExecution:
 
         _register(conn, session_id="empty-sess")
         result = release_item_claim_for_execution(
-            conn, "empty-sess", 999, "handoff-to-usher",
+            conn,
+            "empty-sess",
+            999,
+            "handoff-to-usher",
         )
         assert result["released"] is False
         # This fixture has no claim row for the requested item, so the
@@ -177,7 +196,10 @@ class TestReleaseItemClaimForExecution:
         set_current_item(conn, "multi-sess", 800)
 
         release_item_claim_for_execution(
-            conn, "multi-sess", 700, "finalize-exit",
+            conn,
+            "multi-sess",
+            700,
+            "finalize-exit",
         )
 
         # Focus on the earlier item stays -- we did not release a claim for it.
@@ -198,13 +220,17 @@ class TestReleaseItemClaimForExecution:
         # set_current_item should not release the claim.
         set_current_item(conn, "attr-sess", 901)
         claim_row = conn.execute(
-            "SELECT released_at FROM work_claims WHERE session_id='attr-sess' AND item_id='900'",
+            "SELECT released_at FROM work_claims WHERE session_id='attr-sess' "
+            "AND target_kind='item' AND scope=%s",
+            (make_item_target(900).scope_json(),),
         ).fetchone()
         assert claim_row["released_at"] is None
         # clear_current_item should not release the claim either.
         clear_current_item(conn, "attr-sess")
         claim_row = conn.execute(
-            "SELECT released_at FROM work_claims WHERE session_id='attr-sess' AND item_id='900'",
+            "SELECT released_at FROM work_claims WHERE session_id='attr-sess' "
+            "AND target_kind='item' AND scope=%s",
+            (make_item_target(900).scope_json(),),
         ).fetchone()
         assert claim_row["released_at"] is None
 
@@ -216,7 +242,10 @@ class TestReleaseItemClaimForExecution:
         _register(conn, session_id="offer-ovr-sess")
         claim_work(conn, session_id="offer-ovr-sess", item_id=520)
         result = release_item_claim_for_execution(
-            conn, "offer-ovr-sess", 520, "offer-override",
+            conn,
+            "offer-ovr-sess",
+            520,
+            "offer-override",
         )
         assert result["released"] is True
         assert result["reason_intent"] == "offer-override"
@@ -225,14 +254,14 @@ class TestReleaseItemClaimForExecution:
         # DB stores canonical enum
         claim_row = conn.execute(
             "SELECT release_reason FROM work_claims "
-            "WHERE session_id='offer-ovr-sess' AND item_id='520'",
+            "WHERE session_id='offer-ovr-sess' AND target_kind='item' AND scope=%s",
+            (make_item_target(520).scope_json(),),
         ).fetchone()
         assert claim_row["release_reason"] == "released"
 
         # WorkReleased event preserves offer-override intent
         wr_calls = [
-            c for c in mock_emit.call_args_list
-            if c[0][0] == EVENT_WORK_RELEASED
+            c for c in mock_emit.call_args_list if c[0][0] == EVENT_WORK_RELEASED
         ]
         assert len(wr_calls) == 1
         ctx = wr_calls[0][1]["context"]

@@ -23,6 +23,7 @@ from yoke_core.domain.work_processes import (
     PROCESS_STRATEGIZE,
     conflict_group_for,
 )
+from yoke_core.domain.work_claim_targets import scope_text_sql
 
 CLAIM_ACQUIRE_RECIPE = 'yoke claims work acquire --process STRATEGIZE --reason "<why>"'
 
@@ -34,10 +35,11 @@ def session_holds_strategy_claim(
 ) -> bool:
     """True when the session holds the project's live STRATEGIZE/FEED claim."""
     group = conflict_group_for(PROCESS_STRATEGIZE, project_slug)
+    conflict_scope = scope_text_sql(conn, "scope", "conflict_group")
     row = conn.execute(
         "SELECT COUNT(*) FROM work_claims "
         "WHERE session_id = %s AND target_kind = 'process' "
-        "AND conflict_group = %s AND released_at IS NULL",
+        f"AND {conflict_scope} = %s AND released_at IS NULL",
         (session_id, group),
     ).fetchone()
     return bool(row and int(row[0]) > 0)
@@ -57,10 +59,11 @@ def foreign_strategy_claim_holder(
     terminal calls, where any live process claim is foreign.
     """
     group = conflict_group_for(PROCESS_STRATEGIZE, project_slug)
+    conflict_scope = scope_text_sql(conn, "scope", "conflict_group")
     row = conn.execute(
         "SELECT session_id FROM work_claims "
         "WHERE session_id <> %s AND target_kind = 'process' "
-        "AND conflict_group = %s AND released_at IS NULL "
+        f"AND {conflict_scope} = %s AND released_at IS NULL "
         "ORDER BY claimed_at DESC LIMIT 1",
         (session_id, group),
     ).fetchone()

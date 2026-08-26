@@ -75,12 +75,14 @@ CREATE TABLE work_claims (
     claimed_at TEXT,
     released_at TEXT,
     target_kind TEXT,
-    item_id INTEGER
+    scope TEXT NOT NULL
 );
 """
 
 
-def _insert_session(conn: Any, sid: str, *, last_heartbeat=None, executor="claude-code"):
+def _insert_session(
+    conn: Any, sid: str, *, last_heartbeat=None, executor="claude-code"
+):
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
         "INSERT INTO harness_sessions(session_id, executor, last_heartbeat, ended_at)"
@@ -231,7 +233,9 @@ def test_no_direct_heartbeat_read_outside_canonical_helper():
             window = code[max(0, match.start() - 80) : match.end() + 20].upper()
             if any(verb in window for verb in ("INSERT", "UPDATE ")):
                 continue
-            offenders.append(f"{path.relative_to(domain_root.parent.parent)}: {match.group(0)}")
+            offenders.append(
+                f"{path.relative_to(domain_root.parent.parent)}: {match.group(0)}"
+            )
     assert not offenders, (
         "Production sources still open a READ on "
         "harness_sessions.last_heartbeat / work_claims.last_heartbeat "
@@ -262,6 +266,6 @@ def test_no_new_event_name_introduced():
         text = path.read_text(encoding="utf-8", errors="replace")
         for match in forbidden.finditer(text):
             offenders.append(f"{path.name}: {match.group(0)}")
-    assert not offenders, (
-        "Forbidden event-name strings present: " + ", ".join(offenders)
+    assert not offenders, "Forbidden event-name strings present: " + ", ".join(
+        offenders
     )

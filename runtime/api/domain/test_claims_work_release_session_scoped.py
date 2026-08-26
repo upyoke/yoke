@@ -17,6 +17,7 @@ from unittest import mock
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain import claims_work_release_session_scoped as mod
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _DDL = """
@@ -32,11 +33,7 @@ CREATE TABLE harness_sessions (
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, target_kind TEXT NOT NULL,
-    item_id INTEGER, epic_id INTEGER, task_num INTEGER, process_key TEXT,
-    conflict_group TEXT, steering_project_id INTEGER,
-    steering_strategy_doc_slugs TEXT, owner_kind TEXT,
-    owner_item_id INTEGER, owner_session_id TEXT, owner_work_claim_id INTEGER,
-    registered_by_actor_id INTEGER, registered_by_session_id TEXT,
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL, released_at TEXT,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN
@@ -84,12 +81,12 @@ def _insert_item_claim(conn, session_id, item_id, *, released=False):
         (item_id,),
     )
     cur = conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, "
+        "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, "
         "claimed_at, last_heartbeat, released_at, release_reason) "
         "VALUES (%s, 'item', %s, 'exclusive', %s, %s, %s, %s) RETURNING id",
         (
             session_id,
-            item_id,
+            make_item_target(item_id).scope_json(),
             _now(),
             _now(),
             _now() if released else None,
@@ -280,7 +277,13 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
                     "via": via,
                 }
             )
-            return [{"claim_id": 999, "target_kind": "item", "item_id": 700}]
+            return [
+                {
+                    "claim_id": 999,
+                    "target_kind": "item",
+                    "scope": {"item_id": 700},
+                }
+            ]
 
         with (
             mock.patch(

@@ -72,9 +72,7 @@ def release_all_claims_for_session(session_id: str) -> Dict[str, Any]:
     with db_helpers.connect() as conn:
         p = _p(conn)
         active_rows = conn.execute(
-            f"""SELECT id, target_kind, item_id, epic_id, task_num,
-                       process_key, conflict_group, steering_project_id,
-                       steering_strategy_doc_slugs
+            f"""SELECT id, target_kind, scope
                 FROM work_claims
                 WHERE session_id = {p} AND released_at IS NULL
                 ORDER BY claimed_at ASC, id ASC""",

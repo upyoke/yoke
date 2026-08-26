@@ -34,10 +34,6 @@ from .sessions_lifecycle_release import (
 )
 from .sessions_lifecycle_claim_release import emit_claim_release_post_commit
 from .work_claim_targets import (
-    TARGET_KIND_EPIC_TASK,
-    TARGET_KIND_ITEM,
-    TARGET_KIND_PROCESS,
-    TARGET_KIND_STEERING_SCOPE,
     WorkClaimTarget,
     from_row,
 )
@@ -50,21 +46,7 @@ AGENT_HANDOFF_RELEASE_VIA = "agent_handoff_session_scoped"
 
 def _describe_target(target: WorkClaimTarget) -> Dict[str, Any]:
     """Render the kind-specific identifiers for the response payload."""
-    desc: Dict[str, Any] = {"target_kind": target.kind}
-    if target.kind == TARGET_KIND_ITEM:
-        desc["item_id"] = target.item_id
-    elif target.kind == TARGET_KIND_EPIC_TASK:
-        desc["epic_id"] = target.epic_id
-        desc["task_num"] = target.task_num
-    elif target.kind == TARGET_KIND_PROCESS:
-        desc["process_key"] = target.process_key
-        desc["conflict_group"] = target.conflict_group
-    elif target.kind == TARGET_KIND_STEERING_SCOPE:
-        desc["steering_project_id"] = target.steering_project_id
-        desc["steering_strategy_doc_slugs"] = list(
-            target.steering_strategy_doc_slugs or ()
-        )
-    return desc
+    return {"target_kind": target.kind, "scope": dict(target.scope)}
 
 
 def _release_session_claim_rows(
@@ -79,18 +61,7 @@ def _release_session_claim_rows(
     released: List[Dict[str, Any]] = []
     post_commit_receipts: List[Dict[str, Any]] = []
     for row in active_claim_rows:
-        target = from_row(
-            {
-                "target_kind": row["target_kind"],
-                "item_id": row["item_id"],
-                "epic_id": row["epic_id"],
-                "task_num": row["task_num"],
-                "process_key": row["process_key"],
-                "conflict_group": row["conflict_group"],
-                "steering_project_id": row["steering_project_id"],
-                "steering_strategy_doc_slugs": row["steering_strategy_doc_slugs"],
-            }
-        )
+        target = from_row(dict(row))
         result = release_work_claim_for_execution(
             conn,
             session_id,
@@ -134,8 +105,9 @@ def emit_session_claim_releases_post_commit(
     if released:
         first_item: Optional[str] = None
         for entry in released:
-            if entry.get("item_id") is not None:
-                first_item = str(entry["item_id"])
+            scope = entry.get("scope") or {}
+            if entry.get("target_kind") == "item" and scope.get("item_id") is not None:
+                first_item = str(scope["item_id"])
                 break
         _sa._emit_session_event(
             EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,

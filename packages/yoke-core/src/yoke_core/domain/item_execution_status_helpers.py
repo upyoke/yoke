@@ -19,6 +19,7 @@ from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_summary import render_gate_summary
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_reclaim_activity import latest_activity
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 NEAR_CAP_THRESHOLD = 300  # AGENTS.md design target.
 PROGRESS_LOG_STALE_SECONDS = 24 * 60 * 60
@@ -72,9 +73,14 @@ def worktree_state(
         branches = list(resolved.branches)
         if not paths:
             return {
-                "state": "none", "branch": None, "path": None,
-                "exists": False, "scope": resolved.scope,
-                "branches": [], "paths": [], "repo": resolved.repo,
+                "state": "none",
+                "branch": None,
+                "path": None,
+                "exists": False,
+                "scope": resolved.scope,
+                "branches": [],
+                "paths": [],
+                "repo": resolved.repo,
             }
         if paths and not resolved.exists:
             warnings.append(
@@ -93,8 +99,12 @@ def worktree_state(
         }
     except Exception:
         return {
-            "state": "none", "branch": None, "path": None,
-            "exists": False, "scope": "item-lanes", "branches": [],
+            "state": "none",
+            "branch": None,
+            "path": None,
+            "exists": False,
+            "scope": "item-lanes",
+            "branches": [],
             "paths": [],
             "repo": str(repo_root),
         }
@@ -127,14 +137,13 @@ def health_state(
     return {"state": state, "warning_count": len(warnings)}
 
 
-def collect_work_claim(
-    conn: Any, item_id: int, *, now: datetime
-) -> Dict[str, Any]:
+def collect_work_claim(conn: Any, item_id: int, *, now: datetime) -> Dict[str, Any]:
     p = _p(conn)
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     row = query_one(
         conn,
         "SELECT id, session_id, claim_type, claimed_at "
-        f"FROM work_claims WHERE target_kind='item' AND item_id={p} "
+        f"FROM work_claims WHERE target_kind='item' AND {item_scope}={p} "
         "AND released_at IS NULL ORDER BY id DESC LIMIT 1",
         (item_id,),
     )
@@ -153,9 +162,7 @@ def collect_work_claim(
     }
 
 
-def collect_path_claims(
-    conn: Any, item_id: int
-) -> Dict[str, Any]:
+def collect_path_claims(conn: Any, item_id: int) -> Dict[str, Any]:
     p = _p(conn)
     rows = query_rows(
         conn,
@@ -171,8 +178,10 @@ def collect_path_claims(
         state_counts[state] = state_counts.get(state, 0) + 1
         reason = str(r["blocked_reason"]) if r["blocked_reason"] else None
         cid = int(r["id"])
-        if state == "blocked" and reason and (
-            latest_blocker_id is None or cid > latest_blocker_id
+        if (
+            state == "blocked"
+            and reason
+            and (latest_blocker_id is None or cid > latest_blocker_id)
         ):
             latest_blocker, latest_blocker_id = reason, cid
     return {
@@ -207,9 +216,7 @@ def latest_progress_entry(
     return last_headline, last_ts
 
 
-def collect_progress_log(
-    conn: Any, item_id: int, *, now: datetime
-) -> Dict[str, Any]:
+def collect_progress_log(conn: Any, item_id: int, *, now: datetime) -> Dict[str, Any]:
     p = _p(conn)
     row = query_one(
         conn,
@@ -233,9 +240,7 @@ def collect_progress_log(
     }
 
 
-def collect_file_budget(
-    spec_text: str, *, repo_root: Path
-) -> Dict[str, Any]:
+def collect_file_budget(spec_text: str, *, repo_root: Path) -> Dict[str, Any]:
     paths = extract_file_budget_paths(spec_text or "")
     entries: List[Dict[str, Any]] = []
     near_cap = over_cap = missing = 0
@@ -248,13 +253,15 @@ def collect_file_budget(
         missing += 0 if exists else 1
         near_cap += int(is_near)
         over_cap += int(is_over)
-        entries.append({
-            "path": rel,
-            "exists": exists,
-            "line_count": line_count if exists else None,
-            "near_cap": is_near,
-            "over_cap": is_over,
-        })
+        entries.append(
+            {
+                "path": rel,
+                "exists": exists,
+                "line_count": line_count if exists else None,
+                "near_cap": is_near,
+                "over_cap": is_over,
+            }
+        )
     return {
         "total": len(entries),
         "near_cap_count": near_cap,
@@ -266,18 +273,18 @@ def collect_file_budget(
     }
 
 
-def collect_qa(
-    conn: Any, db_path: str, item_id: int
-) -> Dict[str, Any]:
+def collect_qa(conn: Any, db_path: str, item_id: int) -> Dict[str, Any]:
     if not _table_exists(conn, "qa_requirements"):
         return {"state": "no_qa_tables"}
     summary = render_gate_summary(
-        GateTarget(item_id=item_id), db_path,
+        GateTarget(item_id=item_id),
+        db_path,
         transition_name=DEFAULT_QA_TARGET,
     )
     requirements = summary.get("requirements") or []
     blocking_total = sum(
-        1 for r in requirements
+        1
+        for r in requirements
         if r.get("blocking_mode") == "blocking" and not r.get("waived_at")
     )
     state = "configured" if requirements else "no_requirements"
@@ -287,9 +294,7 @@ def collect_qa(
         "transition": summary.get("transition"),
         "satisfied": summary.get("satisfied"),
         "blocking_total": blocking_total,
-        "unsatisfied_blocking": summary.get(
-            "blocking_unsatisfied_count", 0
-        ),
+        "unsatisfied_blocking": summary.get("blocking_unsatisfied_count", 0),
         "browser_unsatisfied": summary.get("browser_unsatisfied_count", 0),
         "e2e_unsatisfied": summary.get("e2e_unsatisfied_count", 0),
     }

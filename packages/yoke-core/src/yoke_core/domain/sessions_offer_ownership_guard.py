@@ -41,6 +41,7 @@ from typing import Any, Optional
 from . import db_backend
 from .frontier_recent_owner import routed_ownership_exclusions
 from .runtime_settings import get_seconds
+from .work_claim_targets import scope_int_sql
 
 
 @dataclass(frozen=True)
@@ -72,8 +73,10 @@ def evaluate_ownership_guard(
     ``owned=False`` so the caller short-circuits rather than crashing.
     """
     not_owned = OwnershipGuardResult(
-        owned=False, holder_session_id=None,
-        claim_id=None, defense_in_flight=False,
+        owned=False,
+        holder_session_id=None,
+        claim_id=None,
+        defense_in_flight=False,
     )
     if not session_id or not item_id:
         return not_owned
@@ -81,10 +84,11 @@ def evaluate_ownership_guard(
     # 1. Self-claim live: the canonical mutex still names us as owner.
     try:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        item_scope = scope_int_sql(conn, "scope", "item_id")
         row = conn.execute(
             "SELECT id FROM work_claims "
             f"WHERE session_id = {p} AND target_kind = 'item' "
-            f"AND item_id = {p} AND released_at IS NULL "
+            f"AND {item_scope} = {p} AND released_at IS NULL "
             "ORDER BY id DESC LIMIT 1",
             (session_id, int(item_id)),
         ).fetchone()
@@ -97,8 +101,10 @@ def evaluate_ownership_guard(
         return not_owned
     if row is not None:
         return OwnershipGuardResult(
-            owned=True, holder_session_id=session_id,
-            claim_id=int(row[0]), defense_in_flight=False,
+            owned=True,
+            holder_session_id=session_id,
+            claim_id=int(row[0]),
+            defense_in_flight=False,
         )
 
     # 2. Defense in flight: recent-owner exclusion still names us as
@@ -106,13 +112,16 @@ def evaluate_ownership_guard(
     #    we see ourselves in the defended-items map.
     window_s = get_seconds("session_reactivation_reacquire_window_s", 300)
     defended = routed_ownership_exclusions(
-        conn, window_s=window_s, requesting_session_id=None,
+        conn,
+        window_s=window_s,
+        requesting_session_id=None,
     )
     detail = defended.get(int(item_id))
     if detail is not None and detail.get("prior_owner_session_id") == session_id:
         latest = detail.get("latest_claim_id")
         return OwnershipGuardResult(
-            owned=True, holder_session_id=session_id,
+            owned=True,
+            holder_session_id=session_id,
             claim_id=int(latest) if latest else None,
             defense_in_flight=True,
         )
@@ -120,9 +129,10 @@ def evaluate_ownership_guard(
     # 3. Not owned. Surface the current live holder for diagnosis.
     try:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        item_scope = scope_int_sql(conn, "scope", "item_id")
         holder_row = conn.execute(
             "SELECT session_id, id FROM work_claims "
-            f"WHERE target_kind = 'item' AND item_id = {p} "
+            f"WHERE target_kind = 'item' AND {item_scope} = {p} "
             "AND released_at IS NULL "
             "ORDER BY id DESC LIMIT 1",
             (int(item_id),),

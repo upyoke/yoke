@@ -24,6 +24,7 @@ from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     seed_test_holder_session,
 )
 from yoke_core.domain.sessions_lifecycle_claim import release_claim
+from yoke_core.domain.work_claim_targets import WorkClaimTarget, make_item_target
 
 
 SESS = "sess-process-release"
@@ -32,11 +33,20 @@ SESS = "sess-process-release"
 def _seed_process_work_claim(conn, *, session_id: str, process_key: str) -> int:
     seed_test_holder_session(conn, session_id=session_id)
     cur = conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, process_key, "
-        "conflict_group, claimed_at, last_heartbeat) "
-        "VALUES (%s, 'process', %s, %s, '2026-05-01T00:00:00Z', "
+        "INSERT INTO work_claims (session_id, target_kind, scope, "
+        "claimed_at, last_heartbeat) "
+        "VALUES (%s, 'process', %s, '2026-05-01T00:00:00Z', "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (session_id, process_key, "strategy-control-plane:yoke"),
+        (
+            session_id,
+            WorkClaimTarget(
+                "process",
+                {
+                    "process_key": process_key,
+                    "conflict_group": "strategy-control-plane:yoke",
+                },
+            ).scope_json(),
+        ),
     )
     return int(cur.fetchone()[0])
 
@@ -63,11 +73,11 @@ def _seed_item_work_claim(conn, *, session_id: str, item_id: int) -> int:
         (item_id, item_id),
     )
     cur = conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id, "
+        "INSERT INTO work_claims (session_id, target_kind, scope, "
         "claimed_at, last_heartbeat) "
         "VALUES (%s, 'item', %s, '2026-05-01T00:00:00Z', "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (session_id, item_id),
+        (session_id, make_item_target(item_id).scope_json()),
     )
     return int(cur.fetchone()[0])
 
@@ -75,7 +85,9 @@ def _seed_item_work_claim(conn, *, session_id: str, item_id: int) -> int:
 class TestReleaseCascade:
     def test_process_release_cascades_linked_path_claims(self, conn):
         work_claim_id = _seed_process_work_claim(
-            conn, session_id=SESS, process_key="STRATEGIZE",
+            conn,
+            session_id=SESS,
+            process_key="STRATEGIZE",
         )
         pc_a = _seed_linked_path_claim(conn, work_claim_id=work_claim_id)
         pc_b = _seed_linked_path_claim(conn, work_claim_id=work_claim_id)
@@ -96,17 +108,19 @@ class TestReleaseCascade:
             assert row["release_reason"] == "work-claim-released:released"
 
         # Audit evidence: the returned row exposes the cascaded ids.
-        assert sorted(result.get("linked_path_claim_ids", [])) == sorted(
-            [pc_a, pc_b]
-        )
+        assert sorted(result.get("linked_path_claim_ids", [])) == sorted([pc_a, pc_b])
 
     def test_process_release_ignores_already_terminal_path_claims(self, conn):
         work_claim_id = _seed_process_work_claim(
-            conn, session_id=SESS, process_key="STRATEGIZE",
+            conn,
+            session_id=SESS,
+            process_key="STRATEGIZE",
         )
         live_pc = _seed_linked_path_claim(conn, work_claim_id=work_claim_id)
         stale_pc = _seed_linked_path_claim(
-            conn, work_claim_id=work_claim_id, state="released",
+            conn,
+            work_claim_id=work_claim_id,
+            state="released",
         )
         # Mark stale_pc as already released so the cascade leaves it alone.
         conn.execute(
@@ -129,13 +143,18 @@ class TestReleaseCascade:
 
     def test_item_release_does_not_touch_path_claims(self, conn):
         item_claim_id = _seed_item_work_claim(
-            conn, session_id=SESS, item_id=50001,
+            conn,
+            session_id=SESS,
+            item_id=50001,
         )
         unrelated_process_claim = _seed_process_work_claim(
-            conn, session_id="sess-other", process_key="STRATEGIZE",
+            conn,
+            session_id="sess-other",
+            process_key="STRATEGIZE",
         )
         unrelated_pc = _seed_linked_path_claim(
-            conn, work_claim_id=unrelated_process_claim,
+            conn,
+            work_claim_id=unrelated_process_claim,
         )
         conn.commit()
 
@@ -152,7 +171,9 @@ class TestReleaseCascade:
 
     def test_process_release_with_no_linked_paths_returns_empty_list(self, conn):
         work_claim_id = _seed_process_work_claim(
-            conn, session_id=SESS, process_key="FEED",
+            conn,
+            session_id=SESS,
+            process_key="FEED",
         )
         conn.commit()
 
@@ -162,7 +183,9 @@ class TestReleaseCascade:
 
     def test_item_release_clears_matching_current_item_id(self, conn):
         item_claim_id = _seed_item_work_claim(
-            conn, session_id=SESS, item_id=50002,
+            conn,
+            session_id=SESS,
+            item_id=50002,
         )
         conn.execute(
             "UPDATE harness_sessions SET current_item_id = %s, "
@@ -184,7 +207,9 @@ class TestReleaseCascade:
 
     def test_item_release_leaves_unrelated_current_item_id_intact(self, conn):
         item_claim_id = _seed_item_work_claim(
-            conn, session_id=SESS, item_id=50003,
+            conn,
+            session_id=SESS,
+            item_id=50003,
         )
         conn.execute(
             "UPDATE harness_sessions SET current_item_id = %s, "

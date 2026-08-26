@@ -54,6 +54,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.work_claim_targets import from_row as target_from_row
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,9 @@ class ClaimedWorktree:
 
 
 def claimed_worktrees(
-    conn: Any, *, session_id: str,
+    conn: Any,
+    *,
+    session_id: str,
 ) -> List[ClaimedWorktree]:
     """Return the worktrees this session holds via active ``work_claims``.
 
@@ -84,7 +87,8 @@ def claimed_worktrees(
 
 
 def _claimed_worktrees_for_session(
-    conn: Any, session_id: str,
+    conn: Any,
+    session_id: str,
 ) -> List[ClaimedWorktree]:
     """Direct lookup: active ``work_claims`` owned by ``session_id``.
 
@@ -94,7 +98,7 @@ def _claimed_worktrees_for_session(
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
         rows = conn.execute(
-            "SELECT wc.target_kind, wc.item_id, wc.epic_id, wc.task_num "
+            "SELECT wc.target_kind, wc.scope "
             "FROM work_claims wc "
             f"WHERE wc.session_id = {marker} AND wc.released_at IS NULL "
             "ORDER BY wc.id",
@@ -105,18 +109,16 @@ def _claimed_worktrees_for_session(
 
     owners: List[Tuple[int, Optional[int]]] = []
     for row in rows:
-        kind = row[0] if not hasattr(row, "keys") else row["target_kind"]
-        if kind == "item":
-            raw = row[1] if not hasattr(row, "keys") else row["item_id"]
-            if raw is not None:
-                owners.append((int(raw), None))
-        elif kind == "epic_task":
-            raw = row[2] if not hasattr(row, "keys") else row["epic_id"]
-            task = row[3] if not hasattr(row, "keys") else row["task_num"]
-            if raw is not None:
-                owners.append(
-                    (int(raw), int(task) if task is not None else None)
-                )
+        target = target_from_row(
+            {
+                "target_kind": (row["target_kind"] if hasattr(row, "keys") else row[0]),
+                "scope": row["scope"] if hasattr(row, "keys") else row[1],
+            }
+        )
+        if target.kind == "item":
+            owners.append((target.item_id, None))
+        elif target.kind == "epic_task":
+            owners.append((target.epic_id, target.task_num))
         # 'process' target_kind has no worktree concept; skip silently.
 
     if not owners:
@@ -147,7 +149,9 @@ def _claimed_worktrees_for_session(
 
 
 def _epic_task_lane_paths(
-    conn: Any, epic_id: int, task_num: int,
+    conn: Any,
+    epic_id: int,
+    task_num: int,
 ) -> List[str]:
     """Recorded path of one epic task's own active lane."""
     from yoke_core.domain.schema_common import _table_exists
@@ -178,7 +182,8 @@ def _epic_task_lane_paths(
 
 
 def recorded_lane_paths(
-    conn: Any, item_ids: Sequence[int],
+    conn: Any,
+    item_ids: Sequence[int],
 ) -> Dict[int, List[str]]:
     """Every active lane an item-level claim authorises, per item id.
 

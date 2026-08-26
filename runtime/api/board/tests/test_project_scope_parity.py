@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_contracts.board.data import BoardDataMissError, ReplayBoardDB
+from yoke_contracts.board.data import (
+    BOARD_DATA_VERSION,
+    BoardDataMissError,
+    ReplayBoardDB,
+)
 from yoke_contracts.board.project_scope import project_filter
 
 
@@ -12,7 +16,7 @@ def test_replay_miss_names_parameter_difference():
     sql = "SELECT id FROM items WHERE project_id = %s"
     replay = ReplayBoardDB.from_payload(
         {
-            "version": 1,
+            "version": BOARD_DATA_VERSION,
             "entries": [
                 {
                     "kind": "query",

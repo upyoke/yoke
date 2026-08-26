@@ -11,6 +11,7 @@ import pytest
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import session_offer_db  # noqa: F401,F811
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _fresh_ts() -> str:
@@ -50,10 +51,10 @@ class TestClaimItem:
         # Verify the work_claims row exists
         conn = connect_test_db(db_path)
         row = conn.execute(
-            "SELECT session_id, item_id, claim_type FROM work_claims "
-            "WHERE session_id = %s AND target_kind='item' AND item_id = 10 "
+            "SELECT session_id, scope, claim_type FROM work_claims "
+            "WHERE session_id = %s AND target_kind='item' AND scope = %s "
             "AND released_at IS NULL",
-            (sid,),
+            (sid, make_item_target(10).scope_json()),
         ).fetchone()
         attribution = conn.execute(
             "SELECT current_item_id FROM harness_sessions WHERE session_id = %s",
@@ -62,7 +63,7 @@ class TestClaimItem:
         conn.close()
         assert row is not None
         assert row[0] == sid
-        assert row[1] == 10
+        assert json.loads(row[1]) == {"item_id": 10}
         assert row[2] == "exclusive"
         assert attribution[0] == "10"
 
@@ -98,13 +99,13 @@ class TestClaimItem:
 
         conn = connect_test_db(db_path)
         row = conn.execute(
-            "SELECT item_id FROM work_claims "
+            "SELECT scope FROM work_claims "
             "WHERE session_id = %s AND target_kind='item' AND released_at IS NULL",
             (sid,),
         ).fetchone()
         conn.close()
         assert row is not None
-        assert row[0] == 10
+        assert json.loads(row[0]) == {"item_id": 10}
 
     def test_claim_work_rejects_non_numeric_item_id(self, session_offer_db):
         """Process sentinels like STRATEGIZE are not items — claim-work --item rejects them.
@@ -204,9 +205,9 @@ class TestClaimItem:
         )
         # Owner claims the item with a fresh heartbeat
         conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, claimed_at, "
-            "last_heartbeat) VALUES ('owner-session', 'item', '10', 'exclusive', %s, %s)",
-            (fresh_ts, fresh_ts),
+            "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, claimed_at, "
+            "last_heartbeat) VALUES ('owner-session', 'item', %s, 'exclusive', %s, %s)",
+            (make_item_target(10).scope_json(), fresh_ts, fresh_ts),
         )
         conn.commit()
         conn.close()
@@ -261,12 +262,16 @@ class TestClaimProcess:
 
         conn = connect_test_db(db_path)
         row = conn.execute(
-            "SELECT target_kind, process_key, conflict_group, item_id "
+            "SELECT target_kind, scope "
             "FROM work_claims WHERE session_id = %s AND released_at IS NULL",
             (sid,),
         ).fetchone()
         conn.close()
-        assert tuple(row) == ("process", "DOCTOR", "doctor:yoke", None)
+        assert row["target_kind"] == "process"
+        assert json.loads(row["scope"]) == {
+            "conflict_group": "doctor:yoke",
+            "process_key": "DOCTOR",
+        }
 
     @pytest.mark.parametrize(
         ("first_process", "second_process"),
@@ -278,7 +283,10 @@ class TestClaimProcess:
         ],
     )
     def test_strategy_control_processes_conflict_by_shared_group(
-        self, session_offer_db, first_process, second_process,
+        self,
+        session_offer_db,
+        first_process,
+        second_process,
     ):
         db_path = session_offer_db["db_path"]
         self._register_session(db_path, "process-owner", session_offer_db["tmp_dir"])

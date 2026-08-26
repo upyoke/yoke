@@ -7,10 +7,10 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands.adapters.claims_coordination_lease import (
     claims_coordination_lease_list,
 )
-from yoke_cli.commands.adapters.claims_steering_scope import (
-    claims_steering_scope_acquire,
-    claims_steering_scope_list,
-    claims_steering_scope_release,
+from yoke_cli.commands.adapters.claims_steering import (
+    claims_steering_acquire,
+    claims_steering_list,
+    claims_steering_release,
 )
 
 
@@ -18,17 +18,17 @@ AdapterFn = Callable[[List[str]], int]
 
 
 CLAIMS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
-    ("claims", "steering-scope", "acquire"): (
-        "claims.steering_scope.acquire",
-        claims_steering_scope_acquire,
+    ("claims", "steering", "acquire"): (
+        "claims.steering.acquire",
+        claims_steering_acquire,
     ),
-    ("claims", "steering-scope", "release"): (
-        "claims.steering_scope.release",
-        claims_steering_scope_release,
+    ("claims", "steering", "release"): (
+        "claims.steering.release",
+        claims_steering_release,
     ),
-    ("claims", "steering-scope", "list"): (
-        "claims.steering_scope.list",
-        claims_steering_scope_list,
+    ("claims", "steering", "list"): (
+        "claims.steering.list",
+        claims_steering_list,
     ),
     ("claims", "coordination-lease", "list"): (
         "claims.coordination_lease.list",

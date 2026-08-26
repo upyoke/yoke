@@ -34,6 +34,7 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
 )
 
+
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -58,7 +59,9 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         yok_id = render_item_ref(conn, row["id"])
         p = row["priority"]
         if p and p not in valid_priorities:
-            issues.append(f"- {yok_id}: invalid priority '{p}' (expected: {' '.join(sorted(valid_priorities))})")
+            issues.append(
+                f"- {yok_id}: invalid priority '{p}' (expected: {' '.join(sorted(valid_priorities))})"
+            )
         gh = row["github_issue"]
         if gh and gh != "null" and not re.match(r"^#\d+", gh):
             issues.append(f"- {yok_id}: github_issue '{gh}' does not match #N format")
@@ -67,12 +70,21 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             try:
                 val = int(rw)
                 if val < 0:
-                    issues.append(f"- {yok_id}: rework_count '{rw}' is not a non-negative integer")
+                    issues.append(
+                        f"- {yok_id}: rework_count '{rw}' is not a non-negative integer"
+                    )
             except (ValueError, TypeError):
-                issues.append(f"- {yok_id}: rework_count '{rw}' is not a non-negative integer")
+                issues.append(
+                    f"- {yok_id}: rework_count '{rw}' is not a non-negative integer"
+                )
 
     if issues:
-        rec.record("HC-frontmatter-schema", "Backlog frontmatter schema", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-frontmatter-schema",
+            "Backlog frontmatter schema",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-frontmatter-schema", "Backlog frontmatter schema", "PASS", "")
 
@@ -107,7 +119,9 @@ def hc_title_length(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         issues.append(f"{count} epic task(s) with titles >100 chars:\n{labels}")
 
     if issues:
-        rec.record("HC-title-length", "Title length enforcement", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-title-length", "Title length enforcement", "WARN", "\n".join(issues)
+        )
     else:
         rec.record("HC-title-length", "Title length enforcement", "PASS", "")
 
@@ -156,22 +170,30 @@ def hc_backlog_quality(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             if created_epoch != 0:
                 age = now - created_epoch
                 if age > stale_seconds:
-                    issues.append(f"- {yok_id}: stale idea ({age // 86400} days old, threshold: {stale_days})")
+                    issues.append(
+                        f"- {yok_id}: stale idea ({age // 86400} days old, threshold: {stale_days})"
+                    )
 
         # Sub-check 2: Title too short
         if title and len(title) < 10:
-            issues.append(f"- {yok_id}: title too short ({len(title)} chars): \"{title}\"")
+            issues.append(
+                f'- {yok_id}: title too short ({len(title)} chars): "{title}"'
+            )
 
         # Sub-check 3: Body-less items. Terminal exceptional states
         # (cancelled, rejected) never received a body and never will —
         # they are exempt from the body-required FAIL branch.
         if has_body == 0:
             if status == "idea":
-                issues.append(f"- {yok_id}: no body content (idea — add before advancing)")
+                issues.append(
+                    f"- {yok_id}: no body content (idea — add before advancing)"
+                )
             elif status in ("cancelled", "rejected"):
                 pass
             else:
-                fail_issues.append(f"- {yok_id}: no body content at status '{status}' — items past idea must have body")
+                fail_issues.append(
+                    f"- {yok_id}: no body content at status '{status}' — items past idea must have body"
+                )
 
         # Sub-check 4: Missing priority
         if not priority or priority == "null":
@@ -179,7 +201,9 @@ def hc_backlog_quality(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     if fail_issues:
         all_issues = fail_issues + issues
-        rec.record("HC-backlog-quality", "Backlog quality", "FAIL", "\n".join(all_issues))
+        rec.record(
+            "HC-backlog-quality", "Backlog quality", "FAIL", "\n".join(all_issues)
+        )
     elif issues:
         rec.record("HC-backlog-quality", "Backlog quality", "WARN", "\n".join(issues))
     else:
@@ -205,9 +229,12 @@ def hc_incomplete_idea_bodies(conn, args: DoctorArgs, rec: RecordCollector) -> N
         if not is_idea_body_incomplete(row):
             continue
         try:
+            from yoke_core.domain.work_claim_targets import scope_int_sql
+
+            item_scope = scope_int_sql(conn, "scope", "item_id")
             claim = conn.execute(
                 "SELECT session_id, released_at FROM work_claims "
-                f"WHERE target_kind = 'item' AND item_id = {_p(conn)} "
+                f"WHERE target_kind = 'item' AND {item_scope} = {_p(conn)} "
                 "  AND release_reason = 'reclaimed' "
                 "ORDER BY released_at DESC LIMIT 1",
                 (row["id"],),
@@ -271,9 +298,13 @@ def hc_epic_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         # Check for invalid task statuses
         for t in tasks:
             if t["status"] and t["status"] not in ALL_TASK_STATUSES:
-                issues.append(f"- {epic_id} task {t['task_num']}: invalid status '{t['status']}'")
+                issues.append(
+                    f"- {epic_id} task {t['task_num']}: invalid status '{t['status']}'"
+                )
 
     if issues:
-        rec.record("HC-epic-validation", "Per-epic validation", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-epic-validation", "Per-epic validation", "WARN", "\n".join(issues)
+        )
     else:
         rec.record("HC-epic-validation", "Per-epic validation", "PASS", "")

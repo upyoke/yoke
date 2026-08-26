@@ -14,13 +14,8 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import chain_head_freshness
-from yoke_core.domain.chain_head_freshness import (
-    STATUS_BLOCKED,
-    STATUS_BUSY,
-    STATUS_RESUMABLE,
-    evaluate_chain_head_freshness,
-    resolve_freshness_window_s,
-)
+from yoke_core.domain.chain_head_freshness import STATUS_BLOCKED, STATUS_BUSY, STATUS_RESUMABLE, evaluate_chain_head_freshness, resolve_freshness_window_s
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.test_dependency_schema import create_dependency_test_db
 
 
@@ -74,39 +69,21 @@ def _seed_prior(
         heartbeat_raw = _stale_ts(heartbeat_age_s)
     p = _p(conn)
     conn.execute(
-        "INSERT INTO harness_sessions (session_id, last_heartbeat, ended_at) "
-        f"VALUES ({p}, {p}, {p})",
-        (
-            session_id,
-            heartbeat_raw,
-            _stale_ts(heartbeat_age_s or 0) if ended else None,
-        ),
+        f"INSERT INTO harness_sessions (session_id, last_heartbeat, ended_at) VALUES ({p}, {p}, {p})",
+        (session_id, heartbeat_raw, _stale_ts(heartbeat_age_s or 0) if ended else None),
     )
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id, "
-        f"claimed_at, released_at) VALUES ({p}, 'item', {p}, {p}, {p})",
-        (
-            session_id,
-            item_id,
-            _stale_ts(heartbeat_age_s or 0),
-            _stale_ts(heartbeat_age_s or 0) if released else None,
-        ),
+        f"INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, released_at) VALUES ({p}, 'item', {p}, {p}, {p})",
+        (session_id, make_item_target(item_id).scope_json(), _stale_ts(heartbeat_age_s or 0), _stale_ts(heartbeat_age_s or 0) if released else None),
     )
 
 
-def _seed_task_activity(
-    conn: Any,
-    *,
-    age_s: Optional[int],
-    epic_id: int = _EPIC_ID,
-    task_num: int = _TASK_NUM,
-) -> None:
+def _seed_task_activity(conn: Any, *, age_s: Optional[int], epic_id: int = _EPIC_ID, task_num: int = _TASK_NUM) -> None:
     """Insert an epic_tasks row whose last_activity_at is ``age_s`` old
     (``age_s=None`` seeds NULL — no recorded activity)."""
     p = _p(conn)
     conn.execute(
-        "INSERT INTO epic_tasks (epic_id, task_num, title, last_activity_at) "
-        f"VALUES ({p}, {p}, 't', {p})",
+        f"INSERT INTO epic_tasks (epic_id, task_num, title, last_activity_at) VALUES ({p}, {p}, 't', {p})",
         (epic_id, task_num, _stale_ts(age_s) if age_s is not None else None),
     )
 
@@ -114,24 +91,16 @@ def _seed_task_activity(
 @pytest.fixture(autouse=True)
 def stub_who_claims(monkeypatch):
     holder = {"row": None}
-    monkeypatch.setattr(
-        chain_head_freshness, "who_claims_for_item",
-        lambda item_id: holder["row"],
-    )
+    monkeypatch.setattr(chain_head_freshness, "who_claims_for_item", lambda item_id: holder["row"])
 
     def set_live(session_id: Optional[str]):
-        holder["row"] = (
-            {"session_id": session_id} if session_id is not None else None
-        )
+        holder["row"] = {"session_id": session_id} if session_id is not None else None
 
     return set_live
 
 
 def _evaluate(conn, current="sess-current"):
-    return evaluate_chain_head_freshness(
-        _EPIC_ID, _TASK_NUM, current, conn=conn,
-        freshness_window_s=_FRESHNESS_WINDOW_S, now=_NOW,
-    )
+    return evaluate_chain_head_freshness(_EPIC_ID, _TASK_NUM, current, conn=conn, freshness_window_s=_FRESHNESS_WINDOW_S, now=_NOW)
 
 
 def test_blocked_when_other_session_holds_parent_claim(conn, stub_who_claims):
@@ -155,10 +124,7 @@ def test_busy_when_no_holder_but_heartbeat_within_window(conn, stub_who_claims):
 
 def test_busy_when_self_holds_and_task_activity_recent(conn, stub_who_claims):
     stub_who_claims("sess-current")
-    _seed_prior(
-        conn, session_id="sess-current",
-        heartbeat_age_s=_FRESHNESS_WINDOW_S * 2, released=False,
-    )
+    _seed_prior(conn, session_id="sess-current", heartbeat_age_s=_FRESHNESS_WINDOW_S * 2, released=False)
     _seed_task_activity(conn, age_s=15)
     decision = _evaluate(conn)
     assert decision.status == STATUS_BUSY
@@ -176,9 +142,7 @@ def test_busy_when_both_signals_within_window(conn, stub_who_claims):
     assert "both inside" in decision.rationale
 
 
-def test_resumable_when_no_holder_stale_heartbeat_no_activity(
-    conn, stub_who_claims
-):
+def test_resumable_when_no_holder_stale_heartbeat_no_activity(conn, stub_who_claims):
     stub_who_claims(None)
     _seed_prior(conn, heartbeat_age_s=_FRESHNESS_WINDOW_S * 10)
     decision = _evaluate(conn)
@@ -198,10 +162,7 @@ def test_resumable_when_task_activity_is_also_stale(conn, stub_who_claims):
 
 def test_resumable_when_self_holds_with_stale_signals(conn, stub_who_claims):
     stub_who_claims("sess-current")
-    _seed_prior(
-        conn, session_id="sess-current",
-        heartbeat_age_s=_FRESHNESS_WINDOW_S * 10, released=False,
-    )
+    _seed_prior(conn, session_id="sess-current", heartbeat_age_s=_FRESHNESS_WINDOW_S * 10, released=False)
     decision = _evaluate(conn)
     assert decision.status == STATUS_RESUMABLE
     assert decision.evidence.holder_is_self is True
@@ -216,13 +177,9 @@ def test_resumable_when_no_prior_session_row(conn, stub_who_claims):
     assert "no prior session row" in decision.rationale
 
 
-def test_resumable_when_prior_session_ended_with_stale_heartbeat(
-    conn, stub_who_claims
-):
+def test_resumable_when_prior_session_ended_with_stale_heartbeat(conn, stub_who_claims):
     stub_who_claims(None)
-    _seed_prior(
-        conn, heartbeat_age_s=_FRESHNESS_WINDOW_S * 10, ended=True,
-    )
+    _seed_prior(conn, heartbeat_age_s=_FRESHNESS_WINDOW_S * 10, ended=True)
     decision = _evaluate(conn)
     assert decision.status == STATUS_RESUMABLE
     assert decision.evidence.prior_session_ended is True
@@ -284,27 +241,18 @@ def test_missing_epic_tasks_table_reads_as_absent(conn, stub_who_claims):
     assert decision.evidence.recent_task_activity_age_s is None
 
 
-def test_resumable_when_current_active_masks_stale_prior_other_session(
-    conn, stub_who_claims
-):
+def test_resumable_when_current_active_masks_stale_prior_other_session(conn, stub_who_claims):
     """S3b shape: ``_prior_session_for_epic`` must skip the current
     session's own fresh active row so the stale genuine prior surfaces."""
     stub_who_claims("sess-current")
-    _seed_prior(
-        conn,
-        session_id="sess-other-prior",
-        heartbeat_age_s=_FRESHNESS_WINDOW_S * 10,
-    )
+    _seed_prior(conn, session_id="sess-other-prior", heartbeat_age_s=_FRESHNESS_WINDOW_S * 10)
     p = _p(conn)
     conn.execute(
-        "INSERT INTO harness_sessions (session_id, last_heartbeat, ended_at) "
-        f"VALUES ({p}, {p}, NULL)",
-        ("sess-current", _stale_ts(_FRESHNESS_WINDOW_S // 2)),
+        f"INSERT INTO harness_sessions (session_id, last_heartbeat, ended_at) VALUES ({p}, {p}, NULL)", ("sess-current", _stale_ts(_FRESHNESS_WINDOW_S // 2))
     )
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id, "
-        f"claimed_at, released_at) VALUES ({p}, 'item', {p}, {p}, NULL)",
-        ("sess-current", _EPIC_ID, _stale_ts(5)),
+        f"INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, released_at) VALUES ({p}, 'item', {p}, {p}, NULL)",
+        ("sess-current", make_item_target(_EPIC_ID).scope_json(), _stale_ts(5)),
     )
     decision = _evaluate(conn)
     assert decision.status == STATUS_RESUMABLE
@@ -321,14 +269,11 @@ def test_resumable_when_current_active_is_only_claim_row(conn, stub_who_claims):
     stub_who_claims("sess-current")
     p = _p(conn)
     conn.execute(
-        "INSERT INTO harness_sessions (session_id, last_heartbeat, ended_at) "
-        f"VALUES ({p}, {p}, NULL)",
-        ("sess-current", _stale_ts(_FRESHNESS_WINDOW_S // 2)),
+        f"INSERT INTO harness_sessions (session_id, last_heartbeat, ended_at) VALUES ({p}, {p}, NULL)", ("sess-current", _stale_ts(_FRESHNESS_WINDOW_S // 2))
     )
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id, "
-        f"claimed_at, released_at) VALUES ({p}, 'item', {p}, {p}, NULL)",
-        ("sess-current", _EPIC_ID, _stale_ts(5)),
+        f"INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, released_at) VALUES ({p}, 'item', {p}, {p}, NULL)",
+        ("sess-current", make_item_target(_EPIC_ID).scope_json(), _stale_ts(5)),
     )
     decision = _evaluate(conn)
     assert decision.status == STATUS_RESUMABLE
@@ -338,11 +283,7 @@ def test_resumable_when_current_active_is_only_claim_row(conn, stub_who_claims):
 
 
 def test_resolve_freshness_window_returns_default_without_config(monkeypatch):
-    monkeypatch.setattr(
-        chain_head_freshness,
-        "get_seconds",
-        lambda key, default: default,
-    )
+    monkeypatch.setattr(chain_head_freshness, "get_seconds", lambda key, default: default)
     assert resolve_freshness_window_s() == chain_head_freshness.DEFAULT_FRESHNESS_WINDOW_S
 
 

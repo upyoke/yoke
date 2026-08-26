@@ -16,6 +16,7 @@ from yoke_core.engines._project_identity_test_helpers import (
 )
 from yoke_core.engines.doctor import hc_stale_remote_branches
 from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 TEST_ITEM_ID = 42
@@ -46,7 +47,9 @@ class TestHcStaleRemoteBranches:
     def test_stale_branch_warns(self, mock_run, mock_root):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
+        _insert_item(
+            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
+        )
         mock_run.side_effect = [
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
@@ -64,7 +67,9 @@ class TestHcStaleRemoteBranches:
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
+        _insert_item(
+            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
+        )
         mock_run.side_effect = [
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
         ]
@@ -103,11 +108,15 @@ class TestHcStaleRemoteBranches:
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
+        _insert_item(
+            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
+        )
+        target = make_item_target(TEST_ITEM_ID)
         conn.execute(
             "INSERT INTO work_claims "
-            "(id, session_id, target_kind, item_id, released_at) "
-            f"VALUES (1, 'active', 'item', {TEST_ITEM_ID}, NULL)"
+            "(id, session_id, target_kind, scope, released_at) "
+            "VALUES (1, 'active', %s, %s, NULL)",
+            (target.kind, target.scope_json()),
         )
         mock_run.side_effect = [
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
@@ -134,7 +143,9 @@ class TestHcStaleRemoteBranches:
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
+        _insert_item(
+            conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done"
+        )
         conn.execute("DROP TABLE path_claims")
         mock_run.side_effect = [
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),

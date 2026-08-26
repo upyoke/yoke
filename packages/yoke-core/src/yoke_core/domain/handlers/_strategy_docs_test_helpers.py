@@ -19,7 +19,8 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.work_processes import PROCESS_STRATEGIZE, conflict_group_for
+from yoke_core.domain.work_claim_targets import make_process_target
+from yoke_core.domain.work_processes import PROCESS_STRATEGIZE
 
 
 SESSION_WITH_CLAIM = "session-strategy-claim"
@@ -30,8 +31,7 @@ SEED_UPDATED_AT = "2026-06-10T00:00:00Z"
 SEED_SLUGS = ("MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "PAD", "WISPS")
 
 SEED_CONTENT = {
-    slug: f"# {slug}\n\nseeded body for {slug}.\nLine two.\n"
-    for slug in SEED_SLUGS
+    slug: f"# {slug}\n\nseeded body for {slug}.\nLine two.\n" for slug in SEED_SLUGS
 }
 
 # Baseline test-fixture project rows (project_seed_test_helpers.seed_project_identities).
@@ -63,18 +63,23 @@ def seed_session(conn, session_id: str) -> None:
 
 
 def seed_process_claim(
-    conn, session_id: str, *, process_key: str = PROCESS_STRATEGIZE,
-    project_slug: str = PROJECT_SLUG, released: bool = False,
+    conn,
+    session_id: str,
+    *,
+    process_key: str = PROCESS_STRATEGIZE,
+    project_slug: str = PROJECT_SLUG,
+    released: bool = False,
 ) -> None:
     now = iso8601_now()
+    target = make_process_target(process_key, project_slug)
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, process_key, "
-        "conflict_group, claim_type, claimed_at, last_heartbeat, released_at) "
-        "VALUES (%s, 'process', %s, %s, 'exclusive', %s, %s, %s)",
+        "INSERT INTO work_claims (session_id, target_kind, scope, "
+        "claim_type, claimed_at, last_heartbeat, released_at) "
+        "VALUES (%s, %s, %s, 'exclusive', %s, %s, %s)",
         (
             session_id,
-            process_key,
-            conflict_group_for(process_key, project_slug),
+            target.kind,
+            target.scope_json(),
             now,
             now,
             now if released else None,

@@ -17,10 +17,15 @@ from fastapi.testclient import TestClient
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import register_session
+from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
 from runtime.api.test_session_offer_schemas import fresh_now, session_offer_db  # noqa: F401
 from runtime.api.test_constants import TEST_MODEL_ID
+
+
+ITEM_TARGET = make_item_target(10)
+EPIC_TASK_TARGET = make_epic_task_target(100, 3)
 
 
 def _p(conn) -> str:
@@ -95,9 +100,11 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('test-session-001', 'item', 10, 'exclusive', {p}, {p})""".format(p=p),
-            (now, now),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('test-session-001', {p}, {p}, 'exclusive', {p}, {p})""".format(
+                p=p
+            ),
+            (ITEM_TARGET.kind, ITEM_TARGET.scope_json(), now, now),
         )
         conn.commit()
         conn.close()
@@ -125,9 +132,11 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, epic_id, task_num, claim_type, claimed_at, last_heartbeat)
-               VALUES ('test-session-001', 'epic_task', 100, 3, 'exclusive', {p}, {p})""".format(p=p),
-            (now, now),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('test-session-001', {p}, {p}, 'exclusive', {p}, {p})""".format(
+                p=p
+            ),
+            (EPIC_TASK_TARGET.kind, EPIC_TASK_TARGET.scope_json(), now, now),
         )
         conn.commit()
         conn.close()
@@ -151,7 +160,10 @@ class TestSessionOfferResume:
         """
         workspace = self.db_info["tmp_dir"]
         manifest_dir = os.path.join(
-            workspace, "runtime", "harness", "codex",
+            workspace,
+            "runtime",
+            "harness",
+            "codex",
         )
         os.makedirs(manifest_dir, exist_ok=True)
         with open(
@@ -169,7 +181,9 @@ class TestSessionOfferResume:
                 handle,
             )
         conn = connect_test_db(self.db_info["db_path"])
-        conn.execute("UPDATE items SET status = 'reviewed-implementation' WHERE id = 10")
+        conn.execute(
+            "UPDATE items SET status = 'reviewed-implementation' WHERE id = 10"
+        )
         now = fresh_now()
         p = _p(conn)
         conn.execute(
@@ -182,9 +196,11 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('test-session-001', 'item', 10, 'exclusive', {p}, {p})""".format(p=p),
-            (now, now),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('test-session-001', {p}, {p}, 'exclusive', {p}, {p})""".format(
+                p=p
+            ),
+            (ITEM_TARGET.kind, ITEM_TARGET.scope_json(), now, now),
         )
         conn.commit()
         conn.close()
@@ -221,7 +237,9 @@ class TestSessionOfferResume:
             "required_path": "polish",
         }
         conn = connect_test_db(self.db_info["db_path"])
-        conn.execute("UPDATE items SET status = 'reviewed-implementation' WHERE id = 10")
+        conn.execute(
+            "UPDATE items SET status = 'reviewed-implementation' WHERE id = 10"
+        )
         now = fresh_now()
         p = _p(conn)
         conn.execute(
@@ -239,9 +257,11 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('test-session-001', 'item', 10, 'exclusive', {p}, {p})""".format(p=p),
-            (now, now),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('test-session-001', {p}, {p}, 'exclusive', {p}, {p})""".format(
+                p=p
+            ),
+            (ITEM_TARGET.kind, ITEM_TARGET.scope_json(), now, now),
         )
         conn.commit()
         conn.close()
@@ -291,9 +311,9 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('other-session', 'item', 10, 'exclusive', {p}, {p})""".format(p=p),
-            (now, now),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('other-session', {p}, {p}, 'exclusive', {p}, {p})""".format(p=p),
+            (ITEM_TARGET.kind, ITEM_TARGET.scope_json(), now, now),
         )
         conn.commit()
         conn.close()

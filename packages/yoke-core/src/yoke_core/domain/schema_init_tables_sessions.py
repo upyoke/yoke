@@ -84,20 +84,8 @@ def create_session_tables(conn: Any) -> None:
           id INTEGER PRIMARY KEY,
           session_id TEXT NOT NULL,
           target_kind TEXT NOT NULL CONSTRAINT work_claims_target_kind_check
-            CHECK(target_kind IN ('item','epic_task','process','steering_scope')),
-          item_id INTEGER,
-          epic_id INTEGER,
-          task_num INTEGER,
-          process_key TEXT,
-          conflict_group TEXT,
-          steering_project_id INTEGER,
-          steering_strategy_doc_slugs TEXT,
-          owner_kind TEXT,
-          owner_item_id INTEGER,
-          owner_session_id TEXT,
-          owner_work_claim_id INTEGER,
-          registered_by_actor_id INTEGER,
-          registered_by_session_id TEXT,
+            CHECK(target_kind IN ('item','epic_task','process','steering')),
+          scope TEXT NOT NULL,
           claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
           claimed_at TEXT NOT NULL,
           last_heartbeat TEXT NOT NULL,
@@ -106,27 +94,11 @@ def create_session_tables(conn: Any) -> None:
           reason TEXT DEFAULT NULL,
           reason_intent TEXT DEFAULT NULL,
           release_reason_intent TEXT DEFAULT NULL,
-          CONSTRAINT work_claims_target_shape_check CHECK (
-            (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
-            (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
-            (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
-            (target_kind='steering_scope' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NOT NULL AND steering_strategy_doc_slugs IS NOT NULL)
-          ),
-          CONSTRAINT work_claims_owner_shape_check CHECK (
-            (target_kind<>'steering_scope' AND owner_kind IS NULL AND owner_item_id IS NULL AND owner_session_id IS NULL AND owner_work_claim_id IS NULL AND registered_by_actor_id IS NULL AND registered_by_session_id IS NULL) OR
-            (target_kind='steering_scope' AND owner_kind='session' AND owner_item_id IS NULL AND owner_session_id=session_id AND owner_work_claim_id IS NULL AND registered_by_actor_id IS NOT NULL AND registered_by_session_id IS NOT NULL)
-          ),
           FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
         );
         CREATE INDEX IF NOT EXISTS idx_work_claims_session ON work_claims(session_id);
         CREATE INDEX IF NOT EXISTS idx_work_claims_session_released
           ON work_claims(session_id, released_at);
-        CREATE INDEX IF NOT EXISTS idx_work_claims_item ON work_claims(item_id);
-        CREATE INDEX IF NOT EXISTS idx_work_claims_epic_task ON work_claims(epic_id, task_num);
-        CREATE INDEX IF NOT EXISTS idx_work_claims_process ON work_claims(process_key);
         CREATE INDEX IF NOT EXISTS idx_work_claims_heartbeat ON work_claims(last_heartbeat);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_work_claims_active_process_conflict
-          ON work_claims(conflict_group)
-          WHERE released_at IS NULL AND target_kind='process';
     """,
     )

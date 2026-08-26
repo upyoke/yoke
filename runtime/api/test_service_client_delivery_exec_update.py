@@ -14,12 +14,15 @@ from runtime.api.backlog_mutations_test_helpers import (
     _seed_session,
     tmp_db,  # noqa: F401,F811 - re-exported fixture
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 class TestExecuteUpdateCli:
     """Tests for execute-update-cli backlog-registry cutover parsing."""
 
-    def test_execute_update_cli_multi_field_routes_to_backlog_execute_update(self, monkeypatch, capsys):
+    def test_execute_update_cli_multi_field_routes_to_backlog_execute_update(
+        self, monkeypatch, capsys
+    ):
         import yoke_core.api.service_client as service_client
         from yoke_core.api import service_client_backlog_update
         from yoke_core.domain import backlog
@@ -37,7 +40,9 @@ class TestExecuteUpdateCli:
 
         monkeypatch.setattr(backlog, "execute_update", _record_execute_update)
         monkeypatch.setattr(
-            service_client_backlog_update, "_parse_item_id_arg", lambda _ref: 7,
+            service_client_backlog_update,
+            "_parse_item_id_arg",
+            lambda _ref: 7,
         )
         monkeypatch.setattr(
             backlog,
@@ -75,7 +80,9 @@ class TestExecuteUpdateCli:
 
         monkeypatch.setattr(backlog, "execute_update", _record_execute_update)
         monkeypatch.setattr(
-            service_client_backlog_update, "_parse_item_id_arg", lambda _ref: 7,
+            service_client_backlog_update,
+            "_parse_item_id_arg",
+            lambda _ref: 7,
         )
 
         rc = service_client.cmd_execute_update_cli(
@@ -93,7 +100,9 @@ class TestExecuteUpdateCli:
     # ``test_service_client_delivery_exec_update_dispatch.py`` to keep
     # this file under the 350-line authored-file budget.
 
-    def test_execute_update_cli_structured_write_rejects_both_sources(self, capsys, tmp_path):
+    def test_execute_update_cli_structured_write_rejects_both_sources(
+        self, capsys, tmp_path
+    ):
         import yoke_core.api.service_client as service_client
 
         spec_path = tmp_path / "spec.md"
@@ -115,7 +124,9 @@ class TestExecuteUpdateCli:
         body_path = tmp_path / "body.md"
         body_path.write_text("hello\n", encoding="utf-8")
 
-        rc = service_client.cmd_execute_update_cli(["1", "body", "--body-file", str(body_path)])
+        rc = service_client.cmd_execute_update_cli(
+            ["1", "body", "--body-file", str(body_path)]
+        )
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -134,7 +145,9 @@ class TestExecuteUpdateCli:
         assert data["success"] is False
         assert "raw body writes are no longer supported" in data["error"]
 
-    def test_execute_update_cli_shell_mode_prints_log_not_json(self, monkeypatch, capsys):
+    def test_execute_update_cli_shell_mode_prints_log_not_json(
+        self, monkeypatch, capsys
+    ):
         import yoke_core.api.service_client as service_client
         from yoke_core.api import service_client_backlog_update
         from yoke_core.domain import backlog
@@ -148,13 +161,13 @@ class TestExecuteUpdateCli:
 
         monkeypatch.setattr(backlog, "execute_update", _record_execute_update)
         monkeypatch.setattr(
-            service_client_backlog_update, "_parse_item_id_arg", lambda _ref: 7,
+            service_client_backlog_update,
+            "_parse_item_id_arg",
+            lambda _ref: 7,
         )
         monkeypatch.setenv("YOKE_SERVICE_CLIENT_SHELL", "1")
 
-        rc = service_client.cmd_execute_update_cli(
-            ["YOK-7", "status", "implementing"]
-        )
+        rc = service_client.cmd_execute_update_cli(["YOK-7", "status", "implementing"])
 
         captured = capsys.readouterr()
         assert rc == 0
@@ -162,7 +175,9 @@ class TestExecuteUpdateCli:
         assert captured.err == ""
         assert captured.out == "Updated: YOK-7 status -> implementing\n"
 
-    def test_execute_update_cli_guard_rejects_unisolated_test_bypass_json(self, monkeypatch, capsys):
+    def test_execute_update_cli_guard_rejects_unisolated_test_bypass_json(
+        self, monkeypatch, capsys
+    ):
         import yoke_core.api.service_client as service_client
 
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test")
@@ -176,7 +191,9 @@ class TestExecuteUpdateCli:
         assert data["success"] is False
         assert "requires explicit isolated YOKE_ROOT" in data["error"]
 
-    def test_execute_update_cli_guard_rejects_unisolated_test_bypass_shell(self, monkeypatch, capsys):
+    def test_execute_update_cli_guard_rejects_unisolated_test_bypass_shell(
+        self, monkeypatch, capsys
+    ):
         import yoke_core.api.service_client as service_client
 
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test")
@@ -197,17 +214,22 @@ class TestExecuteUpdateForceFinalize:
     def _active_claim(self, db_path: str, item_id: int) -> dict | None:
         conn = _conn(db_path)
         try:
+            target = make_item_target(item_id)
             row = conn.execute(
                 "SELECT released_at, release_reason FROM work_claims "
-                "WHERE item_id=%s ORDER BY id DESC LIMIT 1",
-                (str(item_id),),
+                "WHERE target_kind = %s AND scope = %s "
+                "ORDER BY id DESC LIMIT 1",
+                (target.kind, target.scope_json()),
             ).fetchone()
             return dict(row) if row else None
         finally:
             conn.close()
 
     def test_force_to_reviewed_implementation_releases_for_polish(
-        self, tmp_db, monkeypatch, capsys,
+        self,
+        tmp_db,
+        monkeypatch,
+        capsys,
     ):
         import yoke_core.api.service_client as service_client
 
@@ -221,8 +243,14 @@ class TestExecuteUpdateForceFinalize:
 
         with _patch_externals():
             rc = service_client.cmd_execute_update(
-                [str(item_id), "--field", "status", "--value",
-                 "reviewed-implementation", "--force"]
+                [
+                    str(item_id),
+                    "--field",
+                    "status",
+                    "--value",
+                    "reviewed-implementation",
+                    "--force",
+                ]
             )
 
         data = json.loads(capsys.readouterr().out)
@@ -259,7 +287,9 @@ class TestExecuteUpdateForceFinalize:
         assert self._active_claim(tmp_db, item_id)["release_reason"] == "handed_off"
         assert f"Next: /yoke usher {item_ref}" in data["log"]
 
-    def test_force_to_planning_status_keeps_claim_active(self, tmp_db, monkeypatch, capsys):
+    def test_force_to_planning_status_keeps_claim_active(
+        self, tmp_db, monkeypatch, capsys
+    ):
         import yoke_core.api.service_client as service_client
 
         item_id = 12
@@ -271,7 +301,14 @@ class TestExecuteUpdateForceFinalize:
 
         with _patch_externals():
             rc = service_client.cmd_execute_update(
-                [str(item_id), "--field", "status", "--value", "refining-idea", "--force"]
+                [
+                    str(item_id),
+                    "--field",
+                    "status",
+                    "--value",
+                    "refining-idea",
+                    "--force",
+                ]
             )
 
         data = json.loads(capsys.readouterr().out)

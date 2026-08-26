@@ -14,6 +14,7 @@ from yoke_core.domain.machine_qa_capability import lease_key
 from yoke_core.domain.machine_qa_host_registrar import host_registrations
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.qa_method_capabilities import capability_kinds
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def read_test_machine_facts(
@@ -68,7 +69,7 @@ def read_test_machine_facts(
             "id",
             "session_id",
             "target_kind",
-            "item_id",
+            "scope",
             "claimed_at",
             "released_at",
         ),
@@ -83,11 +84,12 @@ def read_test_machine_facts(
         sessions = sorted(set(active_sessions.values()))
         session_markers = ", ".join([marker] * len(sessions))
         refs_by_session: dict[str, str] = {}
+        item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
         rows = conn.execute(
-            "SELECT wc.session_id,wc.item_id,i.project_sequence,"
+            f"SELECT wc.session_id,{item_id_scope} AS item_id,i.project_sequence,"
             "p.slug,p.public_item_prefix "
             "FROM work_claims wc "
-            "JOIN items i ON i.id=wc.item_id "
+            f"JOIN items i ON i.id={item_id_scope} "
             "JOIN projects p ON p.id=i.project_id "
             f"WHERE wc.session_id IN ({session_markers}) "
             "AND wc.target_kind='item' AND wc.released_at IS NULL "

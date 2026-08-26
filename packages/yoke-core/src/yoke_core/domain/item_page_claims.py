@@ -8,6 +8,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 def _p(conn: Any) -> str:
@@ -42,21 +43,23 @@ def active_item_claims(
         return {}
     marker = _p(conn)
     placeholders = ", ".join(marker for _ in ids)
+    item_scope = scope_int_sql(conn, "wc.scope", "item_id")
+    newer_item_scope = scope_int_sql(conn, "newer.scope", "item_id")
     cursor = conn.execute(
-        "SELECT wc.item_id, wc.id AS claim_id, wc.session_id, "
+        f"SELECT {item_scope} AS item_id, wc.id AS claim_id, wc.session_id, "
         "wc.claim_type, wc.claimed_at, hs.actor_id, hs.executor, "
         "a.kind AS actor_kind "
         "FROM work_claims wc "
         "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id "
         "LEFT JOIN actors a ON a.id = hs.actor_id "
-        f"WHERE wc.item_id IN ({placeholders}) "
+        f"WHERE {item_scope} IN ({placeholders}) "
         "AND wc.target_kind = 'item' AND wc.released_at IS NULL "
         "AND NOT EXISTS ("
         "  SELECT 1 FROM work_claims newer "
-        "  WHERE newer.item_id = wc.item_id "
+        f"  WHERE {newer_item_scope} = {item_scope} "
         "  AND newer.target_kind = 'item' "
         "  AND newer.released_at IS NULL AND newer.id > wc.id"
-        ") ORDER BY wc.item_id",
+        f") ORDER BY {item_scope}",
         tuple(ids),
     )
     claims: dict[int, dict[str, Any]] = {}

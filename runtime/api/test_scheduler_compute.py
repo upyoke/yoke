@@ -22,6 +22,17 @@ from runtime.api.scheduler_test_fixtures import (  # noqa: F401
     _workflow_pin,
     scheduler_db,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
+
+
+def _insert_item_claim(conn, session_id: str, item_id: int, claimed_at: str) -> None:
+    target = make_item_target(item_id)
+    conn.execute(
+        "INSERT INTO work_claims "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
+        "VALUES (%s, %s, %s, 'exclusive', %s, %s)",
+        (session_id, target.kind, target.scope_json(), claimed_at, claimed_at),
+    )
 
 
 class TestComputeSchedule:
@@ -103,12 +114,15 @@ class TestComputeSchedule:
         conn.commit()
 
         result = compute_schedule(
-            conn, project_scope=["yoke"], wip_cap=0,
+            conn,
+            project_scope=["yoke"],
+            wip_cap=0,
         )
 
         # The implementing issue should still be selectable as ADVANCE
         advance_steps = [
-            s for s in result.ranked_steps
+            s
+            for s in result.ranked_steps
             if s.item_id == 100 and s.next_step == NextStep.ADVANCE
         ]
         assert len(advance_steps) == 1, "Implementing issue must appear as ADVANCE"
@@ -169,11 +183,7 @@ class TestComputeSchedule:
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat)
                VALUES ('sess-1', 'claude-code', 'anthropic', 'claude', '/tmp', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')"""
         )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-1', 'item', 1, 'exclusive', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')"""
-        )
+        _insert_item_claim(conn, "sess-1", 1, "2026-04-20T00:00:00Z")
         conn.commit()
 
         result = compute_schedule(conn, project_scope=["yoke"], session_id="sess-1")
@@ -194,12 +204,7 @@ class TestComputeSchedule:
                VALUES ('sess-stale', 'claude-code', 'anthropic', 'claude', '/tmp', %s, %s)""",
             (stale_iso, stale_iso),
         )
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-stale', 'item', 1, 'exclusive', %s, %s)""",
-            (stale_iso, stale_iso),
-        )
+        _insert_item_claim(conn, "sess-stale", 1, stale_iso)
         conn.commit()
 
         claims = _evaluate_claim_states(conn, [1])
@@ -225,12 +230,7 @@ class TestComputeSchedule:
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-stale', 'item', %s, 'exclusive', %s, %s)""",
-            (_item_num(top_item), stale_iso, stale_iso),
-        )
+        _insert_item_claim(conn, "sess-stale", _item_num(top_item), stale_iso)
         conn.commit()
 
         result = compute_schedule(conn, project_scope=["yoke"])
@@ -257,11 +257,8 @@ class TestComputeSchedule:
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-ended', 'item', %s, 'exclusive', '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')""",
-            (_item_num(top_item),),
+        _insert_item_claim(
+            conn, "sess-ended", _item_num(top_item), "2026-04-20T00:00:00Z"
         )
         conn.commit()
 
@@ -290,12 +287,7 @@ class TestComputeSchedule:
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-15min', 'item', %s, 'exclusive', %s, %s)""",
-            (_item_num(top_item), live_iso, live_iso),
-        )
+        _insert_item_claim(conn, "sess-15min", _item_num(top_item), live_iso)
         conn.commit()
 
         claims = _evaluate_claim_states(conn, [top_item])
@@ -322,12 +314,7 @@ class TestComputeSchedule:
         assert baseline.selected_step is not None
         top_item = baseline.selected_step.item_id
 
-        conn.execute(
-            """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-25min', 'item', %s, 'exclusive', %s, %s)""",
-            (_item_num(top_item), stale_iso, stale_iso),
-        )
+        _insert_item_claim(conn, "sess-25min", _item_num(top_item), stale_iso)
         conn.commit()
 
         claims = _evaluate_claim_states(conn, [top_item])

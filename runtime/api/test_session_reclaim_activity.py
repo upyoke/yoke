@@ -23,6 +23,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     _now_literal,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @pytest.fixture
@@ -66,11 +67,12 @@ def _emit_tool_event(conn, session_id: str, ago_minutes: int) -> None:
 
 def _seed_claim(conn, session_id: str, item_id: int, ago_minutes: int) -> int:
     ts = _ago_minutes(ago_minutes)
+    target = make_item_target(item_id)
     cursor = conn.execute(
         """INSERT INTO work_claims
-           (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-           VALUES (%s, 'item', %s, 'exclusive', %s, %s) RETURNING id""",
-        (session_id, item_id, ts, ts),
+           (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+           VALUES (%s, %s, %s, 'exclusive', %s, %s) RETURNING id""",
+        (session_id, target.kind, target.scope_json(), ts, ts),
     )
     claim_id = int(cursor.fetchone()[0])
     conn.commit()

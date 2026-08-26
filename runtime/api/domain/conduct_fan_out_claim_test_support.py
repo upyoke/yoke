@@ -10,6 +10,7 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_core.domain.work_claim_targets import make_epic_task_target
 
 
 @pytest.fixture
@@ -37,8 +38,7 @@ def conn():
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-            item_id INTEGER, epic_id INTEGER, task_num INTEGER,
-            process_key TEXT, released_at TEXT
+            scope TEXT, released_at TEXT
         );
         """,
     )
@@ -53,9 +53,9 @@ def conn():
 
 def acquire_claim(conn, *, session_id, epic_id, task_num) -> int:
     cur = conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, epic_id, "
-        "task_num) VALUES (%s, 'epic_task', %s, %s) RETURNING id",
-        (session_id, epic_id, task_num),
+        "INSERT INTO work_claims (session_id, target_kind, scope) "
+        "VALUES (%s, 'epic_task', %s) RETURNING id",
+        (session_id, make_epic_task_target(epic_id, task_num).scope_json()),
     )
     claim_id = int(cur.fetchone()[0])
     conn.commit()

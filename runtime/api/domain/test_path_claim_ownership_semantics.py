@@ -35,6 +35,8 @@ from runtime.api.domain._path_claims_test_helpers import (
 )
 from yoke_core.domain.path_claims import get_claim, register
 from yoke_core.domain.path_claims_register import register_for_item
+from yoke_core.domain.work_claim_targets import make_process_target
+from yoke_core.domain.work_processes import PROCESS_FEED
 
 
 def _now() -> str:
@@ -42,7 +44,13 @@ def _now() -> str:
 
 
 def _seed_item(conn, *, item_id: int, project="yoke") -> int:
-    project_id = 2 if project == "externalwebapp" else int(project) if str(project).isdigit() else 1
+    project_id = (
+        2
+        if project == "externalwebapp"
+        else int(project)
+        if str(project).isdigit()
+        else 1
+    )
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, created_at, "
         "updated_at, project_id, project_sequence) "
@@ -91,7 +99,8 @@ class TestItemOwnedRegisteredBySession:
         assert claim["registered_by_actor_id"] == local_human(path_claims_conn)
 
     def test_item_owned_does_not_become_session_owned_after_re_register(
-        self, path_claims_conn,
+        self,
+        path_claims_conn,
     ):
         item = _seed_item(path_claims_conn, item_id=4002)
         sess_a = _seed_session(path_claims_conn, session_id="reg-a")
@@ -149,17 +158,19 @@ class TestProcessOwned:
     """Process-owned claims are owned by a work_claim."""
 
     def test_process_owner_typed_when_work_claim_set(
-        self, path_claims_conn,
+        self,
+        path_claims_conn,
     ):
         sess = _seed_session(path_claims_conn, session_id="proc-sess")
         actor = local_human(path_claims_conn)
         # Seed a work_claims row for the process linkage to be valid.
+        target = make_process_target(PROCESS_FEED, "yoke")
         path_claims_conn.execute(
             "INSERT INTO work_claims (id, session_id, target_kind, "
-            "process_key, conflict_group, claim_type, claimed_at, "
+            "scope, claim_type, claimed_at, "
             "last_heartbeat) "
-            "VALUES (%s, %s, 'process', 'FEED', 'default', 'exclusive', %s, %s)",
-            (88, sess, _now(), _now()),
+            "VALUES (%s, %s, %s, %s, 'exclusive', %s, %s)",
+            (88, sess, target.kind, target.scope_json(), _now(), _now()),
         )
         path_claims_conn.commit()
         tid = seed_target(path_claims_conn, path_string="runtime/api/foo.py")

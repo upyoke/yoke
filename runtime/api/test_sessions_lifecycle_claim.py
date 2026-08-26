@@ -33,6 +33,7 @@ from yoke_core.domain.sessions import (
     release_all_claims,
     release_claim,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @pytest.fixture(autouse=True)
@@ -187,12 +188,12 @@ class TestClaimWork:
                     side = connect_test_db(self._db_path)
                     try:
                         side.execute(
-                            "INSERT INTO work_claims (session_id, target_kind, item_id, "
+                            "INSERT INTO work_claims (session_id, target_kind, scope, "
                             "claim_type, claimed_at, last_heartbeat) "
                             "VALUES (%s, 'item', %s, 'exclusive', %s, %s)",
                             (
                                 "sess-2",
-                                9999,
+                                make_item_target(9999).scope_json(),
                                 "2026-04-03T00:00:00Z",
                                 "2026-04-03T00:00:00Z",
                             ),

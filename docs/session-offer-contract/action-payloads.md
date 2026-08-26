@@ -73,7 +73,7 @@ Normal `session-end` is guarded by two checks: (1) the persisted chain checkpoin
 ```bash
 # Audit: find unreleased claims where the same session emitted a non-charge NextActionChosen.
 yoke db read "
- SELECT wc.id, wc.session_id, wc.item_id, wc.claimed_at,
+ SELECT wc.id, wc.session_id, wc.scope, wc.claimed_at,
  e.created_at AS decision_at,
  NULLIF(e.envelope, '')::jsonb #>> '{context,action}' AS action
  FROM work_claims wc
@@ -81,7 +81,7 @@ yoke db read "
  AND e.event_name = 'NextActionChosen'
  AND NULLIF(e.envelope, '')::jsonb #>> '{context,action}' <> 'charge'
  AND e.created_at > wc.claimed_at
- WHERE wc.released_at IS NULL
+ WHERE wc.target_kind = 'item' AND wc.released_at IS NULL
  ORDER BY wc.claimed_at
 "
 

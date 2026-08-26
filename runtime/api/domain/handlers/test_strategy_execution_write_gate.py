@@ -28,6 +28,7 @@ from yoke_core.domain.strategy_execution import (
 from yoke_core.domain.strategy_execution_schema import (
     ensure_strategy_execution_schema,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 @pytest.fixture
@@ -58,12 +59,13 @@ def _seed_blitz_claim(conn) -> None:
         (now, now, version[0]),
     )
     seed_session(conn, "session-blitz")
+    target = make_item_target(2001)
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         "last_heartbeat) "
-        "VALUES ('session-blitz', 'item', 2001, 'exclusive', %s, %s)",
-        (now, now),
+        "VALUES ('session-blitz', %s, %s, 'exclusive', %s, %s)",
+        (target.kind, target.scope_json(), now, now),
     )
     conn.commit()
     link_execution_document(
@@ -106,11 +108,13 @@ def _ingest_request(
     return build_request(
         "strategy.ingest.run",
         {
-            "files": [{
-                "slug": "PAD",
-                "path": "/tmp/PAD.md",
-                "text": header + "\n" + edited_body,
-            }],
+            "files": [
+                {
+                    "slug": "PAD",
+                    "path": "/tmp/PAD.md",
+                    "text": header + "\n" + edited_body,
+                }
+            ],
         },
         session_id=session_id,
         actor_id="42",
@@ -122,7 +126,9 @@ def test_document_claim_holder_can_ingest_handoff_without_process_claim(
 ) -> None:
     ingested_body = SEED_CONTENT["PAD"] + "replace\ningest\n"
     with patch.object(
-        doc_handlers._events, "emit_event", return_value=ok_emit(),
+        doc_handlers._events,
+        "emit_event",
+        return_value=ok_emit(),
     ):
         replaced = doc_handlers.handle_doc_replace(
             _replace_request("session-blitz", SEED_UPDATED_AT, "replace\n")

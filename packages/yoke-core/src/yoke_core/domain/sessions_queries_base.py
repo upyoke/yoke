@@ -17,8 +17,9 @@ from .workflow_runtime import WorkflowRuntime, load_item_workflow_runtime
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
+
 def normalize_claim_item_id(item_id: Any) -> str:
-    """Normalize the typed ``work_claims.item_id`` column for comparisons."""
+    """Normalize an item id decoded from ``work_claims.scope``."""
     text = str(item_id)
     if text.isdigit():
         return text.lstrip("0") or "0"
@@ -39,7 +40,8 @@ def display_claim_item_id(
 ) -> Optional[str]:
     """Render a claim's item id for display.
 
-    ``work_claims.item_id`` stores the internal bare ``items.id``. The ref
+    The ``item_id`` key in ``work_claims.scope`` stores the internal bare
+    ``items.id``. The ref
     an operator should see is project-scoped
     (``{projects.public_item_prefix}-{items.project_sequence}``), which can
     diverge from the internal id. When ``conn`` is supplied, resolve the true
@@ -106,9 +108,7 @@ def derive_required_path(
     adapter = classify_next_action(workflow, status)
     result = _compute_next_step(
         adapter,
-        probe_path_claim_activation=(
-            workflow.requires_item_path_claim_probe(status)
-        ),
+        probe_path_claim_activation=(workflow.requires_item_path_claim_probe(status)),
     )
     ns = result.next_step
     if hasattr(ns, "value"):
@@ -306,5 +306,7 @@ def _filter_schedule_for_offer(
     )
     schedule.ranked_steps = wip_surviving_steps
     schedule.conduct_eligible = compatible_conduct_eligible
-    schedule.selected_step = compatible_assignable_steps[0] if compatible_assignable_steps else None
+    schedule.selected_step = (
+        compatible_assignable_steps[0] if compatible_assignable_steps else None
+    )
     return schedule

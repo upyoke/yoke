@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import register_session
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
 from runtime.api.test_constants import TEST_MODEL_ID
@@ -99,8 +100,12 @@ class TestSessionOffer:
     def test_offer_charge_with_runnable_items(self):
         """Session-offer exposes routed issue scheduling truth."""
         self._ensure_active_session("test-session-001")
-        with _sml_state_patch(), \
-             patch("yoke_core.api.main.release_item_claim_for_execution") as mock_release:
+        with (
+            _sml_state_patch(),
+            patch(
+                "yoke_core.api.main.release_item_claim_for_execution"
+            ) as mock_release,
+        ):
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -123,12 +128,12 @@ class TestSessionOffer:
         conn = connect_test_db(self.db_info["db_path"])
         p = _p(conn)
         active_claims = conn.execute(
-            f"SELECT item_id FROM work_claims WHERE session_id = {p} AND released_at IS NULL",
+            f"SELECT scope FROM work_claims WHERE session_id = {p} AND released_at IS NULL",
             ("test-session-001",),
         ).fetchall()
         conn.close()
         assert len(active_claims) == 1
-        assert active_claims[0]["item_id"] == 10
+        assert active_claims[0]["scope"] == make_item_target(10).scope_json()
         mock_release.assert_not_called()
 
     def test_offer_runnable_items_excludes_other_live_claimed(self):
@@ -154,8 +159,7 @@ class TestSessionOffer:
                 (
                     "issue",
                     conn.execute(
-                        "SELECT current_version_id FROM workflows "
-                        "WHERE id = 'issue'"
+                        "SELECT current_version_id FROM workflows WHERE id = 'issue'"
                     ).fetchone()[0],
                     now_iso,
                     now_iso,
@@ -171,17 +175,19 @@ class TestSessionOffer:
             )
             conn.execute(
                 """INSERT INTO work_claims
-                   (session_id, target_kind, item_id, claim_type,
+                   (session_id, target_kind, scope, claim_type,
                     claimed_at, last_heartbeat)
-                   VALUES ({p}, 'item', 30, 'exclusive', {p}, {p})""".format(p=p),
-                (owner, now_iso, now_iso),
+                   VALUES ({p}, 'item', {p}, 'exclusive', {p}, {p})""".format(p=p),
+                (owner, make_item_target(30).scope_json(), now_iso, now_iso),
             )
             conn.commit()
         finally:
             conn.close()
 
-        with _sml_state_patch(), \
-             patch("yoke_core.api.main.release_item_claim_for_execution"):
+        with (
+            _sml_state_patch(),
+            patch("yoke_core.api.main.release_item_claim_for_execution"),
+        ):
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -194,8 +200,13 @@ class TestSessionOffer:
     def test_offer_drift_review_failure_returns_escalate(self):
         """drift-review failures surface escalate instead of 500."""
         self._ensure_active_session("test-session-001")
-        with _sml_state_patch(), \
-             patch("yoke_core.api.main.assess_post_delivery_drift", side_effect=RuntimeError("boom")):
+        with (
+            _sml_state_patch(),
+            patch(
+                "yoke_core.api.main.assess_post_delivery_drift",
+                side_effect=RuntimeError("boom"),
+            ),
+        ):
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -217,9 +228,11 @@ class TestSessionOffer:
             delivered_items=["YOK-999"],
         )
 
-        with _sml_state_patch(), \
-             patch("yoke_core.api.main.assess_post_delivery_drift", return_value=drift), \
-             patch("yoke_core.api.main.emit_drift_review_completed") as mock_emit:
+        with (
+            _sml_state_patch(),
+            patch("yoke_core.api.main.assess_post_delivery_drift", return_value=drift),
+            patch("yoke_core.api.main.emit_drift_review_completed") as mock_emit,
+        ):
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
 
         assert resp.status_code == 200
@@ -247,10 +260,13 @@ class TestSessionOffer:
             ("workspace", "/tmp/elsewhere"),
             ("supported_paths", ["advance"]),
         ):
-            resp = self.client.post("/v1/sessions/offer", json={
-                "session_id": "test-session-001",
-                field: value,
-            })
+            resp = self.client.post(
+                "/v1/sessions/offer",
+                json={
+                    "session_id": "test-session-001",
+                    field: value,
+                },
+            )
             assert resp.status_code == 422, f"{field} was accepted"
 
     def test_offer_strategize_without_sml_charges_available_work(self):
@@ -317,7 +333,10 @@ class TestSessionOffer:
 
     def test_offer_empty_string_fields_returns_400(self):
         """Empty string for required fields returns 400."""
-        resp = self.client.post("/v1/sessions/offer", json={
-            "session_id": "",
-        })
+        resp = self.client.post(
+            "/v1/sessions/offer",
+            json={
+                "session_id": "",
+            },
+        )
         assert resp.status_code == 400

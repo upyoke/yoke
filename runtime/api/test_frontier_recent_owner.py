@@ -16,12 +16,11 @@ from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.frontier_recent_owner import routed_ownership_exclusions
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _INTENT_COLUMNS = (
-    "    reason TEXT,\n"
-    "    reason_intent TEXT,\n"
-    "    release_reason_intent TEXT,\n"
+    "    reason TEXT,\n    reason_intent TEXT,\n    release_reason_intent TEXT,\n"
 )
 
 _SCHEMA_TEMPLATE = """
@@ -35,9 +34,7 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
 );
 CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL, item_id INTEGER,
-    epic_id INTEGER, task_num INTEGER,
-    process_key TEXT, conflict_group TEXT,
+    target_kind TEXT NOT NULL, scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL, last_heartbeat TEXT NOT NULL,
 {intent_columns}    released_at TEXT, release_reason TEXT
@@ -52,9 +49,11 @@ def _schema(*, with_intent_columns: bool = True) -> str:
 
 
 def _iso(delta_s: int = 0) -> str:
-    return (datetime.now(timezone.utc) + timedelta(seconds=delta_s)).isoformat(
-        timespec="microseconds"
-    ).replace("+00:00", "Z")
+    return (
+        (datetime.now(timezone.utc) + timedelta(seconds=delta_s))
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def _insert_session(
@@ -90,14 +89,16 @@ def _insert_released_claim(
     release_reason: str = "session_ended",
     release_reason_intent: Optional[str] = None,
 ) -> int:
+    target = make_item_target(item_id)
     cur = conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         " last_heartbeat, released_at, release_reason) "
-        "VALUES (%s, 'item', %s, 'exclusive', %s, %s, %s, %s) RETURNING id",
+        "VALUES (%s, %s, %s, 'exclusive', %s, %s, %s, %s) RETURNING id",
         (
             session_id,
-            item_id,
+            target.kind,
+            target.scope_json(),
             _iso(-released_age_s - 60),
             _iso(-released_age_s),
             _iso(-released_age_s),
@@ -107,8 +108,7 @@ def _insert_released_claim(
     claim_id = int(cur.fetchone()[0])
     if release_reason_intent is not None:
         conn.execute(
-            "UPDATE work_claims SET release_reason_intent = %s "
-            "WHERE id = %s",
+            "UPDATE work_claims SET release_reason_intent = %s WHERE id = %s",
             (release_reason_intent, claim_id),
         )
     conn.commit()
@@ -149,7 +149,9 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         _insert_session(conn, "owner", heartbeat_age_s=10)
         _insert_released_claim(conn, "owner", 17, released_age_s=10)
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertIn(17, excluded)
         detail = excluded[17]
@@ -163,7 +165,9 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         _insert_session(conn, "owner", heartbeat_age_s=10, ended=True)
         _insert_released_claim(conn, "owner", 18, released_age_s=10)
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertEqual(excluded, {})
 
@@ -172,7 +176,9 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         _insert_session(conn, "owner", heartbeat_age_s=99999)
         _insert_released_claim(conn, "owner", 19, released_age_s=99999)
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertEqual(excluded, {})
 
@@ -181,7 +187,9 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         _insert_session(conn, "self", heartbeat_age_s=10)
         _insert_released_claim(conn, "self", 20, released_age_s=10)
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="self",
+            conn,
+            window_s=300,
+            requesting_session_id="self",
         )
         self.assertEqual(excluded, {})
 
@@ -190,10 +198,16 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         _insert_session(conn, "owner", heartbeat_age_s=10)
         _insert_released_claim(conn, "owner", 21, released_age_s=20)
         _insert_released_claim(
-            conn, "owner", 21, released_age_s=5, release_reason="completed",
+            conn,
+            "owner",
+            21,
+            released_age_s=5,
+            release_reason="completed",
         )
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertNotIn(21, excluded)
 
@@ -203,17 +217,24 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         conn = self._build_conn()
         _insert_session(conn, "owner", heartbeat_age_s=10)
         claim_id = _insert_released_claim(
-            conn, "owner", 22, released_age_s=10, release_reason="released",
+            conn,
+            "owner",
+            22,
+            released_age_s=10,
+            release_reason="released",
             release_reason_intent="readiness-check-blocked",
         )
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertIn(22, excluded)
         detail = excluded[22]
         self.assertEqual(detail["defense_class"], "non_terminal_intent")
         self.assertEqual(
-            detail["release_reason_intent"], "readiness-check-blocked",
+            detail["release_reason_intent"],
+            "readiness-check-blocked",
         )
         self.assertEqual(detail["latest_claim_id"], claim_id)
 
@@ -221,11 +242,17 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         conn = self._build_conn()
         _insert_session(conn, "owner", heartbeat_age_s=10)
         _insert_released_claim(
-            conn, "owner", 23, released_age_s=10, release_reason="released",
+            conn,
+            "owner",
+            23,
+            released_age_s=10,
+            release_reason="released",
             release_reason_intent="completed",
         )
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertNotIn(23, excluded)
 
@@ -233,35 +260,52 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         conn = self._build_conn()
         _insert_session(conn, "owner", heartbeat_age_s=10)
         _insert_released_claim(
-            conn, "owner", 24, released_age_s=10, release_reason="completed",
+            conn,
+            "owner",
+            24,
+            released_age_s=10,
+            release_reason="completed",
         )
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertNotIn(24, excluded)
 
     def test_detail_dict_includes_checkpoint_outcome(self) -> None:
         conn = self._build_conn()
         _insert_session(
-            conn, "owner", heartbeat_age_s=10,
+            conn,
+            "owner",
+            heartbeat_age_s=10,
             offer_envelope={
                 "chain_checkpoint": {
-                    "step": 1, "action": "readiness-check",
-                    "chainable": True, "handler_outcome": "readiness-blocked",
+                    "step": 1,
+                    "action": "readiness-check",
+                    "chainable": True,
+                    "handler_outcome": "readiness-blocked",
                     "completed_at": _iso(-10),
                 },
             },
         )
         _insert_released_claim(
-            conn, "owner", 25, released_age_s=10, release_reason="released",
+            conn,
+            "owner",
+            25,
+            released_age_s=10,
+            release_reason="released",
             release_reason_intent="readiness-check-blocked",
         )
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertIn(25, excluded)
         self.assertEqual(
-            excluded[25]["checkpoint_outcome"], "readiness-blocked",
+            excluded[25]["checkpoint_outcome"],
+            "readiness-blocked",
         )
 
     def test_missing_intent_column_keeps_session_ended_branch(self) -> None:
@@ -272,11 +316,16 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         _insert_released_claim(conn, "owner", 26, released_age_s=10)
         _insert_session(conn, "other-owner", heartbeat_age_s=10)
         _insert_released_claim(
-            conn, "other-owner", 27, released_age_s=10,
+            conn,
+            "other-owner",
+            27,
+            released_age_s=10,
             release_reason="released",
         )
         excluded = routed_ownership_exclusions(
-            conn, window_s=300, requesting_session_id="other",
+            conn,
+            window_s=300,
+            requesting_session_id="other",
         )
         self.assertIn(26, excluded)
         self.assertNotIn(27, excluded)

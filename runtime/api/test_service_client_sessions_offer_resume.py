@@ -17,6 +17,10 @@ from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_core.domain.work_claim_targets import (
+    make_epic_task_target,
+    make_item_target,
+)
 
 pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
@@ -36,15 +40,17 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('stale-offer', 'item', 10, 'exclusive', %s, %s)""",
-            (stale_iso, stale_iso),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('stale-offer', 'item', %s, 'exclusive', %s, %s)""",
+            (make_item_target(10).scope_json(), stale_iso, stale_iso),
         )
         conn.commit()
         conn.close()
 
         sid = "rescuer-sess"
-        _pre_register_session(session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"])
+        _pre_register_session(
+            session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"]
+        )
         result = _run_client(
             [
                 "session-offer",
@@ -61,10 +67,11 @@ class TestSessionOfferResume:
         conn = connect_test_db(session_offer_db["db_path"])
         stale_claim = conn.execute(
             """SELECT released_at, release_reason FROM work_claims
-               WHERE session_id = 'stale-offer' AND target_kind='item' AND item_id = 10"""
+               WHERE session_id = 'stale-offer' AND target_kind='item' AND scope = %s""",
+            (make_item_target(10).scope_json(),),
         ).fetchone()
         new_claim = conn.execute(
-            """SELECT item_id FROM work_claims
+            """SELECT scope FROM work_claims
                WHERE session_id = 'rescuer-sess' AND released_at IS NULL"""
         ).fetchone()
         conn.close()
@@ -72,7 +79,7 @@ class TestSessionOfferResume:
         assert stale_claim["released_at"] is not None
         assert stale_claim["release_reason"] == "reclaimed"
         assert new_claim is not None
-        assert new_claim["item_id"] == 10
+        assert json.loads(new_claim["scope"])["item_id"] == 10
 
     def test_session_offer_resume_with_epic_task_claim(self, session_offer_db):
         """Historical epic task claim rows still surface in resume context."""
@@ -86,9 +93,9 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, epic_id, task_num, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-epic-task', 'epic_task', 100, 3, 'exclusive', %s, %s)""",
-            (fresh_iso, fresh_iso),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('sess-epic-task', 'epic_task', %s, 'exclusive', %s, %s)""",
+            (make_epic_task_target(100, 3).scope_json(), fresh_iso, fresh_iso),
         )
         conn.commit()
         conn.close()
@@ -116,7 +123,10 @@ class TestSessionOfferResume:
         no longer accepts.
         """
         manifest_dir = os.path.join(
-            session_offer_db["tmp_dir"], "runtime", "harness", "codex",
+            session_offer_db["tmp_dir"],
+            "runtime",
+            "harness",
+            "codex",
         )
         os.makedirs(manifest_dir, exist_ok=True)
         with open(
@@ -136,7 +146,9 @@ class TestSessionOfferResume:
 
         conn = connect_test_db(session_offer_db["db_path"])
         fresh_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        conn.execute("UPDATE items SET status = 'reviewed-implementation' WHERE id = 10")
+        conn.execute(
+            "UPDATE items SET status = 'reviewed-implementation' WHERE id = 10"
+        )
         conn.execute(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat, offer_envelope)
@@ -145,9 +157,9 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-resume-path', 'item', 10, 'exclusive', %s, %s)""",
-            (fresh_iso, fresh_iso),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('sess-resume-path', 'item', %s, 'exclusive', %s, %s)""",
+            (make_item_target(10).scope_json(), fresh_iso, fresh_iso),
         )
         conn.commit()
         conn.close()
@@ -187,7 +199,9 @@ class TestSessionOfferResume:
         }
         conn = connect_test_db(session_offer_db["db_path"])
         fresh_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        conn.execute("UPDATE items SET status = 'reviewed-implementation' WHERE id = 10")
+        conn.execute(
+            "UPDATE items SET status = 'reviewed-implementation' WHERE id = 10"
+        )
         conn.execute(
             f"""INSERT INTO harness_sessions
                (session_id, executor, provider, model, workspace, offered_at, last_heartbeat, offer_envelope)
@@ -201,9 +215,9 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-resume-loop', 'item', 10, 'exclusive', %s, %s)""",
-            (fresh_iso, fresh_iso),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('sess-resume-loop', 'item', %s, 'exclusive', %s, %s)""",
+            (make_item_target(10).scope_json(), fresh_iso, fresh_iso),
         )
         conn.commit()
         conn.close()
@@ -270,9 +284,9 @@ class TestSessionOfferResume:
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-               VALUES ('sess-resume-progress', 'item', 10, 'exclusive', %s, %s)""",
-            (fresh_iso, fresh_iso),
+               (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+               VALUES ('sess-resume-progress', 'item', %s, 'exclusive', %s, %s)""",
+            (make_item_target(10).scope_json(), fresh_iso, fresh_iso),
         )
         conn.commit()
         conn.close()

@@ -24,6 +24,7 @@ from yoke_core.domain.workflow_registry import (
 from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 from yoke_core.engines import doctor_hc_session_cwd_binding as hc_module
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _disposable_pg_db(ddl: str) -> Any:
@@ -50,8 +51,7 @@ def _make_pre_impl_conn() -> Any:
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-            item_id INTEGER, epic_id INTEGER, task_num INTEGER,
-            process_key TEXT, claimed_at TEXT, released_at TEXT
+            scope TEXT NOT NULL, claimed_at TEXT, released_at TEXT
         );
         CREATE TABLE events (
             id INTEGER PRIMARY KEY,
@@ -104,11 +104,12 @@ def _add_pre_impl_claim(
         item_id=item_id,
         branch=f"YOK-{item_id}",
     )
+    target = make_item_target(item_id)
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claimed_at) "
-        "VALUES (%s, 'item', %s, %s)",
-        (session_id, item_id, claimed_at),
+        "(session_id, target_kind, scope, claimed_at) "
+        "VALUES (%s, %s, %s, %s)",
+        (session_id, target.kind, target.scope_json(), claimed_at),
     )
     conn.commit()
 
@@ -130,16 +131,24 @@ class TestPreImplementingActivityHC:
         # Claim 60 minutes ago, status still refined-idea, many tool calls.
         old = "2026-05-17T15:00:00+00:00"
         _add_pre_impl_claim(
-            conn, session_id="sess-stuck", item_id=9001,
-            status="refined-idea", claimed_at=old,
+            conn,
+            session_id="sess-stuck",
+            item_id=9001,
+            status="refined-idea",
+            claimed_at=old,
         )
         _add_tool_calls(
-            conn, session_id="sess-stuck", count=15, base_time=old,
+            conn,
+            session_id="sess-stuck",
+            count=15,
+            base_time=old,
         )
         rec = RecordCollector()
 
         hc_module.hc_session_pre_implementing_activity(
-            conn, DoctorArgs(), rec,
+            conn,
+            DoctorArgs(),
+            rec,
         )
 
         assert rec.results[0].result == "FAIL"
@@ -153,16 +162,24 @@ class TestPreImplementingActivityHC:
         conn = _make_pre_impl_conn()
         old = "2026-05-17T15:00:00+00:00"
         _add_pre_impl_claim(
-            conn, session_id="sess-ok", item_id=9002,
-            status="implementing", claimed_at=old,
+            conn,
+            session_id="sess-ok",
+            item_id=9002,
+            status="implementing",
+            claimed_at=old,
         )
         _add_tool_calls(
-            conn, session_id="sess-ok", count=99, base_time=old,
+            conn,
+            session_id="sess-ok",
+            count=99,
+            base_time=old,
         )
         rec = RecordCollector()
 
         hc_module.hc_session_pre_implementing_activity(
-            conn, DoctorArgs(), rec,
+            conn,
+            DoctorArgs(),
+            rec,
         )
 
         assert rec.results[0].result == "PASS"
@@ -172,16 +189,24 @@ class TestPreImplementingActivityHC:
         # Claim acquired moments in the future (effectively < 30 min ago).
         recent = "2099-01-01T00:00:00+00:00"
         _add_pre_impl_claim(
-            conn, session_id="sess-fresh", item_id=9003,
-            status="refined-idea", claimed_at=recent,
+            conn,
+            session_id="sess-fresh",
+            item_id=9003,
+            status="refined-idea",
+            claimed_at=recent,
         )
         _add_tool_calls(
-            conn, session_id="sess-fresh", count=50, base_time=recent,
+            conn,
+            session_id="sess-fresh",
+            count=50,
+            base_time=recent,
         )
         rec = RecordCollector()
 
         hc_module.hc_session_pre_implementing_activity(
-            conn, DoctorArgs(), rec,
+            conn,
+            DoctorArgs(),
+            rec,
         )
 
         assert rec.results[0].result == "PASS"
@@ -190,16 +215,24 @@ class TestPreImplementingActivityHC:
         conn = _make_pre_impl_conn()
         old = "2026-05-17T15:00:00+00:00"
         _add_pre_impl_claim(
-            conn, session_id="sess-quiet", item_id=9004,
-            status="refined-idea", claimed_at=old,
+            conn,
+            session_id="sess-quiet",
+            item_id=9004,
+            status="refined-idea",
+            claimed_at=old,
         )
         _add_tool_calls(
-            conn, session_id="sess-quiet", count=3, base_time=old,
+            conn,
+            session_id="sess-quiet",
+            count=3,
+            base_time=old,
         )
         rec = RecordCollector()
 
         hc_module.hc_session_pre_implementing_activity(
-            conn, DoctorArgs(), rec,
+            conn,
+            DoctorArgs(),
+            rec,
         )
 
         assert rec.results[0].result == "PASS"
@@ -209,7 +242,9 @@ class TestPreImplementingActivityHC:
         rec = RecordCollector()
 
         hc_module.hc_session_pre_implementing_activity(
-            conn, DoctorArgs(), rec,
+            conn,
+            DoctorArgs(),
+            rec,
         )
 
         assert rec.results[0].result == "PASS"
@@ -221,7 +256,8 @@ class TestPreImplementingActivityHC:
             """
             CREATE TABLE items (id INTEGER PRIMARY KEY);
             CREATE TABLE work_claims (
-                id INTEGER PRIMARY KEY, session_id TEXT, item_id INTEGER,
+                id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
+                scope TEXT,
                 released_at TEXT
             );
             """
@@ -229,7 +265,9 @@ class TestPreImplementingActivityHC:
         rec = RecordCollector()
 
         hc_module.hc_session_pre_implementing_activity(
-            conn, DoctorArgs(), rec,
+            conn,
+            DoctorArgs(),
+            rec,
         )
 
         assert rec.results[0].result == "PASS"
@@ -238,21 +276,29 @@ class TestPreImplementingActivityHC:
         conn = _make_pre_impl_conn()
         old = "2026-05-17T15:00:00+00:00"
         _add_pre_impl_claim(
-            conn, session_id="sess-done", item_id=9005,
-            status="refined-idea", claimed_at=old,
+            conn,
+            session_id="sess-done",
+            item_id=9005,
+            status="refined-idea",
+            claimed_at=old,
         )
         conn.execute(
             "UPDATE work_claims SET released_at = %s WHERE session_id = %s",
             ("2026-05-17T15:30:00+00:00", "sess-done"),
         )
         _add_tool_calls(
-            conn, session_id="sess-done", count=50, base_time=old,
+            conn,
+            session_id="sess-done",
+            count=50,
+            base_time=old,
         )
         conn.commit()
         rec = RecordCollector()
 
         hc_module.hc_session_pre_implementing_activity(
-            conn, DoctorArgs(), rec,
+            conn,
+            DoctorArgs(),
+            rec,
         )
 
         assert rec.results[0].result == "PASS"

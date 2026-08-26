@@ -14,6 +14,7 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines import doctor_hc_session_cwd_binding as hc_module
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 # ---------------------------------------------------------------------------
@@ -67,10 +68,7 @@ def _make_conn() -> Any:
             id INTEGER PRIMARY KEY,
             session_id TEXT,
             target_kind TEXT,
-            item_id INTEGER,
-            epic_id INTEGER,
-            task_num INTEGER,
-            process_key TEXT,
+            scope TEXT NOT NULL,
             released_at TEXT
         );
         CREATE TABLE events (
@@ -108,7 +106,10 @@ def _add_session(conn, session_id, mode="advance", current_item_id="9001"):
 
 
 def _add_item(
-    conn, item_id, worktree="YOK-9001", project="yoke",
+    conn,
+    item_id,
+    worktree="YOK-9001",
+    project="yoke",
     checkout_path="/repo/yoke",
 ):
     project_id = 1 if project == "yoke" else 999
@@ -136,12 +137,13 @@ def _add_item(
     conn.commit()
 
 
-def _add_work_claim(conn, session_id, item_id, target_kind="item"):
+def _add_work_claim(conn, session_id, item_id):
+    target = make_item_target(item_id)
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, released_at) "
+        "(session_id, target_kind, scope, released_at) "
         "VALUES (%s, %s, %s, NULL)",
-        (session_id, target_kind, item_id),
+        (session_id, target.kind, target.scope_json()),
     )
     conn.commit()
 
@@ -168,6 +170,7 @@ def silenced_emit(monkeypatch):
     # on macOS) don't accidentally pass validation. The HC validates against
     # the live FREE_PATH_PREFIXES; tests want a clean slate.
     from yoke_core.domain import lint_session_cwd_validate
+
     monkeypatch.setattr(lint_session_cwd_validate, "FREE_PATH_PREFIXES", ())
     return captured
 
@@ -259,9 +262,7 @@ class TestSessionCwdBindingHC:
         assert len(silenced_emit) == 1
         assert silenced_emit[0]["session_id"] == "sess-bad"
 
-    def test_session_without_telemetry_marked_unknown(
-        self, tmp_path, silenced_emit
-    ):
+    def test_session_without_telemetry_marked_unknown(self, tmp_path, silenced_emit):
         main = tmp_path / "main"
         (main / ".worktrees" / "YOK-9001").mkdir(parents=True)
         conn = _make_conn()

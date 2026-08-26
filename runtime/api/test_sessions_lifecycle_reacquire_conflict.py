@@ -28,6 +28,7 @@ from yoke_core.domain.sessions_lifecycle_reactivation import (
     auto_reacquire_session_ended_claims,
     emit_reactivated_with_released_claims,
 )
+from yoke_core.domain.work_claim_targets import make_item_target, scope_int_sql
 
 
 _CREATE_SESSIONS = """
@@ -57,19 +58,7 @@ CREATE TABLE IF NOT EXISTS work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL,
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
-    steering_project_id INTEGER,
-    steering_strategy_doc_slugs TEXT,
-    owner_kind TEXT,
-    owner_item_id INTEGER,
-    owner_session_id TEXT,
-    owner_work_claim_id INTEGER,
-    registered_by_actor_id INTEGER,
-    registered_by_session_id TEXT,
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive',
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
@@ -108,7 +97,9 @@ def _apply_reacquire_schema() -> None:
     """
     conn = db_backend.connect()
     try:
-        apply_ddl_statements(conn, _CREATE_SESSIONS, _CREATE_WORK_CLAIMS, _CREATE_EVENTS)
+        apply_ddl_statements(
+            conn, _CREATE_SESSIONS, _CREATE_WORK_CLAIMS, _CREATE_EVENTS
+        )
         conn.commit()
     finally:
         conn.close()
@@ -132,9 +123,11 @@ class _PgReacquireTestCase(unittest.TestCase):
 
 
 def _iso(delta_s: int = 0) -> str:
-    return (datetime.now(timezone.utc) + timedelta(seconds=delta_s)).isoformat(
-        timespec="microseconds"
-    ).replace("+00:00", "Z")
+    return (
+        (datetime.now(timezone.utc) + timedelta(seconds=delta_s))
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def _insert_session(conn, session_id: str) -> None:
@@ -156,12 +149,12 @@ def _insert_released_claim(
 ) -> None:
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         " last_heartbeat, released_at, release_reason) "
         "VALUES (%s, 'item', %s, 'exclusive', %s, %s, %s, 'session_ended')",
         (
             session_id,
-            item_id,
+            make_item_target(item_id).scope_json(),
             _iso(-released_age_s - 30),
             _iso(-released_age_s),
             _iso(-released_age_s),
@@ -171,13 +164,15 @@ def _insert_released_claim(
 
 
 def _insert_active_claim_other(
-    conn, session_id: str, item_id: int,
+    conn,
+    session_id: str,
+    item_id: int,
 ) -> None:
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat) "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
         "VALUES (%s, 'item', %s, 'exclusive', %s, %s)",
-        (session_id, item_id, _iso(), _iso()),
+        (session_id, make_item_target(item_id).scope_json(), _iso(), _iso()),
     )
     conn.commit()
 
@@ -188,10 +183,12 @@ class TestAutoReacquireWithinWindow(_PgReacquireTestCase):
         _insert_session(conn, "sess-A")
         _insert_released_claim(conn, "sess-A", 100, released_age_s=10)
         reacquired, conflicts = auto_reacquire_session_ended_claims(
-            conn, "sess-A", reacquire_window_s=300,
+            conn,
+            "sess-A",
+            reacquire_window_s=300,
         )
         self.assertEqual(len(reacquired), 1)
-        self.assertEqual(reacquired[0]["item_id"], 100)
+        self.assertEqual(reacquired[0]["scope"], {"item_id": 100})
         self.assertEqual(conflicts, [])
         active_count = conn.execute(
             "SELECT COUNT(*) FROM work_claims "
@@ -206,7 +203,9 @@ class TestAutoReacquireWithinWindow(_PgReacquireTestCase):
         # released 600s ago — outside default 300s window
         _insert_released_claim(conn, "sess-B", 200, released_age_s=600)
         reacquired, conflicts = auto_reacquire_session_ended_claims(
-            conn, "sess-B", reacquire_window_s=300,
+            conn,
+            "sess-B",
+            reacquire_window_s=300,
         )
         self.assertEqual(reacquired, [])
         self.assertEqual(conflicts, [])
@@ -219,7 +218,9 @@ class TestAutoReacquireWithinWindow(_PgReacquireTestCase):
         # Another session holds an active claim on the same item.
         _insert_active_claim_other(conn, "sess-other", 300)
         reacquired, conflicts = auto_reacquire_session_ended_claims(
-            conn, "sess-orig", reacquire_window_s=300,
+            conn,
+            "sess-orig",
+            reacquire_window_s=300,
         )
         self.assertEqual(reacquired, [])
         self.assertEqual(len(conflicts), 1)
@@ -231,13 +232,16 @@ class TestAutoReacquireWithinWindow(_PgReacquireTestCase):
         _insert_released_claim(conn, "sess-repeat", 301, released_age_s=20)
         _insert_released_claim(conn, "sess-repeat", 301, released_age_s=10)
         reacquired, conflicts = auto_reacquire_session_ended_claims(
-            conn, "sess-repeat", reacquire_window_s=300,
+            conn,
+            "sess-repeat",
+            reacquire_window_s=300,
         )
         self.assertEqual(len(reacquired), 1)
         self.assertEqual(conflicts, [])
+        item_id = scope_int_sql(conn, "scope", "item_id")
         active_count = conn.execute(
             "SELECT COUNT(*) FROM work_claims "
-            "WHERE session_id = %s AND item_id = %s AND released_at IS NULL",
+            f"WHERE session_id = %s AND {item_id} = %s AND released_at IS NULL",
             ("sess-repeat", 301),
         ).fetchone()[0]
         self.assertEqual(active_count, 1)
@@ -248,13 +252,16 @@ class TestEmitReactivatedWithReleasedClaimsReceipt(_PgReacquireTestCase):
         conn = self.conn
         _insert_session(conn, "sess-C")
         _insert_released_claim(conn, "sess-C", 400, released_age_s=10)
-        with mock.patch(
-            "yoke_core.domain.events.emit_event"
-        ) as emit_event, mock.patch(
-            "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
+        with (
+            mock.patch("yoke_core.domain.events.emit_event") as emit_event,
+            mock.patch(
+                "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
+            ),
         ):
             emit_reactivated_with_released_claims(
-                conn, "sess-C", reacquire_window_s=300,
+                conn,
+                "sess-C",
+                reacquire_window_s=300,
             )
         event_names = [call.args[0] for call in emit_event.call_args_list]
         self.assertIn("SessionReactivationReacquiredClaims", event_names)
@@ -263,13 +270,16 @@ class TestEmitReactivatedWithReleasedClaimsReceipt(_PgReacquireTestCase):
         conn = self.conn
         _insert_session(conn, "sess-D")
         _insert_released_claim(conn, "sess-D", 500, released_age_s=99999)
-        with mock.patch(
-            "yoke_core.domain.events.emit_event"
-        ) as emit_event, mock.patch(
-            "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
+        with (
+            mock.patch("yoke_core.domain.events.emit_event") as emit_event,
+            mock.patch(
+                "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
+            ),
         ):
             emit_reactivated_with_released_claims(
-                conn, "sess-D", reacquire_window_s=300,
+                conn,
+                "sess-D",
+                reacquire_window_s=300,
             )
         names = [call.args[0] for call in emit_event.call_args_list]
         self.assertNotIn("SessionReactivationReacquiredClaims", names)

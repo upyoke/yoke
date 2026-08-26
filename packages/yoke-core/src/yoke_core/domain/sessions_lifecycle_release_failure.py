@@ -27,8 +27,9 @@ from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
     TARGET_KIND_PROCESS,
-    TARGET_KIND_STEERING_SCOPE,
+    TARGET_KIND_STEERING,
     WorkClaimTarget,
+    exact_match_clause,
 )
 
 RELEASE_FAILURE_NOT_OWNED = "not_owned"
@@ -51,32 +52,7 @@ def _p(conn: Any) -> str:
 
 
 def _target_clauses(conn: Any, target: WorkClaimTarget) -> tuple[str, list[Any]]:
-    p = _p(conn)
-    if target.kind == TARGET_KIND_ITEM:
-        return (f"target_kind='item' AND item_id = {p}", [target.item_id])
-    if target.kind == TARGET_KIND_EPIC_TASK:
-        return (
-            f"target_kind='epic_task' AND epic_id = {p} AND task_num = {p}",
-            [target.epic_id, target.task_num],
-        )
-    if target.kind == TARGET_KIND_PROCESS:
-        return (
-            f"target_kind='process' AND process_key = {p}",
-            [target.process_key],
-        )
-    if target.kind == TARGET_KIND_STEERING_SCOPE:
-        return (
-            f"target_kind='steering_scope' AND steering_project_id = {p} "
-            f"AND steering_strategy_doc_slugs = {p}",
-            [
-                target.steering_project_id,
-                target.insert_columns()["steering_strategy_doc_slugs"],
-            ],
-        )
-    return (
-        f"target_kind='process' AND process_key = {p}",
-        [target.process_key],
-    )
+    return exact_match_clause(conn, target)
 
 
 def diagnose_target_release_miss(
@@ -182,11 +158,9 @@ def emit_target_release_failed(
     if target.kind == TARGET_KIND_PROCESS:
         context["process_key"] = target.process_key
         context["conflict_group"] = target.conflict_group
-    elif target.kind == TARGET_KIND_STEERING_SCOPE:
-        context["steering_project_id"] = target.steering_project_id
-        context["steering_strategy_doc_slugs"] = list(
-            target.steering_strategy_doc_slugs or ()
-        )
+    elif target.kind == TARGET_KIND_STEERING:
+        context["scope"] = dict(target.scope)
+        context["project_id"] = target.project_id
     if extra:
         context.update(extra)
     _sa._emit_event(

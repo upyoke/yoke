@@ -21,14 +21,15 @@ from runtime.api.fixtures.file_test_db import (
     connect_test_db,
     init_test_db,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 _SCHEMA = """
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT,
-    item_id INTEGER,
-    process_key TEXT
+    target_kind TEXT NOT NULL,
+    scope TEXT NOT NULL
 );
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
@@ -75,10 +76,20 @@ def board_db(tmp_path: Path):
 
 
 def _insert_path_claim(
-    db, *, claim_id: int, session_id, item_id, declared_count: int,
-    work_claim_id=None, released_at=None, cancelled_at=None,
-    release_reason=None, cancel_reason=None,
-    owner_kind=None, owner_item_id=None, owner_session_id=None,
+    db,
+    *,
+    claim_id: int,
+    session_id,
+    item_id,
+    declared_count: int,
+    work_claim_id=None,
+    released_at=None,
+    cancelled_at=None,
+    release_reason=None,
+    cancel_reason=None,
+    owner_kind=None,
+    owner_item_id=None,
+    owner_session_id=None,
     owner_work_claim_id=None,
 ) -> None:
     # Derive the typed authority from the convenient test inputs when it is
@@ -107,9 +118,15 @@ def _insert_path_claim(
             "released_at, cancelled_at, release_reason, cancel_reason) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
-                claim_id, owner_kind, owner_item_id, owner_session_id,
+                claim_id,
+                owner_kind,
+                owner_item_id,
+                owner_session_id,
                 owner_work_claim_id,
-                released_at, cancelled_at, release_reason, cancel_reason,
+                released_at,
+                cancelled_at,
+                release_reason,
+                cancel_reason,
             ),
         )
         for _ in range(declared_count):
@@ -126,93 +143,141 @@ class TestItemLinkedPathClaimRollup:
     """Item-owned path claims without a session owner decorate the work claim."""
 
     def test_null_session_item_claim_decorates_active_work_claim(
-        self, board_db: BoardDB,
+        self,
+        board_db: BoardDB,
     ) -> None:
         # Roll up item-linked rows for the work-claim item.
         _insert_path_claim(
-            board_db, claim_id=30, session_id=None, item_id=1665,
+            board_db,
+            claim_id=30,
+            session_id=None,
+            item_id=1665,
             declared_count=186,
         )
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1665", 1665, None)], active_only=True,
+            board_db,
+            "sess-A",
+            [("YOK-1665", 1665, None)],
+            active_only=True,
         )
         assert keycaps == ["YOK-1665 \U0001f4c1186"]
 
     def test_item_linked_claim_not_in_work_claims_unchanged(
-        self, board_db: BoardDB,
+        self,
+        board_db: BoardDB,
     ) -> None:
         # An item-linked claim on a different item with no session
         # attribution must not synthesize a decoration or orphan keycap on
         # the active session row.
         _insert_path_claim(
-            board_db, claim_id=31, session_id=None, item_id=1666,
+            board_db,
+            claim_id=31,
+            session_id=None,
+            item_id=1666,
             declared_count=4,
         )
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1663", 1663, None)], active_only=True,
+            board_db,
+            "sess-A",
+            [("YOK-1663", 1663, None)],
+            active_only=True,
         )
         assert keycaps == ["YOK-1663"]
 
     def test_released_item_linked_claim_hidden_from_active_row(
-        self, board_db: BoardDB,
+        self,
+        board_db: BoardDB,
     ) -> None:
         # Released item-linked rows must not decorate active rows.
         _insert_path_claim(
-            board_db, claim_id=32, session_id=None, item_id=1665,
-            declared_count=12, released_at="2026-05-01T00:00:00Z",
+            board_db,
+            claim_id=32,
+            session_id=None,
+            item_id=1665,
+            declared_count=12,
+            released_at="2026-05-01T00:00:00Z",
             release_reason="merged",
         )
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1665", 1665, None)], active_only=True,
+            board_db,
+            "sess-A",
+            [("YOK-1665", 1665, None)],
+            active_only=True,
         )
         assert keycaps == ["YOK-1665"]
 
     def test_cancelled_item_linked_claim_hidden_from_active_row(
-        self, board_db: BoardDB,
+        self,
+        board_db: BoardDB,
     ) -> None:
         # Cancelled item-linked rows are also non-terminal-only.
         _insert_path_claim(
-            board_db, claim_id=33, session_id=None, item_id=1665,
-            declared_count=8, cancelled_at="2026-05-01T00:00:00Z",
+            board_db,
+            claim_id=33,
+            session_id=None,
+            item_id=1665,
+            declared_count=8,
+            cancelled_at="2026-05-01T00:00:00Z",
             cancel_reason="superseded",
         )
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1665", 1665, None)], active_only=True,
+            board_db,
+            "sess-A",
+            [("YOK-1665", 1665, None)],
+            active_only=True,
         )
         assert keycaps == ["YOK-1665"]
 
     def test_session_and_item_linked_row_counted_once(
-        self, board_db: BoardDB,
+        self,
+        board_db: BoardDB,
     ) -> None:
         # A single path_claim that is both session-linked AND
         # item-linked is counted exactly once.
         _insert_path_claim(
-            board_db, claim_id=34, session_id="sess-A", item_id=1665,
+            board_db,
+            claim_id=34,
+            session_id="sess-A",
+            item_id=1665,
             declared_count=7,
         )
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1665", 1665, None)], active_only=True,
+            board_db,
+            "sess-A",
+            [("YOK-1665", 1665, None)],
+            active_only=True,
         )
         assert keycaps == ["YOK-1665 \U0001f4c17"]
 
     def test_true_session_owned_orphan_renders_alongside_item_rollup(
-        self, board_db: BoardDB,
+        self,
+        board_db: BoardDB,
     ) -> None:
         # Typed contract: a true session-owned claim (no item, no work
         # claim) renders as a bare keycap alongside the item-linked
         # rollup on the held work claim. An item-owned claim on a
         # different item is provenance-only and does NOT render.
         _insert_path_claim(
-            board_db, claim_id=35, session_id=None, item_id=1665,
+            board_db,
+            claim_id=35,
+            session_id=None,
+            item_id=1665,
             declared_count=186,
         )
         _insert_path_claim(
-            board_db, claim_id=36, session_id="sess-A", item_id=None,
-            owner_kind="session", owner_session_id="sess-A",
+            board_db,
+            claim_id=36,
+            session_id="sess-A",
+            item_id=None,
+            owner_kind="session",
+            owner_session_id="sess-A",
             declared_count=2,
         )
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1665", 1665, None)], active_only=True,
+            board_db,
+            "sess-A",
+            [("YOK-1665", 1665, None)],
+            active_only=True,
         )
         assert keycaps == [
             "YOK-1665 \U0001f4c1186",
@@ -220,16 +285,22 @@ class TestItemLinkedPathClaimRollup:
         ]
 
     def test_item_linked_fallback_is_active_row_only(
-        self, board_db: BoardDB,
+        self,
+        board_db: BoardDB,
     ) -> None:
         # Recent-session rows keep their existing session-linked behavior;
         # sessionless item claims belong to the active item holder only.
         _insert_path_claim(
-            board_db, claim_id=37, session_id=None, item_id=1665,
+            board_db,
+            claim_id=37,
+            session_id=None,
+            item_id=1665,
             declared_count=5,
         )
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1665", 1665, "completed")],
+            board_db,
+            "sess-A",
+            [("YOK-1665", 1665, "completed")],
             active_only=False,
         )
         assert keycaps == ["YOK-1665"]
@@ -238,24 +309,31 @@ class TestItemLinkedPathClaimRollup:
         raw = connect_test_db(board_db.path)
         try:
             raw.execute(
-                "INSERT INTO work_claims (id, session_id, item_id) "
-                "VALUES (%s, %s, %s)",
-                (40, "sess-A", 1665),
+                "INSERT INTO work_claims (id, session_id, target_kind, scope) "
+                "VALUES (%s, %s, 'item', %s)",
+                (40, "sess-A", make_item_target(1665).scope_json()),
             )
             raw.execute(
                 "INSERT INTO coordination_leases "
                 "(id, project_id, lease_key, session_id, owner_kind, "
                 "owner_item_id) VALUES (%s, %s, %s, %s, %s, %s)",
                 (
-                    8, "yoke", "LIVE_DB_MIGRATION:primary",
-                    "rehearse-old", "item", 1665,
+                    8,
+                    "yoke",
+                    "LIVE_DB_MIGRATION:primary",
+                    "rehearse-old",
+                    "item",
+                    1665,
                 ),
             )
             raw.commit()
         finally:
             raw.close()
         keycaps = build_session_keycaps(
-            board_db, "sess-A", [("YOK-1665", 1665, None)], active_only=True,
+            board_db,
+            "sess-A",
+            [("YOK-1665", 1665, None)],
+            active_only=True,
         )
         assert keycaps == [
             "YOK-1665",

@@ -25,7 +25,10 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-from .work_claim_targets import from_row as work_claim_target_from_row
+from .work_claim_targets import (
+    from_row as work_claim_target_from_row,
+    scope_int_sql,
+)
 from .workflow_item_binding_validation import (
     WorkflowItemBindingError,
     validate_work_claim_target,
@@ -82,9 +85,7 @@ def reclaim_stale_session(
 
     # Capture claim details before releasing for per-claim telemetry
     active_claim_rows = conn.execute(
-        """SELECT id, session_id, target_kind, item_id, epic_id, task_num,
-                  process_key, conflict_group, steering_project_id,
-                  steering_strategy_doc_slugs
+        """SELECT id, session_id, target_kind, scope
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
            ORDER BY claimed_at ASC, id ASC""",
@@ -94,9 +95,7 @@ def reclaim_stale_session(
         conn, (int(claim_row["id"]) for claim_row in active_claim_rows)
     )
     active_claim_rows = conn.execute(
-        """SELECT id, session_id, target_kind, item_id, epic_id, task_num,
-                  process_key, conflict_group, steering_project_id,
-                  steering_strategy_doc_slugs
+        """SELECT id, session_id, target_kind, scope
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
            ORDER BY claimed_at ASC, id ASC""",
@@ -154,16 +153,18 @@ def release_claims_for_done_item(
     item_id_int = int(normalized)
     lock_item_workflow_bindings(conn, (item_id_int,))
 
+    item_scope = scope_int_sql(conn, "wc.scope", "item_id")
     unreleased = conn.execute(
-        """SELECT wc.id, wc.session_id, wc.item_id, wc.task_num
+        f"""SELECT wc.id, wc.session_id, wc.target_kind, wc.scope
            FROM work_claims wc
-           WHERE wc.target_kind='item' AND wc.item_id = %s
+           WHERE wc.target_kind='item' AND {item_scope} = %s
              AND wc.released_at IS NULL""",
         (item_id_int,),
     ).fetchall()
 
     released = 0
     for claim_row in unreleased:
+        target = work_claim_target_from_row(dict(claim_row))
         conn.execute(
             "UPDATE work_claims SET released_at = %s, release_reason = 'completed' WHERE id = %s",
             (now, claim_row["id"]),
@@ -173,10 +174,8 @@ def release_claims_for_done_item(
         _sa._emit_session_event(
             EVENT_WORK_RELEASED,
             session_id=claim_row["session_id"],
-            item_id=str(claim_row["item_id"])
-            if claim_row["item_id"] is not None
-            else None,
-            task_num=claim_row["task_num"],
+            item_id=str(target.item_id),
+            task_num=None,
             context={
                 "claim_id": claim_row["id"],
                 "release_reason": "completed",
@@ -263,6 +262,7 @@ def handoff_claim(
     if old_claim is None:
         raise SessionError("NOT_FOUND", f"Claim {claim_id} not found.")
     old_dict = _row_to_dict(old_claim)
+    old_target = work_claim_target_from_row(old_dict)
     if old_dict["released_at"] is not None:
         raise SessionError(
             "ALREADY_RELEASED",
@@ -286,55 +286,47 @@ def handoff_claim(
     # the source row so the handed-off claim satisfies the schema CHECK.
     cursor = conn.execute(
         """INSERT INTO work_claims
-           (session_id, target_kind, item_id, epic_id, task_num,
-            process_key, conflict_group, claim_type,
+           (session_id, target_kind, scope, claim_type,
             claimed_at, last_heartbeat, released_at, release_reason)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, NULL)
+           VALUES (%s, %s, %s, %s, %s, %s, NULL, NULL)
            RETURNING id""",
         (
             target_session_id,
             old_dict["target_kind"],
-            old_dict["item_id"],
-            old_dict["epic_id"],
-            old_dict["task_num"],
-            old_dict["process_key"],
-            old_dict["conflict_group"],
+            old_dict["scope"],
             old_dict["claim_type"],
             now,
             now,
         ),
     )
     clear_current_item(conn, old_dict["session_id"], commit=False)
-    if old_dict.get("target_kind") == "item" and old_dict["item_id"] is not None:
+    if old_target.kind == "item":
         set_current_item(
             conn,
             target_session_id,
-            str(old_dict["item_id"]),
+            str(old_target.item_id),
             commit=False,
         )
     new_claim_id = int(cursor.fetchone()[0])
     conn.commit()
-    item_id_for_event = (
-        str(old_dict["item_id"])
-        if old_dict.get("target_kind") == "item" and old_dict["item_id"] is not None
-        else None
-    )
+    item_id_for_event = str(old_target.item_id) if old_target.kind == "item" else None
 
     _sa._emit_session_event(
         EVENT_WORK_HANDED_OFF,
         session_id=old_dict["session_id"],
         item_id=item_id_for_event,
-        task_num=old_dict["task_num"],
+        task_num=old_target.task_num,
         context={
             "source_claim_id": claim_id,
             "new_claim_id": new_claim_id,
             "source_session_id": old_dict["session_id"],
             "target_session_id": target_session_id,
             "item_id": item_id_for_event,
-            "epic_id": old_dict["epic_id"],
-            "task_num": old_dict["task_num"],
+            "scope": dict(old_target.scope),
+            "epic_id": old_target.epic_id,
+            "task_num": old_target.task_num,
             "target_kind": old_dict.get("target_kind"),
-            "process_key": old_dict.get("process_key"),
+            "process_key": old_target.process_key,
         },
     )
 

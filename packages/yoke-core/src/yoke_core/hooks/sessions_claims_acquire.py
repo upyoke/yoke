@@ -20,6 +20,8 @@ from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_ITEM,
     TARGET_KIND_PROCESS,
     WorkClaimTarget,
+    conflict_match_clause,
+    exact_match_clause,
     make_epic_task_target,
     make_item_target,
 )
@@ -53,36 +55,15 @@ def _format_claim_conflict_message(target_label: str, holder_session_id: str) ->
     )
 
 
-def _self_clause(target: WorkClaimTarget) -> tuple[str, list]:
-    if target.kind == TARGET_KIND_ITEM:
-        return ("target_kind='item' AND item_id=%s", [target.item_id])
-    if target.kind == TARGET_KIND_EPIC_TASK:
-        return (
-            "target_kind='epic_task' AND epic_id=%s AND task_num=%s",
-            [target.epic_id, target.task_num],
-        )
-    return (
-        "target_kind='process' AND process_key=%s",
-        [target.process_key],
-    )
+def _self_clause(conn, target: WorkClaimTarget) -> tuple[str, list]:
+    return exact_match_clause(conn, target)
 
 
-def _conflict_clause(target: WorkClaimTarget, alias: str = "") -> tuple[str, list]:
-    p = f"{alias}" if alias else ""
-    if target.kind == TARGET_KIND_PROCESS:
-        return (
-            f"{p}target_kind='process' AND {p}conflict_group=%s",
-            [target.conflict_group],
-        )
-    if target.kind == TARGET_KIND_ITEM:
-        return (
-            f"{p}target_kind='item' AND {p}item_id=%s",
-            [target.item_id],
-        )
-    return (
-        f"{p}target_kind='epic_task' AND {p}epic_id=%s AND {p}task_num=%s",
-        [target.epic_id, target.task_num],
-    )
+def _conflict_clause(
+    conn, target: WorkClaimTarget, alias: str = ""
+) -> tuple[str, list]:
+    normalized_alias = alias[:-1] if alias.endswith(".") else alias
+    return conflict_match_clause(conn, target, alias=normalized_alias)
 
 
 def cmd_claim(
@@ -115,8 +96,10 @@ def cmd_claim(
             )
         target = WorkClaimTarget(
             kind=TARGET_KIND_PROCESS,
-            process_key=process_key,
-            conflict_group=conflict_group,
+            scope={
+                "process_key": process_key,
+                "conflict_group": conflict_group,
+            },
         )
     else:
         raise ValueError(
@@ -138,9 +121,9 @@ def _claim_typed(
     _require_active_session(conn, session_id)
     target_label = target.render()
 
-    self_where, self_params = _self_clause(target)
-    conflict_where_unaliased, conflict_params = _conflict_clause(target)
-    conflict_where_aliased, _ = _conflict_clause(target, alias="wc.")
+    self_where, self_params = _self_clause(conn, target)
+    conflict_where_unaliased, conflict_params = _conflict_clause(conn, target)
+    conflict_where_aliased, _ = _conflict_clause(conn, target, alias="wc.")
     session_cols = set(_schema_get_columns(conn, "harness_sessions"))
     event_at_expr = (
         "ases.last_tool_call_at" if "last_tool_call_at" in session_cols else "NULL"
@@ -222,18 +205,13 @@ def _claim_typed(
 
     cursor = conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, epic_id, task_num, "
-        " process_key, conflict_group, claim_type, claimed_at, last_heartbeat) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, 'exclusive', %s, %s) "
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
+        "VALUES (%s, %s, %s, 'exclusive', %s, %s) "
         "RETURNING id",
         (
             session_id,
             target.kind,
-            target.item_id,
-            target.epic_id,
-            target.task_num,
-            target.process_key,
-            target.conflict_group,
+            target.scope_json(),
             now,
             now,
         ),

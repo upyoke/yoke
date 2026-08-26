@@ -20,6 +20,7 @@ from yoke_core.domain.project_github_auth import (
 )
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.yok_n_parser import parse_item_argument
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 _MUTATING_MODES = {
@@ -91,11 +92,12 @@ def check_ownership(
         except ValueError as exc:
             return False, str(exc), ""
         p = _p(conn)
+        item_scope = scope_int_sql(conn, "wc.scope", "item_id")
         try:
             row = conn.execute(
                 "SELECT wc.session_id, hs.ended_at FROM work_claims wc "
                 "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id "
-                f"WHERE wc.target_kind = 'item' AND wc.item_id = {p} "
+                f"WHERE wc.target_kind = 'item' AND {item_scope} = {p} "
                 "AND wc.released_at IS NULL "
                 "ORDER BY claimed_at DESC LIMIT 1",
                 (int(item_id),),
@@ -195,6 +197,7 @@ def _select_oversized_current_candidates(
         if _budget.body_exceeds_budget(body):
             yield item_id, len(body.encode("utf-8"))
 
+
 def backfill_oversized_bodies(
     *,
     conn: Optional[Any] = None,
@@ -239,8 +242,7 @@ def backfill_oversized_bodies(
             if not allow:
                 skipped_claimed += 1
                 print(
-                    f"Skipped: {item_ref} skipped_claimed "
-                    f"(held by session {holder})",
+                    f"Skipped: {item_ref} skipped_claimed (held by session {holder})",
                     file=stderr,
                 )
                 continue
@@ -253,8 +255,7 @@ def backfill_oversized_bodies(
             except ProjectGithubAuthError as exc:
                 auth_failures += 1
                 print(
-                    f"Skipped: {item_ref} auth failure: "
-                    f"{type(exc).__name__}: {exc}",
+                    f"Skipped: {item_ref} auth failure: {type(exc).__name__}: {exc}",
                     file=stderr,
                 )
                 continue
@@ -270,10 +271,7 @@ def backfill_oversized_bodies(
 
             if body_bytes is not None:
                 repaired += 1
-                source = (
-                    "flag+oversized" if item_id in flag_derived
-                    else "oversized"
-                )
+                source = "flag+oversized" if item_id in flag_derived else "oversized"
                 print(
                     f"Backfilled: {item_ref} → compact mirror "
                     f"(was {body_bytes} bytes, source={source})",

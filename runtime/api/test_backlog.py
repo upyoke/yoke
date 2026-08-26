@@ -20,6 +20,7 @@ from yoke_core.domain import backlog_rendering
 from yoke_core.domain import backlog_updates
 from yoke_core.domain import db_backend
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
+from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.fixtures.file_test_db import (
     apply_fixture_schema_ddl,
     connect_test_db,
@@ -104,14 +105,15 @@ def _seed_claim(path, session_id="sess-1", item_id="10"):
     """Insert an active exclusive claim for a session."""
     conn = _conn(path)
     p = _p(conn)
+    target = make_item_target(int(item_id))
     conn.execute(
         f"""
         INSERT INTO work_claims
-          (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
+          (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
         VALUES
-          ({p}, 'item', {p}, 'exclusive', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')
+          ({p}, {p}, {p}, 'exclusive', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')
         """,
-        (session_id, str(item_id)),
+        (session_id, target.kind, target.scope_json()),
     )
     conn.commit()
     conn.close()

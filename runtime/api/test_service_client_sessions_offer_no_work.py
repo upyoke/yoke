@@ -27,6 +27,7 @@ from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_core.domain.work_claim_targets import make_item_target
 
 pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
@@ -72,10 +73,15 @@ def _seed_stale_holder_with_recent_activity(
         )
         conn.execute(
             """INSERT INTO work_claims
-               (session_id, target_kind, item_id, claim_type,
+               (session_id, target_kind, scope, claim_type,
                 claimed_at, last_heartbeat)
                VALUES ({p}, 'item', {p}, 'exclusive', {p}, {p})""".format(p=p),
-            (holder_session, item_id, _iso(old), _iso(old)),
+            (
+                holder_session,
+                make_item_target(item_id).scope_json(),
+                _iso(old),
+                _iso(old),
+            ),
         )
         conn.execute(
             """UPDATE harness_sessions
@@ -105,9 +111,7 @@ def _holder_event_count(db_path: str, session_id: str, event_name: str) -> int:
 class TestSessionOfferNoWork:
     """Offer must not return charge for live-claim-blocked items."""
 
-    def test_action_hint_no_work_returns_wait_with_holder(
-        self, session_offer_db
-    ):
+    def test_action_hint_no_work_returns_wait_with_holder(self, session_offer_db):
         """Live-claim conflict → non-charge, no charge.
 
         With events-backed liveness, ``scheduler_claims._evaluate_claim_states`` routes
@@ -129,7 +133,9 @@ class TestSessionOfferNoWork:
 
         sid = "yok-1628-offerer"
         _pre_register_session(
-            session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"],
+            session_offer_db["db_path"],
+            sid,
+            workspace=session_offer_db["tmp_dir"],
         )
         result = _run_client(
             [
@@ -219,7 +225,8 @@ class TestSessionOfferNoWork:
         # selected_item / scheduler_context so /yoke do charge dispatch
         # keeps working when the scheduler's top pick is filtered.
         filtered = build_frontier_state_from_schedule(
-            schedule, skip_memory_item_ids={10},
+            schedule,
+            skip_memory_item_ids={10},
         )
         assert filtered.runnable_items == ["13"]
         assert filtered.selected_item == "13"
@@ -261,7 +268,9 @@ class TestNoWorkWaitContextHelper:
         )
 
         ctx = build_no_work_wait_context(
-            terminal_reason=None, skip_memory=[], chain_step=1,
+            terminal_reason=None,
+            skip_memory=[],
+            chain_step=1,
         )
         assert ctx["wait_reason"] == "no_actionable_work_on_frontier"
         assert ctx["terminal_reason"] == "no_candidates"
@@ -291,7 +300,8 @@ class TestChargeClaimInvariant:
         )
 
         ok, err = validate_charge_claim_invariant(
-            self._charge_action("YOK-10"), None,
+            self._charge_action("YOK-10"),
+            None,
         )
         assert ok is False
         assert err is not None
@@ -303,7 +313,8 @@ class TestChargeClaimInvariant:
         )
 
         ok, err = validate_charge_claim_invariant(
-            self._charge_action("10"), {"item_id": 99},
+            self._charge_action("10"),
+            {"item_id": 99},
         )
         assert ok is False
         assert err is not None
@@ -315,7 +326,8 @@ class TestChargeClaimInvariant:
         )
 
         ok, err = validate_charge_claim_invariant(
-            self._charge_action("10"), {"item_id": 10},
+            self._charge_action("10"),
+            {"item_id": 10},
         )
         assert ok is True
         assert err is None

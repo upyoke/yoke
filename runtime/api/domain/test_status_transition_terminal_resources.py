@@ -24,6 +24,10 @@ from runtime.api.domain._path_claims_test_helpers import (
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.path_claims import get_claim, register
+from yoke_core.domain.work_claim_targets import (
+    make_epic_task_target,
+    make_item_target,
+)
 
 
 def test_terminal_cleanup_failure_rolls_back_status_lane_and_evidence(
@@ -51,13 +55,14 @@ def test_terminal_cleanup_failure_rolls_back_status_lane_and_evidence(
         "%s, %s, 1)",
         (now, now),
     )
+    item_scope = make_item_target(item_id).scope_json()
     work_claim_id = test_db.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         "last_heartbeat) VALUES "
         "('terminal-rollback', 'item', %s, 'exclusive', %s, %s) "
         "RETURNING id",
-        (item_id, now, now),
+        (item_scope, now, now),
     ).fetchone()[0]
     from yoke_core.domain.ephemeral_env import cmd_create, cmd_update
 
@@ -150,19 +155,21 @@ def test_terminal_transition_releases_parent_and_task_work_claims(
             "current_item_set_at=%s WHERE session_id=%s",
             (item_id, now, session_id),
         )
+    item_scope = make_item_target(item_id).scope_json()
+    task_scope = make_epic_task_target(item_id, 1).scope_json()
     test_db.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         "last_heartbeat) VALUES "
         "('terminal-parent', 'item', %s, 'exclusive', %s, %s)",
-        (item_id, now, now),
+        (item_scope, now, now),
     )
     test_db.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, epic_id, task_num, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         "last_heartbeat) VALUES "
-        "('terminal-task', 'epic_task', %s, 1, 'exclusive', %s, %s)",
-        (item_id, now, now),
+        "('terminal-task', 'epic_task', %s, 'exclusive', %s, %s)",
+        (task_scope, now, now),
     )
     actor_id = local_human(test_db)
     target_id = seed_target(
@@ -198,8 +205,8 @@ def test_terminal_transition_releases_parent_and_task_work_claims(
     rows = test_db.execute(
         "SELECT target_kind, released_at, release_reason, "
         "release_reason_intent FROM work_claims "
-        "WHERE (item_id=%s OR epic_id=%s) ORDER BY id",
-        (item_id, item_id),
+        "WHERE scope IN (%s, %s) ORDER BY id",
+        (item_scope, task_scope),
     ).fetchall()
     assert [str(row[0]) for row in rows] == ["item", "epic_task"]
     assert all(row[1] is not None for row in rows)
@@ -282,12 +289,13 @@ def test_pinned_custom_terminal_releases_resources_without_done_hardcoding(
         "%s, %s, 1)",
         (now, now),
     )
+    item_scope = make_item_target(item_id).scope_json()
     test_db.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, "
+        "(session_id, target_kind, scope, claim_type, claimed_at, "
         "last_heartbeat) VALUES "
         "('custom-terminal', 'item', %s, 'exclusive', %s, %s)",
-        (item_id, now, now),
+        (item_scope, now, now),
     )
     actor_id = local_human(test_db)
     target_id = seed_target(
@@ -328,8 +336,9 @@ def test_pinned_custom_terminal_releases_resources_without_done_hardcoding(
         (item_id,),
     ).fetchone()[0]
     work_claim = test_db.execute(
-        "SELECT released_at, release_reason_intent FROM work_claims WHERE item_id=%s",
-        (item_id,),
+        "SELECT released_at, release_reason_intent FROM work_claims "
+        "WHERE target_kind='item' AND scope=%s",
+        (item_scope,),
     ).fetchone()
     assert str(status) == "archived"
     assert str(lane_state) == "released"

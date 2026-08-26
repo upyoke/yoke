@@ -80,19 +80,21 @@ def _latest_observed_cwd(conn, session_id: str) -> Optional[str]:
     return None
 
 
-def hc_session_cwd_binding(
-    conn, args: DoctorArgs, rec: RecordCollector
-) -> None:
+def hc_session_cwd_binding(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """Flag active sessions whose observed cwd is not in their claim authority."""
     if not _base._table_exists(conn, "harness_sessions"):
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "harness_sessions table missing — nothing to check",
         )
         return
     if not _base._table_exists(conn, "work_claims"):
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "work_claims table missing — nothing to check",
         )
         return
@@ -105,7 +107,9 @@ def hc_session_cwd_binding(
     )
     if not rows:
         rec.record(
-            _HC_NAME, _HC_DESC, "PASS",
+            _HC_NAME,
+            _HC_DESC,
+            "PASS",
             "no active sessions with work claims",
         )
         return
@@ -131,11 +135,14 @@ def hc_session_cwd_binding(
         if outcome.allow:
             matched_count += 1
             continue
-        claim_summary = ", ".join(
-            render_item_ref(conn, int(c.item_id))
-            + (f"/T{c.task_num}" if c.task_num else "")
-            for c in outcome.claims
-        ) or "(none)"
+        claim_summary = (
+            ", ".join(
+                render_item_ref(conn, int(c.item_id))
+                + (f"/T{c.task_num}" if c.task_num else "")
+                for c in outcome.claims
+            )
+            or "(none)"
+        )
         mismatches.append(
             f"  - session {session_id}\n"
             f"    claims:   {claim_summary}\n"
@@ -158,14 +165,9 @@ def hc_session_cwd_binding(
     note_summary = ", ".join(note_parts) or "no claim-holding sessions"
 
     if mismatches:
-        details = (
-            f"{note_summary}\n\nMismatched sessions:\n"
-            + "\n".join(mismatches)
-        )
+        details = f"{note_summary}\n\nMismatched sessions:\n" + "\n".join(mismatches)
         if unknown:
-            details += "\n\nUnknown (no cwd telemetry):\n  - " + "\n  - ".join(
-                unknown
-            )
+            details += "\n\nUnknown (no cwd telemetry):\n  - " + "\n  - ".join(unknown)
         rec.record(_HC_NAME, _HC_DESC, "FAIL", details)
         return
 
@@ -207,25 +209,37 @@ def hc_session_pre_implementing_activity(
     ``work_claims.claimed_at``).
     """
     if not _base._table_exists(conn, "work_claims"):
-        rec.record(_PRE_IMPL_HC_NAME, _PRE_IMPL_HC_DESC, "PASS",
-                   "work_claims table missing — nothing to check")
+        rec.record(
+            _PRE_IMPL_HC_NAME,
+            _PRE_IMPL_HC_DESC,
+            "PASS",
+            "work_claims table missing — nothing to check",
+        )
         return
     if not _base._table_exists(conn, "items"):
-        rec.record(_PRE_IMPL_HC_NAME, _PRE_IMPL_HC_DESC, "PASS",
-                   "items table missing — nothing to check")
+        rec.record(
+            _PRE_IMPL_HC_NAME,
+            _PRE_IMPL_HC_DESC,
+            "PASS",
+            "items table missing — nothing to check",
+        )
         return
 
     p = _p(conn)
+    from yoke_core.domain.work_claim_targets import scope_int_sql
+
+    item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     cutoff = (
-        datetime.now(timezone.utc)
-        - timedelta(seconds=int(_PRE_IMPL_MIN_AGE_SECONDS))
+        datetime.now(timezone.utc) - timedelta(seconds=int(_PRE_IMPL_MIN_AGE_SECONDS))
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         rows = query_rows(
             conn,
-            "SELECT wc.session_id, wc.item_id, wc.claimed_at, i.status "
-            "FROM work_claims wc JOIN items i ON i.id = wc.item_id "
+            f"SELECT wc.session_id, {item_id_scope} AS item_id, "
+            "wc.claimed_at, i.status "
+            f"FROM work_claims wc JOIN items i ON i.id = {item_id_scope} "
             "WHERE wc.released_at IS NULL "
+            "AND wc.target_kind = 'item' "
             "AND wc.claimed_at IS NOT NULL "
             f"AND wc.claimed_at <= {p} "
             "ORDER BY wc.claimed_at",
@@ -233,8 +247,12 @@ def hc_session_pre_implementing_activity(
         )
     except db_backend.operational_error_types(conn):
         _rollback_quietly(conn)
-        rec.record(_PRE_IMPL_HC_NAME, _PRE_IMPL_HC_DESC, "PASS",
-                   "schema missing required columns — nothing to check")
+        rec.record(
+            _PRE_IMPL_HC_NAME,
+            _PRE_IMPL_HC_DESC,
+            "PASS",
+            "schema missing required columns — nothing to check",
+        )
         return
 
     flagged: List[str] = []
@@ -288,8 +306,12 @@ def hc_session_pre_implementing_activity(
         )
         rec.record(_PRE_IMPL_HC_NAME, _PRE_IMPL_HC_DESC, "FAIL", details)
         return
-    rec.record(_PRE_IMPL_HC_NAME, _PRE_IMPL_HC_DESC, "PASS",
-               "no stuck pre-implementing sessions detected")
+    rec.record(
+        _PRE_IMPL_HC_NAME,
+        _PRE_IMPL_HC_DESC,
+        "PASS",
+        "no stuck pre-implementing sessions detected",
+    )
 
 
 __all__ = [

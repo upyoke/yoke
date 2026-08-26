@@ -53,14 +53,13 @@ CLAIMS_COMMANDS: list[dict] = [
             "Reason recommended on acquire, required on release. Pick "
             "exactly one target variant. Optional --session-id S is a "
             "self-identity assertion that the caller IS the named "
-            "session; it is not cross-session authority. Steering-scope "
-            "claims are work claims: `yoke claims steering-scope acquire "
-            "--project P [--strategy-doc SLUG]`; omit --strategy-doc for "
-            "the whole project. Intersecting live scopes refuse and name "
-            "the steering claim holder. Inspect with `yoke claims steering-"
-            "scope list --project P --active-only`; finish with `yoke claims "
-            "steering-scope release CLAIM_ID --reason TEXT`. Ordinary "
-            "release and stale-session reclaim free the steering scope."
+            "session; it is not cross-session authority. Steering claims "
+            "are project-scoped work claims: `yoke claims steering acquire "
+            "--project P [--reason TEXT]`. A second live steering claim for "
+            "the project refuses and names its holder. Inspect with `yoke "
+            "claims steering list --project P --active-only`; finish with "
+            "`yoke claims steering release CLAIM_ID --reason TEXT`. Ordinary "
+            "release and stale-session reclaim free the steering seat."
         ),
     },
     {

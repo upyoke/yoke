@@ -9,6 +9,7 @@ import tempfile
 import pytest
 
 from yoke_contracts.machine_config import schema as machine_config_contract
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 SESSION_A = "sess-a"
@@ -25,9 +26,7 @@ def conn():
     from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
     name = pg_testdb.create_test_database()
-    c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
+    c = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
     apply_fixture_ddl(
         c,
         """
@@ -51,13 +50,12 @@ def conn():
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
-            item_id INTEGER, epic_id INTEGER, task_num INTEGER,
-            process_key TEXT, released_at TEXT
+            scope TEXT, released_at TEXT
         );
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY, current_item_id INTEGER
         );
-        """
+        """,
     )
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
@@ -88,7 +86,8 @@ def patch_conn(conn, monkeypatch):
             )
 
             before_implementation = load_item_workflow_runtime(
-                conn, int(current["id"]),
+                conn,
+                int(current["id"]),
             ).is_before_implementation(str(current["status"]))
         return verification_tree_binding.ClaimLookup(
             worktrees=tuple(row.worktree_path for row in rows),
@@ -144,7 +143,9 @@ def _seed_item(conn, item_id: int, branch: str | None, project: str = "yoke") ->
         "INSERT INTO items (id, project_id, workflow_id, "
         "workflow_version_id) VALUES (%s, %s, %s, %s)",
         (
-            item_id, _project_id(project), workflow_id,
+            item_id,
+            _project_id(project),
+            workflow_id,
             workflow_version_id,
         ),
     )
@@ -172,9 +173,9 @@ def _seed_item(conn, item_id: int, branch: str | None, project: str = "yoke") ->
 
 def _seed_claim(conn, session_id: str, item_id: int) -> None:
     conn.execute(
-        "INSERT INTO work_claims (session_id, target_kind, item_id) "
+        "INSERT INTO work_claims (session_id, target_kind, scope) "
         "VALUES (%s, 'item', %s)",
-        (session_id, item_id),
+        (session_id, make_item_target(item_id).scope_json()),
     )
     conn.commit()
 

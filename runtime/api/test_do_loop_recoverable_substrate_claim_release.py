@@ -26,6 +26,7 @@ from yoke_core.domain.sessions_handler_outcome import (
     record_recoverable_substrate_skip,
 )
 from yoke_core.domain.sessions_queries_chain import read_chain_skip_memory
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _seed_item(conn, *, item_id: int, status: str = "implementing") -> None:
@@ -41,11 +42,12 @@ def _seed_item(conn, *, item_id: int, status: str = "implementing") -> None:
 
 
 def _active_item_claim(conn, *, session_id: str, item_id: int):
+    target = make_item_target(item_id)
     return conn.execute(
         """SELECT id, released_at, release_reason FROM work_claims
-           WHERE session_id = %s AND target_kind = 'item' AND item_id = %s
+           WHERE session_id = %s AND target_kind = %s AND scope = %s
            ORDER BY id DESC LIMIT 1""",
-        (session_id, item_id),
+        (session_id, target.kind, target.scope_json()),
     ).fetchone()
 
 
@@ -150,9 +152,12 @@ class TestReleaseConstantSingleSource:
         _register(conn, session_id=session_id)
         claim_work(conn, session_id=session_id, item_id=item_id)
 
-        with patch(
-            "yoke_core.domain.sessions_lifecycle_release.release_item_claim_for_execution",
-        ) as mock_release, patch("yoke_core.domain.events.emit_event"):
+        with (
+            patch(
+                "yoke_core.domain.sessions_lifecycle_release.release_item_claim_for_execution",
+            ) as mock_release,
+            patch("yoke_core.domain.events.emit_event"),
+        ):
             record_recoverable_substrate_skip(
                 conn,
                 session_id=session_id,
@@ -211,12 +216,15 @@ class TestReleaseFailureIsNonBlocking:
         claim_work(conn, session_id=session_id, item_id=item_id)
 
         captured: list[dict] = []
-        with patch(
-            "yoke_core.domain.sessions_lifecycle_release.release_item_claim_for_execution",
-            side_effect=RuntimeError("simulated release failure"),
-        ), patch(
-            "yoke_core.domain.events.emit_event",
-            side_effect=lambda name, **kw: captured.append({"name": name, **kw}),
+        with (
+            patch(
+                "yoke_core.domain.sessions_lifecycle_release.release_item_claim_for_execution",
+                side_effect=RuntimeError("simulated release failure"),
+            ),
+            patch(
+                "yoke_core.domain.events.emit_event",
+                side_effect=lambda name, **kw: captured.append({"name": name, **kw}),
+            ),
         ):
             entry = record_recoverable_substrate_skip(
                 conn,
@@ -243,11 +251,14 @@ class TestItemIdNoneSkipsRelease:
         _register(conn, session_id=session_id)
 
         captured: list[dict] = []
-        with patch(
-            "yoke_core.domain.sessions_lifecycle_release.release_item_claim_for_execution",
-        ) as mock_release, patch(
-            "yoke_core.domain.events.emit_event",
-            side_effect=lambda name, **kw: captured.append({"name": name, **kw}),
+        with (
+            patch(
+                "yoke_core.domain.sessions_lifecycle_release.release_item_claim_for_execution",
+            ) as mock_release,
+            patch(
+                "yoke_core.domain.events.emit_event",
+                side_effect=lambda name, **kw: captured.append({"name": name, **kw}),
+            ),
         ):
             entry = record_recoverable_substrate_skip(
                 conn,

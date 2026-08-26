@@ -56,7 +56,7 @@ def test_pack_owns_serial_machine_and_exploratory_method_definitions() -> None:
     }
     assert {tuple(row["required_capability_kinds"]) for row in methods} == {
         ("browser-control", "test-machine"),
-        ("test-machine",)
+        ("test-machine",),
     }
     assert {row["concurrency_mode"] for row in methods} == {"serial"}
     assert all(
@@ -169,15 +169,16 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
             id INTEGER PRIMARY KEY,
             session_id TEXT NOT NULL,
             target_kind TEXT NOT NULL,
-            item_id INTEGER,
+            scope TEXT NOT NULL,
             claimed_at TEXT NOT NULL,
             released_at TEXT
         );
         INSERT INTO items(id,project_id,project_sequence,title)
         VALUES(41,1,2001,'Prove the installer campaign');
         INSERT INTO work_claims(
-            id,session_id,target_kind,item_id,claimed_at,released_at
-        ) VALUES(8,'session-machine','item',41,'2026-07-26T15:55:00Z',NULL);
+            id,session_id,target_kind,scope,claimed_at,released_at
+        ) VALUES(8,'session-machine','item','{"item_id":41}',
+                 '2026-07-26T15:55:00Z',NULL);
         INSERT INTO coordination_leases(
             id,project_id,lease_key,session_id,actor_id,
             acquired_at,heartbeat_at,released_at

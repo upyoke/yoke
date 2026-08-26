@@ -28,6 +28,7 @@ from typing import Any, Optional
 
 from yoke_core.domain.qa_constants import MAX_CASE_COMMAND_TIMEOUT_SECONDS
 from yoke_core.domain.time_parse import parse_timestamp_utc
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 #: Payload key the case contract and every recording leg use to carry the
 #: claim the run bound at its start.
@@ -61,9 +62,11 @@ def resolve_start_bound_claim_id(
     if not session_id:
         return None
     p = _placeholder(conn)
+    item_scope = scope_int_sql(conn, "scope", "item_id")
     row = conn.execute(
         "SELECT id FROM work_claims "
-        f"WHERE session_id = {p} AND target_kind = 'item' AND item_id = {p} "
+        f"WHERE session_id = {p} AND target_kind = 'item' "
+        f"AND {item_scope} = {p} "
         "AND released_at IS NULL ORDER BY id DESC LIMIT 1",
         (session_id, int(item_id)),
     ).fetchone()
@@ -84,8 +87,10 @@ def _claim_row(claim_id: int) -> Optional[tuple[Any, Any, Any]]:
 
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
+            item_scope = scope_int_sql(conn, "scope", "item_id")
             row = conn.execute(
-                "SELECT session_id, item_id, released_at FROM work_claims "
+                f"SELECT session_id, {item_scope} AS item_id, released_at "
+                "FROM work_claims "
                 f"WHERE id = {p} AND target_kind = 'item'",
                 (int(claim_id),),
             ).fetchone()

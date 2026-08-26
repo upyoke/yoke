@@ -9,19 +9,7 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("session_id", "TEXT"),
             ("target_kind", "TEXT"),
-            ("item_id", "INTEGER"),
-            ("epic_id", "INTEGER"),
-            ("task_num", "INTEGER"),
-            ("process_key", "TEXT"),
-            ("conflict_group", "TEXT"),
-            ("steering_project_id", "INTEGER"),
-            ("steering_strategy_doc_slugs", "TEXT"),
-            ("owner_kind", "TEXT"),
-            ("owner_item_id", "INTEGER"),
-            ("owner_session_id", "TEXT"),
-            ("owner_work_claim_id", "INTEGER"),
-            ("registered_by_actor_id", "INTEGER"),
-            ("registered_by_session_id", "TEXT"),
+            ("scope", "TEXT"),
             ("claim_type", "TEXT"),
             ("claimed_at", "TEXT"),
             ("last_heartbeat", "TEXT"),
@@ -32,20 +20,13 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             ("release_reason_intent", "TEXT"),
         ],
         "notes": (
-            "Typed targets use target_kind plus the matching specialized "
-            "columns: item_id (kind=item), (epic_id, task_num) "
-            "(kind=epic_task), (process_key, conflict_group) "
-            "(kind=process), or (steering_project_id, "
-            "steering_strategy_doc_slugs) (kind=steering_scope). The "
-            "steering slug column is canonical JSON: [] means the whole "
-            "project; otherwise it is the closed strategy-document set. "
-            "Intersecting live steering scopes in one project refuse with "
-            "the steering claim holder named; ordinary release and stale-"
-            "session reclaim free the scope. Typed ownership is authority: "
-            "a steering-scope row has owner_kind='session' with "
-            "owner_session_id populated. registered_by_actor_id and "
-            "registered_by_session_id are registration provenance, not "
-            "authority. There is no single generic target column and no "
+            "Every typed target uses target_kind plus one canonical JSON "
+            'object in scope: item={"item_id":N}, epic_task={"epic_id":N,'
+            '"task_num":N}, process={"process_key":K,"conflict_group":G}, '
+            'or steering={"project_id":N}. Domain validation requires '
+            "exactly the keys for the named kind. Steering has one live "
+            "session-owned seat per project; strategy-document locks remain "
+            "in strategy_doc_claims. There is no specialized target column or "
             "target_path column; worktree/path coverage lives elsewhere. "
             "claim_type is 'exclusive'; non-terminal state is derived from "
             "released_at IS NULL, with no state/status column. Primary key "
@@ -57,7 +38,7 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             "SessionCwdForeignLaneDenied); holding no claim is not "
             "permission. Two processes in one worktree share its git index. "
             "Canonical active-session query: `SELECT id, target_kind, "
-            "item_id, epic_id, task_num, steering_project_id, claimed_at "
+            "scope, claimed_at "
             "FROM work_claims WHERE session_id = ? AND released_at IS "
             "NULL`. Acquire/release intent is row state: reason is the "
             "verbatim acquire rationale, reason_intent its canonical "

@@ -13,6 +13,7 @@ from runtime.api.scheduler_test_fixtures import (  # noqa: F401
     _item_num,
     scheduler_db,
 )
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _iso(minutes_ago: int) -> str:
@@ -35,11 +36,12 @@ def _claim_top_item(conn, *, session_id: str, executor: str, minutes_ago: int) -
     baseline = compute_schedule(conn, project_scope=["yoke"])
     assert baseline.selected_step is not None
     top_item = baseline.selected_step.item_id
+    target = make_item_target(_item_num(top_item))
     conn.execute(
         """INSERT INTO work_claims
-           (session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat)
-           VALUES (%s, 'item', %s, 'exclusive', %s, %s)""",
-        (session_id, _item_num(top_item), seen_at, seen_at),
+           (session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat)
+           VALUES (%s, %s, %s, 'exclusive', %s, %s)""",
+        (session_id, target.kind, target.scope_json(), seen_at, seen_at),
     )
     conn.commit()
     return top_item

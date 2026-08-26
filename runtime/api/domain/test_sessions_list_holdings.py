@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from yoke_core.domain.sessions_list_read import list_sessions
+from yoke_core.domain.work_claim_targets import make_item_target, make_steering_target
 
 
 def _iso(minutes_ago: int = 0) -> str:
@@ -47,32 +48,28 @@ def _insert_session(
 def _insert_item_claim(conn, session_id: str, item_id: int) -> None:
     conn.execute(
         "INSERT INTO work_claims ("
-        "session_id, target_kind, item_id, claimed_at, last_heartbeat, reason"
+        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason"
         ") VALUES (%s, 'item', %s, %s, %s, %s)",
-        (session_id, item_id, _iso(), _iso(), "implementation"),
+        (
+            session_id,
+            make_item_target(item_id).scope_json(),
+            _iso(),
+            _iso(),
+            "implementation",
+        ),
     )
     conn.commit()
 
 
-def _insert_steering_scope_claim(
-    conn,
-    session_id: str,
-    *,
-    strategy_doc_slugs: str,
-) -> None:
+def _insert_steering_claim(conn, session_id: str) -> None:
     now = _iso()
     conn.execute(
         "INSERT INTO work_claims ("
-        "session_id, target_kind, steering_project_id, "
-        "steering_strategy_doc_slugs, owner_kind, owner_session_id, "
-        "registered_by_actor_id, registered_by_session_id, claimed_at, "
-        "last_heartbeat, reason"
-        ") VALUES (%s, 'steering_scope', 1, %s, 'session', %s, 1, %s, %s, %s, %s)",
+        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason"
+        ") VALUES (%s, 'steering', %s, %s, %s, %s)",
         (
             session_id,
-            strategy_doc_slugs,
-            session_id,
-            session_id,
+            make_steering_target(1).scope_json(),
             now,
             now,
             "strategy review",
@@ -184,20 +181,16 @@ def test_item_claim_carries_public_drill_in_coordinates(test_db):
     assert claim["item_project_sequence"] == 4200
 
 
-def test_steering_scope_claim_carries_project_and_document_coordinates(test_db):
+def test_steering_claim_carries_project_coordinates(test_db):
     _insert_session(test_db, "s-steering")
-    _insert_steering_scope_claim(
-        test_db,
-        "s-steering",
-        strategy_doc_slugs='["LANDSCAPE","VISION"]',
-    )
+    _insert_steering_claim(test_db, "s-steering")
 
     claim = list_sessions()[0]["claims"][0]
 
-    assert claim["target_kind"] == "steering_scope"
-    assert claim["target"] == "steering scope for project 1: LANDSCAPE, VISION"
-    assert claim["steering_project_id"] == 1
-    assert claim["steering_strategy_doc_slugs"] == ["LANDSCAPE", "VISION"]
+    assert claim["target_kind"] == "steering"
+    assert claim["target"] == "steering for project 1"
+    assert claim["scope"] == {"project_id": 1}
+    assert claim["project_id"] == 1
 
 
 def test_item_owned_lease_stays_off_sessions_that_do_not_claim_the_item(test_db):

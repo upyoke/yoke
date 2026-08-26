@@ -18,6 +18,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.yoke_function_registry import register
 from yoke_core.domain.yoke_function_dispatch import dispatch
+from yoke_core.domain.work_claim_targets import WorkClaimTarget
 from runtime.api.domain.test_yoke_function_dispatch_claims import (
     _ClaimMatrixSuite,
     _Req,
@@ -123,9 +124,7 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         apply_fixture_ddl(
             self.conn,
             "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
-            "session_id TEXT, target_kind TEXT, item_id INTEGER, "
-            "epic_id INTEGER, task_num INTEGER, process_key TEXT, "
-            "conflict_group TEXT, owner_session_id TEXT, released_at TEXT);",
+            "session_id TEXT, target_kind TEXT, scope TEXT, released_at TEXT);",
         )
         from contextlib import contextmanager
 
@@ -153,23 +152,27 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         task_num=None,
         process_key=None,
         conflict_group=None,
-        owner_session_id=None,
+        project_id=None,
         released_at=None,
     ) -> int:
+        raw_scope = {
+            "item": {"item_id": item_id},
+            "epic_task": {"epic_id": epic_id, "task_num": task_num},
+            "process": {
+                "process_key": process_key,
+                "conflict_group": conflict_group,
+            },
+            "steering": {"project_id": project_id},
+        }[target_kind]
+        scope = WorkClaimTarget(target_kind, raw_scope).scope_json()
         cur = self.conn.execute(
-            "INSERT INTO work_claims (session_id, target_kind, item_id, "
-            "epic_id, task_num, process_key, conflict_group, owner_session_id, "
-            "released_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "INSERT INTO work_claims (session_id, target_kind, scope, "
+            "released_at) VALUES (%s, %s, %s, %s) "
             "RETURNING id",
             (
                 session_id,
                 target_kind,
-                item_id,
-                epic_id,
-                task_num,
-                process_key,
-                conflict_group,
-                owner_session_id,
+                scope,
                 released_at,
             ),
         )
@@ -283,18 +286,18 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
             )
         )
 
-    def test_claim_id_uses_typed_owner_for_steering_scope(self):
+    def test_claim_id_uses_session_owner_for_steering(self):
         claim_id = self._seed(
-            session_id="sid-operational",
-            target_kind="steering_scope",
-            owner_session_id="sid-authority",
+            session_id="sid-authority",
+            target_kind="steering",
+            project_id=1,
         )
 
         row = claims_module._claim_row_for_id(claim_id)
 
         self.assertEqual(row["session_id"], "sid-authority")
-        self.assertEqual(row["operational_session_id"], "sid-operational")
-        self.assertEqual(row["target_kind"], "steering_scope")
+        self.assertEqual(row["operational_session_id"], "sid-authority")
+        self.assertEqual(row["target_kind"], "steering")
 
 
 if __name__ == "__main__":

@@ -33,13 +33,12 @@ def test_typed_anchors_union_then_deduplicate_authoritative_claims() -> None:
     assert recipients[2].authorized_project_ids == {2}
 
 
-def test_project_anchor_includes_session_holding_steering_scope() -> None:
+def test_project_anchor_includes_session_holding_steering_claim() -> None:
     conn = message_connection()
     conn.execute(
         """INSERT INTO work_claims (
-               id, session_id, target_kind, steering_project_id,
-               steering_strategy_doc_slugs, claimed_at
-           ) VALUES (4, 's3', 'steering_scope', 1, '[\"VISION\"]', ?)""",
+               id, session_id, target_kind, scope, claimed_at
+           ) VALUES (4, 's3', 'steering', '{"project_id":1}', ?)""",
         (NOW.isoformat(),),
     )
 

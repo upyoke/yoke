@@ -12,6 +12,7 @@ from runtime.api.fixtures.backlog_inserts import (
 )
 from runtime.api.domain._path_claims_test_helpers import local_human
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 
 
 def seed_epic(conn: Any, *, item_id: int, status: str = "planned") -> int:
@@ -171,19 +172,20 @@ def seed_session(
             str(item_id),
         ),
     )
+    item_target = make_item_target(item_id)
     conn.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claimed_at, last_heartbeat) "
-        "VALUES (%s, 'item', %s, %s, %s)",
-        (session_id, item_id, now, now),
+        "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (session_id, item_target.kind, item_target.scope_json(), now, now),
     )
     if task_num is not None:
+        task_target = make_epic_task_target(item_id, task_num)
         conn.execute(
             "INSERT INTO work_claims "
-            "(session_id, target_kind, epic_id, task_num, "
-            "claimed_at, last_heartbeat) "
-            "VALUES (%s, 'epic_task', %s, %s, %s, %s)",
-            (session_id, item_id, task_num, now, now),
+            "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (session_id, task_target.kind, task_target.scope_json(), now, now),
         )
     conn.commit()
 

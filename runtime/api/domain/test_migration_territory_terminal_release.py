@@ -17,6 +17,7 @@ from yoke_core.domain.item_terminal_resources import release_for_terminal_transi
 from yoke_core.domain.migration_territory_lease import enter
 from yoke_core.domain.schema_init_tables import create_governed_tables
 from yoke_core.domain.workflow_item_binding_lock import lock_item_workflow_bindings
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 MODEL = "primary"
@@ -110,10 +111,11 @@ def test_terminal_status_does_not_release_foreign_holder(test_db):
 def test_terminal_status_uses_historical_owner_after_claim_release(test_db):
     item_id = 4208
     lease_id = _seed_owner(test_db, item_id=item_id, session_id="merged-owner")
+    target = make_item_target(item_id)
     test_db.execute(
         "UPDATE work_claims SET released_at=%s, release_reason='completed' "
-        "WHERE item_id=%s",
-        (iso8601_now(), item_id),
+        "WHERE target_kind=%s AND scope=%s",
+        (iso8601_now(), target.kind, target.scope_json()),
     )
     test_db.commit()
 
@@ -133,11 +135,12 @@ def test_terminal_release_follows_item_owner_not_shared_session(test_db):
         (_profile(), second_id),
     )
     now = iso8601_now()
+    target = make_item_target(second_id)
     test_db.execute(
         "INSERT INTO work_claims "
-        "(session_id, target_kind, item_id, claim_type, claimed_at, last_heartbeat) "
-        "VALUES ('shared-owner', 'item', %s, 'exclusive', %s, %s)",
-        (second_id, now, now),
+        "(session_id, target_kind, scope, claim_type, claimed_at, last_heartbeat) "
+        "VALUES ('shared-owner', %s, %s, 'exclusive', %s, %s)",
+        (target.kind, target.scope_json(), now, now),
     )
     test_db.commit()
 

@@ -25,9 +25,7 @@ from runtime.api.auth_test_helpers import mint_api_auth_context
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.fixtures.schema_ddl_project_environments import (
-    _PROJECT_ENVIRONMENT_TABLE_DDL,
-)
+from runtime.api.fixtures.schema_ddl_project_environments import _PROJECT_ENVIRONMENT_TABLE_DDL
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
 from yoke_core.api.main import app, get_db_path, get_db_readonly, get_db_readwrite
 
@@ -35,7 +33,10 @@ from yoke_core.api.main import app, get_db_path, get_db_readonly, get_db_readwri
 # item_sections backs the section / progress-log writes; harness_sessions backs
 # the dispatcher's actor-identity binding (queried on every mutating call).
 _SCHEMA_DDL = (
-    PROJECTS_SCHEMA + ITEMS_SCHEMA + _PROJECT_ENVIRONMENT_TABLE_DDL + """
+    PROJECTS_SCHEMA
+    + ITEMS_SCHEMA
+    + _PROJECT_ENVIRONMENT_TABLE_DDL
+    + """
 CREATE TABLE project_capabilities (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, type TEXT NOT NULL,
     settings TEXT DEFAULT '{}', verified_at TEXT, created_at TEXT NOT NULL,
@@ -112,12 +113,8 @@ CREATE TABLE harness_sessions (
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process')),
-    item_id INTEGER,
-    epic_id INTEGER,
-    task_num INTEGER,
-    process_key TEXT,
-    conflict_group TEXT,
+    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
@@ -134,16 +131,11 @@ CREATE TABLE work_claims (
 # (id, title, type, status, priority, project_slug, updated_at, deploy_stage,
 #  deployment_flow). Item 4 sits at a human-approval stage in a flow with a run.
 _SEED_ITEMS = (
-    (1, "First item", "issue", "implementing", "high", "yoke",
-     "2026-03-02T00:00:00Z", None, None),
-    (2, "Second item", "epic", "done", "medium", "yoke",
-     "2026-03-03T00:00:00Z", None, None),
-    (3, "ExternalWebapp item", "issue", "idea", "low", "externalwebapp",
-     "2026-03-04T00:00:00Z", None, None),
-    (4, "Awaiting approval", "issue", "release", "high", "yoke",
-     "2026-03-05T00:00:00Z", "approve-deploy", "test-approval-flow"),
-    (5, "Cancelled item", "issue", "cancelled", "low", "yoke",
-     "2026-03-06T00:00:00Z", None, None),
+    (1, "First item", "issue", "implementing", "high", "yoke", "2026-03-02T00:00:00Z", None, None),
+    (2, "Second item", "epic", "done", "medium", "yoke", "2026-03-03T00:00:00Z", None, None),
+    (3, "ExternalWebapp item", "issue", "idea", "low", "externalwebapp", "2026-03-04T00:00:00Z", None, None),
+    (4, "Awaiting approval", "issue", "release", "high", "yoke", "2026-03-05T00:00:00Z", "approve-deploy", "test-approval-flow"),
+    (5, "Cancelled item", "issue", "cancelled", "low", "yoke", "2026-03-06T00:00:00Z", None, None),
 )
 
 
@@ -168,15 +160,16 @@ def _seed_rows(conn) -> None:
                        (SELECT current_version_id FROM workflows WHERE id = {p}),
                        {p}, {p}, {p}, {p},
                        '2026-03-01T00:00:00Z', {p}, 'user', {p}, {p})""",
-            (row[0], row[1], row[2], row[2], row[3], row[4], _project_id(row[5]),
-             row[0], row[6], row[7], row[8]),
+            (row[0], row[1], row[2], row[2], row[3], row[4], _project_id(row[5]), row[0], row[6], row[7], row[8]),
         )
-    _test_flow_stages = json.dumps([
-        {"name": "merged", "step_runner": "auto"},
-        {"name": "approve-deploy", "step_runner": "human-approval"},
-        {"name": "prod-deploy", "step_runner": "github-actions-workflow", "workflow": "deploy.yml"},
-        {"name": "complete", "step_runner": "auto"},
-    ])
+    _test_flow_stages = json.dumps(
+        [
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "approve-deploy", "step_runner": "human-approval"},
+            {"name": "prod-deploy", "step_runner": "github-actions-workflow", "workflow": "deploy.yml"},
+            {"name": "complete", "step_runner": "auto"},
+        ]
+    )
     conn.execute(
         f"""INSERT INTO deployment_flows (id, project_id, name, description, stages, created_at)
            VALUES ('test-approval-flow', 1, 'TestApproval',
@@ -197,10 +190,7 @@ def _seed_rows(conn) -> None:
 
 def _sync_postgres_sequences(conn) -> None:
     """Advance identity sequences after explicit fixture ids."""
-    conn.execute(
-        "SELECT setval(pg_get_serial_sequence('items', 'id'), "
-        "(SELECT COALESCE(MAX(id), 1) FROM items))"
-    )
+    conn.execute("SELECT setval(pg_get_serial_sequence('items', 'id'), (SELECT COALESCE(MAX(id), 1) FROM items))")
 
 
 def _apply_schema_and_seed() -> None:
@@ -214,9 +204,7 @@ def _apply_schema_and_seed() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _SCHEMA_DDL)
-        from yoke_core.domain.workflow_registry import (
-            converge_builtin_workflows,
-        )
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
         ensure_workflow_schema(conn)
@@ -224,12 +212,8 @@ def _apply_schema_and_seed() -> None:
         from yoke_core.domain.auth_schema import create_auth_tables
         from yoke_core.domain.events_schema import ensure_event_schema
         from yoke_core.domain.org_schema import seed_default_org
-        from yoke_core.domain.schema_init_actor_path_claim_tables import (
-            create_actor_identity_tables,
-        )
-        from yoke_core.domain.decision_request_schema import (
-            create_decision_request_tables,
-        )
+        from yoke_core.domain.schema_init_actor_path_claim_tables import create_actor_identity_tables
+        from yoke_core.domain.decision_request_schema import create_decision_request_tables
 
         create_actor_identity_tables(conn)
         create_auth_tables(conn)
@@ -252,6 +236,7 @@ def _startup_test_db(tmp_path: Path):
 
 def _db_override_fns(db_path: str):
     """Return the (path, readonly, readwrite) FastAPI dep overrides for a DB."""
+
     def _path() -> str:
         return db_path
 
@@ -276,9 +261,7 @@ def _install_db_overrides(db_path: str):
 @contextmanager
 def _client_for_db(db_path: str):
     """Yield a TestClient bound to a specific temp DB path."""
-    _override_db_path, _override_db_readonly, _override_db_readwrite = (
-        _install_db_overrides(db_path)
-    )
+    _override_db_path, _override_db_readonly, _override_db_readwrite = _install_db_overrides(db_path)
     patchers = (
         patch("yoke_core.api.main.get_db_path", _override_db_path),
         patch("yoke_core.api.main.get_db_readonly", _override_db_readonly),
@@ -321,10 +304,12 @@ def make_test_db_fixture():
     try:
         with init_test_db(Path(tmp_dir), apply_schema=_apply_schema_and_seed) as db_path:
             _ov_path, _ov_ro, _ov_rw = _install_db_overrides(db_path)
-            with patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False), \
-                 patch("yoke_core.api.main.get_db_path", _ov_path), \
-                 patch("yoke_core.api.main.get_db_readonly", _ov_ro), \
-                 patch("yoke_core.api.main.get_db_readwrite", _ov_rw):
+            with (
+                patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False),
+                patch("yoke_core.api.main.get_db_path", _ov_path),
+                patch("yoke_core.api.main.get_db_readonly", _ov_ro),
+                patch("yoke_core.api.main.get_db_readwrite", _ov_rw),
+            ):
                 yield {"db_path": db_path, "tmp_dir": tmp_dir}
     finally:
         app.dependency_overrides.clear()

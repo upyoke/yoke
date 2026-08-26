@@ -9,13 +9,13 @@ from .sessions_analytics import EVENT_WORK_CLAIMED, EVENT_WORK_RECLAIMED
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
-    TARGET_KIND_STEERING_SCOPE,
+    TARGET_KIND_STEERING,
     WorkClaimTarget,
     from_row,
 )
 
-EVENT_STEERING_SCOPE_CLAIMED = "SteeringScopeClaimed"
-EVENT_STEERING_SCOPE_RELEASED = "SteeringScopeReleased"
+EVENT_STEERING_CLAIMED = "SteeringClaimed"
+EVENT_STEERING_RELEASED = "SteeringReleased"
 
 
 def emit_work_claimed(
@@ -61,18 +61,18 @@ def _steering_context(
     claim_id: int,
     target: WorkClaimTarget,
 ) -> Dict[str, Any]:
-    if target.kind != TARGET_KIND_STEERING_SCOPE:
-        raise ValueError("steering claim telemetry requires a steering_scope target")
+    if target.kind != TARGET_KIND_STEERING:
+        raise ValueError("steering claim telemetry requires a steering target")
     return {
         "claim_id": int(claim_id),
         "target_kind": target.kind,
         "claim_type": "exclusive",
-        "steering_project_id": int(target.steering_project_id),
-        "steering_strategy_doc_slugs": list(target.steering_strategy_doc_slugs or ()),
+        "scope": dict(target.scope),
+        "project_id": int(target.project_id),
     }
 
 
-def emit_steering_scope_claimed(
+def emit_steering_claimed(
     session_id: str,
     claim_id: int,
     target: WorkClaimTarget,
@@ -85,13 +85,13 @@ def emit_steering_scope_claimed(
     if reason:
         context["claim_reason_intent"] = reason
     _sa._emit_session_event(
-        EVENT_STEERING_SCOPE_CLAIMED,
+        EVENT_STEERING_CLAIMED,
         session_id=session_id,
         context=context,
     )
 
 
-def emit_steering_scope_released(
+def emit_steering_released(
     session_id: str,
     claim_id: int,
     target: WorkClaimTarget,
@@ -109,7 +109,7 @@ def emit_steering_scope_released(
         }
     )
     _sa._emit_session_event(
-        EVENT_STEERING_SCOPE_RELEASED,
+        EVENT_STEERING_RELEASED,
         session_id=session_id,
         context=context,
     )
@@ -120,11 +120,12 @@ def emit_reclaimed_work_claim(
     claim_row: Mapping[str, Any],
 ) -> None:
     """Emit target-specific stale-reclaim evidence for one released claim."""
-    if claim_row["target_kind"] == TARGET_KIND_STEERING_SCOPE:
-        emit_steering_scope_released(
+    target = from_row(claim_row)
+    if target.kind == TARGET_KIND_STEERING:
+        emit_steering_released(
             session_id,
             int(claim_row["id"]),
-            from_row(claim_row),
+            target,
             reason="stale_session_reclaimed",
             reclaimed=True,
         )
@@ -133,11 +134,11 @@ def emit_reclaimed_work_claim(
         EVENT_WORK_RECLAIMED,
         session_id=session_id,
         item_id=(
-            str(claim_row["item_id"])
-            if claim_row["item_id"] is not None
+            str(target.item_id or target.epic_id)
+            if target.item_id is not None or target.epic_id is not None
             else None
         ),
-        task_num=claim_row["task_num"],
+        task_num=target.task_num,
         context={
             "claim_id": claim_row["id"],
             "reason": "stale_session_reclaimed",
@@ -146,10 +147,10 @@ def emit_reclaimed_work_claim(
 
 
 __all__ = [
-    "EVENT_STEERING_SCOPE_CLAIMED",
-    "EVENT_STEERING_SCOPE_RELEASED",
+    "EVENT_STEERING_CLAIMED",
+    "EVENT_STEERING_RELEASED",
     "emit_reclaimed_work_claim",
-    "emit_steering_scope_claimed",
-    "emit_steering_scope_released",
+    "emit_steering_claimed",
+    "emit_steering_released",
     "emit_work_claimed",
 ]

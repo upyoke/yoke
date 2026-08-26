@@ -22,6 +22,13 @@ def test_registry_data_modules_retain_authored_row_headroom() -> None:
         )
 
 
+def test_authoritative_rows_are_guarded_from_formatter_expansion() -> None:
+    source = Path(authoritative.__file__).read_text()
+    guard_offset = source.index("# fmt: off")
+    metadata_offset = source.index("\nAUTHORITATIVE_METADATA:", guard_offset)
+    assert guard_offset < metadata_offset
+
+
 def test_split_modules_preserve_public_tuple_contracts() -> None:
     assert authoritative.DEPRECATE_LIST is lifecycle.DEPRECATE_LIST
     assert authoritative.PURGED_EVENT_NAMES is lifecycle.PURGED_EVENT_NAMES

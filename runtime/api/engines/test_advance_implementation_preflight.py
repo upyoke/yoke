@@ -33,6 +33,7 @@ from yoke_contracts.cursor_session_map import (
 from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 from yoke_core.engines import advance_implementation_entry as entry
 from yoke_core.engines import advance_implementation_preflight_gates as gates
+from yoke_core.domain.work_claim_targets import make_item_target
 
 _HARD_BLOCKS = "advance.preflight.hard_blocks"
 _AC_PRESENCE = "advance.preflight.ac_presence"
@@ -65,11 +66,15 @@ def _isolate_ambient_identity(monkeypatch, tmp_path):
 
 
 def test_unresolvable_identity_refuses_before_item_claim_or_lane(
-    monkeypatch, tmp_path, test_db,
+    monkeypatch,
+    tmp_path,
+    test_db,
 ):
     _isolate_ambient_identity(monkeypatch, tmp_path)
     monkeypatch.setattr(
-        entry, "_read_item", lambda _item_id: pytest.fail("item read ran"),
+        entry,
+        "_read_item",
+        lambda _item_id: pytest.fail("item read ran"),
     )
     out = io.StringIO()
     assert entry.run(TEST_ITEM_ID, session_id="declared", out=out) == 1
@@ -78,9 +83,10 @@ def test_unresolvable_identity_refuses_before_item_claim_or_lane(
     assert "before work-claim or lane creation" in error["narrative"]
     with test_db.cursor() as cur:
         cur.execute(
-            "SELECT (SELECT COUNT(*) FROM work_claims WHERE item_id=%s), "
+            "SELECT (SELECT COUNT(*) FROM work_claims "
+            "WHERE target_kind='item' AND scope=%s), "
             "(SELECT COUNT(*) FROM item_worktrees WHERE item_id=%s)",
-            (TEST_ITEM_ID, TEST_ITEM_ID),
+            (make_item_target(TEST_ITEM_ID).scope_json(), TEST_ITEM_ID),
         )
         assert cur.fetchone() == (0, 0)
 
@@ -89,7 +95,9 @@ def test_env_stamped_identity_proceeds(monkeypatch, tmp_path):
     _isolate_ambient_identity(monkeypatch, tmp_path)
     monkeypatch.setenv("YOKE_SESSION_ID", "session-env")
     assert gates._probe_session_identity("session-env") == (
-        "session-env", "", "",
+        "session-env",
+        "",
+        "",
     )
 
 
@@ -98,11 +106,14 @@ def test_cursor_map_identity_proceeds(monkeypatch, tmp_path, harness_family):
     home = _isolate_ambient_identity(monkeypatch, tmp_path)
     monkeypatch.setenv(CURSOR_CONVERSATION_ENV_VAR, "conversation-1")
     record_conversation_session(
-        "conversation-1", "session-cursor",
+        "conversation-1",
+        "session-cursor",
         home / CURSOR_SESSION_MAP_DIR_NAME,
     )
     assert gates._probe_session_identity("session-cursor") == (
-        "session-cursor", "", "",
+        "session-cursor",
+        "",
+        "",
     )
 
 
@@ -116,7 +127,10 @@ def test_explicit_session_must_match_write_guard_identity(monkeypatch, tmp_path)
 
 def _ok(function_id: str, result: Dict[str, Any]) -> FunctionCallResponse:
     return FunctionCallResponse(
-        success=True, function=function_id, version="v1", result=result,
+        success=True,
+        function=function_id,
+        version="v1",
+        result=result,
     )
 
 
@@ -153,7 +167,10 @@ def test_all_gates_pass_relays_each_in_order(monkeypatch):
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
     assert (ok, narrative) == (True, "")
     assert [c["function_id"] for c in calls] == [
-        _HARD_BLOCKS, _AC_PRESENCE, _FILE_BUDGET, _SPEC_COVERAGE,
+        _HARD_BLOCKS,
+        _AC_PRESENCE,
+        _FILE_BUDGET,
+        _SPEC_COVERAGE,
     ]
     for call in calls:
         assert call["target"].kind == "item" and call["target"].item_id == TEST_ITEM_ID
@@ -163,9 +180,13 @@ def test_all_gates_pass_relays_each_in_order(monkeypatch):
 def test_hard_blocks_short_circuits_before_later_gates(monkeypatch):
     calls = _install(
         monkeypatch,
-        {_HARD_BLOCKS: {"blockers": [
-            "BLOCKED|YOK-99|implementing|t|activation|status:done",
-        ]}},
+        {
+            _HARD_BLOCKS: {
+                "blockers": [
+                    "BLOCKED|YOK-99|implementing|t|activation|status:done",
+                ]
+            }
+        },
     )
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
     assert ok is False
@@ -201,28 +222,35 @@ def test_no_acceptance_criteria_narrative_preserved(monkeypatch):
 def test_file_budget_block_narrative_preserved(monkeypatch):
     calls = _install(
         monkeypatch,
-        {_FILE_BUDGET: {
-            "verdict": "block",
-            "reason": "effective File Budget is missing",
-        }},
+        {
+            _FILE_BUDGET: {
+                "verdict": "block",
+                "reason": "effective File Budget is missing",
+            }
+        },
     )
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
     assert (ok, narrative) == (
-        False, "BLOCKED: effective File Budget is missing",
+        False,
+        "BLOCKED: effective File Budget is missing",
     )
     # blocks before the spec-coverage gate
     assert [c["function_id"] for c in calls] == [
-        _HARD_BLOCKS, _AC_PRESENCE, _FILE_BUDGET,
+        _HARD_BLOCKS,
+        _AC_PRESENCE,
+        _FILE_BUDGET,
     ]
 
 
 def test_spec_coverage_block_narrative_preserved(monkeypatch):
     calls = _install(
         monkeypatch,
-        {_SPEC_COVERAGE: {
-            "is_blocked": True,
-            "missing_paths": ["runtime/api/x.py", "runtime/api/y.py"],
-        }},
+        {
+            _SPEC_COVERAGE: {
+                "is_blocked": True,
+                "missing_paths": ["runtime/api/x.py", "runtime/api/y.py"],
+            }
+        },
     )
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
     assert ok is False
@@ -231,15 +259,21 @@ def test_spec_coverage_block_narrative_preserved(monkeypatch):
         "active path_claim.\nMissing: runtime/api/x.py, runtime/api/y.py"
     )
     assert [c["function_id"] for c in calls] == [
-        _HARD_BLOCKS, _AC_PRESENCE, _FILE_BUDGET, _SPEC_COVERAGE,
+        _HARD_BLOCKS,
+        _AC_PRESENCE,
+        _FILE_BUDGET,
+        _SPEC_COVERAGE,
     ]
 
 
 def test_gate_relay_failure_fails_closed(monkeypatch):
     """A refused gate read raises rather than silently passing the gate."""
+
     def fake(**kwargs):
         return FunctionCallResponse(
-            success=False, function=kwargs["function_id"], version="v1",
+            success=False,
+            function=kwargs["function_id"],
+            version="v1",
             error=FunctionError(code="refused", message="no local db"),
         )
 
