@@ -16,7 +16,7 @@ _TURN_RUNNING = "running"
 OPEN_TOOL_CALL_WRITE_SKEW_SECONDS = 60
 
 
-def _parse_stamp(value: Optional[str]) -> Optional[datetime]:
+def parse_stamp(value: Optional[str]) -> Optional[datetime]:
     """Parse an ISO-8601 stamp; ``None`` when absent or unreadable."""
     if not value:
         return None
@@ -155,10 +155,10 @@ def open_tool_call_is_live(
     """
     if open_tool_call_at is None:
         return False
-    marker_at = _parse_stamp(open_tool_call_at)
+    marker_at = parse_stamp(open_tool_call_at)
     if marker_at is None:
         return False
-    newest_at = _parse_stamp(activity_at)
+    newest_at = parse_stamp(activity_at)
     if newest_at is None:
         return True
     return newest_at - marker_at <= timedelta(seconds=OPEN_TOOL_CALL_WRITE_SKEW_SECONDS)
@@ -176,6 +176,7 @@ __all__ = [
     "newest_activity_stamp",
     "open_tool_call_is_live",
     "open_tool_call_started_at",
+    "parse_stamp",
     "read_session_state",
     "session_turn_is_running",
 ]

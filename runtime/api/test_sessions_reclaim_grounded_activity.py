@@ -26,6 +26,9 @@ from yoke_core.domain.session_reclaim_activity import (
     resolve_effective_ttl,
 )
 from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_THRESHOLD_MINUTES,
+)
 from yoke_core.domain.sessions_cleanup import clean_stale_harness_sessions
 from yoke_core.domain.sessions_queries import (
     read_chain_checkpoint,
@@ -135,13 +138,17 @@ class TestSweepCollectsIdleSessions:
         assert ended_at is not None
 
     @pytest.mark.parametrize("executor", EXECUTORS)
-    def test_between_turns_is_reported_for_every_surface_in_flight(
-        self, conn, executor
-    ):
-        session_id = f"mid-turn-{executor}"
-        _seed_session(conn, session_id, executor=executor, heartbeat_ago_min=0)
-        _emit_tool_event(conn, session_id, ago_minutes=0)
-        _open_tool_call(conn, session_id, ago_minutes=0)
+    def test_a_spared_session_is_explained_on_every_surface(self, conn, executor):
+        """Past the base threshold, spared, and reported — whatever the surface.
+
+        The codex session is spared by its TTL override and the claude one by
+        its live tool call; both deserve the same explanation in the result.
+        """
+        session_id = f"spared-{executor}"
+        idle = DEFAULT_STALE_THRESHOLD_MINUTES + 5
+        _seed_session(conn, session_id, executor=executor, heartbeat_ago_min=idle)
+        _emit_tool_event(conn, session_id, ago_minutes=idle)
+        _open_tool_call(conn, session_id, ago_minutes=idle)
 
         result = clean_stale_harness_sessions(conn)
 

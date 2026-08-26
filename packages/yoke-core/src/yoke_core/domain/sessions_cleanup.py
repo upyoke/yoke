@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time as _time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
@@ -16,6 +16,7 @@ from .session_reclaim_activity import (
     in_flight_activity_is_hard_stale,
     read_activity_signals,
 )
+from .session_reclaim_progress import parse_stamp
 from .session_staleness import activity_is_stale
 from .sessions_analytics_core import DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
 from .sessions_analytics import (
@@ -34,16 +35,10 @@ from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 
 
 def _minutes_since(iso_value: Optional[str]) -> int:
-    if not iso_value:
+    ts = parse_stamp(iso_value)
+    if ts is None:
         return 0
-    try:
-        ts = datetime.fromisoformat(str(iso_value).replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return 0
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    delta = datetime.now(timezone.utc) - ts
-    return max(0, int(delta.total_seconds() // 60))
+    return max(0, int((datetime.now(timezone.utc) - ts).total_seconds() // 60))
 
 
 def clean_stale_harness_sessions(
@@ -156,7 +151,7 @@ def clean_stale_harness_sessions(
                 effective_ttl_minutes=effective_ttl,
             )
         else:
-            is_stale = activity_at is None or activity_is_stale(
+            is_stale = activity_is_stale(
                 activity_at,
                 executor=None,
                 base_ttl_minutes=effective_ttl,
@@ -180,24 +175,26 @@ def clean_stale_harness_sessions(
             episode_started_at,
         )
         if tool_count > 0 and progress_at:
-            try:
-                latest_event_dt = datetime.fromisoformat(
-                    str(progress_at).replace("Z", "+00:00")
-                )
-                if latest_event_dt.tzinfo is None:
-                    latest_event_dt = latest_event_dt.replace(tzinfo=timezone.utc)
-                progress_stale_flag = latest_event_dt < (
-                    datetime.now(timezone.utc)
-                    - timedelta(minutes=effective_progress_ttl)
-                )
-            except (TypeError, ValueError):
-                progress_stale_flag = False
+            progress_stale_flag = activity_is_stale(
+                progress_at,
+                executor=None,
+                base_ttl_minutes=effective_progress_ttl,
+                executor_ttl_overrides={},
+            )
 
         if not is_stale:
             if progress_stale_flag:
                 progress_stale.append({**entry, "reason": "progress_stale"})
                 continue
-            if evidence.in_flight:
+            # Spared despite the base threshold — by an executor TTL override
+            # or by live in-flight evidence. A session still inside the base
+            # threshold is simply fresh and needs no explanation.
+            if activity_is_stale(
+                activity_at,
+                executor=None,
+                base_ttl_minutes=stale_threshold_minutes,
+                executor_ttl_overrides={},
+            ):
                 skipped_between_turns.append({**entry, "reason": "between_turns"})
             continue
 
