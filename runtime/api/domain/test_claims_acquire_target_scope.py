@@ -1,9 +1,8 @@
-"""Dispatcher acquire surface carries ``item_ref`` beside bare ``item_id``."""
+"""Dispatcher acquire returns the canonical typed target scope."""
 
 from __future__ import annotations
 
 import unittest
-from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 from yoke_contracts.api.function_call import (
@@ -18,7 +17,7 @@ from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
 
-class TestClaimsAcquireItemRef(unittest.TestCase):
+class TestClaimsAcquireTargetScope(unittest.TestCase):
     def setUp(self) -> None:
         reset_registry_for_tests()
         register_all_handlers()
@@ -39,23 +38,19 @@ class TestClaimsAcquireItemRef(unittest.TestCase):
             p.stop()
         reset_registry_for_tests()
 
-    def test_acquire_result_includes_item_ref(self) -> None:
+    def test_acquire_result_preserves_item_scope(self) -> None:
         fake_row = {
             "id": 1234,
             "session_id": "s-1",
             "target_kind": "item",
-            "item_id": 42,
-            "epic_id": None,
-            "task_num": None,
-            "process_key": None,
-            "conflict_group": None,
+            "scope": {"item_id": 42},
         }
         with patch(
             "yoke_core.domain.sessions_lifecycle_claim.claim_work",
             return_value=fake_row,
         ), patch(
             "yoke_core.domain.result_item_ref_enrichment.enrich_result_item_refs",
-            side_effect=lambda result, **_k: {**dict(result), "item_ref": "BUZ-7"},
+            side_effect=lambda result, **_k: dict(result),
         ):
             resp = dispatch(
                 FunctionCallRequest(
@@ -64,10 +59,12 @@ class TestClaimsAcquireItemRef(unittest.TestCase):
                     target=TargetRef(kind="item", item_id=42),
                     payload={"target": {"kind": "item", "item_id": 42}},
                 )
-            )
+        )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["item_id"], 42)
-        self.assertEqual(resp.result["item_ref"], "BUZ-7")
+        self.assertEqual(resp.result["target_kind"], "item")
+        self.assertEqual(resp.result["scope"], {"item_id": 42})
+        self.assertNotIn("item_id", resp.result)
+        self.assertNotIn("item_ref", resp.result)
 
 
 if __name__ == "__main__":
