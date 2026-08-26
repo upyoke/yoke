@@ -12,14 +12,13 @@ is where the next relay poll looks when it settles the attempt.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import os
 import subprocess
 import sys
 import time
 from typing import Sequence
-
-from yoke_core.domain import json_helper
 
 
 OUTCOME_SUFFIX = ".outcome"
@@ -43,7 +42,10 @@ def write_resume_outcome(
     }
     try:
         temporary = path.with_suffix(f".{os.getpid()}.tmp")
-        temporary.write_text(json_helper.dumps_compact(payload), encoding="utf-8")
+        temporary.write_text(
+            json.dumps(payload, separators=(",", ":"), sort_keys=True),
+            encoding="utf-8",
+        )
         temporary.chmod(0o600)
         os.replace(temporary, path)
     except (OSError, TypeError, ValueError):
@@ -56,7 +58,7 @@ def read_resume_outcome(path: Path | None) -> tuple[bool, int | None]:
     if path is None:
         return False, None
     try:
-        payload = json_helper.loads_text(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, TypeError, ValueError):
         return False, None
     if not isinstance(payload, dict):
