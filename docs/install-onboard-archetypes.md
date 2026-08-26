@@ -79,9 +79,8 @@ Coverage: every axis value appears. The sample is not a market-share ranking.
 
 The installer hand-off after a successful interactive install is
 (`print_path_guidance_after_onboard` in the shim): source the shell startup
-file if PATH was new, "open Claude Code or Codex in your project folder", then
-`/yoke onboard`. Cursor is a first-class executor in this repo and is not named
-there.
+file if PATH was new, "open Claude Code, Codex, or Cursor in your project
+folder", then `/yoke onboard`.
 
 ## The suspected crux
 

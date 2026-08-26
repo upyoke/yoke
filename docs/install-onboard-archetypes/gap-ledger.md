@@ -20,7 +20,7 @@ filled in the last column.
 | G-deferred-hosting-flows | blocker | deployed / released | `/yoke onboard` step 5 still registers stage/prod and flows when hosting is deferred | A01 A02 A05 A09 A10 A12 | YOK-2466 |
 | G-no-merge-only-default | blocker | deployed / merged | Merge-only flows (`target_tier` NULL) exist; onboard never offers them; idea always stamps `deploy-defaults get` | A01 A09 A12 + all no-host | YOK-2467 |
 | G-forge-github-only | missing-config-surface | merged | Skip GitHub works; GitLab/Bitbucket cannot bind, clone-list, or merge-queue | A06 A11 | YOK-2469 |
-| G-handoff-cursor | missing-teaching | installed | Shim hand-off: "open Claude Code or Codex" then `/yoke onboard` | A01 A03 A05 A09 | YOK-2468 |
+| G-handoff-cursor | taught | installed | Shim hand-off names Claude Code, Codex, or Cursor then `/yoke onboard` | A01 A03 A05 A09 | YOK-2468 |
 | G-app-store | missing-config-surface | deployed | No TestFlight/Play/`fastlane` runner; profile is web stage+prod | A09 | YOK-2470 |
 | G-selfhost-not-in-wizard | friction | installed | Team server asks URL+token; `yoke self-host init` is a separate doc | A06 A07 | YOK-2471 |
 | G-migration-undeclared | missing-config-surface | migrated | No onboard question for `migration_model` / "no DB to migrate" | A03 A06 A07 | YOK-2472 |

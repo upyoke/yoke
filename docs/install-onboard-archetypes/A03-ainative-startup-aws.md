@@ -63,7 +63,7 @@ roles that Yoke provisions from it during /yoke onboard.
 
 **User:** Continue. Review Apply.
 
-Hand-off: Claude Code or Codex; `/yoke onboard`. He uses Cursor — untaught.
+Hand-off: Claude Code, Codex, or Cursor; `/yoke onboard`.
 
 ## Transcript — `/yoke onboard`
 

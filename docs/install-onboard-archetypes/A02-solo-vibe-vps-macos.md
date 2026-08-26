@@ -91,7 +91,7 @@ AWS for now. One click creates the deploy credential; paste its two values below
 Review: Apply. GitHub already saved subtitle may be
 `Machine GitHub authorization is already saved; only the remaining setup writes wait for Apply.`
 
-Hand-off: source zprofile if needed; open Claude Code or Codex; `/yoke onboard`.
+Hand-off: source zprofile if needed; open Claude Code, Codex, or Cursor; `/yoke onboard`.
 
 ## Transcript — `/yoke onboard`
 

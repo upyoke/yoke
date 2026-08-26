@@ -352,7 +352,7 @@ print_path_guidance_after_onboard() {
       "$(handoff_bar)" "$(c_dim)" "$(sgr_reset)"
     handoff_step=$((handoff_step + 1))
   fi
-  printf '%s  %s  %sopen Claude Code or Codex in your project folder%s\n' \
+  printf '%s  %s  %sopen Claude Code, Codex, or Cursor in your project folder%s\n' \
     "$(handoff_bar)" "$handoff_step" "$(c_text)" "$(sgr_reset)"
   handoff_step=$((handoff_step + 1))
   printf '%s  %s  %srun %s%s/yoke onboard%s\n' \

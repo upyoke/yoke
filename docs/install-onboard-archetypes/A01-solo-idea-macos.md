@@ -10,7 +10,7 @@ account. Goal: get Yoke locally and start capturing work.
 | | |
 |---|---|
 | Fits | Local destination ("This machine", free, no account). Create-new project with no GitHub. Hosting skip. Seed work without a live deploy. |
-| Breaks | Installer hand-off names Claude Code or Codex, not Cursor. Execution profile still proposes stage+prod and a default deploy flow. |
+| Breaks | Execution profile still proposes stage+prod and a default deploy flow. |
 | Gaps | No "this project does not deploy" declaration. Idea intake will stamp the project default flow onto every item. |
 
 ## Transcript — public installer
@@ -217,12 +217,11 @@ Apply creates the local universe, writes machine config, creates
   ▌ Next: make it execution-ready.
   ▌  1  source "~/.zprofile"
   ▌     (this terminal only; new windows already have it)
-  ▌  2  open Claude Code or Codex in your project folder
+  ▌  2  open Claude Code, Codex, or Cursor in your project folder
   ▌  3  run /yoke onboard
 ```
 
-**User** opens Cursor in `~/code/notebook-app` anyway (not named) and runs
-`/yoke onboard`.
+**User** opens Cursor in `~/code/notebook-app` and runs `/yoke onboard`.
 
 ## Transcript — `/yoke onboard` skill
 

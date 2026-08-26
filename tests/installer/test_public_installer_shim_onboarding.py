@@ -94,16 +94,16 @@ def test_interactive_success_launches_onboard_by_absolute_path(tmp_path: Path) -
     assert "Next: make it execution-ready." in result.stdout
     assert "(this terminal only; new windows already have it)" in result.stdout
     assert f'1  source "{tmp_path}/.zprofile"' in result.stdout
-    assert "2  open Claude Code or Codex in your project folder" in result.stdout
+    assert "2  open Claude Code, Codex, or Cursor in your project folder" in result.stdout
     assert "3  run /yoke onboard" in result.stdout
     # The reload is a prerequisite of the harness step, so it has to come first;
     # a harness opened before it inherits the pre-install PATH and cannot find
     # yoke. This block is also the last thing on screen, so nothing downstream
     # can restate the order.
     assert result.stdout.index(f'source "{tmp_path}/.zprofile"') < result.stdout.index(
-        "open Claude Code or Codex"
+        "open Claude Code, Codex, or Cursor"
     )
-    assert result.stdout.index("open Claude Code or Codex") < result.stdout.index(
+    assert result.stdout.index("open Claude Code, Codex, or Cursor") < result.stdout.index(
         "run /yoke onboard"
     )
 
@@ -184,7 +184,7 @@ def test_handoff_omits_reload_step_when_calling_shell_already_resolves_yoke(
     assert "Next: make it execution-ready." in result.stdout
     assert f'source "{tmp_path}/.zprofile"' not in result.stdout
     assert "this terminal only" not in result.stdout
-    assert "1  open Claude Code or Codex in your project folder" in result.stdout
+    assert "1  open Claude Code, Codex, or Cursor in your project folder" in result.stdout
     assert "2  run /yoke onboard" in result.stdout
 
 
