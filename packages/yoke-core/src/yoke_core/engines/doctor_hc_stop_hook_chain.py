@@ -3,7 +3,8 @@
 A deferred Stop that aged past the stale window is only a warning when
 nothing resolved it: later completed tool use, a cap-reached record, a
 terminal/blocked status change, or ``HarnessSessionEnded``. The Stop chain
-must also keep the promised-work gate ahead of lifecycle dispatch.
+must also keep steering report routing and the promised-work gate ahead of
+lifecycle dispatch.
 """
 
 from __future__ import annotations
@@ -22,8 +23,9 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 _HC_NAME = "HC-stop-hook-chain-end-deferred"
 _HC_DESC = "Stop-hook deferred chains that aged past the heartbeat-stale window"
 _MEMBER_NAME = "HC-stop-hook-chain-membership"
-_MEMBER_DESC = "Stop chain registers the promised-work gate before dispatch"
+_MEMBER_DESC = "Stop chain registers report routing and the work gate before dispatch"
 _EXPECTED_STOP = [
+    "yoke_core.domain.turn_end_steering_report",
     "yoke_core.domain.turn_end_promised_work_gate",
     "yoke_core.hooks.session_message_delivery",
     "yoke_core.hooks.session_launch_attestation",

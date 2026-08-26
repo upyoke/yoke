@@ -105,7 +105,7 @@ def _named(rec: RecordCollector, check_id: str):
     return next(row for row in rec.results if row.check_id == check_id)
 
 
-def test_membership_covers_promised_work_gate(conn):
+def test_membership_covers_report_router_and_promised_work_gate(conn):
     rec = _run_hc(conn)
     assert _named(rec, _MEMBER_NAME).result == "PASS"
 
@@ -116,7 +116,8 @@ def test_pass_when_events_table_missing():
 
     name = pg_testdb.create_test_database()
     c = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name,
+        pg_testdb.connect_test_database(name),
+        name,
     )
     rec = _run_hc(c)
     c.close()
@@ -146,8 +147,14 @@ def test_pass_when_followup_session_ended_present(conn):
 
 def test_pass_when_cap_reached_record_present(conn):
     _emit_event(
-        conn, "ChainEndDeferred", "sess-capped", item_id=7, age_minutes=120,
-        envelope={"context": {"reason": "reinjection_cap_reached", "cap_reached": True}},
+        conn,
+        "ChainEndDeferred",
+        "sess-capped",
+        item_id=7,
+        age_minutes=120,
+        envelope={
+            "context": {"reason": "reinjection_cap_reached", "cap_reached": True}
+        },
     )
     rec = _run_hc(conn)
     assert _named(rec, _HC_NAME).result == "PASS"
@@ -156,7 +163,10 @@ def test_pass_when_cap_reached_record_present(conn):
 def test_pass_when_later_tool_use_present(conn):
     _emit_event(conn, "ChainEndDeferred", "sess-worked", item_id=8, age_minutes=120)
     _emit_event(
-        conn, "HookGuardrailEvaluated", "sess-worked", age_minutes=10,
+        conn,
+        "HookGuardrailEvaluated",
+        "sess-worked",
+        age_minutes=10,
         hook_event_name="PreToolUse",
     )
     rec = _run_hc(conn)
@@ -166,7 +176,11 @@ def test_pass_when_later_tool_use_present(conn):
 def test_pass_when_terminal_status_change_present(conn):
     _emit_event(conn, "ChainEndDeferred", "sess-done", item_id=9, age_minutes=120)
     _emit_event(
-        conn, "ItemStatusChanged", "sess-done", item_id=9, age_minutes=10,
+        conn,
+        "ItemStatusChanged",
+        "sess-done",
+        item_id=9,
+        age_minutes=10,
         envelope={"context": {"to_status": "done"}},
     )
     rec = _run_hc(conn)
@@ -187,8 +201,11 @@ def test_warn_caps_at_ten_listings_with_overflow_summary(conn):
     """The HC lists the first 10 stranded sessions and summarizes the rest."""
     for i in range(15):
         _emit_event(
-            conn, "ChainEndDeferred", f"sess-stranded-{i:02d}",
-            item_id=i + 1, age_minutes=120,
+            conn,
+            "ChainEndDeferred",
+            f"sess-stranded-{i:02d}",
+            item_id=i + 1,
+            age_minutes=120,
         )
     rec = _run_hc(conn)
     msg = _named(rec, _HC_NAME).detail
