@@ -30,7 +30,12 @@ from yoke_harness.hooks.local_policies import (
     lint_shell_backtick_search,
     lint_tmp_runtime_import,
 )
-from yoke_harness.hooks.local_policy_common import ADVISORY, DENY, NOOP, command_from_payload
+from yoke_harness.hooks.local_policy_common import (
+    ADVISORY,
+    DENY,
+    NOOP,
+    command_from_payload,
+)
 
 
 LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
@@ -44,15 +49,17 @@ LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
     }
 )
 
-_LIFECYCLE_EVENTS = frozenset({
-    "SessionStart",
-    "UserPromptSubmit",
-    "SessionEnd",
-    "Stop",
-    "SubagentStop",
-    "PreCompact",
-    "Notification",
-})
+_LIFECYCLE_EVENTS = frozenset(
+    {
+        "SessionStart",
+        "UserPromptSubmit",
+        "SessionEnd",
+        "Stop",
+        "SubagentStop",
+        "PreCompact",
+        "Notification",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -141,12 +148,10 @@ def _local_modules(
     defer_main_commit: bool = False,
 ) -> list[str]:
     return [
-        module_id for module_id in _chain_for(event_name, matcher)
+        module_id
+        for module_id in _chain_for(event_name, matcher)
         if module_id in LOCAL_STATE_POLICIES
-        and not (
-            defer_main_commit
-            and module_id == "yoke_core.domain.lint_main_commit"
-        )
+        and not (defer_main_commit and module_id == "yoke_core.domain.lint_main_commit")
     ]
 
 
@@ -201,26 +206,30 @@ def evaluate_local_subset(
     if event_name == "Stop":
         from yoke_contracts.turn_end_evidence import (
             PAYLOAD_KEY,
+            REPORT_PAYLOAD_KEY,
             extract_turn_end_evidence,
+            extract_turn_end_report,
             read_transcript_tail,
         )
 
         path = payload.get("transcript_path")
-        text = (
-            read_transcript_tail(path)
-            if isinstance(path, str) and path
-            else None
-        )
+        text = read_transcript_tail(path) if isinstance(path, str) and path else None
         payload_extra[PAYLOAD_KEY] = extract_turn_end_evidence(
-            payload=payload, transcript_text=text,
+            payload=payload,
+            transcript_text=text,
         ).as_dict()
+        report = extract_turn_end_report(payload=payload, transcript_text=text)
+        if report is not None:
+            payload_extra[REPORT_PAYLOAD_KEY] = report.as_dict()
     if defer_main_commit:
         payload_extra.update(_client_scratch_root_fact())
         payload_extra.update(_client_claude_job_tmp_fact())
         payload_extra.update(collect_git_commit_facts(payload))
     contexts: list[str] = []
     for module_id in _local_modules(
-        event_name, matcher, defer_main_commit=defer_main_commit,
+        event_name,
+        matcher,
+        defer_main_commit=defer_main_commit,
     ):
         if deadline.expired():
             break
@@ -238,7 +247,8 @@ def evaluate_local_subset(
             continue
         if result.outcome == DENY:
             mode = lint_policy.resolve_mode_from_snapshot(
-                module_id, lint_config_snapshot,
+                module_id,
+                lint_config_snapshot,
             )
             if mode == lint_policy.WARN:
                 contexts.append(
