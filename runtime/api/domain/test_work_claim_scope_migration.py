@@ -14,7 +14,6 @@ from yoke_core.domain.migration_history import (
 )
 from yoke_core.domain.migration_serving_version import declared_minimum
 from yoke_core.domain.schema_common import _get_columns
-from yoke_core.domain.schema_init_columns import apply_work_claim_scope_column
 
 ENTRY_NAME = "0020_work_claim_scope"
 FINAL_COLUMNS = {
@@ -99,7 +98,6 @@ def specialized_db():
         "2, 'steering-session', 't3', 't3')"
     )
     conn.commit()
-    apply_work_claim_scope_column(conn)
     try:
         yield conn
     finally:

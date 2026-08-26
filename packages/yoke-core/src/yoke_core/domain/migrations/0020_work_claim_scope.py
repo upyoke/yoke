@@ -12,6 +12,7 @@ from yoke_core.domain.schema_common import (
     _get_indexes,
     _table_exists,
 )
+from yoke_core.domain.schema_init_columns import apply_work_claim_scope_column
 from yoke_core.domain.schema_init_work_claim_indexes import (
     ACTIVE_EPIC_TASK_INDEX_NAME,
     ACTIVE_ITEM_INDEX_NAME,
@@ -181,10 +182,7 @@ def apply(conn: Any) -> None:
     if not _table_exists(conn, TABLE):
         return
     if not _column_exists(conn, TABLE, SCOPE_COLUMN):
-        raise AssertionError(
-            "work_claims.scope must arrive through additive schema convergence "
-            "before migration 0020"
-        )
+        apply_work_claim_scope_column(conn)
     before = int(conn.execute(f"SELECT COUNT(*) FROM {TABLE}").fetchone()[0])
     _backfill_scope(conn)
     if db_backend.connection_is_postgres(conn):
