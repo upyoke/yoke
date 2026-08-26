@@ -19,10 +19,11 @@ MAIN_ROOT=$(git rev-parse --show-toplevel)
 ITEM_REF="{arg}"
 ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json 2>/dev/null) || ITEM_PIN_JSON=""
 # ITEM_REF — public PREFIX-N for every yoke CLI item argument.
-# ITEM_NUM — global DB items.id for function-call payloads and
-#            work_claims.item_id. Never pass ITEM_NUM to a CLI that
-#            expects PREFIX-N or a project-local number. Never re-parse
-#            the numeric tail of PREFIX-N as items.id.
+# ITEM_NUM — global DB items.id for function-call payloads and the
+#            work_claims item scope ({"item_id":N}). Never pass
+#            ITEM_NUM to a CLI that expects PREFIX-N or a
+#            project-local number. Never re-parse the numeric tail
+#            of PREFIX-N as items.id.
 ITEM_NUM=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["item_id"])' 2>/dev/null) || ITEM_NUM=""
 ITEM_WORKFLOW_ID=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
@@ -96,13 +97,13 @@ yoke claims work acquire \
     --reason polish_run
 ```
 
-After `claim-work`, verify the session holds an active claim on `$ITEM_REF` before proceeding. Use the canonical DB router — never construct a DB path manually or use worktree-local paths:
+After `claim-work`, verify the session holds an active claim on `$ITEM_REF` before proceeding. Use the registered holder command — never construct a DB path manually or use worktree-local paths:
 
 ```bash
-_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
-    "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND item_id=${ITEM_NUM} AND released_at IS NULL")
-if [ -z "$_claim_ok" ] || [ "$_claim_ok" = "0" ]; then
-    echo "HALT: polish — no active work_claims row for ${ITEM_REF}."
+_claim_holder=$(yoke claims work holder-get --item "$ITEM_REF" --json 2>/dev/null | python3 -c \
+ 'import json,sys; print((json.load(sys.stdin)["result"].get("holder") or {}).get("session_id", ""))' 2>/dev/null) || _claim_holder=""
+if [ "$_claim_holder" != "${YOKE_SESSION_ID}" ]; then
+    echo "HALT: polish — no active work_claims row for ${ITEM_REF} held by this session."
     echo "Recovery: re-run 'yoke claims work acquire --item ${ITEM_REF} --reason polish_run'."
     exit 1
 fi

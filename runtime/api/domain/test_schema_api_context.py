@@ -5,7 +5,8 @@ Covers acceptance criteria:
 - Render works for ``core``, ``claims``, and the role-specific union
   for the five Bash-capable agents.
 - Claims packet includes the canonical work-holder recipe and the
-  typed ``work_claims`` target model (target_kind + specialized columns).
+  typed ``work_claims`` target model (target_kind + one canonical
+  JSON ``scope`` object per kind).
 - Wrapper/domain commands surface before any raw diagnostic SQL recipe.
 - Rendered packet bodies are free of the historically
   observed wrong terms.
@@ -58,8 +59,8 @@ def test_claims_packet_includes_work_holder_recipe() -> None:
 
 def test_claims_packet_includes_typed_target_model() -> None:
     body = sac.render_topic_packet("claims")
-    # target_kind plus the four specialized columns the typed model uses.
-    for column in (
+    # target_kind plus every key the kind-specific ``scope`` objects use.
+    for token in (
         "target_kind",
         "item_id",
         "epic_id",
@@ -67,7 +68,7 @@ def test_claims_packet_includes_typed_target_model() -> None:
         "process_key",
         "conflict_group",
     ):
-        assert column in body, f"claims packet missing typed-target column: {column}"
+        assert token in body, f"claims packet missing typed-target token: {token}"
 
 
 def test_core_packet_wrappers_precede_raw_sql() -> None:
