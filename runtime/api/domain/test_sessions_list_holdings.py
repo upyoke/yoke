@@ -11,7 +11,12 @@ from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from yoke_core.domain.sessions_list_read import list_sessions
-from yoke_core.domain.work_claim_targets import make_item_target, make_steering_target
+from yoke_core.domain.work_claim_targets import (
+    make_item_target,
+    make_migration_serialization_target,
+    make_qa_admission_target,
+    make_steering_target,
+)
 
 
 def _iso(minutes_ago: int = 0) -> str:
@@ -88,21 +93,28 @@ def _insert_lease(
     owner_item_id: int | None = None,
     released_at: str | None = None,
 ) -> None:
+    """Seed one shared-operation coordination claim by its operator key.
+
+    The key decides the kind: migration territory is always item-owned,
+    a physical host is always session-held.
+    """
+    del owner_kind, owner_session_id
+    prefix, resource = lease_key.split(":", 1)
+    if prefix == "LIVE_DB_MIGRATION":
+        target = make_migration_serialization_target(1, resource, int(owner_item_id))
+    else:
+        target = make_qa_admission_target(resource)
     conn.execute(
-        "INSERT INTO coordination_leases ("
-        "project_id, lease_key, session_id, acquired_at, heartbeat_at, "
-        "owner_kind, owner_session_id, owner_item_id, released_at, "
-        "release_reason"
-        ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "INSERT INTO work_claims ("
+        "session_id, target_kind, scope, claimed_at, last_heartbeat, "
+        "released_at, release_reason"
+        ") VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (
-            1,
-            lease_key,
             session_id,
+            target.kind,
+            target.scope_json(),
             _iso(),
             _iso(),
-            owner_kind,
-            owner_session_id,
-            owner_item_id,
             released_at,
             "completed" if released_at else None,
         ),
@@ -130,12 +142,6 @@ def test_active_leases_project_onto_the_holding_session(test_db):
     _insert_lease(
         test_db,
         session_id="s-holder",
-        lease_key="LIVE_DB_MIGRATION:governed",
-        owner_session_id="s-holder",
-    )
-    _insert_lease(
-        test_db,
-        session_id="s-holder",
         lease_key="QA_HOST:released",
         owner_session_id="s-holder",
         released_at=_iso(5),
@@ -151,7 +157,6 @@ def test_active_leases_project_onto_the_holding_session(test_db):
     row = list_sessions()[0]
     keys = {lease["lease_key"] for lease in row["coordination_leases"]}
     assert keys == {
-        "LIVE_DB_MIGRATION:governed",
         "LIVE_DB_MIGRATION:primary",
         "QA_HOST:yoke",
     }

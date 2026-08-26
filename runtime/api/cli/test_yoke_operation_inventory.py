@@ -205,7 +205,7 @@ class TestAccessors:
     def test_is_wrapped_false_for_permanent(self) -> None:
         assert (
             inv.is_wrapped(
-                "python3 -m yoke_core.api.service_client coordination-lease-acquire"
+                "python3 -m yoke_core.api.service_client coordination-claim-acquire"
             )
             is False
         )

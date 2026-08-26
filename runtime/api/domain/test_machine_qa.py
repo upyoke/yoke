@@ -165,25 +165,19 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
             project_sequence INTEGER,
             title TEXT NOT NULL
         );
-        CREATE TABLE work_claims (
-            id INTEGER PRIMARY KEY,
-            session_id TEXT NOT NULL,
-            target_kind TEXT NOT NULL,
-            scope TEXT NOT NULL,
-            claimed_at TEXT NOT NULL,
-            released_at TEXT
-        );
         INSERT INTO items(id,project_id,project_sequence,title)
         VALUES(41,1,2001,'Prove the installer campaign');
         INSERT INTO work_claims(
             id,session_id,target_kind,scope,claimed_at,released_at
         ) VALUES(8,'session-machine','item','{"item_id":41}',
                  '2026-07-26T15:55:00Z',NULL);
-        INSERT INTO coordination_leases(
-            id,project_id,lease_key,session_id,actor_id,
-            acquired_at,heartbeat_at,released_at
+        INSERT INTO harness_sessions(session_id,actor_id)
+        VALUES('session-machine',2);
+        INSERT INTO work_claims(
+            id,session_id,target_kind,scope,claimed_at,last_heartbeat,
+            released_at
         ) VALUES(
-            9,1,'QA_HOST:mac-mini-lab','session-machine','2',
+            9,'session-machine','qa_admission','{"machine_id":"mac-mini-lab"}',
             '2026-07-26T15:58:00Z','2026-07-26T15:59:00Z',NULL
         );
         """
@@ -304,11 +298,14 @@ def test_verifier_holds_one_lease_and_returns_only_redacted_receipts(
     control = FakeHostControl()
     register_host_control_factory(lambda material: control)
     try:
+        conn.execute(
+            "INSERT INTO harness_sessions(session_id,actor_id) VALUES(?,2)",
+            ("session-verify",),
+        )
         result = verify_machine(
             conn,
             project="yoke",
             session_id="session-verify",
-            actor_id="2",
         )
     finally:
         clear_host_control_factory()
@@ -316,7 +313,8 @@ def test_verifier_holds_one_lease_and_returns_only_redacted_receipts(
     assert "top-secret" not in json.dumps(result)
     assert "[REDACTED]" in json.dumps(result)
     active = conn.execute(
-        "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+        "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
     ).fetchone()[0]
     assert active == 0
     verified_at = conn.execute(

@@ -214,7 +214,7 @@ def test_permanent_tool_shaped_operation_passes(
         "python3 -m yoke_core.tools.watch_doctorish --bogus\n",
         (
             "python3 -m yoke_core.api.service_client "
-            "coordination-lease-acquirex --bogus\n"
+            "coordination-claim-acquirex --bogus\n"
         ),
     ],
 )
@@ -243,7 +243,7 @@ def test_operator_break_glass_surface_is_not_tool_shaped_exemption(
 
     rel = ".agents/skills/yoke/conduct/SKILL.md"
     body = (
-        "python3 -m yoke_core.api.service_client coordination-lease-acquire --bogus\n"
+        "python3 -m yoke_core.api.service_client coordination-claim-acquire --bogus\n"
     )
     _setup(tmp_path, monkeypatch, {rel: body}, {rel: 5})
 

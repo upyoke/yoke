@@ -26,7 +26,7 @@ def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
     with test_database() as conn:
         execution, _requirement_id, _capture_run_id = _review_execution(conn, 4540)
         create_governed_tables(conn)
-        lease = acquire_lease(
+        lease = acquire(
             conn,
             1,
             "TEST_MAC:ordinary-review",
@@ -45,7 +45,7 @@ def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
         assert bundle is not None
         assert execution["state"] == "awaiting_agent_review"
         assert execution["machine_lease_id"] is None
-        assert get_lease(conn, lease.id).is_active is False
+        assert get_claim(conn, lease.id).is_active is False
 
 
 def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> None:
@@ -53,7 +53,7 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
         execution, requirement_id, capture_run_id = _review_execution(conn, 4541)
         bundle = begin_plan_review(conn, execution)
         create_governed_tables(conn)
-        lease = acquire_lease(
+        lease = acquire(
             conn,
             1,
             "TEST_MAC:review-atomicity",
@@ -100,7 +100,7 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
         assert execution_state == "awaiting_agent_review"
         assert execution["state"] == "awaiting_agent_review"
         assert execution["machine_lease_id"] == lease.id
-        assert get_lease(conn, lease.id).is_active is True
+        assert get_claim(conn, lease.id).is_active is True
         assert (
             conn.execute(
                 "SELECT COUNT(*) FROM qa_plan_review_verdicts WHERE bundle_id=%s",

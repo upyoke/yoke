@@ -104,29 +104,29 @@ class _Client:
                     "scope": scope.model_dump(mode="json"),
                 }
             }
-        if tokens[:2] == ("coordination-lease", "list"):
+        if tokens[:2] == ("coordination-claim", "list"):
             lease_key = tokens[tokens.index("--key") + 1]
             scope, lease_id = next(
                 pair for pair in self.opened if pair[0].lease_key == lease_key
             )
             current = {
                 "id": lease_id,
-                "lease_key": scope.lease_key,
+                "key": scope.lease_key,
                 "released_at": "2026-08-23T01:00:00Z" if self.consumed else None,
-                "release_reason": (
+                "release_reason_intent": (
                     QUALIFICATION_RELEASE_REASON if self.consumed else None
                 ),
-                "released_by_session_id": (
+                "session_id": (
                     "forged-session" if self.forged_release_session else "main-session"
                 ),
-                "released_by_actor_id": ("999" if self.forged_release_actor else "169"),
+                "actor_id": ("999" if self.forged_release_actor else "169"),
             }
             history = (
-                [{"id": lease_id - 20, "lease_key": scope.lease_key}]
+                [{"id": lease_id - 20, "key": scope.lease_key}]
                 if self.include_history
                 else []
             )
-            return {"leases": [*history, current]}
+            return {"claims": [*history, current]}
         raise AssertionError(tokens)
 
 

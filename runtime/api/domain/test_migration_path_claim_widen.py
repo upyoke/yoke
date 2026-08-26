@@ -21,6 +21,7 @@ from yoke_core.domain.db_claim import amend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers.claims_path import handle_widen
 from yoke_core.domain.migration_model_capability import canonical_json
+from yoke_core.domain.migration_model_capability_defaults import governed_postgres_seed
 from yoke_core.domain.work_claim_targets import (
     make_migration_serialization_target,
 )
@@ -29,7 +30,6 @@ from yoke_core.domain.work_claim_targets import (
 def _territory(project_id: int, model: str):
     """Migration territory for a model. The owner is not the unit held."""
     return make_migration_serialization_target(project_id, model, 1)
-from yoke_core.domain.migration_model_capability_defaults import governed_postgres_seed
 
 
 YOKE_MODULES = "packages/yoke-core/src/yoke_core/domain/migrations"

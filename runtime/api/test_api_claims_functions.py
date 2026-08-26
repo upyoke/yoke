@@ -1,4 +1,4 @@
-"""Tests for the ``claims.work.*`` + ``claims.path.*`` + claims.coordination_lease.* handlers.
+"""Tests for the ``claims.work.*`` + ``claims.path.*`` + claims.coordination_claim.* handlers.
 
 Exercises every registered function id via the dispatcher with the
 handler modules mocked at the domain layer so we do not touch a live
@@ -106,10 +106,10 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
             "claims.work.holder_list",
             "claims.path.activation_run",
             "claims.path.coordination_decision_build",
-            "claims.coordination_lease.acquire",
-            "claims.coordination_lease.heartbeat",
-            "claims.coordination_lease.release",
-            "claims.coordination_lease.list",
+            "claims.coordination_claim.acquire",
+            "claims.coordination_claim.heartbeat",
+            "claims.coordination_claim.release",
+            "claims.coordination_claim.list",
         ]
         for fid in extras:
             entry = lookup(fid)

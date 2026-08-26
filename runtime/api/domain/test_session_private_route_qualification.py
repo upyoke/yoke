@@ -174,7 +174,7 @@ def test_grant_rechecks_owner_and_expiry_after_open(monkeypatch) -> None:
         operator_actor_id=10,
         scope=_scope(),
     )
-    lease = get_lease(conn, grant.lease_id)
+    lease = get_claim(conn, grant.lease_id)
     opened = datetime.fromisoformat(grant.opened_at.replace("Z", "+00:00"))
 
     with pytest.raises(PrivateRouteQualificationError) as expired:

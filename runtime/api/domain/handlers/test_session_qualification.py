@@ -209,7 +209,7 @@ def test_reserved_grant_cannot_be_heartbeated_or_forged_released(
     monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn = _connection()
-    monkeypatch.setattr(claims_coordination_lease, "_connect_rw", lambda: conn)
+    monkeypatch.setattr(claims_coordination_claim, "_connect_rw", lambda: conn)
     monkeypatch.setattr(
         "yoke_core.domain.db_helpers.connect",
         lambda: _NoCloseConnection(conn),

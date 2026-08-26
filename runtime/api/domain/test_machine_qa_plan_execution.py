@@ -194,7 +194,7 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
         session_id=ACTOR.session_id,
     )
     case = execution["roster"][0]
-    held = acquire_lease(
+    held = acquire(
         test_db,
         1,
         lease_key("mac-mini-lab"),
@@ -223,7 +223,7 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
     assert stored["state"] == "waiting"
     assert stored["machine_lease_id"] is None
 
-    release_lease(test_db, held.id, "test-holder-finished")
+    release(test_db, held.id, "test-holder-finished")
     resumed = begin_plan_execution(
         test_db,
         item_id=item_id,

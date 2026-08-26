@@ -88,7 +88,8 @@ def test_verification_begin_local_submit_persists_and_releases(
         assert "secret" not in json.dumps(execution).lower()
         assert (
             conn.execute(
-                "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+                "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
             ).fetchone()[0]
             == 1
         )
@@ -109,7 +110,8 @@ def test_verification_begin_local_submit_persists_and_releases(
     assert submitted.result_payload["status"] == "verified"
     assert (
         conn.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
         ).fetchone()[0]
         == 0
     )
@@ -157,7 +159,8 @@ def test_submit_rejects_another_actor_without_releasing_lease(
     assert "different session" in submitted.error.message
     assert (
         conn.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
         ).fetchone()[0]
         == 1
     )
@@ -239,7 +242,8 @@ def test_case_begin_local_submit_records_secret_free_evidence(
     assert submitted.result_payload["evidence_count"] == 1
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
         ).fetchone()[0]
         == 0
     )

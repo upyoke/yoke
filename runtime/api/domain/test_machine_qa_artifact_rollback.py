@@ -132,7 +132,8 @@ def _assert_submission_rolled_back(
     )
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind = 'qa_admission'"
         ).fetchone()[0]
         == 1
     )
@@ -179,7 +180,7 @@ def test_failed_submission_removes_every_new_canonical_artifact(
         )
     else:
         monkeypatch.setattr(
-            "yoke_core.domain.machine_qa_execution_protocol.release_lease",
+            "yoke_core.domain.machine_qa_execution_protocol.release",
             lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 ValueError("lease release unavailable")
             ),

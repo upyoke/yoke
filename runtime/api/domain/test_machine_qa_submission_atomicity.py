@@ -41,7 +41,8 @@ from yoke_core.domain.machine_qa_local_execution import (
 
 VERIFY_ACTOR = ActorContext(actor_id="2", session_id="session-machine-submit-atomicity")
 _ACTIVE_LEASE_COUNT_SQL = (
-    "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+    "SELECT COUNT(*) FROM work_claims "
+    "WHERE released_at IS NULL AND target_kind = 'qa_admission'"
 )
 
 
@@ -300,7 +301,7 @@ def test_case_release_failure_rolls_back_run_and_evidence(
     submission = _local_case_submission(requirement_id)
 
     monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_execution_protocol.release_lease",
+        "yoke_core.domain.machine_qa_execution_protocol.release",
         _reject_release,
     )
     rejected = handle_case_submit(
@@ -326,7 +327,7 @@ def test_verification_release_failure_rolls_back_receipt(
     submission = _local_verification_submission()
 
     monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_execution_protocol.release_lease",
+        "yoke_core.domain.machine_qa_execution_protocol.release",
         _reject_release,
     )
     rejected = handle_verify_submit(

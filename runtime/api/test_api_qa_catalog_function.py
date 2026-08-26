@@ -14,7 +14,10 @@ from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.qa_plan_project_defaults import set_project_default
 from yoke_core.domain.schema_init_tables import create_governed_tables
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
-from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_core.domain.work_claim_targets import (
+    make_item_target,
+    make_qa_admission_target,
+)
 
 
 # The roster resolves a host lease through the registered resource name,
@@ -138,17 +141,20 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
             (make_item_target(int(item["id"])).scope_json(), "2026-07-26T16:05:00Z", "2026-07-26T16:06:00Z"),
         )
         conn.execute(
-            "INSERT INTO coordination_leases("
-            "id,project_id,lease_key,session_id,actor_id,"
-            "acquired_at,heartbeat_at,released_at"
-            ") VALUES(901,1,'QA_HOST:mac-mini-lab','machine-session','2',"
-            "%s,%s,NULL)",
-            ("2026-07-26T16:05:00Z", "2026-07-26T16:06:00Z"),
+            "INSERT INTO work_claims("
+            "id,session_id,target_kind,scope,claimed_at,last_heartbeat,"
+            "released_at"
+            ") VALUES(901,'machine-session','qa_admission',%s,%s,%s,NULL)",
+            (
+                make_qa_admission_target("mac-mini-lab").scope_json(),
+                "2026-07-26T16:05:00Z",
+                "2026-07-26T16:06:00Z",
+            ),
         )
 
         methods = list_methods(conn, project="yoke")
         detail = get_plan(conn, plan_id=plan["id"])
-        conn.execute("UPDATE coordination_leases SET released_at=%s WHERE id=901", ("2026-07-26T16:10:00Z",))
+        conn.execute("UPDATE work_claims SET released_at=%s WHERE id=901", ("2026-07-26T16:10:00Z",))
         conn.execute("UPDATE test_machine_verifications SET status='error' WHERE project_id=1")
         error_state = next(row["required_capabilities"][0]["state"] for row in list_methods(conn, project="yoke") if row["id"] == "machine-state-check")
         conn.execute("UPDATE test_machine_verifications SET status='configured_unverified' WHERE project_id=1")
