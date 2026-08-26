@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 
 
-REPO = Path(__file__).resolve().parents[2]
-ONBOARD = REPO / ".agents" / "skills" / "yoke" / "onboard"
+ONBOARD = SKILLS / "onboard"
 BUNDLE = REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree"
-
-
-def _read(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
 
 
 def test_profile_accepts_native_commands_and_review_only_suites() -> None:
@@ -27,6 +22,14 @@ def test_profile_accepts_native_commands_and_review_only_suites() -> None:
     for command in ("mvn -q -DskipITs test", "vendor/bin/phpunit", "xcodebuild"):
         assert command in text
     assert "separate `test_roots` entry" in text
+    for evidence_field in (
+        "roots {test_roots}",
+        "quick {quick_argv|not-applicable}",
+        "full {full_argv|same-as-quick|not-applicable}",
+        "suite health {suite_health}",
+        "because {runner_rationale}",
+    ):
+        assert evidence_field in text
 
 
 def test_binding_keeps_non_actions_and_legacy_suites_honest() -> None:

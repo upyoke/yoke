@@ -175,7 +175,7 @@ substitute for the binding above.
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status verification-command-binding=configured \
-  --evidence verification-command-binding="registered-command-quick bound to {quick_argv}; runner {command|command-ci}; {ci_workflow_file or 'no Actions test workflow declared'}"
+  --evidence verification-command-binding="roots {test_roots}; quick {quick_argv}; full {full_argv|same-as-quick}; suite health {suite_health}; runner {command|command-ci} because {runner_rationale}; {ci_workflow_file or 'no Actions test workflow declared'}"
 ```
 
 For the explicit skip, mark `verification-command-binding=not-needed` with the
@@ -184,8 +184,10 @@ operator's reason as evidence. When the operator has not decided yet, mark it
 `blocked` with the missing executable named.
 
 For a review-only suite, mark `verification-command-binding=configured` with
-evidence such as `review-only suite: {legacy_argv}; no project-default command;
-blocking implementation_review plus advisory command requirements at seeding`.
+evidence such as `review-only suite: roots {test_roots}; argv {legacy_argv};
+suite health {known_condition}; runner advisory command because the suite is
+not expected green; no project-default command; blocking implementation_review
+plus advisory command requirements at seeding`.
 
 ### Project Structure policy rows
 
