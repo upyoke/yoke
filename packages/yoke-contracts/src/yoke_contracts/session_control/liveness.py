@@ -7,8 +7,16 @@ accept and report the same words.
 
 from __future__ import annotations
 
+LIVENESS_ACTIVE = "active"
+LIVENESS_STALE = "stale"
+LIVENESS_ENDED = "ended"
+
 #: The states a session row can be in, in narrowing-to-widening order.
-LIVENESS_STATES: tuple[str, ...] = ("active", "stale", "ended")
+LIVENESS_STATES: tuple[str, ...] = (
+    LIVENESS_ACTIVE,
+    LIVENESS_STALE,
+    LIVENESS_ENDED,
+)
 
 #: Widening sentinel: every state, named explicitly by the caller.
 LIVENESS_ALL = "all"
@@ -17,4 +25,11 @@ LIVENESS_ALL = "all"
 LIVENESS_CHOICES: tuple[str, ...] = (*LIVENESS_STATES, LIVENESS_ALL)
 
 
-__all__ = ["LIVENESS_ALL", "LIVENESS_CHOICES", "LIVENESS_STATES"]
+__all__ = [
+    "LIVENESS_ACTIVE",
+    "LIVENESS_ALL",
+    "LIVENESS_CHOICES",
+    "LIVENESS_ENDED",
+    "LIVENESS_STALE",
+    "LIVENESS_STATES",
+]

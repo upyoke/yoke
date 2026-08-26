@@ -23,6 +23,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_contracts.session_control.liveness import (
+    LIVENESS_ACTIVE,
+    LIVENESS_ENDED,
+    LIVENESS_STALE,
+    LIVENESS_STATES,
+)
 from yoke_core.domain import db_helpers
 from yoke_core.domain.actors import (
     ActorLabelAmbiguous,
@@ -42,11 +48,6 @@ from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
 from yoke_core.domain.session_presentation_read import session_presentation
 
-
-LIVENESS_ACTIVE = "active"
-LIVENESS_STALE = "stale"
-LIVENESS_ENDED = "ended"
-LIVENESS_STATES = (LIVENESS_ACTIVE, LIVENESS_STALE, LIVENESS_ENDED)
 
 DEFAULT_SESSIONS_LIST_LIMIT = 100
 MAX_SESSIONS_LIST_LIMIT = 500

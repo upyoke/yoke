@@ -58,7 +58,7 @@ def test_recipient_selector_requires_an_anchor_and_closed_surfaces() -> None:
     selector = RecipientSelector(
         projects=["yoke"],
         executor_surfaces=["codex-cli"],
-        liveness=["stopped"],
+        liveness=["ended"],
     )
     assert selector.projects == ["yoke"]
 
@@ -66,6 +66,9 @@ def test_recipient_selector_requires_an_anchor_and_closed_surfaces() -> None:
         RecipientSelector(executor_surfaces=["codex-cli"])
     with pytest.raises(ValidationError, match="unknown executor surfaces"):
         RecipientSelector(universe=True, executor_surfaces=["invented"])
+    # A state the resolver never produces would filter to nobody in silence.
+    with pytest.raises(ValidationError, match="unknown liveness states"):
+        RecipientSelector(universe=True, liveness=["stopped"])
 
 
 def test_session_control_schema_is_additive_and_idempotent() -> None:
