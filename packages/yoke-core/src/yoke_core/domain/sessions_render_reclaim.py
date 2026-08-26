@@ -8,7 +8,6 @@ from . import sessions_analytics as _sa
 from .sessions_analytics import (
     DEFAULT_STALE_THRESHOLD_MINUTES,
     EVENT_WORK_HANDED_OFF,
-    EVENT_WORK_RECLAIMED,
     EVENT_WORK_RELEASED,
     SessionError,
 )
@@ -20,16 +19,17 @@ from .sessions_queries import (
     normalize_claim_item_id,
 )
 from .sessions_render_attribution import clear_current_item, set_current_item
+from .sessions_lifecycle_claim_events import emit_reclaimed_work_claim
 from .workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from .work_claim_targets import from_row as work_claim_target_from_row
 from .workflow_item_binding_validation import (
     WorkflowItemBindingError,
     validate_work_claim_target,
 )
-from .work_claim_targets import from_row as work_claim_target_from_row
 
 
 def find_stale_sessions(
@@ -82,7 +82,10 @@ def reclaim_stale_session(
 
     # Capture claim details before releasing for per-claim telemetry
     active_claim_rows = conn.execute(
-        """SELECT id, item_id, task_num FROM work_claims
+        """SELECT id, session_id, target_kind, item_id, epic_id, task_num,
+                  process_key, conflict_group, steering_project_id,
+                  steering_strategy_doc_slugs
+           FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
            ORDER BY claimed_at ASC, id ASC""",
         (session_id,),
@@ -91,7 +94,10 @@ def reclaim_stale_session(
         conn, (int(claim_row["id"]) for claim_row in active_claim_rows)
     )
     active_claim_rows = conn.execute(
-        """SELECT id, item_id, task_num FROM work_claims
+        """SELECT id, session_id, target_kind, item_id, epic_id, task_num,
+                  process_key, conflict_group, steering_project_id,
+                  steering_strategy_doc_slugs
+           FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
            ORDER BY claimed_at ASC, id ASC""",
         (session_id,),
@@ -121,18 +127,7 @@ def reclaim_stale_session(
     conn.commit()
 
     for claim_row in released_claim_rows:
-        _sa._emit_session_event(
-            EVENT_WORK_RECLAIMED,
-            session_id=session_id,
-            item_id=str(claim_row["item_id"])
-            if claim_row["item_id"] is not None
-            else None,
-            task_num=claim_row["task_num"],
-            context={
-                "claim_id": claim_row["id"],
-                "reason": "stale_session_reclaimed",
-            },
-        )
+        emit_reclaimed_work_claim(session_id, claim_row)
 
     return _get_session(conn, session_id)
 

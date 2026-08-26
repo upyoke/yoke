@@ -124,7 +124,11 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
             target_kind TEXT NOT NULL, item_id INTEGER, epic_id INTEGER,
-            task_num INTEGER, process_key TEXT, claimed_at TEXT NOT NULL,
+            task_num INTEGER, process_key TEXT, conflict_group TEXT,
+            steering_project_id INTEGER, steering_strategy_doc_slugs TEXT,
+            owner_kind TEXT, owner_item_id INTEGER, owner_session_id TEXT,
+            owner_work_claim_id INTEGER, registered_by_actor_id INTEGER,
+            registered_by_session_id TEXT, claimed_at TEXT NOT NULL,
             released_at TEXT
         );
         """

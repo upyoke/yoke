@@ -30,13 +30,14 @@ from .sessions_analytics import (
 )
 from .sessions_lifecycle_release import (
     _POST_COMMIT_RECEIPT_KEY,
-    emit_work_release_post_commit,
     release_work_claim_for_execution,
 )
+from .sessions_lifecycle_claim_release import emit_claim_release_post_commit
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
     TARGET_KIND_PROCESS,
+    TARGET_KIND_STEERING_SCOPE,
     WorkClaimTarget,
     from_row,
 )
@@ -58,6 +59,11 @@ def _describe_target(target: WorkClaimTarget) -> Dict[str, Any]:
     elif target.kind == TARGET_KIND_PROCESS:
         desc["process_key"] = target.process_key
         desc["conflict_group"] = target.conflict_group
+    elif target.kind == TARGET_KIND_STEERING_SCOPE:
+        desc["steering_project_id"] = target.steering_project_id
+        desc["steering_strategy_doc_slugs"] = list(
+            target.steering_strategy_doc_slugs or ()
+        )
     return desc
 
 
@@ -81,6 +87,8 @@ def _release_session_claim_rows(
                 "task_num": row["task_num"],
                 "process_key": row["process_key"],
                 "conflict_group": row["conflict_group"],
+                "steering_project_id": row["steering_project_id"],
+                "steering_strategy_doc_slugs": row["steering_strategy_doc_slugs"],
             }
         )
         result = release_work_claim_for_execution(
@@ -121,7 +129,7 @@ def emit_session_claim_releases_post_commit(
     """Emit deferred per-claim and aggregate events after a batch commit."""
     if emit_individual:
         for receipt in post_commit_receipts:
-            emit_work_release_post_commit(conn, receipt)
+            emit_claim_release_post_commit(conn, receipt)
 
     if released:
         first_item: Optional[str] = None

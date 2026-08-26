@@ -50,7 +50,8 @@ def _claim_rows(conn: Any) -> list[dict[str, Any]]:
     rows = conn.execute(
         "SELECT wc.session_id, wc.target_kind, wc.item_id, wc.epic_id, "
         "wc.task_num, wc.process_key, "
-        "COALESCE(item.project_id, epic.project_id, hs.project_id) "
+        "COALESCE(item.project_id, epic.project_id, wc.steering_project_id, "
+        "hs.project_id) "
         "AS anchor_project_id, "
         "COALESCE(task_lane.lane_role, item_lane.lane_role, '') AS work_role, "
         "COALESCE(task_lane.branch, item_lane.branch, '') AS worktree_branch, "
@@ -181,6 +182,17 @@ def _anchor_hits(
         for session_id, row in sessions.items():
             if int(row["project_id"]) == identity.id:
                 _add_hit(hits, session_id, f"project:{identity.slug}", identity.id)
+        for claim in claims:
+            if (
+                claim["target_kind"] == "steering_scope"
+                and int(claim["anchor_project_id"]) == identity.id
+            ):
+                _add_hit(
+                    hits,
+                    str(claim["session_id"]),
+                    f"project:{identity.slug}",
+                    identity.id,
+                )
     if selector.universe:
         for session_id, row in sessions.items():
             _add_hit(hits, session_id, "universe", int(row["project_id"]))

@@ -6,17 +6,17 @@ _Audit generated_at: 2026-08-26T14:41:57Z_
 
 ## 1. Summary
 
-- Function ids registered: **420**
+- Function ids registered: **423**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **347** (347 carry usable `--help`)
-- Operation tracker: **324 wrapped**, 10 tool_cli, 125 permanent, 0 pending
+- `yoke` CLI subcommands: **350** (350 carry usable `--help`)
+- Operation tracker: **327 wrapped**, 10 tool_cli, 125 permanent, 0 pending
 - Skill-body recipes: 288 total (236 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **324** (operation tracker confirms 324 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **327** (operation tracker confirms 327 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -34,6 +34,9 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **324** (operation track
 | claims | `yoke claims path register` | `claims.path.register` | ok |
 | claims | `yoke claims path required-gate` | `claims.path.required_gate` | ok |
 | claims | `yoke claims path widen` | `claims.path.widen` | ok |
+| claims | `yoke claims steering-scope acquire` | `claims.steering_scope.acquire` | ok |
+| claims | `yoke claims steering-scope list` | `claims.steering_scope.list` | ok |
+| claims | `yoke claims steering-scope release` | `claims.steering_scope.release` | ok |
 | claims | `yoke claims work acquire` | `claims.work.acquire` | ok |
 | claims | `yoke claims work holder-get` | `claims.work.holder_get` | ok |
 | claims | `yoke claims work current` | `claims.work.holder_get` | ok |
@@ -512,7 +515,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 129 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 32 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 33 |
 | runtime/agents/*.md | 9 |
 | runtime/harness/claude/agents/yoke-*.md | 8 |
 | runtime/harness/codex/agents/yoke-*.toml | 8 |

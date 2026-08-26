@@ -117,7 +117,8 @@ def end_session(
 
     active_claim_rows = conn.execute(
         """SELECT id, target_kind, item_id, epic_id, task_num,
-                  process_key, conflict_group
+                  process_key, conflict_group, steering_project_id,
+                  steering_strategy_doc_slugs
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
            ORDER BY claimed_at ASC, id ASC""",
@@ -129,7 +130,8 @@ def end_session(
     )
     active_claim_rows = conn.execute(
         """SELECT id, target_kind, item_id, epic_id, task_num,
-                  process_key, conflict_group
+                  process_key, conflict_group, steering_project_id,
+                  steering_strategy_doc_slugs
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
            ORDER BY claimed_at ASC, id ASC""",

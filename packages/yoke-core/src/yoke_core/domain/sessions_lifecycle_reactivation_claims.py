@@ -17,6 +17,7 @@ from .workflow_item_binding_validation import (
     validate_work_claim_target,
 )
 from .work_claim_targets import from_row as work_claim_target_from_row
+from .work_claim_targets import TARGET_KIND_STEERING_SCOPE
 
 DEFAULT_REACQUIRE_WINDOW_S = 300
 REACTIVATION_RELEASE_REASONS = ("session_ended", "reclaimed")
@@ -66,6 +67,12 @@ def target_descriptor(row: Any) -> Dict[str, Any]:
         entry["process_key"] = row["process_key"]
     if row["conflict_group"] is not None:
         entry["conflict_group"] = row["conflict_group"]
+    if row["target_kind"] == TARGET_KIND_STEERING_SCOPE:
+        target = work_claim_target_from_row(dict(row))
+        entry["steering_project_id"] = target.steering_project_id
+        entry["steering_strategy_doc_slugs"] = list(
+            target.steering_strategy_doc_slugs or ()
+        )
     return entry
 
 
@@ -77,6 +84,8 @@ def _target_key(row: Any) -> Tuple[Any, ...]:
         row["task_num"],
         row["process_key"],
         row["conflict_group"],
+        row["steering_project_id"],
+        row["steering_strategy_doc_slugs"],
     )
 
 
@@ -103,6 +112,39 @@ def _conflict_holder(conn: Any, row: Any) -> Tuple[Optional[str], bool]:
                 row["session_id"],
             ]
         )
+    elif target_kind == TARGET_KIND_STEERING_SCOPE:
+        from .steering_scope_claims import scopes_intersect
+
+        target = work_claim_target_from_row(dict(row))
+        candidates = conn.execute(
+            "SELECT session_id, steering_project_id, "
+            "steering_strategy_doc_slugs FROM work_claims "
+            "WHERE released_at IS NULL AND target_kind = 'steering_scope' "
+            "AND steering_project_id = %s ORDER BY claimed_at, id",
+            (target.steering_project_id,),
+        ).fetchall()
+        for candidate in candidates:
+            candidate_target = work_claim_target_from_row(
+                {
+                    "target_kind": TARGET_KIND_STEERING_SCOPE,
+                    "steering_project_id": candidate["steering_project_id"],
+                    "steering_strategy_doc_slugs": candidate[
+                        "steering_strategy_doc_slugs"
+                    ],
+                }
+            )
+            if not scopes_intersect(
+                target.steering_strategy_doc_slugs or (),
+                candidate_target.steering_strategy_doc_slugs or (),
+            ):
+                continue
+            if (
+                candidate["session_id"] == row["session_id"]
+                and candidate_target == target
+            ):
+                return None, True
+            return str(candidate["session_id"]), False
+        return None, False
     else:
         return None, False
     hit = conn.execute(sql + " LIMIT 1", tuple(params)).fetchone()
@@ -119,7 +161,7 @@ def _conflict_holder(conn: Any, row: Any) -> Tuple[Optional[str], bool]:
     elif target_kind == "epic_task":
         self_sql += " AND epic_id = %s AND task_num = %s AND session_id = %s"
         self_params.extend([row["epic_id"], row["task_num"], row["session_id"]])
-    else:
+    elif target_kind == "process":
         self_sql += " AND process_key = %s AND conflict_group = %s AND session_id = %s"
         self_params.extend(
             [
@@ -128,6 +170,8 @@ def _conflict_holder(conn: Any, row: Any) -> Tuple[Optional[str], bool]:
                 row["session_id"],
             ]
         )
+    else:
+        return None, False
     active_self = conn.execute(
         self_sql + " LIMIT 1",
         tuple(self_params),
@@ -145,9 +189,17 @@ def _insert_reacquired_claim(conn: Any, row: Any, *, now_iso: str) -> int:
     cursor = conn.execute(
         "INSERT INTO work_claims "
         "(session_id, target_kind, item_id, epic_id, task_num, "
-        f" process_key, conflict_group, claim_type, claimed_at, last_heartbeat{reason_cols}) "
+        " process_key, conflict_group, steering_project_id, "
+        " steering_strategy_doc_slugs, owner_kind, owner_item_id, "
+        " owner_session_id, owner_work_claim_id, registered_by_actor_id, "
+        " registered_by_session_id, claim_type, claimed_at, last_heartbeat"
+        f"{reason_cols}) "
         "SELECT %s, target_kind, item_id, epic_id, task_num, "
-        f"       process_key, conflict_group, 'exclusive', %s, %s{reason_cols} "
+        "       process_key, conflict_group, steering_project_id, "
+        "       steering_strategy_doc_slugs, owner_kind, owner_item_id, "
+        "       owner_session_id, owner_work_claim_id, registered_by_actor_id, "
+        "       registered_by_session_id, 'exclusive', %s, %s"
+        f"{reason_cols} "
         "FROM work_claims WHERE id = %s "
         "RETURNING id",
         (row["session_id"], now_iso, now_iso, row["id"]),
@@ -159,7 +211,10 @@ def _insert_reacquired_claim(conn: Any, row: Any, *, now_iso: str) -> int:
 def _released_claim_rows(conn: Any, session_id: str) -> list[Any]:
     return conn.execute(
         "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-        "process_key, conflict_group, released_at, release_reason FROM work_claims "
+        "process_key, conflict_group, steering_project_id, "
+        "steering_strategy_doc_slugs, owner_kind, owner_item_id, "
+        "owner_session_id, owner_work_claim_id, registered_by_actor_id, "
+        "registered_by_session_id, released_at, release_reason FROM work_claims "
         "WHERE session_id = %s AND release_reason IN "
         f"{_REACTIVATION_REASON_SQL} "
         "AND released_at IS NOT NULL ORDER BY id DESC",
@@ -196,6 +251,16 @@ def auto_reacquire_session_ended_claims(
             conn.commit()
         return [], []
 
+    from .steering_scope_claims import lock_project_scope
+
+    for project_id in sorted(
+        {
+            int(row["steering_project_id"])
+            for row in rows
+            if row["target_kind"] == TARGET_KIND_STEERING_SCOPE
+        }
+    ):
+        lock_project_scope(conn, project_id)
     lock_work_claims_workflow_bindings(
         conn,
         (int(row["id"]) for row in rows),

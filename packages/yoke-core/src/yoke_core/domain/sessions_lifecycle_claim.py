@@ -174,6 +174,8 @@ def claim_work(
                 "Must specify target=WorkClaimTarget(...) or item_id=...",
             )
         target = make_item_target(int(normalize_claim_item_id(item_id)))
+    if target.steering_project_id is not None:
+        raise SessionError("INVALID_CLAIM", "Steering scopes require the project-serialized steering_scope_claims.acquire path.")
 
     now = _now_iso()
     p = _p(conn)

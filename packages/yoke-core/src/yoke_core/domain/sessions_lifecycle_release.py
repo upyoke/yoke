@@ -7,6 +7,11 @@ from typing import Any, Dict, List, Optional
 from . import db_backend, project_identity
 from . import sessions_analytics as _sa  # noqa: F401 - patch-compatible event seam
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
+from .sessions_lifecycle_claim_release import (
+    build_claim_release_post_commit_receipt,
+    emit_claim_release_post_commit,
+    find_active_claim,
+)
 from .sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_DOMAIN_ERROR,
     diagnose_target_release_miss,
@@ -19,8 +24,6 @@ from .sessions_lifecycle_release_precondition import (
 )
 from .sessions_lifecycle_release_events import (
     POST_COMMIT_RECEIPT_KEY as _POST_COMMIT_RECEIPT_KEY,
-    build_work_release_post_commit_receipt,
-    emit_work_release_post_commit,
 )
 from .sessions_queries import _now_iso, normalize_claim_item_id
 from .sessions_render_attribution import release_current_item_focus
@@ -145,7 +148,7 @@ def release_work_claim_for_execution(
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     binding_lock.lock_work_claim_target_workflow_binding(conn, target)
     now = _now_iso()
-    claim_row = _find_active_claim(conn, session_id, target)
+    claim_row = find_active_claim(conn, session_id, target)
     target_label = target.render()
 
     if claim_row is None:
@@ -231,7 +234,7 @@ def release_work_claim_for_execution(
     if target.kind == TARGET_KIND_PROCESS:
         _release_linked_path_claims(conn, claim_id, now, canonical_reason)
 
-    receipt = build_work_release_post_commit_receipt(
+    receipt = build_claim_release_post_commit_receipt(
         session_id=session_id,
         target=target,
         claim_id=int(claim_id),
@@ -241,7 +244,7 @@ def release_work_claim_for_execution(
     )
     if commit:
         conn.commit()
-        emit_work_release_post_commit(conn, receipt)
+        emit_claim_release_post_commit(conn, receipt)
 
     result = {
         "released": True,
@@ -254,36 +257,6 @@ def release_work_claim_for_execution(
     if not commit:
         result[_POST_COMMIT_RECEIPT_KEY] = receipt
     return result
-
-
-def _find_active_claim(
-    conn: Any,
-    session_id: str,
-    target: WorkClaimTarget,
-) -> Optional[Any]:
-    if target.kind == TARGET_KIND_ITEM:
-        return conn.execute(
-            "SELECT id FROM work_claims "
-            f"WHERE session_id = {_p(conn)} AND target_kind='item' AND item_id = {_p(conn)} "
-            "AND released_at IS NULL "
-            "ORDER BY claimed_at DESC, id DESC LIMIT 1",
-            (session_id, target.item_id),
-        ).fetchone()
-    if target.kind == TARGET_KIND_EPIC_TASK:
-        return conn.execute(
-            "SELECT id FROM work_claims "
-            f"WHERE session_id = {_p(conn)} AND target_kind='epic_task' AND epic_id = {_p(conn)} "
-            f"AND task_num = {_p(conn)} AND released_at IS NULL "
-            "ORDER BY claimed_at DESC, id DESC LIMIT 1",
-            (session_id, target.epic_id, target.task_num),
-        ).fetchone()
-    return conn.execute(
-        "SELECT id FROM work_claims "
-        f"WHERE session_id = {_p(conn)} AND target_kind='process' AND process_key = {_p(conn)} "
-        "AND released_at IS NULL "
-        "ORDER BY claimed_at DESC, id DESC LIMIT 1",
-        (session_id, target.process_key),
-    ).fetchone()
 
 
 def _maybe_clear_current_item(
@@ -300,8 +273,7 @@ def _maybe_clear_current_item(
     Focus naming a different item is left untouched.
     """
     current_row = conn.execute(
-        "SELECT current_item_id "
-        f"FROM harness_sessions WHERE session_id = {_p(conn)}",
+        f"SELECT current_item_id FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
     ).fetchone()
     if current_row is None or current_row["current_item_id"] is None:
@@ -343,6 +315,7 @@ def _release_linked_path_claims(
         )
         released_ids.append(cid)
     return released_ids
+
 
 from .sessions_lifecycle_release_bulk import release_all_claims  # noqa: E402,F401
 from .sessions_lifecycle_release_operator import operator_override_release_claim  # noqa: E402,F401

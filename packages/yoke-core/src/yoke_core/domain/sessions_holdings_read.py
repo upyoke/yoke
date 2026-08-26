@@ -18,11 +18,13 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.work_claim_targets import from_row as work_claim_target_from_row
 from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
 
 _CLAIM_ROWS_SQL = (
     "SELECT wc.session_id, wc.target_kind, wc.item_id, wc.epic_id, "
     "wc.task_num, wc.process_key, wc.conflict_group, wc.claimed_at, "
+    "wc.steering_project_id, wc.steering_strategy_doc_slugs, "
     "wc.reason, COALESCE(task_lane.lane_role, item_lane.lane_role) "
     "AS lane_role "
     "FROM work_claims wc "
@@ -129,6 +131,14 @@ def _render_target(
         return fallback_ref, {}
     if kind == "epic_task":
         return f"epic {claim.get('epic_id')} task {claim.get('task_num')}", {}
+    if kind == "steering_scope":
+        steering = work_claim_target_from_row(claim)
+        return steering.render(), {
+            "steering_project_id": steering.steering_project_id,
+            "steering_strategy_doc_slugs": list(
+                steering.steering_strategy_doc_slugs or ()
+            ),
+        }
     return str(claim.get("process_key") or ""), {}
 
 

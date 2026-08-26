@@ -43,10 +43,7 @@ def test_claims_packet_teaches_release_work_claim_variants() -> None:
     body = sac.render_topic_packet("claims")
     assert "yoke claims work release --item PREFIX-N --reason TEXT" in body
     assert "yoke claims work release --claim-id <id> --reason TEXT" in body
-    assert (
-        "yoke claims work release --epic-id E --task-num K --reason TEXT"
-        in body
-    )
+    assert "yoke claims work release --epic-id E --task-num K --reason TEXT" in body
     assert "yoke claims work release --all-mine" in body
 
 
@@ -58,14 +55,27 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     """
     body = sac.render_topic_packet("claims")
     assert (
-        "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress"
-        in body
+        "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress" in body
     )
-    assert (
-        "yoke claims work release --item PREFIX-N --reason rewrite-complete" in body
-    )
+    assert "yoke claims work release --item PREFIX-N --reason rewrite-complete" in body
     # Doctrine sentence — no new skill.
     assert "no new skill" in body.lower()
+
+
+def test_claims_packet_teaches_steering_scope_claim_lifecycle() -> None:
+    body = sac.render_topic_packet("claims")
+    assert "kind=steering_scope" in body
+    assert "[] means the whole project" in body
+    assert "Intersecting live steering scopes" in body
+    assert "steering claim holder" in body
+    assert "owner_kind='session'" in body
+    assert "registration provenance, not authority" in body
+    assert (
+        "yoke claims steering-scope acquire --project P [--strategy-doc SLUG]" in body
+    )
+    assert "yoke claims steering-scope list --project P --active-only" in body
+    assert "yoke claims steering-scope release CLAIM_ID --reason TEXT" in body
+    assert "stale-session reclaim free the steering scope" in body
 
 
 def test_claims_packet_teaches_live_progress_log_content_flags() -> None:

@@ -23,9 +23,7 @@ CLAIMS_COMMANDS: list[dict] = [
     {
         "topic": "claims",
         "purpose": "Lookup live claim holder for an item",
-        "recipe": (
-            "yoke claims work holder-get PREFIX-N"
-        ),
+        "recipe": ("yoke claims work holder-get PREFIX-N"),
         "notes": (
             "Registered read surface (function id "
             "`claims.work.holder_get`) for the live holder. Returns item "
@@ -55,7 +53,14 @@ CLAIMS_COMMANDS: list[dict] = [
             "Reason recommended on acquire, required on release. Pick "
             "exactly one target variant. Optional --session-id S is a "
             "self-identity assertion that the caller IS the named "
-            "session; it is not cross-session authority."
+            "session; it is not cross-session authority. Steering-scope "
+            "claims are work claims: `yoke claims steering-scope acquire "
+            "--project P [--strategy-doc SLUG]`; omit --strategy-doc for "
+            "the whole project. Intersecting live scopes refuse and name "
+            "the steering claim holder. Inspect with `yoke claims steering-"
+            "scope list --project P --active-only`; finish with `yoke claims "
+            "steering-scope release CLAIM_ID --reason TEXT`. Ordinary "
+            "release and stale-session reclaim free the steering scope."
         ),
     },
     {
@@ -191,15 +196,11 @@ CLAIMS_COMMANDS: list[dict] = [
     {
         "topic": "claims",
         "purpose": "List path claims for an item",
-        "recipe": (
-            "yoke claims path list --item PREFIX-N"
-        ),
+        "recipe": ("yoke claims path list --item PREFIX-N"),
         "notes": (
-            "Registered read surface. Returns id, state, declared paths, "
-            "target_ids."
+            "Registered read surface. Returns id, state, declared paths, target_ids."
         ),
     },
-
     {
         "topic": "claims",
         "purpose": "Register a path claim (canonical agent shape)",
@@ -247,10 +248,7 @@ CLAIMS_COMMANDS: list[dict] = [
     {
         "topic": "claims",
         "purpose": "List / get path claims",
-        "recipe": (
-            "yoke claims path list --item PREFIX-N\n"
-            "yoke claims path get 138"
-        ),
+        "recipe": ("yoke claims path list --item PREFIX-N\nyoke claims path get 138"),
         "notes": (
             "Registered read surfaces. Returns id, state, declared paths, "
             "target_ids. Pipe JSON output to jq for filtering."
@@ -260,8 +258,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "Summary of path-claim conflicts on a branch",
         "recipe": (
-            "yoke path-claims conflicts list --integration-target main "
-            "--project P"
+            "yoke path-claims conflicts list --integration-target main --project P"
         ),
         "notes": (
             "Registered read-only summary across all non-terminal claims. "
@@ -275,7 +272,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "Find conflicts on specific paths (SQL)",
         "recipe": (
-            "yoke db read \"\n"
+            'yoke db read "\n'
             "SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, "
             "tgt.path_string\n"
             "FROM path_claims pc\n"

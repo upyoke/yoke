@@ -60,21 +60,34 @@ _STALE_DB_SCHEMA = """
             CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process')),
+    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering_scope')),
     item_id INTEGER,
     epic_id INTEGER,
     task_num INTEGER,
     process_key TEXT,
     conflict_group TEXT,
+    steering_project_id INTEGER,
+    steering_strategy_doc_slugs TEXT,
+    owner_kind TEXT,
+    owner_item_id INTEGER,
+    owner_session_id TEXT,
+    owner_work_claim_id INTEGER,
+    registered_by_actor_id INTEGER,
+    registered_by_session_id TEXT,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
     released_at TEXT,
     release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN ('completed','released','reclaimed','handed_off','expired','session_ended')),
     CHECK (
-      (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL) OR
-      (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL)
+      (target_kind='item' AND item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
+      (target_kind='epic_task' AND item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
+      (target_kind='process' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NOT NULL AND conflict_group IS NOT NULL AND steering_project_id IS NULL AND steering_strategy_doc_slugs IS NULL) OR
+      (target_kind='steering_scope' AND item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND process_key IS NULL AND conflict_group IS NULL AND steering_project_id IS NOT NULL AND steering_strategy_doc_slugs IS NOT NULL)
+    ),
+    CHECK (
+      (target_kind<>'steering_scope' AND owner_kind IS NULL AND owner_item_id IS NULL AND owner_session_id IS NULL AND owner_work_claim_id IS NULL AND registered_by_actor_id IS NULL AND registered_by_session_id IS NULL) OR
+      (target_kind='steering_scope' AND owner_kind='session' AND owner_item_id IS NULL AND owner_session_id=session_id AND owner_work_claim_id IS NULL AND registered_by_actor_id IS NOT NULL AND registered_by_session_id IS NOT NULL)
     ),
     FOREIGN KEY (session_id) REFERENCES harness_sessions(session_id)
 );

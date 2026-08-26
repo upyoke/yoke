@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_core.domain.work_claim_targets import TARGET_KIND_STEERING_SCOPE
 from yoke_core.domain.work_processes import conflict_group_for
 
 
@@ -27,7 +28,8 @@ def claim_row_for_id(claim_id: int) -> Optional[dict[str, Any]]:
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             row = conn.execute(
-                "SELECT id, session_id FROM work_claims "
+                "SELECT id, session_id, target_kind, owner_session_id "
+                "FROM work_claims "
                 f"WHERE id = {p} AND released_at IS NULL",
                 (int(claim_id),),
             ).fetchone()
@@ -35,7 +37,13 @@ def claim_row_for_id(claim_id: int) -> Optional[dict[str, Any]]:
         return None
     if row is None:
         return None
-    return {"id": row[0], "session_id": row[1]}
+    authority_session = row[3] if row[2] == TARGET_KIND_STEERING_SCOPE else row[1]
+    return {
+        "id": row[0],
+        "session_id": authority_session,
+        "operational_session_id": row[1],
+        "target_kind": row[2],
+    }
 
 
 def session_claim_id_for_target(

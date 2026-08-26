@@ -142,7 +142,7 @@ _EXPECTED_SCHEMA_STR = (
     "|strategy_docs:id/INTEGER,project_id/INTEGER,slug/TEXT,content/TEXT,updated_at/TEXT,updated_by_actor_id/INTEGER,archived_at/TEXT,parent_slug/TEXT"
     "|test_machine_verifications:project_id/INTEGER,status/TEXT,checked_at/TEXT,receipt_json/TEXT,error_code/TEXT,updated_at/TEXT"
     "|web_sessions:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,created_at/TEXT,expires_at/TEXT,revoked_at/TEXT,last_used_at/TEXT"
-    "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,item_id/INTEGER,epic_id/INTEGER,task_num/INTEGER,process_key/TEXT,conflict_group/TEXT,claim_type/TEXT,claimed_at/TEXT,last_heartbeat/TEXT,released_at/TEXT,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"
+    "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,item_id/INTEGER,epic_id/INTEGER,task_num/INTEGER,process_key/TEXT,conflict_group/TEXT,steering_project_id/INTEGER,steering_strategy_doc_slugs/TEXT,owner_kind/TEXT,owner_item_id/INTEGER,owner_session_id/TEXT,owner_work_claim_id/INTEGER,registered_by_actor_id/INTEGER,registered_by_session_id/TEXT,claim_type/TEXT,claimed_at/TEXT,last_heartbeat/TEXT,released_at/TEXT,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"
     "|workflow_execution_instruction_projects:instruction_id/INTEGER,project_id/INTEGER"
     "|workflow_execution_instruction_workflows:instruction_id/INTEGER,workflow_id/TEXT"
     "|workflow_execution_instructions:id/INTEGER,content/TEXT,applies_to_all_workflows/INTEGER,applies_to_all_projects/INTEGER,updated_by_actor_id/INTEGER,created_at/TEXT,updated_at/TEXT"

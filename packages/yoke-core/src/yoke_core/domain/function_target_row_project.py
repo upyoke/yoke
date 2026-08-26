@@ -16,6 +16,7 @@ from yoke_core.domain.project_identity import (
     AmbiguousProjectRefError,
     resolve_project_id,
 )
+from yoke_core.domain.work_claim_targets import TARGET_KIND_STEERING_SCOPE
 
 
 def _p(conn: Any) -> str:
@@ -135,7 +136,8 @@ def resolve_work_claim_project(
     """
     p = _p(conn)
     row = conn.execute(
-        "SELECT target_kind, item_id, epic_id, conflict_group "
+        "SELECT target_kind, item_id, epic_id, conflict_group, "
+        "steering_project_id "
         f"FROM work_claims WHERE id = {p}",
         (claim_id,),
     ).fetchone()
@@ -145,6 +147,11 @@ def resolve_work_claim_project(
     if target_kind in {"item", "epic_task"}:
         item_id = row[1] if target_kind == "item" else row[2]
         return resolve_item_project(conn, int(item_id))
+    if target_kind == TARGET_KIND_STEERING_SCOPE:
+        if row[4] is None:
+            return None
+        project_id = int(row[4])
+        return project_id, slug_for_project_id(conn, project_id)
     if target_kind != "process":
         return None
     conflict_group = str(row[3] or "")
