@@ -58,8 +58,8 @@ def test_windows_guidance_names_unsupported_native_path() -> None:
     advice = git_prereq.install_advice(platform_name="win32", which=_which())
 
     assert advice.command is None
-    assert "not supported" in advice.note
-    assert "WSL" in advice.note
+    assert "Install WSL" in advice.note
+    assert "curl -fsSL https://upyoke.com/install | sh" in advice.note
 
 
 def test_require_git_available_raises_platform_specific_message() -> None:

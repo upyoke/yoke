@@ -25,8 +25,9 @@ def test_native_windows_is_unsupported(tmp_path: Path) -> None:
     result = run_shim(bin_dir)
 
     assert result.returncode == 1
-    assert "is not supported by this installer" in result.stderr
-    assert "WSL follows the Linux path" in result.stderr
+    assert "is not supported by this installer" in result.stdout
+    assert "WSL follows the Linux path" in result.stdout
+    assert "curl -fsSL https://example.invalid/install | sh" in result.stdout
 
 
 def test_missing_uv_without_curl_prints_manual_and_rerun(tmp_path: Path) -> None:

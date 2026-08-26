@@ -453,6 +453,16 @@ decline_uv_and_exit() {
   exit 1
 }
 
+# Same refusal shape as decline_uv_and_exit: named recovery plus exact rerun.
+decline_unsupported_os_and_exit() {
+  rerun_cmd=$(rerun_install_command)
+  printf '\n%s%s%snative %s is not supported by this installer. WSL follows the Linux path.%s\n\n' \
+    "$(gutter)" "$(c_danger)" "$(c_bold)" "$os_name" "$(sgr_reset)"
+  printf '%s%sInstall WSL, open Ubuntu, then rerun:%s\n' "$(gutter)" "$(c_text)" "$(sgr_reset)"
+  printf '%s  %s%s%s\n' "$(gutter)" "$(c_bright)" "$rerun_cmd" "$(sgr_reset)"
+  exit 1
+}
+
 # uv/uvx is the one install-time prerequisite (besides a shell and curl). The
 # branded welcome leads, then a default-Yes consent installs uv via Homebrew or
 # the Astral installer; a declined consent prints the friendly decline screen
@@ -575,7 +585,7 @@ done
 os_name=$(uname -s 2>/dev/null || printf unknown)
 case "$os_name" in
   Darwin|Linux) : ;;
-  *) fail "native $os_name is not supported by this installer. WSL follows the Linux path." ;;
+  *) decline_unsupported_os_and_exit ;;
 esac
 
 ensure_uv
