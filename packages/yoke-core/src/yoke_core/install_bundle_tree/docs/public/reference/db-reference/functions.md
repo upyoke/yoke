@@ -98,7 +98,7 @@ The five values are the closed enum; the registry rejects any other string at im
 
 The function id grammar is `<family>.<subfamily>.<operation>` validated by `yoke_contracts.api.function_call.validate_function_id`. Families today:
 
-### `items.*` — structured field, section, and progress-log writes
+### `items.*` — creation, structured field, section, and progress-log writes
 
 Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.db_router items update <id> <field> --stdin` / `item_field_transform` / `sections upsert` recipe.
 
@@ -114,6 +114,25 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 | `items.progress_log.append` | `"item"` | `yoke_core.domain.handlers.items_progress_log` | `{old_lines, new_lines, entry_count}` (read-then-upsert with `ordering=200`) |
 | `items.scalar.update` | `"item"` | `yoke_core.domain.handlers.items_scalar` → `prepare_update` | `{field, old, new}` |
 | `items.get` (read) | `None` | `yoke_core.domain.handlers.reads.items_get` | typed item payload (optional `fields[]`) |
+| `items.create` | `None` | `yoke_core.domain.handlers.items_create` → `backlog_create_op.execute_create` | `{item_id, item_ref, dry_run, log, execution_instructions, execution_instructions_considered}` |
+
+**Canonical create — a non-web filer attests the operator instructions:**
+
+```jsonc
+{
+  "function": "items.create",
+  "target":   {"kind": "global", "project_id": "yoke"},
+  "payload":  {
+    "title": "Fix the footer",
+    "workflow": "dash",
+    "instruction": "Correct the footer and verify every link.",
+    "entry_surface": "cli",
+    "execution_instructions_considered": true
+  }
+}
+```
+
+`execution_instructions_considered` is a bare boolean attestation — no content hash, no staleness window — that this filer ran `yoke workflow execution-instruction resolve --workflow W --project P` before authoring. Every non-web entry surface (`cli`, `harness_skill`) must send it `true`; without it the create refuses with `execution_instructions_not_considered` and a message naming that exact retrieval command for the target. `web_form` renders the blocks in its own UI and `promotion` carries an already-filed item forward, so both stay exempt, as do `dry_run` previews and disposable test databases. CLI adapters (`yoke dash`, `yoke items create`) expose `--execution-instructions-considered` and pass it through; they never set it for the caller, and the create receipt echoes the value it was accepted under.
 
 **Canonical write — full-field replace:**
 

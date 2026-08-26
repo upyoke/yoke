@@ -235,12 +235,12 @@ Create anyway? (yes / no)
 
 ## 5. Create The Item Through Its Registered Entry Surface
 
-`yoke items create` is the registered work-item create surface. It works in a Yoke checkout and over a prod-https control plane through the same `FunctionCallRequest`. This skill always passes `--entry-surface harness_skill`; the selected workflow version must allow that surface. **Run the command BARE — do NOT append `2>&1`, `| head`, `| tail`, or any other shell wrapping** (it is a registered `yoke` adapter; the harness surfaces stdout and stderr in your prompt context on the next turn, and the shell-quoted-function-payload lint refuses write-shape adapters with non-best-effort wrapping). Read the rendered output inline and act on it from the prompt context.
+`yoke items create` is the registered work-item create surface. It works in a Yoke checkout and over a prod-https control plane through the same `FunctionCallRequest`. This skill always passes `--entry-surface harness_skill`; the selected workflow version must allow that surface. It also always passes `--execution-instructions-considered`, attesting the phase c2 resolve read — the create refuses without it, and no adapter sets it for you. **Run the command BARE — do NOT append `2>&1`, `| head`, `| tail`, or any other shell wrapping** (it is a registered `yoke` adapter; the harness surfaces stdout and stderr in your prompt context on the next turn, and the shell-quoted-function-payload lint refuses write-shape adapters with non-best-effort wrapping). Read the rendered output inline and act on it from the prompt context.
 
 Title and workflow are positional; project / deployment-flow / priority are flags. Build the command with `--project` and optionally `--deployment-flow`:
 
 ```bash
-yoke items create "{title}" {workflow} --entry-surface harness_skill --project "${_project}" --deployment-flow "${_deployment_flow}" --priority {priority}
+yoke items create "{title}" {workflow} --entry-surface harness_skill --execution-instructions-considered --project "${_project}" --deployment-flow "${_deployment_flow}" --priority {priority}
 ```
 
 The adapter dispatches function id `items.create` to a global target with this
@@ -251,6 +251,7 @@ payload shape:
   "title": "{title}",
   "workflow": "{workflow}",
   "entry_surface": "harness_skill",
+  "execution_instructions_considered": true,
   "project": "{_project}",
   "priority": "{priority}",
   "deployment_flow": "{_deployment_flow}"  # omitted when empty
@@ -263,13 +264,13 @@ not an instruction field, posture choice, or later migration.
 If `_deployment_flow` is empty, omit that flag:
 
 ```bash
-yoke items create "{title}" {workflow} --entry-surface harness_skill --project "${_project}" --priority {priority}
+yoke items create "{title}" {workflow} --entry-surface harness_skill --execution-instructions-considered --project "${_project}" --priority {priority}
 ```
 
 If `--dry-run` was passed, add `--dry-run` (no row is created, no GitHub sync; status defaults to `idea`):
 
 ```bash
-yoke items create "{title}" {workflow} --entry-surface harness_skill --dry-run --project "${_project}" --priority {priority}
+yoke items create "{title}" {workflow} --entry-surface harness_skill --execution-instructions-considered --dry-run --project "${_project}" --priority {priority}
 ```
 
 ## 5b. Hold A Draft Claim Across The Body-Write Window (Layer 1)

@@ -287,6 +287,7 @@ def test_onboard_seeds_work_through_the_idea_intake_shape():
     text = _read(ONBOARD_DIR / "seed-work.md")
     assert (
         'yoke items create "{title}" issue --entry-surface harness_skill '
+        "--execution-instructions-considered "
         "--project {project} --deployment-flow {flow_id} --priority {priority}"
     ) in text
     assert "yoke project-structure deploy-defaults get --project {project}" in text

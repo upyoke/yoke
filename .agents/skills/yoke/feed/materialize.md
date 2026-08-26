@@ -144,7 +144,7 @@ The `/yoke idea` pipeline handles:
   instruction as its complete scope:
 
   ```bash
-  yoke dash "<title>" "<instruction, including the strategic provenance above>" --json
+  yoke dash "<title>" "<instruction, including the strategic provenance above>" --execution-instructions-considered --json
   ```
 
   This files without executing. The item lands at `idea` with `workflow=dash`

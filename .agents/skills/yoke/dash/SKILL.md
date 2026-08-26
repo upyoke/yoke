@@ -25,7 +25,7 @@ function-call envelope:
 
 | Function id | Target and payload | CLI adapter |
 |---|---|---|
-| `items.create` | Global target; Dash title, instruction, project, entry surface, and permitted posture | `yoke dash "<title>" "<instruction>" --json` |
+| `items.create` | Global target; Dash title, instruction, project, entry surface, permitted posture, and the operator execution-instruction attestation | `yoke dash "<title>" "<instruction>" --execution-instructions-considered --json` |
 | `workflow.execution_instruction.resolve` | Global target; named workflow and project; read-only matching instructions | `yoke workflow execution-instruction resolve --workflow W --project P` |
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
 | `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
@@ -78,8 +78,9 @@ for the contract.
   A bare number resolves as the current project's public item sequence. Do not
   invent or guess a prefix; pass the operator's token through unchanged.
 
-`yoke dash "title" "instruction"` is the non-harness filing adapter. It
-files and prints the item; it does not execute it.
+`yoke dash "title" "instruction" --execution-instructions-considered` is the
+non-harness filing adapter. It files and prints the item; it does not execute
+it.
 
 ## Invariants
 
@@ -146,10 +147,12 @@ If the argument is not an item reference:
    ```
 
 3. Write a specific title of at most 100 characters.
-4. File with:
+4. File with, passing `--execution-instructions-considered` to attest the
+   read in step 2 (the create refuses without it, and no adapter sets it
+   for you):
 
    ```text
-   yoke dash "<title>" "<instruction>" --json
+   yoke dash "<title>" "<instruction>" --execution-instructions-considered --json
    ```
 
 3. Keep the returned item reference as `ITEM`.
