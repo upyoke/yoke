@@ -34,6 +34,7 @@ class HostControl(Protocol):
     home: str
     shell: str
     xdg_bin_home: str | None
+    golden_baseline_path: str | None
 
     def check_connection(self) -> HostActionResult: ...
 

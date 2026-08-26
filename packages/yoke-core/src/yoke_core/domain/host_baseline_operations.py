@@ -32,7 +32,13 @@ def _path_state(control: HostControl) -> path_doctor.PathStateContract:
 
 
 def reach_fresh_host(control: HostControl) -> HostBaselineResult:
-    """Reach the registered full-reset baseline for the dedicated Test Mac."""
+    """Reach the registered user-equivalent baseline for the dedicated Test Mac.
+
+    The operation restores the host's declared golden baseline and gates its own
+    success on proving the result: a real user arrives with harness apps
+    installed and signed in, so a machine stripped back to bare is not a fresh
+    host, it is a machine no user has.
+    """
     try:
         result = control.reset_installer_test_host()
     except Exception:

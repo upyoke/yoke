@@ -50,6 +50,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     ["host", "Host"],
     ["user", "User"],
     ["operating_notes", "Operating notes"],
+    ["golden_baseline_path", "Golden baseline path"],
   ]) {
     const wrapper = el(documentNode, "label", null, label);
     const input = el(documentNode, "input");
@@ -98,7 +99,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     documentNode,
     "p",
     "muted",
-    "Host baselines stay read-only here: fresh-host and shell-preconfigured are registered runner operations, not user-authored instructions.",
+    "Host baselines stay read-only here: fresh-host and shell-preconfigured are registered runner operations, not user-authored instructions. Leave the golden baseline path empty on a machine with no captured baseline; fresh-host restores that baseline and refuses without one.",
   ));
   const error = el(
     documentNode, "p", "test-machine-settings-error error",

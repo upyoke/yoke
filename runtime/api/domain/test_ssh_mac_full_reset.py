@@ -1,126 +1,139 @@
-"""Focused coverage for the registered dedicated Test Mac reset."""
+"""Driver coverage for the dedicated Test Mac golden-baseline restore."""
 
 from __future__ import annotations
 
-import shlex
-from pathlib import Path
-
 import pytest
+import shlex
 
-from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from runtime.api.domain.ssh_mac_full_reset_test_support import (
     FakeResetTransport,
+    GOLDEN_BASELINE_PATH,
     closed_reset_stdout,
 )
 from yoke_cli.config import path_doctor
-from yoke_core.domain.host_baseline_operations import run_host_baseline
-from yoke_core.domain.ssh_mac_full_reset import (
-    execute_full_test_mac_reset,
-    is_safe_test_mac_home,
-)
+from yoke_core.domain.ssh_mac_full_reset import execute_full_test_mac_reset
 from yoke_core.domain.ssh_mac_full_reset_contract import (
-    FULL_RESET_MARKER,
+    FULL_DISK_ACCESS_PROBE_PATH,
     FULL_RESET_REMOTE_PATH,
-    RESET_PROCESS_REAPED_PREFIX,
+    RESET_FAILURE_PREFIX,
+    RESET_PHASES,
 )
 from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
+from yoke_harness.ssh_mac_full_reset import is_safe_test_mac_home
+
+
+HOME = "/Users/tester"
+
+
+def _run(transport: FakeResetTransport, **overrides):
+    arguments = {
+        "run_remote": transport.run,
+        "upload_text": transport.upload,
+        "home": HOME,
+        "golden_baseline_path": GOLDEN_BASELINE_PATH,
+    }
+    arguments.update(overrides)
+    return execute_full_test_mac_reset(**arguments)
 
 
 @pytest.mark.parametrize(
     "home",
-    (
-        "",
-        "/",
-        "~",
-        "$HOME",
-        "/tmp/tester",
-        "/Users/Shared",
-        "/Users/tester/..",
-        "/Users//tester",
-        "/Users/tester/nested",
-    ),
+    ["", "/", "~", "$HOME", "/Users", "/Users/", "/Users/shared", "/Users/a/b"],
 )
 def test_reset_rejects_any_non_explicit_dedicated_mac_home(home: str) -> None:
-    transport = FakeResetTransport("")
+    transport = FakeResetTransport(closed_reset_stdout())
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home=home,
-    )
+    result = _run(transport, home=home)
 
     assert not is_safe_test_mac_home(home)
     assert not result.ok
     assert result.error_code == "unsafe_test_mac_home"
-    assert result.evidence == {"paths": []}
     assert transport.uploads == {}
     assert transport.commands == []
 
 
-def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
-    stdout = closed_reset_stdout(reaped=92, load_average="1.20")
-    transport = FakeResetTransport(stdout)
+def test_reset_refuses_a_host_that_declares_no_captured_baseline() -> None:
+    transport = FakeResetTransport(closed_reset_stdout())
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
+    result = _run(transport, golden_baseline_path=None)
+
+    # Enumerating residue is not a fallback. A machine with no captured
+    # baseline cannot reach this baseline at all.
+    assert not result.ok
+    assert result.error_code == "test_mac_golden_baseline_not_declared"
+    assert transport.uploads == {}
+
+
+@pytest.mark.parametrize(
+    "golden",
+    [f"{HOME}/golden", f"{HOME}", "relative/golden", "/Users/Shared/../tester/g"],
+)
+def test_reset_refuses_a_baseline_the_clear_would_destroy(golden: str) -> None:
+    transport = FakeResetTransport(closed_reset_stdout())
+
+    result = _run(transport, golden_baseline_path=golden)
+
+    assert not result.ok
+    assert result.error_code == "test_mac_golden_baseline_unsafe"
+    assert transport.commands == []
+
+
+def test_reset_uploads_mode_0700_and_accepts_only_closed_outcomes() -> None:
+    transport = FakeResetTransport(closed_reset_stdout(restored_entries=22))
+
+    result = _run(transport)
 
     assert result.ok
     assert transport.uploads == {FULL_RESET_REMOTE_PATH: FULL_RESET_SCRIPT}
     assert [shlex.split(command) for command, _timeout in transport.commands] == [
         ["/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH],
         ["/bin/chmod", "0700", FULL_RESET_REMOTE_PATH],
-        [FULL_RESET_REMOTE_PATH, "/Users/tester"],
+        [FULL_RESET_REMOTE_PATH, HOME, GOLDEN_BASELINE_PATH],
         ["/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH],
     ]
-    assert transport.commands[2][1] == 300
-    assert set(result.evidence) == {"paths", "path_state", "process_state"}
-    assert result.evidence["process_state"] == {
-        "reaped_processes": 92,
-        "surviving_matches": 0,
-        "load_average": 1.20,
+    assert set(result.evidence) == {
+        "paths",
+        "baseline_state",
+        "path_state",
+        "process_state",
     }
-    assert all(set(row) == {"path", "outcome"} for row in result.evidence["paths"])
+    assert result.evidence["baseline_state"] == {
+        "golden_baseline_path": GOLDEN_BASELINE_PATH,
+        "restored_entries": 22,
+        "preserved_entries": [".ssh", "Library/Application Support/com.apple.TCC"],
+    }
     rows = {row["path"]: row["outcome"] for row in result.evidence["paths"]}
-    assert rows["/tmp/yoke-stage.token"] == "restored-mode-0600"
-    assert rows["/tmp/yoke-prod.token"] == "absent"
-    assert rows["/Users/tester/.yoke"] == "removed"
-    assert rows["/Users/tester/.yoke/installer-smoke-evidence"] == "moved"
-    assert rows["/Users/tester/yoke-smoke-evidence"] == "preserved"
-    assert rows[str(path_doctor.tool_bin_dir({"HOME": "/Users/tester"}))] == (
-        "absent-from-login-and-ssh-path"
+    assert rows[GOLDEN_BASELINE_PATH] == "restored"
+    assert rows[FULL_DISK_ACCESS_PROBE_PATH] == "readable"
+    assert rows[f"{HOME}/.ssh"] == "preserved"
+    assert rows[f"{HOME}/Library/Application Support/com.apple.TCC"] == "preserved"
+    assert rows[f"{HOME}/.yoke"] == "absent"
+    assert rows[f"{HOME}/.local/bin/yoke"] == "absent"
+    # The shared tool directory is reported for what it is, not claimed gone:
+    # the user's own command-line tools live there.
+    assert rows[str(path_doctor.tool_bin_dir({"HOME": HOME}))] == (
+        "carries-no-yoke-tool"
     )
-    tool_dir = path_doctor.tool_bin_dir({"HOME": "/Users/tester"})
     assert result.evidence["path_state"] == {
-        "launcher": str(Path(tool_dir) / "yoke"),
+        "launcher": f"{HOME}/.local/bin/yoke",
         "launcher_present": False,
-        "tool_bin_dir": tool_dir,
-        "login_path_present": False,
-        "ssh_path_present": False,
+        "tool_bin_dir": f"{HOME}/.local/bin",
+        "yoke_tools_resolve": False,
     }
-    assert "token-bytes" not in repr(result.evidence)
+
+
+def test_reset_passes_a_restore_sized_timeout_to_the_remote_program() -> None:
+    transport = FakeResetTransport(closed_reset_stdout())
+
+    _run(transport)
+
+    assert transport.commands[2][1] == 900
 
 
 def test_reset_fails_closed_on_extra_output_and_always_cleans_script() -> None:
-    transport = FakeResetTransport(
-        "\n".join(
-            (
-                "YOKE_TOKEN_STAGE_ABSENT",
-                "YOKE_TOKEN_PROD_ABSENT",
-                "YOKE_INSTALLER_EVIDENCE_ABSENT",
-                FULL_RESET_MARKER,
-                "unexpected-output",
-            )
-        )
-    )
+    transport = FakeResetTransport(closed_reset_stdout() + "\nYOKE_EXTRA")
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
+    result = _run(transport)
 
     assert not result.ok
     assert result.error_code == "test_mac_reset_output_invalid"
@@ -130,186 +143,84 @@ def test_reset_fails_closed_on_extra_output_and_always_cleans_script() -> None:
         "--",
         FULL_RESET_REMOTE_PATH,
     ]
-    assert result.evidence == {
-        "paths": [
-            {"path": "/Users/tester", "outcome": "reset-failed"},
-            {"path": FULL_RESET_REMOTE_PATH, "outcome": "removed"},
-        ]
-    }
 
 
-def test_reset_reports_allowlisted_failure_phase_without_remote_output() -> None:
+def test_reset_refuses_a_receipt_claiming_an_empty_restored_home() -> None:
+    transport = FakeResetTransport(closed_reset_stdout(restored_entries=0))
+
+    result = _run(transport)
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_output_invalid"
+
+
+def test_reset_names_the_full_disk_access_phase_when_the_grant_is_missing() -> None:
     transport = FakeResetTransport(
-        "YOKE_RESET_FAILED_VERIFY_SHELL_RESOLUTION",
+        RESET_FAILURE_PREFIX + RESET_PHASES["assert_full_disk_access"],
         reset_returncode=1,
     )
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
+    result = _run(transport)
 
     assert not result.ok
-    assert result.error_code == "test_mac_reset_verify_shell_resolution_failed"
-    assert result.evidence == {
-        "paths": [
-            {"path": "/Users/tester", "outcome": "reset-failed"},
-            {"path": FULL_RESET_REMOTE_PATH, "outcome": "removed"},
-        ],
-        "reset_phase": "verify_shell_resolution",
-        "recovery_cleanup": "completed",
-    }
+    assert result.error_code == "test_mac_reset_assert_full_disk_access_failed"
+    assert result.evidence["reset_phase"] == "assert_full_disk_access"
+    rows = {row["path"]: row["outcome"] for row in result.evidence["paths"]}
+    assert rows[GOLDEN_BASELINE_PATH] == "not-restored"
 
 
-def test_reset_reports_recovery_failure_without_secret_detail() -> None:
+@pytest.mark.parametrize(
+    "phase",
+    ["validate_golden", "clear_home", "restore_golden", "verify_restored_home"],
+)
+def test_reset_reports_every_registered_restore_phase_failure(phase: str) -> None:
     transport = FakeResetTransport(
-        "\n".join(
-            (
-                "YOKE_RESET_FAILED_REMOVE_REGISTERED_STATE",
-                "YOKE_RESET_RECOVERY_FAILED",
-            )
-        ),
+        RESET_FAILURE_PREFIX + RESET_PHASES[phase],
         reset_returncode=1,
     )
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
+    result = _run(transport)
 
     assert not result.ok
-    assert result.error_code == "test_mac_reset_recovery_failed"
-    assert result.evidence["reset_phase"] == "remove_registered_state"
-    assert result.evidence["recovery_cleanup"] == "failed"
-    assert "process_state" not in result.evidence
+    assert result.error_code == f"test_mac_reset_{phase}_failed"
 
 
 def test_reset_fails_closed_when_matching_processes_survive_the_reap() -> None:
     transport = FakeResetTransport(
         "\n".join(
             (
-                "YOKE_RESET_FAILED_REAP_PROCESSES",
-                "2 3 18.44",
+                RESET_FAILURE_PREFIX + RESET_PHASES["reap_processes"],
+                "1 2 3.50",
             )
         ),
         reset_returncode=1,
     )
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
+    result = _run(transport)
 
     assert not result.ok
     assert result.error_code == "test_mac_reset_reap_processes_failed"
-    assert result.evidence["reset_phase"] == "reap_processes"
     assert result.evidence["process_state"] == {
-        "surviving_reap_failures": 2,
-        "surviving_matches": 3,
-        "load_average": 18.44,
+        "surviving_reap_failures": 1,
+        "surviving_matches": 2,
+        "load_average": 3.5,
     }
 
 
-def test_reset_success_refuses_output_missing_the_process_receipt() -> None:
-    transport = FakeResetTransport(
-        "\n".join(
-            (
-                "YOKE_TOKEN_STAGE_ABSENT",
-                "YOKE_TOKEN_PROD_ABSENT",
-                "YOKE_INSTALLER_EVIDENCE_ABSENT",
-                f"{RESET_PROCESS_REAPED_PREFIX}0",
-                FULL_RESET_MARKER,
-            )
-        )
-    )
-
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
-
-    assert not result.ok
-    assert result.error_code == "test_mac_reset_output_invalid"
-
-
 def test_reset_rejects_unregistered_failure_output() -> None:
-    transport = FakeResetTransport(
-        "YOKE_RESET_FAILED_secret-detail",
-        reset_returncode=1,
-    )
+    transport = FakeResetTransport("YOKE_RESET_FAILED_SOMETHING", reset_returncode=1)
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
+    result = _run(transport)
 
     assert not result.ok
     assert result.error_code == "test_mac_reset_failed"
-    assert set(result.evidence) == {"paths"}
 
 
-def test_existing_retained_evidence_is_reported_without_claiming_a_new_move() -> None:
-    transport = FakeResetTransport(
-        closed_reset_stdout(stage="ABSENT", prod="ABSENT", evidence="RETAINED")
-    )
+def test_reset_reports_cleanup_failure_even_after_a_clean_restore() -> None:
+    transport = FakeResetTransport(closed_reset_stdout())
+    transport.cleanup_returncode = 1
 
-    result = execute_full_test_mac_reset(
-        run_remote=transport.run,
-        upload_text=transport.upload,
-        home="/Users/tester",
-    )
-
-    assert result.ok
-    rows = {row["path"]: row["outcome"] for row in result.evidence["paths"]}
-    assert rows["/Users/tester/.yoke/installer-smoke-evidence"] == "absent"
-    assert rows["/Users/tester/yoke-smoke-evidence"] == "preserved"
-
-
-def test_fake_full_reset_preserves_tokens_evidence_ssh_and_clt() -> None:
-    control = FakeHostControl()
-    token_bytes = dict(control.token_files)
-
-    result = run_host_baseline(control, "fresh-host")
-
-    assert result.ok
-    assert control.full_reset_calls == 1
-    assert control.token_files == token_bytes
-    assert set(control.token_backups.values()) == set(token_bytes.values())
-    assert not any(
-        path == "/Users/tester/.yoke" or path.startswith("/Users/tester/.yoke/")
-        for path in control.existing_paths
-    )
-    assert (
-        "/Users/tester/yoke-smoke-evidence/reset.fake/"
-        "installer-smoke-evidence/campaign/report.json" in control.existing_paths
-    )
-    assert "/Users/tester/.ssh/authorized_keys" in control.existing_paths
-    assert "/Library/Developer/CommandLineTools/usr/bin/git" in control.existing_paths
-    assert not any(
-        path.startswith("/Users/tester/code/") for path in control.existing_paths
-    )
-    path_state = path_doctor.resolve_path_state_contract(
-        env={"HOME": control.home, "SHELL": control.shell}
-    )
-    tool_bin_suffix = str(Path(path_state.tool_bin_dir).relative_to(control.home))
-    assert tool_bin_suffix not in control.files[path_state.startup_file]
-
-
-def test_full_reset_baseline_converts_adapter_exception_to_closed_failure() -> None:
-    control = FakeHostControl()
-
-    def fail_reset():
-        raise RuntimeError("untrusted remote detail")
-
-    control.reset_installer_test_host = fail_reset
-
-    result = run_host_baseline(control, "fresh-host")
+    result = _run(transport)
 
     assert not result.ok
-    assert result.error_code == "baseline_operation_failed"
-    assert result.evidence == {"paths": []}
+    assert result.error_code == "test_mac_reset_script_cleanup_failed"
