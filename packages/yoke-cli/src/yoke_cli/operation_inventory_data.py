@@ -53,6 +53,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke claims steering acquire", "claims.steering"),
     _w("yoke claims steering release", "claims.steering"),
     _w("yoke claims steering list", "claims.steering"),
+    _w("yoke steering backstop evaluate", "steering.backstop"),
     _w("yoke claims path register", "claims.path"),
     _w("yoke claims path widen", "claims.path"),
     _w("yoke claims path amend", "claims.path"),

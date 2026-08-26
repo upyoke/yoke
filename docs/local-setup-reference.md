@@ -117,7 +117,9 @@ Project-local configuration lives in the project checkout:
 Shared project behavior lives in the Yoke DB, not checkout files:
 
 - `project-policy` capability settings own `base_branch`, `wip_cap`,
-  `default_priority`, `merge_conflict_threshold`, and `max_attempts`, plus
+  `default_priority`, `merge_conflict_threshold`, `max_attempts`, and the
+  steering-backstop staffing knobs `steering_backstop_unpicked_minutes` and
+  `steering_backstop_worker_budget`, plus
   nested `board` appearance and scope settings. The authored-file line limit
   is not among them: it must hold in a fresh clone with no DB reachable, so it
   is checked-in project-file policy.

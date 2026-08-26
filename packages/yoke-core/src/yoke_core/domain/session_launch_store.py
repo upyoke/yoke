@@ -19,7 +19,7 @@ LAUNCH_COLUMNS = (
     "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
     "native_session_id, attestation_hash, attestation_consumed_at, "
     "registered_session_id, deadline_at, created_at, assigned_at, launching_at, "
-    "awaiting_registration_at, completed_at, result_code, result_evidence"
+    "awaiting_registration_at, completed_at, result_code, result_evidence, origin"
 )
 _MUTABLE_LAUNCH_COLUMNS = frozenset(
     {
@@ -119,6 +119,7 @@ def row_to_launch(row: Any) -> LaunchRecord:
         completed_at=value(row, "completed_at", 24),
         result_code=value(row, "result_code", 25),
         result_evidence=value(row, "result_evidence", 26),
+        origin=str(value(row, "origin", 27)),
     )
 
 

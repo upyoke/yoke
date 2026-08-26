@@ -6,6 +6,7 @@ from typing import Any
 
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_contracts.session_control.launch_origin import ORIGIN_COLUMN_DDL
 from yoke_core.domain.session_launch_surface_domain import (
     REQUESTED_SURFACE_COLUMN_DDL,
     SELECTED_SURFACE_COLUMN_DDL,
@@ -132,7 +133,8 @@ def create_session_control_tables(conn: Any) -> None:
             awaiting_registration_at TEXT,
             completed_at TEXT,
             result_code TEXT,
-            result_evidence TEXT
+            result_evidence TEXT,
+            origin {ORIGIN_COLUMN_DDL}
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_session_launches_requester_dedupe
             ON session_launches(requester_actor_id, idempotency_key)
@@ -211,6 +213,10 @@ def create_session_control_tables(conn: Any) -> None:
     # ALTER for databases born before it.
     if not _column_exists(conn, "session_launch_attempts", "batch_id"):
         conn.execute("ALTER TABLE session_launch_attempts ADD COLUMN batch_id TEXT")
+    if not _column_exists(conn, "session_launches", "origin"):
+        conn.execute(
+            f"ALTER TABLE session_launches ADD COLUMN origin {ORIGIN_COLUMN_DDL}"
+        )
 
 
 def required_tables() -> tuple[str, ...]:

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-26T20:36:07Z_
+_Audit generated_at: 2026-08-26T23:20:15Z_
 
 ## 1. Summary
 
-- Function ids registered: **425**
+- Function ids registered: **426**
 - Internal dispatch-only functions without CLI adapters: **83**
-- `yoke` CLI subcommands: **353** (353 carry usable `--help`)
-- Operation tracker: **330 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- `yoke` CLI subcommands: **354** (354 carry usable `--help`)
+- Operation tracker: **331 wrapped**, 10 tool_cli, 126 permanent, 0 pending
 - Skill-body recipes: 293 total (241 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **330** (operation tracker confirms 330 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **331** (operation tracker confirms 331 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -271,6 +271,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **330** (operation track
 | shepherd | `yoke shepherd dependency-remove` | `shepherd.dependency_remove.run` | ok |
 | shepherd | `yoke shepherd dependency-update` | `shepherd.dependency_update.run` | ok |
 | shepherd | `yoke shepherd verdict` | `shepherd.verdict.run` | ok |
+| steering | `yoke steering backstop evaluate` | `steering.backstop.evaluate` | ok |
 | strategy | `yoke strategy carry candidate-set` | `strategy.carry.candidate_set` | ok |
 | strategy | `yoke strategy carry mark` | `strategy.carry.mark` | ok |
 | strategy | `yoke strategy carry register-new` | `strategy.carry.register_new` | ok |
@@ -532,8 +533,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 37 |
-| claude-code | 13 |
+| codex | 44 |
+| claude-code | 6 |
 
 ## 8. Contradictions
 

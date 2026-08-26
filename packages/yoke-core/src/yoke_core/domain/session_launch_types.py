@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Protocol, Sequence
 
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
+from yoke_contracts.session_control.launch_origin import LAUNCH_ORIGIN_OPERATOR
 
 
 MAX_LAUNCH_LEASE_SECONDS = 300
@@ -79,6 +80,7 @@ class LaunchRequest:
     presentation: str | None = None
     allow_surface_fallback: bool = False
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS
+    origin: str = LAUNCH_ORIGIN_OPERATOR
 
 
 @dataclass(frozen=True)
@@ -149,6 +151,7 @@ class LaunchRecord:
     completed_at: str | None
     result_code: str | None
     result_evidence: str | None
+    origin: str = LAUNCH_ORIGIN_OPERATOR
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
