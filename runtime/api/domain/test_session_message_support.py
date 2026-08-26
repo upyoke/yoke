@@ -21,29 +21,28 @@ NOW = datetime(2026, 8, 22, 16, 0, tzinfo=timezone.utc)
 NOW_TEXT = "2026-08-22T16:00:00Z"
 
 
-def add_coordination_lease_schema(conn: sqlite3.Connection) -> None:
+def add_coordination_claim_schema(conn: sqlite3.Connection) -> None:
+    """Add the claim shape a route-qualification grant is stored as."""
     conn.executescript(
         """
-        CREATE TABLE coordination_leases (
+        CREATE TABLE IF NOT EXISTS work_claims (
             id INTEGER PRIMARY KEY,
-            project_id INTEGER NOT NULL REFERENCES projects(id),
-            lease_key TEXT NOT NULL,
             session_id TEXT NOT NULL,
-            actor_id TEXT,
-            acquired_at TEXT NOT NULL,
-            heartbeat_at TEXT,
+            target_kind TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            claim_type TEXT NOT NULL DEFAULT 'exclusive',
+            claimed_at TEXT NOT NULL,
+            last_heartbeat TEXT,
             released_at TEXT,
             release_reason TEXT,
-            owner_kind TEXT NOT NULL DEFAULT 'session',
-            owner_item_id INTEGER,
-            owner_session_id TEXT,
-            owner_work_claim_id INTEGER,
-            released_by_session_id TEXT,
-            released_by_actor_id TEXT
+            reason TEXT,
+            reason_intent TEXT,
+            release_reason_intent TEXT
         );
-        CREATE UNIQUE INDEX idx_coordination_leases_live
-            ON coordination_leases(project_id, lease_key)
-            WHERE released_at IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_work_claims_active_route_qualification
+            ON work_claims(scope)
+            WHERE released_at IS NULL AND target_kind='route_qualification';
         """
     )
 

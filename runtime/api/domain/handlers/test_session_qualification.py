@@ -27,7 +27,7 @@ from yoke_core.domain.handlers import (
 )
 from yoke_core.domain import yoke_function_registry
 from runtime.api.domain.test_session_message_support import (
-    add_coordination_lease_schema,
+    add_coordination_claim_schema,
     message_connection,
 )
 
@@ -54,7 +54,7 @@ class _NoCloseConnection:
 
 def _connection():
     conn = message_connection()
-    add_coordination_lease_schema(conn)
+    add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(

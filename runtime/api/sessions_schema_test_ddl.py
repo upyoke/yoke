@@ -1,4 +1,4 @@
-"""Shared session, work-claim, tool-call, and coordination-lease fixture DDL.
+"""Shared session, work-claim, and tool-call fixture DDL.
 
 Split from ``runtime.api.test_sessions`` (350-line authored cap). Both
 ``_create_schema`` and ``_create_ownership_schema`` embed this one
@@ -90,8 +90,8 @@ _SESSIONS_AND_CLAIMS_DDL = f"""
         CREATE UNIQUE INDEX IF NOT EXISTS
             idx_work_claims_active_migration_serialization
             ON work_claims(
-                json_extract(scope, '$.project_id'),
-                json_extract(scope, '$.model')
+                ((scope::jsonb) ->> 'project_id'),
+                ((scope::jsonb) ->> 'model')
             )
             WHERE released_at IS NULL AND target_kind='migration_serialization';
 """

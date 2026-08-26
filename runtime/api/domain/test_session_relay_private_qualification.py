@@ -22,7 +22,7 @@ from yoke_core.domain.session_private_route_qualification import (
 )
 from runtime.api.domain.test_session_message_support import (
     NOW,
-    add_coordination_lease_schema,
+    add_coordination_claim_schema,
     message_connection,
     selector,
 )
@@ -42,7 +42,7 @@ def _candidate_route_requires_grant(monkeypatch) -> None:
 
 def _connection(*, target_version: str):
     conn = message_connection()
-    add_coordination_lease_schema(conn)
+    add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
@@ -132,7 +132,7 @@ def test_candidate_direct_wake_consumes_grant_before_return(monkeypatch) -> None
     assert "lease_key" not in repr(wire)
     assert "Body remains" not in repr(wire)
     row = conn.execute(
-        "SELECT released_at,release_reason FROM coordination_leases WHERE id=?",
+        "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"] == "2026-08-22T16:11:00Z"

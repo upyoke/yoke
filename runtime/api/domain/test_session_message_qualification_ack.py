@@ -18,7 +18,7 @@ from yoke_core.domain.session_private_route_qualification import (
     open_qualification_grant,
 )
 from runtime.api.domain.test_session_message_support import (
-    add_coordination_lease_schema,
+    add_coordination_claim_schema,
     message_connection,
     selector,
 )
@@ -36,7 +36,7 @@ def _setup(monkeypatch):
     monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn = message_connection()
-    add_coordination_lease_schema(conn)
+    add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
@@ -92,7 +92,7 @@ def test_valid_active_hook_ack_consumes_the_exact_grant(monkeypatch) -> None:
     assert result["recipients"][0]["state"] == "acknowledged"
     row = conn.execute(
         "SELECT release_reason,released_by_session_id,released_by_actor_id "
-        "FROM coordination_leases WHERE id=?",
+        "FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
     assert tuple(row) == (QUALIFICATION_RELEASE_REASON, "s1", "10")
@@ -120,7 +120,7 @@ def test_qualification_failure_preserves_normal_ack(monkeypatch, failure: str) -
 
     assert result["recipients"][0]["state"] == "acknowledged"
     row = conn.execute(
-        "SELECT released_at,release_reason FROM coordination_leases WHERE id=?",
+        "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
     if failure == "consumed":

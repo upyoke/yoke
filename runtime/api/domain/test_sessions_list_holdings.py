@@ -125,7 +125,7 @@ def _insert_lease(
 def test_session_row_carries_empty_leases_when_none_are_held(test_db):
     _insert_session(test_db, "s-idle")
     row = list_sessions()[0]
-    assert row["coordination_leases"] == []
+    assert row["coordination_claims"] == []
 
 
 def test_active_leases_project_onto_the_holding_session(test_db):
@@ -155,7 +155,7 @@ def test_active_leases_project_onto_the_holding_session(test_db):
     )
 
     row = list_sessions()[0]
-    keys = {lease["lease_key"] for lease in row["coordination_leases"]}
+    keys = {lease["lease_key"] for lease in row["coordination_claims"]}
     assert keys == {
         "LIVE_DB_MIGRATION:primary",
         "QA_HOST:yoke",
@@ -163,13 +163,13 @@ def test_active_leases_project_onto_the_holding_session(test_db):
     assert "QA_HOST:released" not in keys
     item_owned = next(
         lease
-        for lease in row["coordination_leases"]
+        for lease in row["coordination_claims"]
         if lease["lease_key"] == "LIVE_DB_MIGRATION:primary"
     )
     assert item_owned["owner_kind"] == "item"
     assert item_owned["owner_item_ref"] == "YOK-41"
     assert item_owned["owner_item_id"] == 41
-    assert {lease["owner_kind"] for lease in row["coordination_leases"]} == {
+    assert {lease["owner_kind"] for lease in row["coordination_claims"]} == {
         "item",
         "session",
     }
@@ -212,10 +212,10 @@ def test_item_owned_lease_stays_off_sessions_that_do_not_claim_the_item(test_db)
     )
     rows = {row["session_id"]: row for row in list_sessions()}
     holder_keys = {
-        lease["lease_key"] for lease in rows["s-holder"]["coordination_leases"]
+        lease["lease_key"] for lease in rows["s-holder"]["coordination_claims"]
     }
     other_keys = {
-        lease["lease_key"] for lease in rows["s-other"]["coordination_leases"]
+        lease["lease_key"] for lease in rows["s-other"]["coordination_claims"]
     }
     assert holder_keys == {"LIVE_DB_MIGRATION:primary"}
     assert other_keys == set()

@@ -18,10 +18,11 @@ from runtime.api.fixtures.pg_testdb import (
     dsn_for_test_database,
     test_database,
 )
-from yoke_core.domain.coordination_leases import (
-    acquire_lease,
-    get_lease,
+from yoke_core.domain.coordination_claims import (
+    acquire,
+    get_claim,
 )
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.qa_plan_execution_schema import (
     converge_qa_plan_execution_schema,
 )

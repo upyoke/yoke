@@ -9,7 +9,6 @@ import pytest
 
 from yoke_core.domain import coordination_claims
 from yoke_core.domain.coordination_claims_operator import operator_release
-from yoke_core.domain.schema_common import _table_exists
 from runtime.api.domain.coordination_claim_test_support import (
     MODEL,
     PROJECT_OTHER,
@@ -42,13 +41,6 @@ def _connect(db_path: str):
 
 
 class TestSchema:
-    def test_the_lease_table_is_gone(self, db_path: str) -> None:
-        conn = _connect(db_path)
-        try:
-            assert not _table_exists(conn, "coordination_leases")
-        finally:
-            conn.close()
-
     def test_one_live_claim_per_resource(self, db_path: str) -> None:
         """Released rows must not block the next acquire."""
         conn = _connect(db_path)

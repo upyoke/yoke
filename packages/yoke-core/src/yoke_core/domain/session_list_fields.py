@@ -35,7 +35,7 @@ SESSION_LIST_FIELDS = (
     "owns_current_item",
     "claim_started_at",
     "claims",
-    "coordination_leases",
+    "coordination_claims",
     "claimed_blitz_worktree_ids",
 )
 

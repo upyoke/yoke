@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.host_control_runner import TestMachineMaterial
 from yoke_core.domain.machine_qa_execution import MachineQaLease
 
@@ -30,10 +31,9 @@ def _execution(control: FakeHostControl) -> MachineQaLease:
         ),
         lease=CoordinationClaim(
             id=4,
-            project_id=1,
-            lease_key="QA_HOST:mac-mini-lab",
+            target=make_qa_admission_target("mac-mini-lab"),
             session_id="session-1",
-            acquired_at="now",
+            claimed_at="now",
         ),
     )
 

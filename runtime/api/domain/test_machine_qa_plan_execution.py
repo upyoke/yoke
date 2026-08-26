@@ -65,7 +65,8 @@ def _request(
 def _active_lease_count(conn: Any) -> int:
     return int(
         conn.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind = 'qa_admission'"
         ).fetchone()[0]
     )
 
@@ -218,7 +219,7 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
     lease_context = waiting.result_payload["lease_context"]
     assert lease_context["holder_session_id"] == "another-session"
     assert "heartbeat age" in lease_context["wait_message"]
-    assert "yoke coordination-lease release" in lease_context["wait_message"]
+    assert "yoke coordination-claim release" in lease_context["wait_message"]
     stored = lock_plan_execution(test_db, str(execution["id"]))
     assert stored["state"] == "waiting"
     assert stored["machine_lease_id"] is None

@@ -23,7 +23,7 @@ from runtime.api.domain.test_session_broker_wake import MACHINE_ID, _seed
 from runtime.api.domain.test_session_message_support import (
     NOW,
     NOW_TEXT,
-    add_coordination_lease_schema,
+    add_coordination_claim_schema,
 )
 from runtime.api.tools.test_session_control_live_acceptance_policy_support import (
     require_exact_cli_idle_policy,
@@ -42,7 +42,7 @@ def _candidate_connection(monkeypatch, *, route: str):
     monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
     monkeypatch.setenv("YOKE_BUILD_SHA", RELEASE_SHA)
     conn, message_id = _seed()
-    add_coordination_lease_schema(conn)
+    add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(

@@ -58,7 +58,7 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _target_for(row: dict[str, Any]) -> WorkClaimTarget | None:
+def _claim_target_for_row(row: dict[str, Any]) -> WorkClaimTarget | None:
     """Translate one lease row into its typed target, or None if unknown."""
     key = str(row.get("lease_key") or "")
     project_id = int(row.get("project_id") or 0)
@@ -135,7 +135,7 @@ def _migrate_active_leases(conn: Any) -> None:
     ).fetchall()
     for raw in rows:
         row = dict(raw)
-        target = _target_for(row)
+        target = _claim_target_for_row(row)
         if target is None:
             continue
         holder = str(row.get("owner_session_id") or row.get("session_id") or "")
