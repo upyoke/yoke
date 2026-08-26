@@ -12,6 +12,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
 )
 from runtime.api.tools.session_control_live_acceptance_evidence import (
     native_wake_evidence,
+    wait_for_ack,
+)
+from runtime.api.tools.test_session_control_live_acceptance_clock import (
+    AcceptanceClock,
 )
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
@@ -60,6 +64,22 @@ def _parse(cell: AcceptanceCell, attempts: list[dict[str, Any]]) -> dict[str, An
     )
 
 
+def _acknowledged(attempt: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "message_id": MESSAGE_ID,
+        "state": "acknowledged",
+        "injection_count": 1,
+        "wake_attempt_count": 1,
+        "acknowledged_at": "2026-08-25T18:00:02Z",
+        "last_wake_at": "2026-08-25T18:00:00Z",
+        "attempt_evidence": {
+            "attempts": [attempt],
+            "attempt_count": 1,
+            "attempts_truncated": False,
+        },
+    }
+
+
 def test_settled_retries_before_one_success_are_retained_body_free() -> None:
     cell = AcceptanceCell(
         "claude-desktop", "1.34493.1", "identify", wake_route="direct"
@@ -84,7 +104,7 @@ def test_settled_retries_before_one_success_are_retained_body_free() -> None:
     assert all("evidence" not in item for item in parsed["attempts"])
 
 
-def test_resumed_running_success_may_remain_unsettled() -> None:
+def test_resumed_running_shape_is_valid_while_in_flight() -> None:
     cell = AcceptanceCell("claude-cli", "2.1.245", "identify", wake_route="direct")
     parsed = _parse(
         cell,
@@ -92,6 +112,58 @@ def test_resumed_running_success_may_remain_unsettled() -> None:
     )
     assert parsed["result_code"] == "resumed_running"
     assert parsed["attempts"][0]["completed_at"] is None
+
+
+def test_ack_waits_for_running_resume_to_settle() -> None:
+    cell = AcceptanceCell("claude-cli", "2.1.245", "identify", wake_route="direct")
+    receipts = iter(
+        (
+            _acknowledged(_attempt("attempt-1", "resumed_running", completed_at=None)),
+            _acknowledged(_attempt("attempt-1", "resumed_completed")),
+        )
+    )
+    clock = AcceptanceClock()
+
+    observed = wait_for_ack(
+        lambda *_args: next(receipts),
+        cell=cell,
+        session_id="target-session",
+        message_id=MESSAGE_ID,
+        timeout=2,
+        poll=1,
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+        require_wake=True,
+    )
+
+    assert observed["native_wake"]["result_code"] == "resumed_completed"
+    assert observed["native_wake"]["attempts"][0]["completed_at"]
+    assert clock.value == 1
+
+
+def test_ack_reports_a_named_timeout_when_resume_never_settles() -> None:
+    cell = AcceptanceCell("claude-cli", "2.1.245", "identify", wake_route="direct")
+    clock = AcceptanceClock()
+
+    with pytest.raises(AcceptanceContractError) as failure:
+        wait_for_ack(
+            lambda *_args: _acknowledged(
+                _attempt("attempt-1", "resumed_running", completed_at=None)
+            ),
+            cell=cell,
+            session_id="target-session",
+            message_id=MESSAGE_ID,
+            timeout=1,
+            poll=1,
+            sleep=clock.sleep,
+            monotonic=clock.monotonic,
+            require_wake=True,
+        )
+
+    assert failure.value.code == "wake_attempt_settlement_timeout"
+    attempts = failure.value.evidence["native_wake_attempts"]["attempts"]
+    assert attempts[0]["result_code"] == "resumed_running"
+    assert attempts[0]["completed_at"] is None
 
 
 @pytest.mark.parametrize(

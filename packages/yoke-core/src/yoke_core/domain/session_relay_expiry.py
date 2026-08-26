@@ -14,6 +14,7 @@ from yoke_core.domain.session_relay_storage import (
 
 
 _LEASE_EXPIRED_CODE = "relay_lease_expired"
+RELAY_EXPIRY_ADAPTER_REVISION = "session-relay-expiry-v1"
 
 
 def settle_expired_relay_leases(conn: Any, *, now: str) -> int:
@@ -54,10 +55,17 @@ def _settle_wake(conn: Any, batch_id: str, *, now: str) -> int:
         return 0
     conn.execute(
         "UPDATE session_message_attempts SET completed_at=" + p + ","
-        "result_code=" + p + ",evidence=" + p + f" WHERE attempt_id={p}",
+        "result_code="
+        + p
+        + ",adapter_revision=COALESCE(adapter_revision,"
+        + p
+        + "),evidence="
+        + p
+        + f" WHERE attempt_id={p}",
         (
             now,
             _LEASE_EXPIRED_CODE,
+            RELAY_EXPIRY_ADAPTER_REVISION,
             redacted_evidence({"result_code": _LEASE_EXPIRED_CODE}),
             wake[0],
         ),
@@ -87,4 +95,4 @@ def _settle_launches(conn: Any, batch_id: str, *, now: str) -> int:
     return len(stranded)
 
 
-__all__ = ["settle_expired_relay_leases"]
+__all__ = ["RELAY_EXPIRY_ADAPTER_REVISION", "settle_expired_relay_leases"]

@@ -21,6 +21,7 @@ from yoke_core.domain.session_relay_storage import marker
 
 
 EVENT_SESSION_WAKE_OUTCOME_RECORDED = "SessionWakeOutcomeRecorded"
+WAKE_RECONCILIATION_ADAPTER_REVISION = "session-wake-reconciliation-v1"
 
 
 def _after(value: object, boundary) -> object | None:
@@ -125,6 +126,9 @@ def reconcile_spawned_wake_attempts(conn: Any, *, now: str) -> int:
             + p
             + ",result_code="
             + p
+            + ",adapter_revision=COALESCE(adapter_revision,"
+            + p
+            + ")"
             + ",evidence="
             + p
             + f" WHERE attempt_id={p} AND completed_at IS NULL "
@@ -132,6 +136,7 @@ def reconcile_spawned_wake_attempts(conn: Any, *, now: str) -> int:
             (
                 now,
                 result_code,
+                WAKE_RECONCILIATION_ADAPTER_REVISION,
                 _merged_evidence(
                     row[4], result_code=result_code, duration_ms=duration_ms
                 ),
@@ -155,5 +160,6 @@ def reconcile_spawned_wake_attempts(conn: Any, *, now: str) -> int:
 
 __all__ = [
     "EVENT_SESSION_WAKE_OUTCOME_RECORDED",
+    "WAKE_RECONCILIATION_ADAPTER_REVISION",
     "reconcile_spawned_wake_attempts",
 ]

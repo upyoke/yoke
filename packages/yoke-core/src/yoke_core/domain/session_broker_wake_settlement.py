@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake import (
+    BROKER_ADAPTER_REVISION,
     BROKER_HOOK_LEASE_SECONDS,
     BROKER_JOB_TIMEOUT_SECONDS,
 )
@@ -42,12 +43,16 @@ def close_broker_attempt(
         + p
         + ",result_code="
         + p
+        + ",adapter_revision=COALESCE(adapter_revision,"
+        + p
+        + ")"
         + ",evidence="
         + p
         + f" WHERE attempt_id={p} AND completed_at IS NULL",
         (
             now,
             result_code,
+            BROKER_ADAPTER_REVISION,
             redacted_evidence({"result_code": result_code}),
             attempt_id,
         ),

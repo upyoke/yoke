@@ -100,7 +100,6 @@ def claim_wake_job(
         return None
     message_id = str(selected["message_id"])
     session_id = str(selected["session_id"])
-    project_id = int(selected["project_id"])
     claim = claim_wake_attempt(conn, candidate=selected, now=now)
     if claim is None:
         return None
@@ -125,7 +124,7 @@ def claim_wake_job(
         machine_id=heartbeat.machine_id,
         surface=execution[0],
         surface_version=execution[1],
-        project_id=int(project_id),
+        project_id=int(selected["project_id"]),
         native_instruction=native_wake_instruction(message_id),
         message_id=str(message_id),
         target_session_id=str(session_id),
@@ -176,7 +175,8 @@ def report_wake_job(
         + p
         + ",result_code="
         + p
-        + f",adapter_revision=COALESCE({p},adapter_revision)"
+        + f",adapter_revision=COALESCE(NULLIF({p},''),adapter_revision,"
+        + "'session-relay-report-v1')"
         + ",evidence="
         + p
         + f" WHERE attempt_id={p}",

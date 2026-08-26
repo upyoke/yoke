@@ -9,6 +9,7 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
 )
+from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
@@ -27,7 +28,7 @@ _ATTEMPT_KEYS = frozenset(
         "target_session_id",
     }
 )
-_SUCCESS_RESULTS = frozenset({"accepted", "resumed_running", "resumed_completed"})
+_SUCCESS_RESULTS = frozenset({"accepted", RESUMED_RUNNING_RESULT, "resumed_completed"})
 _SKIP_RESULTS = frozenset({"skipped_surface", "skipped_version", "skipped_operation"})
 _WAKE_KINDS = frozenset({"wake_relay", "wake_broker"})
 
@@ -191,7 +192,7 @@ def native_wake_evidence(
     _require_attempt_metadata(
         attempt,
         surface=cell.surface,
-        completed_required=result_code != "resumed_running",
+        completed_required=result_code != RESUMED_RUNNING_RESULT,
     )
     evidence = attempt.get("evidence")
     digest = native_wake_instruction_sha256(message_id)
@@ -307,6 +308,15 @@ def wait_for_ack(
                     raise _receipt_failure(
                         "wake_attempt_count_mismatch", cell=cell, observed=observed
                     )
+                if observed["native_wake"]["result_code"] == RESUMED_RUNNING_RESULT:
+                    if monotonic() >= deadline:
+                        raise _receipt_failure(
+                            "wake_attempt_settlement_timeout",
+                            cell=cell,
+                            observed=observed,
+                        )
+                    sleep(poll)
+                    continue
                 observed.pop("attempt_evidence")
             else:
                 observed.pop("attempt_evidence")
