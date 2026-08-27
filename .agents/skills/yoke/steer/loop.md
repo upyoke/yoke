@@ -59,6 +59,9 @@ pass, not only after something looks wrong:
   `registered_session_id` gets `launch reconcile` followed by `launch retry`.
 - **Silent in-flight work:** any in-flight item with no worker activity beyond
   the project's sanity window gets an immediate holder probe and revival.
+- **Landed without close-out:** any item whose pull request is merged while
+  the item remains non-terminal gets an immediate nudge to its live claim
+  holder; with no live holder, route the normal starvation/restaffing path.
 
 Wake sources are events; failures are silences — every pass scans the
 silences.

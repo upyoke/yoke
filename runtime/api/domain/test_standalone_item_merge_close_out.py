@@ -127,6 +127,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         "status": "reviewing-implementation",
         "workflow": {"id": "dash"},
         "project": {"slug": "yoke"},
+        "merge_queue": {"enqueued_at": "2026-08-27T18:00:00Z"},
         "worktrees": [{"path": "/repo/.worktrees/ITEM-1", "branch": "ITEM-1"}],
     }
     monkeypatch.setattr(
@@ -176,6 +177,12 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         lambda **kw: (restored.append(kw["lane"].merge_sha), (item, ""))[1],
     )
     calls = _transition_calls(monkeypatch)
+    cleared: list[int] = []
+    monkeypatch.setattr(
+        merge_cli.pending,
+        "clear_after_close_out",
+        lambda item_id, _item: cleared.append(item_id) or "",
+    )
 
     exit_code = merge_cli.run(
         ["ITEM-1", "--result", "landed", "--verification", "merge_group green"],
@@ -189,6 +196,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     assert evidence["commit_sha"] == LANE_SHA
     assert evidence["merge_sha"] == MERGE_SHA
     assert restored == [MERGE_SHA]
+    assert cleared == [7]
     assert payloads["lifecycle.transition.execute"]["target_status"] == "done"
     call_names = [name for name, _payload in calls]
     assert call_names.index("direct_workflow.dash.evidence") < call_names.index(

@@ -56,6 +56,10 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
         "UPDATE qa_runs SET verdict='undetermined', "
         "verdict_reason='The screenshot omits the mobile breakpoint.' WHERE id=8"
     )
+    conn.execute(
+        "UPDATE items SET merge_queue_pr_number='42', "
+        "merge_queue_enqueued_at='2026-08-27T18:00:00Z' WHERE id=51"
+    )
     conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
     item = item_detail_read.get_item_detail(51)
@@ -86,6 +90,13 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
         "paths": ["packages/web/footer.js"],
     }
     assert item["progress_log"]["content"].endswith("built")
+    assert item["merge_queue"] == {
+        "pr_number": "42",
+        "enqueued_at": "2026-08-27T18:00:00Z",
+        "landed_at": "",
+        "notified_at": "",
+        "status": "in merge queue since 2026-08-27T18:00:00Z",
+    }
     assert item["qa_requirements"][0]["requirement_source"] == "footer-renders"
     assert item["qa_requirements"][0]["verdict"] == "undetermined"
     assert item["qa_requirements"][0]["plan_slug"] == "browser-close"
@@ -121,6 +132,22 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
         }
     ]
     assert "Correct the footer" in item["narrative"]["spec"]
+
+
+def test_detail_read_projects_empty_queue_shape_before_schema_convergence(monkeypatch):
+    conn = _connection()
+    monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
+    monkeypatch.setattr(item_detail_read, "_column_exists", lambda *_args: False)
+
+    item = item_detail_read.get_item_detail(51)
+
+    assert item["merge_queue"] == {
+        "pr_number": "",
+        "enqueued_at": "",
+        "landed_at": "",
+        "notified_at": "",
+        "status": "",
+    }
 
 
 def test_detail_proof_summarizes_current_runs_and_no_run_fallback(monkeypatch):

@@ -110,24 +110,24 @@ WATCHERS_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": ("Run done_transition / merge_worktree with watcher (main session)"),
+        "purpose": ("Run merge or done-transition with watcher (main session)"),
         "recipe": (
             "yoke watch merge "
             "--print-streaming-pair merge-worktree -- PREFIX-N\n"
-            "# Subcommands: done-transition <args>, merge-worktree <args>"
+            "# merge-item defaults to enqueue/re-enter; Codex/Cursor may pass --wait"
         ),
         "notes": (
             "watch_merge owns the merge filter regex (section banners, "
             "step headers, errors, warnings, RESULT_FILE=). Use for any "
-            "merge or done_transition; never hand-author the filter."
+            "merge or done_transition; never hand-author the filter. Claude "
+            "must not pass merge-item --wait."
         ),
     },
     {
         "topic": "core",
         "purpose": "Wait on a commit's CI runs with watcher (main session)",
         "recipe": (
-            "yoke watch ci-run\n"
-            "yoke watch ci-run -- <branch-or-sha> --workflow <name>"
+            "yoke watch ci-run\nyoke watch ci-run -- <branch-or-sha> --workflow <name>"
         ),
         "notes": (
             "Owns the CI filter; never hand-author one. Resolves the ref with "

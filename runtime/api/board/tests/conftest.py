@@ -1,5 +1,6 @@
 # ruff: noqa: F401
 """Shared fixtures for the board renderer test suite."""
+
 from __future__ import annotations
 
 import json
@@ -51,7 +52,9 @@ _SCHEMA_DDL = textwrap.dedent("""\
         created_at TEXT DEFAULT '2025-01-01',
         frozen INTEGER DEFAULT 0,
         blocked INTEGER DEFAULT 0,
-        blocked_reason TEXT
+        blocked_reason TEXT,
+        merge_queue_enqueued_at TEXT,
+        merge_queue_landed_at TEXT
     );
 
     CREATE TABLE projects (
@@ -181,11 +184,13 @@ def test_db(test_db_path):
 @pytest.fixture
 def config_file(tmp_path):
     cfg = tmp_path / "config"
-    cfg.write_text(textwrap.dedent("""\
+    cfg.write_text(
+        textwrap.dedent("""\
         dashboard_velocity=true
         dashboard_weather=true
         dashboard_velocity_meter=false
-    """))
+    """)
+    )
     return str(cfg)
 
 

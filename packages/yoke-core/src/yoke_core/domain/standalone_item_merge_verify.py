@@ -73,8 +73,8 @@ def verify_and_land(
         item_ref=item_ref,
         local_merge=not args.pr,
         resume_command=_timeout.merge_item_resume_command(item_ref, args),
+        wait_for_landing=bool(getattr(args, "wait", False)),
     ), ""
-
 
 
 __all__ = ["verify_and_land"]

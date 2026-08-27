@@ -89,13 +89,16 @@ evidence gate and any selected posture gate are satisfied. Deployment posture
 falls out for free: the transition simply refuses until the item-bound
 deployment run has succeeded, and the caller retries.
 
-### Why direct merge is the default
+### Why queue landing and close-out are separate
 
-The operation merges the branch into the base branch locally and then pushes,
-rather than opening a pull request. A standalone item is instruction-sized work
-that a single session already verified; a review round trip adds latency
-without adding a reviewer. Projects that require pull requests are served by a
-per-project mode knob, which is not part of this decision.
+A project with merge-queue capability opens and arms a pull request, records a
+durable item marker, and returns immediately. The queue owns the long CI wait;
+no detached local waiter owns item state. A control-plane observer notices the
+merge and messages the live claim holder, whose re-entry records evidence and
+runs the terminal lifecycle transition. The marker makes that handoff visible
+and idempotent. `--wait` retains the inline poll only for harnesses and
+operators whose process lifetime safely spans it. Projects without merge-queue
+capability keep the local merge engine.
 
 ## Portability
 

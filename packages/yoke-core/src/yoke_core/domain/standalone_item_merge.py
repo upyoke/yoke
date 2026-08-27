@@ -48,6 +48,9 @@ class StandaloneMergeOutcome:
     merge_sha: str = ""
     touched_files: tuple[str, ...] = ()
     pushed: bool = False
+    landing_pending: bool = False
+    pr_num: str = ""
+    enqueued_at: str = ""
     error: str = ""
     output: str = ""
     warnings: tuple[str, ...] = field(default=())
@@ -64,7 +67,8 @@ def stamp_merged_at(item_id: int) -> Optional[str]:
     if response.success:
         return None
     return (
-        response.error.message if response.error is not None
+        response.error.message
+        if response.error is not None
         else "merged_at write failed"
     )
 
@@ -86,9 +90,17 @@ def _complete(
 ) -> StandaloneMergeOutcome:
     """Publish, stamp, and record the completed receipt for a landed merge."""
     return post_push.complete(
-        item_id=item_id, branch=branch, target=target, repo_root=repo_root,
-        project=project, authority=authority, commit_sha=commit_sha,
-        touched=touched, already=already, output=output, warnings=warnings,
+        item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=repo_root,
+        project=project,
+        authority=authority,
+        commit_sha=commit_sha,
+        touched=touched,
+        already=already,
+        output=output,
+        warnings=warnings,
         resume_command=resume_command,
     )
 
@@ -305,8 +317,7 @@ def sync_item_to_github(item_id: int) -> Optional[str]:
     if response.success:
         return None
     return (
-        response.error.message if response.error is not None
-        else "GitHub sync failed"
+        response.error.message if response.error is not None else "GitHub sync failed"
     )
 
 

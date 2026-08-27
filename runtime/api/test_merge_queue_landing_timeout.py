@@ -49,7 +49,9 @@ def message(holder_dispatch, *, resume=RESUME, last_observed=""):
 @pytest.fixture(autouse=True)
 def _this_session(monkeypatch):
     monkeypatch.setattr(
-        timeout_mod, "_ambient_session_id", lambda: "sess-1",
+        timeout_mod,
+        "_ambient_session_id",
+        lambda: "sess-1",
     )
 
 
@@ -114,9 +116,15 @@ def test_missing_caller_command_falls_back_rather_than_inventing_one():
 
 def test_resume_command_reproduces_the_evidence_flags():
     args = SimpleNamespace(
-        project="", target="", result="did the thing",
-        verification="suite green", verification_status="passed",
-        no_changes=False, skip_status=False, pr=False, json=True,
+        project="",
+        target="",
+        result="did the thing",
+        verification="suite green",
+        verification_status="passed",
+        no_changes=False,
+        skip_status=False,
+        pr=False,
+        json=True,
     )
     command = timeout_mod.merge_item_resume_command("YOK-200", args)
     assert command == (
@@ -127,12 +135,19 @@ def test_resume_command_reproduces_the_evidence_flags():
 
 def test_resume_command_carries_non_default_and_flag_arguments():
     args = SimpleNamespace(
-        project="yoke", target="release", result="", verification="",
-        verification_status="failed", no_changes=True, skip_status=True,
-        pr=True, json=False,
+        project="yoke",
+        target="release",
+        result="",
+        verification="",
+        verification_status="failed",
+        no_changes=True,
+        skip_status=True,
+        pr=True,
+        wait=True,
+        json=False,
     )
     command = timeout_mod.merge_item_resume_command("YOK-200", args)
     assert command == (
         "yoke merge item YOK-200 --project yoke --target release "
-        "--verification-status failed --no-changes --skip-status --pr"
+        "--verification-status failed --no-changes --skip-status --pr --wait"
     )

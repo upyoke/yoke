@@ -1,43 +1,7 @@
 """Queue-routed landing for a verified item branch.
-
-The standalone engine merges locally under the merge lock; this route
-lands the same branch through the GitHub merge queue instead: admission
-control against current queue membership, PR ensure + merge-when-ready
-entry, a poll on the PR's merged state while the queue validates the
-train's combined head server-side, then the member's close-out — the
-``merged_at`` stamp and the batch verification receipt. Lifecycle status
-and GitHub sync stay caller-owned, exactly as they are for the
-standalone engine, so both routes drive the same downstream gates.
-
-That poll follows the train's own timing profile
-(:mod:`yoke_core.domain.github_poll_schedule`): it reads while a landing
-can still fail fast, then stays silent through the stretch where a suite on
-a ten-minute floor cannot have concluded anything to read.
-
-Every step is re-enterable against a landing that already happened,
-because the queue merges on GitHub whether or not the process watching it
-survives: the pull request is looked up in any state, queue entry is
-skipped for one already merged or already armed, and a poll only ever
-converges on the pull request's own terminal state
-(:mod:`yoke_core.domain.merge_queue_landing_verdict`). A retry after the
-queue merged reaches the same close-out the first attempt would have.
-
-Convergence is bounded by what actually merged. A lane that committed again
-after its pull request merged still matches that pull request by branch name,
-so the landing converges only on a merged pull request covering the lane head
-and opens a fresh one otherwise — binding new commits to an old merge commit
-would record evidence for work that never landed.
-
-The poll narrates itself. Each observation names the queue slot, arming,
-``mergeStateStatus``, the train run, and the pending vs concluded check
-set. A line is emitted only when that set changes, because repeating the
-same facts on every poll hid a stalled check behind elapsed time.
-``DIRTY`` is terminal: waiting will not create the merge commit.
-
-No lock wraps any of this: the expensive gate runs inside GitHub, and
-the Yoke-side close-out is one short bookkeeping step per member.
-Every refusal is named — an unreachable or unconfigured queue is an
-error the caller surfaces, never a silent downgrade to a local merge.
+Admission and PR arming are re-enterable: default mode records a durable
+handoff, while explicit wait mode polls the train. Both converge on an already
+merged PR and the same receipt; failures never silently downgrade to local merge.
 """
 
 from __future__ import annotations
@@ -66,6 +30,7 @@ from yoke_core.domain.merge_queue_failed_train import (
 from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
 )
+from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
 from yoke_core.domain.merge_queue_landing_timeout import timeout_message
 from yoke_core.domain.merge_queue_drift_gate import drift_check_before_landing
 from yoke_core.domain.merge_queue_landing_verdict import (
@@ -121,6 +86,8 @@ class QueueLandingOutcome:
     touched_files: tuple[str, ...] = field(default=())
     batch: Optional[BatchReceipt] = None
     already_merged: bool = False
+    landing_pending: bool = False
+    enqueued_at: str = ""
     error: str = ""
     warnings: tuple[str, ...] = field(default=())
 
@@ -140,6 +107,7 @@ def land_item_through_merge_queue(
     resume_command: str = "",
     liveness: Optional[SessionLivenessPump] = None,
     emit: Callable[[str], None] = _emit_to_stderr,
+    wait_for_landing: bool = True,
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue."""
     warnings: list[str] = []
@@ -147,11 +115,16 @@ def land_item_through_merge_queue(
     # The queue enforces whatever the live ruleset requires, so landing
     # into a drifted one is gated on a set main already disowned.
     drift = drift_check_before_landing(
-        ctx.project or "", checkout=ctx.repo_root, branch=target, item_id=item_id,
+        ctx.project or "",
+        checkout=ctx.repo_root,
+        branch=target,
+        item_id=item_id,
     )
     if drift.drifted:
         return QueueLandingOutcome(
-            ok=False, exit_code=1, error=drift.refusal(ctx.project or ""),
+            ok=False,
+            exit_code=1,
+            error=drift.refusal(ctx.project or ""),
         )
     warnings.extend(drift.unreadable)
 
@@ -178,7 +151,8 @@ def land_item_through_merge_queue(
         return QueueLandingOutcome(
             ok=False,
             exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
-            error=verdict.narrative(), warnings=tuple(warnings),
+            error=verdict.narrative(),
+            warnings=tuple(warnings),
         )
 
     # The verification gate already opened this pull request for a project
@@ -204,7 +178,10 @@ def land_item_through_merge_queue(
     )
     if pre_state is None or not (already_merged or already_armed):
         refusal = unchanged_failed_train_refusal(
-            ctx, pr_num, lane_head=commit_sha, base_branch=target,
+            ctx,
+            pr_num,
+            lane_head=commit_sha,
+            base_branch=target,
         )
         if refusal:
             return QueueLandingOutcome(
@@ -223,15 +200,39 @@ def land_item_through_merge_queue(
                 error=entry.error_detail or "queue entry refused",
             )
 
-    # Waiting on the queue is work, but it is silent work: nothing this
-    # loop does reaches the session's activity signals, so the stale sweep
-    # would reclaim the session mid-poll and release the item claim the
-    # close-out below — and any retry — depends on. The pump says the
-    # session is still here for exactly as long as this process waits.
-    # One clock read per poll, reused for the deadline test, for the elapsed
-    # each observation reports, and for where in the schedule the next read
-    # belongs: reading it twice would make how long the loop runs depend on
-    # how much it narrates.
+    if not already_merged and not wait_for_landing:
+        enqueued_at, marker_error = mark_landing_pending(
+            item_id,
+            pr_num,
+            dispatch=dispatch,
+        )
+        if marker_error:
+            return QueueLandingOutcome(
+                ok=False,
+                exit_code=1,
+                pr_num=pr_num,
+                error=(
+                    f"pull request {pr_num} is armed in the merge queue, but "
+                    f"its durable close-out marker was not recorded: {marker_error}. "
+                    "Re-enter with --wait to converge on the landing."
+                ),
+                warnings=tuple(warnings),
+            )
+        emit(
+            f"[phase:landing] pull request {pr_num} is in the merge queue; "
+            "this command is exiting until the landing-complete notification"
+        )
+        return QueueLandingOutcome(
+            ok=True,
+            exit_code=0,
+            pr_num=pr_num,
+            commit_sha=commit_sha,
+            landing_pending=True,
+            enqueued_at=enqueued_at,
+            warnings=tuple(warnings),
+        )
+
+    # Explicit wait mode keeps the owning session alive through the poll.
     started = monotonic()
     deadline = started + deadline_seconds
     pump = liveness if liveness is not None else SessionLivenessPump()

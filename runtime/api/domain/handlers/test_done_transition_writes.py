@@ -86,12 +86,18 @@ class TestFinalizeLocalSideEffects:
         assert outcome.result_payload["release_note"] is True
         writes.FinalizeLocalSideEffectsResponse(**outcome.result_payload)
 
-        assert _scalar(
-            db, "SELECT deployed_to FROM items WHERE id = %s", (item_id,)
-        ) == "stage"
-        assert _scalar(
-            db, "SELECT COUNT(*) FROM release_entries WHERE item_id = %s", (item_id,)
-        ) == 1
+        assert (
+            _scalar(db, "SELECT deployed_to FROM items WHERE id = %s", (item_id,))
+            == "stage"
+        )
+        assert (
+            _scalar(
+                db,
+                "SELECT COUNT(*) FROM release_entries WHERE item_id = %s",
+                (item_id,),
+            )
+            == 1
+        )
 
     def test_no_env_leaves_deployed_to_unchanged_but_upserts_note(self, db):
         item_id = 9502
@@ -115,9 +121,14 @@ class TestFinalizeLocalSideEffects:
         assert _scalar(
             db, "SELECT deployed_to FROM items WHERE id = %s", (item_id,)
         ) in (None, "")
-        assert _scalar(
-            db, "SELECT COUNT(*) FROM release_entries WHERE item_id = %s", (item_id,)
-        ) == 1
+        assert (
+            _scalar(
+                db,
+                "SELECT COUNT(*) FROM release_entries WHERE item_id = %s",
+                (item_id,),
+            )
+            == 1
+        )
 
     def test_missing_item_target_is_invalid(self, db):
         outcome = writes.handle_finalize_local_side_effects(
@@ -163,9 +174,10 @@ class TestPopulateMergedAt:
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["merged_at"] == stamp
         writes.PopulateMergedAtResponse(**outcome.result_payload)
-        assert _scalar(
-            db, "SELECT merged_at FROM items WHERE id = %s", (item_id,)
-        ) == stamp
+        assert (
+            _scalar(db, "SELECT merged_at FROM items WHERE id = %s", (item_id,))
+            == stamp
+        )
 
     def test_missing_stamp_is_payload_invalid(self, db):
         outcome = writes.handle_populate_merged_at(
@@ -187,3 +199,43 @@ class TestPopulateMergedAt:
         assert outcome.primary_success is False
         assert outcome.error is not None
         assert outcome.error.code == "target_invalid"
+
+
+class TestLandingPendingMarker:
+    def test_mark_is_idempotent_and_clear_removes_the_handoff(self, db):
+        item_id = 9521
+        conn = connect_test_db(db)
+        try:
+            insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+        finally:
+            conn.close()
+
+        first = writes.handle_mark_landing_pending(
+            _item_envelope(
+                "merge_queue.landing_pending.mark",
+                item_id=item_id,
+                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:00:00Z"},
+            )
+        )
+        second = writes.handle_mark_landing_pending(
+            _item_envelope(
+                "merge_queue.landing_pending.mark",
+                item_id=item_id,
+                payload={"pr_number": "42", "enqueued_at": "2026-08-27T18:05:00Z"},
+            )
+        )
+        assert first.primary_success and second.primary_success
+        assert second.result_payload["enqueued_at"] == "2026-08-27T18:00:00Z"
+        writes.MarkLandingPendingResponse(**second.result_payload)
+
+        cleared = writes.handle_clear_landing_pending(
+            _item_envelope("merge_queue.landing_pending.clear", item_id=item_id)
+        )
+        assert cleared.primary_success
+        writes.ClearLandingPendingResponse(**cleared.result_payload)
+        assert (
+            _scalar(
+                db, "SELECT merge_queue_pr_number FROM items WHERE id = %s", (item_id,)
+            )
+            is None
+        )

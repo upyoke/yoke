@@ -3,6 +3,7 @@
 Preserves the historical shell-facing command shape while delegating
 all behavior to the Python service client.
 """
+
 from __future__ import annotations
 
 import sys
@@ -31,11 +32,13 @@ body filtering the `yoke items get` adapter does not expose yet):
 
 Field matrix for `get` (canonical YOKE backlog item columns):
   scalar:  id, title, status, workflow_id, workflow_version_id, priority, project, deployment_flow,
-           frozen, blocked, blocked_reason, github_issue, deployed_to
+           frozen, blocked, blocked_reason, github_issue, deployed_to,
+           merge_queue_pr_number, merge_queue_enqueued_at,
+           merge_queue_landed_at, merge_queue_notified_at
   structured: spec, design_spec, technical_plan, worktree_plan,
               shepherd_log, shepherd_caveats, test_results, deploy_log
-  virtual: body (rendered on demand from structured fields + sections;
-           NEVER stored — raw body writes are unsupported)
+  virtual: body (rendered from structured fields + sections),
+           merge_queue_status (queue wait or landed close-out handoff)
 
 Notes:
   - Item arguments accept `PREFIX-N` or a bare sequence in the mapped project.

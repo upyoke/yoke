@@ -190,7 +190,7 @@ reading secret content.
 - _Read structured item field(s) — concrete examples_
   - `yoke items get PREFIX-N status title workflow_id github_issue
 yoke items get PREFIX-N spec`
-  - Multi-field returns one value per line in field order. The ``items.get.run`` JSON result nests stored values under ``result.fields`` (e.g. ``result.fields.db_mutation_profile``); the wrong guess of a top-level ``db_mutation_profile`` on that result always reads empty. Valid fields: architecture_impact, blocked, blocked_reason, body, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, frozen, github_issue, id, merged_at, owner, priority, project, project_id, project_sequence, resolution, resolution_comment, resolution_ref, rework_count, shepherd_caveats, shepherd_log, source, spec, spec_updated_at, spec_updated_by, status, technical_plan, test_results, title, updated_at, workflow_id, workflow_version_id, worktree_plan. For body-section filtering, use `yoke items get PREFIX-N body --section "## File Budget"`.
+  - Multi-field returns one value per line in field order. The ``items.get.run`` JSON result nests stored values under ``result.fields`` (e.g. ``result.fields.db_mutation_profile``); the wrong guess of a top-level ``db_mutation_profile`` on that result always reads empty. Valid fields: architecture_impact, blocked, blocked_reason, body, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, frozen, github_issue, id, merge_queue_enqueued_at, merge_queue_landed_at, merge_queue_notified_at, merge_queue_pr_number, merge_queue_status, merged_at, owner, priority, project, project_id, project_sequence, resolution, resolution_comment, resolution_ref, rework_count, shepherd_caveats, shepherd_log, source, spec, spec_updated_at, spec_updated_by, status, technical_plan, test_results, title, updated_at, workflow_id, workflow_version_id, worktree_plan. For body-section filtering, use `yoke items get PREFIX-N body --section "## File Budget"`.
 - _Inspect a Yoke item's rendered body (GitHub issue surrogate)_
   - `yoke items get PREFIX-N body`
   - The rendered body is the source of truth for work-item content and is auto-synced to the GitHub issue via bearer-token REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL. The lower-level ``service_client backlog-cli`` family remains a source-dev/operator-debug adapter, not the agent-default item surface.
@@ -333,10 +333,10 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - `yoke watch doctor --print-streaming-pair -- --quick
 # Paste the printed pair into the harness's background + progress-tail surfaces.`
   - Doctor must run under this wrapper — bare invocations risk the inverted-redirection trap (`2>&1 > file` silently drops stderr). The wrapper writes raw + filtered captures and auto-exits on its sentinel.
-- _Run done_transition / merge_worktree with watcher (main session)_
+- _Run merge or done-transition with watcher (main session)_
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
-# Subcommands: done-transition <args>, merge-worktree <args>`
-  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
+# merge-item defaults to enqueue/re-enter; Codex/Cursor may pass --wait`
+  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. Claude must not pass merge-item --wait.
 - _Wait on a commit's CI runs with watcher (main session)_
   - `yoke watch ci-run
 yoke watch ci-run -- <branch-or-sha> --workflow <name>`

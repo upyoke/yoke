@@ -20,33 +20,73 @@ from typing import Iterable, Sequence
 # Canonical column order for pipe-delimited row output.
 # "body" is a virtual field rendered on demand.
 CANONICAL_COLUMNS: tuple[str, ...] = (
-    "id", "title", "workflow_id", "workflow_version_id",
-    "status", "priority",
-    "rework_count", "frozen", "github_issue", "deployed_to",
-    "body", "merged_at", "created_at", "updated_at", "source",
-    "project", "project_id", "project_sequence", "deployment_flow", "deploy_stage",
+    "id",
+    "title",
+    "workflow_id",
+    "workflow_version_id",
+    "status",
+    "priority",
+    "rework_count",
+    "frozen",
+    "github_issue",
+    "deployed_to",
+    "body",
+    "merged_at",
+    "created_at",
+    "updated_at",
+    "source",
+    "project",
+    "project_id",
+    "project_sequence",
+    "deployment_flow",
+    "deploy_stage",
 )
 
 # Structured fields (large text that accepts file-based writes).
-STRUCTURED_FIELDS: frozenset[str] = frozenset({
-    "spec", "design_spec", "technical_plan", "worktree_plan",
-    "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "db_mutation_profile", "db_compatibility_attestation",
-    "architecture_impact",
-})
+STRUCTURED_FIELDS: frozenset[str] = frozenset(
+    {
+        "spec",
+        "design_spec",
+        "technical_plan",
+        "worktree_plan",
+        "shepherd_log",
+        "shepherd_caveats",
+        "test_results",
+        "deploy_log",
+        "db_mutation_profile",
+        "db_compatibility_attestation",
+        "architecture_impact",
+    }
+)
 
 # Scalar columns surfaced by the schema packet but outside the pipe-row
 # layout. Listing them keeps the packet promise honest — every items
 # column the packet teaches is readable through ``items.get`` without a
 # round trip through a raw SELECT.
-ADDITIONAL_SCALAR_FIELDS: frozenset[str] = frozenset({
-    "blocked", "blocked_reason", "owner",
-    "resolution", "resolution_ref", "resolution_comment",
-    "spec_updated_at", "spec_updated_by",
-})
+ADDITIONAL_SCALAR_FIELDS: frozenset[str] = frozenset(
+    {
+        "blocked",
+        "blocked_reason",
+        "owner",
+        "resolution",
+        "resolution_ref",
+        "resolution_comment",
+        "spec_updated_at",
+        "spec_updated_by",
+        "merge_queue_pr_number",
+        "merge_queue_enqueued_at",
+        "merge_queue_landed_at",
+        "merge_queue_notified_at",
+    }
+)
+
+ADDITIONAL_VIRTUAL_FIELDS: frozenset[str] = frozenset({"merge_queue_status"})
 
 ALLOWED_GET_FIELDS: frozenset[str] = (
-    frozenset(CANONICAL_COLUMNS) | STRUCTURED_FIELDS | ADDITIONAL_SCALAR_FIELDS
+    frozenset(CANONICAL_COLUMNS)
+    | STRUCTURED_FIELDS
+    | ADDITIONAL_SCALAR_FIELDS
+    | ADDITIONAL_VIRTUAL_FIELDS
 )
 
 # Default projection when the caller names no fields: every allowed field,
@@ -57,6 +97,7 @@ DEFAULT_GET_FIELDS: tuple[str, ...] = (
     tuple(CANONICAL_COLUMNS)
     + tuple(sorted(STRUCTURED_FIELDS))
     + tuple(sorted(ADDITIONAL_SCALAR_FIELDS))
+    + tuple(sorted(ADDITIONAL_VIRTUAL_FIELDS))
 )
 
 # Names an agent is most likely to reach for that are not columns at all.
@@ -79,6 +120,7 @@ def render_field_catalog(*, indent: str = "  ") -> str:
         ("columns", CANONICAL_COLUMNS),
         ("structured text", sorted(STRUCTURED_FIELDS)),
         ("additional scalars", sorted(ADDITIONAL_SCALAR_FIELDS)),
+        ("virtual", sorted(ADDITIONAL_VIRTUAL_FIELDS)),
     )
     lines = ["Accepted fields (omit all to read every one):"]
     for label, names in groups:
@@ -99,7 +141,10 @@ def unknown_field_message(token: str) -> str:
         lines.append(f"{token!r} is not an items column; read it with: {redirect}")
     else:
         near = get_close_matches(
-            str(token), sorted(ALLOWED_GET_FIELDS), n=3, cutoff=0.6,
+            str(token),
+            sorted(ALLOWED_GET_FIELDS),
+            n=3,
+            cutoff=0.6,
         )
         if near:
             lines.append(f"Did you mean: {', '.join(near)}?")
@@ -109,6 +154,7 @@ def unknown_field_message(token: str) -> str:
 
 __all__ = [
     "ADDITIONAL_SCALAR_FIELDS",
+    "ADDITIONAL_VIRTUAL_FIELDS",
     "ALLOWED_GET_FIELDS",
     "CANONICAL_COLUMNS",
     "DEFAULT_GET_FIELDS",

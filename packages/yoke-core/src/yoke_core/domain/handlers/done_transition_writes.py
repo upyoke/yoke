@@ -1,4 +1,4 @@
-"""Internal server-side writes for the done-transition finalize path.
+"""Internal server-side writes for merge and done-transition bookkeeping.
 
 Two done-transition control-plane writes used to open a local ``connect()``
 inside the engine, which fails over an https control plane (no local
@@ -21,11 +21,11 @@ release-note upsert on a SINGLE connection with the same explicit commit,
 so the whole finalization stays ATOMIC in one relay. The engine keeps its
 operator narratives; these handlers return only the raw write result.
 
-Both are ``adapter_status='internal'`` (merge finalize glue, never an agent
+These are ``adapter_status='internal'`` (merge finalize glue, never an agent
 CLI surface) and ``ambient_session_required=False``: the done transition
 runs in a merge subprocess that may resolve no ambient harness session, so
 these session-optional writes match the read siblings' no-session posture.
-They are claim-free because the inline writes they replace were claim-free
+They are claim-free because the merge writes they replace were claim-free
 (a raw control-plane connection, no claim check) — the item claim /
 QA-gate ceremony is enforced upstream by the done-transition status flip,
 not by these finalize writes.
@@ -63,6 +63,28 @@ class PopulateMergedAtRequest(BaseModel):
 class PopulateMergedAtResponse(BaseModel):
     item_id: int
     merged_at: str
+
+
+class MarkLandingPendingRequest(BaseModel):
+    pr_number: str = Field(..., min_length=1)
+    enqueued_at: str = Field(..., min_length=1)
+
+
+class MarkLandingPendingResponse(BaseModel):
+    item_id: int
+    pr_number: str
+    enqueued_at: str
+    landed_at: str = ""
+    notified_at: str = ""
+
+
+class ClearLandingPendingRequest(BaseModel):
+    pass
+
+
+class ClearLandingPendingResponse(BaseModel):
+    item_id: int
+    cleared: bool
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -185,11 +207,97 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_mark_landing_pending(request: FunctionCallRequest) -> HandlerOutcome:
+    """Persist one idempotent merge-queue handoff marker."""
+    item_id = _require_item_id(request)
+    if item_id is None:
+        return _err("target_invalid", "landing_pending.mark requires target.item_id")
+    try:
+        body = MarkLandingPendingRequest.model_validate(request.payload)
+    except ValidationError as exc:
+        return _err("payload_invalid", f"landing marker payload invalid: {exc}")
+
+    try:
+        with _connect_rw() as conn:
+            p = _placeholder(conn)
+            row = conn.execute(
+                "SELECT merge_queue_pr_number, merge_queue_enqueued_at, "
+                "merge_queue_landed_at, merge_queue_notified_at FROM items "
+                f"WHERE id = {p}",
+                (item_id,),
+            ).fetchone()
+            if row is None:
+                return _err("target_not_found", f"item {item_id} not found")
+            same_pr = str(row[0] or "") == body.pr_number
+            enqueued_at = str(row[1]) if same_pr and row[1] else body.enqueued_at
+            landed_at = str(row[2] or "") if same_pr else ""
+            notified_at = str(row[3] or "") if same_pr else ""
+            conn.execute(
+                "UPDATE items SET merge_queue_pr_number = {0}, "
+                "merge_queue_enqueued_at = {0}, merge_queue_landed_at = {0}, "
+                "merge_queue_notified_at = {0} WHERE id = {0}".format(p),
+                (
+                    body.pr_number,
+                    enqueued_at,
+                    landed_at or None,
+                    notified_at or None,
+                    item_id,
+                ),
+            )
+            conn.commit()
+    except Exception as exc:  # noqa: BLE001 - surfaced to the merge boundary
+        return _err("landing_pending_mark_failed", str(exc))
+
+    return HandlerOutcome(
+        result_payload={
+            "item_id": item_id,
+            "pr_number": body.pr_number,
+            "enqueued_at": enqueued_at,
+            "landed_at": landed_at,
+            "notified_at": notified_at,
+        },
+        primary_success=True,
+    )
+
+
+def handle_clear_landing_pending(request: FunctionCallRequest) -> HandlerOutcome:
+    """Clear the queue handoff only after item close-out succeeds."""
+    item_id = _require_item_id(request)
+    if item_id is None:
+        return _err("target_invalid", "landing_pending.clear requires target.item_id")
+    try:
+        ClearLandingPendingRequest.model_validate(request.payload)
+        with _connect_rw() as conn:
+            p = _placeholder(conn)
+            cursor = conn.execute(
+                "UPDATE items SET merge_queue_pr_number = NULL, "
+                "merge_queue_enqueued_at = NULL, merge_queue_landed_at = NULL, "
+                f"merge_queue_notified_at = NULL WHERE id = {p}",
+                (item_id,),
+            )
+            conn.commit()
+            cleared = bool(cursor.rowcount)
+    except ValidationError as exc:
+        return _err("payload_invalid", f"landing marker payload invalid: {exc}")
+    except Exception as exc:  # noqa: BLE001 - advisory close-out warning
+        return _err("landing_pending_clear_failed", str(exc))
+    return HandlerOutcome(
+        result_payload={"item_id": item_id, "cleared": cleared},
+        primary_success=True,
+    )
+
+
 __all__ = [
     "FinalizeLocalSideEffectsRequest",
     "FinalizeLocalSideEffectsResponse",
+    "ClearLandingPendingRequest",
+    "ClearLandingPendingResponse",
+    "MarkLandingPendingRequest",
+    "MarkLandingPendingResponse",
     "PopulateMergedAtRequest",
     "PopulateMergedAtResponse",
+    "handle_clear_landing_pending",
     "handle_finalize_local_side_effects",
+    "handle_mark_landing_pending",
     "handle_populate_merged_at",
 ]

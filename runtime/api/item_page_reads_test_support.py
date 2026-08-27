@@ -45,6 +45,10 @@ def _connection() -> sqlite3.Connection:
           created_at TEXT,
           updated_at TEXT,
           deployment_flow TEXT,
+          merge_queue_pr_number TEXT,
+          merge_queue_enqueued_at TEXT,
+          merge_queue_landed_at TEXT,
+          merge_queue_notified_at TEXT,
           workflow_posture TEXT,
           spec TEXT,
           design_spec TEXT,
@@ -216,9 +220,10 @@ def _connection() -> sqlite3.Connection:
     conn.execute(
         """
         INSERT INTO items VALUES (
-          51, 'Fix the footer', 'reviewing-implementation', 'medium', 'Rae',
-          0, '', '2026-07-25T12:00:00Z', '2026-07-26T12:00:00Z', NULL,
-          '{"verification": true, "file_budget": true}',
+              51, 'Fix the footer', 'reviewing-implementation', 'medium', 'Rae',
+              0, '', '2026-07-25T12:00:00Z', '2026-07-26T12:00:00Z', NULL,
+              NULL, NULL, NULL, NULL,
+              '{"verification": true, "file_budget": true}',
           'Correct the footer and verify every link.
 
           ## File Budget

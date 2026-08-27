@@ -19,6 +19,7 @@ from yoke_contracts.board.status import status_to_board_bucket
 from yoke_contracts.board.sections_definition_queries import query_item_rows
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.merge_queue_status import render_merge_queue_status
 
 # ---------------------------------------------------------------------------
 # Named tuple for classified item rows
@@ -39,6 +40,7 @@ class ItemRow(NamedTuple):
     project: str
     updated_at: str
     status_glyph: Optional[str] = None
+    merge_queue_status: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +220,8 @@ def classify_items(
             project_sequence,
             status_glyph,
             status_bucket,
+            merge_queue_enqueued_at,
+            merge_queue_landed_at,
             generated_children,
         ) = row
         yok_id = format_item_ref(
@@ -254,6 +258,11 @@ def classify_items(
             project=project_display,
             updated_at=updated_at,
             status_glyph=str(status_glyph) if status_glyph else None,
+            merge_queue_status=render_merge_queue_status(
+                merge_queue_enqueued_at,
+                merge_queue_landed_at,
+                item_status=status,
+            ),
         )
 
         # Classify using the domain bucket function

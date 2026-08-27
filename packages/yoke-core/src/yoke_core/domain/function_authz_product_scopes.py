@@ -41,10 +41,10 @@ PRODUCT_AUTHZ_BY_ID = {
     # session-optional and claim-free because the done ceremony enforces the
     # item claim upstream at the status flip, not on these finalize writes.
     "project.snapshot.ensure_at": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
-    "done_transition.finalize_local_side_effects": AuthzSpec(
-        PROJECT, PERM_ITEMS_WRITE
-    ),
+    "done_transition.finalize_local_side_effects": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "done_transition.populate_merged_at": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "merge_queue.landing_pending.mark": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "merge_queue.landing_pending.clear": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Pipeline member-item stamps (deploy_stage / deployed_to). Claim-free
     # because the deploy runner holds no session claim on member items; the
     # PROJECT + items-write scope is what gates the write. Do not route these

@@ -64,9 +64,7 @@ def cmd_active_queue(args: list[str]) -> int:
         )
         from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS
 
-        ref_positions = [
-            i for i, f in enumerate(field_list) if f == "id"
-        ]
+        ref_positions = [i for i, f in enumerate(field_list) if f == "id"]
         label_positions = [
             i for i, f in enumerate(field_list) if f in ACTOR_LABEL_FIELDS
         ]
@@ -84,11 +82,7 @@ def cmd_active_queue(args: list[str]) -> int:
             text = "" if value is None else str(value)
             if position in ref_positions:
                 stripped = text.strip()
-                return (
-                    ref_lookup(int(stripped))
-                    if stripped.isdigit()
-                    else stripped
-                )
+                return ref_lookup(int(stripped)) if stripped.isdigit() else stripped
             if position in label_positions:
                 stripped = text.strip()
                 if not stripped or stripped.lower() in ("none", "null"):
@@ -106,11 +100,7 @@ def cmd_active_queue(args: list[str]) -> int:
             return text
 
         for row in rows:
-            print(
-                "|".join(
-                    _cell(i, row[i]) for i in range(len(field_list))
-                )
-            )
+            print("|".join(_cell(i, row[i]) for i in range(len(field_list))))
         return 0
     finally:
         conn.close()
@@ -137,7 +127,9 @@ def cmd_item_list(args: list[str]) -> int:
 
     # Separate DB columns from virtual fields
     db_fields = [f for f in field_list if f not in _QI_VIRTUAL_FIELDS]
-    virtual_positions = {i: f for i, f in enumerate(field_list) if f in _QI_VIRTUAL_FIELDS}
+    virtual_positions = {
+        i: f for i, f in enumerate(field_list) if f in _QI_VIRTUAL_FIELDS
+    }
     needs_hidden_id = bool(virtual_positions) and "id" not in db_fields
 
     where_clause, params = queries.build_where_clause(filt, table_prefix="i.")
@@ -164,9 +156,8 @@ def cmd_item_list(args: list[str]) -> int:
             render_item_ref_lookup,
         )
         from yoke_core.domain.items_projection import ACTOR_LABEL_FIELDS
-        ref_positions = [
-            i for i, f in enumerate(field_list) if f == "id"
-        ]
+
+        ref_positions = [i for i, f in enumerate(field_list) if f == "id"]
         label_positions = [
             i for i, f in enumerate(field_list) if f in ACTOR_LABEL_FIELDS
         ]
@@ -193,10 +184,7 @@ def cmd_item_list(args: list[str]) -> int:
                 return stripped
             if position in label_positions:
                 stripped = text.strip()
-                if (
-                    not stripped
-                    or stripped.lower() in ("none", "null")
-                ):
+                if not stripped or stripped.lower() in ("none", "null"):
                     return ""
                 if stripped.isdigit():
                     from yoke_core.domain.actor_display import (
@@ -212,14 +200,11 @@ def cmd_item_list(args: list[str]) -> int:
 
         if not virtual_positions:
             for row in rows:
-                print(
-                    "|".join(
-                        _cell(i, row[i])
-                        for i in range(len(field_list))
-                    )
-                )
+                print("|".join(_cell(i, row[i]) for i in range(len(field_list))))
         else:
             from yoke_core.domain.render_body import build_body
+            from yoke_contracts.merge_queue_status import render_merge_queue_status
+
             for row in rows:
                 db_vals = list(row)
                 if needs_hidden_id:
@@ -235,7 +220,18 @@ def cmd_item_list(args: list[str]) -> int:
                         if virtual_positions[i] == "body":
                             out_vals.append(build_body(conn, int(item_id)) or "")
                         else:
-                            out_vals.append("")
+                            marker = conn.execute(
+                                "SELECT status, merge_queue_enqueued_at, "
+                                "merge_queue_landed_at FROM items WHERE id = %s",
+                                (int(item_id),),
+                            ).fetchone()
+                            out_vals.append(
+                                render_merge_queue_status(
+                                    marker[1], marker[2], item_status=marker[0]
+                                )
+                                if marker
+                                else ""
+                            )
                     else:
                         out_vals.append(_cell(i, db_vals[db_idx]))
                         db_idx += 1

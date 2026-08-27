@@ -105,9 +105,7 @@ MERGE_TEST_URGENT_PREFIXES: tuple[str, ...] = (
     "ERROR ",
     *MERGE_URGENT_PREFIXES,
 )
-MERGE_TEST_SUMMARY_RE = re.compile(
-    r"^(?:=+ .*(passed|failed|error)|collected \d+)"
-)
+MERGE_TEST_SUMMARY_RE = re.compile(r"^(?:=+ .*(passed|failed|error)|collected \d+)")
 
 
 def _test_substream_payload(line: str) -> str | None:
@@ -115,7 +113,7 @@ def _test_substream_payload(line: str) -> str | None:
     match = MERGE_TEST_SUBSTREAM_RE.match(line)
     if match is None:
         return None
-    return line[match.end():].lstrip()
+    return line[match.end() :].lstrip()
 
 
 def classify_merge_line(line: str) -> Classification:
@@ -194,7 +192,8 @@ def _engine_argv(module: str, args: Sequence[str]) -> list[str]:
 
 
 def _parse_args(
-    argv: Sequence[str], prog: str = DEFAULT_PROG,
+    argv: Sequence[str],
+    prog: str = DEFAULT_PROG,
 ) -> argparse.Namespace:
     subcommands = ", ".join(sorted(SUBCOMMAND_MODULES))
     parser = argparse.ArgumentParser(
@@ -204,13 +203,16 @@ def _parse_args(
             f"Sub-commands: {subcommands}. "
             "Pass-through flags include --local-verification (force local "
             "post-rebase suite even when the project declares CI; CI routing "
-            "frees the local admission slot, not wall-clock latency)."
+            "frees the local admission slot, not wall-clock latency). "
+            "merge-item enqueues and exits by default; re-enter after landing."
         ),
         epilog=(
             f"Examples:\n"
             f"  {prog} merge-item -- PREFIX-N --result TEXT --verification TEXT\n"
+            f"  {prog} merge-item -- PREFIX-N --wait --result TEXT --verification TEXT\n"
             f"  {prog} merge-worktree -- PREFIX-N\n"
-            f"  {prog} done-transition -- PREFIX-N"
+            f"  {prog} done-transition -- PREFIX-N\n"
+            "Claude never blocks on --wait; Codex/Cursor may use it."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,

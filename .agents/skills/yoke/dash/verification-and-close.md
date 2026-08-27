@@ -159,6 +159,13 @@ registered claim.
 
 ### 7. Merge, record evidence, and finish
 
+Merge-queue projects use a two-call handoff by default. The first call opens /
+rebases / arms the pull request, returns `landing_pending=true`, and leaves the
+claim and item non-terminal; end this execution pass. After the control-plane
+message says landing is complete, re-enter the same command to close out.
+Codex and Cursor may add `--wait` to keep both phases inline when their process
+is safe for the full wait. Claude must never pass `--wait`.
+
 When deployment posture is selected, merge first without closing out, so the
 item-bound deployment can run against the recorded merge identity:
 
@@ -176,12 +183,14 @@ yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM \
   --release-lineage <merge-sha> --json
 ```
 
-Otherwise merge and close out in one call. The operation resolves the touched
-files from the branch itself, so no path list is needed. Dash close-out is
+Otherwise issue the merge-and-close-out command. Non-queue projects and an
+explicit `--wait` finish inline; the default queue route follows the handoff
+above. The operation resolves the touched files from the branch itself, so no
+path list is needed. Dash close-out is
 evidence-gated on this same command — pass `--result` and `--verification`
 even when the merge queue already landed the branch. Do not substitute
 `yoke lifecycle transition --to done`; that path cannot restore the work
-claim a queue wait may have dropped.
+claim the landing handoff retains.
 
 ```text
 yoke merge item ITEM \
