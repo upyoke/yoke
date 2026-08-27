@@ -45,6 +45,15 @@ seed at minimum one explicit requirement with
 `--workflow-transition reviewed-implementation` and
 `--success-policy "Implementation matches the item title/description"`.
 
+That fallback is for the genuinely uncategorized item, **not** for a project
+with no test suite. A project that has no suite says so once with
+`yoke qa no-tests attest --project P --reason "..."`, and its review
+requirement is then seeded structurally at the transition the registered
+command would have attached to — every item, every time, without depending on
+an agent remembering this paragraph. Reaching an empty gate because nobody
+attested is the failure that surface exists to prevent: a gate with no blocking
+requirement passes vacuously, reporting green for a review nobody performed.
+
 ### Browser case authoring
 
 When the verification contract calls for Browser proof, read

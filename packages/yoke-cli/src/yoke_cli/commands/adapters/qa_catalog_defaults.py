@@ -31,6 +31,43 @@ def qa_registered_command_set(args: List[str]) -> int:
     )
 
 
+def qa_no_tests_attest(args: List[str]) -> int:
+    usage = (
+        "yoke qa no-tests attest --project P --reason \"why this project has "
+        "no suite to bind\" [--json]"
+    )
+
+    def configure(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--reason", required=True)
+
+    return _global(
+        args,
+        prog="yoke qa no-tests attest",
+        usage=usage,
+        function_id="qa.no_tests.attest",
+        configure=configure,
+        payload=lambda parsed: {"reason": parsed.reason},
+    )
+
+
+def qa_no_tests_clear(args: List[str]) -> int:
+    usage = (
+        "yoke qa no-tests clear --project P --reason \"what changed\" [--json]"
+    )
+
+    def configure(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--reason", required=True)
+
+    return _global(
+        args,
+        prog="yoke qa no-tests clear",
+        usage=usage,
+        function_id="qa.no_tests.clear",
+        configure=configure,
+        payload=lambda parsed: {"reason": parsed.reason},
+    )
+
+
 def qa_plan_project_default_set(args: List[str]) -> int:
     usage = (
         "yoke qa project-default set --project P --plan-id N "
@@ -82,6 +119,8 @@ def qa_plan_project_default_unset(args: List[str]) -> int:
 
 
 __all__ = [
+    "qa_no_tests_attest",
+    "qa_no_tests_clear",
     "qa_plan_project_default_set",
     "qa_plan_project_default_unset",
     "qa_registered_command_set",

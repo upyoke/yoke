@@ -105,6 +105,20 @@ def prepare_status_transition(
                 transition_id=target_status,
                 commit=False,
             )
+        # A project that attested it has no suite has no plan to materialize,
+        # and an empty requirement set makes the QA gate pass vacuously. Seed
+        # the review that stands in for the command it never registered, in
+        # this same transaction so the requirement and the transition commit
+        # together.
+        from yoke_core.domain.qa_no_tests_review_seed import (
+            ensure_no_tests_review_requirement,
+        )
+
+        ensure_no_tests_review_requirement(
+            conn,
+            item_id=item_id,
+            transition_id=target_status,
+        )
     workflow_version_id = int(workflow.workflow_version_id)
     approval = dict(workflow.policies.get("approval_defaults", {})).get(target_status)
     if not approval:

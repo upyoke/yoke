@@ -72,10 +72,10 @@ project_structure   -- family entries with identity
 
 `architecture_model`, `areas`, `context_routing`, `deploy_defaults`,
 `hosting_posture`, `integration_targets`, `mappings`, `ownership_defaults`,
-`test_roots`, `verification_profiles`.
+`test_roots`, `verification_posture`, `verification_profiles`.
 
-`deploy_defaults`, `architecture_model`, and `hosting_posture` are
-project-attached singletons.
+`deploy_defaults`, `architecture_model`, `hosting_posture`, and
+`verification_posture` are project-attached singletons.
 `context_routing` is a project-attached keyed set whose payload is
 `{"docs": [str, ...]}` and whose reserved `entry_key="always"` denotes the
 project-wide always-included set.
@@ -91,6 +91,24 @@ yoke qa registered-command set --project P --scope quick --command "<argv>"
 
 Writing `verification_profiles.test_command` and stopping there leaves the
 project with no gate command at all.
+
+**Project-level verification posture** — read whether a project has attested
+it has no suite to bind via `yoke project-structure get --project <project>
+--family verification_posture --json`. Entries live in `project_structure`
+with `family='verification_posture'`, `attachment_value='project'`, payload
+`{"posture": "attested-no-tests", "reason": "<required prose>"}`. The reason
+is required: it is what makes the row an attestation rather than an omission,
+and it is what a reviewer reads at the gate to learn why no command ran. Only
+that one posture is stored — a project that *has* a command already says so
+through its `registered-command-*` plan, and a second spelling of that fact
+could only drift from it — so absence means no attestation. Write it with
+`yoke qa no-tests attest --project P --reason "..."`, which also retires any
+`registered-command-*` plan the project held, and remove it with `yoke qa
+no-tests clear --project P --reason "..."`. While it stands, the
+`reviewing-implementation` transition seeds a blocking `implementation_review`
+requirement where `registered-command-quick` would have attached, and
+registering a command for any scope — the `command-ci` runner included — is
+refused by name. Vocabulary: `yoke_contracts.verification_posture`.
 
 Path-attached operating context lives in `path_context_values` (per-target, keyed by family) under the path-context substrate. Project Structure contains only the project-level families listed above.
 

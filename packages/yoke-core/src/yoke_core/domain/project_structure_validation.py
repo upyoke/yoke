@@ -13,6 +13,11 @@ from yoke_contracts.hosting_posture import (
     HOSTING_POSTURE_FAMILY,
     POSTURE_UNDECIDED,
 )
+from yoke_contracts.verification_posture import (
+    DECLARED_VERIFICATION_POSTURES,
+    POSTURE_UNDECIDED as VERIFICATION_POSTURE_UNDECIDED,
+    VERIFICATION_POSTURE_FAMILY,
+)
 from yoke_core.domain.project_structure import (
     ALL_FAMILIES,
     EMPTY_SLOT,
@@ -181,6 +186,30 @@ def _validate_payload(family: str, payload: Any) -> Dict[str, Any]:
                     f"Family '{HOSTING_POSTURE_FAMILY}' payload '{key}' must "
                     f"be a string or absent (got {type(value).__name__})."
                 )
+    elif family == VERIFICATION_POSTURE_FAMILY:
+        # Singleton per project. Only the attestation is stored; a project that
+        # has a command already says so through its registered-command plan, so
+        # a second spelling here could only ever drift from it. The reason is
+        # required rather than optional because it is what makes the row an
+        # attestation instead of an omission — the reviewer who later reads the
+        # gate needs to know why no command ran.
+        posture = payload.get("posture")
+        if posture not in DECLARED_VERIFICATION_POSTURES:
+            raise ValidationError(
+                f"Family '{VERIFICATION_POSTURE_FAMILY}' payload must contain "
+                f"a 'posture' of "
+                f"{' or '.join(repr(p) for p in DECLARED_VERIFICATION_POSTURES)}"
+                f". '{VERIFICATION_POSTURE_UNDECIDED}' is not stored — remove "
+                f"the entry instead."
+            )
+        reason = payload.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValidationError(
+                f"Family '{VERIFICATION_POSTURE_FAMILY}' payload must contain "
+                f"a non-empty 'reason' string recording why this project has "
+                f"no suite to bind. An attestation without a reason is an "
+                f"omission."
+            )
     elif family == "architecture_model":
         # Sibling module owns the per-key validation tree to keep this
         # file under the 350-line cap.

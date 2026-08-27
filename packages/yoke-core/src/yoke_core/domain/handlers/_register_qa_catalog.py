@@ -6,6 +6,9 @@ from yoke_core.domain.handlers import qa_catalog_reads as _reads
 from yoke_core.domain.handlers import qa_plan_edit as _edit
 from yoke_core.domain.handlers import qa_plan_writes as _writes
 from yoke_core.domain.handlers import (
+    qa_no_tests_posture_writes as _no_tests_posture,
+)
+from yoke_core.domain.handlers import (
     qa_registered_command_writes as _registered_command,
 )
 
@@ -149,6 +152,44 @@ def register(registry) -> None:
             "qa_plan_cases_replace",
             "qa_plan_project_defaults_upsert",
         ],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["project_scope_required", "all_pass_policy"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "qa.no_tests.attest",
+        _no_tests_posture.handle_no_tests_attest,
+        _no_tests_posture.NoTestsAttestRequest,
+        _no_tests_posture.NoTestsAttestResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.qa_no_tests_posture_writes"
+        ),
+        target_kinds=["global"],
+        side_effects=[
+            "project_structure_put",
+            "qa_plans_retire",
+            "qa_plan_project_defaults_delete",
+        ],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["project_scope_required", "all_pass_policy"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "qa.no_tests.clear",
+        _no_tests_posture.handle_no_tests_clear,
+        _no_tests_posture.NoTestsClearRequest,
+        _no_tests_posture.NoTestsClearResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.qa_no_tests_posture_writes"
+        ),
+        target_kinds=["global"],
+        side_effects=["project_structure_remove"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["project_scope_required", "all_pass_policy"],
         adapter_status="live",

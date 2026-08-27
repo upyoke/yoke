@@ -21,6 +21,13 @@ USAGE_BY_FUNCTION_ID = {
         "yoke qa registered-command set --project P "
         "--scope quick|full|e2e|smoke --command ARGV"
     ),
+    "qa.no_tests.attest": (
+        "yoke qa no-tests attest --project P "
+        "--reason \"why this project has no suite to bind\""
+    ),
+    "qa.no_tests.clear": (
+        "yoke qa no-tests clear --project P --reason \"what changed\""
+    ),
     "qa.project_default.set": (
         "yoke qa project-default set --project P --plan-id N "
         "--workflow W --transition T"

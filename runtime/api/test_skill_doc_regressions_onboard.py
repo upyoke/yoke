@@ -222,10 +222,11 @@ def test_onboard_profile_always_carries_a_test_setup_box():
     """The wizard never asks how tests run, so the profile confirmation must."""
     text = _read(ONBOARD_DIR / "profile-and-scaffold.md")
     assert "### The test-setup box" in text
-    # All three outcomes are named; none is a silent default.
+    # Every outcome is named; none is a silent default.
     assert "surveyed command" in text.lower()
     assert "scaffold suite" in text.lower()
-    assert "explicit skip" in text.lower()
+    assert "review-only suite" in text.lower()
+    assert "no suite at all" in text.lower()
     # A descriptive project-structure entry is not one of the outcomes.
     assert "verification_profiles.test_command" in text
 

@@ -81,6 +81,14 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa registered-command set --project P --scope SCOPE --command ARGV",
     ),
     AdapterEntry(
+        "qa.no_tests.attest",
+        "yoke qa no-tests attest --project P --reason REASON",
+    ),
+    AdapterEntry(
+        "qa.no_tests.clear",
+        "yoke qa no-tests clear --project P --reason REASON",
+    ),
+    AdapterEntry(
         "qa.project_default.set",
         "yoke qa project-default set --project P --plan-id N --workflow W --transition T",
     ),

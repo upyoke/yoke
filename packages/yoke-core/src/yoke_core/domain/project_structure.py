@@ -146,6 +146,15 @@ NET_NEW_FAMILIES: Dict[str, Dict[str, Optional[str]]] = {
         "multiplicity": "singleton",
         "locked_kind": None,
     },
+    # ``verification_posture`` holds the operator's attestation that the
+    # project has no runnable test suite to register as its gate. Singleton per
+    # project. Absence means the question is still open, which is why the
+    # undecided state is never written as a row.
+    "verification_posture": {
+        "attachment": "project",
+        "multiplicity": "singleton",
+        "locked_kind": None,
+    },
 }
 
 
