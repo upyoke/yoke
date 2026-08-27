@@ -20,11 +20,11 @@ def test_executor_version_answers_from_a_fresh_cached_observation(
         ),
     )
 
-    assert identity_observed.client_executor_version("codex-desktop") == (
+    assert identity_observed.client_executor_version("codex", "codex-desktop") == (
         "26.818.31338"
     )
-    assert identity_observed.client_executor_version("") is None
-    assert identity_observed.client_executor_version(None) is None
+    assert identity_observed.client_executor_version("codex", "") is None
+    assert identity_observed.client_executor_version("codex", None) is None
 
 
 def test_executor_version_ignores_a_launcher_version_in_the_environment(
@@ -38,7 +38,10 @@ def test_executor_version_ignores_a_launcher_version_in_the_environment(
         lambda **_kwargs: {"claude-cli": "2.1.246"},
     )
 
-    assert identity_observed.client_executor_version("claude-cli") == "2.1.246"
+    assert (
+        identity_observed.client_executor_version("claude-code", "claude-cli")
+        == "2.1.246"
+    )
 
 
 def test_executor_version_probes_and_caches_a_stale_cli_surface(
@@ -66,17 +69,22 @@ def test_executor_version_probes_and_caches_a_stale_cli_surface(
         lambda results, **kwargs: cached.append(tuple(results)),
     )
 
-    assert identity_observed.client_executor_version("codex-cli") == "0.150.0"
+    assert identity_observed.client_executor_version("codex", "codex-cli") == "0.150.0"
     assert probed == ["codex-cli"]
     assert cached and cached[0][0].version == "0.150.0"
 
 
-def test_executor_version_is_unknown_when_the_surface_cannot_be_observed(
+def test_executor_version_is_unknown_for_a_surface_never_once_observed(
     monkeypatch,
 ) -> None:
+    """No fresh observation, no live probe, and no recorded history at all."""
     monkeypatch.setattr(
         "yoke_harness.session_relay_surface_probe_cache.cached_surface_versions",
         lambda **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_surface_probe_cache._read_cache",
+        lambda *_args, **_kwargs: {"schema_version": 1, "surfaces": {}},
     )
     monkeypatch.setattr(
         "yoke_harness.session_relay_surface_probe_cache.bounded_surface_probe",
@@ -91,7 +99,7 @@ def test_executor_version_is_unknown_when_the_surface_cannot_be_observed(
         ),
     )
 
-    assert identity_observed.client_executor_version("cursor-cli") is None
+    assert identity_observed.client_executor_version("cursor", "cursor-cli") is None
 
 
 def test_machine_id_enrichment_is_best_effort(monkeypatch) -> None:
@@ -133,3 +141,33 @@ def test_relay_identity_payload_includes_observed_fields(monkeypatch) -> None:
 
     assert identity["executor_version"] == "0.148.0"
     assert identity["machine_id"] == "machine-uuid"
+
+
+def test_a_claude_cli_hook_registers_the_version_its_shared_cache_reports(
+    monkeypatch,
+) -> None:
+    """Claude Code names its surface ``cli``; the shared cache keys ``claude-cli``.
+
+    Relaying that raw token straight to the observer found no surface at all,
+    so every claude-cli session registered an unknown version while the same
+    machine's cache, relay heartbeat, and launch preview all agreed on one.
+    """
+    monkeypatch.setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    monkeypatch.setattr(
+        "yoke_harness.session_relay_surface_probe_cache.cached_surface_versions",
+        lambda **_kwargs: {"claude-cli": "2.1.247"},
+    )
+    monkeypatch.setattr(identity_relay, "client_model", lambda *_: "claude-opus-5")
+    monkeypatch.setattr(identity_relay, "client_lane", lambda *_: "primary")
+    monkeypatch.setattr(identity_relay, "client_project_id", lambda *_: 1)
+    monkeypatch.setattr(identity_relay, "client_machine_id", lambda: "machine-uuid")
+
+    identity = identity_relay.relay_identity_payload(
+        "SessionStart",
+        {"session_id": "s-claude"},
+        "claude-code",
+    )
+
+    assert identity["entrypoint"] == "cli"
+    assert identity["executor_version"] == "2.1.247"
