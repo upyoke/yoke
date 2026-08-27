@@ -57,6 +57,9 @@ def non_interactive_git_env(
         if key.startswith("GIT_TRACE") or key == "GIT_CURL_VERBOSE":
             env.pop(key, None)
     env["GIT_TERMINAL_PROMPT"] = "0"
+    # Git Credential Manager answers with its own window rather than through
+    # git's prompt, so disabling git's prompt alone does not stop it.
+    env["GCM_INTERACTIVE"] = "Never"
     env["GIT_ASKPASS"] = ""
     env["SSH_ASKPASS"] = ""
     env["SSH_ASKPASS_REQUIRE"] = "never"

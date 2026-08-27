@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 
 def _repo_root() -> Path:
@@ -191,14 +191,17 @@ def _run_git(
     cwd: str | Path | None = None,
     capture: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a git command."""
-    cmd = ["git"] + args
-    kwargs: dict[str, Any] = {"text": True, "check": False}
-    if capture:
-        kwargs["capture_output"] = True
-    if cwd:
-        kwargs["cwd"] = str(cwd)
-    return subprocess.run(cmd, **kwargs)
+    """Run a git command with the credential its target requires.
+
+    The done transition's branch lookups reach the remote (``ls-remote``) and
+    its finalization publishes, so this shares the one credentialed runner
+    rather than trusting the shell the transition happens to run in.
+    """
+    from yoke_cli.config import credentialed_git
+
+    return credentialed_git.run(
+        args, cwd=str(cwd) if cwd else None, capture=capture,
+    )
 
 
 def _query_item_field(item_id: int, field_name: str) -> str:

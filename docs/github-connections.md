@@ -93,7 +93,10 @@ is active and verified.
 `yoke github disconnect` removes the selected config's GitHub authorization,
 deletes its owned refresh credential when no other supported config owns it,
 and removes only Yoke-owned URL-scoped Git credential helpers from registered
-checkouts. It preserves ambient or user-managed Git helpers. It does not call
+checkouts. It preserves ambient or user-managed Git helpers. Those helpers
+serve git commands you run yourself; Yoke's own remote operations carry the
+stored credential per command, so removing the authorization — not the helper —
+is what stops them. It does not call
 GitHub to revoke authorization or uninstall the App, and it does not unbind a
 project.
 
@@ -109,4 +112,7 @@ For the safe order when changing an already-bound project's repository, see
 and what it does with them, see
 [GitHub App Permissions](github-permissions.md). App registration, permission,
 and key-custody operations are documented in
-[GitHub App Operations](github-app-operations.md).
+[GitHub App Operations](github-app-operations.md). For how Yoke's own git
+operations authenticate — including on SSH-origin and manually cloned
+checkouts that carry no credential helper — see
+[The credentialed git environment](github-credentialed-git.md).

@@ -165,29 +165,30 @@ class TestHcMainCheckout:
 class TestHcBranchDivergence:
     """Tests for hc_branch_divergence."""
 
+    # The fetch reaches origin, so it runs through the credentialed runner
+    # rather than the plain doctor subprocess helper the local reads use.
+    @patch("yoke_cli.config.credentialed_git.run")
     @patch("yoke_core.engines.doctor_report._run")
-    def test_no_divergence_passes(self, mock_run):
+    def test_no_divergence_passes(self, mock_run, mock_fetch):
         same_hash = "abc123\n"
         mock_run.side_effect = [
             # git rev-parse --verify main
             _make_completed(stdout="abc\n"),
-            # git fetch
-            _make_completed(),
             # git rev-parse main
             _make_completed(stdout=same_hash),
             # git rev-parse origin/main
             _make_completed(stdout=same_hash),
         ]
+        mock_fetch.return_value = _make_completed()
         rec = _run_hc(hc_branch_divergence)
         assert rec.results[0].result == "PASS"
 
+    @patch("yoke_cli.config.credentialed_git.run")
     @patch("yoke_core.engines.doctor_report._run")
-    def test_divergence_warns(self, mock_run):
+    def test_divergence_warns(self, mock_run, mock_fetch):
         mock_run.side_effect = [
             # git rev-parse --verify main
             _make_completed(stdout="abc\n"),
-            # git fetch
-            _make_completed(),
             # git rev-parse main
             _make_completed(stdout="abc123\n"),
             # git rev-parse origin/main
@@ -197,10 +198,35 @@ class TestHcBranchDivergence:
             # git rev-list behind
             _make_completed(stdout="2\n"),
         ]
+        mock_fetch.return_value = _make_completed()
         rec = _run_hc(hc_branch_divergence)
         assert rec.results[0].result == "WARN"
         assert "3 ahead" in rec.results[0].detail
         assert "2 behind" in rec.results[0].detail
+
+    @patch("yoke_cli.config.credentialed_git.run")
+    @patch("yoke_core.engines.doctor_report._run")
+    def test_unreachable_origin_is_reported_not_swallowed(
+        self, mock_run, mock_fetch
+    ):
+        """A fetch that cannot authenticate must not read as "no divergence".
+
+        Before the fetch carried a credential it simply failed silently and
+        the check compared stale refs, reporting PASS on a machine that had
+        never successfully reached origin.
+        """
+        mock_run.side_effect = [
+            _make_completed(stdout="abc\n"),
+            _make_completed(stdout="abc123\n"),
+            _make_completed(stdout="abc123\n"),
+        ]
+        mock_fetch.return_value = _make_completed(
+            returncode=128, stderr="fatal: could not read Username",
+        )
+        rec = _run_hc(hc_branch_divergence)
+        assert rec.results[0].result == "WARN"
+        assert "could not reach origin" in rec.results[0].detail
+        assert "could not read Username" in rec.results[0].detail
 
 
 class TestHcUncapturedDiscoveries:

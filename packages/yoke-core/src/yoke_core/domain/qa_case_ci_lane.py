@@ -55,11 +55,17 @@ def _git(
     *args: str,
     timeout: int = 120,
 ) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(checkout), *args],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+    """Run one git command with the credential its target requires.
+
+    The gate publishes the lane branch before it can dispatch, and that push
+    is the first remote operation a freshly onboarded machine performs. It
+    authenticates with the stored GitHub credential, not with whatever the
+    shell running the gate happens to carry.
+    """
+    from yoke_cli.config import credentialed_git
+
+    return credentialed_git.run(
+        ["-C", str(checkout), *args], timeout=timeout,
     )
 
 

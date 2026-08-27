@@ -16,6 +16,8 @@ from yoke_core.domain.worktree_naming import candidate_worktree_names
 
 import yoke_core.engines.doctor_report as _base
 
+from yoke_cli.config import credentialed_git as _credentialed_git
+
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -24,6 +26,19 @@ from yoke_core.engines import merge_worktree_safe_prune as _safe_prune
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
+
+# A credentialed remote read either authenticates or refuses by name, so the
+# bound is a slow network rather than the wait for a prompt nobody answers.
+# The old 15s ceiling was short enough that an unauthenticated fetch read as
+# a hang instead of the failure it was.
+_REMOTE_READ_TIMEOUT = 60
+
+
+def _reason(result) -> str:
+    """The first meaningful line of a failed git result."""
+    detail = (result.stderr or result.stdout or "").strip()
+    return detail.splitlines()[0] if detail else f"exit {result.returncode}"
+
 
 
 def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -39,7 +54,11 @@ def hc_branch_divergence(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             break
 
     if default_branch:
-        _base._run(["git", "fetch", "origin", default_branch], timeout=15)
+        fetched = _credentialed_git.run(
+            ["fetch", "origin", default_branch], timeout=_REMOTE_READ_TIMEOUT,
+        )
+        if fetched.returncode != 0:
+            issues.append(f"- could not reach origin: {_reason(fetched)}")
         local_r = _base._run(["git", "rev-parse", default_branch])
         remote_r = _base._run(["git", "rev-parse", f"origin/{default_branch}"])
         local_head = local_r.stdout.strip() if local_r.returncode == 0 else ""
@@ -99,7 +118,10 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
         rpath = proj["checkout"]
         if not rpath or not Path(rpath).is_dir():
             continue
-        lr = _base._run(["git", "-C", rpath, "ls-remote", "--heads", "origin"], timeout=15)
+        lr = _credentialed_git.run(
+            ["-C", str(rpath), "ls-remote", "--heads", "origin"],
+            timeout=_REMOTE_READ_TIMEOUT,
+        )
         branches = set()
         if lr.returncode == 0:
             for line in lr.stdout.strip().splitlines():
@@ -117,7 +139,10 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
     # Default repo cache
     default_branches: set = set()
     if repo_root:
-        lr = _base._run(["git", "-C", repo_root, "ls-remote", "--heads", "origin"], timeout=15)
+        lr = _credentialed_git.run(
+            ["-C", str(repo_root), "ls-remote", "--heads", "origin"],
+            timeout=_REMOTE_READ_TIMEOUT,
+        )
         if lr.returncode == 0:
             for line in lr.stdout.strip().splitlines():
                 parts = line.split()
@@ -181,9 +206,9 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                     continue
 
                 result = delete_remote_branch_if_merged(
-                    run_git=lambda command: _base._run(
-                        ["git", "-C", target_repo, *command],
-                        timeout=15,
+                    run_git=lambda command: _credentialed_git.run(
+                        ["-C", str(target_repo), *command],
+                        timeout=_REMOTE_READ_TIMEOUT,
                     ),
                     branch=pattern,
                     target_branch=target_branch,

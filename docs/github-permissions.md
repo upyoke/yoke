@@ -80,7 +80,7 @@ it before any merge work rather than discovering it afterwards:
 
 | Merge route | Authority | Why |
 | --- | --- | --- |
-| **Direct merge** — land in the checkout, publish the base branch, prove the pushed commit's checks | Installation | Nothing is attributed to a person; git credentials carry the push and Checks: read carries the proof |
+| **Direct merge** — land in the checkout, publish the base branch, prove the pushed commit's checks | Installation | Nothing is attributed to a person; the machine's stored GitHub credential carries the push and Checks: read carries the proof |
 | **Pull-request merge** — open a PR, wait on its checks, merge it | User | The pull request is opened as *you* |
 
 A merge whose checkout has no remote never reaches GitHub and needs no
@@ -150,9 +150,12 @@ branch, pushing the base branch when it is ahead, **merging the PR** (`PUT
 …/pulls/{n}/merge`), committing the done-state, deleting the now-merged branch,
 and pushing preview branches for push-triggered environments. Reading
 repository files (e.g. checking a deploy workflow file during setup) rides the
-same grant. Git talks to GitHub over HTTPS using a short-lived App token
-supplied through a git credential helper (`x-access-token`) — the token is
-never written to your `.git/config` or the stored remote URL.
+same grant. Git talks to GitHub over HTTPS using a short-lived token
+(`x-access-token`), and the token is never written to your `.git/config` or the
+stored remote URL. Yoke's own remote operations carry it as a URL-scoped
+`http.extraheader` supplied per command; a URL-scoped credential helper
+installed into onboarded checkouts serves the git commands people run in their
+own shells. See [github-credentialed-git.md](github-credentialed-git.md).
 
 **Workflows: write** — So the App may manage the GitHub Actions workflow files
 Yoke ships into `.github/workflows/` (a CI workflow plus deploy/hotfix/smoke
@@ -263,7 +266,7 @@ defects — they are recorded here so the decision is deliberate.
 
 1. **`Workflows: write` is currently only read-exercised by the App token.**
    The one place workflow files are committed today pushes them with the
-   operator's own git credentials; the App token only reads them back to confirm
+   machine's stored GitHub authorization; the App token only reads them back to confirm
    they landed, and no code path uses the write-level workflows constant. The
    grant is defensible as a registration-time declaration matching Yoke's role
    of owning your workflow files (and as forward-looking headroom for a hosted
