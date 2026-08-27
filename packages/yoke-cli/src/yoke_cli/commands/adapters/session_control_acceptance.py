@@ -34,9 +34,13 @@ def _parser() -> argparse.ArgumentParser:
             "selection rather than one fixed route: on a machine whose relay is "
             "connected the plane must wake the target directly, on a machine "
             "without one it must wake through the bound same-machine peer, and "
-            "either way that wake must deliver end to end. The branch the run "
-            "machine cannot present is recorded as designed not-exercisable, "
-            "naming the relay condition, and never fails the cell."
+            "either way that wake must deliver end to end. Preview is not ready "
+            "when a bound broker target or peer is ended or registered below "
+            "the relay-advertised current version; it selects a live "
+            "current-version same-machine pair when one exists. The branch the "
+            "run machine cannot present is recorded as designed "
+            "not-exercisable, naming the relay condition, and never fails the "
+            "cell."
         ),
     )
     parser.add_argument("--project", required=True)

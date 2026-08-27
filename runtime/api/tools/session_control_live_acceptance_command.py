@@ -12,6 +12,13 @@ from typing import Annotated, Any, Iterator, Literal, Sequence
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from runtime.api.tools.session_control_live_acceptance import main as acceptance_main
+from runtime.api.tools.session_control_live_acceptance_broker_binding import (
+    BrokerBinding,
+    dumps_preview,
+    refuse_unready_broker,
+    resolve_broker_binding,
+)
+from runtime.api.tools.session_control_live_acceptance_client import YokeCliClient
 from runtime.api.tools.session_control_live_acceptance_contract import (
     ACCEPTANCE_SURFACES,
     SCHEMA_VERSION,
@@ -252,6 +259,9 @@ def _refusal(exc: AcceptanceContractError) -> dict[str, Any]:
     }
     if exc.surface:
         report["surface"] = exc.surface
+    recovery = (exc.evidence or {}).get("recovery")
+    if isinstance(recovery, str) and recovery.strip():
+        report["recovery"] = recovery
     return report
 
 
@@ -285,6 +295,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         _validate_windows(args)
         _validate_source(args.release_sha)
         bindings = _read_bindings()
+        broker = bindings.broker
+        decided = resolve_broker_binding(
+            YokeCliClient(),
+            project=args.project,
+            surface=BROKER_ACCEPTANCE_SURFACE,
+            binding=BrokerBinding(
+                broker.target_session_id, broker.machine_id, broker.peer_session_id
+            ),
+            expected_version=bindings.versions.codex_cli,
+        )
+        if decided.status == "ready":
+            bindings = bindings.model_copy(
+                update={"broker": BrokerAcceptanceBinding(**vars(decided.binding))}
+            )
         document = build_acceptance_matrix_document(
             args.project,
             bindings,
@@ -292,21 +316,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if args.preview:
             print(
-                json.dumps(
-                    {
-                        "schema": 1,
-                        "kind": "fleet_session_control_live_acceptance_preview",
-                        "status": "ready",
-                        "run_id": args.run_id,
-                        "release_sha": args.release_sha,
-                        "project": document["project"],
-                        "cells": document["cells"],
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
+                dumps_preview(
+                    run_id=args.run_id,
+                    release_sha=args.release_sha,
+                    project=document["project"],
+                    cells=document["cells"],
+                    decision=decided,
                 )
             )
-            return 0
+            return 0 if decided.status == "ready" else 2
+        refuse_unready_broker(decided, surface=BROKER_ACCEPTANCE_SURFACE)
         with _matrix_file(args.project, document) as matrix_path:
             return int(acceptance_main(_acceptance_argv(args, matrix_path)))
     except AcceptanceContractError as exc:
@@ -319,7 +338,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
 
 __all__ = [
     "BROKER_ACCEPTANCE_SURFACE",
