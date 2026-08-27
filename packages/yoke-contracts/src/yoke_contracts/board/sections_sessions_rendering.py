@@ -9,7 +9,10 @@ from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import item_ref
+from yoke_contracts.board.sections_sessions_occupancy import occupancy_project_slug
+from yoke_contracts.board.sections_sessions_scope import _project_for_id
 from yoke_contracts.board.utils import display_width
+from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_contracts.item_ref import format_item_ref
 from yoke_contracts.session_lane import (
     UNRESOLVED_EXECUTION_LANE,
@@ -87,6 +90,8 @@ def _claims_for_session(
         except (TypeError, ValueError):
             scope = {}
         kind = str(row[5] or "")
+        if kind in COORDINATION_TARGET_KINDS:
+            continue
         claims.append(
             (
                 scope.get("item_id") if kind == "item" else None,
@@ -98,6 +103,7 @@ def _claims_for_session(
                 row[4],
                 kind,
                 scope.get("process_key") if kind == "process" else None,
+                scope if isinstance(scope, dict) else {},
             )
         )
     return claims
@@ -131,6 +137,31 @@ def _aligned_table(headers: list[str], rows: list[list[str]]) -> list[str]:
     return [format_row(headers), separator, *(format_row(row) for row in rows)]
 
 
+def _compact_scope(scope: dict) -> str:
+    return json.dumps(scope, sort_keys=True, separators=(",", ":"))
+
+
+def _steering_label(scope: dict, db: Optional[BoardDBLike]) -> str:
+    project_id = scope.get("project_id")
+    if project_id is None:
+        return f"steering:{_compact_scope(scope)}"
+    try:
+        pid = int(project_id)
+    except (TypeError, ValueError):
+        return f"steering:{_compact_scope(scope)}"
+    slug = occupancy_project_slug(db, pid)
+    if slug:
+        return f"steering:{slug}"
+    if db is not None:
+        try:
+            row = _project_for_id(db, pid)
+        except Exception:
+            row = None
+        if row and row[1]:
+            return f"steering:{row[1]}"
+    return f"steering:{pid}"
+
+
 def _render_claim_target(
     item_id,
     epic_id: Optional[int],
@@ -138,7 +169,13 @@ def _render_claim_target(
     process_key: Optional[str] = None,
     *,
     db: Optional[BoardDBLike] = None,
+    target_kind: str = "",
+    scope: Optional[dict] = None,
 ) -> str:
+    payload = scope if isinstance(scope, dict) else {}
+    kind = str(target_kind or "")
+    if kind == "steering":
+        return _steering_label(payload, db)
     if process_key:
         return f"🔩 {process_key}"
     if item_id is not None:
@@ -158,6 +195,8 @@ def _render_claim_target(
             except Exception:
                 pass
         return f"{format_item_ref(None, None, epic_id)} T{task_num:03d}"
+    if kind:
+        return f"{kind}:{_compact_scope(payload)}"
     return "?"
 
 

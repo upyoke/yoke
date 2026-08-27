@@ -27,7 +27,6 @@ from yoke_contracts.board.renderer_sections import render_board_sections
 from yoke_contracts.board.sections_architecture import (
     render_architecture_section,
 )
-from yoke_contracts.board.sections_steering import render_steering_section
 from yoke_contracts.board.sections import (
     classify_items,
     consistency_check,
@@ -36,6 +35,9 @@ from yoke_contracts.board.sections import (
     precompute_epic_task_rows,
     render_sessions_section,
     task_expanded_count,
+)
+from yoke_contracts.board.sections_sessions_occupancy import (
+    prefetch_session_occupancy,
 )
 from yoke_contracts.board.zen import render_zen_widget
 
@@ -187,6 +189,7 @@ def _assemble(
     # 5. Sessions & Claims
     # ------------------------------------------------------------------
     with measure_phase(phase_recorder, "sessions"):
+        prefetch_session_occupancy(db, scope)
         sessions_text = render_sessions_section(
             db,
             show_recent=config.dashboard_recent_sessions,
@@ -197,15 +200,7 @@ def _assemble(
         lines.append(sessions_text)
 
     # ------------------------------------------------------------------
-    # 5b. Steering scopes
-    # ------------------------------------------------------------------
-    with measure_phase(phase_recorder, "steering"):
-        steering_text = render_steering_section(db, scope)
-    lines.append("")
-    lines.append(steering_text)
-
-    # ------------------------------------------------------------------
-    # 5c. Architecture health (collapses when no scoped map exists)
+    # 5b. Architecture health (collapses when no scoped map exists)
     # ------------------------------------------------------------------
     with measure_phase(phase_recorder, "architecture"):
         architecture_text = render_architecture_section(db, scope)
