@@ -67,6 +67,9 @@ def _allow_source(monkeypatch) -> None:
         "validate_product_source",
         lambda _cwd, _release: SimpleNamespace(commit=RELEASE_SHA),
     )
+    monkeypatch.setattr(
+        command, "resolve_broker_binding", lambda *a, **k: _ready_decision()
+    )
 
 
 class _UnreadableStdin:
@@ -206,6 +209,23 @@ def test_unreadable_bindings_emit_only_the_fixed_code(monkeypatch, capsys) -> No
     assert command.main(_argv("--preview")) == 2
     assert json.loads(capsys.readouterr().out)["failure_code"] == (
         "bindings_unreadable"
+    )
+
+
+def _ready_decision():
+    from runtime.api.tools.session_control_live_acceptance_broker_binding import (
+        BrokerBinding,
+        BrokerBindingDecision,
+    )
+
+    broker = _bindings()["broker"]
+    return BrokerBindingDecision(
+        "ready",
+        BrokerBinding(
+            broker["target_session_id"],
+            broker["machine_id"],
+            broker["peer_session_id"],
+        ),
     )
 
 
