@@ -1,6 +1,5 @@
 import { el } from "./universe_view_support.js";
 import { pillFamilyForState } from "./universe_state_pills.js";
-import { openSessionMessageCompose } from "./session_message_compose_dialog.js";
 import { appendRelayDiagnostic } from "./session_relay_diagnostic_view.js";
 import {
   formatSessionControlTime,
@@ -103,8 +102,8 @@ function appendMessageGuide(documentNode, host) {
   guide.appendChild(el(documentNode, "summary", null, "How Fleet messaging works"));
   const steps = el(documentNode, "ol");
   for (const step of [
-    "Find a registered session in the roster and confirm it is Messageable.",
-    "Compose the message and preview the exact recipients before sending.",
+    "Choose Message on one roster card, or filter the roster and choose Message all.",
+    "Review the resolved audience inline, type the message, and send.",
     "The recipient acts, then acknowledges; this page records delivery and wake attempts.",
   ]) steps.appendChild(el(documentNode, "li", null, step));
   guide.appendChild(steps);
@@ -176,23 +175,15 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
   const view = el(documentNode, "div", "session-control-view");
   const status = statusRegion(documentNode);
   const content = el(documentNode, "div", "session-control-content", "Loading messages…");
-  const dialogHost = el(documentNode, "div", "session-control-dialog-host");
-  const compose = el(documentNode, "button", "item-button", "Compose message");
-  compose.type = "button";
-  const actions = el(documentNode, "div", "session-control-actions");
-  actions.appendChild(compose);
-  view.appendChild(actions);
   appendMessageGuide(documentNode, view);
   view.appendChild(status);
   view.appendChild(content);
-  view.appendChild(dialogHost);
   main.replaceChildren(view);
 
   if (typeof chrome.setPageHead === "function") {
     chrome.setPageHead({
       title: "Session messages",
-      summary: "Confirmed recipients, durable delivery receipts, and cancellation.",
-      actions: [compose],
+      summary: "Roster-selected recipients, durable delivery receipts, and cancellation.",
     });
   }
   const load = async () => {
@@ -228,8 +219,5 @@ export function renderSessionMessagesView(context, main, scope, chrome = {}) {
       button.disabled = false;
     }
   };
-  compose.addEventListener("click", () => openSessionMessageCompose(
-    context, dialogHost, { onSent: load },
-  ));
   load();
 }

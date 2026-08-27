@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import {
-  mountUniverseApp,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
+import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
   FakeDocument,
   allNodes,
@@ -115,6 +113,11 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     },
   });
   await settle();
+  const state = byClass(root, "session-roster-filter").find(
+    (field) => field.children[0].textContent === "State",
+  ).children[1];
+  state.value = "";
+  state.dispatchEvent(new Event("change"));
 
   assert.deepEqual(
     requests.filter((request) => request.function === "sessions.list"),
@@ -145,7 +148,6 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     [
       ["2", "sessions shown"],
       ["1", "items claimed"],
-      ["2", "Blitz worktree lanes"],
       ["2", "actors"],
     ],
   );
@@ -224,7 +226,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "sessions-stats")[0].children.map(
       (tile) => tile.children[0].textContent,
     ),
-    ["1", "1", "2", "1"],
+    ["1", "1", "1"],
   );
   assert.equal(reclaim.disabled, true);
   assert.equal(
@@ -273,13 +275,13 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
   await settle();
   assert.equal(
     byClass(emptyRoot, "sessions-empty")[0].textContent,
-    "No sessions in this scope.",
+    "No sessions match the current filters.",
   );
   assert.deepEqual(
     byClass(emptyRoot, "sessions-stats")[0].children.map(
       (tile) => tile.children[0].textContent,
     ),
-    ["0", "0", "0", "0"],
+    ["0", "0", "0"],
   );
   assert.equal(
     byClass(emptyRoot, "item-button").find(

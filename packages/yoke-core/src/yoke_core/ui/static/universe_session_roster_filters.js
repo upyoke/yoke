@@ -18,15 +18,15 @@ function includes(value, query) {
   return !query || String(value || "").toLowerCase().includes(query);
 }
 
+const DEFAULT_STATE = "active";
+
 export function sessionRosterFilters(documentNode, onChange) {
   const host = el(documentNode, "div", "session-roster-filters");
   host.setAttribute("role", "search");
   host.setAttribute("aria-label", "Filter sessions");
   const controls = {};
   for (const [name, label] of [
-    ["search", "Search"], ["executor", "Executor"], ["surface", "Surface"],
-    ["role", "Role"], ["lane", "Execution lane"],
-    ["worktree", "Worktree"], ["machine", "Machine"],
+    ["search", "Search"], ["harness", "Harness"], ["machine", "Machine"],
   ]) {
     const field = input(documentNode, label);
     field.control.placeholder = name === "search"
@@ -35,35 +35,24 @@ export function sessionRosterFilters(documentNode, onChange) {
     controls[name] = field.control;
     host.appendChild(field.wrapper);
   }
-  const liveness = input(documentNode, "Liveness", "select");
-  for (const value of ["", "active", "stale", "ended"]) {
-    liveness.control.appendChild(option(
-      documentNode, value, value || "Any liveness",
-    ));
+  const state = input(documentNode, "State", "select");
+  for (const [value, label] of [
+    ["", "Any state"], ["active", "Active"], ["stale", "Stale"], ["ended", "Ended"],
+  ]) {
+    state.control.appendChild(option(documentNode, value, label));
   }
-  controls.liveness = liveness.control;
-  host.appendChild(liveness.wrapper);
-  // How a session ended is a facet of ended, not a liveness state of its own.
-  const endedCause = input(documentNode, "Ended cause", "select");
-  for (const [value, label] of [
-    ["", "Any ending"], ["killed", "Killed"], ["wound_down", "Wound down"],
-  ]) endedCause.control.appendChild(option(documentNode, value, label));
-  controls.endedCause = endedCause.control;
-  host.appendChild(endedCause.wrapper);
-  const route = input(documentNode, "Route", "select");
-  for (const [value, label] of [
-    ["", "Any route"], ["message", "Messageable"], ["wake", "Wakeable"],
-  ]) route.control.appendChild(option(documentNode, value, label));
-  controls.route = route.control;
-  host.appendChild(route.wrapper);
+  state.control.value = DEFAULT_STATE;
+  controls.state = state.control;
+  host.appendChild(state.wrapper);
   const clear = el(documentNode, "button", "item-button session-filter-clear", "Clear filters");
   clear.type = "button";
   clear.disabled = true;
-  const hasActive = () => Object.values(controls).some(
-    (control) => String(control.value || "").trim(),
-  );
+  const hasChanges = () => String(controls.search.value || "").trim()
+    || String(controls.harness.value || "").trim()
+    || String(controls.machine.value || "").trim()
+    || controls.state.value !== DEFAULT_STATE;
   const changed = () => {
-    clear.disabled = !hasActive();
+    clear.disabled = !hasChanges();
     onChange();
   };
   for (const control of Object.values(controls)) {
@@ -71,36 +60,49 @@ export function sessionRosterFilters(documentNode, onChange) {
     control.addEventListener("change", changed);
   }
   clear.addEventListener("click", () => {
-    for (const control of Object.values(controls)) control.value = "";
+    controls.search.value = "";
+    controls.harness.value = "";
+    controls.machine.value = "";
+    controls.state.value = DEFAULT_STATE;
     changed();
   });
   host.appendChild(clear);
   return {
     host,
-    active: hasActive,
+    isRestrictive() {
+      return Boolean(
+        String(controls.search.value || "").trim()
+        || String(controls.harness.value || "").trim()
+        || String(controls.machine.value || "").trim()
+        || controls.state.value,
+      );
+    },
+    summary() {
+      const values = [`State: ${controls.state.value || "any"}`];
+      for (const [key, label] of [
+        ["search", "Search"], ["harness", "Harness"], ["machine", "Machine"],
+      ]) {
+        const value = String(controls[key].value || "").trim();
+        if (value) values.push(`${label}: ${value}`);
+      }
+      return values;
+    },
     apply(rows) {
       const query = String(controls.search.value || "").toLowerCase();
+      const harness = String(controls.harness.value || "").toLowerCase();
       return rows.filter((row) => {
         const searchable = [
           row.session_id, row.project, row.focus, row.actor_label,
           row.current_item_title, row.model,
         ].join(" ").toLowerCase();
-        const routing = row.messageability || {};
         return (!query || searchable.includes(query))
-          && includes(row.executor, String(controls.executor.value || "").toLowerCase())
-          && includes(row.executor_surface, String(controls.surface.value || "").toLowerCase())
-          && includes(row.role || row.work_role, String(controls.role.value || "").toLowerCase())
-          && includes(row.execution_lane, String(controls.lane.value || "").toLowerCase())
-          && includes(row.worktree, String(controls.worktree.value || "").toLowerCase())
+          && (!harness || includes(row.executor, harness)
+            || includes(row.executor_surface, harness))
           && (
             includes(row.machine_id, String(controls.machine.value || "").toLowerCase())
             || includes(row.machine_name, String(controls.machine.value || "").toLowerCase())
           )
-          && (!controls.liveness.value || row.liveness === controls.liveness.value)
-          && (!controls.endedCause.value
-            || row.ended_cause === controls.endedCause.value)
-          && (controls.route.value !== "message" || routing.messageable === true)
-          && (controls.route.value !== "wake" || routing.wake_available === true);
+          && (!controls.state.value || row.liveness === controls.state.value);
       });
     },
   };

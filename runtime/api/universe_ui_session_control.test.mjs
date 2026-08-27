@@ -53,49 +53,18 @@ function shellClient(requests, handlers) {
   };
 }
 
-test("message compose previews and sends the identical recipient snapshot", async (t) => {
+test("message history directs new composition to the roster", async (t) => {
   const requests = [];
   const client = shellClient(requests, {
     "session_control.message.list": () => ok({ messages: [], count: 0 }),
-    "session_control.message.preview": (request) => ok({
-      recipients: [{
-        session_id: "session-1", project: "yoke", liveness: "active",
-        resolution: ["session_id"],
-      }],
-      recipient_count: 1,
-      confirmation_token: "confirmed-1",
-    }),
-    "session_control.message.send": () => ok({
-      message_id: "message-1", recipients: [], recipient_count: 1,
-    }),
   });
   const { root, mounted } = await mountAt(
     t, "#/sessions/messages?project=1", client,
   );
-  button(root, "Compose message").dispatchEvent(new Event("click"));
-  const sessions = byClass(root, "session-message-selector-sessions")[0];
-  const projects = byClass(root, "session-message-selector-projects")[0];
-  const body = byClass(root, "session-message-body")[0];
-  assert.equal(sessions.value, "");
-  assert.equal(projects.value, "");
-  sessions.value = "session-1";
-  body.value = "Please check the durable message plane.";
-  button(root, "Preview recipients").dispatchEvent(new Event("click"));
-  await settle();
-  assert.equal(button(root, "Send message").disabled, false);
-  button(root, "Send message").dispatchEvent(new Event("click"));
-  await settle();
-  const preview = requests.find(
-    (request) => request.function === "session_control.message.preview",
-  );
-  const send = requests.find(
-    (request) => request.function === "session_control.message.send",
-  );
-  assert.deepEqual(send.payload.selector, preview.payload.selector);
-  assert.deepEqual(preview.payload.selector.projects, []);
-  assert.equal(send.payload.confirmation_token, "confirmed-1");
-  assert.equal(send.payload.body, "Please check the durable message plane.");
-  assert.ok(send.payload.idempotency_key.startsWith("workbench-message:"));
+  assert.equal(button(root, "Compose message"), undefined);
+  assert.ok(allNodes(root).some(
+    (node) => node.textContent.includes("filter the roster and choose Message all"),
+  ));
   mounted.unmount();
 });
 
@@ -300,11 +269,23 @@ test("roster includes ended sessions with exact message actions", async (t) => {
       ...base, session_id: "ended-wakeable", liveness: "ended",
       messageability: { messageable: true, wake_available: true },
     }] }),
+    "session_control.message.preview": () => ok({
+      recipients: [{
+        ...base, session_id: "ended-wakeable", liveness: "ended",
+        messageability: { messageable: true, wake_available: true },
+      }],
+      recipient_count: 1,
+      confirmation_token: "confirmed-ended",
+    }),
   });
   const { root, mounted } = await mountAt(
     t, "#/sessions/roster?project=1", client,
   );
   const filters = byClass(root, "session-roster-filter");
+  const state = filters.find((field) => field.children[0].textContent === "State")
+    .children[1];
+  state.value = "";
+  state.dispatchEvent(new Event("change"));
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("Executor version: 26.814.41407"));
   assert.ok(text.includes("Machine: studio · relay connected"));
@@ -315,36 +296,19 @@ test("roster includes ended sessions with exact message actions", async (t) => {
     (card) => byClass(card, "session-id")[0]?.textContent === "ended-wakeable",
   );
   button(endedCard, "Message").dispatchEvent(new Event("click"));
-  assert.equal(
-    byClass(root, "session-message-selector-sessions")[0].value,
-    "ended-wakeable",
+  await settle();
+  assert.equal(byClass(root, "session-message-selector-sessions").length, 0);
+  assert.deepEqual(
+    requests.find(
+      (request) => request.function === "session_control.message.preview",
+    ).payload.selector,
+    { session_ids: ["ended-wakeable"] },
   );
-  assert.equal(
-    byClass(root, "session-message-selector-projects")[0].value,
-    "",
-  );
-  for (const key of [
-    "items", "epicTasks", "processes", "executors", "surfaces", "roles",
-    "executionLanes", "worktrees", "machines", "liveness", "exclusions",
-  ]) {
-    assert.equal(byClass(root, `session-message-selector-${key}`)[0].value, "");
-  }
-  assert.equal(
-    Boolean(byClass(root, "session-message-selector-universe")[0].checked),
-    false,
-  );
-  const route = filters.at(-1).children[1];
-  route.value = "message";
-  route.dispatchEvent(new Event("change"));
+  state.value = "stale";
+  state.dispatchEvent(new Event("change"));
   assert.deepEqual(
     byClass(root, "session-id").map((node) => node.textContent),
-    ["messageable", "ended-wakeable"],
-  );
-  route.value = "wake";
-  route.dispatchEvent(new Event("change"));
-  assert.deepEqual(
-    byClass(root, "session-id").map((node) => node.textContent),
-    ["wakeable", "ended-wakeable"],
+    ["wakeable"],
   );
   mounted.unmount();
 });

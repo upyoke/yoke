@@ -4,13 +4,13 @@ const PLAIN_FAILURES = {
   actor_required: "Sign in before using session controls.",
   body_empty: "Add a message before sending.",
   body_too_large: "That message is too large to send.",
-  broadcast_confirmation_required: "The broadcast recipients changed after preview.",
+  broadcast_confirmation_required: "The selected roster audience changed before send.",
   invalid_response: "Session control returned an unreadable response.",
   network_unavailable: "Session control is temporarily unavailable.",
   not_found: "That session-control record is no longer available.",
   permission_denied: "You do not have permission for that session-control action.",
   project_not_found: "That project is no longer available.",
-  recipient_snapshot_changed: "The confirmed recipient list changed before send.",
+  recipient_snapshot_changed: "The selected roster audience changed before send.",
   recipient_session_unregistered: "The recipient is not a registered top-level session.",
   reconcile_required: "This launch has an uncertain native outcome.",
   reconciliation_conflict: "The recorded and observed launch outcomes disagree.",
@@ -19,16 +19,16 @@ const PLAIN_FAILURES = {
   subagent_message_forbidden: "In-process subagents do not use Fleet messaging directly.",
   target_not_found: "No recipient matched the selected target.",
   unsupported_route: "One or more selected sessions cannot receive Fleet messages.",
-  zero_recipients: "No sessions matched those recipients.",
+  zero_recipients: "No sessions matched the selected roster audience.",
 };
 
 const RECOVERY_BY_CODE = {
-  broadcast_confirmation_required: "Preview the recipients again, then send.",
+  broadcast_confirmation_required: "Close the dialog, refresh the roster, and choose the audience again.",
   invalid_response: "Refresh the page and try again.",
   network_unavailable: "Check the connection, then try again.",
   not_found: "Refresh the page before choosing another action.",
   project_not_found: "Refresh the project list and choose an available project.",
-  recipient_snapshot_changed: "Preview the recipients again, then send.",
+  recipient_snapshot_changed: "Close the dialog, refresh the roster, and choose the audience again.",
   recipient_session_unregistered: "Refresh the roster and choose a registered session.",
   reconcile_required: "Reconcile whether a native session exists before retrying.",
   reconciliation_conflict: "Review the native session identity before continuing.",
@@ -36,7 +36,7 @@ const RECOVERY_BY_CODE = {
   session_required: "Refresh the roster and try again from a registered session.",
   subagent_message_forbidden: "Send through the parent session's native agent channel.",
   unsupported_route: "Choose a session marked Messageable in the roster.",
-  zero_recipients: "Check the IDs and filters, then preview again.",
+  zero_recipients: "Adjust the roster filters, then choose Message all again.",
 };
 
 const TECHNICAL_DETAIL = /HTTP undefined|\b(?:SQL(?:STATE)?|SQLite|Postgres(?:QL)?|database|relation|column|table|constraint|traceback|operationalerror|programmingerror|psycopg)\b|\b(?:SELECT|INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE)\b/i;
