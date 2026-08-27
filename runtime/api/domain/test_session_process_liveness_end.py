@@ -11,6 +11,7 @@ from runtime.api.test_sessions import (
     _register,
     conn,  # noqa: F401
 )
+from yoke_core.domain import session_process_liveness_end as liveness_end
 from yoke_core.domain import sessions_analytics
 from yoke_core.domain.sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 from yoke_core.domain.session_process_liveness_end import (
@@ -18,6 +19,7 @@ from yoke_core.domain.session_process_liveness_end import (
     end_process_verified_dead_sessions,
 )
 from yoke_core.domain.sessions import claim_work
+from yoke_core.domain.sessions_analytics import SessionError
 
 
 MACHINE = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
@@ -138,6 +140,20 @@ def test_an_unknown_session_is_named_rather_than_dropped(conn):
     result = _apply(conn, "sess-never-registered")
     assert result["skipped"] == [
         {"session_id": "sess-never-registered", "status": "session_not_found"}
+    ]
+
+
+def test_a_refused_end_is_named_rather_than_raised(conn, monkeypatch):
+    session_id = _ghost(conn)
+
+    def _refuse(*args, **kwargs):
+        raise SessionError("CHAIN_PENDING", "checkpoint still has budget")
+
+    monkeypatch.setattr(liveness_end, "end_session", _refuse)
+    result = _apply(conn, session_id)
+    assert result["ended"] == []
+    assert result["skipped"] == [
+        {"session_id": session_id, "status": "refused_chain_pending"}
     ]
 
 

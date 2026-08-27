@@ -3,8 +3,8 @@
 The control plane can only watch a session's heartbeat go quiet, and quiet
 has two causes it cannot tell apart: an agent thinking for a long time, and
 a process that died. So it waits out a TTL. The machine that started the
-native does not have to guess — it kept the pid, and asking whether that
-pid is still the process it recorded is one syscall-cheap comparison.
+native does not have to guess — it kept the pid, and asking the local
+process table whether that pid is still the process it recorded settles it.
 
 Two record families name a session's process, both written by paths that
 already exist for other reasons:

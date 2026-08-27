@@ -68,7 +68,7 @@ def _skip_reason(
     liveness = session_liveness(row, now=now)
     if liveness != LIVENESS_STALE:
         # ``active`` means the row has been touched since the process died —
-        # a re-registration, a resumed episode — and ``ended``/``terminated``
+        # a re-registration, a resumed episode — and any terminal liveness
         # is already the outcome this path exists to reach.
         return f"liveness_{liveness}"
     return None
