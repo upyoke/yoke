@@ -1,16 +1,20 @@
 """Scanner: bare internal ids must not cross an item-ref CLI boundary.
 
 A Python ``int`` is ``items.id``. A digit *string* passed to ``items get`` /
-``items update`` / ``sync_done_item`` is a project-local public sequence
-under the default project (``allow_bare_internal=False``). That swap is
-how a deploy stamp printed success while writing no row — or the wrong
-row — for a non-default-project item.
+``items update`` / ``sync_done_item`` / ``run_scan`` is a project-local
+public sequence under the default project (``allow_bare_internal=False``).
+That swap is how a deploy stamp printed success while writing no row — or
+the wrong row — for a non-default-project item, and how the done
+transition's discovery scan refused every item whose internal id was not
+also a live public sequence.
 
 :func:`scan_bare_internal_cli_token` flags the construction shapes that
-reintroduce the swap. Tests are exempt (same policy as the sibling
-ref-construction scanner). There is no allowance list: after the pipeline
-callers address items by integer ``target.item_id``, production source
-should have zero hits.
+reintroduce the swap. The match runs over whole file text rather than a
+single line, because the shape that shipped the discovery-scan defect wrote
+the argument on the line after the call opened. Tests are exempt (same
+policy as the sibling ref-construction scanner). There is no allowance
+list: after the pipeline callers address items by integer
+``target.item_id``, production source should have zero hits.
 """
 
 from __future__ import annotations
@@ -26,13 +30,19 @@ from yoke_core.domain.lint_item_ref_construction import (
 )
 
 
+#: Functions whose leading positional argument is an operator-facing item
+#: reference, resolved with ``allow_bare_internal=False``.
+_ITEM_REF_BOUNDARIES = ("sync_done_item", "sync_body", "run_scan")
+
 _BARE_CLI_TOKEN_RE = re.compile(
     r"""
     (?:
         _yoke_db\(\s*['"]items['"]\s*,\s*['"](?:get|update)['"]\s*,
             \s*(?:str\()?item_id\b
         |['"]items['"]\s*,\s*['"](?:get|update)['"]\s*,\s*(?:str\()?item_id\b
-        |sync_done_item\(\s*str\(\s*item_id\b
+        |(?:"""
+    + "|".join(_ITEM_REF_BOUNDARIES)
+    + r""")\(\s*str\(\s*item_id\b
     )
     """,
     re.VERBOSE,
@@ -55,18 +65,18 @@ def scan_bare_internal_cli_token(repo_root: Path) -> List[RefLiteralHit]:
             if _is_exempt(rel):
                 continue
             try:
-                lines = path.read_text(encoding="utf-8").splitlines()
+                source = path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
-            for lineno, raw in enumerate(lines, start=1):
-                if _BARE_CLI_TOKEN_RE.search(raw):
-                    hits.append(
-                        RefLiteralHit(
-                            path=path.resolve(),
-                            line=lineno,
-                            snippet=raw.strip()[:160],
-                        )
+            for match in _BARE_CLI_TOKEN_RE.finditer(source):
+                lineno = source.count("\n", 0, match.start()) + 1
+                hits.append(
+                    RefLiteralHit(
+                        path=path.resolve(),
+                        line=lineno,
+                        snippet=" ".join(match.group(0).split())[:160],
                     )
+                )
     return hits
 
 

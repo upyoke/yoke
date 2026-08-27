@@ -199,9 +199,12 @@ def _run_closeout(
     done_transition_github_sync.apply_step_8(
         item_id, old_status, result, item_ref=ref,
     )
-    done_transition._apply_discovery_scan(item_id, result)
-    for _s in ("9", "10"):
-        result.add_step(_s)
+    # The scan addresses the item by its public ref: a digit string is a
+    # project-local sequence, not items.id, so the internal id resolves
+    # either nothing or the wrong row. The helper records "9" or
+    # "9-degraded" itself.
+    done_transition._apply_discovery_scan(ref, result)
+    result.add_step("10")
 
     print("\n=== Step 11: Rebuild board ===")
     done_transition._rebuild_board_direct()

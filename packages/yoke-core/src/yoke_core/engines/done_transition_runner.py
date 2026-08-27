@@ -65,7 +65,6 @@ def run(
     _update_status_to_done = mw._update_status_to_done
     _cascade_epic_tasks_to_done = mw._cascade_epic_tasks_to_done
     _finalize_done_local_side_effects = mw._finalize_done_local_side_effects
-    _sync_done_item_direct = mw._sync_done_item_direct
 
     # The public item ref is resolved once, server-side, by the transport
     # context relay (project-sequence aware, no local connection). Until that
@@ -98,7 +97,11 @@ def run(
     lane_branch = context.lane_branch
     workflow = context.workflow
     has_task_graph = generates_task_graph(workflow)
-    task_parent_ref = str(item_id) if has_task_graph else ""
+    # The merge boundary resolves this token as a public ref, so it carries
+    # PREFIX-N rather than the internal id — a digit string there is a
+    # project-local sequence and can address a different row entirely. The
+    # empty value still means "standalone lane, no epic".
+    task_parent_ref = item_ref if has_task_graph else ""
     item_project = context.project
     result.old_status = result.new_status = old_status
     if lane_branch in ("null", ""):
@@ -318,7 +321,7 @@ def run(
     result.add_step("6c")
 
     if has_task_graph and task_parent_ref:
-        _cascade_epic_tasks_to_done(item_id, task_parent_ref, item_ref=item_ref)
+        _cascade_epic_tasks_to_done(item_id, item_ref=item_ref)
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
     return finish_done_transition(

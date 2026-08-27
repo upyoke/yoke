@@ -114,13 +114,13 @@ def _update_status_to_done(
     return False
 
 
-def _cascade_epic_tasks_to_done(
-    item_id: int, epic_name: str, *, item_ref: str
-) -> None:
+def _cascade_epic_tasks_to_done(item_id: int, *, item_ref: str) -> None:
     """Cascade done status to all non-done epic tasks.
 
-    ``item_ref`` is the caller's already-resolved public ref, used for the
-    cascade audit sources and narratives without opening a local connection.
+    ``item_id`` is the internal ``items.id``, which is also the ``epic_id``
+    the task reads and writes key on. ``item_ref`` is the caller's
+    already-resolved public ref, used for the cascade audit sources and
+    narratives without opening a local connection.
     """
     print("=== Step 6b: Epic sub-task cascade ===")
     # The epic task listing routes through the transport-aware
@@ -130,7 +130,7 @@ def _cascade_epic_tasks_to_done(
     resp = call_dispatcher(
         function_id="done_transition.epic_task_list",
         target=TargetRef(kind="global"),
-        payload={"epic_id": epic_name},
+        payload={"epic_id": str(item_id)},
     )
     if not resp.success:
         message = resp.error.message if resp.error else "unknown error"
@@ -161,7 +161,7 @@ def _cascade_epic_tasks_to_done(
         }
         if task_status == "reviewed-implementation":
             _parent()._update_task_status_direct(
-                epic_name,
+                item_id,
                 task_num,
                 "done",
                 f"Auto-promoted: task in done epic {item_ref}",
@@ -171,7 +171,7 @@ def _cascade_epic_tasks_to_done(
             promoted_count += 1
         else:
             _parent()._update_task_status_direct(
-                epic_name,
+                item_id,
                 task_num,
                 "done",
                 f"Auto-done: epic {item_ref} marked done",
@@ -186,11 +186,11 @@ def _cascade_epic_tasks_to_done(
 
     # Batch GitHub sync
     if task_nums:
-        _batch_github_sync_tasks(item_id, epic_name, task_nums, item_ref=item_ref)
+        _batch_github_sync_tasks(item_id, task_nums, item_ref=item_ref)
 
 
 def _batch_github_sync_tasks(
-    item_id: int, epic_name: str, task_nums: list[str], *, item_ref: str
+    item_id: int, task_nums: list[str], *, item_ref: str
 ) -> None:
     """Post batch GitHub summary for cascaded tasks via bearer-token REST.
 
@@ -250,7 +250,7 @@ def _batch_github_sync_tasks(
     gh_resp = call_dispatcher(
         function_id="done_transition.epic_task_github_issues",
         target=TargetRef(kind="global"),
-        payload={"epic_id": epic_name, "task_nums": list(task_nums)},
+        payload={"epic_id": str(item_id), "task_nums": list(task_nums)},
     )
     if not gh_resp.success:
         message = gh_resp.error.message if gh_resp.error else "unknown error"

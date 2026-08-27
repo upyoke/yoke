@@ -100,16 +100,15 @@ class TestCascadeEpicTasksToDone:
             ) as mock_task_direct,
             mock.patch.object(done_transition_status, "_batch_github_sync_tasks"),
         ):
-            done_transition._cascade_epic_tasks_to_done(
-                823, "YOK-823", item_ref="YOK-823"
-            )
+            done_transition._cascade_epic_tasks_to_done(823, item_ref="YOK-823")
 
         # The task-list relay fires exactly once, for the epic ref.
         task_list_calls = [
             c for c in calls if c["function_id"] == "done_transition.epic_task_list"
         ]
         assert len(task_list_calls) == 1
-        assert task_list_calls[0]["payload"] == {"epic_id": "YOK-823"}
+        # The relay slot carries the internal epic id, not the public ref.
+        assert task_list_calls[0]["payload"] == {"epic_id": "823"}
 
         # Two direct task-status writes — one cascade (task 1), one promote (task 3).
         assert mock_task_direct.call_count == 2
@@ -117,7 +116,7 @@ class TestCascadeEpicTasksToDone:
         assert task_nums == {"1", "3"}
         for call in mock_task_direct.call_args_list:
             # Positional: epic_id, task_num, new_status, note
-            assert call.args[0] == "YOK-823"
+            assert call.args[0] == 823
             assert call.args[2] == "done"
 
     def test_cascade_noop_when_no_tasks(self, dt_db):
@@ -133,9 +132,7 @@ class TestCascadeEpicTasksToDone:
                 done_transition, "_update_task_status_direct"
             ) as mock_task_direct,
         ):
-            done_transition._cascade_epic_tasks_to_done(
-                823, "YOK-823", item_ref="YOK-823"
-            )
+            done_transition._cascade_epic_tasks_to_done(823, item_ref="YOK-823")
         # Only the task-list relay was called — no update writes.
         assert [c["function_id"] for c in calls] == ["done_transition.epic_task_list"]
         mock_task_direct.assert_not_called()
@@ -258,7 +255,6 @@ def _patch_run_internals(repo_root, **overrides):
         ("_finalize_done_local_side_effects", None),
         ("_update_item_direct", 0),
         ("_rebuild_board_direct", None),
-        ("_sync_done_item_direct", None),
         ("_run_git", mock.Mock(return_value=mock.Mock(returncode=0, stdout=""))),
     ]
     for attr, default in patches:
