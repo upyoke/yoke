@@ -13,6 +13,7 @@ from yoke_core.domain.session_manual_wake import (
     wait_for_manual_wake_result,
 )
 from yoke_core.domain.session_message_store import message_details
+from yoke_core.domain.session_message_types import SessionMessageError
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
@@ -138,4 +139,27 @@ def test_manual_wake_requires_operator_or_steering_authority() -> None:
         )
 
     assert refused.value.code == "SESSION_CONTROL_AUTHORITY_REQUIRED"
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0
+
+
+def test_terminated_session_stays_non_wakeable_when_displayed_as_ended() -> None:
+    conn = _operator_connection()
+    conn.execute(
+        "UPDATE harness_sessions SET ended_at=?,terminated_at=? WHERE session_id='s2'",
+        ("2026-08-22T15:59:00Z", "2026-08-22T15:59:00Z"),
+    )
+    conn.commit()
+
+    with pytest.raises(SessionMessageError) as refused:
+        request_manual_wake(
+            conn,
+            actor_id=10,
+            caller_session_id="s1",
+            session_id="s2",
+            item_ref=None,
+            prompt=None,
+            now=NOW,
+        )
+
+    assert refused.value.code == "session_terminated"
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 0

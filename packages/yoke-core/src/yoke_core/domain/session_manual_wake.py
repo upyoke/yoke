@@ -27,6 +27,7 @@ from yoke_core.domain.session_message_types import (
 )
 from yoke_core.domain.session_operator_authority import (
     require_operator_or_steering_authority,
+    session_control_target,
 )
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -65,6 +66,7 @@ def _one_recipient(recipients: list[ResolvedRecipient]) -> ResolvedRecipient:
 def _stopped_route(
     conn: Any,
     recipient: ResolvedRecipient,
+    target: dict[str, Any],
     *,
     now: datetime,
 ) -> dict[str, Any]:
@@ -75,15 +77,12 @@ def _stopped_route(
         project_id=recipient.project_id,
     )
     routing = messageability(
-        {
-            "executor_surface": recipient.executor_surface,
-            "executor_version": recipient.executor_version,
-        },
+        target,
         liveness=recipient.liveness,
         machine_surface_versions=versions,
         force_stopped_route=True,
     )
-    if recipient.liveness == "terminated":
+    if target.get("terminated_at") or routing.get("reason") == "session_terminated":
         raise SessionMessageError(
             "session_terminated",
             "A terminated session cannot be woken; create a new session instead.",
@@ -195,7 +194,8 @@ def request_manual_wake(
             caller_session_id=caller_session_id,
             project_id=recipient.project_id,
         )
-        routing = _stopped_route(conn, recipient, now=current)
+        target = session_control_target(conn, recipient.session_id)
+        routing = _stopped_route(conn, recipient, target, now=current)
         created = send_message(
             conn,
             actor_id=actor_id,
