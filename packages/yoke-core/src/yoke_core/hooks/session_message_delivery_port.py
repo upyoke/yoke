@@ -55,6 +55,15 @@ class SessionMessageDeliveryPort(Protocol):
         result: str,
     ) -> None: ...
 
+    def probe_undelivered(
+        self,
+        *,
+        session_id: str,
+        hook_event: str,
+        reason: str,
+        detail: str = "",
+    ) -> int: ...
+
 
 def _mapping(value: Any) -> Mapping[str, Any]:
     if isinstance(value, Mapping):
@@ -172,6 +181,31 @@ class CoreSessionMessageDeliveryPort:
                 lease_id=lease_id,
                 injected=injected,
                 result=result,
+            )
+        finally:
+            conn.close()
+
+    def probe_undelivered(
+        self,
+        *,
+        session_id: str,
+        hook_event: str,
+        reason: str,
+        detail: str = "",
+    ) -> int:
+        from yoke_core.domain import db_backend
+        from yoke_core.domain.session_message_delivery_probe import (
+            record_undelivered_receipts,
+        )
+
+        conn = db_backend.connect(busy_timeout_ms=2000)
+        try:
+            return record_undelivered_receipts(
+                conn,
+                session_id=session_id,
+                hook_event=hook_event,
+                reason=reason,
+                detail=detail,
             )
         finally:
             conn.close()

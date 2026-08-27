@@ -7,8 +7,6 @@ Wake eligibility is the sibling concern and lives in
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 import pytest
 
@@ -18,91 +16,12 @@ from yoke_contracts.session_control.teaching import (
 )
 from yoke_core.hooks import session_message_delivery as delivery
 from yoke_core.hooks.decision_render import render_codex_decision
-from yoke_core.hooks.session_message_delivery_port import (
-    LeasedSessionMessage,
-    SessionMessageLease,
+from yoke_core.hooks.types import HookDecision, Outcome
+from runtime.harness.session_message_delivery_test_helpers import (
+    MESSAGE_ID,
+    FakePort,
+    hook_context as _context,
 )
-from yoke_core.hooks.types import HookContext, HookDecision, Outcome
-
-
-NOW = datetime(2026, 8, 22, 20, 0, tzinfo=timezone.utc)
-MESSAGE_ID = "11111111-2222-4333-8444-555555555555"
-
-
-@dataclass
-class FakePort:
-    acknowledged: bool = False
-    body: str = "Please re-run the focused verifier."
-    read: list[tuple[str, str, int]] = field(default_factory=list)
-    leased: list[tuple[str, str, int]] = field(default_factory=list)
-    completed: list[tuple[str, bool, str]] = field(default_factory=list)
-
-    def read_for_hook(
-        self,
-        *,
-        session_id: str,
-        hook_event: str,
-        limit: int,
-    ) -> tuple[LeasedSessionMessage, ...]:
-        self.read.append((session_id, hook_event, limit))
-        if self.acknowledged:
-            return ()
-        return (
-            LeasedSessionMessage(
-                message_id=MESSAGE_ID,
-                body=self.body,
-                sender_actor_id=41,
-            ),
-        )
-
-    def lease_for_hook(
-        self,
-        *,
-        session_id: str,
-        hook_event: str,
-        limit: int,
-    ) -> SessionMessageLease | None:
-        self.leased.append((session_id, hook_event, limit))
-        if self.acknowledged:
-            return None
-        lease_id = f"lease-{len(self.leased)}"
-        return SessionMessageLease(
-            lease_id=lease_id,
-            messages=(
-                LeasedSessionMessage(
-                    message_id=MESSAGE_ID,
-                    body=self.body,
-                    sender_actor_id=41,
-                ),
-            ),
-        )
-
-    def complete_hook_lease(
-        self,
-        *,
-        lease_id: str,
-        injected: bool,
-        result: str,
-    ) -> None:
-        self.completed.append((lease_id, injected, result))
-
-
-def _context(
-    event_name: str = "PreToolUse",
-    *,
-    family: str = "codex",
-    surface: str = "codex-desktop",
-    session_id: str | None = "session-top",
-    payload: dict | None = None,
-) -> HookContext:
-    return HookContext(
-        event_name=event_name,
-        executor_family=family,
-        executor_surface=surface,
-        payload=payload or {},
-        session_id=session_id,
-        now=NOW,
-    )
 
 
 def test_tool_event_returns_delimited_additional_context(
