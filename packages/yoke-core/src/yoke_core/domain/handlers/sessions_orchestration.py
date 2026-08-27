@@ -21,6 +21,7 @@ from yoke_core.domain.handlers.sessions_charge_schedule import (
 
 class TouchRequest(BaseModel):
     mode: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class TouchResponse(BaseModel):
@@ -133,8 +134,14 @@ def handle_touch(request: FunctionCallRequest) -> HandlerOutcome:
         try:
             session = heartbeat(conn, sid)
             if body.mode is not None:
-                set_session_mode(conn, sid, body.mode)
-                session["mode"] = body.mode
+                session = set_session_mode(
+                    conn, sid, body.mode, reason=body.reason
+                )
+            elif body.reason is not None:
+                return _err(
+                    "reason_requires_parked",
+                    "reason is only valid with mode parked",
+                )
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)
     return HandlerOutcome(result_payload={"success": True, "session": session})

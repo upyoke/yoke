@@ -10,6 +10,7 @@ import {
   mergedRows,
   portabilityMode,
   scopeBuckets,
+  parkedBadge,
   settledScopedCalls,
   whoColumn,
 } from "./universe_view_support.js";
@@ -127,6 +128,7 @@ export function sessionCard(documentNode, row, who, mode, onMessage) {
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
   top.appendChild(laneChip(documentNode, row));
+  top.appendChild(parkedBadge(documentNode, row.mode, row.parked_reason));
   const operator = operatorLabel(documentNode, row, who, mode);
   if (operator) top.appendChild(operator);
   card.appendChild(top);

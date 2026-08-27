@@ -151,6 +151,15 @@ binding. If the next bound leg would create a deployment run, stop at the
 merge or release boundary and report; the steerer performs batch delivery.
 One worker remains responsible for the one item throughout.
 
+When a worker is blocked on an upstream item, stamp parked before going
+quiet so the stale-alive probe leaves it alone:
+
+```text
+yoke sessions touch --mode parked --reason "waiting on PREFIX-N"
+```
+
+Any later tool call clears parked automatically. Do not unstamp by hand.
+
 The steering backstop composes the same single-item mandate for unpicked
 work. Prefer `yoke steering backstop evaluate --project {_project}` for
 work that sat; use this recipe for prompt staffing of newly runnable

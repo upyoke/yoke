@@ -180,7 +180,7 @@ export function loadSessions(context, panel, getScope) {
         appendCell(
           documentNode,
           tableRow,
-          sessionModePill(documentNode, row.mode, row.liveness),
+          sessionModePill(documentNode, row.mode, row.liveness, row.parked_reason),
         );
         appendCell(
           documentNode,

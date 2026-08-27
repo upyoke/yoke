@@ -79,6 +79,9 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.
+- **A worker blocked on an upstream item stamps parked before going quiet.**
+  `yoke sessions touch --mode parked --reason "waiting on PREFIX-N"`. Any
+  later tool call clears parked — do not unstamp by hand.
 - **Autonomous.** Invoking `/yoke steer` authorizes the loop. Do not wait
   for confirmation before claiming, reading the frontier, acknowledging
   reports, launching workers, or writing the doc — except the documented

@@ -13,6 +13,7 @@ from .session_activity_state import (
     native_thread_id_column_present,
 )
 from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
+from .session_mode import set_session_mode as set_session_mode
 from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_canonicalize import (
     canonicalize_executor as _canonicalize_executor,
@@ -315,30 +316,3 @@ def heartbeat(conn: Any, session_id: str) -> Dict[str, Any]:
     return _get_session(conn, session_id)
 
 
-# ---------------------------------------------------------------------------
-# Session mode
-# ---------------------------------------------------------------------------
-
-
-def set_session_mode(
-    conn: Any,
-    session_id: str,
-    mode: str,
-) -> Dict[str, Any]:
-    """Persist the current session mode without changing heartbeat state."""
-    row = conn.execute(
-        f"SELECT ended_at FROM harness_sessions WHERE session_id = {_p(conn)}",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
-    if row["ended_at"] is not None:
-        raise SessionError("SESSION_ENDED", session_ended_message(conn, session_id))
-
-    conn.execute(
-        f"UPDATE harness_sessions SET mode = {_p(conn)} WHERE session_id = {_p(conn)}",
-        (mode, session_id),
-    )
-    conn.commit()
-
-    return _get_session(conn, session_id)

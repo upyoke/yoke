@@ -29,6 +29,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("provider", "TEXT"),
             ("model", "TEXT"),
             ("mode", "TEXT"),
+            ("parked_reason", "TEXT"),
             ("execution_lane", "TEXT"),
             ("offer_envelope", "TEXT"),
             ("current_item_id", "TEXT"),
@@ -71,7 +72,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             "recent_item_id / recent_item_status / recent_item_recorded_at "
             "carry the most recent item the session worked after "
             "current_item_id clears. mode is the session's queue posture "
-            "('wait' / 'busy' / etc); offer_envelope is the JSON "
+            "('wait' / 'busy' / 'parked' / etc); parked_reason is the "
+            "optional short why when mode is parked, and is cleared with "
+            "parked by any tool call (there is no manual unstamp). A stale "
+            "guess that parked needs a second stamp to leave is wrong. "
+            "offer_envelope is the JSON "
             "session-offer payload (see JSON-nested-field schemas below). "
             "The default routing lane is execution_lane on this row; "
             "session-offer uses it unless the caller supplies --lane / "
