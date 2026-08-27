@@ -10,7 +10,9 @@ Itemless steering loop. A harness session claims one project's steering
 scope, holds one required strategy document, and keeps that scope moving:
 read the frontier, consume worker reports, write plan-level state into the
 doc, hand work to executors, staff unpicked runnable items, and escalate
-only decisions that need a human. The coordinator never implements.
+only decisions that need a human. The coordinator never implements. Steering
+covers every pinned workflow; each item keeps its own workflow and routed
+entrypoint from intake through its live merge or release boundary.
 
 Steering means continuous small course corrections while something else
 provides the power. The stored claim kind is a **steering-scope claim**;
@@ -34,12 +36,20 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `strategy.doc_claim.acquire` | `yoke strategy doc-claim acquire SLUG --project P` |
 | `strategy.doc_claim.release` | `yoke strategy doc-claim release SLUG --project P --reason TEXT` |
 | `strategy.execution.link` | `yoke strategy execution link ITEM --slug SLUG --project P` |
+| `items.detail.get` | `yoke items detail get PREFIX-N --json` |
+| `workflows.item.get` | `yoke workflows item get PREFIX-N --json` |
+| `claims.work.acquire` | `yoke claims work acquire --item PREFIX-N --reason TEXT` |
+| `claims.work.release` | `yoke claims work release --item PREFIX-N --reason TEXT` |
 | `steering.backstop.evaluate` | `yoke steering backstop evaluate --project P` |
 | `session_control.launch.create` | `yoke session-control launch create --project P --surface S --stdin --idempotency-key K` |
+| `session_control.launch.get` | `yoke session-control launch get LAUNCH-ID --json` |
+| `session_control.launch.reconcile` | `yoke session-control launch reconcile LAUNCH-ID --json` |
+| `session_control.launch.retry` | `yoke session-control launch retry LAUNCH-ID --json` |
 | `session_control.session.terminate` | `yoke sessions terminate SESSION-ID --reason R` |
 | `session_control.message.send` | `yoke say --item PREFIX-N --stdin` |
 | `session_control.message.acknowledge` | `yoke messages acknowledge MESSAGE-ID` |
 | `charge.schedule` | `yoke charge schedule --project P` |
+| `deployment_runs.create` | `yoke --env <cp>-db-admin deployment-runs create PROJECT FLOW ...` |
 
 Do not invoke `/yoke feed`. Feed and steer are unrelated.
 
@@ -57,6 +67,15 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   or coordinator. Avoid the bare phrase "steer claim".
 - **No new scheduler.** The loop is message wakes plus periodic frontier
   checks through existing surfaces. Do not add or call feed.
+- **Every workflow stays itself.** Read each item's pinned `workflow_id` and
+  the scheduler's `next_step`; never convert or re-file incoming work to make
+  it Dash-shaped. One worker owns that one item across its routed legs.
+- **Dash is the filing default, not the steering boundary.** New work filed by
+  the steerer uses Dash unless the outcome genuinely needs Issue, Epic, or
+  Blitz structure, or the operator directs another workflow.
+- **Workers merge; the steerer batches delivery.** Worker mandates prohibit
+  deployment-run creation. The loop pins one release SHA, deploys batches,
+  and completes any item parked at its release boundary afterward.
 - **Autonomous.** Invoking `/yoke steer` authorizes the loop. Do not wait
   for confirmation before claiming, reading the frontier, acknowledging
   reports, launching workers, or writing the doc — except the documented

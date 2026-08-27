@@ -11,6 +11,15 @@ Do not invoke `/yoke feed`.
 - A delivered session message (acknowledge first, then act).
 - A periodic frontier check when no message is waiting.
 
+<!-- YOKE:HARNESS claude start -->
+In a Claude steering session, arm a standing `Monitor` on a fleet-delta
+probe and/or a `ScheduleWakeup` fallback of at least 1200 seconds. This keeps
+quiet stretches producing frontier passes without manual polling.
+<!-- YOKE:HARNESS end -->
+
+Codex and Cursor steering sessions rely on message wakes plus their native
+loop. Never teach them Claude-only wake primitives.
+
 Stamp `yoke sessions touch --mode steer` at the start of each pass if the
 mode is no longer `steer`.
 
@@ -25,7 +34,14 @@ yoke claims steering list --project {_project} --active-only --json
 
 `charge.schedule` is a frontier **read**. It does not dispatch and it is
 not feed. Record runnable unclaimed items, dependency gates, and anything
-already claimed. Write material frontier movement into the doc (step 6).
+already claimed. Write material frontier movement into the doc (step 7).
+
+When a blocker merges and an activation gate clears, explicitly wake the
+waiting dependent; activation dependencies do not send their own go-signal:
+
+```text
+printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke say --item PREFIX-N --stdin
+```
 
 ### 2. Consume worker reports
 
@@ -52,13 +68,53 @@ yoke messages acknowledge MESSAGE-ID
 ```
 
 Typical report body: `DONE PREFIX-N <one-line summary>`. When a
-steering-scoped item is `done` and the report is enough:
+DONE envelope arrives, treat it as a prompt to verify, not proof of
+completion. Workers can finish without sending one, too. Confirm both the
+item status and the latest matching claim's `release_reason=completed`:
+
+```text
+yoke items detail get PREFIX-N --json
+yoke db read "SELECT release_reason FROM work_claims WHERE item_id = {BARE_ITEM_ID} ORDER BY id DESC LIMIT 1"
+```
+
+When those authorities show the steering-scoped item is complete:
 
 1. Update item state, dependencies, or gates through the registered item
    surfaces the report actually requires — never invent a status change.
-2. Follow [`worker-lifecycle.md`](worker-lifecycle.md) rule 5: terminate
-   that worker. No lingering. No re-tasking.
+2. The worker should already have followed
+   [`worker-lifecycle.md`](worker-lifecycle.md) rule 5 and self-ended after
+   reporting. Routine completion never calls `yoke sessions terminate`;
+   reserve termination for an unresponsive worker or cleanup.
 3. Write the close-out into the doc.
+
+#### Revive starved workers
+
+A quiet `claude-cli` worker is dead: Claude heartbeats advance on tool calls.
+Send an item-addressed wake first:
+
+```text
+printf '%s' "WAKE PREFIX-N: resume the assigned routed leg and report status" | yoke say --item PREFIX-N --stdin
+```
+
+For an idle Cursor or Codex recipient, check for a message stuck past the
+project's grace window with `state='pending'` and `injection_count=0`:
+
+```text
+yoke db read "SELECT session_id,state,injection_count,created_at,wake_after FROM session_message_recipients WHERE session_id = '{SESSION_ID}' AND state = 'pending' AND injection_count = 0 ORDER BY created_at DESC"
+```
+
+Until automatic wake escalation replaces the manual bridge, resume a stuck
+Cursor session directly:
+
+```text
+cursor-agent --resume <session-id> --print --output-format json --workspace <dir> --trust '<instruction>'
+```
+
+A run of workers that die or hang within a few tool calls on one otherwise
+installed and signed-in surface may mean vendor quota or credits are
+exhausted, which currently resembles a crash. Verify by running that harness
+CLI interactively, rebalance new lanes onto the other surfaces while it
+recovers, and restore the steady-state balance afterward.
 
 ### 3. Work the strategy document itemless
 
@@ -72,7 +128,22 @@ through the registered strategy surfaces (`strategy.doc.get`,
 `strategy render`, `strategy ingest` / `strategy.doc.replace`). The doc
 plus the items survive coordinator death.
 
+Item-spec writes are the exception to itemless authority. Hold a temporary
+item claim for exactly the registered structured-field write, then release
+it immediately:
+
+```text
+yoke claims work acquire --item PREFIX-N --reason steering
+printf '%s' "$CONTENT" | yoke items structured-field replace PREFIX-N --field <field> --stdin
+yoke claims work release --item PREFIX-N --reason "steering spec write complete"
+```
+
 ### 4. Hand a chunk to an executor
+
+Steer existing work in its pinned workflow; never convert or re-file it.
+For ordinary new work filed by the steerer, default to
+`/yoke idea --workflow dash` unless the work genuinely needs Issue, Epic, or
+Blitz structure, or the operator directs another workflow.
 
 When a chunk of the doc needs an implementer:
 
@@ -117,14 +188,55 @@ Prompt launches for newly runnable unclaimed items follow
 [`worker-lifecycle.md`](worker-lifecycle.md) (keep the frontier maxed
 out). The backstop is the safety net for work that sat.
 
-### 6. Keep the document current
+### 6. Deploy merged work in batches
+
+Workers merge but never create or dispatch deployment runs. The steerer owns
+batch delivery through the **prod control-plane** db-admin connection, even
+when the target environment is stage. Pin one source SHA and use that same SHA
+for stage and production:
+
+```text
+yoke --env <cp>-db-admin deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA}
+yoke --env <cp>-db-admin watch deploy -- {RUN_ID}
+```
+
+Retry from the recorded run instead of silently creating unrelated lineage:
+
+```text
+yoke --env <cp>-db-admin deployment-runs create {_project} {FLOW} --retry-of {RUN_ID}
+```
+
+After the batch succeeds, finish every item parked at its release boundary.
+Briefly acquire that item's work claim and run its done ceremony:
+
+```text
+yoke claims work acquire --item PREFIX-N --reason "steering done ceremony"
+yoke watch merge done-transition -- PREFIX-N
+```
+
+Release the claim only if the ceremony did not already release it. An item
+parked at release still holds path claims and blocks dependents until this
+ceremony finishes.
+
+### 7. Keep the document current
 
 After every material change — frontier movement, gate decision, launch,
 escalation, dead end, report close-out — write it into the claimed doc
 through the registered strategy surfaces. The doc is coordinator state,
 not a wrapup artifact.
 
-### 7. Escalate only human decisions
+Maintain one dated section with this exact heading, refreshing or replacing
+it at the next steering handoff rather than accumulating stale snapshots:
+
+```text
+## Live status — steering snapshot (refresh or replace on next steering handoff)
+```
+
+It carries current seat holdings, in-flight lanes, deploy-batch state, the
+dependency-edge queue, and the recipes currently in force. A successor must
+be able to cold-start the scope from the claimed document alone.
+
+### 8. Escalate only human decisions
 
 Escalate to the operator when the loop cannot choose: conflicting
 reports, a scope that needs a new project, a lock it cannot release
