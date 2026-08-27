@@ -16,7 +16,7 @@ def test_profile_accepts_native_commands_and_review_only_suites() -> None:
         "surveyed-command",
         "scaffold-suite",
         "review-only-suite",
-        "explicit-skip",
+        "attested-no-tests",
     ):
         assert outcome in text
     for command in ("mvn -q -DskipITs test", "vendor/bin/phpunit", "xcodebuild"):

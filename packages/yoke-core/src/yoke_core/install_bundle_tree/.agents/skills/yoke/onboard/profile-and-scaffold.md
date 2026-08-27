@@ -70,12 +70,25 @@ Propose exactly one of four named outcomes, from the step 1 repo survey:
    bind it as `quick`, `full`, or `command-ci`; step 8 seeds a blocking
    `implementation_review` plus a non-blocking `command` requirement so the
    current result is recorded without manufacturing a green gate.
-4. **An explicit skip.** The operator declines a suite — an idea-only repo, a
-   content site, a client who will not pay for tests yet. Record the skip as
-   a decision, not an omission. Nothing is registered, and the gate falls back
-   to the `implementation_review` requirement that advance seeds when no plan
-   and no acceptance criteria exist. Never substitute a fabricated `pytest`,
-   and never declare CI or a merge queue for a project with no suite.
+4. **No suite at all.** The step-1 survey found nothing runnable — an
+   idea-only repo, a content site, a client who will not pay for tests yet.
+   Offer exactly three named choices, in this order, and never a fabricated
+   `pytest`, CI declaration, or merge queue:
+
+   1. **Scaffold a minimal suite.** `webapp-scaffold` for a greenfield or
+      empty application repo; a one-file project-native suite for a
+      content-only or pre-code repo. Recommend this first — a project with
+      one real test has a real gate.
+   2. **Attest no-tests.** The operator declines a suite and says why. Step 5
+      records that reason as a durable project row, and from then on the
+      `reviewing-implementation` transition seeds a blocking
+      `implementation_review` requirement where the registered command would
+      have run. This is a decision, not an omission: an empty gate reports
+      green for a review nobody performed.
+   3. **Stop.** The operator has not decided. Nothing is written; the profile
+      cannot be confirmed with the box unanswered, so this is the existing
+      failure floor — `human-interview=blocked` with the open question as
+      blocker text.
 
 A descriptive `verification_profiles.test_command` project-structure entry is
 **not** one of these outcomes. It records what the project's tests are for a
@@ -89,7 +102,7 @@ The operator confirms or adjusts the whole profile; edits refine the proposal in
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status human-interview=verified \
-  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; envs stage+prod; domain {posture}; test setup {surveyed-command|scaffold-suite|review-only-suite|explicit-skip}; roots {test_roots}; quick {quick_argv|not-applicable}; full {full_argv|same-as-quick|not-applicable}; suite health {suite_health}; runner {command|command-ci|review-only|none} because {runner_rationale}"
+  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; envs stage+prod; domain {posture}; test setup {surveyed-command|scaffold-suite|review-only-suite|attested-no-tests}; roots {test_roots}; quick {quick_argv|not-applicable}; full {full_argv|same-as-quick|not-applicable}; suite health {suite_health}; runner {command|command-ci|review-only|none} because {runner_rationale}"
 ```
 
 After confirmation, run steps 3–6 straight through unattended. The next stop is the infrastructure approval gate in step 7.

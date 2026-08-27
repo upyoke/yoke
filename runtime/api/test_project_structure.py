@@ -76,6 +76,7 @@ class TestConstitutionInvariants:
             "context_routing",
             "architecture_model",
             "hosting_posture",
+            "verification_posture",
         }
         assert set(ps.NET_NEW_FAMILIES) == expected
 

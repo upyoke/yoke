@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.project_identity import row_value
+from yoke_core.domain.project_verification_posture import (
+    REGISTERED_COMMAND_PLAN_PREFIX,
+    require_no_attestation,
+)
+from yoke_core.domain.qa_command_argv_presence import require_argv_present
 from yoke_core.domain.qa_command_invocation import (
     canonicalize_registered_command,
-    rewrite_retired_watch_pytest_commands,
 )
 from yoke_core.domain.qa_command_scope_routing import (
     capability_settings,
     default_workflow,
-    scope_workflow,
     workflow_for_scope,
 )
 from yoke_core.domain.qa_plan_attachments import set_project_default
@@ -89,7 +92,7 @@ def _plan_for_scope(
     ci_workflow: str = "",
 ) -> int:
     marker = _p(conn)
-    slug = f"registered-command-{scope}"
+    slug = f"{REGISTERED_COMMAND_PLAN_PREFIX}{scope}"
     existing = query_one(
         conn,
         f"SELECT id FROM qa_plans WHERE project_id={marker} AND slug={marker}",
@@ -157,7 +160,8 @@ def _workflow_stages(conn: Any) -> dict[str, set[str]]:
     }
 
 
-def _policy_transitions(conn: Any, policy: dict[str, Any]) -> dict[str, str]:
+def policy_transitions(conn: Any, policy: dict[str, Any]) -> dict[str, str]:
+    """Map each workflow to the stage this scope's plan attaches at."""
     preferred = policy["preferred_transition"]
     if preferred is None:
         return {}
@@ -180,9 +184,21 @@ def ensure_registered_command_plan(
     """Converge one registered scope onto its plan and workflow defaults."""
     if scope not in COMMAND_SCOPE_POLICIES:
         raise ValueError(f"unsupported registered command scope {scope!r}")
+    require_no_attestation(
+        conn,
+        project_id=int(project_id),
+        project=project,
+        ci_method_id=CI_COMMAND_METHOD_ID,
+    )
     command = canonicalize_registered_command(str(command).strip())
     if not command:
         raise ValueError("registered command must be non-empty")
+    presence = require_argv_present(
+        command,
+        checkout=checkout_for_project_id(int(project_id)),
+        project=project,
+        scope=scope,
+    )
     policy = COMMAND_SCOPE_POLICIES[scope]
     ci_workflow = workflow_for_scope(
         conn,
@@ -199,7 +215,7 @@ def ensure_registered_command_plan(
         ci_workflow=ci_workflow,
     )
     qa_phase = str(policy["qa_phase"])
-    transitions = _policy_transitions(conn, policy)
+    transitions = policy_transitions(conn, policy)
     marker = _p(conn)
     conn.execute(
         f"DELETE FROM qa_plan_project_defaults WHERE plan_id={marker}",
@@ -222,111 +238,16 @@ def ensure_registered_command_plan(
         "qa_phase": qa_phase,
         "workflow_ids": list(transitions),
         "ci_workflow": ci_workflow,
+        "argv_verification": presence.reason_code,
+        "argv_verification_detail": presence.message,
     }
-
-
-def _registered_scope_bindings(conn: Any) -> list[dict]:
-    """Return every project's registered scopes with their current binding."""
-    return list(query_rows(
-        conn,
-        "SELECT p.id AS plan_id, p.project_id AS project_id, pr.slug AS project, "
-        "p.slug AS plan_slug, c.method_id AS method_id, "
-        "c.method_config AS method_config "
-        "FROM qa_plans p "
-        "JOIN projects pr ON pr.id=p.project_id "
-        "JOIN qa_plan_cases c ON c.plan_id=p.id "
-        "WHERE p.retired_at IS NULL "
-        "AND substr(p.slug, 1, 19)='registered-command-' "
-        "ORDER BY p.project_id, p.slug",
-    ))
-
-
-def converge_registered_command_plans(conn: Any) -> list[dict]:
-    """Rebind registered verification scopes onto the runner code selects.
-
-    Where a project's verification command *runs* is executable
-    configuration, not birth-only data: it follows from code plus the
-    project's declared ``ci_workflow_file`` capability. Registration alone
-    cannot keep that current, because it happens once — a project that
-    declares its CI workflow after first registering its command, or a
-    deploy that adds CI routing to scopes already registered, would leave
-    the old binding in place forever.
-
-    Only bindings that actually disagree with what code would choose today
-    are rewritten, so a converged boot writes nothing, and a project that
-    drops its declaration rebinds back to the local runner.
-    """
-    converged: list[dict] = []
-    # One capability read per project rather than per binding: the bindings
-    # arrive grouped by project and every scope of a project answers from the
-    # same settings document.
-    settings_by_project: dict[int, dict[str, Any]] = {}
-    for row in _registered_scope_bindings(conn):
-        scope = str(row["plan_slug"]).removeprefix("registered-command-")
-        policy = COMMAND_SCOPE_POLICIES.get(scope)
-        if policy is None:
-            continue
-        try:
-            config = json.loads(str(row["method_config"] or "{}"))
-        except (TypeError, ValueError):
-            continue
-        command = str(config.get("command") or "").strip() if isinstance(
-            config, dict
-        ) else ""
-        if not command:
-            continue
-        canonical = canonicalize_registered_command(command)
-        project_id = int(row["project_id"])
-        if project_id not in settings_by_project:
-            settings_by_project[project_id] = capability_settings(conn, project_id)
-        ci_workflow = scope_workflow(
-            settings_by_project[project_id],
-            scope=scope,
-            default_routable=bool(policy["ci_routable"]),
-        )
-        desired_method = (
-            CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
-        )
-        current_workflow = str(config.get("ci_workflow") or "").strip()
-        current_transitions = {
-            (str(default["workflow_id"]), str(default["transition_id"]))
-            for default in query_rows(
-                conn,
-                "SELECT workflow_id, transition_id "
-                "FROM qa_plan_project_defaults WHERE plan_id=" + _p(conn),
-                (int(row["plan_id"]),),
-            )
-        }
-        desired_transitions = set(_policy_transitions(conn, policy).items())
-        if (
-            str(row["method_id"]) == desired_method
-            and current_workflow == ci_workflow
-            and current_transitions == desired_transitions
-            and command == canonical
-        ):
-            continue
-        ensure_registered_command_plan(
-            conn,
-            project_id=project_id,
-            project=str(row["project"]),
-            scope=scope,
-            command=canonical,
-        )
-        converged.append({
-            "project": str(row["project"]),
-            "scope": scope,
-            "method_id": desired_method,
-            "ci_workflow": ci_workflow,
-        })
-    rewrite_retired_watch_pytest_commands(conn)
-    return converged
 
 
 __all__ = [
     "CI_COMMAND_METHOD_ID",
     "COMMAND_SCOPE_POLICIES",
     "LOCAL_COMMAND_METHOD_ID",
-    "converge_registered_command_plans",
     "declared_ci_workflow",
     "ensure_registered_command_plan",
+    "policy_transitions",
 ]

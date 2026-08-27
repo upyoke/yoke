@@ -54,6 +54,14 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
         "qa.registered_command.set",
         qa_catalog_defaults.qa_registered_command_set,
     ),
+    ("qa", "no-tests", "attest"): (
+        "qa.no_tests.attest",
+        qa_catalog_defaults.qa_no_tests_attest,
+    ),
+    ("qa", "no-tests", "clear"): (
+        "qa.no_tests.clear",
+        qa_catalog_defaults.qa_no_tests_clear,
+    ),
     ("qa", "project-default", "set"): (
         "qa.project_default.set",
         qa_catalog_defaults.qa_plan_project_default_set,

@@ -221,9 +221,22 @@ non-blocking `command` requirement for the declared argv. This records the
 suite's current result without letting it manufacture either a green gate or a
 permanent blocking failure.
 
-**An explicit skip** registers nothing. Record the decision and move on; the
-`reviewing-implementation` gate falls back to the `implementation_review`
-requirement that advance seeds when no plan and no acceptance criteria exist.
+**An attested no-tests posture** records the decision as a project row rather
+than leaving it as an omission:
+
+```bash
+yoke qa no-tests attest --project {project} --reason "{why this project has no suite to bind}"
+```
+
+The reason is required — it is what makes the row an attestation, and it is
+what the reviewer reads at the gate to learn why no command ran. One call
+records the posture and retires any `registered-command-*` plan the project
+already had, so the two declarations can never both stand. From then on the
+`reviewing-implementation` transition seeds a blocking `implementation_review`
+requirement where `registered-command-quick` would have attached, and
+registering any command — the `command-ci` runner included — is refused by
+name until the posture is cleared with `yoke qa no-tests clear --project
+{project} --reason "{what changed}"`.
 
 A `verification_profiles.test_command` entry in the policy rows below is
 descriptive only. It is never read by the gate, so writing it is not a
@@ -235,10 +248,14 @@ yoke onboard checklist --run-id {run_id} \
   --evidence verification-command-binding="roots {test_roots}; quick {quick_argv}; full {full_argv|same-as-quick}; suite health {suite_health}; runner {command|command-ci} because {runner_rationale}; {ci_workflow_file or 'no Actions test workflow declared'}"
 ```
 
-For the explicit skip, mark `verification-command-binding=not-needed` with the
-operator's reason as evidence. When the operator has not decided yet, mark it
-`deferred`; when the argv cannot be verified against the repo, mark it
-`blocked` with the missing executable named.
+For an attested no-tests posture, mark `verification-command-binding=configured`
+with the attestation as evidence — something was written down, and a later
+reader must be able to tell an attested project from one nobody asked. Reserve
+`not-needed` for a project that genuinely has nothing to bind and nothing to
+attest, and `deferred` for the operator who has not decided yet. When the argv
+cannot be verified against the repo, mark it `blocked` with the missing
+executable named; the registration refuses that argv by name rather than
+binding a gate that would fail wherever it ran.
 
 For a review-only suite, mark `verification-command-binding=configured` with
 evidence such as `review-only suite: roots {test_roots}; argv {legacy_argv};

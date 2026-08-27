@@ -115,16 +115,26 @@ client will not pay for tests yet — record attested no-tests and seed
 `implementation_review` instead of a `registered-command-quick` that cannot
 run. Always refuse (3) for CI/queue lies. Never skip the question.
 
+Registration enforces the third path where it can check: a path-shaped argv
+that is not in the checkout is refused by name, because it would bind a gate
+that fails wherever it runs. A bare program name the registering machine lacks
+is reported rather than refused — an operator binding `mvn verify` from a
+laptop for a repository whose CI has Maven is doing the right thing.
+
 The question is now asked: the step-2 box includes scaffold and explicit-skip
 outcomes, and the `verification-command-binding` checklist row records which
 one was chosen.
-What remains open is the durable *declaration* for outcome (2) — today the
-skip registers nothing and relies on advance's `implementation_review`
-fallback, rather than on a project row a reader can inspect. That declaration
-is G-no-tests-posture.
-
-There is no `no_tests` capability or project-structure family today. That
-is G-no-tests-posture.
+The durable declaration for outcome (2) is the `verification_posture`
+Project Structure family — a project-attached singleton whose only stored
+value is `attested-no-tests`, carrying the operator's required reason. Write
+it with `yoke qa no-tests attest --project P --reason "..."`; that one call
+also retires any `registered-command-*` plan, so a project can never hold both
+declarations. While it stands, `reviewing-implementation` seeds a blocking
+`implementation_review` requirement at the transition
+`registered-command-quick` would have attached to, and registering a command
+for any scope is refused by name with the clearing recipe. `yoke qa no-tests
+clear --project P --reason "..."` returns the project to undecided so a suite
+it later gains can be bound.
 
 ## Archetype mapping
 

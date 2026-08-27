@@ -121,7 +121,7 @@ def _converge_registered_command_plans(conn) -> None:
         for table in ("projects", "qa_plans", "qa_plan_cases", "qa_methods")
     ):
         return
-    from yoke_core.domain.qa_command_plan_registration import (
+    from yoke_core.domain.qa_command_plan_convergence import (
         converge_registered_command_plans,
     )
 

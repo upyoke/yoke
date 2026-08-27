@@ -9,10 +9,12 @@ from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.projects_seed_ci_workflow import (
     CI_WORKFLOW_CAPABILITY_TYPE,
 )
+from yoke_core.domain.qa_command_plan_convergence import (
+    converge_registered_command_plans,
+)
 from yoke_core.domain.qa_command_plan_registration import (
     CI_COMMAND_METHOD_ID,
     LOCAL_COMMAND_METHOD_ID,
-    converge_registered_command_plans,
     declared_ci_workflow,
     ensure_registered_command_plan,
 )

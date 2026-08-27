@@ -47,10 +47,14 @@ class TestSeed:
     # authors the concrete yoke architecture_model.payload seed, which lands
     # there alongside the AGENTS.md architecture-model documentation surface.
     # Operator-authored declarations. A seed cannot know a project's default
-    # flow, its architecture, or who runs its hosting, and for all three the
-    # absence of an entry is a meaningful answer rather than a gap.
+    # flow, its architecture, who runs its hosting, or whether it has a test
+    # suite, and for all four the absence of an entry is a meaningful answer
+    # rather than a gap — ``verification_posture`` in particular stores only an
+    # attestation, so seeding one would assert something about the project that
+    # nobody said.
     _SEED_COVERAGE_OPTIONAL = {
         "deploy_defaults", "architecture_model", "hosting_posture",
+        "verification_posture",
     }
 
     def test_seed_yoke_populates_every_required_net_new_family(

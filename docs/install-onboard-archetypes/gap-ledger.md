@@ -27,7 +27,7 @@ filled in the last column.
 | G-byo-aws-identity | missing-config-surface | deployed | Hosting collects a new IAM user access key pair only | A03 A07 | YOK-2473 |
 | G-idea-default-flow | blocker | released | `infer-and-create.md`: non-empty deploy-defaults **always** assigned | all with a default flow | YOK-2474 |
 | G-test-setup-unasked | blocker | merged / done | Wizard and profile never ask how tests run; gates still expect a registered command | all | YOK-2477 |
-| G-no-tests-posture | missing-config-surface | merged / done | No attested no-tests declaration; no-tests repos get an empty or invented gate | A01 A05 A08 A10 A12 | YOK-2478 |
+| G-no-tests-posture | closed | merged / done | Closed: `verification_posture` singleton family, written by `yoke qa no-tests attest`, seeds a blocking `implementation_review` where the registered command would have run | A01 A05 A08 A10 A12 | YOK-2478 |
 | G-scaffold-tests-unregistered | friction | merged / done | `webapp-scaffold` lands tests + `ci.yml`; onboard does not declare `ci_workflow_file` or `registered-command-*` | A01 A12 | YOK-2477 |
 | G-ci-workflow-undeclared | friction | merged | Survey sees Actions; onboard never writes `ci_workflow_file` | A02 A03 A04 A07 A09 | YOK-2479 |
 | G-command-ci-misbind | blocker | merged / done | Deploy YAML / Jenkins / GitLab / fastlane store-upload treated as the verification workflow | A03 A04 A06 A09 A11 | YOK-2479 |
