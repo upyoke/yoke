@@ -1,4 +1,4 @@
-"""User-facing progress copy for anonymous and App-assisted clones."""
+"""User-facing progress copy for anonymous and App-authorized clones."""
 
 from __future__ import annotations
 
@@ -14,9 +14,7 @@ def clone_progress_lines(repo: str, outcome: _CloneOutcome) -> list[str]:
 
     lines = [f"  Cloning {repo}…"]
     if outcome.used_token:
-        lines.append(
-            "  Anonymous access couldn't reach it — used connected GitHub App access."
-        )
+        lines.append("  Reading it with your connected GitHub App access.")
     lines.append("  ✓ Cloned.")
     return lines
 

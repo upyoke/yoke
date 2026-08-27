@@ -88,7 +88,16 @@ class CloneSourceFlow:
         )
 
     def _probe_clone_remote(self: _Shell, url: str) -> CloneRemoteCheck:
-        """Probe anonymously first and authenticate only for private intent."""
+        """Read the source repo with the GitHub access this run established.
+
+        The connected credential is the wizard's own, so it is what reads the
+        repo whenever the source sits on the configured GitHub origin — a repo
+        that access can see is never rejected for being invisible without it.
+        An anonymous read remains the path for an external HTTPS source and for
+        a run with no GitHub connection, and every refusal names the specific
+        reason plus the step that would make the repo readable.
+        """
+        from yoke_cli.config import github_local_user_access
         from yoke_cli.config import project_git_transport
         from yoke_cli.config.onboard_wizard_github_state import (
             user_access_token,
@@ -96,41 +105,36 @@ class CloneSourceFlow:
         )
 
         web_url = clone_web_url(self.result)
-        anonymous = project_git_transport.remote_probe(
-            url, token=None, github_web_url=web_url,
-        )
-        if anonymous.reachable:
-            return CloneRemoteCheck(anonymous.default_branch, False)
-        if (
-            not self.result.project_clone_requires_machine_github
-            or anonymous.failure_kind
-            != project_git_transport.REMOTE_FAILURE_ACCESS
-        ):
-            raise RuntimeError(
-                "Yoke couldn't reach that repo anonymously. Check the URL and "
-                "network connection."
-            )
-        if not project_git_transport.is_configured_github_remote(
+        configured_origin = project_git_transport.is_configured_github_remote(
             url, web_url=web_url,
-        ):
-            raise RuntimeError(
-                "Yoke couldn't reach that external HTTPS repo anonymously. "
-                "GitHub App authorization is never sent outside the configured "
-                "GitHub origin."
-            )
-        token = user_access_token(self.result)
+        )
+        token = None
+        credential_error = None
+        if configured_origin:
+            try:
+                token = user_access_token(self.result)
+            except github_local_user_access.GitHubLocalUserAccessError as exc:
+                credential_error = str(exc)
         if token:
             authenticated = project_git_transport.remote_probe(
                 url, token=token, github_web_url=web_url,
             )
             if authenticated.reachable:
-                return CloneRemoteCheck(
-                    authenticated.default_branch, True,
-                )
-        raise RuntimeError(
-            "Yoke couldn't reach that private repo with connected GitHub "
-            "authorization. Check the URL and App repository access."
+                return CloneRemoteCheck(authenticated.default_branch, True)
+        anonymous = project_git_transport.remote_probe(
+            url, token=None, github_web_url=web_url,
         )
+        if anonymous.reachable:
+            return CloneRemoteCheck(anonymous.default_branch, False)
+        raise RuntimeError(clone_git_copy.unreachable_source_reason(
+            configured_origin=configured_origin,
+            used_connected_github=bool(token),
+            credential_error=credential_error,
+            denied_access=(
+                anonymous.failure_kind
+                == project_git_transport.REMOTE_FAILURE_ACCESS
+            ),
+        ))
 
     def _after_remote_checked(
         self: _Shell,

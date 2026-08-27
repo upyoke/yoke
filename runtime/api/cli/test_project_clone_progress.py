@@ -13,13 +13,13 @@ def test_clone_progress_lines_clean_clone() -> None:
     assert lines == ["  Cloning acme/widgets…", "  ✓ Cloned."]
 
 
-def test_clone_progress_lines_token_fallback_is_informational() -> None:
+def test_clone_progress_lines_connected_access_is_informational() -> None:
     lines = clone.clone_progress_lines(
         "acme/widgets",
         clone.CloneOutcome(used_token=True, origin_url="x"),
     )
     assert lines == [
         "  Cloning acme/widgets…",
-        "  Anonymous access couldn't reach it — used connected GitHub App access.",
+        "  Reading it with your connected GitHub App access.",
         "  ✓ Cloned.",
     ]

@@ -27,6 +27,44 @@ GIT_INSTALL_ERROR_ROWS = [
 ]
 
 
+def unreachable_source_reason(
+    *,
+    configured_origin: bool,
+    used_connected_github: bool,
+    credential_error: str | None,
+    denied_access: bool,
+) -> str:
+    """Name why a source repo stayed unreadable, and what would make it readable."""
+
+    if credential_error:
+        return (
+            "Yoke couldn't refresh the GitHub access you connected, and the "
+            f"repo isn't readable without it: {credential_error} Reconnect "
+            "GitHub, then try again."
+        )
+    if used_connected_github:
+        return (
+            "Yoke couldn't read that repo with the GitHub access you "
+            "connected. Check the URL, and confirm the Yoke GitHub App has "
+            "access to that repository."
+        )
+    if not configured_origin:
+        return (
+            "Yoke couldn't reach that repo. GitHub App authorization is never "
+            "sent outside the configured GitHub origin, so an external HTTPS "
+            "repo has to be readable without credentials. Check the URL and "
+            "network connection."
+        )
+    if denied_access:
+        return (
+            "Yoke couldn't read that repo without GitHub access. Connect "
+            "GitHub in the earlier step, then try again."
+        )
+    return (
+        "Yoke couldn't reach that repo. Check the URL and network connection."
+    )
+
+
 def missing_rows() -> list[SelectionRow]:
     advice = project_git_prerequisite.install_advice()
     rows: list[SelectionRow] = []
@@ -70,4 +108,5 @@ __all__ = [
     "handoff_rows",
     "install_error_rows",
     "missing_rows",
+    "unreachable_source_reason",
 ]
