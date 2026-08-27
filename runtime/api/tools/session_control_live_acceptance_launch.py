@@ -24,6 +24,45 @@ _TERMINAL_STATES = frozenset(
 )
 
 
+def wait_for_registered_launch(
+    client: CommandClient,
+    *,
+    launch: dict[str, Any],
+    surface: str,
+    timeout: float,
+    poll: float,
+    sleep: Callable[[float], None],
+    monotonic: Callable[[], float],
+) -> tuple[str, dict[str, Any]]:
+    """Wait for one launch and bind its native and registered identities."""
+    deadline = monotonic() + timeout
+    current = launch
+    while current.get("state") not in _TERMINAL_STATES:
+        if monotonic() >= deadline:
+            raise AcceptanceContractError("launch_timeout", surface=surface)
+        sleep(poll)
+        launch_id = require_text(
+            current.get("launch_id"), code="launch_id_missing", surface=surface
+        )
+        fetched = client.call(["session-control", "launch", "get", launch_id])
+        current = fetched.get("launch")
+        if not isinstance(current, dict):
+            raise AcceptanceContractError("launch_evidence_missing", surface=surface)
+    registered = require_text(
+        current.get("registered_session_id"),
+        code="launch_registration_missing",
+        surface=surface,
+    )
+    if (
+        current.get("state") != "succeeded"
+        or current.get("result_code") != "registered_and_injected"
+        or current.get("requested_surface") != surface
+        or current.get("native_session_id") != registered
+    ):
+        raise AcceptanceContractError("launch_identity_unproven", surface=surface)
+    return registered, current
+
+
 def _launch_message_id(
     client: CommandClient,
     *,
@@ -124,30 +163,15 @@ def create_and_bind(
         or second.get("deduplicated") is not True
     ):
         raise AcceptanceContractError("launch_dedupe_failed", surface=cell.surface)
-    deadline = monotonic() + timeout
-    launch = first_launch
-    while launch.get("state") not in _TERMINAL_STATES:
-        if monotonic() >= deadline:
-            raise AcceptanceContractError("launch_timeout", surface=cell.surface)
-        sleep(poll)
-        fetched = client.call(["session-control", "launch", "get", launch_id])
-        launch = fetched.get("launch")
-        if not isinstance(launch, dict):
-            raise AcceptanceContractError(
-                "launch_evidence_missing", surface=cell.surface
-            )
-    registered = require_text(
-        launch.get("registered_session_id"),
-        code="launch_registration_missing",
+    registered, launch = wait_for_registered_launch(
+        client,
+        launch=first_launch,
         surface=cell.surface,
+        timeout=timeout,
+        poll=poll,
+        sleep=sleep,
+        monotonic=monotonic,
     )
-    if (
-        launch.get("state") != "succeeded"
-        or launch.get("result_code") != "registered_and_injected"
-        or launch.get("requested_surface") != cell.surface
-        or launch.get("native_session_id") != registered
-    ):
-        raise AcceptanceContractError("launch_identity_unproven", surface=cell.surface)
     message_id = _launch_message_id(
         client,
         launch_id=launch_id,
@@ -166,4 +190,4 @@ def create_and_bind(
     )
 
 
-__all__ = ["create_and_bind"]
+__all__ = ["create_and_bind", "wait_for_registered_launch"]

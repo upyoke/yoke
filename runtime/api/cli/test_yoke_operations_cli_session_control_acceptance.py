@@ -162,6 +162,7 @@ def test_adapter_reexecs_exact_cwd_with_scrubbed_import_environment(
         _args(
             "--qualification-candidate",
             "--preview",
+            adapter.PREPARE_BROKER_FLAG,
             "--timeout-seconds",
             "12",
             "--poll-seconds",
@@ -188,6 +189,7 @@ def test_adapter_reexecs_exact_cwd_with_scrubbed_import_environment(
     assert argv[5] == "runtime.api.tools.session_control_live_acceptance_command"
     assert "--bindings-stdin" in argv
     assert "--qualification-candidate" in argv
+    assert adapter.PREPARE_BROKER_FLAG in argv
     assert not {"--environment", "--body", "--token"}.intersection(argv)
     assert argv[argv.index("--release-sha") + 1] == RELEASE_SHA
     assert argv[argv.index("--timeout-seconds") + 1] == "12.0"

@@ -7,16 +7,24 @@ from contextlib import contextmanager
 import json
 from pathlib import Path
 import sys
-from typing import Annotated, Any, Iterator, Literal, Sequence
+from typing import Any, Iterator, Sequence
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+from pydantic import ValidationError
 
 from runtime.api.tools.session_control_live_acceptance import main as acceptance_main
+from runtime.api.tools.session_control_live_acceptance_bindings import (
+    BrokerAcceptanceBinding,
+    LiveAcceptanceBindings,
+)
 from runtime.api.tools.session_control_live_acceptance_broker_binding import (
-    BrokerBinding,
     dumps_preview,
     refuse_unready_broker,
-    resolve_broker_binding,
+)
+from runtime.api.tools.session_control_live_acceptance_broker_eligibility import (
+    BrokerBinding,
+)
+from runtime.api.tools.session_control_live_acceptance_broker_preparation import (
+    resolve_or_prepare_broker_binding,
 )
 from runtime.api.tools.session_control_live_acceptance_client import YokeCliClient
 from runtime.api.tools.session_control_live_acceptance_contract import (
@@ -49,54 +57,12 @@ from yoke_core.domain.project_scratch_dir import (
     ephemeral_payload,
     scratch_root,
 )
+from yoke_cli.commands.adapters.session_control_acceptance import PREPARE_BROKER_FLAG
 
 
 BROKER_ACCEPTANCE_SURFACE = "codex-cli"
 MAX_BINDINGS_CHARACTERS = 16 * 1024
 _REPORT_KIND = "fleet_session_control_live_acceptance"
-_NonEmptyText = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, strict=True, min_length=1, max_length=256),
-]
-_SurfaceVersion = Annotated[
-    str,
-    StringConstraints(strip_whitespace=True, strict=True, min_length=1, max_length=128),
-]
-
-
-class _AcceptanceVersions(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, validate_by_alias=True, validate_by_name=False
-    )
-
-    claude_cli: _SurfaceVersion = Field(alias="claude-cli")
-    claude_desktop: _SurfaceVersion = Field(alias="claude-desktop")
-    codex_cli: _SurfaceVersion = Field(alias="codex-cli")
-    codex_desktop: _SurfaceVersion = Field(alias="codex-desktop")
-    cursor_cli: _SurfaceVersion = Field(alias="cursor-cli")
-
-
-class BrokerAcceptanceBinding(BaseModel):
-    """Exact stopped target and same-machine peer used for route-selection proof."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    target_session_id: _NonEmptyText
-    machine_id: _NonEmptyText
-    peer_session_id: _NonEmptyText
-
-
-class LiveAcceptanceBindings(BaseModel):
-    """Operator-supplied identities and observed versions; no route controls."""
-
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, validate_by_alias=True, validate_by_name=False
-    )
-
-    schema_version: Literal[1] = Field(alias="schema")
-    versions: _AcceptanceVersions
-    claude_desktop_session_id: _NonEmptyText
-    broker: BrokerAcceptanceBinding
 
 
 def _canonical_document(
@@ -193,6 +159,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--bindings-stdin", action="store_true", required=True)
     parser.add_argument("--qualification-candidate", action="store_true")
     parser.add_argument("--preview", action="store_true")
+    parser.add_argument(PREPARE_BROKER_FLAG, action="store_true")
     parser.add_argument("--timeout-seconds", type=float)
     parser.add_argument("--poll-seconds", type=float)
     parser.add_argument("--unsupported-observation-seconds", type=float)
@@ -296,7 +263,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _validate_source(args.release_sha)
         bindings = _read_bindings()
         broker = bindings.broker
-        decided = resolve_broker_binding(
+        decided = resolve_or_prepare_broker_binding(
             YokeCliClient(),
             project=args.project,
             surface=BROKER_ACCEPTANCE_SURFACE,
@@ -304,6 +271,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 broker.target_session_id, broker.machine_id, broker.peer_session_id
             ),
             expected_version=bindings.versions.codex_cli,
+            run_id=args.run_id,
+            prepare=args.prepare_broker,
+            timeout=args.timeout_seconds,
+            poll=args.poll_seconds,
         )
         if decided.status == "ready":
             bindings = bindings.model_copy(
