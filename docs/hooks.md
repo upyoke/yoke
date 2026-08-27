@@ -51,6 +51,12 @@ Per-agent hook wiring (for subagents with their own lifecycle hooks) lives in ag
 
 The all-or-nothing schema rule for `settings.json` still holds: any malformed entry silently disables every hook in the file. The nested `{hooks: [{type, command}]}` form is required; the flat `{type, command}` form breaks the entire file. If hooks appear dead, inspect `claude` CLI startup for `Settings Error`.
 
+## Fleet message delivery
+
+A hook on a model-visible event leases whatever fleet messages are pending for its session and renders them into that harness's context channel; settlement marks the receipt `injected` only once the aggregated output actually carries the lease token. There is exactly one such path, and it is told the event and the session but never whether the session is opening for the first time or reopening — which is why a woken session takes delivery on the same lease a first turn does.
+
+**A delivery that attaches nothing says which step declined.** Attaching no message is the ordinary outcome, so an evaluation that finds an empty inbox writes nothing. But when a receipt is `pending` for that exact session and the evaluation still attaches nothing, it records a `session_message_attempts` row against that receipt carrying the reason — `probe_session_not_deliverable` (the lease refused this session for this event), `probe_no_leasable_receipt` (a lease opened and carried nothing), or `probe_lease_failed` (the lease raised, recorded by exception class, never its message). The row appears in `yoke messages get <id>` beside the wake and injection attempts, and its identity is derived from the receipt, session, event, and reason, so a repeated decline folds into the row it already wrote. Two exits stay silent by design: a session the hook process cannot name, and an event the capability table already says the harness cannot inject on. Owner: `yoke_core.domain.session_message_delivery_probe`; rationale in [`docs/archive/decisions/undelivered-envelope-records-its-reason.md`](archive/decisions/undelivered-envelope-records-its-reason.md).
+
 ## Cross-harness parity
 
 `docs/hook-parity-map.md` classifies every hook by harness availability. Codex and Claude do not have identical hook surfaces — for example, Codex has no separate `PostToolUseFailure` event, so Bash failure telemetry is recovered from the `PostToolUse` payload directly. Consult the parity map before assuming a Claude hook also runs on Codex.

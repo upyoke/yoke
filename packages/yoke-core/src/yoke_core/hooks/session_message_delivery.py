@@ -24,6 +24,11 @@ from yoke_contracts.hook_runner.model_context_channel import (
     model_context_channel,
 )
 from yoke_contracts.session_execution import is_subagent_execution
+from yoke_core.domain.session_message_delivery_probe import (
+    PROBE_LEASE_FAILED,
+    PROBE_NO_LEASABLE_RECEIPT,
+    PROBE_SESSION_NOT_DELIVERABLE,
+)
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
     LeasedSessionMessage,
@@ -131,19 +136,18 @@ def _render_child_view(messages: tuple[LeasedSessionMessage, ...]) -> str:
     )
 
 
-def _decision_for_event(
-    lease: SessionMessageLease, context: HookContext
+def _context_decision(
+    context: HookContext, rendered: str, audit: dict[str, object]
 ) -> HookDecision:
-    rendered, token = render_lease(lease)
+    """Attach one rendered advisory to whichever channel this harness reads."""
     output_field = model_context_channel(
         executor_family=context.executor_family,
         event_name=context.event_name,
         stdout_events=_STDOUT_EVENTS,
     )
-    fields = {
+    fields: dict[str, object] = {
         DELIVERY_AUDIT_FIELD: {
-            "lease_id": lease.lease_id,
-            "render_token": token,
+            **audit,
             "output_field": output_field,
             "rendered_text": rendered,
         }
@@ -154,32 +158,59 @@ def _decision_for_event(
         outcome=Outcome.AUDIT_ONLY,
         audit_fields=fields,
         next=Next.CONTINUE,
+    )
+
+
+def _decision_for_event(
+    lease: SessionMessageLease, context: HookContext
+) -> HookDecision:
+    rendered, token = render_lease(lease)
+    return _context_decision(
+        context,
+        rendered,
+        {"lease_id": lease.lease_id, "render_token": token},
     )
 
 
 def _child_decision_for_event(
     messages: tuple[LeasedSessionMessage, ...], context: HookContext
 ) -> HookDecision:
-    rendered = _render_child_view(messages)
-    output_field = model_context_channel(
-        executor_family=context.executor_family,
-        event_name=context.event_name,
-        stdout_events=_STDOUT_EVENTS,
+    return _context_decision(
+        context,
+        _render_child_view(messages),
+        {"read_only_child_view": True},
     )
-    fields = {
-        DELIVERY_AUDIT_FIELD: {
-            "read_only_child_view": True,
-            "output_field": output_field,
-            "rendered_text": rendered,
-        }
-    }
-    if output_field != STDOUT_CHANNEL:
-        fields[output_field] = rendered
-    return HookDecision(
-        outcome=Outcome.AUDIT_ONLY,
-        audit_fields=fields,
-        next=Next.CONTINUE,
-    )
+
+
+def _noop() -> HookDecision:
+    return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+
+
+def _declined(
+    port: SessionMessageDeliveryPort,
+    context: HookContext,
+    session_id: str,
+    reason: str,
+    detail: str = "",
+) -> HookDecision:
+    """Record why an injectable event attached nothing, then stand down.
+
+    A declining evaluation is indistinguishable from an empty inbox unless
+    it says so, and that ambiguity is what forced a live resume failure to
+    be diagnosed by inference. The record is best-effort: whatever stopped
+    the delivery may equally stop the write, and a probe must never turn a
+    quiet miss into a failing hook.
+    """
+    try:
+        port.probe_undelivered(
+            session_id=session_id,
+            hook_event=context.event_name,
+            reason=reason,
+            detail=detail,
+        )
+    except Exception:
+        pass
+    return _noop()
 
 
 def evaluate(context: HookContext) -> HookDecision:
@@ -188,6 +219,12 @@ def evaluate(context: HookContext) -> HookDecision:
     Durable completion is deferred until the runner has aggregated sibling
     decisions. That is the only point where Yoke knows whether a denial caused
     the renderer to drop this advisory.
+
+    Every path that declines to attach a pending envelope records its reason
+    against that envelope first — see :func:`_declined`. The silent exits are
+    the ones with nothing to key a record on, or nothing to explain: a
+    session this process cannot name, and an event the capability table
+    already says the harness cannot inject on.
     """
     session_id = str(context.session_id or "").strip()
     if (
@@ -195,7 +232,7 @@ def evaluate(context: HookContext) -> HookDecision:
         or session_id == "unknown"
         or not _event_is_model_visible(context)
     ):
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+        return _noop()
     port = _delivery_port()
     if is_subagent_execution(context.payload, env={}):
         try:
@@ -205,9 +242,9 @@ def evaluate(context: HookContext) -> HookDecision:
                 limit=DEFAULT_LEASE_LIMIT,
             )
         except Exception:
-            return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+            return _noop()
         if not messages:
-            return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+            return _noop()
         return _child_decision_for_event(messages, context)
     try:
         lease = port.lease_for_hook(
@@ -215,10 +252,16 @@ def evaluate(context: HookContext) -> HookDecision:
             hook_event=context.event_name,
             limit=DEFAULT_LEASE_LIMIT,
         )
-    except Exception:
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+    except Exception as error:
+        return _declined(
+            port,
+            context,
+            session_id,
+            PROBE_LEASE_FAILED,
+            detail=type(error).__name__,
+        )
     if lease is None:
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+        return _declined(port, context, session_id, PROBE_SESSION_NOT_DELIVERABLE)
     if not lease.messages:
         try:
             port.complete_hook_lease(
@@ -228,7 +271,7 @@ def evaluate(context: HookContext) -> HookDecision:
             )
         except Exception:
             pass
-        return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
+        return _declined(port, context, session_id, PROBE_NO_LEASABLE_RECEIPT)
     return _decision_for_event(lease, context)
 
 

@@ -21,6 +21,12 @@ _TEXT_FIELDS = frozenset(
         "diagnostic_availability",
         "driver_surface",
         "driver_version",
+        # Which hook event handled the receipt, and — when that event
+        # attached nothing — the classification of what declined. An
+        # operator following a message reads this table, so a delivery
+        # step that says nothing here says nothing anywhere.
+        "hook_event",
+        "probe_detail",
         "identity_output_snippet",
         "identity_parse_expectation",
         "machine_id",
