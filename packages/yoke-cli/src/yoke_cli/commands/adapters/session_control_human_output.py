@@ -151,7 +151,11 @@ def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("FOCUS", _roster_focus, 20),
             ("ROLE", lambda row: humanize(row.get("role")), 16),
             ("RUNNER", _runner, 28),
-            ("MACHINE", lambda row: row.get("machine_id"), None),
+            (
+                "MACHINE",
+                lambda row: row.get("machine_name") or row.get("machine_id"),
+                None,
+            ),
             ("LIVENESS", lambda row: humanize(row.get("liveness")), 10),
             ("RESUME", lambda row: humanize(row.get("resume_state")), 18),
             ("RELAY", lambda row: humanize(row.get("relay")), 12),

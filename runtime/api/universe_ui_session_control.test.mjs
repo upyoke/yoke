@@ -284,7 +284,7 @@ test("roster includes ended sessions with exact message actions", async (t) => {
   const base = {
     execution_lane: "DARIUS", mode: "wait", executor: "codex",
     executor_surface: "codex-desktop", executor_version: "26.814.41407",
-    machine_id: "machine-1", relay: "connected",
+    machine_id: "machine-1", machine_name: "studio", relay: "connected",
     model: "gpt-5", actor_id: 2, actor_kind: "human", actor_label: "Ben",
     project_id: 1, project: "yoke", current_item: null, claims: [],
     activity_at: "2026-07-26T12:00:00Z",
@@ -307,7 +307,7 @@ test("roster includes ended sessions with exact message actions", async (t) => {
   const filters = byClass(root, "session-roster-filter");
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("Executor version: 26.814.41407"));
-  assert.ok(text.includes("Machine: machine-1 · relay connected"));
+  assert.ok(text.includes("Machine: studio · relay connected"));
   assert.ok(text.includes(
     "Messageable: durable delivery and automatic restart are available.",
   ));

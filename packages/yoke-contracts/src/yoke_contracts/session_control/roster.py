@@ -14,6 +14,7 @@ SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "executor_surface",
     "executor_version",
     "machine_id",
+    "machine_name",
     "liveness",
     "turn_posture",
     "resume_state",

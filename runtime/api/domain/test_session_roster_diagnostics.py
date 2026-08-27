@@ -35,6 +35,7 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE session_relays (
             relay_id TEXT PRIMARY KEY,
             machine_id TEXT,
+            hostname TEXT,
             connected_until TEXT,
             state TEXT,
             surface_versions TEXT,
@@ -191,9 +192,7 @@ def test_roster_projects_latest_message_blockers_and_effective_ttl() -> None:
         "active_document_lock_count": 1,
     }
     assert by_session["claim-session"]["effective_stale_ttl_minutes"] == 60
-    assert by_session["claim-session"]["stale_eligible_at"] == (
-        "2026-08-22T13:00:00Z"
-    )
+    assert by_session["claim-session"]["stale_eligible_at"] == ("2026-08-22T13:00:00Z")
 
 
 def test_terminated_session_has_no_end_or_stale_diagnostic() -> None:

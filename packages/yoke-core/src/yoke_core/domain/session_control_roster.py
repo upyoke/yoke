@@ -42,6 +42,22 @@ def _row_dict(row: Any) -> dict[str, Any]:
     return {str(key): row[key] for key in row.keys()}
 
 
+def _machine_names(conn: Any) -> dict[str, str]:
+    """Latest relay-reported hostname per machine, newest heartbeat first."""
+    rows = conn.execute(
+        "SELECT machine_id, hostname FROM session_relays "
+        "WHERE hostname IS NOT NULL AND hostname <> '' "
+        "ORDER BY connected_until DESC, relay_id"
+    ).fetchall()
+    names: dict[str, str] = {}
+    for row in rows:
+        machine_id = str(row["machine_id"] or "")
+        hostname = str(row["hostname"] or "").strip()
+        if machine_id and hostname and machine_id not in names:
+            names[machine_id] = hostname
+    return names
+
+
 def _identity_facts(
     conn: Any,
     session_ids: Iterable[str],
@@ -169,6 +185,7 @@ def _project_row(
     *,
     identity: dict[str, Any],
     connected_relays: dict[str, tuple[dict[str, Any], ...]],
+    machine_names: Mapping[str, str],
     worktree: str | None,
     resume_state: str | None,
     diagnostics: Mapping[str, Any],
@@ -206,6 +223,7 @@ def _project_row(
         "worktree": worktree or row.get("workspace"),
         "executor_version": merged.get("executor_version"),
         "machine_id": merged.get("machine_id"),
+        "machine_name": machine_names.get(machine_id) or None,
         "turn_posture": merged.get("turn_posture") or "unknown",
         "resume_state": resume_state,
         "relay": "connected"
@@ -245,6 +263,7 @@ def session_control_roster_result(
             (str(row.get("session_id") or "") for row in rows),
         )
         connected = connected_relay_routes(conn, now=now)
+        names = _machine_names(conn)
         diagnostics = session_diagnostics(conn, rows, identities)
         steering = steering_visibility(conn, rows, now=now)
         projected = [
@@ -252,6 +271,7 @@ def session_control_roster_result(
                 row,
                 identity=identities.get(str(row.get("session_id") or ""), {}),
                 connected_relays=connected,
+                machine_names=names,
                 worktree=worktrees.get(str(row.get("session_id") or "")),
                 resume_state=resume_states.get(str(row.get("session_id") or "")),
                 diagnostics=diagnostics.get(str(row.get("session_id") or ""), {}),
