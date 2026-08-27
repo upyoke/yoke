@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   endBlockerText,
+  killCauseText,
   staleEligibilityText,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
 import {
@@ -81,12 +82,18 @@ test("diagnostic text keeps blocker counts and terminal TTL behavior explicit", 
     "stale-eligible in 12m",
   );
 
+  assert.equal(killCauseText({ liveness: "ended" }), "");
+  assert.equal(killCauseText({ ended_cause: "killed" }), "killed");
+
   const documentNode = new FakeDocument();
   const card = sessionCard(
     documentNode,
     {
-      session_id: "terminated-1",
-      liveness: "terminated",
+      session_id: "killed-1",
+      liveness: "ended",
+      ended_cause: "killed",
+      termination_reason: "operator stopped worker",
+      terminated_at: "2026-08-22T12:05:00Z",
       mode: "wait",
       executor: "codex",
       claims: [],
@@ -99,4 +106,8 @@ test("diagnostic text keeps blocker counts and terminal TTL behavior explicit", 
     () => {},
   );
   assert.equal(byClass(card, "session-stale-context").length, 0);
+  assert.equal(
+    byClass(card, "session-kill-badge")[0].textContent,
+    "killed · operator stopped worker",
+  );
 });

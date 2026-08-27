@@ -127,13 +127,15 @@
   color: inherit;
 }
 
-.universe-app-root .session-latest-message {
+.universe-app-root .session-latest-message,
+.universe-app-root .session-ended-cause {
   display: flex;
   align-items: center;
   gap: 7px;
 }
 
-.universe-app-root .session-message-badge {
+.universe-app-root .session-message-badge,
+.universe-app-root .session-kill-badge {
   display: inline-flex;
   padding: 2px 7px;
   border-radius: 999px;
@@ -154,12 +156,18 @@
   color: var(--yoke-good);
 }
 
+.universe-app-root .session-kill-badge {
+  background: var(--yoke-crit-bg);
+  color: var(--yoke-crit);
+}
+
 .universe-app-root .session-end-blocker {
   color: var(--yoke-warn);
   font-weight: 600;
 }
 
-.universe-app-root .session-stale-context {
+.universe-app-root .session-stale-context,
+.universe-app-root .session-kill-when {
   color: var(--yoke-muted);
   font-size: 11px;
 }

@@ -1,4 +1,9 @@
-"""Permanent termination stays distinct from ordinary ended-session revival."""
+"""A killed session is ended, and every kill mechanic still holds.
+
+Liveness folds a kill into ``ended``; ``ended_cause`` carries the kill. The
+refusals below all read ``terminated_at``, so the presentation fold must not
+move any of them.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ from runtime.api.domain.test_session_message_support import (
     selector,
 )
 from runtime.api.test_sessions import _register
-from yoke_contracts.session_control.liveness import LIVENESS_TERMINATED
+from yoke_contracts.session_control.liveness import LIVENESS_ENDED, LIVENESS_STATES
 from yoke_core.domain.session_message_delivery import lease_for_hook
 from yoke_core.domain.session_message_liveness import applied_liveness
 from yoke_core.domain.session_message_routing import messageability, session_liveness
@@ -63,7 +68,7 @@ def test_terminated_session_never_requests_registration_or_reactivation(conn) ->
     assert stored["ended_at"] and stored["terminated_at"]
 
 
-def test_terminated_liveness_is_non_messageable_and_non_wakeable() -> None:
+def test_killed_session_is_non_messageable_and_non_wakeable() -> None:
     conn = message_connection()
     message_id = send_message(
         conn,
@@ -87,7 +92,7 @@ def test_terminated_liveness_is_non_messageable_and_non_wakeable() -> None:
         conn.execute("SELECT * FROM harness_sessions WHERE session_id='s1'").fetchone()
     )
     liveness = session_liveness(row, now=NOW + timedelta(days=1))
-    assert liveness == LIVENESS_TERMINATED
+    assert liveness == LIVENESS_ENDED
     assert messageability(row, liveness=liveness) == {
         "messageable": False,
         "hook_injection": False,
@@ -106,6 +111,10 @@ def test_terminated_liveness_is_non_messageable_and_non_wakeable() -> None:
     assert wake_eligible_recipients(conn, now=NOW + timedelta(days=1)) == []
 
 
-def test_exact_session_selectors_include_terminated_as_an_explicit_state() -> None:
+def test_exact_session_selectors_resolve_against_every_state() -> None:
     states = applied_liveness(selector(session_ids=["s1"]))
-    assert LIVENESS_TERMINATED in states
+    assert states == LIVENESS_STATES
+
+
+def test_liveness_has_no_terminated_peer_value() -> None:
+    assert "terminated" not in LIVENESS_STATES

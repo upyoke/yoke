@@ -116,7 +116,7 @@ def session_diagnostics(
             identity.get("ended_at")
             or identity.get("terminated_at")
             or row.get("ended_at")
-            or row.get("liveness") == "terminated"
+            or row.get("terminated_at")
         )
         blocker = None
         if not terminal:

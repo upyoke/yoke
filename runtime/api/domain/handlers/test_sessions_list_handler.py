@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
 from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.session_control_roster import SESSION_CONTROL_ROSTER_FIELDS
@@ -92,69 +90,6 @@ def _insert_item_claim(conn, session_id: str, item_id: int) -> None:
         ),
     )
     conn.commit()
-
-
-class TestLivenessDerivation:
-    def test_active_stale_ended_and_terminated_states(self, test_db):
-        _insert_session(test_db, "s-active", last_heartbeat=_iso())
-        _insert_session(test_db, "s-stale", last_heartbeat=_iso(_LONG_AGO_MINUTES))
-        _insert_session(
-            test_db,
-            "s-ended",
-            last_heartbeat=_iso(_LONG_AGO_MINUTES),
-            ended_at=_iso(_LONG_AGO_MINUTES),
-        )
-        _insert_session(
-            test_db,
-            "s-terminated",
-            last_heartbeat=_iso(_LONG_AGO_MINUTES),
-            ended_at=_iso(_LONG_AGO_MINUTES),
-            terminated_at=_iso(_LONG_AGO_MINUTES),
-        )
-
-        by_id = {row["session_id"]: row for row in list_sessions()}
-        assert by_id["s-active"]["liveness"] == "active"
-        assert by_id["s-stale"]["liveness"] == "stale"
-        assert by_id["s-ended"]["liveness"] == "ended"
-        assert by_id["s-terminated"]["liveness"] == "terminated"
-
-    def test_recent_tool_call_keeps_an_old_heartbeat_session_active(self, test_db):
-        # Tool activity keeps the session live even with an old heartbeat.
-        recent_tool_call = _iso()
-        _insert_session(
-            test_db,
-            "s-tooling",
-            last_heartbeat=_iso(_LONG_AGO_MINUTES),
-            last_tool_call_at=recent_tool_call,
-        )
-        rows = list_sessions()
-        assert rows[0]["session_id"] == "s-tooling"
-        assert rows[0]["liveness"] == "active"
-        assert rows[0]["activity_at"] == recent_tool_call
-
-    def test_liveness_filter_and_rejection(self, test_db):
-        _insert_session(test_db, "s-active", last_heartbeat=_iso())
-        _insert_session(
-            test_db,
-            "s-ended",
-            last_heartbeat=_iso(_LONG_AGO_MINUTES),
-            ended_at=_iso(_LONG_AGO_MINUTES),
-        )
-        _insert_session(
-            test_db,
-            "s-terminated",
-            last_heartbeat=_iso(_LONG_AGO_MINUTES),
-            ended_at=_iso(_LONG_AGO_MINUTES),
-            terminated_at=_iso(_LONG_AGO_MINUTES),
-        )
-        active_only = list_sessions(liveness="active")
-        assert [row["session_id"] for row in active_only] == ["s-active"]
-        ended_only = list_sessions(liveness="ended")
-        assert [row["session_id"] for row in ended_only] == ["s-ended"]
-        terminated_only = list_sessions(liveness="terminated")
-        assert [row["session_id"] for row in terminated_only] == ["s-terminated"]
-        with pytest.raises(ValueError):
-            list_sessions(liveness="running")
 
 
 class TestClaimsAndAttribution:

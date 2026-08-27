@@ -122,7 +122,7 @@ def test_human_output_names_terminal_effects() -> None:
         assert expected in rendered
 
 
-def test_sessions_list_accepts_terminated_liveness(monkeypatch) -> None:
+def test_sessions_list_narrows_kills_through_ended_cause(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(
         roster,
@@ -130,5 +130,12 @@ def test_sessions_list_accepts_terminated_liveness(monkeypatch) -> None:
         lambda **kwargs: calls.append(kwargs) or 0,
     )
 
-    assert roster.session_control_roster_list(["--liveness", "terminated"]) == 0
-    assert calls[0]["payload"] == {"liveness": "terminated"}
+    assert roster.session_control_roster_list(["--ended-cause", "killed"]) == 0
+    assert calls[0]["payload"] == {"ended_cause": "killed"}
+
+
+def test_sessions_list_rejects_terminated_as_a_liveness_peer(capsys) -> None:
+    assert roster.session_control_roster_list(["--liveness", "terminated"]) == 2
+    stderr = capsys.readouterr().err
+    assert "invalid choice: 'terminated'" in stderr
+    assert "--ended-cause killed|wound_down" in stderr

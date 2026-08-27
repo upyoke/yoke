@@ -187,7 +187,7 @@ def _attach_report_counts(db: BoardDBLike, claims: list[dict[str, Any]]) -> None
 
 def _holder_liveness(claim: dict[str, Any]) -> str:
     if claim["terminated_at"]:
-        return "terminated"
+        return "ended · killed"
     if claim["ended_at"]:
         return "ended"
     activity = max(

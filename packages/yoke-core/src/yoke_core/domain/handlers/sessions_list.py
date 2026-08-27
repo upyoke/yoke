@@ -22,6 +22,14 @@ from yoke_contracts.api.function_call import (
 class SessionsListRequest(BaseModel):
     project: Optional[str] = None
     liveness: Optional[str] = None
+    ended_cause: Optional[str] = Field(
+        default=None,
+        description=(
+            "Narrow the ended population by how it ended: 'killed' for a "
+            "terminated session, 'wound_down' for an ordinary end. Implies "
+            "liveness='ended'."
+        ),
+    )
     limit: Optional[int] = None
     per_project: bool = False
     session_id: Optional[str] = Field(
@@ -70,9 +78,14 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
     project = payload.get("project")
     liveness = payload.get("liveness")
+    ended_cause = payload.get("ended_cause")
     limit = payload.get("limit")
     per_project = payload.get("per_project", False)
-    for key, value in (("project", project), ("liveness", liveness)):
+    for key, value in (
+        ("project", project),
+        ("liveness", liveness),
+        ("ended_cause", ended_cause),
+    ):
         if value is not None and not isinstance(value, str):
             return _error(
                 "payload_invalid",
@@ -101,6 +114,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         rows = list_sessions(
             project=project,
             liveness=liveness,
+            ended_cause=ended_cause,
             limit=limit if limit is not None else DEFAULT_SESSIONS_LIST_LIMIT,
             per_project=per_project,
             session_id=session_filter.strip() if session_filter is not None else None,
@@ -109,7 +123,11 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         return _error(
             "payload_invalid",
             str(exc),
-            jsonpath="$.payload.liveness",
+            jsonpath=(
+                "$.payload.ended_cause"
+                if "ended_cause" in str(exc)
+                else "$.payload.liveness"
+            ),
         )
     except LookupError as exc:
         return _error(

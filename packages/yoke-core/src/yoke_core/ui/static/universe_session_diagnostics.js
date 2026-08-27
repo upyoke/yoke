@@ -35,6 +35,12 @@ export function endBlockerText(blocker) {
   return String(blocker.status || "end blocked").replaceAll("_", " ");
 }
 
+export function killCauseText(row) {
+  if (row.ended_cause !== "killed") return "";
+  const reason = String(row.termination_reason || "").trim();
+  return reason ? `killed · ${reason}` : "killed";
+}
+
 export function staleEligibilityText(row, now = Date.now()) {
   const eligible = new Date(row.stale_eligible_at).getTime();
   if (Number.isNaN(eligible)) return "";
@@ -42,7 +48,22 @@ export function staleEligibilityText(row, now = Date.now()) {
   return minutes === 0 ? "stale-eligible now" : `stale-eligible in ${minutes}m`;
 }
 
+// A killed session is ended like any other gone session; the kill is a cause
+// of death, so it reads as a badge on ended rather than a liveness state.
+function appendKillCause(documentNode, body, row) {
+  const text = killCauseText(row);
+  if (!text) return;
+  const line = el(documentNode, "div", "session-ended-cause");
+  const badge = el(documentNode, "span", "session-kill-badge", text);
+  badge.title = "Terminated: this session cannot be revived, woken, or messaged.";
+  line.appendChild(badge);
+  const at = relativeAge(row.terminated_at);
+  if (at) line.appendChild(el(documentNode, "span", "session-kill-when", at));
+  body.appendChild(line);
+}
+
 export function appendSessionDiagnostics(documentNode, body, row) {
+  appendKillCause(documentNode, body, row);
   const badge = latestMessageBadge(documentNode, row.latest_message);
   if (badge) {
     const message = el(documentNode, "div", "session-latest-message");
@@ -60,7 +81,7 @@ export function appendSessionDiagnostics(documentNode, body, row) {
     ));
   }
   const stale = staleEligibilityText(row);
-  if (stale && row.liveness !== "ended" && row.liveness !== "terminated") {
+  if (stale && row.liveness !== "ended") {
     const line = el(
       documentNode,
       "p",

@@ -6,6 +6,7 @@ from datetime import timedelta
 from typing import Any, Mapping
 from uuid import uuid4
 
+from yoke_contracts.session_control.liveness import LIVENESS_ENDED
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
@@ -116,7 +117,9 @@ def claim_termination_reap(
         target_launch_id=(
             str(selected["launch_id"]) if selected.get("launch_id") else None
         ),
-        target_liveness="terminated",
+        # The kill already landed, so the target's derived liveness is ended.
+        # There is no `terminated` liveness value; the kill is its cause.
+        target_liveness=LIVENESS_ENDED,
     )
 
 
