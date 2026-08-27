@@ -26,12 +26,7 @@ def _resolve_db_fallback() -> Optional[str]:
     All failures degrade to ``None``; hook observers must never block tool
     execution.
     """
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-
-        return resolve_db_path()
-    except Exception:
-        return None
+    return None
 
 
 def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> None:

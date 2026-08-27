@@ -114,7 +114,7 @@ class TestCLI:
 
     def test_cli_without_db_arg_falls_back_to_canonical(self, events_db_file):
         """CLI without ``--db`` must fall back to the
-        canonical yoke.db via ``db_helpers.resolve_db_path``.
+        connected Postgres authority.
 
         Prior to the tracked-launcher fix the Claude PostToolUse hook launcher
         injected ``YOKE_DB=... --db .../data/yoke.db`` pointing at
@@ -148,7 +148,7 @@ class TestCLI:
 
         assert _count_events(events_db_file) == 1, (
             "observe.main() without --db must fall back to the canonical DB "
-            "path from db_helpers.resolve_db_path"
+            "path from the connected Postgres authority"
         )
 
     def test_cli_explicit_db_wins_over_fallback(self, events_db_file, tmp_path):

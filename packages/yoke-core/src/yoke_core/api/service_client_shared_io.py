@@ -98,10 +98,11 @@ def _subprocess_service_env() -> dict:
 
 
 def _get_db_path() -> str:
-    """Resolve the Yoke DB path via the canonical worktree-aware resolver."""
-    from yoke_core.domain.db_helpers import resolve_db_path
-
-    return resolve_db_path()
+    """Refuse a constructed file-DB path; Postgres authority uses a DSN."""
+    raise RuntimeError(
+        "SQLite authority retired/guarded: Postgres authority selects "
+        "the Yoke DB through YOKE_PG_DSN, not a constructed file path."
+    )
 
 
 def _get_config_path() -> Path:

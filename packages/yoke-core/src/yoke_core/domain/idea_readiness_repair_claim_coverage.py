@@ -65,9 +65,9 @@ def _classify_repair_action(
 
 
 def _open_conn() -> Any:
-    from yoke_core.domain.db_helpers import connect, resolve_db_path
+    from yoke_core.domain.db_helpers import connect
 
-    return connect(resolve_db_path())
+    return connect()
 
 
 def _find_single_exclusive_claim(
@@ -152,9 +152,9 @@ def _emit_repair_event(
 
 def _rerun_readiness(item_id: int) -> Tuple[str, List[Dict[str, Any]]]:
     from yoke_core.domain.idea_readiness_check import run_all_checks
-    from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
+    from yoke_core.domain.schema_common import _connect_raw
 
-    conn = _connect_raw(_resolve_db_path())
+    conn = _connect_raw()
     try:
         issues = run_all_checks(conn, item_id)
     finally:

@@ -142,9 +142,8 @@ class TestEvaluate:
 
 
 class TestYok1384CanonicalFallback:
-    """``lint_event_registry.main()`` and :func:`evaluate` must resolve DB
-    paths via the Python ``db_helpers.resolve_db_path`` fallback when
-    ``YOKE_DB`` is unset.
+    """``lint_event_registry.main()`` and :func:`evaluate` must stay
+    fail-open when no file-DB token is available.
 
     Prior to the tracked-launcher fix the Claude PreToolUse launcher injected
     the worktree-local DB path directly, silently bypassing the Python
@@ -205,12 +204,6 @@ class TestYok1384CanonicalFallback:
         assert captured.out == ""
 
     def test_resolve_db_fallback_degrades_silently(self, monkeypatch):
-        def explode() -> str:
-            raise RuntimeError("simulated resolver failure")
-
-        monkeypatch.setattr(
-            "yoke_core.domain.db_helpers.resolve_db_path", explode
-        )
         assert lint_mod._resolve_db_fallback() == ""
 
 

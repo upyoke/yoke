@@ -76,9 +76,8 @@ def _resolve_bypass() -> str:
 def _db_available() -> bool:
     """Return True when Postgres authority is configured for a claim check.
 
-    The retired SQLite probe (``resolve_db_path`` + ``os.path.isfile``) has
-    no Postgres analogue. A resolvable DSN means the gate runs against the
-    authority; an unresolvable one preserves the historical fail-open path.
+    A resolvable DSN means the gate runs against the authority; an
+    unresolvable one preserves the historical fail-open path.
     """
     try:
         from yoke_core.domain import db_backend

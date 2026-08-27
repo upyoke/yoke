@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from yoke_core.domain import db_helpers
 from yoke_core.domain.worktree import resolve_named_path
 
 RETIRED_BACKUP_MESSAGE = (
@@ -63,8 +62,11 @@ def _backup_reason_usage(prefix: str) -> str:
 
 
 def _resolve_db_path() -> str:
-    """Retained compatibility guard for callers that still ask for a DB path."""
-    return db_helpers.resolve_db_path()
+    """File-DB tokens are retired; Postgres authority needs no path."""
+    raise RuntimeError(
+        "SQLite authority retired/guarded: Postgres authority selects "
+        "the Yoke DB through YOKE_PG_DSN, not a constructed file path."
+    )
 
 
 def _resolve_yoke_root(db_path: str) -> str:

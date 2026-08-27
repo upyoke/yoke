@@ -58,13 +58,8 @@ def _repo_root() -> Path:
 
 
 def _db_path() -> Optional[str]:
-    """Resolve DB path via :func:`db_helpers.resolve_db_path`, or ``None``."""
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-
-        return resolve_db_path()
-    except (FileNotFoundError, ImportError, RuntimeError):
-        return None
+    """File-DB tokens are retired; Postgres authority needs no path."""
+    return None
 
 
 def _resolve_session_id(explicit: Optional[str]) -> str:

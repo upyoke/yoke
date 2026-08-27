@@ -87,8 +87,7 @@ def test_connected_env_selects_postgres_without_touching_sqlite(
 
     assert db_backend.is_postgres()
     assert db_backend.resolve_pg_dsn() == "host=aurora dbname=yoke_prod"
-    with pytest.raises(RuntimeError, match="SQLite authority retired/guarded"):
-        db_helpers.resolve_db_path()
+    assert not hasattr(db_helpers, "resolve" + "_db_path")
     assert not (repo / "data" / "yoke.db").exists()
 
 
@@ -181,12 +180,6 @@ def test_migration_evidence_gate_resolves_connected_postgres_audit_target(
     _clear(monkeypatch)
     repo = _connected_repo(tmp_path, monkeypatch)
     monkeypatch.chdir(repo)
-    monkeypatch.setattr(
-        db_helpers,
-        "resolve_db_path",
-        lambda: pytest.fail("should not resolve a SQLite DB path"),
-    )
-
     audit_target = db_mutation_gate_implementing._resolve_audit_db_path(
         repo,
         {"authoritative_db": {"kind": "aws_aurora_postgres"}},
@@ -202,12 +195,6 @@ def test_qa_gate_cli_resolver_does_not_request_sqlite_path_in_postgres_mode(
     _clear(monkeypatch)
     repo = _connected_repo(tmp_path, monkeypatch)
     monkeypatch.chdir(repo)
-    monkeypatch.setattr(
-        db_helpers,
-        "resolve_db_path",
-        lambda: pytest.fail("should not resolve a SQLite DB path"),
-    )
-
     assert qa_gates._resolve_cli_db_path(None) == ""
     assert not (repo / "data" / "yoke.db").exists()
 

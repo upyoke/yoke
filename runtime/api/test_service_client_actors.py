@@ -3,7 +3,7 @@
 Exercises ``cmd_actors_list`` and ``cmd_actors_get`` end-to-end via a
 backend-aware fixture DB so the canonical resolver picks it up. The
 ``test_db`` in-memory fixture would not work here — the cmd opens
-its own connection via ``resolve_db_path`` rather than accepting one,
+its own connection via ``db_helpers.connect`` rather than accepting one,
 so the fixture must seed the same backend-resolved DB the cmd reads
 (``YOKE_DB`` file on SQLite, the repointed ``YOKE_PG_DSN``
 disposable per-test DB on Postgres).
@@ -50,7 +50,7 @@ def actors_db(tmp_path, monkeypatch):
     """Backend-aware temp DB with full schema + canonical actors seeded.
 
     SQLite: a real file under ``tmp_path``; ``YOKE_DB`` points the cmd's
-    ``resolve_db_path`` at it. Postgres: a disposable per-test database with
+    connection factory at it. Postgres: a disposable per-test database with
     ``YOKE_PG_DSN`` repointed for the fixture's lifetime so the seed and the
     factory-routed cmd hit the same DB. ``YOKE_DB`` is set inside the context
     on both engines (the Postgres factory ignores the path in favor of the DSN).

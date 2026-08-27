@@ -292,12 +292,7 @@ def _resolve_db_fallback() -> str:
 
     All failures degrade to ``""``; lint hooks must remain fail-open.
     """
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-
-        return resolve_db_path() or ""
-    except Exception:
-        return ""
+    return ""
 
 
 def _build_context_from_payload(data: dict) -> HookContext:

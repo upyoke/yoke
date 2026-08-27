@@ -77,7 +77,6 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
     "yoke_core.domain.db_helpers": {
         "columns": [
             ("iso8601_now", "callable"),
-            ("resolve_db_path", "callable"),
             ("connect", "callable"),
             ("query_rows", "callable"),
             ("query_one", "callable"),
@@ -89,7 +88,10 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "access. "
             "There is NO `read_only=` keyword on `connect` and NO "
             "`get_canonical_conn` importable name on this module — those "
-            "are wrong guesses the live denial log has captured. The "
+            "are wrong guesses the live denial log has captured. There is "
+            "also NO `resolve_db_path` helper; that name was retired when "
+            "DB authority moved to Postgres — call `connect()` with no "
+            "path. The "
             "standalone FastAPI route-module connector is `connect`; importing "
             "`yoke_core.api.main.get_db_readonly` from a route module is a "
             "wrong guess because it re-enters app construction and creates a "

@@ -255,26 +255,6 @@ def resolve_yoke_root(
     )
 
 
-def resolve_db_path(
-    *,
-    cwd: Optional[str] = None,
-    yoke_root_env: Optional[str] = None,
-    claude_project_dir: Optional[str] = None,
-) -> str:
-    """Refuse retired local SQLite path authority."""
-    yoke_root = resolve_yoke_root(
-        cwd=cwd,
-        yoke_root_env=yoke_root_env,
-        claude_project_dir=claude_project_dir,
-    )
-    retired = os.path.join(yoke_root, "yoke.db")
-    raise RuntimeError(
-        "SQLite authority retired/guarded: Postgres authority selects "
-        "the Yoke DB through YOKE_PG_DSN, not the retired root path "
-        f"{retired}."
-    )
-
-
 def resolve_named_path(
     mode: str,
     rel_path: Optional[str] = None,
@@ -305,10 +285,9 @@ def resolve_named_path(
     if mode == "yoke-root":
         return yoke_root
     if mode == "db":
-        return resolve_db_path(
-            cwd=cwd,
-            yoke_root_env=yoke_root_env,
-            claude_project_dir=claude_project_dir,
+        raise RuntimeError(
+            "SQLite authority retired/guarded: Postgres authority selects "
+            "the Yoke DB through YOKE_PG_DSN, not a constructed file path."
         )
 
     # State modes resolve via project-local .yoke/ or machine config.

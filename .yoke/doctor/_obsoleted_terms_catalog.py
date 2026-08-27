@@ -17,9 +17,8 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
     YOKE_DB_AUDIT_PATHS,
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_browser as _browser_terms
-from yoke_core.engines import (
-    doctor_hc_obsoleted_terms_coordination as _coordination_terms,
-)
+from yoke_core.engines import doctor_hc_obsoleted_terms_coordination as _coordination_terms
+from yoke_core.engines import doctor_hc_obsoleted_terms_db_authority as _db_terms
 from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
 from yoke_core.engines import doctor_hc_obsoleted_terms_session_control as _session_terms
 
@@ -209,6 +208,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN,
     *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
+    *_db_terms.DB_AUTHORITY_RETIREMENT_PATTERNS,
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
@@ -282,6 +282,7 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     **_session_terms.SESSION_CONTROL_RETIREMENT_LABELS,
     **_browser_terms.BROWSER_RETIREMENT_LABELS,
     **_pack_terms.PACK_RETIREMENT_LABELS,
+    **_db_terms.DB_AUTHORITY_RETIREMENT_LABELS,
 }
 
 # Scan scope
@@ -323,6 +324,7 @@ _QA_RUNNER_RENAME_SUBJECT_PATHS: tuple[str, ...] = (
 
 _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     **_coordination_terms.COORDINATION_LEASE_RETIREMENT_ALLOWLIST,
+    **_db_terms.DB_AUTHORITY_RETIREMENT_ALLOWLIST,
     _RETIRED_QA_EXECUTOR_ID_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS
     + _QA_PACKET_TEACHING_PATHS,
     _RETIRED_QA_EXECUTOR_TYPE_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS
