@@ -14,7 +14,7 @@ from yoke_core.hooks.resume_block_dispatch import render as _render_resume_block
 
 _register_codex = _codex_lifecycle.register
 _session_begin_recovery_command = _codex_lifecycle.recovery_command
-_touch = _codex_lifecycle.touch
+_touch = _codex_lifecycle.touch  # retained for adapter wiring tests
 
 def _decision(stdout: str = "") -> HookDecision:
     fields = {"stdout": stdout} if stdout else {}
@@ -256,11 +256,12 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
     model = resolve(_field(record.payload, "model")) or "unknown"
     entrypoint = None
     err = ""
-    if _touch(root, session_id) != 0:
-        entrypoint = resolve_entrypoint()
-        err = _register_codex(root, session_id, model, entrypoint)
     if not _first_prompt(session_id, codex=True):
         return ""
+    # First prompt may safety-net register. Do not heartbeat: a wake-
+    # injected prompt is not the session's own activity.
+    entrypoint = resolve_entrypoint()
+    err = _register_codex(root, session_id, model, entrypoint)
     telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
     return _render_codex_reminder(session_id, root, err, model, entrypoint)
 
