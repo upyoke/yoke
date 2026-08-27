@@ -302,12 +302,16 @@ def _run(
     try:
         return subprocess.run(argv, **kwargs)
     except subprocess.TimeoutExpired as exc:
+        partial = exc.stderr if isinstance(exc.stderr, str) else ""
         detail = (
             f"git {' '.join(argv[1:])} did not finish within {timeout}s. The "
             "command runs non-interactively and cannot be waiting on a "
             "prompt, so the remote is unreachable, slow, or refusing this "
             f"machine's credential. {MISSING_CREDENTIAL_RECOVERY}"
         )
+        # Whatever the command managed to say before the deadline is often the
+        # only clue about where it stalled; a timeout must not discard it.
+        detail = f"{partial.rstrip()}\n{detail}" if partial.strip() else detail
         if check:
             raise subprocess.CalledProcessError(
                 TIMEOUT_EXIT_CODE, argv, output=exc.output, stderr=detail,

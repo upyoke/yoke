@@ -41,19 +41,8 @@ class TestSyncLocalTarget:
         not checked out — uses git fetch origin main:main)."""
         sha = "abc1234567890"
 
-        def fake_run(
-            cmd,
-            cwd=None,
-            capture_output=False,
-            text=False,
-            timeout=None,
-            env=None,
-        ):
-            return mock.Mock(returncode=0, stdout="", stderr="")
 
-        monkeypatch.setattr("subprocess.run", fake_run)
-
-        def fake_run_git(cmd, cwd=None, capture=False):
+        def fake_run_git(cmd, cwd=None, capture=False, timeout=None):
             result = mock.Mock()
             result.returncode = 0
             result.stdout = ""
@@ -78,19 +67,8 @@ class TestSyncLocalTarget:
         origin/{target}, not git pull)."""
         sha = "abc1234567890"
 
-        def fake_run(
-            cmd,
-            cwd=None,
-            capture_output=False,
-            text=False,
-            timeout=None,
-            env=None,
-        ):
-            return mock.Mock(returncode=0, stdout="", stderr="")
 
-        monkeypatch.setattr("subprocess.run", fake_run)
-
-        def fake_run_git(cmd, cwd=None, capture=False):
+        def fake_run_git(cmd, cwd=None, capture=False, timeout=None):
             result = mock.Mock()
             result.returncode = 0
             result.stdout = ""
@@ -111,19 +89,8 @@ class TestSyncLocalTarget:
 
     def test_fetch_failure_returns_false(self, sync_ctx, monkeypatch):
         """Failed sync → returns False."""
-        def fake_run(
-            cmd,
-            cwd=None,
-            capture_output=False,
-            text=False,
-            timeout=None,
-            env=None,
-        ):
-            return mock.Mock(returncode=1, stdout="", stderr="non-fast-forward")
 
-        monkeypatch.setattr("subprocess.run", fake_run)
-
-        def fake_run_git(cmd, cwd=None, capture=False):
+        def fake_run_git(cmd, cwd=None, capture=False, timeout=None):
             result = mock.Mock()
             result.returncode = 0
             result.stdout = ""
@@ -137,19 +104,8 @@ class TestSyncLocalTarget:
 
     def test_ref_mismatch_returns_false(self, sync_ctx, monkeypatch):
         """Sync succeeds but local/origin refs differ → False."""
-        def fake_run(
-            cmd,
-            cwd=None,
-            capture_output=False,
-            text=False,
-            timeout=None,
-            env=None,
-        ):
-            return mock.Mock(returncode=0, stdout="", stderr="")
 
-        monkeypatch.setattr("subprocess.run", fake_run)
-
-        def fake_run_git(cmd, cwd=None, capture=False):
+        def fake_run_git(cmd, cwd=None, capture=False, timeout=None):
             result = mock.Mock()
             result.returncode = 0
             if cmd[0] == "status":
@@ -172,25 +128,22 @@ class TestSyncLocalTarget:
         assert merge_worktree._sync_local_target(sync_ctx) is False
 
     def test_timeout_returns_false(self, sync_ctx, monkeypatch):
-        """Timeout during sync → returns False."""
-        import subprocess as sp
+        """Timeout during sync → returns False.
 
-        def fake_run(
-            cmd,
-            cwd=None,
-            capture_output=False,
-            text=False,
-            timeout=None,
-            env=None,
-        ):
-            raise sp.TimeoutExpired(cmd, timeout or 120)
+        The runner turns a timed-out git subprocess into a failed result
+        carrying the reason, so the sync reads it like any other failure
+        instead of unwinding through an exception.
+        """
+        from yoke_cli.config import credentialed_git
 
-        monkeypatch.setattr("subprocess.run", fake_run)
-
-        def fake_run_git(cmd, cwd=None, capture=False):
+        def fake_run_git(cmd, cwd=None, capture=False, timeout=None):
+            timed_out = cmd[0] == "fetch"
             result = mock.Mock()
-            result.returncode = 0
+            result.returncode = (
+                credentialed_git.TIMEOUT_EXIT_CODE if timed_out else 0
+            )
             result.stdout = ""
+            result.stderr = "did not finish within 120s" if timed_out else ""
             if cmd[0] == "rev-parse" and len(cmd) > 1 and cmd[1] == "--abbrev-ref":
                 result.stdout = "YOK-9999"
             return result
@@ -205,19 +158,8 @@ class TestSyncLocalTarget:
         stash_ops = []
         first_status = {"called": False}
 
-        def fake_run(
-            cmd,
-            cwd=None,
-            capture_output=False,
-            text=False,
-            timeout=None,
-            env=None,
-        ):
-            return mock.Mock(returncode=0, stdout="", stderr="")
 
-        monkeypatch.setattr("subprocess.run", fake_run)
-
-        def fake_run_git(cmd, cwd=None, capture=False):
+        def fake_run_git(cmd, cwd=None, capture=False, timeout=None):
             result = mock.Mock()
             result.returncode = 0
             if cmd[0] == "status" and not first_status["called"]:
@@ -248,24 +190,22 @@ class TestSyncLocalTarget:
         assert result is True
         assert stash_ops == ["push", "pop"]
 
-    def test_sync_uses_noninteractive_git_env(self, sync_ctx, monkeypatch):
+    def test_sync_fetches_through_the_credentialed_runner(
+        self, sync_ctx, monkeypatch
+    ):
+        """The fetch must reach the remote through ``_run_git``.
+
+        A bare subprocess here would run on whatever credentials the calling
+        shell happens to carry, which is nothing on a freshly onboarded
+        machine. Routing it through the runner is what attaches the stored
+        GitHub credential; the environment itself is the runner's own
+        contract, pinned in ``test_merge_worktree``.
+        """
         sha = "abc1234567890"
-        seen_env = {}
+        seen: list[list[str]] = []
 
-        def fake_run(
-            cmd,
-            cwd=None,
-            capture_output=False,
-            text=False,
-            timeout=None,
-            env=None,
-        ):
-            seen_env["value"] = env
-            return mock.Mock(returncode=0, stdout="", stderr="")
-
-        monkeypatch.setattr("subprocess.run", fake_run)
-
-        def fake_run_git(cmd, cwd=None, capture=False):
+        def fake_run_git(cmd, cwd=None, capture=False, timeout=None):
+            seen.append(list(cmd))
             result = mock.Mock()
             result.returncode = 0
             result.stdout = ""
@@ -283,9 +223,7 @@ class TestSyncLocalTarget:
         monkeypatch.setattr(merge_worktree, "_run_git", fake_run_git)
 
         assert merge_worktree._sync_local_target(sync_ctx) is True
-        assert seen_env["value"]["GIT_TERMINAL_PROMPT"] == "0"
-        assert seen_env["value"]["GCM_INTERACTIVE"] == "Never"
-        assert seen_env["value"]["GIT_SSH_COMMAND"] == "ssh -oBatchMode=yes"
+        assert ["fetch", "origin", "main:main"] in seen, seen
 
     def test_source_uses_fetch_or_ff_only_not_rebase(self):
         """Regression guard: _sync_local_target must not use pull --rebase

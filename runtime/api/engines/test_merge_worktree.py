@@ -117,9 +117,12 @@ class TestRunGit:
             captured["kwargs"]["timeout"]
             == merge_worktree._DEFAULT_GIT_COMMAND_TIMEOUT_SECONDS
         )
-        assert captured["kwargs"]["env"]["GIT_TERMINAL_PROMPT"] == "0"
-        assert captured["kwargs"]["env"]["GCM_INTERACTIVE"] == "Never"
-        assert captured["kwargs"]["env"]["GIT_SSH_COMMAND"] == "ssh -oBatchMode=yes"
+        env = captured["kwargs"]["env"]
+        assert env["GIT_TERMINAL_PROMPT"] == "0"
+        assert env["GCM_INTERACTIVE"] == "Never"
+        assert env["GIT_SSH_COMMAND"] == (
+            "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+        )
 
     def test_timeout_returns_failed_completed_process(self, monkeypatch, tmp_path):
         def fake_run(cmd, **kwargs):
@@ -142,8 +145,11 @@ class TestRunGit:
         assert result.returncode == merge_worktree._GIT_TIMEOUT_EXIT_CODE
         assert result.stdout == "partial stdout"
         assert "partial stderr" in result.stderr
-        assert "timed out after 7s" in result.stderr
+        assert "did not finish within 7s" in result.stderr
         assert "git push origin YOK-42" in result.stderr
+        # A non-interactive command cannot be stuck on a prompt, so the
+        # timeout says what it can actually mean.
+        assert "cannot be waiting on a prompt" in result.stderr
 
 
 # ---------------------------------------------------------------------------

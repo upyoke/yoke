@@ -32,6 +32,10 @@ def test_resolve_commit_lineage_fetches_and_resolves_the_named_remote_ref(
         side_effect=[
             _completed(stdout=f"{tmp_path}\n"),
             _completed(stdout=".git\n"),
+            # The fetch reaches a remote, so the credentialed runner first
+            # asks the checkout which URL it will contact; an unresolvable
+            # remote simply means no GitHub credential is attached.
+            _completed(returncode=1),
             _completed(),
             _completed(stdout=f"{commit}\n"),
         ],
@@ -41,6 +45,7 @@ def test_resolve_commit_lineage_fetches_and_resolves_the_named_remote_ref(
     assert [call.args[0] for call in run.call_args_list] == [
         ["git", "-C", str(tmp_path), "rev-parse", "--show-toplevel"],
         ["git", "-C", str(tmp_path), "rev-parse", "--git-common-dir"],
+        ["git", "-C", str(tmp_path), "remote", "get-url", "origin"],
         [
             "git", "-C", str(tmp_path), "fetch", "--quiet", "--no-tags",
             "origin",
@@ -100,6 +105,7 @@ def test_resolve_commit_lineage_refuses_non_commit_output(tmp_path):
         side_effect=[
             _completed(stdout=f"{tmp_path}\n"),
             _completed(stdout=".git\n"),
+            _completed(returncode=1),  # the fetch's remote-URL probe
             _completed(),
             _completed(stdout="not-a-commit\n"),
         ],
