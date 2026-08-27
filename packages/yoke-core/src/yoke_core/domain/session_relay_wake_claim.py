@@ -49,6 +49,7 @@ def claim_wake_attempt(
     expected_posture = str(candidate.get("turn_posture") or "")
     expected_posture_at = candidate.get("turn_posture_at")
     expected_injection = candidate.get("injection_lease_id")
+    escalation = str(candidate.get("wake_escalation") or "")
     try:
         wake_mode = WakeMode(str(candidate.get("wake_mode") or ""))
     except ValueError:
@@ -57,12 +58,21 @@ def claim_wake_attempt(
         return None
     if expected_posture not in TURN_POSTURES:
         return None
-    explicit_wake = candidate.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
-    if candidate.get("liveness") == "active" and not explicit_wake:
+    # Both refusals below say the same thing: a session that will collect
+    # this envelope through its own hooks must not also be resumed underneath
+    # it. Two separate things disprove that premise — a caller who asked for
+    # this wake outright, and an envelope whose own record shows the hook
+    # route stopped running — and either is enough to pass. The CAS still
+    # pins the session's activity clock, so a session that ticks before the
+    # lease opens takes the delivery back from both of them.
+    hooks_will_not_deliver = (
+        candidate.get(EXPLICIT_WAKE_ROUTING_FLAG) is True or bool(escalation)
+    )
+    if candidate.get("liveness") == "active" and not hooks_will_not_deliver:
         return None
     if (
         wake_mode is WakeMode.WAITING
-        and not explicit_wake
+        and not hooks_will_not_deliver
         and (
             expected_state != "pending"
             or expected_posture != "waiting"
@@ -92,7 +102,12 @@ def claim_wake_attempt(
         posture_params.append(expected_posture_at)
     injection_clause = "injection_lease_id IS NULL"
     injection_params: list[Any] = []
-    if expected_injection is not None and wake_mode is WakeMode.IDLE_TIMEOUT:
+    # An expired lease is a hook that started delivering and died, so it is
+    # claimable by every mode that reached this far. Only an unescalated
+    # WAITING wake refused one, and it refused above rather than here.
+    if expected_injection is not None and (
+        wake_mode is WakeMode.IDLE_TIMEOUT or escalation
+    ):
         injection_clause = f"injection_lease_id={p} AND injection_lease_expires_at<={p}"
         injection_params.extend((expected_injection, now))
     recipient_clauses: list[str] = []
@@ -165,7 +180,12 @@ def claim_wake_attempt(
                 {
                     "native_instruction_sha256": native_wake_instruction_sha256(
                         message_id
-                    )
+                    ),
+                    # Why a live-looking session was resumed anyway. Without
+                    # it the attempt is indistinguishable from an ordinary
+                    # stopped-session wake, and the escalation is precisely
+                    # the part an operator needs to be able to question.
+                    "wake_escalation": escalation,
                 }
             ),
         ),

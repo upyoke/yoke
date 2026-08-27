@@ -44,6 +44,7 @@ def starved_hook_route(
     *,
     grace_seconds: int,
     now: datetime,
+    ignore_wake_cooldown: bool = False,
 ) -> bool:
     """True when this receipt's hook route has demonstrably stopped running.
 
@@ -51,6 +52,11 @@ def starved_hook_route(
     its session. The same window bounds both halves of the question — how
     long the envelope has waited, and how long one escalated wake stays the
     only one in flight for that recipient.
+
+    ``ignore_wake_cooldown`` is for the caller re-deriving a candidate whose
+    wake it has already stamped — the broker adoption reads the receipt back
+    after reserving it, and its own reservation would otherwise read as a
+    competing wake and disqualify the escalation it is carrying out.
     """
     if str(row.get("state") or "") != "pending":
         return False
@@ -68,10 +74,10 @@ def starved_hook_route(
         return False
     # One escalated wake per recipient per window. The resume spawns a real
     # process; a second one racing the first is the failure this guards.
+    if ignore_wake_cooldown:
+        return True
     last_wake = parse_timestamp(row.get("last_wake_at"))
-    if last_wake is not None and last_wake + window > now:
-        return False
-    return True
+    return last_wake is None or last_wake + window <= now
 
 
 __all__ = ["STARVED_HOOK_ROUTE", "starved_hook_route"]

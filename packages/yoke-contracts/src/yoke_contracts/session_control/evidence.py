@@ -51,6 +51,10 @@ _TEXT_FIELDS = frozenset(
         "requested_model",
         "result_code",
         "surface",
+        # Why a wake fired against a session whose liveness read active. The
+        # attempt is otherwise identical to an ordinary stopped-session
+        # resume, and the escalation is the half an operator would question.
+        "wake_escalation",
     }
 )
 _INTEGER_FIELDS = frozenset(

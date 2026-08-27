@@ -179,6 +179,7 @@ def wake_eligible_recipients(
                     row,
                     grace_seconds=policy.wake_ack_grace_seconds,
                     now=current,
+                    ignore_wake_cooldown=bypass_waiting_retry_cooldown,
                 ):
                     continue
                 escalation = STARVED_HOOK_ROUTE
