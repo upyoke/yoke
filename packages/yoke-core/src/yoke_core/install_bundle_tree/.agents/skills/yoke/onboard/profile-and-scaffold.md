@@ -41,18 +41,27 @@ silently, because the gate that blocks `reviewing-implementation` runs the
 project's **registered verification command**, and a project that never
 declares one reaches that gate with nothing to run.
 
-Propose exactly one of three named outcomes, from the step 1 repo survey:
+Propose exactly one of four named outcomes, from the step 1 repo survey:
 
 1. **A surveyed command.** The survey found a real suite — a `pytest`
-   invocation, `npm test`, `go test ./...`, whatever the repo actually runs.
-   Propose its argv as `quick`, and a broader argv as `full` when the two
-   genuinely differ. Propose the argv the repo runs; never invent one, and
-   never propose a command whose executable is absent from the repo.
+   invocation, `mvn -q -DskipITs test`, `vendor/bin/phpunit --testsuite unit`,
+   `xcodebuild test`, `docker compose run --rm tests`, or whatever the repo
+   actually runs. Propose a reliable documented slice as `quick`, and a
+   broader argv as `full` when the two genuinely differ. Preserve every
+   surveyed test tree as a separate `test_roots` entry; a monorepo may have
+   several roots even when one quick command is the routine gate. Propose the
+   argv the repo runs; never invent one or require it to look like pytest.
 2. **A scaffold suite.** The profile installs a scaffold Pack that lands
    tests — `webapp-scaffold` ships FastAPI tests, Vitest, Playwright
    examples, and `.github/workflows/ci.yml`. Propose the Pack's own test
    command, and note that its workflow becomes the CI declaration in step 5.
-3. **An explicit skip.** The operator declines a suite — an idea-only repo, a
+3. **A review-only suite.** A known-red or materially flaky legacy suite is
+   real evidence but cannot honestly be the blocking registered command yet.
+   Preserve its roots, exact argv, and known condition in the profile. Do not
+   bind it as `quick`, `full`, or `command-ci`; step 8 seeds a blocking
+   `implementation_review` plus a non-blocking `command` requirement so the
+   current result is recorded without manufacturing a green gate.
+4. **An explicit skip.** The operator declines a suite — an idea-only repo, a
    content site, a client who will not pay for tests yet. Record the skip as
    a decision, not an omission. Nothing is registered, and the gate falls back
    to the `implementation_review` requirement that advance seeds when no plan
@@ -71,7 +80,7 @@ The operator confirms or adjusts the whole profile; edits refine the proposal in
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status human-interview=verified \
-  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; envs stage+prod; domain {posture}; test setup {surveyed-command|scaffold-suite|explicit-skip}"
+  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; envs stage+prod; domain {posture}; test setup {surveyed-command|scaffold-suite|review-only-suite|explicit-skip}; roots {test_roots}; quick {quick_argv|not-applicable}; full {full_argv|same-as-quick|not-applicable}; suite health {suite_health}; runner {command|command-ci|review-only|none} because {runner_rationale}"
 ```
 
 After confirmation, run steps 3–6 straight through unattended. The next stop is the infrastructure approval gate in step 7.

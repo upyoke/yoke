@@ -14,11 +14,12 @@ No test, CI, QA-plan, or merge-queue question exists
 
 **Harness `/yoke onboard`.** Step 1 repo survey *reads* "test config"
 (`strategy-conversation.md`). Step 2's confirmed profile now carries a
-**test-setup box** with three named outcomes — surveyed command, scaffold
-suite, or explicit skip (`profile-and-scaffold.md`). Step 5 binds the
-confirmed outcome and records the `verification-command-binding` checklist
-row (`hosting-and-environments.md`). Step 8 attaches a QA plan only "when
-the plan names a reusable test plan" (`seed-work.md`).
+**test-setup box** with four named outcomes — surveyed command, scaffold
+suite, review-only suite, or explicit skip (`profile-and-scaffold.md`). Step 5
+binds the confirmed outcome and records the `verification-command-binding`
+checklist row (`hosting-and-environments.md`). Step 8 attaches a reusable plan
+when named and turns review-only legacy suites into item-specific blocking
+review plus advisory command requirements (`seed-work.md`).
 
 ## Live bind surfaces (verified)
 
@@ -27,6 +28,7 @@ the plan names a reusable test plan" (`seed-work.md`).
 | Test trees | `yoke project-structure patch apply` family `test_roots` | Path selectors the impacted selector reads |
 | Descriptive command | family `verification_profiles` payload `test_command` | **Not** the QA gate. Advance qa-seeding says do not seed free-form `quick`/`full` from project-structure command settings |
 | Gate command | Plan slug `registered-command-{scope}` for `quick` / `full` / `e2e` / `smoke` | `yoke qa registered-command set --project P --scope SCOPE --command ARGV` — one call converges the plan, its case, the runner, and the project-default attachments; no environment. The same `ensure_registered_command_plan` the yoke seed calls |
+| Review-only legacy suite | Item requirements: blocking `implementation_review`, non-blocking method `command` | Records the exact known-red/flaky argv without making its current failure a project-default gate |
 | CI routing | `yoke projects capability-settings set --project P --cap-type ci_workflow_file --new --settings-json '{"workflow_file":"ci.yml"}'` | Filename under `.github/workflows/` (optional `scope_workflows` map). Empty declaration keeps the **local** `command` method |
 | Merge queue | `yoke projects capability-settings set --project P --cap-type merge_queue --new --settings-json '{}'` | Presence-only. Template `requires` `ci_workflow_file` and `github`. Absent → standalone merge engine |
 | Attach to an item | `yoke qa item-plan attach --item PREFIX-N --project P --plan-id N --transition reviewing-implementation` | Seed-work already teaches this when CURRENT-PLAN names a plan |
@@ -56,10 +58,18 @@ declares both from the confirmed test-setup box, after the Pack has applied.
 ## Bind / refuse / silent mis-bind
 
 **Can bind.** A surveyed shell command as `registered-command-quick` (and
-`full` when they differ). A real `.github/workflows/*.yml` as
+`full` when they differ). The argv may be `mvn test`, PHPUnit, `xcodebuild`,
+or `docker compose run --rm tests`; it need not resemble pytest. A real
+`.github/workflows/*.yml` as
 `ci_workflow_file.workflow_file`. GitHub App + that workflow + org queue
 rules as `merge_queue`. Scaffold-installed `ci.yml` the same way, after
 apply.
+
+**Can describe separately.** A monorepo may carry one keyed `test_roots`
+entry per tree while its reliable `quick` command covers only a documented
+slice. A distinct `full` command is the aggregate. A known-red or materially
+flaky suite stays review-only: preserve roots and argv, then seed blocking
+human/agent review plus a non-blocking executable case per item.
 
 **Refuses (correct, if declared).** `command-ci` when no workflow is
 declared. `merge_queue` without GitHub + `ci_workflow_file`. HTTPS
@@ -84,7 +94,8 @@ declared. `merge_queue` without GitHub + `ci_workflow_file`. HTTPS
 
 ## No-tests: what the QA gate should mean
 
-Three options, now all offered as the step-2 onboard question:
+For a repo with no runnable suite, the step-2 question offers these honest
+paths:
 
 1. **Offer to scaffold a minimal suite.** Greenfield + `webapp-scaffold`
    already drops tests and `ci.yml`. Existing empty idea repo: same offer.
@@ -104,8 +115,9 @@ client will not pay for tests yet — record attested no-tests and seed
 `implementation_review` instead of a `registered-command-quick` that cannot
 run. Always refuse (3) for CI/queue lies. Never skip the question.
 
-The question is now asked: the step-2 box offers all three outcomes and the
-`verification-command-binding` checklist row records which one was chosen.
+The question is now asked: the step-2 box includes scaffold and explicit-skip
+outcomes, and the `verification-command-binding` checklist row records which
+one was chosen.
 What remains open is the durable *declaration* for outcome (2) — today the
 skip registers nothing and relies on advance's `implementation_review`
 fallback, rather than on a project row a reader can inspect. That declaration
@@ -113,6 +125,17 @@ is G-no-tests-posture.
 
 There is no `no_tests` capability or project-structure family today. That
 is G-no-tests-posture.
+
+## Archetype mapping
+
+| Reality | Quick | Full | Roots and runner posture |
+|---|---|---|---|
+| Maven / JUnit | `mvn -q -DskipITs test` | `mvn verify` | Record each module test tree; local `command` unless an Actions test workflow runs it |
+| PHPUnit | `vendor/bin/phpunit --testsuite unit` | `vendor/bin/phpunit` | PHP test roots remain separate from any frontend roots |
+| XCTest | Focused `xcodebuild test` destination/scheme | Broader workspace invocation | Local `command`; `fastlane` alone is not Actions CI |
+| Containerized | Focused `docker compose run --rm tests ...` | Aggregate container command | Local `command` unless a real Actions test workflow owns it |
+| Monorepo | One documented reliable slice | Aggregate workspace command | One keyed `test_roots` entry per suite tree |
+| Known-red / flaky | No project-default binding | No blocking full binding | Blocking `implementation_review` plus non-blocking exact command per item |
 
 ## Scopes the sample must cover
 
