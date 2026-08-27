@@ -35,6 +35,11 @@ from yoke_contracts.session_identity import (
 )
 
 
+DEFAULT_TIMEOUT_SECONDS = 900.0
+DEFAULT_POLL_SECONDS = 5.0
+DEFAULT_UNSUPPORTED_OBSERVATION_SECONDS = 90.0
+
+
 def _is_subagent_execution() -> bool:
     """Use the shared fact when present; keep this older worker lane closed."""
     try:
@@ -74,9 +79,15 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         help="Full 40-character commit expected in the deployed environment.",
     )
-    parser.add_argument("--timeout-seconds", type=float, default=900.0)
-    parser.add_argument("--poll-seconds", type=float, default=5.0)
-    parser.add_argument("--unsupported-observation-seconds", type=float, default=90.0)
+    parser.add_argument(
+        "--timeout-seconds", type=float, default=DEFAULT_TIMEOUT_SECONDS
+    )
+    parser.add_argument("--poll-seconds", type=float, default=DEFAULT_POLL_SECONDS)
+    parser.add_argument(
+        "--unsupported-observation-seconds",
+        type=float,
+        default=DEFAULT_UNSUPPORTED_OBSERVATION_SECONDS,
+    )
     return parser
 
 

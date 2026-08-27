@@ -1,17 +1,18 @@
-"""Preview must refuse ended or stale-version broker bindings."""
+"""Preview selects only registration-eligible broker bindings."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from runtime.api.tools.session_control_live_acceptance_broker_binding import (
-    ENDED_CODE,
-    ENDED_RECOVERY,
-    STALE_CODE,
-    BrokerBinding,
     advertised_version_from_preview,
-    decide_broker_binding,
     preview_document,
+)
+from runtime.api.tools.session_control_live_acceptance_broker_eligibility import (
+    NO_CLAIM_FREE_PAIR_CODE,
+    NO_CLAIM_FREE_PAIR_RECOVERY,
+    BrokerBinding,
+    decide_broker_binding,
 )
 
 ADVERTISED = "0.150.0-alpha.8"
@@ -31,14 +32,20 @@ def _row(
     version: str,
     machine_id: str = MACHINE,
     terminated_at: str | None = None,
+    claims: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     return {
         "session_id": session_id,
+        "project": "yoke",
         "executor_surface": SURFACE,
         "executor_version": version,
         "machine_id": machine_id,
         "liveness": liveness,
         "terminated_at": terminated_at,
+        "mode": "wait",
+        "claims": [] if claims is None else claims,
+        "current_item": None,
+        "messageability": {"hook_injection": True},
     }
 
 
@@ -50,6 +57,7 @@ def test_ended_stale_version_preview_shape_is_not_ready() -> None:
 
     decision = decide_broker_binding(
         binding,
+        project="yoke",
         surface=SURFACE,
         advertised_version=ADVERTISED,
         target=target,
@@ -57,8 +65,8 @@ def test_ended_stale_version_preview_shape_is_not_ready() -> None:
     )
 
     assert decision.status == "not_ready"
-    assert decision.failure_code == ENDED_CODE
-    assert decision.recovery == ENDED_RECOVERY
+    assert decision.failure_code == NO_CLAIM_FREE_PAIR_CODE
+    assert decision.recovery == NO_CLAIM_FREE_PAIR_RECOVERY
     assert decision.binding == binding
     report = preview_document(
         run_id="fleet-live-acceptance-20260827-12",
@@ -68,13 +76,14 @@ def test_ended_stale_version_preview_shape_is_not_ready() -> None:
         decision=decision,
     )
     assert report["status"] == "not_ready"
-    assert report["failure_code"] == ENDED_CODE
+    assert report["failure_code"] == NO_CLAIM_FREE_PAIR_CODE
 
 
 def test_active_stale_version_pair_is_not_ready() -> None:
     binding = _binding()
     decision = decide_broker_binding(
         binding,
+        project="yoke",
         surface=SURFACE,
         advertised_version=ADVERTISED,
         target=_row(
@@ -84,7 +93,34 @@ def test_active_stale_version_pair_is_not_ready() -> None:
     )
 
     assert decision.status == "not_ready"
-    assert decision.failure_code == STALE_CODE
+    assert decision.failure_code == NO_CLAIM_FREE_PAIR_CODE
+
+
+def test_claim_holding_run_thirteen_shape_is_not_ready() -> None:
+    binding = _binding()
+    claimed = [{"target": "YOK-2540"}]
+    decision = decide_broker_binding(
+        binding,
+        project="yoke",
+        surface=SURFACE,
+        advertised_version=ADVERTISED,
+        target=_row(
+            binding.target_session_id,
+            liveness="active",
+            version=ADVERTISED,
+            claims=claimed,
+        ),
+        peer=_row(
+            binding.peer_session_id,
+            liveness="active",
+            version=ADVERTISED,
+            claims=[{"target": "YOK-2473"}],
+        ),
+    )
+
+    assert decision.status == "not_ready"
+    assert decision.failure_code == NO_CLAIM_FREE_PAIR_CODE
+    assert "--prepare-broker" in str(decision.recovery)
 
 
 def test_selection_prefers_live_current_pair_and_does_not_reuse_stale() -> None:
@@ -94,6 +130,7 @@ def test_selection_prefers_live_current_pair_and_does_not_reuse_stale() -> None:
 
     decision = decide_broker_binding(
         binding,
+        project="yoke",
         surface=SURFACE,
         advertised_version=ADVERTISED,
         target=_row(binding.target_session_id, liveness="ended", version=STALE_VERSION),

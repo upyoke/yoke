@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from runtime.api.tools.session_control_live_acceptance_broker_eligibility import (
+    require_broker_session_eligibility,
+)
 from runtime.api.tools.session_control_live_acceptance_client import CommandClient
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
@@ -78,20 +81,17 @@ def _validate_broker(
         surface=cell.surface,
         missing_code="broker_registration_missing",
     )
-    if broker.get("project") != project:
-        raise AcceptanceContractError("broker_project_mismatch", surface=cell.surface)
-    if broker.get("machine_id") != target.get("machine_id"):
-        raise AcceptanceContractError("broker_machine_mismatch", surface=cell.surface)
-    routing = broker.get("messageability")
+    require_broker_session_eligibility(
+        broker,
+        project=project,
+        surface=cell.surface,
+        advertised_version=cell.expected_version,
+        machine_id=str(target.get("machine_id") or ""),
+        role="peer",
+        allow_ended=True,
+    )
     if broker.get("liveness") == "active":
-        if not isinstance(routing, dict) or routing.get("hook_injection") is not True:
-            raise AcceptanceContractError(
-                "broker_hook_route_missing", surface=cell.surface
-            )
         return
-    if broker.get("liveness") != "ended":
-        raise AcceptanceContractError("broker_not_active", surface=cell.surface)
-    _validate_target_state(broker, cell=cell)
     _validate_wakeable_ended_shape(broker, cell=cell)
 
 
@@ -110,36 +110,46 @@ def validated_registration(
         surface=cell.surface,
         missing_code="registration_missing",
     )
-    checks = (
-        ("project", project, "registration_project_mismatch"),
-        ("executor_surface", cell.surface, "registration_surface_mismatch"),
-    )
-    for field, expected, code in checks:
-        if row.get(field) != expected:
-            raise AcceptanceContractError(code, surface=cell.surface)
-    if not surface_version_meets_floor(
-        cell.surface,
-        str(row.get("executor_version") or ""),
-        cell.expected_version,
-    ):
-        raise AcceptanceContractError(
-            "registration_version_mismatch", surface=cell.surface
+    broker_cell = cell.acceptance_role == "broker"
+    if broker_cell:
+        require_broker_session_eligibility(
+            row,
+            project=project,
+            surface=cell.surface,
+            advertised_version=cell.expected_version,
+            machine_id=str(cell.machine_id or ""),
+            role="target",
+            allow_ended=allow_ended,
         )
-    if cell.machine_id and row.get("machine_id") != cell.machine_id:
-        raise AcceptanceContractError(
-            "registration_machine_mismatch", surface=cell.surface
+    else:
+        checks = (
+            ("project", project, "registration_project_mismatch"),
+            ("executor_surface", cell.surface, "registration_surface_mismatch"),
         )
-    # The model is not asserted equal to the one requested. A launch requests
-    # the string the native command line accepts and a session registers the
-    # model its harness reports, which are different vocabularies on Cursor
-    # (`cursor-grok-4.6-high-fast` against `grok-4.6`); the launch binding
-    # records that difference rather than treating it as identity, and so
-    # does this runner.
-    _validate_target_state(row, cell=cell)
+        for field, expected, code in checks:
+            if row.get(field) != expected:
+                raise AcceptanceContractError(code, surface=cell.surface)
+        if not surface_version_meets_floor(
+            cell.surface,
+            str(row.get("executor_version") or ""),
+            cell.expected_version,
+        ):
+            raise AcceptanceContractError(
+                "registration_version_mismatch", surface=cell.surface
+            )
+        if cell.machine_id and row.get("machine_id") != cell.machine_id:
+            raise AcceptanceContractError(
+                "registration_machine_mismatch", surface=cell.surface
+            )
+    # Requested and registered model names use different harness vocabularies
+    # (for example Cursor's native model versus its accepted CLI model), so the
+    # launch binding records that difference rather than asserting equality.
+    if not broker_cell:
+        _validate_target_state(row, cell=cell)
     liveness = row.get("liveness")
     if liveness == "ended" and allow_ended:
         _validate_ended_registration(row, cell=cell)
-    elif liveness != "active":
+    elif liveness != "active" and not broker_cell:
         raise AcceptanceContractError("registration_not_active", surface=cell.surface)
     _validate_broker(client, project=project, cell=cell, target=row)
     return row

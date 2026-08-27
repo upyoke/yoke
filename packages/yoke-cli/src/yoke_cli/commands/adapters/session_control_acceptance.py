@@ -15,9 +15,11 @@ from yoke_contracts.session_execution import is_subagent_execution
 from yoke_contracts.uv_project import UV_EXECUTABLE, uv_project_root, uv_run_argv
 
 
+PREPARE_BROKER_FLAG = "--prepare-broker"
 ACCEPTANCE_RUN_USAGE = (
     "yoke session-control acceptance run --project P --release-sha SHA "
-    "--run-id RUN --bindings-stdin [--qualification-candidate] [--preview] "
+    f"--run-id RUN --bindings-stdin [--qualification-candidate] [--preview] "
+    f"[{PREPARE_BROKER_FLAG}] "
     "[--timeout-seconds N] [--poll-seconds N] "
     "[--unsupported-observation-seconds N]"
 )
@@ -35,9 +37,9 @@ def _parser() -> argparse.ArgumentParser:
             "connected the plane must wake the target directly, on a machine "
             "without one it must wake through the bound same-machine peer, and "
             "either way that wake must deliver end to end. Preview is not ready "
-            "when a bound broker target or peer is ended or registered below "
-            "the relay-advertised current version; it selects a live "
-            "current-version same-machine pair when one exists. The branch the "
+            "when no live, current-version, claim-free broker pair exists. "
+            "Pass --prepare-broker to launch two dedicated itemless codex-cli "
+            "sessions, wait for their registration, and re-preview. The branch the "
             "run machine cannot present is recorded as designed "
             "not-exercisable, naming the relay condition, and never fails the "
             "cell."
@@ -49,6 +51,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--bindings-stdin", action="store_true", required=True)
     parser.add_argument("--qualification-candidate", action="store_true")
     parser.add_argument("--preview", action="store_true")
+    parser.add_argument(PREPARE_BROKER_FLAG, action="store_true")
     parser.add_argument("--timeout-seconds", type=float)
     parser.add_argument("--poll-seconds", type=float)
     parser.add_argument("--unsupported-observation-seconds", type=float)
@@ -83,6 +86,8 @@ def _runtime_args(parsed: argparse.Namespace) -> list[str]:
     ]
     if parsed.preview:
         forwarded.append("--preview")
+    if parsed.prepare_broker:
+        forwarded.append(PREPARE_BROKER_FLAG)
     if parsed.qualification_candidate:
         forwarded.append("--qualification-candidate")
     for flag, value in (
@@ -122,4 +127,8 @@ def session_control_acceptance_run(args: List[str]) -> int:
     return int(completed.returncode)
 
 
-__all__ = ["ACCEPTANCE_RUN_USAGE", "session_control_acceptance_run"]
+__all__ = [
+    "ACCEPTANCE_RUN_USAGE",
+    "PREPARE_BROKER_FLAG",
+    "session_control_acceptance_run",
+]

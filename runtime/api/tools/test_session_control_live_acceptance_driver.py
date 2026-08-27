@@ -128,12 +128,13 @@ class _ScenarioClient:
                 {
                     "session_id": self.cell.broker_session_id,
                     "project": "yoke",
-                    "executor_surface": "codex-desktop",
-                    "executor_version": "26.814.41407",
+                    "executor_surface": self.cell.surface,
+                    "executor_version": self.cell.expected_version,
                     "machine_id": "other-machine"
                     if self.broker_machine_mismatch
                     else self.cell.machine_id,
                     "liveness": "active",
+                    **{"mode": "wait", "claims": [], "current_item": None},
                     "turn_posture": "running",
                     "messageability": {"hook_injection": True},
                 }

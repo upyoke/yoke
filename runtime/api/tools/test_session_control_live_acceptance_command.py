@@ -68,7 +68,9 @@ def _allow_source(monkeypatch) -> None:
         lambda _cwd, _release: SimpleNamespace(commit=RELEASE_SHA),
     )
     monkeypatch.setattr(
-        command, "resolve_broker_binding", lambda *a, **k: _ready_decision()
+        command,
+        "resolve_or_prepare_broker_binding",
+        lambda *a, **k: _ready_decision(),
     )
 
 
