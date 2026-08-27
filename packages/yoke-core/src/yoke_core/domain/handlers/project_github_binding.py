@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Literal, Optional
+from typing import Annotated, Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, SecretStr, StrictBool, ValidationError
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    SecretStr,
+    StrictBool,
+    ValidationError,
+)
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.github_binding_metadata import GitHubIdentifier
 from yoke_core.domain.actor_project_visibility import (
     actor_visible_project_ids,
     numeric_actor_id,
@@ -18,31 +26,46 @@ from yoke_core.domain.actor_project_visibility import (
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 
 
+def _project_reference(value: Any) -> str:
+    """Accept a project slug or id; JSON numbers arrive as integers."""
+
+    if isinstance(value, bool):
+        raise ValueError("must be a project slug or numeric project id")
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str) and value.strip():
+        return value
+    raise ValueError("must be a project slug or numeric project id")
+
+
+ProjectReference = Annotated[str, BeforeValidator(_project_reference)]
+
+
 class ProjectGithubBindingBindRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    project: str
-    installation_id: str
-    repository_id: str
+    project: ProjectReference
+    installation_id: GitHubIdentifier
+    repository_id: GitHubIdentifier
     github_repo: str
     expected_api_url: str
     github_user_access_token: SecretStr
 
 
 class ProjectGithubBindingUnbindRequest(BaseModel):
-    project: str
+    project: ProjectReference
 
 
 class ProjectGithubBindingStatusRequest(BaseModel):
-    project: str
+    project: ProjectReference
 
 
 class ProjectGithubBindingLifecycleRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    project: str
-    installation_id: str
-    repository_id: str
+    project: ProjectReference
+    installation_id: GitHubIdentifier
+    repository_id: GitHubIdentifier
     installation_status: Literal["active", "pending", "suspended", "deleted"]
     repository_available: StrictBool
     permissions: Optional[Dict[str, str]] = None
@@ -219,6 +242,7 @@ def _payload_invalid(exc: ValidationError) -> HandlerOutcome:
 
 
 __all__ = [
+    "ProjectReference",
     "ProjectGithubBindingBindRequest",
     "ProjectGithubBindingLifecycleRequest",
     "ProjectGithubBindingStatusRequest",

@@ -64,6 +64,11 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             "`projects.github_binding.unbind`; lifecycle is an internal, "
             "service-token-only hosted webhook boundary that requires the stable "
             "numeric project id and exact installation and repository ids. "
+            "`installation_id`, `repository_id`, and `project` are accepted "
+            "either as JSON numbers, the way GitHub's own API and a project id "
+            "are naturally encoded, or as their decimal strings; the payload "
+            "contract canonicalizes both forms to the stored TEXT identifier, "
+            "so a caller never has to stringify GitHub ids before sending. "
             "Sync-mode drift is repaired "
             "through `projects.github_sync_mode.repair`."
         ),

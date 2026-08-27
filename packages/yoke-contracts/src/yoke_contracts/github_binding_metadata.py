@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 import unicodedata
+
+from pydantic import BeforeValidator
 
 from yoke_contracts.github_account_types import ACCOUNT_TYPES
 from yoke_contracts.github_origin import (
@@ -103,6 +105,23 @@ def validate_identifier(value: Any, label: str) -> str:
     ):
         raise GitHubBindingMetadataError(f"GitHub {label} must be positive")
     return selected
+
+
+def _payload_identifier(value: Any) -> str:
+    """Canonicalize a GitHub id arriving as a JSON number or decimal string."""
+
+    try:
+        return validate_identifier(value, "identifier")
+    except GitHubBindingMetadataError as exc:
+        raise ValueError(
+            "must be a positive GitHub numeric id, sent either as a JSON "
+            "number the way GitHub's own API emits it, or as that number's "
+            "decimal string"
+        ) from exc
+
+
+GitHubIdentifier = Annotated[str, BeforeValidator(_payload_identifier)]
+"""Payload field type for a GitHub database id, canonicalized to a string."""
 
 
 def validate_account_login(value: Any) -> str:
@@ -233,6 +252,7 @@ def _exact_text(value: Any, label: str) -> str:
 
 __all__ = [
     "GitHubBindingMetadataError",
+    "GitHubIdentifier",
     "ValidatedGitHubBindingMetadata",
     "validate_account_login",
     "validate_account_type",
