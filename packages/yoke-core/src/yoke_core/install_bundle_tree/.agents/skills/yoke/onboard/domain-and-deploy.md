@@ -10,7 +10,7 @@ Step 6 records the domain posture the infra apply consumes. Step 7 is the second
 
 ### Hosting deferred/not-needed: close the hosted rows
 
-There is no managed environment to receive a domain or deploy. Record both rows from the live hosting answer, then continue directly to step 8; seeding is allowed because step 5 verified that the project default is empty.
+There is no managed environment to receive a domain or deploy. Record both rows from the live hosting answer, then continue directly to step 8; seeding is allowed because step 5 verified the confirmed delivery outcome as either a registered merge-only default or an empty default.
 
 For postponed hosting:
 

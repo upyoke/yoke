@@ -36,35 +36,46 @@ def test_step_map_rechecks_the_live_hosting_branch() -> None:
         "deferred\\|not-needed",
     ):
         assert state_pair in router
-    assert "no-host default is empty" in router
+    assert "no-host delivery choice is verified" in router
     assert "current no-host branch recorded `domain-setup=not-needed`" in router
     assert "terminal `deferred\\|not-needed` still matches the live hosting row" in router
 
 
-def test_persistent_recipes_exist_only_in_the_managed_host_branch() -> None:
+def test_managed_and_merge_only_recipes_stay_in_their_branches() -> None:
     text = _read(ONBOARD / "hosting-and-environments.md")
     managed = _between(
         text,
         "### Hosting verified/configured: register the site and environments",
+        "### Hosting deferred/not-needed: create the confirmed merge-only default",
+    )
+    merge_only = _between(
+        text,
+        "### Hosting deferred/not-needed: create the confirmed merge-only default",
         "### Hosting deferred/not-needed: clear the project default",
     )
-    no_host = _between(
+    no_default = _between(
         text,
         "### Hosting deferred/not-needed: clear the project default",
         "### Bind the confirmed test setup",
     )
 
-    recipes = (
-        "yoke projects site create",
-        "yoke projects environment create",
+    for recipe in ("yoke projects site create", "yoke projects environment create"):
+        assert recipe in managed
+        assert recipe not in merge_only
+        assert recipe not in no_default
+    for recipe in (
         "yoke deployment-flows create",
         '"op":"put","family":"deploy_defaults"',
-    )
-    for recipe in recipes:
+    ):
         assert recipe in managed
-        assert recipe not in no_host
-        assert text.count(recipe) == managed.count(recipe)
+        assert recipe in merge_only
+        assert recipe not in no_default
     assert "--target-tier persistent" in managed
+    create_command = merge_only.split(
+        "yoke deployment-flows create", 1
+    )[1].split("yoke deployment-flows get", 1)[0]
+    assert "--target-tier" not in create_command
+    assert "--environment" not in create_command
 
 
 def test_no_host_branch_clears_and_verifies_the_default() -> None:
@@ -107,7 +118,7 @@ def test_no_host_domain_and_deploy_rows_are_terminal() -> None:
     assert "infra-apply-first-deploy=deferred" in no_host
     assert "infra-apply-first-deploy=not-needed" in no_host
     assert "continue directly to step 8" in no_host
-    assert "project default is empty" in no_host
+    assert "registered merge-only default or an empty default" in no_host
     assert "no-host branch above does not enter this gate" in text
 
 

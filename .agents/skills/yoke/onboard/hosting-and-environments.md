@@ -1,6 +1,6 @@
 # Onboard Steps 4–5: Hosting Capability And Environment Registration
 
-Step 4 verifies (or connects) the hosting capability. Step 5 installs only the confirmed infra Packs and then either registers managed hosting routes or proves that no project default remains. Both branches are registration/verification only — **no cloud mutation happens here**; every cloud write waits behind the approval gate in step 7.
+Step 4 verifies (or connects) the hosting capability. Step 5 installs only the confirmed infra Packs and then either registers managed hosting routes or applies the confirmed merge-only/no-default delivery choice. Both branches are registration/verification only — **no cloud mutation happens here**; every cloud write waits behind the approval gate in step 7.
 
 ## Step 4: Hosting Capability
 
@@ -94,7 +94,7 @@ yoke onboard checklist --run-id {run_id} \
 ## Step 5: Infra Packs + Hosted Registration Or No-Host Cleanup
 
 - **Entry:** scaffold present (installed or mapped); the durable checklist says `hosting-setup=verified|configured|deferred|not-needed`.
-- **Skip:** re-read the live hosting row. For `verified|configured`, the site, environments, persistent flows, project default, and test binding must match the profile. For `deferred|not-needed`, the project default must read empty and the no-host terminal rows, independent test binding, and Project Structure policy work must match. Packs in `.yoke/packs.json` skip individually.
+- **Skip:** re-read the live hosting row. For `verified|configured`, the site, environments, persistent flows, project default, and test binding must match the profile. For `deferred|not-needed`, the confirmed delivery choice must be verified as either a registered merge-only default or an empty default, and the no-host terminal rows, independent test binding, and Project Structure policy work must match. Packs in `.yoke/packs.json` skip individually.
 - **Rows:** `environment-registration`, `project-structure-setup`, `delivery-setup`, `verification-command-binding`.
 
 Prior `deferred` or `not-needed` values are not proof that a later hosting-required profile is satisfied. Every rerun reads `yoke onboard checklist --run-id {run_id} --json` and re-evaluates the live capability probe, registrations, project default, and deployment health. Choose exactly one branch below from the current `hosting-setup` value; a partial managed-host failure never falls through to the no-host branch.
@@ -139,9 +139,34 @@ yoke project-structure deploy-defaults get --project {project}
 
 A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
 
+### Hosting deferred/not-needed: create the confirmed merge-only default
+
+Use this branch only when the confirmed delivery outcome is **merge-only**. Create no site or environment, install no excluded infra/deploy Pack, and omit both `--target-tier` and `--environment`. The two auto stages record the local merge boundary without creating a deployment run:
+
+```bash
+yoke deployment-flows create {project}-merge-only --project {project} \
+  --name "{project} merge-only" \
+  --stages-json '[{"name":"merged","step_runner":"auto"},{"name":"complete","step_runner":"auto"}]'
+yoke deployment-flows get {project}-merge-only target_tier
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"deploy_defaults","attachment":"project","payload":{"deployment_flow":"{project}-merge-only"}}]'
+yoke project-structure deploy-defaults get --project {project}
+```
+
+The target-tier read must print nothing and the default readback must print exactly `{project}-merge-only`. If that id already exists with a different immutable definition, disable it and create a new behavior-named flow before setting the default. A failed create or readback marks `delivery-setup=blocked` with the exact command and recovery recipe below; stop rather than claiming merge-only delivery.
+
+After both reads verify, record the no-environment registration and the runless default:
+
+```bash
+yoke onboard checklist --run-id {run_id} \
+  --row-status environment-registration=not-needed \
+  --evidence environment-registration="live hosting row {deferred|not-needed}; no managed site or environment registered" \
+  --row-status delivery-setup=configured \
+  --evidence delivery-setup="merge-only flow {project}-merge-only active; target tier empty; project default verified; no deployment run"
+```
+
 ### Hosting deferred/not-needed: clear the project default
 
-Do not run the managed-host registration or default-put recipes above. Existing environment and flow history stays intact, but new work must not route to it. Read the default; when the read is non-empty, remove the project attachment through the existing patch surface, then read it again. The final read must print nothing:
+Use this branch only when the confirmed delivery outcome is **no default**. Do not run the managed-host registration or merge-only default-put recipes above. Existing environment and flow history stays intact, but new work must not route to it. Read the default; when the read is non-empty, remove the project attachment through the existing patch surface, then read it again. The final read must print nothing:
 
 ```bash
 yoke project-structure deploy-defaults get --project {project}

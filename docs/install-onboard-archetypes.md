@@ -82,23 +82,23 @@ The installer hand-off after a successful interactive install is
 file if PATH was new, "open Claude Code, Codex, or Cursor in your project
 folder", then `/yoke onboard`.
 
-## The suspected crux
+## Delivery without a Yoke-managed environment
 
-Workflows and intake will **require** a deployment, environment, merge target,
-or GitHub App binding that the archetype's project does not have — usually
-because onboard **created a project default deploy flow** and `/yoke idea`
-assigns it without asking.
+The execution profile declares delivery independently from hosting. A project
+with no Yoke-managed environment chooses a registered merge-only default or no
+default; it never receives a persistent flow merely because onboarding ran.
 
 Facts:
 
-- Persistent flows name exactly one registered environment
-  (`hosting-and-environments.md`). Merge-only flows exist (`target_tier` NULL)
-  but onboard does not offer them.
+- Persistent flows name exactly one registered environment. Merge-only flows
+  carry `target_tier` NULL, create no deployment run, and are offered alongside
+  no default when hosting is deferred or not needed.
 - `/yoke idea` looks up `yoke project-structure deploy-defaults get` and, when
   non-empty, **always** uses that flow (`infer-and-create.md`).
-- Usher Route A is empty/`-internal` flow → `yoke watch merge done-transition
-  -- PREFIX-N --skip-deploy`. Route B is a real flow. Exit 7 if `--skip-deploy`
-  is passed against a flow that requires a pipeline (`usher/deploy.md`).
+- Usher Route A is an empty/`-internal` flow or any registered empty-tier flow
+  → `yoke watch merge done-transition -- PREFIX-N --skip-deploy`. Route B is a
+  persistent/ephemeral flow. Exit 7 remains the fail-closed result for a flow
+  that requires a pipeline or cannot be resolved (`usher/deploy.md`).
 - Hosting in the wizard is AWS-only (`HOSTING_CONNECT_SUBTITLE`: "AWS for now").
 - The `vps-hosting` Pack provisions **AWS EC2**, not DigitalOcean.
 - Native Windows install fails in the shim (`Darwin|Linux` only). Native

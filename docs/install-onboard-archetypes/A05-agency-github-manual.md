@@ -73,13 +73,13 @@ Hand-off again names Claude/Codex.
 
 ## Transcript — `/yoke onboard --project northstar-web`
 
-Empty-ish marketing site. Strategy conversation per client. Profile proposes
-AWS + stage/prod **again**. Dana skips hosting every time. Risk: step 5 still
-registers unused environments/flows if the profile is confirmed as printed.
+Empty-ish marketing site. Strategy conversation per client. The no-host
+profile omits AWS Packs and offers merge-only or no default. Dana chooses
+**no default** for manual client delivery; step 5 removes any stale project
+attachment and verifies an empty readback without creating environments.
 
-Seeded items should omit `--deployment-flow` (`deploy-defaults get` empty).
-If a previous client confirmation wrote a **project** default, it is per
-project — this new slug starts empty unless she confirms flows.
+Seeded items omit `--deployment-flow`. A prior client default is project-local
+and cannot leak into this slug.
 
 ## Test setup
 
@@ -104,4 +104,4 @@ no-tests unless the SOW paid for QA. See [test-setup.md](test-setup.md).
 | Private GitHub | App installation must include the client repo | Pending binding; project GitHub `disabled` | Issues stay in Yoke DB only (`github_sync_mode` disabled) |
 | Agency identity | Owner picker "Where on GitHub?" / `your account` vs `organization` | Cannot publish under the wrong owner | Pick org; do not paste tokens |
 
-Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-forge-github-only (private App access friction), G-test-setup-unasked, G-no-tests-posture.
+Ledger: G-forge-github-only (private App access friction), G-test-setup-unasked, G-no-tests-posture.

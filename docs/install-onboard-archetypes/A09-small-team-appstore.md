@@ -11,9 +11,9 @@ not a web deploy.
 
 | | |
 |---|---|
-| Fits | macOS install. Existing Xcode/Android repo. GitHub App. Skip hosting. |
-| Breaks | Execution profile "environments stage + prod" and default **web** subdomain. `production-deploy` / Pulumi Packs are web/AWS shaped. No TestFlight/Play runner. |
-| Gaps | App-store delivery as merge-only or a named external store flow. `target_tier` NULL merge-only exists in schema and is not offered. |
+| Fits | macOS install. Existing Xcode/Android repo. GitHub App. Skip hosting and confirm merge-only delivery. |
+| Breaks | No Yoke web environment is proposed. TestFlight/Play remains an external runner rather than a Yoke deployment flow. |
+| Gaps | A named TestFlight/Play runner is still absent; merge-only correctly covers Yoke's local delivery boundary. |
 
 ## Transcript — installer + wizard
 
@@ -26,24 +26,15 @@ Hand-off: Claude/Codex; they use Cursor.
 ## Transcript — `/yoke onboard`
 
 Survey: `fastlane/`, `.github/workflows/testflight.yml`, no Dockerfile web
-service. Strategy: ship iOS. Profile proposal still:
+service. Strategy: ship iOS. The profile maps the existing app, omits AWS
+Packs, `aws-admin`, web environments, and a domain, then offers merge-only or
+no default. The team confirms **merge-only**: local merge with no environment
+or Yoke deployment pipeline.
 
-- Packs: `webapp-scaffold` (wrong — existing app maps `not-needed` if they
-  notice), `pulumi-foundation`, `vps-hosting`, `registry-oidc`,
-  `production-deploy`
-- Capabilities: `aws-admin`
-- Environments: stage + prod
-- Domain: `{slug}.{default_domain}`
-
-**User must** delete hosting/domain/deploy Packs at confirmation. If they
-accept the template, step 5 creates persistent flows to web environments they
-do not have; step 7 asks to apply AWS infra for a mobile app.
-
-Correct confirmation: no scaffold, no aws-admin, no environments, no domain
-merge. `yoke project-structure deploy-defaults get` empty. Seeded items omit
-`--deployment-flow`.
-
-Usher: Route A (`--skip-deploy`). Exit 7 only if a real flow was assigned.
+Step 5 creates an active empty-tier flow and verifies it as the project
+default. Idea attaches that flow to seeded work. Usher recognizes the empty
+target tier semantically and takes Route A (`--skip-deploy`) without creating
+a deployment run; TestFlight remains in the external Actions workflow.
 
 CI: Actions exist → project may declare `ci_workflow_file`. That is GitHub
 CI for tests/signing, not Yoke `core-container-deploy`.
@@ -70,7 +61,7 @@ upload; register that as `quick`. Refuse binding `command-ci` to
 | Requirement | Declare | Refusal | Instead |
 |---|---|---|---|
 | Web environment | Profile environments box | Do not `environment create` for stage/prod | No site rows |
-| Deployment flow | Profile delivery; merge-only `target_tier` NULL | Usher Route A; idea omits `--deployment-flow` | External TestFlight remains Actions |
+| Deployment flow | Profile delivery; merge-only `target_tier` NULL | Idea assigns the default; Usher Route A creates no run | External TestFlight remains Actions |
 | Domain | Step 6 default subdomain | Skip `domain-setup=not-needed` | No hostname |
 
-Ledger: G-app-store-deploy, G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind, G-legacy-suite-unmapped, G-qa-plan-needs-env.
+Ledger: G-app-store-deploy, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind, G-legacy-suite-unmapped, G-qa-plan-needs-env.
