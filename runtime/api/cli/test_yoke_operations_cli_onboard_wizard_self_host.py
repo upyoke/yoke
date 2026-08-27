@@ -272,7 +272,7 @@ def test_sleep_warning_is_conditional(tmp_path) -> None:
     )
 
 
-def test_quit_is_blocked_only_for_workers_that_can_mutate(tmp_path) -> None:
+def test_quit_is_blocked_only_during_bundle_and_compose_provisioning(tmp_path) -> None:
     calls: list[dict[str, object]] = []
 
     class Probe:
