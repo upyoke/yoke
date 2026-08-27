@@ -19,6 +19,7 @@ import {
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
+import { appendSteeringContext, appendSteeringGroups } from "./universe_sessions_steering.js";
 import {
   appendSessionMessaging,
   sessionRosterFilters,
@@ -159,6 +160,7 @@ export function sessionCard(documentNode, row, who, mode, onMessage) {
   appendRuntime(documentNode, body, row);
   appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
+  appendSteeringContext(documentNode, body, row);
   appendSessionMessaging(documentNode, body, row, onMessage);
   card.appendChild(body);
   appendFooter(documentNode, card, row, who, mode);
@@ -213,9 +215,7 @@ function renderSessions(documentNode, host, rows, who, mode, onMessage, filtered
     return;
   }
   const grid = el(documentNode, "div", "session-grid");
-  for (const row of rows) {
-    grid.appendChild(sessionCard(documentNode, row, who, mode, onMessage));
-  }
+  appendSteeringGroups(documentNode, grid, rows, (row) => sessionCard(documentNode, row, who, mode, onMessage));
   host.appendChild(grid);
 }
 

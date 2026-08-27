@@ -64,6 +64,7 @@ def test_second_project_claim_refuses_and_names_holder(steering_db) -> None:
             acquire_steering(steering_db, SESSION_BETA, PROJECT_ALPHA)
     assert refusal.value.code == "ALREADY_CLAIMED"
     assert SESSION_ALPHA in str(refusal.value)
+    assert f"--project {PROJECT_ALPHA} --active-only" in str(refusal.value)
 
 
 def test_same_session_reacquire_is_idempotent(steering_db) -> None:

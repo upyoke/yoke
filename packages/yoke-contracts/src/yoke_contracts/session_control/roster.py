@@ -23,6 +23,10 @@ SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "end_blocker",
     "effective_stale_ttl_minutes",
     "stale_eligible_at",
+    "steering_scope",
+    "steering_parent",
+    "steering_coverage",
+    "steering_report",
 )
 
 
