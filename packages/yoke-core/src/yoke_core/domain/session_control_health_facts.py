@@ -47,9 +47,7 @@ def _marker(conn: Any) -> str:
 def _session_ids(rows: Iterable[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(
         dict.fromkeys(
-            str(row.get("session_id") or "")
-            for row in rows
-            if row.get("session_id")
+            str(row.get("session_id") or "") for row in rows if row.get("session_id")
         )
     )
 
