@@ -43,6 +43,7 @@ from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.session_message_types import parse_timestamp, row_dict, utc_now
 from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.session_mode import SESSION_MODE_PARKED
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_render_end import end_session
 
@@ -88,7 +89,7 @@ def _claim_holding_quiet_sessions(
     rows = conn.execute(
         "SELECT DISTINCT hs.session_id,hs.project_id,hs.actor_id,hs.executor,"
         "hs.machine_id,hs.last_heartbeat,hs.last_tool_call_at,hs.ended_at,"
-        "hs.terminated_at "
+        "hs.terminated_at,hs.mode "
         "FROM harness_sessions hs JOIN work_claims wc "
         "ON wc.session_id=hs.session_id AND wc.released_at IS NULL "
         f"WHERE hs.machine_id={marker} AND hs.ended_at IS NULL "
@@ -171,6 +172,8 @@ def probe_stale_alive_sessions(
         conn, machine_id=machine_id, projects=projects
     ):
         session_id = str(row["session_id"])
+        if str(row.get("mode") or "") == SESSION_MODE_PARKED:
+            continue
         if session_liveness(row, now=current) != LIVENESS_STALE:
             continue
         # The probe threshold is time spent stale, not time spent quiet.
@@ -220,7 +223,7 @@ def _unanswered_probes(
     rows = conn.execute(
         "SELECT r.session_id,r.wake_attempt_count,r.last_wake_at,r.state,"
         "m.message_id,m.created_at AS probe_created_at,hs.project_id,"
-        "hs.last_tool_call_at "
+        "hs.last_tool_call_at,hs.mode "
         "FROM session_message_recipients r "
         "JOIN session_messages m ON m.message_id=r.message_id "
         "JOIN harness_sessions hs ON hs.session_id=r.session_id "
@@ -255,6 +258,8 @@ def end_probe_unresponsive_sessions(
         conn, machine_id=machine_id, projects=projects, now=current
     ):
         session_id = str(row["session_id"])
+        if str(row.get("mode") or "") == SESSION_MODE_PARKED:
+            continue
         probe_sent = parse_timestamp(row.get("probe_created_at"))
         last_wake = parse_timestamp(row.get("last_wake_at"))
         if probe_sent is None or last_wake is None:

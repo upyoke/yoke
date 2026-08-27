@@ -33,6 +33,12 @@
   margin-bottom: 10px;
 }
 
+.universe-app-root .session-parked-badge {
+  flex: 0 0 auto; padding: 1px 7px; border-radius: 999px; font-size: 11px;
+  background: color-mix(in srgb, var(--yoke-accent) 16%, transparent);
+}
+.universe-app-root .session-parked-badge-empty { display: none; }
+
 .universe-app-root .session-harness.h-machine {
   background: var(--yoke-ink-2);
 }

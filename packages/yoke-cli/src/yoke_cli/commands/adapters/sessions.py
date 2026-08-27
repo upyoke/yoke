@@ -20,7 +20,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 SESSIONS_TOUCH_USAGE = (
-    "yoke sessions touch [--mode MODE] [--session-id S] [--json]"
+    "yoke sessions touch [--mode MODE] [--reason TEXT] [--session-id S] [--json]"
 )
 SESSIONS_IDENTITY_USAGE = "yoke sessions identity [--session-id S] [--json]"
 SESSIONS_CHECKPOINT_USAGE = (
@@ -83,6 +83,7 @@ def sessions_touch(args: List[str]) -> int:
         prog="yoke sessions touch", description=SESSIONS_TOUCH_USAGE,
     )
     parser.add_argument("--mode", default=None)
+    parser.add_argument("--reason", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_TOUCH_USAGE)
@@ -91,6 +92,8 @@ def sessions_touch(args: List[str]) -> int:
     payload: Dict[str, Any] = {}
     if parsed.mode is not None:
         payload["mode"] = parsed.mode
+    if parsed.reason is not None:
+        payload["reason"] = parsed.reason
     return dispatch_and_emit(
         function_id="sessions.touch",
         target=TargetRef(kind="global"),

@@ -176,7 +176,7 @@ test("Sessions keeps its full mode-shaped table and recently-ended region", asyn
   ]);
 });
 
-test("Overview session Mode pills signal the directive, never liveness", async (t) => {
+test("Overview shows a parked badge and nothing for any other mode", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -184,12 +184,13 @@ test("Overview session Mode pills signal the directive, never liveness", async (
   documentNode.defaultView.location.hash = "#/overview?project=1";
   const root = documentNode.createElement("div");
   const rows = [
-    ["charge", "stale"], ["resume", "stale"], ["wait", "active"],
-    ["feed", "stale"], ["strategize", "active"], ["escalate", "active"],
-  ].map(([mode, liveness], index) => ({
+    ["charge", "stale", null], ["parked", "stale", "waiting on YOK-2546"],
+    ["wait", "active", null], ["feed", "stale", null],
+  ].map(([mode, liveness, parked_reason], index) => ({
     session_id: `session-${index + 1}`,
     liveness,
     mode,
+    parked_reason,
     project: "yoke",
     executor: "codex",
     model: "gpt-5.6-sol",
@@ -203,19 +204,8 @@ test("Overview session Mode pills signal the directive, never liveness", async (
 
   const table = byClass(root, "overview-sessions-table")[0];
   assert.deepEqual(
-    byClass(table, "pill").map((pill) => [
-      pill.textContent,
-      pill.className,
-      pill.attributes.get("data-state"),
-    ]),
-    [
-      ["charge", "pill run", "running"],
-      ["resume", "pill run", "running"],
-      ["wait", "pill idle", "waiting"],
-      ["feed", "pill good", "active"],
-      ["strategize", "pill good", "active"],
-      ["escalate", "pill crit", "critical"],
-    ],
+    byClass(table, "session-parked-badge").filter((n) => !n.hidden).map((n) => n.textContent),
+    ["parked · waiting on YOK-2546"],
   );
   mounted.unmount();
 });

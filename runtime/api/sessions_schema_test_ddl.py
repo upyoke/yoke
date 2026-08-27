@@ -19,6 +19,7 @@ _SESSIONS_AND_CLAIMS_DDL = f"""
             workspace TEXT NOT NULL,
             project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
             mode TEXT DEFAULT 'wait',
+            parked_reason TEXT DEFAULT NULL,
             offered_at TEXT NOT NULL,
             last_heartbeat TEXT NOT NULL,
             ended_at TEXT,

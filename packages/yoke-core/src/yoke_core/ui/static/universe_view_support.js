@@ -96,22 +96,23 @@ export function statePill(documentNode, value, label = value) {
   return pill;
 }
 
-// A session's mode is the directive Yoke gave it, so its semantic signal is
-// independent of whether the session is currently active or stale.
-export function sessionModePill(documentNode, mode, liveness) {
-  const normalizedMode = String(mode || "").toLowerCase();
-  const normalizedLiveness = String(liveness || "").toLowerCase();
-  let state = normalizedMode ? "waiting" : (
-    normalizedLiveness === "stale" ? "stale" : "waiting"
-  );
-  if (["charge", "resume"].includes(normalizedMode)) state = "running";
-  if (["feed", "strategize"].includes(normalizedMode)) state = "active";
-  if (normalizedMode === "escalate") state = "critical";
-  return statePill(
+// Parked is the only mode the card and overview display. Other modes
+// already show as work and last-active; a parked badge is the wait.
+export function parkedBadge(documentNode, mode, reason) {
+  const parked = String(mode || "").toLowerCase() === "parked";
+  const text = parked && reason ? `parked · ${reason}` : "parked";
+  const badge = el(
     documentNode,
-    state,
-    mode || liveness || "idle",
+    "span",
+    parked ? "session-parked-badge" : "session-parked-badge session-parked-badge-empty",
+    parked ? text : "",
   );
+  if (!parked) badge.hidden = true;
+  return badge;
+}
+
+export function sessionModePill(documentNode, mode, liveness, reason) {
+  return parkedBadge(documentNode, mode, reason);
 }
 
 export function renderError(body, callResult) {

@@ -277,6 +277,7 @@ def list_sessions(
                     "lane_label": presentation["lane_label"],
                     "lane_glyph": presentation["lane_glyph"],
                     "mode": row.get("mode"),
+                    "parked_reason": row.get("parked_reason"),
                     "actor_id": row.get("actor_id"),
                     "actor_kind": row.get("actor_kind"),
                     "actor_label": _actor_label(

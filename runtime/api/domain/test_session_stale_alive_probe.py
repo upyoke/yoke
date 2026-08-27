@@ -161,6 +161,19 @@ def _mark_woken(conn, session_id: str, when: datetime) -> None:
     conn.commit()
 
 
+def test_a_parked_quiet_claim_holder_is_not_probed_or_ended(conn):
+    session_id = _quiet_holder(conn)
+    conn.execute(
+        "UPDATE harness_sessions SET mode = %s WHERE session_id = %s",
+        ("parked", session_id),
+    )
+    conn.commit()
+    assert _probe(conn) == {"probed": [], "skipped": []}
+    assert _probe_recipient(conn, session_id) is None
+    assert _end_unanswered(conn) == {"ended": [], "skipped": []}
+    assert _ended_at(conn, session_id) is None
+
+
 def test_a_working_claim_holder_is_never_probed(conn):
     session_id = _quiet_holder(conn, quiet_minutes=0)
     assert _probe(conn) == {"probed": [], "skipped": []}

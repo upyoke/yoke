@@ -155,6 +155,11 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
       ["X", "session-harness h-codex"],
     ],
   );
+  // Parked is the only mode the card badges; resume and wait render nothing.
+  assert.deepEqual(
+    byClass(root, "session-parked-badge").filter((n) => !n.hidden).map((n) => n.textContent),
+    [],
+  );
   // The mode pill is gone; the lane names the session beside its harness, the
   // item's own stage sits beside the item link, and the relay pill is the one
   // reachability fact the card keeps.
@@ -254,6 +259,47 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.equal(
     byClass(root, "sessions-action-status")[0].textContent,
     "1 stale session reclaimed",
+  );
+  mounted.unmount();
+});
+
+test("Sessions card badges parked with the reason and hides every other mode", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  const root = documentNode.createElement("div");
+  const rows = [
+    {
+      session_id: "parked-1", liveness: "stale",
+      execution_lane: "DARIUS", mode: "parked",
+      parked_reason: "waiting on YOK-2546",
+      executor: "codex", model: "gpt-5.6-sol",
+      executor_mark: "X", executor_class_name: "h-codex",
+      actor_id: 2, actor_kind: "human", actor_label: "Ben",
+      project_id: 1, project: "yoke",
+      activity_at: "2026-07-26T11:40:00Z",
+      claims: [],
+    },
+    {
+      session_id: "wait-1", liveness: "active",
+      execution_lane: "ALTMAN", mode: "wait",
+      executor: "claude-code", model: "claude-opus-4-8",
+      executor_mark: "A", executor_class_name: "h-claude",
+      actor_id: 2, actor_kind: "human", actor_label: "Ben",
+      project_id: 1, project: "yoke",
+      activity_at: "2026-07-26T12:04:00Z",
+      claims: [],
+    },
+  ];
+  const mounted = mountUniverseApp(root, {
+    client: sessionsClient(rows, []),
+  });
+  await settle();
+  assert.deepEqual(
+    byClass(root, "session-parked-badge").filter((n) => !n.hidden).map((n) => n.textContent),
+    ["parked · waiting on YOK-2546"],
   );
   mounted.unmount();
 });

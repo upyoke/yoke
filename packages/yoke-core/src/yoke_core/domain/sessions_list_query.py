@@ -16,7 +16,7 @@ _ACTIVITY = "GREATEST(COALESCE(s.last_tool_call_at, ''), s.last_heartbeat)"
 _SELECT = (
     "SELECT s.session_id, s.executor, s.executor_surface, s.model, "
     "s.execution_lane, "
-    "s.mode, s.workspace, s.project_id, pr.slug AS project, "
+    "s.mode, s.parked_reason, s.workspace, s.project_id, pr.slug AS project, "
     "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
     "s.ended_at, s.terminated_at, s.terminated_by_actor_id, "
     "s.terminated_by_session_id, s.termination_reason, s.current_item_id, s.actor_id, "
