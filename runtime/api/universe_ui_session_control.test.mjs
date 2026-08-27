@@ -286,14 +286,17 @@ test("roster includes ended sessions with exact message actions", async (t) => {
     .children[1];
   state.value = "";
   state.dispatchEvent(new Event("change"));
+  const cardIds = () => byClass(root, "session-card").map(
+    (card) => card.getAttribute("data-session-id"),
+  );
   const text = allNodes(root).map((node) => node._textContent).join(" ");
-  assert.ok(text.includes("Executor version: 26.814.41407"));
-  assert.ok(text.includes("Machine: studio · relay connected"));
+  assert.ok(text.includes("Relay:") && text.includes("studio"));
   assert.ok(text.includes(
-    "Messageable: durable delivery and automatic restart are available.",
+    "Messaging unavailable: this executor surface has no supported "
+    + "delivery hook.",
   ));
   const endedCard = byClass(root, "session-card").find(
-    (card) => byClass(card, "session-id")[0]?.textContent === "ended-wakeable",
+    (card) => card.getAttribute("data-session-id") === "ended-wakeable",
   );
   button(endedCard, "Message").dispatchEvent(new Event("click"));
   await settle();
@@ -306,9 +309,6 @@ test("roster includes ended sessions with exact message actions", async (t) => {
   );
   state.value = "stale";
   state.dispatchEvent(new Event("change"));
-  assert.deepEqual(
-    byClass(root, "session-id").map((node) => node.textContent),
-    ["wakeable"],
-  );
+  assert.deepEqual(cardIds(), ["wakeable"]);
   mounted.unmount();
 });

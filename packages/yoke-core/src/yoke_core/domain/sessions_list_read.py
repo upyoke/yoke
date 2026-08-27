@@ -306,6 +306,7 @@ def list_sessions(
                         "current_item_project_sequence",
                     ),
                     "current_item_title": row.get("current_item_title"),
+                    "current_item_status": row.get("current_item_status"),
                     "current_item_workflow_id": row.get(
                         "current_item_workflow_id",
                     ),

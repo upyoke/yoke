@@ -21,6 +21,7 @@ _SELECT = (
     "s.ended_at, s.terminated_at, s.terminated_by_actor_id, "
     "s.terminated_by_session_id, s.termination_reason, s.current_item_id, s.actor_id, "
     "a.kind AS actor_kind, i.title AS current_item_title, "
+    "i.status AS current_item_status, "
     "i.project_id AS current_item_project_id, "
     "i.project_sequence AS current_item_project_sequence, "
     "i.workflow_id AS current_item_workflow_id, "

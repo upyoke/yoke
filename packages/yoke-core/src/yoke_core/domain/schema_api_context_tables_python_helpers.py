@@ -117,4 +117,22 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "uses `done_transition.item_status_set`, not `YOKE_CLAIM_BYPASS`."
         ),
     },
+    "yoke_core.domain.json_helper": {
+        "columns": [
+            ("dumps_compact", "callable"),
+            ("dumps_pretty", "callable"),
+            ("loads_text", "callable"),
+            ("load_path", "callable"),
+            ("dump_path", "callable"),
+        ],
+        "notes": (
+            "The encoder names carry their form: `dumps_compact` / "
+            "`dumps_pretty` / `loads_text`. There is NO bare `dumps` or "
+            "`loads` on this module — that wrong guess is in the failure "
+            "log. A workflow definition is a separate case entirely: its "
+            "stored text must be the exact bytes its digest hashes, so use "
+            "`workflow_definition_codec.canonical_definition_json` with "
+            "`definition_digest`, never a general-purpose encoder."
+        ),
+    },
 }

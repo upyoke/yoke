@@ -152,6 +152,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
         current_item_project_id: 1,
         current_item_project_sequence: 4102,
         current_item_title: "Filed while claimed",
+        current_item_status: "refining-idea",
         owns_current_item: false, work_role: null,
         claim_started_at: null,
         activity_at: "2026-07-26T12:04:00Z",
@@ -170,9 +171,15 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   const attributed = byClass(root, "session-attached");
   assert.deepEqual(attributed.map((node) => node.textContent), ["↳"]);
   assert.match(attributed[0].title, /^attributed to this session/);
+  // The attributed row names the item's own stage; only the claim on the
+  // other item still needs a target-kind label to say what it holds.
   assert.deepEqual(
     byClass(root, "session-work-role").map((node) => node.textContent),
-    ["item", "attached"],
+    ["item"],
+  );
+  assert.deepEqual(
+    byClass(root, "session-item-stage").map((node) => node.textContent),
+    ["refining-idea"],
   );
   const text = visibleText(root);
   assert.ok(!text.includes("worktree attached"), "no worktree line");

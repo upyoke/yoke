@@ -1,5 +1,5 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
-import { el } from "./universe_view_support.js";
+import { el, statePill } from "./universe_view_support.js";
 
 function claimHref(claim, row) {
   const explicit = itemDrillInHref({
@@ -47,6 +47,16 @@ export function ownsFocusedItem(row) {
   );
 }
 
+// What the session's own item is doing right now, beside the link that opens
+// it — the stage answers "how far along is this work", which the lane role it
+// replaced never did.
+function appendStage(documentNode, work, row) {
+  const stage = statePill(documentNode, row.current_item_status);
+  if (!stage) return;
+  stage.className = `${stage.className} session-item-stage`;
+  work.appendChild(stage);
+}
+
 function appendClaimEntry(documentNode, body, row, claim) {
   const work = el(documentNode, "div", "session-work");
   const marker = el(documentNode, "span", "session-lock", "🔒");
@@ -63,20 +73,24 @@ function appendClaimEntry(documentNode, body, row, claim) {
   work.appendChild(target);
   const ownsFocus =
     claim.target_kind === "item" && claim.target === row.current_item;
-  if (ownsFocus && row.current_item_title) {
+  if (ownsFocus) {
+    appendStage(documentNode, work, row);
+    if (row.current_item_title) {
+      work.appendChild(el(
+        documentNode,
+        "span",
+        "session-item-title",
+        row.current_item_title,
+      ));
+    }
+  } else {
     work.appendChild(el(
       documentNode,
       "span",
-      "session-item-title",
-      `· ${row.current_item_title}`,
+      "session-work-role",
+      claim.target_kind || "claim",
     ));
   }
-  work.appendChild(el(
-    documentNode,
-    "span",
-    "session-work-role",
-    ownsFocus ? (row.work_role || "item") : (claim.target_kind || "claim"),
-  ));
   body.appendChild(work);
 }
 
@@ -120,20 +134,15 @@ function appendAttachedEntry(documentNode, body, row) {
   item.textContent = String(row.current_item);
   if (href) item.href = href;
   work.appendChild(item);
+  appendStage(documentNode, work, row);
   if (row.current_item_title) {
     work.appendChild(el(
       documentNode,
       "span",
       "session-item-title",
-      `· ${row.current_item_title}`,
+      row.current_item_title,
     ));
   }
-  work.appendChild(el(
-    documentNode,
-    "span",
-    "session-work-role",
-    laneRole || "attached",
-  ));
   body.appendChild(work);
 }
 
