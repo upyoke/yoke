@@ -153,7 +153,7 @@ def _run_connect_retry(shell: _Shell, setup: server.SelfHostSetup) -> None:
         on_success=lambda ready: _goto_complete(shell, ready),
         on_error=lambda exc: _goto_failure(shell, setup, _safe_error(exc)),
         group="onboard-self-host-connect",
-        blocks_quit=True,
+        blocks_quit=False,
     )
 
 

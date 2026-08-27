@@ -290,4 +290,4 @@ def test_quit_is_blocked_only_for_workers_that_can_mutate(tmp_path) -> None:
     flow._run_provision(probe, setup, receipt)
     flow._run_connect_retry(probe, setup)
 
-    assert [call["blocks_quit"] for call in calls] == [False, True, True]
+    assert [call["blocks_quit"] for call in calls] == [False, True, False]
