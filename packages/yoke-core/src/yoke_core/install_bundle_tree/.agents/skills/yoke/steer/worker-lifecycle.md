@@ -31,24 +31,41 @@ Steering-launched sessions use `claude-cli`, `codex-cli`, or
 `cursor-cli`. Desktop surfaces only when the operator directs it or a
 named exception scenario requires it.
 
+Keep steady-state launches balanced across all three CLI surfaces. Deviate
+only for a named live reason, such as a failing launch path or a capability
+the item specifically needs, and return to balance when that reason expires.
+The spread is diagnostic: skew can hide a harness-specific regression.
+
 ```text
-yoke session-control launch preview --project {_project} --surface cursor-cli --json
+yoke session-control launch preview --project {_project} --surface {_surface} --json
 ```
 
-## 4. Launch item-bound, never via chaining `/yoke do`
+## 4. Route one item through its pinned workflow, never via `/yoke do`
 
-The launch prompt names exactly one item, its routed skill entrypoint
-(for example `/yoke dash PREFIX-N`), and a single-item mandate. Chained
-sessions accumulate context rot; with steering active the steerer owns
-selection, and chaining duplicates that selection.
-
-## 5. Terminate the worker when the item is done
-
-When a steering-scoped item reaches `done` and its closing report gives
-the steerer everything needed:
+Before authoring the launch, read the pinned workflow and scheduler route:
 
 ```text
-yoke sessions terminate {WORKER_SESSION_ID} --reason "PREFIX-N done"
+yoke workflows item get PREFIX-N --json
+yoke charge schedule --project {_project} --item PREFIX-N --json
+```
+
+The launch prompt names exactly one item, the returned routed entrypoint, and
+that workflow's remaining legs. One worker owns the item across those legs.
+Work arriving in any workflow stays there; never convert or re-file it to make
+it Dash-shaped. Chaining `/yoke do` duplicates the steerer-owned selection.
+
+## 5. Workers self-end after their DONE message
+
+After sending `DONE PREFIX-N <one-line summary>`, the worker must END its own
+session. That non-destructive self-END is the canonical close: no lingering,
+no re-tasking, and no routine termination by the steerer.
+
+`yoke sessions terminate` is reserved for an unresponsive worker or explicit
+cleanup. In those exceptional cases, resolve the full session id from the
+launch that staffed the item, then terminate it:
+
+```text
+yoke sessions terminate {WORKER_SESSION_ID} --reason "PREFIX-N unresponsive cleanup"
 ```
 
 Resolve `{WORKER_SESSION_ID}` from the launch that staffed the item
@@ -81,27 +98,58 @@ Preview, then create. The body is stdin. CLI surface only. One item.
 ```text
 printf '%s' "$BODY" | yoke session-control launch create \
   --project {_project} \
-  --surface cursor-cli \
+  --surface {_surface} \
   --stdin \
-  --idempotency-key "steer:{_project}:{ITEM}" \
-  --model {_model}
+  --idempotency-key "steer:{_project}:{ITEM}:{_surface}" \
+  --model {_model} \
+  --json
 ```
 
-`$BODY` (replace PREFIX-N and skill). The steerer messages a worker with
+Retain the returned `launch_id` and `deadline_at`. By that deadline, require
+`state=succeeded` and a non-empty `registered_session_id`:
+
+```text
+yoke session-control launch get {LAUNCH_ID} --json
+```
+
+On `outcome_unknown` or a missed registration deadline, reconcile and retry:
+
+```text
+yoke session-control launch reconcile {LAUNCH_ID} --json
+yoke session-control launch retry {LAUNCH_ID} --json
+```
+
+After repeated `relay_lease_expired` results on one surface, relaunch the item
+on a different CLI surface and immediately file a field-note with the launch
+ids and result codes.
+
+`$BODY` parameterizes both its first line and its legs from the live route.
+The steerer messages a worker with
 `yoke say --item PREFIX-N --stdin`. The worker reports back with
 `--session` only because the steerer is itemless (claim-less fallback).
 Never expand a truncated session id by hand.
 
 ```text
-/yoke dash PREFIX-N
+{ROUTED_ENTRYPOINT}
 
-Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N to done. When it is done, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --session {STEERER_SESSION_ID}) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
+Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --session {STEERER_SESSION_ID}) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
 ```
 
-Route the skill entrypoint from the frontier step (`next_step` from
-`yoke charge schedule`): `/yoke dash`, `/yoke blitz`, `/yoke refine`,
-`/yoke shepherd`, `/yoke conduct`, `/yoke polish`, or `/yoke usher` —
-never `/yoke do`.
+Author the routed variants side by side from the pinned `workflow_id` and
+`charge.schedule.next_step`, never from memory:
+
+- Dash: `/yoke dash PREFIX-N`; one Dash leg through its merge/evidence close.
+- Issue: `/yoke refine PREFIX-N` to `refined-idea`, then
+  `/yoke advance PREFIX-N implementation`, implementation and `/yoke polish`
+  per the live bindings, then that binding's merge boundary.
+- Blitz: `/yoke blitz PREFIX-N` after the strategy-document handoff.
+- Epic: the `/yoke shepherd`, `/yoke conduct`, and `/yoke usher` chain named
+  by the live bindings.
+
+At every live stage, re-read `yoke workflows item get PREFIX-N` and follow its
+binding. If the next bound leg would create a deployment run, stop at the
+merge or release boundary and report; the steerer performs batch delivery.
+One worker remains responsible for the one item throughout.
 
 The steering backstop composes the same single-item mandate for unpicked
 work. Prefer `yoke steering backstop evaluate --project {_project}` for

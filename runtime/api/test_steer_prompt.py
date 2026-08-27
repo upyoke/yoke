@@ -97,24 +97,55 @@ class TestSteerSkillContract:
         assert "wait" in loop.lower()
         assert "Do not guess" in loop
 
+    def test_loop_covers_recovery_batching_and_handoff_snapshot(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "<!-- YOKE:HARNESS claude start -->" in loop
+        assert "ScheduleWakeup" in loop
+        assert "session_message_recipients" in loop
+        assert "cursor-agent --resume <session-id>" in loop
+        assert "Negative-space checks — every periodic pass" in loop
+        assert "injection_count=0" in loop
+        assert "liveness=stale" in loop
+        assert "failures are silences" in loop
+        assert "release_reason=completed" in loop
+        assert "yoke claims work acquire --item PREFIX-N --reason steering" in loop
+        assert "activation dependencies do not send their own go-signal" in loop
+        assert "deployment-runs create" in loop
+        assert "--source-ref {PINNED_SHA}" in loop
+        assert "yoke watch merge done-transition -- PREFIX-N" in loop
+        assert (
+            "## Live status — steering snapshot "
+            "(refresh or replace on next steering handoff)" in loop
+        )
+
 
 class TestSteerWorkerLifecycle:
-    def test_seven_rules_and_launcher_recipe_ship_in_v0(self):
+    def test_worker_rules_and_launcher_recipe_cover_steering_contract(self):
         text = _read(_STEER_DIR / "worker-lifecycle.md")
         assert "Encode dependency edges" in text
         assert "Keep the frontier maxed out" in text
         assert "Launch CLI surfaces only" in text
-        assert "never via chaining `/yoke do`" in text
-        assert "Terminate the worker when the item is done" in text
+        assert "Route one item through its pinned workflow" in text
+        assert "Workers self-end after their DONE message" in text
         assert "Every new item gets a fresh session" in text
         assert "Choose the model per item at launch" in text
         assert "yoke session-control launch create" in text
+        assert "yoke session-control launch get" in text
+        assert "yoke session-control launch reconcile" in text
+        assert "yoke session-control launch retry" in text
         assert "claude-cli" in text
         assert "codex-cli" in text
         assert "cursor-cli" in text
+        assert "balanced across all three CLI surfaces" in text
         assert "preferred_session_models" in text
         assert "yoke sessions terminate" in text
+        assert "reserved for an unresponsive worker" in text
         assert "Single-item mandate (steering)" in text
+        assert "Do NOT create or dispatch any deployment run" in text
+        assert "yoke workflows item get PREFIX-N" in text
+        assert "/yoke refine PREFIX-N" in text
+        assert "/yoke blitz PREFIX-N" in text
+        assert "/yoke shepherd" in text
         assert "yoke say --item PREFIX-N --stdin" in text
         assert "yoke say --stdin --session" in text
         assert "Never expand a truncated session id" in text
