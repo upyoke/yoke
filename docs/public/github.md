@@ -8,12 +8,20 @@ hunt only in `.github/` or only in the App settings.
 | Use | What | Where to configure |
 |---|---|---|
 | **GitHub App (machine)** | Product commands that inspect/write GitHub from this machine | `yoke github connect` / `yoke github status`; GitHub Settings → Applications |
+| **Git over the network** | Every push, fetch, and remote read Yoke itself runs | Nothing to configure — the connected App authorization above carries them |
 | **Repo binding** | Which repo a project maps to | Project create/import; workbench **GitHub** tab |
 | **Issue sync** | Backlog ↔ GitHub issues (labels, body, close) | Project `github_sync_mode` (e.g. disabled / sync modes); see [reference/github-sync.md](reference/github-sync.md) |
 | **CI** | PR and push checks; full-suite authority on protected merge | Repo Actions workflows; branch protection; project `ci_workflow_file` capability when used |
 | **Delivery dispatch** | Deployment flows that trigger Actions | Delivery flows + environment protection + Action secrets/vars |
 | **Runners** | Self-hosted runners for Actions | Packs / runner fleet capabilities; GitHub runner registration |
 | **Permissions** | What the App or tokens may do | App install scope; org/repo permission docs in source tree |
+
+Yoke's own git operations — the merge push, the QA lane push, the doctor's
+remote reads, the deploy pipeline's tag resolution — authenticate with the
+authorization `yoke github connect` stores. You do not need an SSH key or a
+`gh` login for them, and an `https` or `ssh` origin works the same way. When
+no authorization is stored, those operations refuse by name and tell you to
+run `yoke github connect` rather than stalling on a prompt.
 
 ## Typical first connect
 

@@ -1,9 +1,11 @@
 """Which GitHub authority a merge needs, settled before the merge starts.
 
 A merge reaches GitHub two ways, and they do not need the same authority. A
-direct merge lands the branch in the checkout, publishes the base branch over
-the machine's git credentials, and then proves the pushed commit's checks —
-all of it work the project's App installation is authorized to do on its own.
+direct merge lands the branch in the checkout, publishes the base branch with
+the machine's stored GitHub credential (:mod:`yoke_cli.config.credentialed_git`
+carries it, so the publish authenticates the same way the clone that created
+the checkout did), and then proves the pushed commit's checks — all of it work
+the project's App installation is authorized to do on its own.
 Creating a pull request is attributed to a person, so it needs this machine's
 GitHub App *user* authorization and nothing else stands in for it.
 

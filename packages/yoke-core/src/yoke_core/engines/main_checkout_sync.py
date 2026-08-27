@@ -5,6 +5,8 @@ from __future__ import annotations
 import subprocess
 from typing import Callable, Optional
 
+from yoke_cli.config import credentialed_git
+
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -15,13 +17,14 @@ def _git(
     *,
     run: Optional[Runner],
 ) -> subprocess.CompletedProcess[str]:
-    execute = run or subprocess.run
-    return execute(
-        ["git", "-C", repo_root, *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    if run is not None:
+        return run(
+            ["git", "-C", repo_root, *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    return credentialed_git.run(["-C", repo_root, *args])
 
 
 def origin_default_branch(repo_root: str, *, run: Optional[Runner] = None) -> str:

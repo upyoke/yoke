@@ -17,12 +17,17 @@ import subprocess
 
 
 def _git(repo_root: str, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(repo_root), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    """Run one read or publish with the credential its target requires.
+
+    ``ls-remote`` and ``push`` here are the standalone merge's only contact
+    with the remote, and the push is what publishes a landed base branch. A
+    refusal comes back as a failed result carrying its own recovery, so the
+    soft-failure reading above stays true and :func:`publish` still surfaces
+    the reason.
+    """
+    from yoke_cli.config import credentialed_git
+
+    return credentialed_git.run(["-C", str(repo_root), *args])
 
 
 def git_out(repo_root: str, *args: str) -> str:

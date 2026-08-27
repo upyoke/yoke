@@ -10,19 +10,22 @@ import subprocess
 from pathlib import Path
 from typing import Iterator
 
+from yoke_cli.config import credentialed_git
+
 
 class DeploymentLineageResolutionError(RuntimeError):
     """A project checkout could not bind a source ref to one exact commit."""
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run one git command with the credential its target requires.
+
+    Binding a lineage fetches from origin, so it authenticates with the
+    machine's stored GitHub credential rather than assuming the shell that
+    started the deploy carries one.
+    """
     try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        result = credentialed_git.run(["-C", str(repo), *args])
     except FileNotFoundError as exc:
         raise DeploymentLineageResolutionError(
             "git is required to bind a deployment lineage"

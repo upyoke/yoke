@@ -23,7 +23,6 @@ Rebasing is safe before evidence exists and tests the tree the train will build.
 from __future__ import annotations
 
 import contextlib
-import os
 import subprocess
 import sys
 import time
@@ -31,6 +30,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
+from yoke_cli.config import credentialed_git
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain import qa_case_ci_lane, qa_case_ci_progress
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
@@ -72,17 +72,18 @@ def base_branch(project: str, checkout: Path) -> str:
 
 
 def _git(checkout: Path, *args: str, timeout: int = 120) -> subprocess.CompletedProcess:
-    env = None
-    if args and args[0] == "rebase":
-        env = os.environ.copy()
-        env[POST_COMMIT_SNAPSHOT_SKIP_ENV] = "1"
-    return process_group_reaping.run_in_process_group(
-        ["git", "-C", str(checkout), *args],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
-    )
+    """Run one git command in its own reaping process group, credentialed.
+
+    A rebase spawns helpers a plain kill leaves behind, so execution stays
+    with the reaping runner; only the environment is delegated.
+    """
+    argv = ["-C", str(checkout), *args]
+    skip = {POST_COMMIT_SNAPSHOT_SKIP_ENV: "1"} if args[:1] == ("rebase",) else {}
+    with credentialed_git.git_environment(argv, cwd=str(checkout)) as base:
+        return process_group_reaping.run_in_process_group(
+            ["git", *argv], capture_output=True, text=True, timeout=timeout,
+            env={**base, **skip},
+        )
 
 
 def _merge_context(checkout: Path, *, branch: str, target: str, project: str):

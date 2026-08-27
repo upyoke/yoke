@@ -27,6 +27,8 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping, Optional
 
+from yoke_cli.config import credentialed_git
+
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_image_tag import canonical_image_tag
 from yoke_core.domain.deploy_remote import CommandResult, CommandRunner
@@ -66,10 +68,9 @@ def resolve_image_tag(
             "available to resolve a deploy SHA"
         )
     if declared_branch:
-        fetched = runner.run(
-            ["git", "-C", repo_path, "fetch", "origin", declared_branch],
-            timeout=120,
-        )
+        argv = ["-C", repo_path, "fetch", "origin", declared_branch]
+        with credentialed_git.git_environment(argv, cwd=repo_path) as git_env:
+            fetched = runner.run(["git", *argv], env=git_env, timeout=120)
         if not fetched.ok:
             raise CoreDeployError(
                 f"[core-deploy] could not fetch declared branch "

@@ -22,6 +22,16 @@ GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV = "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY"
 
 
 def _run_cmd(cmd: List[str], timeout: int = 60) -> subprocess.CompletedProcess:
+    """Run one deploy-pipeline command, credentialed when it is git.
+
+    The pipeline resolves a release tag and a deployed SHA by asking origin,
+    so those reads carry the machine's stored GitHub credential like every
+    other remote operation; anything else runs as given.
+    """
+    if cmd and cmd[0] == "git":
+        from yoke_cli.config import credentialed_git
+
+        return credentialed_git.run(cmd[1:], timeout=timeout)
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 

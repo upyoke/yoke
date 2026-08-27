@@ -43,9 +43,11 @@ from yoke_core.domain.ephemeral_substrate import (
 
 
 def _git_push(repo_root: str, branch: str) -> Tuple[bool, str]:
-    proc = subprocess.run(
-        ["git", "-C", repo_root, "push", "-u", "origin", branch],
-        capture_output=True, text=True, check=False,
+    """Publish the lane branch with the machine's stored GitHub credential."""
+    from yoke_cli.config import credentialed_git
+
+    proc = credentialed_git.run(
+        ["-C", repo_root, "push", "-u", "origin", branch],
     )
     return proc.returncode == 0, (proc.stderr or proc.stdout or "").strip()
 

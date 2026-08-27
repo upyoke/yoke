@@ -25,8 +25,6 @@ the caller surfaces the exit-5 ``LocalTargetSyncFailed`` class.
 
 from __future__ import annotations
 
-import subprocess
-
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
@@ -46,7 +44,6 @@ def _sync_local_target(ctx: MergeContext) -> bool:
     mw = _parent()
     _print = mw._print
     _run_git = mw._run_git
-    _git_env = mw._git_env
 
     _print("")
     _print(f"Syncing local {ctx.args.target} with origin...")
@@ -73,83 +70,73 @@ def _sync_local_target(ctx: MergeContext) -> bool:
         and current_branch.stdout.strip() == ctx.args.target
     )
 
-    try:
-        if checked_out:
-            # Two unambiguous steps: fetch the remote target ref, then
-            # fast-forward the checked-out branch onto origin/{target}.
-            # Avoids the ``git pull --ff-only origin {target}`` shape
-            # which can surface ``Cannot fast-forward to multiple
-            # branches`` under some tracking configs.
-            fetch = subprocess.run(
-                ["git", "fetch", "origin", ctx.args.target],
-                cwd=ctx.repo_root,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env=_git_env(),
-            )
-            if fetch.returncode != 0:
-                sync = fetch
-                strategy = "fetch"
-            else:
-                sync = subprocess.run(
-                    ["git", "merge", "--ff-only", f"origin/{ctx.args.target}"],
-                    cwd=ctx.repo_root,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    env=_git_env(),
-                )
-                strategy = "merge --ff-only"
-        else:
-            # Target is NOT checked out -- direct ref update.  This is the
-            # worktree scenario where a pull would update the checked-out
-            # feature branch instead of the target.
-            sync = subprocess.run(
-                ["git", "fetch", "origin",
-                 f"{ctx.args.target}:{ctx.args.target}"],
-                cwd=ctx.repo_root,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env=_git_env(),
-            )
+    if checked_out:
+        # Two unambiguous steps: fetch the remote target ref, then
+        # fast-forward the checked-out branch onto origin/{target}.
+        # Avoids the ``git pull --ff-only origin {target}`` shape
+        # which can surface ``Cannot fast-forward to multiple
+        # branches`` under some tracking configs.
+        fetch = _run_git(
+            ["fetch", "origin", ctx.args.target],
+            cwd=ctx.repo_root,
+            capture=True,
+            timeout=timeout,
+        )
+        if fetch.returncode != 0:
+            sync = fetch
             strategy = "fetch"
-
-        if sync.returncode == 0:
-            local_ref = _run_git(
-                ["rev-parse", ctx.args.target],
-                cwd=ctx.repo_root, capture=True,
-            )
-            origin_ref = _run_git(
-                ["rev-parse", f"origin/{ctx.args.target}"],
-                cwd=ctx.repo_root, capture=True,
-            )
-            local_sha = local_ref.stdout.strip() if local_ref.returncode == 0 else ""
-            origin_sha = origin_ref.stdout.strip() if origin_ref.returncode == 0 else ""
-            if local_sha and origin_sha and local_sha == origin_sha:
-                _print(f"Local {ctx.args.target} is now up to date with origin.")
-                success = True
-            elif local_sha and origin_sha:
-                _print(
-                    f"Warning: Local {ctx.args.target} ({local_sha[:8]}) "
-                    f"does not match origin ({origin_sha[:8]}) after sync.",
-                    err=True,
-                )
-            else:
-                _print(
-                    f"Warning: Could not verify {ctx.args.target} ref after sync.",
-                    err=True,
-                )
         else:
-            stderr = (sync.stderr or "").strip()
+            sync = _run_git(
+                ["merge", "--ff-only", f"origin/{ctx.args.target}"],
+                cwd=ctx.repo_root,
+                capture=True,
+                timeout=timeout,
+            )
+            strategy = "merge --ff-only"
+    else:
+        # Target is NOT checked out -- direct ref update.  This is the
+        # worktree scenario where a pull would update the checked-out
+        # feature branch instead of the target.
+        sync = _run_git(
+            ["fetch", "origin", f"{ctx.args.target}:{ctx.args.target}"],
+            cwd=ctx.repo_root,
+            capture=True,
+            timeout=timeout,
+        )
+        strategy = "fetch"
+
+    if sync.returncode == 0:
+        local_ref = _run_git(
+            ["rev-parse", ctx.args.target],
+            cwd=ctx.repo_root, capture=True,
+        )
+        origin_ref = _run_git(
+            ["rev-parse", f"origin/{ctx.args.target}"],
+            cwd=ctx.repo_root, capture=True,
+        )
+        local_sha = local_ref.stdout.strip() if local_ref.returncode == 0 else ""
+        origin_sha = origin_ref.stdout.strip() if origin_ref.returncode == 0 else ""
+        if local_sha and origin_sha and local_sha == origin_sha:
+            _print(f"Local {ctx.args.target} is now up to date with origin.")
+            success = True
+        elif local_sha and origin_sha:
             _print(
-                f"Warning: git {strategy} failed "
-                f"(exit {sync.returncode}): {stderr}",
+                f"Warning: Local {ctx.args.target} ({local_sha[:8]}) "
+                f"does not match origin ({origin_sha[:8]}) after sync.",
                 err=True,
             )
-    except subprocess.TimeoutExpired:
-        _print("Warning: Post-merge sync timed out.", err=True)
+        else:
+            _print(
+                f"Warning: Could not verify {ctx.args.target} ref after sync.",
+                err=True,
+            )
+    else:
+        stderr = (sync.stderr or "").strip()
+        _print(
+            f"Warning: git {strategy} failed "
+            f"(exit {sync.returncode}): {stderr}",
+            err=True,
+        )
 
     if stashed:
         _print("Restoring stashed files...")

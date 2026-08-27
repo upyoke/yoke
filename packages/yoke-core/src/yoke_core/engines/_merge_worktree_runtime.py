@@ -8,11 +8,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from yoke_cli.config import credentialed_git
 from yoke_core.domain import runtime_settings
 
 _GIT_TIMEOUT_ENV = "YOKE_GIT_COMMAND_TIMEOUT_SECONDS"
 _DEFAULT_GIT_COMMAND_TIMEOUT_SECONDS = 120
-_GIT_TIMEOUT_EXIT_CODE = 124
+# The runner that owns every git subprocess owns the code a timed-out one
+# reports; re-declaring it here is how the two drift apart.
+_GIT_TIMEOUT_EXIT_CODE = credentialed_git.TIMEOUT_EXIT_CODE
 
 
 def _parent():
@@ -53,15 +56,6 @@ def _git_command_timeout_seconds() -> int:
     )
 
 
-def _git_env() -> dict[str, str]:
-    """Return a git-safe environment that never blocks on interactive prompts."""
-    env = os.environ.copy()
-    env.setdefault("GIT_TERMINAL_PROMPT", "0")
-    env.setdefault("GCM_INTERACTIVE", "Never")
-    env.setdefault("GIT_SSH_COMMAND", "ssh -oBatchMode=yes")
-    return env
-
-
 def _source_pythonpath(existing: str = "") -> str:
     root = _repo_root()
     entries = [
@@ -80,62 +74,28 @@ def _source_pythonpath(existing: str = "") -> str:
     return os.pathsep.join(result)
 
 
-def _git_timeout_result(
-    cmd: list[str],
-    timeout_seconds: int,
-    exc: subprocess.TimeoutExpired,
-) -> subprocess.CompletedProcess[str]:
-    """Convert a timed out git subprocess into a non-raising failure result."""
-    stdout = exc.output or ""
-    stderr = exc.stderr or ""
-    detail = (
-        f"git command timed out after {timeout_seconds}s: "
-        f"{' '.join(cmd)}"
-    )
-    stderr = f"{stderr.rstrip()}\n{detail}\n" if stderr else f"{detail}\n"
-    return subprocess.CompletedProcess(
-        cmd,
-        _GIT_TIMEOUT_EXIT_CODE,
-        stdout,
-        stderr,
-    )
-
-
 def _run_git(
     args: list[str],
     *,
     cwd: str | Path | None = None,
     capture: bool = False,
     check: bool = False,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run a git command."""
-    cmd = ["git"] + args
-    timeout_seconds = _git_command_timeout_seconds()
-    kwargs: dict[str, Any] = {
-        "text": True,
-        "check": check,
-        "env": _git_env(),
-        "timeout": timeout_seconds,
-    }
-    if cwd:
-        kwargs["cwd"] = str(cwd)
-    if capture:
-        kwargs["capture_output"] = True
-    else:
-        kwargs["stdout"] = subprocess.PIPE
-        kwargs["stderr"] = subprocess.PIPE
-    try:
-        return subprocess.run(cmd, **kwargs)
-    except subprocess.TimeoutExpired as exc:
-        result = _git_timeout_result(cmd, timeout_seconds, exc)
-        if check:
-            raise subprocess.CalledProcessError(
-                result.returncode,
-                cmd,
-                output=result.stdout,
-                stderr=result.stderr,
-            ) from exc
-        return result
+    """Run a git command with the credential its target requires.
+
+    Every merge-engine git call — local reads and the fetches, pushes, and
+    ls-remotes that publish a branch alike — goes through here, so the branch
+    publish at the end of a merge authenticates the same way the clone that
+    created the checkout did.
+    """
+    return credentialed_git.run(
+        args,
+        cwd=cwd,
+        capture=capture,
+        check=check,
+        timeout=timeout or _git_command_timeout_seconds(),
+    )
 
 
 def _run_python_module(

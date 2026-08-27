@@ -17,8 +17,6 @@ from yoke_core.engines._merge_worktree_runtime import (  # noqa: F401
     _db_path,
     _connect,
     _git_command_timeout_seconds,
-    _git_env,
-    _git_timeout_result,
     _run_git,
     _run_python_module,
     _print,
