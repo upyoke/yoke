@@ -29,6 +29,17 @@ already claimed. Write material frontier movement into the doc (step 6).
 
 ### 2. Consume worker reports
 
+Item-addressed messaging is the default. The server resolves the live
+holder of a claim; do not hand-copy or expand a session UUID.
+
+```text
+printf '%s' "$BODY" | yoke say --item PREFIX-N --stdin
+```
+
+Also `--epic-task ITEM:N` and `--process KEY`. `--session UUID` is the
+fallback for a claim-less recipient only (this itemless steerer is one).
+Never expand a truncated session id by hand.
+
 ```text
 yoke messages list --json
 ```

@@ -67,6 +67,7 @@ class TestSteerSkillContract:
     def test_loop_covers_frontier_reports_doc_blitz_backstop_escalate(self):
         loop = _read(_STEER_DIR / "loop.md")
         assert "yoke charge schedule" in loop
+        assert "yoke say --item PREFIX-N --stdin" in loop
         assert "yoke messages acknowledge" in loop
         assert "yoke strategy doc get" in loop
         assert "yoke strategy execution link" in loop
@@ -114,7 +115,9 @@ class TestSteerWorkerLifecycle:
         assert "preferred_session_models" in text
         assert "yoke sessions terminate" in text
         assert "Single-item mandate (steering)" in text
+        assert "yoke say --item PREFIX-N --stdin" in text
         assert "yoke say --stdin --session" in text
+        assert "Never expand a truncated session id" in text
 
 
 class TestSteerDiscoveryAndPacket:
@@ -128,3 +131,4 @@ class TestSteerDiscoveryAndPacket:
         assert "offer to create if absent" in notes
         assert "yoke steering backstop evaluate --project P" in notes
         assert "never `/yoke do`" in notes
+        assert "yoke say --item PREFIX-N --stdin" in notes

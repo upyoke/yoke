@@ -63,7 +63,9 @@ CLAIMS_COMMANDS: list[dict] = [
             "itemless loop is `/yoke steer SLUG [--project P]`: a strategy "
             "doc is required (offer to create if absent), the document lock "
             "releases before a Blitz can claim it, workers launch CLI-only "
-            "and item-bound (never `/yoke do`), and unpicked work is staffed "
+            "and item-bound (never `/yoke do`), workers are addressed with "
+            "`yoke say --item PREFIX-N --stdin` (`--session UUID` only for "
+            "claim-less recipients), and unpicked work is staffed "
             "with `yoke steering backstop evaluate --project P`."
         ),
     },

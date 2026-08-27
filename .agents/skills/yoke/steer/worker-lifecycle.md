@@ -86,7 +86,10 @@ printf '%s' "$BODY" | yoke session-control launch create \
   --model {_model}
 ```
 
-`$BODY` (replace PREFIX-N, skill, and the orchestrator session id):
+`$BODY` (replace PREFIX-N and skill). The steerer messages a worker with
+`yoke say --item PREFIX-N --stdin`. The worker reports back with
+`--session` only because the steerer is itemless (claim-less fallback).
+Never expand a truncated session id by hand.
 
 ```text
 /yoke dash PREFIX-N

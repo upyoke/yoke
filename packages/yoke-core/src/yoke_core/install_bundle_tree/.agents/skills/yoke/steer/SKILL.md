@@ -37,6 +37,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `steering.backstop.evaluate` | `yoke steering backstop evaluate --project P` |
 | `session_control.launch.create` | `yoke session-control launch create --project P --surface S --stdin --idempotency-key K` |
 | `session_control.session.terminate` | `yoke sessions terminate SESSION-ID --reason R` |
+| `session_control.message.send` | `yoke say --item PREFIX-N --stdin` |
 | `session_control.message.acknowledge` | `yoke messages acknowledge MESSAGE-ID` |
 | `charge.schedule` | `yoke charge schedule --project P` |
 
