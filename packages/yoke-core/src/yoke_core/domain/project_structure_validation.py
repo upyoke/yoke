@@ -8,6 +8,11 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from yoke_contracts.hosting_posture import (
+    DECLARED_HOSTING_POSTURES,
+    HOSTING_POSTURE_FAMILY,
+    POSTURE_UNDECIDED,
+)
 from yoke_core.domain.project_structure import (
     ALL_FAMILIES,
     EMPTY_SLOT,
@@ -153,6 +158,28 @@ def _validate_payload(family: str, payload: Any) -> Dict[str, Any]:
                 raise ValidationError(
                     f"Family 'context_routing' payload 'docs'[{idx}] must "
                     f"be a non-empty string (got {type(doc).__name__})."
+                )
+    elif family == HOSTING_POSTURE_FAMILY:
+        # Singleton per project. ``posture`` names one declared arrangement;
+        # ``undecided`` is expressed by having no row at all, so storing it
+        # would give one state two spellings. ``provider`` and ``note`` are
+        # operator prose recording where the code actually runs — Yoke never
+        # acts on them, so they are free text or absent.
+        posture = payload.get("posture")
+        if posture not in DECLARED_HOSTING_POSTURES:
+            raise ValidationError(
+                f"Family '{HOSTING_POSTURE_FAMILY}' payload must contain a "
+                f"'posture' of "
+                f"{' or '.join(repr(p) for p in DECLARED_HOSTING_POSTURES)}. "
+                f"'{POSTURE_UNDECIDED}' is not stored — remove the entry "
+                f"instead."
+            )
+        for key in ("provider", "note"):
+            value = payload.get(key)
+            if value is not None and not isinstance(value, str):
+                raise ValidationError(
+                    f"Family '{HOSTING_POSTURE_FAMILY}' payload '{key}' must "
+                    f"be a string or absent (got {type(value).__name__})."
                 )
     elif family == "architecture_model":
         # Sibling module owns the per-key validation tree to keep this

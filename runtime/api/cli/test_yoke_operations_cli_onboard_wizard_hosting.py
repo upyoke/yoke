@@ -19,6 +19,7 @@ import pytest
 pytest.importorskip("textual")
 
 from yoke_cli.config import aws_admin_capability as hosting  # noqa: E402
+from yoke_contracts import hosting_posture  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
@@ -76,7 +77,7 @@ def test_skip_reaches_review_and_plans_the_skip() -> None:
 
     applied = spy.applied
     assert applied is not None
-    assert applied["hosting_choice"] == hosting.HOSTING_CHOICE_SKIP
+    assert applied["hosting_choice"] == hosting_posture.POSTURE_UNDECIDED
 
 
 def test_run_without_a_deployable_project_never_asks() -> None:
@@ -89,7 +90,7 @@ def test_run_without_a_deployable_project_never_asks() -> None:
         a._goto_hosting()
 
     assert "Connect your hosting provider?" not in drive(app, action)
-    assert app.result.hosting_choice == hosting.HOSTING_CHOICE_SKIP
+    assert app.result.hosting_choice == hosting_posture.POSTURE_UNDECIDED
 
 
 def test_developing_yoke_itself_never_asks() -> None:
@@ -138,7 +139,7 @@ def test_save_and_verify_stores_both_values_and_shows_redacted_evidence(
     assert "yoke-aws-admin" in body
     # Evidence, never echo: the secret must not reach any screen.
     assert SECRET_ACCESS_KEY not in body
-    assert app.result.hosting_choice == hosting.HOSTING_CHOICE_CONNECT
+    assert app.result.hosting_choice == hosting_posture.POSTURE_YOKE_MANAGED_AWS
     assert app.result.hosting_verification["account"] == "123456789012"
 
 
@@ -160,7 +161,7 @@ def test_rejected_credential_offers_reentry(monkeypatch) -> None:
     assert "InvalidClientTokenId" in body
     assert "Re-enter the two values" in body
     # An unproven credential is not reported as connected.
-    assert app.result.hosting_choice == hosting.HOSTING_CHOICE_SKIP
+    assert app.result.hosting_choice == hosting_posture.POSTURE_UNDECIDED
 
 
 def test_absent_aws_cli_offers_keeping_the_saved_pair(monkeypatch) -> None:
@@ -197,7 +198,7 @@ def test_keeping_an_unverified_pair_continues_as_connected(monkeypatch) -> None:
 
     drive(app, action)
 
-    assert app.result.hosting_choice == hosting.HOSTING_CHOICE_CONNECT
+    assert app.result.hosting_choice == hosting_posture.POSTURE_YOKE_MANAGED_AWS
     # Kept without proof, so no verification evidence is claimed.
     assert app.result.hosting_verification is None
 

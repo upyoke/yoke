@@ -235,14 +235,16 @@ async def skip_hosting(pilot) -> None:
     """Decline the hosting credential, landing on the review screen.
 
     The connect screen opens with the caret in the first credential box, so
-    reaching the rows means tabbing past both boxes; "Save & verify" leads them,
-    making skipping one row down. Scenarios that exercise the credential itself
-    drive the step directly instead.
+    reaching the rows means tabbing past both boxes. The rows are then, in
+    order: "Save & verify", "I host this myself", "Decide later" — so deferring
+    is two rows down, not one. Scenarios that exercise the credential itself,
+    or the declared no-managed-host posture, drive the step directly instead.
     """
     await pilot.press("tab")    # hosting: leave the access key ID box
     await pilot.press("tab")    # hosting: leave the secret access key box
-    await pilot.press("down")   # hosting: move to "Skip for now"
-    await pilot.press("enter")  # hosting: skip -> Finish
+    await pilot.press("down")   # hosting: past "I host this myself"
+    await pilot.press("down")   # hosting: move to "Decide later"
+    await pilot.press("enter")  # hosting: decide later -> Finish
 
 
 class Spy:

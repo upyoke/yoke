@@ -137,6 +137,15 @@ NET_NEW_FAMILIES: Dict[str, Dict[str, Optional[str]]] = {
         "multiplicity": "singleton",
         "locked_kind": None,
     },
+    # ``hosting_posture`` holds what the project decided about who runs its
+    # hosting: Yoke on AWS, or nobody Yoke can reach. Singleton per project.
+    # Absence means the question is still open, so onboarding asks it once
+    # rather than assuming AWS.
+    "hosting_posture": {
+        "attachment": "project",
+        "multiplicity": "singleton",
+        "locked_kind": None,
+    },
 }
 
 
@@ -287,12 +296,12 @@ def read_structure(
         conn.close()
 
 
-from .project_structure_validation import (  # noqa: F401
+from .project_structure_validation import (  # noqa: E402,F401
     _require_known_family,
     _validate_envelope,
     _validate_payload,
 )
-from .project_structure_write import (  # noqa: F401
+from .project_structure_write import (  # noqa: E402,F401
     _apply_put,
     _apply_remove,
     _derive_attachment_kind,
@@ -300,10 +309,10 @@ from .project_structure_write import (  # noqa: F401
     _normalize_op,
     apply_patch,
 )
-from .project_structure_seeds import (  # noqa: F401
+from .project_structure_seeds import (  # noqa: E402,F401
     cmd_seed,
 )
-from .project_structure_cli import (  # noqa: F401
+from .project_structure_cli import (  # noqa: E402,F401
     _build_parser,
     _parse_patch_input,
     cmd_family_list,

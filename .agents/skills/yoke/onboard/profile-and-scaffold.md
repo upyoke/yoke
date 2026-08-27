@@ -16,10 +16,13 @@ Step 2 derives one complete execution profile from strategy plus reality and con
 
 ```bash
 yoke packs list --project {project} --json
+yoke project-structure get --project {project} --family hosting_posture --json
 yoke projects capability has --project {project} --cap-type aws-admin --json
 yoke projects infrastructure list --project {project} --json
 yoke project-structure deploy-defaults get --project {project}
 ```
+
+The hosting posture is read first because it decides half the profile. `{"posture": "no-yoke-managed-host"}` means the operator runs the hosting themselves: propose **no** `aws-admin` capability and **no** infra Packs, say so out loud with the recorded provider, and spend the conversation on what Yoke does do for them — merging, verification, delivery. Proposing a stock AWS list to a project that already said "not AWS" is the failure this read prevents. An empty result means the question is open; ask it once as part of the profile and record the answer (step 4 owns the write).
 
 Also read the project-local `.yoke/packs.json` installed baseline (the receipt of already-installed Packs) and `.yoke/deployment-flows.json` if present.
 
@@ -27,8 +30,14 @@ Also read the project-local `.yoke/packs.json` installed baseline (the receipt o
 
 Present the whole profile in one block — a smart proposal, never a blank interrogation:
 
-- **Packs** — scaffold (`webapp-scaffold` for a web app); infra (`pulumi-foundation` · `vps-hosting` · `webapp-environment-infrastructure`); deploy (`registry-oidc` · `production-deploy`); any documentation/context Packs the plan needs. Drop what strategy does not justify; an existing app maps instead of installing a scaffold.
-- **Capabilities** — `aws-admin` (hosting), the project GitHub binding mode, product-specific keys named by the plan.
+- **Packs** — name each one with the provider it actually targets, so nobody adopts a Pack that cannot run where their code runs:
+  - scaffold — `webapp-scaffold` (provider-neutral application skeleton)
+  - infra — `pulumi-foundation` (Pulumi state/stack setup) · `vps-hosting` (**AWS EC2**: instance, networking, TLS, firewall) · `webapp-environment-infrastructure` (**AWS** environment resources)
+  - deploy — `registry-oidc` (**AWS** OIDC federation for CI) · `production-deploy` (deploy pipeline onto the above)
+  - any documentation/context Packs the plan needs (provider-neutral)
+
+  Every infra and deploy Pack above targets AWS. Under a `no-yoke-managed-host` posture, propose none of them and say why — Yoke has no apply path for Render, Fly, DigitalOcean, dokku, or an on-prem box, and offering an AWS Pack to a project hosted elsewhere is offering something that cannot run. Drop what strategy does not justify; an existing app maps instead of installing a scaffold.
+- **Capabilities** — `aws-admin` (hosting; omit entirely under `no-yoke-managed-host`), the project GitHub binding mode, product-specific keys named by the plan.
 - **Environments** — stage + prod on a default site, plus the default deploy flow for the slug.
 - **Domain posture** — start on the default subdomain; bring-your-own later.
 - **Test setup** — how this project's tests run, and therefore what the
