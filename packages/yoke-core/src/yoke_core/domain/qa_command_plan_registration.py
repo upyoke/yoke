@@ -18,6 +18,7 @@ from yoke_core.domain.qa_command_invocation import (
 )
 from yoke_core.domain.qa_command_scope_routing import (
     capability_settings,
+    ci_binding_for_scope,
     default_workflow,
     workflow_for_scope,
 )
@@ -222,8 +223,14 @@ def ensure_registered_command_plan(
     command: str,
     target_environment: str | None = None,
     requires_base_url: bool | None = None,
+    refuse_unreachable_ci: bool = True,
 ) -> dict:
-    """Converge one registered scope onto its plan and workflow defaults."""
+    """Converge one registered scope onto its plan and workflow defaults.
+
+    ``refuse_unreachable_ci=False`` is for the boot-time convergence, which
+    has no operator to fix a declared workflow the gate cannot reach and must
+    not refuse to boot over one; it binds the local runner and reports why.
+    """
     if scope not in COMMAND_SCOPE_POLICIES:
         raise ValueError(f"unsupported registered command scope {scope!r}")
     require_no_attestation(
@@ -248,6 +255,16 @@ def ensure_registered_command_plan(
         scope=scope,
         default_routable=bool(policy["ci_routable"]),
     )
+    workflow_check = None
+    if ci_workflow:
+        ci_workflow, workflow_check = ci_binding_for_scope(
+            conn,
+            project_id=int(project_id),
+            project=project,
+            scope=scope,
+            ci_workflow=ci_workflow,
+            refuse_unreachable=refuse_unreachable_ci,
+        )
     target_mode = registered_command_target_mode(
         scope=scope,
         ci_workflow=ci_workflow,
@@ -304,6 +321,12 @@ def ensure_registered_command_plan(
         "requires_base_url": target_mode == RUNTIME_BASE_URL_TARGET_MODE,
         "argv_verification": presence.reason_code,
         "argv_verification_detail": presence.message,
+        "ci_workflow_verification": (
+            workflow_check.reason_code if workflow_check else ""
+        ),
+        "ci_workflow_verification_detail": (
+            workflow_check.message if workflow_check else ""
+        ),
     }
 
 

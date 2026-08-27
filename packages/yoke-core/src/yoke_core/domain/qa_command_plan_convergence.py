@@ -34,6 +34,7 @@ from yoke_core.domain.qa_command_plan_registration import (
 )
 from yoke_core.domain.qa_command_scope_routing import (
     capability_settings,
+    ci_binding_for_scope,
     scope_workflow,
 )
 from yoke_core.domain.qa_project_execution_target import (
@@ -111,6 +112,18 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             scope=scope,
             default_routable=bool(policy["ci_routable"]),
         )
+        workflow_unreachable = ""
+        if ci_workflow:
+            ci_workflow, inspection = ci_binding_for_scope(
+                conn,
+                project_id=project_id,
+                project=str(row["project"]),
+                scope=scope,
+                ci_workflow=ci_workflow,
+                refuse_unreachable=False,
+            )
+            if not ci_workflow:
+                workflow_unreachable = inspection.message
         desired_method = (
             CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
         )
@@ -178,13 +191,17 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             command=canonical,
             target_environment=target_environment,
             requires_base_url=requires_base_url,
+            refuse_unreachable_ci=False,
         )
-        converged.append({
+        entry = {
             "project": str(row["project"]),
             "scope": scope,
             "method_id": desired_method,
             "ci_workflow": ci_workflow,
-        })
+        }
+        if workflow_unreachable:
+            entry["ci_workflow_unreachable"] = workflow_unreachable
+        converged.append(entry)
     rewrite_retired_watch_pytest_commands(conn)
     return converged
 

@@ -17,8 +17,19 @@ from __future__ import annotations
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.github_actions_workflow_inspection import (
+    QUEUE_REFUSING_REASON_CODES,
+    REFUSING_REASON_CODES,
+    inspect_declared_workflow,
+)
+from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.projects_seed_ci_workflow import (
     CI_WORKFLOW_CAPABILITY_TYPE,
+)
+from yoke_core.domain.qa_command_scope_routing import (
+    capability_settings,
+    default_workflow,
+    lands_through_merge_queue,
 )
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -33,6 +44,44 @@ CHECK_NAME = "Per-project CI workflow capability"
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _unreachable_declarations(conn, projects) -> list[tuple[str, str]]:
+    """Declared workflows this host can read and the gate could not run.
+
+    A declaration that was true when it was written stops being true when the
+    workflow is renamed or loses the trigger the gate starts it with, and
+    nothing else notices until an item's verification fails. Only projects
+    whose checkout is on this host can be read; the rest are silent here
+    rather than guessed at.
+    """
+    findings: list[tuple[str, str]] = []
+    for row in projects:
+        project_id = int(row["id"])
+        checkout = checkout_for_project_id(project_id)
+        if checkout is None:
+            continue
+        declared = default_workflow(capability_settings(conn, project_id))
+        if not declared:
+            continue
+        inspection = inspect_declared_workflow(declared, checkout=checkout)
+        refusing = (
+            QUEUE_REFUSING_REASON_CODES
+            if lands_through_merge_queue(conn, project_id)
+            else REFUSING_REASON_CODES
+        )
+        if inspection.reason_code in refusing:
+            findings.append((str(row["slug"]), inspection.message))
+    return findings
+
+
+def _unreachable_detail(findings: list[tuple[str, str]]) -> str:
+    lines = [
+        f"Projects whose declared '{CI_WORKFLOW_CAPABILITY_TYPE}' workflow "
+        "cannot be reached by the verification gate:"
+    ]
+    lines.extend(f"  {slug}: {message}" for slug, message in findings)
+    return "\n".join(lines)
 
 
 def hc_projects_ci_workflow_configured(
@@ -68,11 +117,18 @@ def hc_projects_ci_workflow_configured(
         (CI_WORKFLOW_CAPABILITY_TYPE,),
     )
     missing = [str(row["slug"]) for row in rows]
+    unreachable = _unreachable_declarations(conn, projects_with_repo)
 
-    if not missing:
+    if not missing and not unreachable:
         rec.record(CHECK_ID, CHECK_NAME, "PASS",
                    "All projects with github_repo declare "
-                   f"a '{CI_WORKFLOW_CAPABILITY_TYPE}' capability.")
+                   f"a '{CI_WORKFLOW_CAPABILITY_TYPE}' capability, and every "
+                   "declaration readable here names a workflow the "
+                   "verification gate can reach.")
+        return
+
+    if not missing:
+        rec.record(CHECK_ID, CHECK_NAME, "WARN", _unreachable_detail(unreachable))
         return
 
     detail = (
@@ -88,6 +144,8 @@ def hc_projects_ci_workflow_configured(
         f"capability-merge-settings <id> {CI_WORKFLOW_CAPABILITY_TYPE} "
         "--set workflow_file=<filename>`)"
     )
+    if unreachable:
+        detail = f"{detail}\n{_unreachable_detail(unreachable)}"
     rec.record(CHECK_ID, CHECK_NAME, "WARN", detail)
 
 

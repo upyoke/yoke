@@ -45,9 +45,14 @@ CI_WORKFLOW_CAPABILITY_TEMPLATE: tuple[str, str, str, str, str] = (
     "CI Workflow File",
     (
         "GitHub Actions workflow filename for this project's pre-merge "
-        "CI gate. Used by the pre-merge CI check in usher and by the "
-        "branch-protection doctor HC. Filename only (e.g. ci.yml), "
-        "not a path."
+        "CI gate. Name the workflow that RUNS THE PROJECT'S SUITE, never a "
+        "deploy or release workflow: the declaration routes verification to "
+        "CI, so pointing it at a workflow that deploys makes the gate report "
+        "a green proving something else. Jenkins, GitLab CI, Bitbucket "
+        "Pipelines, and fastlane are not GitHub Actions and belong nowhere "
+        "here; those projects keep the local command runner. Registration "
+        "refuses a workflow the gate cannot reach. Filename only (e.g. "
+        "ci.yml), not a path."
     ),
     json.dumps(
         [
@@ -88,10 +93,13 @@ MERGE_QUEUE_CAPABILITY_TEMPLATE: tuple[str, str, str, str, str] = (
         "Item branches for this project land through the GitHub merge "
         "queue: the merge boundary opens/reuses a PR, enters it with "
         "merge-when-ready after admission control, and the queue runs "
-        "one merge_group CI gate per train of queued PRs. Requires the "
-        "CI workflow to carry a merge_group trigger and a branch ruleset "
-        "requiring that check. Absent this capability, the standalone "
-        "merge engine remains the merge boundary."
+        "one merge_group CI gate per train of queued PRs. The 'requires' "
+        "list below is enforced when this row is created, and the declared "
+        "CI workflow must additionally carry a merge_group trigger — without "
+        "it the queue's integration gate has nothing to run and a queued PR "
+        "never merges. A branch ruleset requiring that check is the operator's "
+        "half. Absent this capability, the standalone merge engine remains "
+        "the merge boundary."
     ),
     "[]",
     json.dumps([CI_WORKFLOW_CAPABILITY_TYPE, "github"]),
