@@ -1,9 +1,14 @@
-"""Focused hook delivery, settlement, reinjection, and wake-policy tests."""
+"""Focused hook delivery, settlement, and reinjection tests.
+
+Wake eligibility is the sibling concern and lives in
+``test_hook_wake_eligibility.py``.
+"""
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
@@ -138,6 +143,48 @@ def test_lifecycle_event_defers_stdout_until_aggregate_settlement(
     audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
     assert audit["output_field"] == "stdout"
     assert "YOKE_SESSION_MESSAGE_LEASE:lease-1" in audit["rendered_text"]
+
+
+def test_envelope_harness_session_start_uses_the_reply_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cursor answers ``sessionStart`` with one JSON object, and a woken
+    print-mode turn fires no other context event before its first tool
+    call. Text appended beside that object is unparseable, so it reaches no
+    model - while the settlement layer, seeing it in stdout, would record
+    the delivery as injected. The envelope has to ride the reply itself."""
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    decision = delivery.evaluate(
+        _context("SessionStart", family="cursor", surface="cursor-cli")
+    )
+
+    assert port.leased == [("session-top", "SessionStart", 10)]
+    audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
+    assert audit["output_field"] == "additionalContext"
+    assert decision.audit_fields["additionalContext"] == audit["rendered_text"]
+    assert "stdout" not in decision.audit_fields
+
+
+def test_envelope_harness_session_start_renders_into_the_cursor_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End to end through the harness renderer: the token the settlement
+    layer looks for must land inside the object Cursor parses."""
+    from yoke_core.hooks.decision_render import render_cursor_decision
+
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    decision = delivery.evaluate(
+        _context("SessionStart", family="cursor", surface="cursor-cli")
+    )
+    rendered, exit_code = render_cursor_decision([decision], "SessionStart")
+
+    assert exit_code == 0
+    envelope = json.loads(rendered)
+    assert "YOKE_SESSION_MESSAGE_LEASE:lease-1" in envelope["additional_context"]
 
 
 def test_surface_event_gate_fails_open_without_leasing(
@@ -298,40 +345,3 @@ def test_message_reinjects_on_later_hook_until_explicit_ack(
     assert MESSAGE_ID in second.audit_fields["additionalContext"]
     assert after_ack.outcome is Outcome.NOOP
     assert len(port.leased) == 3
-
-
-@pytest.mark.parametrize("state", ["acknowledged", "expired", "cancelled"])
-def test_terminal_recipient_is_never_wake_eligible(state: str) -> None:
-    assert not delivery.wake_eligible(
-        recipient_state=state,
-        last_activity_at=None,
-        now=NOW + timedelta(hours=1),
-        idle_threshold=timedelta(seconds=60),
-    )
-
-
-def test_pending_without_post_message_hook_becomes_wake_eligible() -> None:
-    assert delivery.wake_eligible(
-        recipient_state="pending",
-        last_activity_at=NOW - timedelta(seconds=60),
-        now=NOW,
-        idle_threshold=timedelta(seconds=60),
-    )
-
-
-def test_live_injected_unacknowledged_recipient_is_never_woken() -> None:
-    assert not delivery.wake_eligible(
-        recipient_state="injected",
-        last_activity_at=NOW - timedelta(seconds=10),
-        now=NOW,
-        idle_threshold=timedelta(seconds=60),
-    )
-
-
-def test_recent_heartbeat_skips_native_wake() -> None:
-    assert not delivery.wake_eligible(
-        recipient_state="pending",
-        last_activity_at=NOW - timedelta(seconds=10),
-        now=NOW,
-        idle_threshold=timedelta(seconds=60),
-    )

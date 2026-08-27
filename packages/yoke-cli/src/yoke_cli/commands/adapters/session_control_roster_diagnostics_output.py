@@ -56,6 +56,9 @@ def _end_blocker(row: Mapping[str, Any]) -> str | None:
     if status == "has_document_locks":
         count = int(blocker.get("active_document_lock_count") or 0)
         return f"{count} document lock(s) held"
+    if status == "wake_delivery_in_flight":
+        state = str(blocker.get("recipient_state") or "pending")
+        return f"wake delivering ({state}) until {blocker.get('wake_delivery_window_ends_at')}"
     if status == "chain_pending":
         step = int(blocker.get("checkpoint_step") or 0)
         maximum = int(blocker.get("max_chain_steps") or 0)

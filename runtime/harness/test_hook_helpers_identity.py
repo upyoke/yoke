@@ -158,8 +158,12 @@ class TestDetectProvider:
             assert detect_provider() == "custom"
 
     def test_codex_coarse_returns_openai(self):
-        # Coarse-fallback input; predicate still matches.
-        assert detect_provider("codex") == "openai"
+        # Coarse-fallback input; predicate still matches. Env is cleared
+        # because YOKE_PROVIDER is a real override and a shell that exports
+        # one (any live harness session does) would otherwise fail this
+        # locally while CI, which exports none, stays green.
+        with mock.patch.dict(os.environ, {}, clear=True):
+            assert detect_provider("codex") == "openai"
 
     def test_codex_surface_returns_openai(self):
         # is_codex predicate returns True for any codex-* surface,

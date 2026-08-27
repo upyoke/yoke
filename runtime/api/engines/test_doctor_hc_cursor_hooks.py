@@ -51,6 +51,45 @@ def test_declares_cursor_checks() -> None:
     ]
 
 
+def _seed_events(root: Path, hooks: dict) -> None:
+    canonical = root / "runtime" / "harness" / "cursor" / "hooks.json"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text(
+        json.dumps({"version": 1, "hooks": hooks}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _every_required_event() -> dict:
+    return {
+        event: [{"command": f"yoke hook evaluate {event}"}]
+        for event in mod._REQUIRED_EVENTS
+    }
+
+
+def test_required_events_pass_with_nothing_wired_in_the_stream(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _seed_events(tmp_path, _every_required_event())
+
+    assert _run(mod.hc_cursor_hook_events, tmp_path, monkeypatch).result == "PASS"
+
+
+def test_a_hook_inside_the_generation_stream_fails(monkeypatch, tmp_path: Path) -> None:
+    """Cursor holds the stream open across the hook, so any entry on that
+    event kills the run with a transport error naming nothing hook-shaped.
+    The check has to name the event, not just the symptom."""
+    hooks = _every_required_event()
+    hooks["afterAgentThought"] = [{"command": "echo {}"}]
+    _seed_events(tmp_path, hooks)
+
+    record = _run(mod.hc_cursor_hook_events, tmp_path, monkeypatch)
+
+    assert record.result == "FAIL"
+    assert "afterAgentThought" in record.detail
+    assert "WritableIterable is closed" in record.detail
+
+
 def test_materialized_cursor_config_passes(monkeypatch, tmp_path: Path) -> None:
     content = _seed(tmp_path)
     (tmp_path / ".cursor" / "hooks.json").write_bytes(content)
@@ -63,7 +102,8 @@ def test_materialized_cursor_config_passes(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_symlinked_cursor_config_is_reported_as_unloadable(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     _seed(tmp_path)
     (tmp_path / ".cursor" / "hooks.json").symlink_to(
@@ -81,7 +121,8 @@ def test_symlinked_cursor_config_is_reported_as_unloadable(
 
 
 def test_materialized_cursor_config_drift_is_reported(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     _seed(tmp_path)
     (tmp_path / ".cursor" / "hooks.json").write_text(
@@ -95,7 +136,8 @@ def test_materialized_cursor_config_drift_is_reported(
 
 
 def test_symlinked_claude_config_is_reported_as_unloadable(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     content = _seed(tmp_path)
     (tmp_path / ".cursor/hooks.json").write_bytes(content)

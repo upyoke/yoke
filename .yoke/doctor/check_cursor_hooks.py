@@ -32,6 +32,9 @@ from yoke_cli.filesystem_safety import first_symlink_component
 # beforeShellExecution; preToolUse carries the Write|Read|Task matcher; the
 # IDE-only events (beforeSubmitPrompt, stop) still render so the IDE surface
 # gets them, even though the non-interactive terminal agent never fires them.
+# afterAgentThought is required to be ABSENT rather than present: it fires
+# inside the token stream, and a hook there breaks the stream whatever it
+# replies. See _FORBIDDEN_EVENTS below.
 _REQUIRED_EVENTS: tuple[str, ...] = (
     "sessionStart",
     "sessionEnd",
@@ -42,8 +45,13 @@ _REQUIRED_EVENTS: tuple[str, ...] = (
     "postToolUse",
     "postToolUseFailure",
     "stop",
-    "afterAgentThought",
 )
+
+# Cursor-native events that must carry no hook entry at all. The generation
+# stream is held open across a hook on afterAgentThought, and on cursor-agent
+# 2026.08.25 even `exit 0` breaks it once per thought until the reconnects run
+# out and the run dies as `RetriableError: WritableIterable is closed`.
+_FORBIDDEN_EVENTS: tuple[str, ...] = ("afterAgentThought",)
 
 _HOOKS_PATH = Path("runtime/harness/cursor/hooks.json")
 _NATIVE_HOOKS_PATH = Path(".cursor/hooks.json")
@@ -74,25 +82,46 @@ def hc_cursor_hook_events(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return
     if data.get("version") != 1:
         rec.record(
-            name, desc, "FAIL",
+            name,
+            desc,
+            "FAIL",
             f"{_HOOKS_PATH} must declare schema version 1 — Cursor refuses "
             "schema-invalid hook files outright",
         )
         return
     hooks = data.get("hooks") or {}
     missing: List[str] = [
-        event for event in _REQUIRED_EVENTS
+        event
+        for event in _REQUIRED_EVENTS
         if not isinstance(hooks.get(event), list) or not hooks.get(event)
     ]
     if missing:
         rec.record(
-            name, desc, "FAIL",
+            name,
+            desc,
+            "FAIL",
             "missing required hook events: " + ", ".join(missing),
         )
         return
+    wired_in_stream = [event for event in _FORBIDDEN_EVENTS if hooks.get(event)]
+    if wired_in_stream:
+        rec.record(
+            name,
+            desc,
+            "FAIL",
+            "hook wired inside the generation stream: "
+            + ", ".join(wired_in_stream)
+            + " — Cursor holds the stream open across the hook and the run "
+            "dies as RetriableError: WritableIterable is closed. Remove the "
+            f"entry from {_HOOKS_PATH} and re-render.",
+        )
+        return
     rec.record(
-        name, desc, "PASS",
-        f"all {len(_REQUIRED_EVENTS)} required events present (version 1)",
+        name,
+        desc,
+        "PASS",
+        f"all {len(_REQUIRED_EVENTS)} required events present (version 1), "
+        f"{len(_FORBIDDEN_EVENTS)} in-stream event unwired",
     )
 
 
@@ -104,7 +133,9 @@ def hc_cursor_hook_surfacing(conn, args: DoctorArgs, rec: RecordCollector) -> No
     for project_path, _canonical_path in _MATERIALIZED_CONFIGS:
         hooks_file = root / project_path
         symlink = first_symlink_component(
-            root, hooks_file, include_leaf=True,
+            root,
+            hooks_file,
+            include_leaf=True,
         )
         if symlink is not None:
             problems.append(
@@ -145,7 +176,9 @@ def cursor_hook_config_diagnostics(root: Path) -> List[str]:
         native = root / project_path
         canonical = root / canonical_path
         symlink = first_symlink_component(
-            root, native, include_leaf=True,
+            root,
+            native,
+            include_leaf=True,
         )
         if symlink is not None:
             problems.append(
@@ -168,12 +201,16 @@ def cursor_hook_config_diagnostics(root: Path) -> List[str]:
                     f"{project_path} differs from canonical {canonical_path}"
                 )
         except OSError as exc:
-            problems.append(f"Cursor hook config drift check could not read files: {exc}")
+            problems.append(
+                f"Cursor hook config drift check could not read files: {exc}"
+            )
     return problems
 
 
 def hc_cursor_hook_config_drift(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     name = "cursor-hook-config-drift"
     desc = "Cursor-scanned hook configs match their canonical runtime files"
@@ -181,7 +218,9 @@ def hc_cursor_hook_config_drift(
     if problems:
         rec.record(name, desc, "FAIL", "; ".join(problems))
         return
-    rec.record(name, desc, "PASS", "Cursor-scanned configs are byte-identical to canonical")
+    rec.record(
+        name, desc, "PASS", "Cursor-scanned configs are byte-identical to canonical"
+    )
 
 
 from yoke_project_checks._declare import (  # noqa: E402
@@ -189,7 +228,19 @@ from yoke_project_checks._declare import (  # noqa: E402
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ("cursor-hook-events", "Cursor hooks.json carries required events + schema version", hc_cursor_hook_events),
-    ("cursor-hook-surfacing", "Repo-root Cursor surfaces reach rendered Cursor substrate", hc_cursor_hook_surfacing),
-    ("cursor-hook-config-drift", "Cursor-scanned hook configs match canonical runtime files", hc_cursor_hook_config_drift),
+    (
+        "cursor-hook-events",
+        "Cursor hooks.json carries required events + schema version",
+        hc_cursor_hook_events,
+    ),
+    (
+        "cursor-hook-surfacing",
+        "Repo-root Cursor surfaces reach rendered Cursor substrate",
+        hc_cursor_hook_surfacing,
+    ),
+    (
+        "cursor-hook-config-drift",
+        "Cursor-scanned hook configs match canonical runtime files",
+        hc_cursor_hook_config_drift,
+    ),
 )

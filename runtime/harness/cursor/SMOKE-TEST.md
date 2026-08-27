@@ -28,18 +28,20 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    - `preToolUse` fires for `Read`/`Write`/`Task` with canonicalized
      `tool_name` (`Shell` payloads arrive as `Bash` after the parser).
    - `sessionEnd` fires at process exit with `reason`/`final_status`.
-   - `afterAgentThought` spools a payload file per fire under the machine
-     home's `cursor-model-spool/`, and the next `preToolUse`/`postToolUse`
-     drains it so the session row's `model` moves off `unknown` to the id
-     its `model_id` names. Registration at `sessionStart` records `unknown`
-     on this surface by design — the vendor reports `model: "default"`.
-   - **The run itself must exit 0.** That hook fires inside the token
-     stream, so anything slower than shell kills the agent with
-     `RetriableError: WritableIterable is closed`. Check the exit code, not
-     just the session row: an earlier revision recorded the model correctly
-     on runs that were all failing. If the command in `.cursor/hooks.json`
-     for this one event ever mentions `yoke hook evaluate`, that is the
-     regression.
+   - The session row's `model` names what `sessionStart` reported, not
+     `unknown` — current builds send the real id there.
+   - **The run itself must exit 0**, and `.cursor/hooks.json` must carry no
+     `afterAgentThought` entry at all. That event fires inside the token
+     stream, and a hook there breaks the stream whatever it replies:
+     `cursor-agent` reports `RetriableError: WritableIterable is closed`
+     after burning its reconnects. Check the exit code, not just the
+     session row — an earlier revision recorded the model correctly on runs
+     that were all failing. Any entry for that one event is the regression.
+   - Repeat step 5 against a **stopped** session with a pending message
+     (`cursor-agent --resume <id> --print …`): the run must exit 0, the
+     envelope must arrive in the `sessionStart` reply's
+     `additional_context`, and the turn must run the acknowledgement
+     command before it ends.
 6. Confirm the print-mode gaps are still gaps (assessment doc must be
    updated if the vendor closes them): no `beforeSubmitPrompt`, no `stop`,
    no `subagentStart`/`subagentStop` despite a `Task` dispatch.

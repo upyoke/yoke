@@ -8,7 +8,6 @@ rather than fanning the same command out across per-tool matchers.
 
 from __future__ import annotations
 
-from yoke_harness.hooks import cursor_model_spool
 from yoke_contracts.hook_runner.config_owner import (
     CURSOR_LIFECYCLE_COMMAND_MARKER,
     CURSOR_NATIVE_RUNNER_EVENTS,
@@ -52,14 +51,6 @@ def test_entries_are_unique_per_event() -> None:
         assert len(matchers) == len(set(matchers)), (event, matchers)
 
 
-def test_claude_omits_verbs_no_claude_surface_fires() -> None:
-    """The ordering registry is cross-harness. A verb only one harness
-    reports must stay out of settings.json — Claude disables every hook in
-    the file when one entry fails validation."""
-    block = render_claude_hooks_block()
-    assert "AgentModelReported" not in block
-
-
 def test_claude_commands_mark_their_config_owner() -> None:
     """Cursor imports Claude settings, so the CLI needs source ownership
     to no-op those entries when native Cursor hooks are also installed."""
@@ -92,25 +83,14 @@ def test_generated_hook_commands_use_non_login_shell_with_launcher_path() -> Non
     assert all("${XDG_BIN_HOME:-$HOME/.local/bin}" in command for command in commands)
 
 
-def test_model_capture_hook_never_starts_the_interpreter() -> None:
-    """``afterAgentThought`` fires inside the token stream, where starting
-    Python already exceeds what Cursor tolerates — a 0.25s hook carrying no
-    Yoke code at all kills 4 of 6 runs. Its command must stay shell-only and
-    must still reply, since empty stdout drops the stream too."""
-    entries = render_cursor_hooks_block()["hooks"]["afterAgentThought"]
-    assert len(entries) == 1, entries
-    command = entries[0]["command"]
-    assert "yoke hook evaluate" not in command, command
-    assert "python" not in command.lower(), command
-    assert command.rstrip("'").endswith("echo {}"), command
-
-
-def test_model_capture_hook_and_reader_share_one_directory() -> None:
-    """The shell writes the spool and Python reads it; the directory name
-    has to come from the same constant or they silently miss each other."""
-    command = render_cursor_hooks_block()["hooks"]["afterAgentThought"][0]["command"]
-    assert cursor_model_spool.SPOOL_DIR_NAME in command
-    assert cursor_model_spool.SPOOL_DIR_NAME == cursor_model_spool.spool_dir().name
+def test_no_hook_is_wired_inside_the_token_stream() -> None:
+    """``afterAgentThought`` fires inside the generation stream with the
+    stream held open across the hook, and on cursor-agent 2026.08.25 a hook
+    there breaks the stream whatever it replies - a bare ``exit 0`` and a
+    plain ``echo {}`` each did, one break per thought, until the reconnects
+    ran out. Nothing is lost by leaving it unwired: the events that open and
+    close a session name the model themselves."""
+    assert "afterAgentThought" not in render_cursor_hooks_block()["hooks"]
 
 
 def test_cursor_entries_carry_explicit_timeout() -> None:

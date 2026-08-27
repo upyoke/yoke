@@ -162,6 +162,50 @@ def test_prompt_submit_reregisters_when_touch_fails(
     ]
 
 
+def test_prompt_submit_heals_a_session_that_opened_without_a_model(
+    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A surface that named no model when the session opened gets one free
+    correction on its first prompt; registration is upgrade-only, so the
+    heal costs one write and later prompts only heartbeat."""
+    monkeypatch.setattr(
+        "yoke_core.hooks.session_dispatch._first_prompt",
+        lambda session_id, codex: True,
+    )
+    payload = {"session_id": MAIN, "model": "composer-2.5"}
+    dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
+    assert quiet_side_effects["touch"] == [("/repo", MAIN)]
+    assert quiet_side_effects["register"] == [
+        ("/repo", MAIN, "composer-2.5", "cursor-desktop")
+    ]
+
+
+def test_prompt_submit_does_not_heal_without_a_named_model(
+    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "yoke_core.hooks.session_dispatch._first_prompt",
+        lambda session_id, codex: True,
+    )
+    payload = {"session_id": MAIN, "model": "default"}
+    dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
+    assert quiet_side_effects["register"] == []
+
+
+def test_session_start_registers_the_display_model_when_it_is_the_only_one(
+    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The terminal agent opens a session naming ``model`` and no
+    ``model_id``. That is a real answer, not a placeholder, and it is the
+    only one the session gets - no mid-stream event reports another."""
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    payload = {"session_id": MAIN, "model": "cursor-grok-4.6-high-fast"}
+    dispatch_cursor.run_session_start(_context(payload), "/repo")
+    assert quiet_side_effects["register"] == [
+        ("/repo", MAIN, "cursor-grok-4.6-high-fast", "cursor-cli")
+    ]
+
+
 def test_session_start_refuses_to_store_the_default_placeholder(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -173,36 +217,6 @@ def test_session_start_refuses_to_store_the_default_placeholder(
     payload = {"session_id": MAIN, "model": "default"}
     dispatch_cursor.run_session_start(_context(payload), "/repo")
     assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
-
-
-def test_model_report_registers_the_named_model(
-    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
-    payload = {
-        "hook_event_name": "afterAgentThought",
-        "session_id": MAIN,
-        "model": "cursor-grok-4.5-high",
-        "model_id": "grok-4.5",
-    }
-    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
-    assert quiet_side_effects["register"] == [("/repo", MAIN, "grok-4.5", "cursor-cli")]
-
-
-def test_model_report_skips_registration_without_a_real_model(
-    quiet_side_effects: dict,
-) -> None:
-    payload = {"session_id": MAIN, "model": "default"}
-    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
-    assert quiet_side_effects["register"] == []
-
-
-def test_model_report_skips_registration_without_a_session_id(
-    quiet_side_effects: dict,
-) -> None:
-    payload = {"model_id": "grok-4.5"}
-    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
-    assert quiet_side_effects["register"] == []
 
 
 def test_session_start_skips_register_for_subagent_session(
@@ -232,27 +246,3 @@ def test_prompt_submit_skips_touch_for_subagent_session(
     assert out == ""
     assert quiet_side_effects["touch"] == []
     assert quiet_side_effects["register"] == []
-
-
-def test_model_report_skips_register_for_subagent_session(
-    quiet_side_effects: dict,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
-    payload = {
-        "session_id": MAIN,
-        "is_subagent_session": True,
-        "model": "cursor-grok-4.5-high",
-        "model_id": "grok-4.5",
-    }
-    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
-    assert quiet_side_effects["register"] == []
-
-
-def test_model_report_never_replies_empty(quiet_side_effects: dict) -> None:
-    """This event fires mid-generation and Cursor waits on the reply. An
-    empty stdout drops the stream — the operator sees the agent die with a
-    transport error, with nothing pointing at a hook. Every exit path must
-    hand back a JSON object, including the ones that do no work."""
-    for payload in ({}, {"session_id": MAIN}, {"session_id": MAIN, "model": "default"}):
-        assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"

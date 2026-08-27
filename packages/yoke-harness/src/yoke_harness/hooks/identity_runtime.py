@@ -65,6 +65,21 @@ def _is_placeholder_model(value: object) -> bool:
     return normalized.startswith("<") and normalized.endswith(">")
 
 
+def cursor_payload_model(payload: dict[str, Any]) -> str:
+    """Return the concrete model a Cursor hook payload names, or ``""``.
+
+    Cursor multiplexes providers, so the model a session runs under is only
+    knowable from what it reports. ``model_id`` is the bare id and ``model``
+    the display id; either is a real answer, and a build that still sends
+    the ``"default"`` placeholder is reporting no model at all.
+    """
+    for key in ("model_id", "model"):
+        value = payload.get(key)
+        if isinstance(value, str) and not _is_placeholder_model(value):
+            return value.strip()
+    return ""
+
+
 def is_codex(executor: Optional[str]) -> bool:
     if not executor:
         return False

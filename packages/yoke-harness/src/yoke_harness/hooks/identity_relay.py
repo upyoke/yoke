@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
-from yoke_harness.hooks import cursor_model_spool
 from yoke_harness.hooks.identity_runtime import (
     _codex_resolve_entrypoint,
     _codex_resolve_model,
     _is_placeholder_model,
+    cursor_payload_model,
     cursor_surface_entrypoint,
     detect_entrypoint,
     detect_model,
@@ -70,9 +70,7 @@ def client_model(
             return None
     try:
         if is_cursor(executor):
-            # Cursor names the model only on its streaming event, whose hook
-            # cannot afford to do anything but spool the payload.
-            model = cursor_model_spool.drain_model(session_id) or ""
+            model = cursor_payload_model(payload)
         elif is_codex(executor):
             sid = resolve_session_id(json.dumps(payload))
             model = _codex_resolve_model(thread_id=sid or None) or ""

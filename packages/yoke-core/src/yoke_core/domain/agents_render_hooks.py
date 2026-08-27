@@ -21,7 +21,6 @@ from yoke_core.domain.agents_render_manifests import (
     CODEX_MANIFEST,
     CURSOR_MANIFEST,
 )
-from yoke_harness.hooks import cursor_model_spool
 from yoke_harness.hooks.shell_command import hook_shell_command
 
 from yoke_contracts.hook_runner.hook_ordering import (
@@ -92,11 +91,11 @@ _CLAUDE_DEFAULT_ONLY_EVENTS = {
 # cross-harness, so a verb only one harness reports must not reach
 # settings.json: the entry would be dead config, and Claude silently
 # disables *every* hook in the file when one entry fails validation.
+# Empty today — every registered verb has a Claude surface — and kept as
+# the seam a single-harness verb passes through when one is next added.
 # Codex is immune by construction — it renders from its own explicit
 # verb map below rather than from the registry.
-_CLAUDE_UNSUPPORTED_EVENTS = {
-    "AgentModelReported",
-}
+_CLAUDE_UNSUPPORTED_EVENTS: set[str] = set()
 
 
 def render_claude_hooks_block() -> dict:
@@ -256,10 +255,11 @@ _CURSOR_IDENTITY_ENV = (
 # container-mapping guard exists in session dispatch; wiring them first
 # would feed per-subagent session ids into ensure-register.
 #
-# afterAgentThought is deliberately absent from this table: it is the one
-# Cursor event that cannot afford to run the hook command at all. It fires
-# inside the token stream and is wired separately, to shell only, by
-# `cursor_model_spool` — see that module for the measurements.
+# afterAgentThought is absent, and no other table wires it: it fires inside
+# the token stream, and on cursor-agent 2026.08.25 a hook there breaks the
+# stream whatever it replies — see docs/archive/decisions for the bisect.
+# Nothing is lost by leaving it unwired, because the events that open and
+# close a session now name the model themselves.
 _CURSOR_MATCHER_BY_NATIVE_EVENT = {
     "preToolUse": "Write|Read|Task",
     "postToolUse": "Write|Read|Task",
@@ -276,11 +276,6 @@ _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = tuple(
 # generous ceiling keeps a slow transport from being killed mid-dispatch
 # by whatever the platform default happens to be.
 _CURSOR_HOOK_TIMEOUT_S = 30
-
-# The streaming event whose hook must stay at shell cost. Its command comes
-# from the spool module rather than `_cursor_command`, which would start the
-# interpreter this event cannot afford.
-_CURSOR_MODEL_CAPTURE_EVENT = "afterAgentThought"
 
 
 _CURSOR_LIFECYCLE_VERBS = frozenset({"Stop", "SessionEnd"})
@@ -319,10 +314,4 @@ def render_cursor_hooks_block() -> dict:
         if matcher is not None:
             entry["matcher"] = matcher
         hooks.setdefault(cursor_event, []).append(entry)
-    hooks[_CURSOR_MODEL_CAPTURE_EVENT] = [
-        {
-            "command": hook_shell_command(cursor_model_spool.capture_command()),
-            "timeout": _CURSOR_HOOK_TIMEOUT_S,
-        }
-    ]
     return {"version": 1, "hooks": hooks}
