@@ -44,6 +44,14 @@ def _marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+# Each read below spans several tables, and a caller may hold a schema
+# carrying only some of them — a minimal fixture, or a universe born before a
+# table existed. Guarding on every table the query names keeps a missing one an
+# absent fact rather than an operational error inside a read-only projection.
+def _tables_exist(conn: Any, *names: str) -> bool:
+    return all(_table_exists(conn, name) for name in names)
+
+
 def _session_ids(rows: Iterable[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(
         dict.fromkeys(
@@ -57,7 +65,7 @@ def _claimed_items(
     session_ids: Sequence[str],
 ) -> dict[str, list[int]]:
     """Internal item ids each session holds a live item claim on."""
-    if not session_ids:
+    if not session_ids or not _table_exists(conn, "work_claims"):
         return {}
     marker = _marker(conn)
     item_id = scope_int_sql(conn, "scope", "item_id")
@@ -86,7 +94,9 @@ def _gating_blockers(
     touch a shared path, and gate nothing, so a session holding one side is
     not waiting on the other.
     """
-    if not item_ids or not _table_exists(conn, "item_dependencies"):
+    if not item_ids or not _tables_exist(
+        conn, "item_dependencies", "items", "workflow_versions", "item_worktrees"
+    ):
         return {}
     marker = _marker(conn)
     rows = conn.execute(
@@ -137,7 +147,9 @@ def _open_probes(
     session_ids: Sequence[str],
 ) -> dict[str, dict[str, Any]]:
     """Sessions the stale-alive probe has asked and not yet heard back from."""
-    if not session_ids or not _table_exists(conn, "session_message_recipients"):
+    if not session_ids or not _tables_exist(
+        conn, "session_message_recipients", "session_messages"
+    ):
         return {}
     marker = _marker(conn)
     state_markers = ",".join(marker for _ in OPEN_PROBE_STATES)

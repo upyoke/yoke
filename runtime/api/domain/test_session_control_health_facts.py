@@ -224,3 +224,48 @@ def test_an_ordinary_message_is_not_a_probe(conn) -> None:
     )
 
     assert session_health_facts(conn, _rows(), {})[SESSION]["stale_alive_probe"] is None
+
+
+def test_a_partial_schema_reports_absent_facts_rather_than_failing() -> None:
+    """A schema missing a joined table yields no fact, never a read error.
+
+    The roster is a read-only projection, so a universe or fixture carrying
+    only some of the tables these reads span must still answer.
+    """
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.executescript(
+        """
+        CREATE TABLE work_claims (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT,
+            target_kind TEXT,
+            scope TEXT,
+            claimed_at TEXT,
+            released_at TEXT
+        );
+        CREATE TABLE session_message_recipients (
+            message_id TEXT,
+            session_id TEXT,
+            state TEXT,
+            created_at TEXT,
+            wake_attempt_count INTEGER
+        );
+        """
+    )
+    connection.execute(
+        "INSERT INTO work_claims VALUES (?,?,?,?,?,?)",
+        (
+            1,
+            SESSION,
+            "item",
+            make_item_target(DEPENDENT).scope_json(),
+            "2026-08-22T11:00:00Z",
+            None,
+        ),
+    )
+
+    assert session_health_facts(connection, _rows(), {})[SESSION] == {
+        "declared_wait": None,
+        "stale_alive_probe": None,
+    }
