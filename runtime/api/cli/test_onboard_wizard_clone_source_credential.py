@@ -40,20 +40,24 @@ def _reachable(branch="main"):
 
 def _denied():
     return project_git_probe.GitRemoteProbe(
-        False, failure_kind=project_git_probe.FAILURE_ACCESS,
+        False,
+        failure_kind=project_git_probe.FAILURE_ACCESS,
     )
 
 
 def _unreachable():
     return project_git_probe.GitRemoteProbe(
-        False, failure_kind=project_git_probe.FAILURE_NETWORK,
+        False,
+        failure_kind=project_git_probe.FAILURE_NETWORK,
     )
 
 
 @pytest.fixture(autouse=True)
 def _default_web_url(monkeypatch):
     monkeypatch.setattr(
-        github_state, "clone_web_url", lambda _result: "https://github.com",
+        github_state,
+        "clone_web_url",
+        lambda _result: "https://github.com",
     )
 
 
@@ -61,7 +65,9 @@ def test_private_source_is_read_with_the_connected_credential(monkeypatch) -> No
     # The observed defect: a repo the wizard's own GitHub step can see was
     # rejected because the check only ever ran anonymously.
     monkeypatch.setattr(
-        github_state, "user_access_token", lambda _result: "ghu_connected",
+        github_state,
+        "user_access_token",
+        lambda _result: "ghu_connected",
     )
     seen = _probes(monkeypatch, anonymous=_denied(), authenticated=_reachable())
 
@@ -91,7 +97,9 @@ def test_public_source_still_resolves_when_the_credential_cannot_read_it(
     # An App with narrow repository access must not make a public repo
     # unreachable: the anonymous read is the fallback, not the first move.
     monkeypatch.setattr(
-        github_state, "user_access_token", lambda _result: "ghu_narrow",
+        github_state,
+        "user_access_token",
+        lambda _result: "ghu_narrow",
     )
     seen = _probes(monkeypatch, anonymous=_reachable(), authenticated=_denied())
 
@@ -124,7 +132,9 @@ def test_repo_the_credential_cannot_reach_names_app_repository_access(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        github_state, "user_access_token", lambda _result: "ghu_narrow",
+        github_state,
+        "user_access_token",
+        lambda _result: "ghu_narrow",
     )
     _probes(monkeypatch, anonymous=_denied(), authenticated=_denied())
 
