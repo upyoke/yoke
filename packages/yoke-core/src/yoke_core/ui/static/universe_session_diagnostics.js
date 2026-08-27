@@ -1,5 +1,5 @@
 import { relativeAge } from "./universe_time.js";
-import { el } from "./universe_view_support.js";
+import { el, statePill } from "./universe_view_support.js";
 
 const MESSAGE_STATES = new Set([
   "pending", "injected", "acknowledged", "cancelled", "expired",
@@ -19,33 +19,62 @@ function latestMessageBadge(documentNode, message) {
   return badge;
 }
 
-export function endBlockerText(blocker) {
-  if (!blocker) return "";
-  if (blocker.status === "has_claims") {
-    const count = Number(blocker.active_claim_count) || 0;
-    return `${count} work claim${count === 1 ? "" : "s"} held`;
-  }
-  if (blocker.status === "has_document_locks") {
-    const count = Number(blocker.active_document_lock_count) || 0;
-    return `${count} document lock${count === 1 ? "" : "s"} held`;
-  }
-  if (blocker.status === "chain_pending") {
-    return `chain pending (step ${blocker.checkpoint_step}/${blocker.max_chain_steps})`;
-  }
-  return String(blocker.status || "end blocked").replaceAll("_", " ");
-}
-
 export function killCauseText(row) {
   if (row.ended_cause !== "killed") return "";
   const reason = String(row.termination_reason || "").trim();
   return reason ? `killed · ${reason}` : "killed";
 }
 
-export function staleEligibilityText(row, now = Date.now()) {
+// Past the staleness window: the session has been quiet long enough that the
+// cleanup sweep would consider it, whether or not the roster has re-read its
+// liveness since.
+function pastStalenessWindow(row, now) {
+  if (String(row.liveness || "") === "stale") return true;
   const eligible = new Date(row.stale_eligible_at).getTime();
-  if (Number.isNaN(eligible)) return "";
-  const minutes = Math.max(0, Math.ceil((eligible - now) / 60000));
-  return minutes === 0 ? "stale-eligible now" : `stale-eligible in ${minutes}m`;
+  return !Number.isNaN(eligible) && eligible <= now;
+}
+
+function declaredWaitDetail(wait) {
+  if (wait.kind === "dependency") {
+    const status = String(wait.blocking_status || "").trim();
+    const stage = status ? ` (${status})` : "";
+    return `gated on ${wait.blocking_item}${stage}`;
+  }
+  return "turn parked for an answer";
+}
+
+// Health is what the session's own record says about its quiet, and the three
+// answers are not degrees of one another. A session gated behind another item
+// or holding its turn open is waiting by declaration and nothing is wrong with
+// it. A session the stale-alive probe has already asked has a question
+// outstanding, so its silence is being resolved. Only a quiet claim-holder
+// with neither of those is a session nobody can account for — the one worth
+// calling possibly stale.
+export function sessionHealthState(row, now = Date.now()) {
+  if (String(row.liveness || "") === "ended") return null;
+  if (!(Array.isArray(row.claims) && row.claims.length)) return null;
+  if (!pastStalenessWindow(row, now)) return null;
+  const wait = row.declared_wait;
+  if (wait) {
+    return {
+      state: "waiting",
+      label: "waiting",
+      detail: declaredWaitDetail(wait),
+    };
+  }
+  const probe = row.stale_alive_probe;
+  if (probe) {
+    return {
+      state: "probed",
+      label: "probed",
+      detail: `awaiting response · asked ${relativeAge(probe.created_at)}`,
+    };
+  }
+  return {
+    state: "stale",
+    label: "possibly stale",
+    detail: "quiet past the staleness window with claims still held",
+  };
 }
 
 // A killed session is ended like any other gone session; the kill is a cause
@@ -62,6 +91,19 @@ function appendKillCause(documentNode, body, row) {
   body.appendChild(line);
 }
 
+function appendHealth(documentNode, body, row) {
+  const health = sessionHealthState(row);
+  if (!health) return;
+  const line = el(documentNode, "div", "session-health");
+  const pill = statePill(documentNode, health.state, health.label);
+  pill.className = `${pill.className} session-health-pill`;
+  line.appendChild(pill);
+  line.appendChild(el(
+    documentNode, "span", "session-health-detail", health.detail,
+  ));
+  body.appendChild(line);
+}
+
 export function appendSessionDiagnostics(documentNode, body, row) {
   appendKillCause(documentNode, body, row);
   const badge = latestMessageBadge(documentNode, row.latest_message);
@@ -71,26 +113,5 @@ export function appendSessionDiagnostics(documentNode, body, row) {
     message.appendChild(badge);
     body.appendChild(message);
   }
-  const blocker = endBlockerText(row.end_blocker);
-  if (blocker) {
-    body.appendChild(el(
-      documentNode,
-      "p",
-      "fact-line session-end-blocker",
-      `Why active: ${blocker}`,
-    ));
-  }
-  const stale = staleEligibilityText(row);
-  if (stale && row.liveness !== "ended") {
-    const line = el(
-      documentNode,
-      "p",
-      "fact-line session-stale-context",
-      `Stale cleanup: ${stale}`,
-    );
-    if (row.effective_stale_ttl_minutes != null) {
-      line.title = `Effective stale TTL: ${row.effective_stale_ttl_minutes}m`;
-    }
-    body.appendChild(line);
-  }
+  appendHealth(documentNode, body, row);
 }

@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  endBlockerText,
   killCauseText,
-  staleEligibilityText,
+  sessionHealthState,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
 import {
   sessionCard,
@@ -14,100 +13,163 @@ import {
   byClass,
 } from "./universe_ui_dom_test_support.mjs";
 
+const WHO = { label: "member", value: () => "Ben" };
+const ITEM_CLAIM = [{ target_kind: "item", target: "YOK-1" }];
 
-test("session card shows latest message, why active, and stale eligibility", () => {
-  const documentNode = new FakeDocument();
+function card(row) {
+  return sessionCard(new FakeDocument(), row, WHO, "hosted", () => {});
+}
+
+// A session past the staleness window with claims held, so every health state
+// below differs only by the declaration or probe the row carries.
+function quietHolder(extra) {
+  return {
+    session_id: "session-1",
+    liveness: "stale",
+    executor: "codex",
+    claims: ITEM_CLAIM,
+    activity_at: "2026-08-22T11:00:00Z",
+    stale_eligible_at: "2026-08-22T11:20:00Z",
+    messageability: { messageable: false },
+    ...extra,
+  };
+}
+
+test("session card keeps the latest message badge and drops the removed facts", () => {
   const createdAt = new Date(Date.now() - 4.2 * 60000).toISOString();
-  const staleAt = new Date(Date.now() + 11.2 * 60000).toISOString();
-  const row = {
+  const rendered = card({
     session_id: "session-1",
     liveness: "active",
-    mode: "wait",
     executor: "codex",
     claims: [],
-    coordination_leases: [],
     activity_at: createdAt,
     latest_message: {
       message_id: "message-1",
       state: "pending",
       created_at: createdAt,
     },
-    end_blocker: {
-      status: "chain_pending",
-      checkpoint_step: 2,
-      max_chain_steps: 3,
-    },
+    end_blocker: { status: "has_claims", active_claim_count: 1 },
     effective_stale_ttl_minutes: 60,
-    stale_eligible_at: staleAt,
+    stale_eligible_at: new Date(Date.now() + 11.2 * 60000).toISOString(),
     messageability: { messageable: false },
-  };
-  const card = sessionCard(
-    documentNode,
-    row,
-    { label: "member", value: () => "Ben" },
-    "hosted",
-    () => {},
-  );
+  });
 
-  const badge = byClass(card, "session-message-badge")[0];
-  assert.equal(badge.textContent, "pending · 4m");
   assert.equal(
-    byClass(card, "session-end-blocker")[0].textContent,
-    "Why active: chain pending (step 2/3)",
+    byClass(rendered, "session-message-badge")[0].textContent,
+    "pending · 4m",
   );
-  assert.match(
-    byClass(card, "session-stale-context")[0].textContent,
-    /^Stale cleanup: stale-eligible in /,
+  assert.equal(byClass(rendered, "session-end-blocker").length, 0);
+  assert.equal(byClass(rendered, "session-stale-context").length, 0);
+  assert.equal(byClass(rendered, "session-health").length, 0);
+});
+
+test("a declared wait reads as waiting, not as a session suspected of being gone", () => {
+  const dependency = sessionHealthState(
+    quietHolder({
+      declared_wait: {
+        kind: "dependency",
+        item: "YOK-1",
+        blocking_item: "YOK-2",
+        gate_point: "activation",
+        blocking_status: "implementing",
+      },
+    }),
+    Date.parse("2026-08-22T12:00:00Z"),
+  );
+  assert.equal(dependency.state, "waiting");
+  assert.equal(dependency.label, "waiting");
+  assert.equal(dependency.detail, "gated on YOK-2 (implementing)");
+
+  const posture = sessionHealthState(
+    quietHolder({ declared_wait: { kind: "turn_posture" } }),
+    Date.parse("2026-08-22T12:00:00Z"),
+  );
+  assert.equal(posture.state, "waiting");
+  assert.equal(posture.detail, "turn parked for an answer");
+});
+
+test("an open probe replaces possibly-stale, which needs no declaration at all", () => {
+  const probed = sessionHealthState(
+    quietHolder({
+      stale_alive_probe: {
+        state: "injected",
+        created_at: "2026-08-22T11:50:00Z",
+      },
+    }),
+    Date.parse("2026-08-22T12:00:00Z"),
+  );
+  assert.equal(probed.state, "probed");
+  assert.equal(probed.label, "probed");
+  assert.match(probed.detail, /^awaiting response · asked /);
+
+  const unaccounted = sessionHealthState(
+    quietHolder({}),
+    Date.parse("2026-08-22T12:00:00Z"),
+  );
+  assert.equal(unaccounted.state, "stale");
+  assert.equal(unaccounted.label, "possibly stale");
+
+  // A declared wait outranks a probe: the session already said why it is quiet.
+  const both = sessionHealthState(
+    quietHolder({
+      declared_wait: { kind: "turn_posture" },
+      stale_alive_probe: { state: "pending", created_at: "2026-08-22T11:50:00Z" },
+    }),
+    Date.parse("2026-08-22T12:00:00Z"),
+  );
+  assert.equal(both.state, "waiting");
+});
+
+test("health stays silent for active, claim-free, and ended sessions", () => {
+  const now = Date.parse("2026-08-22T12:00:00Z");
+  assert.equal(
+    sessionHealthState(
+      quietHolder({ liveness: "active", stale_eligible_at: "2026-08-22T12:30:00Z" }),
+      now,
+    ),
+    null,
+  );
+  assert.equal(sessionHealthState(quietHolder({ claims: [] }), now), null);
+  assert.equal(sessionHealthState(quietHolder({ liveness: "ended" }), now), null);
+});
+
+test("the health pill renders its state and detail on the card", () => {
+  const rendered = card(quietHolder({
+    stale_eligible_at: "2020-01-01T00:00:00Z",
+    declared_wait: {
+      kind: "dependency",
+      item: "YOK-1",
+      blocking_item: "YOK-2",
+      blocking_status: "implementing",
+    },
+  }));
+  const pill = byClass(rendered, "session-health-pill")[0];
+  assert.equal(pill.textContent, "waiting");
+  assert.equal(pill.getAttribute("data-state"), "waiting");
+  assert.equal(
+    byClass(rendered, "session-health-detail")[0].textContent,
+    "gated on YOK-2 (implementing)",
   );
 });
 
-
-test("diagnostic text keeps blocker counts and terminal TTL behavior explicit", () => {
-  assert.equal(
-    endBlockerText({ status: "has_claims", active_claim_count: 1 }),
-    "1 work claim held",
-  );
-  assert.equal(
-    endBlockerText({
-      status: "has_document_locks",
-      active_document_lock_count: 2,
-    }),
-    "2 document locks held",
-  );
-  assert.equal(
-    staleEligibilityText(
-      { stale_eligible_at: "2026-08-22T12:12:00Z" },
-      Date.parse("2026-08-22T12:00:00Z"),
-    ),
-    "stale-eligible in 12m",
-  );
-
+test("a kill reads as a cause of death on ended, never as its own liveness", () => {
   assert.equal(killCauseText({ liveness: "ended" }), "");
   assert.equal(killCauseText({ ended_cause: "killed" }), "killed");
 
-  const documentNode = new FakeDocument();
-  const card = sessionCard(
-    documentNode,
-    {
-      session_id: "killed-1",
-      liveness: "ended",
-      ended_cause: "killed",
-      termination_reason: "operator stopped worker",
-      terminated_at: "2026-08-22T12:05:00Z",
-      mode: "wait",
-      executor: "codex",
-      claims: [],
-      coordination_leases: [],
-      stale_eligible_at: "2099-01-01T00:00:00Z",
-      messageability: { messageable: false },
-    },
-    { label: "member", value: () => "Ben" },
-    "hosted",
-    () => {},
-  );
-  assert.equal(byClass(card, "session-stale-context").length, 0);
+  const rendered = card({
+    session_id: "killed-1",
+    liveness: "ended",
+    ended_cause: "killed",
+    termination_reason: "operator stopped worker",
+    terminated_at: "2026-08-22T12:05:00Z",
+    executor: "codex",
+    claims: [],
+    stale_eligible_at: "2099-01-01T00:00:00Z",
+    messageability: { messageable: false },
+  });
+  assert.equal(byClass(rendered, "session-health").length, 0);
   assert.equal(
-    byClass(card, "session-kill-badge")[0].textContent,
+    byClass(rendered, "session-kill-badge")[0].textContent,
     "killed · operator stopped worker",
   );
 });

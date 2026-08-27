@@ -51,10 +51,6 @@
   white-space: nowrap;
 }
 
-.universe-app-root .session-top .pill {
-  margin-left: auto;
-}
-
 .universe-app-root .session-card-body {
   display: flex;
   flex-direction: column;
@@ -63,16 +59,12 @@
   font-size: 12.5px;
 }
 
-.universe-app-root .session-work,
-.universe-app-root .session-runtime {
+.universe-app-root .session-work {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   min-width: 0;
-}
-
-.universe-app-root .session-work {
-  flex-wrap: wrap;
   color: var(--yoke-ink);
 }
 
@@ -161,55 +153,18 @@
   color: var(--yoke-crit);
 }
 
-.universe-app-root .session-end-blocker {
-  color: var(--yoke-warn);
-  font-weight: 600;
-}
-
-.universe-app-root .session-stale-context,
 .universe-app-root .session-kill-when {
   color: var(--yoke-muted);
   font-size: 11px;
 }
 
-.universe-app-root .session-foot {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  margin-top: 11px;
-  padding-top: 10px;
-  border-top: 1px solid var(--yoke-border);
-  color: var(--yoke-muted);
-  font-size: 11px;
-}
-
-.universe-app-root .session-actor-avatar {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--yoke-accent);
-  color: #fff;
-  font-size: 8px;
-  font-weight: 700;
-}
-
 .universe-app-root .session-operator {
   min-width: 0;
   overflow: hidden;
+  color: var(--yoke-muted);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.universe-app-root .session-local-mark {
-  color: var(--yoke-accent);
-}
-
-.universe-app-root .session-footer-separator {
-  color: var(--yoke-border);
 }
 
 .universe-app-root .session-id {
@@ -217,6 +172,46 @@
   color: var(--yoke-ink-2);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Identity reads left to right on one line: who is running, then the lane the
+   fleet gave them, then who owns the session. Health and reachability each get
+   their own row below the work so a glance separates them. */
+.universe-app-root .session-top .session-operator {
+  margin-left: auto;
+}
+
+.universe-app-root .session-model {
+  overflow: hidden;
+  color: var(--yoke-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-health,
+.universe-app-root .session-relay {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+}
+
+.universe-app-root .session-relay-label {
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .session-relay-pill {
+  font-family: var(--yoke-font-mono);
+}
+
+.universe-app-root .session-health-detail,
+.universe-app-root .session-relay-warning,
+.universe-app-root .session-messaging-blocked {
+  min-width: 0;
+  color: var(--yoke-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .universe-app-root .labelled-fact {

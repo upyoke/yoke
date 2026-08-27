@@ -10,7 +10,6 @@ import {
   mergedRows,
   portabilityMode,
   scopeBuckets,
-  sessionModePill,
   settledScopedCalls,
   whoColumn,
 } from "./universe_view_support.js";
@@ -51,26 +50,45 @@ function harnessIdentity(row) {
     label: executor,
   };
 }
-function appendRuntime(documentNode, body, row) {
-  const runtime = el(documentNode, "div", "session-runtime");
+// The lane is the job Yoke assigned this session, and it names the session the
+// way the fleet does, so it belongs beside the harness that is running it.
+function laneChip(documentNode, row) {
   const laneLabel = row.lane_label || row.execution_lane || "no lane";
-  const laneText = row.lane_glyph ? `${row.lane_glyph} ${laneLabel}` : laneLabel;
-  const lane = el(
+  const chip = el(
     documentNode,
     "span",
     "session-lane",
-    laneText,
+    row.lane_glyph ? `${row.lane_glyph} ${laneLabel}` : laneLabel,
   );
-  lane.title = "execution lane — the job Yoke assigned, not the harness";
-  runtime.appendChild(lane);
-  runtime.appendChild(el(
+  chip.title = "execution lane — the job Yoke assigned, not the harness";
+  return chip;
+}
+
+function operatorLabel(documentNode, row, who, mode) {
+  // One machine has one operator, so naming them on every card says nothing.
+  if (mode === "local") return null;
+  const machine = row.actor_kind === "system";
+  const directory = who.label === "member";
+  if (machine && directory) {
+    return el(documentNode, "span", "session-operator", "machine");
+  }
+  return el(
     documentNode,
     "span",
+    "session-operator",
+    who.value(row) || "unattributed",
+  );
+}
+
+function appendModel(documentNode, body, row) {
+  body.appendChild(el(
+    documentNode,
+    "div",
     "session-model",
     row.model || "model not reported",
   ));
-  body.appendChild(runtime);
 }
+
 function appendAge(documentNode, body, row) {
   const age = el(documentNode, "div", "session-age");
   const add = (prefix, timestamp, now = Date.now()) => {
@@ -90,53 +108,10 @@ function appendAge(documentNode, body, row) {
   add("idle ", row.activity_at);
   body.appendChild(age);
 }
-function footerIdentity(row, who, mode) {
-  if (mode === "local") {
-    return { local: true, label: "this machine", machine: false };
-  }
-  const machine = row.actor_kind === "system";
-  const directory = who.label === "member";
-  return {
-    local: false,
-    label: machine && directory ? "—" : (who.value(row) || "unattributed"),
-    machine: machine && directory,
-  };
-}
-function appendFooter(documentNode, card, row, who, mode) {
-  const footer = el(documentNode, "div", "session-foot");
-  const identity = footerIdentity(row, who, mode);
-  if (identity.local) {
-    footer.appendChild(el(documentNode, "span", "session-local-mark", "◍"));
-  } else {
-    const avatar = el(
-      documentNode,
-      "span",
-      "session-actor-avatar",
-      identity.machine
-        ? "⚙"
-        : String(identity.label).slice(0, 1).toUpperCase(),
-    );
-    footer.appendChild(avatar);
-  }
-  footer.appendChild(el(
-    documentNode,
-    "span",
-    "session-operator",
-    identity.label,
-  ));
-  if (identity.machine) {
-    footer.appendChild(el(documentNode, "span", "session-machine", "machine"));
-  }
-  footer.appendChild(el(documentNode, "span", "session-footer-separator", "·"));
-  footer.appendChild(el(documentNode, "span", null, "session"));
-  footer.appendChild(el(
-    documentNode,
-    "span",
-    "session-id",
-    String(row.session_id || "unreported"),
-  ));
-  card.appendChild(footer);
-}
+
+// Identity, work, health — in that order and nothing else. The harness and its
+// lane name the session, the model says what is running it, the holdings say
+// what it is doing, and the diagnostics say whether that is going anywhere.
 export function sessionCard(documentNode, row, who, mode, onMessage) {
   const card = el(documentNode, "article", "session-card");
   card.setAttribute("data-session-id", String(row.session_id || ""));
@@ -151,18 +126,19 @@ export function sessionCard(documentNode, row, who, mode, onMessage) {
     harness.mark,
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
-  top.appendChild(sessionModePill(documentNode, row.mode, row.liveness));
+  top.appendChild(laneChip(documentNode, row));
+  const operator = operatorLabel(documentNode, row, who, mode);
+  if (operator) top.appendChild(operator);
   card.appendChild(top);
 
   const body = el(documentNode, "div", "session-card-body");
+  appendModel(documentNode, body, row);
   appendHoldings(documentNode, body, row);
-  appendRuntime(documentNode, body, row);
   appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
   appendSteeringContext(documentNode, body, row);
   appendSessionMessaging(documentNode, body, row, onMessage);
   card.appendChild(body);
-  appendFooter(documentNode, card, row, who, mode);
   return card;
 }
 

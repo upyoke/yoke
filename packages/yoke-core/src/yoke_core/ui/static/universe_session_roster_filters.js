@@ -108,71 +108,106 @@ export function sessionRosterFilters(documentNode, onChange) {
   };
 }
 
-function unavailableReason(routing) {
-  if (routing.reason === "session_terminated") {
-    return "Messaging unavailable: this session is permanently terminated.";
-  }
-  if (routing.reason === "version_below_floor_or_unknown") {
-    return routing.minimum_version
-      ? `Messaging unavailable: executor version ${routing.minimum_version} or newer is required.`
-      : "Messaging unavailable: the executor version is not supported.";
-  }
-  if (routing.reason === "unknown_surface") {
-    return "Messaging unavailable: this executor surface is not supported.";
-  }
-  return "Messaging unavailable: this surface has no supported delivery hook.";
+function machineLabel(row) {
+  return row.machine_name || row.machine_id || "machine not reported";
 }
 
-export function sessionMessageabilityText(row) {
+// One line, one fact: whether this session's machine is reachable right now.
+// The relay is what carries a message to a session that is not mid-turn, so
+// its state is the whole difference between reaching the session and queuing
+// for it indefinitely.
+function appendRelay(documentNode, body, row) {
+  const line = el(documentNode, "div", "session-relay");
+  line.appendChild(el(documentNode, "span", "session-relay-label", "Relay:"));
+  const connected = row.relay === "connected";
+  const pill = el(
+    documentNode,
+    "span",
+    `pill ${connected ? "good" : "crit"} session-relay-pill`,
+    machineLabel(row),
+  );
+  pill.setAttribute("data-state", connected ? "connected" : "unavailable");
+  if (row.machine_id) pill.title = String(row.machine_id);
+  line.appendChild(pill);
+  if (!connected) {
+    line.appendChild(el(
+      documentNode,
+      "span",
+      "session-relay-warning",
+      "no relay connected",
+    ));
+  }
+  body.appendChild(line);
+}
+
+// Whether a message sent from this card would actually arrive, and — when it
+// would not — the single condition standing in the way. Delivery needs a
+// surface whose hook can carry the message, and, for a session that is not
+// mid-turn, a wake route to make that surface run; the relay is what carries
+// the wake.
+export function messagingAvailability(row) {
   const routing = row.messageability || {};
-  if (routing.messageable !== true) return unavailableReason(routing);
-  if (routing.wake_available === true) {
-    return row.liveness === "ended"
-      ? "Messageable: durable delivery and automatic restart are available."
-      : "Messageable: durable delivery and automatic wake are available.";
+  if (routing.reason === "session_terminated") {
+    return {
+      available: false,
+      reason: "Messaging unavailable: this session was terminated.",
+    };
   }
-  return row.liveness === "ended"
-    ? "Messageable: a message can queue, but automatic restart is unavailable."
-    : "Messageable through a supported hook; automatic wake is unavailable.";
-}
-
-function machineFactLabel(row) {
-  return row.machine_name || row.machine_id || "not reported";
+  if (routing.messageable !== true) {
+    if (routing.reason === "version_below_floor_or_unknown") {
+      return {
+        available: false,
+        reason: routing.minimum_version
+          ? "Messaging unavailable: executor version "
+            + `${routing.minimum_version} or newer is required.`
+          : "Messaging unavailable: the executor version is not reported "
+            + "or supported.",
+      };
+    }
+    return {
+      available: false,
+      reason:
+        "Messaging unavailable: this executor surface has no supported "
+        + "delivery hook.",
+    };
+  }
+  if (String(row.liveness || "") !== "active" && routing.wake_available !== true) {
+    if (routing.relay_connected === false) {
+      return {
+        available: false,
+        reason:
+          "Messaging unavailable: no relay is connected on this session's "
+          + "machine.",
+      };
+    }
+    return {
+      available: false,
+      reason: String(row.liveness || "") === "ended"
+        ? "Messaging unavailable: this session has ended and cannot be "
+          + "restarted from here."
+        : "Messaging unavailable: this idle session has no wake route.",
+    };
+  }
+  return { available: true, reason: "" };
 }
 
 export function appendSessionMessaging(documentNode, body, row, onMessage) {
-  const relay = row.relay ? ` · relay ${row.relay}` : "";
-  body.appendChild(el(
-    documentNode,
-    "p",
-    "fact-line session-executor-version",
-    `Executor version: ${row.executor_version || "not reported"}`,
-  ));
-  const machine = el(
-    documentNode,
-    "p",
-    "fact-line session-machine-fact",
-    `Machine: ${machineFactLabel(row)}${relay}`,
-  );
-  if (row.machine_id) machine.title = String(row.machine_id);
-  body.appendChild(machine);
-  const description = sessionMessageabilityText(row);
-  body.appendChild(el(
-    documentNode,
-    "p",
-    "fact-line session-messageability",
-    description,
-  ));
+  appendRelay(documentNode, body, row);
+  const availability = messagingAvailability(row);
+  if (!availability.available) {
+    body.appendChild(el(
+      documentNode,
+      "p",
+      "fact-line session-messaging-blocked",
+      availability.reason,
+    ));
+    return;
+  }
   const actions = el(documentNode, "div", "session-control-actions");
   const message = el(documentNode, "button", "item-button", "Message");
   message.type = "button";
-  message.disabled = row.messageability?.messageable !== true;
-  message.title = message.disabled
-    ? description
-    : `Message only session ${row.session_id}`;
-  message.addEventListener("click", () => {
-    if (!message.disabled) onMessage(String(row.session_id));
-  });
+  message.title = `Message only session ${row.session_id}`;
+  message.addEventListener("click", () => onMessage(String(row.session_id)));
   actions.appendChild(message);
   body.appendChild(actions);
 }

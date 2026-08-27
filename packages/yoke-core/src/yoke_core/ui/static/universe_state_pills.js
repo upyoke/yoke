@@ -65,6 +65,7 @@ const FAMILIES = {
   cancelled: "idle",
   outcome_unknown: "warn",
   waiting: "idle",
+  probed: "run",
   running: "run",
   claimed: "run",
   "item-owned": "run",
