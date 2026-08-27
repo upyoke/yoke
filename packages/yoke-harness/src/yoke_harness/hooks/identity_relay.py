@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts.cursor_session_map import (
+    CURSOR_CONVERSATION_ENV_VAR,
+    CURSOR_SESSION_MAP_DIR_NAME,
+    recorded_session_id_for_conversation,
+)
 from yoke_harness.hooks.identity_runtime import (
     _codex_resolve_entrypoint,
     _codex_resolve_model,
@@ -18,6 +23,7 @@ from yoke_harness.hooks.identity_runtime import (
     cursor_surface_entrypoint,
     detect_entrypoint,
     detect_model,
+    is_claude,
     is_codex,
     is_cursor,
     resolve_session_id,
@@ -209,18 +215,40 @@ def client_project_id(payload: dict[str, Any]) -> Optional[int]:
     return None
 
 
-def client_native_thread_id(executor: str) -> Optional[str]:
-    """Codex's own thread id for this session, when the client env carries it.
+def client_native_thread_id(
+    executor: str,
+    yoke_session_id: str = "",
+) -> Optional[str]:
+    """Return the harness-native identity for one registered Yoke session.
 
-    Distinct from the Yoke session id: an operator-started codex-desktop
-    session registers under ``CODEX_SESSION_ID`` while the app-server keys
-    its thread on ``CODEX_THREAD_ID``. Relayed so the server-side registrar
-    (which has no local env of its own) can store the same mapping.
+    Codex exports its thread directly. Cursor's conversation id is trusted
+    only after the client hook map binds it to this Yoke session. Claude's
+    native session is useful only when it differs from the Yoke identity.
     """
-    if not is_codex(executor):
+    if is_codex(executor):
+        value = os.environ.get("CODEX_THREAD_ID", "").strip()
+        return value or None
+    if is_cursor(executor):
+        conversation_id = os.environ.get(CURSOR_CONVERSATION_ENV_VAR, "").strip()
+        if not conversation_id:
+            return None
+        try:
+            mapped = recorded_session_id_for_conversation(
+                machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME,
+                conversation_id,
+            )
+        except Exception:  # noqa: BLE001 — identity enrichment is best effort
+            return None
+        if not mapped or (yoke_session_id and mapped != yoke_session_id):
+            return None
+        return conversation_id
+    if not is_claude(executor):
         return None
-    value = os.environ.get("CODEX_THREAD_ID", "").strip()
-    return value or None
+    native_session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+    registered_id = yoke_session_id or os.environ.get("YOKE_SESSION_ID", "").strip()
+    if native_session_id and registered_id and native_session_id != registered_id:
+        return native_session_id
+    return None
 
 
 def relay_identity_payload(
@@ -236,7 +264,10 @@ def relay_identity_payload(
         "project_id": client_project_id(payload),
         "executor_version": client_executor_version(executor, entrypoint),
         "machine_id": client_machine_id(),
-        "native_thread_id": client_native_thread_id(executor),
+        "native_thread_id": client_native_thread_id(
+            executor,
+            resolve_session_id(json.dumps(payload)),
+        ),
     }
 
 

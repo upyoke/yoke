@@ -46,6 +46,10 @@ def register_harness_session(
     """
     if _relay_owns_registration():
         return ""
+    if native_thread_id is None:
+        from yoke_core.hooks.helpers_identity import detect_native_thread_id
+
+        native_thread_id = detect_native_thread_id(executor, session_id)
     project_id = _project_id_for_root(root)
     if project_id is None:
         return "session registration requires a configured project_id for this checkout"
