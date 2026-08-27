@@ -19,6 +19,7 @@ from yoke_cli.config.session_relay_instance import (
 from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
 from yoke_core.tools.launchctl_boundary import (
     launch_agents_dir,
+    launch_agents_home,
     launchd_target,
     run_launchctl,
 )
@@ -82,7 +83,7 @@ def relay_launchd_paths(
         environment=environment,
         yoke_home=yoke_home,
     )
-    user_home = (home or Path.home()).expanduser()
+    user_home = launch_agents_home(home, yoke_home=selected.yoke_home)
     state = selected.state_dir
     return RelayLaunchdPaths(
         plist=launch_agents_dir(user_home) / f"{selected.label}.plist",
@@ -241,7 +242,10 @@ def install_relay_launchd(
         )
     try:
         retire_unpinned_legacy_relay(
-            instance=selected, home=home, runner=runner, uid=uid
+            instance=selected,
+            home=launch_agents_home(home, yoke_home=selected.yoke_home),
+            runner=runner,
+            uid=uid,
         )
     except LegacyRelayError as exc:
         raise RelayInstallError(str(exc)) from exc

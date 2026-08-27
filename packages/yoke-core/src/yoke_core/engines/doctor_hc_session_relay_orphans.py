@@ -128,7 +128,8 @@ def hc_session_relay_orphans(
             f"config that no longer exists: {_summarize([o.label for o in orphans])}. "
             "Repair: `yoke doctor run --quick --fix`, which unloads and deletes "
             "exactly those jobs and never touches "
-            f"{PROD_RELAY_LABEL}."
+            f"{PROD_RELAY_LABEL}. macOS Login Items rows may linger until "
+            "reboot or an operator-run `sudo sfltool resetbtm`."
             + ("; " + "; ".join(notes) if notes else ""),
         )
         return

@@ -94,6 +94,31 @@ def test_only_the_operators_real_launch_agents_folder_is_redirected(
     assert boundary.launch_agents_dir(Path.home()) == sandbox / "LaunchAgents"
 
 
+def test_an_isolated_machine_home_keeps_launch_agents_inside_itself(
+    tmp_path: Path,
+) -> None:
+    machine_home = tmp_path / "machine-home"
+
+    assert boundary.launch_agents_home(yoke_home=machine_home) == machine_home
+    assert (
+        boundary.launch_agents_dir(yoke_home=machine_home)
+        == machine_home / "Library" / "LaunchAgents"
+    )
+
+
+def test_the_default_machine_home_keeps_the_canonical_login_item_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operator_home = tmp_path / "operator-home"
+    operator_home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: operator_home))
+
+    assert (
+        boundary.launch_agents_home(yoke_home=operator_home / ".yoke") == operator_home
+    )
+
+
 def test_writing_into_the_real_folder_without_a_sandbox_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -209,7 +234,9 @@ def test_a_child_process_installing_a_relay_lands_in_the_sandbox(
 
     assert completed.returncode == 0, completed.stderr
     installed = Path(completed.stdout.strip())
-    assert installed.parent == sandbox / "LaunchAgents"
+    machine_home = tmp_path / "home"
+    assert installed.parent == machine_home / "Library" / "LaunchAgents"
+    assert installed.is_relative_to(machine_home)
     recorded = boundary.recorded_commands(sandbox)
     assert [entry[1] for entry in recorded] == [
         "bootout",

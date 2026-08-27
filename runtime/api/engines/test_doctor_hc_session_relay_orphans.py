@@ -110,6 +110,7 @@ def test_a_detect_only_run_fails_and_teaches_the_repair(
     assert rec.results[0].result == "FAIL"
     assert "yoke doctor run --quick --fix" in detail
     assert f"{PROD_RELAY_LABEL}.99999999" in detail
+    assert "sfltool resetbtm" in detail
 
 
 def test_the_check_is_not_applicable_off_macos(monkeypatch: pytest.MonkeyPatch) -> None:
