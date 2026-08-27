@@ -135,14 +135,9 @@ def _messageable(row: Mapping[str, Any]) -> str:
 
 
 def _liveness(row: Mapping[str, Any]) -> str:
-    """Liveness, with a kill named as the cause it is.
-
-    Deadness has one word; how a session died is a facet, so a killed session
-    reads ``ended (killed)`` rather than as a liveness state of its own.
-    """
+    """Liveness, with a kill named as the cause it is rather than a state."""
     state = humanize(row.get("liveness"))
-    cause = row.get("ended_cause")
-    if cause == ENDED_CAUSE_KILLED:
+    if row.get("ended_cause") == ENDED_CAUSE_KILLED:
         return f"{state} (killed)"
     return state
 
