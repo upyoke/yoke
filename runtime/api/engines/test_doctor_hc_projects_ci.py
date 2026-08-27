@@ -16,6 +16,7 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.projects_seed_ci_workflow import (
     CI_WORKFLOW_CAPABILITY_TYPE,
 )
+from yoke_core.engines import doctor_hc_projects_ci
 from yoke_core.engines.doctor_hc_projects_ci import (
     CHECK_ID,
     hc_projects_ci_workflow_configured,
@@ -131,6 +132,50 @@ def test_warn_lists_multiple_missing_projects_alphabetically():
     detail = rec.results[0].detail
     # Projects iterated in alphabetical order via ORDER BY slug.
     assert detail.index("alpha") < detail.index("mike") < detail.index("zeta")
+
+
+def _declare(conn, project_id: int, workflow_file: str) -> None:
+    conn.execute(
+        "INSERT INTO project_capabilities (project_id, type, settings) "
+        "VALUES (%s, %s, %s)",
+        (project_id, CI_WORKFLOW_CAPABILITY_TYPE,
+         '{"workflow_file":"%s"}' % workflow_file),
+    )
+
+
+def _bind_checkout(monkeypatch, root) -> None:
+    monkeypatch.setattr(
+        doctor_hc_projects_ci,
+        "checkout_for_project_id",
+        lambda project_id: root,
+    )
+
+
+def test_warn_when_a_declared_workflow_cannot_be_reached(monkeypatch, tmp_path):
+    """A declaration stops being true when the workflow is renamed away."""
+    conn = _make_conn()
+    conn.execute(
+        "INSERT INTO projects (id, slug, github_repo) "
+        "VALUES (1, 'yoke', 'upyoke/yoke')",
+    )
+    _declare(conn, 1, "gone.yml")
+    _bind_checkout(monkeypatch, tmp_path)
+    rec = _record(conn)
+    assert rec.results[0].result == "WARN"
+    assert "cannot be reached" in rec.results[0].detail
+    assert "gone.yml" in rec.results[0].detail
+
+
+def test_a_project_whose_checkout_is_elsewhere_is_not_guessed_at(monkeypatch):
+    conn = _make_conn()
+    conn.execute(
+        "INSERT INTO projects (id, slug, github_repo) "
+        "VALUES (1, 'yoke', 'upyoke/yoke')",
+    )
+    _declare(conn, 1, "gone.yml")
+    _bind_checkout(monkeypatch, None)
+    rec = _record(conn)
+    assert rec.results[0].result == "PASS"
 
 
 @pytest.mark.parametrize("github_repo", ["", None])

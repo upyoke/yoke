@@ -252,6 +252,38 @@ Actions test workflow are not `ci_workflow_file`; keep those scopes on the
 local `command` runner. With no declaration the scopes keep that runner, which
 is a correct outcome, not a downgrade.
 
+The binding refuses a workflow the gate cannot reach, and names why. The gate
+starts a workflow by dispatching it with a `yoke_dispatch_id` input, so the
+workflow must declare:
+
+```yaml
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        required: false
+        default: ""
+```
+
+Without the `workflow_dispatch` input the gate cannot start a run at all and
+registration refuses. Without `pull_request` the gate still works by
+dispatching, but pays a second suite on every run instead of reusing the pull
+request's own — and a project landing through the merge queue is refused
+outright, because the queue lands only through pull requests. Where this
+machine holds no checkout for the project the declaration cannot be read, and
+the result says so rather than guessing.
+
+Offer the merge queue only when all three hold: GitHub is bound, that test
+workflow is declared, and it carries `merge_group:` among its `on` triggers.
+Creating the row enforces the first two and reads the third from the workflow;
+each missing piece refuses by name.
+
+```bash
+yoke projects capability-settings set --project {project} --cap-type merge_queue \
+  --new --settings-json '{}'
+```
+
 **A review-only suite** registers no project-default command. Carry its test
 roots, exact legacy argv, and known-red or flaky condition into step 8. Each
 seeded item then gets a blocking `implementation_review` requirement plus a

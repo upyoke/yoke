@@ -67,6 +67,26 @@ gate command. Jenkins, GitLab CI, Bitbucket Pipelines, `fastlane`, and an
 XCTest or container command without an Actions test workflow stay on the local
 `command` method; they are not `ci_workflow_file` declarations.
 
+Name the workflow that runs the suite. The binding refuses one the gate cannot
+reach, because the gate starts a workflow by dispatching it:
+
+- No `workflow_dispatch` trigger carrying a `yoke_dispatch_id` input — refused
+  for every project; the gate could never start a run.
+- No `pull_request` trigger — reported, and refused for a project declaring
+  `merge_queue`, whose gate reads the landing pull request's own run.
+- Not a file under `.github/workflows/`, or not a workflow at all — refused,
+  naming any other CI system the repository carries.
+
+Where the control plane holds no checkout for the project, the declaration
+cannot be read and the result names that rather than guessing. The boot-time
+convergence never refuses over a stale declaration: it binds the local runner
+and reports the reason, so one project's rename cannot stop a fleet from
+booting.
+
+Declaring `merge_queue` requires GitHub bound, `ci_workflow_file` declared,
+and that workflow carrying a `merge_group` trigger — without it the queue's
+integration gate has nothing to run and a queued pull request never merges.
+
 ## When the project has no suite
 
 A repository with nothing runnable does not get an empty gate. A gate with no

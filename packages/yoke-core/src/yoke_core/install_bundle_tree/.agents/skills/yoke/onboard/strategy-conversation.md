@@ -34,13 +34,23 @@ Survey the project checkout in both modes — in a freshly created repo it is tr
 - Project type, package manager, build/test commands, service entrypoints, and runtime versions.
 - Existing docs that should feed the strategy drafts and the later execution profile.
 - External systems, required secrets, deployment targets, and unknowns.
+- **CI, one workflow at a time.** List every file under `.github/workflows/`
+  and classify each by what it does: runs the tests, builds artifacts,
+  deploys, releases, or something else. Record any non-Actions CI system the
+  repo carries — a `Jenkinsfile`, `.gitlab-ci.yml`, `bitbucket-pipelines.yml`,
+  or `fastlane/Fastfile`. Only the workflow that runs the tests can become
+  the project's `ci_workflow_file` in step 5; a deploy or release workflow
+  declared there makes the verification gate report a green that proves
+  something else, and the registration refuses it by name. A project whose CI
+  is Jenkins, GitLab, Bitbucket, or a store upload keeps the local `command`
+  runner — that is a correct outcome, not a gap.
 
 Do not guess what the survey can answer. Then mark:
 
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status repo-survey=verified \
-  --evidence repo-survey="surveyed manifests, docs, CI, and runtime shape: {short facts}"
+  --evidence repo-survey="surveyed manifests, docs, CI, and runtime shape: {short facts}; workflows {name=purpose, ...}; other CI {systems or none}"
 ```
 
 ## 4. Draft And Refine All Five Docs
