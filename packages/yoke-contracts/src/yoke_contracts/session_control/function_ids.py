@@ -20,10 +20,17 @@ LAUNCH_FUNCTION_IDS = (
     "session_control.launch.reconcile",
 )
 
+RELAY_LIST_FUNCTION_ID = "session_control.relay.list"
+RELAY_CLAIM_FUNCTION_ID = "session_control.relay.claim"
+RELAY_REPORT_FUNCTION_ID = "session_control.relay.report"
+#: The machine's report that a session's native process is verifiably gone.
+RELAY_LIVENESS_FUNCTION_ID = "session_control.relay.liveness"
+
 RELAY_FUNCTION_IDS = (
-    "session_control.relay.list",
-    "session_control.relay.claim",
-    "session_control.relay.report",
+    RELAY_LIST_FUNCTION_ID,
+    RELAY_CLAIM_FUNCTION_ID,
+    RELAY_REPORT_FUNCTION_ID,
+    RELAY_LIVENESS_FUNCTION_ID,
 )
 
 QUALIFICATION_FUNCTION_IDS = ("session_control.qualification.open",)
@@ -42,7 +49,11 @@ __all__ = [
     "LAUNCH_FUNCTION_IDS",
     "MESSAGE_FUNCTION_IDS",
     "QUALIFICATION_FUNCTION_IDS",
+    "RELAY_CLAIM_FUNCTION_ID",
     "RELAY_FUNCTION_IDS",
+    "RELAY_LIST_FUNCTION_ID",
+    "RELAY_LIVENESS_FUNCTION_ID",
+    "RELAY_REPORT_FUNCTION_ID",
     "SESSION_FUNCTION_IDS",
     "SESSION_CONTROL_FUNCTION_IDS",
 ]

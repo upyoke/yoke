@@ -264,6 +264,28 @@ class RelayClaimResponse(BaseModel):
     jobs: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+class RelayLivenessReport(BaseModel):
+    """One session whose native process the reporting machine proved gone."""
+
+    model_config = ConfigDict(extra="forbid")
+    session_id: str
+    evidence: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RelayLivenessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    relay_id: str
+    machine_id: str
+    projects: List[int]
+    sessions: List[RelayLivenessReport] = Field(default_factory=list, max_length=100)
+
+
+class RelayLivenessResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    ended: List[str] = Field(default_factory=list)
+    skipped: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 class RelayReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relay_id: str
@@ -313,6 +335,9 @@ __all__ = [
     "RelayClaimResponse",
     "RelayListRequest",
     "RelayListResponse",
+    "RelayLivenessReport",
+    "RelayLivenessRequest",
+    "RelayLivenessResponse",
     "RelayReportRequest",
     "RelayReportResponse",
 ]

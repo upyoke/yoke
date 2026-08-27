@@ -12,6 +12,8 @@ from yoke_contracts.session_control.models import (
     RelayClaimResponse,
     RelayListRequest,
     RelayListResponse,
+    RelayLivenessRequest,
+    RelayLivenessResponse,
     RelayReportRequest,
     RelayReportResponse,
 )
@@ -125,6 +127,44 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(primary_success=True, result_payload=outcome.to_dict())
 
 
+def handle_relay_liveness(request: FunctionCallRequest) -> HandlerOutcome:
+    """End the reported sessions whose native process this machine proved gone."""
+    if invalid := _target_failure(request):
+        return invalid
+    try:
+        payload = RelayLivenessRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _failure("payload_invalid", str(exc))
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.session_process_liveness_end import (
+        end_process_verified_dead_sessions,
+    )
+    from yoke_core.domain.session_relay_authorization import (
+        require_relay_project_authority,
+    )
+
+    conn = connect()
+    try:
+        try:
+            actor_id = _actor_id(request)
+            require_relay_project_authority(
+                conn,
+                actor_id=actor_id,
+                project_ids=payload.projects,
+            )
+            outcome = end_process_verified_dead_sessions(
+                conn,
+                machine_id=payload.machine_id,
+                authorized_projects=payload.projects,
+                reports=[report.model_dump(mode="json") for report in payload.sessions],
+            )
+        except (SessionRelayError, ValueError) as exc:
+            return _failure(getattr(exc, "code", "relay_liveness_failed"), str(exc))
+    finally:
+        conn.close()
+    return HandlerOutcome(primary_success=True, result_payload=outcome)
+
+
 def handle_relay_report(request: FunctionCallRequest) -> HandlerOutcome:
     if invalid := _target_failure(request):
         return invalid
@@ -163,8 +203,10 @@ def handle_relay_report(request: FunctionCallRequest) -> HandlerOutcome:
 __all__ = [
     "RelayClaimResponse",
     "RelayListResponse",
+    "RelayLivenessResponse",
     "RelayReportResponse",
     "handle_relay_claim",
     "handle_relay_list",
+    "handle_relay_liveness",
     "handle_relay_report",
 ]

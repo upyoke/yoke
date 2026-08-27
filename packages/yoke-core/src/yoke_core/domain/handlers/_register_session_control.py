@@ -18,6 +18,7 @@ from yoke_core.domain.handlers import session_relay as _relay
 from yoke_core.domain.handlers import session_termination as _termination
 from yoke_core.domain.handlers import session_qualification as _qualification
 from yoke_core.domain.session_termination_events import EVENT_SESSION_TERMINATED
+from yoke_core.domain.sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 
 
 def _register(
@@ -238,6 +239,20 @@ def register(registry) -> None:
         ],
         owner_module=_relay.__name__,
         adapter_status="internal",
+    )
+    _register(
+        registry,
+        "session_control.relay.liveness",
+        _relay.handle_relay_liveness,
+        _models.RelayLivenessRequest,
+        _models.RelayLivenessResponse,
+        side_effects=[
+            "harness_sessions_update",
+            "work_claims_update_released_at",
+        ],
+        owner_module=_relay.__name__,
+        adapter_status="internal",
+        emitted_event_names=["YokeFunctionCalled", EVENT_HARNESS_SESSION_ENDED],
     )
     _register(
         registry,

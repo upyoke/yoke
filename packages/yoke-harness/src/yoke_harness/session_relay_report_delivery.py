@@ -17,6 +17,10 @@ from yoke_harness.session_relay_runtime import RelayAdapterResult
 PENDING_REPORT_DIR_NAME = "pending-reports"
 REPORT_RETRY_SECONDS = 1
 
+# How long one report dispatch may take. Every relay report is a small
+# control-plane write, so the same bound covers them all.
+RELAY_REPORT_TIMEOUT_SECONDS = 10
+
 
 Dispatcher = Callable[..., Any]
 
@@ -251,6 +255,7 @@ def retry_pending_reports(
 
 
 __all__ = [
+    "RELAY_REPORT_TIMEOUT_SECONDS",
     "PENDING_REPORT_DIR_NAME",
     "REPORT_RETRY_SECONDS",
     "checkpoint_launch_result",
