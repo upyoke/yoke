@@ -43,18 +43,35 @@ waiting dependent; activation dependencies do not send their own go-signal:
 printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke say --item PREFIX-N --stdin
 ```
 
-#### Negative-space checks — every periodic pass
+#### Negative-space checks — first, every periodic pass
 
-Positive wake events are not enough. Run this checklist on every periodic
-pass, not only after something looks wrong:
+Positive wake events are not enough. Run this checklist **first** on every
+periodic pass — before consuming events, messages, or worker reports — and
+run it whether or not anything looks wrong. When a pass arrives dense with
+events, the events wait and the checklist still runs; never the reverse.
+Event handling expands to fill the pass, and this checklist is the only
+detector for the failures that arrive as silence.
 
-- **Outbound delivery:** find every envelope this steerer sent that is still
-  `state='pending'` with `injection_count=0` after about 10 minutes. When the
-  recipient's `last_tool_call_at` predates the send, treat it as starved and
-  revive it immediately: use the registered wake when available, otherwise
-  the manual native-resume bridge under **Revive starved workers** below.
+- **Outbound delivery:** find every envelope still `state='pending'` with
+  `injection_count=0` past the project's grace window whose recipient has
+  made no tool call since the send. Sender is not a filter: worker-to-worker
+  and worker-to-steerer envelopes starve exactly like the ones this steerer
+  sent, and recipient idleness is the whole trigger.
+
+  ```text
+  yoke db read "SELECT r.message_id, r.session_id, r.created_at, s.last_tool_call_at FROM session_message_recipients r JOIN harness_sessions s ON s.session_id = r.session_id WHERE r.state = 'pending' AND r.injection_count = 0 AND r.created_at::timestamptz < now() - interval '10 minutes' AND (s.last_tool_call_at IS NULL OR s.last_tool_call_at::timestamptz < r.created_at::timestamptz) ORDER BY r.created_at DESC"
+  ```
+
+  Treat every returned row as starved and revive it immediately: use the
+  registered wake when available, otherwise the manual native-resume bridge
+  under **Revive starved workers** below.
 - **Stale claim holders:** any session with a live work claim and
-  `liveness=stale` gets the same probe-and-revive treatment.
+  `liveness=stale` gets the same probe-and-revive treatment. A starved
+  holder is also burning down its stale clock, so read `stale_eligible_at`
+  and `effective_stale_ttl_minutes` from its `yoke sessions list --json`
+  row while triaging it. At `stale_eligible_at` the reclaim sweep releases
+  that session's claims and its item reads as untouched, so a starved
+  holder near reclaim is revived before anything else in the pass.
 - **Unregistered launches:** any launch past `deadline_at` without a
   `registered_session_id` gets `launch reconcile` followed by `launch retry`.
 - **Silent in-flight work:** any in-flight item with no worker activity beyond
