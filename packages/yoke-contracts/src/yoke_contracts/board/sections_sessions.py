@@ -75,7 +75,15 @@ def render_sessions_section(
             work_targets = _dedup_work_targets(
                 [
                     (
-                        _render_claim_target(c[0], c[1], c[2], c[8], db=db),
+                        _render_claim_target(
+                            c[0],
+                            c[1],
+                            c[2],
+                            c[8],
+                            db=db,
+                            target_kind=c[7],
+                            scope=c[9],
+                        ),
                         c[0],
                         None,
                     )
@@ -180,7 +188,15 @@ def render_sessions_section(
             work_targets = _dedup_work_targets(
                 [
                     (
-                        _render_claim_target(c[0], c[1], c[2], c[8], db=db),
+                        _render_claim_target(
+                            c[0],
+                            c[1],
+                            c[2],
+                            c[8],
+                            db=db,
+                            target_kind=c[7],
+                            scope=c[9],
+                        ),
                         c[0],
                         c[6],
                     )

@@ -320,13 +320,16 @@ The Active Harness Sessions and Recent Sessions tables share one Claims column t
 | work_claim (item)       | `PREFIX-N`                     | `PREFIX-N`                         |
 | work_claim (epic task)  | `PREFIX-N T###`                | `PREFIX-N T008`                    |
 | work_claim (process)    | `⚙ <process_key>`           | `⚙ FEED`                           |
+| work_claim (steering)   | `steering:<slug>`           | `steering:yoke`                    |
+| work_claim (other kind) | `<kind>:<compact-scope>`    | `future_kind:{"k":"v"}`            |
+| strategy_doc_claim      | `doc:<SLUG>`                | `doc:MISSION`                      |
 | work_claim + same-item path_claim decoration | `PREFIX-N 📁<total>`           | `PREFIX-N 📁23`                    |
 | path_claim orphan       | `📁<total> (PREFIX-N)`         | `📁5 (PREFIX-N)`                   |
 | path_claim process anchor | `📁<total> (⚙ process_key)` | `📁3 (⚙ FEED)`                     |
 | coordination claim      | `🔒 <key>`                  | `🔒 QA_HOST:mac-mini-lab`          |
 | coordination claim (item-owned) | `🔒 <key> (PREFIX-N)` | `🔒 LIVE_DB_MIGRATION:primary (PREFIX-N)` |
 
-Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; coordination claims never decorate work_claims; ordering inside a row is work_claims → orphan path_claim keycaps → coordination claims. Repeat work claims on the same rendered target and repeat coordination claims on the same key each collapse to the most recent row (one keycap). Release reasons are not rendered on Claims — drill into claim detail surfaces for audit history. Released path_claims and coordination claims do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.
+Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; coordination claims never decorate work_claims (they stay `🔒` keycaps and are omitted from the work-claim list so they do not also render as `?`); ordering inside a row is work_claims → `doc:<SLUG>` locks → orphan path_claim keycaps → coordination claims. Repeat work claims on the same rendered target and repeat coordination claims on the same key each collapse to the most recent row (one keycap). Steering occupancy is this column, not a separate Steering section. Release reasons are not rendered on Claims — drill into claim detail surfaces for audit history. Released path_claims and coordination claims do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.
 
 ### Session Offer
 

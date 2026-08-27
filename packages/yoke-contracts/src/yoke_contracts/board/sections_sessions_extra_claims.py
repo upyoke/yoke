@@ -8,11 +8,13 @@ and coordination-claim decoration logic for the existing Claims column:
 * ``📁<total> (🔩 <process_key>)`` — process-anchored orphan via the owning
   work claim.
 * ``🔒 <key>`` — shared-operation coordination claim.
+* ``doc:<SLUG>`` — session-owned strategy-document lock.
 
 Keeps :mod:`sections_sessions` lean: the wire-in layer fetches claims and
 calls :func:`build_session_keycaps` for the final ordered, decorated target
-list. ``_chunk_claims`` (in the parent module) wraps the layout to a
-display-width budget.
+list. Session-owned strategy-document locks append as ``doc:<SLUG>`` after
+work-claim keycaps. ``_chunk_claims`` (in the parent module) wraps the
+layout to a display-width budget.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from yoke_contracts.board.sections_sessions_claim_reads import (
     _path_claims_for_items,
     coordination_claims_for_session,
     path_claims_for_session,
+    strategy_doc_claims_for_session,
 )
 from yoke_contracts.coordination_claim_keys import (
     TARGET_KIND_MIGRATION_SERIALIZATION,
@@ -179,6 +182,13 @@ def build_session_keycaps(
             if queue_status:
                 cell = f"{cell} · {queue_status}"
         decorated_targets.append(cell)
+
+    for slug in strategy_doc_claims_for_session(
+        db,
+        session_id,
+        active_only=active_only,
+    ):
+        decorated_targets.append(f"doc:{slug}")
 
     # Orphan path_claims (no matching work_claim on the same item).
     orphan_items = sorted(

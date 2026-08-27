@@ -47,6 +47,19 @@ def test_render_claim_target_with_no_target_returns_question():
     assert _render_claim_target(None, None, None) == "?"
 
 
+def test_render_claim_target_steering_falls_back_to_project_id():
+    assert (
+        _render_claim_target(
+            None,
+            None,
+            None,
+            target_kind="steering",
+            scope={"project_id": 7},
+        )
+        == "steering:7"
+    )
+
+
 _SCHEMA = """
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,

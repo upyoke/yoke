@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import List, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
+from yoke_contracts.board.sections_sessions_occupancy import occupancy_doc_slugs
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_SCOPE_KEY,
     COORDINATION_TARGET_KINDS,
@@ -181,7 +182,44 @@ def coordination_claims_for_session(
 
 
 
+def strategy_doc_claims_for_session(
+    db: BoardDBLike,
+    session_id: str,
+    *,
+    active_only: bool,
+) -> List[str]:
+    """Return session-owned strategy-document slugs for the Claims column.
+
+    Rows are ``doc:<SLUG>`` occupancy, not work-claim targets. Missing
+    table or an unrecorded replay query yields an empty list so a board
+    payload from before this read still renders.
+    """
+    if active_only:
+        cached = occupancy_doc_slugs(db, session_id)
+        if cached:
+            return cached
+    terminal_filter = " AND sdc.released_at IS NULL" if active_only else ""
+    sql = f"""
+        SELECT sdc.strategy_doc_slug
+        FROM strategy_doc_claims sdc
+        WHERE sdc.owner_kind = 'session'
+          AND sdc.owner_session_id = %s
+          {terminal_filter}
+        ORDER BY sdc.strategy_doc_slug
+        """
+    params = (session_id,)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return []
+    return [
+        str(row[0])
+        for row in db.query_quiet(sql, params)
+        if row and row[0]
+    ]
+
+
 __all__ = [
     "coordination_claims_for_session",
     "path_claims_for_session",
+    "strategy_doc_claims_for_session",
 ]
