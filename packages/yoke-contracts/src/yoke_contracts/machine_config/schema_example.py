@@ -13,100 +13,103 @@ import json
 from typing import Any
 
 from yoke_contracts.api_urls import HOSTED_PROD_API_URL, HOSTED_STAGE_API_URL
+from yoke_contracts.machine_config.preferred_session_models import (
+    PREFERRED_SESSION_MODELS_KEY,
+    blank_preferred_session_models,
+)
 
 
 def canonical_example_payload() -> dict[str, Any]:
     """Return the code-owned example payload for ``yoke config example``."""
-    return copy.deepcopy({
-        "schema_version": _contract().SCHEMA_VERSION,
-        _contract().MACHINE_ID_KEY: "00000000-0000-4000-8000-000000000001",
-        "active_env": "prod",
-        "connections": {
-            "prod": {
-                "transport": _contract().TRANSPORT_HTTPS,
-                _contract().PROD_FLAG_KEY: True,
-                "api_url": HOSTED_PROD_API_URL,
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": "~/.yoke/secrets/prod.token",
-                },
-            },
-            "source-dev-admin": {
-                "transport": _contract().DEFAULT_TRANSPORT,
-                _contract().PROD_FLAG_KEY: False,
-                "credential_source": {
-                    "kind": "dsn_file",
-                    "path": "~/.yoke/secrets/source-dev-admin.dsn",
-                },
-                "postgres": {
-                    "host": "127.0.0.1",
-                    "port": 6547,
-                    "tunnel": {
-                        "kind": "ssh",
-                        "bastion": "ubuntu@bastion.example.com",
-                        "identity_file": "~/.ssh/example-bastion.pem",
-                        "remote_host": "aurora.example.internal",
-                        "remote_port": 5432,
+    return copy.deepcopy(
+        {
+            "schema_version": _contract().SCHEMA_VERSION,
+            _contract().MACHINE_ID_KEY: "00000000-0000-4000-8000-000000000001",
+            "active_env": "prod",
+            "connections": {
+                "prod": {
+                    "transport": _contract().TRANSPORT_HTTPS,
+                    _contract().PROD_FLAG_KEY: True,
+                    "api_url": HOSTED_PROD_API_URL,
+                    "credential_source": {
+                        "kind": "token_file",
+                        "path": "~/.yoke/secrets/prod.token",
                     },
                 },
-                "authority": {
-                    "kind": "aws_aurora_postgres",
-                    "infra_dir": "infra/pulumi/app-cloud",
-                    "location": {
-                        "stack": "app-prod",
-                        "region": "us-east-1",
-                        "database_name": "app_prod",
+                "source-dev-admin": {
+                    "transport": _contract().DEFAULT_TRANSPORT,
+                    _contract().PROD_FLAG_KEY: False,
+                    "credential_source": {
+                        "kind": "dsn_file",
+                        "path": "~/.yoke/secrets/source-dev-admin.dsn",
+                    },
+                    "postgres": {
+                        "host": "127.0.0.1",
+                        "port": 6547,
+                        "tunnel": {
+                            "kind": "ssh",
+                            "bastion": "ubuntu@bastion.example.com",
+                            "identity_file": "~/.ssh/example-bastion.pem",
+                            "remote_host": "aurora.example.internal",
+                            "remote_port": 5432,
+                        },
+                    },
+                    "authority": {
+                        "kind": "aws_aurora_postgres",
+                        "infra_dir": "infra/pulumi/app-cloud",
+                        "location": {
+                            "stack": "app-prod",
+                            "region": "us-east-1",
+                            "database_name": "app_prod",
+                        },
+                    },
+                },
+                "stage": {
+                    "transport": _contract().TRANSPORT_HTTPS,
+                    _contract().PROD_FLAG_KEY: False,
+                    "api_url": HOSTED_STAGE_API_URL,
+                    "credential_source": {
+                        "kind": "token_file",
+                        "path": "~/.yoke/secrets/stage.token",
                     },
                 },
             },
-            "stage": {
-                "transport": _contract().TRANSPORT_HTTPS,
-                _contract().PROD_FLAG_KEY: False,
-                "api_url": HOSTED_STAGE_API_URL,
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": "~/.yoke/secrets/stage.token",
+            "temp_root": _contract().DEFAULT_TEMP_ROOT,
+            "cache_dir": _contract().DEFAULT_CACHE_ROOT,
+            "github": {
+                "api_url": _contract().DEFAULT_GITHUB_API_URL,
+                "web_url": _contract().DEFAULT_GITHUB_WEB_URL,
+                "app_slug": "yoke",
+                "app_id": 12345,
+                "client_id": "Iv1.example",
+                "profile_source": _contract().GITHUB_PROFILE_SOURCE_SERVICE,
+                "profile_service_api_url": HOSTED_PROD_API_URL,
+                "authorization": {
+                    "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
+                    "refresh_credential_ref": ("~/.yoke/secrets/github.user-refresh"),
+                    "github_user_id": 1001,
+                    "login": "example-user",
+                    "status": "authorized",
                 },
             },
-        },
-        "temp_root": _contract().DEFAULT_TEMP_ROOT,
-        "cache_dir": _contract().DEFAULT_CACHE_ROOT,
-        "github": {
-            "api_url": _contract().DEFAULT_GITHUB_API_URL,
-            "web_url": _contract().DEFAULT_GITHUB_WEB_URL,
-            "app_slug": "yoke",
-            "app_id": 12345,
-            "client_id": "Iv1.example",
-            "profile_source": _contract().GITHUB_PROFILE_SOURCE_SERVICE,
-            "profile_service_api_url": HOSTED_PROD_API_URL,
-            "authorization": {
-                "kind": _contract().GITHUB_AUTH_KIND_USER_AUTHORIZATION,
-                "refresh_credential_ref": (
-                    "~/.yoke/secrets/github.user-refresh"
-                ),
-                "github_user_id": 1001,
-                "login": "example-user",
-                "status": "authorized",
-            },
-        },
-        "projects": [
-            {
-                "checkout": "/Users/example/yoke",
-                "project_id": 1,
-                "env": "prod",
-            },
-        ],
-        "settings": {},
-        "preferred_session_models": {
-            "cursor-cli": "cursor-grok-4.6-high-fast",
-        },
-    })
+            "projects": [
+                {
+                    "checkout": "/Users/example/yoke",
+                    "project_id": 1,
+                    "env": "prod",
+                },
+            ],
+            "settings": {},
+            PREFERRED_SESSION_MODELS_KEY: blank_preferred_session_models(),
+        }
+    )
+
 
 def canonical_example_text() -> str:
     return json.dumps(canonical_example_payload(), indent=2) + "\n"
 
 
-
 def _contract():
     from yoke_contracts.machine_config import schema as machine_config_contract
+
     return machine_config_contract

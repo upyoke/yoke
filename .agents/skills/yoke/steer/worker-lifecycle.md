@@ -63,11 +63,12 @@ new `session_control.launch.create`.
 ## 7. Choose the model per item at launch
 
 Default resolution: explicit `--model` on the launch > machine-config
-`preferred_session_models` map > vendor default. Override per item when
-the work warrants — a heavier model for architecture, migration, or
-high-risk items; a faster model for mechanical or copy-level dashes. The
-override is the launch's explicit `--model`. The resolved choice is
-recorded on the launch row.
+`preferred_session_models` map > vendor default. Blank (or whitespace)
+map values are unset and fall through to the vendor default. Override
+per item when the work warrants — a heavier model for architecture,
+migration, or high-risk items; a faster model for mechanical or
+copy-level dashes. The override is the launch's explicit `--model`.
+The resolved choice is recorded on the launch row.
 
 ```text
 yoke session-control launch preview --project {_project} --surface {_surface} --list-models

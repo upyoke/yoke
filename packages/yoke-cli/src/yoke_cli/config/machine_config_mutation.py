@@ -11,6 +11,9 @@ import uuid
 from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.machine_config.preferred_session_models import (
+    seed_preferred_session_models,
+)
 
 
 class MachineConfigWriteError(RuntimeError):
@@ -24,6 +27,7 @@ def serialized_mutation(
     operation: Callable[..., _Result],
 ) -> Callable[..., _Result]:
     """Serialize one complete config read-modify-replace transaction."""
+
     @wraps(operation)
     def locked(*args: Any, **kwargs: Any) -> _Result:
         cfg_path = machine_config.config_path(kwargs.get("path"))
@@ -40,19 +44,41 @@ def serialized_mutation(
 
 
 def load_payload(path: str | Path | None) -> tuple[dict[str, Any], Path]:
-    """Load the selected config, seeding the schema version when empty."""
+    """Load the selected config, seeding a fresh document when empty.
+
+    A missing file is a fresh write: schema version plus the real
+    ``preferred_session_models`` key with blank (unset) values for every
+    launchable surface. An existing document is returned unchanged, even
+    when that key is absent — backfill is fresh writes and explicit
+    repair only.
+    """
     cfg_path = machine_config.config_path(path)
     payload = machine_config.load_config(path)
     if not payload:
         payload = {"schema_version": contract.SCHEMA_VERSION}
+        seed_preferred_session_models(payload)
     return payload, cfg_path
+
+
+@serialized_mutation
+def repair_preferred_session_models(
+    *,
+    path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Seed the real key on an existing document that lacks it."""
+    payload, cfg_path = load_payload(path)
+    seeded = seed_preferred_session_models(payload)
+    if seeded:
+        write_payload(payload, cfg_path)
+    return {"path": str(cfg_path), "seeded": seeded}
 
 
 def write_payload(payload: dict[str, Any], cfg_path: Path) -> None:
     """Validate and atomically replace one machine-config payload."""
     payload.setdefault(contract.MACHINE_ID_KEY, str(uuid.uuid4()))
     errors = [
-        issue for issue in contract.validate_payload(payload)
+        issue
+        for issue in contract.validate_payload(payload)
         if issue.severity == "error"
     ]
     if errors:
@@ -65,13 +91,15 @@ def write_payload(payload: dict[str, Any], cfg_path: Path) -> None:
             f"refusing to write invalid machine config:\n{detail}"
         )
     machine_config_file.atomic_write_text(
-        cfg_path, json.dumps(payload, indent=2) + "\n",
+        cfg_path,
+        json.dumps(payload, indent=2) + "\n",
     )
 
 
 __all__ = [
     "MachineConfigWriteError",
     "load_payload",
+    "repair_preferred_session_models",
     "serialized_mutation",
     "write_payload",
 ]
