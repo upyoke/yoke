@@ -85,7 +85,10 @@ export function sessionRosterFilters(documentNode, onChange) {
           && includes(row.role || row.work_role, String(controls.role.value || "").toLowerCase())
           && includes(row.execution_lane, String(controls.lane.value || "").toLowerCase())
           && includes(row.worktree, String(controls.worktree.value || "").toLowerCase())
-          && includes(row.machine_id, String(controls.machine.value || "").toLowerCase())
+          && (
+            includes(row.machine_id, String(controls.machine.value || "").toLowerCase())
+            || includes(row.machine_name, String(controls.machine.value || "").toLowerCase())
+          )
           && (!controls.liveness.value || row.liveness === controls.liveness.value)
           && (controls.route.value !== "message" || routing.messageable === true)
           && (controls.route.value !== "wake" || routing.wake_available === true);
@@ -122,6 +125,10 @@ export function sessionMessageabilityText(row) {
     : "Messageable through a supported hook; automatic wake is unavailable.";
 }
 
+function machineFactLabel(row) {
+  return row.machine_name || row.machine_id || "not reported";
+}
+
 export function appendSessionMessaging(documentNode, body, row, onMessage) {
   const relay = row.relay ? ` · relay ${row.relay}` : "";
   body.appendChild(el(
@@ -130,12 +137,14 @@ export function appendSessionMessaging(documentNode, body, row, onMessage) {
     "fact-line session-executor-version",
     `Executor version: ${row.executor_version || "not reported"}`,
   ));
-  body.appendChild(el(
+  const machine = el(
     documentNode,
     "p",
     "fact-line session-machine-fact",
-    `Machine: ${row.machine_id || "not reported"}${relay}`,
-  ));
+    `Machine: ${machineFactLabel(row)}${relay}`,
+  );
+  if (row.machine_id) machine.title = String(row.machine_id);
+  body.appendChild(machine);
   const description = sessionMessageabilityText(row);
   body.appendChild(el(
     documentNode,

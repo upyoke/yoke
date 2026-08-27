@@ -38,7 +38,12 @@ def machine_display_name() -> str:
     and keep the network name as the fallback that always answers.
     """
     if sys.platform == "darwin":
-        chosen = _probe(("scutil", "--get", "ComputerName"))
+        # LocalHostName is the owner-set DNS label. ComputerName is the
+        # same idea with spaces allowed; gethostname is the kernel value
+        # macOS silently resets to a generic token such as "Mac".
+        chosen = _probe(("scutil", "--get", "LocalHostName")) or _probe(
+            ("scutil", "--get", "ComputerName")
+        )
     elif sys.platform.startswith("linux"):
         # systemd's "pretty" hostname is the operator-set one. It is
         # routinely unset, and an unset value reports as empty output.

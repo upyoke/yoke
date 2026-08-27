@@ -11,9 +11,11 @@ function relayCard(documentNode, relay) {
   const card = el(documentNode, "article", "panel session-relay-card");
   card.setAttribute("data-relay-id", String(relay.relay_id || ""));
   const header = el(documentNode, "div", "panel-header");
-  header.appendChild(el(
+  const title = el(
     documentNode, "h3", null, relay.hostname || relay.machine_id,
-  ));
+  );
+  if (relay.hostname && relay.machine_id) title.title = String(relay.machine_id);
+  header.appendChild(title);
   const state = String(relay.liveness || "unknown");
   header.appendChild(el(
     documentNode, "span", `pill ${pillFamilyForState(state)}`, state,

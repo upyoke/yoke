@@ -46,6 +46,8 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE session_relays (
             relay_id TEXT PRIMARY KEY,
             machine_id TEXT,
+            hostname TEXT,
+            last_seen_at TEXT,
             connected_until TEXT,
             state TEXT,
             surface_versions TEXT,
@@ -118,10 +120,12 @@ def _add_relay(
     project_ids: tuple[int, ...] = (10,),
 ) -> None:
     conn.execute(
-        "INSERT INTO session_relays VALUES (?,?,?,?,?,?)",
+        "INSERT INTO session_relays VALUES (?,?,?,?,?,?,?,?)",
         (
             "relay-1",
             "machine-1",
+            "studio",
+            "2026-08-22T12:00:00Z",
             "2026-08-22T12:05:00Z",
             "active",
             json.dumps(surface_versions),
@@ -180,6 +184,7 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     assert row["worktree"] == "/repo/.worktrees/item-42"
     assert row["executor_version"] == "26.814.41407"
     assert row["machine_id"] == "machine-1"
+    assert row["machine_name"] == "studio"
     assert row["relay"] == "connected"
     assert row["turn_posture"] == "running"
     assert row["messageability"]["messageable"] is True
