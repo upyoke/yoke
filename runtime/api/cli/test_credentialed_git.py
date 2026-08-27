@@ -256,3 +256,48 @@ def test_a_token_inside_the_refresh_margin_is_read_again(monkeypatch):
     cg.resolve_token(HTTPS_ORIGIN)
     cg.resolve_token(HTTPS_ORIGIN)
     assert len(calls) == 2
+
+
+def test_a_failed_credentialed_command_says_the_credential_was_applied(
+    monkeypatch, stored_token,
+):
+    monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+
+    def _fail(argv, **kwargs):
+        return subprocess.CompletedProcess(
+            argv, 128, "", "fatal: unable to get password from user",
+        )
+
+    monkeypatch.setattr(subprocess, "run", _fail)
+    result = cg.run(["-C", "/repo", "push", "origin", "main"])
+    assert result.returncode == 128
+    assert "unable to get password" in result.stderr
+    # Without this line the same git error reads identically whether Yoke
+    # supplied a credential the remote rejected or supplied none at all.
+    assert "credential WAS applied" in result.stderr
+    assert HTTPS_ORIGIN in result.stderr
+
+
+def test_a_failed_uncredentialed_command_says_why_none_was_applied(monkeypatch):
+    monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
+    monkeypatch.setattr(
+        cgc, "remote_url", lambda repo, remote: "https://gitlab.example/a/b.git",
+    )
+
+    def _fail(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 128, "", "fatal: repository not found")
+
+    monkeypatch.setattr(subprocess, "run", _fail)
+    result = cg.run(["-C", "/repo", "fetch", "origin"])
+    assert "No credential was applied" in result.stderr
+    assert "not this machine's configured GitHub origin" in result.stderr
+
+
+def test_a_failed_local_command_gets_no_credential_attribution(monkeypatch):
+    def _fail(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 1, "", "fatal: not a git repository")
+
+    monkeypatch.setattr(subprocess, "run", _fail)
+    result = cg.run(["-C", "/repo", "status"])
+    assert result.stderr == "fatal: not a git repository"

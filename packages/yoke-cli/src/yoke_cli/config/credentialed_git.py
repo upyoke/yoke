@@ -85,7 +85,7 @@ def run(
     argv = ["git", *(str(item) for item in args)]
     try:
         with git_environment(args, cwd=cwd, base=env) as resolved_env:
-            return _run(
+            result = _run(
                 argv,
                 cwd=cwd,
                 capture=capture,
@@ -93,6 +93,9 @@ def run(
                 timeout=timeout,
                 env=resolved_env,
             )
+        if result.returncode != 0:
+            result = _attributed(result, args, cwd)
+        return result
     except CredentialedGitError as exc:
         if check:
             raise subprocess.CalledProcessError(
@@ -158,6 +161,55 @@ def credentialed_github_env(
         entries, base=base, allow_protocols="https",
     ) as env:
         yield env
+
+
+def credential_attribution(args: Sequence[str], cwd: str | None) -> str:
+    """One line naming which credential this command ran under, and why.
+
+    A failed remote command is unattributable without it: the same git error
+    appears whether Yoke supplied a credential the remote rejected or supplied
+    none at all, and those need opposite responses. Recomputed only on
+    failure, so the successful path pays nothing for it.
+    """
+    if not is_network_command(args):
+        return ""
+    url = contact_url(args, cwd)
+    if not url:
+        return (
+            "No credential was applied: the remote this command would contact "
+            "could not be resolved from the checkout, so there was nothing to "
+            "authenticate against."
+        )
+    web_url = configured_web_url()
+    if not is_configured_github(url, web_url):
+        return (
+            f"No credential was applied: {url} is not this machine's "
+            f"configured GitHub origin ({web_url or 'https://github.com'}), so "
+            "the command ran with the ambient credentials for that remote."
+        )
+    return (
+        f"This machine's stored GitHub credential WAS applied, scoped to "
+        f"{url}. A credential prompt or authentication failure above means "
+        "the remote rejected it rather than that none was supplied — check "
+        "`yoke github status`, and reconnect with `yoke github connect` if it "
+        "reports anything other than ready."
+    )
+
+
+def _attributed(
+    result: subprocess.CompletedProcess,
+    args: Sequence[str],
+    cwd: str | None,
+) -> subprocess.CompletedProcess:
+    """Append the credential attribution to a failed command's stderr."""
+    attribution = credential_attribution(args, cwd)
+    if not attribution:
+        return result
+    stderr = (result.stderr or "").rstrip()
+    joined = f"{stderr}\n{attribution}" if stderr else attribution
+    return subprocess.CompletedProcess(
+        result.args, result.returncode, result.stdout, joined,
+    )
 
 
 def resolve_token(https_url: str) -> str:
