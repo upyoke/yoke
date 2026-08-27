@@ -270,7 +270,7 @@ def test_item_rows_fall_back_to_legacy_recorded_query():
 
     assert not replay.has_query(_items_sql("", definition_metadata=True))
     assert query_item_rows(replay, "") == [
-        (*legacy_row[:-1], None, None, legacy_row[-1], "", "")
+        (*legacy_row[:-1], None, None, "", "", legacy_row[-1])
     ]
 
 

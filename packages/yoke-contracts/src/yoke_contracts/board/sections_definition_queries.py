@@ -22,7 +22,9 @@ def _items_sql(
          WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),"""
     queue_columns = ""
     if queue_metadata:
-        queue_columns = ", i.merge_queue_enqueued_at, i.merge_queue_landed_at"
+        queue_columns = """
+        i.merge_queue_enqueued_at,
+        i.merge_queue_landed_at,"""
     return f"""
     SELECT
         i.id,
@@ -39,8 +41,8 @@ def _items_sql(
         COALESCE(i.updated_at, ''),
         p.slug,
         p.public_item_prefix,
-        i.project_sequence,{metadata_columns}
-        wv.definition_json::jsonb #>> '{{policies,generated_children}}'{queue_columns}
+        i.project_sequence,{metadata_columns}{queue_columns}
+        wv.definition_json::jsonb #>> '{{policies,generated_children}}'
     FROM items i
     LEFT JOIN projects p ON p.id = i.project_id
     LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id
@@ -70,7 +72,7 @@ def query_item_rows(
         queue_metadata=False,
     )
     if has_query(prior_sql, params):
-        return [(*row, "", "") for row in db.query(prior_sql, params)]
+        return [(*row[:-1], "", "", row[-1]) for row in db.query(prior_sql, params)]
 
     legacy_sql = _items_sql(
         project_filter,
@@ -78,7 +80,7 @@ def query_item_rows(
         queue_metadata=False,
     )
     return [
-        (*row[:-1], None, None, row[-1], "", "") for row in db.query(legacy_sql, params)
+        (*row[:-1], None, None, "", "", row[-1]) for row in db.query(legacy_sql, params)
     ]
 
 

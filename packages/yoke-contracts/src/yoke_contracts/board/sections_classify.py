@@ -220,9 +220,9 @@ def classify_items(
             project_sequence,
             status_glyph,
             status_bucket,
-            generated_children,
             merge_queue_enqueued_at,
             merge_queue_landed_at,
+            generated_children,
         ) = row
         yok_id = format_item_ref(
             project_slug,
