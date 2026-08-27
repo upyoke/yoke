@@ -107,7 +107,7 @@ class TestResolvePaths:
         msg = str(excinfo.value)
         assert "SQLite authority retired/guarded" in msg
         assert "YOKE_PG_DSN" in msg
-        assert str(git_repo / ".yoke" / "yoke.db") in msg
+        assert "constructed file path" in msg
 
     def test_yoke_root_strips_worktree_from_env(self, git_repo):
         subprocess.run(

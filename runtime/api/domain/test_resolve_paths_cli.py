@@ -215,7 +215,8 @@ class TestPathsMain:
         )
         assert r.returncode != 0
         assert "SQLite authority retired/guarded" in r.stderr
-        assert str(yoke_repo / ".yoke" / "yoke.db") in r.stderr
+        assert "YOKE_PG_DSN" in r.stderr
+        assert "constructed file path" in r.stderr
 
     # --- named path modes (T10, T11) ---------------------------------------
 
