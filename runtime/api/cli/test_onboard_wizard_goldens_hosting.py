@@ -16,6 +16,7 @@ import pytest
 pytest.importorskip("textual")
 
 from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
+    _normalize,
     assert_golden,
     make_app,
     render,
@@ -50,6 +51,10 @@ def _seed_project(app: Any) -> None:
     app.result.project_mode = onboard_project.PROJECT_MODE_CREATE_REPO
     app.result.project_slug = "acme-app"
     app.result.project_name = "Acme App"
+
+
+def test_svg_normalization_ignores_line_ending_spaces() -> None:
+    assert _normalize("<g>\n        \n</g>\n") == _normalize("<g>\n\n</g>\n")
 
 
 def test_hosting_provider_choice() -> None:

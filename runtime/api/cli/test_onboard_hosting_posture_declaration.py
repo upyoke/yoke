@@ -1,10 +1,10 @@
 """Declaring that Yoke manages no host, and that declaration surviving apply.
 
-Skipping and declaring are different answers to the same question, and the
-difference has to hold all the way from the wizard row to the project row:
-the wizard offers the declaration wherever it offers a skip, choosing it
-collects no credential, apply writes the singleton family entry, and deciding
-later writes nothing at all so onboarding knows to ask again.
+Skipping and declaring are different provider-level answers, and the
+difference has to hold all the way from the wizard row to the project row.
+Declaring collects no credential and writes the singleton family entry;
+deciding later writes nothing so onboarding knows to ask again. AWS retry
+stays inside AWS and offers only re-entry or Not now.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def test_aws_retry_offers_reentry_or_not_now_without_changing_provider() -> None
 
 
 def test_the_subtitle_does_not_present_aws_as_the_only_world() -> None:
-    """"AWS for now" read as "AWS eventually", which was never the offer."""
+    """Provider copy must not make AWS sound inevitable."""
     subtitle = hosting_steps.HOSTING_PROVIDER_SUBTITLE
     assert "AWS" in subtitle
     assert "yourself" in subtitle

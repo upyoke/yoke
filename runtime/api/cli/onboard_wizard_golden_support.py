@@ -54,6 +54,7 @@ _TERMINAL_CLASS_RE = re.compile(r'class="terminal-YOKE-(r\d+)"')
 _INVISIBLE_TERMINAL_TEXT_RE = re.compile(
     r'<text class="terminal-YOKE-r\d+"[^>]*>(?:(?:&#160;)|\s)*</text>'
 )
+_TRAILING_WHITESPACE_RE = re.compile(r"[ \t]+(?=\n)")
 
 
 @contextmanager
@@ -81,6 +82,7 @@ def _normalize(svg: str) -> str:
     svg = _TERMINAL_ID_RE.sub("terminal-YOKE", svg)
     svg = _VERSION_RE.sub("{{VERSION}}", svg)
     svg = _INVISIBLE_TERMINAL_TEXT_RE.sub("", svg)
+    svg = _TRAILING_WHITESPACE_RE.sub("", svg)
     used_styles = set(_TERMINAL_CLASS_RE.findall(svg))
     svg = _TERMINAL_STYLE_RE.sub(
         lambda match: match.group(0) if match.group(1) in used_styles else "",

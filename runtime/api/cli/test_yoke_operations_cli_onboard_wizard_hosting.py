@@ -1,10 +1,10 @@
 """Live-wizard coverage for what the Hosting step does with a credential.
 
 Skipping strands nothing, a saved pair actually lands on disk owner-only, and
-each failure ends on a screen that says which of the three things went wrong.
-Driven through the real ``OnboardWizardApp`` reading the live DOM; the AWS CLI
-is never invoked. How the connect screen takes the pair in the first place lives
-in the entry suite beside this one.
+each failure says whether storage or identity verification failed. Driven
+through the real ``OnboardWizardApp`` reading the live DOM; the AWS CLI is
+never invoked. Keyboard behavior for the key-entry screens lives in the entry
+suite beside this one.
 """
 
 from __future__ import annotations
