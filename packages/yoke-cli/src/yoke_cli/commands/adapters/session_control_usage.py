@@ -23,6 +23,7 @@ from yoke_cli.commands.adapters.session_control_roster import SESSION_ROSTER_USA
 from yoke_cli.commands.adapters.session_control_termination import (
     SESSION_TERMINATE_USAGE,
 )
+from yoke_cli.commands.adapters.session_control_wake import SESSION_WAKE_USAGE
 from yoke_cli.commands.adapters.session_control_qualification import (
     QUALIFICATION_OPEN_USAGE,
 )
@@ -44,6 +45,7 @@ SESSION_CONTROL_USAGE_BY_FUNCTION_ID = {
     "session_control.launch.retry": LAUNCH_RETRY_USAGE,
     "session_control.launch.reconcile": LAUNCH_RECONCILE_USAGE,
     "session_control.session.terminate": SESSION_TERMINATE_USAGE,
+    "session_control.session.wake": SESSION_WAKE_USAGE,
     "sessions.list": SESSION_ROSTER_USAGE,
 }
 

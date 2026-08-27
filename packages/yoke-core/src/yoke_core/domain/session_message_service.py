@@ -94,8 +94,9 @@ def send_message(
     idempotency_key: str | None = None,
     supplied_confirmation_token: str | None = None,
     now: datetime | None = None,
+    commit: bool = True,
 ) -> dict[str, Any]:
-    """Resolve, authorize, and snapshot recipients in the write transaction."""
+    """Resolve, authorize, snapshot, and optionally commit one message."""
     current = now or utc_now()
     begin_message_mutation(conn)
     try:
@@ -152,7 +153,8 @@ def send_message(
             recipients=recipients,
             wake_after_by_project=wake_after_by_project,
         )
-        conn.commit()
+        if commit:
+            conn.commit()
         selected = (
             _public_recipients(recipients) if created else public_recipients(details)
         )

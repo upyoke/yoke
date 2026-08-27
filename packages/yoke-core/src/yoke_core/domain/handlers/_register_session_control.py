@@ -11,11 +11,16 @@ from yoke_contracts.session_control.termination import (
     SessionTerminateRequest,
     SessionTerminateResponse,
 )
+from yoke_contracts.session_control.wake import (
+    SessionWakeRequest,
+    SessionWakeResponse,
+)
 from yoke_core.domain.handlers import session_launch as _launch
 from yoke_core.domain.handlers import session_messages as _messages
 from yoke_core.domain.handlers import session_messages_receipts as _receipts
 from yoke_core.domain.handlers import session_relay as _relay
 from yoke_core.domain.handlers import session_termination as _termination
+from yoke_core.domain.handlers import session_wake as _wake
 from yoke_core.domain.handlers import session_qualification as _qualification
 from yoke_core.domain.session_termination_events import EVENT_SESSION_TERMINATED
 from yoke_core.domain.sessions_analytics import EVENT_HARNESS_SESSION_ENDED
@@ -72,6 +77,22 @@ def register(registry) -> None:
             "handler_enforced_operator_or_steering_authority",
         ],
         emitted_event_names=["YokeFunctionCalled", EVENT_SESSION_TERMINATED],
+    )
+    _register(
+        registry,
+        "session_control.session.wake",
+        _wake.handle_session_wake,
+        SessionWakeRequest,
+        SessionWakeResponse,
+        side_effects=[
+            "session_messages_insert",
+            "session_message_recipients_insert",
+        ],
+        owner_module=_wake.__name__,
+        guardrails=[
+            "verified_actor",
+            "handler_enforced_operator_or_steering_authority",
+        ],
     )
     _register(
         registry,

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-27T15:26:01Z_
+_Audit generated_at: 2026-08-27T16:08:57Z_
 
 ## 1. Summary
 
-- Function ids registered: **427**
+- Function ids registered: **428**
 - Internal dispatch-only functions without CLI adapters: **84**
-- `yoke` CLI subcommands: **354** (354 carry usable `--help`)
-- Operation tracker: **331 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- `yoke` CLI subcommands: **355** (355 carry usable `--help`)
+- Operation tracker: **332 wrapped**, 10 tool_cli, 126 permanent, 0 pending
 - Skill-body recipes: 308 total (256 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **331** (operation tracker confirms 331 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **332** (operation tracker confirms 332 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -255,6 +255,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **331** (operation track
 | session_control | `yoke session-control qualification open` | `session_control.qualification.open` | ok |
 | session_control | `yoke session-control session terminate` | `session_control.session.terminate` | ok |
 | session_control | `yoke sessions terminate` | `session_control.session.terminate` | ok |
+| session_control | `yoke session-control session wake` | `session_control.session.wake` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
@@ -533,9 +534,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 43 |
-| claude-code | 5 |
-| cursor | 2 |
+| codex | 44 |
+| claude-code | 6 |
 
 ## 8. Contradictions
 

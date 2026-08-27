@@ -35,7 +35,10 @@ RELAY_FUNCTION_IDS = (
 
 QUALIFICATION_FUNCTION_IDS = ("session_control.qualification.open",)
 
-SESSION_FUNCTION_IDS = ("session_control.session.terminate",)
+SESSION_FUNCTION_IDS = (
+    "session_control.session.terminate",
+    "session_control.session.wake",
+)
 
 SESSION_CONTROL_FUNCTION_IDS = (
     *MESSAGE_FUNCTION_IDS,

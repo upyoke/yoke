@@ -36,8 +36,10 @@ from yoke_contracts.session_control.teaching import (
 )
 from yoke_contracts.session_control import models as _models
 from yoke_contracts.session_control import termination as _termination
+from yoke_contracts.session_control import wake as _wake
 from yoke_contracts.session_control.models import *  # noqa: F403
 from yoke_contracts.session_control.termination import *  # noqa: F403
+from yoke_contracts.session_control.wake import *  # noqa: F403
 
 __all__ = [
     "SESSION_SURFACE_CAPABILITIES",
@@ -68,4 +70,5 @@ __all__ = [
     "private_route_version_qualified",
     *_models.__all__,
     *_termination.__all__,
+    *_wake.__all__,
 ]

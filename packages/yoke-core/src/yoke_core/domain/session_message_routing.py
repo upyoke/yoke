@@ -86,6 +86,7 @@ def messageability(
     *,
     liveness: str,
     machine_surface_versions: Mapping[str, str] | None = None,
+    force_stopped_route: bool = False,
 ) -> dict[str, Any]:
     """Project hook delivery and wake facts for one session.
 
@@ -116,7 +117,9 @@ def messageability(
             "reason": "unknown_surface",
         }
     version = str(row.get("executor_version") or "") or None
-    operation = _wake_operation(row, liveness)
+    operation = (
+        "message_stopped" if force_stopped_route else _wake_operation(row, liveness)
+    )
     wake_interface = _wake_interface(
         surface, version, operation, machine_surface_versions
     )

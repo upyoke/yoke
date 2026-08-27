@@ -7,12 +7,14 @@ from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.wake import MANUAL_WAKE_SELECTOR_FLAG
 from yoke_contracts.session_control.surface_versions import (
     machine_wake_executor_surface,
     surface_operation_supported,
     surface_version_supported,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain import json_helper
 from yoke_core.domain.session_activity_state import native_thread_id_column_present
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_delivery import (
@@ -123,6 +125,7 @@ def _native_wake_route_available(
     liveness: str,
     operation: str | None,
     relay_versions: Mapping[str, str],
+    force_stopped_route: bool = False,
 ) -> bool:
     # A terminated session is never wakeable, by any route. Its liveness now
     # reads "ended" like any other gone session, which does resolve a wake
@@ -131,7 +134,10 @@ def _native_wake_route_available(
     if row.get("terminated_at"):
         return False
     routing = messageability(
-        row, liveness=liveness, machine_surface_versions=relay_versions
+        row,
+        liveness=liveness,
+        machine_surface_versions=relay_versions,
+        force_stopped_route=force_stopped_route,
     )
     if routing["wake_interface"] != "none":
         return True
@@ -153,6 +159,19 @@ def _native_wake_route_available(
         except PrivateRouteQualificationError:
             continue
     return False
+
+
+def _manual_wake_requested(row: Mapping[str, Any]) -> bool:
+    try:
+        snapshot = json_helper.loads_text(
+            str(row.get("message_selector_snapshot") or "")
+        )
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        isinstance(snapshot, Mapping)
+        and snapshot.get(MANUAL_WAKE_SELECTOR_FLAG) is True
+    )
 
 
 def wake_eligible_recipients(
@@ -181,6 +200,7 @@ def wake_eligible_recipients(
         )
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
+            "m.selector_snapshot AS message_selector_snapshot,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select} "
@@ -216,16 +236,20 @@ def wake_eligible_recipients(
             row = row_dict(raw)
             policy = project_policy(conn, int(row["project_id"]))
             liveness = session_liveness(row, now=current)
+            manual_wake = _manual_wake_requested(row)
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts
             adopting_final_attempt = bool(
                 ignore_attempt_id and attempt_count == policy.max_wake_attempts
             )
-            if at_limit and not adopting_final_attempt:
+            first_manual_attempt = manual_wake and attempt_count == 0
+            if at_limit and not adopting_final_attempt and not first_manual_attempt:
                 continue
-            if liveness == "active":
+            if manual_wake and attempt_count > 0:
                 continue
-            if row["state"] == "injected":
+            if not manual_wake and liveness == "active":
+                continue
+            if not manual_wake and row["state"] == "injected":
                 if not policy.reinject_until_acknowledged:
                     continue
                 # An injected envelope has already reached the session; what
@@ -237,11 +261,15 @@ def wake_eligible_recipients(
                 grace = timedelta(seconds=policy.wake_ack_grace_seconds)
                 if injected_at is not None and injected_at + grace > current:
                     continue
-            waiting_pending = (
-                row["state"] == "pending" and row.get("turn_posture") == "waiting"
-            )
             idle_window = timedelta(seconds=policy.wake_after_idle_seconds)
-            if waiting_pending:
+            waiting_pending = row["state"] == "pending" and (
+                manual_wake or row.get("turn_posture") == "waiting"
+            )
+            if manual_wake:
+                if row.get("injection_lease_id") is not None:
+                    continue
+                wake_mode = WakeMode.WAITING
+            elif waiting_pending:
                 if row.get("injection_lease_id") is not None:
                     continue
                 previous_wake = parse_timestamp(row.get("last_wake_at"))
@@ -273,6 +301,7 @@ def wake_eligible_recipients(
                 liveness=liveness,
                 operation=operation,
                 relay_versions=versions,
+                force_stopped_route=manual_wake,
             ):
                 _record_wake_skip(
                     conn,
@@ -306,6 +335,7 @@ def wake_eligible_recipients(
                     "wake_attempt_count": attempt_count,
                     "last_wake_at": row["last_wake_at"],
                     "native_thread_id": row.get("native_thread_id"),
+                    MANUAL_WAKE_SELECTOR_FLAG: manual_wake,
                 }
             )
         conn.commit()
