@@ -20,7 +20,7 @@ yoke qa case run --requirement-id <id>
 
 ## Binding your project's command
 
-Bind the command the gate runs — one call per scope, no environment needed:
+Bind a source-level command with no deployment environment flags:
 
 ```bash
 yoke qa registered-command set --project <p> --scope quick --command "<argv>"
@@ -32,6 +32,22 @@ gating transitions. The command is arbitrary shell argv: Maven, PHPUnit,
 `xcodebuild`, and `docker compose run --rm tests` are as valid as pytest.
 Register a reliable documented slice as `quick`; add `--scope full` with the
 broader argv only when the two commands genuinely differ.
+
+`quick` and `full` always materialize a project target, even when the project
+has exactly one declared environment. Plan list and detail views label this
+`project source · no deployment environment`.
+
+Deployed scopes use one explicit target contract:
+
+| Runner | `e2e` / `smoke` registration |
+|---|---|
+| Local, declared environment | add `--environment SITE/NAME` (or an environment ID) |
+| Local, runtime URL | add `--requires-base-url`; the case run must supply HTTP(S) `--base-url` |
+| CI via `scope_workflows` | add `--environment SITE/NAME`; runtime URL mode is refused |
+
+Exactly one local deployed target is required. Invalid combinations and bad
+environment references are refused before plan writes. Generic `yoke qa plan
+create` remains environment-bound and still requires `--environment`.
 
 Test roots are independent Project Structure entries. Record each monorepo
 tree with a keyed `test_roots` `put`; the quick command may intentionally cover

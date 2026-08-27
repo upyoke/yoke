@@ -17,6 +17,8 @@ class RegisteredCommandSetRequest(BaseModel):
     project: str = Field(..., min_length=1)
     scope: str = Field(..., min_length=1)
     command: str = Field(..., min_length=1)
+    target_environment: Optional[str] = None
+    requires_base_url: Optional[bool] = None
 
 
 class RegisteredCommandSetResponse(BaseModel):
@@ -28,6 +30,9 @@ class RegisteredCommandSetResponse(BaseModel):
     transitions: Dict[str, str]
     ci_workflow: str
     method_id: str
+    target_mode: str
+    target_environment: Optional[str]
+    requires_base_url: bool
 
 
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -62,8 +67,9 @@ def handle_registered_command_set(request: FunctionCallRequest) -> HandlerOutcom
     workflow, and converges the project-default rows at the transitions that
     gate. This handler is the public surface over that function so a project
     can bind its verification command without hand-composing plan creation,
-    case replacement, and default attachment — and without naming a deploy
-    environment the ``command`` and ``command-ci`` methods never read.
+    case replacement, and default attachment. Quick/full commands use a
+    project target; deployed scopes select an environment or the local runtime
+    base-URL contract before any binding is written.
     """
     payload, error = _payload(request)
     if error is not None:
@@ -72,8 +78,6 @@ def handle_registered_command_set(request: FunctionCallRequest) -> HandlerOutcom
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.project_identity import resolve_project
     from yoke_core.domain.qa_command_plan_registration import (
-        CI_COMMAND_METHOD_ID,
-        LOCAL_COMMAND_METHOD_ID,
         ensure_registered_command_plan,
     )
 
@@ -92,13 +96,12 @@ def handle_registered_command_set(request: FunctionCallRequest) -> HandlerOutcom
                 project=identity.slug,
                 scope=payload.scope,
                 command=payload.command,
+                target_environment=payload.target_environment,
+                requires_base_url=payload.requires_base_url,
             )
     except ValueError as exc:
         return _error("incompatible", str(exc), "$.payload")
 
-    result["method_id"] = (
-        CI_COMMAND_METHOD_ID if result["ci_workflow"] else LOCAL_COMMAND_METHOD_ID
-    )
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)
 
 

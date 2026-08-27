@@ -80,6 +80,7 @@ def create_plan(
     success_policy_id: str = "all-pass",
     success_policy_params: Optional[dict] = None,
     target_environment: Optional[str] = None,
+    infer_target_environment: bool = True,
 ) -> dict:
     """Create one project-scoped plan."""
     if not _SLUG_RE.fullmatch(slug):
@@ -88,13 +89,14 @@ def create_plan(
         raise QaPlanError("v1 supports only the all-pass success policy")
     project_id = _project_id(conn, project)
     marker = _placeholder(conn)
-    if target_environment is None:
+    target_environment_id = None
+    resolved_target_environment = None
+    if target_environment is None and infer_target_environment:
         from yoke_core.domain.qa_execution_environment_target import (
             only_project_environment,
         )
 
         target_environment_id = only_project_environment(conn, project_id=project_id)
-        resolved_target_environment = None
         if target_environment_id is not None:
             row = conn.execute(
                 f"SELECT name FROM environments WHERE id={marker}",
@@ -104,7 +106,7 @@ def create_plan(
                 resolved_target_environment = str(
                     row["name"] if hasattr(row, "keys") else row[0]
                 )
-    else:
+    elif target_environment is not None:
         from yoke_core.domain.qa_hosted_runtime_identity import (
             resolve_plan_environment_reference,
         )

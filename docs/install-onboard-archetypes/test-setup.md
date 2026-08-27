@@ -27,7 +27,7 @@ review plus advisory command requirements (`seed-work.md`).
 |---|---|---|
 | Test trees | `yoke project-structure patch apply` family `test_roots` | Path selectors the impacted selector reads |
 | Descriptive command | family `verification_profiles` payload `test_command` | **Not** the QA gate. Advance qa-seeding says do not seed free-form `quick`/`full` from project-structure command settings |
-| Gate command | Plan slug `registered-command-{scope}` for `quick` / `full` / `e2e` / `smoke` | `yoke qa registered-command set --project P --scope SCOPE --command ARGV` — one call converges the plan, its case, the runner, and the project-default attachments; no environment. The same `ensure_registered_command_plan` the yoke seed calls |
+| Gate command | Plan slug `registered-command-{scope}` for `quick` / `full` / `e2e` / `smoke` | `yoke qa registered-command set --project P --scope SCOPE --command ARGV` converges the plan, case, runner, target, and attachments. `quick`/`full` are project-targeted; local `e2e`/`smoke` require exactly one of `--environment` or `--requires-base-url`; CI deployed scopes require `--environment` |
 | Review-only legacy suite | Item requirements: blocking `implementation_review`, non-blocking method `command` | Records the exact known-red/flaky argv without making its current failure a project-default gate |
 | CI routing | `yoke projects capability-settings set --project P --cap-type ci_workflow_file --new --settings-json '{"workflow_file":"ci.yml"}'` | Filename under `.github/workflows/` (optional `scope_workflows` map). Empty declaration keeps the **local** `command` method |
 | Merge queue | `yoke projects capability-settings set --project P --cap-type merge_queue --new --settings-json '{}'` | Presence-only. Template `requires` `ci_workflow_file` and `github`. Absent → standalone merge engine |
@@ -39,16 +39,18 @@ Routing (`qa_command_plan_registration.py` / `qa_command_scope_routing.py`):
   workflow, the case method is `command-ci` (`ci_run`); otherwise `command`
   (`worktree_run`).
 - `e2e` and `smoke` default local (need a base URL CI often cannot reach)
-  unless `scope_workflows` names a workflow for that scope.
+  unless `scope_workflows` names a workflow for that scope. Local registration
+  chooses one declared environment or the runtime `--base-url` contract; CI
+  registration must bind a declared environment.
 - Unreachable `command-ci` fails with a **named reason** (not a silent local
   downgrade) — `qa_case_ci_lane.py`.
 - `merge_queue` makes the QA executor open/reuse the landing PR and record
   that PR's entry run (`dash/verification-and-close.md`).
 
-`yoke qa plan create` still **requires** `--environment`, so a plan authored
-through that adapter is tied to a site. The registered-command binding above
-does not go through it and needs no environment. Extending the environmentless
-shape to the remaining plan-authoring surfaces is G-qa-plan-needs-env.
+Generic `yoke qa plan create` still **requires** `--environment`, so a plan
+authored through that adapter is tied to a site. Registered `quick` and `full`
+commands instead carry an immutable project target; no stage/prod placeholder
+is needed. Registered deployed scopes use the explicit matrix above.
 
 `webapp-scaffold` 1.1.2 installs FastAPI tests, Vitest, Playwright examples,
 and `.github/workflows/ci.yml`. The Pack itself still writes neither
@@ -89,9 +91,6 @@ declared. `merge_queue` without GitHub + `ci_workflow_file`. HTTPS
 4. Declaring `command-ci` against a workflow that deploys but does not run
    the registered command (onboard step 5: existing CI is a **hint**, not a
    contract).
-5. `yoke qa plan create` forced to name a stage/prod environment that was
-   created only because hosting was deferred — the plan is tied to a fiction.
-
 ## No-tests: what the QA gate should mean
 
 For a repo with no runnable suite, the step-2 question offers these honest

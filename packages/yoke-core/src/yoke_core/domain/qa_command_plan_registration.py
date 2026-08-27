@@ -23,6 +23,13 @@ from yoke_core.domain.qa_command_scope_routing import (
 )
 from yoke_core.domain.qa_plan_attachments import set_project_default
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
+from yoke_core.domain.qa_project_execution_target import (
+    CI_COMMAND_METHOD_ID,
+    ENVIRONMENT_TARGET_MODE,
+    LOCAL_COMMAND_METHOD_ID,
+    RUNTIME_BASE_URL_TARGET_MODE,
+    registered_command_target_mode,
+)
 from yoke_core.domain.workflow_registry import list_current_workflows
 
 
@@ -60,12 +67,6 @@ COMMAND_SCOPE_POLICIES = {
     },
 }
 
-#: Local runner: runs the command in the item's worktree.
-LOCAL_COMMAND_METHOD_ID = "command"
-#: CI runner: dispatches the project's declared workflow for the lane.
-CI_COMMAND_METHOD_ID = "command-ci"
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -82,6 +83,36 @@ def declared_ci_workflow(conn: Any, project_id: int) -> str:
     return default_workflow(capability_settings(conn, int(project_id)))
 
 
+def _resolve_environment(
+    conn: Any,
+    *,
+    project_id: int,
+    reference: str,
+) -> tuple[int, str]:
+    """Resolve and validate an authorized plan environment before any write."""
+    from yoke_core.domain.qa_execution_environment_target import (
+        validate_plan_target_environment,
+    )
+    from yoke_core.domain.qa_hosted_runtime_identity import (
+        resolve_plan_environment_reference,
+    )
+
+    target = resolve_plan_environment_reference(
+        conn,
+        plan_project_id=int(project_id),
+        environment=reference,
+    )
+    environment_id = int(target["environment_id"])
+    validate_plan_target_environment(
+        conn,
+        project_id=int(project_id),
+        environment_id=environment_id,
+    )
+    return environment_id, (
+        f"{target['site_name']}/{target['environment_name']}"
+    )
+
+
 def _plan_for_scope(
     conn: Any,
     *,
@@ -90,6 +121,8 @@ def _plan_for_scope(
     scope: str,
     command: str,
     ci_workflow: str = "",
+    target_environment_id: int | None = None,
+    requires_base_url: bool = False,
 ) -> int:
     marker = _p(conn)
     slug = f"{REGISTERED_COMMAND_PLAN_PREFIX}{scope}"
@@ -108,21 +141,28 @@ def _plan_for_scope(
                 f"Project-owned {scope} verification registered through "
                 "the shared Command method."
             ),
+            target_environment=(
+                str(target_environment_id)
+                if target_environment_id is not None
+                else None
+            ),
+            infer_target_environment=False,
         )["id"])
     else:
         plan_id = int(row_value(existing, "id", 0))
-        conn.execute(
-            f"UPDATE qa_plans SET retired_at=NULL WHERE id={marker}",
-            (plan_id,),
-        )
-        conn.commit()
+    conn.execute(
+        "UPDATE qa_plans SET retired_at=NULL, "
+        f"target_environment_id={marker} WHERE id={marker}",
+        (target_environment_id, plan_id),
+    )
+    conn.commit()
     method_config: dict[str, Any] = {
         # Retained whichever runner runs: it is what the local
         # `command` fallback executes, and it documents the verification
         # the CI workflow is expected to be running.
         "command": command,
         "registered_scope": scope,
-        "requires_base_url": scope in {"e2e", "smoke"},
+        "requires_base_url": bool(requires_base_url),
     }
     if ci_workflow:
         method_config["ci_workflow"] = ci_workflow
@@ -180,6 +220,8 @@ def ensure_registered_command_plan(
     project: str,
     scope: str,
     command: str,
+    target_environment: str | None = None,
+    requires_base_url: bool | None = None,
 ) -> dict:
     """Converge one registered scope onto its plan and workflow defaults."""
     if scope not in COMMAND_SCOPE_POLICIES:
@@ -206,6 +248,20 @@ def ensure_registered_command_plan(
         scope=scope,
         default_routable=bool(policy["ci_routable"]),
     )
+    target_mode = registered_command_target_mode(
+        scope=scope,
+        ci_workflow=ci_workflow,
+        target_environment=target_environment,
+        requires_base_url=requires_base_url,
+    )
+    target_environment_id: int | None = None
+    normalized_environment: str | None = None
+    if target_mode == ENVIRONMENT_TARGET_MODE:
+        target_environment_id, normalized_environment = _resolve_environment(
+            conn,
+            project_id=int(project_id),
+            reference=str(target_environment),
+        )
     plan_id = _plan_for_scope(
         conn,
         project_id=int(project_id),
@@ -213,6 +269,8 @@ def ensure_registered_command_plan(
         scope=scope,
         command=command,
         ci_workflow=ci_workflow,
+        target_environment_id=target_environment_id,
+        requires_base_url=target_mode == RUNTIME_BASE_URL_TARGET_MODE,
     )
     qa_phase = str(policy["qa_phase"])
     transitions = policy_transitions(conn, policy)
@@ -238,6 +296,12 @@ def ensure_registered_command_plan(
         "qa_phase": qa_phase,
         "workflow_ids": list(transitions),
         "ci_workflow": ci_workflow,
+        "method_id": (
+            CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
+        ),
+        "target_mode": target_mode,
+        "target_environment": normalized_environment,
+        "requires_base_url": target_mode == RUNTIME_BASE_URL_TARGET_MODE,
         "argv_verification": presence.reason_code,
         "argv_verification_detail": presence.message,
     }

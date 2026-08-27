@@ -253,9 +253,9 @@ Init: `yoke onboard checklist init --project notebook-app --checkout ~/code/note
 pytest / Vitest / Playwright examples and `.github/workflows/ci.yml` land
 unregistered.
 
-**Bind today:** after scaffold, `registered-command-quick` can name the
-Pack's test argv; `ci_workflow_file` can name `ci.yml`. No environment →
-`yoke qa plan create` refuses (`--environment` required).
+**Bind today:** after scaffold, `registered-command-quick` names the Pack's
+test argv and carries a project target; `ci_workflow_file` can name `ci.yml`.
+No hosting environment or stage/prod placeholder is required.
 
 **Onboard:** wizard never asks. Profile never proposes a command or
 `ci_workflow_file`. Seed attaches a plan only if CURRENT-PLAN already names

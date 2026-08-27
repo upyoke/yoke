@@ -78,7 +78,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.registered_command.set",
-        "yoke qa registered-command set --project P --scope SCOPE --command ARGV",
+        "yoke qa registered-command set --project P --scope SCOPE --command ARGV "
+        "[--environment SITE/NAME|ENV_ID | --requires-base-url]",
     ),
     AdapterEntry(
         "qa.no_tests.attest",

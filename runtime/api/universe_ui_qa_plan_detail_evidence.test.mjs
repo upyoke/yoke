@@ -5,6 +5,10 @@ import {
   renderQaPlanDetail,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_plan_detail_view.js";
 import {
+  executionTargetLabel,
+  renderExecutionTarget,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_execution_target_view.js";
+import {
   renderEvidence,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_evidence.js";
 import {
@@ -21,6 +25,42 @@ function ok(result) {
 function visibleText(node) {
   return allNodes(node).map((child) => child.textContent).join(" ");
 }
+
+test("project targets explain that no deployment environment is required", () => {
+  const documentNode = new FakeDocument();
+  const target = {
+    schema: 3,
+    target_kind: "project",
+    tenant: { id: 1, slug: "upyoke", name: "UpYoke" },
+    project: { id: 2, slug: "yoke", name: "Yoke" },
+    endpoints: {},
+  };
+
+  assert.equal(
+    executionTargetLabel(target),
+    "project source · no deployment environment",
+  );
+  const text = visibleText(renderExecutionTarget(documentNode, {
+    execution_target: target,
+  }));
+  assert.match(text, /project source · no deployment environment/);
+  assert.doesNotMatch(text, /undefined|Not bound/);
+
+  const environment = {
+    schema: 2,
+    tenant: { slug: "upyoke", name: "UpYoke" },
+    project: { slug: "yoke", name: "Yoke" },
+    environment: { name: "stage" },
+    endpoints: { app_url: "https://stage.example.test" },
+  };
+  assert.equal(executionTargetLabel(environment), "upyoke · stage");
+  assert.doesNotMatch(
+    visibleText(renderExecutionTarget(documentNode, {
+      execution_target: environment,
+    })),
+    /undefined|Not bound/,
+  );
+});
 
 test("plan detail uses transition ids and carries the per-case authority copy", async () => {
   const documentNode = new FakeDocument();

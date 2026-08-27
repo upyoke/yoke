@@ -8,6 +8,9 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from runtime.api.qa_catalog_test_support import CATALOG_CASES, create_release_readiness_plan
 from yoke_core.domain.qa_catalog_reads import get_method, list_methods, list_plans
+from yoke_core.domain.qa_command_plan_registration import (
+    ensure_registered_command_plan,
+)
 from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
@@ -97,6 +100,23 @@ def test_method_plan_roster_stays_inside_the_requested_project() -> None:
 
     assert [plan["project"] for plan in method["plans"]] == ["yoke"]
     assert [plan["slug"] for plan in method["plans"]] == ["release-readiness"]
+
+
+def test_plan_reads_project_an_environmentless_command_target() -> None:
+    with test_database() as conn:
+        registered = ensure_registered_command_plan(
+            conn, project_id=1, project="yoke", scope="full", command="true",
+        )
+        row = next(
+            plan for plan in list_plans(conn, project="yoke")
+            if int(plan["id"]) == int(registered["plan_id"])
+        )
+        detail = get_plan(conn, plan_id=int(registered["plan_id"]))
+
+    assert row["target_environment"] is None
+    assert row["execution_target"]["target_kind"] == "project"
+    assert detail["execution_target"]["project"]["slug"] == "yoke"
+    assert "environment" not in detail["execution_target"]
 
 
 def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> None:

@@ -104,6 +104,7 @@ def test_deployed_environment_scopes_stay_local() -> None:
             result = ensure_registered_command_plan(
                 conn, project_id=1, project="yoke", scope=scope,
                 command="python3 -m pytest tests/e2e",
+                requires_base_url=True,
             )
             case = _case(conn, result["plan_id"])
 

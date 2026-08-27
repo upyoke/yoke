@@ -65,6 +65,78 @@ class TestRegisteredCommandSet(unittest.TestCase):
         self.assertEqual(method_id, LOCAL_COMMAND_METHOD_ID)
         self.assertEqual(result["method_id"], LOCAL_COMMAND_METHOD_ID)
         self.assertEqual(result["ci_workflow"], "")
+        self.assertEqual(result["target_mode"], "project")
+        self.assertIsNone(result["target_environment"])
+        self.assertFalse(result["requires_base_url"])
+
+    def test_local_deployed_scope_selects_one_explicit_target_mode(self) -> None:
+        with test_database() as conn:
+            runtime = writes.handle_registered_command_set(
+                _request(
+                    {
+                        "project": "yoke",
+                        "scope": "e2e",
+                        "command": "python3 -m pytest tests/e2e",
+                        "requires_base_url": True,
+                    }
+                )
+            )
+            environment = writes.handle_registered_command_set(
+                _request(
+                    {
+                        "project": "yoke",
+                        "scope": "smoke",
+                        "command": "python3 -m pytest tests/smoke",
+                        "target_environment": "development",
+                    }
+                )
+            )
+            runtime_case = _plan_case(
+                conn, int(runtime.result_payload["result"]["plan_id"])
+            )[1]
+
+        self.assertTrue(runtime.primary_success, runtime.error)
+        self.assertEqual(runtime.result_payload["result"]["target_mode"], "runtime-base-url")
+        self.assertTrue(runtime_case["requires_base_url"])
+        self.assertTrue(environment.primary_success, environment.error)
+        self.assertEqual(environment.result_payload["result"]["target_mode"], "environment")
+        self.assertEqual(
+            environment.result_payload["result"]["target_environment"],
+            "Yoke API/development",
+        )
+
+    def test_invalid_target_combinations_are_refused_before_plan_writes(self) -> None:
+        payloads = [
+            {
+                "project": "yoke",
+                "scope": "quick",
+                "command": "true",
+                "target_environment": "development",
+            },
+            {"project": "yoke", "scope": "e2e", "command": "true"},
+            {
+                "project": "yoke",
+                "scope": "smoke",
+                "command": "true",
+                "target_environment": "development",
+                "requires_base_url": True,
+            },
+        ]
+        with test_database() as conn:
+            outcomes = [
+                writes.handle_registered_command_set(_request(payload))
+                for payload in payloads
+            ]
+            plans = conn.execute(
+                "SELECT COUNT(*) AS n FROM qa_plans "
+                "WHERE slug LIKE 'registered-command-%'"
+            ).fetchone()["n"]
+
+        self.assertTrue(all(not outcome.primary_success for outcome in outcomes))
+        self.assertIn("project-targeted", outcomes[0].error.message)
+        self.assertIn("exactly one target", outcomes[1].error.message)
+        self.assertIn("exactly one target", outcomes[2].error.message)
+        self.assertEqual(int(plans), 0)
 
     def test_quick_and_full_preserve_distinct_arbitrary_commands(self) -> None:
         commands = {

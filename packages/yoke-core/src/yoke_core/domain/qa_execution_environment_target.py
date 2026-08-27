@@ -17,6 +17,11 @@ from yoke_contracts.api_urls import (
 )
 from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
 from yoke_core.domain import qa_case_environment_coherence as case_coherence
+from yoke_core.domain.qa_project_execution_target import (
+    is_project_execution_target,
+    require_project_target_case,
+    resolve_project_execution_target,
+)
 
 
 class QaExecutionTargetError(ValueError):
@@ -71,21 +76,21 @@ def _host_url(value: Any) -> str:
 
 def runtime_environment_name() -> str:
     """Return the normalized runtime environment selected for QA."""
-    return (
-        str(
-            os.environ.get("YOKE_ENVIRONMENT")
-            or os.environ.get("APP_ENV")
-            or "development"
-        )
-        .strip()
-        .lower()
-    )
+    selected = os.environ.get("YOKE_ENVIRONMENT") or os.environ.get("APP_ENV")
+    return str(selected or "development").strip().lower()
 
 
 def require_runtime_target(target: Mapping[str, Any]) -> None:
     """Refuse cross-environment dispatch in hosted Stage and Production."""
+    if is_project_execution_target(target):
+        return
+    environment = target.get("environment")
+    if not isinstance(environment, Mapping):
+        raise QaExecutionTargetError("QA execution target has no environment identity")
     runtime = runtime_environment_name()
-    selected = str(target["environment"]["name"]).strip().lower()
+    selected = str(environment.get("name") or "").strip().lower()
+    if not selected:
+        raise QaExecutionTargetError("QA execution target has no environment name")
     if runtime in {"prod", "stage"} and selected != runtime:
         raise QaExecutionTargetError(
             f"runtime environment {runtime!r} cannot execute QA target {selected!r}"
@@ -144,8 +149,9 @@ def resolve_plan_execution_target(
     *,
     plan_id: int,
     require_runtime_match: bool = True,
-) -> dict[str, Any]:
-    """Resolve the plan's environment binding into one identity snapshot."""
+    allow_unbound: bool = False,
+) -> dict[str, Any] | None:
+    """Resolve a plan into one immutable environment or project snapshot."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     cursor = conn.execute(
         "SELECT qp.target_environment_id, p.id AS project_id, "
@@ -165,9 +171,15 @@ def resolve_plan_execution_target(
     if row is None:
         raise QaExecutionTargetError(f"QA plan {plan_id} not found")
     if not row["target_environment_id"]:
-        raise QaExecutionTargetError(
-            f"QA plan {plan_id} has no execution environment target"
-        )
+        try:
+            return resolve_project_execution_target(
+                conn,
+                plan_id=int(plan_id),
+                identity=row,
+                allow_unbound=allow_unbound,
+            )
+        except ValueError as exc:
+            raise QaExecutionTargetError(str(exc)) from exc
     if row["environment_id"] is None or row["site_name"] is None:
         raise QaExecutionTargetError("QA plan execution environment is unavailable")
     try:
@@ -274,6 +286,12 @@ def require_case_target(
     target: Mapping[str, Any],
 ) -> None:
     """Reject an endpoint or environment belonging to another Yoke target."""
+    if is_project_execution_target(target):
+        try:
+            require_project_target_case(case, target)
+        except ValueError as exc:
+            raise QaExecutionTargetError(str(exc)) from exc
+        return
     environment = str(target["environment"]["name"]).lower()
     endpoints = target["endpoints"]
     try:

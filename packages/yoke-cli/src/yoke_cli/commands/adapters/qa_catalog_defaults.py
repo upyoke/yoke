@@ -11,12 +11,19 @@ from yoke_cli.commands.adapters.qa_catalog import _configure_attachment, _global
 def qa_registered_command_set(args: List[str]) -> int:
     usage = (
         "yoke qa registered-command set --project P --scope quick|full|e2e|smoke "
-        "--command ARGV [--json]"
+        "--command ARGV [--environment SITE/NAME|ENV_ID | --requires-base-url] "
+        "[--json]"
     )
 
     def configure(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--scope", required=True)
         parser.add_argument("--command", required=True)
+        parser.add_argument("--environment", dest="target_environment")
+        parser.add_argument(
+            "--requires-base-url",
+            action="store_true",
+            default=None,
+        )
 
     return _global(
         args,
@@ -27,6 +34,16 @@ def qa_registered_command_set(args: List[str]) -> int:
         payload=lambda parsed: {
             "scope": parsed.scope,
             "command": parsed.command,
+            **(
+                {"target_environment": parsed.target_environment}
+                if parsed.target_environment is not None
+                else {}
+            ),
+            **(
+                {"requires_base_url": True}
+                if parsed.requires_base_url
+                else {}
+            ),
         },
     )
 

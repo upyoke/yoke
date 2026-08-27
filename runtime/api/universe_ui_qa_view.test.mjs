@@ -9,6 +9,9 @@ import {
   sourceNode,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_primitives.js";
 import {
+  renderQaPlans,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_plans.js";
+import {
   FakeDocument,
   allNodes,
   byClass,
@@ -17,6 +20,50 @@ import {
 } from "./universe_ui_dom_test_support.mjs";
 
 import { mountAt } from "./universe_ui_qa_view_test_support.mjs";
+
+test("Plans labels a project target as intentionally environmentless", async () => {
+  const documentNode = new FakeDocument();
+  const main = documentNode.createElement("main");
+  const context = {
+    document: documentNode,
+    client: {
+      async call(request) {
+        assert.equal(request.function, "qa.plan.list");
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: [{
+              id: 9,
+              project: "yoke",
+              slug: "registered-command-quick",
+              case_count: 1,
+              method_ids: ["command"],
+              attachments: [],
+              execution_target: {
+                schema: 3,
+                target_kind: "project",
+                tenant: { slug: "upyoke" },
+                project: { slug: "yoke" },
+                endpoints: {},
+              },
+            }] },
+          },
+        };
+      },
+    },
+    isMounted: () => true,
+    navigate() {},
+    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
+  };
+
+  await renderQaPlans(context, main, ["1"]);
+
+  assert.equal(
+    byClass(main, "qa-plan-target")[0].textContent,
+    "project source · no deployment environment",
+  );
+});
 
 test("Pack sources and Test Mac capability relations keep their prototype routes", () => {
   const documentNode = new FakeDocument();

@@ -216,8 +216,8 @@ def get_case_execution_context(
         raw_target = row["execution_target_json"]
         if not raw_target or not row["execution_target_digest"]:
             raise QaCaseExecutionError(
-                "materialized QA case has no execution environment target; "
-                "rematerialize it after binding the plan target"
+                "materialized QA case has no execution target; rematerialize "
+                "it after binding the plan target"
             )
         try:
             execution_target = json.loads(str(raw_target))
