@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import os
 from pathlib import Path
@@ -45,6 +45,7 @@ class ClaudeResumeProcess:
     binary_source: str
     capture_path: Path
     started_at: str
+    background_job: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def evidence(self) -> dict[str, str | int]:
@@ -55,6 +56,7 @@ class ClaudeResumeProcess:
             "native_binary_source": self.binary_source,
             "native_capture_path": str(self.capture_path),
             "native_started_at": self.started_at,
+            **self.background_job,
         }
 
 
@@ -115,6 +117,7 @@ def spawn_detached_claude_resume(
     native_session_id: str,
     binary_source: str,
     lease_id: str = "",
+    background_job: Mapping[str, str] | None = None,
     state_dir: Path | None = None,
     process_factory: ProcessFactory = subprocess.Popen,
     clock: Callable[[], float] = time.time,
@@ -177,6 +180,7 @@ def spawn_detached_claude_resume(
         binary_source,
         capture_path,
         started_at,
+        dict(background_job or {}),
     )
 
 
