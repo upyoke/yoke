@@ -11,6 +11,9 @@ from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_git_credential_store
 from yoke_contracts import github_app_tokens
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.machine_config.preferred_session_models import (
+    PREFERRED_SESSION_MODELS_KEY,
+)
 from yoke_cli.config.machine_config_mutation import (
     MachineConfigWriteError,
     load_payload,
@@ -36,11 +39,9 @@ def set_github(
             "machine GitHub App authorization changed during this operation; "
             "retry against the current connection"
         )
-    if (
-        expected_profile_identity is not None
-        and _github_profile_identity(payload.get("github"))
-        != dict(expected_profile_identity)
-    ):
+    if expected_profile_identity is not None and _github_profile_identity(
+        payload.get("github")
+    ) != dict(expected_profile_identity):
         raise MachineConfigWriteError(
             "machine GitHub App profile changed during this operation; retry "
             "against the current connection"
@@ -48,7 +49,8 @@ def set_github(
     entry = dict(github)
     selected_ref = _github_credential_ref(entry)
     claim_added = _claim_owned_credential(
-        selected_ref, cfg_path,
+        selected_ref,
+        cfg_path,
     )
     payload["github"] = entry
     try:
@@ -63,7 +65,8 @@ def set_github(
         else _credential_cleanup_report()
     )
     return {
-        "github": dict(entry), "config": str(cfg_path),
+        "github": dict(entry),
+        "config": str(cfg_path),
         "replaced_credential_ref": replaced_ref,
         "credential_cleanup": cleanup,
     }
@@ -79,10 +82,7 @@ def clear_github(
 
     payload, cfg_path = load_payload(path)
     current_ref = _github_credential_ref(payload.get("github"))
-    if (
-        expected_credential_ref is not None
-        and current_ref != expected_credential_ref
-    ):
+    if expected_credential_ref is not None and current_ref != expected_credential_ref:
         raise MachineConfigWriteError(
             "machine GitHub App authorization changed during disconnect; "
             "retry against the current connection"
@@ -90,13 +90,18 @@ def clear_github(
     removed = payload.pop("github", None)
     configured = removed is not None
     removed_ref = _github_credential_ref(removed)
-    if set(payload) <= {"schema_version", contract.MACHINE_ID_KEY}:
+    if set(payload) <= {
+        "schema_version",
+        contract.MACHINE_ID_KEY,
+        PREFERRED_SESSION_MODELS_KEY,
+    }:
         machine_config_file.remove_file(cfg_path)
     else:
         write_payload(payload, cfg_path)
     cleanup = _release_owned_credential(removed_ref, cfg_path, delete=True)
     return {
-        "configured": configured, "config": str(cfg_path),
+        "configured": configured,
+        "config": str(cfg_path),
         "removed_credential_ref": removed_ref,
         "credential_cleanup": cleanup,
     }
