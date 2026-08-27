@@ -55,6 +55,28 @@ def test_run_step_8_records_step_marker_8_on_success(monkeypatch):
     assert stub.called_with == [(1234, "release")]
 
 
+def test_run_step_8_addresses_the_item_by_internal_id(monkeypatch):
+    """An item WITH a linked GitHub issue reaches the closeout as ``items.id``.
+
+    A digit *string* is a project-local public sequence resolved with
+    ``allow_bare_internal=False``, so stringifying the id here addresses a
+    different row — or none — and the issue silently never closes.
+    """
+    stub = _StubSyncModule(returncode=0)
+    _patch_backlog_github_sync(monkeypatch, stub)
+
+    result = run_step_8(
+        2527, "reviewing-implementation",
+        stderr=io.StringIO(), item_ref="YOK-2465",
+    )
+
+    assert result.step_marker == "8"
+    addressed, _old_status = stub.called_with[0]
+    assert addressed == 2527
+    assert isinstance(addressed, int)
+    assert not isinstance(addressed, str)
+
+
 def test_run_step_8_records_step_marker_8_degraded_on_nonzero(monkeypatch):
     stub = _StubSyncModule(returncode=1)
     _patch_backlog_github_sync(monkeypatch, stub)

@@ -11,7 +11,6 @@ from yoke_core.engines.done_transition_runtime import (  # noqa: F401
     _Tee,
     _rebuild_board_direct,
     _update_task_status_direct,
-    _sync_done_item_direct,
     _update_item_direct,
     _run_git,
     _query_item_field,

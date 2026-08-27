@@ -115,7 +115,6 @@ class TestEmptyBranchGuard:
             mock.patch.object(done_transition, "_finalize_done_local_side_effects"),
             mock.patch.object(done_transition, "_update_item_direct", return_value=0),
             mock.patch.object(done_transition, "_rebuild_board_direct"),
-            mock.patch.object(done_transition, "_sync_done_item_direct"),
         ):
             rc = done_transition.run(42)
 

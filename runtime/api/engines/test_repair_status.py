@@ -189,8 +189,11 @@ def test_item_happy_path_calls_backlog_execute_update(repair_db, capsys):
     assert seen_env["YOKE_STATUS_SOURCE"] == "repair-status:test-repair"
     assert seen_env["YOKE_CLAIM_BYPASS"] == "repair-status:test-repair"
 
+    # The sync addresses the item by its public ref: a digit string is a
+    # project-local sequence resolved with allow_bare_internal=False, so the
+    # internal id would address a different row — or none.
     assert len(sync_calls) == 1
-    assert sync_calls[0][0] == "9"
+    assert sync_calls[0][0] == "YOK-9"
 
 
 def test_item_done_repair_asserts_done_nonce_verified(repair_db, capsys):
@@ -221,6 +224,25 @@ def test_item_done_repair_asserts_done_nonce_verified(repair_db, capsys):
     assert call_kwargs["done_nonce_verified"] is True
     assert seen_env["YOKE_STATUS_SOURCE"] == "repair-status:manual-recovery"
     assert seen_env["YOKE_CLAIM_BYPASS"] == "repair-status:manual-recovery"
+
+def test_item_reports_a_failed_body_sync(repair_db, capsys):
+    """A non-zero sync return used to be discarded, so the repair reported a
+    clean success while the GitHub issue still showed the old status."""
+    with mock.patch(
+        "yoke_core.domain.backlog.execute_update",
+        return_value={"success": True},
+    ), mock.patch(
+        "yoke_core.domain.backlog_github_sync.sync_body",
+        return_value=1,
+    ):
+        rc = repair_status.main(["YOK-9", "implementing", "--reason", "sync-fail"])
+
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "Repaired: YOK-9 idea -> implementing" in captured.out
+    assert "sync_body returned 1 for YOK-9" in captured.err
+    assert "/yoke resync --fix" in captured.err
+
 
 def test_item_update_failure_returns_nonzero(repair_db, capsys):
     with mock.patch(

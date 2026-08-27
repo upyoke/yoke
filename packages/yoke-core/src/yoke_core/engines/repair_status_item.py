@@ -124,18 +124,27 @@ def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason:
         print(f"Error: {err}", file=sys.stderr)
         return 1
 
-    # Best-effort body-to-GitHub sync.
+    # Best-effort body-to-GitHub sync. The sync addresses the item by its
+    # public ref — a digit string is a project-local sequence, not items.id.
     try:
         from yoke_core.domain import backlog_github_sync
 
-        backlog_github_sync.sync_body(
-            str(item_id), stdout=sys.stderr, stderr=sys.stderr
+        rc = backlog_github_sync.sync_body(
+            item_display, stdout=sys.stderr, stderr=sys.stderr
         )
     except Exception as exc:  # pragma: no cover - defensive
         print(
             f"Warning: sync_body failed for {item_display}: {exc}",
             file=sys.stderr,
         )
+    else:
+        if rc != 0:
+            print(
+                f"Warning: sync_body returned {rc} for {item_display} — the "
+                "status repair landed locally but the GitHub issue body still "
+                "shows the old state. Re-run `/yoke resync --fix`.",
+                file=sys.stderr,
+            )
 
     print(f"Repaired: {item_display} {old_status} -> {new_status}")
     print(f"Event emitted: ItemStatusChanged (source: repair-status:{reason})")

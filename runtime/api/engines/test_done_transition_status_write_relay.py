@@ -261,7 +261,7 @@ class TestSetterEndToEndRelay:
 
         _patch_adapter(monkeypatch, fake)
         monkeypatch.setattr(status, "_batch_github_sync_tasks", lambda *a, **k: None)
-        dt._cascade_epic_tasks_to_done(42, "42", item_ref=TEST_ITEM_REF)
+        dt._cascade_epic_tasks_to_done(42, item_ref=TEST_ITEM_REF)
 
         relays = [
             c for c in seen

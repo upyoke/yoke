@@ -241,6 +241,30 @@ def test_flags_str_item_id_done_sync(tmp_path: Path) -> None:
     assert len(hits) == 1
 
 
+def test_flags_str_item_id_wrapped_across_lines(tmp_path: Path) -> None:
+    """The shape that shipped the discovery-scan defect: the argument sits on
+    the line after the call opened, so a line-at-a-time match missed it."""
+    _write(
+        tmp_path,
+        "packages/pkg/src/wrapped.py",
+        "run_scan(\n"
+        "    str(item_id), stdout=buf, stderr=sys.stderr\n"
+        ")\n",
+    )
+    hits = scan_bare_internal_cli_token(tmp_path)
+    assert len(hits) == 1
+    assert hits[0].line == 1
+
+
+def test_flags_str_item_id_body_sync(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/pkg/src/body.py",
+        "sync_body(str(item_id), stdout=sys.stderr)\n",
+    )
+    assert len(scan_bare_internal_cli_token(tmp_path)) == 1
+
+
 def test_rendered_item_ref_cli_token_is_not_flagged(tmp_path: Path) -> None:
     _write(
         tmp_path,

@@ -113,32 +113,6 @@ def _update_task_status_direct(
     return int((resp.result or {}).get("rc") or 0)
 
 
-def _sync_done_item_direct(
-    item_id: int, old_status: str, *, item_ref: Optional[str] = None
-) -> None:
-    """Batch final GitHub sync for a done item."""
-    from yoke_contracts.item_ref import format_item_ref
-
-    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
-    try:
-        from yoke_core.domain import backlog_github_sync
-    except ImportError as exc:
-        print(
-            f"Warning: backlog_github_sync import failed for {ref}: {exc}",
-            file=sys.stderr,
-        )
-        return
-    try:
-        backlog_github_sync.sync_done_item(
-            str(item_id), old_status, stdout=sys.stderr, stderr=sys.stderr
-        )
-    except Exception as exc:  # pragma: no cover - defensive
-        print(
-            f"Warning: sync_done_item failed for {ref}: {exc}",
-            file=sys.stderr,
-        )
-
-
 def _update_item_direct(
     item_id: int,
     field: str,
