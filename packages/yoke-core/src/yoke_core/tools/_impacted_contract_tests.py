@@ -100,12 +100,27 @@ DIRECT_WORKFLOW_PREPARE_TESTS = (
     "runtime/api/domain/test_worktree_prepare_source_recipe.py",
 )
 
+HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS = (
+    "runtime/api/domain/test_platform_release_bridge_workflow.py",
+    "runtime/api/domain/test_release_notes_workflow.py",
+)
+
 CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
     "runtime/harness/cursor/test_session_dispatch_cursor.py",
 )
 
 PATH_CONTRACT_TESTS = (
     *PATH_CLAIM_CONTRACTS,
+    (
+        "hosted_release_workflow_contract",
+        frozenset(
+            {
+                ".github/workflows/platform-release-bridge.yml",
+                ".github/workflows/yoke-release.yml",
+            }
+        ),
+        HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
+    ),
     (
         "cursor_session_identity_dispatch_contract",
         frozenset({"packages/yoke-core/src/yoke_core/hooks/cursor_payload.py"}),
@@ -237,6 +252,7 @@ __all__ = [
     "DONE_TRANSITION_CLOSE_OUT_TESTS",
     "EPIC_QA_READ_CONTRACT_TESTS",
     "EPIC_RESOLUTION_SOURCE_PATH",
+    "HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "MACHINE_QA_PACK_CONTRACT_TESTS",
     "MACHINE_QA_PACK_SOURCE_PREFIXES",
