@@ -47,22 +47,22 @@ CORE_COMMANDS: list[dict] = [
             "created_at, db_compatibility_attestation, "
             "db_mutation_profile, deploy_log, deploy_stage, deployed_to, "
             "deployment_flow, design_spec, frozen, github_issue, id, "
-            "merged_at, owner, priority, project, project_id, "
+            "merge_queue_enqueued_at, merge_queue_landed_at, "
+            "merge_queue_notified_at, merge_queue_pr_number, "
+            "merge_queue_status, merged_at, owner, priority, project, project_id, "
             "project_sequence, resolution, resolution_comment, "
             "resolution_ref, rework_count, shepherd_caveats, shepherd_log, "
             "source, spec, spec_updated_at, spec_updated_by, status, "
             "technical_plan, test_results, title, updated_at, workflow_id, "
             "workflow_version_id, worktree_plan. "
             "For body-section filtering, use "
-            "`yoke items get PREFIX-N body --section \"## File Budget\"`."
+            '`yoke items get PREFIX-N body --section "## File Budget"`.'
         ),
     },
     {
         "topic": "core",
         "purpose": "Inspect a Yoke item's rendered body (GitHub issue surrogate)",
-        "recipe": (
-            "yoke items get PREFIX-N body"
-        ),
+        "recipe": ("yoke items get PREFIX-N body"),
         "notes": (
             "The rendered body is the source of truth for work-item content "
             "and is auto-synced to the GitHub issue via bearer-token REST. "
@@ -80,13 +80,13 @@ CORE_COMMANDS: list[dict] = [
         "purpose": "Inspect open work via registered reads + diagnostic SQL",
         "recipe": (
             "# Recent item scan:\n"
-            "yoke items list --project all --fields \"id,status,title\" "
+            'yoke items list --project all --fields "id,status,title" '
             "--limit 20\n"
             "# All active work claims (diagnostic SQL fallback):\n"
-            "yoke db read \"SELECT "
+            'yoke db read "SELECT '
             "id, session_id, target_kind, scope, "
             "claim_type, claimed_at FROM work_claims WHERE released_at IS "
-            "NULL\"\n"
+            'NULL"\n'
             "# Recent events on a work item:\n"
             "yoke events query --item PREFIX-N --limit 20"
         ),
@@ -103,10 +103,7 @@ CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Read one section of an item's rendered body",
-        "recipe": (
-            "yoke items get PREFIX-N body "
-            "--section \"## Section Name\""
-        ),
+        "recipe": ('yoke items get PREFIX-N body --section "## Section Name"'),
         "notes": (
             "Registered body-section filter. Returns just the named "
             "``## Section Name`` block between that heading and the "
@@ -136,10 +133,10 @@ CORE_COMMANDS: list[dict] = [
         "recipe": (
             "# Other additive transforms:\n"
             "yoke items structured-field append-addendum PREFIX-N "
-            "--field spec --heading \"Implementation Notes\" "
+            '--field spec --heading "Implementation Notes" '
             "--content-file PATH --json\n"
             "yoke items structured-field section-upsert PREFIX-N "
-            "--section \"Acceptance Criteria\" "
+            '--section "Acceptance Criteria" '
             "--content-file PATH --json"
         ),
         "notes": (
@@ -157,9 +154,7 @@ CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "List item dependencies (both directions)",
-        "recipe": (
-            "yoke shepherd dependency-list PREFIX-N"
-        ),
+        "recipe": ("yoke shepherd dependency-list PREFIX-N"),
         "notes": (
             "Canonical agent shape (function id "
             "``shepherd.dependency_list.run``); works over https. "
@@ -173,9 +168,7 @@ CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Route serial dependency mutations to authoring packets",
-        "recipe": (
-            "Use the dependency authoring recipes in the claims packet."
-        ),
+        "recipe": ("Use the dependency authoring recipes in the claims packet."),
         "notes": (
             "Dependency add/update/remove are authoring-time surfaces; "
             "their registered command adapters land in the claims/path-"
@@ -184,7 +177,6 @@ CORE_COMMANDS: list[dict] = [
             "``shepherd.dependency_add/update/remove.run``."
         ),
     },
-
     {
         "topic": "core",
         "purpose": "Amend DB-mutation claim on an item",
@@ -201,14 +193,14 @@ CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Inspect the selected Yoke control-plane authority",
-        "recipe": "yoke db read \"SELECT 1\"",
+        "recipe": 'yoke db read "SELECT 1"',
         "notes": (
             "Read-only diagnostic SQL over the selected authority. Prefer "
             "registered `yoke <subcommand>` readers where they answer the "
             "question; use the source-dev/operator-debug `db_router query` "
             "fallback only for break-glass work inside a Yoke checkout. "
-            "Never use ad-hoc imports — never `python -c \"from "
-            "yoke_core.domain.worktree import get_db_path\"`. The retired "
+            'Never use ad-hoc imports — never `python -c "from '
+            'yoke_core.domain.worktree import get_db_path"`. The retired '
             "`worktree paths db` mode is a guard that refuses root SQLite "
             "authority, not a connection recipe."
         ),
@@ -217,10 +209,10 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Read / write item sections (Progress Log, custom sections)",
         "recipe": (
-            "yoke items section get PREFIX-N --section \"Progress Log\"\n"
-            "yoke items section upsert PREFIX-N --section \"Progress Log\" "
+            'yoke items section get PREFIX-N --section "Progress Log"\n'
+            'yoke items section upsert PREFIX-N --section "Progress Log" '
             "--content-file PATH --ordering 200\n"
-            "yoke items section delete PREFIX-N --section \"Progress Log\""
+            'yoke items section delete PREFIX-N --section "Progress Log"'
         ),
         "notes": (
             "Section name is case-sensitive. For Progress Log append-only "
@@ -243,8 +235,7 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Backlog mutation family (CLI adapter)",
         "recipe": (
-            "yoke items {create,get,list,search,github-sync,scalar-update,...} "
-            "--help"
+            "yoke items {create,get,list,search,github-sync,scalar-update,...} --help"
         ),
         "notes": (
             "Use the registered `yoke items` family named by command help. "
