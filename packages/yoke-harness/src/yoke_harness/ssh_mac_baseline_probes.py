@@ -37,13 +37,9 @@ NO_VERDICT_ERROR_CODE = "baseline_probe_bridge_unavailable"
 FAILED_ERROR_CODE = "baseline_probe_failed"
 
 BRIDGE_CALL_RAISED_CAUSE = "bridge_call_raised"
-BRIDGE_CALL_RAISED_REASON = (
-    "the GUI-session bridge could not be called at all"
-)
+BRIDGE_CALL_RAISED_REASON = "the GUI-session bridge could not be called at all"
 NOT_SIGNED_IN_CAUSE = "probe_reported_not_signed_in"
-NOT_SIGNED_IN_REASON = (
-    "the probe ran and its program did not report itself signed in"
-)
+NOT_SIGNED_IN_REASON = "the probe ran and its program did not report itself signed in"
 NOT_SIGNED_IN_RECOVERY = (
     "recapture the golden from a session where the program is signed in, or "
     "correct the probe argv or expectation in the document beside the golden"
