@@ -1,4 +1,4 @@
-"""Clone environment rebuilding and user-facing fallback provenance."""
+"""Clone environment rebuilding and user-facing credential provenance."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def test_hostile_ephemeral_git_config_and_askpass_are_rebuilt() -> None:
     assert env["GIT_SSL_CAINFO"] == "/trusted/ca.pem"
 
 
-def test_clone_progress_copy_names_anonymous_fallback() -> None:
+def test_clone_progress_copy_names_connected_github_access() -> None:
     text = " ".join(
         clone.clone_progress_lines(
             "acme/widgets",
@@ -49,5 +49,5 @@ def test_clone_progress_copy_names_anonymous_fallback() -> None:
             ),
         )
     )
-    assert "Anonymous access couldn't reach it" in text
+    assert "connected GitHub App access" in text
     assert "Your git setup couldn't reach it" not in text

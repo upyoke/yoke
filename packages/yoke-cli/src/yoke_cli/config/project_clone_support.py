@@ -4,9 +4,9 @@ The clone path supports three outcomes once the working copy exists — keep the
 source as ``origin`` (just clone it), re-home onto a freshly created private
 repo (make it mine), or fork the source and track it as ``upstream`` (fork it).
 This module owns the git remote choreography for those outcomes plus the
-private-clone token fallback.
+connected-credential clone transport.
 
-Security invariants for the token fallback (enforced + tested):
+Security invariants for the connected-credential clone (enforced + tested):
 
 * The connected token is passed to git only via URL-scoped, ephemeral
   ``GIT_CONFIG_*`` subprocess variables. It is never exposed in argv or written
@@ -65,8 +65,8 @@ class ClonePlan:
     only by ``make-it-mine``, where it always keeps the source as a pull-only
     ``upstream`` remote so a private copy can still pull from a public original.
     ``publish`` carries the GitHub repo-create inputs for ``make-it-mine``;
-    ``fallback_token`` is the refreshed GitHub App user token the private-clone
-    fallback and the fork call authenticate with.
+    ``fallback_token`` is the refreshed GitHub App user token the clone and the
+    fork call authenticate with when one was resolved before Apply.
     """
 
     outcome: str = CLONE_OUTCOME_JUST_CLONE
@@ -113,22 +113,6 @@ def source_owner_repo(
     return tuple(repo.split("/", 1))
 
 
-def _looks_like_access_failure(stderr: str) -> bool:
-    lowered = stderr.lower()
-    needles = (
-        "authentication failed",
-        "could not read username",
-        "permission denied",
-        "access denied",
-        "repository not found",
-        "fatal: could not read",
-        "terminal prompts disabled",
-        "403",
-        "401",
-    )
-    return any(needle in lowered for needle in needles)
-
-
 def _run_clone(
     parent: Path,
     name: str,
@@ -143,8 +127,8 @@ def _run_clone(
     Every ``config`` entry is passed through ephemeral ``GIT_CONFIG_*``
     subprocess variables, so no secret appears in argv or the clone's config. Credential
     prompting is disabled (``GIT_TERMINAL_PROMPT=0`` / ``core.askPass=``) so a
-    private clone fails fast instead of hanging on a username prompt — that fast
-    failure is what triggers the token fallback.
+    clone with no usable credential fails fast instead of hanging on a username
+    prompt.
     """
     try:
         clean_url = clean_remote_url(url, web_url=github_web_url)
@@ -169,16 +153,15 @@ def _run_clone(
 class CloneOutcome:
     """What the clone runner did, for the wizard's informational line.
 
-    ``used_token`` is True only when the anonymous clone failed and App-authorized
-    fallback then succeeded — that is the single case the wizard surfaces its
-    connected GitHub App access line for.
+    ``used_token`` is True when the connected GitHub App authorization read the
+    source — the case the wizard surfaces its connected-access line for.
     """
 
     used_token: bool
     origin_url: str
 
 
-def clone_with_token_fallback(
+def clone_with_connected_access(
     parent: Path,
     name: str,
     remote_url: str,
@@ -187,79 +170,67 @@ def clone_with_token_fallback(
     token_provider: Callable[[], str | None] | None = None,
     github_web_url: str | None = None,
 ) -> CloneOutcome:
-    """Clone ``remote_url`` into ``parent/name``; on access failure retry with a token.
+    """Clone ``remote_url`` into ``parent/name`` with the connected credential.
 
-    A deliberately anonymous, helper-free clone runs first. On an access/auth
-    failure, when a
-    token is connected, the source is normalized to HTTPS and re-cloned with the
-    token as a URL-scoped ephemeral ``http.extraheader`` (never written to
-    ``.git/config``); ``origin`` is then reset to the clean HTTPS URL so no
-    credential is persisted. A failure even with the token raises a clear
-    "token lacks access / repo not found" error.
+    A connected GitHub credential authenticates the clone directly whenever the
+    source sits on the configured GitHub origin: that credential was already
+    established and already read the repo, so an anonymous attempt first would
+    only be a guaranteed failure against a private repo. The source is
+    normalized to HTTPS (a token cannot authenticate the SSH transport) and the
+    token travels as a URL-scoped ephemeral ``http.extraheader``; ``origin`` is
+    then reset to the clean HTTPS URL so no credential is persisted. A source
+    outside the configured origin, and a run with no connected credential, clone
+    anonymously. Every failure names its reason and the step that resolves it.
     """
     https_url = https_clone_url(remote_url, web_url=github_web_url)
-    target = parent / name
     target_claim = project_clone_runner.CloneTargetClaim()
+    on_configured_origin = is_configured_github_remote(
+        https_url, web_url=github_web_url,
+    )
+    if on_configured_origin and not token and token_provider is not None:
+        token = token_provider()
+    if on_configured_origin and token:
+        authenticated = _run_clone(
+            parent, name, https_url, token=token,
+            github_web_url=github_web_url, target_claim=target_claim,
+        )
+        if authenticated.returncode != 0:
+            raise CloneAccessError(
+                "clone failed even with connected GitHub App access — the App "
+                "authorization lacks access or the repo was not found: "
+                + (
+                    scrub_git_diagnostic(authenticated.stderr, token=token)
+                    or "unknown error"
+                )
+            )
+        # The token traveled only through URL-scoped GIT_CONFIG_*; reset origin
+        # to the clean HTTPS URL so no credential is persisted in the remote.
+        run_git(parent / name, "remote", "set-url", "origin", https_url)
+        # The authenticated clone deliberately used --no-checkout: checkout runs
+        # in this second, token-free process so hooks and content filters can
+        # never inherit the ephemeral Authorization config.
+        run_git(parent / name, "checkout", "-f")
+        return CloneOutcome(used_token=True, origin_url=https_url)
     anonymous = _run_clone(
         parent, name, https_url, github_web_url=github_web_url,
         target_claim=target_claim,
     )
     if anonymous.returncode == 0:
         return CloneOutcome(used_token=False, origin_url=https_url)
-    if not is_configured_github_remote(
-        https_url, web_url=github_web_url,
-    ):
-        detail = scrub_git_diagnostic(
-            anonymous.stderr.strip()
-            or anonymous.stdout.strip()
-            or "unknown error",
-        )
+    detail = scrub_git_diagnostic(
+        anonymous.stderr.strip() or anonymous.stdout.strip() or "unknown error",
+    )
+    if not on_configured_origin:
         raise CloneAccessError(
             f"git clone could not reach {https_url} anonymously; GitHub App "
             "authorization is never sent to external HTTPS repositories: "
             f"{detail}"
         )
-    if (
-        not _looks_like_access_failure(anonymous.stderr)
-        and not token
-        and token_provider is None
-    ):
-        raise CloneAccessError(
-            "git clone failed: "
-            + scrub_git_diagnostic(
-                anonymous.stderr.strip()
-                or anonymous.stdout.strip()
-                or "unknown error",
-            )
-        )
-    if not token and token_provider is not None:
-        token = token_provider()
-    if not token:
-        raise CloneAccessError(
-            "git clone could not access the repository anonymously; connect "
-            "the Yoke GitHub App for private repository access"
-        )
-    fallback = _run_clone(
-        parent, name, https_url,
-        token=token,
-        github_web_url=github_web_url,
-        target_claim=target_claim,
+    raise CloneAccessError(
+        "git clone could not read the repository without GitHub access; "
+        "connect the Yoke GitHub App for private repository access, or check "
+        f"the URL and network connection: {detail}"
     )
-    if fallback.returncode != 0:
-        scrubbed = scrub_git_diagnostic(fallback.stderr, token=token)
-        raise CloneAccessError(
-            "clone failed even with connected GitHub App access — the App "
-            "authorization lacks access or the repo was not found: "
-            + (scrubbed or "unknown error")
-        )
-    # The token traveled only through URL-scoped GIT_CONFIG_*; reset origin to
-    # the clean HTTPS URL so no credential is persisted in the stored remote.
-    run_git(target, "remote", "set-url", "origin", https_url)
-    # The authenticated clone deliberately used --no-checkout: checkout runs in
-    # this second, token-free process so hooks and content filters can never
-    # inherit the ephemeral Authorization config.
-    run_git(target, "checkout", "-f")
-    return CloneOutcome(used_token=True, origin_url=https_url)
 
 
 def rehome_to_new_origin(
@@ -340,7 +311,7 @@ __all__ = [
     "CloneOutcome",
     "ClonePlan",
     "clone_progress_lines",
-    "clone_with_token_fallback",
+    "clone_with_connected_access",
     "existing_clone_matches",
     "https_clone_url",
     "origin_is",

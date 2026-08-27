@@ -74,10 +74,10 @@ def test_source_owner_repo_parses_both_forms() -> None:
     )
 
 
-# ── token fallback ──────────────────────────────────────────────────────
+# ── connected-credential clone ──────────────────────────────────────────
 
 
-def test_clone_anonymous_success_does_not_use_token(
+def test_clone_without_credential_reads_the_source_anonymously(
     tmp_path: Path, monkeypatch,
 ) -> None:
     parent = tmp_path / "checkouts"
@@ -90,11 +90,10 @@ def test_clone_anonymous_success_does_not_use_token(
         or subprocess.CompletedProcess([], 0, "", ""),
     )
 
-    outcome = clone.clone_with_token_fallback(
+    outcome = clone.clone_with_connected_access(
         parent,
         "widgets",
         "git@github.com:acme/widgets.git",
-        token="ghs_should_not_be_used",
     )
 
     assert outcome.used_token is False
@@ -105,21 +104,18 @@ def test_clone_anonymous_success_does_not_use_token(
     ] == [{"github_web_url": None}]
 
 
-def test_clone_anonymous_fail_token_success_rehomes_origin_cleanly(
+def test_connected_token_clones_once_and_rehomes_origin_cleanly(
     tmp_path: Path, monkeypatch
 ) -> None:
     parent = tmp_path / "checkouts"
     parent.mkdir()
     token = "ghs_secret_token_value"
     calls: list[dict] = []
-    results = iter([
-        subprocess.CompletedProcess([], 1, "", "authentication failed"),
-        subprocess.CompletedProcess([], 0, "", ""),
-    ])
     monkeypatch.setattr(
         clone,
         "_run_clone",
-        lambda *args, **kwargs: calls.append(kwargs) or next(results),
+        lambda *args, **kwargs: calls.append(kwargs)
+        or subprocess.CompletedProcess([], 0, "", ""),
     )
     cleaned: list[str] = []
     monkeypatch.setattr(
@@ -128,20 +124,18 @@ def test_clone_anonymous_fail_token_success_rehomes_origin_cleanly(
         lambda _root, *_args: cleaned.append(_args[-1]),
     )
 
-    outcome = clone.clone_with_token_fallback(
+    outcome = clone.clone_with_connected_access(
         parent, "widgets", "git@github.com:acme/widgets.git", token=token,
     )
 
+    # The credential the caller already established reads the repo directly —
+    # a private source never pays for a guaranteed anonymous failure first.
     assert outcome.used_token is True
     assert outcome.origin_url == "https://github.com/acme/widgets.git"
     assert [
         {key: value for key, value in call.items() if key != "target_claim"}
         for call in calls
-    ] == [
-        {"github_web_url": None},
-        {"token": token, "github_web_url": None},
-    ]
-    assert calls[0]["target_claim"] is calls[1]["target_claim"]
+    ] == [{"token": token, "github_web_url": None}]
     assert cleaned == ["https://github.com/acme/widgets.git", "-f"]
 
 
@@ -165,18 +159,16 @@ def test_clone_token_fail_raises_clear_error_without_leaking_token(
     parent.mkdir()
     token = "ghs_secret_token_value"
     header = git_auth_header(token)
-    results = iter([
-        subprocess.CompletedProcess([], 1, "", "authentication failed"),
-        subprocess.CompletedProcess([], 1, "", f"denied {header}"),
-    ])
     monkeypatch.setattr(
         clone,
         "_run_clone",
-        lambda *args, **kwargs: next(results),
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            [], 1, "", f"denied {header}",
+        ),
     )
 
     with pytest.raises(clone.CloneAccessError) as exc:
-        clone.clone_with_token_fallback(
+        clone.clone_with_connected_access(
             parent, "widgets", "git@github.com:acme/widgets.git", token=token,
         )
 
@@ -214,44 +206,49 @@ def test_clone_token_transport_rejects_unrelated_origin() -> None:
         )
 
 
-def test_clone_no_token_access_failure_raises(tmp_path: Path, monkeypatch) -> None:
-    parent = tmp_path / "checkouts"
-    parent.mkdir()
-    monkeypatch.setattr(
-        clone,
-        "_run_clone",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            [], 1, "", "authentication failed",
-        ),
-    )
-
-    with pytest.raises(clone.CloneAccessError):
-        clone.clone_with_token_fallback(
-            parent,
-            "widgets",
-            "https://github.com/acme/widgets.git",
-            token=None,
-        )
-
-
-def test_private_intent_retries_localized_anonymous_denial(
+def test_clone_without_github_access_teaches_the_connection_step(
     tmp_path: Path, monkeypatch,
 ) -> None:
     parent = tmp_path / "checkouts"
     parent.mkdir()
-    results = iter([
-        subprocess.CompletedProcess([], 1, "", "Zugriff verweigert"),
-        subprocess.CompletedProcess([], 0, "", ""),
-    ])
+    # A localized git emits a denial no English needle would recognize; the
+    # refusal still names both fixes and carries git's own words.
+    monkeypatch.setattr(
+        clone,
+        "_run_clone",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            [], 1, "", "Zugriff verweigert",
+        ),
+    )
+
+    with pytest.raises(clone.CloneAccessError) as exc:
+        clone.clone_with_connected_access(
+            parent,
+            "widgets",
+            "https://github.com/acme/widgets.git",
+        )
+
+    message = str(exc.value)
+    assert "connect the Yoke GitHub App" in message
+    assert "network connection" in message
+    assert "Zugriff verweigert" in message
+
+
+def test_private_source_resolves_the_lazy_credential_before_cloning(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    parent = tmp_path / "checkouts"
+    parent.mkdir()
     attempts: list[dict] = []
     monkeypatch.setattr(
         clone,
         "_run_clone",
-        lambda *args, **kwargs: attempts.append(kwargs) or next(results),
+        lambda *args, **kwargs: attempts.append(kwargs)
+        or subprocess.CompletedProcess([], 0, "", ""),
     )
     monkeypatch.setattr(clone, "run_git", lambda *_args, **_kwargs: None)
 
-    outcome = clone.clone_with_token_fallback(
+    outcome = clone.clone_with_connected_access(
         parent,
         "widgets",
         "https://github.com/acme/widgets.git",
@@ -259,7 +256,8 @@ def test_private_intent_retries_localized_anonymous_denial(
     )
 
     assert outcome.used_token is True
-    assert len(attempts) == 2
+    assert len(attempts) == 1
+    assert attempts[0]["token"] == "ghu_private"
 
 
 # ── re-home / fork remote choreography ──────────────────────────────────

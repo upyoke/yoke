@@ -49,7 +49,7 @@ def test_credential_bearing_clone_url_never_launches_git_or_leaks(
     hostile = "https://user:credential-sentinel@github.com/acme/widgets.git?x=1#frag"
 
     with pytest.raises(clone.CloneAccessError) as caught:
-        clone.clone_with_token_fallback(
+        clone.clone_with_connected_access(
             tmp_path,
             "widgets",
             hostile,
@@ -96,7 +96,7 @@ def test_scp_reference_is_normalized_before_clone_child_launch(
 
     monkeypatch.setattr(clone, "run_network_git", run)
 
-    outcome = clone.clone_with_token_fallback(
+    outcome = clone.clone_with_connected_access(
         tmp_path,
         "widgets",
         "git@github.com:acme/widgets.git",
@@ -127,7 +127,7 @@ def test_failed_clone_never_removes_preexisting_dangling_symlink(
     )
 
     with pytest.raises(clone.CloneAccessError):
-        clone.clone_with_token_fallback(
+        clone.clone_with_connected_access(
             tmp_path,
             "widgets",
             "https://github.com/acme/widgets.git",
@@ -154,7 +154,7 @@ def test_failed_clone_preserves_path_replaced_during_child_run(
 
     monkeypatch.setattr(clone, "run_network_git", replace_target)
     with pytest.raises(clone.CloneAccessError, match="left untouched"):
-        clone.clone_with_token_fallback(
+        clone.clone_with_connected_access(
             tmp_path,
             "widgets",
             "https://github.com/acme/widgets.git",
@@ -185,7 +185,7 @@ def test_existing_option_shaped_clone_target_is_never_a_git_argument(
 
     monkeypatch.setattr(clone, "run_network_git", run)
 
-    clone.clone_with_token_fallback(
+    clone.clone_with_connected_access(
         tmp_path,
         "--help",
         "https://github.com/acme/widgets.git",
@@ -203,7 +203,7 @@ def test_existing_option_shaped_clone_target_is_never_a_git_argument(
     ]
 
 
-def test_anonymous_failure_then_lazy_token_retry_never_invokes_helpers(
+def test_connected_token_clone_runs_once_and_never_invokes_helpers(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -223,20 +223,13 @@ def test_anonymous_failure_then_lazy_token_retry_never_invokes_helpers(
             helper_sentinel.append("general")
         if ("credential.https://github.com.helper", "") not in entries:
             helper_sentinel.append("origin")
-        if len(attempts) == 1:
-            return subprocess.CompletedProcess(
-                command,
-                1,
-                "",
-                "fatal: authentication failed",
-            )
         os.mkdir(".git", dir_fd=kwargs["cwd_fd"])
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(clone, "run_network_git", run)
     monkeypatch.setattr(clone, "run_git", lambda *args, **kwargs: None)
 
-    outcome = clone.clone_with_token_fallback(
+    outcome = clone.clone_with_connected_access(
         tmp_path,
         "widgets",
         "https://github.com/acme/widgets.git",
@@ -244,17 +237,15 @@ def test_anonymous_failure_then_lazy_token_retry_never_invokes_helpers(
         token_provider=lambda: provider_calls.append("provider") or "ghu_token",
     )
 
+    # The connected credential reads the repo directly: no anonymous attempt
+    # runs first, so a private source never burns a guaranteed failure.
     assert outcome.used_token is True
     assert provider_calls == ["provider"]
     assert helper_sentinel == []
-    assert len(attempts) == 2
-    _assert_remote_auth_isolated(
-        transport.git_config_env(tuple(f"{key}={value}" for key, value in attempts[0])),
-        token_expected=False,
-    )
+    assert len(attempts) == 1
     token_exact = [
         value
-        for key, value in attempts[1]
+        for key, value in attempts[0]
         if key == "http.https://github.com/acme/widgets.git.extraheader"
     ]
     assert token_exact[-1].startswith("AUTHORIZATION: basic ")
@@ -279,7 +270,7 @@ def test_preexisting_empty_clone_target_is_never_marked_owned(
 
     monkeypatch.setattr(clone, "run_network_git", run)
 
-    clone.clone_with_token_fallback(
+    clone.clone_with_connected_access(
         tmp_path,
         "widgets",
         "https://github.com/acme/widgets.git",
@@ -289,12 +280,12 @@ def test_preexisting_empty_clone_target_is_never_marked_owned(
     assert onboard_checkout_ownership.capture(target) is None
 
 
-def test_anonymous_success_does_not_resolve_lazy_token(
+def test_clone_without_connected_access_stays_anonymous(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    provider_calls: list[str] = []
     helper_sentinel: list[str] = []
+    attempts: list[list[str]] = []
     monkeypatch.setattr(
         clone.project_clone_runner.project_git_prerequisite,
         "require_git_available",
@@ -303,22 +294,23 @@ def test_anonymous_success_does_not_resolve_lazy_token(
 
     def run(command, **kwargs):
         entries = _config_entries(kwargs["env"])
+        attempts.append(command)
         if ("credential.helper", "") not in entries:
             helper_sentinel.append("helper")
+        assert not any("AUTHORIZATION" in value for _key, value in entries)
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(clone, "run_network_git", run)
 
-    clone.clone_with_token_fallback(
+    outcome = clone.clone_with_connected_access(
         tmp_path,
         "widgets",
         "https://github.com/acme/widgets.git",
-        token=None,
-        token_provider=lambda: provider_calls.append("provider") or "ghu_token",
     )
 
-    assert provider_calls == []
+    assert outcome.used_token is False
     assert helper_sentinel == []
+    assert len(attempts) == 1
 
 
 def test_probe_is_anonymous_and_helper_free(

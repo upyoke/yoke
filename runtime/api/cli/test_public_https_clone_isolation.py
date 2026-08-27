@@ -42,7 +42,7 @@ def test_external_https_clone_stays_anonymous_and_preserves_clean_url(
 
     monkeypatch.setattr(clone, "run_network_git", run)
 
-    outcome = clone.clone_with_token_fallback(
+    outcome = clone.clone_with_connected_access(
         tmp_path,
         "widgets",
         remote,
@@ -119,7 +119,7 @@ def test_failed_external_clone_never_resolves_or_sends_github_token(
     monkeypatch.setattr(clone, "run_network_git", fail)
 
     with pytest.raises(clone.CloneAccessError) as caught:
-        clone.clone_with_token_fallback(
+        clone.clone_with_connected_access(
             tmp_path,
             "widgets",
             remote,

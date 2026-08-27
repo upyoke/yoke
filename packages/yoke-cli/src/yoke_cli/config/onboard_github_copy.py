@@ -57,7 +57,7 @@ CLONE_FROM_GITHUB_LABEL = "Clone a project from GitHub"
 CLONE_FROM_GITHUB_DESC = "GitHub URL only — not GitLab or Bitbucket"
 CLONE_FROM_GITHUB_TITLE = "Clone a project from GitHub."
 CLONE_FROM_GITHUB_SUBTITLE = (
-    "Paste a public GitHub repo URL. GitLab and Bitbucket are not clone sources."
+    "Paste a GitHub repo URL. GitLab and Bitbucket are not clone sources."
 )
 CLONE_VISIBILITY_PUBLIC_DESC = "paste a GitHub URL"
 

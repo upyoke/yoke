@@ -185,7 +185,7 @@ def import_project(
             progress, checkout_action, progress_target, "running"
         )
         try:
-            clone_reused = apply_clone.resumable_clone_with_machine_fallback(
+            clone_reused = apply_clone.resumable_clone_with_machine_access(
                 root,
                 remote_url,
                 plan=plan,

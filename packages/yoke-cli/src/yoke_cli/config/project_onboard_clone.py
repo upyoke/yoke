@@ -18,7 +18,7 @@ from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
     CLONE_OUTCOME_MAKE_IT_MINE,
     ClonePlan,
-    clone_with_token_fallback,
+    clone_with_connected_access,
     origin_is,
     rehome_to_new_origin,
     set_fork_remotes,
@@ -97,7 +97,7 @@ def machine_token_provider(
     service_api_url: str | None = None,
     local_connection_selected: bool = False,
 ) -> Callable[[], str | None] | None:
-    """Return a lazy token source for an explicitly private clone."""
+    """Return a lazy token source for a clone that reads through GitHub access."""
     if not plan.use_machine_github or plan.fallback_token:
         return None
 
@@ -110,8 +110,8 @@ def machine_token_provider(
             ).access_token
         except github_local_user_access.GitHubLocalUserAccessError as exc:
             raise ProjectOnboardError(
-                "Connected GitHub App authorization could not be refreshed "
-                "after anonymous clone access failed. Reconnect GitHub and retry."
+                "Connected GitHub App authorization could not be refreshed for "
+                "the clone. Reconnect GitHub and retry."
             ) from exc
 
     return provide
@@ -154,7 +154,7 @@ def resumable_clone(
             f"{root} to start over."
         )
     ensure_new_checkout(root)
-    clone_with_token_fallback(
+    clone_with_connected_access(
         root.parent, root.name, clean_remote,
         token=token, token_provider=token_provider,
         github_web_url=github_web_url,
@@ -162,7 +162,7 @@ def resumable_clone(
     return False
 
 
-def resumable_clone_with_machine_fallback(
+def resumable_clone_with_machine_access(
     root: Path,
     remote_url: str,
     *,
@@ -172,7 +172,7 @@ def resumable_clone_with_machine_fallback(
     local_connection_selected: bool = False,
     clone: Callable[..., bool] = resumable_clone,
 ) -> bool:
-    """Run anonymous-first clone with a lazy machine token when requested."""
+    """Clone through the connected GitHub access when the plan resolves one."""
 
     return clone(
         root,
@@ -343,5 +343,5 @@ __all__ = [
     "machine_token_provider",
     "normalize_clone_request",
     "resumable_clone",
-    "resumable_clone_with_machine_fallback",
+    "resumable_clone_with_machine_access",
 ]
