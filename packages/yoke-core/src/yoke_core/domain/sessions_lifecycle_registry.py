@@ -154,7 +154,6 @@ def register_session(
                 session_id=session_id,
                 model=model,
                 execution_lane=execution_lane,
-                actor_id=actor_id,
                 resolved_actor_id=resolved_actor_id,
                 executor_surface=display_name,
                 executor_version=executor_version,
@@ -173,15 +172,14 @@ def register_session(
         executor_version = resolve_reactivation_executor_version(
             existing, incoming_surface=display_name, incoming_version=driver_version
         )
-        explicit_overwrite = actor_id is not None and resolved_actor_id is not None
-        implicit_backfill = actor_id is None and resolved_actor_id is not None
-
-        if explicit_overwrite:
-            actor_clause = f", actor_id = {p}"
-        elif implicit_backfill:
-            actor_clause = f", actor_id = COALESCE(actor_id, {p})"
-        else:
-            actor_clause = ""
+        # An explicitly supplied actor overwrites; a resolved operating
+        # actor only fills a row that carries none, so a session that
+        # registered under a named actor keeps it.
+        actor_clause = (
+            f", actor_id = {p}"
+            if actor_id is not None
+            else f", actor_id = COALESCE(actor_id, {p})"
+        )
 
         episode_clause = f", episode_started_at = {p}" if has_episode_col else ""
         thread_clause = (
@@ -199,8 +197,7 @@ def register_session(
             params.append(native_thread_id)
         if episode_clause:
             params.append(now)
-        if actor_clause:
-            params.append(resolved_actor_id)
+        params.append(resolved_actor_id)
         project_clause = f", project_id = {p}"
         params.append(resolved_project_id)
         params.append(session_id)

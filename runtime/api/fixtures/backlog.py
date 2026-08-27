@@ -55,6 +55,38 @@ def seed_test_canonical_actors(conn: Any) -> tuple[int, int]:
     return seed_canonical_actors(conn)
 
 
+def seed_fixture_operating_actor(conn: Any) -> int:
+    """Seed the operating actor session registration binds, when absent.
+
+    Every born universe carries one — ``schema_init.cmd_init`` seeds it —
+    and registration refuses rather than storing a NULL actor, so a
+    fixture without one models an install that cannot exist. A fixture
+    whose schema also carries the org/role tables gets the admin grant a
+    real universe gives its operator, because the dispatcher enforces
+    permissions as soon as a session names an actor. Idempotent, and a
+    minimal ``actors``-only schema still works.
+    """
+    from yoke_core.domain.actors import seed_human_actor
+    from yoke_core.domain.schema_common import _table_exists
+
+    if all(
+        _table_exists(conn, table)
+        for table in ("actors", "actor_org_roles", "organizations", "roles")
+    ):
+        from yoke_core.domain.local_operating_actor import (
+            ensure_local_operating_actor,
+        )
+
+        actor_id, _seeded = ensure_local_operating_actor(conn)
+        return actor_id
+    row = conn.execute(
+        "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
+    ).fetchone()
+    if row is not None:
+        return int(row[0])
+    return seed_human_actor(conn)
+
+
 @pytest.fixture
 def test_db():
     """Connection with the full Yoke schema on a disposable Postgres DB.

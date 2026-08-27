@@ -152,7 +152,8 @@ def _render_codex_orientation(
         remediation = _connected_env_remediation(registration_failed)
         warning = [
             "WARNING: Session registration failed - scheduler will not see this "
-            f"session. Run: {_session_begin_recovery_command(session_id, root, model, entrypoint)}",
+            f"session. Reason: {registration_failed}. "
+            f"Run: {_session_begin_recovery_command(session_id, root, model, entrypoint)}",
         ]
         warning += [remediation] if remediation else []
         lines[5:5] = [*warning, ""]
@@ -184,7 +185,8 @@ def _render_codex_reminder(
     if registration_failed:
         lines.append(
             "WARNING: Session registration backfill failed - scheduler may "
-            f"not see this session. Run: {_session_begin_recovery_command(session_id, root, model, entrypoint)}"
+            f"not see this session. Reason: {registration_failed}. "
+            f"Run: {_session_begin_recovery_command(session_id, root, model, entrypoint)}"
         )
         remediation = _connected_env_remediation(registration_failed)
         if remediation:
@@ -210,7 +212,10 @@ def _render_claude_orientation(
     lines = _orientation_base("## Yoke Orientation", session_id, root, extra_files=[])
     if registration_failed:
         remediation = _connected_env_remediation(registration_failed)
-        warning = ["WARNING: Session registration failed - scheduler will not see this session."]
+        warning = [
+            "WARNING: Session registration failed - scheduler will not see "
+            f"this session. Reason: {registration_failed}",
+        ]
         warning += [remediation] if remediation else []
         lines[5:5] = [*warning, ""]
     lines[5:5] = [f"Executor: {executor or 'claude-code'}", f"Model: {model or 'unknown'}", f"Root: {root}", ""]

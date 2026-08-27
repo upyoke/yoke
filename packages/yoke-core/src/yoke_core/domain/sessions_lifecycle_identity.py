@@ -8,20 +8,34 @@ import uuid
 from yoke_contracts.session_lane import lane_is_unresolved
 
 
-def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> Optional[int]:
-    """Validate an explicitly observed actor for a session row."""
-    if explicit is None:
-        return None
-    from yoke_core.domain import db_backend
+def resolve_session_actor_id(conn: Any, explicit: Optional[int]) -> int:
+    """Bind the session's actor: the explicit one, else this universe's.
 
-    try:
-        from yoke_core.domain.actors import validate_actor_id
+    An explicit actor (the verified bearer-token actor over https, or one
+    an operator surface supplied) wins after a presence check; otherwise
+    the universe's operating actor is resolved, because the identity a
+    session acts for already exists by the time it registers. Nothing
+    falls through to NULL: an actor-less session cannot register a path
+    claim, and that refusal lands far from the registration that caused
+    it, so registration refuses here with the reason and the recovery.
+    """
+    from yoke_core.domain.session_actor_binding import (
+        explicit_actor_binding,
+        resolve_operating_actor,
+    )
+    from yoke_core.domain.sessions import SessionError
 
-        if validate_actor_id(conn, int(explicit)):
-            return int(explicit)
-    except db_backend.operational_error_types(conn) + (ValueError,):
-        return None
-    return None
+    binding = (
+        explicit_actor_binding(conn, explicit)
+        if explicit is not None
+        else resolve_operating_actor(conn)
+    )
+    if binding.actor_id is not None:
+        return binding.actor_id
+    raise SessionError(
+        binding.code,
+        f"Session registration cannot bind an actor: {binding.detail}",
+    )
 
 
 def resolve_session_project_id(conn: Any, explicit: int) -> int:
@@ -211,8 +225,7 @@ def refresh_active_duplicate_identity(
     session_id: str,
     model: str,
     execution_lane: str,
-    actor_id: Optional[int],
-    resolved_actor_id: Optional[int],
+    resolved_actor_id: int,
     executor_surface: Optional[str],
     executor_version: Optional[str],
     machine_id: Optional[str],
@@ -245,11 +258,9 @@ def refresh_active_duplicate_identity(
         )
         conn.commit()
 
-    if (
-        actor_id is not None
-        and resolved_actor_id is not None
-        and existing["actor_id"] is None
-    ):
+    # A row registered before actor binding existed (or by a path that
+    # could not resolve one) heals on its next registration probe.
+    if existing["actor_id"] is None:
         conn.execute(
             f"UPDATE harness_sessions SET actor_id = {placeholder} "
             f"WHERE session_id = {placeholder} AND actor_id IS NULL",

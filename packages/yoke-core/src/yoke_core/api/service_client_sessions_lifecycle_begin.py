@@ -44,6 +44,7 @@ def begin_session(
     executor_version: str | None = None,
     machine_id: str | None = None,
     native_thread_id: str | None = None,
+    actor_id: int | None = None,
 ) -> dict:
     """Register (or idempotently refresh) a session row; return a result dict.
 
@@ -53,6 +54,10 @@ def begin_session(
     function handler both need. The already-registered case returns a
     success dict rather than raising; every other :class:`SessionError`
     propagates so callers can shape their own error response.
+
+    ``actor_id`` is the caller's authenticated actor when the transport
+    verified one; without it registration binds the universe's operating
+    actor rather than storing NULL.
 
     ``executor`` is passed through verbatim.
     :func:`yoke_core.domain.sessions_lifecycle_canonicalize.canonicalize_executor`
@@ -87,6 +92,7 @@ def begin_session(
             executor_version=executor_version,
             machine_id=machine_id,
             native_thread_id=native_thread_id,
+            actor_id=actor_id,
         )
     except SessionError as exc:
         if exc.code == "SESSION_EXISTS":

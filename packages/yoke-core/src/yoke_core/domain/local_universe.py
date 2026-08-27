@@ -331,30 +331,29 @@ def _ensure_org_card(
 
 
 def _ensure_human_actor(emit: Callable[[str], None]) -> int:
-    """Return the universe's one human actor id, seeding as a backstop.
+    """Return the machine owner's actor id, seeding and empowering it.
 
-    The bootstrap init chain normally seeds the human actor (labeled
-    from the pinned OS-login injection), so on the birth path this is a
-    lookup. The seeding branch is a backstop for a universe whose
-    bootstrap predates canonical-actor seeding. No user records exist —
-    the actor row is the whole identity.
+    The bootstrap init chain normally seeds the human actor (labeled from
+    the pinned OS-login injection), so on the birth path the row is
+    usually a lookup; the seeding branch backstops a universe whose
+    bootstrap predates canonical-actor seeding. Either way the owner of a
+    machine-local universe is its administrator, so the actor also
+    carries the org admin role — see
+    :mod:`yoke_core.domain.local_operating_actor` for why both halves
+    have to land together.
     """
     from yoke_core.domain import actors, db_helpers
+    from yoke_core.domain.local_operating_actor import (
+        ensure_local_operating_actor,
+    )
 
     conn = db_helpers.connect()
     try:
-        row = conn.execute(
-            "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
-        ).fetchone()
-        if row is not None:
-            return int(row[0])
-        actor_id = actors.seed_human_actor(conn)
-        actors.set_actor_label(
-            conn,
-            actor_id,
-            _os_login_label() or actors.DEFAULT_LOCAL_HUMAN_LABEL,
+        actor_id, seeded = ensure_local_operating_actor(
+            conn, label=_os_login_label() or actors.DEFAULT_LOCAL_HUMAN_LABEL
         )
-        emit(f"  [local-universe] seeded local human actor {actor_id}")
+        if seeded:
+            emit(f"  [local-universe] seeded local human actor {actor_id}")
         return actor_id
     finally:
         conn.close()

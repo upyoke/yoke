@@ -143,6 +143,7 @@ _SHAPES = (
             "run-item-status-consistency",
             "run-qa-unsatisfied",
             "schema-drift",
+            "session-actor-binding",
             "session-cwd-binding",
             "session-lane-mismatch",
             "session-pre-implementing-activity",
@@ -194,7 +195,14 @@ _SHAPES = (
             "worktree-health",
         ),
     ),
-    (_LOCAL, ("session-relay", "session-relay-orphans")),
+    (
+        _LOCAL,
+        (
+            "local-operating-actor-authority",
+            "session-relay",
+            "session-relay-orphans",
+        ),
+    ),
     (
         _EXT,
         (

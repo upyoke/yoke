@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from yoke_core.domain.actors import seed_human_actor, set_actor_label
 from runtime.api.workflow_version_test_helpers import current_workflow_version
+from yoke_core.domain import session_actor_binding
 from yoke_core.ui import local_operator_actor, server as ui_server
 
 
@@ -43,8 +44,8 @@ class TestOperatorActorResolution:
     ):
         seed_human_actor(test_db)
         monkeypatch.setattr(
-            local_operator_actor,
-            "_os_login",
+            session_actor_binding,
+            "os_login",
             lambda: "nobody-known",
         )
         assert local_operator_actor.resolve_local_operator_actor() is None
@@ -57,8 +58,8 @@ class TestOperatorActorResolution:
         second = seed_human_actor(test_db)
         set_actor_label(test_db, second, "operator-login")
         monkeypatch.setattr(
-            local_operator_actor,
-            "_os_login",
+            session_actor_binding,
+            "os_login",
             lambda: "operator-login",
         )
         assert local_operator_actor.resolve_local_operator_actor() == second
@@ -283,8 +284,8 @@ class TestProxyMutations:
     ):
         seed_human_actor(test_db)
         monkeypatch.setattr(
-            local_operator_actor,
-            "_os_login",
+            session_actor_binding,
+            "os_login",
             lambda: "nobody-known",
         )
         refused = _call(

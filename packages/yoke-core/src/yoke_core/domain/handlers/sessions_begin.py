@@ -41,6 +41,24 @@ class BeginResponse(BaseModel):
     success: bool
 
 
+def _bound_actor_id(request: FunctionCallRequest) -> Optional[int]:
+    """Return the caller's authenticated actor, when the boundary bound one.
+
+    Over https the HTTP boundary replaces the envelope actor with the
+    verified bearer-token actor, so registration binds the authenticated
+    principal rather than guessing at the universe's operating actor. In
+    process there is no token: a first-time session carries no actor here
+    and registration resolves the operating actor itself.
+    """
+    raw = (request.actor.actor_id or "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
 def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
     """Register (or idempotently refresh) the caller's session row.
 
@@ -75,6 +93,7 @@ def handle_begin(request: FunctionCallRequest) -> HandlerOutcome:
                 executor_version=body.executor_version,
                 machine_id=body.machine_id,
                 native_thread_id=body.native_thread_id,
+                actor_id=_bound_actor_id(request),
             )
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)
