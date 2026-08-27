@@ -6,9 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from yoke_contracts.machine_config import schema as machine_schema
-
 from yoke_contracts import hosting_posture
+from yoke_contracts.machine_config import schema as machine_schema
 
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import machine_config
@@ -19,13 +18,13 @@ from yoke_cli.config import onboard_bridge
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_credential_replacement
+from yoke_cli.config import onboard_credential_source
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_report
 from yoke_cli.config import onboard_reuse_state
 from yoke_cli.config import onboard_session_relay
 from yoke_cli.config import onboard_apply_progress
 from yoke_cli.config import writer
-from yoke_cli.config import secrets as machine_secrets
 
 PROJECT_MODE_MACHINE_ONLY = onboard_project.PROJECT_MODE_MACHINE_ONLY
 PROJECT_MODE_CREATE_REPO = onboard_project.PROJECT_MODE_CREATE_REPO
@@ -99,12 +98,14 @@ def build_report(
         source = {"kind": "local-universe"}
         credential_source = {"kind": machine_schema.CREDENTIAL_KIND_DSN_FILE}
     else:
-        source = _token_source_summary(
+        source = onboard_credential_source.invocation_source(
             token=token,
             token_file=token_file,
             source_kind=token_source_kind,
         )
-        credential_source = _credential_source_plan(cfg_path, env_name)
+        credential_source = onboard_credential_source.credential_plan(
+            cfg_path, env_name
+        )
     normalized_project_mode = onboard_bridge.normalize_project_mode(
         project_mode,
         error_cls=OnboardError,
@@ -312,29 +313,6 @@ def dumps_json(report: Dict[str, Any]) -> str:
 
 def render_human(report: Dict[str, Any]) -> str:
     return onboard_report.render_human(report)
-
-
-def _credential_source_plan(
-    cfg_path: Path,
-    env_name: str,
-) -> dict[str, Any]:
-    return {
-        "kind": "token_file",
-        "path": str(machine_secrets.secret_path(env_name, "token")),
-    }
-
-
-def _token_source_summary(
-    *,
-    token: str | None,
-    token_file: str | Path | None,
-    source_kind: str,
-) -> dict[str, Any]:
-    if token_file is not None:
-        return {"kind": "token_file", "path": str(Path(token_file).expanduser())}
-    if token:
-        return {"kind": source_kind}
-    return {"kind": "missing"}
 
 
 def _ensure_runtime_dirs(config_path: Path) -> None:
