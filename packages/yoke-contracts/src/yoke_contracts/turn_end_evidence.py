@@ -17,6 +17,7 @@ from typing import Any, Mapping
 
 PAYLOAD_KEY = "turn_end_evidence"
 REPORT_PAYLOAD_KEY = "turn_end_report"
+STEERING_REPORT_IDEMPOTENCY_PREFIX = "steering-report:"
 MAX_TRANSCRIPT_TAIL_BYTES = 262144
 
 _USER_TYPES = frozenset({"user", "human"})
@@ -60,6 +61,11 @@ class TurnEndReport:
 
     def as_dict(self) -> dict[str, str]:
         return {"body": self.body, "fingerprint": self.fingerprint}
+
+
+def steering_report_idempotency_key(session_id: str, fingerprint: str) -> str:
+    """Return the stable message-plane dedupe key for one steering report."""
+    return f"{STEERING_REPORT_IDEMPOTENCY_PREFIX}{session_id}:{fingerprint}"
 
 
 def _looks_like_question(text: str) -> bool:
@@ -264,6 +270,7 @@ __all__ = [
     "MAX_TRANSCRIPT_TAIL_BYTES",
     "PAYLOAD_KEY",
     "REPORT_PAYLOAD_KEY",
+    "STEERING_REPORT_IDEMPOTENCY_PREFIX",
     "TurnEndEvidence",
     "TurnEndReport",
     "UNAVAILABLE",
@@ -274,4 +281,5 @@ __all__ = [
     "from_payload_facts",
     "from_payload_report",
     "read_transcript_tail",
+    "steering_report_idempotency_key",
 ]

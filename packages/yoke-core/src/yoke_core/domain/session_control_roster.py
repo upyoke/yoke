@@ -18,6 +18,7 @@ from yoke_contracts.session_control.resume import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_control_diagnostics import session_diagnostics
+from yoke_core.domain.sessions_steering_visibility import steering_visibility
 from yoke_core.domain.session_message_routing import messageability
 from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
@@ -171,6 +172,7 @@ def _project_row(
     worktree: str | None,
     resume_state: str | None,
     diagnostics: Mapping[str, Any],
+    steering: Mapping[str, Any],
 ) -> dict[str, Any]:
     merged = {**row, **identity}
     machine_id = str(merged.get("machine_id") or "")
@@ -211,6 +213,7 @@ def _project_row(
         else ("unavailable" if machine_id else ""),
         "messageability": routing,
         **diagnostics,
+        **steering,
     }
 
 
@@ -243,6 +246,7 @@ def session_control_roster_result(
         )
         connected = connected_relay_routes(conn, now=now)
         diagnostics = session_diagnostics(conn, rows, identities)
+        steering = steering_visibility(conn, rows, now=now)
         projected = [
             _project_row(
                 row,
@@ -251,6 +255,7 @@ def session_control_roster_result(
                 worktree=worktrees.get(str(row.get("session_id") or "")),
                 resume_state=resume_states.get(str(row.get("session_id") or "")),
                 diagnostics=diagnostics.get(str(row.get("session_id") or ""), {}),
+                steering=steering.get(str(row.get("session_id") or ""), {}),
             )
             for row in rows
         ]

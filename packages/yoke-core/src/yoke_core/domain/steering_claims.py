@@ -76,8 +76,10 @@ def acquire(
         conflict = _claim_payload(rows[0])
         raise SessionError(
             "ALREADY_CLAIMED",
-            "Project steering already has active claim "
-            f"{conflict['id']} held by session '{conflict['session_id']}'.",
+            f"Steering scope for project {int(project_id)} is already held by "
+            f"coordinator session '{conflict['session_id']}' "
+            f"(claim {conflict['id']}); inspect it with `yoke claims steering "
+            f"list --project {int(project_id)} --active-only`.",
         )
 
     now = _now_iso()

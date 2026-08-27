@@ -11,6 +11,7 @@ from yoke_contracts.turn_end_evidence import (
     TurnEndReport,
     extract_turn_end_report,
     read_transcript_tail,
+    steering_report_idempotency_key,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_message_service import send_message
@@ -79,7 +80,7 @@ def route_turn_end_report(
         sender_session_id=session_id,
         selector=RecipientSelector(session_ids=[recipient_session_id]),
         body=report.body,
-        idempotency_key=(f"steering-report:{session_id}:{report.fingerprint}"),
+        idempotency_key=steering_report_idempotency_key(session_id, report.fingerprint),
         now=now,
     )
     return {**result, "recipient_session_id": recipient_session_id}

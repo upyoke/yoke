@@ -27,6 +27,7 @@ from yoke_contracts.board.renderer_sections import render_board_sections
 from yoke_contracts.board.sections_architecture import (
     render_architecture_section,
 )
+from yoke_contracts.board.sections_steering import render_steering_section
 from yoke_contracts.board.sections import (
     classify_items,
     consistency_check,
@@ -196,7 +197,15 @@ def _assemble(
         lines.append(sessions_text)
 
     # ------------------------------------------------------------------
-    # 5b. Architecture health (collapses when no scoped map exists)
+    # 5b. Steering scopes
+    # ------------------------------------------------------------------
+    with measure_phase(phase_recorder, "steering"):
+        steering_text = render_steering_section(db, scope)
+    lines.append("")
+    lines.append(steering_text)
+
+    # ------------------------------------------------------------------
+    # 5c. Architecture health (collapses when no scoped map exists)
     # ------------------------------------------------------------------
     with measure_phase(phase_recorder, "architecture"):
         architecture_text = render_architecture_section(db, scope)
