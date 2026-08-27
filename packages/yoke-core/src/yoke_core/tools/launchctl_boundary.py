@@ -21,6 +21,7 @@ import subprocess
 import sys
 from typing import Any, Callable
 
+from yoke_cli.config.machine_config import default_yoke_home
 from yoke_cli.config.session_relay_instance import PROD_RELAY_LABEL
 
 
@@ -85,28 +86,49 @@ def names_canonical_relay(command: Sequence[str]) -> bool:
     """Report whether a launchctl command addresses the machine's live relay."""
     for argument in command:
         text = str(argument)
-        if text == CANONICAL_RELAY_LABEL or text.endswith(
-            f"/{CANONICAL_RELAY_LABEL}"
-        ):
+        if text == CANONICAL_RELAY_LABEL or text.endswith(f"/{CANONICAL_RELAY_LABEL}"):
             return True
         if Path(text).name == CANONICAL_RELAY_PLIST_NAME:
             return True
     return False
 
 
+def launch_agents_home(
+    home: Path | None = None,
+    *,
+    yoke_home: Path | None = None,
+) -> Path:
+    """Return the user-home whose ``Library/LaunchAgents`` may be written.
+
+    An isolated machine-home — anything other than the default
+    ``<user-home>/.yoke`` — keeps LaunchAgents inside itself so a pytest
+    sandbox can never write the operator's login domain. An explicit
+    ``home`` still wins, for tests that already pass a disposable root.
+    """
+    if home is not None:
+        return Path(home).expanduser()
+    if yoke_home is None:
+        return Path.home()
+    isolated = Path(yoke_home).expanduser().resolve(strict=False)
+    if isolated == default_yoke_home().expanduser().resolve(strict=False):
+        return Path.home()
+    return isolated
+
+
 def launch_agents_dir(
     home: Path | None = None,
     *,
     environ: Mapping[str, str] | None = None,
+    yoke_home: Path | None = None,
 ) -> Path:
     """Resolve where launch-agent plists belong for this process.
 
     A test that passes its own home already writes somewhere disposable and
-    is left alone. Only the operator's real ``~/Library/LaunchAgents`` is
-    redirected into the test sandbox, so a test can exercise the installer
-    end to end without leaving a plist behind on the machine.
+    is left alone. An isolated machine-home is treated the same way: its
+    LaunchAgents directory stays inside that sandbox. Only the operator's
+    real ``~/Library/LaunchAgents`` is redirected into the test sandbox.
     """
-    resolved = (home or Path.home()).expanduser().resolve(strict=False)
+    resolved = launch_agents_home(home, yoke_home=yoke_home).resolve(strict=False)
     real_home = Path.home().expanduser().resolve(strict=False)
     if resolved != real_home or not under_test(environ):
         return resolved / "Library" / LAUNCH_AGENTS_DIR_NAME
@@ -156,8 +178,7 @@ def run_launchctl(
             text=text,
         )
     raise LaunchdBoundaryError(
-        f"a test process may not run launchctl: {' '.join(resolved)}. "
-        + _RECOVERY
+        f"a test process may not run launchctl: {' '.join(resolved)}. " + _RECOVERY
     )
 
 
@@ -265,6 +286,7 @@ __all__ = [
     "bootout_labels",
     "integration_domain",
     "launch_agents_dir",
+    "launch_agents_home",
     "launchd_target",
     "names_canonical_relay",
     "real_launchd_opted_in",

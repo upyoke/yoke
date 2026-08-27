@@ -39,6 +39,10 @@ install — the shape that had already failed once.
 launchctl or resolve where a launch-agent plist lives. Under a test process
 it never executes:
 
+- An isolated `YOKE_MACHINE_HOME` (or an explicit `yoke_home` that is not
+  the default `~/.yoke`) keeps LaunchAgents inside that machine-home. The
+  installer used to honor the sandbox for config and logs while still
+  writing plists to the operator's real `~/Library/LaunchAgents`.
 - With a sandbox exported (`YOKE_LAUNCHD_TEST_SANDBOX`, set per test by the
   repo-wide conftest), commands are appended to a journal and answered from
   it, and plists bound for the operator's real `~/Library/LaunchAgents` are
@@ -61,4 +65,6 @@ variable.
 on any whose pinned machine config no longer exists, listing the labels.
 `yoke doctor run --quick --fix` unloads and deletes exactly those, leaves an
 unreadable plist in place to be looked at, and never touches
-`com.upyoke.relay`.
+`com.upyoke.relay`. Deleting the plist does not always clear the macOS
+Background Task Management row; leftover Login Items entries may linger
+until reboot or an operator-run `sudo sfltool resetbtm`.

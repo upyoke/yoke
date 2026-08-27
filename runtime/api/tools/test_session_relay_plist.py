@@ -286,3 +286,42 @@ def test_invalid_connection_is_rejected_before_any_lifecycle_write(
 
     assert calls == []
     assert not (tmp_path / "Library" / "LaunchAgents").exists()
+
+
+def test_isolated_machine_home_install_writes_no_plist_outside_itself(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """YOKE_MACHINE_HOME is the sandbox: LaunchAgents stay inside it.
+
+    The leak wrote real ~/Library/LaunchAgents plists while config and
+    logs honored the pytest machine-home. An isolated yoke_home must
+    never resolve the operator login-item directory.
+    """
+    operator_home = tmp_path / "operator-home"
+    operator_home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: operator_home))
+    machine_home = tmp_path / "machine-home"
+    config_path = _config(machine_home)
+    executable = tmp_path / "bin" / "yoke"
+    executable.parent.mkdir()
+    executable.touch()
+
+    def runner(command, **_kwargs):
+        command = list(command)
+        returncode = 3 if command[:2] == ["launchctl", "print"] else 0
+        return subprocess.CompletedProcess(command, returncode, "", "")
+
+    installed = install_relay_launchd(
+        yoke_home=machine_home,
+        config_path=config_path,
+        environment="stage",
+        executable=executable,
+        runner=runner,
+        platform="darwin",
+        uid=501,
+    )
+
+    assert installed.plist_path.is_relative_to(machine_home)
+    operator_agents = operator_home / "Library" / "LaunchAgents"
+    assert not operator_agents.exists() or list(operator_agents.glob("*.plist")) == []

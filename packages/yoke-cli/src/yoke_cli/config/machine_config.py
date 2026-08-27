@@ -12,6 +12,7 @@ from yoke_contracts.machine_config import schema as contract
 
 CONFIG_FILE_ENV = "YOKE_MACHINE_CONFIG_FILE"
 HOME_ENV = "YOKE_MACHINE_HOME"
+DEFAULT_HOME_NAME = ".yoke"
 DEFAULT_CONFIG_NAME = contract.DEFAULT_CONFIG_NAME
 DEFAULT_BOARD_PATH = contract.DEFAULT_BOARD_PATH
 DEFAULT_CACHE_DIR_NAME = contract.DEFAULT_CACHE_DIR_NAME
@@ -32,11 +33,15 @@ class ConfiguredProject:
     entry: dict[str, Any]
 
 
+def default_yoke_home() -> Path:
+    return Path.home() / DEFAULT_HOME_NAME
+
+
 def yoke_home() -> Path:
     explicit = os.environ.get(HOME_ENV, "").strip()
     if explicit:
         return Path(explicit).expanduser()
-    return Path.home() / ".yoke"
+    return default_yoke_home()
 
 
 def config_path(explicit: str | Path | None = None) -> Path:
@@ -78,7 +83,8 @@ def product_connection(
     explicit_env: str | None = None,
 ) -> Mapping[str, Any]:
     return contract.product_client_connection(
-        load_config(path), explicit_env=explicit_env,
+        load_config(path),
+        explicit_env=explicit_env,
     )
 
 
@@ -108,7 +114,9 @@ def temp_root(path: str | Path | None = None) -> str:
     return str(_machine_path(raw))
 
 
-def project_entry(repo_root: str | Path, path: str | Path | None = None) -> dict[str, Any]:
+def project_entry(
+    repo_root: str | Path, path: str | Path | None = None
+) -> dict[str, Any]:
     """Return the machine-config entry for a checkout, or ``{}``.
 
     Resolution is scoped to the active/requested connection env — a mapping
@@ -116,8 +124,7 @@ def project_entry(repo_root: str | Path, path: str | Path | None = None) -> dict
     """
 
     cfg = load_config(path)
-    entry = contract.project_entry_for_checkout(
-        cfg, repo_root, env=_resolved_env(cfg))
+    entry = contract.project_entry_for_checkout(cfg, repo_root, env=_resolved_env(cfg))
     project_id = contract.normalize_project_id(entry.get("project_id"))
     if project_id is not None:
         entry["project_id"] = project_id
@@ -150,17 +157,20 @@ def configured_projects(
     out: list[ConfiguredProject] = []
     for entry in contract.normalize_projects(payload.get("projects")):
         project_id = contract.entry_project_id_for_env(
-            entry, env=env, active_env=active)
+            entry, env=env, active_env=active
+        )
         if project_id is None:
             continue
         checkout = Path(entry["checkout"]).expanduser()
         if existing_only and not checkout.exists():
             continue
-        out.append(ConfiguredProject(
-            checkout=checkout,
-            project_id=project_id,
-            entry=dict(entry),
-        ))
+        out.append(
+            ConfiguredProject(
+                checkout=checkout,
+                project_id=project_id,
+                entry=dict(entry),
+            )
+        )
     return out
 
 
@@ -199,7 +209,9 @@ def all_registered_checkouts(
 def project_id(repo_root: str | Path, path: str | Path | None = None) -> int | None:
     """Resolve the numeric project id for a checkout."""
 
-    return contract.normalize_project_id(project_entry(repo_root, path).get("project_id"))
+    return contract.normalize_project_id(
+        project_entry(repo_root, path).get("project_id")
+    )
 
 
 def board_scope(
@@ -248,6 +260,7 @@ __all__ = [
     "DEFAULT_CACHE_DIR_NAME",
     "DEFAULT_CACHE_ROOT",
     "DEFAULT_CONFIG_NAME",
+    "DEFAULT_HOME_NAME",
     "DEFAULT_TEMP_ROOT",
     "HOME_ENV",
     "MachineConfigError",
@@ -260,6 +273,7 @@ __all__ = [
     "cache_dir",
     "config_path",
     "configured_projects",
+    "default_yoke_home",
     "github_config",
     "load_config",
     "project_entry",
