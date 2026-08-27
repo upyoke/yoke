@@ -3,10 +3,7 @@ import {
   presentSessionControlFailure,
   renderSessionControlFailure,
 } from "./universe_session_control_data.js";
-import {
-  appendHoldings,
-  ownsFocusedItem,
-} from "./universe_sessions_holdings.js";
+import { appendHoldings, ownsFocusedItem } from "./universe_sessions_holdings.js";
 import {
   callFunction,
   el,
@@ -17,7 +14,7 @@ import {
   settledScopedCalls,
   whoColumn,
 } from "./universe_view_support.js";
-import { relativeTime } from "./universe_time.js";
+import { relativeAge, relativeTime } from "./universe_time.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
 import { appendSteeringContext, appendSteeringGroups } from "./universe_sessions_steering.js";
 import {
@@ -77,9 +74,12 @@ function appendRuntime(documentNode, body, row) {
 }
 function appendAge(documentNode, body, row) {
   const age = el(documentNode, "div", "session-age");
-  const add = (prefix, timestamp) => {
-    age.appendChild(el(documentNode, "span", "session-age-prefix", prefix));
-    age.appendChild(relativeTime(documentNode, timestamp));
+  const add = (prefix, timestamp, now = Date.now()) => {
+    const activeNow = prefix === "idle " && relativeAge(timestamp, now) === "now";
+    age.appendChild(el(
+      documentNode, "span", "session-age-prefix", activeNow ? "active " : prefix,
+    ));
+    age.appendChild(relativeTime(documentNode, timestamp, now));
   };
   if (row.current_item && ownsFocusedItem(row)) {
     add("claim held ", row.claim_started_at || row.activity_at);
