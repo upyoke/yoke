@@ -105,6 +105,13 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_https_compose.py",
+        "yoke_core.engines.doctor_https_local_scope",
+    ): (
+        "client_local_diagnostics",
+        "https doctor scopes machine checks after a relayed batch fails",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_https_compose.py",
         "yoke_core.engines.doctor_https_only",
     ): (
         "client_local_diagnostics",
