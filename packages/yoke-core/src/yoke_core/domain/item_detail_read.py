@@ -17,7 +17,7 @@ from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.render_body import build_body
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_behavior import worktree_lane_policy
 from yoke_core.domain.workflow_effective_policies import (
     resolve_effective_workflow_policies,
@@ -35,9 +35,24 @@ _NARRATIVE_FIELDS = (
     "deploy_log",
 )
 
+_MERGE_QUEUE_COLUMNS = (
+    "merge_queue_pr_number",
+    "merge_queue_enqueued_at",
+    "merge_queue_landed_at",
+    "merge_queue_notified_at",
+)
+
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _merge_queue_projection(conn: Any) -> str:
+    """Project queue fields as NULL while an older control plane rolls out."""
+    return ", ".join(
+        f"i.{column}" if _column_exists(conn, "items", column) else f"NULL AS {column}"
+        for column in _MERGE_QUEUE_COLUMNS
+    )
 
 
 def _dict_row(cursor: Any) -> dict[str, Any] | None:
@@ -129,13 +144,13 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
     try:
         marker = _p(conn)
         columns = ", ".join(f"i.{field}" for field in _NARRATIVE_FIELDS)
+        queue_columns = _merge_queue_projection(conn)
         row = _dict_row(
             conn.execute(
                 "SELECT i.id, i.title, i.status, i.priority, i.owner, "
                 "i.blocked, i.blocked_reason, i.created_at, i.updated_at, "
                 "i.deployment_flow, i.workflow_posture, "
-                "i.merge_queue_pr_number, i.merge_queue_enqueued_at, "
-                "i.merge_queue_landed_at, i.merge_queue_notified_at, "
+                f"{queue_columns}, "
                 f"{columns}, "
                 "p.id AS project_id, p.slug AS project, p.name AS project_name, "
                 "p.default_branch, p.public_item_prefix, i.project_sequence, "

@@ -134,6 +134,22 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     assert "Correct the footer" in item["narrative"]["spec"]
 
 
+def test_detail_read_projects_empty_queue_shape_before_schema_convergence(monkeypatch):
+    conn = _connection()
+    monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
+    monkeypatch.setattr(item_detail_read, "_column_exists", lambda *_args: False)
+
+    item = item_detail_read.get_item_detail(51)
+
+    assert item["merge_queue"] == {
+        "pr_number": "",
+        "enqueued_at": "",
+        "landed_at": "",
+        "notified_at": "",
+        "status": "",
+    }
+
+
 def test_detail_proof_summarizes_current_runs_and_no_run_fallback(monkeypatch):
     conn = _connection()
     requirements = [
