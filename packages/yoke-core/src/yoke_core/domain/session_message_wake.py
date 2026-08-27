@@ -20,6 +20,10 @@ from yoke_core.domain.session_message_routing import (
     messageability,
     session_liveness,
 )
+from yoke_core.domain.session_message_starvation import (
+    STARVED_HOOK_ROUTE,
+    starved_hook_route,
+)
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
@@ -53,6 +57,8 @@ def _native_wake_route_available(
     # route qualification below would reopen what the kill closed.
     if row.get("terminated_at"):
         return False
+    # A wake that has already left posture and liveness behind needs the
+    # route it will actually take proved, not the one those facts name.
     routing = messageability(
         row,
         liveness=liveness,
@@ -164,8 +170,18 @@ def wake_eligible_recipients(
                 continue
             if explicit_wake and attempt_count > 0:
                 continue
+            escalation = ""
             if not explicit_wake and liveness == "active":
-                continue
+                # An active session is served by its own hooks — unless the
+                # envelope proves that route stopped running, in which case
+                # deferring to it forever is what starves the message.
+                if not starved_hook_route(
+                    row,
+                    grace_seconds=policy.wake_ack_grace_seconds,
+                    now=current,
+                ):
+                    continue
+                escalation = STARVED_HOOK_ROUTE
             if not explicit_wake and row["state"] == "injected":
                 if not policy.reinject_until_acknowledged:
                     continue
@@ -185,6 +201,13 @@ def wake_eligible_recipients(
             if explicit_wake:
                 if row.get("injection_lease_id") is not None:
                     continue
+                wake_mode = WakeMode.WAITING
+            elif escalation:
+                # The stopped-session route is what this envelope needs, and
+                # WAITING is how every relay binary — including one older
+                # than this change — is already told to take it. An expired
+                # injection lease stays claimable here: it is a hook that
+                # started delivering and died, which is the starvation.
                 wake_mode = WakeMode.WAITING
             elif waiting_pending:
                 if row.get("injection_lease_id") is not None:
@@ -218,7 +241,7 @@ def wake_eligible_recipients(
                 liveness=liveness,
                 operation=operation,
                 relay_versions=versions,
-                force_stopped_route=explicit_wake,
+                force_stopped_route=explicit_wake or bool(escalation),
             ):
                 record_wake_skip(
                     conn,
@@ -238,6 +261,7 @@ def wake_eligible_recipients(
                     "executor_version": row["executor_version"],
                     "state": str(row["state"]),
                     "wake_mode": wake_mode.value,
+                    "wake_escalation": escalation,
                     "liveness": liveness,
                     "turn_posture": str(row["turn_posture"]),
                     "turn_posture_at": row["turn_posture_at"],

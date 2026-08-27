@@ -99,6 +99,13 @@ def messageability(
     A terminated session is refused outright, read from ``terminated_at`` on
     the row rather than from ``liveness`` — a kill presents as an ordinary
     ``ended`` session, and only the column proves the delivery ban.
+
+    ``force_stopped_route`` is for a caller that has already decided the
+    wake is a stopped-session resume, past what posture and liveness would
+    say on their own — an operator asking for one outright, or a starved
+    envelope whose own record shows its hook route stopped running. Without
+    it the availability answer describes a route the caller is not going to
+    take.
     """
     if row.get("terminated_at"):
         return {
