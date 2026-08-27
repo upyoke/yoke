@@ -214,6 +214,13 @@ A preflight refusal whose only issues are missing or stale commit-bound verdicts
 
 **Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it runs under the watcher wrapper. `yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --skip-status` prints the background + Monitor pair.
 
+**Queue handoff:** Codex/Cursor may append `--wait` after `--skip-status` and
+keep the existing inline flow. Claude never passes `--wait`. Its default
+queue call exits successfully with `landing_pending=true`; retain the claim
+and `release` status, end this usher pass, and re-enter after the
+landing-complete message. Do not begin deployment until a re-entry returns a
+real `merge_sha` with `landing_pending=false` or absent.
+
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.
 
 ### 7e. Handle merge result
@@ -226,7 +233,9 @@ and halt.
 
 The merge watcher preserves the merge engine's small set of documented exit codes. Aligned this list with the real engine contract: any **unknown non-zero exit** is treated as a hard failure and the item is rolled back to `implemented` — never left stranded in `release`. Exit 6 is the one **recoverable** non-zero outcome: a retryable merge-lock coordination condition that must NOT roll the item back.
 
-- **Exit 0:** `[release] PREFIX-N -- merge complete`. Proceed to the deploy phase.
+- **Exit 0:** Inspect the JSON result. `landing_pending=true` is the queue
+  pause above, not merge completion. Otherwise report
+  `[release] PREFIX-N -- merge complete` and proceed to deploy.
 - **Exit 3:** Parse `CONFLICT|file|classification` lines from stderr. For each conflicting file, inspect the conflict in the worktree and resolve using judgement (the classification is one input — an additive classification already means the union was computed and found valid for the file's format, while overlapping conflicts need codebase understanding). After resolving, `git add` and `git commit`, then re-run the merge command. If resolution is not confident, halt and report to operator.
 - **Exit 1 (HALT — `usher-halt-merge-failure`):** Merge path failure — push, PR create, CI, PR merge, freshness re-check, or post-merge verification. Revert to `implemented`, release the work claim with `usher-halt-merge-failure`, then halt the batch and surface the engine's stderr block to the operator. Future/planned item ownership or a planned path claim is not a waiver for the current merge failure. Do not use `path-claim-override` for a planned future claim when dependency or claim reconciliation can resolve the ordering; override is last resort for irreducible live collisions and requires explicit operator approval. The merge engine prints an actionable `Error: merge phase '<phase>' failed` line and a `MergePullRequest*Failed` / `MergeTargetStale` / `MergeVerificationFailed` event is in the events ledger.
 - **Exit 4 (HALT — `usher-halt-merge-failure`):** Worktree has user-authored dirty files at risk. Revert to `implemented`, release the work claim with `usher-halt-merge-failure`, then halt the batch and instruct the operator to resolve the dirty state before retry. The engine has already stashed the files; recover via `git -C {repo} stash list` / `git stash apply`.

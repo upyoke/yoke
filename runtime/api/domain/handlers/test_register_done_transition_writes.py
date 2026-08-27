@@ -25,6 +25,8 @@ _DONE_TRANSITION_WRITES = {
         "release_entry_write",
     ),
     "done_transition.populate_merged_at": ("item_merged_at_write",),
+    "merge_queue.landing_pending.mark": ("item_merge_queue_marker_write",),
+    "merge_queue.landing_pending.clear": ("item_merge_queue_marker_write",),
 }
 
 

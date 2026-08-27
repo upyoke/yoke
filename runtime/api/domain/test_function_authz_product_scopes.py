@@ -107,3 +107,11 @@ def test_execution_instruction_resolve_is_an_authenticated_read() -> None:
 
     assert spec.scope == ACTOR_SESSION
     assert spec.permission_key is None
+
+
+def test_merge_queue_marker_writes_use_project_item_write_authority() -> None:
+    mark = PRODUCT_AUTHZ_BY_ID["merge_queue.landing_pending.mark"]
+    clear = PRODUCT_AUTHZ_BY_ID["merge_queue.landing_pending.clear"]
+
+    assert mark == clear
+    assert mark.permission_key == "items.write"

@@ -57,6 +57,7 @@ def merge_item_resume_command(item_ref: str, args: Any) -> str:
         ("--no-changes", "no_changes"),
         ("--skip-status", "skip_status"),
         ("--pr", "pr"),
+        ("--wait", "wait"),
         ("--json", "json"),
     ):
         if bool(getattr(args, attr, False)):
@@ -64,9 +65,7 @@ def merge_item_resume_command(item_ref: str, args: Any) -> str:
     return " ".join(parts)
 
 
-def _holder(
-    item_id: int, dispatch: Callable[..., Any]
-) -> tuple[Optional[dict], str]:
+def _holder(item_id: int, dispatch: Callable[..., Any]) -> tuple[Optional[dict], str]:
     """Read the item's live work-claim holder, or why it could not be read."""
     try:
         response = dispatch(
@@ -78,9 +77,7 @@ def _holder(
         return None, str(exc)
     if not getattr(response, "success", False):
         error = getattr(response, "error", None)
-        return None, (
-            getattr(error, "message", None) or "work-claim lookup failed"
-        )
+        return None, (getattr(error, "message", None) or "work-claim lookup failed")
     holder = (getattr(response, "result", None) or {}).get("holder")
     return (holder or None), ""
 
@@ -153,10 +150,13 @@ def timeout_message(
     GitHub to find out whether re-running is the right move at all.
     """
     clause = claim_state_clause(
-        item_id=item_id, item_ref=item_ref, dispatch=dispatch,
+        item_id=item_id,
+        item_ref=item_ref,
+        dispatch=dispatch,
     )
     observed = (
-        f"last observed {last_observed}. " if last_observed
+        f"last observed {last_observed}. "
+        if last_observed
         else "The poll read nothing conclusive. "
     )
     return (

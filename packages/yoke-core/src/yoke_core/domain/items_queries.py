@@ -43,7 +43,22 @@ def query_item(
         # body is a virtual field rendered on demand
         if field == "body":
             from yoke_core.domain.render_body import build_body
+
             return build_body(conn, item_id) or ""
+        if field == "merge_queue_status":
+            from yoke_contracts.merge_queue_status import render_merge_queue_status
+
+            row = query_one(
+                conn,
+                "SELECT status, merge_queue_enqueued_at, merge_queue_landed_at "
+                "FROM items WHERE id = %s",
+                (item_id,),
+            )
+            return (
+                render_merge_queue_status(row[1], row[2], item_status=row[0])
+                if row is not None
+                else ""
+            )
 
         # Integer columns must be cast to TEXT before COALESCE(..., '') — the
         # empty-string sentinel cannot coerce to integer on Postgres (SQLite
@@ -96,6 +111,7 @@ def query_item_row(
             return None
         # Insert rendered body at its public row-contract position.
         from yoke_core.domain.render_body import build_body
+
         rendered = (build_body(conn, item_id) or "").replace("\n", "\\n")
         db_vals = list(str(v) for v in row)
         body_idx = list(CANONICAL_COLUMNS).index("body")

@@ -32,11 +32,27 @@ from yoke_contracts.coordination_claim_keys import (
     TARGET_KIND_MIGRATION_SERIALIZATION,
 )
 from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.merge_queue_status import render_merge_queue_status
 
 
 PATH_GLYPH = "\U0001f4c1"  # 📁
 LEASE_GLYPH = "\U0001f512"  # 🔒
 PROCESS_GLYPH = "🔩"
+
+
+def _merge_queue_status(db: BoardDBLike, item_id: int) -> str:
+    sql = (
+        "SELECT status, merge_queue_enqueued_at, merge_queue_landed_at "
+        "FROM items WHERE id = %s"
+    )
+    has_query_quiet = getattr(db, "has_query_quiet", None)
+    if callable(has_query_quiet) and not has_query_quiet(sql, (item_id,)):
+        return ""
+    rows = db.query_quiet(sql, (item_id,))
+    if not rows:
+        return ""
+    return render_merge_queue_status(rows[0][1], rows[0][2], item_status=rows[0][0])
+
 
 def _process_anchor(db: BoardDBLike, work_claim_id: Optional[int]) -> Optional[str]:
     """Resolve a work-claim id to its process key, when process-kind."""
@@ -158,6 +174,10 @@ def build_session_keycaps(
         cell = target_str
         if bucket and int(bucket["count"]) > 0:
             cell = f"{cell} {PATH_GLYPH}{int(bucket['count'])}"
+        if item_id is not None:
+            queue_status = _merge_queue_status(db, int(item_id))
+            if queue_status:
+                cell = f"{cell} · {queue_status}"
         decorated_targets.append(cell)
 
     # Orphan path_claims (no matching work_claim on the same item).

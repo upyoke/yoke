@@ -69,7 +69,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     ),
     "yoke watch merge": (
         "Run done-transition, merge-item, or merge-worktree under the shared "
-        "raw+progress watcher."
+        "raw+progress watcher; merge-item enqueues and exits unless --wait is passed."
     ),
     "yoke watch deploy": (
         "Run a deployment pipeline under the shared raw+progress watcher; "

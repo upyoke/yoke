@@ -52,9 +52,11 @@ yoke merge item ITEM --skip-status
 ```
 
 The first delegates to the local engine worktree preflight. The second is
-the standalone-item merge boundary shared with Dash: it takes the merge
-lock, lands the branch on the project base branch, stamps `merged_at`, and
-publishes. Each command has no registered `direct_workflow.*` function id —
+the standalone-item merge boundary shared with Dash. On a queue project its
+default response may be `landing_pending=true`: end the pass, retain the
+claim, and re-enter after the landing message. Codex/Cursor may add `--wait`;
+Claude never does. Non-queue routes still land inline. Each command has no registered
+`direct_workflow.*` function id —
 use them verbatim; do not invent function ids for them. Contract:
 [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
 
@@ -238,7 +240,9 @@ For each slice:
    yoke merge item ITEM --skip-status --json
    ```
 
-   The response carries the `merge_sha` for the checkpoint below. A
+   A `landing_pending=true` response is a successful pause, not the slice
+   checkpoint: re-enter after the landing message and continue only once the
+   response carries `merge_sha`. A
    queue-declared project keeps all registered lanes until the item is done.
    Only a project using the local merge engine needs to re-prepare the lane
    before the next slice, because that engine's cleanup deletes the landed

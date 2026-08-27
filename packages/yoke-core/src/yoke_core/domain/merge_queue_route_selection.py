@@ -52,18 +52,18 @@ def project_declares_merge_queue(
     response = dispatch(
         function_id=DB_READ_FUNCTION_ID,
         target=TargetRef(kind="global"),
-        payload={"sql": (
-            "SELECT COUNT(*) FROM project_capabilities pc "
-            "JOIN projects p ON p.id = pc.project_id "
-            f"WHERE p.slug = '{slug}' "
-            f"AND pc.type = '{MERGE_QUEUE_CAPABILITY_TYPE}'"
-        )},
+        payload={
+            "sql": (
+                "SELECT COUNT(*) FROM project_capabilities pc "
+                "JOIN projects p ON p.id = pc.project_id "
+                f"WHERE p.slug = '{slug}' "
+                f"AND pc.type = '{MERGE_QUEUE_CAPABILITY_TYPE}'"
+            )
+        },
     )
     if not getattr(response, "success", False):
         error = getattr(response, "error", None)
-        return False, (
-            getattr(error, "message", None) or "capability probe failed"
-        )
+        return False, (getattr(error, "message", None) or "capability probe failed")
     rows = ((getattr(response, "result", None) or {}).get("rows")) or []
     first = rows[0] if rows else None
     value: Any = None
@@ -127,6 +127,7 @@ def route_standalone_landing(
     local_merge: bool = True,
     resume_command: str = "",
     dispatch: Callable[..., Any] = call_dispatcher,
+    wait_for_landing: bool = True,
 ) -> StandaloneMergeOutcome:
     """Select the merge boundary for one standalone item branch.
 
@@ -140,9 +141,7 @@ def route_standalone_landing(
     resumable outcome that prints a command the operator can paste is the
     difference between resuming and reconstructing.
     """
-    declared, probe_error = project_declares_merge_queue(
-        project, dispatch=dispatch
-    )
+    declared, probe_error = project_declares_merge_queue(project, dispatch=dispatch)
     if probe_error:
         return StandaloneMergeOutcome(
             ok=False,
@@ -171,7 +170,10 @@ def route_standalone_landing(
     )
     if head_error:
         return StandaloneMergeOutcome(
-            ok=False, exit_code=1, already_merged=False, error=head_error,
+            ok=False,
+            exit_code=1,
+            already_merged=False,
+            error=head_error,
         )
     outcome = land_item_through_merge_queue(
         # The repository root rides along because the landing has a lane to
@@ -187,6 +189,7 @@ def route_standalone_landing(
         target=target,
         resume_command=resume_command,
         dispatch=dispatch,
+        wait_for_landing=wait_for_landing,
     )
     return StandaloneMergeOutcome(
         ok=outcome.ok,
@@ -201,7 +204,10 @@ def route_standalone_landing(
         # diff, but it is the same fact the local engine reports and the
         # same fact the item's evidence record is refused without.
         touched_files=outcome.touched_files,
-        pushed=outcome.ok,
+        pushed=outcome.ok and not outcome.landing_pending,
+        landing_pending=outcome.landing_pending,
+        pr_num=outcome.pr_num,
+        enqueued_at=outcome.enqueued_at,
         error=outcome.error,
         warnings=outcome.warnings,
     )

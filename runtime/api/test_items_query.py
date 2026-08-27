@@ -11,7 +11,11 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from yoke_core.domain import db_backend
-from runtime.api.fixtures.file_test_db import apply_fixture_schema_ddl, init_test_db
+from runtime.api.fixtures.file_test_db import (
+    apply_fixture_schema_ddl,
+    connect_test_db,
+    init_test_db,
+)
 from yoke_core.domain.items import (
     CANONICAL_COLUMNS,
     insert_item,
@@ -108,6 +112,33 @@ class TestQueryItem:
         )
         result = query_item(2, "frozen", db_path=db_path)
         assert result == "true"
+
+    def test_merge_queue_status_distinguishes_waiting_and_landed(self, db_with_item):
+        conn = connect_test_db(db_with_item)
+        try:
+            conn.execute(
+                "UPDATE items SET merge_queue_enqueued_at = %s WHERE id = %s",
+                ("2026-08-27T18:00:00Z", 1),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        assert query_item(1, "merge_queue_status", db_path=db_with_item) == (
+            "in merge queue since 2026-08-27T18:00:00Z"
+        )
+
+        conn = connect_test_db(db_with_item)
+        try:
+            conn.execute(
+                "UPDATE items SET merge_queue_landed_at = %s WHERE id = %s",
+                ("2026-08-27T18:05:00Z", 1),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        assert query_item(1, "merge_queue_status", db_path=db_with_item) == (
+            "merge queue landed at 2026-08-27T18:05:00Z; close-out pending"
+        )
 
 
 class TestQueryItemRow:

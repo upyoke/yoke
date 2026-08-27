@@ -281,10 +281,10 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
   - `yoke watch doctor --print-streaming-pair -- --quick
 # Paste the printed pair into the harness's background + progress-tail surfaces.`
   - Doctor must run under this wrapper — bare invocations risk the inverted-redirection trap (`2>&1 > file` silently drops stderr). The wrapper writes raw + filtered captures and auto-exits on its sentinel.
-- _Run done_transition / merge_worktree with watcher (main session)_
+- _Run merge or done-transition with watcher (main session)_
   - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
-# Subcommands: done-transition <args>, merge-worktree <args>`
-  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
+# merge-item defaults to enqueue/re-enter; Codex/Cursor may pass --wait`
+  - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter. Claude must not pass merge-item --wait.
 - _Wait on a commit's CI runs with watcher (main session)_
   - `yoke watch ci-run
 yoke watch ci-run -- <branch-or-sha> --workflow <name>`

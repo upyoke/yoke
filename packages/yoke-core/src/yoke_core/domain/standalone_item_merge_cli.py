@@ -16,6 +16,7 @@ from yoke_core.domain.merge_preflight_github_lock_retry import (
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
+from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
@@ -95,6 +96,7 @@ def _build_parser() -> argparse.ArgumentParser:
         ("--no-changes", "Record a verified no-change result."),
         ("--skip-status", "Merge without changing lifecycle status."),
         ("--pr", "Merge through a pull request."),
+        ("--wait", "Wait for queue landing and close out inline."),
     )
     for flag, help_text in boolean_options:
         parser.add_argument(flag, action="store_true", help=help_text)
@@ -216,6 +218,9 @@ def run(argv: List[str]) -> int:
             branch=branch,
             target=target,
         )
+    if getattr(outcome, "landing_pending", False) is True:
+        pending.print_envelope(item_id, item_ref, branch, target, status, outcome)
+        return 0
 
     close_lane = landed_lane or landed.LandedLane(
         branch=branch,
@@ -320,6 +325,9 @@ def run(argv: List[str]) -> int:
                 target_branch=target,
             )
         )
+        marker_error = pending.clear_after_close_out(item_id, item)
+        if marker_error:
+            envelope["warnings"].append(f"queue marker not cleared: {marker_error}")
 
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0

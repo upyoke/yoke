@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.merge_queue_status import render_merge_queue_status
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
 from yoke_core.domain.field_note_dash_promotion import (
@@ -107,9 +108,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
         "version_id": runtime.workflow_version_id,
         "stage_id": stage_id,
         "stage_label": runtime.stage_label(stage_id),
-        "skill_id": (
-            runtime.skill_for_stage(stage_id) if stage_is_defined else None
-        ),
+        "skill_id": (runtime.skill_for_stage(stage_id) if stage_is_defined else None),
         "next_skill_id": (
             runtime.skill_for_stage(next_stage_id)
             if next_stage_id is not None
@@ -135,6 +134,8 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
                 "SELECT i.id, i.title, i.status, i.priority, i.owner, "
                 "i.blocked, i.blocked_reason, i.created_at, i.updated_at, "
                 "i.deployment_flow, i.workflow_posture, "
+                "i.merge_queue_pr_number, i.merge_queue_enqueued_at, "
+                "i.merge_queue_landed_at, i.merge_queue_notified_at, "
                 f"{columns}, "
                 "p.id AS project_id, p.slug AS project, p.name AS project_name, "
                 "p.default_branch, p.public_item_prefix, i.project_sequence, "
@@ -173,6 +174,17 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
             "deployment_flow": row.get("deployment_flow"),
+            "merge_queue": {
+                "pr_number": str(row.get("merge_queue_pr_number") or ""),
+                "enqueued_at": str(row.get("merge_queue_enqueued_at") or ""),
+                "landed_at": str(row.get("merge_queue_landed_at") or ""),
+                "notified_at": str(row.get("merge_queue_notified_at") or ""),
+                "status": render_merge_queue_status(
+                    row.get("merge_queue_enqueued_at"),
+                    row.get("merge_queue_landed_at"),
+                    item_status=row.get("status"),
+                ),
+            },
             "project": {
                 "id": int(row["project_id"]),
                 "slug": str(row["project"]),

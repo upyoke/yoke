@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any, List, Optional, Tuple
 
 
-def _items_sql(project_filter: str, *, definition_metadata: bool) -> str:
+def _items_sql(
+    project_filter: str,
+    *,
+    definition_metadata: bool,
+    queue_metadata: bool,
+) -> str:
     metadata_columns = ""
     if definition_metadata:
         metadata_columns = """
@@ -15,6 +20,9 @@ def _items_sql(project_filter: str, *, definition_metadata: bool) -> str:
         (SELECT stage->>'board_bucket'
          FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
          WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),"""
+    queue_columns = ""
+    if queue_metadata:
+        queue_columns = ", i.merge_queue_enqueued_at, i.merge_queue_landed_at"
     return f"""
     SELECT
         i.id,
@@ -32,7 +40,7 @@ def _items_sql(project_filter: str, *, definition_metadata: bool) -> str:
         p.slug,
         p.public_item_prefix,
         i.project_sequence,{metadata_columns}
-        wv.definition_json::jsonb #>> '{{policies,generated_children}}'
+        wv.definition_json::jsonb #>> '{{policies,generated_children}}'{queue_columns}
     FROM items i
     LEFT JOIN projects p ON p.id = i.project_id
     LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id
@@ -47,13 +55,31 @@ def query_item_rows(
     params: Optional[Tuple[Any, ...]] = None,
 ) -> List[Tuple[Any, ...]]:
     """Read item definition metadata, falling back for older payloads."""
-    enriched_sql = _items_sql(project_filter, definition_metadata=True)
+    enriched_sql = _items_sql(
+        project_filter,
+        definition_metadata=True,
+        queue_metadata=True,
+    )
     has_query = getattr(db, "has_query", None)
     if not callable(has_query) or has_query(enriched_sql, params):
         return db.query(enriched_sql, params)
 
-    legacy_sql = _items_sql(project_filter, definition_metadata=False)
-    return [(*row[:-1], None, None, row[-1]) for row in db.query(legacy_sql, params)]
+    prior_sql = _items_sql(
+        project_filter,
+        definition_metadata=True,
+        queue_metadata=False,
+    )
+    if has_query(prior_sql, params):
+        return [(*row, "", "") for row in db.query(prior_sql, params)]
+
+    legacy_sql = _items_sql(
+        project_filter,
+        definition_metadata=False,
+        queue_metadata=False,
+    )
+    return [
+        (*row[:-1], None, None, row[-1], "", "") for row in db.query(legacy_sql, params)
+    ]
 
 
 def _epic_task_rows_sql(*, definition_metadata: bool) -> str:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Callable, Mapping
 
@@ -37,6 +38,9 @@ from yoke_core.domain.session_termination_reap import (
     release_expired_termination_leases,
     report_termination_reap,
 )
+
+
+_LOG = logging.getLogger(__name__)
 
 
 def claim_relay_job(
@@ -91,6 +95,21 @@ def claim_relay_job(
     settle_expired_relay_leases(conn, now=current)
     expire_due_recipients(conn, now=parse_timestamp(current))
     conn.commit()
+
+    if not broker_only:
+        from yoke_core.domain.merge_queue_landing_pending import (
+            observe_pending_landings,
+        )
+
+        try:
+            observe_pending_landings(
+                conn,
+                heartbeat.project_ids,
+                now=parse_timestamp(current),
+            )
+        except Exception as exc:  # noqa: BLE001 - relay work remains available
+            conn.rollback()
+            _LOG.warning("merge-queue landing observation skipped: %s", exc)
 
     if relay_has_live_batch(conn, relay_id=heartbeat.relay_id, now=current):
         connected = heartbeat_relay(

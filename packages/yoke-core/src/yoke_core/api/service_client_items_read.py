@@ -17,7 +17,6 @@ from yoke_core.api.service_client_shared import (
 from yoke_core.api.service_client_items_parsing import (
     _QI_ALL_FIELDS,
     _QI_LARGE_TEXT_FIELDS,
-    _QI_VIRTUAL_FIELDS,
     _parse_item_id,
     _resolve_item_ref,
 )
@@ -55,7 +54,10 @@ def cmd_item_get(args: list[str]) -> int:
 
     field = args[1]
     if field not in _QI_ALL_FIELDS:
-        print(f"Error: unknown field '{field}'. Valid: {','.join(sorted(_QI_ALL_FIELDS))}", file=sys.stderr)
+        print(
+            f"Error: unknown field '{field}'. Valid: {','.join(sorted(_QI_ALL_FIELDS))}",
+            file=sys.stderr,
+        )
         return 2
 
     conn = _get_db_readonly()
@@ -75,10 +77,23 @@ def cmd_item_get(args: list[str]) -> int:
         if not exists:
             return 1
 
-        # Virtual field: "body" is rendered on demand
-        if field in _QI_VIRTUAL_FIELDS:
+        if field == "body":
             from yoke_core.domain.render_body import build_body
+
             value = build_body(conn, int(item_id)) or ""
+        elif field == "merge_queue_status":
+            from yoke_contracts.merge_queue_status import render_merge_queue_status
+
+            row = conn.execute(
+                "SELECT status, merge_queue_enqueued_at, merge_queue_landed_at "
+                "FROM items WHERE id = %s",
+                (item_id,),
+            ).fetchone()
+            value = (
+                render_merge_queue_status(row[1], row[2], item_status=row[0])
+                if row
+                else ""
+            )
         elif field == "project":
             row = conn.execute(
                 "SELECT COALESCE(CAST(p.slug AS TEXT), '') AS value "
@@ -105,6 +120,7 @@ def cmd_item_get(args: list[str]) -> int:
 
             # Has content -- stream via temp file to avoid truncation
             import tempfile as _tf
+
             with _tf.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
                 tmp.write(value)
                 tmp_path = tmp.name
@@ -165,6 +181,7 @@ def cmd_item_row(args: list[str]) -> int:
             return 1
         # Render body on demand
         from yoke_core.domain.render_body import build_body
+
         rendered_body = build_body(conn, int(item_id)) or ""
         values = list(str(v) for v in row)
         # Insert rendered body at the expected position
@@ -213,9 +230,14 @@ def cmd_item_progress(args: list[str]) -> int:
             return 0
 
         progress_fields = [
-            "status", "flow_name", "run_id", "current_stage",
+            "status",
+            "flow_name",
+            "run_id",
+            "current_stage",
             "target_environment",
-            "stage_progress", "done_description", "qa_summary",
+            "stage_progress",
+            "done_description",
+            "qa_summary",
             "pipeline_blocked_reason",
         ]
         select_cols = ", ".join(f"COALESCE({f}, '')" for f in progress_fields)
@@ -261,6 +283,7 @@ def cmd_item_render(args: list[str]) -> int:
         return 1
 
     from yoke_core.domain.render_body import render_item
+
     return render_item(int(item_id))
 
 
