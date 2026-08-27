@@ -20,6 +20,7 @@ from yoke_cli.config import yoke_token_verify
 from yoke_cli.config.onboard_wizard_palette import BRAND
 from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 from yoke_cli.config.onboard_wizard_flow_hosted_machine import HostedMachineConnectFlow
+from yoke_cli.config.onboard_wizard_self_host import NO_SERVER_GUIDANCE
 
 
 def verify_yoke_token(api_url: str, token: str) -> dict[str, Any]:
@@ -220,14 +221,19 @@ class ConnectFlow:
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
+        details = list(
+            detail_lines
+            or ["Check the token value, environment, and network connection."]
+        )
+        if NO_SERVER_GUIDANCE not in details:
+            details.append(NO_SERVER_GUIDANCE)
         self._goto(
             _View(
                 STEP_CONNECT,
                 lambda: steps.verification_body(
                     "Yoke token could not be verified.",
                     message,
-                    detail_lines
-                    or ["Check the token value, environment, and network connection."],
+                    details,
                     steps.YOKE_TOKEN_VERIFY_RETRY_ROWS,
                     ok=False,
                 ),

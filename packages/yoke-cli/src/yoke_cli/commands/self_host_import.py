@@ -15,6 +15,7 @@ from yoke_contracts.self_host_bootstrap import (
     IMPORT_UNIVERSE_ARG,
     RECOVER_IMPORT_CREDENTIAL_ARG,
 )
+from yoke_contracts.self_host_bootstrap_output import TOKEN_PREFIX
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.self_host import bundle
 
@@ -169,7 +170,7 @@ def _parse_success(stdout: bytes | str | None) -> Dict[str, object]:
     if (
         payload.get("ok") is not True
         or not isinstance(raw_token, str)
-        or not raw_token.startswith("yoke_v1_")
+        or not raw_token.startswith(TOKEN_PREFIX)
     ):
         raise SelfHostImportError(
             "the restore committed but returned no usable credential. "
@@ -235,18 +236,14 @@ def _confirm_replace(directory: Path, *, assume_yes: bool) -> None:
             "currently holds; pass --yes to consent when running "
             "non-interactively"
         )
-    print(
-        f"This import replaces the universe held by the bundle at "
-        f"{directory}."
-    )
+    print(f"This import replaces the universe held by the bundle at {directory}.")
     try:
         response = input(f"Type '{_CONSENT_WORD}' to continue: ")
     except EOFError:
         response = ""
     if response.strip().lower() != _CONSENT_WORD:
         raise SelfHostImportError(
-            "import cancelled: the destination was not confirmed for "
-            "replacement"
+            "import cancelled: the destination was not confirmed for replacement"
         )
 
 

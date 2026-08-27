@@ -29,8 +29,15 @@ Hosted core at upyoke.com. Collaborate from the web dashboard.
 
 Run Yoke core and Postgres on your own server.
 
-- `yoke self-host init` writes the published compose bundle
-- Point the client at your server URL + token during onboard
+- Wizard on the host: pick **Set this machine up as a self-hosting server** to
+  preview the loopback URL, bundle directory, port, Docker requirement, and
+  networking responsibility before any write. It creates/starts the Compose
+  bundle, captures first boot, and activates the owner-only local connection.
+- Wizard on another machine: pick **A team server** and enter its reachable URL
+  plus a token. The guided host screen teaches the handoff without configuring
+  VPN/tailnet, LAN, port-forwarding, or TLS for you.
+- Manual/operator path: `yoke self-host init` writes the same published Compose
+  bundle; `docs/self-host.md` remains the full reference.
 - Same product surfaces as Cloud for Yoke-owned tabs; platform Member/Billing
   sections depend on how you host the shell
 

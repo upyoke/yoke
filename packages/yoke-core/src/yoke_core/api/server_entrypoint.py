@@ -20,6 +20,11 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Optional, Sequence
 
+from yoke_contracts.self_host_bootstrap_output import (
+    FIRST_BOOT_TOKEN_MARKER as FIRST_BOOT_TOKEN_MARKER,
+    first_boot_admin_token_block,
+)
+
 
 _log = logging.getLogger("yoke.api.startup")
 
@@ -32,10 +37,6 @@ DEFAULT_WORKERS = 1
 #: Env var naming the org identity card on first boot. Unset keeps the
 #: neutral seeded default name.
 ORG_NAME_ENV = "YOKE_ORG_NAME"
-
-#: Marker line inside the one-time admin-token block. Tests key on it and
-#: operators can grep captured boot output for it.
-FIRST_BOOT_TOKEN_MARKER = "FIRST-BOOT ADMIN TOKEN"
 
 
 @dataclass(frozen=True)
@@ -174,7 +175,8 @@ def ensure_core_schema() -> None:
 
     with db_helpers.connect() as conn, serving_build_authority():
         converge_core_schema(
-            conn, backup_target_dsn=db_backend.resolve_pg_dsn(),
+            conn,
+            backup_target_dsn=db_backend.resolve_pg_dsn(),
         )
     _log.info("core schema converged on boot")
 
@@ -269,22 +271,7 @@ def _print_admin_token_once(raw_token: str) -> None:
     existence (the DB stores a hash), and the credential probe guarantees
     no boot after a completed birth re-enters the printing path.
     """
-    border = "=" * 64
-    print(
-        "\n".join(
-            (
-                border,
-                f"  {FIRST_BOOT_TOKEN_MARKER} — shown once, never stored, never reprinted",
-                "",
-                f"      {raw_token}",
-                "",
-                "  Save it now, then connect a client to this server with:",
-                "      yoke connect <server-url>",
-                border,
-            )
-        ),
-        flush=True,
-    )
+    print(first_boot_admin_token_block(raw_token), flush=True)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

@@ -16,7 +16,7 @@ This skill routes to subcommands. Parse the arguments to determine which subcomm
    - Planning-class commands (`shepherd plan`, `plan`, and `refine` Gate 0 critique/planning) honor plan mode and continue without auto-exit.
    - Harnesses without an `ExitPlanMode` tool continue normally after emitting the same one-line note.
 3. **Read the instruction file** at `.agents/skills/yoke/{subcommand}/SKILL.md` using the Read tool. If the file is missing, show the command reference instead of inventing a replacement.
-   For setup, the entry point is the `yoke onboard` Textual wizard, which opens on the deployment-destination picker (this machine's local universe / a team server / upyoke.com), walks the destination's sign-in lane plus GitHub, Project, and Review, and previews every write before applying (`--local` / `--connect URL` route non-interactively). To install or repair a project's local operating layer afterward, use `yoke project install`. The standalone per-mode commands `yoke project create`, `yoke project import`, and `yoke onboard project` script a single project source non-interactively. Verify with `yoke status`; `yoke dev setup` is the explicit source-dev/admin add-on.
+   For setup, the entry point is the `yoke onboard` Textual wizard, whose destination picker offers this machine's local universe, an existing team server, guided self-host server setup on this machine, or upyoke.com. Guided self-host setup previews Docker, the loopback URL/port, bundle path, Compose work, and operator-owned networking before writing; it leaves an active owner-only connection and either continues into GitHub/Project or exits with a server handoff. The wizard then walks the destination's connection lane plus GitHub, Project, and Review, and previews every remaining write before applying (`--local` / `--connect URL` route non-interactively). To install or repair a project's local operating layer afterward, use `yoke project install`. The standalone per-mode commands `yoke project create`, `yoke project import`, and `yoke onboard project` script a single project source non-interactively. Verify with `yoke status`; `yoke dev setup` is the explicit source-dev/admin add-on.
    After wire-up, `/yoke onboard` is the harness-side skill that makes the wired project execution-ready — strategy docs, execution profile, Packs, hosting, environments, a gated first deploy, and seeded first work.
 4. **Follow those instructions completely**, passing any remaining arguments as that subcommand's arguments.
 
@@ -57,7 +57,7 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 
 | Command | Description |
 |---|---|
-| `yoke onboard` | Full-screen Textual machine setup wizard (destination picker, sign-in or local universe, GitHub, Project, Review); `--local` / `--connect URL` pick the destination, `--yes` for a silent apply |
+| `yoke onboard` | Full-screen Textual machine setup wizard (local, existing server, guided self-host, or hosted destination; then connection, GitHub, Project, Review); `--local` / `--connect URL` route non-interactively, `--yes` for a silent apply |
 | `yoke project create` / `yoke project import` / `yoke onboard project` | Standalone per-mode project source and binding flows (the wizard's Project step covers these interactively) |
 | `yoke project install [CHECKOUT]` | Install or repair the project-local Yoke operating layer |
 | `yoke status` | Verify machine, env, credential, and checkout bindings |

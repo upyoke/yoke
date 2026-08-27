@@ -82,8 +82,8 @@ BROWSER_PRIMARY_POST_CHECKS = (
     "no_text:Paste your Yoke API token.",
 )
 
-CHOOSE_STAGE_KEYS = ("Down", "Down", "Down", "Enter")
-CHOOSE_PRODUCTION_KEYS = ("Down", "Down", "Enter")
+CHOOSE_STAGE_KEYS = ("Down", "Down", "Down", "Down", "Enter")
+CHOOSE_PRODUCTION_KEYS = ("Down", "Down", "Down", "Enter")
 CHOOSE_BACKLOG_KEYS = ("Down", "Enter")
 CHOOSE_MACHINE_ONLY_KEYS = ("Down", "Down", "Down", "Down", "Enter")
 

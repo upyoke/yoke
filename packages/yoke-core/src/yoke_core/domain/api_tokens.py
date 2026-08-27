@@ -9,10 +9,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from yoke_contracts.self_host_bootstrap_output import (
+    TOKEN_BODY_LENGTH,
+    TOKEN_PREFIX,
+)
+
 from yoke_core.domain import db_backend, json_helper
 
 
-TOKEN_PREFIX = "yoke_v1_"
 TOKEN_STATUS_ACTIVE = "active"
 TOKEN_STATUS_REVOKED = "revoked"
 
@@ -25,7 +29,6 @@ INITIAL_ADMIN_TOKEN_NAME = "initial-admin"
 # containing one cannot be selected with a single double-click in terminals
 # or browsers. The fixed prefix keeps only '_', which IS a word character.
 _TOKEN_BODY_ALPHABET = string.ascii_letters + string.digits
-_TOKEN_BODY_LEN = 43  # matches the entropy of the prior secrets.token_urlsafe(32) body
 
 
 class TokenError(Exception):
@@ -79,7 +82,9 @@ def generate_token() -> str:
     The random body uses a dash-free base62 alphabet so the entire token is a
     single double-click-selectable word.
     """
-    body = "".join(secrets.choice(_TOKEN_BODY_ALPHABET) for _ in range(_TOKEN_BODY_LEN))
+    body = "".join(
+        secrets.choice(_TOKEN_BODY_ALPHABET) for _ in range(TOKEN_BODY_LENGTH)
+    )
     return TOKEN_PREFIX + body
 
 

@@ -1,20 +1,15 @@
 """Deployment-destination picker for the ``yoke onboard`` wizard.
 
-A mixin composed into :class:`onboard_wizard_app.OnboardWizardApp` in front
-of :class:`onboard_wizard_flow_connect.ConnectFlow`. It opens the Account
-step with one question — where should this Yoke live: this machine, a team
-server, or upyoke.com — and routes to the matching sign-in lane. The answer
-changes only that lane:
+This mixin opens the Account step with one question — where should this Yoke
+live — and routes to the matching connection lane:
 
 * **This machine** replaces sign-in entirely — the local universe is born
   at Apply by the existing ``local_universe_setup`` machinery, so the
   Account step becomes a universe summary instead of a token prompt.
-* **A team server** collects the server URL, then the API token.
+* **A team server** collects a URL/token or guides a local Compose first boot.
 * **upyoke.com** picks the hosted environment, then starts browser approval.
 
-PATH, machine GitHub, project, review, apply, and resume stay
-destination-independent; every lane continues in :class:`ConnectFlow` /
-:class:`onboard_wizard_flow.WizardFlow` from ``_goto_machine_github``.
+Every lane rejoins the destination-independent flow at ``_goto_machine_github``.
 """
 
 from __future__ import annotations
@@ -37,6 +32,11 @@ from yoke_cli.config.onboard_destination_rows import (
     DEFAULT_DESTINATION_INDEX,
     DESTINATION_ROWS,
     HOSTED_ROW_ENVS,
+    SELF_HOST_SERVER_ROW,
+)
+from yoke_cli.config.onboard_wizard_self_host import (
+    NO_SERVER_GUIDANCE,
+    goto_self_host_server,
 )
 from yoke_cli.config.onboard_wizard_palette import BRAND
 from yoke_cli.config.onboard_wizard_widgets import (
@@ -185,6 +185,11 @@ class DestinationFlow:
         self._stored_yoke_token_available = False
 
     def _route_destination(self: _Shell, choice: str) -> None:
+        if choice == SELF_HOST_SERVER_ROW:
+            self.result.destination = DESTINATION_SERVER
+            self._account_step_label = STEP_CONNECT_LABEL
+            goto_self_host_server(self)
+            return
         hosted_env = HOSTED_ROW_ENVS.get(choice)
         if choice == DESTINATION_HOSTED and self._api_url_preset:
             # ``--connect`` resolves both hosted platform URLs to the shared
@@ -280,12 +285,12 @@ class DestinationFlow:
         self._goto_destination_picker()
 
     # ── server destination: URL, then token ─────────────────
-
     def _goto_server_url_input(self: _Shell) -> None:
         self._goto_input(
             STEP_CONNECT,
             f"Enter your {BRAND} server URL.",
-            "Where your team's Yoke lives — e.g. https://api.mycompany.com.",
+            "Where your team's Yoke lives — e.g. https://api.mycompany.com. "
+            + NO_SERVER_GUIDANCE,
             placeholder="https://api.mycompany.com",
             allow_placeholder=False,
             on_done=self._after_api_url,

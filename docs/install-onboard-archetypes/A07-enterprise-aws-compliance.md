@@ -17,7 +17,10 @@ and a landing AWS org with SCPs. They evaluate Yoke Cloud vs a team server.
 
 Linux + uv present. Wizard.
 
-Account: **upyoke.com** (`hosted by Yoke · private beta`) **or** team server.
+Account: **upyoke.com** (`hosted by Yoke · private beta`), an existing team
+server, or guided self-host first boot on the intended Linux host. The guided
+route previews the loopback-only server and leaves VPN/LAN/TLS to the operator;
+security can use the manual `yoke self-host init` reference instead.
 
 If hosted: browser machine approval. If the org is not in private beta, the
 lane fails with retry/back (`HOSTED_MACHINE_RETRY_ROWS`: "Try again" /
@@ -85,7 +88,7 @@ when App is forbidden.
 |---|---|---|---|
 | GitHub App on the org | Machine GitHub step | Skip; `disabled` binding; pending install URL | Self-hosted GitHub origin config (not asked in wizard) |
 | AWS credentials | Hosting step; "paste two values" | Skip; step 7 unreachable | Named enterprise posture: role assumption / no static keys (missing) |
-| Data residency | Destination picker (this machine / team server / upyoke.com) | Hosted beta refusal | Team server on-prem |
+| Data residency | Destination picker (local / existing server / guided self-host / upyoke.com) | Hosted beta refusal; guided setup refuses missing Docker before writes | Team server on-prem with enterprise-owned networking/TLS |
 | Migration | Not in wizard | Silent | Architecture/capability later |
 
 Ledger: G-byo-aws-identity, G-forge-github-only (org App policy), G-enterprise-static-keys, G-test-setup-unasked, G-ci-workflow-undeclared, G-legacy-suite-unmapped, G-merge-queue-github-only.
