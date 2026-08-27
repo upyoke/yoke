@@ -277,7 +277,7 @@ class TestEndSessionIfEmptyShapes:
     def test_chain_pending_session_remains_reclaimable_via_stale_window(
         self, _emit, conn
     ):
-        """The 60-minute heartbeat-stale safety net still applies.
+        """The stale-heartbeat safety net still applies.
 
         A session in ``chain_pending`` whose heartbeat is older than the
         stale window is recoverable by the next session-offer. This

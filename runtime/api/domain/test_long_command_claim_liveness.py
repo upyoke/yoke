@@ -22,6 +22,9 @@ from yoke_core.domain.sessions import (
     clean_stale_harness_sessions,
     heartbeat,
 )
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+)
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -39,7 +42,7 @@ def _claimable_items(conn):
 
 
 def _age_session(conn, session_id: str) -> None:
-    old = _ago_minutes(300)
+    old = _ago_minutes(DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60)
     conn.execute(
         "UPDATE harness_sessions SET offered_at=%s, last_heartbeat=%s "
         "WHERE session_id=%s",

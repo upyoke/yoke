@@ -65,13 +65,13 @@ def test_claude_desktop_19_minute_claim_is_live(scheduler_db):
         assert result.selected_step.item_id != top_item
 
 
-def test_codex_45_minute_claim_uses_executor_ttl_override(scheduler_db):
+def test_fifteen_minute_claim_is_still_live(scheduler_db):
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
         conn,
-        session_id="codex-owner",
+        session_id="fresh-owner",
         executor="codex-desktop",
-        minutes_ago=45,
+        minutes_ago=15,
     )
 
     claims = _evaluate_claim_states(conn, [top_item])
@@ -82,13 +82,13 @@ def test_codex_45_minute_claim_uses_executor_ttl_override(scheduler_db):
         assert result.selected_step.item_id != top_item
 
 
-def test_codex_65_minute_claim_is_stale_and_selectable(scheduler_db):
+def test_twenty_five_minute_claim_is_stale_and_selectable(scheduler_db):
     conn = scheduler_db["conn"]
     top_item = _claim_top_item(
         conn,
         session_id="codex-stale",
         executor="codex-desktop",
-        minutes_ago=65,
+        minutes_ago=25,
     )
 
     claims = _evaluate_claim_states(conn, [top_item])

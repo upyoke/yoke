@@ -61,7 +61,6 @@ exist. Ids in play: directory `runtime/harness/{id}/`, canonical executor id
 | Hook-block renderers + `_CODEX_VERB_BY_EVENT` + identity env pin | `yoke_core.domain.agents_render_hooks` |
 | `SETTINGS_FILE_BY_HOOKS_KEY`, `HOOK_MERGE_TARGETS`, bundle hook-key validation | `yoke_cli.project_install` (`hooks.py`, `files.py`, `validate.py`) |
 | `INSTALL_BUNDLE_SOURCE_DIRS` | `yoke_core.domain.install_bundle` |
-| `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES` | `yoke_core.domain.sessions_analytics_core` |
 | Rendered packet text naming the `harness_id` enum | `yoke_core.domain.schema_api_context_render` (+ claims-table stanza) |
 | Canonical-session-id gate for known harnesses | `yoke_core.api.service_client_sessions_offer` |
 
@@ -186,9 +185,9 @@ events fire on the non-interactive terminal surface, where `subagentStart` /
   includes `window_close`) is unmeasured. Route through the same
   non-destructive `end_session_if_empty` path as Claude's transient-end
   defense; never assert "agent gone" from `sessionEnd` alone.
-- **Stale TTL**: long-lived IDE sessions without `sessionEnd` resemble the
-  Codex shape (60-minute override vs the 20-minute default); expect a Cursor
-  entry in `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES`.
+- **Stale TTL**: fleet machinery now ends Codex and Cursor sessions at every
+  stop, so one `session_stale_ttl_minutes` base applies on every harness.
+  Sessions with active holdings use `session_stale_ttl_with_holdings_minutes`.
 
 ## Tool surface mapping
 

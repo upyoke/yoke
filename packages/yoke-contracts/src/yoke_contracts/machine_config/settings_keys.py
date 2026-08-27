@@ -42,16 +42,13 @@ MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
     ),
     "session_stale_ttl_minutes": (
         "20",
-        "idle minutes before the stale-session sweep reclaims a session",
+        "idle minutes before the stale-session sweep reclaims a session "
+        "with no active holdings",
     ),
     SESSION_STALE_TTL_WITH_HOLDINGS_KEY: (
-        "240",
+        "1440",
         "idle minutes before the stale-session sweep reclaims a session "
         "with active holdings",
-    ),
-    "session_stale_ttl_minutes_codex_override": (
-        "60",
-        "stale-session TTL override for codex sessions",
     ),
     "session_reactivation_reacquire_window_s": (
         "300",

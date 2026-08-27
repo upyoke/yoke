@@ -1,7 +1,7 @@
 # ruff: noqa: F811
 """Stale-reclaim, registry seeder, and sweep-event tests.
 
-Includes executor-aware stale-session cleanup, idempotent event-registry
+Includes holdings-aware stale-session cleanup, idempotent event-registry
 seeding, and HarnessSessionStaleSweepCompleted event coverage.
 """
 
@@ -23,6 +23,9 @@ from yoke_core.domain.sessions import (
     claim_work,
     clean_stale_harness_sessions,
 )
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+)
 from runtime.api.sessions_api_stale_test_helpers import (
     EVENTS_TABLE_FOR_STALE_DETECTION,
     _ago_minutes,
@@ -30,6 +33,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
+_PAST_HOLDINGS_TTL = DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60
 
 _REGISTRY_SCHEMA = """
     CREATE TABLE event_registry (
@@ -66,36 +70,39 @@ def _registry_conn(tmp_path: Path, *, with_table: bool = True):
             c.close()
 
 
-class TestStaleReclaimYOK1350:
-    """Executor-aware stale-session cleanup."""
+class TestEmptySessionStaleCleanup:
+    """Empty-session stale cleanup uses one base TTL on every harness."""
 
     @pytest.fixture
     def conn_with_events(self, conn):
         apply_ddl_statements(conn, EVENTS_TABLE_FOR_STALE_DETECTION)
         return conn
 
-    def test_codex_session_between_turns_is_skipped(self, conn_with_events):
-        """Codex sessions that are merely between turns are not reclaimed."""
+    @pytest.mark.parametrize(
+        "session_id,executor",
+        (
+            ("codex-idle", "codex"),
+            ("codex-desktop-idle", "codex-desktop"),
+            ("cursor-idle", "cursor"),
+        ),
+    )
+    def test_empty_session_uses_base_ttl_on_every_harness(
+        self, conn_with_events, session_id, executor
+    ):
         conn = conn_with_events
-        _register(conn, session_id="codex-idle", executor="codex")
-        # Simulate a Codex session that hasn't heartbeated for 25 minutes but
-        # under the 60-minute codex TTL override.
+        _register(conn, session_id=session_id, executor=executor)
         conn.execute(
             """UPDATE harness_sessions
                SET last_heartbeat = %s
-               WHERE session_id = 'codex-idle'""",
-            (_ago_minutes(25),),
+               WHERE session_id = %s""",
+            (_ago_minutes(25), session_id),
         )
         conn.commit()
 
         result = clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
+        assert result["total_reclaimed"] == 1
 
-        assert result["total_reclaimed"] == 0
-        ids = {e["session_id"] for e in result["skipped_between_turns"]}
-        assert ids == {"codex-idle"}
-
-    def test_codex_session_past_override_is_reclaimed(self, conn_with_events):
-        """Codex session past the 60-minute override is still reclaimed."""
+    def test_empty_session_far_past_base_ttl_is_reclaimed(self, conn_with_events):
         conn = conn_with_events
         _register(conn, session_id="codex-dead", executor="codex")
         conn.execute(
@@ -109,26 +116,8 @@ class TestStaleReclaimYOK1350:
         result = clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
         assert result["total_reclaimed"] == 1
 
-    def test_codex_surface_session_uses_codex_ttl_override(self, conn_with_events):
-        """codex-* surface executors inherit the coarse Codex TTL."""
-        conn = conn_with_events
-        _register(conn, session_id="codex-desktop-idle", executor="codex-desktop")
-        conn.execute(
-            """UPDATE harness_sessions
-               SET last_heartbeat = %s
-               WHERE session_id = 'codex-desktop-idle'""",
-            (_ago_minutes(25),),
-        )
-        conn.commit()
-
-        result = clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
-
-        assert result["total_reclaimed"] == 0
-        ids = {e["session_id"] for e in result["skipped_between_turns"]}
-        assert ids == {"codex-desktop-idle"}
-
     def test_claude_stale_uses_base_ttl(self, conn_with_events):
-        """Claude sessions use the base TTL without executor override."""
+        """Claude sessions use the shared 20-minute base."""
         conn = conn_with_events
         _register(conn, session_id="claude-stale", executor="claude-code")
         conn.execute(
@@ -173,11 +162,11 @@ class TestStaleReclaimYOK1350:
             """UPDATE harness_sessions
                SET last_heartbeat = %s
                WHERE session_id = 'stale-ev'""",
-            (_ago_minutes(300),),
+            (_ago_minutes(_PAST_HOLDINGS_TTL),),
         )
         conn.commit()
         claim_work(conn, session_id="stale-ev", item_id=777)
-        stale_claim_ts = _ago_minutes(300)
+        stale_claim_ts = _ago_minutes(_PAST_HOLDINGS_TTL)
         conn.execute(
             """UPDATE work_claims
                SET claimed_at = %s, last_heartbeat = %s
@@ -200,7 +189,9 @@ class TestStaleReclaimYOK1350:
         assert "stale_minutes" in ctx
         assert "last_event_at" in ctx
         assert ctx["released_claim_count"] == 1
-        assert ctx["effective_ttl_minutes"] == 240
+        assert ctx["effective_ttl_minutes"] == (
+            DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
+        )
         assert ctx["has_active_holdings"] is True
 
 

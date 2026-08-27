@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 from .sessions_analytics_core import (
     DEFAULT_PROGRESS_THRESHOLD_MINUTES,
     DEFAULT_STALE_THRESHOLD_MINUTES,
-    EXECUTOR_STALE_TTL_OVERRIDES_MINUTES,
     EVENT_CHAIN_STEP_COMPLETED,
     EVENT_HARNESS_SESSION_ENDED,
     EVENT_HARNESS_SESSION_END_REJECTED_ACTIVE_CLAIM,
@@ -37,6 +36,7 @@ from .sessions_analytics_dispatch import (
     emit_lane_routing_decision,
     emit_next_action_chosen,
 )
+
 
 def _emit_event(
     event_name: str,
@@ -87,6 +87,7 @@ def _emit_session_event(
         context=context,
         outcome=outcome,
     )
+
 
 def emit_post_decision_telemetry(
     conn: Any,
@@ -144,7 +145,9 @@ def emit_post_decision_telemetry(
             status=ctx.get("status"),
         )
         adapter = resume_dispatch.get("adapter", adapter)
-        dispatch_source = resume_dispatch.get("dispatch_source", "resume-status-mapping")
+        dispatch_source = resume_dispatch.get(
+            "dispatch_source", "resume-status-mapping"
+        )
         if ctx.get("status"):
             dispatch_context["status"] = ctx["status"]
 
@@ -160,11 +163,11 @@ def emit_post_decision_telemetry(
         context=dispatch_context or None,
     )
 
+
 __all__ = [
     "SessionError",
     "DEFAULT_STALE_THRESHOLD_MINUTES",
     "DEFAULT_PROGRESS_THRESHOLD_MINUTES",
-    "EXECUTOR_STALE_TTL_OVERRIDES_MINUTES",
     "EVENT_HARNESS_SESSION_STARTED",
     "EVENT_HARNESS_SESSION_ENDED",
     "EVENT_WORK_CLAIMED",

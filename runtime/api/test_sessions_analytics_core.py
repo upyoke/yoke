@@ -1,10 +1,10 @@
 """Tests for the config-tunable stale-heartbeat TTL in sessions_analytics_core.
 
-The stale-heartbeat TTL change moved the literal `20` and `{"codex": 60}`
-constants in `sessions_analytics_core` behind machine settings so prose
-and code share one tunable. These tests assert the indirection is real —
-overriding the config keys changes the resolved values returned by `get_int`, and by
-extension the constants that read through it at module load.
+The stale-heartbeat TTLs in `sessions_analytics_core` read through machine
+settings so prose and code share one tunable. These tests assert the
+indirection is real — overriding the config keys changes the resolved
+values returned by `get_int`, and by extension the constants that read
+through it at module load.
 """
 
 from __future__ import annotations
@@ -53,10 +53,10 @@ class TestStaleTtlConfigIndirection:
         assert (
             runtime_settings.get_int(
                 "session_stale_ttl_with_holdings_minutes",
-                240,
+                1440,
                 config_path=config_path,
             )
-            == 240
+            == 1440
         )
 
     def test_holdings_key_override_changes_value(self, tmp_path: Path):
@@ -65,37 +65,10 @@ class TestStaleTtlConfigIndirection:
         assert (
             runtime_settings.get_int(
                 "session_stale_ttl_with_holdings_minutes",
-                240,
+                1440,
                 config_path=config_path,
             )
             == 360
-        )
-
-    def test_codex_override_key_falls_through_when_unset(self, tmp_path: Path):
-        config_path = tmp_path / "config"
-        config_path.write_text("# empty\n", encoding="utf-8")
-        assert (
-            runtime_settings.get_int(
-                "session_stale_ttl_minutes_codex_override",
-                60,
-                config_path=config_path,
-            )
-            == 60
-        )
-
-    def test_codex_override_key_changes_value(self, tmp_path: Path):
-        config_path = tmp_path / "config"
-        _write_config(
-            config_path,
-            session_stale_ttl_minutes_codex_override=120,
-        )
-        assert (
-            runtime_settings.get_int(
-                "session_stale_ttl_minutes_codex_override",
-                60,
-                config_path=config_path,
-            )
-            == 120
         )
 
     def test_module_constants_resolve_through_get_int(self, monkeypatch):
@@ -116,8 +89,6 @@ class TestStaleTtlConfigIndirection:
             value = {
                 "session_stale_ttl_minutes": 17,
                 "session_stale_ttl_with_holdings_minutes": 211,
-                "session_stale_ttl_minutes_codex_override": 71,
-                "session_stale_ttl_minutes_cursor_override": 73,
             }.get(key, default)
             captured[key] = value
             return value
@@ -137,17 +108,9 @@ class TestStaleTtlConfigIndirection:
         assert (
             sessions_analytics_core.DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES == 211
         )
-        assert (
-            sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["codex"] == 71
-        )
-        assert (
-            sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["cursor"] == 73
-        )
         assert captured == {
             "session_stale_ttl_minutes": 17,
             "session_stale_ttl_with_holdings_minutes": 211,
-            "session_stale_ttl_minutes_codex_override": 71,
-            "session_stale_ttl_minutes_cursor_override": 73,
         }
 
         # Reload again with the real resolver so subsequent tests see the

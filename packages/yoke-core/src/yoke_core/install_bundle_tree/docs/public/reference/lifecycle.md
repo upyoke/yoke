@@ -109,8 +109,7 @@ unprotected unless both layers below hold:
   `blocked` with reason `idea-incomplete`. This catches every tail case
   Layer 1 cannot reach: a `/yoke idea` session that crashes between
   the two phases (claim auto-reclaims after the configured stale-heartbeat
-  window — `session_stale_ttl_minutes` in machine config; per-executor
-  overrides via `session_stale_ttl_minutes_<executor>_override` — but the
+  window — `session_stale_ttl_minutes` in machine config — but the
   body is still title-only); a manual
   `python3 -m yoke_core.cli.db_router items add` from ad hoc tooling
   that bypasses the claim convention; any future `/yoke idea` variant
