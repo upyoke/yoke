@@ -53,11 +53,8 @@ def _seed_project(app: Any) -> None:
     app.result.project_name = "Acme App"
 
 
-def test_svg_normalization_ignores_line_ending_spaces() -> None:
-    assert _normalize("<g>\n        \n</g>\n") == _normalize("<g>\n\n</g>\n")
-
-
 def test_hosting_provider_choice() -> None:
+    assert _normalize("<g>\n        \n</g>\n") == _normalize("<g>\n\n</g>\n")
     app = make_app()
 
     async def drive(a: Any, _pilot: Any) -> None:
