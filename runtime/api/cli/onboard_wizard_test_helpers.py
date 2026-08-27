@@ -232,16 +232,7 @@ async def complete_board_art(pilot) -> None:
 
 
 async def skip_hosting(pilot) -> None:
-    """Decline the hosting credential, landing on the review screen.
-
-    The connect screen opens with the caret in the first credential box, so
-    reaching the rows means tabbing past both boxes. The rows are then, in
-    order: "Save & verify", "I host this myself", "Decide later" — so deferring
-    is two rows down, not one. Scenarios that exercise the credential itself,
-    or the declared no-managed-host posture, drive the step directly instead.
-    """
-    await pilot.press("tab")    # hosting: leave the access key ID box
-    await pilot.press("tab")    # hosting: leave the secret access key box
+    """Choose provider-level "Decide later", landing on Review."""
     await pilot.press("down")   # hosting: past "I host this myself"
     await pilot.press("down")   # hosting: move to "Decide later"
     await pilot.press("enter")  # hosting: decide later -> Finish

@@ -19,9 +19,7 @@ imported dynamically at the call site (see the classified roster in
 from __future__ import annotations
 
 import importlib
-import json
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
@@ -43,21 +41,12 @@ BOOTSTRAP_TEMPLATE_FILENAME = "yoke-aws-admin.yaml"
 DEFAULT_REGION = "us-east-1"
 _REGION_ENV_VARS = ("AWS_REGION", "AWS_DEFAULT_REGION")
 
-# `aws` exits 127-style through Python as FileNotFoundError; a CLI that is
-# present but unauthenticated exits non-zero with a message on stderr.
-_AWS_MISSING_EXIT_CODE = 127
-
-
 class HostingCredentialError(RuntimeError):
     """Storing the pasted hosting credential failed."""
 
 
 class HostingVerificationError(RuntimeError):
     """The stored hosting credential did not pass the caller-identity check."""
-
-
-class AwsCliMissingError(HostingVerificationError):
-    """The AWS CLI is not on PATH, so the identity check cannot run."""
 
 
 @dataclass(frozen=True)
@@ -199,79 +188,30 @@ def store_credential(
             )
         ]
     except Exception as exc:  # noqa: BLE001 - surfaced as a wizard error screen
-        raise HostingCredentialError(str(exc)) from exc
+        raise HostingCredentialError(
+            f"Yoke could not store the AWS credential ({type(exc).__name__})."
+        ) from exc
 
 
 def verify_caller_identity(project_slug: str, region: str) -> CallerIdentity:
-    """Prove the stored pair works, returning only non-secret identity facts.
-
-    Reads the credential back out of the machine store the way a deploy will,
-    so a pair that verifies here is a pair Yoke can actually use. The secret
-    value is never printed, logged, or returned.
-    """
+    """Prove the stored pair works through boto3, returning redacted facts."""
+    verifier = None
     try:
-        deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
-        env = deploy_remote.aws_machine_capability_env(project_slug, region)
+        verifier = importlib.import_module(
+            "yoke_core.domain.aws_machine_caller_identity"
+        )
+        identity = verifier.verify_machine_caller_identity(project_slug, region)
     except Exception as exc:  # noqa: BLE001 - surfaced as a wizard error screen
-        raise HostingVerificationError(str(exc)) from exc
-    try:
-        completed = subprocess.run(
-            ["aws", "sts", "get-caller-identity", "--output", "json"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=60,
+        expected = getattr(verifier, "CallerIdentityVerificationError", ())
+        detail = str(exc) if expected and isinstance(exc, expected) else (
+            f"Yoke could not verify the AWS credential ({type(exc).__name__})."
         )
-    except FileNotFoundError as exc:
-        raise AwsCliMissingError(
-            "the AWS CLI is not on PATH, so Yoke cannot run the caller-identity "
-            "check. Install it (https://aws.amazon.com/cli/) and re-run, or save "
-            "the credential without verifying it now."
-        ) from exc
-    except subprocess.SubprocessError as exc:
-        raise HostingVerificationError(str(exc)) from exc
-    if completed.returncode == _AWS_MISSING_EXIT_CODE:
-        raise AwsCliMissingError(
-            "the AWS CLI could not be executed, so Yoke cannot run the "
-            "caller-identity check. Install it (https://aws.amazon.com/cli/) and "
-            "re-run, or save the credential without verifying it now."
-        )
-    if completed.returncode != 0:
-        raise HostingVerificationError(
-            _probe_failure_message(completed.stderr)
-        )
-    return _identity_from_probe(completed.stdout)
-
-
-def _probe_failure_message(stderr: str) -> str:
-    detail = " ".join(str(stderr or "").split())
-    return detail or "AWS rejected the credential without explanation."
-
-
-def _identity_from_probe(stdout: str) -> CallerIdentity:
-    try:
-        payload = json.loads(stdout or "")
-    except ValueError as exc:
-        raise HostingVerificationError(
-            "the caller-identity check returned output Yoke could not read"
-        ) from exc
-    if not isinstance(payload, dict):
-        raise HostingVerificationError(
-            "the caller-identity check returned output Yoke could not read"
-        )
-    account = str(payload.get("Account") or "").strip()
-    arn = str(payload.get("Arn") or "").strip()
-    identity = arn.rsplit("/", 1)[-1] if arn else ""
-    if not account or not identity:
-        raise HostingVerificationError(
-            "the caller-identity check did not name an account and identity"
-        )
-    return CallerIdentity(account=account, identity=identity)
+        raise HostingVerificationError(detail) from exc
+    return CallerIdentity(account=identity.account, identity=identity.identity)
 
 
 __all__ = [
     "ACCESS_KEY_ID_KEY",
-    "AwsCliMissingError",
     "BOOTSTRAP_STACK_NAME",
     "BOOTSTRAP_TEMPLATE_FILENAME",
     "CAPABILITY_TYPE",

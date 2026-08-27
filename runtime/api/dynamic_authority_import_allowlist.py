@@ -109,10 +109,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/config/aws_admin_capability.py",
-        "yoke_core.domain.deploy_remote",
+        "yoke_core.domain.aws_machine_caller_identity",
     ): (
         "machine_local_credential_custody",
-        "onboarding hosting-credential caller-identity probe env",
+        "onboarding hosting-credential caller-identity verifier",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/resync.py",

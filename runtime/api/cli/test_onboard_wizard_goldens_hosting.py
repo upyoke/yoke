@@ -3,8 +3,7 @@
 Each gate drives the real flow to one Hosting screen and asserts its exported
 SVG byte-for-byte against ``__snapshots__``. The published build version and
 the machine home are pinned so the one-click link and the custody path read
-the same on every machine; the credential store and the caller-identity probe
-are stubbed so no gate writes a secret or shells out to the AWS CLI.
+the same on every machine; no gate writes a secret or reaches AWS.
 """
 
 from __future__ import annotations
@@ -53,14 +52,25 @@ def _seed_project(app: Any) -> None:
     app.result.project_name = "Acme App"
 
 
-def test_hosting_provider_connect() -> None:
+def test_hosting_provider_choice() -> None:
     app = make_app()
 
     async def drive(a: Any, _pilot: Any) -> None:
         _seed_project(a)
         a._goto_hosting()
 
-    assert_golden("hosting_provider_connect", render(app, drive, title=_TITLE))
+    assert_golden("hosting_provider_choice", render(app, drive, title=_TITLE))
+
+
+def test_hosting_aws_sign_in() -> None:
+    app = make_app()
+
+    async def drive(a: Any, _pilot: Any) -> None:
+        _seed_project(a)
+        a._goto_hosting()
+        a._on_hosting_provider_choice("aws")
+
+    assert_golden("hosting_aws_sign_in", render(app, drive, title=_TITLE))
 
 
 def test_hosting_verified() -> None:

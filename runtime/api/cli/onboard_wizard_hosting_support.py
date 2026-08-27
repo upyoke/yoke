@@ -1,22 +1,20 @@
 """Shared scaffolding for the Hosting-step wizard suites.
 
-The Hosting scenarios split across sibling modules — how the connect screen
-takes the credential, and what the step does with it once it has one — so this
-module holds what both need: the isolation fixtures that keep every secret write
-inside a temp home, the stubbed AWS identity probe, and the small readers that
-drive the live app and inspect the screen it lands on.
+The Hosting scenarios split across sibling modules, so this module holds what
+both need: isolated machine-secret custody, a redacted identity seam, and small
+drivers for the provider, AWS sign-in, and credential-entry levels.
 """
 
 from __future__ import annotations
 
 import asyncio
-import subprocess
 from pathlib import Path
 
 import pytest
 
 from textual.widgets import Input, Static
 
+from yoke_cli.config import aws_admin_capability as hosting
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
 
@@ -24,10 +22,8 @@ from runtime.api.cli.onboard_wizard_test_helpers import stub_path_doctor
 
 ACCESS_KEY_ID = "AKIAEXAMPLEEXAMPLE12"
 SECRET_ACCESS_KEY = "wJalrXUtnFEMI-EXAMPLE-KEY-VALUE-abcd1234"
-IDENTITY_JSON = (
-    '{"UserId": "AIDAEXAMPLE", "Account": "123456789012", '
-    '"Arn": "arn:aws:iam::123456789012:user/yoke-aws-admin"}'
-)
+ACCOUNT = "123456789012"
+IDENTITY = "yoke-aws-admin"
 
 
 @pytest.fixture(autouse=True)
@@ -64,12 +60,28 @@ def field_error(app, field) -> str:
     return str(app.query_one(f"#{field.error_id}", Static).render())
 
 
-async def reach_connect_screen(app, pilot) -> None:
-    """Settle the front screen, then open the Hosting connect screen."""
+async def reach_provider_screen(app, pilot) -> None:
+    """Settle the front screen, then open the provider-level choice."""
     await pilot.pause()
     await app.workers.wait_for_complete()
     seed_project(app)
     app._goto_hosting()
+    await pilot.pause()
+
+
+async def reach_aws_sign_in_screen(app, pilot) -> None:
+    """Open the AWS-only sign-in choice from the provider level."""
+    await reach_provider_screen(app, pilot)
+    app._on_hosting_provider_choice("aws")
+    await pilot.pause()
+
+
+async def reach_credential_screen(app, pilot, *, guided: bool = True) -> None:
+    """Open guided or existing-key entry through both choice levels."""
+    await reach_aws_sign_in_screen(app, pilot)
+    app._on_hosting_aws_sign_in_choice(
+        "create-key" if guided else "existing-key"
+    )
     await pilot.pause()
 
 
@@ -80,19 +92,27 @@ async def paste_credentials(
     access_key_id: str = ACCESS_KEY_ID,
     secret_access_key: str = SECRET_ACCESS_KEY,
 ) -> None:
-    """Fill both boxes on the connect screen and take "Save & verify"."""
+    """Fill both credential boxes and take "Save & verify"."""
     await pilot.pause()
     box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).value = access_key_id
     box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).value = secret_access_key
-    app._on_hosting_choice("connect")
+    app._on_hosting_credential_choice("connect")
 
 
-def stub_probe(monkeypatch, *, stdout: str = "", stderr: str = "", code: int = 0):
-    def _run(args, **_kwargs):
-        assert args[:2] == ["aws", "sts"]
-        return subprocess.CompletedProcess(args, code, stdout=stdout, stderr=stderr)
+def stub_identity(
+    monkeypatch,
+    *,
+    account: str = ACCOUNT,
+    identity: str = IDENTITY,
+    failure: BaseException | None = None,
+) -> None:
+    """Replace the facade seam; no SDK, executable, or real secret is used."""
+    def _verify(_project_slug: str, _region: str) -> hosting.CallerIdentity:
+        if failure is not None:
+            raise failure
+        return hosting.CallerIdentity(account=account, identity=identity)
 
-    monkeypatch.setattr(subprocess, "run", _run)
+    monkeypatch.setattr(hosting, "verify_caller_identity", _verify)
 
 
 def drive(app, action) -> str:

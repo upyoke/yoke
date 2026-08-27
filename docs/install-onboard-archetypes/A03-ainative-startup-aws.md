@@ -11,9 +11,9 @@ it maps onto the existing account.
 
 | | |
 |---|---|
-| Fits | Local or upyoke.com. Existing folder + GitHub App. Hosting connect (AWS keys). Packs `registry-oidc` / `production-deploy`. `/yoke onboard` gated apply. |
-| Breaks | Wizard always mints a **new** IAM user via one-click link; no "use existing OIDC/roles" screen. Profile assumes Yoke-owned stage+prod even when the company already has them. |
-| Gaps | Bring-your-own AWS identity beyond pasting a new access key. Mapping existing Actions workflows as hints only (must not parse `.yoke/deployment-flows.json` as contract). |
+| Fits | Local or upyoke.com. Existing folder + GitHub App. AWS accepts guided or existing access keys. Packs `registry-oidc` / `production-deploy`. `/yoke onboard` gated apply. |
+| Breaks | Existing access keys work, but existing OIDC, SSO, instance profiles, and role assumption do not. Profile assumes Yoke-owned stage+prod even when the company already has them. |
+| Gaps | Bring-your-own non-static AWS identity. Mapping existing Actions workflows as hints only (must not parse `.yoke/deployment-flows.json` as contract). |
 
 ## Transcript — installer
 
@@ -43,18 +43,25 @@ repo.** Prefix `ACME`. Board art Mixed. Hosting:
 
 ```
 Connect your hosting provider?
-AWS for now.
-  Save & verify
-  Skip for now
+  AWS
+  I host this myself
+  Decide later
+
+How should Yoke sign in to AWS?
+  Create a dedicated deploy key     Recommended
+  Use existing credentials          An access key you manage
+  Not now                           Continue without AWS credentials
 ```
 
-**User:** Opens the one-click link, pastes Access key ID + Secret access key
-**in the wizard** (not chat). Save & verify.
+**User:** Use existing credentials. Pastes an access key pair the team already
+manages **in the wizard** (not chat). No IAM user creation link appears. Save
+& verify uses the same owner-only `aws-admin` storage and in-process STS check
+as the guided route.
 
 ```
-✔ aws-admin saved · verified with a redacted caller-identity check
+✔ AWS identity verified · aws-admin saved
   Account       {account}
-  Identity      {arn}  (IAM user)
+  Identity      {identity}
   Stored at     ~/.yoke/secrets/capability-secrets/acme-app/aws-admin/
 CI never sees this key — deploys federate through short-lived OIDC
 roles that Yoke provisions from it during /yoke onboard.

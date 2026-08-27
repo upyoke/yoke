@@ -188,13 +188,13 @@ with one header.
 
 ```
 Connect your hosting provider?
-AWS for now. One click creates the deploy credential; paste its two
-values below.
-  Save & verify     redacted caller-identity check
-  Skip for now      connect later via /yoke onboard or re-run
+AWS is the one Yoke can run for you; hosting it yourself is a fine answer.
+  AWS                    Yoke can manage its infrastructure
+  I host this myself     Yoke applies no infrastructure
+  Decide later           /yoke onboard asks again
 ```
 
-**User:** Skip for now. (no AWS, no hosting)
+**User:** Decide later. (no AWS, no hosting)
 
 ### Review
 
@@ -239,8 +239,8 @@ Init: `yoke onboard checklist init --project notebook-app --checkout ~/code/note
    No default is the equally valid alternative.
 3. **User** confirms the named delivery choice rather than deleting a stock
    persistent environment from the proposal.
-4. Hosting step: skip probe fails (no `aws-admin`). Operator defers:
-   `hosting-setup=deferred`. Step 7 unreachable. Step 8 still runs.
+4. Hosting remains undecided, so no `aws-admin` probe runs. Operator records
+   `hosting-setup=deferred`; step 7 is unreachable and step 8 still runs.
 5. Step 5 creates `notebook-app-merge-only`, verifies its empty target tier,
    and reads it back as the project default without creating a site or
    environment. Seeded issues receive that flow; Usher routes it through

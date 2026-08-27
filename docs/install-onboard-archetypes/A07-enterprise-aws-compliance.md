@@ -9,8 +9,8 @@ and a landing AWS org with SCPs. They evaluate Yoke Cloud vs a team server.
 
 | | |
 |---|---|
-| Fits | Linux install. Hosted destination (private beta may block). Team server. GitHub App **if** the installation is allowed on the org. AWS hosting keys. Packs for OIDC. |
-| Breaks | App install may be forbidden by org policy (GitHub App unavailable / pending rows). One-click IAM user may violate "no long-lived keys". Hosted `upyoke.com` private beta / data residency. |
+| Fits | Linux install. Hosted destination (private beta may block). Team server. GitHub App **if** the installation is allowed on the org. AWS can honestly remain deferred. |
+| Breaks | App install may be forbidden by org policy (GitHub App unavailable / pending rows). Both supported AWS routes still require long-lived access keys. Hosted `upyoke.com` private beta / data residency. |
 | Gaps | GitHub Enterprise GHES hostname as origin. BYO roles (no IAM user). Enterprise SSO teaching. |
 
 ## Transcript — installer
@@ -41,26 +41,17 @@ Or pending installation (`GITHUB_APP_PENDING_ROWS`): Check access / Skip / Back.
 Security team refuses the App → **Skip GitHub**. Then Yoke cannot bind Issues,
 PRs, Actions variables. Enterprise GitHub remains outside.
 
-If App is allowed: bind `org/monorepo`. Hosting: security refuses pasting
-`AKIA…` into a TUI. **Skip for now** with intent to use instance roles later
-— **no wizard row for instance profile / OIDC-only**.
+If App is allowed: bind `org/monorepo`. Hosting: choose **AWS**, then the AWS
+screen offers a dedicated deploy key, an existing access key pair, or **Not
+now**. Security forbids both static-key routes, so the user chooses **Not now**.
+No fake `aws-admin` row is written, and the wizard does not imply that instance
+profiles, SSO, OIDC, web identity, or role assumption work.
 
-Apply still creates the project. `/yoke onboard` hosting probe fails without
-keys:
-
-```
-hosting-setup=blocked
-aws-admin present but identity probe failed; re-set via:
-yoke projects capability secret set --project {project} --cap-type aws-admin
-  --key access_key_id --value-stdin
-```
-
-(from `hosting-and-environments.md` — only if a row exists but probe fails).
-If they never saved keys: connect via the same `--value-stdin` recipe, still
-long-lived keys.
-
-Step 7 apply under `yoke aws exec` is the sanctioned resolver path — still
-needs *some* `aws-admin` material on the operator machine.
+Apply still creates the project. `/yoke onboard` records
+`hosting-setup=deferred`, skips the credential probe and cloud apply, and keeps
+seed work legal with a merge-only flow or no default. Step 7 remains
+unreachable until the operator supplies a supported access key or Yoke gains a
+non-static execution path.
 
 ## Test setup
 
@@ -87,7 +78,7 @@ when App is forbidden.
 | Requirement | Declare | Refusal | Instead |
 |---|---|---|---|
 | GitHub App on the org | Machine GitHub step | Skip; `disabled` binding; pending install URL | Self-hosted GitHub origin config (not asked in wizard) |
-| AWS credentials | Hosting step; "paste two values" | Skip; step 7 unreachable | Named enterprise posture: role assumption / no static keys (missing) |
+| AWS credentials | AWS level: guided key, existing access key, or Not now | Choose Not now; step 7 unreachable | Role assumption / no-static-key execution remains unsupported |
 | Data residency | Destination picker (local / existing server / guided self-host / upyoke.com) | Hosted beta refusal; guided setup refuses missing Docker before writes | Team server on-prem with enterprise-owned networking/TLS |
 | Migration | Not in wizard | Silent | Architecture/capability later |
 

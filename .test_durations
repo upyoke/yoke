@@ -1220,7 +1220,6 @@
     "runtime/api/cli/test_onboard_wizard_goldens_art.py::test_art_mixed_preview": 0.3758174580289051,
     "runtime/api/cli/test_onboard_wizard_goldens_art.py::test_art_payoff": 0.3838458328973502,
     "runtime/api/cli/test_onboard_wizard_goldens_art.py::test_art_style": 0.37024112488143146,
-    "runtime/api/cli/test_onboard_wizard_goldens_hosting.py::test_hosting_provider_connect": 0.3895071669248864,
     "runtime/api/cli/test_onboard_wizard_goldens_hosting.py::test_hosting_verified": 0.3334210829343647,
     "runtime/api/cli/test_onboard_wizard_goldens_project.py::test_finish_apply_failure": 0.3277093340875581,
     "runtime/api/cli/test_onboard_wizard_goldens_project.py::test_finish_apply_success": 0.319006625097245,

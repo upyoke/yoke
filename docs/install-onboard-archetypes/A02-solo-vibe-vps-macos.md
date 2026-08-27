@@ -10,8 +10,8 @@ replace the droplet tomorrow.
 
 | | |
 |---|---|
-| Fits | Local universe. Existing folder. GitHub App bind. Skip hosting in the wizard. |
-| Breaks | Hosting subtitle is "AWS for now". Pack `vps-hosting` provisions AWS EC2 (`provision-ec2.sh.tmpl`), not DigitalOcean. Manual SSH deploy has no flow stage. |
+| Fits | Local universe. Existing folder. GitHub App bind. Declare "I host this myself" in the wizard. |
+| Breaks | Pack `vps-hosting` provisions AWS EC2 (`provision-ec2.sh.tmpl`), not DigitalOcean. Manual SSH deploy has no flow stage. |
 | Gaps | No DO/VPS credential surface. No "manual host, no pipeline" default. |
 
 ## Transcript — public installer
@@ -74,19 +74,15 @@ Hosting:
 
 ```
 Connect your hosting provider?
-AWS for now. One click creates the deploy credential; paste its two values below.
-  1  Open the one-click link (creates the IAM user + access key):
-     {quick_create_url or: run `yoke aws admin-link` from an installed Yoke build for the one-click link}
-  2  Paste the two values — here in the wizard, never into an AI chat:
-     Access key ID
-     Secret access key
-  Stays on this machine (~/.yoke/secrets/capability-secrets/priya-shop/aws-admin/) —
-  operator-attended; CI only ever gets scoped OIDC roles minted later.
-  Save & verify
-  Skip for now
+AWS is the one Yoke can run for you; hosting it yourself is a fine answer.
+  AWS                    Yoke can manage its infrastructure
+  I host this myself     Yoke applies no infrastructure
+  Decide later           /yoke onboard asks again
 ```
 
-**User:** Skip for now. (she has a droplet, not AWS)
+**User:** I host this myself. The next screen collects the optional note
+`DigitalOcean droplet`, then records the no-Yoke-managed-host posture without
+showing AWS credential boxes.
 
 Review: Apply. GitHub already saved subtitle may be
 `Machine GitHub authorization is already saved; only the remaining setup writes wait for Apply.`
@@ -104,8 +100,8 @@ docs describe the shop. Profile proposal still lists AWS Packs + stage/prod.
 `webapp-scaffold` mapped (existing app → `scaffold-install=not-needed`).
 Ask for a **manual** delivery path. Skill has no Pack for `ssh git pull`.
 
-Step 4: `yoke projects capability has --project priya-shop --cap-type aws-admin`
-fails → defer hosting. Step 7 deferred.
+Step 4 reads the declared no-Yoke-managed-host posture, performs no
+`aws-admin` probe, and defers cloud apply. Step 7 is unreachable.
 
 Step 5 may still `yoke projects site create`, `environment create --environment
 stage` / `prod`, and `yoke deployment-flows create` if the (unadjusted)
@@ -137,8 +133,8 @@ and exits 0 on main; else attested no-tests. Never invent Actions.
 
 | Requirement | Declare | Refusal | Instead |
 |---|---|---|---|
-| AWS environment | Hosting step already skippable; profile must not create persistent flows after skip | `hosting-setup=deferred`; do not `deployment-flows create` targeting stage/prod | Merge-only flow or empty default |
-| DigitalOcean | Missing. Should be a hosting provider row next to AWS, or a "existing VPS, no Yoke apply" posture | "Yoke cannot apply infrastructure for DigitalOcean yet; skip cloud apply" | Record SSH host as documentation; manual deploy stays operator-owned |
+| AWS environment | Self-hosted posture means no cloud apply; profile must not create persistent flows | `hosting-setup=deferred`; do not `deployment-flows create` targeting stage/prod | Merge-only flow or empty default |
+| DigitalOcean | Generic self-hosted declaration exists; DigitalOcean apply does not | "Yoke cannot apply infrastructure for DigitalOcean yet" | Record SSH host as documentation; manual deploy stays operator-owned |
 | CI | GitHub without Actions is valid; `ci_workflow_file` capability optional | QA `command-ci` unreachable → local `command` method, named reason | Do not invent a workflow file |
 
 Ledger: G-hosting-aws-only, G-no-deploy-default-flow, G-paas-or-vps-non-aws, G-test-setup-unasked, G-no-tests-posture, G-ci-workflow-undeclared.

@@ -42,6 +42,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _submit_pending_form(self) -> bool: ...
     def _goto_finish(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
+    async def action_back(self) -> None: ...
 
 
 class HostingFlow:
@@ -57,34 +58,74 @@ class HostingFlow:
             # No project Yoke deploys for means no owner for a credential.
             self._goto_finish()
             return
-        self._goto_hosting_connect()
+        from yoke_cli.config.onboard_wizard_app import _View
 
-    def _goto_hosting_connect(self: _Shell) -> None:
+        self._goto(_View(
+            STEP_HOSTING,
+            hosting_steps.hosting_provider_body,
+            self._on_hosting_provider_choice,
+        ))
+
+    def _on_hosting_provider_choice(self: _Shell, choice: str) -> None:
+        if choice == "aws":
+            self._goto_hosting_aws_sign_in()
+            return
+        if choice == "no-managed-host":
+            self._goto_hosting_no_managed_host()
+            return
+        self._skip_hosting()
+
+    # ── AWS sign-in choice ─────────────────────────────────
+
+    def _goto_hosting_aws_sign_in(self: _Shell) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        self._goto(_View(
+            STEP_HOSTING,
+            hosting_steps.hosting_aws_sign_in_body,
+            self._on_hosting_aws_sign_in_choice,
+        ))
+
+    def _on_hosting_aws_sign_in_choice(self: _Shell, choice: str) -> None:
+        if choice == "create-key":
+            self._goto_hosting_credentials(guided=True)
+            return
+        if choice == "existing-key":
+            self._goto_hosting_credentials(guided=False)
+            return
+        self._skip_hosting()
+
+    def _goto_hosting_credentials(self: _Shell, *, guided: bool) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
         def builder():
             self._begin_form(
                 hosting_steps.HOSTING_CREDENTIAL_FIELDS,
-                on_done=self._after_hosting_credentials,
-            )
-            return hosting_steps.hosting_connect_body(
-                quick_create_url=hosting.quick_create_url(
-                    region=self._hosting_region(),
+                on_done=lambda values: self._after_hosting_credentials(
+                    values, guided=guided,
                 ),
+            )
+            if guided:
+                return hosting_steps.hosting_guided_key_body(
+                    quick_create_url=hosting.quick_create_url(
+                        region=self._hosting_region(),
+                    ),
+                    credential_dir=self._hosting_credential_dir(),
+                )
+            return hosting_steps.hosting_existing_key_body(
                 credential_dir=self._hosting_credential_dir(),
             )
 
-        self._goto(_View(STEP_HOSTING, builder, self._on_hosting_choice))
+        self._goto(_View(
+            STEP_HOSTING,
+            builder,
+            self._on_hosting_credential_choice,
+        ))
 
-    def _on_hosting_choice(self: _Shell, choice: str) -> None:
-        if choice == "no-managed-host":
-            self._goto_hosting_no_managed_host()
-            return
+    def _on_hosting_credential_choice(self: _Shell, choice: str) -> None:
         if choice != "connect":
             self._skip_hosting()
             return
-        # Both boxes are on this screen, so the row commits what is in them; a
-        # rejected value keeps the screen and marks the box it came from.
         self._submit_pending_form()
 
     def _skip_hosting(self: _Shell) -> None:
@@ -111,7 +152,9 @@ class HostingFlow:
 
     def _on_no_managed_host_choice(self: _Shell, choice: str) -> None:
         if choice == "back":
-            self._goto_hosting_connect()
+            import asyncio
+
+            asyncio.ensure_future(self.action_back())
             return
         # The note is optional, so the row commits whatever the box holds --
         # including nothing.
@@ -130,7 +173,12 @@ class HostingFlow:
 
     # ── credential entry ────────────────────────────────────
 
-    def _after_hosting_credentials(self: _Shell, values: dict[str, str]) -> None:
+    def _after_hosting_credentials(
+        self: _Shell,
+        values: dict[str, str],
+        *,
+        guided: bool,
+    ) -> None:
         # The secret lives only in this closure until the store writes it; it
         # is never held on the app or echoed to any screen.
         access_key_id = values[hosting_steps.HOSTING_ACCESS_KEY_FIELD.key]
@@ -156,7 +204,7 @@ class HostingFlow:
             ],
             work=_work,
             on_success=self._goto_hosting_verified,
-            on_error=self._goto_hosting_error,
+            on_error=lambda exc: self._goto_hosting_error(exc, guided=guided),
             group="onboard-hosting",
             blocks_quit=True,
         )
@@ -185,57 +233,46 @@ class HostingFlow:
             lambda _choice: self._goto_finish(),
         ))
 
-    def _goto_hosting_error(self: _Shell, exc: BaseException) -> None:
+    def _goto_hosting_error(
+        self: _Shell,
+        exc: BaseException,
+        *,
+        guided: bool,
+    ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        # AwsCliMissingError is a HostingVerificationError, so it is matched
-        # first. Anything that is not a verification verdict — a failed write,
-        # or an unexpected failure — reports as a save problem rather than
-        # putting words in AWS's mouth.
-        if isinstance(exc, hosting.AwsCliMissingError):
-            title = "Saved, but Yoke can't verify it here."
+        if isinstance(exc, hosting.HostingVerificationError):
+            title = "Yoke couldn't verify the AWS credential."
             details = [
-                "The two values are already stored on this machine.",
-                "`yoke aws exec -- sts get-caller-identity` checks them once the CLI is installed.",
+                "The two values were stored, but no verified identity was recorded.",
+                "Re-enter the values or choose Not now to continue without AWS.",
             ]
-            rows = hosting_steps.HOSTING_UNVERIFIED_ROWS
-        elif isinstance(exc, hosting.HostingVerificationError):
-            title = "AWS rejected the hosting credential."
-            details = [
-                "The two values were stored, but they did not pass the identity check.",
-                "Re-entering replaces them; a wrong paste is the usual cause.",
-            ]
-            rows = hosting_steps.HOSTING_RETRY_ROWS
         else:
             title = "Couldn't save the hosting credential."
             details = [
                 "Re-entering the two values retries the save.",
-                "Deciding later leaves hosting for a `/yoke onboard` run.",
+                "Not now leaves hosting for a later `/yoke onboard` run.",
             ]
-            rows = hosting_steps.HOSTING_RETRY_ROWS
         self.result.hosting_choice = hosting_posture.POSTURE_UNDECIDED
         self.result.hosting_verification = None
         self._goto(_View(
             STEP_HOSTING,
             lambda: hosting_steps.hosting_error_body(
-                title, str(exc), details, rows,
+                title, str(exc), details, hosting_steps.HOSTING_RETRY_ROWS,
             ),
-            self._on_hosting_error_choice,
+            lambda choice: self._on_hosting_error_choice(
+                choice, guided=guided,
+            ),
         ))
 
-    def _on_hosting_error_choice(self: _Shell, choice: str) -> None:
+    def _on_hosting_error_choice(
+        self: _Shell,
+        choice: str,
+        *,
+        guided: bool,
+    ) -> None:
         if choice == "retry":
-            self._goto_hosting_connect()
-            return
-        if choice == "no-managed-host":
-            # Reaching an error screen is a common way to discover that AWS was
-            # never the right answer, so the declaration is offered here too.
-            self._goto_hosting_no_managed_host()
-            return
-        if choice == "keep":
-            # The pair is already on disk; only the proof is missing.
-            self.result.hosting_choice = hosting_posture.POSTURE_YOKE_MANAGED_AWS
-            self._goto_finish()
+            self._goto_hosting_credentials(guided=guided)
             return
         self._skip_hosting()
 
