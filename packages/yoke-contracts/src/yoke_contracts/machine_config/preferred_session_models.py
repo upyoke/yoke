@@ -34,8 +34,39 @@ def preferred_session_models(payload: Mapping[str, Any] | None) -> dict[str, str
     return models
 
 
+def launchable_preferred_surfaces() -> tuple[str, ...]:
+    """Surfaces a fresh install may seed, from the session-control registry."""
+    from yoke_contracts.session_control.capabilities import (
+        SESSION_SURFACE_CAPABILITIES,
+    )
+
+    return tuple(
+        sorted(
+            surface
+            for surface, capability in SESSION_SURFACE_CAPABILITIES.items()
+            if capability.create == "supported"
+        )
+    )
+
+
+def blank_preferred_session_models() -> dict[str, str]:
+    """Every launchable surface mapped to a blank (unset) model id."""
+    return {surface: "" for surface in launchable_preferred_surfaces()}
+
+
+def seed_preferred_session_models(payload: dict[str, Any]) -> bool:
+    """Insert the real key when absent. Never overwrite an existing map."""
+    if PREFERRED_SESSION_MODELS_KEY in payload:
+        return False
+    payload[PREFERRED_SESSION_MODELS_KEY] = blank_preferred_session_models()
+    return True
+
+
 def validate_preferred_session_models(payload: Mapping[str, Any]) -> list[Any]:
-    """Reject a present map that is not surface-name to model-id strings."""
+    """Reject a present map that is not surface-name to string model ids.
+
+    Blank or whitespace values are valid and mean unset.
+    """
     from yoke_contracts.machine_config.schema_projects import _error
 
     raw = payload.get(PREFERRED_SESSION_MODELS_KEY)
@@ -61,11 +92,12 @@ def validate_preferred_session_models(payload: Mapping[str, Any]) -> list[Any]:
                 )
             )
             continue
-        if not isinstance(value, str) or not value.strip():
+        if not isinstance(value, str):
             issues.append(
                 _error(
                     "preferred_session_models_model_invalid",
-                    f"{PREFERRED_SESSION_MODELS_KEY}.{surface} must be a non-empty model id",
+                    f"{PREFERRED_SESSION_MODELS_KEY}.{surface} must be a string "
+                    "model id (blank means unset)",
                     path=f"{PREFERRED_SESSION_MODELS_KEY}.{surface}",
                 )
             )
@@ -160,9 +192,12 @@ __all__ = [
     "PREFERRED_SESSION_MODELS_KEY",
     "ResolvedLaunchModel",
     "VENDOR_DEFAULT_SOURCE",
+    "blank_preferred_session_models",
+    "launchable_preferred_surfaces",
     "list_preferred_models",
     "preferred_session_models",
     "render_list_models",
     "resolve_launch_model",
+    "seed_preferred_session_models",
     "validate_preferred_session_models",
 ]
