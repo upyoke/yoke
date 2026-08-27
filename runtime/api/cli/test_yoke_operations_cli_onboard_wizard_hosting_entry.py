@@ -81,6 +81,23 @@ def test_only_guided_entry_shows_creation_help(
     assert hosting_steps.HOSTING_GUIDED_KEY_SUBTITLE not in existing
 
 
+def test_guided_entry_teaches_recovery_when_no_safe_link(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(hosting, "quick_create_url", lambda **_kwargs: None)
+    app, _spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await reach_credential_screen(app, pilot, guided=True)
+            body = body_text(app)
+            assert hosting_steps.NO_LINK_RECOVERY_LINE in body
+            assert "Open the one-click AWS link" not in body
+            assert "Set up the dedicated AWS key" in body
+
+    asyncio.run(scenario())
+
+
 def test_both_boxes_are_on_one_screen_with_the_caret_in_the_first() -> None:
     """The pair is explained and collected in the same place."""
     app, _spy = make_app()

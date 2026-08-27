@@ -25,7 +25,13 @@ from pathlib import Path
 from urllib.parse import quote
 
 from yoke_cli.config import install_binding
-from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV, DISTRIBUTION_PROD_URL
+from yoke_contracts.api_urls import (
+    AWS_BOOTSTRAP_TEMPLATE_PROD_URL,
+    AWS_BOOTSTRAP_TEMPLATE_STAGE_URL,
+    DISTRIBUTION_BASE_URL_ENV,
+    DISTRIBUTION_PROD_URL,
+    DISTRIBUTION_STAGE_URL,
+)
 from yoke_contracts.machine_config import capability_secrets as secret_contract
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.machine_config import schema as machine_schema
@@ -40,6 +46,14 @@ BOOTSTRAP_STACK_NAME = "yoke-aws-admin"
 BOOTSTRAP_TEMPLATE_FILENAME = "yoke-aws-admin.yaml"
 DEFAULT_REGION = "us-east-1"
 _REGION_ENV_VARS = ("AWS_REGION", "AWS_DEFAULT_REGION")
+_BOOTSTRAP_TEMPLATE_URL_BY_DISTRIBUTION = {
+    DISTRIBUTION_PROD_URL: AWS_BOOTSTRAP_TEMPLATE_PROD_URL,
+    DISTRIBUTION_STAGE_URL: AWS_BOOTSTRAP_TEMPLATE_STAGE_URL,
+}
+_SUPPORTED_BOOTSTRAP_TEMPLATE_BASE_URLS = frozenset(
+    _BOOTSTRAP_TEMPLATE_URL_BY_DISTRIBUTION.values()
+)
+
 
 class HostingCredentialError(RuntimeError):
     """Storing the pasted hosting credential failed."""
@@ -70,12 +84,21 @@ def default_region() -> str:
     return DEFAULT_REGION
 
 
-def distribution_base_url() -> str:
-    """Distribution host serving this build's published artifacts."""
-    return (
+def bootstrap_template_base_url() -> str | None:
+    """CloudFormation-compatible S3 origin for the active hosted channel."""
+    distribution_url = (
         os.environ.get(DISTRIBUTION_BASE_URL_ENV, "").strip().rstrip("/")
         or DISTRIBUTION_PROD_URL
     )
+    return _BOOTSTRAP_TEMPLATE_URL_BY_DISTRIBUTION.get(distribution_url)
+
+
+def _supported_template_base_url(base_url: str) -> str | None:
+    """Return a known regional S3 origin, never an arbitrary template host."""
+    normalized = str(base_url or "").strip().rstrip("/")
+    if normalized in _SUPPORTED_BOOTSTRAP_TEMPLATE_BASE_URLS:
+        return normalized
+    return None
 
 
 def build_version() -> str:
@@ -83,16 +106,23 @@ def build_version() -> str:
     return install_binding.distribution_version()
 
 
-def template_url(*, version: str | None = None, base_url: str | None = None) -> str | None:
+def template_url(
+    *, version: str | None = None, base_url: str | None = None
+) -> str | None:
     """URL of the bootstrap template published with this exact build.
 
-    ``None`` when the running code has no released version (a source checkout):
-    nothing is published for it, so there is no honest URL to hand AWS.
+    ``None`` when the running code has no released version or its distribution
+    channel has no allowlisted regional S3 origin. CloudFormation rejects
+    custom distribution and S3 website hosts, so there is no honest one-click
+    URL in either case.
     """
     resolved_version = (version if version is not None else build_version()).strip()
     if not resolved_version:
         return None
-    base = (base_url or distribution_base_url()).rstrip("/")
+    candidate = base_url if base_url is not None else bootstrap_template_base_url()
+    base = _supported_template_base_url(candidate or "")
+    if base is None:
+        return None
     return (
         f"{base}/dist/releases/{quote(resolved_version, safe='%')}"
         f"/{BOOTSTRAP_TEMPLATE_FILENAME}"
@@ -225,7 +255,7 @@ __all__ = [
     "credential_dir_display",
     "credential_saved",
     "default_region",
-    "distribution_base_url",
+    "bootstrap_template_base_url",
     "quick_create_url",
     "store_credential",
     "template_url",

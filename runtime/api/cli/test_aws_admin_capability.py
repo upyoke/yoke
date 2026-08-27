@@ -8,8 +8,9 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from yoke_cli.config import aws_admin_capability as hosting
+from yoke_contracts import api_urls
 
-_BASE_URL = "https://api.upyoke.com"
+_BASE_URL = api_urls.AWS_BOOTSTRAP_TEMPLATE_PROD_URL
 _PLUS_VERSION = "0.1.1+launch.302"
 _SECRET = "never-echo-this-secret"
 
@@ -39,6 +40,38 @@ def test_existing_key_copy_does_not_need_a_bootstrap_link() -> None:
     """A source build may lack a link without blocking brought credentials."""
     assert hosting.template_url(version="", base_url=_BASE_URL) is None
     assert hosting.quick_create_url(version="", base_url=_BASE_URL) is None
+
+
+def test_hosted_channels_select_their_supported_s3_origins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        api_urls.DISTRIBUTION_BASE_URL_ENV,
+        f"{api_urls.DISTRIBUTION_STAGE_URL}/",
+    )
+    assert hosting.bootstrap_template_base_url() == (
+        api_urls.AWS_BOOTSTRAP_TEMPLATE_STAGE_URL
+    )
+
+    monkeypatch.setenv(
+        api_urls.DISTRIBUTION_BASE_URL_ENV,
+        "https://packages.example.invalid",
+    )
+    assert hosting.bootstrap_template_base_url() is None
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        api_urls.DISTRIBUTION_PROD_URL,
+        "https://distribution.example.cloudfront.net",
+        "https://bucket.s3-website-us-east-1.amazonaws.com",
+        "https://other-bucket.s3.us-east-1.amazonaws.com",
+    ],
+)
+def test_unapproved_template_hosts_never_generate_a_link(base_url: str) -> None:
+    assert hosting.template_url(version=_PLUS_VERSION, base_url=base_url) is None
+    assert hosting.quick_create_url(version=_PLUS_VERSION, base_url=base_url) is None
 
 
 def test_store_failure_never_echoes_the_secret(

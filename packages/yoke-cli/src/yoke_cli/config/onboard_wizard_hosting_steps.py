@@ -92,10 +92,10 @@ HOSTING_EXISTING_KEY_SUBTITLE = (
     "Paste an access key pair from an AWS identity your team already manages."
 )
 
-# Fallback for a build with no published bootstrap template (a source
-# checkout): naming the command is honest where inventing a URL would not be.
-NO_LINK_LINE = (
-    "run `yoke aws admin-link` from an installed Yoke build for the one-click link"
+# Fallback for a source build or a channel without an allowlisted regional S3
+# template origin. CloudFormation rejects custom distribution and website hosts.
+NO_LINK_RECOVERY_LINE = (
+    "Reinstall from a hosted Yoke release, or go back and use existing credentials."
 )
 
 
@@ -125,12 +125,12 @@ def hosting_guided_key_body(
     credential_dir: str,
 ) -> list[Static]:
     """Credential entry with the one-click dedicated-key route."""
-    link_line = quick_create_url or NO_LINK_LINE
+    setup_line = quick_create_url or NO_LINK_RECOVERY_LINE
     return _hosting_credential_body(
         title=HOSTING_GUIDED_KEY_TITLE,
         subtitle=HOSTING_GUIDED_KEY_SUBTITLE,
         credential_dir=credential_dir,
-        creation_link=link_line,
+        creation_link=setup_line,
     )
 
 
@@ -159,7 +159,7 @@ def _hosting_credential_body(
     if creation_link is not None:
         widgets.extend([
             Static(
-                "  1  Open the one-click AWS link to create the dedicated key:",
+                "  1  Set up the dedicated AWS key:",
                 classes="onboard-plan-line",
             ),
             Static(
@@ -297,7 +297,7 @@ __all__ = [
     "HOSTING_RETRY_ROWS",
     "HOSTING_SECRET_KEY_FIELD",
     "HOSTING_VERIFIED_ROWS",
-    "NO_LINK_LINE",
+    "NO_LINK_RECOVERY_LINE",
     "hosting_aws_sign_in_body",
     "hosting_error_body",
     "hosting_existing_key_body",
