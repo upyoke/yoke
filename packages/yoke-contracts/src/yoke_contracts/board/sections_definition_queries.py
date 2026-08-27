@@ -9,7 +9,7 @@ def _items_sql(
     project_filter: str,
     *,
     definition_metadata: bool,
-    queue_metadata: bool,
+    queue_metadata: bool = False,
 ) -> str:
     metadata_columns = ""
     if definition_metadata:
