@@ -6,14 +6,16 @@ import sqlite3
 
 import pytest
 
-from yoke_core.domain import json_helper
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )
 from yoke_core.domain.session_control_health_facts import session_health_facts
 from yoke_core.domain.session_stale_alive_probe import probe_key
 from yoke_core.domain.work_claim_targets import make_item_target
-from yoke_core.domain.workflow_definition_codec import definition_digest
+from yoke_core.domain.workflow_definition_codec import (
+    canonical_definition_json,
+    definition_digest,
+)
 
 
 SESSION = "session-1"
@@ -89,7 +91,7 @@ def conn() -> sqlite3.Connection:
         (
             WORKFLOW_VERSION,
             int(fixture["canon_version"]),
-            json_helper.dumps(definition),
+            canonical_definition_json(definition),
             definition_digest(definition),
         ),
     )
