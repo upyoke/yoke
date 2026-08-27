@@ -12,6 +12,9 @@ from __future__ import annotations
 import importlib
 
 _compose = importlib.import_module("yoke_core.engines.doctor_https_compose")
+_local_scope = importlib.import_module(
+    "yoke_core.engines.doctor_https_local_scope"
+)
 _only = importlib.import_module("yoke_core.engines.doctor_https_only")
 
 caller_project_local_slugs = _only.caller_project_local_slugs
@@ -25,6 +28,7 @@ merge_relayed_with_local = _compose.merge_relayed_with_local
 partition_only_slugs = _only.partition_only_slugs
 prepare_https_only_payload = _only.prepare_https_only_payload
 recount = _compose.recount
+requested_local_machine_slugs = _local_scope.requested_local_machine_slugs
 resolve_operator_project = _compose.resolve_operator_project
 run_local_project_checks = _only.run_local_project_checks
 run_local_runtime_checks = _compose.run_local_runtime_checks
@@ -42,6 +46,7 @@ __all__ = [
     "partition_only_slugs",
     "prepare_https_only_payload",
     "recount",
+    "requested_local_machine_slugs",
     "resolve_operator_project",
     "run_local_project_checks",
     "run_local_runtime_checks",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict
 
 from yoke_contracts.deployment_destination import DESTINATION_LOCAL
@@ -16,6 +17,10 @@ from yoke_cli.commands._helpers import (
     call_dispatcher,
     emit_response,
 )
+
+
+_TRANSPORT_FAILURE_CODE = "https_transport_failed"
+_PARTIAL_FAILURE_CODE = "doctor_control_plane_partial"
 
 
 def dispatch_chunked(
@@ -35,6 +40,7 @@ def dispatch_chunked(
         merge_relayed_with_local,
         prepare_https_only_payload,
         recount,
+        requested_local_machine_slugs,
         run_local_project_checks,
         run_local_runtime_checks,
         run_local_source_checks,
@@ -69,7 +75,8 @@ def dispatch_chunked(
         chunk_max_checks=chunk_max_checks,
         timeout_s=timeout_s,
     )
-    if not response.success:
+    relay_failed = _is_transport_failure(response)
+    if not response.success and not relay_failed:
         return emit_response(response, json_mode=json_mode)
 
     result = dict(response.result or {})
@@ -86,7 +93,11 @@ def dispatch_chunked(
             ),
         )
         composed.append("local_project_checks")
-    local_runtime = false_na_local_runtime_slugs(results)
+    if relay_failed:
+        local_runtime, local_source = requested_local_machine_slugs(payload)
+    else:
+        local_runtime = false_na_local_runtime_slugs(results)
+        local_source = false_na_source_slugs(results)
     if local_runtime:
         results = merge_relayed_with_local(
             results,
@@ -99,8 +110,7 @@ def dispatch_chunked(
         )
         composed.append("local_runtime")
     if machine_has_checkout_for(project):
-        redo = false_na_source_slugs(results)
-        if redo:
+        if local_source:
             results = merge_relayed_with_local(
                 results,
                 run_local_source_checks(
@@ -109,30 +119,101 @@ def dispatch_chunked(
                     full=bool(payload.get("full")),
                     fix=bool(payload.get("fix")),
                     only=payload.get("only"),
-                    slugs=redo,
+                    slugs=local_source,
                 ),
             )
             composed.append("local_source")
+    if relay_failed:
+        results.append(_control_plane_failure_row(response))
+        result["partial"] = True
+        result["control_plane_error"] = (
+            response.error.model_dump(mode="json") if response.error else {}
+        )
+        composed.append("relayed_control_plane_failed")
     if composed:
         result.update(recount(results))
         result["results"] = results
+        result["scope"] = result.get("scope") or _scope_label(payload)
+        result["project"] = project
         result["runtime"] = result.get("runtime") or payload.get("runtime")
-        result["composed"] = "+".join(
-            [*composed, "relayed_control_plane"]
-        )
+        if not relay_failed:
+            composed.append("relayed_control_plane")
+        result["composed"] = "+".join(composed)
 
-    return emit_response(
-        FunctionCallResponse(
-            success=True,
-            function=response.function,
-            version=response.version,
-            request_id=response.request_id,
-            result=result,
-            event_ids=response.event_ids,
-            warnings=response.warnings,
-        ),
+    final = FunctionCallResponse(
+        success=not relay_failed,
+        function=response.function,
+        version=response.version,
+        request_id=response.request_id,
+        result=result,
+        error=_partial_error(response) if relay_failed else None,
+        event_ids=response.event_ids,
+        warnings=response.warnings,
+    )
+    return _emit_doctor_response(
+        final,
         json_mode=json_mode,
     )
+
+
+def _is_transport_failure(response: FunctionCallResponse) -> bool:
+    return bool(
+        not response.success
+        and response.error
+        and response.error.code == _TRANSPORT_FAILURE_CODE
+    )
+
+
+def _scope_label(payload: Dict[str, Any]) -> str:
+    if payload.get("only"):
+        return "only"
+    return "quick" if payload.get("quick") else "full"
+
+
+def _control_plane_failure_row(
+    response: FunctionCallResponse,
+) -> Dict[str, str]:
+    error = response.error
+    code = error.code if error else _TRANSPORT_FAILURE_CODE
+    message = error.message if error else "the relay returned no diagnosis"
+    return {
+        "hc": "HC-doctor-control-plane-batch",
+        "name": "Relayed control-plane Doctor batch",
+        "severity": "FAIL",
+        "detail": (
+            f"{code}: {message}. Machine-local checks and --fix actions "
+            "still ran; retry the same command after ingress or control-plane "
+            "health recovers."
+        ),
+    }
+
+
+def _partial_error(response: FunctionCallResponse) -> FunctionError:
+    original = response.error
+    code = original.code if original else _TRANSPORT_FAILURE_CODE
+    message = original.message if original else "relay failed without detail"
+    return FunctionError(
+        code=_PARTIAL_FAILURE_CODE,
+        message=(
+            f"bounded control-plane Doctor batch failed ({code}); the attached "
+            f"report is partial and machine-local checks completed: {message}"
+        ),
+        recovery_hint=(
+            "Retry the same `yoke doctor run` command after ingress or "
+            "control-plane health recovers; the report remains failing until "
+            "every relayed batch completes."
+        ),
+    )
+
+
+def _emit_doctor_response(
+    response: FunctionCallResponse,
+    *,
+    json_mode: bool,
+) -> int:
+    if not json_mode and not response.success and response.result:
+        print(json.dumps(response.result, sort_keys=True))
+    return emit_response(response, json_mode=json_mode)
 
 
 def collect_chunked(
@@ -156,6 +237,7 @@ def collect_chunked(
     final_scope = None
     final_project = payload.get("project") or "yoke"
     last_response: FunctionCallResponse | None = None
+    completed_batches = 0
 
     while True:
         chunk_payload = dict(payload)
@@ -177,7 +259,23 @@ def collect_chunked(
         event_ids.extend(response.event_ids)
         warnings.extend(response.warnings)
         if not response.success:
-            return response
+            return response.model_copy(update={
+                "result": {
+                    "results": results,
+                    "scope": final_scope or _scope_label(payload),
+                    "project": final_project,
+                    "runtime": final_runtime,
+                    "fail_count": fail_count,
+                    "warn_count": warn_count,
+                    "pass_count": pass_count,
+                    "na_count": na_count,
+                    "done": False,
+                    "cursor": cursor,
+                    "completed_control_plane_batches": completed_batches,
+                },
+                "event_ids": event_ids,
+                "warnings": warnings,
+            })
 
         result = response.result or {}
         results.extend(result.get("results") or [])
@@ -188,6 +286,7 @@ def collect_chunked(
         final_scope = result.get("scope") or final_scope
         final_project = result.get("project") or final_project
         final_runtime = result.get("runtime") or final_runtime
+        completed_batches += 1
         next_cursor = result.get("cursor")
         if result.get("done", True):
             break
