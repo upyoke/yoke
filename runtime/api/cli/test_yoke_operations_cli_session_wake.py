@@ -1,4 +1,4 @@
-"""CLI contracts for an operator-forced native session wake."""
+"""CLI contracts for an explicit native session wake."""
 
 from __future__ import annotations
 
@@ -35,9 +35,25 @@ def test_session_wake_resolves_an_item_holder_and_carries_a_prompt(monkeypatch) 
         lambda **kwargs: calls.append(kwargs) or 0,
     )
 
-    assert wake.session_wake(["--item", "YOK-7", "--prompt", "Continue."]) == 0
+    assert (
+        wake.session_wake(
+            [
+                "--item",
+                "YOK-7",
+                "--prompt",
+                "Continue.",
+                "--idempotency-key",
+                "watchdog:YOK-7",
+            ]
+        )
+        == 0
+    )
 
-    assert calls[0]["payload"] == {"item_ref": "YOK-7", "prompt": "Continue."}
+    assert calls[0]["payload"] == {
+        "item_ref": "YOK-7",
+        "prompt": "Continue.",
+        "idempotency_key": "watchdog:YOK-7",
+    }
     assert calls[0]["sensitive_values"] == ("Continue.",)
 
 
@@ -62,6 +78,9 @@ def test_human_output_prints_attempt_result_evidence_and_recovery() -> None:
                 "target_liveness": "active",
                 "message_id": "message-1",
                 "result_code": "accepted",
+                "deduplicated": True,
+                "wake_attempt_count": 1,
+                "last_wake_at": "2026-08-27T15:00:00Z",
                 "attempt": {"attempt_id": "attempt-1"},
                 "evidence": {"surface": "codex-cli"},
                 "recovery": "yoke messages get message-1",
@@ -77,6 +96,9 @@ def test_human_output_prints_attempt_result_evidence_and_recovery() -> None:
         "worker-session",
         "attempt-1",
         "accepted",
+        "DEDUPLICATED",
+        "WAKE COUNT",
+        "2026-08-27T15:00:00Z",
         "codex-cli",
         "yoke messages get message-1",
     ):

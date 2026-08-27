@@ -1,4 +1,4 @@
-"""CLI adapter for one operator-forced native session wake."""
+"""Thin CLI adapter for one explicit native session wake."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 SESSION_WAKE_USAGE = (
     "yoke session-control session wake (SESSION-ID | --item ITEM) "
-    "[--prompt TEXT] [--json]"
+    "[--prompt TEXT] [--idempotency-key KEY] [--json]"
 )
 
 
@@ -36,6 +36,9 @@ def _write_wake_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
             ("MESSAGE", result.get("message_id")),
             ("ATTEMPT", attempt.get("attempt_id") or "queued"),
             ("RESULT", result.get("result_code")),
+            ("DEDUPLICATED", bool(result.get("deduplicated"))),
+            ("WAKE COUNT", result.get("wake_attempt_count", 0)),
+            ("LAST WAKE", result.get("last_wake_at")),
             ("EVIDENCE", json.dumps(evidence, sort_keys=True)),
             ("RECOVERY", result.get("recovery")),
         ),
@@ -48,7 +51,7 @@ def session_wake(args: List[str]) -> int:
         prog="yoke session-control session wake",
         usage=SESSION_WAKE_USAGE,
         description=(
-            "Force one stopped-session native resume through the ordinary "
+            "Request one stopped-session native resume through the ordinary "
             "message relay, regardless of the target's liveness label."
         ),
     )
@@ -66,6 +69,11 @@ def session_wake(args: List[str]) -> int:
             "standard pending-message resume prompt."
         ),
     )
+    parser.add_argument(
+        "--idempotency-key",
+        default=None,
+        help="Return the same wake receipt when this caller retries the same intent.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSION_WAKE_USAGE)
@@ -80,6 +88,8 @@ def session_wake(args: List[str]) -> int:
     )
     if parsed.prompt:
         payload["prompt"] = parsed.prompt
+    if parsed.idempotency_key:
+        payload["idempotency_key"] = parsed.idempotency_key
     return dispatch_and_emit(
         function_id="session_control.session.wake",
         target=TargetRef(kind="global"),

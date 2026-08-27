@@ -87,6 +87,7 @@ def _validate_routes(recipients: list[ResolvedRecipient]) -> None:
 def send_message(
     conn: Any,
     *,
+    message_id: str | None = None,
     actor_id: int,
     sender_session_id: str | None,
     selector: RecipientSelector,
@@ -96,7 +97,6 @@ def send_message(
     now: datetime | None = None,
     commit: bool = True,
 ) -> dict[str, Any]:
-    """Resolve, authorize, snapshot, and optionally commit one message."""
     current = now or utc_now()
     begin_message_mutation(conn)
     try:
@@ -137,12 +137,12 @@ def send_message(
                 f"message body is {body_bytes} bytes; maximum is {max_body_bytes}",
                 jsonpath="$.payload.body",
             )
-        expires_at = current + timedelta(
-            hours=min(policy.expiry_hours for policy in policies.values())
-        )
+        expiry_hours = min(policy.expiry_hours for policy in policies.values())
+        expires_at = current + timedelta(hours=expiry_hours)
         wake_after_by_project = {pid: current for pid in policies}
         details, created = insert_message(
             conn,
+            message_id=message_id,
             sender_actor_id=actor_id,
             sender_session_id=sender_session_id,
             body=body,

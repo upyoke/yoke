@@ -86,6 +86,7 @@ def _idempotent_message(
 def insert_message(
     conn: Any,
     *,
+    message_id: str | None = None,
     sender_actor_id: int,
     sender_session_id: str | None,
     body: str,
@@ -120,7 +121,7 @@ def insert_message(
                 )
             return existing, False
     marker = _p(conn)
-    message_id = str(uuid.uuid4())
+    message_id = message_id or str(uuid.uuid4())
     inserted = conn.execute(
         "INSERT INTO session_messages (message_id, sender_actor_id, "
         "sender_session_id, body, body_sha256, selector_snapshot, "

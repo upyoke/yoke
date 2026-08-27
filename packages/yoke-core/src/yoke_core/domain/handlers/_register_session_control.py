@@ -91,7 +91,7 @@ def register(registry) -> None:
         owner_module=_wake.__name__,
         guardrails=[
             "verified_actor",
-            "handler_enforced_operator_or_steering_authority",
+            "handler_enforced_project_authority",
         ],
     )
     _register(

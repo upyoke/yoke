@@ -7,7 +7,7 @@ from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
-from yoke_contracts.session_control.wake import MANUAL_WAKE_SELECTOR_FLAG
+from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_contracts.session_control.surface_versions import (
     machine_wake_executor_surface,
     surface_operation_supported,
@@ -161,16 +161,14 @@ def _native_wake_route_available(
     return False
 
 
-def _manual_wake_requested(row: Mapping[str, Any]) -> bool:
+def _explicit_wake_requested(row: Mapping[str, Any]) -> bool:
     try:
-        snapshot = json_helper.loads_text(
-            str(row.get("message_selector_snapshot") or "")
-        )
+        snapshot = json_helper.loads_text(str(row.get("routing_snapshot") or ""))
     except (TypeError, ValueError):
         return False
     return bool(
         isinstance(snapshot, Mapping)
-        and snapshot.get(MANUAL_WAKE_SELECTOR_FLAG) is True
+        and snapshot.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
     )
 
 
@@ -200,7 +198,6 @@ def wake_eligible_recipients(
         )
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
-            "m.selector_snapshot AS message_selector_snapshot,"
             "hs.executor,hs.execution_lane,hs.last_heartbeat,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select} "
@@ -236,20 +233,20 @@ def wake_eligible_recipients(
             row = row_dict(raw)
             policy = project_policy(conn, int(row["project_id"]))
             liveness = session_liveness(row, now=current)
-            manual_wake = _manual_wake_requested(row)
+            explicit_wake = _explicit_wake_requested(row)
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts
             adopting_final_attempt = bool(
                 ignore_attempt_id and attempt_count == policy.max_wake_attempts
             )
-            first_manual_attempt = manual_wake and attempt_count == 0
+            first_manual_attempt = explicit_wake and attempt_count == 0
             if at_limit and not adopting_final_attempt and not first_manual_attempt:
                 continue
-            if manual_wake and attempt_count > 0:
+            if explicit_wake and attempt_count > 0:
                 continue
-            if not manual_wake and liveness == "active":
+            if not explicit_wake and liveness == "active":
                 continue
-            if not manual_wake and row["state"] == "injected":
+            if not explicit_wake and row["state"] == "injected":
                 if not policy.reinject_until_acknowledged:
                     continue
                 # An injected envelope has already reached the session; what
@@ -263,9 +260,9 @@ def wake_eligible_recipients(
                     continue
             idle_window = timedelta(seconds=policy.wake_after_idle_seconds)
             waiting_pending = row["state"] == "pending" and (
-                manual_wake or row.get("turn_posture") == "waiting"
+                explicit_wake or row.get("turn_posture") == "waiting"
             )
-            if manual_wake:
+            if explicit_wake:
                 if row.get("injection_lease_id") is not None:
                     continue
                 wake_mode = WakeMode.WAITING
@@ -301,7 +298,7 @@ def wake_eligible_recipients(
                 liveness=liveness,
                 operation=operation,
                 relay_versions=versions,
-                force_stopped_route=manual_wake,
+                force_stopped_route=explicit_wake,
             ):
                 _record_wake_skip(
                     conn,
@@ -335,7 +332,7 @@ def wake_eligible_recipients(
                     "wake_attempt_count": attempt_count,
                     "last_wake_at": row["last_wake_at"],
                     "native_thread_id": row.get("native_thread_id"),
-                    MANUAL_WAKE_SELECTOR_FLAG: manual_wake,
+                    EXPLICIT_WAKE_ROUTING_FLAG: explicit_wake,
                 }
             )
         conn.commit()

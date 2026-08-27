@@ -1,4 +1,4 @@
-"""Wire models for an operator-forced native session wake."""
+"""Wire models for an explicit native session wake."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-MANUAL_WAKE_SELECTOR_FLAG = "manual_stopped_wake"
+EXPLICIT_WAKE_ROUTING_FLAG = "explicit_stopped_wake"
 
 
 class SessionWakeRequest(BaseModel):
@@ -15,8 +15,9 @@ class SessionWakeRequest(BaseModel):
     session_id: Optional[str] = Field(default=None, min_length=1, max_length=255)
     item_ref: Optional[str] = Field(default=None, min_length=1, max_length=100)
     prompt: Optional[str] = Field(default=None, max_length=1_000_000)
+    idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
-    @field_validator("session_id", "item_ref", "prompt")
+    @field_validator("session_id", "item_ref", "prompt", "idempotency_key")
     @classmethod
     def _nonblank_optional_text(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
@@ -42,10 +43,13 @@ class SessionWakeResponse(BaseModel):
     attempt: Optional[Dict[str, Any]] = None
     evidence: Dict[str, Any] = Field(default_factory=dict)
     recovery: Optional[str] = None
+    deduplicated: bool = False
+    wake_attempt_count: int = 0
+    last_wake_at: Optional[str] = None
 
 
 __all__ = [
-    "MANUAL_WAKE_SELECTOR_FLAG",
+    "EXPLICIT_WAKE_ROUTING_FLAG",
     "SessionWakeRequest",
     "SessionWakeResponse",
 ]

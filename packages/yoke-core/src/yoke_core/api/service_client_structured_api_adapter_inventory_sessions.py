@@ -66,7 +66,7 @@ SESSION_ADAPTERS = [
         function_id="session_control.session.wake",
         cli_invocation=(
             "yoke session-control session wake (SESSION-ID | --item ITEM) "
-            "[--prompt TEXT]"
+            "[--prompt TEXT] [--idempotency-key KEY]"
         ),
     ),
     _read_entry(
