@@ -195,8 +195,9 @@ The registered `fresh-host` baseline restores the host's declared golden
 baseline. Its target state is USER-EQUIVALENT, not bare: a real user arrives
 with harness apps installed and signed in, so a machine stripped to nothing is
 not a fresh host. What the golden must carry, which programs it must have
-signed in — Claude and Codex both — how to capture one, and how to read a probe
-that fails:
+signed in as declared by its adjacent `.probes` sidecar, the illustrative
+current three-probe snapshot, how to capture one, and how to read a probe that
+fails:
 [`testing-verification/test-machine-golden-baseline.md`](testing-verification/test-machine-golden-baseline.md).
 
 ## Evidence
