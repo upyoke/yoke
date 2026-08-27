@@ -15,6 +15,7 @@ from runtime.api.test_sessions import (
     conn,  # noqa: F401
 )
 from yoke_core.domain.session_cleanup_holdings import active_holding_sessions
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.sessions import claim_work, clean_stale_harness_sessions
 
 
@@ -61,14 +62,19 @@ def _add_holding(conn, session_id: str, kind: str) -> None:
             "(owner_kind, owner_session_id) VALUES ('session', %s)",
             (session_id,),
         )
-    elif kind == "coordination_lease":
+    elif kind == "coordination_claim":
+        # A shared-operation hold is a work_claims row of its own kind.
         now = _ago_minutes(1)
         conn.execute(
-            "INSERT INTO coordination_leases "
-            "(project_id, lease_key, session_id, acquired_at, heartbeat_at, "
-            "owner_kind, owner_session_id) "
-            "VALUES (1, %s, %s, %s, %s, 'session', %s)",
-            (f"TEST:{session_id}", session_id, now, now, session_id),
+            "INSERT INTO work_claims "
+            "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
+            "VALUES (%s, 'qa_admission', %s, %s, %s)",
+            (
+                session_id,
+                make_qa_admission_target(session_id).scope_json(),
+                now,
+                now,
+            ),
         )
     else:
         raise AssertionError(f"unsupported holding kind: {kind}")
@@ -90,7 +96,7 @@ def test_empty_session_keeps_the_short_ttl(conn):
 
 @pytest.mark.parametrize(
     "holding_kind",
-    ["work_claim", "strategy_lock", "coordination_lease"],
+    ["work_claim", "strategy_lock", "coordination_claim"],
 )
 def test_active_holding_selects_the_long_ttl(conn, holding_kind):
     session_id = f"held-{holding_kind}"

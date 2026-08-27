@@ -13,9 +13,10 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from runtime.api.test_sessions import _REPO_ROOT
 from runtime.api.test_constants import TEST_MODEL_ID
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
 
 
-_STALE_DB_SCHEMA = """
+_STALE_DB_SCHEMA = f"""
             CREATE TABLE projects (
                 id INTEGER PRIMARY KEY,
                 slug TEXT NOT NULL UNIQUE,
@@ -60,7 +61,7 @@ _STALE_DB_SCHEMA = """
             CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
-    target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process','steering')),
+    target_kind TEXT NOT NULL CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,

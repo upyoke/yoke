@@ -9,7 +9,8 @@ from yoke_contracts.machine_qa_execution import (
 )
 from yoke_core.domain.capabilities_test_machine_read import read_test_machine_facts
 from yoke_core.domain.machine_qa_capability import (
-    lease_key,
+    host_claim_key,
+    host_claim_target,
     replace_test_machine_settings,
     test_machine_detail as read_test_machine_detail,
 )
@@ -17,8 +18,8 @@ from yoke_core.domain.machine_qa_execution_protocol import (
     MachineQaProtocolLeaseHeld,
     begin_host_control_execution,
 )
-from yoke_core.domain.machine_qa_host_registrar import host_lease_project_id
 
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session
 from runtime.api.domain.machine_qa_test_support import (
     make_conn,
     register_test_machine,
@@ -48,19 +49,20 @@ def _two_project_conn():
 
 def _shared_host_conn():
     conn = _two_project_conn()
-    # A second project naming one host is what the registration guard now
-    # refuses; seeding it directly proves the lease anchor holds anyway.
+    # A second project naming one host is what the registration guard
+    # refuses; seeding it directly proves one physical machine still
+    # admits one execution.
     register_test_machine(conn, project_id=1, created_at="2026-08-01T00:00:00Z")
     register_test_machine(conn, project_id=2, created_at="2026-08-02T00:00:00Z")
     return conn
 
 
 def _begin_verification(conn, *, project: str, session_id: str, actor_id: str):
+    seed_qa_session(conn, session_id, actor_id=int(actor_id))
     return begin_host_control_execution(
         conn,
         project=project,
         session_id=session_id,
-        actor_id=actor_id,
         operation="verify",
         checks=VERIFICATION_CHECKS,
         baselines=VERIFICATION_BASELINES,
@@ -85,14 +87,13 @@ def test_registering_a_host_a_second_project_already_operates_is_refused() -> No
         )
 
     assert "already registered by project 'yoke'" in str(caught.value)
-    assert host_lease_project_id(conn, SHARED_HOST) == 1
     replace_test_machine_settings(
         conn,
         project="buzz",
         settings=_settings("mac-studio-lab"),
         base_settings=None,
     )
-    assert host_lease_project_id(conn, "mac-studio-lab") == 2
+    assert host_claim_target("mac-studio-lab").machine_id == "mac-studio-lab"
 
 
 def test_re_saving_settings_for_an_own_host_is_not_a_duplicate_registration() -> None:
@@ -114,9 +115,9 @@ def test_re_saving_settings_for_an_own_host_is_not_a_duplicate_registration() ->
     assert second["settings"]["operating_notes"] == "Lab moved to rack two."
 
 
-def test_lease_for_a_shared_host_anchors_to_the_registering_project() -> None:
+def test_a_shared_host_is_one_claim_whichever_project_drives_it() -> None:
+    """The machine alone is the scope, so no project anchor is needed."""
     conn = _shared_host_conn()
-    assert host_lease_project_id(conn, SHARED_HOST) == 1
 
     contract = _begin_verification(
         conn,
@@ -126,11 +127,13 @@ def test_lease_for_a_shared_host_anchors_to_the_registering_project() -> None:
     )
 
     assert contract.project == "buzz"
+    assert contract.lease_key == host_claim_key(SHARED_HOST)
     row = conn.execute(
-        "SELECT project_id,lease_key FROM coordination_leases WHERE id=?",
+        "SELECT target_kind,scope FROM work_claims WHERE id=?",
         (contract.lease_id,),
     ).fetchone()
-    assert (int(row[0]), str(row[1])) == (1, lease_key(SHARED_HOST))
+    assert str(row[0]) == "qa_admission"
+    assert str(row[1]) == host_claim_target(SHARED_HOST).scope_json()
 
 
 def test_one_physical_host_admits_one_execution_across_every_project() -> None:
@@ -155,7 +158,7 @@ def test_one_physical_host_admits_one_execution_across_every_project() -> None:
     for caught in (from_other_project, from_same_project):
         assert caught.value.machine == SHARED_HOST
         assert caught.value.lease.session_id == "yoke-session"
-        assert caught.value.lease.project_id == 1
+        assert caught.value.lease.key == host_claim_key(SHARED_HOST)
 
 
 def test_a_leased_shared_host_reads_as_in_use_for_every_naming_project() -> None:

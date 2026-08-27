@@ -4,7 +4,7 @@ One shared emit surface for the identity-link, invite, web-session, and
 sign-in modules so every event in the family carries the same envelope
 shape. Emission is telemetry-only: the DB rows the domain functions write
 remain the source of truth, and an emit failure never fails the caller
-(the same stance :mod:`yoke_core.domain.coordination_leases` takes).
+(the same stance :mod:`yoke_core.domain.coordination_claims` takes).
 
 Never place raw tokens or id_token material in ``context`` — actor ids,
 issuers, email addresses, and refusal-reason kinds only.

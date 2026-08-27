@@ -7,7 +7,8 @@ import pytest
 from runtime.api.domain.test_qa_plan_agent_review import _review_execution
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import qa_plan_review_submission, qa_review_requests
-from yoke_core.domain.coordination_leases import acquire_lease, get_lease
+from yoke_core.domain.coordination_claims import acquire, get_claim
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.qa_plan_review import begin_plan_review
 from yoke_core.domain.schema_init_tables import create_governed_tables
 
@@ -26,12 +27,10 @@ def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
     with test_database() as conn:
         execution, _requirement_id, _capture_run_id = _review_execution(conn, 4540)
         create_governed_tables(conn)
-        lease = acquire_lease(
+        lease = acquire(
             conn,
-            1,
-            "TEST_MAC:ordinary-review",
+            make_qa_admission_target("ordinary-review"),
             "review-session",
-            actor_id="7",
         )
         conn.execute(
             "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
@@ -45,7 +44,7 @@ def test_non_mission_review_does_not_retain_a_machine_lease() -> None:
         assert bundle is not None
         assert execution["state"] == "awaiting_agent_review"
         assert execution["machine_lease_id"] is None
-        assert get_lease(conn, lease.id).is_active is False
+        assert get_claim(conn, lease.id).is_active is False
 
 
 def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> None:
@@ -53,12 +52,10 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
         execution, requirement_id, capture_run_id = _review_execution(conn, 4541)
         bundle = begin_plan_review(conn, execution)
         create_governed_tables(conn)
-        lease = acquire_lease(
+        lease = acquire(
             conn,
-            1,
-            "TEST_MAC:review-atomicity",
+            make_qa_admission_target("review-atomicity"),
             "review-session",
-            actor_id="7",
         )
         conn.execute(
             "UPDATE qa_plan_executions SET machine_lease_id=%s WHERE id=%s",
@@ -100,7 +97,7 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
         assert execution_state == "awaiting_agent_review"
         assert execution["state"] == "awaiting_agent_review"
         assert execution["machine_lease_id"] == lease.id
-        assert get_lease(conn, lease.id).is_active is True
+        assert get_claim(conn, lease.id).is_active is True
         assert (
             conn.execute(
                 "SELECT COUNT(*) FROM qa_plan_review_verdicts WHERE bundle_id=%s",

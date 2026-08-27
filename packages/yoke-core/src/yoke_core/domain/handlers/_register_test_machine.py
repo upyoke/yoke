@@ -21,7 +21,7 @@ def register(registry) -> None:
         target_kinds=["item", "deployment_run"],
         side_effects=[
             "qa_plan_execution_write",
-            "coordination_lease",
+            "coordination_claim",
         ],
         emitted_event_names=["LeaseAcquired", "YokeFunctionCalled"],
         guardrails=[
@@ -45,7 +45,7 @@ def register(registry) -> None:
         target_kinds=["item", "deployment_run"],
         side_effects=[
             "qa_plan_execution_write",
-            "coordination_lease_heartbeat",
+            "coordination_claim_heartbeat",
             "qa_run_write",
             "qa_artifact_write",
         ],
@@ -74,7 +74,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        side_effects=["coordination_lease_release"],
+        side_effects=["coordination_claim_release"],
         emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
         guardrails=["actor_owned_lease", "contract_digest"],
         adapter_status="internal",
@@ -104,7 +104,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        side_effects=["coordination_lease_release"],
+        side_effects=["coordination_claim_release"],
         emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
         guardrails=["actor_owned_lease", "contract_digest"],
         adapter_status="internal",
@@ -134,7 +134,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        side_effects=["coordination_lease", "qa_run_write"],
+        side_effects=["coordination_claim", "qa_run_write"],
         emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
         guardrails=[
             "materialized_case_reread",
@@ -155,7 +155,7 @@ def register(registry) -> None:
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=[
-            "coordination_lease_release",
+            "coordination_claim_release",
             "qa_run_write",
             "qa_artifact_write",
         ],
@@ -177,7 +177,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        side_effects=["coordination_lease", "qa_run_write"],
+        side_effects=["coordination_claim", "qa_run_write"],
         emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
         guardrails=[
             "materialized_case_reread",
@@ -197,7 +197,7 @@ def register(registry) -> None:
         owner_module=__name__,
         target_kinds=["qa_requirement"],
         side_effects=[
-            "coordination_lease_release",
+            "coordination_claim_release",
             "qa_run_write",
             "qa_artifact_write",
         ],
@@ -262,7 +262,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["global"],
-        side_effects=["coordination_lease_release"],
+        side_effects=["coordination_claim_release"],
         emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
         guardrails=["actor_owned_lease", "contract_digest"],
         adapter_status="internal",
@@ -276,7 +276,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["global"],
-        side_effects=["coordination_lease"],
+        side_effects=["coordination_claim"],
         emitted_event_names=["LeaseAcquired", "YokeFunctionCalled"],
         guardrails=[
             "serial_lease",
@@ -294,7 +294,7 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["global"],
-        side_effects=["verification_write", "coordination_lease_release"],
+        side_effects=["verification_write", "coordination_claim_release"],
         emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
         guardrails=[
             "actor_owned_lease",

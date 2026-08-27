@@ -23,10 +23,27 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             "Every typed target uses target_kind plus one canonical JSON "
             'object in scope: item={"item_id":N}, epic_task={"epic_id":N,'
             '"task_num":N}, process={"process_key":K,"conflict_group":G}, '
-            'or steering={"project_id":N}. Domain validation requires '
+            'steering={"project_id":N}, migration_serialization='
+            '{"project_id":N,"model":M,"item_id":N}, qa_admission='
+            '{"machine_id":ID}, or route_qualification={"project_id":N,'
+            '"grant_key":K}. Domain validation requires '
             "exactly the keys for the named kind. Steering has one live "
             "session-owned seat per project; strategy-document locks remain "
-            "in strategy_doc_claims. There is no specialized target column or "
+            "in strategy_doc_claims. The last three kinds are the "
+            "shared-operation claims that replaced the retired "
+            "lease table it replaced: migration territory per model, one "
+            "physical test machine, one private-route qualification grant. "
+            "They are STICKY — the stale-session sweep and session-end "
+            "release skip them, because the resource keeps running after "
+            "the session goes quiet, so recovery is the human-only `yoke "
+            "coordination-claim release --project P --key K --reason R`. "
+            "Their exclusivity unit is the whole scope except "
+            "migration_serialization, which conflicts on (project_id, "
+            "model) so item_id records the owner rather than the resource. "
+            "Read and address them by their operator key "
+            "(LIVE_DB_MIGRATION:<model>, QA_HOST:<machine>) via `yoke "
+            "coordination-claim list [--active-only]`. There is no "
+            "specialized target column or "
             "target_path column; worktree/path coverage lives elsewhere. "
             "claim_type is 'exclusive'; non-terminal state is derived from "
             "released_at IS NULL, with no state/status column. Primary key "

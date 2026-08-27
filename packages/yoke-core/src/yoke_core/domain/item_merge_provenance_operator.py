@@ -8,7 +8,7 @@ one provenance field a merge outside the merge boundary can leave unset --
 ``items.merged_at`` -- gets a single narrow human-only correction surface
 instead of a general terminal write path.
 
-Sibling of :mod:`yoke_core.domain.coordination_leases_operator`, sharing
+Sibling of :mod:`yoke_core.domain.coordination_claims_operator`, sharing
 its recovery properties: the surface refuses a hook context, demands a
 non-empty operator reason, and emits its WARN event BEFORE the mutation
 lands, so a telemetry outage cannot mask a successful operator action.

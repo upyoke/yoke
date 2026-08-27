@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.coordination_leases import heartbeat_lease, release_lease
+from yoke_core.domain.coordination_claims import heartbeat, release
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_capture_settlement import (
     settle_unreviewed_execution_captures,
@@ -40,7 +40,7 @@ def heartbeat_plan_execution(
         (now, str(execution["id"])),
     )
     if execution.get("machine_lease_id") is not None:
-        heartbeat_lease(conn, int(execution["machine_lease_id"]), now=now)
+        heartbeat(conn, int(execution["machine_lease_id"]), now=now)
     else:
         conn.commit()
     execution["heartbeat_at"] = now
@@ -110,7 +110,7 @@ def finish_plan_execution(
         and _mission_needs_retained_lease(execution)
     )
     if execution.get("machine_lease_id") is not None and not retain_lease:
-        release_lease(
+        release(
             conn,
             int(execution["machine_lease_id"]),
             reason,

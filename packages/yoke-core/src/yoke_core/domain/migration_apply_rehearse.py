@@ -26,7 +26,7 @@ from yoke_core.domain.migration_apply_targets import (
     fingerprint_db_target, resolve_authoritative_db_target,
     resolve_connection_env_var, resolve_validation_db_target,
 )
-from yoke_core.domain import migration_territory_lease
+from yoke_core.domain import migration_territory_claim
 from yoke_core.domain.migration_apply_contract import (
     FAIL_TEST_APPLY, FAIL_TEST_VERIFY, STATE_PLANNED,
     STATE_REHEARSED, STATE_TEST_APPLIED, STATE_TEST_COPY_CREATED,
@@ -135,8 +135,8 @@ def _rehearse_inner(
         control_db_path=control_conn_db_path(control_conn),
     )
     assert_distinct_database_targets(authoritative_db, validation_target)
-    # Held past this call on purpose -- see migration_territory_lease.
-    lease = migration_territory_lease.enter(
+    # Held past this call on purpose -- see migration_territory_claim.
+    lease = migration_territory_claim.enter(
         control_conn, project=project, model_name=profile["model_name"],
         item_id=int(item_id), session_id=session_id,
     )
@@ -338,11 +338,11 @@ def _rehearse_inner(
 
     # A rehearsal that failed never entered migration territory, so it must
     # not leave the door locked behind it. A rehearsal that PASSED keeps the
-    # lease: the item now owns this model until it lands or an operator
-    # releases it (`yoke coordination-lease release`), which makes the
-    # lease a visible signal rather than a momentary mutex.
+    # claim: the item now owns this model until it lands or an operator
+    # releases it (`yoke coordination-claim release`), which makes the
+    # claim a visible signal rather than a momentary mutex.
     if not result.all_succeeded:
-        result.lease_id = migration_territory_lease.leave(
+        result.lease_id = migration_territory_claim.leave(
             control_conn, lease.id, "rehearsal-failed"
         ).id
 

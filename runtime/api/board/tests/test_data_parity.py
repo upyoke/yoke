@@ -134,20 +134,6 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
                 claim_id INTEGER
             )
         """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS coordination_leases (
-                id INTEGER PRIMARY KEY,
-                project_id INTEGER,
-                lease_key TEXT,
-                session_id TEXT,
-                released_at TEXT,
-                release_reason TEXT,
-                owner_kind TEXT NOT NULL DEFAULT 'session',
-                owner_item_id INTEGER,
-                owner_session_id TEXT,
-                owner_work_claim_id INTEGER
-            )
-        """)
         conn.execute(
             """
             INSERT INTO harness_sessions

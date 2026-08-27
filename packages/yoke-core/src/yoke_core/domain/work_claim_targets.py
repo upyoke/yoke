@@ -12,19 +12,34 @@ from dataclasses import dataclass
 import json
 from typing import Any, Dict, Mapping, Optional
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.sql_json import json_get
 from yoke_core.domain.work_processes import conflict_group_for
 
 TARGET_KIND_ITEM = "item"
 TARGET_KIND_EPIC_TASK = "epic_task"
 TARGET_KIND_PROCESS = "process"
 TARGET_KIND_STEERING = "steering"
+TARGET_KIND_MIGRATION_SERIALIZATION = "migration_serialization"
+TARGET_KIND_QA_ADMISSION = "qa_admission"
+TARGET_KIND_ROUTE_QUALIFICATION = "route_qualification"
 ALL_TARGET_KINDS = (
     TARGET_KIND_ITEM,
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_PROCESS,
     TARGET_KIND_STEERING,
+    TARGET_KIND_MIGRATION_SERIALIZATION,
+    TARGET_KIND_QA_ADMISSION,
+    TARGET_KIND_ROUTE_QUALIFICATION,
+)
+
+#: Kinds whose hold outlives the session that took it. A liveness-bound
+#: kind is reclaimed when its holder goes stale or its session ends. A
+#: sticky kind names a shared resource whose real-world operation keeps
+#: running — a migration mid-authorship, a physical host mid-suite — so
+#: dropping the row would hand the resource to a second holder while the
+#: first is still using it. Recovery for a sticky kind is the audited
+#: human operator release, never an automatic sweep.
+STICKY_TARGET_KINDS = frozenset(
+    {TARGET_KIND_MIGRATION_SERIALIZATION, TARGET_KIND_QA_ADMISSION}
 )
 
 _SCOPE_KEYS = {
@@ -32,7 +47,16 @@ _SCOPE_KEYS = {
     TARGET_KIND_EPIC_TASK: frozenset({"epic_id", "task_num"}),
     TARGET_KIND_PROCESS: frozenset({"process_key", "conflict_group"}),
     TARGET_KIND_STEERING: frozenset({"project_id"}),
+    TARGET_KIND_MIGRATION_SERIALIZATION: frozenset(
+        {"project_id", "model", "item_id"}
+    ),
+    TARGET_KIND_QA_ADMISSION: frozenset({"machine_id"}),
+    TARGET_KIND_ROUTE_QUALIFICATION: frozenset({"project_id", "grant_key"}),
 }
+
+def is_sticky(kind: str) -> bool:
+    """Return True when this kind survives session end and the sweep."""
+    return kind in STICKY_TARGET_KINDS
 
 
 class TargetValidationError(ValueError):
@@ -83,6 +107,19 @@ def normalize_scope(kind: str, scope: Mapping[str, Any]) -> Dict[str, Any]:
         return {
             "process_key": _nonempty_text(raw["process_key"], "process_key"),
             "conflict_group": _nonempty_text(raw["conflict_group"], "conflict_group"),
+        }
+    if kind == TARGET_KIND_MIGRATION_SERIALIZATION:
+        return {
+            "project_id": _positive_integer(raw["project_id"], "project_id"),
+            "model": _nonempty_text(raw["model"], "model"),
+            "item_id": _positive_integer(raw["item_id"], "item_id"),
+        }
+    if kind == TARGET_KIND_QA_ADMISSION:
+        return {"machine_id": _nonempty_text(raw["machine_id"], "machine_id")}
+    if kind == TARGET_KIND_ROUTE_QUALIFICATION:
+        return {
+            "project_id": _positive_integer(raw["project_id"], "project_id"),
+            "grant_key": _nonempty_text(raw["grant_key"], "grant_key"),
         }
     return {"project_id": _positive_integer(raw["project_id"], "project_id")}
 
@@ -147,6 +184,21 @@ class WorkClaimTarget:
         value = self.scope.get("project_id")
         return int(value) if value is not None else None
 
+    @property
+    def model(self) -> Optional[str]:
+        value = self.scope.get("model")
+        return str(value) if value is not None else None
+
+    @property
+    def machine_id(self) -> Optional[str]:
+        value = self.scope.get("machine_id")
+        return str(value) if value is not None else None
+
+    @property
+    def grant_key(self) -> Optional[str]:
+        value = self.scope.get("grant_key")
+        return str(value) if value is not None else None
+
     def scope_json(self) -> str:
         return encode_scope(self.scope)
 
@@ -166,6 +218,16 @@ class WorkClaimTarget:
             return f"{item_ref_for_id(int(self.epic_id))} task {self.task_num}"
         if self.kind == TARGET_KIND_STEERING:
             return f"steering for project {self.project_id}"
+        if self.kind == TARGET_KIND_MIGRATION_SERIALIZATION:
+            return (
+                f"migration territory {self.model} "
+                f"(project {self.project_id}, item "
+                f"{item_ref_for_id(int(self.item_id))})"
+            )
+        if self.kind == TARGET_KIND_QA_ADMISSION:
+            return f"test machine {self.machine_id}"
+        if self.kind == TARGET_KIND_ROUTE_QUALIFICATION:
+            return f"route qualification for project {self.project_id}"
         return f"process:{self.process_key}"
 
 
@@ -196,6 +258,38 @@ def make_steering_target(project_id: int) -> WorkClaimTarget:
     return WorkClaimTarget(TARGET_KIND_STEERING, {"project_id": int(project_id)})
 
 
+def make_migration_serialization_target(
+    project_id: int,
+    model: str,
+    item_id: int,
+) -> WorkClaimTarget:
+    """Build the per-model migration-territory target for one owning item."""
+    return WorkClaimTarget(
+        TARGET_KIND_MIGRATION_SERIALIZATION,
+        {
+            "project_id": int(project_id),
+            "model": str(model),
+            "item_id": int(item_id),
+        },
+    )
+
+
+def make_qa_admission_target(machine_id: str) -> WorkClaimTarget:
+    """Build the target serializing one physical test machine."""
+    return WorkClaimTarget(TARGET_KIND_QA_ADMISSION, {"machine_id": str(machine_id)})
+
+
+def make_route_qualification_target(
+    project_id: int,
+    grant_key: str,
+) -> WorkClaimTarget:
+    """Build the target holding one private-route qualification grant."""
+    return WorkClaimTarget(
+        TARGET_KIND_ROUTE_QUALIFICATION,
+        {"project_id": int(project_id), "grant_key": str(grant_key)},
+    )
+
+
 def from_row(row: Mapping[str, Any]) -> WorkClaimTarget:
     """Reconstruct and validate a target from a work_claims row."""
     return WorkClaimTarget(
@@ -215,56 +309,22 @@ def validate_target(target: WorkClaimTarget) -> None:
     normalize_scope(target.kind, target.scope)
 
 
-def scope_text_sql(conn: Any, column_expr: str, key: str) -> str:
-    """Return a portable SQL expression reading one scope value as text."""
-    if db_backend.connection_is_postgres(conn):
-        return json_get(column_expr, f"$.{key}")
-    return f"json_extract({column_expr}, '$.{key}')"
-
-
-def scope_int_sql(conn: Any, column_expr: str, key: str) -> str:
-    """Return a portable SQL expression reading one scope value as integer."""
-    return f"CAST({scope_text_sql(conn, column_expr, key)} AS INTEGER)"
-
-
-def exact_match_clause(
-    conn: Any,
-    target: WorkClaimTarget,
-    *,
-    alias: str = "",
-) -> tuple[str, list[Any]]:
-    """Return SQL and params matching one exact canonical target."""
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    prefix = f"{alias}." if alias else ""
-    return (
-        f"{prefix}target_kind = {p} AND {prefix}scope = {p}",
-        [target.kind, target.scope_json()],
-    )
-
-
-def conflict_match_clause(
-    conn: Any,
-    target: WorkClaimTarget,
-    *,
-    alias: str = "",
-) -> tuple[str, list[Any]]:
-    """Return SQL and params matching the target's exclusivity unit."""
-    if target.kind != TARGET_KIND_PROCESS:
-        return exact_match_clause(conn, target, alias=alias)
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    prefix = f"{alias}." if alias else ""
-    conflict_expr = scope_text_sql(conn, f"{prefix}scope", "conflict_group")
-    return (
-        f"{prefix}target_kind = {p} AND {conflict_expr} = {p}",
-        [TARGET_KIND_PROCESS, target.conflict_group],
-    )
-
+from yoke_core.domain.work_claim_target_sql import (  # noqa: E402
+    conflict_match_clause,
+    exact_match_clause,
+    scope_int_sql,
+    scope_text_sql,
+)
 
 __all__ = [
     "ALL_TARGET_KINDS",
+    "STICKY_TARGET_KINDS",
     "TARGET_KIND_EPIC_TASK",
     "TARGET_KIND_ITEM",
+    "TARGET_KIND_MIGRATION_SERIALIZATION",
     "TARGET_KIND_PROCESS",
+    "TARGET_KIND_QA_ADMISSION",
+    "TARGET_KIND_ROUTE_QUALIFICATION",
     "TARGET_KIND_STEERING",
     "TargetValidationError",
     "WorkClaimTarget",
@@ -273,10 +333,14 @@ __all__ = [
     "encode_scope",
     "exact_match_clause",
     "from_row",
+    "is_sticky",
     "item_id_from_row",
     "make_epic_task_target",
     "make_item_target",
+    "make_migration_serialization_target",
     "make_process_target",
+    "make_qa_admission_target",
+    "make_route_qualification_target",
     "make_steering_target",
     "normalize_scope",
     "scope_int_sql",

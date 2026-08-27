@@ -274,7 +274,7 @@ integration_target TEXT -- typically 'main'
 change_class      TEXT  -- profile.migration_strategy (additive_only, hard_cutover, expand_contract)
 ```
 
-The `coordination_leases.lease_id` join already linked the audit row to the lease that protected it; the new columns answer "from which checkout, by which actor, against which integration target." Doctor's `coordination-leases-unmerged-source` HC uses `source_branch` + `integration_target` to flag completed rows whose source never reached integration target — a sign the worktree was deleted before the slice merged.
+The `migration_audit.lease_id` join already linked the audit row to the coordination claim that protected it; the new columns answer "from which checkout, by which actor, against which integration target." Doctor's `coordination-claims-unmerged-source` HC uses `source_branch` + `integration_target` to flag completed rows whose source never reached integration target — a sign the worktree was deleted before the slice merged.
 
 ## Applying a migration
 
@@ -301,7 +301,7 @@ python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N
 
 Rehearsal runs the entry against the model's validation surface, records the
 receipt the evidence gate reads, and takes the `LIVE_DB_MIGRATION:<model>`
-coordination lease — holding it so a second work item cannot enter migration
+coordination claim — holding it so a second work item cannot enter migration
 territory while this one is in flight. A failing rehearsal releases it.
 
 ## JSON-payload columns

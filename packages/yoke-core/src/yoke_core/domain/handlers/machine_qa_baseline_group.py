@@ -110,7 +110,6 @@ def handle_baseline_group_begin(
                 conn,
                 project=str(anchor["project"]),
                 session_id=request.actor.session_id,
-                actor_id=request.actor.actor_id,
                 operation="baseline_group",
                 baselines=(str(anchor["host_baseline"]),),
                 cases=cases,

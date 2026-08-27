@@ -121,7 +121,7 @@ def ensure_migration_audit_table(conn: Any) -> None:
 
     Used both at Yoke control-plane init (via create_governed_tables)
     and at first governed apply against a non-Yoke project's
-    authoritative DB. `coordination_leases` is deliberately NOT
+    authoritative DB. `work_claims` is deliberately NOT
     bootstrapped here — leases live on the Yoke control plane.
     """
     from yoke_core.domain import db_backend

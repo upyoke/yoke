@@ -4,8 +4,7 @@ Sibling of :mod:`schema_api_context_tables` (which combines per-topic
 dicts into the canonical ``CANONICAL_TABLES``). Holds the ``claims``
 topic entries: harness_sessions, work_claims, path_claims,
 path_claim_targets, path_claim_task_bindings, path_claim_overrides, path_targets,
-path_claim_amendments, actors, actor_labels,
-coordination_leases.
+path_claim_amendments, actors, actor_labels.
 
 Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 """
@@ -13,7 +12,6 @@ Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 from __future__ import annotations
 
 from yoke_core.domain.schema_api_context_tables_actors import ACTOR_TABLES
-from yoke_core.domain.schema_api_context_tables_leases import LEASE_TABLES
 from yoke_core.domain.schema_api_context_tables_path_claim_bindings import (
     PATH_CLAIM_BINDING_TABLES,
 )
@@ -215,7 +213,6 @@ CLAIMS_TABLES: dict[str, dict] = {
         ),
     },
     **PATH_CLAIM_BINDING_TABLES,
-    **LEASE_TABLES,
     "path_claim_overrides": {
         "columns": [
             ("id", "INTEGER"),

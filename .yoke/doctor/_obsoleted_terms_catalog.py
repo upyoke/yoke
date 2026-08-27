@@ -17,6 +17,9 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
     YOKE_DB_AUDIT_PATHS,
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_browser as _browser_terms
+from yoke_core.engines import (
+    doctor_hc_obsoleted_terms_coordination as _coordination_terms,
+)
 from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
 from yoke_core.engines import doctor_hc_obsoleted_terms_session_control as _session_terms
 
@@ -147,6 +150,7 @@ _RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN = (
 )
 
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
+    *_coordination_terms.COORDINATION_LEASE_RETIREMENT_PATTERNS,
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN,
     # CLI-argument form of the same retired parent-epic item field. The shape is
     # deliberately tight — ``items (get|update|set)`` must be followed by actual
@@ -208,6 +212,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
+    **_coordination_terms.COORDINATION_LEASE_RETIREMENT_LABELS,
     _RETIRED_FLOW_RECONCILE_CLI_PATTERN: (
         "retired file-driven deployment-flow reconcile CLI "
         "(use `yoke deployment-flows create` / `set-status`)"
@@ -317,6 +322,7 @@ _QA_RUNNER_RENAME_SUBJECT_PATHS: tuple[str, ...] = (
 )
 
 _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
+    **_coordination_terms.COORDINATION_LEASE_RETIREMENT_ALLOWLIST,
     _RETIRED_QA_EXECUTOR_ID_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS
     + _QA_PACKET_TEACHING_PATHS,
     _RETIRED_QA_EXECUTOR_TYPE_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS

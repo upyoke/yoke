@@ -23,8 +23,8 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **331** (operation track
 | board | `yoke board data get` | `board.data.get` | ok |
 | board | `yoke board rebuild` | `board.rebuild.run` | ok |
 | charge | `yoke charge schedule` | `charge.schedule` | ok |
-| claims | `yoke claims coordination-lease list` | `claims.coordination_lease.list` | ok |
-| claims | `yoke coordination-lease list` | `claims.coordination_lease.list` | ok |
+| claims | `yoke claims coordination-claim list` | `claims.coordination_claim.list` | ok |
+| claims | `yoke coordination-claim list` | `claims.coordination_claim.list` | ok |
 | claims | `yoke claims path activation-run` | `claims.path.activation_run` | ok |
 | claims | `yoke claims path amend` | `claims.path.amend` | ok |
 | claims | `yoke claims path coordination-decision-build` | `claims.path.coordination_decision_build` | ok |
@@ -380,10 +380,10 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | aws | `yoke aws exec` | tool_shaped | — |
 | board.art | `yoke board art variant create` | tool_shaped | — |
 | checks.file_line | `yoke check file-line` | tool_shaped | — |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-acquire` | operator_break_glass | — |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-heartbeat` | operator_break_glass | — |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-list` | operator_break_glass | — |
-| claims.coordination_lease | `python3 -m yoke_core.api.service_client coordination-lease-release` | operator_break_glass | — |
+| claims.coordination_claim | `python3 -m yoke_core.api.service_client coordination-claim-acquire` | operator_break_glass | — |
+| claims.coordination_claim | `python3 -m yoke_core.api.service_client coordination-claim-heartbeat` | operator_break_glass | — |
+| claims.coordination_claim | `python3 -m yoke_core.api.service_client coordination-claim-list` | operator_break_glass | — |
+| claims.coordination_claim | `python3 -m yoke_core.api.service_client coordination-claim-release` | operator_break_glass | — |
 | claims.path | `python3 -m yoke_core.api.service_client path-claim-override` | operator_break_glass | — |
 | claims.path | `python3 -m yoke_core.cli.db_router path-claims activate` | operator_break_glass | — |
 | claims.path | `python3 -m yoke_core.cli.db_router path-claims amend` | operator_break_glass | — |
@@ -394,7 +394,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | config | `yoke config status` | tool_shaped | — |
 | connection | `yoke connection remove` | tool_shaped | — |
 | connection | `yoke connection set` | tool_shaped | — |
-| coordination_lease | `yoke coordination-lease release` | operator_break_glass | — |
+| coordination_claim | `yoke coordination-claim release` | operator_break_glass | — |
 | core.local | `yoke core build` | tool_shaped | — |
 | core.local | `yoke core logs` | tool_shaped | — |
 | core.local | `yoke core start` | tool_shaped | — |
@@ -520,7 +520,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 129 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 33 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 32 |
 | runtime/agents/*.md | 9 |
 | runtime/harness/claude/agents/yoke-*.md | 8 |
 | runtime/harness/codex/agents/yoke-*.toml | 8 |

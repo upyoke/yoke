@@ -28,7 +28,7 @@ _INCIDENT_COLUMN = ("session_launch_attempts", "batch_id")
 # table must instead restore through boot convergence and leave this digest
 # unchanged.
 _BORN_WITH_COLUMN_DIGEST = (
-    "ebd02b164f79d7bd37f1a18de05b55c339c961d603b81e0242ec7fc2eb5fa2a8"
+    "0705c7094ff63f93ee0fad768eeb2c0dc7e9a1ae550136281d88649d0a83ae05"
 )
 
 

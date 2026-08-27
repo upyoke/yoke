@@ -19,8 +19,14 @@ from yoke_contracts.session_control.surface_versions import (
     surface_version_supported,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.coordination_lease_record import Lease
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
+from yoke_core.domain.work_claim_targets import (
+    make_route_qualification_target,
+)
 from yoke_core.domain.db_helpers import iso8601_now
+
+
+QUALIFICATION_ACQUIRE_REASON = "private-route-qualification"
 
 
 class PrivateRouteQualificationError(ValueError):
@@ -113,27 +119,26 @@ def _active_operator_identity(
         )
 
 
-def _active_operator(conn: Any, lease: Lease) -> None:
+def _active_operator(conn: Any, lease: CoordinationClaim) -> None:
     _active_operator_identity(
         conn,
         session_id=lease.session_id,
         actor_id=str(lease.actor_id or ""),
-        project_id=lease.project_id,
+        project_id=int(lease.project_id or 0),
     )
 
 
 def grant_from_lease(
     conn: Any,
-    lease: Lease,
+    lease: CoordinationClaim,
     scope: PrivateRouteQualificationScope,
     *,
     now: datetime | None = None,
 ) -> PrivateRouteQualificationGrant:
     if (
         not lease.is_active
-        or lease.project_id <= 0
-        or lease.lease_key != scope.lease_key
-        or lease.session_id != (lease.owner_session_id or lease.session_id)
+        or int(lease.project_id or 0) <= 0
+        or lease.key != scope.lease_key
     ):
         raise PrivateRouteQualificationError(
             "qualification_grant_inactive", "qualification grant is not active"
@@ -141,17 +146,17 @@ def grant_from_lease(
     _runtime_release(scope)
     _private_candidate(scope)
     _active_operator(conn, lease)
-    expires_at = qualification_expires_at(lease.acquired_at)
+    expires_at = qualification_expires_at(lease.claimed_at)
     if (now or datetime.now(timezone.utc)) >= _utc(expires_at):
         raise PrivateRouteQualificationError(
             "qualification_grant_expired", "qualification grant has expired"
         )
     return PrivateRouteQualificationGrant(
         lease_id=lease.id,
-        project_id=lease.project_id,
+        project_id=int(lease.project_id or 0),
         sender_session_id=lease.session_id,
         operator_actor_id=str(lease.actor_id),
-        opened_at=lease.acquired_at,
+        opened_at=lease.claimed_at,
         expires_at=expires_at,
         grant_digest=scope.digest,
         scope=scope,
@@ -175,34 +180,33 @@ def open_qualification_grant(
         actor_id=str(operator_actor_id),
         project_id=project_id,
     )
-    from yoke_core.domain.coordination_leases import (
-        acquire_lease,
-        active_lease,
-        release_lease,
+    from yoke_core.domain.coordination_claims import (
+        acquire,
+        active_claim,
+        release,
     )
 
     opened_at = now or iso8601_now()
-    existing = active_lease(conn, project_id, scope.lease_key, for_update=True)
+    target = make_route_qualification_target(project_id, scope.grant_key)
+    existing = active_claim(conn, target, for_update=True)
     if existing is not None and _utc(opened_at) >= _utc(
-        qualification_expires_at(existing.acquired_at)
+        qualification_expires_at(existing.claimed_at)
     ):
-        release_lease(
+        release(
             conn,
             existing.id,
             QUALIFICATION_ABANDONED_REASON,
+            canonical_reason="expired",
             now=opened_at,
             released_by_session_id=sender_session_id,
-            released_by_actor_id=str(operator_actor_id),
             commit=False,
         )
     try:
-        lease = acquire_lease(
+        lease = acquire(
             conn,
-            project_id,
-            scope.lease_key,
+            target,
             sender_session_id,
-            actor_id=str(operator_actor_id),
-            owner_session_id=sender_session_id,
+            reason=QUALIFICATION_ACQUIRE_REASON,
             now=opened_at,
             commit=False,
         )
@@ -268,10 +272,14 @@ def qualification_for_message(
     if resolved is None:
         return None
     scope, sender_session_id = resolved
-    from yoke_core.domain.coordination_leases import active_lease
+    from yoke_core.domain.coordination_claims import active_claim
 
-    lease = active_lease(
-        conn, int(candidate["project_id"]), scope.lease_key, for_update=True
+    lease = active_claim(
+        conn,
+        make_route_qualification_target(
+            int(candidate["project_id"]), scope.grant_key
+        ),
+        for_update=True,
     )
     if lease is None or lease.session_id != sender_session_id:
         return None
@@ -287,22 +295,12 @@ def consume_qualification_grant(
     marker = _marker(conn)
     released_at = now or iso8601_now()
     cursor = conn.execute(
-        "UPDATE coordination_leases SET released_at="
+        "UPDATE work_claims SET released_at="
         + marker
-        + ",release_reason="
-        + marker
-        + ",released_by_session_id="
-        + marker
-        + ",released_by_actor_id="
+        + ",release_reason='completed',release_reason_intent="
         + marker
         + f" WHERE id={marker} AND released_at IS NULL",
-        (
-            released_at,
-            QUALIFICATION_RELEASE_REASON,
-            grant.sender_session_id,
-            grant.operator_actor_id,
-            grant.lease_id,
-        ),
+        (released_at, QUALIFICATION_RELEASE_REASON, grant.lease_id),
     )
     if cursor.rowcount != 1:
         raise PrivateRouteQualificationError(

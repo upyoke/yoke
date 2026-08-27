@@ -24,7 +24,7 @@ from yoke_core.domain.agent_mission_recording import (
     handle_agent_mission_ready,
 )
 from yoke_core.domain.agent_mission_review import agent_mission_dispatch_contract
-from yoke_core.domain.coordination_leases import get_lease
+from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.handlers.machine_qa_plan_case import handle_plan_case_begin
 from yoke_core.domain.host_control_runner import (
     clear_host_control_factory,
@@ -218,7 +218,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
     assert bundle is not None
     assert current["state"] == "awaiting_agent_review"
     assert current["machine_lease_id"] == lease_id
-    assert get_lease(test_db, lease_id).is_active is True
+    assert get_claim(test_db, lease_id).is_active is True
     dispatch = bundle["dispatch"]
     assert dispatch["dispatch_kind"] == "main_agent_mission"
     assert dispatch["artifact_limit"] == AGENT_MISSION_ARTIFACT_LIMIT
@@ -287,7 +287,7 @@ def test_mission_parks_resumes_and_persists_the_main_report(
         reviewer_session_id=ACTOR.session_id,
     )
     assert result["state"] == "passed"
-    assert get_lease(test_db, lease_id).is_active is False
+    assert get_claim(test_db, lease_id).is_active is False
     final = test_db.execute(
         "SELECT verdict,verdict_reason FROM qa_runs "
         "WHERE qa_requirement_id=%s AND performed_by='agent'",

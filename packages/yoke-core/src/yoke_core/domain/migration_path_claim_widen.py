@@ -301,9 +301,9 @@ def widen_locked_claim(
             _validate_matching_claim(
                 profile_raw=profile_raw, attestation_raw=attestation_raw, scope=scope
             )
-            from yoke_core.domain import migration_territory_lease
+            from yoke_core.domain import migration_territory_claim
 
-            lease = migration_territory_lease.enter(
+            lease = migration_territory_claim.enter(
                 conn,
                 project=context.project_id,
                 model_name=scope.model_name,

@@ -157,7 +157,7 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
     if err is not None:
         return err
 
-    from yoke_core.domain.coordination_leases import LeaseError
+    from yoke_core.domain.coordination_claims import CoordinationClaimError
     from yoke_core.domain.db_claim import DbClaimAmendmentError
     from yoke_core.domain.migration_path_claim_widen import (
         lock_claim_for_widen,
@@ -210,7 +210,12 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
         except PathResolveError as exc:
             conn.rollback()
             return _err("path_resolve_failed", str(exc))
-        except (DbClaimAmendmentError, LeaseError, PathClaimError, ValueError) as exc:
+        except (
+            DbClaimAmendmentError,
+            CoordinationClaimError,
+            PathClaimError,
+            ValueError,
+        ) as exc:
             conn.rollback()
             return _err("widen_failed", f"{type(exc).__name__}: {exc}")
 

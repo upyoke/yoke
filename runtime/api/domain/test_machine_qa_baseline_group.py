@@ -99,7 +99,8 @@ def test_baseline_group_begin_local_submit_executes_server_discovered_cases(
     assert control.full_reset_calls == 1
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind = 'qa_admission'"
         ).fetchone()[0]
         == 0
     )
@@ -317,7 +318,8 @@ def test_baseline_group_begin_ignores_client_membership_and_abort_releases(
     }
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind = 'qa_admission'"
         ).fetchone()[0]
         == 0
     )

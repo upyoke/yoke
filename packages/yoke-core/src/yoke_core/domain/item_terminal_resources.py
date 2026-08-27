@@ -164,7 +164,7 @@ def release_for_terminal_transition(
         target_status=target_status,
         successful_terminal=target_status in runtime.terminal_stage_ids,
     )
-    from yoke_core.domain.migration_territory_lease import (
+    from yoke_core.domain.migration_territory_claim import (
         release_for_terminal_item,
     )
 

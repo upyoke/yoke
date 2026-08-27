@@ -7,7 +7,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.coordination_leases import release_lease
+from yoke_core.domain.coordination_claims import release
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_capture_settlement import (
     settle_unreviewed_execution_captures,
@@ -63,7 +63,7 @@ def _release_stale_execution(
     settle_unreviewed_execution_captures(conn, execution)
     lease_id = execution.get("machine_lease_id")
     if lease_id is not None:
-        release_lease(conn, int(lease_id), "qa-plan-execution-stale")
+        release(conn, int(lease_id), "qa-plan-execution-stale")
     placeholder = marker(conn)
     conn.execute(
         "UPDATE qa_plan_executions SET state='aborted',completed_at="

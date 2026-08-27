@@ -26,7 +26,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     validate_case_submission,
 )
 from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
-from yoke_core.domain.coordination_lease_contention import waiting_lease_evidence
+from yoke_core.domain.coordination_claim_contention import waiting_claim_evidence
 
 
 def _owned_case(
@@ -157,7 +157,6 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     commit_deferred_connection(conn),
                     project=str(case["project"]),
                     session_id=request.actor.session_id,
-                    actor_id=request.actor.actor_id,
                     **arguments,
                 )
                 set_plan_machine_lease(
@@ -193,7 +192,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     "state": "waiting",
                     "execution_id": str(execution["id"]),
                     "cursor_ordinal": int(execution["cursor_ordinal"]),
-                    "lease_context": waiting_lease_evidence(
+                    "lease_context": waiting_claim_evidence(
                         held.lease,
                         held.contention,
                     ),
@@ -239,7 +238,7 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
         return parsed
     assert isinstance(parsed, TestMachinePlanCaseSubmitRequest)
 
-    from yoke_core.domain.coordination_leases import heartbeat_lease
+    from yoke_core.domain.coordination_claims import heartbeat
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.machine_qa_execution_protocol import (
         MachineQaProtocolError,
@@ -313,7 +312,7 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
             commit=False,
         )
         if lease.is_active:
-            heartbeat_lease(commit_deferred_connection(conn), lease.id)
+            heartbeat(commit_deferred_connection(conn), lease.id)
         conn.commit()
         artifact_rollback.preserve()
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:

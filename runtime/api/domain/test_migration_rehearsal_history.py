@@ -15,9 +15,11 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401
 )
 from runtime.api.fixtures.migration_model_test import TEST_MIGRATION_MODULES_DIR
 from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401
-from yoke_core.domain.coordination_leases import active_lease
+from yoke_core.domain.coordination_claims import active_claim
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.migration_apply_contract import LEASE_KEY_PREFIX
+from yoke_core.domain.work_claim_targets import (
+    make_migration_serialization_target,
+)
 from yoke_core.domain.migration_apply_rehearse import rehearse
 from yoke_core.domain.migration_history import HistoryError
 
@@ -83,8 +85,8 @@ def test_rehearsal_refuses_divergent_history_before_taking_lease(apply_env) -> N
 
     conn = connect(apply_env["control_db"])
     try:
-        assert active_lease(
-            conn, "yoke", f"{LEASE_KEY_PREFIX}primary"
+        assert active_claim(
+            conn, make_migration_serialization_target(1, "primary", 1)
         ) is None
     finally:
         conn.close()

@@ -1,11 +1,13 @@
-"""Shared session, work-claim, tool-call, and coordination-lease fixture DDL.
+"""Shared session, work-claim, and tool-call fixture DDL.
 
 Split from ``runtime.api.test_sessions`` (350-line authored cap). Both
 ``_create_schema`` and ``_create_ownership_schema`` embed this one
 definition.
 """
 
-_SESSIONS_AND_CLAIMS_DDL = """
+from yoke_core.domain.work_claim_target_sql import TARGET_KIND_CHECK_SQL
+
+_SESSIONS_AND_CLAIMS_DDL = f"""
         CREATE TABLE IF NOT EXISTS harness_sessions (
             session_id TEXT PRIMARY KEY,
             executor TEXT NOT NULL,
@@ -55,7 +57,7 @@ _SESSIONS_AND_CLAIMS_DDL = """
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL CONSTRAINT work_claims_target_kind_check
-      CHECK(target_kind IN ('item','epic_task','process','steering')),
+      CHECK({TARGET_KIND_CHECK_SQL}),
     scope TEXT NOT NULL,
     claim_type TEXT NOT NULL DEFAULT 'exclusive' CHECK(claim_type='exclusive'),
     claimed_at TEXT NOT NULL,
@@ -79,26 +81,17 @@ _SESSIONS_AND_CLAIMS_DDL = """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_work_claims_active_process_conflict
             ON work_claims(scope)
             WHERE released_at IS NULL AND target_kind='process';
-        CREATE TABLE IF NOT EXISTS coordination_leases (
-            id INTEGER PRIMARY KEY,
-            project_id INTEGER NOT NULL REFERENCES projects(id),
-            lease_key TEXT NOT NULL,
-            session_id TEXT NOT NULL,
-            actor_id TEXT,
-            acquired_at TEXT NOT NULL,
-            heartbeat_at TEXT,
-            released_at TEXT,
-            release_reason TEXT,
-            owner_kind TEXT NOT NULL DEFAULT 'session',
-            owner_item_id INTEGER,
-            owner_session_id TEXT,
-            owner_work_claim_id INTEGER,
-            released_by_session_id TEXT,
-            released_by_actor_id TEXT
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_coordination_leases_live
-            ON coordination_leases(project_id, lease_key)
-            WHERE released_at IS NULL;
-        CREATE INDEX IF NOT EXISTS idx_coordination_leases_session
-            ON coordination_leases(session_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_work_claims_active_qa_admission
+            ON work_claims(scope)
+            WHERE released_at IS NULL AND target_kind='qa_admission';
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_work_claims_active_route_qualification
+            ON work_claims(scope)
+            WHERE released_at IS NULL AND target_kind='route_qualification';
+        CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_work_claims_active_migration_serialization
+            ON work_claims(
+                ((scope::jsonb) ->> 'project_id'),
+                ((scope::jsonb) ->> 'model')
+            )
+            WHERE released_at IS NULL AND target_kind='migration_serialization';
 """

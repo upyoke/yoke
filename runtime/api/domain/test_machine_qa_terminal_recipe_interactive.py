@@ -13,7 +13,8 @@ from runtime.api.domain.machine_qa_terminal_recipe_test_support import (
     completed,
     recipe,
 )
-from yoke_core.domain.coordination_leases import Lease
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.host_control_runner import (
     TestMachineMaterial as MachineMaterial,
 )
@@ -291,12 +292,11 @@ def test_machine_lease_redacts_typed_recipe_evidence_before_submission() -> None
             },
             secrets={"ssh_private_key": "top-secret"},
         ),
-        lease=Lease(
+        lease=CoordinationClaim(
             id=1,
-            project_id=1,
-            lease_key="test-machine:test-mac",
+            target=make_qa_admission_target("test-mac"),
             session_id="server-owned",
-            acquired_at="now",
+            claimed_at="now",
         ),
         owns_lease=False,
     )

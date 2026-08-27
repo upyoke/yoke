@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain.coordination_lease_contention import (
-    LeaseContention,
-    waiting_lease_evidence,
+from yoke_core.domain.coordination_claim_contention import (
+    ClaimContention,
+    waiting_claim_evidence,
 )
-from yoke_core.domain.coordination_leases import Lease
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.machine_qa_method_contracts import MachineQaExecutionError
 
 
@@ -28,9 +28,9 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
     def __init__(
         self,
         *,
-        lease: Lease,
+        lease: CoordinationClaim,
         machine: str,
-        contention: LeaseContention | None = None,
+        contention: ClaimContention | None = None,
     ) -> None:
         super().__init__(f"test machine {machine!r} is in use by another execution")
         self.lease = lease
@@ -45,7 +45,7 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
                 "runner_id": "host_control",
                 "machine": self.machine,
                 "case_started": False,
-                "lease": waiting_lease_evidence(self.lease, self.contention),
+                "lease": waiting_claim_evidence(self.lease, self.contention),
             },
         )
 

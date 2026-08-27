@@ -17,10 +17,12 @@ def test_hook_and_operator_boundaries_keep_their_own_dispositions():
         ),
         ("yoke_core.domain.session_orientation", "client_local_diagnostics"),
     }
-    lease = rows["python3 -m yoke_core.api.service_client coordination-lease-acquire"]
-    assert lease.disposition == inventory.OPERATOR_DEBUG_PERMANENT
-    assert lease.transport_branch == "operator-debug-command"
-    assert lease.owner == "claims.coordination_lease"
+    claim = rows[
+        "python3 -m yoke_core.api.service_client coordination-claim-acquire"
+    ]
+    assert claim.disposition == inventory.OPERATOR_DEBUG_PERMANENT
+    assert claim.transport_branch == "operator-debug-command"
+    assert claim.owner == "claims.coordination_claim"
     raw_read = rows["python3 -m yoke_core.cli.db_router query"]
     assert raw_read.disposition == inventory.OPERATOR_DEBUG_PERMANENT
     assert raw_read.transport_branch == "operator-debug-command"

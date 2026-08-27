@@ -18,10 +18,11 @@ from runtime.api.fixtures.pg_testdb import (
     dsn_for_test_database,
     test_database,
 )
-from yoke_core.domain.coordination_leases import (
-    acquire_lease,
-    get_lease,
+from yoke_core.domain.coordination_claims import (
+    acquire,
+    get_claim,
 )
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.qa_plan_execution_schema import (
     converge_qa_plan_execution_schema,
 )
@@ -133,12 +134,10 @@ def test_stale_owner_is_aborted_and_held_machine_lease_is_released() -> None:
             actor_id="7",
             session_id="stale-session",
         )
-        lease = acquire_lease(
+        lease = acquire(
             conn,
-            1,
-            "TEST_MAC:ordered-plan-authority",
+            make_qa_admission_target("ordered-plan-authority"),
             "stale-session",
-            actor_id="7",
         )
         set_plan_machine_lease(conn, stale, lease_id=lease.id)
         conn.execute(
@@ -155,7 +154,7 @@ def test_stale_owner_is_aborted_and_held_machine_lease_is_released() -> None:
             actor_id="8",
             session_id="replacement-session",
         )
-        released = get_lease(conn, lease.id)
+        released = get_claim(conn, lease.id)
         prior = select_plan_execution(conn, str(stale["id"]), lock=False)
 
         assert replacement["id"] != stale["id"]
@@ -163,7 +162,7 @@ def test_stale_owner_is_aborted_and_held_machine_lease_is_released() -> None:
         assert prior["release_reason"] == "stale-heartbeat"
         assert prior["machine_lease_id"] is None
         assert released.is_active is False
-        assert released.release_reason == "qa-plan-execution-stale"
+        assert released.release_reason_intent == "qa-plan-execution-stale"
 
 
 @pytest.mark.parametrize("terminal_state", ["aborted", "error"])

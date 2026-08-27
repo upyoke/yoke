@@ -43,7 +43,7 @@ _FAMILY_GROUPS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
         "release-all-claims", "release-done-claims",
     )),
     ("Claims — path", ("path-claim-",)),
-    ("Coordination leases", ("coordination-lease-",)),
+    ("Coordination claims", ("coordination-claim-",)),
     ("Sessions", (
         "session-offer", "session-begin", "session-touch",
         "session-heartbeat", "session-end", "session-end-if-empty",

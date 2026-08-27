@@ -84,9 +84,9 @@
 | ItemStatusChanged | lifecycle | item_status_change | yoke_core.api.service_client | Item status transition (emitted by yoke_core.api.service_client) | STATUS | active |
 | ItemUnblocked | lifecycle | item_dependency | engine | An item left dependency-blocked coordination state. | INFO | active |
 | LaneRoutingDecision | workflow | lane_routing | cli | Emitted from shared post-decision path for lane routing outcomes | INFO | active |
-| LeaseAcquired | lifecycle | lease_lifecycle | yoke_core.domain.coordination_leases | A coordination lease was acquired for a shared-operation key (project_id, lease_key). Carries lease_id, project_id, lease_key, session_id (registration), owner_kind, owner_item_id, actor_id, acquired_at, heartbeat_at. | INFO | active |
-| LeaseHeartbeated | lifecycle | lease_lifecycle | yoke_core.domain.coordination_leases | A live coordination lease's heartbeat_at was refreshed. Carries lease_id, project_id, lease_key, session_id (registration), heartbeat_at. | INFO | active |
-| LeaseReleased | lifecycle | lease_lifecycle | yoke_core.domain.coordination_leases | A coordination lease was released with reason. Carries lease_id, project_id, lease_key, session_id (registration), release_reason, released_at. | INFO | active |
+| LeaseAcquired | lifecycle | lease_lifecycle | yoke_core.domain.coordination_claims | A shared-operation coordination claim was acquired. Carries claim_id, project_id, lease_key, target_kind, scope, session_id, owner_item_id, actor_id, sticky, claimed_at, last_heartbeat. | INFO | active |
+| LeaseHeartbeated | lifecycle | lease_lifecycle | yoke_core.domain.coordination_claims | A live coordination claim's heartbeat was refreshed. Carries claim_id, project_id, lease_key, target_kind, session_id, last_heartbeat. | INFO | active |
+| LeaseReleased | lifecycle | lease_lifecycle | yoke_core.domain.coordination_claims | A coordination claim was released with reason. Carries claim_id, project_id, lease_key, target_kind, session_id, release_reason, released_at. | INFO | active |
 | LocalVerificationAcceptedAsCiSubstitute | lifecycle | merge_lifecycle | merge_worktree | Merge accepted a non-empty PASS verdict in items.test_results as the evidence substitute when the PR had no required CI checks configured | INFO | active |
 | MergeBlockedNoVerificationEvidence | lifecycle | merge_lifecycle | merge_worktree | Merge refused: PR had no required CI checks AND items.test_results was empty or contained a failure signature | ERROR | active |
 | MergeBranchPushFailed | lifecycle | merge_lifecycle | merge_worktree | Merge branch push failed before pull request handling | ERROR | active |
@@ -116,7 +116,7 @@
 | NextActionChosen | workflow | session_directive | cli | The core chose a next-action directive for an offered session | STATUS | active |
 | OperatorBreakGlassSession | system | operator_break_glass | psql | Operator opened a non-Yoke-routed break-glass psql session against a project database; written by hand as the audit-first step of the operator's private break-glass runbook | WARN | active |
 | OperatorClaimOverride | system | session_lifecycle | api | Operator manually released a stranded claim via human-only override | WARN | active |
-| OperatorLeaseRelease | system | lease_lifecycle | api | Operator manually released a stranded coordination lease via human-only override | WARN | active |
+| OperatorLeaseRelease | system | lease_lifecycle | api | Operator manually released a stranded coordination claim via human-only override | WARN | active |
 | OuroborosFieldNoteAppended | domain | ouroboros_feedback | yoke_core.domain.handlers.ouroboros_field_note | An agent-authored field note was durably appended with its classification, evidence preview, provenance, project, and optional correction relationship. | INFO | active |
 | PathClaimActivated | lifecycle | path_claim | yoke_core.domain.path_claims_events | Path claim activated — door lock acquired against pinned base snapshot | INFO | active |
 | PathClaimActivationBlocked | lifecycle | path_claim | yoke_core.domain.path_claims_events | Path-claim activation rejected (overlap raced ahead, upstream not released) | WARN | active |

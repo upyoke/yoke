@@ -104,7 +104,8 @@ def test_deployment_plan_machine_case_uses_durable_serial_lease_and_evidence(
     )
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
         ).fetchone()[0]
         == 1
     )
@@ -117,7 +118,8 @@ def test_deployment_plan_machine_case_uses_durable_serial_lease_and_evidence(
     )
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
         ).fetchone()[0]
         == 0
     )

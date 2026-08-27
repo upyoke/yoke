@@ -1,4 +1,4 @@
-"""Holder liveness and user-facing evidence for coordination-lease waits."""
+"""Holder liveness and user-facing evidence for shared-operation waits."""
 
 from __future__ import annotations
 
@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from yoke_contracts.coordination_lease_recovery import operator_release_command
-from yoke_core.domain.coordination_lease_record import OWNER_KIND_ITEM
+from yoke_contracts.coordination_claim_recovery import operator_release_command
 
 
 def _timestamp(value: object) -> datetime | None:
@@ -44,13 +43,13 @@ def _age_label(seconds: int | None) -> str:
 
 
 @dataclass(frozen=True)
-class LeaseContention:
-    """One complete, repeatable contention report for a held lease."""
+class ClaimContention:
+    """One complete, repeatable contention report for a held claim."""
 
-    lease_id: int
+    claim_id: int
     project_id: int
-    lease_key: str
-    holder_session_id: str
+    key: str
+    holder_label: str
     acquired_at: str
     heartbeat_at: str | None
     heartbeat_age_seconds: int | None
@@ -61,23 +60,23 @@ class LeaseContention:
     @property
     def message(self) -> str:
         lead = (
-            "Coordination lease wait refused"
+            "Coordination claim wait refused"
             if self.holder_stale
-            else "Waiting on coordination lease"
+            else "Waiting on coordination claim"
         )
         return (
-            f"{lead} {self.lease_key} (project {self.project_id}): already held by "
-            f"session {self.holder_session_id} since {self.acquired_at}; "
+            f"{lead} {self.key} (project {self.project_id}): already held by "
+            f"{self.holder_label} since {self.acquired_at}; "
             f"heartbeat age {_age_label(self.heartbeat_age_seconds)} "
             f"(stale TTL {self.effective_stale_ttl_minutes}m). Human-only "
             f"operator release: `{self.operator_release_command}`."
         )
 
-    def lease_evidence(self) -> dict[str, Any]:
+    def claim_evidence(self) -> dict[str, Any]:
         return {
-            "id": self.lease_id,
-            "key": self.lease_key,
-            "holder_session_id": self.holder_session_id,
+            "id": self.claim_id,
+            "key": self.key,
+            "holder_session_id": self.holder_label,
             "acquired_at": self.acquired_at,
             "heartbeat_at": self.heartbeat_at,
             "heartbeat_age_seconds": self.heartbeat_age_seconds,
@@ -88,74 +87,77 @@ class LeaseContention:
         }
 
 
-def describe_lease_contention(
+def describe_claim_contention(
     conn: Any,
-    lease: Any,
+    claim: Any,
     *,
     now: datetime | None = None,
-) -> LeaseContention:
-    """Classify a lease heartbeat with the holder's canonical stale TTL."""
+) -> ClaimContention:
+    """Classify a claim's heartbeat with the holder's canonical stale TTL.
+
+    An item-owned hold has no session liveness to read — the item, not a
+    session, is the holder — so it never reports stale and recovery stays
+    with the operator.
+    """
     from yoke_core.domain.session_reclaim_activity import read_activity_signals
 
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
     current = current.astimezone(timezone.utc)
+    item_owned = claim.owner_item_id is not None
     holder = (
-        f"item {lease.owner_item_id}"
-        if getattr(lease, "owner_kind", None) == OWNER_KIND_ITEM
-        else str(lease.owner_session_id or lease.session_id)
+        f"item {claim.owner_item_id}"
+        if item_owned
+        else f"session {claim.session_id}"
     )
-    heartbeat_at = lease.heartbeat_at or lease.acquired_at
+    heartbeat_at = claim.last_heartbeat or claim.claimed_at
     heartbeat_age = _age_seconds(heartbeat_at, current)
-    if getattr(lease, "owner_kind", None) == OWNER_KIND_ITEM:
+    if item_owned:
         stale = False
         ttl = 0
     else:
-        evidence = read_activity_signals(
-            conn, str(lease.owner_session_id or lease.session_id),
-        )
+        evidence = read_activity_signals(conn, str(claim.session_id))
         ttl = evidence.effective_ttl_minutes
         stale = (
             evidence.ended_at is not None
             or heartbeat_age is None
             or heartbeat_age >= ttl * 60
         )
-    return LeaseContention(
-        lease_id=int(lease.id),
-        project_id=int(lease.project_id),
-        lease_key=str(lease.lease_key),
-        holder_session_id=holder,
-        acquired_at=str(lease.acquired_at),
+    return ClaimContention(
+        claim_id=int(claim.id),
+        project_id=int(claim.project_id or 0),
+        key=claim.key,
+        holder_label=holder,
+        acquired_at=str(claim.claimed_at),
         heartbeat_at=str(heartbeat_at) if heartbeat_at is not None else None,
         heartbeat_age_seconds=heartbeat_age,
         effective_stale_ttl_minutes=ttl,
         holder_stale=stale,
         operator_release_command=operator_release_command(
-            lease.project_id,
-            lease.lease_key,
+            claim.project_id or 0, claim.key
         ),
     )
 
 
-def waiting_lease_evidence(
-    lease: Any,
-    contention: LeaseContention | None,
+def waiting_claim_evidence(
+    claim: Any,
+    contention: ClaimContention | None,
 ) -> dict[str, Any]:
-    """Return structured wait output, preserving the legacy lease keys."""
+    """Return structured wait output for a held shared-operation claim."""
     if contention is not None:
-        return contention.lease_evidence()
+        return contention.claim_evidence()
     return {
-        "id": int(lease.id),
-        "key": str(lease.lease_key),
-        "holder_session_id": str(lease.session_id),
-        "acquired_at": str(lease.acquired_at),
-        "heartbeat_at": lease.heartbeat_at,
+        "id": int(claim.id),
+        "key": claim.key,
+        "holder_session_id": f"session {claim.session_id}",
+        "acquired_at": str(claim.claimed_at),
+        "heartbeat_at": claim.last_heartbeat,
     }
 
 
 __all__ = [
-    "LeaseContention",
-    "describe_lease_contention",
-    "waiting_lease_evidence",
+    "ClaimContention",
+    "describe_claim_contention",
+    "waiting_claim_evidence",
 ]

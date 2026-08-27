@@ -1,4 +1,4 @@
-"""Tests for the claim-adjacent extras: ``coordination_lease.*`` +
+"""Tests for the claim-adjacent extras: ``coordination_claim.*`` +
 ``activation_run`` + ``coordination_decision_build``.
 
 Sibling of :mod:`test_api_claims_functions` to keep each test module
@@ -65,108 +65,113 @@ class _ExtrasSuite(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# claims.coordination_lease.* — read/mutate over the lease primitive.
+# claims.coordination_claim.* — read/mutate over shared-operation claims.
 # ---------------------------------------------------------------------------
 
 
-class _FakeLease:
-    def __init__(self, **kwargs: Any) -> None:
-        self.id = kwargs.get("id", 1)
-        self.project_id = kwargs.get("project_id", "yoke")
-        self.lease_key = kwargs.get("lease_key", "LIVE_DB_MIGRATION:foo")
-        self.session_id = kwargs.get("session_id", "s-1")
-        self.actor_id = kwargs.get("actor_id")
-        self.acquired_at = kwargs.get("acquired_at", "2026-05-13T07:00:00Z")
-        self.heartbeat_at = kwargs.get("heartbeat_at", "2026-05-13T07:00:00Z")
-        self.released_at = kwargs.get("released_at")
-        self.release_reason = kwargs.get("release_reason")
-        self.owner_kind = kwargs.get("owner_kind", "session")
-        self.owner_item_id = kwargs.get("owner_item_id")
-        self.owner_session_id = kwargs.get("owner_session_id", self.session_id)
-        self.owner_work_claim_id = kwargs.get("owner_work_claim_id")
-        self.released_by_session_id = kwargs.get("released_by_session_id")
-        self.released_by_actor_id = kwargs.get("released_by_actor_id")
+def _fake_claim(**kwargs: Any):
+    from yoke_core.domain.coordination_claim_record import CoordinationClaim
+    from yoke_core.domain.work_claim_targets import make_qa_admission_target
+
+    return CoordinationClaim(
+        id=kwargs.get("id", 1),
+        target=make_qa_admission_target(kwargs.get("machine_id", "mac-mini-lab")),
+        session_id=kwargs.get("session_id", "s-1"),
+        claimed_at=kwargs.get("claimed_at", "2026-05-13T07:00:00Z"),
+        last_heartbeat=kwargs.get("last_heartbeat", "2026-05-13T07:00:00Z"),
+        actor_id=kwargs.get("actor_id"),
+        released_at=kwargs.get("released_at"),
+        release_reason=kwargs.get("release_reason"),
+        release_reason_intent=kwargs.get("release_reason_intent"),
+    )
 
 
-class TestCoordinationLease(_ExtrasSuite):
-    def test_acquire_returns_lease(self):
+class TestCoordinationClaim(_ExtrasSuite):
+    def test_acquire_returns_claim(self):
         with patch(
-            "yoke_core.domain.coordination_leases.acquire_lease",
-            return_value=_FakeLease(id=10),
+            "yoke_core.domain.coordination_claims.acquire",
+            return_value=_fake_claim(id=10),
         ):
             resp = dispatch(
                 _envelope(
-                    "claims.coordination_lease.acquire",
+                    "claims.coordination_claim.acquire",
                     target={"kind": "global"},
                     payload={
                         "project_id": "yoke",
-                        "lease_key": "LIVE_DB_MIGRATION:foo",
+                        "key": "QA_HOST:mac-mini-lab",
                     },
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["lease"]["id"], 10)
+        self.assertEqual(resp.result["claim"]["id"], 10)
 
-    def test_heartbeat_returns_refreshed_lease(self):
+    def test_heartbeat_returns_refreshed_claim(self):
         with (
             patch(
-                "yoke_core.domain.coordination_leases.get_lease",
-                return_value=_FakeLease(id=10),
+                "yoke_core.domain.coordination_claims.get_claim",
+                return_value=_fake_claim(id=10),
             ),
             patch(
-                "yoke_core.domain.coordination_leases.heartbeat_lease",
-                return_value=_FakeLease(id=10, heartbeat_at="2026-05-13T07:01:00Z"),
-            ),
-        ):
-            resp = dispatch(
-                _envelope(
-                    "claims.coordination_lease.heartbeat",
-                    target={"kind": "global"},
-                    payload={"lease_id": 10},
-                )
-            )
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["lease"]["heartbeat_at"], "2026-05-13T07:01:00Z")
-
-    def test_release_returns_released_lease(self):
-        with (
-            patch(
-                "yoke_core.domain.coordination_leases.get_lease",
-                return_value=_FakeLease(id=10),
-            ),
-            patch(
-                "yoke_core.domain.coordination_leases.release_lease",
-                return_value=_FakeLease(
-                    id=10,
-                    released_at="2026-05-13T07:02:00Z",
-                    release_reason="done",
+                "yoke_core.domain.coordination_claims.heartbeat",
+                return_value=_fake_claim(
+                    id=10, last_heartbeat="2026-05-13T07:01:00Z"
                 ),
             ),
         ):
             resp = dispatch(
                 _envelope(
-                    "claims.coordination_lease.release",
+                    "claims.coordination_claim.heartbeat",
                     target={"kind": "global"},
-                    payload={"lease_id": 10, "reason": "done"},
+                    payload={"claim_id": 10},
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["lease"]["release_reason"], "done")
+        self.assertEqual(
+            resp.result["claim"]["last_heartbeat"], "2026-05-13T07:01:00Z"
+        )
 
-    def test_list_returns_leases(self):
-        with patch(
-            "yoke_core.domain.coordination_leases.list_leases",
-            return_value=[_FakeLease(id=10), _FakeLease(id=11)],
+    def test_release_returns_released_claim(self):
+        with (
+            patch(
+                "yoke_core.domain.coordination_claims.get_claim",
+                return_value=_fake_claim(id=10),
+            ),
+            patch(
+                "yoke_core.domain.coordination_claims.release",
+                return_value=_fake_claim(
+                    id=10,
+                    released_at="2026-05-13T07:02:00Z",
+                    release_reason="completed",
+                    release_reason_intent="done",
+                ),
+            ),
         ):
             resp = dispatch(
                 _envelope(
-                    "claims.coordination_lease.list",
+                    "claims.coordination_claim.release",
+                    target={"kind": "global"},
+                    payload={"claim_id": 10, "reason": "done"},
+                )
+            )
+        self.assertTrue(resp.success, msg=resp.error)
+        self.assertEqual(
+            resp.result["claim"]["release_reason_intent"], "done"
+        )
+
+    def test_list_returns_claims(self):
+        with patch(
+            "yoke_core.domain.coordination_claims_listing.list_claims",
+            return_value=[_fake_claim(id=10), _fake_claim(id=11)],
+        ):
+            resp = dispatch(
+                _envelope(
+                    "claims.coordination_claim.list",
                     target={"kind": "global"},
                     payload={"project_id": "yoke"},
                 )
             )
         self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(len(resp.result["leases"]), 2)
+        self.assertEqual(len(resp.result["claims"]), 2)
 
 
 # ---------------------------------------------------------------------------

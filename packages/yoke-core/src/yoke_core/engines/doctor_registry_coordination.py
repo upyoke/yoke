@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from typing import List
 
-from yoke_core.engines.doctor_hc_coordination_leases import (
-    hc_coordination_leases_stale_or_orphan,
-    hc_coordination_leases_unmerged_source,
+from yoke_core.engines.doctor_hc_coordination_claims import (
+    hc_coordination_claims_stale_or_orphan,
+    hc_coordination_claims_unmerged_source,
 )
 from yoke_core.engines.doctor_hc_path_claim_hard_blocks import (
     hc_path_claim_hard_blocks,
@@ -38,14 +38,14 @@ from yoke_core.engines.doctor_registry_types import HealthCheck
 
 COORDINATION_HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck(
-        "coordination-leases-stale-or-orphan",
+        "coordination-claims-stale-or-orphan",
         "Stale or orphaned shared-operation leases",
-        hc_coordination_leases_stale_or_orphan,
+        hc_coordination_claims_stale_or_orphan,
     ),
     HealthCheck(
-        "coordination-leases-unmerged-source",
+        "coordination-claims-unmerged-source",
         "Completed live-apply audit rows whose source never merged",
-        hc_coordination_leases_unmerged_source,
+        hc_coordination_claims_unmerged_source,
     ),
     HealthCheck(
         "path-claim-hard-blocks",

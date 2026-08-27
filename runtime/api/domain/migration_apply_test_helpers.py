@@ -75,25 +75,6 @@ CREATE TABLE IF NOT EXISTS migration_audit (
     change_class TEXT
 );
 
-CREATE TABLE IF NOT EXISTS coordination_leases (
-    id INTEGER PRIMARY KEY,
-    project_id INTEGER NOT NULL,
-    lease_key TEXT NOT NULL,
-    session_id TEXT NOT NULL,
-    actor_id TEXT,
-    acquired_at TEXT NOT NULL,
-    heartbeat_at TEXT,
-    released_at TEXT,
-    release_reason TEXT,
-    owner_kind TEXT NOT NULL DEFAULT 'session',
-    owner_item_id INTEGER,
-    owner_session_id TEXT,
-    owner_work_claim_id INTEGER,
-    released_by_session_id TEXT,
-    released_by_actor_id TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_coordination_leases_live
-    ON coordination_leases(project_id, lease_key) WHERE released_at IS NULL;
 """
 
 

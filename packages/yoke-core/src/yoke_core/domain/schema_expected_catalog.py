@@ -44,7 +44,6 @@ _EXPECTED_SCHEMA_STR = (
     "|capability_secrets:id/INTEGER,project_id/INTEGER,type/TEXT,key/TEXT,value/TEXT,source/TEXT,created_at/TEXT"
     "|capability_templates:id/TEXT,name/TEXT,description/TEXT,required_config/TEXT,requires/TEXT,created_at/TEXT"
     "|caveat_dispositions:id/INTEGER,item/TEXT,transition/TEXT,attempt/INTEGER,caveat_num/INTEGER,caveat_text/TEXT,disposition/TEXT,resolution_details/TEXT,verdict_id/INTEGER,created_at/TEXT"
-    "|coordination_leases:id/INTEGER,project_id/INTEGER,lease_key/TEXT,session_id/TEXT,actor_id/TEXT,acquired_at/TEXT,heartbeat_at/TEXT,released_at/TEXT,release_reason/TEXT,owner_kind/TEXT,owner_item_id/INTEGER,owner_session_id/TEXT,owner_work_claim_id/INTEGER,released_by_session_id/TEXT,released_by_actor_id/TEXT"
     "|decision_request_actor_authorities:request_id/INTEGER,actor_id/INTEGER"
     "|decision_request_role_authorities:request_id/INTEGER,scope_kind/TEXT,scope_id/INTEGER,role_name/TEXT"
     "|decision_requests:id/INTEGER,kind/TEXT,subject_type/TEXT,subject_key/TEXT,subject_context/TEXT,project_id/INTEGER,org_id/INTEGER,originator_actor_id/INTEGER,blocking/INTEGER,status/TEXT,resolution_action/TEXT,resolution_actor_id/INTEGER,resolution_note/TEXT,resolved_at/TEXT,withdrawal_reason/TEXT,withdrawn_at/TEXT,consumed_at/TEXT,consumed_from_stage/TEXT,consumed_to_stage/TEXT,consumed_workflow_version_id/INTEGER,created_at/TEXT"

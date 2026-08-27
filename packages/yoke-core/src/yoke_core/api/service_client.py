@@ -240,12 +240,12 @@ from yoke_core.api.service_client_project_structure import (  # noqa: F401
 )
 
 # Coordination-lease primitive
-from yoke_core.api.service_client_coordination_leases import (  # noqa: F401
-    COORDINATION_LEASE_COMMANDS,
-    cmd_coordination_lease_acquire,
-    cmd_coordination_lease_heartbeat,
-    cmd_coordination_lease_list,
-    cmd_coordination_lease_release,
+from yoke_core.api.service_client_coordination_claims import (  # noqa: F401
+    COORDINATION_CLAIM_COMMANDS,
+    cmd_coordination_claim_acquire,
+    cmd_coordination_claim_heartbeat,
+    cmd_coordination_claim_list,
+    cmd_coordination_claim_release,
 )
 
 # Unified DB-claim amendment workflow
@@ -317,7 +317,7 @@ COMMANDS = {
     "project-structure-get": cmd_project_structure_get,
     "project-structure-patch": cmd_project_structure_patch,
     "project-structure-seed": cmd_project_structure_seed,
-    **COORDINATION_LEASE_COMMANDS,
+    **COORDINATION_CLAIM_COMMANDS,
     "db-claim-amend": cmd_db_claim_amend,
     "actors-list": cmd_actors_list,
     "actors-get": cmd_actors_get,

@@ -77,7 +77,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
           { target_kind: "item", target: "YOK-2228" },
           { target_kind: "process", target: "feed" },
         ],
-        coordination_leases: [
+        coordination_claims: [
           { lease_key: "QA_HOST:yoke", owner_kind: "session", project_id: 1 },
           {
             lease_key: "LIVE_DB_MIGRATION:primary",
@@ -157,7 +157,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
         claim_started_at: null,
         activity_at: "2026-07-26T12:04:00Z",
         claims: [{ target_kind: "item", target: "YOK-4090" }],
-        coordination_leases: [],
+        coordination_claims: [],
       },
     ]),
     capabilities: { data: { portability: { mode: "hosted" } } },

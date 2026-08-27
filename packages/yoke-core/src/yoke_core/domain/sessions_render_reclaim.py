@@ -35,6 +35,7 @@ from .workflow_item_binding_validation import (
     WorkflowItemBindingError,
     validate_work_claim_target,
 )
+from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
 def find_stale_sessions(
@@ -67,7 +68,12 @@ def reclaim_stale_session(
     conn: Any,
     session_id: str,
 ) -> Dict[str, Any]:
-    """Release all claims, leases, and document locks from a stale session.
+    """Release the liveness-bound claims and locks of a stale session.
+
+    Sticky claim kinds are exempt by design: the migration or remote suite
+    they name keeps running after the session goes quiet, so reclaiming
+    would hand a live resource to a second holder. Those stay until their
+    own work releases them or an operator does.
 
     Claims are released with reason 'reclaimed'.  Emits one ``WorkReclaimed``
     event per released claim with populated ``item_id``/``task_num``.  A
@@ -90,9 +96,10 @@ def reclaim_stale_session(
 
     # Capture claim details before releasing for per-claim telemetry
     active_claim_rows = conn.execute(
-        """SELECT id, session_id, target_kind, scope
+        f"""SELECT id, session_id, target_kind, scope
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
+             AND {LIVENESS_BOUND_SQL}
            ORDER BY claimed_at ASC, id ASC""",
         (session_id,),
     ).fetchall()
@@ -100,9 +107,10 @@ def reclaim_stale_session(
         conn, (int(claim_row["id"]) for claim_row in active_claim_rows)
     )
     active_claim_rows = conn.execute(
-        """SELECT id, session_id, target_kind, scope
+        f"""SELECT id, session_id, target_kind, scope
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
+             AND {LIVENESS_BOUND_SQL}
            ORDER BY claimed_at ASC, id ASC""",
         (session_id,),
     ).fetchall()
@@ -119,10 +127,8 @@ def reclaim_stale_session(
         )
         if cursor.rowcount:
             released_claim_rows.append(claim_row)
-    from .coordination_lease_reclaim import release_for_reclaimed_session
     from .strategy_doc_session_claims import release_session_doc_claims_for_session
 
-    release_for_reclaimed_session(conn, session_id)
     release_session_doc_claims_for_session(conn, session_id, reason="reclaimed")
     clear_chain_checkpoint(conn, session_id)
     conn.execute(

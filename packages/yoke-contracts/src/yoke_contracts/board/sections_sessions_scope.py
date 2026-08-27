@@ -14,6 +14,13 @@ from yoke_contracts.session_lane import lane_presentation
 from yoke_contracts.project_contract.project_keys import (
     SESSION_ROUTING_CAPABILITY,
 )
+from yoke_contracts.coordination_claim_keys import (
+    COORDINATION_TARGET_KINDS,
+)
+
+_COORDINATION_KINDS_SQL = ", ".join(
+    f"'{kind}'" for kind in COORDINATION_TARGET_KINDS
+)
 
 
 def session_rows(
@@ -155,7 +162,7 @@ def _claim_scope_filter(
     pc_terminal = (
         "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL" if active_only else ""
     )
-    lease_terminal = "AND cl.released_at IS NULL" if active_only else ""
+    lease_terminal = "AND cc.released_at IS NULL" if active_only else ""
     parent_id = (
         "CASE WHEN wc.target_kind = 'item' "
         "THEN CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER) "
@@ -178,9 +185,11 @@ def _claim_scope_filter(
             WHERE pc.owner_kind = 'item'
               AND pi.project_id = %s {pc_terminal} {wc_terminal}
             UNION
-            SELECT cl.session_id
-            FROM coordination_leases cl
-            WHERE cl.project_id = %s {lease_terminal}
+            SELECT cc.session_id
+            FROM work_claims cc
+            WHERE cc.target_kind IN ({_COORDINATION_KINDS_SQL})
+              AND CAST(cc.scope::jsonb ->> 'project_id' AS INTEGER) = %s
+              {lease_terminal}
         """,
         (project_id, project_id, project_id),
     )
@@ -219,7 +228,7 @@ def _claim_scope_filter_for_projects(
     pc_terminal = (
         "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL" if active_only else ""
     )
-    lease_terminal = "AND cl.released_at IS NULL" if active_only else ""
+    lease_terminal = "AND cc.released_at IS NULL" if active_only else ""
     parent_id = (
         "CASE WHEN wc.target_kind = 'item' "
         "THEN CAST(wc.scope::jsonb ->> 'item_id' AS INTEGER) "
@@ -242,9 +251,11 @@ def _claim_scope_filter_for_projects(
             WHERE pc.owner_kind = 'item'
               AND pi.project_id IN ({markers}) {pc_terminal} {wc_terminal}
             UNION
-            SELECT cl.session_id
-            FROM coordination_leases cl
-            WHERE cl.project_id IN ({markers}) {lease_terminal}
+            SELECT cc.session_id
+            FROM work_claims cc
+            WHERE cc.target_kind IN ({_COORDINATION_KINDS_SQL})
+              AND CAST(cc.scope::jsonb ->> 'project_id' AS INTEGER)
+                  IN ({markers}) {lease_terminal}
         """,
         (*project_ids, *project_ids, *project_ids),
     )

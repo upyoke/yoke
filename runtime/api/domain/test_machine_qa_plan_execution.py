@@ -28,13 +28,14 @@ from yoke_core.domain.machine_qa_local_execution import (
     execute_machine_case_contract,
 )
 from yoke_core.domain import machine_qa_execution_protocol
-from yoke_core.domain.coordination_leases import acquire_lease, release_lease
+from yoke_core.domain.coordination_claims import acquire, release
 from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
     finish_plan_execution,
     lock_plan_execution,
 )
-from yoke_core.domain.machine_qa_capability import lease_key
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 
 
 ACTOR = ActorContext(actor_id="2", session_id="session-machine-plan")
@@ -65,7 +66,8 @@ def _request(
 def _active_lease_count(conn: Any) -> int:
     return int(
         conn.execute(
-            "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
+            "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
+            "AND target_kind = 'qa_admission'"
         ).fetchone()[0]
     )
 
@@ -194,12 +196,11 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
         session_id=ACTOR.session_id,
     )
     case = execution["roster"][0]
-    held = acquire_lease(
+    seed_qa_session(test_db, "another-session")
+    held = acquire(
         test_db,
-        1,
-        lease_key("mac-mini-lab"),
+        make_qa_admission_target("mac-mini-lab"),
         "another-session",
-        actor_id="9",
     )
 
     waiting = handle_plan_case_begin(
@@ -216,14 +217,14 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
     assert waiting.result_payload["execution_id"] == str(execution["id"])
     assert waiting.result_payload["cursor_ordinal"] == 0
     lease_context = waiting.result_payload["lease_context"]
-    assert lease_context["holder_session_id"] == "another-session"
+    assert lease_context["holder_session_id"] == "session another-session"
     assert "heartbeat age" in lease_context["wait_message"]
-    assert "yoke coordination-lease release" in lease_context["wait_message"]
+    assert "yoke coordination-claim release" in lease_context["wait_message"]
     stored = lock_plan_execution(test_db, str(execution["id"]))
     assert stored["state"] == "waiting"
     assert stored["machine_lease_id"] is None
 
-    release_lease(test_db, held.id, "test-holder-finished")
+    release(test_db, held.id, "test-holder-finished")
     resumed = begin_plan_execution(
         test_db,
         item_id=item_id,

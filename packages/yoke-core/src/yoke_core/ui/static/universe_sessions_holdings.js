@@ -27,8 +27,8 @@ function claimHref(claim, row) {
 export function holdingEntries(row) {
   const entries = [];
   const claims = Array.isArray(row.claims) ? row.claims : [];
-  const leases = Array.isArray(row.coordination_leases)
-    ? row.coordination_leases
+  const leases = Array.isArray(row.coordination_claims)
+    ? row.coordination_claims
     : [];
   for (const claim of claims) entries.push({ kind: "claim", claim });
   for (const lease of leases) entries.push({ kind: "lease", lease });

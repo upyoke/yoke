@@ -68,11 +68,36 @@ class OpenFixtureConnection:
         pass
 
 
+GROUP_ACTOR_SESSION = "session-machine-group"
+
+#: Every session id the machine-QA suites drive host control as.
+ACTING_SESSIONS = (
+    GROUP_ACTOR_SESSION,
+    "session-machine-submit-atomicity",
+    "session-machine-two-phase",
+    "session-machine-artifact",
+    "session-agent-mission",
+    "settlement-session",
+    "deployment-machine",
+    "session-machine-plan",
+)
+
+
 def configure_test_machine(
     conn: Any,
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
+    """Configure the host and register the sessions that will claim it.
+
+    A coordination claim reads its actor from the session row that holds
+    it, so a fixture that never registers the acting session issues a
+    claim with no actor and every owner check on the submit side refuses
+    it.
+    """
+    from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+
+    seed_qa_session(conn, *ACTING_SESSIONS)
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
     store_machine_capability_secret(
@@ -204,7 +229,7 @@ def baseline_group_request(
         function=function,
         actor=ActorContext(
             actor_id="2",
-            session_id="session-machine-group",
+            session_id=GROUP_ACTOR_SESSION,
         ),
         target=TargetRef(
             kind="qa_requirement",

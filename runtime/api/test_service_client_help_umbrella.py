@@ -12,7 +12,7 @@ def test_group_commands_routes_known_names_into_declared_families():
     commands = [
         "item-get", "claim-work", "release-work-claim",
         "path-claim-register", "path-claim-widen",
-        "coordination-lease-acquire", "session-begin",
+        "coordination-claim-acquire", "session-begin",
         "field-note-log",
     ]
     grouped = dict(group_commands(commands))
@@ -22,7 +22,7 @@ def test_group_commands_routes_known_names_into_declared_families():
     # Prefix match covers every path-claim-* command in one entry.
     assert "path-claim-register" in grouped["Claims — path"]
     assert "path-claim-widen" in grouped["Claims — path"]
-    assert "coordination-lease-acquire" in grouped["Coordination leases"]
+    assert "coordination-claim-acquire" in grouped["Coordination claims"]
     assert "session-begin" in grouped["Sessions"]
     assert "field-note-log" in grouped["Ouroboros"]
 

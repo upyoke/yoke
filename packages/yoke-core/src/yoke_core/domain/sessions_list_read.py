@@ -290,7 +290,7 @@ def list_sessions(
                         item_claims[0].get("claimed_at") if item_claims else None
                     ),
                     "claims": claims,
-                    "coordination_leases": leases_by_session.get(session_id, []),
+                    "coordination_claims": leases_by_session.get(session_id, []),
                     "claimed_blitz_worktree_ids": blitz_lanes_by_session.get(
                         session_id,
                         [],

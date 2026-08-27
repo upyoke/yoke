@@ -10,11 +10,15 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_contracts.item_ref import format_item_ref
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.machine_qa_capability import lease_key
+from yoke_core.domain.machine_qa_capability import host_claim_target
 from yoke_core.domain.machine_qa_host_registrar import host_registrations
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.qa_method_capabilities import capability_kinds
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.work_claim_target_sql import (
+    scope_int_sql,
+    scope_text_sql,
+)
+from yoke_core.domain.work_claim_targets import TARGET_KIND_QA_ADMISSION
 
 
 def read_test_machine_facts(
@@ -37,29 +41,34 @@ def read_test_machine_facts(
             ).fetchall()
         }
     requested = set(project_ids)
-    host_keys = {
-        registration.project_id: lease_key(registration.resource_name)
+    host_machines = {
+        registration.project_id: host_claim_target(
+            registration.resource_name
+        ).machine_id
         for registration in host_registrations(conn)
         if registration.project_id in requested
     }
     active_sessions: dict[int, str] = {}
-    if host_keys and _table_exists(conn, "coordination_leases"):
-        # The host lease lives under whichever project registered the machine,
-        # so a shared host is busy for every project that names it.
-        keys = sorted(set(host_keys.values()))
-        key_markers = ", ".join([marker] * len(keys))
+    if host_machines and _table_exists(conn, "work_claims"):
+        # One physical host is one claim, so a shared machine reads busy
+        # for every project that names it.
+        machines = sorted(set(host_machines.values()))
+        machine_markers = ", ".join([marker] * len(machines))
+        machine_expr = scope_text_sql(conn, "scope", "machine_id")
         holders = {
-            str(row["lease_key"]): str(row["session_id"])
+            str(row[0]): str(row[1])
             for row in conn.execute(
-                "SELECT lease_key,session_id FROM coordination_leases "
-                f"WHERE lease_key IN ({key_markers}) AND released_at IS NULL",
-                tuple(keys),
+                f"SELECT {machine_expr}, session_id FROM work_claims "
+                f"WHERE target_kind='{TARGET_KIND_QA_ADMISSION}' "
+                f"AND {machine_expr} IN ({machine_markers}) "
+                "AND released_at IS NULL",
+                tuple(machines),
             ).fetchall()
         }
         active_sessions = {
-            project_id: holders[key]
-            for project_id, key in host_keys.items()
-            if key in holders
+            project_id: holders[machine]
+            for project_id, machine in host_machines.items()
+            if machine in holders
         }
     active_items: dict[int, str | None] = {
         project_id: None for project_id in active_sessions

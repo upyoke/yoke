@@ -17,7 +17,10 @@ from runtime.api.domain.handlers.capabilities_list_test_support import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.capabilities_list_read import list_capabilities
-from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_core.domain.work_claim_targets import (
+    make_item_target,
+    make_qa_admission_target,
+)
 
 
 class TestKindAndStateDerivation:
@@ -101,13 +104,12 @@ class TestKindAndStateDerivation:
             ("session-machine", target.kind, target.scope_json(), now, now),
         )
         test_db.execute(
-            "INSERT INTO coordination_leases("
-            "project_id,lease_key,session_id,acquired_at,heartbeat_at"
-            ") VALUES (%s,%s,%s,%s,%s)",
+            "INSERT INTO work_claims("
+            "session_id,target_kind,scope,claimed_at,last_heartbeat"
+            ") VALUES (%s,'qa_admission',%s,%s,%s)",
             (
-                1,
-                "QA_HOST:mac-mini-lab",
                 "session-machine",
+                make_qa_admission_target("mac-mini-lab").scope_json(),
                 now,
                 now,
             ),

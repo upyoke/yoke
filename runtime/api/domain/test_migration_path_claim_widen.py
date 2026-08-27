@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain.coordination_claim_test_support import seed_session
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_contracts.api.function_call import (
@@ -15,12 +16,20 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import coordination_leases, migration_territory_lease
+from yoke_core.domain import coordination_claims, migration_territory_claim
 from yoke_core.domain.db_claim import amend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers.claims_path import handle_widen
 from yoke_core.domain.migration_model_capability import canonical_json
 from yoke_core.domain.migration_model_capability_defaults import governed_postgres_seed
+from yoke_core.domain.work_claim_targets import (
+    make_migration_serialization_target,
+)
+
+
+def _territory(project_id: int, model: str):
+    """Migration territory for a model. The owner is not the unit held."""
+    return make_migration_serialization_target(project_id, model, 1)
 
 
 YOKE_MODULES = "packages/yoke-core/src/yoke_core/domain/migrations"
@@ -39,6 +48,9 @@ def control_conn(tmp_path):
     with init_test_db(tmp_path) as db_path:
         conn = connect_test_db(db_path)
         try:
+            # A claim is session-bound by foreign key: seed what tests name.
+            for session_id in ("scope-owner", "foreign-owner", "external-owner"):
+                seed_session(conn, session_id)
             yield conn
         finally:
             conn.close()
@@ -201,9 +213,7 @@ def test_atomic_widen_amends_claim_acquires_lease_and_adds_path(control_conn):
     assert attestation["invariants"] == ["existing item rows remain readable"]
     assert attestation["frozen_at"].endswith("Z")
     assert _claim_has_target(control_conn, claim_id, target_id)
-    lease = coordination_leases.active_lease(
-        control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
-    )
+    lease = coordination_claims.active_claim(control_conn, _territory(1, "primary"))
     assert lease is not None and lease.session_id == "scope-owner"
     assert outcome.result_payload["migration_lease_id"] == lease.id
 
@@ -216,7 +226,7 @@ def test_foreign_territory_refusal_rolls_back_claim_and_path(control_conn):
         modules_dir=YOKE_MODULES,
         module_name="0007_foreign_hold",
     )
-    held = migration_territory_lease.enter(
+    held = migration_territory_claim.enter(
         control_conn,
         project="yoke",
         model_name="primary",
@@ -236,9 +246,7 @@ def test_foreign_territory_refusal_rolls_back_claim_and_path(control_conn):
     assert "already held" in outcome.error.message
     assert _stored_claim(control_conn, 4102) == ({"state": "none"}, {})
     assert not _claim_has_target(control_conn, claim_id, target_id)
-    lease = coordination_leases.active_lease(
-        control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
-    )
+    lease = coordination_claims.active_claim(control_conn, _territory(1, "primary"))
     assert lease is not None and lease.id == held.id
     assert lease.session_id == "foreign-owner"
 
@@ -264,9 +272,7 @@ def test_missing_declaration_refuses_without_partial_state(control_conn):
     assert _stored_claim(control_conn, 4103) == ({"state": "none"}, {})
     assert not _claim_has_target(control_conn, claim_id, target_id)
     assert (
-        coordination_leases.active_lease(
-            control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
-        )
+        coordination_claims.active_claim(control_conn, _territory(1, "primary"))
         is None
     )
 
@@ -286,7 +292,7 @@ def test_same_session_reuses_existing_migration_territory(control_conn):
         conn=control_conn,
         session_id="scope-owner",
     )
-    held = migration_territory_lease.enter(
+    held = migration_territory_claim.enter(
         control_conn,
         project="yoke",
         model_name="primary",
@@ -304,8 +310,9 @@ def test_same_session_reuses_existing_migration_territory(control_conn):
     assert outcome.primary_success, outcome.error
     assert outcome.result_payload["migration_lease_id"] == held.id
     rows = control_conn.execute(
-        "SELECT id FROM coordination_leases "
-        "WHERE project_id = 1 AND lease_key = 'LIVE_DB_MIGRATION:primary'"
+        "SELECT id FROM work_claims "
+        "WHERE target_kind = 'migration_serialization' "
+        "AND scope::jsonb ->> 'model' = 'primary'"
     ).fetchall()
     assert [int(row[0]) for row in rows] == [held.id]
     assert _claim_has_target(control_conn, claim_id, target_id)
@@ -330,14 +337,10 @@ def test_external_project_modules_dir_controls_classification(control_conn):
     )
     assert outcome.primary_success, outcome.error
     assert _claim_has_target(control_conn, claim_id, target_id)
-    lease = coordination_leases.active_lease(
-        control_conn, "externalwebapp", "LIVE_DB_MIGRATION:primary"
-    )
+    lease = coordination_claims.active_claim(control_conn, _territory(2, "primary"))
     assert lease is not None and lease.project_id == 2
     assert lease.session_id == "external-owner"
     assert (
-        coordination_leases.active_lease(
-            control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
-        )
+        coordination_claims.active_claim(control_conn, _territory(1, "primary"))
         is None
     )

@@ -27,6 +27,7 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
 @rollback_workflow_binding_write_errors
@@ -35,12 +36,17 @@ def release_all_claims(
     session_id: str,
     reason: str = "released",
 ) -> int:
-    """Release all active claims for a session.  Returns count released."""
+    """Release a session's liveness-bound claims. Returns count released.
+
+    Sticky kinds survive an explicit session end for the same reason they
+    survive the sweep: the resource they hold is still in use.
+    """
     now = _now_iso()
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
     rows = conn.execute(
         "SELECT id FROM work_claims "
-        "WHERE session_id = %s AND released_at IS NULL ORDER BY id",
+        "WHERE session_id = %s AND released_at IS NULL "
+        f"AND {LIVENESS_BOUND_SQL} ORDER BY id",
         (session_id,),
     ).fetchall()
     claim_ids = tuple(int(row["id"]) for row in rows)

@@ -13,7 +13,9 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
     materialize_installer_campaign,
 )
 from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
-from yoke_core.domain.coordination_leases import Lease
+from yoke_core.domain.coordination_claim_record import CoordinationClaim
+from runtime.api.domain.machine_qa_session_seed import seed_qa_session
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.function_authz_scope import PROJECT, classify
 from yoke_core.domain.handlers.machine_qa_case import (
@@ -51,12 +53,12 @@ def test_held_lease_becomes_structured_machine_waiting_state(
     conn = make_conn()
     register_test_machine(conn)
     now = iso8601_now()
+    seed_qa_session(conn, "holder-session")
     conn.execute(
-        "INSERT INTO coordination_leases("
-        "id,project_id,lease_key,session_id,actor_id,"
-        "acquired_at,heartbeat_at,released_at"
-        ") VALUES(9,1,'QA_HOST:mac-mini-lab','holder-session','2',?,?,NULL)",
-        (now, now),
+        "INSERT INTO work_claims("
+        "id,session_id,target_kind,scope,claimed_at,last_heartbeat,released_at"
+        ") VALUES(9,'holder-session','qa_admission',?,?,?,NULL)",
+        (make_qa_admission_target("mac-mini-lab").scope_json(), now, now),
     )
     material = MachineMaterial(
         project_id=1,
@@ -79,7 +81,6 @@ def test_held_lease_becomes_structured_machine_waiting_state(
             conn,
             project="yoke",
             session_id="waiting-session",
-            actor_id="3",
         )
 
     waiting = caught.value.waiting_result()
@@ -87,9 +88,9 @@ def test_held_lease_becomes_structured_machine_waiting_state(
     assert waiting.verdict == "waiting"
     lease = waiting.evidence["lease"]
     assert lease["id"] == 9
-    assert lease["holder_session_id"] == "holder-session"
+    assert lease["holder_session_id"] == "session holder-session"
     assert lease["heartbeat_age_seconds"] >= 0
-    assert "yoke coordination-lease release" in lease["wait_message"]
+    assert "yoke coordination-claim release" in lease["wait_message"]
 
 
 def test_group_begin_lease_contention_records_nonterminal_waiting_cases(
@@ -105,14 +106,13 @@ def test_group_begin_lease_contention_records_nonterminal_waiting_cases(
     )
     fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
     held = MachineQaProtocolLeaseHeld(
-        lease=Lease(
+        lease=CoordinationClaim(
             id=17,
-            project_id=1,
-            lease_key="QA_HOST:mac-mini-lab",
+            target=make_qa_admission_target("mac-mini-lab"),
             session_id="holder-session",
             actor_id="2",
-            acquired_at="2026-07-26T17:00:00Z",
-            heartbeat_at="2026-07-26T17:01:00Z",
+            claimed_at="2026-07-26T17:00:00Z",
+            last_heartbeat="2026-07-26T17:01:00Z",
         ),
         machine="mac-mini-lab",
     )
@@ -193,12 +193,11 @@ def test_single_case_begin_contention_preserves_rerun_identity(
     )
     target = next(row for row in rows if row["host_baseline"] == "shell-preconfigured")
     held = MachineQaProtocolLeaseHeld(
-        lease=Lease(
+        lease=CoordinationClaim(
             id=18,
-            project_id=1,
-            lease_key="QA_HOST:mac-mini-lab",
+            target=make_qa_admission_target("mac-mini-lab"),
             session_id="holder-session",
-            acquired_at="2026-07-26T17:02:00Z",
+            claimed_at="2026-07-26T17:02:00Z",
         ),
         machine="mac-mini-lab",
     )

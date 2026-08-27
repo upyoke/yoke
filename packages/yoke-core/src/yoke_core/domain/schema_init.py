@@ -49,9 +49,6 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
     create_actor_path_claim_tables,
 )
-from yoke_core.domain.schema_coordination_lease_columns import (
-    apply_coordination_lease_columns,
-)
 from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
 from yoke_core.domain.schema_init_columns import (
     apply_additive_schema,
@@ -225,7 +222,6 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
     conn.execute(STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL)
     ensure_strategy_execution_schema(conn)
-    apply_coordination_lease_columns(conn)
     apply_additive_schema(conn)
     converge_flow_catalog(conn)
     # The initial bootstrap creates the view before deployment-run tables land;

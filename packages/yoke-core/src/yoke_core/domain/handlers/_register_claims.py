@@ -1,10 +1,10 @@
 """Handler registrations for claims.work.* + claims.path.* +
-claims.coordination_lease.* + db_claim.amend handlers.
+claims.coordination_claim.* + db_claim.amend handlers.
 """
 from __future__ import annotations
 
 from yoke_core.domain.handlers import (
-    claims_coordination_lease as _ccl,
+    claims_coordination_claim as _ccc,
     claims_path as _cp,
     claims_path_activation as _cpa,
     claims_path_amend as _cpam,
@@ -242,48 +242,48 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
 
-    # claims.coordination_lease.* — lease primitive
+    # claims.coordination_claim.* — shared-operation claim kinds
     registry.register(
-        "claims.coordination_lease.acquire", _ccl.handle_acquire,
-        _ccl.AcquireRequest, _ccl.AcquireResponse,
+        "claims.coordination_claim.acquire", _ccc.handle_acquire,
+        _ccc.AcquireRequest, _ccc.AcquireResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_lease",
+        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
         target_kinds=["global"],
-        side_effects=["coordination_leases_insert"],
-        emitted_event_names=["CoordinationLeaseAcquired"],
+        side_effects=["work_claims_insert"],
+        emitted_event_names=["LeaseAcquired"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(
-        "claims.coordination_lease.heartbeat", _ccl.handle_heartbeat,
-        _ccl.HeartbeatRequest, _ccl.HeartbeatResponse,
+        "claims.coordination_claim.heartbeat", _ccc.handle_heartbeat,
+        _ccc.HeartbeatRequest, _ccc.HeartbeatResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_lease",
+        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
         target_kinds=["global"],
-        side_effects=["coordination_leases_update_heartbeat"],
-        emitted_event_names=["CoordinationLeaseHeartbeated"],
+        side_effects=["work_claims_update_heartbeat"],
+        emitted_event_names=["LeaseHeartbeated"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(
-        "claims.coordination_lease.release", _ccl.handle_release,
-        _ccl.ReleaseRequest, _ccl.ReleaseResponse,
+        "claims.coordination_claim.release", _ccc.handle_release,
+        _ccc.ReleaseRequest, _ccc.ReleaseResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_lease",
+        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
         target_kinds=["global"],
-        side_effects=["coordination_leases_update_released_at"],
-        emitted_event_names=["CoordinationLeaseReleased"],
+        side_effects=["work_claims_update_released_at"],
+        emitted_event_names=["LeaseReleased"],
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
     )
     registry.register(
-        "claims.coordination_lease.list", _ccl.handle_list,
-        _ccl.ListRequest, _ccl.ListResponse,
+        "claims.coordination_claim.list", _ccc.handle_list,
+        _ccc.ListRequest, _ccc.ListResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_lease",
+        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=[],

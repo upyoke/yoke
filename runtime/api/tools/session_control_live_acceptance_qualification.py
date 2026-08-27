@@ -155,7 +155,7 @@ class QualificationCoordinator:
         grant = qualification.grant
         result = self.client.call(
             [
-                "coordination-lease",
+                "coordination-claim",
                 "list",
                 "--project",
                 self.project,
@@ -163,7 +163,7 @@ class QualificationCoordinator:
                 grant.scope.lease_key,
             ]
         )
-        leases = result.get("leases")
+        leases = result.get("claims")
         if not isinstance(leases, list):
             raise AcceptanceContractError(
                 "qualification_lease_missing", surface=grant.scope.surface
@@ -184,13 +184,16 @@ class QualificationCoordinator:
             raise AcceptanceContractError(
                 "qualification_lease_invalid", surface=grant.scope.surface
             )
+        # The holder identity IS the consumer identity: only the session
+        # and actor the grant was opened for can consume it, so the claim's
+        # own session_id / actor_id answer "who released this".
         if (
             row.get("id") != grant.lease_id
-            or row.get("lease_key") != grant.scope.lease_key
+            or row.get("key") != grant.scope.lease_key
             or not row.get("released_at")
-            or row.get("release_reason") != QUALIFICATION_RELEASE_REASON
-            or row.get("released_by_session_id") != grant.sender_session_id
-            or str(row.get("released_by_actor_id") or "") != grant.operator_actor_id
+            or row.get("release_reason_intent") != QUALIFICATION_RELEASE_REASON
+            or row.get("session_id") != grant.sender_session_id
+            or str(row.get("actor_id") or "") != grant.operator_actor_id
         ):
             raise AcceptanceContractError(
                 "qualification_not_consumed", surface=grant.scope.surface

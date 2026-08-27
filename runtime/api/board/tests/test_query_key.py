@@ -56,8 +56,8 @@ def test_nested_block_comment_is_preserved_as_one_protected_span() -> None:
 
 
 def test_real_sql_and_interpolated_filter_changes_keep_distinct_keys() -> None:
-    active = "SELECT * FROM coordination_leases WHERE released_at IS NULL"
-    all_rows = "SELECT * FROM coordination_leases WHERE TRUE"
+    active = "SELECT * FROM work_claims WHERE released_at IS NULL"
+    all_rows = "SELECT * FROM work_claims WHERE TRUE"
 
     assert entry_key("query_quiet", active, None) != entry_key(
         "query_quiet", all_rows, None

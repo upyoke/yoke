@@ -6,7 +6,8 @@ import pytest
 
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_sessions import _register
-from yoke_core.domain import coordination_leases
+from yoke_core.domain import coordination_claims
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.sessions import (
     SessionError,
     claim_work,
@@ -88,16 +89,21 @@ class TestStaleDetection:
         ).fetchone()
         assert claim["release_reason"] == "reclaimed"
 
-    def test_reclaim_releases_coordination_lease_with_audit_event(
+    def test_reclaim_leaves_a_sticky_coordination_claim_held(
         self,
         conn,
         monkeypatch,
     ):
+        """The remote suite keeps running, so the sweep must not free it.
+
+        Recovery for a sticky kind is the audited operator release; a
+        reclaim that released it would hand a live machine to a second
+        holder.
+        """
         _register(conn)
-        lease = coordination_leases.acquire_lease(
+        claim = coordination_claims.acquire(
             conn,
-            "yoke",
-            "LIVE_DB_MIGRATION:primary",
+            make_qa_admission_target("mac-mini-lab"),
             "sess-1",
             now="2020-01-01T00:00:00Z",
         )
@@ -109,12 +115,10 @@ class TestStaleDetection:
 
         reclaim_stale_session(conn, "sess-1")
 
-        released = coordination_leases.get_lease(conn, lease.id)
-        assert released.release_reason == "stale-session-reclaimed"
-        assert any(
-            name == coordination_leases.LEASE_RELEASED_EVENT
-            and call["context"]["release_reason"] == "stale-session-reclaimed"
-            for name, call in emitted
+        assert coordination_claims.get_claim(conn, claim.id).is_active
+        assert not any(
+            name == coordination_claims.LEASE_RELEASED_EVENT
+            for name, _call in emitted
         )
 
 

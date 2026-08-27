@@ -19,7 +19,7 @@ from yoke_core.domain.actor_permissions import (
     ROLE_ADMIN,
     grant_actor_project_role,
 )
-from yoke_core.domain.coordination_leases import get_lease
+from yoke_core.domain.coordination_claims import get_claim
 from yoke_core.domain.session_private_route_qualification import (
     PrivateRouteQualificationError,
     consume_qualification_grant,
@@ -28,7 +28,7 @@ from yoke_core.domain.session_private_route_qualification import (
     qualification_for_message,
 )
 from runtime.api.domain.test_session_message_support import (
-    add_coordination_lease_schema,
+    add_coordination_claim_schema,
     message_connection,
 )
 
@@ -44,7 +44,7 @@ def _unproven_private_route_policy(monkeypatch) -> None:
 
 def _connection():
     conn = message_connection()
-    add_coordination_lease_schema(conn)
+    add_coordination_claim_schema(conn)
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN actor_id INTEGER")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
     conn.execute(
@@ -97,11 +97,11 @@ def test_opened_grant_has_fixed_ttl_and_consumes_exactly_once(monkeypatch) -> No
 
     consume_qualification_grant(conn, grant)
     row = conn.execute(
-        "SELECT released_at,release_reason FROM coordination_leases WHERE id=?",
+        "SELECT released_at,release_reason_intent FROM work_claims WHERE id=?",
         (grant.lease_id,),
     ).fetchone()
     assert row["released_at"]
-    assert row["release_reason"] == QUALIFICATION_RELEASE_REASON
+    assert row["release_reason_intent"] == QUALIFICATION_RELEASE_REASON
     with pytest.raises(PrivateRouteQualificationError) as consumed:
         consume_qualification_grant(conn, grant)
     assert consumed.value.code == "qualification_grant_consumed"
@@ -132,7 +132,10 @@ def test_open_refuses_prod_or_nonexact_serving_sha(
         )
 
     assert denied.value.code == code
-    assert conn.execute("SELECT COUNT(*) FROM coordination_leases").fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+        "('migration_serialization','qa_admission','route_qualification')"
+    ).fetchone()[0] == 0
 
 
 def test_open_refuses_canonical_floor_and_inactive_operator(monkeypatch) -> None:
@@ -171,7 +174,7 @@ def test_grant_rechecks_owner_and_expiry_after_open(monkeypatch) -> None:
         operator_actor_id=10,
         scope=_scope(),
     )
-    lease = get_lease(conn, grant.lease_id)
+    lease = get_claim(conn, grant.lease_id)
     opened = datetime.fromisoformat(grant.opened_at.replace("Z", "+00:00"))
 
     with pytest.raises(PrivateRouteQualificationError) as expired:
@@ -215,13 +218,13 @@ def test_expired_grant_is_settled_and_same_scope_can_be_rearmed(monkeypatch) -> 
 
     assert second.lease_id != first.lease_id
     rows = conn.execute(
-        "SELECT id,released_at,release_reason,released_by_session_id,"
-        "released_by_actor_id FROM coordination_leases ORDER BY id"
+        "SELECT id,released_at,release_reason,release_reason_intent "
+        "FROM work_claims WHERE target_kind='route_qualification' "
+        "ORDER BY id"
     ).fetchall()
-    assert rows[0]["release_reason"] == QUALIFICATION_ABANDONED_REASON
+    assert rows[0]["release_reason_intent"] == QUALIFICATION_ABANDONED_REASON
+    assert rows[0]["release_reason"] == "expired"
     assert rows[0]["released_at"] == "2099-01-01T00:30:00Z"
-    assert rows[0]["released_by_session_id"] == "s1"
-    assert rows[0]["released_by_actor_id"] == "10"
     assert rows[1]["released_at"] is None
 
 
@@ -251,7 +254,10 @@ def test_post_acquire_validation_failure_rolls_back_reserved_lease(
         )
 
     assert raised.value.code == "qualification_recheck_failed"
-    assert conn.execute("SELECT COUNT(*) FROM coordination_leases").fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM work_claims WHERE target_kind IN "
+        "('migration_serialization','qa_admission','route_qualification')"
+    ).fetchone()[0] == 0
 
 
 def test_message_lookup_binds_run_sender_project_operation_and_route(
