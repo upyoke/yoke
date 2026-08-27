@@ -78,6 +78,35 @@ class TestSteerSkillContract:
         assert "Escalate" in loop
         assert "wait" in loop.lower()
 
+    def test_negative_space_checklist_runs_first_and_unconditionally(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "Negative-space checks — first, every periodic pass" in loop
+        assert "before consuming events, messages, or worker reports" in loop
+        assert "the events wait and the checklist still runs" in loop
+        assert "Event handling expands to fill the pass" in loop
+
+    def test_outbound_delivery_check_covers_every_sender(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "Sender is not a filter" in loop
+        assert "worker-to-steerer envelopes starve" in loop
+        assert "recipient idleness is the whole trigger" in loop
+        # The sweep query selects on recipient idleness, never on who sent it.
+        query_at = loop.index("FROM session_message_recipients r JOIN harness_sessions")
+        query = loop[query_at : loop.index('"', query_at)]
+        assert "sender" not in query
+        assert "s.last_tool_call_at" in query
+
+    def test_starved_holder_triage_reads_the_stale_reclaim_clock(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "stale_eligible_at" in loop
+        assert "effective_stale_ttl_minutes" in loop
+        assert "yoke sessions list --json" in loop
+        assert "near reclaim is revived before anything else in the pass" in loop
+
+    def test_no_steer_file_teaches_steerer_sent_only_scope(self):
+        corpus = _corpus()
+        assert "every envelope this steerer sent" not in corpus
+
     def test_backstop_is_only_for_unpicked_work(self):
         loop = _read(_STEER_DIR / "loop.md")
         assert "unclaimed" in loop
@@ -103,7 +132,7 @@ class TestSteerSkillContract:
         assert "ScheduleWakeup" in loop
         assert "session_message_recipients" in loop
         assert "cursor-agent --resume <session-id>" in loop
-        assert "Negative-space checks — every periodic pass" in loop
+        assert "Negative-space checks — first, every periodic pass" in loop
         assert "injection_count=0" in loop
         assert "liveness=stale" in loop
         assert "failures are silences" in loop
