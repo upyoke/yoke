@@ -19,12 +19,6 @@ from yoke_harness.session_relay_claude import run_claude_cli_adapter
 from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
 
 
-WAKE_PROMPT = (
-    "Yoke message reference `message-1` is pending. Inspect and handle authenticated "
-    "Yoke messages through normal Yoke hooks or message surfaces."
-)
-
-
 @pytest.fixture(autouse=True)
 def _transcript_present_by_default(monkeypatch):
     monkeypatch.setattr(
@@ -76,12 +70,12 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
         "-p",
         "--resume",
         ACTUAL_ID,
-        WAKE_PROMPT,
+        CHECK_INBOX,
         "--output-format",
         "json",
     )
     assert invocation.session_id == ACTUAL_ID
-    assert invocation.instruction == WAKE_PROMPT
+    assert invocation.instruction == CHECK_INBOX
     assert context.job_id == scenario
     assert all(
         token not in invocation.argv

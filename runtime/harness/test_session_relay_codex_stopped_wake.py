@@ -8,13 +8,14 @@ from uuid import UUID
 
 import pytest
 
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_codex_app_server as app_server
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
 from yoke_harness.session_relay_codex_cli import CodexCliTransport
 
 
 SESSION_ID = "01a02ee1-a421-7520-81d5-a085feeac471"
-INSTRUCTION = "Yoke message message-1: check your Yoke messages."
+INSTRUCTION = native_wake_instruction("message-1")
 INSTRUCTION_ID = f"message:message-1:recipient:{SESSION_ID}"
 
 
