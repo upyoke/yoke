@@ -135,11 +135,7 @@ def test_a_failed_probe_serves_the_last_version_the_surface_ever_reported(
     """
     aged = time.time() - (SURFACE_VERSION_MAX_AGE_SECONDS * 4)
     update_surface_probe_cache(
-        (
-            SurfaceProbeResult(
-                SURFACE, "exec", "ok", INSTALLED_VERSION, 55, None, aged
-            ),
-        ),
+        (SurfaceProbeResult(SURFACE, "exec", "ok", INSTALLED_VERSION, 55, None, aged),),
         state_dir=tmp_path,
     )
     monkeypatch.setattr(
