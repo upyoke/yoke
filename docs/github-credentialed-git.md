@@ -57,6 +57,19 @@ Git contacts HTTPS, the URL-scoped header applies, and the stored token serves
 the checkout — no key required. This is what makes `https` and `ssh` origins
 behave identically from the engine's point of view.
 
+## Which credential
+
+The token comes from the same credential store the installed git credential
+helper reads, keyed by the request's protocol and host — not from the
+API-side token reader.
+
+That distinction is load-bearing. Refreshing a GitHub App user authorization
+rotates it and revokes the previous access token, so a git command that
+minted its own token through the refreshing path could have it revoked
+mid-flight by any other Yoke process on the machine that refreshed in
+between. The symptom is a push that fails with a credential prompt on a busy
+machine and succeeds on a quiet one.
+
 ## When no credential resolves
 
 The command is refused, by name, with its recovery:

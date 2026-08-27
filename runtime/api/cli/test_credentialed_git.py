@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import subprocess
-from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -14,21 +13,6 @@ from yoke_cli.config import credentialed_git_command as cgc
 WEB_URL = "https://github.com"
 HTTPS_ORIGIN = "https://github.com/acme/widgets.git"
 SSH_ORIGIN = "git@github.com:acme/widgets.git"
-
-
-class _Token:
-    def __init__(self, value: str, expires_in_seconds: int = 3600) -> None:
-        self.access_token = value
-        self.expires_at = datetime.now(timezone.utc) + timedelta(
-            seconds=expires_in_seconds
-        )
-
-
-@pytest.fixture(autouse=True)
-def _clear_token_cache():
-    cg._cached_token = None
-    yield
-    cg._cached_token = None
 
 
 @pytest.fixture
@@ -165,11 +149,12 @@ def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
 
-    def _unavailable():
+    def _unavailable(config_path, fields, **kwargs):
         raise RuntimeError("machine GitHub App authorization is not configured")
 
     monkeypatch.setattr(
-        "yoke_cli.config.github_local_user_access.access_token", _unavailable,
+        "yoke_cli.config.github_git_credential_store.access_token_for_git_request",
+        _unavailable,
     )
     with pytest.raises(cg.CredentialedGitError) as excinfo:
         with cg.git_environment(["-C", "/repo", "push", "origin", "main"]):
@@ -178,6 +163,53 @@ def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
     assert "not configured" in message
     assert "yoke github connect" in message
     assert HTTPS_ORIGIN in message
+
+
+def test_an_unmatched_host_refuses_rather_than_running_uncredentialed(monkeypatch):
+    monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    monkeypatch.setattr(
+        "yoke_cli.config.github_git_credential_store.access_token_for_git_request",
+        lambda config_path, fields, **kwargs: None,
+    )
+    with pytest.raises(cg.CredentialedGitError) as excinfo:
+        with cg.git_environment(["-C", "/repo", "push", "origin", "main"]):
+            pass
+    assert "no stored GitHub credential matches host github.com" in str(excinfo.value)
+
+
+def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
+    """The API reader rotates and revokes; a git command must not mint its own.
+
+    Refreshing a GitHub App user authorization revokes the previous access
+    token, so a push that minted one could have it revoked by any other Yoke
+    process that refreshed in between — a failure that only shows up on a
+    busy machine.
+    """
+    monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    seen: list[dict] = []
+
+    def _store(config_path, fields, **kwargs):
+        seen.append(dict(fields))
+        return {"access_token": "gho_from_store"}
+
+    def _api_reader(*args, **kwargs):
+        raise AssertionError("git auth must not go through the API token reader")
+
+    monkeypatch.setattr(
+        "yoke_cli.config.github_git_credential_store.access_token_for_git_request",
+        _store,
+    )
+    monkeypatch.setattr(
+        "yoke_cli.config.github_local_user_access.access_token", _api_reader,
+    )
+    with cg.git_environment(["-C", "/repo", "push", "origin", "main"]) as env:
+        values = _config_values(env)
+        assert values[f"http.{HTTPS_ORIGIN}.extraheader"][-1].endswith(
+            _expected_basic("gho_from_store")
+        )
+    assert seen == [{"protocol": "https", "host": "github.com"}]
 
 
 def test_run_reports_a_refusal_as_a_failed_command_not_a_crash(monkeypatch):
@@ -226,78 +258,3 @@ def test_a_timeout_names_what_stalled_instead_of_reading_as_a_hang(monkeypatch):
     assert result.returncode == cg.TIMEOUT_EXIT_CODE
     assert "did not finish within 15s" in result.stderr
     assert "cannot be waiting on a prompt" in result.stderr
-
-
-def test_a_cached_token_is_reused_until_it_nears_expiry(monkeypatch):
-    calls: list[int] = []
-
-    def _access_token():
-        calls.append(1)
-        return _Token("gho_live")
-
-    monkeypatch.setattr(
-        "yoke_cli.config.github_local_user_access.access_token", _access_token,
-    )
-    assert cg.resolve_token(HTTPS_ORIGIN) == "gho_live"
-    assert cg.resolve_token(HTTPS_ORIGIN) == "gho_live"
-    assert len(calls) == 1
-
-
-def test_a_token_inside_the_refresh_margin_is_read_again(monkeypatch):
-    calls: list[int] = []
-
-    def _access_token():
-        calls.append(1)
-        return _Token("gho_live", expires_in_seconds=30)
-
-    monkeypatch.setattr(
-        "yoke_cli.config.github_local_user_access.access_token", _access_token,
-    )
-    cg.resolve_token(HTTPS_ORIGIN)
-    cg.resolve_token(HTTPS_ORIGIN)
-    assert len(calls) == 2
-
-
-def test_a_failed_credentialed_command_says_the_credential_was_applied(
-    monkeypatch, stored_token,
-):
-    monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
-
-    def _fail(argv, **kwargs):
-        return subprocess.CompletedProcess(
-            argv, 128, "", "fatal: unable to get password from user",
-        )
-
-    monkeypatch.setattr(subprocess, "run", _fail)
-    result = cg.run(["-C", "/repo", "push", "origin", "main"])
-    assert result.returncode == 128
-    assert "unable to get password" in result.stderr
-    # Without this line the same git error reads identically whether Yoke
-    # supplied a credential the remote rejected or supplied none at all.
-    assert "credential WAS applied" in result.stderr
-    assert HTTPS_ORIGIN in result.stderr
-
-
-def test_a_failed_uncredentialed_command_says_why_none_was_applied(monkeypatch):
-    monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
-    monkeypatch.setattr(
-        cgc, "remote_url", lambda repo, remote: "https://gitlab.example/a/b.git",
-    )
-
-    def _fail(argv, **kwargs):
-        return subprocess.CompletedProcess(argv, 128, "", "fatal: repository not found")
-
-    monkeypatch.setattr(subprocess, "run", _fail)
-    result = cg.run(["-C", "/repo", "fetch", "origin"])
-    assert "No credential was applied" in result.stderr
-    assert "not this machine's configured GitHub origin" in result.stderr
-
-
-def test_a_failed_local_command_gets_no_credential_attribution(monkeypatch):
-    def _fail(argv, **kwargs):
-        return subprocess.CompletedProcess(argv, 1, "", "fatal: not a git repository")
-
-    monkeypatch.setattr(subprocess, "run", _fail)
-    result = cg.run(["-C", "/repo", "status"])
-    assert result.stderr == "fatal: not a git repository"

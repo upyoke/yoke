@@ -32,9 +32,8 @@ of hanging on a prompt that no one is there to answer.
 from __future__ import annotations
 
 import subprocess
-import threading
+import urllib.parse
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from typing import Any, Iterator, Mapping, Sequence
 
 from yoke_cli.config.credentialed_git_command import (
@@ -52,14 +51,6 @@ MISSING_CREDENTIAL_RECOVERY = (
     "and nothing else stands in for it. Run `yoke github status` to see what "
     "is stored, then `yoke github connect` to authorize this machine."
 )
-
-# Refreshing a couple of minutes before expiry keeps a long merge from
-# carrying a token that dies between the fetch that opened it and the push
-# that ends it.
-_TOKEN_REFRESH_MARGIN_SECONDS = 120
-
-_token_lock = threading.Lock()
-_cached_token: tuple[str, Any] | None = None
 
 
 class CredentialedGitError(RuntimeError):
@@ -213,31 +204,41 @@ def _attributed(
 
 
 def resolve_token(https_url: str) -> str:
-    """Return the machine's GitHub access token, or refuse by name."""
-    global _cached_token
+    """Return the machine's GitHub token for a git request, or refuse by name.
 
-    with _token_lock:
-        cached = _cached_token
-    if cached is not None and _still_valid(cached[1]):
-        return cached[0]
+    Resolution goes through the same credential store the installed git
+    credential helper reads, keyed by the request's protocol and host. That
+    store holds the machine operation lock and hands back the credential that
+    is current *now*.
+
+    The API-side reader is deliberately not used here. Refreshing a GitHub App
+    user authorization rotates it and revokes the previous access token, so a
+    git command that minted its own token through that path could have it
+    revoked out from under it by any other Yoke process on the machine that
+    refreshed in between — which is a push that fails with a credential prompt
+    on a busy machine and succeeds on a quiet one.
+    """
+    from yoke_cli.config import github_git_credential_store as store
+    from yoke_cli.config import machine_config
+
+    host = urllib.parse.urlsplit(https_url).netloc
     try:
-        from yoke_cli.config import github_local_user_access
-
-        resolved = github_local_user_access.access_token()
+        credential = store.access_token_for_git_request(
+            machine_config.config_path(None),
+            {"protocol": "https", "host": host},
+        )
     except Exception as exc:  # noqa: BLE001 - every failure is one refusal
         raise CredentialedGitError(
             f"cannot authenticate a git operation against {https_url}: {exc}. "
             f"{MISSING_CREDENTIAL_RECOVERY}"
         ) from exc
-    token = str(getattr(resolved, "access_token", "") or "")
+    token = str((credential or {}).get("access_token") or "")
     if not token:
         raise CredentialedGitError(
-            f"cannot authenticate a git operation against {https_url}: the "
-            "stored GitHub authorization returned no access token. "
+            f"cannot authenticate a git operation against {https_url}: no "
+            f"stored GitHub credential matches host {host}. "
             f"{MISSING_CREDENTIAL_RECOVERY}"
         )
-    with _token_lock:
-        _cached_token = (token, getattr(resolved, "expires_at", None))
     return token
 
 
@@ -277,16 +278,6 @@ def _ssh_rewrite_entries(web_url: str | None) -> tuple[str, ...]:
     host = str(endpoint.origin).split("://", 1)[-1]
     key = f"url.{endpoint.origin}/.insteadOf"
     return (f"{key}=git@{host}:", f"{key}=ssh://git@{host}/")
-
-
-def _still_valid(expires_at: Any) -> bool:
-    if not isinstance(expires_at, datetime):
-        return False
-    deadline = expires_at
-    if deadline.tzinfo is None:
-        deadline = deadline.replace(tzinfo=timezone.utc)
-    remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
-    return remaining > _TOKEN_REFRESH_MARGIN_SECONDS
 
 
 def _run(
