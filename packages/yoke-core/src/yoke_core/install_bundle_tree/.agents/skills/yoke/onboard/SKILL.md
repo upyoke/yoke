@@ -6,7 +6,7 @@ argument-hint: "[--project P] [--run-id RUN]"
 
 # /yoke onboard
 
-Make an already-wired project **execution-ready** from a supported harness. The terminal wizard (`yoke onboard`) owns wire-up — machine profile, account, GitHub, project binding, review. This skill starts from strategy and derives everything else: the strategy-doc corpus, one confirmed execution profile, scaffold and infra Packs, hosting verification, environment/site/flow registration, the domain record, a gated infrastructure apply plus first deploy, and the first seeded work items.
+Make an already-wired project **execution-ready** from a supported harness. The terminal wizard (`yoke onboard`) owns wire-up — machine profile, account, GitHub, project binding, review. This skill starts from strategy and derives everything else: the strategy-doc corpus, one confirmed execution profile, scaffold and infra Packs, hosting verification, hosted environment/site/flow registration or an explicit no-host route, the domain record, a gated infrastructure apply plus first deploy, and the first seeded work items.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -53,12 +53,12 @@ A re-run walks the same steps, detects each already-satisfied step through its s
 
 ## Pacing And Gates
 
-Exactly two stops:
+Exactly two stops on a managed-host run. A `deferred|not-needed` branch records step 7's terminal result without presenting the second stop:
 
 1. **Execution-profile confirmation** (step 2) — the whole derived profile is confirmed or adjusted once; nothing mutates before it. The profile always carries a test-setup box; the wizard never asks how a project's tests run, so this skill must.
 2. **Infrastructure approval gate** (step 7) — the full apply/deploy preview takes an explicit yes; `[y/N]` defaults No.
 
-Between the profile confirmation and the infrastructure gate, the applying steps (scaffold install, hosting verification, environment/site/flow registration, domain record) run straight through unattended. Credential creation is the exception: it always remains user-action plus explicit approval, and the secret values pass only through `--value-stdin` prompts. First-work seeding (step 8) takes one batched confirmation of the proposed item list.
+Between the profile confirmation and the infrastructure gate, the applying steps (scaffold install, hosting verification, the matching hosted or no-host registration branch, domain record) run straight through unattended. Credential creation is the exception: it always remains user-action plus explicit approval, and the secret values pass only through `--value-stdin` prompts. First-work seeding (step 8) takes one batched confirmation of the proposed item list.
 
 ## Step Map
 
@@ -70,9 +70,9 @@ Execute the steps in order. Read each sub-file when its step is next; each file 
 | 2 | Derive the execution profile | [profile-and-scaffold.md](profile-and-scaffold.md) | Strategy docs accepted | Only when steps 3–8 all already satisfy their skip predicates (nothing left to apply); otherwise re-derive and re-confirm — the profile is never persisted |
 | 3 | Install the scaffold Pack | [profile-and-scaffold.md](profile-and-scaffold.md) | Confirmed profile includes a scaffold Pack (an existing app maps instead of installing) | `.yoke/packs.json` receipt already records the Pack |
 | 4 | Hosting capability | [hosting-and-environments.md](hosting-and-environments.md) | The project has not declared that Yoke manages no host | Declared posture is `no-yoke-managed-host`, or `aws-admin` capability present AND live identity probe passes |
-| 5 | Infra Packs + environments/sites/flow + verification binding | [hosting-and-environments.md](hosting-and-environments.md) | Scaffold present (installed or mapped); hosting verified, declared not-needed, or explicitly deferred | Registrations already match the profile and the confirmed test setup is already bound; recorded Packs skip individually |
-| 6 | Domain | [domain-and-deploy.md](domain-and-deploy.md) | Environments registered | Domain posture already recorded |
-| 7 | Gated infra apply + first deploy | [domain-and-deploy.md](domain-and-deploy.md) | Every earlier step satisfied | Infra applied and the deploy live and healthy |
+| 5 | Infra Packs + verification binding; hosted registrations or no-host cleanup | [hosting-and-environments.md](hosting-and-environments.md) | Scaffold present; branch on live `hosting-setup=verified\|configured` versus `deferred\|not-needed` | Live hosting branch matches the profile: managed registrations/default plus test binding exist, or no-host default is empty and terminal rows match; independent Project Structure work is satisfied; recorded Packs skip individually |
+| 6 | Domain | [domain-and-deploy.md](domain-and-deploy.md) | Hosted environments registered, or live hosting row is `deferred\|not-needed` | Live managed-host domain exists, or the current no-host branch recorded `domain-setup=not-needed` |
+| 7 | Gated infra apply + first deploy | [domain-and-deploy.md](domain-and-deploy.md) | Live hosting row is `verified\|configured` and every earlier managed-host step is satisfied; no-host branch records its terminal result without entering the gate | Managed deploy is live and healthy, or terminal `deferred\|not-needed` still matches the live hosting row |
 | 8 | Seed the first work | [seed-work.md](seed-work.md) | CURRENT-PLAN exists (a deferred deploy does not block seeding) | This run already recorded seeded items on its checklist row |
 
 Checklist rows written per step:
@@ -110,4 +110,4 @@ yoke onboard checklist --run-id {run_id} \
 
 ## Handoff
 
-After step 8, finish with a concise summary: project slug and checkout, checklist run id with open/blocked rows, strategy docs written, Packs installed with versions, capabilities verified (redacted), environments and flows registered, deploy URL plus smoke result (or the explicit deferral), seeded item ids, and remaining blockers. Do not claim onboarding is complete while any required row is `unknown`, `needed`, or `blocked`. Point the operator at `/yoke do` to start the build loop — the loop itself is outside this skill.
+After step 8, finish with a concise summary: project slug and checkout, checklist run id with open/blocked rows, strategy docs written, Packs installed with versions, capabilities verified (redacted), environments and flows registered or explicitly absent, deploy URL plus smoke result (or the explicit deferral), seeded item ids, and remaining blockers. Do not claim onboarding is complete while any required row is `unknown`, `needed`, or `blocked`. Point the operator at `/yoke do` to start the build loop — the loop itself is outside this skill.
