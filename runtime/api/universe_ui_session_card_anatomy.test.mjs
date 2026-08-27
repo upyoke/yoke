@@ -272,7 +272,7 @@ test("Sessions card badges parked with the reason and hides every other mode", a
   const root = documentNode.createElement("div");
   const rows = [
     {
-      session_id: "parked-1", liveness: "stale",
+      session_id: "parked-1", liveness: "active",
       execution_lane: "DARIUS", mode: "parked",
       parked_reason: "waiting on YOK-2546",
       executor: "codex", model: "gpt-5.6-sol",
