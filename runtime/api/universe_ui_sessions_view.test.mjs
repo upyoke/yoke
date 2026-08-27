@@ -197,16 +197,20 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
-    "🧭 Integration", "claude-opus-4-8", "claim held", "ben", "a7b4pl",
+    "🧭 Integration", "claude-opus-4-8", "claim held", "idle", "ben", "a7b4pl",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);
   }
   for (const expected of [
     "codex", "DARIUS", "gpt-5.6-sol", "worktree attached",
-    "—", "machine", "v8c2qa",
+    "idle", "—", "machine", "v8c2qa",
   ]) {
     assert.ok(cardText[1].includes(expected), expected);
   }
+  assert.deepEqual(
+    byClass(cards[0], "session-age-prefix").map((node) => node.textContent),
+    ["claim held ", "idle "],
+  );
 
   const reclaim = byClass(root, "item-button").find(
     (button) => button.textContent === "Reclaim stale",
