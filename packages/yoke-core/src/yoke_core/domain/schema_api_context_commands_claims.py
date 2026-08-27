@@ -59,7 +59,12 @@ CLAIMS_COMMANDS: list[dict] = [
             "the project refuses and names its holder. Inspect with `yoke "
             "claims steering list --project P --active-only`; finish with "
             "`yoke claims steering release CLAIM_ID --reason TEXT`. Ordinary "
-            "release and stale-session reclaim free the steering seat."
+            "release and stale-session reclaim free the steering seat. The "
+            "itemless loop is `/yoke steer SLUG [--project P]`: a strategy "
+            "doc is required (offer to create if absent), the document lock "
+            "releases before a Blitz can claim it, workers launch CLI-only "
+            "and item-bound (never `/yoke do`), and unpicked work is staffed "
+            "with `yoke steering backstop evaluate --project P`."
         ),
     },
     {
