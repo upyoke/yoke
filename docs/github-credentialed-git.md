@@ -70,6 +70,13 @@ mid-flight by any other Yoke process on the machine that refreshed in
 between. The symptom is a push that fails with a credential prompt on a busy
 machine and succeeds on a quiet one.
 
+Which Yoke connection the machine profile is proven against is pinned the
+same way a merge child pins it. An owner-only `<env>-db-admin` connection is
+a door into one universe's database, not a plane that can answer for the
+saved profile, so the https sibling it administers answers instead. Without
+that pinning a merge refuses at the moment it tries to publish — the engine
+has already switched to the admin connection by then.
+
 ## When no credential resolves
 
 The command is refused, by name, with its recovery:

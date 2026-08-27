@@ -32,7 +32,6 @@ of hanging on a prompt that no one is there to answer.
 from __future__ import annotations
 
 import subprocess
-import urllib.parse
 from contextlib import contextmanager
 from typing import Any, Iterator, Mapping, Sequence
 
@@ -207,9 +206,10 @@ def resolve_token(https_url: str) -> str:
     """Return the machine's GitHub token for a git request, or refuse by name.
 
     Resolution goes through the same credential store the installed git
-    credential helper reads, keyed by the request's protocol and host. That
-    store holds the machine operation lock and hands back the credential that
-    is current *now*.
+    credential helper reads. That store holds the machine operation lock and
+    hands back the credential that is current *now*. The caller has already
+    established that the target is the configured GitHub origin, so the
+    store's own host match would only repeat that decision.
 
     The API-side reader is deliberately not used here. Refreshing a GitHub App
     user authorization rotates it and revokes the previous access token, so a
@@ -219,13 +219,21 @@ def resolve_token(https_url: str) -> str:
     on a busy machine and succeeds on a quiet one.
     """
     from yoke_cli.config import github_git_credential_store as store
+    from yoke_cli.config import github_merge_path_binding
     from yoke_cli.config import machine_config
 
-    host = urllib.parse.urlsplit(https_url).netloc
+    # Which Yoke connection the machine profile is proven against is pinned
+    # the same way a merge child pins it: an owner-only admin connection is a
+    # door into one universe's database, not a plane that can answer for the
+    # saved profile, so the https sibling it administers answers instead.
+    # Without this a merge refuses at the moment it tries to publish, by
+    # which point its engine has already switched to the admin connection.
+    selection = github_merge_path_binding.resolve_selection()
     try:
-        credential = store.access_token_for_git_request(
+        credential = store.access_token_from_machine_config(
             machine_config.config_path(None),
-            {"protocol": "https", "host": host},
+            expected_service_api_url=selection.service_api_url,
+            expected_local_connection=selection.local_connection_selected,
         )
     except Exception as exc:  # noqa: BLE001 - every failure is one refusal
         raise CredentialedGitError(
@@ -235,8 +243,8 @@ def resolve_token(https_url: str) -> str:
     token = str((credential or {}).get("access_token") or "")
     if not token:
         raise CredentialedGitError(
-            f"cannot authenticate a git operation against {https_url}: no "
-            f"stored GitHub credential matches host {host}. "
+            f"cannot authenticate a git operation against {https_url}: the "
+            "stored GitHub authorization returned no access token. "
             f"{MISSING_CREDENTIAL_RECOVERY}"
         )
     return token

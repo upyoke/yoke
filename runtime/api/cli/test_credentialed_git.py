@@ -149,11 +149,11 @@ def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
 
-    def _unavailable(config_path, fields, **kwargs):
+    def _unavailable(config_path, **kwargs):
         raise RuntimeError("machine GitHub App authorization is not configured")
 
     monkeypatch.setattr(
-        "yoke_cli.config.github_git_credential_store.access_token_for_git_request",
+        "yoke_cli.config.github_git_credential_store.access_token_from_machine_config",
         _unavailable,
     )
     with pytest.raises(cg.CredentialedGitError) as excinfo:
@@ -165,17 +165,17 @@ def test_no_credential_refuses_by_name_with_its_recovery(monkeypatch):
     assert HTTPS_ORIGIN in message
 
 
-def test_an_unmatched_host_refuses_rather_than_running_uncredentialed(monkeypatch):
+def test_an_empty_credential_refuses_rather_than_running_uncredentialed(monkeypatch):
     monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
     monkeypatch.setattr(
-        "yoke_cli.config.github_git_credential_store.access_token_for_git_request",
-        lambda config_path, fields, **kwargs: None,
+        "yoke_cli.config.github_git_credential_store.access_token_from_machine_config",
+        lambda config_path, **kwargs: {},
     )
     with pytest.raises(cg.CredentialedGitError) as excinfo:
         with cg.git_environment(["-C", "/repo", "push", "origin", "main"]):
             pass
-    assert "no stored GitHub credential matches host github.com" in str(excinfo.value)
+    assert "returned no access token" in str(excinfo.value)
 
 
 def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
@@ -190,15 +190,15 @@ def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
     monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
     seen: list[dict] = []
 
-    def _store(config_path, fields, **kwargs):
-        seen.append(dict(fields))
+    def _store(config_path, **kwargs):
+        seen.append(dict(kwargs))
         return {"access_token": "gho_from_store"}
 
     def _api_reader(*args, **kwargs):
         raise AssertionError("git auth must not go through the API token reader")
 
     monkeypatch.setattr(
-        "yoke_cli.config.github_git_credential_store.access_token_for_git_request",
+        "yoke_cli.config.github_git_credential_store.access_token_from_machine_config",
         _store,
     )
     monkeypatch.setattr(
@@ -209,7 +209,7 @@ def test_the_credential_comes_from_the_store_the_git_helper_reads(monkeypatch):
         assert values[f"http.{HTTPS_ORIGIN}.extraheader"][-1].endswith(
             _expected_basic("gho_from_store")
         )
-    assert seen == [{"protocol": "https", "host": "github.com"}]
+    assert len(seen) == 1
 
 
 def test_run_reports_a_refusal_as_a_failed_command_not_a_crash(monkeypatch):
@@ -258,3 +258,39 @@ def test_a_timeout_names_what_stalled_instead_of_reading_as_a_hang(monkeypatch):
     assert result.returncode == cg.TIMEOUT_EXIT_CODE
     assert "did not finish within 15s" in result.stderr
     assert "cannot be waiting on a prompt" in result.stderr
+
+
+def test_the_credential_is_proven_against_the_pinned_merge_connection(monkeypatch):
+    """A merge child switches its engine to an owner-only admin connection.
+
+    The saved machine profile answers for the https plane that connection
+    administers, not for the admin door itself, so resolution has to pin the
+    same selection the merge path pins. Without it a merge refuses with
+    "saved GitHub App profile does not match the active Yoke connection" at
+    the moment it tries to publish.
+    """
+    monkeypatch.setattr(cg, "configured_web_url", lambda: WEB_URL)
+    monkeypatch.setattr(cgc, "remote_url", lambda repo, remote: HTTPS_ORIGIN)
+    seen: dict = {}
+
+    class _Selection:
+        service_api_url = "https://yoke.example/api"
+        local_connection_selected = False
+
+    monkeypatch.setattr(
+        "yoke_cli.config.github_merge_path_binding.resolve_selection",
+        lambda *a, **k: _Selection(),
+    )
+
+    def _store(config_path, **kwargs):
+        seen.update(kwargs)
+        return {"access_token": "gho_pinned"}
+
+    monkeypatch.setattr(
+        "yoke_cli.config.github_git_credential_store.access_token_from_machine_config",
+        _store,
+    )
+    with cg.git_environment(["-C", "/repo", "push", "origin", "main"]):
+        pass
+    assert seen["expected_service_api_url"] == "https://yoke.example/api"
+    assert seen["expected_local_connection"] is False
