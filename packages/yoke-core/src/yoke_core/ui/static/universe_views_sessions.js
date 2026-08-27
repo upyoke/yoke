@@ -77,18 +77,18 @@ function appendRuntime(documentNode, body, row) {
 }
 function appendAge(documentNode, body, row) {
   const age = el(documentNode, "div", "session-age");
-  let lead = "idle ";
-  let timestamp = row.activity_at;
+  const add = (prefix, timestamp) => {
+    age.appendChild(el(documentNode, "span", "session-age-prefix", prefix));
+    age.appendChild(relativeTime(documentNode, timestamp));
+  };
   if (row.current_item && ownsFocusedItem(row)) {
-    lead = "claim held ";
-    timestamp = row.claim_started_at || row.activity_at;
+    add("claim held ", row.claim_started_at || row.activity_at);
+    age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   } else if (row.current_item) {
-    lead = row.work_role
-      ? "worktree attached · active "
-      : "attributed · active ";
+    add(row.work_role ? "worktree attached · active " : "attributed · active ", row.activity_at);
+    age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
-  age.appendChild(el(documentNode, "span", "session-age-prefix", lead));
-  age.appendChild(relativeTime(documentNode, timestamp));
+  add("idle ", row.activity_at);
   body.appendChild(age);
 }
 function footerIdentity(row, who, mode) {
