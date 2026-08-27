@@ -1,8 +1,10 @@
-"""Scoped replay and collision decisions for function-call dispatch."""
+"""Scoped replay, collision, and in-flight function-call deduplication."""
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, Tuple
+from contextlib import contextmanager
+import hashlib
+from typing import Any, Callable, Dict, Iterator, Optional, Tuple
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -18,6 +20,73 @@ IdempotencyLookup = Callable[
     [str],
     Optional[IdempotencyReplay],
 ]
+
+
+def _reservation_key(request_id: str) -> int:
+    """Map one request id onto the signed bigint advisory-lock namespace."""
+    digest = hashlib.sha256(
+        f"function-call:{request_id}".encode("utf-8")
+    ).digest()
+    return int.from_bytes(digest[:8], byteorder="big", signed=True)
+
+
+def _close_quietly(conn: Any) -> None:
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+@contextmanager
+def request_reservation(
+    entry: RegistryEntry,
+    request: FunctionCallRequest,
+) -> Iterator[None]:
+    """Serialize concurrent copies of one side-effecting request.
+
+    The ledger can replay only after the first successful dispatch records its
+    result. A transport retry may arrive before that write, so Postgres holds a
+    session advisory lock from the initial lookup through the handler and
+    ledger write. A waiting copy then observes and replays the committed row.
+    Session locks release automatically if the serving process disappears.
+
+    Connection acquisition remains best-effort, matching the ledger's existing
+    degraded posture. Handler-managed idempotency and read-only calls keep their
+    own concurrency semantics.
+    """
+    if (
+        not request.request_id
+        or not entry.side_effects
+        or "handler_managed_idempotency" in entry.guardrails
+    ):
+        yield
+        return
+
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.control_plane_transport import local_connection_or_none
+
+    conn = local_connection_or_none(db_helpers.connect)
+    if conn is None:
+        yield
+        return
+
+    lock_key = _reservation_key(request.request_id)
+    try:
+        conn.execute("SELECT pg_advisory_lock(%s)", (lock_key,))
+    except Exception:
+        _close_quietly(conn)
+        yield
+        return
+
+    try:
+        yield
+    finally:
+        try:
+            conn.execute("SELECT pg_advisory_unlock(%s)", (lock_key,))
+        except Exception:
+            pass
+        finally:
+            _close_quietly(conn)
 
 
 def _idempotency_lookup(
@@ -115,4 +184,9 @@ def handle_idempotency(
     )
 
 
-__all__ = ["IdempotencyLookup", "IdempotencyReplay", "handle_idempotency"]
+__all__ = [
+    "IdempotencyLookup",
+    "IdempotencyReplay",
+    "handle_idempotency",
+    "request_reservation",
+]
