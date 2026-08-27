@@ -44,6 +44,7 @@ def handle_session_terminate(request: FunctionCallRequest) -> HandlerOutcome:
             override_chain_end=body.override_chain_end,
             chain_end_rationale=body.chain_end_rationale,
         )
+        conn.commit()
         return HandlerOutcome(result_payload=result)
     except SessionError as exc:
         conn.rollback()
