@@ -31,6 +31,7 @@ _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
             "usher",
             "strategize",
             "feed",
+            "steer",
             "doctor",
         ],
         "ALTMAN": [

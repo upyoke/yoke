@@ -134,6 +134,7 @@ class TestSkillDiscovery:
         "charge",
         "feed",
         "strategize",
+        "steer",
         "onboard",
     )
 
