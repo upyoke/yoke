@@ -83,7 +83,9 @@ def test_relay_prioritizes_and_settles_termination_reap() -> None:
     assert job.job_id == TARGET_SESSION_ID
     assert job.target_session_id == TARGET_SESSION_ID
     assert job.target_native_thread_id == NATIVE_ID
-    assert job.target_liveness == "terminated"
+    # The kill already landed, so the target's derived liveness is ended;
+    # there is no `terminated` liveness value.
+    assert job.target_liveness == "ended"
     assert job.native_instruction == ""
 
     result = report_relay_job(
