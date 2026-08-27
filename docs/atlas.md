@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-27T16:10:18Z_
+_Audit generated_at: 2026-08-27T17:09:55Z_
 
 ## 1. Summary
 
-- Function ids registered: **428**
+- Function ids registered: **430**
 - Internal dispatch-only functions without CLI adapters: **84**
-- `yoke` CLI subcommands: **355** (355 carry usable `--help`)
-- Operation tracker: **332 wrapped**, 10 tool_cli, 126 permanent, 0 pending
-- Skill-body recipes: 308 total (256 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **357** (357 carry usable `--help`)
+- Operation tracker: **334 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- Skill-body recipes: 309 total (257 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **332** (operation tracker confirms 332 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **334** (operation tracker confirms 334 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -203,6 +203,8 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **332** (operation track
 | qa | `yoke qa item-plan attach` | `qa.item_plan.attach` | ok |
 | qa | `yoke qa method get` | `qa.method.get` | ok |
 | qa | `yoke qa method list` | `qa.method.list` | ok |
+| qa | `yoke qa no-tests attest` | `qa.no_tests.attest` | ok |
+| qa | `yoke qa no-tests clear` | `qa.no_tests.clear` | ok |
 | qa | `yoke qa plan create` | `qa.plan.create` | ok |
 | qa | `yoke qa plan edit` | `qa.plan.edit` | ok |
 | qa | `yoke qa plan get` | `qa.plan.get` | ok |
@@ -534,8 +536,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 44 |
-| claude-code | 6 |
+| codex | 42 |
+| claude-code | 7 |
+| cursor | 1 |
 
 ## 8. Contradictions
 

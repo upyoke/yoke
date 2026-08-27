@@ -6,10 +6,12 @@ import json
 
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.projects_seed_ci_workflow import CI_WORKFLOW_CAPABILITY_TYPE
+from yoke_core.domain.qa_command_plan_convergence import (
+    converge_registered_command_plans,
+)
 from yoke_core.domain.qa_command_plan_registration import (
     CI_COMMAND_METHOD_ID,
     LOCAL_COMMAND_METHOD_ID,
-    converge_registered_command_plans,
     ensure_registered_command_plan,
 )
 from yoke_core.domain.qa_plan_project_defaults import set_project_default
