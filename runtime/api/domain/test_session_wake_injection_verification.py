@@ -187,6 +187,62 @@ def test_an_undelivered_wake_frees_the_receipt_for_the_next_attempt() -> None:
     assert [row["message_id"] for row in eligible] == ["message-1"]
 
 
+def test_a_broker_relayed_wake_is_settled_by_the_same_receipt() -> None:
+    """The peer-hook route earns its verdict from delivery, exactly as direct does."""
+    from runtime.api.domain.test_session_broker_wake import (
+        _heartbeat as _broker_heartbeat,
+        _reserve,
+        _seed,
+        _stamp,
+        RELAY_ID as BROKER_RELAY_ID,
+    )
+    from yoke_core.domain.session_broker_wake_settlement import (
+        complete_broker_hook_lease,
+    )
+
+    conn, _message_id = _seed()
+    conn.execute("UPDATE session_message_recipients SET wake_attempt_count=2")
+    lease = _reserve(conn)
+    complete_broker_hook_lease(
+        conn, lease_id=lease.lease_id, delivered=True, result="injected"
+    )
+    claim_relay_job(
+        conn,
+        _broker_heartbeat(),
+        wait_seconds=0,
+        broker_only=True,
+        broker_lease_id=lease.lease_id,
+        broker_session_id="broker-a",
+        now_provider=lambda: _stamp(seconds=3),
+    )
+    report_relay_job(
+        conn,
+        actor_id=10,
+        relay_id=BROKER_RELAY_ID,
+        job_kind="wake",
+        job_id=lease.attempt_id,
+        lease_id=lease.lease_id,
+        result_code=NATIVE_RESUME_ACCEPTED_RESULT,
+        adapter_revision="codex-relay-v4",
+        now=_stamp(seconds=4),
+    )
+    conn.execute(
+        "UPDATE session_message_recipients SET state='injected',"
+        "injection_count=1,last_injected_at=?",
+        (_stamp(seconds=5),),
+    )
+    conn.commit()
+
+    assert reconcile_spawned_wake_attempts(conn, now=_stamp(seconds=6)) == 1
+
+    row = conn.execute(
+        "SELECT completed_at,result_code FROM session_message_attempts "
+        "WHERE attempt_id=?",
+        (lease.attempt_id,),
+    ).fetchone()
+    assert tuple(row) == (_stamp(seconds=6), WAKE_DELIVERED_RESULT)
+
+
 def test_an_undelivered_direct_wake_hands_the_next_one_to_the_broker() -> None:
     assert TURN_WITHOUT_INJECTION_RESULT in DIRECT_FALLBACK_RESULTS
 
