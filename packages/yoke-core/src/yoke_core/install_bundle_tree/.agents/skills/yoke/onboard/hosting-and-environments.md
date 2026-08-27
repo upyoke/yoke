@@ -253,31 +253,19 @@ local `command` runner. With no declaration the scopes keep that runner, which
 is a correct outcome, not a downgrade.
 
 The binding refuses a workflow the gate cannot reach, and names why. The gate
-starts a workflow by dispatching it with a `yoke_dispatch_id` input, so the
-workflow must declare:
+starts a run by dispatching the workflow with a `yoke_dispatch_id` input, so
+`on:` must carry `workflow_dispatch` declaring that input — without it
+registration refuses, because no run could ever start. `pull_request` is the
+second trigger to look for: without it the gate still dispatches, but pays a
+second suite on every run instead of reusing the pull request's own, and a
+merge-queue project is refused outright since the queue lands only through
+pull requests. Where this machine holds no checkout the declaration cannot be
+read, and the result says so rather than guessing.
 
-```yaml
-on:
-  pull_request:
-  workflow_dispatch:
-    inputs:
-      yoke_dispatch_id:
-        required: false
-        default: ""
-```
-
-Without the `workflow_dispatch` input the gate cannot start a run at all and
-registration refuses. Without `pull_request` the gate still works by
-dispatching, but pays a second suite on every run instead of reusing the pull
-request's own — and a project landing through the merge queue is refused
-outright, because the queue lands only through pull requests. Where this
-machine holds no checkout for the project the declaration cannot be read, and
-the result says so rather than guessing.
-
-Offer the merge queue only when all three hold: GitHub is bound, that test
-workflow is declared, and it carries `merge_group:` among its `on` triggers.
-Creating the row enforces the first two and reads the third from the workflow;
-each missing piece refuses by name.
+Offer the merge queue only when GitHub is bound, that test workflow is
+declared, and it carries `merge_group:` among its `on` triggers. Creating the
+row enforces the first two and reads the third from the workflow; each missing
+piece refuses by name.
 
 ```bash
 yoke projects capability-settings set --project {project} --cap-type merge_queue \
