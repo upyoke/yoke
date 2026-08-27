@@ -37,6 +37,12 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
         bool,
         "Re-surface injected messages until explicit acknowledgment.",
     ),
+    "fleet.wake_ack_grace_seconds": FleetKeySpec(
+        300,
+        int,
+        "Seconds an injected message may go unacknowledged before re-waking.",
+        1,
+    ),
     "fleet.message_expiry_hours": FleetKeySpec(
         24,
         int,

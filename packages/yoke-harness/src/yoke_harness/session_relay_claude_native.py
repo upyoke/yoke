@@ -105,19 +105,46 @@ def lookup_claude_session(invocation: ClaudeNativeInvocation) -> ClaudeProcessRe
     )
 
 
-def _wake_argv(
+def _release_background_job(
     invocation: ClaudeNativeInvocation,
     session_lookup: ClaudeSessionLookup,
-) -> tuple[str, ...] | None:
+) -> dict[str, str]:
+    """Free the conversation so the wake turn can carry its prompt.
+
+    A wake only delivers because the resumed turn runs a prompt: the prompt
+    is what fires a hook, and the hook is what injects the pending envelope.
+    A background job holds its conversation open and the native refuses a
+    headless resume of one that is still running, so the job is stopped
+    first — that keeps the transcript, and the prompt then lands on the same
+    session id instead of on a fork. Only a session the wake scheduler has
+    already found non-active reaches here, so no working agent is stopped.
+
+    Returns the bounded facts recorded on the attempt's evidence.
+    """
     resolution = resolve_background_agent(
         invocation.session_id,
         lambda: session_lookup(invocation),
     )
-    if resolution.short_id is not None:
-        return (invocation.executable, "respawn", resolution.short_id)
-    if resolution.result_code == "background_agent_not_found":
-        return invocation.argv
-    return None
+    evidence = {"background_agent_result": resolution.result_code}
+    if resolution.short_id is None:
+        return evidence
+    try:
+        stopped = _run_claude_command(
+            invocation,
+            (
+                invocation.executable,
+                CLAUDE_BACKGROUND_STOP_COMMAND,
+                resolution.short_id,
+            ),
+        )
+    except Exception:  # native exception text can carry private output
+        return {**evidence, "background_agent_stop": "native_exception"}
+    # The resume runs either way: the job may have exited on its own between
+    # the listing and the stop. When it truly still holds the conversation
+    # the native refuses, and that refusal settles the attempt with its
+    # captured reason rather than reporting a silent success.
+    outcome = "completed" if stopped.returncode == 0 else "native_exit"
+    return {**evidence, "background_agent_stop": outcome}
 
 
 def spawn_claude_wake(
@@ -126,19 +153,18 @@ def spawn_claude_wake(
     *,
     session_lookup: ClaudeSessionLookup = lookup_claude_session,
 ) -> ClaudeResumeProcess | None:
-    argv = _wake_argv(invocation, session_lookup)
-    if argv is None:
-        return None
+    background_job = _release_background_job(invocation, session_lookup)
     environment = _environment(invocation)
     environment[RESUME_ATTEMPT_ENV] = context.job_id
     return spawn_detached_claude_resume(
-        argv,
+        invocation.argv,
         checkout=invocation.cwd,
         environment=environment,
         attempt_id=context.job_id,
         native_session_id=invocation.session_id,
         binary_source="path",
         lease_id=context.lease_id,
+        background_job=background_job,
     )
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from functools import partial
 from pathlib import Path
 
 import pytest
@@ -11,17 +10,12 @@ from runtime.harness.test_session_relay_claude import (
     ACTUAL_ID,
     CHECK_INBOX,
     CLAUDE,
-    SHORT_ID,
     _allow,
-    _agents,
     _context,
-    _created,
 )
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_harness import session_relay_claude as claude_module
-from yoke_harness import session_relay_claude_native as native_module
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
-from yoke_harness.session_relay_claude_native import spawn_claude_wake
 from yoke_harness.session_relay_claude_resume import ClaudeResumeProcess
 
 
@@ -221,52 +215,3 @@ def test_stopped_wake_spawns_when_transcript_exists() -> None:
     assert result.result_code == RESUMED_RUNNING_RESULT
     assert len(calls) == 1
     assert calls[0][1].resume is True
-
-
-def test_launch_created_background_session_wakes_through_daemon_respawn(
-    monkeypatch,
-) -> None:
-    launch = run_claude_cli_adapter(
-        _context(),
-        process_runner=lambda _invocation: _created(),
-        session_lookup=lambda _invocation: _agents(),
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=_allow,
-        attestation_handoff=lambda *_args, **_kwargs: True,
-    )
-    detached = []
-
-    def spawn(argv, **kwargs):
-        detached.append((argv, kwargs))
-        return ClaudeResumeProcess(
-            4321,
-            CLAUDE,
-            "path",
-            Path("/private/captures/background-respawn.capture"),
-            "2026-08-26T12:00:00Z",
-        )
-
-    monkeypatch.setattr(native_module, "spawn_detached_claude_resume", spawn)
-    wake = run_claude_cli_adapter(
-        _context(
-            job_kind="wake",
-            job_id="11111111-1111-4111-8111-111111111111",
-            native_instruction=CHECK_INBOX,
-            target_session_id=launch.native_session_id,
-            launch_attestation=None,
-            target_liveness="ended",
-            wake_mode="waiting",
-        ),
-        wake_spawner=partial(
-            spawn_claude_wake,
-            session_lookup=lambda _invocation: _agents(),
-        ),
-        executable_finder=lambda _name: CLAUDE,
-        version_gate=_allow,
-    )
-
-    argv, kwargs = detached[0]
-    assert launch.native_session_id == ACTUAL_ID
-    assert argv == (CLAUDE, "respawn", SHORT_ID)
-    assert kwargs["native_session_id"] == ACTUAL_ID
-    assert wake.result_code == RESUMED_RUNNING_RESULT
