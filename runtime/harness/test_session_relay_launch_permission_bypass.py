@@ -99,7 +99,9 @@ def test_codex_app_server_wake_resumes_a_thread_unattended(
     outcome = app_module.CodexAppServerTransport(worker=True).wake(request)
 
     assert outcome.state == "accepted"
-    resumed = next(params for method, params in client.calls if method == "thread/resume")
+    resumed = next(
+        params for method, params in client.calls if method == "thread/resume"
+    )
     assert resumed["approvalPolicy"] == "never"
     assert resumed["sandbox"] == "danger-full-access"
 
@@ -129,9 +131,7 @@ def test_cursor_acp_launch_bypass_is_answered_by_the_relay() -> None:
 
 
 def test_an_unaccepted_bypass_disclaimer_is_named_with_its_recovery() -> None:
-    stderr = (
-        b"--bg with bypassPermissions requires accepting the disclaimer first."
-    )
+    stderr = b"--bg with bypassPermissions requires accepting the disclaimer first."
 
     assert classify_native_failure(stderr) == PERMISSION_BYPASS_UNACCEPTED
 
