@@ -82,6 +82,4 @@ def test_status_refuses_a_blank_project_reference():
     with pytest.raises(ValidationError) as caught:
         ProjectGithubBindingStatusRequest(project="   ")
 
-    assert "project slug or numeric project id" in safe_validation_message(
-        caught.value
-    )
+    assert "project slug or numeric project id" in safe_validation_message(caught.value)

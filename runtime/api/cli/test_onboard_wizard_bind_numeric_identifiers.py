@@ -56,9 +56,7 @@ def test_wizard_bind_step_payload_satisfies_the_registered_contract(
         parsed_binds.append(ProjectGithubBindingBindRequest(**payload))
         return {"binding": {"status": "active"}, "permission_status": {}}
 
-    monkeypatch.setattr(
-        project_onboard_progress, "dispatch", dispatch_through_contract
-    )
+    monkeypatch.setattr(project_onboard_progress, "dispatch", dispatch_through_contract)
 
     outcome = project_onboard_progress.store_github_binding(
         None,
