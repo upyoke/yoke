@@ -62,6 +62,16 @@ def test_actively_working_session_with_a_pending_message_is_never_woken() -> Non
     conn = message_connection()
     _send(conn)
     assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=90)) == []
+    # Working means the turn keeps calling tools, not merely that the
+    # heartbeat is fresh. Past the acknowledgement grace window those two
+    # stop meaning the same thing: a session whose hooks have not run since
+    # the envelope arrived is starved rather than served, and is escalated.
+    conn.execute(
+        "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
+        "WHERE session_id='s1'",
+        ("2026-08-22T16:10:00Z", "2026-08-22T16:10:00Z"),
+    )
+    conn.commit()
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11)) == []
 
 

@@ -43,6 +43,13 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
         "Seconds an injected message may go unacknowledged before re-waking.",
         1,
     ),
+    "fleet.stale_alive_probe_seconds": FleetKeySpec(
+        900,
+        int,
+        "Seconds a claim-holding session may stay stale, with its process not "
+        "proven dead, before it is sent a status probe.",
+        1,
+    ),
     "fleet.message_expiry_hours": FleetKeySpec(
         24,
         int,

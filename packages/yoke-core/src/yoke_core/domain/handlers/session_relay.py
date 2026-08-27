@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -21,6 +23,29 @@ from yoke_core.domain.session_relay_types import (
     RelayHeartbeat,
     SessionRelayError,
 )
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _sweep_quiet_claim_holders(conn, *, machine_id: str, projects) -> None:
+    """Probe this machine's silent claim-holders and end the unanswering.
+
+    Both steps are best-effort around the poll they ride on. The poll's job
+    is to hand this relay its next wake; a sweep that fails must not take
+    that away, so failure is logged and the poll continues — the next poll
+    tries again from the same durable rows.
+    """
+    from yoke_core.domain.session_stale_alive_probe import (
+        end_probe_unresponsive_sessions,
+        probe_stale_alive_sessions,
+    )
+
+    for sweep in (end_probe_unresponsive_sessions, probe_stale_alive_sessions):
+        try:
+            sweep(conn, machine_id=machine_id, authorized_projects=projects)
+        except Exception:
+            _LOGGER.debug("%s failed during relay poll", sweep.__name__, exc_info=True)
 
 
 def _failure(code: str, message: str) -> HandlerOutcome:
@@ -99,6 +124,15 @@ def handle_relay_claim(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 actor_id=actor_id,
                 project_ids=payload.projects,
+            )
+            # The poll is the only thing this machine does on a schedule, so
+            # it is where the quiet-claim-holder sweeps live. Neither may
+            # cost the relay its job: a poll that returns no work because a
+            # sweep raised is a relay that stops waking anything at all.
+            _sweep_quiet_claim_holders(
+                conn,
+                machine_id=payload.machine_id,
+                projects=payload.projects,
             )
             outcome = claim_relay_job(
                 conn,
