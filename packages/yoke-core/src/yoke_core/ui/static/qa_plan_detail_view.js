@@ -21,6 +21,7 @@ import {
   waiverDialog,
 } from "./qa_plan_actions.js";
 import {
+  executionTargetLabel,
   renderExecutionTarget,
 } from "./qa_execution_target_view.js";
 
@@ -263,9 +264,9 @@ function renderPlanDetail(context, host, plan, scope) {
     detailHead(
       documentNode,
       plan.slug,
-      `Test plan · ${plan.project} · ${
-        plan.execution_target?.environment?.name || "target unbound"
-      }`,
+      `Test plan · ${plan.project} · ${executionTargetLabel(
+        plan.execution_target,
+      )}`,
     ),
     grid,
   );

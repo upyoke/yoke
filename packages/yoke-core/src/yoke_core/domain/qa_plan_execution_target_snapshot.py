@@ -23,11 +23,11 @@ def execution_target_for_roster(
         or any(not digest for digest in digests)
     ):
         raise QaPlanExecutionStateError(
-            "materialized QA roster lacks an execution environment target"
+            "materialized QA roster lacks an execution target"
         )
     if len({canonical(target) for target in targets}) != 1 or len(set(digests)) != 1:
         raise QaPlanExecutionStateError(
-            "materialized QA roster mixes execution environment targets"
+            "materialized QA roster mixes execution targets"
         )
     target = dict(targets[0])
     from yoke_core.domain.qa_execution_environment_target import (
@@ -90,7 +90,7 @@ def validate_execution_snapshot(
     target = decode_execution_target(execution)
     if target is None:
         raise QaPlanExecutionStateError(
-            "QA plan execution lacks an execution environment target"
+            "QA plan execution lacks an execution target"
         )
     roster_target, roster_target_digest = execution_target_for_roster(roster)
     if canonical(roster_target) != canonical(target) or roster_target_digest != str(

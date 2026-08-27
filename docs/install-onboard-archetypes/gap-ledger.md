@@ -30,7 +30,7 @@ filled in the last column.
 | G-scaffold-tests-unregistered | friction | merged / done | `webapp-scaffold` lands tests + `ci.yml`; onboard does not declare `ci_workflow_file` or `registered-command-*` | A01 A12 | YOK-2477 |
 | G-ci-workflow-undeclared | friction | merged | Survey sees Actions; onboard never writes `ci_workflow_file` | A02 A03 A04 A07 A09 | YOK-2479 |
 | G-command-ci-misbind | blocker | merged / done | Deploy YAML / Jenkins / GitLab / fastlane store-upload treated as the verification workflow | A03 A04 A06 A09 A11 | YOK-2479 |
-| G-qa-plan-needs-env | blocker | merged / done | `yoke qa plan create` requires `--environment`; no-host projects cannot register a plan honestly | A01 A09 A12 | YOK-2480 |
+| G-qa-plan-needs-env | closed | merged / done | Closed: registered `quick`/`full` plans carry a project target; deployed scopes select an environment or runtime base URL. Generic plan creation remains intentionally environment-bound | A01 A09 A12 | YOK-2480 |
 | G-legacy-suite-unmapped | missing-config-surface | merged / done | JUnit/Jenkins, PHPUnit, XCTest, monorepo many suites have no scope map | A06 A07 A09 A11 | YOK-2481 |
 | G-merge-queue-github-only | missing-config-surface | merged | `merge_queue` requires `ci_workflow_file` + `github`; App skip / other forge cannot declare it | A06 A07 A11 | YOK-2479 |
 
@@ -106,4 +106,4 @@ wizard.
 - Merge-only `target_tier`: `docs/public/reference/db-reference/projects-and-flows.md`
 - QA scopes and `command` vs `command-ci`: `qa_command_plan_registration.py`
 - `ci_workflow_file` / `merge_queue` templates: `projects_seed_ci_workflow.py`
-- `yoke qa plan create` requires `--environment`: `qa_catalog.py`
+- Registered-command target matrix: `qa_command_plan_registration.py`

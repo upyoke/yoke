@@ -45,10 +45,10 @@ CI for tests/signing, not Yoke `core-container-deploy`.
 Not a web pytest tree. Simulator or device needed.
 
 **Bind today:** `ci_workflow_file` can name the **test** workflow (not
-TestFlight). Local `command` is `xcodebuild` / `fastlane test` on macOS.
-`e2e`/`smoke` stay local unless `scope_workflows` says otherwise. No
-HTTPS env → `yoke qa plan create --environment` has nothing honest to
-name.
+TestFlight). Register `xcodebuild` / `fastlane test` as project-targeted
+`quick` or `full`; it needs no HTTPS product environment. Reserve `e2e` and
+`smoke` for a real deployed target: local uses one environment or runtime base
+URL, while CI requires a declared environment.
 
 **Onboard:** survey sees `fastlane/` and does not register XCTest.
 

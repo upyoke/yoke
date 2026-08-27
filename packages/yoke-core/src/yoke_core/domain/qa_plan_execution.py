@@ -23,6 +23,7 @@ from yoke_core.domain.qa_plan_execution_dispatch import (
     execution_actor,
 )
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
+from yoke_core.domain.qa_project_execution_target import resolve_execution_base_url
 
 _call_plan_function = call_plan_function
 
@@ -143,26 +144,15 @@ def execute_plan(
         )
     execution_target = execution.get("execution_target")
     if not isinstance(execution_target, dict):
-        raise QaPlanExecutionError(
-            "qa.plan_execution.begin returned no execution environment target"
+        raise QaPlanExecutionError("qa.plan_execution.begin returned no target")
+    try:
+        resolved_base_url = resolve_execution_base_url(
+            execution_target,
+            requirements,
+            base_url,
         )
-    target_endpoints = execution_target.get("endpoints")
-    if not isinstance(target_endpoints, dict):
-        raise QaPlanExecutionError(
-            "qa.plan_execution.begin returned invalid target endpoints"
-        )
-    allowed_base_urls = {
-        str(value).rstrip("/")
-        for key, value in target_endpoints.items()
-        if key.endswith("_url") and isinstance(value, str) and value
-    }
-    if base_url and base_url.rstrip("/") not in allowed_base_urls:
-        raise QaPlanExecutionError(
-            "explicit base_url does not belong to the execution target"
-        )
-    resolved_base_url = str(
-        target_endpoints.get("app_url") or target_endpoints.get("api_url") or ""
-    )
+    except ValueError as exc:
+        raise QaPlanExecutionError(str(exc)) from exc
     recorded_results = [
         dict(entry["result"])
         for entry in stored_results

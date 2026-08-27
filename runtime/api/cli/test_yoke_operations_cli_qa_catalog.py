@@ -274,3 +274,43 @@ def test_case_replace_rejects_non_array_json_without_dispatch() -> None:
             ]
         )
     assert result == 2
+
+
+def test_registered_command_maps_environment_and_runtime_base_url_targets() -> None:
+    result, environment = _run(
+        "qa",
+        "registered-command",
+        "set",
+        "--project",
+        "yoke",
+        "--scope",
+        "smoke",
+        "--command",
+        "python3 -m pytest tests/smoke",
+        "--environment",
+        "Yoke API/development",
+    )
+    assert result == 0
+    assert environment.function == "qa.registered_command.set"
+    assert environment.payload == {
+        "project": "yoke",
+        "scope": "smoke",
+        "command": "python3 -m pytest tests/smoke",
+        "target_environment": "Yoke API/development",
+    }
+
+    result, runtime = _run(
+        "qa",
+        "registered-command",
+        "set",
+        "--project",
+        "yoke",
+        "--scope",
+        "e2e",
+        "--command",
+        "python3 -m pytest tests/e2e",
+        "--requires-base-url",
+    )
+    assert result == 0
+    assert runtime.payload["requires_base_url"] is True
+    assert "target_environment" not in runtime.payload

@@ -5,6 +5,15 @@ import {
   qaPanel,
 } from "./qa_view_primitives.js";
 
+export function executionTargetLabel(target) {
+  if (!target) return "not bound";
+  if (target.target_kind === "project") {
+    return "project source · no deployment environment";
+  }
+  const tenant = target.tenant?.slug || target.project?.slug || "target";
+  return `${tenant} · ${target.environment?.name || "environment unavailable"}`;
+}
+
 export function renderExecutionTarget(documentNode, plan) {
   const result = qaPanel(
     documentNode,
@@ -27,13 +36,15 @@ export function renderExecutionTarget(documentNode, plan) {
     documentNode,
     "strong",
     null,
-    `${target.tenant.name} · ${target.project.name}`,
+    `${target.tenant?.name || "Tenant"} · ${target.project?.name || "Project"}`,
   ));
   identity.appendChild(el(
     documentNode,
     "span",
     null,
-    `${target.environment.name} · ${target.environment.id}`,
+    target.target_kind === "project"
+      ? executionTargetLabel(target)
+      : target.environment?.name || "environment unavailable",
   ));
   result.body.appendChild(identity);
   const endpoints = target.endpoints || {};

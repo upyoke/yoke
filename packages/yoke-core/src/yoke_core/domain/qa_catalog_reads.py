@@ -297,13 +297,12 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         last_outcome, last_at, last_verdict_reason = _latest_requirement_outcome(
             conn, plan_id
         )
-        execution_target = None
-        if row["target_environment_id"]:
-            execution_target = resolve_plan_execution_target(
-                conn,
-                plan_id=plan_id,
-                require_runtime_match=False,
-            )
+        execution_target = resolve_plan_execution_target(
+            conn,
+            plan_id=plan_id,
+            require_runtime_match=False,
+            allow_unbound=True,
+        )
         result.append(
             {
                 "id": plan_id,

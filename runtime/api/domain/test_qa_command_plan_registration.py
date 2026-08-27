@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.projects_seed_ci_workflow import CI_WORKFLOW_CAPABILITY_TYPE
 from yoke_core.domain.qa_command_plan_convergence import (
@@ -46,6 +48,25 @@ def test_current_model_seed_converges_without_legacy_settings() -> None:
     assert second["plan_id"] == first["plan_id"]
     assert legacy == 0
     assert defaults == []
+
+
+def test_project_target_ignores_a_single_incompatible_environment(monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "prod")
+    with test_database() as conn:
+        result = ensure_registered_command_plan(
+            conn,
+            project_id=1,
+            project="yoke",
+            scope="quick",
+            command="true",
+        )
+        target_id = conn.execute(
+            "SELECT target_environment_id FROM qa_plans WHERE id=%s",
+            (int(result["plan_id"]),),
+        ).fetchone()["target_environment_id"]
+
+    assert target_id is None
+    assert result["target_mode"] == "project"
 
 
 def test_convergence_removes_retired_full_suite_lifecycle_defaults() -> None:
@@ -118,11 +139,36 @@ def test_a_project_can_declare_a_deployed_scope_reachable_from_ci() -> None:
         result = ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="smoke",
             command="npx playwright test",
+            target_environment="development",
         )
         case = _case(conn, result["plan_id"])
 
     assert result["ci_workflow"] == "post-deploy.yml"
     assert case["method_id"] == CI_COMMAND_METHOD_ID
+
+
+def test_ci_deployed_scope_requires_an_environment_before_plan_writes() -> None:
+    with test_database() as conn:
+        _declare(
+            conn,
+            {"scope_workflows": {"smoke": "post-deploy.yml"}},
+        )
+        before = conn.execute("SELECT COUNT(*) FROM qa_plans").fetchone()[0]
+
+        with pytest.raises(ValueError, match="require --environment"):
+            ensure_registered_command_plan(
+                conn, project_id=1, project="yoke", scope="smoke",
+                command="npx playwright test",
+            )
+        with pytest.raises(ValueError, match="cannot use --requires-base-url"):
+            ensure_registered_command_plan(
+                conn, project_id=1, project="yoke", scope="smoke",
+                command="npx playwright test", requires_base_url=True,
+            )
+
+        after = conn.execute("SELECT COUNT(*) FROM qa_plans").fetchone()[0]
+
+    assert after == before
 
 
 def test_a_declared_scope_dispatches_its_own_workflow_not_the_default() -> None:
@@ -135,6 +181,7 @@ def test_a_declared_scope_dispatches_its_own_workflow_not_the_default() -> None:
         smoke = ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="smoke",
             command="npx playwright test",
+            target_environment="development",
         )
         full = ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="full",
@@ -154,11 +201,14 @@ def test_an_undeclared_deployed_scope_keeps_the_local_runner() -> None:
         result = ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="smoke",
             command="npx playwright test",
+            requires_base_url=True,
         )
         case = _case(conn, result["plan_id"])
+        converged = converge_registered_command_plans(conn)
 
     assert result["ci_workflow"] == ""
     assert case["method_id"] == LOCAL_COMMAND_METHOD_ID
+    assert converged == []
 
 
 def test_converge_leaves_a_declared_deployed_scope_alone() -> None:
@@ -171,6 +221,7 @@ def test_converge_leaves_a_declared_deployed_scope_alone() -> None:
         ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="smoke",
             command="npx playwright test",
+            target_environment="development",
         )
 
         converged = converge_registered_command_plans(conn)
@@ -189,6 +240,7 @@ def test_converge_no_longer_reverts_a_declared_deployed_scope() -> None:
         registered = ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="smoke",
             command="npx playwright test",
+            target_environment="development",
         )
         _declare(
             conn,
@@ -217,6 +269,7 @@ def test_converge_still_corrects_a_binding_that_disagrees() -> None:
         registered = ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="smoke",
             command="npx playwright test",
+            target_environment="development",
         )
         _declare(
             conn,

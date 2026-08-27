@@ -13,6 +13,12 @@ from yoke_core.domain.qa_execution_environment_target import (
     canonical_target,
     target_digest,
 )
+from yoke_core.domain.qa_command_plan_convergence import (
+    converge_registered_command_plans,
+)
+from yoke_core.domain.qa_command_plan_registration import (
+    ensure_registered_command_plan,
+)
 from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
     set_project_default,
@@ -240,3 +246,88 @@ def test_a_corrupt_target_snapshot_is_still_refused() -> None:
             rematerialize_for_item(
                 conn, item_id=827, transition_id="implemented"
             )
+
+
+def test_registered_quick_command_materializes_a_stable_project_target() -> None:
+    with test_database() as conn:
+        conn.execute("DELETE FROM environments WHERE project_id=1")
+        conn.execute("DELETE FROM sites WHERE project_id=1")
+        conn.commit()
+        insert_item(conn, id=828, title="Run project QA", workflow_id="issue")
+        registered = ensure_registered_command_plan(
+            conn,
+            project_id=1,
+            project="yoke",
+            scope="quick",
+            command="true",
+        )
+        plan_target = conn.execute(
+            "SELECT target_environment_id FROM qa_plans WHERE id=%s",
+            (int(registered["plan_id"]),),
+        ).fetchone()["target_environment_id"]
+        first = materialize_for_item(
+            conn,
+            item_id=828,
+            transition_id="reviewing-implementation",
+        )
+        second = materialize_for_item(
+            conn,
+            item_id=828,
+            transition_id="reviewing-implementation",
+        )
+        execution = begin_plan_execution(
+            conn,
+            item_id=828,
+            transition_id="reviewing-implementation",
+            actor_id="actor-828",
+            session_id="session-828",
+        )
+
+    target = execution["execution_target"]
+    assert plan_target is None
+    assert registered["target_mode"] == "project"
+    assert target["schema"] == 3
+    assert target["target_kind"] == "project"
+    assert target["project"]["slug"] == "yoke"
+    assert "site" not in target and "environment" not in target
+    assert second["existing_requirement_ids"] == first["created_requirement_ids"]
+    assert execution["execution_target_digest"] == target_digest(target)
+
+
+def test_convergence_does_not_relabel_materialized_environment_evidence() -> None:
+    with test_database() as conn:
+        insert_item(conn, id=829, title="Preserve target evidence", workflow_id="issue")
+        registered = ensure_registered_command_plan(
+            conn, project_id=1, project="yoke", scope="quick", command="true",
+        )
+        environment_id = conn.execute(
+            "SELECT id FROM environments WHERE project_id=1 AND name='development'"
+        ).fetchone()["id"]
+        conn.execute(
+            "UPDATE qa_plans SET target_environment_id=%s WHERE id=%s",
+            (environment_id, int(registered["plan_id"])),
+        )
+        conn.commit()
+        materialized = materialize_for_item(
+            conn, item_id=829, transition_id="reviewing-implementation",
+        )
+        requirement_id = materialized["created_requirement_ids"][0]
+        before = conn.execute(
+            "SELECT execution_target_json, execution_target_digest "
+            "FROM qa_requirements WHERE id=%s",
+            (requirement_id,),
+        ).fetchone()
+
+        converge_registered_command_plans(conn)
+        plan_target = conn.execute(
+            "SELECT target_environment_id FROM qa_plans WHERE id=%s",
+            (int(registered["plan_id"]),),
+        ).fetchone()["target_environment_id"]
+        after = conn.execute(
+            "SELECT execution_target_json, execution_target_digest "
+            "FROM qa_requirements WHERE id=%s",
+            (requirement_id,),
+        ).fetchone()
+
+    assert plan_target is None
+    assert dict(after) == dict(before)

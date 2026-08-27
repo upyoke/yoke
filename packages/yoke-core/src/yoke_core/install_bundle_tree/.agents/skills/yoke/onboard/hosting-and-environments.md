@@ -220,8 +220,21 @@ fast reliable slice in `quick`; bind the broader invocation separately as
 
 One call converges the whole binding — the `registered-command-{scope}` plan,
 its case row, the runner the case uses, and the project-default attachments at
-the transitions that gate. It needs no environment, because a command case runs
-in the item's worktree or in CI, never against a site behind a base URL.
+the transitions that gate. `quick` and `full` are project-targeted: omit both
+target flags even when the project has one or more environments. They run from
+the project source in the item's worktree or in CI.
+
+For local `e2e` and `smoke`, select exactly one deployed target contract:
+
+```bash
+yoke qa registered-command set --project {project} --scope e2e --command "{e2e_argv}" --environment {site}/{environment}
+yoke qa registered-command set --project {project} --scope smoke --command "{smoke_argv}" --requires-base-url
+```
+
+The first binds a declared environment. The second requires the case runner to
+supply an HTTP(S) `--base-url`. When `scope_workflows` routes either deployed
+scope through CI, `--environment` is required and `--requires-base-url` is
+refused. Registration validates the combination before writing the plan.
 
 **Only when a GitHub Actions test workflow runs that command**, declare it
 first, so the binding above routes the case to CI instead of the local runner:

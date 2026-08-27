@@ -1,6 +1,7 @@
 import {
   el,
 } from "./universe_view_support.js";
+import { executionTargetLabel } from "./qa_execution_target_view.js";
 import {
   loadProjectCalls,
   methodIcon,
@@ -131,9 +132,7 @@ function renderPlanTable(context, body, rows) {
       documentNode,
       "td",
       target ? "qa-plan-target" : "qa-plan-target muted",
-      target
-        ? `${target.tenant.slug} · ${target.environment.name}`
-        : "not bound",
+      executionTargetLabel(target),
     ));
     const methods = el(documentNode, "td");
     methods.appendChild(methodSummary(documentNode, row));

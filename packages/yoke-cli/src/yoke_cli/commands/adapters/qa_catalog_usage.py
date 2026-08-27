@@ -19,7 +19,8 @@ USAGE_BY_FUNCTION_ID = {
     "qa.plan_cases.replace": "yoke qa plan-cases replace --project P --plan-id N --stdin",
     "qa.registered_command.set": (
         "yoke qa registered-command set --project P "
-        "--scope quick|full|e2e|smoke --command ARGV"
+        "--scope quick|full|e2e|smoke --command ARGV "
+        "[--environment SITE/NAME|ENV_ID | --requires-base-url]"
     ),
     "qa.no_tests.attest": (
         "yoke qa no-tests attest --project P "

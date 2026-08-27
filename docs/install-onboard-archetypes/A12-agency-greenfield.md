@@ -46,9 +46,9 @@ Then step 7 `[y/N]` apply. Only **then** should a persistent default flow exist.
 **Reality:** wizard-created empty git repo — **no tests**. Phase-2 AWS does
 not change that.
 
-**Bind today:** same as A01. `yoke qa plan create` needs an environment;
-creating stage/prod only so a plan can exist is the G-qa-plan-needs-env
-lie.
+**Bind today:** same as A01. Registered `quick` and `full` commands carry a
+project target, so creating stage/prod only to make a QA plan exist is neither
+needed nor allowed by the onboarding recipe.
 
 **Onboard:** no test question. CURRENT-PLAN will name client work items, not a
 reusable QA plan, so seed will not attach one.

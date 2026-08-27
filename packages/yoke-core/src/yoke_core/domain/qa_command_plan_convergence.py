@@ -36,6 +36,12 @@ from yoke_core.domain.qa_command_scope_routing import (
     capability_settings,
     scope_workflow,
 )
+from yoke_core.domain.qa_project_execution_target import (
+    ENVIRONMENT_TARGET_MODE,
+    PROJECT_COMMAND_SCOPES,
+    RUNTIME_BASE_URL_TARGET_MODE,
+    registered_command_target_mode,
+)
 from yoke_core.domain import db_backend
 
 
@@ -48,7 +54,7 @@ def _registered_scope_bindings(conn: Any) -> list[dict]:
     return list(query_rows(
         conn,
         "SELECT p.id AS plan_id, p.project_id AS project_id, pr.slug AS project, "
-        "p.slug AS plan_slug, c.method_id AS method_id, "
+        "p.slug AS plan_slug, p.target_environment_id, c.method_id AS method_id, "
         "c.method_config AS method_config "
         "FROM qa_plans p "
         "JOIN projects pr ON pr.id=p.project_id "
@@ -109,6 +115,42 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
         )
         current_workflow = str(config.get("ci_workflow") or "").strip()
+        current_target_id = (
+            int(row["target_environment_id"])
+            if row["target_environment_id"] is not None
+            else None
+        )
+        current_requires_base_url = bool(config.get("requires_base_url"))
+        target_environment = (
+            None
+            if scope in PROJECT_COMMAND_SCOPES or current_target_id is None
+            else str(current_target_id)
+        )
+        requires_base_url = (
+            None
+            if scope in PROJECT_COMMAND_SCOPES or current_target_id is not None
+            else True if current_requires_base_url else None
+        )
+        try:
+            target_mode = registered_command_target_mode(
+                scope=scope,
+                ci_workflow=ci_workflow,
+                target_environment=target_environment,
+                requires_base_url=requires_base_url,
+            )
+        except ValueError as exc:
+            converged.append({
+                "project": str(row["project"]),
+                "scope": scope,
+                "method_id": str(row["method_id"]),
+                "ci_workflow": current_workflow,
+                "target_error": str(exc),
+            })
+            continue
+        desired_target_id = (
+            current_target_id if target_mode == ENVIRONMENT_TARGET_MODE else None
+        )
+        desired_requires_base_url = target_mode == RUNTIME_BASE_URL_TARGET_MODE
         current_transitions = {
             (str(default["workflow_id"]), str(default["transition_id"]))
             for default in query_rows(
@@ -124,6 +166,8 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             and current_workflow == ci_workflow
             and current_transitions == desired_transitions
             and command == canonical
+            and current_target_id == desired_target_id
+            and current_requires_base_url == desired_requires_base_url
         ):
             continue
         ensure_registered_command_plan(
@@ -132,6 +176,8 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             project=str(row["project"]),
             scope=scope,
             command=canonical,
+            target_environment=target_environment,
+            requires_base_url=requires_base_url,
         )
         converged.append({
             "project": str(row["project"]),

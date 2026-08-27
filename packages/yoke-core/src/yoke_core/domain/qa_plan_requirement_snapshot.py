@@ -129,6 +129,7 @@ def insert_requirement(
     )
     require_case_target(
         {
+            "method_id": case["method_id"],
             "instructions": case["instructions"],
             "expected_outcome": case["expected_outcome"],
             "method_config": require_runnable_case(case),
@@ -206,6 +207,7 @@ def refresh_requirement(
     )
     require_case_target(
         {
+            "method_id": case["method_id"],
             "instructions": case["instructions"],
             "expected_outcome": case["expected_outcome"],
             "method_config": require_runnable_case(case),
