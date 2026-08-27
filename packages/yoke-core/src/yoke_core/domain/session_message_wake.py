@@ -124,6 +124,12 @@ def _native_wake_route_available(
     operation: str | None,
     relay_versions: Mapping[str, str],
 ) -> bool:
+    # A terminated session is never wakeable, by any route. Its liveness now
+    # reads "ended" like any other gone session, which does resolve a wake
+    # operation, so the ban has to read terminated_at — otherwise the private
+    # route qualification below would reopen what the kill closed.
+    if row.get("terminated_at"):
+        return False
     routing = messageability(
         row, liveness=liveness, machine_surface_versions=relay_versions
     )

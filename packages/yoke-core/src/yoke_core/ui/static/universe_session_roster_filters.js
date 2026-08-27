@@ -36,13 +36,20 @@ export function sessionRosterFilters(documentNode, onChange) {
     host.appendChild(field.wrapper);
   }
   const liveness = input(documentNode, "Liveness", "select");
-  for (const value of ["", "active", "stale", "ended", "terminated"]) {
+  for (const value of ["", "active", "stale", "ended"]) {
     liveness.control.appendChild(option(
       documentNode, value, value || "Any liveness",
     ));
   }
   controls.liveness = liveness.control;
   host.appendChild(liveness.wrapper);
+  // How a session ended is a facet of ended, not a liveness state of its own.
+  const endedCause = input(documentNode, "Ended cause", "select");
+  for (const [value, label] of [
+    ["", "Any ending"], ["killed", "Killed"], ["wound_down", "Wound down"],
+  ]) endedCause.control.appendChild(option(documentNode, value, label));
+  controls.endedCause = endedCause.control;
+  host.appendChild(endedCause.wrapper);
   const route = input(documentNode, "Route", "select");
   for (const [value, label] of [
     ["", "Any route"], ["message", "Messageable"], ["wake", "Wakeable"],
@@ -90,6 +97,8 @@ export function sessionRosterFilters(documentNode, onChange) {
             || includes(row.machine_name, String(controls.machine.value || "").toLowerCase())
           )
           && (!controls.liveness.value || row.liveness === controls.liveness.value)
+          && (!controls.endedCause.value
+            || row.ended_cause === controls.endedCause.value)
           && (controls.route.value !== "message" || routing.messageable === true)
           && (controls.route.value !== "wake" || routing.wake_available === true);
       });

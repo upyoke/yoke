@@ -195,10 +195,11 @@ def test_roster_projects_latest_message_blockers_and_effective_ttl() -> None:
     assert by_session["claim-session"]["stale_eligible_at"] == ("2026-08-22T13:00:00Z")
 
 
-def test_terminated_session_has_no_end_or_stale_diagnostic() -> None:
+def test_killed_session_has_no_end_or_stale_diagnostic() -> None:
     conn = _connection()
     row = _row("terminated-session")
-    row["liveness"] = "terminated"
+    row["liveness"] = "ended"
+    row["ended_cause"] = "killed"
     projected = session_diagnostics(
         conn,
         [row],

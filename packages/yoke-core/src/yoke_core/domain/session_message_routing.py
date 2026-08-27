@@ -11,7 +11,6 @@ from yoke_contracts.session_control.surface_versions import (
     surface_operation_supported,
     surface_version_supported,
 )
-from yoke_contracts.session_control.liveness import LIVENESS_TERMINATED
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_message_types import parse_timestamp
 
@@ -35,9 +34,10 @@ def latest_observed_activity(row: dict[str, Any]) -> datetime | None:
 
 
 def session_liveness(row: dict[str, Any], *, now: datetime) -> str:
-    if row.get("terminated_at"):
-        return LIVENESS_TERMINATED
-    if row.get("ended_at"):
+    # A killed session is ended like any other gone session; the kill is a
+    # cause of death, not a state of its own. Every refusal below still reads
+    # terminated_at directly, so folding the presentation changes no mechanic.
+    if row.get("terminated_at") or row.get("ended_at"):
         return "ended"
     raw_activity = max(
         str(row.get("last_heartbeat") or ""),
@@ -94,8 +94,12 @@ def messageability(
     its machine, so the caller passes the relay-reported installed versions and
     the wake route is derived from those rather than from the registered
     surface alone.
+
+    A terminated session is refused outright, read from ``terminated_at`` on
+    the row rather than from ``liveness`` — a kill presents as an ordinary
+    ``ended`` session, and only the column proves the delivery ban.
     """
-    if liveness == LIVENESS_TERMINATED:
+    if row.get("terminated_at"):
         return {
             "messageable": False,
             "hook_injection": False,

@@ -20,7 +20,8 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 SESSIONS_LIST_USAGE = (
-    "yoke sessions list [--project P] [--liveness active|stale|ended|terminated] "
+    "yoke sessions list [--project P] [--liveness active|stale|ended] "
+    "[--ended-cause killed|wound_down] "
     "[--limit N] [--session S] [--session-id S] [--json]"
 )
 
@@ -39,6 +40,7 @@ def sessions_list(args: List[str]) -> int:
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--liveness", default=None)
+    parser.add_argument("--ended-cause", dest="ended_cause", default=None)
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument(
         "--session",
@@ -64,7 +66,7 @@ def sessions_list(args: List[str]) -> int:
         return None
 
     payload: Dict[str, Any] = {}
-    for key in ("project", "liveness"):
+    for key in ("project", "liveness", "ended_cause"):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value

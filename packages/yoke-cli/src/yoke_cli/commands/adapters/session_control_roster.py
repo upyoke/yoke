@@ -15,18 +15,24 @@ from yoke_cli.commands.adapters.session_control_human_output import (
     write_roster_result,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_control.liveness import LIVENESS_STATES
+from yoke_contracts.session_control.liveness import ENDED_CAUSES, LIVENESS_STATES
 
 
 SESSION_ROSTER_USAGE = (
     "yoke sessions list [--project P] "
-    "[--liveness active|stale|ended|terminated] "
+    "[--liveness active|stale|ended] [--ended-cause killed|wound_down] "
     "[--limit N] [--session S] [--json]"
 )
 SESSION_ROSTER_HELP = """Find registered top-level sessions and their delivery readiness.
 
+Liveness has three states: active, stale, ended. A session killed with
+`yoke sessions terminate` is ended like any other gone session — the kill is
+a cause of death, not a fourth state — and stays findable through
+`--ended-cause killed`, which also reports the termination reason.
+
 Examples:
   yoke sessions list --liveness active
+  yoke sessions list --ended-cause killed
   yoke sessions list --session SESSION-ID
 
 Next: run `yoke say --help` to preview and send a Fleet message."""
@@ -45,6 +51,16 @@ def session_control_roster_list(args: List[str]) -> int:
         choices=LIVENESS_STATES,
         default=None,
         help="Only show sessions in this liveness state.",
+    )
+    parser.add_argument(
+        "--ended-cause",
+        dest="ended_cause",
+        choices=ENDED_CAUSES,
+        default=None,
+        help=(
+            "Only show ended sessions that ended this way: 'killed' for a "
+            "terminated session, 'wound_down' for an ordinary end."
+        ),
     )
     parser.add_argument("--limit", type=int, default=None, help="Maximum rows.")
     parser.add_argument(
@@ -68,6 +84,7 @@ def session_control_roster_list(args: List[str]) -> int:
         for key, value in {
             "project": parsed.project,
             "liveness": parsed.liveness,
+            "ended_cause": parsed.ended_cause,
             "limit": parsed.limit,
             "session_id": parsed.session_filter,
         }.items()

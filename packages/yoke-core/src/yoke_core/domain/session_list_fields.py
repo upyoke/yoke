@@ -3,6 +3,7 @@
 SESSION_LIST_FIELDS = (
     "session_id",
     "liveness",
+    "ended_cause",
     "activity_at",
     "execution_lane",
     "lane_label",

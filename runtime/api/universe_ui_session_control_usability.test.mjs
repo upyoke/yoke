@@ -232,3 +232,51 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
   assert.equal(button(root, "Clear filters").disabled, true);
   mounted.unmount();
 });
+
+
+test("the roster narrows kills by ended cause, not by a liveness peer", async (t) => {
+  const base = {
+    project: "yoke", project_id: 1, executor: "codex",
+    executor_surface: "codex-desktop", execution_lane: "DARIUS", mode: "wait",
+    actor_id: 1, actor_kind: "human", actor_label: "Ben", claims: [],
+    messageability: { messageable: false },
+  };
+  const { root, mounted } = await mountAt(t, "#/sessions/roster?project=1", {
+    "sessions.list": (request) => ok({
+      rows: request.payload.liveness === "ended"
+        ? [
+          {
+            ...base, session_id: "killed-1", liveness: "ended",
+            ended_cause: "killed", terminated_at: "2026-08-22T12:05:00Z",
+            termination_reason: "operator stopped worker",
+          },
+          {
+            ...base, session_id: "wound-1", liveness: "ended",
+            ended_cause: "wound_down",
+          },
+        ]
+        : [],
+    }),
+  });
+  const selects = byClass(root, "session-roster-filter").filter(
+    (field) => field.children[1]?.tagName === "SELECT",
+  );
+  const [liveness, endedCause] = selects;
+  assert.deepEqual(
+    liveness.children[1].children.map((option) => option.value),
+    ["", "active", "stale", "ended"],
+  );
+  assert.deepEqual(
+    endedCause.children.map((node) => node.textContent).slice(0, 1),
+    ["Ended cause"],
+  );
+  assert.equal(byClass(root, "session-card").length, 2);
+  endedCause.children[1].value = "killed";
+  endedCause.children[1].dispatchEvent(new Event("change"));
+  assert.equal(byClass(root, "session-card").length, 1);
+  assert.equal(
+    byClass(root, "session-kill-badge")[0].textContent,
+    "killed · operator stopped worker",
+  );
+  mounted.unmount();
+});

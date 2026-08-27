@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, TextIO
 
 from yoke_contracts.session_control.evidence import redacted_evidence_document
+from yoke_contracts.session_control.liveness import ENDED_CAUSE_KILLED
 from yoke_cli.commands.adapters.session_control_native_diagnostic_output import (
     native_diagnostic_fields,
 )
@@ -133,6 +134,19 @@ def _messageable(row: Mapping[str, Any]) -> str:
     return f"no ({humanize(reason)})" if reason else "no"
 
 
+def _liveness(row: Mapping[str, Any]) -> str:
+    """Liveness, with a kill named as the cause it is.
+
+    Deadness has one word; how a session died is a facet, so a killed session
+    reads ``ended (killed)`` rather than as a liveness state of its own.
+    """
+    state = humanize(row.get("liveness"))
+    cause = row.get("ended_cause")
+    if cause == ENDED_CAUSE_KILLED:
+        return f"{state} (killed)"
+    return state
+
+
 def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
     """Write either the rich roster or the single-session liveness view."""
     fields = set(result.get("fields") or [])
@@ -140,7 +154,7 @@ def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
     if "activity_at" in fields and "project" not in fields:
         columns: tuple[Column, ...] = (
             ("SESSION", lambda row: row.get("session_id"), None),
-            ("LIVENESS", lambda row: humanize(row.get("liveness")), 12),
+            ("LIVENESS", _liveness, 16),
             ("ACTIVITY (UTC)", lambda row: utc_time(row.get("activity_at")), 22),
             ("ENDED (UTC)", lambda row: utc_time(row.get("ended_at")), 22),
         )
@@ -156,7 +170,7 @@ def write_roster_result(result: Mapping[str, Any], stdout: TextIO) -> None:
                 lambda row: row.get("machine_name") or row.get("machine_id"),
                 None,
             ),
-            ("LIVENESS", lambda row: humanize(row.get("liveness")), 10),
+            ("LIVENESS", _liveness, 16),
             ("RESUME", lambda row: humanize(row.get("resume_state")), 18),
             ("RELAY", lambda row: humanize(row.get("relay")), 12),
             ("MESSAGEABLE", _messageable, 18),

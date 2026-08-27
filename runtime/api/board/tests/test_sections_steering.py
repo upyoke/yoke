@@ -161,6 +161,24 @@ def test_renders_scoped_holder_docs_liveness_workers_and_reports(
     assert "external" not in text
 
 
+def test_a_killed_holder_reads_ended_with_its_cause(tmp_path: Path) -> None:
+    # Liveness has no `terminated` value; a kill is a cause of death.
+    with _board_db(tmp_path) as (db, db_path):
+        _seed(db_path)
+        conn = connect_test_db(db_path)
+        conn.execute(
+            "UPDATE harness_sessions SET ended_at=%s,terminated_at=%s "
+            "WHERE session_id='holder-1'",
+            ("2026-08-26T12:05:00Z", "2026-08-26T12:05:00Z"),
+        )
+        conn.commit()
+        conn.close()
+        text = render_steering_section(db, "yoke")
+
+    assert "ended · killed" in text
+    assert "terminated" not in text
+
+
 def test_renders_an_explicit_empty_state(tmp_path: Path) -> None:
     with _board_db(tmp_path) as (db, db_path):
         conn = connect_test_db(db_path)
