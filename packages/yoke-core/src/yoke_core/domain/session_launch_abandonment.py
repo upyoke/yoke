@@ -1,4 +1,4 @@
-"""Flip a launch whose worker ended without ever taking its mandate.
+"""Flip a launch whose worker ended without ever entering its mandate.
 
 A launch reaches ``succeeded`` the moment its instruction is model-visible,
 which is the right boundary for the launch plane: delivery is what the plane
@@ -9,15 +9,15 @@ leaves a launch row reading ``succeeded`` while the item quietly returns to
 the frontier — the one shape where the record and the outcome disagree.
 
 So the end of a launch-created session is also the last moment to check
-whether the worker ever took hold of anything. Two facts settle it, and both
-are cheap: did this session ever hold a work claim, and did it ever send a
-message. A worker that did neither never entered the mandate, and its launch
-says so instead of claiming success.
+whether the worker ever participated. Any durable signal settles it: did the
+session acknowledge its launch instruction, run a harness tool call, hold a
+work claim, or send a message. A worker that did none of those never entered
+the mandate, and its launch says so instead of claiming success.
 
 Ending is not itself failure — a session that claimed, worked, and released
-ends claim-free too. The distinguishing fact is that no claim row and no
-message row ever named this session, which no completed mandate can be true
-of.
+ends claim-free too. The distinguishing fact is that no acknowledgement,
+activity stamp, claim row, or outbound message ever named this session, which
+no completed mandate can be true of.
 """
 
 from __future__ import annotations
@@ -57,14 +57,35 @@ def _launch_for_session(conn: Any, session_id: str) -> LaunchRecord | None:
     return row_to_launch(row) if row is not None else None
 
 
-def _took_hold(conn: Any, session_id: str) -> bool:
-    """Report whether this session ever claimed work or spoke to anyone."""
+def _entered_mandate(
+    conn: Any,
+    launch: LaunchRecord,
+    session_id: str,
+) -> bool:
+    """Report whether this session left any durable participation signal."""
     p = marker(conn)
     claimed = conn.execute(
         f"SELECT 1 FROM work_claims WHERE session_id = {p} LIMIT 1",
         (session_id,),
     ).fetchone()
     if claimed is not None:
+        return True
+    acknowledged = conn.execute(
+        "SELECT 1 FROM session_message_recipients "
+        f"WHERE message_id = {p} AND session_id = {p} "
+        "AND state = 'acknowledged' LIMIT 1",
+        (launch.message_id, session_id),
+    ).fetchone()
+    if acknowledged is not None:
+        return True
+    used_tool = conn.execute(
+        "SELECT 1 FROM harness_sessions "
+        f"WHERE session_id = {p} "
+        "AND (COALESCE(tool_call_count, 0) > 0 "
+        "OR last_tool_call_at IS NOT NULL) LIMIT 1",
+        (session_id,),
+    ).fetchone()
+    if used_tool is not None:
         return True
     spoke = conn.execute(
         f"SELECT 1 FROM session_messages WHERE sender_session_id = {p} LIMIT 1",
@@ -94,7 +115,7 @@ def settle_abandoned_launch(
         if launch is None or launch.state not in _REVIEWABLE_STATES:
             conn.commit()
             return None
-        if _took_hold(conn, session_id):
+        if _entered_mandate(conn, launch, session_id):
             conn.commit()
             return None
         evidence = {

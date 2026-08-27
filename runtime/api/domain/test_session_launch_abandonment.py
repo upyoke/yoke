@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 
+from yoke_core.domain import session_launch_abandonment as launch_abandonment
 from yoke_core.domain.session_launch_abandonment import (
     ABANDONED_RESULT_CODE,
     abandonment_notice,
     settle_abandoned_launch,
+    settle_and_notify,
 )
 from yoke_core.domain.session_launch_execution import (
     claim_assigned_launch,
@@ -30,7 +32,7 @@ WORKER = "session-worker"
 
 
 def _worker_tables(conn) -> None:
-    """Add the two tables the backstop reads; messages come with the fixture."""
+    """Add the work and activity state read by the abandonment backstop."""
     conn.execute(
         """CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,
@@ -38,7 +40,27 @@ def _worker_tables(conn) -> None:
             released_at TEXT
         )"""
     )
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
+    conn.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN tool_call_count "
+        "INTEGER NOT NULL DEFAULT 0"
+    )
     conn.commit()
+
+
+def _capture_notifications(monkeypatch) -> list[tuple[str, str]]:
+    notifications: list[tuple[str, str]] = []
+
+    def record_notification(_conn, launch, session_id) -> bool:
+        notifications.append((launch.launch_id, session_id))
+        return True
+
+    monkeypatch.setattr(
+        launch_abandonment,
+        "notify_launch_requester",
+        record_notification,
+    )
+    return notifications
 
 
 def _delivered_launch(conn, *, key: str = "mandate"):
@@ -130,6 +152,47 @@ def test_worker_that_held_a_claim_keeps_its_successful_launch() -> None:
     )
 
 
+def test_worker_that_acknowledged_its_instruction_keeps_success_without_alarm(
+    monkeypatch,
+) -> None:
+    conn = launch_connection()
+    _worker_tables(conn)
+    add_relay(conn)
+    launch = _delivered_launch(conn)
+    notifications = _capture_notifications(monkeypatch)
+    conn.execute(
+        "UPDATE session_message_recipients "
+        "SET state='acknowledged', acknowledged_at=? "
+        "WHERE message_id=? AND session_id=?",
+        (NOW, launch.message_id, WORKER),
+    )
+    conn.commit()
+
+    assert (
+        settle_and_notify(conn, WORKER, end_reason="session_empty_auto_ended") is None
+    )
+    assert get_launch(conn, launch.launch_id).state == "succeeded"
+    assert notifications == []
+
+
+def test_worker_that_ran_a_tool_keeps_its_successful_launch() -> None:
+    conn = launch_connection()
+    _worker_tables(conn)
+    add_relay(conn)
+    _delivered_launch(conn)
+    conn.execute(
+        "UPDATE harness_sessions "
+        "SET last_tool_call_at=?, tool_call_count=1 WHERE session_id=?",
+        (NOW, WORKER),
+    )
+    conn.commit()
+
+    assert (
+        settle_abandoned_launch(conn, WORKER, end_reason="session_ended", now=NOW)
+        is None
+    )
+
+
 def test_worker_that_reported_to_its_orchestrator_keeps_its_launch() -> None:
     conn = launch_connection()
     _worker_tables(conn)
@@ -148,6 +211,24 @@ def test_worker_that_reported_to_its_orchestrator_keeps_its_launch() -> None:
         settle_abandoned_launch(conn, WORKER, end_reason="session_ended", now=NOW)
         is None
     )
+
+
+def test_silent_worker_notifies_requester_of_abandonment(monkeypatch) -> None:
+    conn = launch_connection()
+    _worker_tables(conn)
+    add_relay(conn)
+    launch = _delivered_launch(conn)
+    notifications = _capture_notifications(monkeypatch)
+
+    flipped = settle_and_notify(
+        conn,
+        WORKER,
+        end_reason="session_empty_auto_ended",
+    )
+
+    assert flipped is not None
+    assert flipped.result_code == ABANDONED_RESULT_CODE
+    assert notifications == [(launch.launch_id, WORKER)]
 
 
 def test_launch_already_closed_as_failed_is_left_alone() -> None:
