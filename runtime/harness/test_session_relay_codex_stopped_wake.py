@@ -8,6 +8,9 @@ from uuid import UUID
 
 import pytest
 
+from yoke_contracts.session_control.launch_permission_bypass import (
+    codex_thread_bypass_parameters,
+)
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_codex_app_server as app_server
 from yoke_harness.session_relay_codex import CodexNativeOutcome, CodexNativeRequest
@@ -132,7 +135,10 @@ def test_active_yoke_session_resumes_native_not_loaded_task(
     assert outcome.native_session_id == SESSION_ID
     assert outcome.identity_correlated is True
     assert _methods(client) == ["thread/read", "thread/resume", "turn/start"]
-    assert client.calls[1][1] == {"threadId": SESSION_ID}
+    assert client.calls[1][1] == {
+        "threadId": SESSION_ID,
+        **codex_thread_bypass_parameters(),
+    }
     assert client.detached_turn == "turn-1"
 
 

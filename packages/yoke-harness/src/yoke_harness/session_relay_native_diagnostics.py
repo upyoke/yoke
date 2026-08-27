@@ -13,6 +13,9 @@ import time
 from yoke_contracts.session_control.evidence import (
     NATIVE_DIAGNOSTIC_REFERENCE_PATTERN,
 )
+from yoke_contracts.session_control.launch_permission_bypass import (
+    CLAUDE_BYPASS_DISCLAIMER_REFUSAL,
+)
 from yoke_harness.session_relay_schedule import relay_state_dir
 
 
@@ -22,6 +25,7 @@ NATIVE_DIAGNOSTIC_MAX_BYTES = 132 * 1024
 NATIVE_DIAGNOSTIC_MAX_FILES = 32
 NATIVE_DIAGNOSTIC_TTL_SECONDS = 7 * 24 * 60 * 60
 _FILE_SUFFIX = ".capture"
+PERMISSION_BYPASS_UNACCEPTED = "permission_bypass_unaccepted"
 _BACKGROUND_IN_USE_MARKERS = (
     b"session is already in use",
     b"conversation is already in use",
@@ -44,6 +48,8 @@ class NativeDiagnosticReceipt:
 def classify_native_failure(stderr: bytes) -> str:
     """Map private native stderr to a small non-secret failure taxonomy."""
     lowered = bytes(stderr).lower()
+    if CLAUDE_BYPASS_DISCLAIMER_REFUSAL.encode() in lowered:
+        return PERMISSION_BYPASS_UNACCEPTED
     if b"no conversation found with session id" in lowered:
         return "no_conversation_found"
     if any(marker in lowered for marker in _BACKGROUND_IN_USE_MARKERS):
@@ -238,6 +244,7 @@ __all__ = [
     "NATIVE_DIAGNOSTIC_TTL_SECONDS",
     "NativeDiagnosticError",
     "NativeDiagnosticReceipt",
+    "PERMISSION_BYPASS_UNACCEPTED",
     "classify_native_failure",
     "cleanup_native_diagnostics",
     "read_native_diagnostic",

@@ -9,6 +9,9 @@ import subprocess
 import threading
 import time
 
+from yoke_contracts.session_control.launch_permission_bypass import (
+    CODEX_EXEC_BYPASS_ARGUMENTS,
+)
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
     CodexNativeRequest,
@@ -61,6 +64,7 @@ def _base_command(binary: str, request: CodexNativeRequest) -> list[str]:
         "exec",
         "--json",
         "--skip-git-repo-check",
+        *CODEX_EXEC_BYPASS_ARGUMENTS,
     ]
     if request.requested_model:
         command.extend(["--model", request.requested_model])

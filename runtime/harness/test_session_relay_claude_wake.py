@@ -68,6 +68,7 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
     assert invocation.argv == (
         CLAUDE,
         "-p",
+        "--dangerously-skip-permissions",
         "--resume",
         ACTUAL_ID,
         CHECK_INBOX,

@@ -15,6 +15,9 @@ import time
 from typing import Callable
 from uuid import UUID
 
+from yoke_contracts.session_control.launch_permission_bypass import (
+    CURSOR_CLI_BYPASS_ARGUMENTS,
+)
 from yoke_harness.session_relay_cursor import (
     CursorNativeResult,
     CursorWakeRequest,
@@ -92,6 +95,7 @@ class CursorCliTransport:
             "--workspace",
             str(checkout),
             "--trust",
+            *CURSOR_CLI_BYPASS_ARGUMENTS,
         ]
         if model:
             command.extend(("--model", model))

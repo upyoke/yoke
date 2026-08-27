@@ -154,9 +154,10 @@ def test_exact_broker_lease_spawns_claude_and_reports_running(
     assert contexts[0].lease_id == lease.lease_id
     assert contexts[0].wake_route == "broker"
     assert contexts[0].target_session_id == "s4"
-    assert invocations[0].argv[:4] == (
+    assert invocations[0].argv[:5] == (
         "/opt/claude/bin/claude",
         "-p",
+        "--dangerously-skip-permissions",
         "--resume",
         "s4",
     )
