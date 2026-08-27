@@ -133,7 +133,7 @@ def test_session_start_degrades_without_session_id(
     assert quiet_side_effects["register"] == []
 
 
-def test_prompt_submit_is_silent_and_touches(
+def test_prompt_submit_is_silent_and_does_not_heartbeat(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
@@ -143,11 +143,11 @@ def test_prompt_submit_is_silent_and_touches(
     payload = {"session_id": MAIN, "model": "composer-2.5"}
     out = dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
     assert out == ""
-    assert quiet_side_effects["touch"] == [("/repo", MAIN)]
+    assert quiet_side_effects["touch"] == []
     assert quiet_side_effects["register"] == []
 
 
-def test_prompt_submit_reregisters_when_touch_fails(
+def test_later_prompt_does_not_register_when_touch_would_have_failed(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(dispatch_cursor._lifecycle, "touch", lambda root, sid: 1)
@@ -157,24 +157,23 @@ def test_prompt_submit_reregisters_when_touch_fails(
     )
     payload = {"session_id": MAIN, "model": "composer-2.5"}
     dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "composer-2.5", "cursor-desktop")
-    ]
+    assert quiet_side_effects["register"] == []
+    assert quiet_side_effects["touch"] == []
 
 
 def test_prompt_submit_heals_a_session_that_opened_without_a_model(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A surface that named no model when the session opened gets one free
-    correction on its first prompt; registration is upgrade-only, so the
-    heal costs one write and later prompts only heartbeat."""
+    correction on its first prompt; registration is upgrade-only and
+    later prompts do not heartbeat."""
     monkeypatch.setattr(
         "yoke_core.hooks.session_dispatch._first_prompt",
         lambda session_id, codex: True,
     )
     payload = {"session_id": MAIN, "model": "composer-2.5"}
     dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
-    assert quiet_side_effects["touch"] == [("/repo", MAIN)]
+    assert quiet_side_effects["touch"] == []
     assert quiet_side_effects["register"] == [
         ("/repo", MAIN, "composer-2.5", "cursor-desktop")
     ]

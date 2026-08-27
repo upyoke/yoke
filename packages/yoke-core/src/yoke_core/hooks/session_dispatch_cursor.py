@@ -117,12 +117,13 @@ def run_session_start(record: HookContext, root: str) -> str:
 
 
 def run_prompt_submit(record: HookContext, root: str) -> str:
-    """Heartbeat + safety-net registration; no reply body.
+    """First-prompt model heal only; no reply body and no heartbeat.
 
     ``beforeSubmitPrompt`` fires on the IDE surface only, and its reply
     contract is block/allow rather than context injection — orientation
     already rode ``sessionStart`` — so this handler performs side effects
-    and stays silent.
+    and stays silent. A wake-injected prompt is not session activity, so
+    later prompts must not stamp ``last_heartbeat``.
     """
     from yoke_core.hooks import cursor_payload as _cursor
     from yoke_core.hooks import telemetry
@@ -137,9 +138,8 @@ def run_prompt_submit(record: HookContext, root: str) -> str:
         first_prompt = _first_prompt(session_id, codex=False)
         # Registration is upgrade-only on the model, so the first prompt is
         # a free chance to heal a session that opened before its surface
-        # named one. Later prompts only heartbeat: re-registering every turn
-        # would write a row that already says the same thing.
-        if _lifecycle.touch(root, session_id) != 0 or (first_prompt and model):
+        # named one. Later prompts do not heartbeat.
+        if first_prompt and model:
             _lifecycle.register(
                 root,
                 session_id,

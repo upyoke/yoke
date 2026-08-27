@@ -191,7 +191,7 @@ def register_session(
         )
         # fmt: off
         params: List[Any] = [
-            provider, resolved_model, resolved_lane, workspace, mode, now,
+            provider, resolved_model, resolved_lane, workspace, mode,
             envelope_json, executor_version, machine_id,
         ]
         # fmt: on
@@ -205,6 +205,7 @@ def register_session(
         params.append(resolved_project_id)
         params.append(session_id)
 
+        # Registration/reactivation is a probe, not session activity.
         cursor = conn.execute(
             f"""UPDATE harness_sessions
                SET provider = {p},
@@ -212,7 +213,6 @@ def register_session(
                    execution_lane = {p},
                    workspace = {p},
                    mode = {p},
-                   last_heartbeat = {p},
                    ended_at = NULL,
                    offer_envelope = {p},
                    executor_version = {p},
