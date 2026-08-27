@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
+import pytest
+
+from yoke_core.domain import db_backend, machine_config, machine_config_status
+from yoke_core.domain import yoke_connected_env
 from yoke_cli.config import machine_config_mutation
 from yoke_contracts.machine_config.preferred_session_models import (
     EXPLICIT_SOURCE,
@@ -192,3 +197,99 @@ def test_status_names_the_preferred_models_key() -> None:
         f"  {PREFERRED_SESSION_MODELS_KEY}: blank = unset in /tmp/config.json"
         in rendered
     )
+
+
+def _seeded_blank_binding(root: Path, dsn_file: Path) -> Path:
+    """Write a machine config whose preferred-model map is freshly seeded."""
+    path = root / ".yoke" / "config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "local",
+                "connections": {
+                    "local": {
+                        "transport": "local-postgres",
+                        "credential_source": {
+                            "kind": "dsn_file",
+                            "path": str(dsn_file),
+                        },
+                    },
+                },
+                "projects": {str(root.resolve()): {"project_id": 1}},
+                PREFERRED_SESSION_MODELS_KEY: blank_preferred_session_models(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _bind_config(monkeypatch, config: Path, cwd: Path) -> None:
+    for key in (
+        db_backend.PG_DSN_ENV,
+        db_backend.PG_DSN_FILE_ENV,
+        "YOKE_DB",
+        machine_config.CONFIG_FILE_ENV,
+        yoke_connected_env.DISABLE_ENV,
+        yoke_connected_env.PYTEST_ENABLE_ENV,
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv(yoke_connected_env.PYTEST_ENABLE_ENV, "1")
+    monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(config))
+    monkeypatch.chdir(cwd)
+
+
+def test_seeded_blank_map_resolves_postgres_credentials(monkeypatch, tmp_path) -> None:
+    dsn_file = tmp_path / "local.dsn"
+    dsn_file.write_text("host=127.0.0.1 dbname=yoke\n", encoding="utf-8")
+    repo = tmp_path / "repo"
+    config = _seeded_blank_binding(repo, dsn_file)
+    _bind_config(monkeypatch, config, repo)
+
+    active = yoke_connected_env.load_active()
+    resolved = yoke_connected_env.resolve_postgres_dsn(
+        dsn_env=db_backend.PG_DSN_ENV,
+        dsn_file_env=db_backend.PG_DSN_FILE_ENV,
+    )
+
+    assert active is not None and active.backend == db_backend.POSTGRES
+    assert resolved.dsn.startswith("host=127.0.0.1")
+
+
+def test_non_string_model_still_fails_credential_resolution(monkeypatch, tmp_path):
+    dsn_file = tmp_path / "local.dsn"
+    dsn_file.write_text("host=127.0.0.1 dbname=yoke\n", encoding="utf-8")
+    repo = tmp_path / "repo"
+    config = _seeded_blank_binding(repo, dsn_file)
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    payload[PREFERRED_SESSION_MODELS_KEY]["cursor-cli"] = 7
+    config.write_text(json.dumps(payload), encoding="utf-8")
+    _bind_config(monkeypatch, config, repo)
+
+    with pytest.raises(
+        yoke_connected_env.ConnectedEnvError, match=PREFERRED_SESSION_MODELS_KEY
+    ):
+        yoke_connected_env.load_active()
+
+
+def test_config_status_agrees_with_the_validator_on_a_seeded_map(tmp_path) -> None:
+    config = tmp_path / "config.json"
+    payload = contract.canonical_example_payload()
+    config.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    report = machine_config_status.build_status(
+        config_path=config,
+        repo_root=tmp_path,
+        check_reachability=False,
+    )
+    reported = [
+        issue
+        for issue in report["issues"]
+        if PREFERRED_SESSION_MODELS_KEY in issue.get("message", "")
+    ]
+
+    assert payload[PREFERRED_SESSION_MODELS_KEY] == blank_preferred_session_models()
+    assert validate_preferred_session_models(payload) == []
+    assert reported == []

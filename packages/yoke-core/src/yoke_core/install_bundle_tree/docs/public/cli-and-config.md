@@ -34,11 +34,14 @@ explicit `--model` > this map > the vendor default. Model availability is
 bound to the accounts on this machine, so the map stays machine-local.
 A fresh installer/onboard write seeds the real key with every launchable
 harness surface from the session-control registry, each set to a blank
-string. Blank (or whitespace) means unset: the resolver and
-`--list-models` treat it like an absent entry and fall through to the
-vendor default. Activation is typing a model id into a blank. Existing
-maps are left untouched; machines without the key are not backfilled
-except on a fresh write or an explicit config repair.
+string. Blank (or whitespace) means unset: the resolver,
+`--list-models`, machine-config validation, and `yoke config status` all
+treat it like an absent entry and fall through to the vendor default, so
+a freshly seeded map resolves credentials on a postgres-authority
+connection. Validation rejects only a non-object map, a blank surface
+name, or a non-string model id. Activation is typing a model id into a
+blank. Existing maps are left untouched; machines without the key are
+not backfilled except on a fresh write or an explicit config repair.
 `yoke status` and `yoke session-control launch create --list-models`
 name the key and the config file. Every launch path — operator create and
 any later worker launcher — must call the same resolver.
