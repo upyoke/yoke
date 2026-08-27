@@ -100,6 +100,20 @@ def render_human(report: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("  issues: none")
+    policies = report.get("surface_policies") or {}
+    marks = policies.get("marks") if isinstance(policies, Mapping) else None
+    if isinstance(marks, list) and marks:
+        lines.append("  surface marks:")
+        for mark in marks:
+            if not isinstance(mark, Mapping):
+                continue
+            lines.append(
+                f"    - {mark.get('surface')} disabled "
+                f"({mark.get('reason')}) "
+                f"enable: yoke session-control surface-policy enable "
+                f"--machine {mark.get('machine_id')} "
+                f"--surface {mark.get('surface')}"
+            )
     return "\n".join(lines) + "\n"
 
 

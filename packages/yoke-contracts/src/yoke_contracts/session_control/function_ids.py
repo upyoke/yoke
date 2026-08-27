@@ -40,12 +40,19 @@ SESSION_FUNCTION_IDS = (
     "session_control.session.wake",
 )
 
+SURFACE_POLICY_FUNCTION_IDS = (
+    "session_control.surface_policy.disable",
+    "session_control.surface_policy.enable",
+    "session_control.surface_policy.list",
+)
+
 SESSION_CONTROL_FUNCTION_IDS = (
     *MESSAGE_FUNCTION_IDS,
     *LAUNCH_FUNCTION_IDS,
     *RELAY_FUNCTION_IDS,
     *QUALIFICATION_FUNCTION_IDS,
     *SESSION_FUNCTION_IDS,
+    *SURFACE_POLICY_FUNCTION_IDS,
 )
 
 __all__ = [
@@ -59,4 +66,5 @@ __all__ = [
     "RELAY_REPORT_FUNCTION_ID",
     "SESSION_FUNCTION_IDS",
     "SESSION_CONTROL_FUNCTION_IDS",
+    "SURFACE_POLICY_FUNCTION_IDS",
 ]

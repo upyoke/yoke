@@ -159,10 +159,10 @@ def create_launch(
             conn.commit()
             return outcome
         if not preview.launchable:
+            from yoke_core.domain.session_surface_policy import launch_refusal_message
+
             raise SessionLaunchError(
-                preview.outcome,
-                f"launch refused with outcome {preview.outcome}: "
-                f"{', '.join(preview.rejection_codes) or 'no relay evidence'}",
+                preview.outcome, launch_refusal_message(conn, preview)
             )
 
         launch_id = str(uuid4())

@@ -15,6 +15,10 @@ from yoke_contracts.session_control.surface_versions import (
 from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker
+from yoke_core.domain.session_surface_policy import (
+    WAKE_SKIP_SURFACE_DISABLED,
+    live_mark,
+)
 
 
 _WAKE_SKIP_ADAPTER_REVISION = "session-wake-eligibility-v1"
@@ -24,8 +28,14 @@ def _wake_skip_result(
     row: Mapping[str, Any],
     operation: str | None,
     relay_versions: Mapping[str, str],
+    *,
+    conn: Any | None = None,
 ) -> tuple[str, str | None]:
     surface = str(row.get("executor_surface") or "")
+    machine_id = str(row.get("machine_id") or "")
+    if conn is not None and machine_id and surface:
+        if live_mark(conn, machine_id, surface) is not None:
+            return WAKE_SKIP_SURFACE_DISABLED, None
     capability = capability_for_surface(surface)
     if capability is None:
         return "skipped_surface", None
@@ -61,7 +71,9 @@ def record_wake_skip(
 ) -> None:
     message_id = str(row["message_id"])
     session_id = str(row["session_id"])
-    result_code, driver = _wake_skip_result(row, operation, relay_versions)
+    result_code, driver = _wake_skip_result(
+        row, operation, relay_versions, conn=conn
+    )
     driver_version = relay_versions.get(driver or "")
     evidence = {
         "result_code": result_code,

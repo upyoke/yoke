@@ -80,6 +80,11 @@ def list_visible_relays(
         conn,
         {int(_value(row, "actor_id", 11)) for row in rows},
     )
+    from yoke_core.domain.session_surface_policy import list_marks
+
+    marks_by_machine: dict[str, list[dict[str, Any]]] = {}
+    for mark in list_marks(conn):
+        marks_by_machine.setdefault(str(mark["machine_id"]), []).append(mark)
 
     result: list[dict[str, Any]] = []
     for row in rows:
@@ -114,6 +119,9 @@ def list_visible_relays(
                 else "silent",
                 "state": str(_value(row, "state", 9)),
                 "last_job_at": _value(row, "last_job_at", 10),
+                "surface_policies": marks_by_machine.get(
+                    str(_value(row, "machine_id", 1)), []
+                ),
             }
         )
         if len(result) >= limit:

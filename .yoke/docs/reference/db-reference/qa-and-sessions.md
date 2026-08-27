@@ -239,6 +239,8 @@ Launches ride the ordinary launch plane (`session_launches`, `assigned` -> `laun
 
 Re-evaluating is safe twice over: work that already has a staffed worker on the way is skipped (`already_staffed`) and still spends the budget, and every gap carries one deterministic idempotency key, so a launch the first evaluation filed is returned deduplicated rather than filed again.
 
+A steerer or operator can disable one `(machine, surface)` with `yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT`. Launch preview/create and native-resume wakes then skip that relay and name the mark, the reason, and the enable command. In-flight sessions stay up. `yoke status` lists live marks on that machine. No counters, auto-trip, or probing.
+
 ### Live claim-holder lookup
 
 The canonical recipe for "which session currently holds the work claim on `PREFIX-N`?" is the registered read (function id `claims.work.holder_get`):

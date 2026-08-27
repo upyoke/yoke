@@ -27,6 +27,11 @@ from yoke_cli.commands.adapters.session_control_wake import SESSION_WAKE_USAGE
 from yoke_cli.commands.adapters.session_control_qualification import (
     QUALIFICATION_OPEN_USAGE,
 )
+from yoke_cli.commands.adapters.session_control_surface_policy import (
+    SURFACE_POLICY_DISABLE_USAGE,
+    SURFACE_POLICY_ENABLE_USAGE,
+    SURFACE_POLICY_LIST_USAGE,
+)
 
 
 SESSION_CONTROL_USAGE_BY_FUNCTION_ID = {
@@ -46,6 +51,9 @@ SESSION_CONTROL_USAGE_BY_FUNCTION_ID = {
     "session_control.launch.reconcile": LAUNCH_RECONCILE_USAGE,
     "session_control.session.terminate": SESSION_TERMINATE_USAGE,
     "session_control.session.wake": SESSION_WAKE_USAGE,
+    "session_control.surface_policy.disable": SURFACE_POLICY_DISABLE_USAGE,
+    "session_control.surface_policy.enable": SURFACE_POLICY_ENABLE_USAGE,
+    "session_control.surface_policy.list": SURFACE_POLICY_LIST_USAGE,
     "sessions.list": SESSION_ROSTER_USAGE,
 }
 

@@ -33,6 +33,7 @@ from yoke_cli.config.status_runtime import (
     build_runtime_status,
     with_runtime_identity,
 )
+from yoke_cli.config.status_surface_policy import attach_live_marks
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.machine_config import schema as contract
@@ -133,7 +134,7 @@ def build_status(
             "ambient_env": env,
         }
     )
-    return with_runtime_identity(report)
+    return attach_live_marks(with_runtime_identity(report), selected_path)
 
 
 def _connection_status(

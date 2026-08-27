@@ -14,6 +14,10 @@ from yoke_core.domain.session_launch_types import (
     EligibilitySnapshot,
     EligibleRelay,
 )
+from yoke_core.domain.session_surface_policy import (
+    SURFACE_DISABLED_REJECTION,
+    live_mark,
+)
 
 
 def _value(row: Any, name: str, index: int) -> Any:
@@ -113,6 +117,9 @@ def derive_launch_eligibility(
             row_rejected = True
         elif not _allowed_version(surface, offered):
             rejected.add("version_below_floor")
+            row_rejected = True
+        if live_mark(conn, relay_machine, surface) is not None:
+            rejected.add(SURFACE_DISABLED_REJECTION)
             row_rejected = True
         if row_rejected:
             continue
