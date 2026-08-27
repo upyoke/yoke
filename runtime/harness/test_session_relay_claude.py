@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_claude_native as claude_native_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_claude import (
@@ -26,7 +27,7 @@ ACTUAL_ID = "87654321-4321-4321-8321-cba987654321"
 SHORT_ID = "7c5dcf5d"
 BOOTSTRAP = native_launch_bootstrap(LAUNCH_ID)
 MESSAGE_ID = "message-1"
-CHECK_INBOX = f"Yoke message {MESSAGE_ID}: check your Yoke messages."
+CHECK_INBOX = native_wake_instruction(MESSAGE_ID)
 CLAUDE = "/opt/claude/bin/claude"
 
 

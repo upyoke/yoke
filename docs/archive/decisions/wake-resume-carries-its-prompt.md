@@ -49,3 +49,47 @@ resume injected, a second wake fired 31 seconds after it completed and
 carried the session to acknowledgement, and the receipt then held two
 successful wake-kind attempts where the evidence contract requires exactly
 one. The contract is the right bar; the cadence was what needed fixing.
+
+## The prompt names the action
+
+Carrying a prompt is necessary and not sufficient. The prompt that was
+carried only announced the message — "check your Yoke messages" — and left
+the acknowledgement to whatever the resumed turn felt like doing. Which
+turn it is turns out to matter: a fleet worker's transcript opens with a
+mandate to register and act, so the announcement is enough, and every
+worker-born session acknowledged inside its first attempt. A Claude Desktop
+conversation has no such mandate. Two consecutive acceptance runs recorded
+the same shape on the same desktop session: the first resume injected the
+envelope exactly once, ran on for the rest of a minute with no tool call at
+all, and ended; the plane then waited out the acknowledgement window and
+woke it again, and the second wake carried it to acknowledgement. Delivery
+worked. The receipt did not, because its contract requires exactly one
+successful wake attempt and this took two.
+
+Cadence could not fix that. By the time the second wake fired, the first
+attempt had already reached a terminal settlement, so there was no
+in-flight delivery for a suppression window to protect. The missing step
+was in the turn, so the prompt now asks for it: run the fixed
+acknowledgement command the injected envelope names, before answering or
+ending this turn.
+
+It also names the one case where acknowledging is the wrong move. An
+unconditional "acknowledge now" would let a wake whose envelope never
+arrived report a delivery that did not happen, and the plane would stop
+re-waking on the strength of that receipt — trading a shape failure for a
+silent one. So the instruction is conditioned on the envelope: no envelope,
+no acknowledgement, say so instead.
+
+## One author, one sentence
+
+`expected_native_instruction` exists so a native is handed exactly one
+sentence per job and every adapter refuses anything else — "two adapters
+spelling it out separately is how a native ends up reading an instruction
+the control plane never issued". The Claude adapter was validating the
+job's instruction against it and then handing the native a second sentence
+of its own, so the digest recorded on the attempt's evidence described text
+the native never saw, and the wake prompt could drift from the receipt it
+was supposed to earn. Cursor and Codex already deliver the control plane's
+sentence verbatim. Claude does now too, which is why strengthening the one
+central instruction reaches every harness at once rather than fixing one
+surface and leaving the others on the old wording.

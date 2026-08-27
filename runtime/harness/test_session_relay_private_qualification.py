@@ -14,6 +14,7 @@ from yoke_contracts.session_control.private_route_qualification import (
     PrivateRouteQualificationGrant,
     PrivateRouteQualificationScope,
 )
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_core.tools.session_relay_plist import (
     relay_launchd_paths,
     relay_plist_document,
@@ -84,7 +85,7 @@ def _context(tmp_path, *, grant=None, version: str = "2.1.241"):
         surface="claude-cli",
         project_id=1,
         checkout=tmp_path,
-        native_instruction="Yoke message message-1: check your Yoke messages.",
+        native_instruction=native_wake_instruction("message-1"),
         surface_version=version,
         message_id="message-1",
         target_session_id=TARGET_SESSION_ID,

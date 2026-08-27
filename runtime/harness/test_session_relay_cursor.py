@@ -11,6 +11,7 @@ from yoke_contracts.session_control.launch_bootstrap import (
     LAUNCH_BOOTSTRAP_REFUSAL,
     native_launch_bootstrap,
 )
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness.session_relay_cursor import (
     CursorNativeResult,
     build_cursor_adapter,
@@ -84,7 +85,7 @@ def _wake(
     job_id: str = "wake-attempt",
 ):
     message_id = "33333333-3333-4333-8333-333333333333"
-    expected = f"Yoke message {message_id}: check your Yoke messages."
+    expected = native_wake_instruction(message_id)
     return RelayExecutionContext(
         job_kind="wake",
         job_id=job_id,
@@ -145,8 +146,8 @@ def test_idle_wake_uses_acp_without_resuming_a_stopped_chat(tmp_path):
 
     assert result.result_code == "accepted"
     assert acp.prompt_requests[0].target_session_id == "cursor-session-existing"
-    assert acp.prompt_requests[0].native_instruction.endswith(
-        "check your Yoke messages."
+    assert acp.prompt_requests[0].native_instruction == native_wake_instruction(
+        "33333333-3333-4333-8333-333333333333"
     )
     assert cli.resume_requests == []
 

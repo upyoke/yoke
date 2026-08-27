@@ -107,13 +107,6 @@ def unsupported_claude_route(
     return _result(context, code, "unsupported_surface")
 
 
-def _wake_prompt(message_id: str) -> str:
-    return (
-        f"Yoke message reference `{message_id}` is pending. Inspect and handle "
-        "authenticated Yoke messages through normal Yoke hooks or message surfaces."
-    )
-
-
 def _context_extensions_present(context: RelayExecutionContext) -> bool:
     names = ("surface_version", "requested_model", "presentation")
     return all(hasattr(context, name) for name in names)
@@ -161,12 +154,12 @@ def run_claude_cli_adapter(
             return _result(context, "not_created", "native_session_invalid")
         if not context.launch_attestation or attestation_handoff is None:
             return _result(context, "not_created", "attestation_handoff_unavailable")
-    instruction = (
-        _wake_prompt(str(context.message_id))
-        if context.job_kind == "wake"
-        else expected
-    )
-    invocation = native_invocation(context, executable, instruction)
+    # The native is handed the sentence the control plane issued, never a
+    # second one written here: an adapter that validates against `expected`
+    # and then delivers its own wording is how a native reads an instruction
+    # no one attested, and how a wake prompt drifts out of step with the
+    # acknowledgement the receipt is waiting for.
+    invocation = native_invocation(context, executable, expected)
     if invocation is None:
         result = "not_created" if context.job_kind == "launch" else "not_found"
         return _result(context, result, "native_session_missing")

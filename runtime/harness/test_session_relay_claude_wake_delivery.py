@@ -17,8 +17,8 @@ from runtime.harness.test_session_relay_claude import (
     _context,
     _created,
 )
-from runtime.harness.test_session_relay_claude_wake import WAKE_PROMPT
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness import session_relay_claude_native as native_module
 from yoke_harness.session_relay_claude import run_claude_cli_adapter
@@ -104,7 +104,7 @@ def test_background_session_wake_stops_the_job_and_carries_the_prompt(
         "-p",
         "--resume",
         ACTUAL_ID,
-        WAKE_PROMPT,
+        CHECK_INBOX,
         "--output-format",
         "json",
     )
@@ -165,3 +165,22 @@ def test_wake_without_a_background_job_skips_the_stop(monkeypatch) -> None:
     assert commands == []
     assert detached[0][0][:4] == (CLAUDE, "-p", "--resume", ACTUAL_ID)
     assert wake.evidence["background_agent_result"] == "background_agent_not_found"
+
+
+def test_wake_prompt_asks_the_resumed_turn_for_the_acknowledgement() -> None:
+    """The prompt names the action, not just the message.
+
+    A resumed turn whose transcript is a conversation rather than a worker
+    mandate will answer an announcement in prose and end, leaving the plane
+    to wake it again for a receipt the first wake had already earned. The
+    prompt therefore asks for the acknowledgement inside this turn — and
+    withholds it when no envelope arrived, so a wake that failed to deliver
+    cannot be acknowledged into looking successful.
+    """
+    message_id = "11111111-1111-4111-8111-111111111111"
+    prompt = native_wake_instruction(message_id)
+
+    assert message_id in prompt
+    assert "acknowledge" in prompt
+    assert "this turn" in prompt
+    assert "If no envelope was injected, do not acknowledge" in prompt

@@ -8,6 +8,7 @@ import time
 from types import SimpleNamespace
 
 from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
+from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_cursor_acp as acp_module
 from yoke_harness import session_relay_cursor_cli as cli_module
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
@@ -27,7 +28,7 @@ LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
 SESSION_ID = "22222222-2222-4222-8222-222222222222"
 ATTESTATION = "single-use-secret"
 BOOTSTRAP = native_launch_bootstrap(LAUNCH_ID)
-CHECK_INBOX = "Yoke message message-1: check your Yoke messages."
+CHECK_INBOX = native_wake_instruction("message-1")
 
 
 class RunningProcess:
