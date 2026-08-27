@@ -102,6 +102,7 @@ def test_background_session_wake_stops_the_job_and_carries_the_prompt(
     assert argv == (
         CLAUDE,
         "-p",
+        "--dangerously-skip-permissions",
         "--resume",
         ACTUAL_ID,
         CHECK_INBOX,
@@ -163,7 +164,13 @@ def test_wake_without_a_background_job_skips_the_stop(monkeypatch) -> None:
     )
 
     assert commands == []
-    assert detached[0][0][:4] == (CLAUDE, "-p", "--resume", ACTUAL_ID)
+    assert detached[0][0][:5] == (
+        CLAUDE,
+        "-p",
+        "--dangerously-skip-permissions",
+        "--resume",
+        ACTUAL_ID,
+    )
     assert wake.evidence["background_agent_result"] == "background_agent_not_found"
 
 
