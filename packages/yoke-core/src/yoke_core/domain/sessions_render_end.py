@@ -42,6 +42,8 @@ def end_session(
     release_claims: bool = False,
     override_chain_end: bool = False,
     chain_end_rationale: Optional[str] = None,
+    end_reason: str = "session_ended",
+    agent_presence_evidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Mark a session as ended.
 
@@ -72,6 +74,15 @@ def end_session(
         chain_end_rationale: Operator-supplied rationale that justifies
             the chain-end override. Required when ``override_chain_end``
             is True; ignored when not overriding.
+        end_reason: Recorded as ``reason`` on ``HarnessSessionEnded`` and
+            passed to launch-abandonment settlement. Callers that know
+            more than "a session ended" name it — the relay's
+            verified-dead process probe is the worked example — so the
+            ledger says why rather than leaving a reader to infer it.
+        agent_presence_evidence: What the caller observed about the
+            agent behind the session, recorded on the terminal event.
+            The destructive branch composes its own and wins when both
+            are present.
 
     Raises:
         SessionError("NOT_FOUND"): Session does not exist.
@@ -226,9 +237,11 @@ def end_session(
         )
 
     end_context: Dict[str, Any] = {
-        "reason": "session_ended",
+        "reason": end_reason,
         "force": force,
     }
+    if presence_evidence is None and agent_presence_evidence:
+        presence_evidence = dict(agent_presence_evidence)
     if chain_override_authorized:
         end_context["chain_override_authorized"] = True
         end_context["chain_end_rationale"] = rationale
@@ -241,7 +254,7 @@ def end_session(
         session_id=session_id,
         context=end_context,
     )
-    settle_and_notify(conn, session_id, end_reason="session_ended")
+    settle_and_notify(conn, session_id, end_reason=end_reason)
 
     session_row = _get_session(conn, session_id)
     if released_claims:

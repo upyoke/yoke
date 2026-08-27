@@ -15,10 +15,15 @@ from yoke_cli.transport.dispatcher import call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.session_control.evidence import redacted_evidence_document
-from yoke_contracts.session_control.function_ids import RELAY_FUNCTION_IDS
+from yoke_contracts.session_control.function_ids import (
+    RELAY_CLAIM_FUNCTION_ID,
+    RELAY_REPORT_FUNCTION_ID,
+)
 from yoke_harness.session_relay_diagnostic_retention import retain_private_diagnostic
 from yoke_harness.session_relay_inventory import RelayInventory, collect_inventory
+from yoke_harness.session_relay_process_liveness import report_verified_dead_sessions
 from yoke_harness.session_relay_report_delivery import (
+    RELAY_REPORT_TIMEOUT_SECONDS,
     REPORT_RETRY_SECONDS,
     checkpoint_launch_result,
     checkpoint_launch_start,
@@ -37,12 +42,10 @@ from yoke_harness.session_relay_schedule import (
 )
 
 
-RELAY_CLAIM_FUNCTION_ID, RELAY_REPORT_FUNCTION_ID = RELAY_FUNCTION_IDS[1:]
 _POLL_POLICY = FLEET_KEY_SPECS["fleet.relay_poll_seconds"]
 RELAY_DISPATCH_TIMEOUT_SECONDS = int(_POLL_POLICY.default) + int(
     _POLL_POLICY.minimum or 0
 )
-RELAY_REPORT_TIMEOUT_SECONDS = 10
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -196,6 +199,9 @@ def _poll(
         state_dir=state_dir,
         timeout_s=RELAY_REPORT_TIMEOUT_SECONDS,
     )
+    # A session whose native died reads stale rather than ended, so every
+    # wake for it pokes a process that is gone; this machine holds the proof.
+    report_verified_dead_sessions(dispatcher, inventory, state_dir=state_dir)
     response = dispatcher(
         function_id=RELAY_CLAIM_FUNCTION_ID,
         target=TargetRef(kind="global"),

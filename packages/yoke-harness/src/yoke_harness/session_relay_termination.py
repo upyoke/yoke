@@ -17,32 +17,33 @@ from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
 
 ADAPTER_REVISION = "session-termination-v1"
 NATIVE_HANDLE_DIRECTORY_NAME = "session-native-handles"
-_MAX_RECORD_BYTES = 4096
+MAX_RECORD_BYTES = 4096
 _TERMINATE_WAIT_SECONDS = 2.0
 
 
-def _root(state_dir: Path | None) -> Path:
+def local_state_root(state_dir: Path | None) -> Path:
     return state_dir or machine_config.cache_dir()
 
 
 def _handle_directory(state_dir: Path | None) -> Path:
-    directory = _root(state_dir) / NATIVE_HANDLE_DIRECTORY_NAME
+    directory = local_state_root(state_dir) / NATIVE_HANDLE_DIRECTORY_NAME
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     directory.chmod(0o700)
     return directory
 
 
 def _supervision_path(launch_id: str, state_dir: Path | None) -> Path:
-    return _root(state_dir) / SUPERVISION_DIRECTORY_NAME / f"{launch_id}.json"
+    directory = local_state_root(state_dir) / SUPERVISION_DIRECTORY_NAME
+    return directory / f"{launch_id}.json"
 
 
 def _handle_path(launch_id: str, state_dir: Path | None) -> Path:
     return _handle_directory(state_dir) / f"{launch_id}.json"
 
 
-def _read_record(path: Path) -> dict[str, Any] | None:
+def read_local_record(path: Path) -> dict[str, Any] | None:
     try:
-        if not path.is_file() or path.stat().st_size > _MAX_RECORD_BYTES:
+        if not path.is_file() or path.stat().st_size > MAX_RECORD_BYTES:
             return None
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -58,7 +59,7 @@ def adopt_launched_session(
 ) -> bool:
     """Retain a safe PID handle before registration releases containment."""
     source = _supervision_path(launch_id, state_dir)
-    record = _read_record(source)
+    record = read_local_record(source)
     if record is None or str(record.get("launch_id") or "") != launch_id:
         return False
     pid = record.get("pid")
@@ -187,7 +188,7 @@ def _matching_resume_records(
     native_thread_id: str | None,
     state_dir: Path | None,
 ) -> list[tuple[Path, dict[str, Any]]]:
-    directory = _root(state_dir) / SUPERVISION_DIRECTORY_NAME
+    directory = local_state_root(state_dir) / SUPERVISION_DIRECTORY_NAME
     matches: list[tuple[Path, dict[str, Any]]] = []
     try:
         candidates = sorted(directory.glob("*.json"))
@@ -197,7 +198,7 @@ def _matching_resume_records(
     if native_thread_id:
         identities.add(str(native_thread_id))
     for path in candidates:
-        record = _read_record(path)
+        record = read_local_record(path)
         if record is None or record.get("supervision_kind") != "resume":
             continue
         if str(record.get("native_session_id") or "") in identities:
@@ -216,7 +217,7 @@ def _matching_anchor_records(
     except OSError:
         return matches
     for path in candidates:
-        record = _read_record(path)
+        record = read_local_record(path)
         if record is None or record.get("shared_by_multiple_sessions"):
             continue
         if str(record.get("session_id") or "") == target_session_id:
@@ -251,7 +252,7 @@ def reap_terminated_session(
     records: list[tuple[Path, dict[str, Any]]] = []
     if launch_id:
         handle = _handle_path(launch_id, state_dir)
-        record = _read_record(handle)
+        record = read_local_record(handle)
         if (
             record is not None
             and str(record.get("launch_id") or "") == launch_id
@@ -291,7 +292,10 @@ def reap_terminated_session(
 
 __all__ = [
     "ADAPTER_REVISION",
+    "MAX_RECORD_BYTES",
     "NATIVE_HANDLE_DIRECTORY_NAME",
     "adopt_launched_session",
+    "local_state_root",
+    "read_local_record",
     "reap_terminated_session",
 ]

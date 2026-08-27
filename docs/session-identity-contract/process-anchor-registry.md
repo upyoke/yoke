@@ -74,3 +74,17 @@ write re-decides tenancy (`yoke_contracts.session_anchor_contention`):
 Markers written before contender recording heal the same way: the next
 write from the surviving tenant finds a single candidate and reclaims the
 pid.
+
+## The registry is also this machine's death certificate
+
+Identity resolution is not the only reader. A record pairs a session with
+a pid *and* the start time that pid must still carry, which makes it
+evidence about whether that session's process is still running — the one
+question the control plane cannot answer for itself. The relay reads the
+registry once per poll for exactly that
+(`yoke_harness.session_relay_process_liveness`), alongside the launch
+handles termination keeps, and reports the sessions whose every record is
+gone. A contended record is skipped: a pid that cannot name one session
+cannot testify about one session's death either. Why this exists, and what
+the control plane does with the report, is in
+[`relay-verified-process-death.md`](../archive/decisions/relay-verified-process-death.md).
