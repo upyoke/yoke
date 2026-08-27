@@ -71,9 +71,9 @@ def fresh_universe(tmp_path, monkeypatch):
             conn.close()
 
 
-def _begin(conn) -> dict:
+def _begin(db) -> dict:
     return begin_session(
-        conn,
+        db,
         session_id=_SESSION_ID,
         executor="claude-code",
         provider="anthropic",
@@ -83,9 +83,9 @@ def _begin(conn) -> dict:
     )
 
 
-def _human_actor_id(conn) -> int:
+def _human_actor_id(db) -> int:
     return int(
-        conn.execute(
+        db.execute(
             "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
         ).fetchone()[0]
     )

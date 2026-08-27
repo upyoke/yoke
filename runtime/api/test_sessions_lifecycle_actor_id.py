@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (the shared `conn` fixture is imported, then used by name)
 """``register_session`` actor-binding coverage.
 
 Split out of ``test_sessions_lifecycle.py`` once the parent file crossed
@@ -35,25 +36,25 @@ from runtime.api.test_sessions import (
 )
 
 
-def _stored_actor_id(conn, session_id: str):
-    return conn.execute(
+def _stored_actor_id(db, session_id: str):
+    return db.execute(
         "SELECT actor_id FROM harness_sessions WHERE session_id = %s",
         (session_id,),
     ).fetchone()["actor_id"]
 
 
-def _seeded_human_id(conn) -> int:
+def _seeded_human_id(db) -> int:
     return int(
-        conn.execute(
+        db.execute(
             "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
         ).fetchone()[0]
     )
 
 
-def _drop_human_actors(conn) -> None:
-    conn.execute("DELETE FROM actor_labels")
-    conn.execute("DELETE FROM actors WHERE kind = 'human'")
-    conn.commit()
+def _drop_human_actors(db) -> None:
+    db.execute("DELETE FROM actor_labels")
+    db.execute("DELETE FROM actors WHERE kind = 'human'")
+    db.commit()
 
 
 class TestRegisterSessionActorId:
