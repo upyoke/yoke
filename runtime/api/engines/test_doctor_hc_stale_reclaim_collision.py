@@ -97,7 +97,11 @@ def _insert_session(conn, sid: str, executor: str = "claude-code") -> None:
 
 
 def _insert_reclaimed_event(
-    conn, sid: str, *, reclaimed_at: str, claim_id: int = 999,
+    conn,
+    sid: str,
+    *,
+    reclaimed_at: str,
+    claim_id: int = 999,
 ) -> None:
     envelope = {
         "session_id": sid,
@@ -128,9 +132,12 @@ class TestHcStaleReclaimCollision:
         rec = _RecordCapture()
         hc_stale_reclaim_collision(conn, _Args(), rec)
         assert rec.rows == [
-            ("HC-stale-reclaim-collision",
-             "Silent two-session reclaim collisions",
-             "PASS", ""),
+            (
+                "HC-stale-reclaim-collision",
+                "Silent two-session reclaim collisions",
+                "PASS",
+                "",
+            ),
         ]
 
     def test_quiet_when_reclaim_has_no_post_activity(self):
@@ -148,7 +155,10 @@ class TestHcStaleReclaimCollision:
         _insert_session(conn, "sess-A", executor="claude-code")
         # Reclaim 10 minutes ago.
         _insert_reclaimed_event(
-            conn, "sess-A", reclaimed_at=_ago_minutes(10), claim_id=42,
+            conn,
+            "sess-A",
+            reclaimed_at=_ago_minutes(10),
+            claim_id=42,
         )
         # Tool event 5 minutes ago — inside the 20-minute claude-code window.
         _insert_tool_event(conn, "sess-A", created_at=_ago_minutes(5))

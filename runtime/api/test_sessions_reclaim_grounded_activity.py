@@ -112,9 +112,7 @@ class TestOpenToolCallGrounding:
 
 class TestSweepCollectsIdleSessions:
     @pytest.mark.parametrize("executor", EXECUTORS)
-    def test_idle_session_is_reclaimed_and_reports_real_staleness(
-        self, conn, executor
-    ):
+    def test_idle_session_is_reclaimed_and_reports_real_staleness(self, conn, executor):
         session_id, idle = _seed_idle_session_with_leftover_row(conn, executor)
 
         result = clean_stale_harness_sessions(conn)
@@ -177,9 +175,7 @@ class TestChainBudgetDiesWithTheSession:
         assert read_chain_checkpoint(conn, session_id) is None
 
     @pytest.mark.parametrize("executor", EXECUTORS)
-    def test_reclaimed_checkpoint_no_longer_refuses_the_empty_end(
-        self, conn, executor
-    ):
+    def test_reclaimed_checkpoint_no_longer_refuses_the_empty_end(self, conn, executor):
         session_id, _idle = _seed_idle_session_with_leftover_row(conn, executor)
         update_chain_checkpoint(
             conn,

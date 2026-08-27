@@ -26,8 +26,6 @@ from yoke_core.domain.sessions import (
 from yoke_core.domain.sessions_analytics_core import (
     DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
 )
-
-_PAST_HOLDINGS_TTL = DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60
 from runtime.api.sessions_api_stale_test_helpers import (
     EVENTS_TABLE_FOR_STALE_DETECTION,
     _ago_minutes,
@@ -35,6 +33,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
+_PAST_HOLDINGS_TTL = DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60
 
 _REGISTRY_SCHEMA = """
     CREATE TABLE event_registry (

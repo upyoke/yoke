@@ -37,6 +37,7 @@ from .sessions_analytics_dispatch import (
     emit_next_action_chosen,
 )
 
+
 def _emit_event(
     event_name: str,
     *,
@@ -86,6 +87,7 @@ def _emit_session_event(
         context=context,
         outcome=outcome,
     )
+
 
 def emit_post_decision_telemetry(
     conn: Any,
@@ -143,7 +145,9 @@ def emit_post_decision_telemetry(
             status=ctx.get("status"),
         )
         adapter = resume_dispatch.get("adapter", adapter)
-        dispatch_source = resume_dispatch.get("dispatch_source", "resume-status-mapping")
+        dispatch_source = resume_dispatch.get(
+            "dispatch_source", "resume-status-mapping"
+        )
         if ctx.get("status"):
             dispatch_context["status"] = ctx["status"]
 
@@ -158,6 +162,7 @@ def emit_post_decision_telemetry(
         reasoning=reason,
         context=dispatch_context or None,
     )
+
 
 __all__ = [
     "SessionError",
