@@ -3,6 +3,10 @@
 from pathlib import Path
 
 import pytest
+from yoke_core.tools._impacted_contract_tests import (
+    HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS,
+    contract_selection_for,
+)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -31,7 +35,17 @@ def test_bridge_is_project_local_and_correlation_visible() -> None:
     ):
         assert f"      {input_name}:" in text
     assert "[yoke-dispatch:${{ inputs.yoke_dispatch_id }}]" in text
-    assert "permissions:\n  actions: read\n  contents: read" in text
+    assert "permissions:\n  actions: write\n  contents: read" in text
+
+
+def test_hosted_release_workflow_changes_select_their_contract_tests() -> None:
+    for workflow_path in (
+        ".github/workflows/platform-release-bridge.yml",
+        ".github/workflows/yoke-release.yml",
+    ):
+        selection = contract_selection_for([workflow_path])
+
+        assert set(HOSTED_RELEASE_WORKFLOW_CONTRACT_TESTS) <= selection.tests
 
 
 def test_bridge_creates_or_recovers_one_annotated_release_tag() -> None:
@@ -42,6 +56,19 @@ def test_bridge_creates_or_recovers_one_annotated_release_tag() -> None:
     assert "secrets.YOKE_RELEASE_API_TOKEN" in text
     assert "yoke-release.yml yoke-server-image.yml" in text
     assert "yoke github-actions find-run" in text
+
+
+def test_bridge_restarts_one_already_failed_factory_attempt() -> None:
+    await_step = _text().split(
+        "- name: Await the wheel and server-image release factories", 1
+    )[1].split("      - name: ", 1)[0]
+
+    assert "GH_TOKEN: ${{ github.token }}" in await_step
+    assert 'gh run rerun "$run_id"' in await_step
+    assert "--failed" in await_step
+    assert '"$factory_attempt" -gt 1' in await_step
+    assert "factory_failed_job_rerun_exhausted" in await_step
+    assert "Another bridge already restarted" in await_step
 
 
 def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None:

@@ -196,12 +196,33 @@ jobs:
           fi
           release_notes="$RUNNER_TEMP/release-notes.md"
           jq -r '.message // ""' <<< "$tag_object" > "$release_notes"
-          gh release create "$TAG_NAME" \
-            "${wheels[@]}" \
-            "$ARTIFACT_DIR/release-records.json" \
-            "$ARTIFACT_DIR/migration-history.json" \
-            "$ARTIFACT_DIR/migration-history-record.json" \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --title "Yoke $RELEASE_VERSION" \
-            --notes-file "$release_notes"
+          release_create_output="$RUNNER_TEMP/github-release-create.txt"
+          for attempt in 1 2 3; do
+            if gh release create "$TAG_NAME" \
+              "${wheels[@]}" \
+              "$ARTIFACT_DIR/release-records.json" \
+              "$ARTIFACT_DIR/migration-history.json" \
+              "$ARTIFACT_DIR/migration-history-record.json" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "Yoke $RELEASE_VERSION" \
+              --notes-file "$release_notes" \
+              >"$release_create_output" 2>&1; then
+              cat "$release_create_output"
+              break
+            else
+              release_create_rc=$?
+            fi
+            cat "$release_create_output" >&2
+            if ! grep -Eq 'HTTP 5[0-9]{2}([^0-9]|$)' "$release_create_output"; then
+              echo "github_release_create_non_retryable: inspect the response above, correct it, then rerun the failed publish job" >&2
+              exit "$release_create_rc"
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "github_release_create_5xx_exhausted: GitHub Release creation returned HTTP 5xx three times; rerun the failed publish job after GitHub recovers" >&2
+              exit "$release_create_rc"
+            fi
+            backoff_seconds=$((attempt * 5))
+            echo "GitHub Release creation returned HTTP 5xx on attempt $attempt; retrying in ${backoff_seconds}s" >&2
+            sleep "$backoff_seconds"
+          done

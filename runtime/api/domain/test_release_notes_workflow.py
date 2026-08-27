@@ -116,6 +116,18 @@ def test_release_creation_uses_tag_notes_and_validated_assets():
     assert '--notes-file "$release_notes"' in text
 
 
+def test_release_creation_retries_only_http_server_errors():
+    release_step = _text().split(
+        "- name: Re-resolve the tag and create the GitHub Release entry", 1
+    )[1]
+
+    assert "for attempt in 1 2 3" in release_step
+    assert "HTTP 5[0-9]{2}([^0-9]|$)" in release_step
+    assert 'sleep "$backoff_seconds"' in release_step
+    assert "github_release_create_non_retryable" in release_step
+    assert "github_release_create_5xx_exhausted" in release_step
+
+
 def test_public_operator_doc_teaches_current_release_and_verification():
     text = _DOC.read_text(encoding="utf-8")
     assert "yoke-hosted-production" in text
