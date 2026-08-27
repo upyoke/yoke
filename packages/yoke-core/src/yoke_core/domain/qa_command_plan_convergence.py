@@ -22,6 +22,9 @@ from yoke_core.domain.qa_command_invocation import (
     canonicalize_registered_command,
     rewrite_retired_watch_pytest_commands,
 )
+from yoke_core.domain.project_verification_posture import (
+    REGISTERED_COMMAND_PLAN_PREFIX,
+)
 from yoke_core.domain.qa_command_plan_registration import (
     CI_COMMAND_METHOD_ID,
     COMMAND_SCOPE_POLICIES,
@@ -51,7 +54,8 @@ def _registered_scope_bindings(conn: Any) -> list[dict]:
         "JOIN projects pr ON pr.id=p.project_id "
         "JOIN qa_plan_cases c ON c.plan_id=p.id "
         "WHERE p.retired_at IS NULL "
-        "AND substr(p.slug, 1, 19)='registered-command-' "
+        f"AND substr(p.slug, 1, {len(REGISTERED_COMMAND_PLAN_PREFIX)})="
+        f"'{REGISTERED_COMMAND_PLAN_PREFIX}' "
         "ORDER BY p.project_id, p.slug",
     ))
 
@@ -77,7 +81,9 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
     # same settings document.
     settings_by_project: dict[int, dict[str, Any]] = {}
     for row in _registered_scope_bindings(conn):
-        scope = str(row["plan_slug"]).removeprefix("registered-command-")
+        scope = str(row["plan_slug"]).removeprefix(
+            REGISTERED_COMMAND_PLAN_PREFIX
+        )
         policy = COMMAND_SCOPE_POLICIES.get(scope)
         if policy is None:
             continue

@@ -8,7 +8,10 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.project_identity import row_value
-from yoke_core.domain.project_verification_posture import require_no_attestation
+from yoke_core.domain.project_verification_posture import (
+    REGISTERED_COMMAND_PLAN_PREFIX,
+    require_no_attestation,
+)
 from yoke_core.domain.qa_command_argv_presence import require_argv_present
 from yoke_core.domain.qa_command_invocation import (
     canonicalize_registered_command,
@@ -89,7 +92,7 @@ def _plan_for_scope(
     ci_workflow: str = "",
 ) -> int:
     marker = _p(conn)
-    slug = f"registered-command-{scope}"
+    slug = f"{REGISTERED_COMMAND_PLAN_PREFIX}{scope}"
     existing = query_one(
         conn,
         f"SELECT id FROM qa_plans WHERE project_id={marker} AND slug={marker}",

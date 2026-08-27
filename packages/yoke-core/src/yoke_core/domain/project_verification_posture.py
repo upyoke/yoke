@@ -27,9 +27,11 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
 
 #: Slug prefix of the QA plans that carry a project's registered verification
-#: command, one per scope. Shared with the registration module through this
-#: constant rather than re-spelled, so a rename cannot leave the retirement
-#: matching plans the registration no longer creates.
+#: command, one per scope. It lives here rather than beside the registration
+#: that builds those slugs because registration imports this module for its
+#: refusal, so the dependency only runs one way. Registration and the boot-time
+#: convergence both read it from here, so a rename cannot leave the retirement
+#: matching plans that are no longer created.
 REGISTERED_COMMAND_PLAN_PREFIX = "registered-command-"
 
 
@@ -145,11 +147,10 @@ def attest_no_tests(
 ) -> dict:
     """Record the attestation and retire any registered verification command.
 
-    Both halves land in the caller's transaction. Retiring inside the same
-    write is what keeps the two declarations from coexisting: a project that
-    has attested has no registered scope left for the boot-time command
-    convergence to re-enter, so that convergence never meets a registration
-    the attestation would refuse.
+    Both halves commit together. Retiring inside the same write is what keeps
+    the two declarations from coexisting: a project that has attested has no
+    registered scope left for the boot-time command convergence to re-enter,
+    so that convergence never meets a registration the attestation refuses.
     """
     from yoke_core.domain.project_structure_write import apply_patch_on_connection
 
