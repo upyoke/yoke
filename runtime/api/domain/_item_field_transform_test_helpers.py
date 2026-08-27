@@ -137,7 +137,6 @@ def _patched_db(test: unittest.TestCase, db: _FakeDB) -> None:
     own patch. Body render + GitHub sync are stubbed for hermeticity.
     """
     test.addCleanup(db.cleanup)
-    from yoke_core.domain import db_helpers as _db_helpers
     targets = [
         (backlog_queries, "_resolve_write_db_path", db.path),
         (backlog_queries, "_assert_write_db_ready", None),
@@ -149,7 +148,6 @@ def _patched_db(test: unittest.TestCase, db: _FakeDB) -> None:
         (backlog_rendering, "_maybe_rebuild_board", None),
         (sections, "_render_fn", 0),
         (sections, "_emit_event_fn", None),
-        (_db_helpers, "resolve_db_path", db.path),
     ]
     for module, name, value in targets:
         patcher = mock.patch.object(module, name, return_value=value)

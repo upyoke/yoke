@@ -11,11 +11,10 @@ Thin top-level surface for the worktree subsystem. Owns:
 
 Heavy implementation lives in three responsibility-named siblings:
 
-* :mod:`yoke_core.domain.worktree_paths` — repo / state / DB / named-path
+* :mod:`yoke_core.domain.worktree_paths` — repo / state / named-path
   resolution. Also owns the low-level ``_run`` primitive shared with the
-  other siblings. Imported eagerly
-  because it is the lightweight foundation every caller (including
-  path-only readers like ``db_helpers.resolve_db_path()``) depends on.
+  other siblings. Imported eagerly because it is the lightweight
+  foundation every path-only reader depends on.
 * :mod:`yoke_core.domain.worktree_create` — ``create_worktree`` and provisioning
 * :mod:`yoke_core.domain.worktree_deps` — dependency install + Playwright cache
 * :mod:`yoke_core.domain.worktree_item_resolve` — DB-backed item-to-worktree lookup
@@ -38,7 +37,6 @@ from typing import TYPE_CHECKING
 # Lightweight resolver — always imported at module top.
 from yoke_core.domain.worktree_paths import (
     is_git_worktree,
-    resolve_db_path,
     resolve_main_root,
     resolve_named_path,
     resolve_yoke_root,
@@ -74,7 +72,6 @@ __all__ = [
     "main_paths",
     "main_playwright_cache",
     "main_resolve",
-    "resolve_db_path",
     "resolve_item_worktree",
     "resolve_main_root",
     "resolve_named_path",

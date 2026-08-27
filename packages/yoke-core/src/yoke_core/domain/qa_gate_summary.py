@@ -30,7 +30,7 @@ import json
 import sys
 from typing import Any, Dict, Optional, Sequence
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows, resolve_db_path
+from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.qa_constants import is_browser_method_requirement
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
@@ -277,7 +277,7 @@ def cmd_gate_summary(
         print("Error: provide --item-id OR both --epic-id and --task-num", file=sys.stderr)
         return 2
 
-    resolved_db = db_path or resolve_db_path()
+    resolved_db = db_path or ""
     summary = render_gate_summary(
         gate_target, resolved_db, transition_name=target
     )

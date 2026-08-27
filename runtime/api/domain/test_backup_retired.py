@@ -23,14 +23,9 @@ def test_create_backup_is_retired_without_creating_destination(tmp_path: Path) -
     assert not backup_dir.exists()
 
 
-def test_cli_backup_fails_without_resolving_db_path(
+def test_cli_backup_fails_without_resolving_a_file_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    def fail_resolve() -> str:
-        raise AssertionError("retired backup CLI must not resolve a DB path")
-
-    monkeypatch.setattr(backup.db_helpers, "resolve_db_path", fail_resolve)
-
     with pytest.raises(SystemExit) as exc:
         backup.main(["backup", "manual", "--backup-dir", str(tmp_path / "backups")])
 

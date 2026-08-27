@@ -175,8 +175,7 @@ def test_retired_canonical_yoke_db_does_not_override_connected_env(
     assert db_backend.is_postgres()
     reason = yoke_connected_env.retired_db_guard_reason()
     assert "retired local SQLite authority" in str(reason)
-    with pytest.raises(RuntimeError, match="SQLite authority retired/guarded"):
-        db_helpers.resolve_db_path()
+    assert not hasattr(db_helpers, "resolve" + "_db_path")
 
 
 def test_retired_yoke_db_resolves_postgres_from_outside_repo(

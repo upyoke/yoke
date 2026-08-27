@@ -92,8 +92,6 @@ class _Harness:
         self._patches = []
 
     def __enter__(self):
-        from yoke_core.domain import db_helpers as _db_helpers
-
         path = {"return_value": self.db_path}
         self._patches = [
             mock.patch.object(backlog_queries, "_resolve_write_db_path", **path),
@@ -104,7 +102,6 @@ class _Harness:
             mock.patch.object(
                 backlog_structured_write_op, "_assert_write_db_ready",
             ),
-            mock.patch.object(_db_helpers, "resolve_db_path", **path),
             mock.patch.object(backlog_rendering, "_render_body", return_value=True),
             mock.patch.object(
                 backlog_rendering, "_sync_body", return_value=(True, "full"),

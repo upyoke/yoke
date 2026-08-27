@@ -41,16 +41,10 @@ def _resolve_db_fallback() -> str:
 
     The programmatic :func:`run_hook(payload, yoke_db=...)` entry point
     continues to honor explicitly injected paths for tests and Codex. The
-    fallback delegates to the retired resolver guard and degrades to ``""``
-    when Postgres authority refuses path-based resolution; lint hooks must
-    remain fail-open.
+    fallback is empty: Postgres authority uses a DSN, and lint hooks
+    must remain fail-open.
     """
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-
-        return resolve_db_path() or ""
-    except Exception:
-        return ""
+    return ""
 
 
 def _parse_payload(raw: str) -> Dict[str, Any]:

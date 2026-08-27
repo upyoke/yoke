@@ -1,9 +1,8 @@
 """Runtime DB resolution from worktrees — runtime-owner regression tests.
 
-Split from ``test_worktree_db_resolution.py``. Covers the
-checks that runtime owner paths (service_client, engines, domain
-helpers) all delegate to the canonical resolver and never create a
-worktree-local yoke.db.
+Runtime owners open Postgres through ``db_helpers.connect`` and never
+create a worktree-local file DB. Path-token helpers return empty or
+refuse; they do not construct a file path.
 """
 
 from __future__ import annotations
@@ -11,31 +10,22 @@ from __future__ import annotations
 import os
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import db_backend
-# Re-export shared fixture.
-from runtime.api.test_worktree_db_resolution_test_helpers import (  # noqa: F401
-    fake_repo,
-)
 
-
-def _expected_path(fake_repo) -> str:
-    return "" if db_backend.is_postgres() else str(fake_repo["main_db"])
+pytest_plugins = ("runtime.api.test_worktree_db_resolution_test_helpers",)
 
 
 class TestRuntimeOwnerFromWorktree:
     """Runtime owners no longer carry bespoke parents[3] fallback."""
 
-    def test_service_client_resolves_main_db(self, fake_repo):
-        """service_client._get_db_path() delegates to canonical resolver."""
+    def test_service_client_path_token_refuses_file_authority(self, fake_repo):
+        """service_client._get_db_path() refuses a constructed file path."""
         from yoke_core.api.service_client import _get_db_path
 
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(fake_repo["main_db"]),
-        ):
-            result = _get_db_path()
-
-        assert result == str(fake_repo["main_db"])
+        with pytest.raises(RuntimeError, match="Postgres authority"):
+            _get_db_path()
         stray = fake_repo["wt_data"] / "yoke.db"
         assert not stray.exists()
 
@@ -54,163 +44,65 @@ class TestRuntimeOwnerFromWorktree:
         stray = fake_repo["wt_data"] / "yoke.db"
         assert not stray.exists()
 
-    def test_done_transition_resolves_main_db(self, fake_repo):
-        """engines.done_transition._db_path() delegates to canonical resolver."""
+    def test_done_transition_path_token_is_empty(self, fake_repo):
+        """engines.done_transition._db_path() returns the empty token."""
         from yoke_core.engines.done_transition import _db_path
 
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(fake_repo["main_db"]),
-        ):
-            result = _db_path()
+        assert _db_path() == ""
+        assert not (fake_repo["wt_data"] / "yoke.db").exists()
 
-        assert result == _expected_path(fake_repo)
-
-    def test_merge_worktree_resolves_main_db(self, fake_repo):
-        """engines.merge_worktree._db_path() delegates to canonical resolver."""
+    def test_merge_worktree_path_token_is_empty(self, fake_repo):
+        """engines.merge_worktree._db_path() returns the empty token."""
         from yoke_core.engines.merge_worktree import _db_path
 
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(fake_repo["main_db"]),
-        ):
-            result = _db_path()
+        assert _db_path() == ""
+        assert not (fake_repo["wt_data"] / "yoke.db").exists()
 
-        assert result == _expected_path(fake_repo)
-
-    def test_merge_lock_resolves_main_db(self, fake_repo):
-        """domain.merge_lock._db_path() delegates to canonical resolver."""
+    def test_merge_lock_path_token_is_empty(self, fake_repo):
+        """domain.merge_lock._db_path() returns the empty token."""
         from yoke_core.domain.merge_lock import _db_path
 
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(fake_repo["main_db"]),
-        ):
-            result = _db_path()
+        assert _db_path() == ""
+        assert not (fake_repo["wt_data"] / "yoke.db").exists()
 
-        assert result == _expected_path(fake_repo)
-
-    def test_backup_resolves_main_db(self, fake_repo):
-        """domain.backup._resolve_db_path() delegates to canonical resolver."""
+    def test_backup_path_token_refuses_file_authority(self, fake_repo):
+        """domain.backup._resolve_db_path() refuses a constructed file path."""
         from yoke_core.domain.backup import _resolve_db_path
 
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(fake_repo["main_db"]),
-        ):
-            result = _resolve_db_path()
+        with pytest.raises(RuntimeError, match="Postgres authority"):
+            _resolve_db_path()
 
-        assert result == str(fake_repo["main_db"])
-
-    def test_emit_event_resolves_main_db(self, fake_repo):
-        """domain.emit_event._db_path() delegates to canonical resolver."""
+    def test_emit_event_path_token_is_absent(self, fake_repo):
+        """domain.emit_event._db_path() returns None."""
         from yoke_core.domain.emit_event import _db_path
 
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("YOKE_DB", None)
-            os.environ.pop("YOKE_ROOT", None)
-            with mock.patch(
-                "yoke_core.domain.db_helpers.resolve_db_path",
-                return_value=str(fake_repo["main_db"]),
-            ):
-                result = _db_path()
+        assert _db_path() is None
 
-        assert result == str(fake_repo["main_db"])
-
-    def test_events_resolves_main_db(self, fake_repo):
-        """domain.events._resolve_db_path() delegates to canonical resolver."""
+    def test_events_path_token_is_absent(self, fake_repo):
+        """domain.events._resolve_db_path() returns None."""
         from yoke_core.domain.events import _resolve_db_path
 
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("YOKE_DB", None)
-            os.environ.pop("YOKE_ROOT", None)
-            with mock.patch(
-                "yoke_core.domain.db_helpers.resolve_db_path",
-                return_value=str(fake_repo["main_db"]),
-            ):
-                result = _resolve_db_path()
+        assert _resolve_db_path() is None
 
-        assert result == str(fake_repo["main_db"])
-
-    def test_backlog_write_path_resolves_main_db(self, fake_repo):
-        """domain.backlog._resolve_write_db_path() delegates to canonical resolver."""
+    def test_backlog_write_path_token_is_empty(self, fake_repo):
+        """domain.backlog._resolve_write_db_path() returns the empty token."""
         from yoke_core.domain.backlog import _resolve_write_db_path
 
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("YOKE_DB", None)
-            os.environ.pop("YOKE_ROOT", None)
-            with mock.patch(
-                "yoke_core.domain.db_helpers.resolve_db_path",
-                return_value=str(fake_repo["main_db"]),
-            ):
-                result = _resolve_write_db_path()
+        assert _resolve_write_db_path() == ""
+        assert not (fake_repo["wt_data"] / "yoke.db").exists()
 
-        assert result == _expected_path(fake_repo)
-
-    def test_backlog_write_path_falls_back_for_missing_db(self, fake_repo):
-        """backlog write path keeps the main-repo target even before the DB exists."""
-        from yoke_core.domain.backlog import _resolve_write_db_path
-
-        fake_repo["main_db"].unlink()
-        stray = fake_repo["wt_data"] / "yoke.db"
-        assert not fake_repo["main_db"].exists()
-        assert not stray.exists()
-
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("YOKE_DB", None)
-            os.environ.pop("YOKE_ROOT", None)
-            with mock.patch(
-                "yoke_core.domain.db_helpers.resolve_db_path",
-                side_effect=FileNotFoundError("missing main DB for write path"),
-            ), mock.patch(
-                "yoke_core.domain.worktree_paths.resolve_db_path",
-                return_value=str(fake_repo["main_db"]),
-            ) as resolver:
-                result = _resolve_write_db_path()
-
-        assert result == _expected_path(fake_repo)
-        if not db_backend.is_postgres():
-            resolver.assert_called_once()
-        assert not stray.exists()
-
-    def test_schema_resolves_main_db_even_when_missing_for_init(self, fake_repo):
-        """schema._resolve_db_path() must keep the main-repo target even
-        before init has created the DB file."""
+    def test_schema_path_token_is_empty(self, fake_repo):
+        """schema._resolve_db_path() returns the empty token."""
         from yoke_core.domain.schema import _resolve_db_path
 
-        fake_repo["main_db"].unlink()
-        stray = fake_repo["wt_data"] / "yoke.db"
-        assert not fake_repo["main_db"].exists()
-        assert not stray.exists()
+        assert _resolve_db_path() == ""
+        assert not (fake_repo["wt_data"] / "yoke.db").exists()
 
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("YOKE_DB", None)
-            os.environ.pop("YOKE_ROOT", None)
-            with mock.patch(
-                "yoke_core.domain.db_helpers.resolve_db_path",
-                side_effect=FileNotFoundError("missing main DB for init"),
-            ), mock.patch(
-                "yoke_core.domain.worktree.resolve_db_path",
-                return_value=str(fake_repo["main_db"]),
-            ) as resolver:
-                result = _resolve_db_path()
-
-        assert result == _expected_path(fake_repo)
-        if not db_backend.is_postgres():
-            resolver.assert_called_once()
-        assert not stray.exists()
-
-    def test_epic_task_sync_resolves_main_db(self, fake_repo):
-        """domain.epic_task_sync._db_path() delegates to canonical resolver."""
+    def test_epic_task_sync_path_token_is_empty(self, fake_repo):
+        """domain.epic_task_sync._db_path() returns the empty token."""
         from yoke_core.domain.epic_task_sync import _db_path
 
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(fake_repo["main_db"]),
-        ):
-            result = _db_path()
-
-        assert result == str(fake_repo["main_db"])
+        assert _db_path() == ""
 
     def test_update_status_yoke_root_normalizes_both_env_shapes(self, fake_repo):
         """domain.update_status._yoke_root() accepts repo-root and state-dir
@@ -242,3 +134,9 @@ class TestRuntimeOwnerFromWorktree:
         expected = (fake_repo["main_root"] / ".yoke").resolve()
         assert _normalize_yoke_root(str(fake_repo["main_root"])) == expected
         assert _normalize_yoke_root(str(expected)) == expected
+
+    def test_postgres_authority_does_not_need_file_db(self, fake_repo):
+        if not db_backend.is_postgres():
+            return
+        assert db_backend.is_postgres()
+        assert not (fake_repo["wt_data"] / "yoke.db").exists()

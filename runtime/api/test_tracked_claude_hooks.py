@@ -152,7 +152,7 @@ def test_settings_json_has_no_worktree_local_db_injection() -> None:
         "Tracked Claude hook commands in .claude/settings.json inject a "
         "worktree-local data/yoke.db path. The Python hook surface "
         "(observe, observe_pre, lint_db_cmd, lint_event_registry) "
-        "owns DB resolution via yoke_core.domain.db_helpers.resolve_db_path. "
+        "owns DB resolution via yoke_core.domain.db_helpers.connect. "
         "Strip the YOKE_DB= prefix and --db argument. See YOK-1384.\n"
         "Violations:\n" + "\n".join(f"  - {v}" for v in violations)
     )

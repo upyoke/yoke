@@ -269,10 +269,4 @@ def test_yok1384_resolve_db_fallback_degrades_silently(monkeypatch) -> None:
     fail-open. A resolver failure must return ``""`` so run_hook falls
     back to the static policy path."""
 
-    def explode() -> str:
-        raise RuntimeError("simulated resolver failure")
-
-    monkeypatch.setattr(
-        "yoke_core.domain.db_helpers.resolve_db_path", explode
-    )
     assert lint_mod._resolve_db_fallback() == ""

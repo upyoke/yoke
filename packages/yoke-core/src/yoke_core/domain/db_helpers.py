@@ -1,12 +1,10 @@
 """Shared DB connection helpers for Yoke Python engines.
 
-Provides path resolution, connection factory, and query helpers that all
-Python modules can import instead of duplicating DB boilerplate.
+Provides a connection factory and query helpers that all Python modules
+can import instead of duplicating DB boilerplate.
 
-The retired ``resolve_db_path`` entrypoint is retained only as a guard:
-Yoke authority is Postgres, so callers must resolve the active database
-through ``YOKE_PG_DSN`` / connected-env binding instead of constructing a
-``data/yoke.db`` path.
+Yoke authority is Postgres: callers resolve the active database through
+``YOKE_PG_DSN`` / connected-env binding instead of constructing a file path.
 """
 
 from __future__ import annotations
@@ -32,14 +30,6 @@ def iso8601_now() -> str:
     callers must supply the value at INSERT time.
     """
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def resolve_db_path() -> str:
-    """Refuse retired SQLite DB-path authority."""
-    raise RuntimeError(
-        "SQLite authority retired/guarded: Postgres authority selects "
-        "the Yoke DB through YOKE_PG_DSN, not a yoke.db path."
-    )
 
 
 def connect(

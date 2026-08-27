@@ -54,9 +54,7 @@ def _repo_root() -> Path:
 
 def _db_path() -> str:
     """Retained for non-sync compatibility imports; sync code opens via _connect_db."""
-    from yoke_core.domain.db_helpers import resolve_db_path
-
-    return resolve_db_path()
+    return ""
 
 
 def _connect_db() -> Any:

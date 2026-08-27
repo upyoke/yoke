@@ -27,10 +27,11 @@ def get_config_path() -> Path:
 
 
 def get_db_path() -> str:
-    """Return the retired local DB path for legacy diagnostics only."""
-    from yoke_core.domain.db_helpers import resolve_db_path
-
-    return resolve_db_path()
+    """Refuse a constructed file-DB path; Postgres authority uses a DSN."""
+    raise RuntimeError(
+        "SQLite authority retired/guarded: Postgres authority selects "
+        "the Yoke DB through YOKE_PG_DSN, not a constructed file path."
+    )
 
 
 def get_db_readonly():

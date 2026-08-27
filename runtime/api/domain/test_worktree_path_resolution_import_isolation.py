@@ -3,8 +3,8 @@ import-isolation contract.
 
 The contract under test:
 
-* ``db_helpers.resolve_db_path()`` refuses retired SQLite authority under
-  Postgres without importing the heavy siblings.
+* ``db_helpers.connect()`` opens Postgres authority without importing
+  the heavy siblings.
 * The ``python3 -m yoke_core.domain.worktree paths db`` diagnostic CLI
   refuses the physical retired DB path without importing
   :mod:`yoke_core.domain.worktree_create`,
@@ -64,16 +64,11 @@ class TestPathOnlyImportIsolation:
     """Importing the worktree facade for path-only use must not pull in
     the heavy provisioning siblings."""
 
-    def test_resolve_db_path_does_not_import_worktree_create(self) -> None:
+    def test_connect_does_not_import_worktree_create(self) -> None:
         script = """
             import sys
             from yoke_core.domain import db_helpers
-            try:
-                db_helpers.resolve_db_path()
-            except RuntimeError as exc:
-                assert 'SQLite authority retired/guarded' in str(exc), exc
-            else:
-                raise AssertionError('resolve_db_path unexpectedly returned')
+            assert not hasattr(db_helpers, 'resolve' + '_db_path')
             heavy = [m for m in (
                 'yoke_core.domain.worktree_create',
                 'yoke_core.domain.worktree_deps',
@@ -118,7 +113,7 @@ class TestPathOnlyResolverSurvivesBrokenSibling:
     NOT break the path-only resolver path."""
 
     @pytest.mark.parametrize("broken_sibling", HEAVY_SIBLINGS)
-    def test_resolve_db_path_survives_broken_sibling(
+    def test_connect_import_survives_broken_sibling(
         self, broken_sibling: str,
     ) -> None:
         script = f"""
@@ -142,13 +137,8 @@ class TestPathOnlyResolverSurvivesBrokenSibling:
             sys.modules[{broken_sibling!r}] = broken
 
             from yoke_core.domain import db_helpers
-            try:
-                db_helpers.resolve_db_path()
-            except RuntimeError as exc:
-                assert 'SQLite authority retired/guarded' in str(exc), exc
-                print('OK')
-            else:
-                raise AssertionError('resolve_db_path unexpectedly returned')
+            assert not hasattr(db_helpers, 'resolve' + '_db_path')
+            print('OK')
         """
         result = _run_in_subprocess(script)
         assert result.returncode == 0, (

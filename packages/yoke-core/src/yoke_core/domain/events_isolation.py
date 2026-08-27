@@ -32,18 +32,8 @@ from typing import Optional
 
 
 def _resolve_db_path() -> Optional[str]:
-    """Resolve the legacy file DB path via :func:`db_helpers.resolve_db_path`.
-
-    Post-filters to require an existing file so this writer never mints a
-    fresh SQLite file from a silently-wrong env var or stray fallback.
-    """
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-
-        candidate = resolve_db_path()
-    except (FileNotFoundError, ImportError, RuntimeError):
-        return None
-    return candidate if os.path.isfile(candidate) else None
+    """File-DB tokens are retired; Postgres authority needs no path."""
+    return None
 
 
 # ---------------------------------------------------------------------------

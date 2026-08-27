@@ -116,14 +116,8 @@ def _extract_waiter_target(command: str) -> tuple[Optional[str], Optional[str]]:
 
 
 def _resolve_db_path() -> Optional[str]:
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-    except Exception:
-        return None
-    try:
-        return resolve_db_path()
-    except Exception:
-        return None
+    """Vestigial token seam; Postgres authority is selected by DSN."""
+    return None
 
 
 def _existing_capture_files(payload: dict) -> set[str]:

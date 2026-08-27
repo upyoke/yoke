@@ -30,9 +30,9 @@ This module owns:
 
 Control-plane separation: ``/yoke`` control-plane commands must continue to
 mutate the canonical control-plane DB regardless of declared model.
-Those commands resolve the control-plane token via the worktree resolver
-(``resolve_db_path``) — this module only governs the
-per-model connection env vars, not the control-plane one.
+Those commands resolve the control-plane token through the connected
+Postgres authority — this module only governs the per-model connection
+env vars, not the control-plane one.
 """
 
 from __future__ import annotations
@@ -320,9 +320,8 @@ def prompt_env_var_bindings(
     one per model with a ``worktree_local_sqlite`` surface.
 
     The legacy ``YOKE_DB`` token is NOT pinned here. When a
-    ``/yoke`` control-plane command runs, it resolves the control-plane token via
-    :func:`yoke_core.domain.worktree.resolve_db_path` which walks up
-    to the canonical state dir — the control plane is Yoke's
+    ``/yoke`` control-plane command runs, it binds the control-plane token
+    through the connected Postgres authority — the control plane is Yoke's
     regardless of which worktree initiated the command.
     """
     bindings: List[Tuple[str, str]] = [

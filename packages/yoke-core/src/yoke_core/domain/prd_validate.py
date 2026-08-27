@@ -1,10 +1,8 @@
 """PRD validation quality gate.
 
 Direct Python owner — invoked via ``python3 -m yoke_core.domain.prd_validate``.
-DB path resolution delegates to
-:func:`yoke_core.domain.db_helpers.resolve_db_path`, so callers set
-``YOKE_DB`` (or rely on the canonical resolver) rather than pointing the
-validator at a specific repo root.
+Callers bind Postgres through ``YOKE_PG_DSN`` / connected-env rather than
+pointing the validator at a constructed file path.
 
 Section/item extraction lives in :mod:`yoke_core.domain.prd_validate_extract`,
 content-quality predicates in :mod:`yoke_core.domain.prd_validate_checks`,

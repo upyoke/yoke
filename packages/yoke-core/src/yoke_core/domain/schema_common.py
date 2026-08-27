@@ -60,24 +60,13 @@ def _cli_usage_error(msg: str) -> None:
 
 
 def _resolve_db_path() -> str:
-    """Resolve the retired SQLite DB path for legacy commands.
+    """Return the empty token Postgres authority uses in place of a file path.
 
-    Active schema work is Postgres-only and should call :func:`_connect_raw`
-    without using this path. The path remains for legacy migration-audit CLI
-    surfaces that have not yet been deleted.
+    Active schema work should call :func:`_connect_raw` with no path. The
+    empty token remains for legacy migration-audit CLI surfaces that have
+    not yet been deleted.
     """
-    from yoke_core.domain import db_backend
-
-    if db_backend.is_postgres():
-        return ""
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-
-        return resolve_db_path()
-    except (FileNotFoundError, ImportError):
-        from yoke_core.domain.worktree import resolve_db_path as resolve_worktree_db_path
-
-        return resolve_worktree_db_path()
+    return ""
 
 
 def _resolve_db_root() -> str:
