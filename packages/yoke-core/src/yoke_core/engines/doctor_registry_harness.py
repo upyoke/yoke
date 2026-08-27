@@ -7,7 +7,7 @@ live here, in this order:
 Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
   ``stale-reclaim-collision``, ``session-actor-binding``,
-  ``session-cwd-binding``,
+  ``local-operating-actor-authority``, ``session-cwd-binding``,
   ``session-pre-implementing-activity``, ``session-lane-mismatch``,
   ``launcher-authority``, ``session-relay``, ``session-relay-orphans``.
 
@@ -54,8 +54,11 @@ from yoke_core.engines.doctor_hc_project_hook_config import (
     hc_project_hook_config_validity,
 )
 from yoke_core.engines.doctor_hc_session_actor_binding import (
+    AUTHORITY_SLUG as OPERATING_ACTOR_AUTHORITY_SLUG,
+    AUTHORITY_TITLE as OPERATING_ACTOR_AUTHORITY_TITLE,
     SLUG as SESSION_ACTOR_BINDING_SLUG,
     TITLE as SESSION_ACTOR_BINDING_TITLE,
+    hc_local_operating_actor_authority,
     hc_session_actor_binding,
 )
 from yoke_core.engines.doctor_hc_session_cwd_binding import (
@@ -102,6 +105,11 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         SESSION_ACTOR_BINDING_SLUG,
         SESSION_ACTOR_BINDING_TITLE,
         hc_session_actor_binding,
+    ),
+    HealthCheck(
+        OPERATING_ACTOR_AUTHORITY_SLUG,
+        OPERATING_ACTOR_AUTHORITY_TITLE,
+        hc_local_operating_actor_authority,
     ),
     HealthCheck(
         "session-cwd-binding",

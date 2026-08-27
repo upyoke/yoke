@@ -150,6 +150,18 @@ def _apply_session_offer_schema() -> None:
             ITEM_DEPENDENCIES_SCHEMA,
             _SESSION_OFFER_SCHEMA_DDL,
         )
+        # The dispatcher authorizes every mutation against the session's
+        # actor, so this fixture carries the org/role tables a real
+        # universe has and the operator grant that goes with them.
+        from yoke_core.domain.auth_schema import create_auth_tables
+        from yoke_core.domain.org_schema import create_org_tables
+        from yoke_core.domain.schema_init_actor_path_claim_tables import (
+            create_actor_identity_tables,
+        )
+
+        create_actor_identity_tables(conn)
+        create_auth_tables(conn)
+        create_org_tables(conn)
         seed_fixture_operating_actor(conn)
         from yoke_core.domain.workflow_registry import (
             converge_builtin_workflows,

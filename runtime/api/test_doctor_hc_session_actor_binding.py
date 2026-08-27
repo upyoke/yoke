@@ -21,8 +21,11 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines.doctor_hc_session_actor_binding import (
+    AUTHORITY_SLUG,
+    AUTHORITY_TITLE,
     SLUG,
     TITLE,
+    hc_local_operating_actor_authority,
     hc_session_actor_binding,
 )
 
@@ -50,6 +53,12 @@ class _RecorderStub:
 
 
 SCHEMA = """
+CREATE TABLE projects (
+    id SERIAL PRIMARY KEY,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    created_at TEXT
+);
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
     actor_id INTEGER,
@@ -144,3 +153,55 @@ def test_reports_the_resolver_reason_when_no_operating_actor_exists(conn):
         "SELECT COUNT(*) FROM harness_sessions WHERE actor_id IS NULL"
     ).fetchone()[0]
     assert still_null == 1
+
+
+def _run_authority(conn, *, fix: bool = False) -> _Record:
+    rec = _RecorderStub()
+    hc_local_operating_actor_authority(conn, _DoctorArgsStub(fix=fix), rec)
+    assert len(rec.records) == 1
+    record = rec.records[0]
+    assert record.slug == AUTHORITY_SLUG and record.label == AUTHORITY_TITLE
+    return record
+
+
+def _auth_schema(conn) -> None:
+    """Build the org/role tables a real universe carries."""
+    from yoke_core.domain.auth_schema import create_auth_tables
+    from yoke_core.domain.org_schema import create_org_tables
+
+    create_auth_tables(conn)
+    create_org_tables(conn)
+    conn.commit()
+
+
+def test_authority_skips_a_universe_without_the_org_tables(conn):
+    _seed_human(conn)
+    assert _run_authority(conn).verdict == "PASS"
+
+
+def test_authority_fails_when_the_operating_actor_holds_no_role(conn):
+    _auth_schema(conn)
+    _seed_human(conn)
+    record = _run_authority(conn)
+    assert record.verdict == "FAIL"
+    assert "yoke doctor run --quick --fix" in record.detail
+
+
+def test_authority_fix_grants_the_org_admin_role(conn):
+    _auth_schema(conn)
+    actor_id = _seed_human(conn)
+    record = _run_authority(conn, fix=True)
+    assert record.verdict == "PASS"
+    granted = conn.execute(
+        "SELECT COUNT(*) FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
+        "WHERE aor.actor_id = %s AND r.name = 'admin'",
+        (actor_id,),
+    ).fetchone()[0]
+    assert granted == 1
+
+
+def test_authority_passes_once_the_grant_exists(conn):
+    _auth_schema(conn)
+    _seed_human(conn)
+    _run_authority(conn, fix=True)
+    assert _run_authority(conn).verdict == "PASS"
