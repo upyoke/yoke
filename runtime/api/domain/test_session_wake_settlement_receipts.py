@@ -12,6 +12,11 @@ from runtime.api.domain.test_session_relay import (
     _heartbeat,
 )
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
+from yoke_contracts.session_control.wake_delivery import (
+    NATIVE_RESUME_ACCEPTED_RESULT,
+    WAKE_DELIVERY_UNVERIFIED_RESULTS,
+    WAKE_REPORT_CODES,
+)
 from yoke_core.domain.session_broker_wake import BROKER_ADAPTER_REVISION
 from yoke_core.domain.session_broker_wake_settlement import close_broker_attempt
 from yoke_core.domain.session_message_attempt_reads import message_attempt_evidence
@@ -20,7 +25,6 @@ from yoke_core.domain.session_relay_expiry import (
     RELAY_EXPIRY_ADAPTER_REVISION,
     settle_expired_relay_leases,
 )
-from yoke_core.domain.session_relay_jobs import WAKE_REPORT_CODES
 from yoke_core.domain.session_wake_reconciliation import (
     WAKE_RECONCILIATION_ADAPTER_REVISION,
     reconcile_spawned_wake_attempts,
@@ -29,7 +33,11 @@ from yoke_core.domain.session_wake_reconciliation import (
 
 NATIVE_ADAPTER_REVISION = "test-native-wake-v1"
 STARTED_AT = "2026-08-22T12:00:00Z"
-TERMINAL_RELAY_RESULTS = tuple(sorted(WAKE_REPORT_CODES - {RESUMED_RUNNING_RESULT}))
+# Every reported code that closes its attempt on the spot. The rest name a
+# native the relay started and leave delivery for the receipt to settle.
+TERMINAL_RELAY_RESULTS = tuple(
+    sorted(WAKE_REPORT_CODES - WAKE_DELIVERY_UNVERIFIED_RESULTS)
+)
 
 
 def _claim_direct_wake(conn, *, now: str = STARTED_AT):
@@ -107,11 +115,12 @@ def test_relay_report_writer_supplies_a_revision_when_native_report_did_not() ->
     _add_wake_recipient(conn)
     job = _claim_direct_wake(conn)
 
-    _report(conn, job, "accepted", adapter_revision=None)
+    _report(conn, job, NATIVE_RESUME_ACCEPTED_RESULT, adapter_revision=None)
 
     row = _attempt_row(conn, job.job_id)
-    assert row[2] == "2026-08-22T12:00:10Z"
-    assert row[3] == "accepted"
+    # In flight until the receipt proves delivery, and already attributable.
+    assert row[2] is None
+    assert row[3] == NATIVE_RESUME_ACCEPTED_RESULT
     assert row[4]
 
 
@@ -129,10 +138,18 @@ def test_expired_first_attempt_and_successful_retry_are_both_complete() -> None:
         job_kind="wake",
         job_id=second.job_id,
         lease_id=second.lease_id,
-        result_code="accepted",
+        result_code=NATIVE_RESUME_ACCEPTED_RESULT,
         adapter_revision=NATIVE_ADAPTER_REVISION,
         now="2026-08-22T12:06:40Z",
     )
+    # The retry is complete once its envelope lands, not once it is reported.
+    conn.execute(
+        "UPDATE session_message_recipients SET state='injected',"
+        "injection_count=1,last_injected_at=? WHERE message_id='message-1'",
+        ("2026-08-22T12:07:00Z",),
+    )
+    conn.commit()
+    assert reconcile_spawned_wake_attempts(conn, now="2026-08-22T12:07:10Z") == 1
 
     receipts = message_attempt_evidence(conn, "message-1")
     assert receipts["attempt_count"] == 2

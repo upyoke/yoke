@@ -93,3 +93,55 @@ was supposed to earn. Cursor and Codex already deliver the control plane's
 sentence verbatim. Claude does now too, which is why strengthening the one
 central instruction reaches every harness at once rather than fixing one
 surface and leaving the others on the old wording.
+
+## The prompt names the tool call
+
+Naming the acknowledgement was still not enough, because it assumed an
+envelope would be there to acknowledge. Delivery is a hook decision, a hook
+runs only when the turn calls a tool, and a turn can reason and answer
+without calling one. A Cursor session parked idle proved it twice over: two
+consecutive fleet acceptance runs failed the same leg, and the second
+isolated it exactly — the initial message delivered and acknowledged
+normally through the session's own hooks, then a wake envelope sat pending
+at `injection_count = 0` through three accepted native resumes, two of them
+escalations from the starved-envelope ladder. Each resume produced a turn.
+No turn produced a tool call. The prompt now names the call itself, first,
+before anything else the turn might do, so the hook that delivers is
+guaranteed to run. It is one sentence in one function, so Claude, Codex,
+and Cursor all get it from the same place.
+
+## Accepted is not delivered
+
+The prompt makes delivery likely. It cannot make it certain, and the plane
+was recording the wrong fact either way. A relay reports what it saw of the
+native it started — the resume was accepted, the process is still running,
+the process exited — and that observation was written into the field every
+reader treats as the outcome. So three resumes that delivered nothing were
+three successes, and the receipt they were sent to deliver was the only
+place the truth was visible.
+
+A wake attempt is therefore settled by the receipt, never by the relay. A
+reported code that leaves delivery unproven keeps the attempt open, exactly
+as a detached resume already did, and the control plane closes it from
+injection facts: `wake_delivered` when the receipt records an injection or
+an acknowledgement after the attempt started, `turn_without_injection` when
+the resume finished, or its delivery window elapsed, with the envelope still
+pending. The verdict keeps the transport observation beside it, because an
+undelivered wake whose native accepted the resume is a different defect from
+one whose native never came up.
+
+Naming the failure is what makes the ladder work. An undelivered direct wake
+now joins the results that hand the next attempt to the peer-hook broker —
+a route that does not depend on the resumed turn calling anything — instead
+of reporting a success that stops the plane from trying again.
+
+## The probe rests on delivery, not on having woken
+
+The stale-alive probe ends a session that was asked to report and did not.
+It read "asked" as "woken", and a wake that delivers nothing never asked
+anything: three resumes against a parked session look, from wake attempts
+alone, exactly like three refusals to answer. The end step therefore reads
+the probe's own receipt. An undelivered probe ends nothing and says so
+(`wake_never_delivered`), leaving the claims to the holdings TTL — slower,
+and the only honest verdict available about a session that was never
+reached.

@@ -14,6 +14,10 @@ from yoke_contracts.session_control.resume import (
     RESUMED_COMPLETED_RESULT,
     RESUMED_RUNNING_RESULT,
 )
+from yoke_contracts.session_control.wake_delivery import (
+    TURN_WITHOUT_INJECTION_RESULT,
+    WAKE_DELIVERED_RESULT,
+)
 from yoke_core.domain.session_control_roster import (
     SESSION_CONTROL_ROSTER_FIELDS,
     session_control_roster_result,
@@ -300,19 +304,15 @@ def test_empty_roster_has_the_complete_stable_field_contract() -> None:
     ("result_code", "completed_at", "expected"),
     (
         (RESUMED_RUNNING_RESULT, None, "resumed-running"),
-        (
-            RESUMED_COMPLETED_RESULT,
-            "2026-08-22T12:00:20Z",
-            "resumed-completed",
-        ),
-        (
-            RESUME_NEVER_STARTED_RESULT,
-            "2026-08-22T12:20:00Z",
-            "resumed-died",
-        ),
+        # The resume process exited; whether the envelope arrived is still
+        # the delivery verdict's to say, so the roster reads it as in flight.
+        (RESUMED_COMPLETED_RESULT, None, "resumed-running"),
+        (WAKE_DELIVERED_RESULT, "2026-08-22T12:00:20Z", "wake-delivered"),
+        (TURN_WITHOUT_INJECTION_RESULT, "2026-08-22T12:05:20Z", "wake-undelivered"),
+        (RESUME_NEVER_STARTED_RESULT, "2026-08-22T12:20:00Z", "resumed-died"),
     ),
 )
-def test_roster_marks_the_latest_detached_resume_state(
+def test_roster_marks_the_latest_wake_delivery_state(
     result_code: str,
     completed_at: str | None,
     expected: str,

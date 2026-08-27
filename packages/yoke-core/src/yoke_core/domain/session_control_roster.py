@@ -11,9 +11,9 @@ from yoke_contracts.session_control.roster import (
 from yoke_contracts.session_control.surface_versions import (
     machine_wake_surface,
 )
-from yoke_contracts.session_control.resume import (
-    RESUME_RESULT_CODES,
-    resume_roster_state,
+from yoke_contracts.session_control.wake_delivery import (
+    WAKE_ATTEMPT_ROSTER_RESULTS,
+    wake_roster_state,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
@@ -152,7 +152,7 @@ def _resume_states(
     if not ids:
         return {}
     marker = _marker(conn)
-    result_markers = ",".join(marker for _ in RESUME_RESULT_CODES)
+    result_markers = ",".join(marker for _ in WAKE_ATTEMPT_ROSTER_RESULTS)
     rows = conn.execute(
         "SELECT target_session_id,result_code FROM session_message_attempts "
         "WHERE target_session_id IN ("
@@ -160,12 +160,12 @@ def _resume_states(
         + ") AND result_code IN ("
         + result_markers
         + ") ORDER BY started_at DESC,attempt_id DESC",
-        (*ids, *sorted(RESUME_RESULT_CODES)),
+        (*ids, *sorted(WAKE_ATTEMPT_ROSTER_RESULTS)),
     ).fetchall()
     states: dict[str, str] = {}
     for row in rows:
         session_id = str(row[0])
-        state = resume_roster_state(row[1])
+        state = wake_roster_state(row[1])
         if state is not None and session_id not in states:
             states[session_id] = state
     return states

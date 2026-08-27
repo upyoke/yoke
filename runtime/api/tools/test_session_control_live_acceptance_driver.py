@@ -15,6 +15,7 @@ from runtime.api.tools.session_control_live_acceptance_wake_route import (
     selected_route,
 )
 from runtime.api.tools.test_session_control_live_acceptance_clock import AcceptanceClock
+from yoke_contracts.session_control.wake_delivery import WAKE_DELIVERED_RESULT
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
@@ -222,7 +223,7 @@ class _ScenarioClient:
                     "adapter_revision": "acceptance-adapter-v1",
                     "started_at": "2026-08-23T12:00:00Z",
                     "completed_at": "2026-08-23T12:00:01Z",
-                    "result_code": "accepted",
+                    "result_code": WAKE_DELIVERED_RESULT,
                     "evidence": evidence,
                 }
             )
