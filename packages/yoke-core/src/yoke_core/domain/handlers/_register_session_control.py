@@ -22,6 +22,14 @@ from yoke_core.domain.handlers import session_relay as _relay
 from yoke_core.domain.handlers import session_termination as _termination
 from yoke_core.domain.handlers import session_wake as _wake
 from yoke_core.domain.handlers import session_qualification as _qualification
+from yoke_core.domain.handlers import session_surface_policy as _surface_policy
+from yoke_contracts.session_control.surface_policy import (
+    SurfacePolicyClearRequest,
+    SurfacePolicyListRequest,
+    SurfacePolicyListResponse,
+    SurfacePolicyMutationResponse,
+    SurfacePolicySetRequest,
+)
 from yoke_core.domain.session_termination_events import EVENT_SESSION_TERMINATED
 from yoke_core.domain.sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 
@@ -285,6 +293,46 @@ def register(registry) -> None:
         owner_module=_relay.__name__,
         adapter_status="internal",
     )
+
+    policy_specs = (
+        (
+            "set",
+            _surface_policy.handle_surface_policy_set,
+            SurfacePolicySetRequest,
+            SurfacePolicyMutationResponse,
+            ["session_surface_policies_insert"],
+        ),
+        (
+            "clear",
+            _surface_policy.handle_surface_policy_clear,
+            SurfacePolicyClearRequest,
+            SurfacePolicyMutationResponse,
+            ["session_surface_policies_update"],
+        ),
+        (
+            "list",
+            _surface_policy.handle_surface_policy_list,
+            SurfacePolicyListRequest,
+            SurfacePolicyListResponse,
+            [],
+        ),
+    )
+    for operation, handler, request_model, response_model, effects in policy_specs:
+        _register(
+            registry,
+            f"session_control.surface_policy.{operation}",
+            handler,
+            request_model,
+            response_model,
+            side_effects=effects,
+            owner_module=handler.__module__,
+            guardrails=[
+                "verified_actor",
+                "handler_enforced_operator_or_steering_authority",
+            ]
+            if operation != "list"
+            else ["verified_actor"],
+        )
 
 
 __all__ = ["register"]

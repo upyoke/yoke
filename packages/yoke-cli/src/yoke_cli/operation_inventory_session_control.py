@@ -32,6 +32,9 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke messages cancel", "session_control.message"),
     _w("yoke sessions create", "session_control.launch"),
     _w("yoke sessions terminate", "session_control.session"),
+    _w("yoke session-control surface-policy disable", "session_control.surface_policy"),
+    _w("yoke session-control surface-policy enable", "session_control.surface_policy"),
+    _w("yoke session-control surface-policy list", "session_control.surface_policy"),
 )
 
 PERMANENT_ROWS: tuple[_Row, ...] = tuple(

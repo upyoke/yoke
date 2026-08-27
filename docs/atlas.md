@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-27T18:28:56Z_
+_Audit generated_at: 2026-08-27T18:58:36Z_
 
 ## 1. Summary
 
-- Function ids registered: **430**
+- Function ids registered: **433**
 - Internal dispatch-only functions without CLI adapters: **84**
-- `yoke` CLI subcommands: **357** (357 carry usable `--help`)
-- Operation tracker: **334 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- `yoke` CLI subcommands: **360** (360 carry usable `--help`)
+- Operation tracker: **337 wrapped**, 10 tool_cli, 126 permanent, 0 pending
 - Skill-body recipes: 314 total (262 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **334** (operation tracker confirms 334 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **337** (operation tracker confirms 337 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -258,6 +258,9 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **334** (operation track
 | session_control | `yoke session-control session terminate` | `session_control.session.terminate` | ok |
 | session_control | `yoke sessions terminate` | `session_control.session.terminate` | ok |
 | session_control | `yoke session-control session wake` | `session_control.session.wake` | ok |
+| session_control | `yoke session-control surface-policy enable` | `session_control.surface_policy.clear` | ok |
+| session_control | `yoke session-control surface-policy list` | `session_control.surface_policy.list` | ok |
+| session_control | `yoke session-control surface-policy disable` | `session_control.surface_policy.set` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
@@ -536,8 +539,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 43 |
-| claude-code | 7 |
+| codex | 40 |
+| claude-code | 9 |
+| cursor | 1 |
 
 ## 8. Contradictions
 

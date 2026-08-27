@@ -57,6 +57,12 @@ def _native_wake_route_available(
     # route qualification below would reopen what the kill closed.
     if row.get("terminated_at"):
         return False
+    from yoke_core.domain.session_surface_policy import live_mark
+
+    machine_id = str(row.get("machine_id") or "")
+    surface = str(row.get("executor_surface") or "")
+    if machine_id and surface and live_mark(conn, machine_id, surface) is not None:
+        return False
     # A wake that has already left posture and liveness behind needs the
     # route it will actually take proved, not the one those facts name.
     routing = messageability(

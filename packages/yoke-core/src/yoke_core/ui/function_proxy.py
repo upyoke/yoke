@@ -56,6 +56,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "session_control.launch.get",
         "session_control.launch.list",
         "session_control.relay.list",
+        "session_control.surface_policy.list",
         "frontier.list",
         "events.query.run",
         "doctor.last_run.get",
@@ -103,6 +104,7 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
         "session_control.launch.get",
         "session_control.launch.list",
         "session_control.relay.list",
+        "session_control.surface_policy.list",
         "test_machine.get",
         "workflows.mechanics.get",
     }

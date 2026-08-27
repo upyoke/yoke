@@ -37,8 +37,28 @@ function relayCard(documentNode, relay) {
       documentNode, "h4", "session-relay-surfaces-heading", "Supported surfaces",
     ));
     const list = el(documentNode, "ul", "session-relay-surfaces");
+    const marks = relay.surface_policies || [];
     for (const [surface, version] of versions) {
-      list.appendChild(el(documentNode, "li", null, `${surface} ${version}`));
+      const mark = marks.find((entry) => entry.surface === surface);
+      const item = el(documentNode, "li", mark ? "session-relay-surface-disabled" : null);
+      if (mark) {
+        const badge = el(
+          documentNode,
+          "span",
+          "pill pill-danger",
+          "disabled",
+        );
+        badge.title = [
+          mark.reason,
+          mark.set_by_actor_id ? `actor ${mark.set_by_actor_id}` : "",
+          mark.created_at || "",
+        ].filter(Boolean).join(" · ");
+        item.appendChild(documentNode.createTextNode(`${surface} ${version} `));
+        item.appendChild(badge);
+      } else {
+        item.textContent = `${surface} ${version}`;
+      }
+      list.appendChild(item);
     }
     body.appendChild(list);
   } else {

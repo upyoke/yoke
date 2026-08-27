@@ -21,6 +21,7 @@ ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
         "session_message_attempts",
         "session_message_recipients",
         "session_relays",
+        "session_surface_policies",
         "session_termination_reaps",
         "strategy_doc_claims",
         "strategy_doc_revisions",

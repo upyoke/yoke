@@ -119,6 +119,12 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
                     humanize(code) for code in result.get("rejection_codes") or []
                 ),
             ),
+            (
+                "Enable command",
+                "surface_disabled" in (result.get("rejection_codes") or [])
+                and "yoke session-control surface-policy enable --machine M --surface S"
+                or None,
+            ),
             ("Selected relay", selected_row.get("relay_id")),
             ("Selected machine", selected_row.get("machine_id")),
         ],

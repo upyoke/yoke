@@ -53,6 +53,11 @@ from yoke_cli.commands.adapters.session_control_termination import (
     session_terminate,
 )
 from yoke_cli.commands.adapters.session_control_wake import session_wake
+from yoke_cli.commands.adapters.session_control_surface_policy import (
+    session_surface_policy_disable,
+    session_surface_policy_enable,
+    session_surface_policy_list,
+)
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -124,6 +129,18 @@ SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
     ("session-control", "session", "wake"): (
         "session_control.session.wake",
         session_wake,
+    ),
+    ("session-control", "surface-policy", "disable"): (
+        "session_control.surface_policy.set",
+        session_surface_policy_disable,
+    ),
+    ("session-control", "surface-policy", "enable"): (
+        "session_control.surface_policy.clear",
+        session_surface_policy_enable,
+    ),
+    ("session-control", "surface-policy", "list"): (
+        "session_control.surface_policy.list",
+        session_surface_policy_list,
     ),
 }
 

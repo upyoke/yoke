@@ -21,6 +21,7 @@ SESSION_CONTROL_TABLES = (
     "session_launch_attempts",
     "session_relays",
     "session_termination_reaps",
+    "session_surface_policies",
 )
 
 
@@ -206,6 +207,25 @@ def create_session_control_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_session_termination_reaps_machine_state
             ON session_termination_reaps(machine_id, state, requested_at);
+
+        CREATE TABLE IF NOT EXISTS session_surface_policies (
+            mark_id TEXT PRIMARY KEY,
+            machine_id TEXT NOT NULL,
+            surface TEXT NOT NULL,
+            state TEXT NOT NULL CHECK(state IN ('disabled')),
+            reason TEXT NOT NULL,
+            evidence TEXT,
+            set_by_actor_id INTEGER NOT NULL REFERENCES actors(id),
+            set_by_session_id TEXT REFERENCES harness_sessions(session_id),
+            created_at TEXT NOT NULL,
+            cleared_at TEXT,
+            cleared_by_actor_id INTEGER REFERENCES actors(id)
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_session_surface_policies_live
+            ON session_surface_policies(machine_id, surface)
+            WHERE cleared_at IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_session_surface_policies_machine
+            ON session_surface_policies(machine_id, created_at);
     """,
     )
     # CREATE TABLE IF NOT EXISTS never alters an existing table, so a column

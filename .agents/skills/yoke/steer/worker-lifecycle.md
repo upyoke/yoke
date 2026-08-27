@@ -155,3 +155,9 @@ The steering backstop composes the same single-item mandate for unpicked
 work. Prefer `yoke steering backstop evaluate --project {_project}` for
 work that sat; use this recipe for prompt staffing of newly runnable
 unclaimed items. Both paths must stay item-bound and CLI-only.
+
+When same-surface worker failures carry a vendor-side signature, disable
+that surface with `yoke session-control surface-policy disable` and staff
+onto the other harnesses. Do not mark unclassified failures. Re-enable
+only after one successful canary launch. See the Surface disable marks
+section in `SKILL.md`.
