@@ -23,7 +23,6 @@ from pathlib import PurePosixPath
 from typing import Any, Callable, Sequence
 
 from yoke_harness.ssh_mac_gui_session import (
-    MacosSessionContextFailure,
     classify_macos_session_context_failure,
 )
 from yoke_harness.test_machine_types import HostActionResult
@@ -38,6 +37,7 @@ FAILED_ERROR_CODE = "baseline_probe_failed"
 
 BRIDGE_CALL_RAISED_CAUSE = "bridge_call_raised"
 BRIDGE_CALL_RAISED_REASON = "the GUI-session bridge could not be called at all"
+BRIDGE_UNDELIVERED_CAUSE = "macos_gui_session_context_unavailable"
 NOT_SIGNED_IN_CAUSE = "probe_reported_not_signed_in"
 NOT_SIGNED_IN_REASON = "the probe ran and its program did not report itself signed in"
 NOT_SIGNED_IN_RECOVERY = (
@@ -49,7 +49,7 @@ _RECOVERY_BY_CAUSE = {
         "check SSH reachability and Terminal.app control on the host, then "
         "re-run `yoke test-machine verify`"
     ),
-    "macos_gui_session_context_unavailable": (
+    BRIDGE_UNDELIVERED_CAUSE: (
         "repair the Terminal.app bridge on the host and re-run "
         "`yoke test-machine verify`; the probe never reached its program"
     ),
@@ -161,14 +161,6 @@ def _failed_row(
     }
 
 
-def _is_undelivered(classified: MacosSessionContextFailure | None) -> bool:
-    """True when the bridge itself failed, so no program verdict was reached."""
-    return (
-        classified is not None
-        and classified.error_code == "macos_gui_session_context_unavailable"
-    )
-
-
 def run_baseline_probes(
     probes: Sequence[BaselineProbe],
     *,
@@ -227,27 +219,26 @@ def run_baseline_probes(
             )
             continue
         classified = classify_macos_session_context_failure(result)
+        cause, reason = (
+            (NOT_SIGNED_IN_CAUSE, NOT_SIGNED_IN_REASON)
+            if classified is None
+            else (classified.error_code, classified.reason)
+        )
         rows.append(
             _failed_row(
                 probe,
                 exit_code=exit_code,
                 expectation_met=matched,
-                cause=(
-                    classified.error_code
-                    if classified is not None
-                    else NOT_SIGNED_IN_CAUSE
-                ),
-                reason=(
-                    classified.reason
-                    if classified is not None
-                    else NOT_SIGNED_IN_REASON
-                ),
+                cause=cause,
+                reason=reason,
             )
         )
         return HostActionResult(
             False,
             {"probes": rows},
-            NO_VERDICT_ERROR_CODE if _is_undelivered(classified) else FAILED_ERROR_CODE,
+            NO_VERDICT_ERROR_CODE
+            if cause == BRIDGE_UNDELIVERED_CAUSE
+            else FAILED_ERROR_CODE,
         )
     return HostActionResult(True, {"probes": rows})
 
