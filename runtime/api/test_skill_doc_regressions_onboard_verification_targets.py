@@ -25,12 +25,13 @@ def _read(path: Path) -> str:
 
 def test_onboard_teaches_each_registered_command_target_mode() -> None:
     text = _read(ONBOARD)
+    retired_blanket_claim = "It needs no " + "environment"
     assert "`quick` and `full` are project-targeted" in text
     assert "--environment {site}/{environment}" in text
     assert "--requires-base-url" in text
     assert "CI, `--environment` is required" in text
     assert "validates the combination before writing the plan" in text
-    assert "It needs no environment" not in text
+    assert retired_blanket_claim not in text
 
 
 def test_public_qa_doc_keeps_generic_and_registered_plan_contracts_distinct() -> None:
