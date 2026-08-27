@@ -13,6 +13,7 @@ from yoke_harness.ssh_mac_baseline_probes import (
     reach_user_equivalent_baseline,
     run_baseline_probes,
 )
+from yoke_harness.ssh_mac_gui_session import GUI_SESSION_UNAVAILABLE_REASON
 from yoke_harness.test_machine_types import HostActionResult
 
 
@@ -149,8 +150,68 @@ def test_an_unreachable_gui_session_is_named_rather_than_read_as_a_pass() -> Non
     )
 
     assert not result.ok
-    assert result.error_code == "baseline_probe_unavailable"
-    assert result.evidence["probes"][0]["outcome"] == "unavailable"
+    assert result.error_code == "baseline_probe_bridge_unavailable"
+    row = result.evidence["probes"][0]
+    assert row["cause"] == "bridge_call_raised"
+    assert row["recovery"]
+
+
+def test_a_bridge_that_never_delivered_the_probe_is_not_a_signed_out_program() -> None:
+    # The live bridge reports its own failure the way it reports a program's:
+    # a synthetic result carrying exit 125 and an empty stdout, never a raise.
+    # Read as a program verdict, it sends an operator to recapture a whole
+    # home over a host defect that would fail again on the next restore.
+    recorder = _Recorder(
+        _completed(
+            125,
+            stdout="",
+            stderr=f"{GUI_SESSION_UNAVAILABLE_REASON}: Terminal.app launch failed",
+        )
+    )
+
+    result = run_baseline_probes(
+        parse_baseline_probes(_document()),
+        run_gui_command=recorder,
+    )
+
+    assert not result.ok
+    assert result.error_code == "baseline_probe_bridge_unavailable"
+    row = result.evidence["probes"][0]
+    assert row["cause"] == "macos_gui_session_context_unavailable"
+    assert row["exit_code"] == 125
+    assert "yoke test-machine verify" in row["recovery"]
+
+
+def test_a_failing_probe_names_its_cause_and_recovery_without_the_output() -> None:
+    recorder = _Recorder(_completed(1, stdout="Not logged in as a@b.c"))
+
+    result = run_baseline_probes(
+        parse_baseline_probes(_document()),
+        run_gui_command=recorder,
+    )
+
+    assert not result.ok
+    assert result.error_code == "baseline_probe_failed"
+    row = result.evidence["probes"][0]
+    assert row["cause"] == "probe_reported_not_signed_in"
+    assert "recapture the golden" in row["recovery"]
+    assert "a@b.c" not in repr(result.evidence)
+
+
+def test_an_unreadable_credential_recovers_by_recapture_not_by_host_repair() -> None:
+    # The bridge delivered the probe, so the program did answer. A credential
+    # the session cannot read is still a fact about the golden.
+    recorder = _Recorder(_completed(1, stderr="errSecInteractionNotAllowed"))
+
+    result = run_baseline_probes(
+        parse_baseline_probes(_document()),
+        run_gui_command=recorder,
+    )
+
+    assert result.error_code == "baseline_probe_failed"
+    row = result.evidence["probes"][0]
+    assert row["cause"] == "macos_login_keychain_context_unavailable"
+    assert "recapture the golden" in row["recovery"]
 
 
 class _Control:
