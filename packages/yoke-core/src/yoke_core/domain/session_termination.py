@@ -5,70 +5,18 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_operator_authority import (
+    require_operator_or_steering_authority,
+    session_control_target,
+)
 from yoke_core.domain.session_termination_events import emit_session_terminated
 from yoke_core.domain.sessions_analytics import SessionError
-from yoke_core.domain.sessions_queries import _now_iso, _row_to_dict
+from yoke_core.domain.sessions_queries import _now_iso
 from yoke_core.domain.sessions_render_end import end_session
-from yoke_core.domain.work_claim_targets import make_steering_target
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _target_row(conn: Any, session_id: str) -> dict[str, Any]:
-    suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    row = conn.execute(
-        f"SELECT * FROM harness_sessions WHERE session_id = {_p(conn)}{suffix}",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
-    return _row_to_dict(row)
-
-
-def _require_authority(
-    conn: Any,
-    *,
-    actor_id: int,
-    caller_session_id: str,
-    project_id: int,
-) -> str:
-    caller = conn.execute(
-        f"SELECT actor_id,mode,ended_at,terminated_at FROM harness_sessions "
-        f"WHERE session_id = {_p(conn)}",
-        (caller_session_id,),
-    ).fetchone()
-    if caller is None or caller["ended_at"] is not None:
-        raise SessionError(
-            "TERMINATION_AUTHORITY_REQUIRED",
-            "Session termination requires a live operator or project steering session.",
-        )
-    if caller["actor_id"] is None or int(caller["actor_id"]) != int(actor_id):
-        raise SessionError(
-            "TERMINATION_AUTHORITY_REQUIRED",
-            "The verified actor does not own the calling session.",
-        )
-    if str(caller["mode"] or "") == "operator":
-        return "operator"
-    target = make_steering_target(int(project_id))
-    steering = conn.execute(
-        "SELECT id FROM work_claims WHERE session_id = "
-        + _p(conn)
-        + " AND target_kind = "
-        + _p(conn)
-        + " AND scope = "
-        + _p(conn)
-        + " AND released_at IS NULL",
-        (caller_session_id, "steering", target.scope_json()),
-    ).fetchone()
-    if steering is not None:
-        return "steering"
-    raise SessionError(
-        "TERMINATION_AUTHORITY_REQUIRED",
-        "Session termination requires operator mode or the active steering claim "
-        f"for project {project_id}.",
-    )
 
 
 def _cancel_open_recipients(conn: Any, session_id: str, now: str) -> int:
@@ -163,12 +111,14 @@ def terminate_session(
     termination_reason = reason.strip()
     if not termination_reason:
         raise SessionError("TERMINATION_REASON_REQUIRED", "Termination reason is required.")
-    target = _target_row(conn, target_session_id)
-    authority = _require_authority(
+    target = session_control_target(conn, target_session_id)
+    authority = require_operator_or_steering_authority(
         conn,
         actor_id=actor_id,
         caller_session_id=caller_session_id,
         project_id=int(target["project_id"]),
+        action="Session termination",
+        error_code="TERMINATION_AUTHORITY_REQUIRED",
     )
     if target.get("terminated_at"):
         reap = conn.execute(

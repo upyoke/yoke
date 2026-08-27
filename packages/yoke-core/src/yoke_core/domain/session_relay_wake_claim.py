@@ -9,6 +9,7 @@ from uuid import uuid4
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
+from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_storage import marker, shifted
 from yoke_core.domain.session_relay_types import WAKE_LEASE_SECONDS, WakeMode
@@ -56,12 +57,17 @@ def claim_wake_attempt(
         return None
     if expected_posture not in TURN_POSTURES:
         return None
-    if candidate.get("liveness") == "active":
+    explicit_wake = candidate.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
+    if candidate.get("liveness") == "active" and not explicit_wake:
         return None
-    if wake_mode is WakeMode.WAITING and (
-        expected_state != "pending"
-        or expected_posture != "waiting"
-        or expected_injection is not None
+    if (
+        wake_mode is WakeMode.WAITING
+        and not explicit_wake
+        and (
+            expected_state != "pending"
+            or expected_posture != "waiting"
+            or expected_injection is not None
+        )
     ):
         return None
     attempt_id = str(uuid4())

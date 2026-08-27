@@ -4,21 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any, Mapping
-from uuid import NAMESPACE_URL, uuid5
 
-from yoke_contracts.session_control.capabilities import capability_for_surface
-from yoke_contracts.session_control.surface_versions import (
-    machine_wake_executor_surface,
-    surface_operation_supported,
-    surface_version_supported,
-)
+from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain import db_backend
+from yoke_core.domain import json_helper
 from yoke_core.domain.session_activity_state import native_thread_id_column_present
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_delivery import (
     _begin_mutation,
     _expire_rows,
 )
+from yoke_core.domain.session_message_wake_skip import record_wake_skip
 from yoke_core.domain.session_message_routing import (
     latest_observed_activity,
     messageability,
@@ -34,86 +30,12 @@ from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     machine_surface_versions,
 )
-from yoke_core.domain.session_relay_evidence import redacted_evidence
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_operation
 
 
-_WAKE_SKIP_ADAPTER_REVISION = "session-wake-eligibility-v1"
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _wake_skip_result(
-    row: Mapping[str, Any],
-    operation: str | None,
-    relay_versions: Mapping[str, str],
-) -> tuple[str, str | None]:
-    surface = str(row.get("executor_surface") or "")
-    capability = capability_for_surface(surface)
-    if capability is None:
-        return "skipped_surface", None
-    if not surface_version_supported(surface, row.get("executor_version")):
-        return "skipped_version", None
-    if operation is None:
-        return "skipped_operation", None
-    driver = machine_wake_executor_surface(surface, operation)
-    if driver is not None:
-        driver_version = relay_versions.get(driver)
-        if not driver_version:
-            return "skipped_surface", driver
-        if not surface_operation_supported(driver, driver_version, operation):
-            return "skipped_version", driver
-    if getattr(capability, operation, "none") == "none":
-        return "skipped_operation", driver
-    driver = driver or surface
-    driver_version = relay_versions.get(driver)
-    if not driver_version:
-        return "skipped_surface", driver
-    if not surface_operation_supported(driver, driver_version, operation):
-        return "skipped_version", driver
-    return "skipped_operation", driver
-
-
-def _record_wake_skip(
-    conn: Any,
-    row: Mapping[str, Any],
-    *,
-    operation: str | None,
-    relay_versions: Mapping[str, str],
-    now: datetime,
-) -> None:
-    message_id = str(row["message_id"])
-    session_id = str(row["session_id"])
-    result_code, driver = _wake_skip_result(row, operation, relay_versions)
-    driver_version = relay_versions.get(driver or "")
-    evidence = {
-        "result_code": result_code,
-        "surface": str(row.get("executor_surface") or ""),
-        "driver_surface": str(driver or ""),
-        "driver_version": str(driver_version or ""),
-    }
-    marker = _p(conn)
-    conn.execute(
-        "INSERT INTO session_message_attempts "
-        "(attempt_id,message_id,target_session_id,attempt_kind,adapter_revision,"
-        "started_at,completed_at,result_code,evidence) "
-        f"VALUES ({','.join(marker for _ in range(9))}) "
-        "ON CONFLICT(attempt_id) DO NOTHING",
-        (
-            str(uuid5(NAMESPACE_URL, f"yoke:wake-skip:{message_id}:{session_id}")),
-            message_id,
-            session_id,
-            "wake_relay",
-            _WAKE_SKIP_ADAPTER_REVISION,
-            timestamp(now),
-            timestamp(now),
-            result_code,
-            redacted_evidence(evidence),
-        ),
-    )
 
 
 def _native_wake_route_available(
@@ -123,6 +45,7 @@ def _native_wake_route_available(
     liveness: str,
     operation: str | None,
     relay_versions: Mapping[str, str],
+    force_stopped_route: bool = False,
 ) -> bool:
     # A terminated session is never wakeable, by any route. Its liveness now
     # reads "ended" like any other gone session, which does resolve a wake
@@ -131,7 +54,10 @@ def _native_wake_route_available(
     if row.get("terminated_at"):
         return False
     routing = messageability(
-        row, liveness=liveness, machine_surface_versions=relay_versions
+        row,
+        liveness=liveness,
+        machine_surface_versions=relay_versions,
+        force_stopped_route=force_stopped_route,
     )
     if routing["wake_interface"] != "none":
         return True
@@ -153,6 +79,17 @@ def _native_wake_route_available(
         except PrivateRouteQualificationError:
             continue
     return False
+
+
+def _explicit_wake_requested(row: Mapping[str, Any]) -> bool:
+    try:
+        snapshot = json_helper.loads_text(str(row.get("routing_snapshot") or ""))
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        isinstance(snapshot, Mapping)
+        and snapshot.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
+    )
 
 
 def wake_eligible_recipients(
@@ -216,16 +153,20 @@ def wake_eligible_recipients(
             row = row_dict(raw)
             policy = project_policy(conn, int(row["project_id"]))
             liveness = session_liveness(row, now=current)
+            explicit_wake = _explicit_wake_requested(row)
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts
             adopting_final_attempt = bool(
                 ignore_attempt_id and attempt_count == policy.max_wake_attempts
             )
-            if at_limit and not adopting_final_attempt:
+            first_manual_attempt = explicit_wake and attempt_count == 0
+            if at_limit and not adopting_final_attempt and not first_manual_attempt:
                 continue
-            if liveness == "active":
+            if explicit_wake and attempt_count > 0:
                 continue
-            if row["state"] == "injected":
+            if not explicit_wake and liveness == "active":
+                continue
+            if not explicit_wake and row["state"] == "injected":
                 if not policy.reinject_until_acknowledged:
                     continue
                 # An injected envelope has already reached the session; what
@@ -237,11 +178,15 @@ def wake_eligible_recipients(
                 grace = timedelta(seconds=policy.wake_ack_grace_seconds)
                 if injected_at is not None and injected_at + grace > current:
                     continue
-            waiting_pending = (
-                row["state"] == "pending" and row.get("turn_posture") == "waiting"
-            )
             idle_window = timedelta(seconds=policy.wake_after_idle_seconds)
-            if waiting_pending:
+            waiting_pending = row["state"] == "pending" and (
+                explicit_wake or row.get("turn_posture") == "waiting"
+            )
+            if explicit_wake:
+                if row.get("injection_lease_id") is not None:
+                    continue
+                wake_mode = WakeMode.WAITING
+            elif waiting_pending:
                 if row.get("injection_lease_id") is not None:
                     continue
                 previous_wake = parse_timestamp(row.get("last_wake_at"))
@@ -273,8 +218,9 @@ def wake_eligible_recipients(
                 liveness=liveness,
                 operation=operation,
                 relay_versions=versions,
+                force_stopped_route=explicit_wake,
             ):
-                _record_wake_skip(
+                record_wake_skip(
                     conn,
                     row,
                     operation=operation,
@@ -306,6 +252,7 @@ def wake_eligible_recipients(
                     "wake_attempt_count": attempt_count,
                     "last_wake_at": row["last_wake_at"],
                     "native_thread_id": row.get("native_thread_id"),
+                    EXPLICIT_WAKE_ROUTING_FLAG: explicit_wake,
                 }
             )
         conn.commit()

@@ -52,6 +52,7 @@ from yoke_cli.commands.adapters.session_control_roster import (
 from yoke_cli.commands.adapters.session_control_termination import (
     session_terminate,
 )
+from yoke_cli.commands.adapters.session_control_wake import session_wake
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -119,6 +120,10 @@ SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
     ("session-control", "session", "terminate"): (
         "session_control.session.terminate",
         session_terminate,
+    ),
+    ("session-control", "session", "wake"): (
+        "session_control.session.wake",
+        session_wake,
     ),
 }
 

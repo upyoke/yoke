@@ -62,6 +62,13 @@ SESSION_ADAPTERS = [
             "[--override-chain-end --chain-end-rationale R]"
         ),
     ),
+    AdapterEntry(
+        function_id="session_control.session.wake",
+        cli_invocation=(
+            "yoke session-control session wake (SESSION-ID | --item ITEM) "
+            "[--prompt TEXT] [--idempotency-key KEY]"
+        ),
+    ),
     _read_entry(
         function_id="sessions.ownership_guard",
         cli_invocation="yoke sessions ownership-guard --item YOK-N",
