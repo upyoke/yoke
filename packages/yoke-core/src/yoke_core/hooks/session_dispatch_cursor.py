@@ -3,9 +3,10 @@
 Cursor delivers orientation through the ``sessionStart`` hook's
 ``additional_context`` JSON reply — the one injection channel that fires
 on both Cursor surfaces (IDE chat and the non-interactive terminal
-agent). Identity comes from the hook payload: the parser has already
-folded subagent session ids into the top-level container, and the active
-model is named per payload because Cursor multiplexes providers.
+agent), and the only one a resumed print-mode turn reaches before its
+first tool call. Identity comes from the hook payload: the parser has
+already folded subagent session ids into the top-level container, and the
+active model is named per payload because Cursor multiplexes providers.
 
 Session end routes through the shared non-destructive cleanup: the IDE
 surface keeps a session open for hours without a ``sessionEnd``, and the
@@ -24,11 +25,6 @@ from yoke_core.hooks.resume_block_dispatch import render as _render_resume_block
 from yoke_core.hooks.types import HookContext
 
 
-# Cursor keeps the generation stream open across a mid-turn hook and needs
-# a JSON object back before it resumes. Empty stdout drops the stream.
-_STREAM_SAFE_REPLY = "{}\n"
-
-
 def _payload_json(payload: dict) -> str:
     try:
         return json.dumps(payload)
@@ -36,30 +32,11 @@ def _payload_json(payload: dict) -> str:
         return "{}"
 
 
-def _field(payload: dict, name: str) -> str:
-    value = payload.get(name, "")
-    if value is None:
-        return ""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return str(value)
-
-
 def _payload_model(payload: dict) -> str:
-    """Return the concrete model the payload names, or ``""``.
+    """Return the concrete model the payload names, or ``""``."""
+    from yoke_harness.hooks.identity import cursor_payload_model
 
-    Cursor sends the literal ``"default"`` — its word for "whatever the
-    user configured" — as the model on every event except
-    ``afterAgentThought``, so a placeholder value is no model at all and
-    callers must not store it as one.
-    """
-    from yoke_harness.hooks.identity import _is_placeholder_model
-
-    for key in ("model_id", "model"):
-        value = _field(payload, key)
-        if value and not _is_placeholder_model(value):
-            return value
-    return ""
+    return cursor_payload_model(payload)
 
 
 def _entrypoint() -> str:
@@ -156,50 +133,22 @@ def run_prompt_submit(record: HookContext, root: str) -> str:
     if not session_id:
         return ""
     if not _cursor.is_folded_cursor_session(record.payload):
-        if _lifecycle.touch(root, session_id) != 0:
+        model = _payload_model(record.payload)
+        first_prompt = _first_prompt(session_id, codex=False)
+        # Registration is upgrade-only on the model, so the first prompt is
+        # a free chance to heal a session that opened before its surface
+        # named one. Later prompts only heartbeat: re-registering every turn
+        # would write a row that already says the same thing.
+        if _lifecycle.touch(root, session_id) != 0 or (first_prompt and model):
             _lifecycle.register(
                 root,
                 session_id,
-                _payload_model(record.payload) or "unknown",
+                model or "unknown",
                 _entrypoint(),
             )
-        if _first_prompt(session_id, codex=False):
+        if first_prompt:
             telemetry.emit_harness_session_sent_first_user_prompt_submit(
                 "",
                 session_id,
             )
     return ""
-
-
-def run_model_report(record: HookContext, root: str) -> str:
-    """Heal a placeholder session model once a payload names a real one.
-
-    Always replies with an empty JSON object. This event fires while the
-    model stream is open, and Cursor requires a JSON reply to continue:
-    an empty stdout kills the generation stream, surfacing to the operator
-    as ``RetriableError: WritableIterable is closed`` rather than as
-    anything hook-shaped. Measured 3/3 failed ``cursor-agent -p`` runs on
-    the empty reply against 17 clean fires on ``{}``.
-
-    Cursor multiplexes model providers, so the model a session actually
-    runs under is only knowable from the event that reports it — the
-    session-opening events name the ``"default"`` placeholder instead.
-    Registration is idempotent and upgrade-only: an existing row heals a
-    placeholder model in place and leaves a concrete one untouched, so
-    this needs no read-before-write.
-
-    The sibling ``refresh_session_model_if_placeholder`` does not apply
-    here: it recovers the model from a transcript, and Cursor transcripts
-    record only roles and messages. Registration is also the transport-
-    correct path — it resolves the same way from a relayed hook as from a
-    locally dispatched one.
-    """
-    from yoke_core.hooks import cursor_payload as _cursor
-
-    model = _payload_model(record.payload)
-    session_id = (
-        _cursor.resolve_session_id(_payload_json(record.payload)) if model else ""
-    )
-    if model and session_id and not _cursor.is_folded_cursor_session(record.payload):
-        _lifecycle.register(root, session_id, model, _entrypoint())
-    return _STREAM_SAFE_REPLY

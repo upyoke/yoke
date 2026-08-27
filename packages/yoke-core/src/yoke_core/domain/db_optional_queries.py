@@ -7,7 +7,7 @@ from typing import Any, Sequence
 from yoke_core.domain import db_backend
 
 
-def _rollback_savepoint(conn: Any, savepoint: str) -> None:
+def rollback_savepoint(conn: Any, savepoint: str) -> None:
     try:
         conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
         conn.execute(f"RELEASE SAVEPOINT {savepoint}")
@@ -33,8 +33,8 @@ def fetch_optional_rows(
         return rows
     except db_backend.operational_error_types(conn):
         if use_savepoint:
-            _rollback_savepoint(conn, savepoint)
+            rollback_savepoint(conn, savepoint)
         return []
 
 
-__all__ = ["fetch_optional_rows"]
+__all__ = ["fetch_optional_rows", "rollback_savepoint"]

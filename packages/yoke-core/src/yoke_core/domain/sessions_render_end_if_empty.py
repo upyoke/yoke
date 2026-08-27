@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from datetime import timedelta
+from typing import Any, Dict, Sequence
 
 from . import sessions_analytics as _sa
 from .session_launch_abandonment import settle_and_notify
 from .sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_session
+from .session_message_authorization import project_policy
+from .session_message_types import parse_timestamp, row_dict, timestamp, utc_now
 from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
 from .sessions_render_end_chain_pending import (
@@ -19,7 +22,11 @@ from .sessions_render_end_chain_pending import (
     next_offer_step,
 )
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
+from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
+
+
+_WAKE_ACK_GRACE_KEY = "fleet.wake_ack_grace_seconds"
 
 
 def _document_lock_count(conn: Any, session_id: str) -> int:
@@ -38,10 +45,105 @@ def _document_lock_count(conn: Any, session_id: str) -> int:
     return int(row["cnt"] or 0)
 
 
+def _wake_ack_grace_seconds(conn: Any, project_id: Any) -> int:
+    """Return the project's acknowledgement window, or the declared default.
+
+    A session-end hook runs on every universe, including one whose
+    organization policy this connection cannot resolve. Refusing to end the
+    session there would be as wrong as ending it too early, so the fallback
+    is the registry's own declared default rather than an invented number -
+    and the read runs inside a savepoint, because a failed statement would
+    otherwise poison the transaction the caller still has work to do in.
+    """
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.db_optional_queries import rollback_savepoint
+
+    savepoint = "_yoke_wake_ack_grace_probe"
+    use_savepoint = db_backend.connection_is_postgres(conn)
+    try:
+        if use_savepoint:
+            conn.execute(f"SAVEPOINT {savepoint}")
+        grace = int(project_policy(conn, int(project_id)).wake_ack_grace_seconds)
+        if use_savepoint:
+            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+        return grace
+    except Exception:  # noqa: BLE001 -- session end must survive an unreadable policy
+        if use_savepoint:
+            rollback_savepoint(conn, savepoint)
+        return int(FLEET_KEY_SPECS[_WAKE_ACK_GRACE_KEY].default)
+
+
+def wake_deliveries_in_flight(
+    conn: Any, session_ids: Sequence[str]
+) -> Dict[str, Dict[str, Any]]:
+    """Name, per session, a message whose wake is still inside its window.
+
+    Batched so the roster projection can show the same blocker the end path
+    enforces without asking once per session. The two must agree: an
+    operator reading "nothing blocking" while the hook refuses to end is how
+    a real refusal becomes invisible.
+
+    A wake exists to start a turn that takes delivery, and the turn is not
+    delivery: the envelope arrives through a hook that fires inside it. So
+    between the wake landing and the envelope being acknowledged there is a
+    window where the session legitimately holds nothing yet - no claim, no
+    lock, no chain - and ending it there reaps the very turn the wake paid
+    for. Every later wake then finds an ended session and repeats the loop,
+    which is what a cursor-cli acceptance cell recorded three times over.
+
+    The window is the same ``wake_ack_grace_seconds`` the wake sweep uses to
+    decide a delivery is already working and needs time rather than another
+    wake; rating both sides on the same clock is what keeps them agreeing.
+    """
+    from .db_optional_queries import fetch_optional_rows
+
+    targets = tuple(str(one) for one in session_ids if str(one or "").strip())
+    if not targets:
+        return {}
+    now = utc_now()
+    rows = fetch_optional_rows(
+        conn,
+        """SELECT r.session_id, r.message_id, r.project_id, r.state, r.last_wake_at
+           FROM session_message_recipients r
+           JOIN session_messages m ON m.message_id = r.message_id
+           WHERE r.session_id IN ("""
+        + ",".join("%s" for _ in targets)
+        + """)
+             AND r.state IN ('pending','injected')
+             AND r.last_wake_at IS NOT NULL
+             AND m.cancelled_at IS NULL
+             AND m.expires_at > %s
+           ORDER BY r.last_wake_at DESC""",
+        (*targets, timestamp(now)),
+        savepoint="_yoke_wake_delivery_probe",
+    )
+    in_flight: Dict[str, Dict[str, Any]] = {}
+    for raw in rows:
+        row = row_dict(raw)
+        session_id = str(row["session_id"])
+        if session_id in in_flight:
+            continue
+        last_wake_at = parse_timestamp(row.get("last_wake_at"))
+        if last_wake_at is None:
+            continue
+        grace = timedelta(seconds=_wake_ack_grace_seconds(conn, row["project_id"]))
+        if last_wake_at + grace <= now:
+            continue
+        in_flight[session_id] = {
+            "status": "wake_delivery_in_flight",
+            "active_claim_count": 0,
+            "message_id": str(row["message_id"]),
+            "recipient_state": str(row["state"]),
+            "wake_delivery_window_ends_at": timestamp(last_wake_at + grace),
+        }
+    return in_flight
+
+
 def end_session_blocker_facts(
     *,
     active_claim_count: int = 0,
     active_document_lock_count: int = 0,
+    wake_delivery: Dict[str, Any] | None = None,
     chain_state: ChainPendingState | None = None,
 ) -> Dict[str, Any] | None:
     """Return the structured reason an otherwise-live session cannot end."""
@@ -56,6 +158,8 @@ def end_session_blocker_facts(
             "active_claim_count": 0,
             "active_document_lock_count": int(active_document_lock_count),
         }
+    if wake_delivery is not None:
+        return dict(wake_delivery)
     if chain_state is not None and chain_state.pending:
         return {
             "status": "chain_pending",
@@ -127,6 +231,15 @@ def end_session_if_empty(
             ),
         }
 
+    wake_delivery = wake_deliveries_in_flight(conn, (session_id,)).get(session_id)
+    if wake_delivery is not None:
+        conn.commit()
+        return {
+            "session_id": session_id,
+            "ended": False,
+            **end_session_blocker_facts(wake_delivery=wake_delivery),
+        }
+
     state = chain_pending_state(conn, session_id)
     if state.pending:
         from .scheduler_events import emit_chain_end_deferred
@@ -180,4 +293,8 @@ def end_session_if_empty(
     }
 
 
-__all__ = ["end_session_blocker_facts", "end_session_if_empty"]
+__all__ = [
+    "end_session_blocker_facts",
+    "end_session_if_empty",
+    "wake_deliveries_in_flight",
+]

@@ -99,22 +99,14 @@ non-interactive CLI omits exactly the conversational-loop events (no typed
 prompt, no waiting turn boundary), so a Cursor manifest must declare
 per-surface affordances, not one list.
 
-`afterAgentThought` is wired, and only for model identity. Every Cursor
-payload carries a `model` field, but on the terminal agent every event
-reports the literal `"default"` — the vendor's word for "whatever the user
-configured" — `sessionStart` included, so a session registered from those
-events alone keeps `model=unknown` for its whole life. `afterAgentThought`
-is the sole carrier of a concrete id: `model_id` (`grok-4.5`) plus a
-variant-qualified `model` (`cursor-grok-4.5-high`) and a `model_params`
-list. Nothing else recovers it: Cursor transcripts record only
-`{role, message}`, hook processes are children of the `/bin/zsh -lc`
-wrapper rather than of `cursor-agent`, and no model env var is exported.
-
-**That event cannot run the hook command.** It fires inside the token
-stream — 17 times during one two-token reply — and Cursor holds the stream
-open across the hook, so hook duration is charged against the generation
-connection. Measured on cursor-agent 2026.07.23, six `cursor-agent -p` runs
-per configuration:
+`afterAgentThought` is not wired, and nothing else needs to be. It fires
+inside the token stream — 17 times during one two-token reply — with the
+stream held open across the hook, so the hook is charged against the
+generation connection and failures surface as `RetriableError:
+WritableIterable is closed`, naming nothing hook-shaped. Deny-capability is
+not the mechanism: `beforeShellExecution` and `beforeReadFile` are
+deny-capable and run the full command safely, because they fire between
+operations. Measured on 2026.07.23, six `cursor-agent -p` runs each:
 
 | hook on `afterAgentThought` | duration | clean runs |
 |---|---|---|
@@ -124,22 +116,30 @@ per configuration:
 | `yoke hook evaluate`, work detached after replying | ~0.3s | 3/6 |
 | `yoke hook evaluate`, synchronous | ~0.7s | 2/6 |
 
-Failures surface as `RetriableError: WritableIterable is closed` — a
-transport error naming nothing hook-shaped. Two independent causes stack:
-an empty stdout drops the stream outright (0/3 runs survived before the
-handler replied `{}`), and beyond roughly 250ms the stream dies anyway.
-Starting the Yoke CLI costs ~0.23s of shell and interpreter startup before
-any Yoke code runs, so deferring work *inside* the handler cannot help —
-the budget is spent before the handler exists. Deny-capability is not the
-mechanism: `beforeShellExecution` and `beforeReadFile` are deny-capable and
-run the full command safely, because they fire between operations rather
-than during generation.
+On 2026.08.25 the shell-cost row is gone: `cat > /dev/null; exit 0`,
+`printf "{}"`, and `echo {}` each broke the stream, one break per thought,
+until the reconnects ran out. The budget this event once had is now zero,
+whatever the hook replies — bisect in
+[the decision record](archive/decisions/woken-turn-survives-to-take-delivery.md).
 
-So the streaming event runs shell only — it appends its payload to a spool
-directory and echoes `{}` — and the next ordinary hook drains the spool and
-ships the model through the existing client-identity channel. Recording is
-near-real-time rather than deferred to session end, because `preToolUse` and
-`postToolUse` fire within seconds. Owner: `yoke_harness.hooks.cursor_model_spool`.
+Losing it costs nothing, because the same build moved the answer it
+carried. It was the only event naming a concrete model while every other
+payload reported the `"default"` placeholder, and nothing else recovered
+one: transcripts record only `{role, message}`, hook processes are children
+of `/bin/zsh -lc` not `cursor-agent`, and no model env var is exported. Now
+`sessionStart` and `sessionEnd` name the real
+model (`cursor-grok-4.6-high-fast`), so registration reads it from the
+payload that opens the session; a build still reporting the placeholder
+leaves `model=unknown` until the first prompt heals it. Owner:
+`yoke_harness.hooks.identity_runtime.cursor_payload_model`.
+
+**The one channel a resumed print-mode turn can be reached on is
+`sessionStart`.** A stopped session is woken with `cursor-agent --resume
+… --print`, and that mode fires only `sessionStart` and `sessionEnd` — no
+`beforeSubmitPrompt`, no `stop`. A pending envelope therefore has exactly
+one chance to reach the model before its first tool call, which is why the
+delivery modules must put it in the `additional_context` reply rather than
+beside it on raw stdout (see `yoke_contracts.hook_runner.model_context_channel`).
 
 ### Decision wire format and context injection
 
@@ -320,8 +320,8 @@ registers.
 **Model labels are two vocabularies, and equality between them refused every
 correctly-bound launch.** A launch requests the string `cursor-agent --model`
 accepts (the machine-config preferred model, e.g `cursor-grok-4.6-high-fast`);
-a Cursor session registers the concrete model `afterAgentThought` reports,
-read by `cursor_model_spool` from the payload's `model_id` (e.g `grok-4.6`). The launch binding compared the two for
+a Cursor session registers the concrete model its own hook payload names
+(e.g `grok-4.6`). The launch binding compared the two for
 equality, so launches `e2b0473e` and `8e88bd1f` — natives that registered
 under exactly the `native_session_id` the relay recorded and ran 71 and 79
 tool calls — were refused `model_mismatch` on every attestation retry, never

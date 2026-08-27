@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
+from yoke_contracts.hook_runner.model_context_channel import (
+    SESSION_OPENING_STDOUT_EVENTS,
+    STDOUT_CHANNEL,
+    model_context_channel,
+)
 from yoke_core.domain.session_launch_binding_evidence import (
     record_registration_refusal,
 )
@@ -135,10 +140,10 @@ def evaluate_launch_attestation(
 
     rendered = render_launch_instructions(injection)
     render_token = f"YOKE_SESSION_LAUNCH:{injection.launch_id}:{injection.message_id}"
-    output_key = (
-        "stdout"
-        if record.event_name.casefold() in {"sessionstart", "userpromptsubmit"}
-        else "additionalContext"
+    output_key = model_context_channel(
+        executor_family=record.executor_family,
+        event_name=record.event_name,
+        stdout_events=SESSION_OPENING_STDOUT_EVENTS,
     )
     fields = {
         LAUNCH_DELIVERY_AUDIT_FIELD: {
@@ -150,7 +155,7 @@ def evaluate_launch_attestation(
             "rendered_text": rendered,
         }
     }
-    if output_key != "stdout":
+    if output_key != STDOUT_CHANNEL:
         fields[output_key] = rendered
     return HookDecision(
         outcome=Outcome.AUDIT_ONLY, audit_fields=fields, next=Next.CONTINUE

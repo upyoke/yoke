@@ -302,11 +302,6 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
     "Stop": {
         "_default": _STOP_CHAIN,
     },
-    # A harness that multiplexes model providers names its active model on
-    # a dedicated event rather than on the events that open the session.
-    "AgentModelReported": {
-        "_default": _LIFECYCLE_DISPATCH,
-    },
 }
 
 

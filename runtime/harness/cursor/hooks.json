@@ -56,12 +56,6 @@
         "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; root=\"\"; for c in \"$YOKE_ROOT\" \"$CURSOR_PROJECT_DIR\" \"$PWD\"; do [ -n \"$c\" ] && [ -d \"$c\" ] && root=\"$c\" && break; done; if [ -z \"$root\" ]; then for c in \"$CURSOR_PROJECT_DIR\" \"$YOKE_ROOT\"; do case \"$c\" in */.worktrees/*|*/.claude/worktrees/*) p=\"${c%%/.worktrees/*}\"; p=\"${p%%/.claude/worktrees/*}\"; [ -d \"$p\" ] && root=\"$p\" && break;; esac; done; fi; [ -n \"$root\" ] || root=\"${HOME:-/tmp}\"; cd \"$root\" 2>/dev/null || cd \"${HOME:-/tmp}\" 2>/dev/null || cd /; env YOKE_ROOT=\"$root\" YOKE_EXECUTOR=cursor YOKE_CURSOR_LIFECYCLE_ROOT=1 YOKE_HOOK_CONFIG_OWNER=cursor-project yoke hook evaluate Stop'",
         "timeout": 30
       }
-    ],
-    "afterAgentThought": [
-      {
-        "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; D=\"${YOKE_MACHINE_HOME:-$HOME/.yoke}\"/cursor-model-spool; mkdir -p \"$D\"; cat > \"$D/$$.json\"; echo {}'",
-        "timeout": 30
-      }
     ]
   }
 }

@@ -166,7 +166,7 @@ CURSOR_MANIFEST: dict = {
         "hook_enhanced": (
             "cursor-agent >= 2026.07.23 / Cursor IDE >= 3.14 (hooks.json v1)"
         ),
-        "tested_locally": "Cursor IDE 3.14.7 + cursor-agent 2026.07.23-e383d2b",
+        "tested_locally": "cursor-agent 2026.08.25-3e8eec8",
     },
     "bootstrap": {
         "spec_path": "runtime/harness/bootstrap-spec.json",

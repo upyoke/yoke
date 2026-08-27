@@ -13,6 +13,7 @@ from yoke_core.domain.sessions_render_end_chain_pending import (
 )
 from yoke_core.domain.sessions_render_end_if_empty import (
     end_session_blocker_facts,
+    wake_deliveries_in_flight,
 )
 
 
@@ -23,9 +24,7 @@ def _marker(conn: Any) -> str:
 def _session_ids(rows: Iterable[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(
         dict.fromkeys(
-            str(row.get("session_id") or "")
-            for row in rows
-            if row.get("session_id")
+            str(row.get("session_id") or "") for row in rows if row.get("session_id")
         )
     )
 
@@ -107,6 +106,7 @@ def session_diagnostics(
     session_ids = _session_ids(rows)
     latest_messages = _latest_messages(conn, session_ids)
     document_locks = _document_lock_counts(conn, session_ids)
+    wake_deliveries = wake_deliveries_in_flight(conn, session_ids)
     projected: dict[str, dict[str, Any]] = {}
     for row in rows:
         session_id = str(row.get("session_id") or "")
@@ -123,6 +123,7 @@ def session_diagnostics(
             blocker = end_session_blocker_facts(
                 active_claim_count=len(row.get("claims") or []),
                 active_document_lock_count=document_locks.get(session_id, 0),
+                wake_delivery=wake_deliveries.get(session_id),
                 chain_state=chain_pending_state_from_envelope(
                     identity.get("offer_envelope"),
                 ),

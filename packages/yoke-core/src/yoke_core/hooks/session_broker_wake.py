@@ -8,6 +8,11 @@ from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
 )
+from yoke_contracts.hook_runner.model_context_channel import (
+    SESSION_OPENING_STDOUT_EVENTS,
+    STDOUT_CHANNEL,
+    model_context_channel,
+)
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.session_broker_wake_port import (
     BrokerWakeLease,
@@ -18,7 +23,7 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 BROKER_AUDIT_FIELD = "session_broker_wake"
-_STDOUT_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
+_STDOUT_EVENTS = SESSION_OPENING_STDOUT_EVENTS
 
 
 def _broker_port() -> SessionBrokerWakePort:
@@ -78,8 +83,10 @@ def evaluate(context: HookContext) -> HookDecision:
     if lease is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     rendered, token = _render(lease)
-    output_field = (
-        "stdout" if context.event_name in _STDOUT_EVENTS else "additionalContext"
+    output_field = model_context_channel(
+        executor_family=context.executor_family,
+        event_name=context.event_name,
+        stdout_events=_STDOUT_EVENTS,
     )
     fields = {
         BROKER_AUDIT_FIELD: {
@@ -90,7 +97,7 @@ def evaluate(context: HookContext) -> HookDecision:
             "rendered_text": rendered,
         }
     }
-    if output_field != "stdout":
+    if output_field != STDOUT_CHANNEL:
         fields[output_field] = rendered
     return HookDecision(
         outcome=Outcome.AUDIT_ONLY,

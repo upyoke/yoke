@@ -18,6 +18,11 @@ from yoke_contracts.session_control.teaching import (
     canonical_fleet_message_id,
     fleet_acknowledgement_instruction,
 )
+from yoke_contracts.hook_runner.model_context_channel import (
+    SESSION_OPENING_STDOUT_EVENTS,
+    STDOUT_CHANNEL,
+    model_context_channel,
+)
 from yoke_contracts.session_execution import is_subagent_execution
 from yoke_core.hooks.session_message_delivery_port import (
     CoreSessionMessageDeliveryPort,
@@ -30,7 +35,7 @@ from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 DELIVERY_AUDIT_FIELD = "session_message_delivery"
 DEFAULT_LEASE_LIMIT = 10
-_STDOUT_EVENTS = frozenset({"SessionStart", "UserPromptSubmit", "Stop"})
+_STDOUT_EVENTS = SESSION_OPENING_STDOUT_EVENTS | frozenset({"Stop"})
 _DELIVERABLE_STATES = frozenset({"pending", "injected"})
 
 
@@ -126,9 +131,15 @@ def _render_child_view(messages: tuple[LeasedSessionMessage, ...]) -> str:
     )
 
 
-def _decision_for_event(lease: SessionMessageLease, event_name: str) -> HookDecision:
+def _decision_for_event(
+    lease: SessionMessageLease, context: HookContext
+) -> HookDecision:
     rendered, token = render_lease(lease)
-    output_field = "stdout" if event_name in _STDOUT_EVENTS else "additionalContext"
+    output_field = model_context_channel(
+        executor_family=context.executor_family,
+        event_name=context.event_name,
+        stdout_events=_STDOUT_EVENTS,
+    )
     fields = {
         DELIVERY_AUDIT_FIELD: {
             "lease_id": lease.lease_id,
@@ -137,7 +148,7 @@ def _decision_for_event(lease: SessionMessageLease, event_name: str) -> HookDeci
             "rendered_text": rendered,
         }
     }
-    if output_field != "stdout":
+    if output_field != STDOUT_CHANNEL:
         fields[output_field] = rendered
     return HookDecision(
         outcome=Outcome.AUDIT_ONLY,
@@ -147,10 +158,14 @@ def _decision_for_event(lease: SessionMessageLease, event_name: str) -> HookDeci
 
 
 def _child_decision_for_event(
-    messages: tuple[LeasedSessionMessage, ...], event_name: str
+    messages: tuple[LeasedSessionMessage, ...], context: HookContext
 ) -> HookDecision:
     rendered = _render_child_view(messages)
-    output_field = "stdout" if event_name in _STDOUT_EVENTS else "additionalContext"
+    output_field = model_context_channel(
+        executor_family=context.executor_family,
+        event_name=context.event_name,
+        stdout_events=_STDOUT_EVENTS,
+    )
     fields = {
         DELIVERY_AUDIT_FIELD: {
             "read_only_child_view": True,
@@ -158,7 +173,7 @@ def _child_decision_for_event(
             "rendered_text": rendered,
         }
     }
-    if output_field != "stdout":
+    if output_field != STDOUT_CHANNEL:
         fields[output_field] = rendered
     return HookDecision(
         outcome=Outcome.AUDIT_ONLY,
@@ -193,7 +208,7 @@ def evaluate(context: HookContext) -> HookDecision:
             return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
         if not messages:
             return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-        return _child_decision_for_event(messages, context.event_name)
+        return _child_decision_for_event(messages, context)
     try:
         lease = port.lease_for_hook(
             session_id=session_id,
@@ -214,7 +229,7 @@ def evaluate(context: HookContext) -> HookDecision:
         except Exception:
             pass
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    return _decision_for_event(lease, context.event_name)
+    return _decision_for_event(lease, context)
 
 
 def settle_after_render(

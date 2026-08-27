@@ -333,12 +333,6 @@ def evaluate(context: HookContext) -> HookDecision:
 
                 return _decision(_cursor_dispatch.run_prompt_submit(context, root))
             return _decision(_run_claude_prompt_submit(context, root))
-        if context.event_name == "AgentModelReported":
-            if context.executor_family == "cursor":
-                from yoke_core.hooks import session_dispatch_cursor as _cursor_dispatch
-
-                return _decision(_cursor_dispatch.run_model_report(context, root))
-            return _decision()
         if context.event_name in {"Stop", "SessionEnd"}:
             return _decision(_run_stop(context, root, db_path))
     except Exception:
