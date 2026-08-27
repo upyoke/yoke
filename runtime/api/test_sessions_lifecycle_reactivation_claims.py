@@ -24,6 +24,7 @@ from yoke_core.domain.sessions_lifecycle_reactivation import (
     emit_reactivated_with_released_claims,
 )
 from yoke_core.domain.work_claim_targets import make_item_target
+from runtime.api.fixtures.backlog import seed_fixture_operating_actor
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -94,7 +95,12 @@ CREATE TABLE IF NOT EXISTS event_registry (
 # succeed cleanly; without it the missing-relation error aborts the transaction
 # before the subsequent INSERT.
 _CREATE_ACTORS = """
-CREATE TABLE IF NOT EXISTS actors (id INTEGER PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS actors (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'human',
+    system_component TEXT,
+    created_at TEXT
+);
 """
 
 
@@ -119,6 +125,9 @@ def _apply_reactivation_schema() -> None:
             + _CREATE_EVENT_REGISTRY
             + _CREATE_ACTORS,
         )
+        # Registration binds the universe's operating actor; a fixture
+        # without one models an install that cannot exist.
+        seed_fixture_operating_actor(conn)
     finally:
         conn.close()
 
