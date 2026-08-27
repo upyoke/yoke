@@ -6,6 +6,13 @@ The probes close that gap, and they live beside the golden rather than in this
 engine because which programs must report themselves signed in is a fact about
 one machine's baseline, not about every project Yoke serves. Recapturing a
 baseline with a new tool updates its probes in the same motion.
+
+A probe answers one of three ways, and the runner keeps them apart because
+their recoveries differ. The program reported itself signed in; the program ran
+and did not; or the bridge never delivered the probe, so the program has said
+nothing at all. Only the second is a fact about the golden. Collapsing the
+third into it sends an operator to recapture a whole home over a host defect
+that would fail again on the next restore.
 """
 
 from __future__ import annotations
@@ -15,12 +22,50 @@ import json
 from pathlib import PurePosixPath
 from typing import Any, Callable, Sequence
 
+from yoke_harness.ssh_mac_gui_session import (
+    classify_macos_session_context_failure,
+)
 from yoke_harness.test_machine_types import HostActionResult
 
 
 PROBE_LIMIT = 20
 PROBE_ARGUMENT_LIMIT = 24
 PROBE_TIMEOUT_SECONDS = 120
+
+NO_VERDICT_ERROR_CODE = "baseline_probe_bridge_unavailable"
+FAILED_ERROR_CODE = "baseline_probe_failed"
+
+BRIDGE_CALL_RAISED_CAUSE = "bridge_call_raised"
+BRIDGE_CALL_RAISED_REASON = "the GUI-session bridge could not be called at all"
+BRIDGE_UNDELIVERED_CAUSE = "macos_gui_session_context_unavailable"
+NOT_SIGNED_IN_CAUSE = "probe_reported_not_signed_in"
+NOT_SIGNED_IN_REASON = "the probe ran and its program did not report itself signed in"
+NOT_SIGNED_IN_RECOVERY = (
+    "recapture the golden from a session where the program is signed in, or "
+    "correct the probe argv or expectation in the document beside the golden"
+)
+_RECOVERY_BY_CAUSE = {
+    BRIDGE_CALL_RAISED_CAUSE: (
+        "check SSH reachability and Terminal.app control on the host, then "
+        "re-run `yoke test-machine verify`"
+    ),
+    BRIDGE_UNDELIVERED_CAUSE: (
+        "repair the Terminal.app bridge on the host and re-run "
+        "`yoke test-machine verify`; the probe never reached its program"
+    ),
+    "macos_gui_audit_session_unavailable": (
+        "run the probe from the logged-in GUI session; this one had no "
+        "audit-session context to switch into"
+    ),
+    "macos_window_server_context_unavailable": (
+        "run the probe from the logged-in GUI session; this one had no "
+        "window-server context"
+    ),
+    "macos_login_keychain_context_unavailable": (
+        "recapture the golden from a login session where the program is "
+        "signed in; its credential is present but not readable here"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -95,6 +140,27 @@ def parse_baseline_probes(document: str) -> tuple[BaselineProbe, ...]:
     return tuple(probes)
 
 
+def _failed_row(
+    probe: BaselineProbe,
+    *,
+    exit_code: int | None,
+    expectation_met: bool,
+    cause: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Record one failure as a cause an operator can act on."""
+    return {
+        "name": probe.name,
+        "ok": False,
+        "exit_code": exit_code,
+        "expectation_met": expectation_met,
+        "outcome": "failed",
+        "cause": cause,
+        "reason": reason,
+        "recovery": _RECOVERY_BY_CAUSE.get(cause, NOT_SIGNED_IN_RECOVERY),
+    }
+
+
 def run_baseline_probes(
     probes: Sequence[BaselineProbe],
     *,
@@ -108,7 +174,15 @@ def run_baseline_probes(
 
     Probe output is summarized rather than recorded: a signed-in report names
     the account it is signed in as, and that identity has no business in QA
-    evidence.
+    evidence. A failure is therefore explained by a classified cause, reason,
+    and recovery drawn from fixed text, never by the output itself.
+
+    A failing probe and an undelivered one are different answers. The bridge
+    reports its own failure as an exit code on a synthetic result rather than
+    by raising, so a bridge that never reached the program looks exactly like a
+    program reporting itself signed out unless the result is classified. The
+    two close under different error codes because they have different
+    recoveries: repair the host, or recapture the golden.
     """
     rows: list[dict[str, Any]] = []
     for probe in probes:
@@ -118,33 +192,54 @@ def run_baseline_probes(
                 timeout=PROBE_TIMEOUT_SECONDS,
             )
         except Exception:
-            rows.append({"name": probe.name, "ok": False, "outcome": "unavailable"})
-            return HostActionResult(
-                False,
-                {"probes": rows},
-                "baseline_probe_unavailable",
+            rows.append(
+                _failed_row(
+                    probe,
+                    exit_code=None,
+                    expectation_met=False,
+                    cause=BRIDGE_CALL_RAISED_CAUSE,
+                    reason=BRIDGE_CALL_RAISED_REASON,
+                )
             )
+            return HostActionResult(False, {"probes": rows}, NO_VERDICT_ERROR_CODE)
         exit_code = int(result.returncode)
         expectation = probe.expect_output_contains
         matched = expectation is None or expectation in "\n".join(
             (result.stdout or "", result.stderr or "")
         )
-        ok = exit_code == 0 and matched
-        rows.append(
-            {
-                "name": probe.name,
-                "ok": ok,
-                "exit_code": exit_code,
-                "expectation_met": matched,
-                "outcome": "passed" if ok else "failed",
-            }
-        )
-        if not ok:
-            return HostActionResult(
-                False,
-                {"probes": rows},
-                "baseline_probe_failed",
+        if exit_code == 0 and matched:
+            rows.append(
+                {
+                    "name": probe.name,
+                    "ok": True,
+                    "exit_code": exit_code,
+                    "expectation_met": matched,
+                    "outcome": "passed",
+                }
             )
+            continue
+        classified = classify_macos_session_context_failure(result)
+        cause, reason = (
+            (NOT_SIGNED_IN_CAUSE, NOT_SIGNED_IN_REASON)
+            if classified is None
+            else (classified.error_code, classified.reason)
+        )
+        rows.append(
+            _failed_row(
+                probe,
+                exit_code=exit_code,
+                expectation_met=matched,
+                cause=cause,
+                reason=reason,
+            )
+        )
+        return HostActionResult(
+            False,
+            {"probes": rows},
+            NO_VERDICT_ERROR_CODE
+            if cause == BRIDGE_UNDELIVERED_CAUSE
+            else FAILED_ERROR_CODE,
+        )
     return HostActionResult(True, {"probes": rows})
 
 
@@ -166,6 +261,8 @@ def reach_user_equivalent_baseline(control: Any) -> HostActionResult:
 
 
 __all__ = [
+    "FAILED_ERROR_CODE",
+    "NO_VERDICT_ERROR_CODE",
     "PROBE_ARGUMENT_LIMIT",
     "PROBE_LIMIT",
     "PROBE_TIMEOUT_SECONDS",

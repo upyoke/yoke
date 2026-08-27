@@ -194,14 +194,10 @@ secrets only for its subprocess and must redact them from evidence.
 The registered `fresh-host` baseline restores the host's declared golden
 baseline. Its target state is USER-EQUIVALENT, not bare: a real user arrives
 with harness apps installed and signed in, so a machine stripped to nothing is
-not a fresh host. Restoring a captured copy of the whole home, kept outside it,
-is provably complete where enumerating residue never can be, and a host
-declaring no `golden_baseline_path` cannot reach this baseline. Success is
-gated on proof: no Yoke state, launcher, or tool file present, no Yoke tool
-resolving in the login or SSH shell, every captured entry returned, and every
-declared probe reporting its program signed in. The live `.ssh` directory and
-`com.apple.TCC` privacy database survive the clear, and the restoring process
-must hold Full Disk Access, which the operation asserts rather than assumes.
+not a fresh host. What the golden must carry, which programs it must have
+signed in — Claude and Codex both — how to capture one, and how to read a probe
+that fails:
+[`testing-verification/test-machine-golden-baseline.md`](testing-verification/test-machine-golden-baseline.md).
 
 ## Evidence
 
