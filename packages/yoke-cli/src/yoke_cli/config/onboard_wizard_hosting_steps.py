@@ -109,11 +109,13 @@ def hosting_connect_body(
         ),
         Static(f"     [{ACCENT}]{escape(link_line)}[/]", classes="onboard-plan-line"),
         Static("", classes="onboard-spacer"),
+        # No spacer before the boxes: step 1 sits directly above its link, and
+        # the line below names the two boxes it introduces. Closing the gap
+        # matches step 1 and keeps all three answer rows above the fold.
         Static(
             "  2  Paste the two values — here in the wizard, never into an AI chat:",
             classes="onboard-plan-line",
         ),
-        Static("", classes="onboard-spacer"),
         *form_field_widgets(HOSTING_CREDENTIAL_FIELDS),
         Static(
             f"  Stays on this machine ({escape(credential_dir)}) —",
