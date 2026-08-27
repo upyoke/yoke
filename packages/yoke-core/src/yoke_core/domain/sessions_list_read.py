@@ -153,8 +153,7 @@ def list_sessions(
         )
     if ended_cause is not None and ended_cause not in ENDED_CAUSES:
         raise ValueError(
-            "ended_cause must be one of "
-            f"{', '.join(ENDED_CAUSES)}; got {ended_cause!r}"
+            f"ended_cause must be one of {', '.join(ENDED_CAUSES)}; got {ended_cause!r}"
         )
     if ended_cause is not None and liveness not in (None, LIVENESS_ENDED):
         raise ValueError(
@@ -181,9 +180,7 @@ def list_sessions(
             clauses.append("s.session_id = %s")
             where_params.append(normalized_session_id)
         if liveness == LIVENESS_ENDED or ended_cause is not None:
-            clauses.append(
-                "(s.ended_at IS NOT NULL OR s.terminated_at IS NOT NULL)"
-            )
+            clauses.append("(s.ended_at IS NOT NULL OR s.terminated_at IS NOT NULL)")
         elif liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):
             clauses.append("s.ended_at IS NULL AND s.terminated_at IS NULL")
         if ended_cause == ENDED_CAUSE_KILLED:
