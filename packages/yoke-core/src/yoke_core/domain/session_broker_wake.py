@@ -260,7 +260,15 @@ def _reserve_candidate(
                 lease_id,
                 now,
                 "broker_hook_leased",
-                redacted_evidence({"result_code": "broker_hook_leased"}),
+                redacted_evidence(
+                    {
+                        "result_code": "broker_hook_leased",
+                        # Carried from eligibility so a broker-routed resume
+                        # of a live-looking session says why, exactly as the
+                        # direct route's attempt does.
+                        "wake_escalation": str(candidate.get("wake_escalation") or ""),
+                    }
+                ),
             ),
         )
         conn.commit()

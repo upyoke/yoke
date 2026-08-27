@@ -240,8 +240,17 @@ def end_session(
         "reason": end_reason,
         "force": force,
     }
-    if presence_evidence is None and agent_presence_evidence:
-        presence_evidence = dict(agent_presence_evidence)
+    if agent_presence_evidence:
+        # The two halves answer different questions — the destructive branch
+        # says what the claim-release decision saw, the caller says why the
+        # session was ended at all — so keeping only one of them loses the
+        # reason. They are merged with the branch's own facts winning any
+        # future key collision, because that half is computed here and the
+        # caller's is asserted from outside.
+        presence_evidence = {
+            **dict(agent_presence_evidence),
+            **(presence_evidence or {}),
+        }
     if chain_override_authorized:
         end_context["chain_override_authorized"] = True
         end_context["chain_end_rationale"] = rationale

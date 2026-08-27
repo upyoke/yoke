@@ -30,6 +30,16 @@ def _fixed_message_clock(monkeypatch):
     monkeypatch.setattr(message_delivery, "utc_now", lambda: NOW)
 
 
+def _working_at(conn, when: str, session_id: str = "s1") -> None:
+    """Stamp a session as having called a tool at ``when``."""
+    conn.execute(
+        "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
+        "WHERE session_id=?",
+        (when, when, session_id),
+    )
+    conn.commit()
+
+
 def _send(conn, *, body="Persistent instructions.") -> str:
     return send_message(
         conn,
@@ -223,21 +233,17 @@ def test_central_expiry_closes_active_lease_and_prevents_completion() -> None:
 def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> None:
     conn = message_connection()
     message_id = _send(conn)
+    # Active means the turn still calls tools, so its own hooks serve this.
+    _working_at(conn, "2026-08-22T16:10:00Z")
     pending = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))
     assert pending == []
-
     active_at = "2026-08-22T16:11:00Z"
     conn.execute(
         "UPDATE session_message_recipients SET state='injected',"
         "injection_count=1,last_injected_at=? WHERE message_id=?",
         (active_at, message_id),
     )
-    conn.execute(
-        "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
-        "WHERE session_id='s1'",
-        (active_at, active_at),
-    )
-    conn.commit()
+    _working_at(conn, active_at)
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=20)) == []
     long_idle = wake_eligible_recipients(conn, now=NOW + timedelta(hours=3))
     assert len(long_idle) == 1

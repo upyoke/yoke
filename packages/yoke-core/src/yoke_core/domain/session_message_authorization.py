@@ -28,6 +28,7 @@ class MessageProjectPolicy:
     max_body_bytes: int
     reinject_until_acknowledged: bool
     wake_ack_grace_seconds: int
+    stale_alive_probe_seconds: int
     max_wake_attempts: int
     broadcast_requires_confirmation: bool
 
@@ -66,6 +67,7 @@ def project_policy(conn: Any, project_id: int) -> MessageProjectPolicy:
         max_body_bytes=int(setting("fleet.max_body_bytes")),
         reinject_until_acknowledged=bool(setting("fleet.reinject_until_acknowledged")),
         wake_ack_grace_seconds=int(setting("fleet.wake_ack_grace_seconds")),
+        stale_alive_probe_seconds=int(setting("fleet.stale_alive_probe_seconds")),
         max_wake_attempts=int(setting("fleet.max_wake_attempts")),
         broadcast_requires_confirmation=bool(
             setting("fleet.broadcast_requires_confirmation")
