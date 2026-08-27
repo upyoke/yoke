@@ -39,6 +39,7 @@ from runtime.api.test_dependency_schema import (
     PROJECTS_SCHEMA,
 )
 from yoke_core.domain import db_backend
+from runtime.api.fixtures.backlog import seed_fixture_operating_actor
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from yoke_core.domain.sessions import (
@@ -130,11 +131,7 @@ def _create_schema(conn) -> None:
         _SESSIONS_AND_CLAIMS_DDL,
     )
     create_work_claim_active_uniques(conn)
-    # Every born universe carries a human actor, and registration binds it;
-    # a fixture without one would model an install that cannot exist.
-    from yoke_core.domain.actors import seed_human_actor
-
-    seed_human_actor(conn)
+    seed_fixture_operating_actor(conn)
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
@@ -279,6 +276,7 @@ def _build_ownership_schema(conn) -> None:
     """Build the ownership schema + the extra reclaim/emit tables on ``conn``."""
     _create_ownership_schema(conn)
     apply_ddl_statements(conn, EMIT_PATH_TABLES)
+    seed_fixture_operating_actor(conn)
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
 

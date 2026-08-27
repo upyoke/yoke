@@ -41,7 +41,11 @@ def test_ordinary_ended_session_still_reactivates(conn) -> None:
 
     assert reactivated["ended_at"] is None
     assert reactivated["terminated_at"] is None
-    assert session_registration_state(conn, "ordinary") == (True, None, False)
+    found, actor_id, ended = session_registration_state(conn, "ordinary")
+    # Registration binds the universe's operating actor, so the reactivated
+    # row reports one; `ended` False is what keeps a further revival off.
+    assert (found, ended) == (True, False)
+    assert actor_id is not None
 
 
 def test_terminated_session_never_requests_registration_or_reactivation(conn) -> None:
@@ -54,7 +58,9 @@ def test_terminated_session_never_requests_registration_or_reactivation(conn) ->
     )
     conn.commit()
 
-    assert session_registration_state(conn, "permanent") == (True, None, False)
+    found, actor_id, ended = session_registration_state(conn, "permanent")
+    assert (found, ended) == (True, False)
+    assert actor_id is not None
     assert session_ended_message(conn, "permanent") == (
         "Session 'permanent' has been permanently terminated."
     )

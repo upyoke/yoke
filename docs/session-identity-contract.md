@@ -38,6 +38,21 @@ canonical session identity for registration or `session-offer`.
  produce no duplicate `harness_sessions` rows. This allows safe backfill from
  the prompt-submit hook and re-entry scenarios.
 
+4. **Registration MUST bind an actor.** `harness_sessions.actor_id` names the
+ person the session acts for, and every later authority read — path-claim
+ registration most visibly — resolves through it. The binding is resolved once,
+ at registration (`yoke_core.domain.session_actor_binding`): an explicitly
+ supplied actor wins (the verified bearer-token actor over https), otherwise
+ the universe's operating actor — its single human actor, or among several the
+ one whose `actor_labels` row carries the machine's OS login. Every born
+ universe has that actor before any session registers, so the common path is a
+ lookup. Registration MUST NOT store NULL: an unresolvable actor is refused
+ with a named `SESSION_ACTOR_*` reason and its recovery step, because an
+ actor-less row only fails later, at a claim that cannot explain why. A row
+ written before this binding existed is backfilled by its next registration
+ probe, and `HC-session-actor-binding` reports and (under `--fix`) repairs the
+ rows that never see one.
+
 ## Identity Read-Back Contract
 
 Registration resolves identity once. Every later consumer READS it back

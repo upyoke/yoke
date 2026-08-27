@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.fixtures.backlog import seed_fixture_operating_actor
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from runtime.api.test_dependency_schema import (
@@ -149,6 +150,7 @@ def _apply_session_offer_schema() -> None:
             ITEM_DEPENDENCIES_SCHEMA,
             _SESSION_OFFER_SCHEMA_DDL,
         )
+        seed_fixture_operating_actor(conn)
         from yoke_core.domain.workflow_registry import (
             converge_builtin_workflows,
             resolve_current_workflow_pin,

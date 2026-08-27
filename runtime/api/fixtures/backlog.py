@@ -55,6 +55,25 @@ def seed_test_canonical_actors(conn: Any) -> tuple[int, int]:
     return seed_canonical_actors(conn)
 
 
+def seed_fixture_operating_actor(conn: Any) -> int:
+    """Seed the human actor session registration binds, when absent.
+
+    Every born universe carries one — ``schema_init.cmd_init`` seeds it —
+    and registration refuses rather than storing a NULL actor, so a
+    fixture without one models an install that cannot exist. Idempotent,
+    and it needs only the ``actors`` table (minimal fixture schemas that
+    create no ``actor_labels`` still work).
+    """
+    from yoke_core.domain.actors import seed_human_actor
+
+    row = conn.execute(
+        "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
+    ).fetchone()
+    if row is not None:
+        return int(row[0])
+    return seed_human_actor(conn)
+
+
 @pytest.fixture
 def test_db():
     """Connection with the full Yoke schema on a disposable Postgres DB.

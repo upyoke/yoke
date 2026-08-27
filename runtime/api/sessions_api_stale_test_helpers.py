@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 
 from yoke_core.domain import db_backend
+from runtime.api.fixtures.backlog import seed_fixture_operating_actor
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -187,6 +188,7 @@ def _build_ownership_schema(create_ownership_schema) -> None:
     try:
         create_ownership_schema(conn)
         apply_ddl_statements(conn, _OWNERSHIP_EXTRA_TABLES)
+        seed_fixture_operating_actor(conn)
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
