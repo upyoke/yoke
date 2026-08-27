@@ -130,6 +130,11 @@ def _create_schema(conn) -> None:
         _SESSIONS_AND_CLAIMS_DDL,
     )
     create_work_claim_active_uniques(conn)
+    # Every born universe carries a human actor, and registration binds it;
+    # a fixture without one would model an install that cannot exist.
+    from yoke_core.domain.actors import seed_human_actor
+
+    seed_human_actor(conn)
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
 

@@ -6,7 +6,8 @@ live here, in this order:
 
 Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
-  ``stale-reclaim-collision``, ``session-cwd-binding``,
+  ``stale-reclaim-collision``, ``session-actor-binding``,
+  ``session-cwd-binding``,
   ``session-pre-implementing-activity``, ``session-lane-mismatch``,
   ``launcher-authority``, ``session-relay``, ``session-relay-orphans``.
 
@@ -52,6 +53,11 @@ from yoke_core.engines.doctor_hc_reflection_capture_persist_failed import (
 from yoke_core.engines.doctor_hc_project_hook_config import (
     hc_project_hook_config_validity,
 )
+from yoke_core.engines.doctor_hc_session_actor_binding import (
+    SLUG as SESSION_ACTOR_BINDING_SLUG,
+    TITLE as SESSION_ACTOR_BINDING_TITLE,
+    hc_session_actor_binding,
+)
 from yoke_core.engines.doctor_hc_session_cwd_binding import (
     hc_session_cwd_binding,
     hc_session_pre_implementing_activity,
@@ -91,6 +97,11 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "stale-reclaim-collision",
         "Silent two-session reclaim collisions",
         hc_stale_reclaim_collision,
+    ),
+    HealthCheck(
+        SESSION_ACTOR_BINDING_SLUG,
+        SESSION_ACTOR_BINDING_TITLE,
+        hc_session_actor_binding,
     ),
     HealthCheck(
         "session-cwd-binding",

@@ -3,8 +3,10 @@
 The canonical explicit → session ladder: an explicit actor id wins
 (after a presence check), else the caller's session — explicit
 ``session_id`` argument, then the ambient session — maps to
-``harness_sessions.actor_id``. There is no machine-default rung; actor
-identity is bound by session registration and the token-auth boundary.
+``harness_sessions.actor_id``. There is no machine-default rung here:
+actor identity is bound once, by session registration
+(:mod:`yoke_core.domain.session_actor_binding`) and the token-auth
+boundary, so a caller with a registered session always has one to read.
 Consumers: path-claim registration and ``backlog_create_op`` source
 resolution.
 """
