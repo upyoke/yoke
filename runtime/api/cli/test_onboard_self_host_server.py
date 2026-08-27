@@ -33,7 +33,7 @@ def _completed(
 
 
 def _prerequisites() -> subject.DockerPrerequisites:
-    return subject.DockerPrerequisites("/usr/bin/docker", "2.30.0")
+    return subject.DockerPrerequisites("/usr/bin/docker")
 
 
 def _compose_output() -> str:

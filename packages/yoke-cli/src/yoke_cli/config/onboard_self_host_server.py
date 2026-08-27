@@ -19,7 +19,8 @@ from yoke_contracts.self_host_bootstrap_output import (
 )
 
 
-LOCAL_SERVER_URL = f"http://127.0.0.1:{bundle.DEFAULT_API_PORT}"
+_LOOPBACK_HOST = "127.0.0.1"
+LOCAL_SERVER_URL = f"http://{_LOOPBACK_HOST}:{bundle.DEFAULT_API_PORT}"
 DOCKER_INSTALL_GUIDANCE = (
     "Install Docker Desktop or Docker Engine with the Compose plugin: "
     "https://docs.docker.com/get-started/get-docker/"
@@ -38,7 +39,6 @@ class DockerPrerequisites:
     """A successful, read-only Docker + Compose preflight receipt."""
 
     executable: str
-    compose_version: str
 
 
 @dataclass
@@ -52,15 +52,14 @@ class SelfHostSetup:
     bundle_created: bool = False
     raw_token: str | None = field(default=None, repr=False)
     connection: dict[str, Any] | None = None
-    connection_error: str | None = None
 
     @property
     def url(self) -> str:
-        return f"http://127.0.0.1:{self.port}"
+        return f"http://{_LOOPBACK_HOST}:{self.port}"
 
     @property
     def token_file(self) -> str:
-        return str(machine_secrets.secret_path(self.env_name, "token"))
+        return str(machine_secrets.secret_path_no_create(self.env_name, "token"))
 
 
 class SelfHostSetupError(RuntimeError):
@@ -115,8 +114,7 @@ def check_docker_prerequisites() -> DockerPrerequisites:
             "The Docker Compose plugin is required but was not available.",
             details,
         )
-    version = _diagnostic(result.stdout) or "available"
-    return DockerPrerequisites(executable=executable, compose_version=version)
+    return DockerPrerequisites(executable=executable)
 
 
 def provision(
@@ -171,27 +169,21 @@ def retry_connection(setup: SelfHostSetup) -> SelfHostSetup:
             config_path=setup.config_path,
         )
     except server_connect.ServerConnectError as exc:
-        setup.connection_error = redact_api_tokens(str(exc))
+        connection_error = redact_api_tokens(str(exc))
         raise SelfHostSetupError(
             "connect",
             "The server started, but this machine could not save the connection.",
             (
                 f"Local server: {setup.url}",
-                setup.connection_error,
+                connection_error,
                 "The token is still held in this wizard; choose Retry connection.",
             ),
         ) from None
-    setup.connection_error = None
     return setup
 
 
 def recovery_commands(setup: SelfHostSetup) -> list[str]:
-    directory = shlex.quote(str(setup.directory))
-    return [
-        f"cd {directory}",
-        "docker compose up -d",
-        f"docker compose logs --no-color --tail {COMPOSE_LOG_TAIL} core",
-    ]
+    return recovery_commands_for_directory(setup.directory)
 
 
 def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:

@@ -73,7 +73,7 @@ def _stub_success(monkeypatch, calls: list[str]) -> None:
     monkeypatch.setattr(
         server,
         "check_docker_prerequisites",
-        lambda: server.DockerPrerequisites("/usr/bin/docker", "2.30.0"),
+        lambda: server.DockerPrerequisites("/usr/bin/docker"),
     )
 
     def provision(setup, prerequisites):
@@ -205,7 +205,7 @@ def test_connect_recovery_displays_token_and_retries_it_in_memory(
     monkeypatch.setattr(
         server,
         "check_docker_prerequisites",
-        lambda: server.DockerPrerequisites("/usr/bin/docker", "2.30.0"),
+        lambda: server.DockerPrerequisites("/usr/bin/docker"),
     )
 
     def fail_connect(setup, prerequisites):
@@ -284,7 +284,7 @@ def test_quit_is_blocked_only_during_bundle_and_compose_provisioning(tmp_path) -
         config_path=str(tmp_path / "config.json"),
         directory=str(tmp_path / "server"),
     )
-    receipt = server.DockerPrerequisites("/usr/bin/docker", "2.30.0")
+    receipt = server.DockerPrerequisites("/usr/bin/docker")
 
     flow._run_preflight(probe, setup)
     flow._run_provision(probe, setup, receipt)
