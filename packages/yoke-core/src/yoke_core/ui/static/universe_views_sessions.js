@@ -1,4 +1,4 @@
-import { openSessionMessageCompose } from "./session_message_compose_dialog.js";
+import { exactSessionAudience, openSessionMessageCompose } from "./session_message_compose_dialog.js";
 import {
   presentSessionControlFailure,
   renderSessionControlFailure,
@@ -22,7 +22,6 @@ import {
   sessionRosterFilters,
 } from "./universe_session_roster_filters.js";
 const ROSTER_STATES = new Set(["active", "stale", "ended"]);
-const WORKTREE_ROLES = new Set(["integration", "worker"]);
 function statRow(documentNode, facts) {
   const row = el(documentNode, "div", "stat-row sessions-stats");
   for (const [value, label] of facts) {
@@ -167,30 +166,12 @@ export function sessionCard(documentNode, row, who, mode, onMessage) {
   return card;
 }
 
-function blitzWorktreeLaneCount(rows) {
-  const ids = new Set();
-  let sawIds = false;
-  for (const row of rows) {
-    const listed = row.claimed_blitz_worktree_ids;
-    if (!Array.isArray(listed)) continue;
-    sawIds = true;
-    for (const id of listed) ids.add(String(id));
-  }
-  if (sawIds) return ids.size;
-  return rows.filter(
-    (row) =>
-      String(row.current_item_workflow_id || "").toLowerCase() === "blitz"
-      && WORKTREE_ROLES.has(String(row.work_role || "").toLowerCase()),
-  ).length;
-}
-
 function metricFacts(rows) {
   const claimedItems = new Set(rows.flatMap(
     (row) => (Array.isArray(row.claims) ? row.claims : [])
       .filter((claim) => claim.target_kind === "item")
       .map((claim) => String(claim.target)),
   ).filter(Boolean));
-  const worktreeLanes = blitzWorktreeLaneCount(rows);
   const actors = new Set(rows.map(
     (row) => row.actor_id ?? row.actor_label,
   ).filter((value) => value !== null && value !== undefined && value !== ""));
@@ -198,7 +179,6 @@ function metricFacts(rows) {
   return [
     [rows.length, "sessions shown"],
     [claimedItems.size, "items claimed"],
-    [worktreeLanes, "Blitz worktree lanes"],
     [actorCount, `actor${actorCount === 1 ? "" : "s"}`],
   ];
 }
@@ -229,14 +209,35 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   const content = el(documentNode, "div", "sessions-content", "loading sessions…");
   const dialogHost = el(documentNode, "div", "session-control-dialog-host");
   let visibleRows = [];
-  const openMessage = (sessionId) => openSessionMessageCompose(
-    context, dialogHost, { seedSessionId: sessionId },
+  const messageAll = el(
+    documentNode, "button", "item-button session-filter-action", "Message all",
   );
-  const filters = sessionRosterFilters(documentNode, () => {
+  messageAll.type = "button";
+  messageAll.disabled = true;
+  let filters;
+  const currentRows = () => filters.apply(visibleRows);
+  const openMessage = (sessionId) => openSessionMessageCompose(
+    context, dialogHost, { audience: exactSessionAudience([sessionId]) },
+  );
+  const renderRoster = () => {
+    const rows = currentRows();
     renderSessions(
-      documentNode, content, filters.apply(visibleRows), who, mode, openMessage,
-      filters.active(),
+      documentNode, content, rows, who, mode, openMessage,
+      filters.isRestrictive(),
     );
+    messageAll.disabled = rows.length === 0;
+    messageAll.title = rows.length
+      ? `Message all ${rows.length} shown session${rows.length === 1 ? "" : "s"}`
+      : "No sessions match the current filters";
+  };
+  filters = sessionRosterFilters(documentNode, renderRoster);
+  filters.host.appendChild(messageAll);
+  messageAll.addEventListener("click", () => {
+    const rows = currentRows();
+    if (!rows.length) return;
+    openSessionMessageCompose(context, dialogHost, {
+      audience: exactSessionAudience(rows, filters.summary()),
+    });
   });
   view.appendChild(localActions);
   view.appendChild(actionStatus);
@@ -305,9 +306,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     reclaim.title = staleCount
       ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
       : "No stale sessions in this scope";
-    renderSessions(
-      documentNode, content, filters.apply(visibleRows), who, mode, openMessage,
-    );
+    renderRoster();
   };
 
   reclaim.addEventListener("click", async () => {

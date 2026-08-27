@@ -1,4 +1,7 @@
-import { openSessionMessageCompose } from "./session_message_compose_dialog.js";
+import {
+  exactSessionAudience,
+  openSessionMessageCompose,
+} from "./session_message_compose_dialog.js";
 import { renderSessionControlFailure } from "./universe_session_control_data.js";
 import { sessionCard } from "./universe_views_sessions.js";
 import {
@@ -59,7 +62,7 @@ export function renderRegisteredSessionDetail(
       navigation.setDetailLabel(String(row.session_id));
     }
     const openMessage = (targetId) => openSessionMessageCompose(
-      context, dialogHost, { seedSessionId: targetId },
+      context, dialogHost, { audience: exactSessionAudience([targetId]) },
     );
     content.replaceChildren(sessionCard(
       documentNode,

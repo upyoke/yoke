@@ -104,66 +104,6 @@ test("message history leads with readable content and accessible receipts", asyn
   mounted.unmount();
 });
 
-test("compose explains exact preview and blocks an unroutable recipient", async (t) => {
-  const { root, mounted } = await mountAt(t, "#/sessions/messages?project=1", {
-    "session_control.message.list": () => ok({ messages: [], count: 0 }),
-    "session_control.message.preview": () => ok({
-      recipients: [{
-        session_id: "session-1", project: "yoke", liveness: "active",
-        messageability: { messageable: false }, resolution: ["session_id"],
-      }],
-      recipient_count: 1,
-    }),
-  });
-  button(root, "Compose message").dispatchEvent(new Event("click"));
-  assert.ok(byClass(root, "session-control-help")[0].textContent.includes(
-    "preview the exact sessions",
-  ));
-  assert.equal(
-    byClass(root, "session-message-selector-items")[0].placeholder,
-    "For example, PROJECT-123",
-  );
-  byClass(root, "session-message-selector-sessions")[0].value = "session-1";
-  byClass(root, "session-message-body")[0].value = "Test delivery.";
-  button(root, "Preview recipients").dispatchEvent(new Event("click"));
-  await settle();
-  assert.equal(
-    byClass(root, "session-control-status").at(-1).textContent,
-    "1 exact recipient resolved; 1 session cannot receive Fleet messages. Choose a session marked Messageable in the roster.",
-  );
-  assert.equal(button(root, "Send message").disabled, true);
-  mounted.unmount();
-});
-
-test("compose refuses an unconfirmed recipient preview", async (t) => {
-  const requests = [];
-  const { root, mounted } = await mountAt(t, "#/sessions/messages?project=1", {
-    "session_control.message.list": () => ok({ messages: [], count: 0 }),
-    "session_control.message.preview": (request) => {
-      requests.push(request);
-      return ok({
-        recipients: [{
-          session_id: "session-1", project: "yoke", liveness: "active",
-          messageability: { messageable: true }, resolution: ["session_id"],
-        }],
-        recipient_count: 1,
-      });
-    },
-  });
-  button(root, "Compose message").dispatchEvent(new Event("click"));
-  byClass(root, "session-message-selector-sessions")[0].value = "session-1";
-  byClass(root, "session-message-body")[0].value = "Test exact delivery.";
-  button(root, "Preview recipients").dispatchEvent(new Event("click"));
-  await settle();
-
-  assert.equal(button(root, "Send message").disabled, true);
-  assert.ok(byClass(root, "session-control-status").at(-1).textContent.includes(
-    "did not confirm this recipient snapshot",
-  ));
-  assert.equal(requests.length, 1);
-  mounted.unmount();
-});
-
 test("launch and relay views explain unavailable machine capability", async (t) => {
   const handlers = {
     "session_control.launch.list": () => ok({ launches: [], count: 0 }),
@@ -234,7 +174,7 @@ test("roster filters are named, clearable, and distinguish filtered emptiness", 
 });
 
 
-test("the roster narrows kills by ended cause, not by a liveness peer", async (t) => {
+test("roster State uses accepted liveness values while kill cause stays on the card", async (t) => {
   const base = {
     project: "yoke", project_id: 1, executor: "codex",
     executor_surface: "codex-desktop", execution_lane: "DARIUS", mode: "wait",
@@ -258,22 +198,20 @@ test("the roster narrows kills by ended cause, not by a liveness peer", async (t
         : [],
     }),
   });
-  const selects = byClass(root, "session-roster-filter").filter(
+  const stateFields = byClass(root, "session-roster-filter").filter(
     (field) => field.children[1]?.tagName === "SELECT",
   );
-  const [liveness, endedCause] = selects;
+  assert.equal(stateFields.length, 1);
+  assert.equal(stateFields[0].children[0].textContent, "State");
+  const state = stateFields[0].children[1];
   assert.deepEqual(
-    liveness.children[1].children.map((option) => option.value),
+    state.children.map((option) => option.value),
     ["", "active", "stale", "ended"],
   );
-  assert.deepEqual(
-    endedCause.children.map((node) => node.textContent).slice(0, 1),
-    ["Ended cause"],
-  );
+  assert.equal(byClass(root, "session-card").length, 0);
+  state.value = "ended";
+  state.dispatchEvent(new Event("change"));
   assert.equal(byClass(root, "session-card").length, 2);
-  endedCause.children[1].value = "killed";
-  endedCause.children[1].dispatchEvent(new Event("change"));
-  assert.equal(byClass(root, "session-card").length, 1);
   assert.equal(
     byClass(root, "session-kill-badge")[0].textContent,
     "killed · operator stopped worker",

@@ -147,7 +147,8 @@
   margin-top: 12px;
 }
 
-.universe-app-root .session-filter-clear {
+.universe-app-root .session-filter-clear,
+.universe-app-root .session-filter-action {
   align-self: end;
   min-height: 34px;
 }
