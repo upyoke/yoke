@@ -1,6 +1,6 @@
 # Onboard Steps 4–5: Hosting Capability And Environment Registration
 
-Step 4 verifies (or connects) the hosting capability. Step 5 installs the infra Packs and registers environments, sites, and the default deploy flow. Both are registration/verification only — **no cloud mutation happens here**; every cloud write waits behind the approval gate in step 7.
+Step 4 verifies (or connects) the hosting capability. Step 5 installs only the confirmed infra Packs and then either registers managed hosting routes or proves that no project default remains. Both branches are registration/verification only — **no cloud mutation happens here**; every cloud write waits behind the approval gate in step 7.
 
 ## Step 4: Hosting Capability
 
@@ -91,15 +91,17 @@ yoke onboard checklist --run-id {run_id} \
 
 **Failure floor:** missing operator input or console access → mark the specific row `blocked` with what is needed; stop.
 
-## Step 5: Infra Packs + Environments, Sites, Deploy Flow
+## Step 5: Infra Packs + Hosted Registration Or No-Host Cleanup
 
-- **Entry:** scaffold present (installed or mapped); hosting verified or explicitly deferred.
-- **Skip:** registrations already match the profile → skip; Packs already in the `.yoke/packs.json` receipt skip individually.
+- **Entry:** scaffold present (installed or mapped); the durable checklist says `hosting-setup=verified|configured|deferred|not-needed`.
+- **Skip:** re-read the live hosting row. For `verified|configured`, the site, environments, persistent flows, project default, and test binding must match the profile. For `deferred|not-needed`, the project default must read empty and the no-host terminal rows, independent test binding, and Project Structure policy work must match. Packs in `.yoke/packs.json` skip individually.
 - **Rows:** `environment-registration`, `project-structure-setup`, `delivery-setup`, `verification-command-binding`.
+
+Prior `deferred` or `not-needed` values are not proof that a later hosting-required profile is satisfied. Every rerun reads `yoke onboard checklist --run-id {run_id} --json` and re-evaluates the live capability probe, registrations, project default, and deployment health. Choose exactly one branch below from the current `hosting-setup` value; a partial managed-host failure never falls through to the no-host branch.
 
 ### Install the infra Packs
 
-Same receipt-first, preview-then-apply mechanics as the scaffold (see [profile-and-scaffold.md](profile-and-scaffold.md)) for each infra/deploy Pack in the confirmed profile:
+Same receipt-first, preview-then-apply mechanics as the scaffold (see [profile-and-scaffold.md](profile-and-scaffold.md)) for each infra/deploy Pack in the confirmed profile. A no-host profile never gains an excluded infra/deploy Pack merely to satisfy this step:
 
 ```bash
 yoke packs get {pack} {checkout} --project {project}
@@ -108,9 +110,9 @@ yoke packs get {pack} {checkout} --project {project} --apply
 
 Installing a Pack lands source in the repo only — its stacks do not run until step 7's gate.
 
-### Register the site and environments
+### Hosting verified/configured: register the site and environments
 
-Registration is idempotent: an existing row with the same identity reports already-present and is never overwritten.
+Only this branch may register managed hosting. Registration is idempotent: an existing row with the same identity reports already-present and is never overwritten.
 
 ```bash
 yoke projects site create --project {project} --site {site_name}
@@ -120,7 +122,7 @@ yoke projects environment create --project {project} --site {site_name} --enviro
 
 Discover what already exists with the metadata-only inventory (`yoke projects infrastructure list --project {project} --json`). Read environment configuration only through explicit scalar leaf projections (`yoke projects environment-settings get --project {project} --environment {environment} --path {key.path} --json`); never dump an environment settings document.
 
-### Create the deploy flows and the default
+### Create The Persistent Deploy Flow And Default
 
 Deployment flows are ordinary database rows. Create each one with a command; nothing in the project repo defines them.
 
@@ -136,6 +138,35 @@ yoke project-structure deploy-defaults get --project {project}
 ```
 
 A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
+
+### Hosting deferred/not-needed: clear the project default
+
+Do not run the managed-host registration or default-put recipes above. Existing environment and flow history stays intact, but new work must not route to it. Read the default; when the read is non-empty, remove the project attachment through the existing patch surface, then read it again. The final read must print nothing:
+
+```bash
+yoke project-structure deploy-defaults get --project {project}
+yoke project-structure patch \
+  apply --project {project} --ops-json '[{"op":"remove","family":"deploy_defaults","attachment":"project"}]'
+yoke project-structure deploy-defaults get --project {project}
+```
+
+After an empty readback, record terminal evidence and continue with the independent test binding and Project Structure policy work below:
+
+```bash
+yoke onboard checklist --run-id {run_id} \
+  --row-status environment-registration=not-needed \
+  --evidence environment-registration="live hosting row {deferred|not-needed}; no managed site or environment registered" \
+  --row-status delivery-setup=not-needed \
+  --evidence delivery-setup="project default verified empty; no persistent route assigned"
+```
+
+If removal or empty readback fails, record the exact command and recovery, then stop. Do not seed work against an unverified default:
+
+```bash
+yoke onboard checklist --run-id {run_id} \
+  --row-status delivery-setup=blocked \
+  --blocker delivery-setup="{failed command}: {captured error}; repair access, then re-run /yoke onboard --run-id {run_id}"
+```
 
 ### Bind the confirmed test setup
 
@@ -243,20 +274,20 @@ yoke project-structure patch apply --project {project} --ops-json '[{"op":"put",
 
 Once applied, classifications refresh automatically on every snapshot sync; verify with `yoke project-structure architecture-health get --project {project}` and record the coverage line as evidence on the `project-structure-setup` row.
 
-### Mark the rows
+### Mark the managed-host and independent rows
+
+For `hosting-setup=verified|configured`, mark the managed registrations:
 
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status environment-registration=configured \
   --evidence environment-registration="site {site_slug} + stage/prod registered; flows created: {flow_ids}; default flow {flow_id}" \
-  --row-status project-structure-setup=configured \
-  --evidence project-structure-setup="policy rows applied: {families}" \
   --row-status delivery-setup=configured \
   --evidence delivery-setup="sites, environments, and flows registered through commands"
 ```
 
-When a sub-part was already satisfied, use `verified` for that row instead of `configured`.
+On either branch, mark `project-structure-setup=configured` (or `verified` when already satisfied) with evidence naming the independent policy families applied. When a managed sub-part was already satisfied, use `verified` for its row instead of `configured`.
 
-**Failure floor:** a rejected flow create, failed registration, or failed Pack apply → mark the matching row `blocked` with the error and recovery recipe; stop. Registrations already made stay (they are idempotent to re-run).
+**Failure floor:** a rejected flow create, failed registration, failed Pack apply, or failed no-host cleanup → mark the matching row `blocked` with the error and recovery recipe; stop. Registrations already made stay (they are idempotent to re-run).
 
 Continue to steps 6–7 of this skill: read [domain-and-deploy.md](domain-and-deploy.md).

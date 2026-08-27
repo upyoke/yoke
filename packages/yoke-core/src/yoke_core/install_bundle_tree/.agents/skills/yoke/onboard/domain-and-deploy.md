@@ -4,9 +4,35 @@ Step 6 records the domain posture the infra apply consumes. Step 7 is the second
 
 ## Step 6: Domain
 
-- **Entry:** environments registered.
-- **Skip:** domain posture already recorded → skip.
+- **Entry:** hosted environments registered, or the live checklist says `hosting-setup=deferred|not-needed`.
+- **Skip:** only a domain result matching the live hosting branch. A prior no-host result does not skip this step after hosting becomes `verified|configured`.
 - **Row:** `domain-setup`.
+
+### Hosting deferred/not-needed: close the hosted rows
+
+There is no managed environment to receive a domain or deploy. Record both rows from the live hosting answer, then continue directly to step 8; seeding is allowed because step 5 verified that the project default is empty.
+
+For postponed hosting:
+
+```bash
+yoke onboard checklist --run-id {run_id} \
+  --row-status domain-setup=not-needed \
+  --evidence domain-setup="hosting deferred; no managed environment needs a domain" \
+  --row-status infra-apply-first-deploy=deferred \
+  --evidence infra-apply-first-deploy="hosting postponed; no managed deploy route registered"
+```
+
+For a confirmed no-managed-host profile:
+
+```bash
+yoke onboard checklist --run-id {run_id} \
+  --row-status domain-setup=not-needed \
+  --evidence domain-setup="hosting not needed; no managed environment needs a domain" \
+  --row-status infra-apply-first-deploy=not-needed \
+  --evidence infra-apply-first-deploy="confirmed profile has no Yoke-managed host"
+```
+
+### Hosting verified/configured: record the domain
 
 The launch posture is the default subdomain derived from the project slug; bring-your-own domain (hosted zone plus certificate) is a follow-on, and registering domains through Yoke is out of scope here. Record the choice on the environment settings the apply reads, as scalar leaves:
 
@@ -31,8 +57,8 @@ yoke onboard checklist --run-id {run_id} \
 
 ## Step 7: Gated Infra Apply + First Deploy
 
-- **Entry:** every earlier step satisfied.
-- **Skip:** infra applied and the deploy live and healthy → report the URL and skip.
+- **Entry:** live `hosting-setup=verified|configured` and every earlier managed-host step satisfied. The no-host branch above does not enter this gate.
+- **Skip:** live managed-host infrastructure is applied and the deploy is healthy → report the URL and skip. A prior `deferred|not-needed` value is never proof after hosting becomes available.
 - **Row:** `infra-apply-first-deploy`.
 
 ### The gate (stop 2 of 2)
