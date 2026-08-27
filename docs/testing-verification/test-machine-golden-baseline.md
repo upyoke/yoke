@@ -1,7 +1,8 @@
 # A fresh host is a user's machine, not an empty one
 
-What the Test Mac's golden baseline is, which programs it must carry signed
-in, and how to read a probe that fails. Companion to
+What the Test Mac's golden baseline is, how its probes sidecar declares which
+programs it must carry signed in, and how to read a probe that fails. Companion
+to
 [`docs/testing-verification.md`](../testing-verification.md).
 
 The registered `fresh-host` baseline restores the host's declared golden
@@ -40,13 +41,20 @@ account it is signed in as, and that identity has no business in QA evidence,
 so a failure is explained by a classified cause, reason, and recovery drawn
 from fixed text — never by the output itself.
 
-## Every harness the missions use must be signed in
+## The sidecar decides what must be signed in
 
-**Capturing a golden means capturing it with every harness program signed in
-that any mission on this host will use — Claude and Codex both today, plus any
-harness added later.** A capture taken while one of them is signed out
-restores a host that Yoke itself rejects as not user-equivalent, and the
-missions that depend on it park on a machine no user has.
+**Capturing a golden means capturing it with every program named by that
+golden's `.probes` sidecar already signed in.** The sidecar is the authority
+for the required set; this guide does not fix that set in prose. A capture
+taken while any declared program is signed out restores a host that Yoke
+itself rejects as not user-equivalent, and the missions that depend on it park
+on a machine no user has.
+
+As an illustrative snapshot, the current Test Mac sidecar has three probes:
+`claude auth status`, `codex login status`, and `cursor-agent status`. That
+list can change with the baseline. The latter two commands report output
+containing `Logged in` when authenticated, matching their current sidecar
+expectations.
 
 Recapturing a baseline with a new tool updates its probes in the same motion.
 Adding a harness to the host without adding its probe leaves a signed-out
