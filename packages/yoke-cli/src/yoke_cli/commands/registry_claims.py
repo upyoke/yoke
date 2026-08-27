@@ -1,4 +1,4 @@
-"""Steering and coordination-lease entries for the aggregate ``yoke`` registry."""
+"""Steering and coordination-claim entries for the aggregate ``yoke`` registry."""
 
 from __future__ import annotations
 
