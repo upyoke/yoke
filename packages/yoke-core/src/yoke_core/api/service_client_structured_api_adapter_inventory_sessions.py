@@ -153,6 +153,27 @@ SESSION_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="session_control.surface_policy.set",
+        cli_invocation=(
+            "yoke session-control surface-policy disable --project P "
+            "--machine M --surface S --reason TEXT [--evidence TEXT] [--json]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="session_control.surface_policy.clear",
+        cli_invocation=(
+            "yoke session-control surface-policy enable --project P "
+            "--machine M --surface S [--json]"
+        ),
+    ),
+    _read_entry(
+        function_id="session_control.surface_policy.list",
+        cli_invocation=(
+            "yoke session-control surface-policy list [--machine M] "
+            "[--surface S] [--include-cleared] [--json]"
+        ),
+    ),
+    AdapterEntry(
         function_id="charge.schedule",
         cli_invocation="yoke charge schedule [--project P] [--item PREFIX-N] [--workspace W] [--wip-cap N]",
     ),
