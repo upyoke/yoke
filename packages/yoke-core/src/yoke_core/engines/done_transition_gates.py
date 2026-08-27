@@ -254,6 +254,8 @@ def _check_deployment_redirect(
     """Pre-merge deployment flow redirect. Returns exit code or None."""
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if deploy_flow and not is_internal and not skip_deploy:
+        if _read_deployment_flow_target_tier(deploy_flow, required=False) == "":
+            return None
         ref = _ref(item_id, item_ref)
         print("\n=== Deployment flow redirect ===")
         print(f"Item {ref} has deployment flow '{deploy_flow}'.")
@@ -272,6 +274,7 @@ from yoke_core.engines.done_transition_deploy_gates import (  # noqa: E402,F401
     _check_deployment_flow_guard,
     _check_deployment_evidence,
     _get_latest_run_status,
+    _read_deployment_flow_target_tier,
     _check_run_stage_consistency,
     _check_run_qa_gates,
 )

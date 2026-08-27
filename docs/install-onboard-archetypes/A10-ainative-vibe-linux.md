@@ -50,12 +50,13 @@ Survey: one `app.py` or `index.html`, no tests, no CI. Strategy: "finish the
 product". Profile proposes `webapp-scaffold` — **conflict with existing
 files** must map, not overwrite (`profile-and-scaffold.md`).
 
-Hosting deferred. If they confirm stage+prod anyway, they get empty
-environments and a default flow; first `/yoke idea` stamps it; Usher Route B
-fails (no infra).
+Hosting deferred. The profile offers only merge-only or no default; it cannot
+confirm a persistent environment. Riley chooses **no default** while the
+product has no host. Step 5 verifies the empty readback and creates no site,
+environment, or flow. Merge-only remains available if they want every item to
+carry the local-merge contract.
 
-Seed from CURRENT-PLAN should be implementation issues **without** a deploy
-flow.
+Seed from CURRENT-PLAN creates implementation issues without a deploy flow.
 
 ## Test setup
 
@@ -81,4 +82,4 @@ reviewing-implementation seeds `implementation_review`. Refuse registering
 | CI | Optional `ci_workflow_file` | QA command-ci unreachable named reason | Local tests when they exist |
 | Merge target | GitHub App bind | Skip GitHub → local only | They did bind — PRs possible |
 
-Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-test-setup-unasked, G-no-tests-posture.
+Ledger: G-test-setup-unasked, G-no-tests-posture.

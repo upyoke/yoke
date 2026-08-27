@@ -257,6 +257,11 @@ class TestDeploymentFlowGuard:
                 "_check_deployment_evidence",
                 return_value=False,
             ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_read_deployment_flow_target_tier",
+                return_value="persistent",
+            ),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=207,
@@ -280,6 +285,11 @@ class TestDeploymentFlowGuard:
                 done_transition_deploy_gates,
                 "_get_latest_run_status",
                 return_value=(None, None),
+            ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_read_deployment_flow_target_tier",
+                return_value="persistent",
             ),
         ):
             with mock.patch.object(

@@ -41,6 +41,32 @@ def _relay_read(
     return resp.result or {}
 
 
+def _read_deployment_flow_target_tier(deploy_flow: str, *, required: bool) -> Optional[str]:
+    """Read one flow's semantic target tier.
+
+    A successful null value is the merge-only marker. Pre-merge routing uses
+    ``required=False`` so an unavailable read retains the pipeline redirect;
+    post-merge validation fails closed with the registered read name.
+    """
+    try:
+        resp = call_dispatcher(
+            function_id="deployment_flows.get",
+            target=TargetRef(kind="global"),
+            payload={"flow_id": deploy_flow, "field": "target_tier"},
+        )
+    except Exception as exc:  # noqa: BLE001 - normalize transport failures
+        if not required:
+            return None
+        raise RuntimeError(f"deployment_flows.get read failed: {exc}") from exc
+    if not resp.success:
+        if not required:
+            return None
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"deployment_flows.get read failed: {message}")
+    value = (resp.result or {}).get("value")
+    return "" if value is None else str(value)
+
+
 def _check_deployment_flow_guard(
     item_id: int,
     deploy_flow: str,
@@ -83,6 +109,9 @@ def _check_deployment_flow_guard(
         else:
             print("No deployment flows are registered. Seed deployment_flows first.")
         return 7, old_status
+
+    if _read_deployment_flow_target_tier(deploy_flow, required=True) == "":
+        return None
 
     if skip_deploy:
         # still requires evidence

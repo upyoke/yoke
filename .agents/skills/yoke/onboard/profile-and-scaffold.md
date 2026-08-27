@@ -38,10 +38,20 @@ Present the whole profile in one block — a smart proposal, never a blank inter
 
   Every infra and deploy Pack above targets AWS. Under a `no-yoke-managed-host` posture, propose none of them and say why — Yoke has no apply path for Render, Fly, DigitalOcean, dokku, or an on-prem box, and offering an AWS Pack to a project hosted elsewhere is offering something that cannot run. Drop what strategy does not justify; an existing app maps instead of installing a scaffold.
 - **Capabilities** — `aws-admin` (hosting; omit entirely under `no-yoke-managed-host`), the project GitHub binding mode, product-specific keys named by the plan.
-- **Environments** — stage + prod on a default site, plus the default deploy flow for the slug.
+- **Delivery** — exactly one named outcome from the delivery box below.
 - **Domain posture** — start on the default subdomain; bring-your-own later.
 - **Test setup** — how this project's tests run, and therefore what the
   `reviewing-implementation` gate will execute. See the box below.
+
+### The delivery box
+
+Every profile names exactly one delivery outcome:
+
+1. **Persistent environment** — a registered environment plus a pipeline flow. This is legal only when hosting is `verified` or `configured`.
+2. **Merge-only** — local merge with no environment and no deployment pipeline or run.
+3. **No default** — new items omit `--deployment-flow` until the project chooses delivery later.
+
+When hosting is `deferred` or `not-needed`, offer only merge-only or no default. The confirmation evidence must spell out the chosen name and meaning; never silently turn a no-host profile into stage + prod.
 
 ### The test-setup box
 
@@ -102,7 +112,7 @@ The operator confirms or adjusts the whole profile; edits refine the proposal in
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status human-interview=verified \
-  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; envs stage+prod; domain {posture}; test setup {surveyed-command|scaffold-suite|review-only-suite|attested-no-tests}; roots {test_roots}; quick {quick_argv|not-applicable}; full {full_argv|same-as-quick|not-applicable}; suite health {suite_health}; runner {command|command-ci|review-only|none} because {runner_rationale}"
+  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; delivery {persistent-environment|merge-only|no-default}: {registered environment plus pipeline|local merge, no environment or pipeline|new items omit --deployment-flow}; domain {posture}; test setup {surveyed-command|scaffold-suite|review-only-suite|attested-no-tests}; roots {test_roots}; quick {quick_argv|not-applicable}; full {full_argv|same-as-quick|not-applicable}; suite health {suite_health}; runner {command|command-ci|review-only|none} because {runner_rationale}"
 ```
 
 After confirmation, run steps 3–6 straight through unattended. The next stop is the infrastructure approval gate in step 7.

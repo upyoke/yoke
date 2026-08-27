@@ -54,14 +54,14 @@ PATH: Linux `.profile`. Account: This machine (or team server if they self-host)
 GitHub Connect. Project: Existing folder under `/home/chen/work/api` (clone of
 GitHub). Use connected repo. Hosting: **Skip** (Render is not AWS). Apply.
 
-`/yoke onboard`: profile still proposes `aws-admin` + stage/prod. They must
-reject hosting Packs. There is **no** Render/Fly Pack in the profile list
-(`webapp-scaffold`, `pulumi-foundation`, `vps-hosting`,
-`webapp-environment-infrastructure`, `registry-oidc`, `production-deploy`).
+`/yoke onboard`: the no-Yoke-managed-host posture omits `aws-admin` and AWS
+hosting Packs. There is **no** Render/Fly Pack in the profile list, so the
+team confirms **merge-only** delivery: Yoke performs the local merge with no
+environment or pipeline run, while the existing Render deployment remains
+external and operator-owned.
 
-Existing Actions remain a hint. Yoke cannot register a persistent flow that
-deploys to Render. If they accept the default AWS profile, step 7 tries AWS
-apply they do not want.
+Existing Actions remain a hint. Yoke does not register a persistent Render
+flow or enter the AWS approval gate.
 
 ## Test setup
 

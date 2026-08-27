@@ -14,18 +14,20 @@ If `_MERGE_ONLY`: report merge-only complete, **stop**.
 
 ## Step 8a: Group items by (project, deployment_flow)
 
-For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`).
+For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`). For every non-empty, non-`-internal` value, read `target_tier` through the registered `deployment_flows.get` function. A successful empty target tier is merge-only; an unavailable read is unresolved and must not be guessed merge-only.
 
 Two categories:
-- **Internal flow:** `deployment_flow` is empty/null or ends in the registered
-  project convention `-internal`
-- **Deployment flow:** grouped by `(project, deployment_flow)`
+- **Route A, no run:** `deployment_flow` is empty/null, ends in the registered
+  project convention `-internal`, or names a registered flow whose
+  `target_tier` is empty
+- **Route B, deployment run:** persistent/ephemeral flows and unresolved
+  non-internal values, grouped by `(project, deployment_flow)`
 
 Usher does not know project-specific flow ids or release topology. It executes
 the item's active registered flow exactly as defined; disabled flows cannot be
 assigned or start a run.
 
-## Step 8b: Route A — Internal flow items (no run)
+## Step 8b: Route A — Internal and registered merge-only items (no run)
 
 The done-transition engine is the project-agnostic internal-delivery boundary;
 run it through the merge watcher, then handle exit codes:
@@ -53,7 +55,7 @@ Exit-code dispatch:
 - **Exit 2:** CWD/argument/validation error. Revert to `implemented`, halt batch. Report: `[Route A] PREFIX-N: done-transition validation error (exit 2). Reverted to implemented.`
 - **Exit 3:** Simulation gate failure (epic) or merge conflicts requiring agent resolution. Revert to `implemented`, halt batch. Report: `[Route A] PREFIX-N: done-transition blocked by simulation gate or conflicts (exit 3). Reverted to implemented.`
 - **Exit 4:** User files at risk — **HARD STOP**. Revert to `implemented`. Report: `[Route A] PREFIX-N: user files at risk (exit 4). Reverted to implemented. Manual review required.`
-- **Exit 7:** Deployment flow guard. The item has a deployment flow that requires pipeline execution, but `--skip-deploy` was passed. Revert to `implemented`. Report: `[Route A] PREFIX-N: deployment flow guard (exit 7). This item needs Route B (deployment pipeline), not Route A. Reverted to implemented. Re-run usher without --skip-deploy or verify the item's deployment_flow field.`
+- **Exit 7:** Deployment flow guard. The item has a persistent, ephemeral, unregistered, or unresolved flow rather than a verified merge-only flow. Revert to `implemented`. Report: `[Route A] PREFIX-N: deployment flow guard (exit 7). This item needs Route B or a repaired flow-definition read, not Route A. Reverted to implemented. Re-run usher without --skip-deploy or verify the item's deployment_flow and target_tier.`
 - **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from the project's default branch. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] PREFIX-N: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
   **Recovery:** The canonical remediation is the evidence-only path — future items should enter implementing with `--no-worktree`. Only after the rollback to `implemented`, read the registered lane path and prove it contains no modified tracked, untracked, or ignored files:
   ```bash

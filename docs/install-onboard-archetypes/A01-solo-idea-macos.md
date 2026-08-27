@@ -9,9 +9,9 @@ account. Goal: get Yoke locally and start capturing work.
 
 | | |
 |---|---|
-| Fits | Local destination ("This machine", free, no account). Create-new project with no GitHub. Hosting skip. Seed work without a live deploy. |
-| Breaks | Execution profile still proposes stage+prod and a default deploy flow. |
-| Gaps | No "this project does not deploy" declaration. Idea intake will stamp the project default flow onto every item. |
+| Fits | Local destination ("This machine", free, no account). Create-new project with no GitHub. Hosting skip. Confirm merge-only or no default and seed work without a live deploy. |
+| Breaks | No delivery mismatch: the profile does not offer a persistent environment while hosting is deferred. |
+| Gaps | The remaining setup question is an honest test posture for an idea-only repository. |
 
 ## Transcript — public installer
 
@@ -233,18 +233,19 @@ Init: `yoke onboard checklist init --project notebook-app --checkout ~/code/note
    MASTER-PLAN / LANDSCAPE / CURRENT-PLAN. Agent asks only what the empty
    repo cannot answer. Writes via `yoke strategy doc replace`.
 2. Profile confirmation (stop 1 of 2). Proposal from
-   `profile-and-scaffold.md`: scaffold Pack `webapp-scaffold`; infra Packs
-   `pulumi-foundation` · `vps-hosting` · `webapp-environment-infrastructure`;
-   deploy Packs `registry-oidc` · `production-deploy`; capability `aws-admin`;
-   **environments stage + prod**; default subdomain.
-3. **User** should adjust: drop hosting Packs and `aws-admin`; keep local
-   scaffold or skip it (idea-only). If they rubber-stamp the proposal, the
-   profile creates a deploy default they do not have.
+   `profile-and-scaffold.md`: keep or skip the local scaffold, omit AWS Packs
+   and `aws-admin`, and choose exactly one delivery outcome. Alex chooses
+   **merge-only**: local merge, no environment, and no deployment pipeline.
+   No default is the equally valid alternative.
+3. **User** confirms the named delivery choice rather than deleting a stock
+   persistent environment from the proposal.
 4. Hosting step: skip probe fails (no `aws-admin`). Operator defers:
    `hosting-setup=deferred`. Step 7 unreachable. Step 8 still runs.
-5. Seed: `yoke project-structure deploy-defaults get --project notebook-app`.
-   Empty → omit `--deployment-flow` on `yoke items create`. Non-empty → every
-   seeded issue gets the default flow.
+5. Step 5 creates `notebook-app-merge-only`, verifies its empty target tier,
+   and reads it back as the project default without creating a site or
+   environment. Seeded issues receive that flow; Usher routes it through
+   Route A without `deployment-runs start-for-item`. If Alex chose no default,
+   the empty readback instead makes seed-work omit `--deployment-flow`.
 
 ## Test setup
 
@@ -274,4 +275,4 @@ attest no-tests, or stop?" Recommend scaffold, else attested no-tests
 | Migration | Not asked; N/A for empty repo | — | No `migration_model` |
 | Tests | Profile test-setup box (missing) | Do not register a command that is not in the tree | Scaffold suite or attested no-tests |
 
-Ledger: G-no-deploy-default-flow, G-execution-profile-no-hosting-still-envs, G-installer-handoff-cursor, G-test-setup-unasked, G-no-tests-posture, G-scaffold-tests-unregistered, G-qa-plan-needs-env.
+Ledger: G-installer-handoff-cursor, G-test-setup-unasked, G-no-tests-posture, G-scaffold-tests-unregistered, G-qa-plan-needs-env.

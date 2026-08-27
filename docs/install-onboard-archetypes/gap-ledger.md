@@ -18,10 +18,9 @@ filled in the last column.
 | G-windows-native | blocker | installed | Native OS gate is a one-line `fail`; no WSL recipe (unlike uv-decline) | A04 A08 | YOK-2464 |
 | G-hosting-aws-only | missing-config-surface | deployed | Wizard: "AWS for now". Pack `vps-hosting` is EC2, not DigitalOcean. No PaaS. | A02 A04 A11 | YOK-2465 |
 | G-deferred-hosting-flows | blocker | deployed / released | `/yoke onboard` step 5 still registers stage/prod and flows when hosting is deferred | A01 A02 A05 A09 A10 A12 | YOK-2466 |
-| G-no-merge-only-default | blocker | deployed / merged | Merge-only flows (`target_tier` NULL) exist; onboard never offers them; idea always stamps `deploy-defaults get` | A01 A09 A12 + all no-host | YOK-2467 |
 | G-forge-github-only | missing-config-surface | merged | Skip GitHub works; GitLab/Bitbucket cannot bind, clone-list, or merge-queue | A06 A11 | YOK-2469 |
 | G-handoff-cursor | taught | installed | Shim hand-off names Claude Code, Codex, or Cursor then `/yoke onboard` | A01 A03 A05 A09 | YOK-2468 |
-| G-app-store | missing-config-surface | deployed | No TestFlight/Play/`fastlane` runner; profile is web stage+prod | A09 | YOK-2470 |
+| G-app-store | missing-config-surface | deployed | No TestFlight/Play/`fastlane` runner; app-store delivery remains external to Yoke | A09 | YOK-2470 |
 | G-selfhost-not-in-wizard | friction | installed | Resolved: picker previews and performs guarded Compose first boot, captures the token, activates the local connection, and offers setup or handoff exits; the manual reference remains | A06 A07 | YOK-2471 |
 | G-migration-undeclared | missing-config-surface | migrated | No onboard question for `migration_model` / "no DB to migrate" | A03 A06 A07 | YOK-2472 |
 | G-byo-aws-identity | missing-config-surface | deployed | Hosting collects a new IAM user access key pair only | A03 A07 | YOK-2473 |
@@ -48,8 +47,9 @@ empty. If a persistent flow is set and `--skip-deploy` is used: exit 7
 (`usher/deploy.md`) — that refusal is correct **if** the flow was intentional.
 
 **Instead:** Route A `yoke watch merge done-transition -- PREFIX-N --skip-deploy`
-for empty/`-internal` flow. Seed-work already omits `--deployment-flow` when
-`deploy-defaults get` prints nothing.
+for an empty/`-internal` flow or any registered flow whose `target_tier` is
+empty. Seed-work omits `--deployment-flow` when `deploy-defaults get` prints
+nothing and attaches a configured merge-only default when it prints one.
 
 ### Merge target
 
