@@ -1,10 +1,9 @@
 """Pilot coverage for the wizard's deployment-destination picker.
 
-The Account step opens on one picker — this machine / a team server /
-upyoke.com / stage.upyoke.com — and the answer changes only the sign-in
-lane: local swaps sign-in for the universe summary (birth runs at Apply),
-server collects a URL then a token, and either hosted row goes straight to
-browser approval against the platform that row named. The closing test
+The Account step opens on one picker of local, existing/new team-server, and
+hosted homes. The answer changes only the connection lane: local swaps sign-in
+for the universe summary (birth runs at Apply), an existing server collects a
+URL then a token, and either hosted row goes straight to browser approval. The closing test
 drives the real apply seam end to end (picker → local → Apply) against a
 scratch machine home with the embedded-Postgres engine stubbed, and proves
 the written config matches what ``yoke init --local`` lands.
@@ -163,7 +162,9 @@ def test_server_pick_collects_url_then_token() -> None:
             await advance_past_path(pilot)
             await pilot.press("down")  # picker: local -> A team server
             await pilot.press("enter")
-            assert "Enter your Yoke server URL." in _body_text(app)
+            text = _body_text(app)
+            assert "Enter your Yoke server URL." in text
+            assert "No server yet? Paste the install one-liner" in text
             await type_text(pilot, "https://yoke.acme.test")
             await pilot.press("enter")
             await pilot.pause()
@@ -172,7 +173,6 @@ def test_server_pick_collects_url_then_token() -> None:
             assert "Provide your Yoke API token." in _body_text(app)
 
     asyncio.run(scenario())
-
 
 
 def test_preset_destination_skips_picker() -> None:

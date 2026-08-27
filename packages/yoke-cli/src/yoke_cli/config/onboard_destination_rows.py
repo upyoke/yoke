@@ -27,6 +27,10 @@ from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT_LABEL, Selection
 #: opens, so it is a picker value rather than a fourth destination.
 HOSTED_STAGE_ROW = "hosted-stage"
 
+#: Picker-only route. The completed connection is the existing durable
+#: team-server destination; this value never enters reports or machine config.
+SELF_HOST_SERVER_ROW = "self-host-server"
+
 #: Platform each hosted picker row connects to.
 HOSTED_ROW_ENVS = {
     DESTINATION_HOSTED: ENV_PRODUCTION,
@@ -39,6 +43,11 @@ DESTINATION_ROWS = [
         DESTINATION_SERVER,
         "A team server",
         "the URL of your team's self-hosted Yoke server",
+    ),
+    SelectionRow(
+        SELF_HOST_SERVER_ROW,
+        "Set this machine up as a self-hosting server",
+        "Docker Compose · guided first boot",
     ),
     SelectionRow(DESTINATION_HOSTED, "upyoke.com", "hosted by Yoke · private beta"),
     SelectionRow(
@@ -59,6 +68,7 @@ DEFAULT_DESTINATION_INDEX = next(
 ACCOUNT_STEP_LABELS = {
     DESTINATION_LOCAL: "Universe",
     DESTINATION_SERVER: STEP_CONNECT_LABEL,
+    SELF_HOST_SERVER_ROW: STEP_CONNECT_LABEL,
     DESTINATION_HOSTED: STEP_CONNECT_LABEL,
     HOSTED_STAGE_ROW: STEP_CONNECT_LABEL,
 }
@@ -69,4 +79,5 @@ __all__ = [
     "DESTINATION_ROWS",
     "HOSTED_ROW_ENVS",
     "HOSTED_STAGE_ROW",
+    "SELF_HOST_SERVER_ROW",
 ]

@@ -1,11 +1,12 @@
 """Full-screen Textual wizard for ``yoke onboard``.
 
-This is a presentation layer over the existing pure assembly function
-:func:`yoke_cli.config.onboard.build_report`. The wizard collects the same
-field set the readline prompt did, previews the write plan distinguishing
-machine / Yoke-core-database / repo-local / source-dev-admin writes, and
-applies on a single confirm. It never reimplements report assembly and never
-prints secrets — token inputs use password fields.
+Most steps present the existing pure assembly function
+:func:`yoke_cli.config.onboard.build_report`: they collect its fields, preview
+machine / Yoke-core-database / repo-local / source-dev-admin writes, and apply
+them on the final confirm. Guided self-host setup is the deliberate exception:
+its own preview and Start confirmation create the Compose bundle, persist the
+owner-only connection, and show the one-time first-admin token for safe storage.
+Other token inputs remain password fields, and report assembly is not duplicated.
 
 ``textual`` is imported lazily inside :func:`run_wizard` so non-interactive and
 import-graph paths never require it.

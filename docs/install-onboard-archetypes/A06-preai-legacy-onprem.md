@@ -4,16 +4,17 @@
 (GitLab)** · CI/CD.
 
 Elena's org runs GitLab CE on the intranet, Jenkins on-prem, Java services on
-VMs. IT will not put source on github.com. They will consider a **team server**
-on their network (`yoke self-host init` is the documented path).
+VMs. IT will not put source on github.com. They will run a **team server** on
+their network, using guided first boot on the host or the manual
+`yoke self-host init` path.
 
 ## Fit / break / gaps
 
 | | |
 |---|---|
-| Fits | Linux installer. Destination **A team server** (URL + API token). Existing folder. Skip GitHub. Local-or-server universe. |
+| Fits | Linux installer. Guided self-host first boot on the host, then **A team server** (reachable URL + API token) on clients. Existing folder. Skip GitHub. |
 | Breaks | Every GitHub App screen is the wrong forge. Clone-from-GitHub mode cannot clone GitLab. `github_origin` parsing is GitHub-deployment-specific. Merge queue / Actions OIDC are GitHub. |
-| Gaps | GitLab (or generic git) as VCS. On-prem Jenkins as CI method. Self-host is not a wizard destination that **installs** the server. |
+| Gaps | GitLab (or generic git) as VCS. On-prem Jenkins as CI method. |
 
 ## Transcript — installer
 
@@ -28,16 +29,28 @@ PATH Continue. Account:
 Where should this Yoke live?
   This machine
   A team server     the URL of your team's self-hosted Yoke server
+  Set this machine up as a self-hosting server
+                    Docker Compose · guided first boot
   upyoke.com
   stage.upyoke.com
 ```
 
-**User:** A team server. (IT already ran `yoke self-host init` per
-`docs/public/modes.md` / `docs/self-host.md` — **not** this wizard.)
+On the intended Linux host, IT can pick **Set this machine up as a
+self-hosting server**. The wizard previews `./yoke-server`,
+`http://127.0.0.1:8765`, Docker/Compose, and the fact that IT owns reachable
+networking and TLS. Start creates and launches the bundle, captures the
+one-time admin token, and activates the host's local connection. IT stores the
+token, mints separate teammate tokens, configures the intranet URL, then picks
+**Finish with server handoff**. The manual `yoke self-host init` reference in
+`docs/self-host.md` remains available.
+
+On Elena's client machine, **User:** A team server.
 
 ```
 Enter your Yoke server URL.
 Where your team's Yoke lives — e.g. https://api.mycompany.com.
+No server yet? Paste the install one-liner on the box you want to host on and
+pick Set this machine up as a self-hosting server.
 ```
 
 **User:** `https://yoke.internal.corp`
@@ -120,6 +133,6 @@ G-legacy-suite-unmapped, G-command-ci-misbind.
 | GitHub App | Already skippable | Project GitHub disabled; no issue relay | GitLab stays the forge; Yoke DB is the backlog |
 | Merge target | Default branch prompt exists; forge does not | Cannot open GitHub PRs | Local merge / operator merge on GitLab |
 | Deploy environment | On-prem Jenkins not a `step_runner` | Do not create AWS persistent flows | Empty default; document Jenkins as external |
-| Self-host server | Wizard expects URL+token **already** | Cannot enter team-server without a live API | `yoke self-host init` first (`docs/self-host.md`) |
+| Self-host server | Guided host setup or existing URL+token | Missing Docker/Compose is named before writes; networking remains operator-owned | Run guided Start on the host or use `yoke self-host init` (`docs/self-host.md`) |
 
-Ledger: G-forge-github-only, G-onprem-selfhost-gap, G-migration-undeclared, G-no-deploy-default-flow, G-test-setup-unasked, G-legacy-suite-unmapped, G-command-ci-misbind.
+Ledger: G-forge-github-only, G-migration-undeclared, G-no-deploy-default-flow, G-test-setup-unasked, G-legacy-suite-unmapped, G-command-ci-misbind.

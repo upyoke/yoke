@@ -301,7 +301,7 @@ def test_inspection_and_machine_state_cases_are_semantic() -> None:
 
 
 def test_product_rows_and_action_boundaries_select_the_intended_targets() -> None:
-    assert DESTINATION_ROWS[3].value == HOSTED_STAGE_ROW
+    assert DESTINATION_ROWS[4].value == HOSTED_STAGE_ROW
     assert MACHINE_GITHUB_ROWS[1].value == onboard_machine_github.CHOICE_SKIP
     assert MODE_ROWS[4].value == PROJECT_MODE_MACHINE_ONLY
 

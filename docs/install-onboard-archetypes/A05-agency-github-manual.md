@@ -31,6 +31,7 @@ Yoke found a connection in machine config. Reuse it, or choose another home.
   Use existing local connection     (or hosted env URL)
   This machine
   A team server
+  Set this machine up as a self-hosting server
   upyoke.com
   stage.upyoke.com
 ```

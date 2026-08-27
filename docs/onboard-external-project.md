@@ -38,10 +38,14 @@ import, or local-checkout modes.
 `yoke onboard` is a full-screen wizard — Install/PATH, Account, GitHub,
 Project, Review — driven by the arrow keys, redrawing in place. The Account
 step opens on a deployment-destination picker: where should this Yoke live —
-this machine (the free local universe, no account), a team server (your own
-URL plus a token), or upyoke.com (hosted sign-in). Only the sign-in lane
-changes with the answer; every other step is destination-independent, and
-the wizard previews every persistent write before applying. Re-running
+this machine (the free local universe, no account), an existing team server
+(your own reachable URL plus a token), guided self-host setup on this machine,
+or upyoke.com (hosted sign-in). The guided route previews Docker, the default
+bundle directory, loopback URL/port, Compose work, and operator-owned networking
+before writing. It captures first boot, activates the owner-only connection,
+then either continues into GitHub/Project or exits with a server handoff. Every
+other step is destination-independent, and the wizard previews remaining
+persistent writes before applying. Re-running
 onboarding ADDS a connection for the newly picked destination — a
 connection for another destination stays in place, and `active_env` follows
 the flow that just completed.

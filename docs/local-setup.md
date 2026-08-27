@@ -15,8 +15,8 @@ Yoke has two local setup lanes:
   or operating the server side. It starts with the product path, then adds
   `yoke dev setup`.
 
-Running the Yoke API server on your own hardware is its own lane — the
-`yoke self-host init` compose bundle, documented in
+The normal wizard can also create and start the Yoke API server on this
+machine. The manual/operator path remains `yoke self-host init`, documented in
 [docs/self-host.md](self-host.md).
 
 ## Product/Operator Setup
@@ -137,14 +137,23 @@ entries selected via `yoke env use` or `--env`.
 `yoke onboard` is a full-screen wizard. A fixed header and stepper stay on
 screen — Install/PATH, Account, GitHub, Project, Review — while the body
 changes; you move through it with the arrow keys, redrawing in place. The
-Account step opens on the deployment-destination picker (this machine / a
-team server / upyoke.com); only the sign-in lane changes with the answer —
-"This machine" replaces sign-in with the local-universe setup above, a team
-server collects your server URL then a token, upyoke.com signs in to the
-hosted platform. Before any mutation it previews a write plan (machine,
-control-plane, repo-local, source-dev/admin writes), then applies on a
-single confirm. Re-running adds the newly picked destination's connection
-beside any existing ones; `active_env` follows the flow that completed.
+Account step opens on the deployment-destination picker (this machine / an
+existing team server / guided self-host server setup / upyoke.com). "This
+machine" replaces sign-in with the local universe above; "A team server"
+collects a reachable URL then a token; the guided self-host row previews the
+default bundle directory, loopback URL and port, Docker requirement, Compose
+work, and operator-owned networking before it writes. It starts the bundle,
+captures the one-time admin token, activates an owner-only connection, then
+either continues into GitHub/Project or exits with a server handoff. upyoke.com
+uses hosted sign-in. Remaining persistent writes are still previewed before a
+single confirm. Re-running adds the completed destination's connection beside
+existing ones; `active_env` follows the flow that completed.
+
+The guided route does not install Docker and does not configure VPN/tailnet,
+LAN, port-forwarding, or TLS. A collision is left untouched, and a failed start
+keeps the new bundle plus exact Compose recovery commands. On another machine,
+pick **A team server** and use only a URL that machine can reach; each teammate
+should receive a separately minted token rather than the first-admin token.
 
 ```bash
 yoke onboard

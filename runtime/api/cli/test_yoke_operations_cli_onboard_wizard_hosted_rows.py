@@ -85,6 +85,7 @@ def test_the_picker_carries_the_hosted_environment_choice(monkeypatch) -> None:
             assert [row.label for row in rows] == [
                 "This machine",
                 "A team server",
+                "Set this machine up as a self-hosting server",
                 "upyoke.com",
                 "stage.upyoke.com",
             ]

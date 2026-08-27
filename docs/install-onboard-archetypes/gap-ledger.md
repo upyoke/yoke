@@ -22,7 +22,7 @@ filled in the last column.
 | G-forge-github-only | missing-config-surface | merged | Skip GitHub works; GitLab/Bitbucket cannot bind, clone-list, or merge-queue | A06 A11 | YOK-2469 |
 | G-handoff-cursor | taught | installed | Shim hand-off names Claude Code, Codex, or Cursor then `/yoke onboard` | A01 A03 A05 A09 | YOK-2468 |
 | G-app-store | missing-config-surface | deployed | No TestFlight/Play/`fastlane` runner; profile is web stage+prod | A09 | YOK-2470 |
-| G-selfhost-not-in-wizard | friction | installed | Team server asks URL+token; `yoke self-host init` is a separate doc | A06 A07 | YOK-2471 |
+| G-selfhost-not-in-wizard | friction | installed | Resolved: picker previews and performs guarded Compose first boot, captures the token, activates the local connection, and offers setup or handoff exits; the manual reference remains | A06 A07 | YOK-2471 |
 | G-migration-undeclared | missing-config-surface | migrated | No onboard question for `migration_model` / "no DB to migrate" | A03 A06 A07 | YOK-2472 |
 | G-byo-aws-identity | missing-config-surface | deployed | Hosting collects a new IAM user access key pair only | A03 A07 | YOK-2473 |
 | G-idea-default-flow | blocker | released | `infer-and-create.md`: non-empty deploy-defaults **always** assigned | all with a default flow | YOK-2474 |

@@ -33,6 +33,7 @@ from yoke_cli.config.onboard_destination_rows import (
     DESTINATION_ROWS,
     HOSTED_ROW_ENVS,
     HOSTED_STAGE_ROW,
+    SELF_HOST_SERVER_ROW,
 )
 from yoke_cli.config.onboard_wizard_flow_hosted_machine import platform_url_for_env
 from yoke_cli.config.onboard_wizard_flow_hosted_machine import (
@@ -59,6 +60,7 @@ def test_picker_offers_both_hosted_platforms_as_rows() -> None:
     assert values == [
         DESTINATION_LOCAL,
         DESTINATION_SERVER,
+        SELF_HOST_SERVER_ROW,
         DESTINATION_HOSTED,
         HOSTED_STAGE_ROW,
     ]
@@ -113,8 +115,7 @@ def test_explicit_hosted_url_rejects_a_different_environment() -> None:
     )
 
     assert choice.error == (
-        "hosted URL selects 'stage', but --env selects 'prod'; "
-        "use matching values"
+        "hosted URL selects 'stage', but --env selects 'prod'; use matching values"
     )
 
 
