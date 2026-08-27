@@ -114,9 +114,7 @@ def _register_from_hook(
     if not entrypoint and executor in {"claude", "claude-code"}:
         entrypoint = "claude-cli"
     executor_version, machine_id = enrich_local_observed_facts(
-        facts.executor_version,
-        facts.machine_id,
-        executor_surface=entrypoint,
+        facts.executor_version, facts.machine_id, executor, executor_surface=entrypoint
     )
 
     # Process-anchor registry write: hooks run as children of the

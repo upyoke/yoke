@@ -72,10 +72,15 @@ def parse_hook_registration_facts(
 def enrich_local_observed_facts(
     executor_version: str,
     machine_id: str,
+    executor: str = "",
     *,
     executor_surface: str | None = None,
 ) -> tuple[str, str]:
-    """Fill absent wire facts using client-safe probes, best effort."""
+    """Fill absent wire facts using client-safe probes, best effort.
+
+    ``executor`` names the harness family so a surface the harness reported
+    in its own family-relative vocabulary resolves to the shared probe key.
+    """
     if executor_version and machine_id:
         return executor_version, machine_id
     try:
@@ -85,7 +90,7 @@ def enrich_local_observed_facts(
         )
 
         return (
-            executor_version or client_executor_version(executor_surface) or "",
+            executor_version or client_executor_version(executor, executor_surface) or "",
             machine_id or client_machine_id() or "",
         )
     except Exception:  # noqa: BLE001 - registration enrichment is best effort
