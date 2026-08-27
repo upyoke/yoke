@@ -18,11 +18,15 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _parked_reason_present(conn: Any) -> bool:
+def _session_columns(conn: Any) -> set[str]:
     try:
-        return "parked_reason" in set(_schema_get_columns(conn, "harness_sessions"))
+        return set(_schema_get_columns(conn, "harness_sessions"))
     except db_backend.operational_error_types():
-        return False
+        return set()
+
+
+def _parked_reason_present(conn: Any) -> bool:
+    return "parked_reason" in _session_columns(conn)
 
 
 def _load_session(conn: Any, session_id: str) -> Dict[str, Any]:
@@ -72,8 +76,13 @@ def set_session_mode(
 
 
 def clear_parked_mode(conn: Any, session_id: str) -> bool:
-    """Clear parked back to wait. No-op when the session is not parked."""
+    """Clear parked back to wait. No-op when the session is not parked.
+
+    Activity-state writers must skip fixtures that have no ``mode`` column.
+    """
     if not session_id:
+        return False
+    if "mode" not in _session_columns(conn):
         return False
     marker = _p(conn)
     if _parked_reason_present(conn):
