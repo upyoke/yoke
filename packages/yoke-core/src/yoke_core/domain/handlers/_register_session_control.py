@@ -296,14 +296,14 @@ def register(registry) -> None:
 
     policy_specs = (
         (
-            "set",
+            "disable",
             _surface_policy.handle_surface_policy_set,
             SurfacePolicySetRequest,
             SurfacePolicyMutationResponse,
             ["session_surface_policies_insert"],
         ),
         (
-            "clear",
+            "enable",
             _surface_policy.handle_surface_policy_clear,
             SurfacePolicyClearRequest,
             SurfacePolicyMutationResponse,

@@ -45,8 +45,8 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `session_control.launch.get` | `yoke session-control launch get LAUNCH-ID --json` |
 | `session_control.launch.reconcile` | `yoke session-control launch reconcile LAUNCH-ID --json` |
 | `session_control.launch.retry` | `yoke session-control launch retry LAUNCH-ID --json` |
-| `session_control.surface_policy.set` | `yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT` |
-| `session_control.surface_policy.clear` | `yoke session-control surface-policy enable --project P --machine M --surface S` |
+| `session_control.surface_policy.disable` | `yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT` |
+| `session_control.surface_policy.enable` | `yoke session-control surface-policy enable --project P --machine M --surface S` |
 | `session_control.surface_policy.list` | `yoke session-control surface-policy list [--machine M]` |
 | `session_control.session.terminate` | `yoke sessions terminate SESSION-ID --reason R` |
 | `session_control.message.send` | `yoke say --item PREFIX-N --stdin` |

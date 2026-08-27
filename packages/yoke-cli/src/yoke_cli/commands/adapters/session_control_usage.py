@@ -51,8 +51,8 @@ SESSION_CONTROL_USAGE_BY_FUNCTION_ID = {
     "session_control.launch.reconcile": LAUNCH_RECONCILE_USAGE,
     "session_control.session.terminate": SESSION_TERMINATE_USAGE,
     "session_control.session.wake": SESSION_WAKE_USAGE,
-    "session_control.surface_policy.set": SURFACE_POLICY_DISABLE_USAGE,
-    "session_control.surface_policy.clear": SURFACE_POLICY_ENABLE_USAGE,
+    "session_control.surface_policy.disable": SURFACE_POLICY_DISABLE_USAGE,
+    "session_control.surface_policy.enable": SURFACE_POLICY_ENABLE_USAGE,
     "session_control.surface_policy.list": SURFACE_POLICY_LIST_USAGE,
     "sessions.list": SESSION_ROSTER_USAGE,
 }

@@ -41,8 +41,8 @@ SESSION_FUNCTION_IDS = (
 )
 
 SURFACE_POLICY_FUNCTION_IDS = (
-    "session_control.surface_policy.set",
-    "session_control.surface_policy.clear",
+    "session_control.surface_policy.disable",
+    "session_control.surface_policy.enable",
     "session_control.surface_policy.list",
 )
 

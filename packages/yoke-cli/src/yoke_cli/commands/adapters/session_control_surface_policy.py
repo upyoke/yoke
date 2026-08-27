@@ -96,7 +96,7 @@ def session_surface_policy_disable(args: List[str]) -> int:
     if parsed.evidence is not None:
         payload["evidence"] = parsed.evidence
     return dispatch_and_emit(
-        function_id="session_control.surface_policy.set",
+        function_id="session_control.surface_policy.disable",
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id,
@@ -119,7 +119,7 @@ def session_surface_policy_enable(args: List[str]) -> int:
     if parsed is None:
         return 2
     return dispatch_and_emit(
-        function_id="session_control.surface_policy.clear",
+        function_id="session_control.surface_policy.enable",
         target=TargetRef(kind="global"),
         payload={
             "project": parsed.project,

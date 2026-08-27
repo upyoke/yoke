@@ -131,11 +131,11 @@ SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
         session_wake,
     ),
     ("session-control", "surface-policy", "disable"): (
-        "session_control.surface_policy.set",
+        "session_control.surface_policy.disable",
         session_surface_policy_disable,
     ),
     ("session-control", "surface-policy", "enable"): (
-        "session_control.surface_policy.clear",
+        "session_control.surface_policy.enable",
         session_surface_policy_enable,
     ),
     ("session-control", "surface-policy", "list"): (

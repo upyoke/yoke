@@ -153,14 +153,14 @@ SESSION_ADAPTERS = [
         ),
     ),
     AdapterEntry(
-        function_id="session_control.surface_policy.set",
+        function_id="session_control.surface_policy.disable",
         cli_invocation=(
             "yoke session-control surface-policy disable --project P "
             "--machine M --surface S --reason TEXT [--evidence TEXT] [--json]"
         ),
     ),
     AdapterEntry(
-        function_id="session_control.surface_policy.clear",
+        function_id="session_control.surface_policy.enable",
         cli_invocation=(
             "yoke session-control surface-policy enable --project P "
             "--machine M --surface S [--json]"

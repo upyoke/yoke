@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-27T18:58:36Z_
+_Audit generated_at: 2026-08-27T18:59:41Z_
 
 ## 1. Summary
 
@@ -258,9 +258,9 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **337** (operation track
 | session_control | `yoke session-control session terminate` | `session_control.session.terminate` | ok |
 | session_control | `yoke sessions terminate` | `session_control.session.terminate` | ok |
 | session_control | `yoke session-control session wake` | `session_control.session.wake` | ok |
-| session_control | `yoke session-control surface-policy enable` | `session_control.surface_policy.clear` | ok |
+| session_control | `yoke session-control surface-policy disable` | `session_control.surface_policy.disable` | ok |
+| session_control | `yoke session-control surface-policy enable` | `session_control.surface_policy.enable` | ok |
 | session_control | `yoke session-control surface-policy list` | `session_control.surface_policy.list` | ok |
-| session_control | `yoke session-control surface-policy disable` | `session_control.surface_policy.set` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
