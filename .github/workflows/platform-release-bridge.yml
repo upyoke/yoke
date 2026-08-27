@@ -39,7 +39,7 @@ on:
         type: string
 
 permissions:
-  actions: read
+  actions: write
   contents: read
 
 jobs:
@@ -113,6 +113,7 @@ jobs:
 
       - name: Await the wheel and server-image release factories
         env:
+          GH_TOKEN: ${{ github.token }}
           PRODUCT_SHA: ${{ inputs.product_sha }}
         run: |
           for workflow in yoke-release.yml yoke-server-image.yml; do
@@ -130,6 +131,50 @@ jobs:
               exit 1
             fi
             echo "$workflow run: https://github.com/upyoke/yoke/actions/runs/$run_id"
+            if ! factory_state="$(gh run view "$run_id" \
+              --repo upyoke/yoke \
+              --json status,conclusion,attempt \
+              --jq '[.status, .conclusion, .attempt] | @tsv')"; then
+              echo "factory_run_state_lookup_failed: check GitHub Actions availability and token permissions, then retry the deployment run" >&2
+              exit 1
+            fi
+            IFS=$'\t' read -r factory_status factory_conclusion factory_attempt \
+              <<< "$factory_state"
+            if [ "$factory_status" = "completed" ] && [ "$factory_conclusion" = "failure" ]; then
+              if [ "$factory_attempt" -gt 1 ]; then
+                echo "factory_failed_job_rerun_exhausted: $workflow run $run_id failed after its one failed-job rerun; inspect the run and retry the deployment after correcting it" >&2
+              else
+                rerun_output="$RUNNER_TEMP/${workflow%.yml}-${run_id}-rerun.txt"
+                if gh run rerun "$run_id" \
+                  --repo upyoke/yoke \
+                  --failed >"$rerun_output" 2>&1; then
+                  cat "$rerun_output"
+                  echo "$workflow run $run_id had already failed; requested its one failed-job rerun"
+                else
+                  rerun_rc=$?
+                  sleep 2
+                  if ! refreshed_state="$(gh run view "$run_id" \
+                    --repo upyoke/yoke \
+                    --json status,conclusion,attempt \
+                    --jq '[.status, .conclusion, .attempt] | @tsv')"; then
+                    cat "$rerun_output" >&2
+                    echo "factory_failed_job_rerun_refused: GitHub refused the rerun and its state could not be refreshed; inspect run $run_id, then retry the deployment" >&2
+                    exit "$rerun_rc"
+                  fi
+                  IFS=$'\t' read -r refreshed_status refreshed_conclusion refreshed_attempt \
+                    <<< "$refreshed_state"
+                  if [ "$refreshed_status" = "completed" ] \
+                    && [ "$refreshed_conclusion" = "failure" ] \
+                    && [ "$refreshed_attempt" -le "$factory_attempt" ]; then
+                    cat "$rerun_output" >&2
+                    echo "factory_failed_job_rerun_refused: GitHub refused the one rerun for $workflow run $run_id; inspect the response above, then retry the deployment" >&2
+                    exit "$rerun_rc"
+                  fi
+                  echo "Another bridge already restarted $workflow run $run_id; joining that rerun"
+                fi
+                sleep 2
+              fi
+            fi
             yoke github-actions wait-run \
               upyoke/yoke "$run_id" \
               --project yoke \
