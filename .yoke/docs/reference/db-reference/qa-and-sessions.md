@@ -158,11 +158,10 @@ Tracks active harness sessions offering themselves to Yoke for work assignment. 
 
 **Stale-session thresholds (canonical reference).** The reclaim windows are config-tunable, not code literals. The sweep first selects an occupancy tier:
 
-- `session_stale_ttl_minutes` (default `20`) — the short tier for a session with no active work claim, no session-owned strategy-document claim, and no session-owned coordination lease. Per-executor overrides still apply to this tier.
-- `session_stale_ttl_with_holdings_minutes` (default `240`) — the minimum tier for a session holding any of those three active resources. It prevents a long foreground command from losing its claim or lock merely because no tool-boundary heartbeat landed.
-- `session_stale_ttl_minutes_codex_override` (default `60`) — the short-tier override for `codex` and `codex-*` executors. Codex has no true SessionEnd, so between-turn idle is normal.
+- `session_stale_ttl_minutes` (default `20`) — the short tier for a session with no active work claim, no session-owned strategy-document claim, and no session-owned coordination lease. One base applies on every harness: fleet machinery ends sessions at every stop, so silence means the same thing everywhere.
+- `session_stale_ttl_with_holdings_minutes` (default `1440`) — the minimum tier for a session holding any of those three active resources. It prevents a long foreground command from losing its claim or lock merely because no tool-boundary heartbeat landed.
 
-Resolver: `yoke_core.domain.sessions_analytics_core` owns both source thresholds, `yoke_core.domain.session_cleanup_holdings` resolves the holding sessions, and `yoke_core.domain.sessions_render_reclaim._resolve_effective_ttl` applies executor overrides. The holdings tier is a floor, so an operator's longer executor override is never shortened. Downstream documentation should cite the config keys above by name rather than the current literal values — values may shift; the key names are stable.
+Resolver: `yoke_core.domain.sessions_analytics_core` owns both source thresholds, `yoke_core.domain.session_cleanup_holdings.effective_cleanup_ttl` selects `max(short, holdings)` when the session has active holdings, and the sessions-card stale-eligible badge reads that same effective TTL. Downstream documentation should cite the config keys above by name rather than the current literal values — values may shift; the key names are stable.
 
 **Long commands and sparse tool boundaries.** Registered Command cases and watcher-backed suites run through `yoke_core.tools._watch_runner.run_watcher`, which refreshes the owning session and active claims while the child runs. A generic foreground command may not pass through that watcher or reach another tool boundary before the short TTL. The holdings tier is the sweep-side safety net for that silent interval; a crashed holder still becomes reclaimable after the longer configured window.
 

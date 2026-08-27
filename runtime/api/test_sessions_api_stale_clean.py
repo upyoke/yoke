@@ -5,17 +5,19 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import _insert_claimable_items, _register
-from yoke_core.domain.sessions import (
-    claim_work,
-    clean_stale_harness_sessions,
-)
-from yoke_core.domain.work_claim_targets import make_item_target
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     _now_literal,
     conn,  # noqa: F401  (backend-aware pytest fixture)
 )
+from runtime.api.test_sessions import _insert_claimable_items, _register
+from yoke_core.domain.sessions import claim_work, clean_stale_harness_sessions
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES as _HOLDINGS_TTL,
+)
+from yoke_core.domain.work_claim_targets import make_item_target
+
+_PAST_HOLDINGS_TTL = _HOLDINGS_TTL + 60
 
 
 def _stamp_tool_activity(conn, session_id: str, ago_minutes: int) -> None:
@@ -45,7 +47,7 @@ class TestCleanStaleHarnessSessions:
         """Stale heartbeat + zero tool events = never_engaged."""
         conn = conn_with_events
         _register(conn, session_id="stale-offer")
-        _ts300 = _ago_minutes(300)
+        _ts300 = _ago_minutes(_PAST_HOLDINGS_TTL)
         conn.execute(
             """UPDATE harness_sessions
                SET offered_at = %s, last_heartbeat = %s
@@ -84,7 +86,7 @@ class TestCleanStaleHarnessSessions:
         """Stale heartbeat + has tool events = heartbeat_stale."""
         conn = conn_with_events
         _register(conn, session_id="dead-worker")
-        _ts300 = _ago_minutes(300)
+        _ts300 = _ago_minutes(_PAST_HOLDINGS_TTL)
         conn.execute(
             """UPDATE harness_sessions
                SET offered_at = %s, last_heartbeat = %s
@@ -102,7 +104,7 @@ class TestCleanStaleHarnessSessions:
         conn.commit()
 
         # Insert tool events so it's not never-engaged
-        _stamp_tool_activity(conn, "dead-worker", 275)
+        _stamp_tool_activity(conn, "dead-worker", _PAST_HOLDINGS_TTL - 25)
         conn.commit()
 
         result = clean_stale_harness_sessions(conn, stale_threshold_minutes=10)
@@ -118,11 +120,11 @@ class TestCleanStaleHarnessSessions:
         _register(conn, session_id="wedged-sess")
         claim_work(conn, session_id="wedged-sess", item_id=300)
 
-        _stamp_tool_activity(conn, "wedged-sess", 300)
+        _stamp_tool_activity(conn, "wedged-sess", _PAST_HOLDINGS_TTL)
         conn.execute(
             "UPDATE harness_sessions SET episode_started_at = %s "
             "WHERE session_id = 'wedged-sess'",
-            (_ago_minutes(300),),
+            (_ago_minutes(_PAST_HOLDINGS_TTL),),
         )
         conn.commit()
 
@@ -244,7 +246,7 @@ class TestCleanStaleHarnessSessions:
         """
         c = conn_with_events
         _register(c, session_id="racy-sess")
-        _ts300 = _ago_minutes(300)
+        _ts300 = _ago_minutes(_PAST_HOLDINGS_TTL)
         c.execute(
             """UPDATE harness_sessions
                SET offered_at = %s, last_heartbeat = %s

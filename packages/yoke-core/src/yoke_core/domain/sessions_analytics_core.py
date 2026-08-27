@@ -40,12 +40,6 @@ DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES = get_int(
     int(machine_setting_default(SESSION_STALE_TTL_WITH_HOLDINGS_KEY)),
 )
 DEFAULT_PROGRESS_THRESHOLD_MINUTES = 90
-EXECUTOR_STALE_TTL_OVERRIDES_MINUTES: Dict[str, int] = {
-    "codex": get_int("session_stale_ttl_minutes_codex_override", 60),
-    # Cursor IDE sessions stay open without a sessionEnd for hours, the
-    # same long-lived shape as Codex Desktop threads.
-    "cursor": get_int("session_stale_ttl_minutes_cursor_override", 60),
-}
 
 
 # ---------------------------------------------------------------------------

@@ -51,7 +51,7 @@ def clean_stale_harness_sessions(
 ) -> Dict[str, Any]:
     """Unified stale-session cleanup.
 
-    The short executor-aware TTL applies to empty sessions. Sessions with an
+    The short TTL applies to empty sessions. Sessions with an
     active work claim, session-owned strategy-document lock, or session-owned
     coordination lease use the longer holdings TTL.
 
@@ -186,7 +186,7 @@ def clean_stale_harness_sessions(
             if progress_stale_flag:
                 progress_stale.append({**entry, "reason": "progress_stale"})
                 continue
-            # Spared despite the base threshold — by an executor TTL override
+            # Spared despite the base threshold — by the holdings-aware TTL
             # or by live in-flight evidence. A session still inside the base
             # threshold is simply fresh and needs no explanation.
             if activity_is_stale(

@@ -80,14 +80,10 @@ def _seed_claim(conn, session_id: str, item_id: int, ago_minutes: int) -> int:
 
 
 class TestResolveEffectiveTtl:
-    def test_codex_uses_60_minute_override(self):
-        # Codex sessions still use the configured override.
-        assert resolve_effective_ttl("codex") == 60
-
-    def test_claude_code_uses_default(self):
+    def test_every_harness_uses_the_base_ttl(self):
+        assert resolve_effective_ttl("codex") == 20
+        assert resolve_effective_ttl("cursor") == 20
         assert resolve_effective_ttl("claude-code") == 20
-
-    def test_unknown_executor_uses_default(self):
         assert resolve_effective_ttl("unknown") == 20
 
 
@@ -245,7 +241,7 @@ class TestClassifyReclaimable:
         assert result.is_reclaimable is False
         assert result.reason == REASON_FRESH
 
-    def test_codex_executor_uses_60_minute_override(self, conn_with_events):
+    def test_empty_codex_session_uses_base_ttl(self, conn_with_events):
         c = conn_with_events
         _seed_session(
             c,
@@ -257,11 +253,10 @@ class TestClassifyReclaimable:
 
         result = classify_reclaimable(c, "codex-sess")
 
-        # 30 minutes of silence is fresh under the codex 60-minute TTL.
-        assert result.is_reclaimable is False
-        assert result.evidence.effective_ttl_minutes == 60
+        assert result.is_reclaimable is True
+        assert result.evidence.effective_ttl_minutes == 20
 
-    def test_codex_executor_reclaims_after_60_minutes(self, conn_with_events):
+    def test_empty_codex_session_reclaims_after_base_ttl(self, conn_with_events):
         c = conn_with_events
         _seed_session(
             c,

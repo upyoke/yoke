@@ -15,8 +15,13 @@ from runtime.api.test_sessions import (
     conn,  # noqa: F401
 )
 from yoke_core.domain.session_cleanup_holdings import active_holding_sessions
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+)
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.sessions import claim_work, clean_stale_harness_sessions
+
+_PAST_HOLDINGS_TTL = DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES + 60
 
 
 _STRATEGY_LOCK_SCHEMA = """
@@ -118,13 +123,15 @@ def test_active_holding_selects_the_long_ttl(conn, holding_kind):
 def test_held_session_is_reclaimed_after_the_long_ttl(conn):
     _register(conn, session_id="expired-holder")
     _add_holding(conn, "expired-holder", "work_claim")
-    _age_session(conn, "expired-holder", 300)
+    _age_session(conn, "expired-holder", _PAST_HOLDINGS_TTL)
 
     result = clean_stale_harness_sessions(conn, stale_threshold_minutes=20)
 
     assert result["total_reclaimed"] == 1
     entry = result["never_engaged"][0]
-    assert entry["effective_ttl_minutes"] == 240
+    assert entry["effective_ttl_minutes"] == (
+        DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES
+    )
     assert entry["has_active_holdings"] is True
     claim = conn.execute(
         "SELECT released_at FROM work_claims WHERE session_id=%s",

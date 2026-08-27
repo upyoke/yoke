@@ -7,7 +7,14 @@ from typing import Any, Iterable, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.session_reclaim_activity import resolve_effective_ttl
+from yoke_core.domain.session_cleanup_holdings import (
+    active_holding_sessions,
+    effective_cleanup_ttl,
+)
+from yoke_core.domain.sessions_analytics_core import (
+    DEFAULT_STALE_THRESHOLD_MINUTES,
+    DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+)
 from yoke_core.domain.sessions_render_end_chain_pending import (
     chain_pending_state_from_envelope,
 )
@@ -106,12 +113,19 @@ def session_diagnostics(
     session_ids = _session_ids(rows)
     latest_messages = _latest_messages(conn, session_ids)
     document_locks = _document_lock_counts(conn, session_ids)
+    holding_sessions = active_holding_sessions(conn)
     wake_deliveries = wake_deliveries_in_flight(conn, session_ids)
     projected: dict[str, dict[str, Any]] = {}
     for row in rows:
         session_id = str(row.get("session_id") or "")
         identity = identities.get(session_id, {})
-        ttl_minutes = resolve_effective_ttl(row.get("executor"))
+        ttl_minutes = effective_cleanup_ttl(
+            row.get("executor"),
+            base_ttl_minutes=DEFAULT_STALE_THRESHOLD_MINUTES,
+            executor_ttl_overrides=None,
+            has_active_holdings=session_id in holding_sessions,
+            holdings_ttl_minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
+        )
         terminal = bool(
             identity.get("ended_at")
             or identity.get("terminated_at")

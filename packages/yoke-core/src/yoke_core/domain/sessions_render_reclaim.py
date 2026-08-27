@@ -206,11 +206,9 @@ def _resolve_effective_ttl(
     overrides: Optional[Dict[str, int]] = None,
 ) -> int:
     """Return the effective stale-session TTL for an executor."""
-    from .sessions_analytics import EXECUTOR_STALE_TTL_OVERRIDES_MINUTES
-
     if not executor:
         return base_ttl_minutes
-    table = overrides if overrides is not None else EXECUTOR_STALE_TTL_OVERRIDES_MINUTES
+    table = overrides if overrides is not None else {}
     executor_key = executor.lower()
     override = table.get(executor_key)
     if override is None:

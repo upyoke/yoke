@@ -1,8 +1,9 @@
 """Keep the owning session live while it waits on a long local command.
 
 The stale-session sweep reclaims a session whose newest activity signal is
-older than its executor TTL — 20 minutes by default — and releases that
-session's work claims when it does. A gate run routinely outlives that: a
+older than its stale TTL — 20 minutes by default, or the holdings TTL
+while a work claim or lock is held — and releases that session's work
+claims when it does. A gate run routinely outlives that: a
 registered Command case or a watcher-backed suite runs for 30 to 60
 minutes while the session that started it sits idle waiting, so the sweep
 reclaimed the item claim out from under a run that was still going and the

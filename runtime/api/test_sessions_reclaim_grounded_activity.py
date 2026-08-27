@@ -37,7 +37,7 @@ from yoke_core.domain.sessions_queries import (
 from yoke_core.domain.sessions_render_end_if_empty import end_session_if_empty
 from yoke_core.domain.sessions_render_reclaim import reclaim_stale_session
 
-# Both executors in the diagnosed runs; the codex override TTL is the long one.
+# Both executors in the diagnosed runs share the same short TTL.
 EXECUTORS = ("codex", "claude-code")
 
 # How far the leftover row predates the session's newest recorded activity.
@@ -141,8 +141,8 @@ class TestSweepCollectsIdleSessions:
     def test_a_spared_session_is_explained_on_every_surface(self, conn, executor):
         """Past the base threshold, spared, and reported — whatever the surface.
 
-        The codex session is spared by its TTL override and the claude one by
-        its live tool call; both deserve the same explanation in the result.
+        Both surfaces are spared by a live tool call and deserve the same
+        explanation in the result.
         """
         session_id = f"spared-{executor}"
         idle = DEFAULT_STALE_THRESHOLD_MINUTES + 5
