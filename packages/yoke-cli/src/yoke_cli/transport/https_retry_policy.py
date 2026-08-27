@@ -10,15 +10,14 @@ almost always right, so these get the full attempt budget with backoff
 between tries.
 
 A *response-deadline* failure means the server accepted the envelope and is
-still working on it. Asking again re-runs whatever it is doing, so these
-keep the single immediate re-attempt they have always had and no backoff:
-the point of that one retry is the idempotency ledger, which replays an
-already-completed call instead of running it twice.
+still working on it. These keep one immediate re-attempt and no backoff. The
+dispatcher serializes a repeated side-effecting ``request_id`` behind the
+in-flight call, then the idempotency ledger replays its completed result.
 
-Retrying at all is only safe because the envelope is serialized once, so
-every attempt carries the same ``request_id``, and the dispatcher ledgers
-only successful side-effecting calls. A completed call replays; a failed or
-never-run one proceeds fresh.
+Retrying at all is only safe because the envelope is serialized once, so every
+attempt carries the same ``request_id``. The dispatcher serializes concurrent
+copies and ledgers only successful side-effecting calls: a completed call
+replays, while a failed or never-run call proceeds fresh.
 """
 
 from __future__ import annotations
