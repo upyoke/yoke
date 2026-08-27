@@ -43,6 +43,26 @@ waiting dependent; activation dependencies do not send their own go-signal:
 printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke say --item PREFIX-N --stdin
 ```
 
+#### Negative-space checks — every periodic pass
+
+Positive wake events are not enough. Run this checklist on every periodic
+pass, not only after something looks wrong:
+
+- **Outbound delivery:** find every envelope this steerer sent that is still
+  `state='pending'` with `injection_count=0` after about 10 minutes. When the
+  recipient's `last_tool_call_at` predates the send, treat it as starved and
+  revive it immediately: use the registered wake when available, otherwise
+  the manual native-resume bridge under **Revive starved workers** below.
+- **Stale claim holders:** any session with a live work claim and
+  `liveness=stale` gets the same probe-and-revive treatment.
+- **Unregistered launches:** any launch past `deadline_at` without a
+  `registered_session_id` gets `launch reconcile` followed by `launch retry`.
+- **Silent in-flight work:** any in-flight item with no worker activity beyond
+  the project's sanity window gets an immediate holder probe and revival.
+
+Wake sources are events; failures are silences — every pass scans the
+silences.
+
 ### 2. Consume worker reports
 
 Item-addressed messaging is the default. The server resolves the live

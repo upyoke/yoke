@@ -103,6 +103,10 @@ class TestSteerSkillContract:
         assert "ScheduleWakeup" in loop
         assert "session_message_recipients" in loop
         assert "cursor-agent --resume <session-id>" in loop
+        assert "Negative-space checks — every periodic pass" in loop
+        assert "injection_count=0" in loop
+        assert "liveness=stale" in loop
+        assert "failures are silences" in loop
         assert "release_reason=completed" in loop
         assert "yoke claims work acquire --item PREFIX-N --reason steering" in loop
         assert "activation dependencies do not send their own go-signal" in loop
