@@ -62,9 +62,11 @@ def _refuse_hook_delivery(conn, message_id: str) -> None:
 def test_a_served_hook_route_is_left_alone() -> None:
     conn = message_connection()
     _send(conn)
-    _stamp(conn, when=STARVED, tool_call=(NOW + timedelta(seconds=10)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    ))
+    _stamp(
+        conn,
+        when=STARVED,
+        tool_call=(NOW + timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
     # A tool call after the envelope arrived means a hook ran and declined to
     # attach it. That is a delivery defect, not an absent route.
     assert wake_eligible_recipients(conn, now=STARVED) == []

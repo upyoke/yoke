@@ -65,9 +65,8 @@ def claim_wake_attempt(
     # route stopped running — and either is enough to pass. The CAS still
     # pins the session's activity clock, so a session that ticks before the
     # lease opens takes the delivery back from both of them.
-    hooks_will_not_deliver = (
-        candidate.get(EXPLICIT_WAKE_ROUTING_FLAG) is True or bool(escalation)
-    )
+    explicit_wake = candidate.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
+    hooks_will_not_deliver = explicit_wake or bool(escalation)
     if candidate.get("liveness") == "active" and not hooks_will_not_deliver:
         return None
     if (

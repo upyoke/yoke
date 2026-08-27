@@ -266,9 +266,7 @@ def _reserve_candidate(
                         # Carried from eligibility so a broker-routed resume
                         # of a live-looking session says why, exactly as the
                         # direct route's attempt does.
-                        "wake_escalation": str(
-                            candidate.get("wake_escalation") or ""
-                        ),
+                        "wake_escalation": str(candidate.get("wake_escalation") or ""),
                     }
                 ),
             ),
