@@ -84,6 +84,26 @@ class TestSteerSkillContract:
         assert "Escalate" in loop
         assert "wait" in loop.lower()
 
+    def test_each_pass_reads_plan_before_frontier_and_reconciles_authority(self):
+        skill = _read(_STEER_DIR / "SKILL.md")
+        loop = _read(_STEER_DIR / "loop.md")
+        skill_words = " ".join(skill.split())
+        loop_words = " ".join(loop.split())
+        assert loop.index("yoke strategy doc get {SLUG}") < loop.index(
+            "yoke charge schedule"
+        )
+        assert "Each pass reads the claimed document first" in loop_words
+        assert "document wins on intended scope, priority, order" in loop_words
+        assert "DB wins" in loop_words
+        assert "live item status, claims, dependencies" in loop_words
+        assert "does not silently become next" in loop_words
+        assert "durable write target" in loop_words
+        assert "plan-level progress" in loop_words
+        assert "Strategy doc is both input and output" in skill_words
+        assert "cold-start refresh" in skill_words
+        assert "open-work index" in skill_words
+        assert "standing decision that constrains action" in skill_words
+
     def test_negative_space_checklist_runs_first_and_unconditionally(self):
         loop = _read(_STEER_DIR / "loop.md")
         assert "Negative-space checks — first, every periodic pass" in loop

@@ -8,11 +8,12 @@ argument-hint: "<STRATEGY-DOC-SLUG> [--project P]"
 
 Itemless steering loop. A harness session claims one project's steering
 scope, holds one required strategy document, and keeps that scope moving:
-read the frontier, consume worker reports, write plan-level state into the
-doc, hand work to executors, staff unpicked runnable items, and escalate
-only decisions that need a human. The coordinator never implements. Steering
-covers every pinned workflow; each item keeps its own workflow and routed
-entrypoint from intake through its live merge or release boundary.
+read the standing plan, reconcile it with the live frontier, consume worker
+reports, write plan-level state back into the doc, hand work to executors,
+staff unpicked runnable items, and escalate only decisions that need a human.
+The coordinator never implements. Steering covers every pinned workflow;
+each item keeps its own workflow and routed entrypoint from intake through
+its live merge or release boundary.
 
 Steering means continuous small course corrections while something else
 provides the power. The stored claim kind is a **steering-scope claim**;
@@ -63,7 +64,10 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   items ARE the surviving state.
 - **One live steering-scope claim per project.** Acquire refuses on overlap
   and names the holder. v0 is one coordinator per scope.
-- **Strategy doc is required.** There is no doc-less steer mode.
+- **Strategy doc is both input and output.** There is no doc-less steer mode.
+  Read it as the standing-plan source of record for intent, priority, next
+  steps, and constraints; write plan-level progress back into the same
+  claimed document.
 - **Vocabulary is steering.** Identifiers, refusal text, and labels use
   steering-scope claim, steering claim holder, steering scope. "Coordinator"
   is acceptable role prose. Never name a durable identifier coordination
@@ -113,7 +117,10 @@ yoke strategy doc list --project {_project}
 yoke strategy doc get {SLUG} --project {_project}
 ```
 
-- Named doc exists → acquire its lock and treat it as the live substrate.
+- Named doc exists → extract its cold-start refresh, open-work index
+  (`In flight`, `Ready to staff`, `Blocked`, `Awaiting operator decision`),
+  and every standing decision that constrains action. Treat those as the
+  initial next-steps plan, then acquire the doc lock.
 - No slug, or `strategy.doc.get` says the slug is absent → **offer to
   create**. There is no silent create and no doc-less continuation.
 
