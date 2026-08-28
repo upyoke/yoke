@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import partial
+import json
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,9 @@ from runtime.harness.test_session_relay_claude import (
     _created,
 )
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
+from yoke_contracts.session_control.presentation import (
+    CLAUDE_REMOTE_CONTROL_SETTING,
+)
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_harness import session_relay_claude as claude_module
 from yoke_harness import session_relay_claude_native as native_module
@@ -103,6 +107,11 @@ def test_background_session_wake_stops_the_job_and_carries_the_prompt(
         CLAUDE,
         "-p",
         "--dangerously-skip-permissions",
+        "--settings",
+        json.dumps(
+            {CLAUDE_REMOTE_CONTROL_SETTING: True},
+            separators=(",", ":"),
+        ),
         "--resume",
         ACTUAL_ID,
         CHECK_INBOX,
