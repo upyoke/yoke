@@ -197,7 +197,7 @@ events fire on the non-interactive terminal surface, where `subagentStart` /
 | `Edit` / `Write` | `Edit`, `Write` | `apply_patch` | `Write` (gate at `preToolUse`; `afterFileEdit` supplies the post-hoc diff) |
 | `Read` | `Read` | — | `Read` (plus `beforeReadFile`) |
 | Subagent dispatch | `Agent` | custom-agent spawn | `Task` — `tool_input.subagent_type` names the target, so dispatch is gateable at `preToolUse` even where lifecycle events are absent |
-| `Monitor` / `ScheduleWakeup` / `TaskOutput` | Claude-only wake primitives | n/a (PTY streaming) | **no equivalent observed** — Codex-tier foreground watcher wrappers apply |
+| `Monitor` / `ScheduleWakeup` / `TaskOutput` | Claude tool names for wake | n/a (PTY streaming) | **`notify_on_output`** is Cursor's idle-wake equivalent — read `agent_wake` in each `runtime/harness/<harness_id>/manifest.json` for the authoritative per-harness answer, never this table |
 
 Also observed: `Grep` as a distinct tool name. MCP tools surface as
 `MCP: <server>` matcher forms with their own before/after events.
@@ -211,7 +211,7 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 | Subagent hook wiring | per-agent `hooks` frontmatter composed by `agents_render_subagent_hooks` (`YOKE_HOOK_AGENT_TYPE=<role>` env wrap) | none (in-process) | hooks are global; role identity must come from `subagentStart.subagent_type` + sub-session mapping rather than per-agent env wraps — `lint_subagent_background`'s context detection needs this channel |
 | Compat consumption | — | native `.agents/skills` scan | reads `.claude/agents/` directly (measured; Claude-only frontmatter keys tolerated). Viable interim `canonical_agents.consumption` posture; a rendered `.cursor/agents/` pass is the clean end state |
 | Skills | `.claude/skills/yoke` symlink | native `.agents/skills` scan | **native `.agents/skills` scan (measured)** — probe skill discovered and loaded; no mirror needed in the source repo |
-| Conditional prose | `<!-- YOKE:HARNESS claude -->` fences Monitor/background primitives | elided | elision is correct for the wake primitives (absent in Cursor), but every fenced block needs an audit: a Cursor render inherits *neither* branch by default |
+| Conditional prose | `<!-- YOKE:HARNESS claude -->` fences Monitor/background primitives | elided | elision is correct only where the fenced text names a Claude tool; it is wrong wherever Cursor has its own primitive, which `agent_wake` in the manifests decides. Every fenced block needs an audit: a Cursor render inherits *neither* branch by default |
 
 ## Install surface and operational hazards
 

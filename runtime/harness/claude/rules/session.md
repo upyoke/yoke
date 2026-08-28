@@ -68,7 +68,7 @@ If you are unsure which tier you are in, you are a subagent (subagents have `YOK
 
   ```
 
-  The wrappers print a three-line block: a background `Bash(run_in_background: true)` command that writes raw + filtered progress captures, a `yoke watch tail …` line to paste into `Monitor` (auto-exits on the wrapper's sentinel), and a post-completion `tail -80 <raw-capture>` to inspect full output. The wrapper preserves the underlying command's exit code so you can still branch on success/failure. Codex callers run the wrapper directly as a foreground command and rely on native PTY streaming.
+  The wrappers print a three-line block: a background `Bash(run_in_background: true)` command that writes raw + filtered progress captures, a `yoke watch tail …` line to paste into `Monitor` (auto-exits on the wrapper's sentinel), and a post-completion `tail -80 <raw-capture>` to inspect full output. The wrapper preserves the underlying command's exit code so you can still branch on success/failure. Codex callers run the wrapper directly as a foreground command and rely on native PTY streaming, because its manifest records `agent_wake.idle_wake = none`.
 
   **Fallback (only when no watcher exists for the command):** the hand-authored capture + filter pair. **First confirm no wrapper covers the command**, because a wrapper that exists but is not discoverable from the command name gets bypassed exactly like a missing one: a command may be a *subcommand* of a wrapper (`yoke merge item` → `yoke watch merge merge-item`), and some wrappers are module-invoked rather than `yoke watch` subcommands (`watch_advance`, `watch_lifecycle`, `watch_session_offer`). The hand-authored pair has no exit sentinel, so its paired `Monitor` never self-terminates and keeps running long after the command finishes. Use it only when extending to a new long-running command type that genuinely has no wrapper — and when you reach for this pattern, file a follow-up to add a wrapper that mints its capture pair through `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` so the file lands under the machine temp root's watcher-captures directory and inherits machine temp root rebinding (the same rule the production wrappers follow). Until that wrapper exists, the agent-side fallback uses an OS-temp path as a stopgap:
   ```bash
@@ -94,7 +94,23 @@ If you are unsure which tier you are in, you are a subagent (subagents have `YOK
   - `# lint:no-monitor-watcher-tail-check` — recorded against the watcher-tail Monitor guard; audit-only, does NOT unblock. Use the minted `yoke watch tail` command instead.
   - `# lint:no-raw-pytest-check` — recorded against the raw-pytest-sweep guard; audit-only, does NOT unblock. Run the sweep through `yoke watch pytest` instead, which takes the machine-wide admission slot.
 - **On Monitor wakes, relay the matched line — don't paraphrase it.** Every stdout line the filter matches wakes you up, and that line IS the real-time update the user wants. Emit it (verbatim or as a tight one-line paraphrase that preserves the concrete signal — e.g. `pytest [ 47%]`, `FAILED <test-file>::test_bar`, `merge step 3 complete`) as user-facing text. Never substitute filler like "Still waiting." / "Continuing to wait." / "Still going." — those paraphrases discard the signal the filter was designed to surface. Silence between meaningful lines is fine; filler instead of signal is not. Watcher wrappers (`watch_pytest`, `watch_merge`) coalesce repetitive progress at the wrapper layer via `yoke_core.tools._watch_throttle`; an emitted progress line may carry a `(suppressed N ticks)` suffix indicating how many intermediate ticks were collapsed — relay the line including the suffix, do not strip it. Skipping consecutive verbatim duplicates remains useful as defense-in-depth for non-watcher streams; for watcher-backed streams the throttle layer already prevents the flooding class structurally.
-- **PreToolUse Monitor relay-only reminder.** A `PreToolUse` hook on `Monitor` injects a short passive `additionalContext` reminder restating the relay rules above. Each wake regenerates the model with full conversation history, so the reminder stays in context for the duration of the armed Monitor session. Enforcement owner: `yoke_core.domain.hint_monitor_relay`. Reminder text is sourced from one canonical Python constant (`DEFAULT_REMINDER`), optionally overridden by the machine config key `monitor_relay_hint_text`. Codex has no Monitor primitive, so this hook is Claude-only; future universal tool-policy work belongs to a separate work item and may absorb this hint without changing operator behavior.
+- **PreToolUse Monitor relay-only reminder.** A `PreToolUse` hook on `Monitor` injects a short passive `additionalContext` reminder restating the relay rules above. Each wake regenerates the model with full conversation history, so the reminder stays in context for the duration of the armed Monitor session. Enforcement owner: `yoke_core.domain.hint_monitor_relay`. Reminder text is sourced from one canonical Python constant (`DEFAULT_REMINDER`), optionally overridden by the machine config key `monitor_relay_hint_text`. This hook is Claude-only because the wake fact it depends on — `agent_wake.idle_wake` in each harness manifest — is `none` for codex, so no other harness has a Monitor call to hint on; future universal tool-policy work belongs to a separate work item and may absorb this hint without changing operator behavior.
+
+## Harness wake capability
+
+Cross-harness behavior you author here must match what each harness actually
+declares, not what this Claude-only file makes convenient.
+
+<!-- BEGIN GENERATED: harness-wake-capability -->
+Wake capability is a manifest fact, not prose. Source of truth:
+`agent_wake` in `runtime/harness/<harness_id>/manifest.json`, rendered from
+`yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
+restate one of these facts on a document's own authority.
+
+- `claude-code` — idle wake: supported (`Monitor`); timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
+- `codex` — idle wake: none; timer wake: none. Verified on codex-cli.
+- `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
+<!-- END GENERATED: harness-wake-capability -->
 
 ## Cross-references
 

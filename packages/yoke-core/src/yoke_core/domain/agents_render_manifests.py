@@ -13,6 +13,7 @@ is caught by the doctor check ``HC-harness-substrate-drift`` (lane R / task 10).
 from __future__ import annotations
 
 from yoke_contracts.harness_cli_manifest import harness_cli_manifest
+from yoke_contracts.harness_wake_capability import wake_capability_for_harness
 from yoke_contracts.session_control import capabilities_for_harness
 
 
@@ -21,6 +22,17 @@ def _session_control(harness_id: str) -> dict:
         "source": "yoke_contracts.session_control.SESSION_SURFACE_CAPABILITIES",
         "surfaces": capabilities_for_harness(harness_id),
     }
+
+
+def _agent_wake(harness_id: str) -> dict:
+    payload: dict = {
+        "source": (
+            "yoke_contracts.harness_wake_capability."
+            "HARNESS_WAKE_CAPABILITIES"
+        ),
+    }
+    payload.update(wake_capability_for_harness(harness_id).to_json())
+    return payload
 
 
 _CLAUDE_CLI = harness_cli_manifest("claude-code")
@@ -63,6 +75,7 @@ CLAUDE_MANIFEST: dict = {
         ],
     },
     "session_control": _session_control(_CLAUDE_CLI.harness_id),
+    "agent_wake": _agent_wake(_CLAUDE_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".claude/settings.json",
         "operations": [
@@ -125,6 +138,7 @@ CODEX_MANIFEST: dict = {
         ],
     },
     "session_control": _session_control(_CODEX_CLI.harness_id),
+    "agent_wake": _agent_wake(_CODEX_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".codex/hooks.json",
         "operations": [
@@ -194,6 +208,7 @@ CURSOR_MANIFEST: dict = {
         ],
     },
     "session_control": _session_control(_CURSOR_CLI.harness_id),
+    "agent_wake": _agent_wake(_CURSOR_CLI.harness_id),
     "worktree_hook_enablement": {
         "config_path": ".cursor/hooks.json",
         "operations": [

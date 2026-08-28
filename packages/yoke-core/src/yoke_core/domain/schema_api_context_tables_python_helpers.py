@@ -74,6 +74,27 @@ PYTHON_HELPERS_TABLES: dict[str, dict] = {
             "envelope."
         ),
     },
+    "runtime/harness/<harness_id>/manifest.json": {
+        "columns": [
+            ("agent_wake", "object"),
+            ("session_control", "object"),
+            ("supports", "object"),
+        ],
+        "notes": (
+            "The harness manifest is where harness capability truth lives — "
+            "not any doc, skill, rules file, or agent body. Before stating "
+            "what a harness can do, read the field: `agent_wake` answers "
+            "whether it can be woken while idle and by which primitive "
+            "(idle_wake / idle_wake_mechanism / timer_wake, each with the "
+            "evidence behind it), `session_control` answers messaging and "
+            "launch routes, `supports` answers hook affordances. Schema: "
+            "runtime/harness/manifest-schema.md. Sources: "
+            "yoke_contracts.harness_wake_capability and "
+            "yoke_contracts.session_control; the manifests are rendered, so "
+            "never hand-edit one. A capability nobody probed reads "
+            "`unverified` — that is an answer, not a gap to fill by guessing."
+        ),
+    },
     "yoke_core.domain.db_helpers": {
         "columns": [
             ("iso8601_now", "callable"),

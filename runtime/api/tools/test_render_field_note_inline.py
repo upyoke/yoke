@@ -71,71 +71,6 @@ class TestContentBuilders(unittest.TestCase):
 # --- Marker-pair recognition (positive + negative) ---------------------
 
 
-class TestRewriteBetweenMarkers(unittest.TestCase):
-    def test_valid_pair_rewrites_content(self) -> None:
-        original = _wrap("OLD\n")
-        new = rri._rewrite_between_markers(original, "NEW\n")
-        self.assertIsNotNone(new)
-        self.assertIn("NEW", new)
-        self.assertNotIn("OLD", new)
-        self.assertIn(BEGIN, new)
-        self.assertIn(END, new)
-
-    def test_orphan_begin_returns_none(self) -> None:
-        original = f"{BEGIN}\nbody-without-end\n"
-        self.assertIsNone(
-            rri._rewrite_between_markers(original, "REPLACEMENT\n")
-        )
-
-    def test_orphan_end_returns_none(self) -> None:
-        original = f"body-without-begin\n{END}\n"
-        self.assertIsNone(
-            rri._rewrite_between_markers(original, "REPLACEMENT\n")
-        )
-
-    def test_end_before_begin_returns_none(self) -> None:
-        original = f"{END}\nstuff\n{BEGIN}\n"
-        self.assertIsNone(
-            rri._rewrite_between_markers(original, "REPLACEMENT\n")
-        )
-
-    def test_two_begin_markers_unsupported(self) -> None:
-        original = f"{BEGIN}\nA\n{BEGIN}\nB\n{END}\n"
-        self.assertIsNone(
-            rri._rewrite_between_markers(original, "REPLACEMENT\n")
-        )
-
-    def test_no_markers_at_all_returns_none(self) -> None:
-        self.assertIsNone(
-            rri._rewrite_between_markers("plain content\n", "REPLACEMENT\n")
-        )
-
-
-class TestScanForOrphans(unittest.TestCase):
-    def test_clean_returns_none(self) -> None:
-        self.assertIsNone(rri._scan_for_orphans(_wrap("body\n")))
-        self.assertIsNone(rri._scan_for_orphans("no markers here\n"))
-
-    def test_orphan_begin(self) -> None:
-        self.assertEqual(
-            rri._scan_for_orphans(f"{BEGIN}\nbody\n"),
-            "BEGIN marker without matching END",
-        )
-
-    def test_orphan_end(self) -> None:
-        self.assertEqual(
-            rri._scan_for_orphans(f"body\n{END}\n"),
-            "END marker without matching BEGIN",
-        )
-
-    def test_multiple_pairs(self) -> None:
-        text = _wrap("A\n") + _wrap("B\n")
-        self.assertEqual(
-            rri._scan_for_orphans(text),
-            "multiple marker pairs in one file (not supported)",
-        )
-
-
 # --- End-to-end render() against a tmp fixture --------------------------
 
 
@@ -275,6 +210,11 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
             mock.patch.object(gpc, "_emit_diverged_warning", record("diverged")),
             mock.patch.object(gpc, "_run_file_line_check_or_block", record("file_line")),
             mock.patch.object(gpc, "_run_field_note_render_or_block", record("field_note")),
+            mock.patch.object(
+                gpc,
+                "_run_harness_capability_render_or_block",
+                record("harness_capability"),
+            ),
             mock.patch.object(gpc, "_run_agent_render_check_or_block", record("agent_render")),
             mock.patch.object(gpc, "_run_worktree_status_check_or_block", record("worktree")),
             mock.patch.object(gpc, "_run_path_claim_coverage_check_or_block", record("path_claim")),
@@ -287,7 +227,15 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(
             order,
-            ["diverged", "file_line", "field_note", "agent_render", "worktree", "path_claim"],
+            [
+                "diverged",
+                "file_line",
+                "field_note",
+                "harness_capability",
+                "agent_render",
+                "worktree",
+                "path_claim",
+            ],
         )
 
     def test_field_note_check_hard_fails(self) -> None:

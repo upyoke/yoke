@@ -88,6 +88,15 @@
       }
     }
   },
+  "agent_wake": {
+    "source": "yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES",
+    "idle_wake": "none",
+    "idle_wake_mechanism": "",
+    "timer_wake": "none",
+    "timer_wake_mechanism": "",
+    "verified_on_surface": "codex-cli",
+    "evidence": "Live probe: foreground exec_command/PTY output streams only while the turn stays active; backgrounding with (...) & returns a prompt but stdout does not resume the model; a detached nohup child vanished when its command invocation ended and wrote zero lines. Continuations are an exec_command session_id plus explicit write_stdin polling; none resumes a turn after it ends."
+  },
   "worktree_hook_enablement": {
     "config_path": ".codex/hooks.json",
     "operations": [
