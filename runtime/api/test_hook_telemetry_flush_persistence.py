@@ -20,10 +20,17 @@ import json
 
 import pytest
 
-from runtime.api.events_crud_test_fixtures import db_path  # noqa: F401
-from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.events_crud_test_fixtures import _apply_events_schema
+from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain import events_writes
 from yoke_core.hooks import telemetry
+
+
+@pytest.fixture
+def events_universe(tmp_path):
+    """A disposable database carrying the schema the emitter actually targets."""
+    with init_test_db(tmp_path, apply_schema=_apply_events_schema) as path:
+        yield path
 
 
 def _dispatch_record(session_id: str) -> tuple[str, dict]:
@@ -55,7 +62,7 @@ def _stored_event(db_path: str, session_id: str):
         conn.close()
 
 
-def test_shared_connection_is_actually_opened(db_path: str) -> None:
+def test_shared_connection_is_actually_opened(events_universe: str) -> None:
     """Guard the guard: a None connection would make the rest vacuous."""
     with events_writes.hook_emit_connection() as conn:
         assert conn is not None, (
@@ -66,11 +73,11 @@ def test_shared_connection_is_actually_opened(db_path: str) -> None:
         )
 
 
-def test_batched_flush_persists_the_dispatch_row(db_path: str) -> None:
+def test_batched_flush_persists_the_dispatch_row(events_universe: str) -> None:
     """A committed row: readable from a connection the flush never touched."""
     telemetry.flush_hook_telemetry([_dispatch_record("sess-flush-persist")])
 
-    row = _stored_event(db_path, "sess-flush-persist")
+    row = _stored_event(events_universe, "sess-flush-persist")
     assert row is not None, (
         "HookDispatchTelemetry did not survive the batched flush — the shared "
         "connection was closed without committing, so Postgres rolled the "
@@ -81,17 +88,17 @@ def test_batched_flush_persists_the_dispatch_row(db_path: str) -> None:
     assert context["driver_ppid"] == 4241
 
 
-def test_flush_commits_even_when_a_later_row_fails(db_path: str) -> None:
+def test_flush_commits_even_when_a_later_row_fails(events_universe: str) -> None:
     """One malformed row must not take the committed batch down with it."""
     good = _dispatch_record("sess-flush-partial")
     bad = ("dispatch", {"hook_event": "PreToolUse"})  # missing required kwargs
 
     telemetry.flush_hook_telemetry([good, bad])
 
-    assert _stored_event(db_path, "sess-flush-partial") is not None
+    assert _stored_event(events_universe, "sess-flush-partial") is not None
 
 
 @pytest.mark.parametrize("records", [[], None])
-def test_empty_flush_is_a_noop(records, db_path: str) -> None:
+def test_empty_flush_is_a_noop(records, events_universe: str) -> None:
     """No records and no ensure-register means no connection work at all."""
     telemetry.flush_hook_telemetry(records or [])
