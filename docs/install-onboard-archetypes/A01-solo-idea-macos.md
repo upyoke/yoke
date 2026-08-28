@@ -272,7 +272,7 @@ attest no-tests, or stop?" Recommend scaffold, else attested no-tests
 |---|---|---|---|
 | Deployment / environment | Execution-profile confirmation: hosting and env are optional; default flow may be merge-only (`target_tier` NULL) or unset | Usher Route A / omit `--deployment-flow`; never stamp a persistent flow | Local merge, no pipeline |
 | GitHub merge target | Already optional (Skip GitHub / keep local) | GitHub automation disabled until App sees the repo | Local default branch `main` |
-| Migration | Not asked; N/A for empty repo | — | No `migration_model` |
+| Migration | Step-2 governed-database box | — | An empty repo answers "no governed database"; `migration-model-setup` records `not-needed` |
 | Tests | Profile test-setup box (missing) | Do not register a command that is not in the tree | Scaffold suite or attested no-tests |
 
 Ledger: G-installer-handoff-cursor, G-test-setup-unasked, G-no-tests-posture, G-scaffold-tests-unregistered, G-qa-plan-needs-env.

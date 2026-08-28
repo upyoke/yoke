@@ -39,6 +39,7 @@ _EXECUTION_READINESS_ROWS = (
     "domain-setup",
     "infra-apply-first-deploy",
     "verification-command-binding",
+    "migration-model-setup",
     "work-seeding",
 )
 _ADOPTION_ROWS = (

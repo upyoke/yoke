@@ -22,7 +22,7 @@ filled in the last column.
 | G-handoff-cursor | taught | installed | Shim hand-off names Claude Code, Codex, or Cursor then `/yoke onboard` | A01 A03 A05 A09 | YOK-2468 |
 | G-app-store | missing-config-surface | deployed | No TestFlight/Play/`fastlane` runner; app-store delivery remains external to Yoke | A09 | YOK-2470 |
 | G-selfhost-not-in-wizard | friction | installed | Resolved: picker previews and performs guarded Compose first boot, captures the token, activates the local connection, and offers setup or handoff exits; the manual reference remains | A06 A07 | YOK-2471 |
-| G-migration-undeclared | missing-config-surface | migrated | No onboard question for `migration_model` / "no DB to migrate" | A03 A06 A07 | YOK-2472 |
+| G-migration-undeclared | closed | migrated | Closed: the step-2 profile carries a governed-database box and step 5 records the answer on `migration-model-setup` — a declared `migration_model`, a named model to attach later, or an affirmative `not-needed` stating that work items keep `db_claim` `none` | A03 A06 A07 | YOK-2472 |
 | G-byo-aws-identity | missing-config-surface | deployed | AWS accepts guided or existing access keys; role, SSO/OIDC, instance-profile, and web-identity execution remain unsupported | A03 A07 | YOK-2473 |
 | G-idea-default-flow | blocker | released | `infer-and-create.md`: non-empty deploy-defaults **always** assigned | all with a default flow | YOK-2474 |
 | G-test-setup-unasked | blocker | merged / done | Wizard and profile never ask how tests run; gates still expect a registered command | all | YOK-2477 |

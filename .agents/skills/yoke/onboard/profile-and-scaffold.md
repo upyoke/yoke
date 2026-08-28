@@ -52,6 +52,9 @@ Present the whole profile in one block — a smart proposal, never a blank inter
   workflow is declared, and it carries a `merge_group` trigger — without the
   trigger the queue's integration gate has nothing to run and a queued pull
   request never merges.
+- **Governed database** — whether this project has a database whose schema
+  changes Yoke governs, and therefore whether work items ever carry a real DB
+  claim. See the box below.
 
 ### The delivery box
 
@@ -115,6 +118,49 @@ A descriptive `verification_profiles.test_command` project-structure entry is
 human reader; it is not consulted by the gate. Writing it and stopping leaves
 the project exactly as unbound as writing nothing.
 
+### The governed-database box
+
+Every profile carries this box too, for the same reason the test-setup box
+exists: the terminal wizard never asks about a database, so absence is silent
+in both directions. A project that owns one reaches its first schema-mutating
+work item with nothing declared, and a project that owns none is never told
+that keeping every item's DB claim at `none` is the correct and expected
+answer rather than something it forgot.
+
+Read the recorded state before proposing:
+
+```bash
+yoke projects capability-settings get --project {project} --cap-type migration_model --json
+```
+
+Then read the step-1 survey for an ordered migrations directory, a migration
+tool (Alembic, Flyway, Liquibase, Rails, Django, Prisma), a declared
+connection environment variable, or a compose database service.
+
+Propose exactly one of four named outcomes:
+
+1. **A governed model, declarable now.** The project's authoritative database
+   matches a supported pairing and its coordinates already exist. Name the
+   model slug, the authoritative kind, the ordered-history directory, and the
+   ledger table; step 5 writes the capability.
+2. **A governed model, attached later.** The database will exist but its
+   coordinates do not yet — a Pulumi stack step 7 has not applied. Name the
+   same four facts and record that the capability is written once the stack
+   exists.
+3. **No Yoke-governed database.** Either there is no database at all, or one
+   exists whose schema changes Yoke does not govern: a vendor product, a
+   DBA-owned change process, or an authoritative kind Yoke has no supported
+   pairing for. This is a real answer, not a blank — say so out loud, and say
+   that work items keep their DB claim at `none` because the governed-mutation
+   contract applies only to a project that declares a model.
+4. **Undecided.** The operator has not decided. Nothing is written; this is
+   the failure floor — `human-interview=blocked` with the open question as
+   blocker text.
+
+Never propose a shape the capability validator will refuse. Step 5 owns the
+supported pairings and the exact write; read
+[governed-database.md](governed-database.md) before proposing coordinates.
+
 ### Confirm (stop 1 of 2)
 
 The operator confirms or adjusts the whole profile; edits refine the proposal in place. **Nothing mutates before this confirmation.** This confirmation also closes the interview — every remaining unknown is resolved here or recorded as a blocker. Then mark:
@@ -122,12 +168,12 @@ The operator confirms or adjusts the whole profile; edits refine the proposal in
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status human-interview=verified \
-  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; delivery {persistent-environment|merge-only|no-default}: {registered environment plus pipeline|local merge, no environment or pipeline|new items omit --deployment-flow}; domain {posture}; test setup {surveyed-command|scaffold-suite|review-only-suite|attested-no-tests}; roots {test_roots}; quick {quick_argv|not-applicable}; full {full_argv|same-as-quick|not-applicable}; suite health {suite_health}; runner {command|command-ci|review-only|none} because {runner_rationale}"
+  --evidence human-interview="execution profile confirmed: {packs}; capabilities {caps}; delivery {persistent-environment|merge-only|no-default}: {registered environment plus pipeline|local merge, no environment or pipeline|new items omit --deployment-flow}; domain {posture}; test setup {surveyed-command|scaffold-suite|review-only-suite|attested-no-tests}; roots {test_roots}; quick {quick_argv|not-applicable}; full {full_argv|same-as-quick|not-applicable}; suite health {suite_health}; runner {command|command-ci|review-only|none} because {runner_rationale}; governed database {declare-now|attach-later|none}: {model slug plus authoritative kind|why the project has no Yoke-governed database}"
 ```
 
 After confirmation, run steps 3–6 straight through unattended. The next stop is the infrastructure approval gate in step 7.
 
-**Failure floor:** unresolved profile unknowns (unclear deploy target, unnamed required credential, an undecided test-setup box) → `human-interview=blocked` with the open questions as blocker text; stop.
+**Failure floor:** unresolved profile unknowns (unclear deploy target, unnamed required credential, an undecided test-setup box, an undecided governed-database box) → `human-interview=blocked` with the open questions as blocker text; stop.
 
 ## Step 3: Install The Scaffold Pack
 
