@@ -25,6 +25,7 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from runtime.api.domain.test_session_message_support import (
+    NATIVE_WAKE_SESSION_ID,
     NOW,
     message_connection,
 )
@@ -98,6 +99,11 @@ def test_manual_wake_is_one_native_attempt_even_when_the_attempt_fails() -> None
 
 def test_item_target_resolves_its_current_work_claim_holder() -> None:
     conn = message_connection()
+    conn.execute(
+        "UPDATE work_claims SET session_id=? WHERE id=1",
+        (NATIVE_WAKE_SESSION_ID,),
+    )
+    conn.commit()
 
     result = request_session_wake(
         conn,
@@ -109,7 +115,7 @@ def test_item_target_resolves_its_current_work_claim_holder() -> None:
         now=NOW,
     )
 
-    assert result["target_session_id"] == "s1"
+    assert result["target_session_id"] == NATIVE_WAKE_SESSION_ID
     details = message_details(conn, result["message_id"])
     assert details["selector_snapshot"]["item_refs"] == ["ALP-1"]
 

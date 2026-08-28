@@ -19,6 +19,8 @@ from yoke_core.domain.session_control_schema import create_session_control_table
 
 NOW = datetime(2026, 8, 22, 16, 0, tzinfo=timezone.utc)
 NOW_TEXT = "2026-08-22T16:00:00Z"
+IDLE_WAKE_SESSION_ID = "s3"
+NATIVE_WAKE_SESSION_ID = "s4"
 
 
 def add_coordination_claim_schema(conn: sqlite3.Connection) -> None:
@@ -146,9 +148,10 @@ def message_connection(path: str = ":memory:") -> sqlite3.Connection:
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}','codex-thread-s1'),
             ('s2',1,'claude-code','claude-cli','2.1.238','m2','worktree',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}',NULL),
-            ('s3',2,'cursor','cursor-cli','2026.08.11','m3','direct',
+            ('{IDLE_WAKE_SESSION_ID}',2,'cursor','cursor-cli','2026.08.11','m3','direct',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}',NULL),
-            ('s4',1,'codex','codex-cli','0.148.0a15','m4','direct',
+            ('{NATIVE_WAKE_SESSION_ID}',1,'codex','codex-cli',
+             '0.148.0a15','m4','direct',
              '{NOW_TEXT}','{NOW_TEXT}','{NOW_TEXT}',NULL);
         INSERT INTO work_claims (
             id,session_id,target_kind,scope,claimed_at
@@ -177,8 +180,10 @@ def selector(**values: object) -> RecipientSelector:
 
 
 __all__ = [
+    "IDLE_WAKE_SESSION_ID",
     "NOW",
     "NOW_TEXT",
+    "NATIVE_WAKE_SESSION_ID",
     "add_coordination_claim_schema",
     "message_connection",
     "selector",

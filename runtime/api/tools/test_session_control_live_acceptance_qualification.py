@@ -12,7 +12,6 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
     AcceptanceMatrix,
-    acceptance_operation,
 )
 from runtime.api.tools.session_control_live_acceptance_qualification import (
     OpenedQualification,
@@ -151,7 +150,7 @@ def _open_acceptance_route(
     coordinator: QualificationCoordinator, cell: AcceptanceCell
 ) -> OpenedQualification | None:
     """Open at the boundary of the operation this surface is accepted on."""
-    return coordinator.open(cell, acceptance_operation(cell.surface))
+    return coordinator.open(cell, cell.operation)
 
 
 def test_candidate_grants_are_exact_redacted_and_consumed() -> None:

@@ -12,7 +12,6 @@ from runtime.api.tools.session_control_live_acceptance_client import CommandClie
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
-    acceptance_operation,
 )
 from runtime.api.tools.session_control_live_acceptance_route_selection import (
     broker_hop_carries_wake,
@@ -188,27 +187,14 @@ def _validate_target_state(row: dict[str, Any], *, cell: AcceptanceCell) -> None
         raise AcceptanceContractError("registration_item_present", surface=cell.surface)
 
 
-def _desktop_single_writer_candidate(cell: AcceptanceCell) -> bool:
-    return (
-        cell.surface == "codex-desktop"
-        and cell.mode == "create"
-        and cell.acceptance_role == "surface"
-        and cell.route == "direct"
-    )
-
-
 def _validate_ended_waiting_shape(row: dict[str, Any], *, cell: AcceptanceCell) -> None:
     desktop_active_proof = (
-        acceptance_operation(cell.surface) == "message_active"
+        cell.operation == "message_active"
         and cell.mode == "identify"
         and cell.acceptance_role == "surface"
         and cell.route == "none"
     )
-    if (
-        not cell.surface.endswith("-cli")
-        and not desktop_active_proof
-        and not _desktop_single_writer_candidate(cell)
-    ):
+    if not cell.surface.endswith("-cli") and not desktop_active_proof:
         raise AcceptanceContractError(
             "ended_waiting_cli_required", surface=cell.surface
         )
@@ -278,18 +264,6 @@ def waiting_registration_ready(
     return row.get("turn_posture") == "waiting"
 
 
-def desktop_single_writer_deferral_ready(
-    cell: AcceptanceCell, row: dict[str, Any]
-) -> bool:
-    """Identify the validated terminal shape caused by the desktop writer lock."""
-    return (
-        _desktop_single_writer_candidate(cell)
-        and row.get("liveness") == "ended"
-        and registration_mode(row, cell=cell) == "wait"
-        and row.get("turn_posture") == "waiting"
-    )
-
-
 def wait_for_waiting_registration(
     client: CommandClient,
     *,
@@ -339,7 +313,6 @@ def wait_for_waiting_registration(
 
 
 __all__ = [
-    "desktop_single_writer_deferral_ready",
     "registration_mode",
     "validated_registration",
     "validated_stoppable_registration",

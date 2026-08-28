@@ -12,7 +12,6 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
     AcceptanceMatrix,
-    acceptance_operation,
     load_readiness_matrix,
 )
 from yoke_contracts.session_control.capabilities import capability_for_surface
@@ -54,12 +53,16 @@ def _operator_action(cell: AcceptanceCell, exact_version: str) -> dict[str, str]
 
 
 def _cell_report(cell: AcceptanceCell) -> dict[str, Any]:
-    operation = acceptance_operation(cell.surface)
+    operation = cell.operation
     report: dict[str, Any] = {
+        "cell_name": cell.cell_name,
         "surface": cell.surface,
         "expected_version": cell.expected_version,
         "operation": operation,
+        "proof_scope": cell.proof_scope,
     }
+    if cell.surface.endswith("-desktop"):
+        report["operator_visible_desktop_occupancy_proven"] = False
     if surface_operation_supported(cell.surface, cell.expected_version, operation):
         report["status"] = "qualified"
         return report

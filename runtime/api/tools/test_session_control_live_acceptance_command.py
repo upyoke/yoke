@@ -12,6 +12,7 @@ import pytest
 
 from runtime.api.tools import session_control_live_acceptance_command as command
 from runtime.api.tools.session_control_live_acceptance_contract import (
+    ACCEPTANCE_SURFACE_CELLS,
     SCHEMA_VERSION,
     ACCEPTANCE_SURFACES,
     AcceptanceContractError,
@@ -79,31 +80,28 @@ class _UnreadableStdin:
         raise AssertionError("stdin must not be read")
 
 
-def test_matrix_builder_owns_the_exact_six_modes_roles_and_routes() -> None:
+def test_matrix_builder_owns_the_exact_five_modes_roles_and_routes() -> None:
     bindings = command.LiveAcceptanceBindings.model_validate(_bindings())
     document = command.build_acceptance_matrix_document("yoke", bindings)
 
     assert document["schema"] == SCHEMA_VERSION
     assert document["project"] == "yoke"
     cells = document["cells"]
-    assert len(cells) == 6
-    assert [cell["surface"] for cell in cells[:5]] == list(ACCEPTANCE_SURFACES)
-    desktop = cells[1]
-    assert desktop == {
-        "surface": "claude-desktop",
-        "expected_version": _versions()["claude-desktop"],
-        "mode": "identify",
-        "acceptance_role": "surface",
-        "wake_route": "direct",
-        "session_id": "desktop-session",
-    }
-    assert all(
-        cell["mode"] == "create" and cell["wake_route"] == "direct"
-        for cell in (cells[0], *cells[2:5])
+    assert len(cells) == 5
+    assert [(cell["surface"], cell["mode"]) for cell in cells[:4]] == list(
+        ACCEPTANCE_SURFACE_CELLS
     )
+    assert all(
+        cell["proof_scope"] == "registered_session_control_surface"
+        for cell in cells[:4]
+    )
+    assert cells[1]["session_id"] == "desktop-session"
+    assert "session_id" not in cells[2]
+    assert all(cell["wake_route"] == "direct" for cell in cells[:4])
     broker = cells[-1]
     assert broker["surface"] == command.BROKER_ACCEPTANCE_SURFACE
     assert broker["acceptance_role"] == "broker"
+    assert broker["proof_scope"] == "registered_broker_wake_route"
     assert broker["wake_route"] == "machine_selected"
     assert broker["session_id"] == "broker-target"
     assert broker["broker_session_id"] == "broker-peer"
@@ -247,7 +245,7 @@ def test_preview_emits_canonical_matrix_without_live_acceptance(
     assert report["status"] == "ready"
     assert report["project"] == "yoke"
     assert report["release_sha"] == RELEASE_SHA
-    assert len(report["cells"]) == 6
+    assert len(report["cells"]) == 5
 
 
 def test_live_run_uses_owner_only_atomic_scratch_and_cleans_it(

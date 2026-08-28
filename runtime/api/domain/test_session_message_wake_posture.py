@@ -11,6 +11,7 @@ from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from yoke_core.domain.session_turn_posture import stamp_turn_posture
 from runtime.api.domain.test_session_message_support import (
+    NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
     message_connection,
@@ -23,13 +24,13 @@ def _send(conn) -> str:
         conn,
         actor_id=10,
         sender_session_id="s1",
-        selector=selector(session_ids=["s1"]),
+        selector=selector(session_ids=[NATIVE_WAKE_SESSION_ID]),
         body="Never pass this body to a native wake.",
         now=NOW,
     )["message_id"]
 
 
-def _stop(conn, session_id: str = "s1") -> None:
+def _stop(conn, session_id: str = NATIVE_WAKE_SESSION_ID) -> None:
     conn.execute(
         "UPDATE harness_sessions SET ended_at=? WHERE session_id=?",
         (NOW_TEXT, session_id),
@@ -49,8 +50,12 @@ def test_long_idle_session_with_a_fresh_message_wakes_on_the_next_sweep() -> Non
     conn = message_connection()
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
-        "WHERE session_id='s1'",
-        ("2026-08-22T15:00:00Z", "2026-08-22T15:00:00Z"),
+        "WHERE session_id=?",
+        (
+            "2026-08-22T15:00:00Z",
+            "2026-08-22T15:00:00Z",
+            NATIVE_WAKE_SESSION_ID,
+        ),
     )
     conn.commit()
     _send(conn)
@@ -68,8 +73,12 @@ def test_actively_working_session_with_a_pending_message_is_never_woken() -> Non
     # the envelope arrived is starved rather than served, and is escalated.
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
-        "WHERE session_id='s1'",
-        ("2026-08-22T16:10:00Z", "2026-08-22T16:10:00Z"),
+        "WHERE session_id=?",
+        (
+            "2026-08-22T16:10:00Z",
+            "2026-08-22T16:10:00Z",
+            NATIVE_WAKE_SESSION_ID,
+        ),
     )
     conn.commit()
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11)) == []
@@ -79,16 +88,16 @@ def test_unsupported_route_stays_terminal_until_routing_facts_change() -> None:
     conn = message_connection()
     conn.execute(
         "UPDATE harness_sessions SET executor_surface='cursor-desktop',"
-        "executor_version='3.17.8',ended_at=? WHERE session_id='s1'",
-        (NOW_TEXT,),
+        "executor_version='3.17.8',ended_at=? WHERE session_id=?",
+        (NOW_TEXT, NATIVE_WAKE_SESSION_ID),
     )
     conn.commit()
     message_id = _send(conn)
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11)) == []
 
     conn.execute(
-        "UPDATE session_message_recipients SET executor_surface='codex-desktop',"
-        "executor_version='26.814.41407' WHERE message_id=?",
+        "UPDATE session_message_recipients SET executor_surface='codex-cli',"
+        "executor_version='0.148.0a15' WHERE message_id=?",
         (message_id,),
     )
     conn.commit()
@@ -109,7 +118,7 @@ def test_candidates_carry_scheduler_authority_separately_from_liveness() -> None
     waiting_conn = message_connection()
     stamp_turn_posture(
         waiting_conn,
-        session_id="s1",
+        session_id=NATIVE_WAKE_SESSION_ID,
         posture="waiting",
         observed_at=NOW - timedelta(seconds=1),
     )
@@ -132,7 +141,7 @@ def test_waiting_retry_uses_the_project_idle_policy_as_cooldown() -> None:
     )
     stamp_turn_posture(
         conn,
-        session_id="s1",
+        session_id=NATIVE_WAKE_SESSION_ID,
         posture="waiting",
         observed_at=NOW - timedelta(seconds=1),
     )
@@ -161,7 +170,7 @@ def test_waiting_posture_never_falls_through_an_expired_injection_lease() -> Non
     conn = message_connection()
     stamp_turn_posture(
         conn,
-        session_id="s1",
+        session_id=NATIVE_WAKE_SESSION_ID,
         posture="waiting",
         observed_at=NOW - timedelta(seconds=1),
     )
@@ -178,7 +187,7 @@ def test_waiting_posture_never_falls_through_an_expired_injection_lease() -> Non
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11)) == []
 
 
-def _injected(conn, injected_at: str, session_id: str = "s1") -> None:
+def _injected(conn, injected_at: str, session_id: str = NATIVE_WAKE_SESSION_ID) -> None:
     conn.execute(
         "UPDATE session_message_recipients SET state='injected',last_injected_at=? "
         "WHERE session_id=?",

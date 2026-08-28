@@ -11,7 +11,7 @@ from runtime.api.tools import session_control_live_acceptance_client as client_m
 from runtime.api.tools.session_control_live_acceptance_client import YokeCliClient
 from runtime.api.tools.session_control_live_acceptance_contract import (
     SCHEMA_VERSION,
-    ACCEPTANCE_SURFACES,
+    ACCEPTANCE_SURFACE_CELLS,
     AcceptanceContractError,
     parse_candidate_matrix,
     parse_matrix,
@@ -29,7 +29,6 @@ VERSIONS = {
     "claude-cli": "2.1.238",
     "claude-desktop": "1.32885.1",
     "codex-cli": "0.149.0-alpha.4.3",
-    "codex-desktop": "26.814.41407",
     "cursor-cli": "2026.08.11-e8db854",
 }
 
@@ -42,16 +41,17 @@ def _matrix() -> dict:
             {
                 "surface": surface,
                 "expected_version": VERSIONS[surface],
-                "mode": "identify" if surface == "claude-desktop" else "create",
+                "mode": mode,
                 "acceptance_role": "surface",
+                "proof_scope": "registered_session_control_surface",
                 "wake_route": "direct",
                 **(
                     {"session_id": "claude-desktop-session"}
-                    if surface == "claude-desktop"
+                    if mode == "identify"
                     else {}
                 ),
             }
-            for surface in reversed(ACCEPTANCE_SURFACES)
+            for surface, mode in reversed(ACCEPTANCE_SURFACE_CELLS)
         ]
         + [
             {
@@ -61,6 +61,7 @@ def _matrix() -> dict:
                 "session_id": "broker-target-session",
                 "machine_id": "machine-1",
                 "acceptance_role": "broker",
+                "proof_scope": "registered_broker_wake_route",
                 "wake_route": "machine_selected",
                 "broker_session_id": "broker-peer-session",
             }
@@ -71,16 +72,18 @@ def _matrix() -> dict:
 def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
     parsed = parse_matrix(_matrix())
 
-    assert parsed.project == "yoke"
-    assert tuple(cell.surface for cell in parsed.cells[:-1]) == ACCEPTANCE_SURFACES
+    assert tuple((cell.surface, cell.mode) for cell in parsed.cells[:-1]) == (
+        ACCEPTANCE_SURFACE_CELLS
+    )
     assert parsed.cells[0].wake_supported is True
     assert parsed.cells[1].wake_supported is False
-    assert [
+    assert parsed.cells[2].cell_name.endswith(
+        ":registered_session_control_surface:create"
+    )
+    codex_versions = [
         cell.expected_version for cell in parsed.cells if cell.surface == "codex-cli"
-    ] == [
-        "0.149.0-alpha.4.3",
-        "0.149.0-alpha.4.3",
     ]
+    assert codex_versions == ["0.149.0-alpha.4.3", "0.149.0-alpha.4.3"]
     assert parsed.cells[-1].acceptance_role == "broker"
     assert parsed.cells[-1].route == "machine_selected"
 
@@ -91,7 +94,7 @@ def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
         (lambda raw: raw["cells"].pop(0), "surface_matrix_incomplete"),
         (
             lambda raw: raw["cells"].append(dict(raw["cells"][0])),
-            "surface_duplicate",
+            "surface_cell_duplicate",
         ),
         (
             lambda raw: raw["cells"][0].update(extra="not-allowed"),
@@ -106,12 +109,12 @@ def test_matrix_requires_every_supported_evidence_cell_and_sorts_it() -> None:
             "surface_unsupported",
         ),
         (
-            lambda raw: raw["cells"][3].update(mode="create", session_id=None),
-            "create_unproven",
+            lambda raw: raw["cells"][2].pop("session_id"),
+            "session_id_missing",
         ),
         (
-            lambda raw: raw["cells"][3].pop("session_id"),
-            "session_id_missing",
+            lambda raw: raw["cells"][0].update(proof_scope="desktop_window"),
+            "proof_scope_invalid",
         ),
         (lambda raw: raw["cells"].pop(), "broker_cell_count_invalid"),
         (
@@ -143,7 +146,9 @@ def test_matrix_refuses_unpinned_or_incomplete_evidence(mutation, code) -> None:
 def test_floor_qualified_version_is_not_a_candidate() -> None:
     raw = _matrix()
     candidate = next(
-        cell for cell in raw["cells"] if cell["surface"] == "claude-desktop"
+        cell
+        for cell in raw["cells"]
+        if cell["surface"] == "claude-desktop" and cell["mode"] == "identify"
     )
     candidate["expected_version"] = CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION
     raw["cells"] = [candidate]
@@ -171,7 +176,9 @@ def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells(
     require_exact_desktop_active_policy(monkeypatch)
     raw = _matrix()
     candidate = next(
-        cell for cell in raw["cells"] if cell["surface"] == "claude-desktop"
+        cell
+        for cell in raw["cells"]
+        if cell["surface"] == "claude-desktop" and cell["mode"] == "identify"
     )
     candidate["expected_version"] = CLAUDE_DESKTOP_EXACT_POLICY_CANDIDATE_VERSION
     raw["cells"] = [candidate]
@@ -191,7 +198,7 @@ def test_candidate_matrix_rejects_empty_duplicate_or_already_proven_cells(
         assert raised.value.code == code
 
 
-def test_readiness_matrix_retains_complete_deferred_contract() -> None:
+def test_readiness_matrix_retains_complete_contract() -> None:
     raw = _matrix()
     for cell in raw["cells"]:
         if cell["surface"] == "claude-cli":
@@ -199,7 +206,7 @@ def test_readiness_matrix_retains_complete_deferred_contract() -> None:
 
     parsed = parse_readiness_matrix(raw)
 
-    assert len(parsed.cells) == 6
+    assert len(parsed.cells) == 5
 
 
 def test_run_id_is_bounded_for_repeatable_idempotency_keys() -> None:

@@ -11,6 +11,7 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_versions import wake_operation
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from runtime.api.domain.test_session_message_support import (
+    NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
     message_connection,
@@ -28,7 +29,7 @@ def _send(conn) -> str:
         conn,
         actor_id=10,
         sender_session_id="s2",
-        selector=selector(session_ids=["s1"]),
+        selector=selector(session_ids=[NATIVE_WAKE_SESSION_ID]),
         body="Never pass this body to a native wake.",
         now=NOW,
     )["message_id"]
@@ -43,8 +44,8 @@ def _stamp(conn, *, when, tool_call: str = NOW_TEXT) -> None:
     """
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
-        "WHERE session_id='s1'",
-        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call),
+        "WHERE session_id=?",
+        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, NATIVE_WAKE_SESSION_ID),
     )
     conn.commit()
 

@@ -203,6 +203,19 @@ def mark_refusal_text(mark: dict[str, Any]) -> str:
 
 def launch_refusal_message(conn: Any, preview: LaunchPreview) -> str:
     prefix = f"launch refused with outcome {preview.outcome}"
+    if preview.outcome == "unsupported_surface":
+        surface = preview.requested_surface
+        if surface == "codex-desktop":
+            return (
+                f"{prefix}: codex-desktop declares create=none because its owning "
+                "desktop app holds the only writer lease, so Yoke cannot create or "
+                "wake that conversation. Recovery: request codex-cli for "
+                "Yoke-created work."
+            )
+        return (
+            f"{prefix}: {surface} declares create=none. Recovery: choose a surface "
+            "whose session-control create capability is supported and retry."
+        )
     if SURFACE_DISABLED_REJECTION not in preview.rejection_codes:
         codes = ", ".join(preview.rejection_codes) or "no relay evidence"
         return f"{prefix}: {codes}"

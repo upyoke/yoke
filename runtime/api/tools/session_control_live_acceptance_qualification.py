@@ -11,7 +11,6 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
     AcceptanceMatrix,
-    acceptance_operation,
 )
 from yoke_contracts.session_control.private_route_qualification import (
     QUALIFICATION_RELEASE_REASON,
@@ -118,7 +117,7 @@ class QualificationCoordinator:
         operation: str,
         route: str | None = None,
     ) -> OpenedQualification | None:
-        if operation != acceptance_operation(cell.surface):
+        if operation != cell.operation:
             return None
         if surface_operation_supported(cell.surface, cell.expected_version, operation):
             return None

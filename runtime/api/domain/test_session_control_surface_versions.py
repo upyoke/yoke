@@ -67,6 +67,18 @@ def test_codex_cli_build_revision_only_affects_capability_comparison() -> None:
         assert not surface_version_supported("codex-cli", malformed)
 
 
+def test_desktop_create_contract_matches_external_writer_capabilities() -> None:
+    for surface, version in (
+        ("claude-desktop", "1.32885.1"),
+        ("codex-desktop", "26.814.41407"),
+    ):
+        assert not surface_operation_supported(surface, version, "create")
+    for operation in ("message_active", "message_idle", "message_stopped"):
+        assert not surface_operation_supported(
+            "codex-desktop", "26.814.41407", operation
+        )
+
+
 def test_private_route_registry_uses_floors_for_every_private_route() -> None:
     expected = {
         (surface, operation): PrivateRouteVersionQualification.surface_floor()

@@ -28,7 +28,9 @@ from runtime.api.tools.session_control_live_acceptance_broker_preparation import
 )
 from runtime.api.tools.session_control_live_acceptance_client import YokeCliClient
 from runtime.api.tools.session_control_live_acceptance_contract import (
-    ACCEPTANCE_SURFACES,
+    ACCEPTANCE_SURFACE_CELLS,
+    REGISTERED_BROKER_PROOF_SCOPE,
+    REGISTERED_SURFACE_PROOF_SCOPE,
     SCHEMA_VERSION,
     AcceptanceContractError,
     acceptance_operation,
@@ -78,7 +80,7 @@ def _canonical_document(
             if not surface_operation_supported(
                 cell["surface"],
                 cell["expected_version"],
-                acceptance_operation(cell["surface"]),
+                acceptance_operation(cell["surface"], cell["mode"]),
             )
         ]
     parser = parse_candidate_matrix if qualification_candidate else parse_matrix
@@ -90,6 +92,7 @@ def _canonical_document(
             "expected_version": cell.expected_version,
             "mode": cell.mode,
             "acceptance_role": cell.acceptance_role,
+            "proof_scope": cell.proof_scope,
             "wake_route": cell.route,
         }
         for key in ("session_id", "machine_id", "model", "broker_session_id"):
@@ -106,7 +109,7 @@ def build_acceptance_matrix_document(
     *,
     qualification_candidate: bool = False,
 ) -> dict[str, Any]:
-    """Build the only supported five-surface plus one route-selection matrix.
+    """Build four registered-surface proofs plus one route-selection proof.
 
     The last cell binds a stopped target and a same-machine peer without
     pinning a route: the plane selects direct or broker from that machine's
@@ -114,13 +117,14 @@ def build_acceptance_matrix_document(
     """
     versions = bindings.versions.model_dump(by_alias=True)
     cells: list[dict[str, Any]] = []
-    for surface in ACCEPTANCE_SURFACES:
-        active_only = surface == "claude-desktop"
+    for surface, mode in ACCEPTANCE_SURFACE_CELLS:
+        active_only = mode == "identify"
         row: dict[str, Any] = {
             "surface": surface,
             "expected_version": versions[surface],
-            "mode": "identify" if active_only else "create",
+            "mode": mode,
             "acceptance_role": "surface",
+            "proof_scope": REGISTERED_SURFACE_PROOF_SCOPE,
             "wake_route": expected_wake_route(surface, versions[surface], versions),
         }
         if active_only:
@@ -134,6 +138,7 @@ def build_acceptance_matrix_document(
             "session_id": bindings.broker.target_session_id,
             "machine_id": bindings.broker.machine_id,
             "acceptance_role": "broker",
+            "proof_scope": REGISTERED_BROKER_PROOF_SCOPE,
             "wake_route": MACHINE_SELECTED_ROUTE,
             "broker_session_id": bindings.broker.peer_session_id,
         }

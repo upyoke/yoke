@@ -162,16 +162,6 @@ def test_desktop_active_ack_then_ended_waiting_proves_no_wake() -> None:
     ("cell", "row", "code"),
     (
         (
-            AcceptanceCell(
-                "codex-desktop",
-                "26.818.31338",
-                "identify",
-                session_id="desktop-session",
-            ),
-            _ended_row(),
-            "waiting_route_missing",
-        ),
-        (
             _desktop_cell(mode="create"),
             _ended_row(),
             "ended_waiting_cli_required",

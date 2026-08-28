@@ -6,7 +6,7 @@ import pytest
 
 from runtime.api.tools.session_control_live_acceptance_contract import (
     SCHEMA_VERSION,
-    ACCEPTANCE_SURFACES,
+    ACCEPTANCE_SURFACE_CELLS,
     AcceptanceContractError,
     parse_candidate_matrix,
     parse_readiness_matrix,
@@ -23,16 +23,16 @@ def _version(surface: str) -> str:
     return SESSION_SURFACE_CAPABILITIES[surface].minimum_version
 
 
-def _surface_cell(surface: str) -> dict:
-    identify_only = surface == "claude-desktop"
+def _surface_cell(surface: str, mode: str) -> dict:
     cell: dict = {
         "surface": surface,
         "expected_version": _version(surface),
-        "mode": "identify" if identify_only else "create",
+        "mode": mode,
         "acceptance_role": "surface",
+        "proof_scope": "registered_session_control_surface",
         "wake_route": "direct",
     }
-    if identify_only:
+    if mode == "identify":
         cell["session_id"] = "claude-desktop-session"
     return cell
 
@@ -45,6 +45,7 @@ def _broker_cell(surface: str) -> dict:
         "session_id": "broker-target",
         "machine_id": "machine-1",
         "acceptance_role": "broker",
+        "proof_scope": "registered_broker_wake_route",
         "wake_route": "machine_selected",
         "broker_session_id": "broker-peer",
     }
@@ -57,14 +58,17 @@ def test_acceptance_matrix_runs_every_surface_before_any_broker() -> None:
             "project": "yoke",
             "cells": [
                 _broker_cell("codex-cli"),
-                *(_surface_cell(surface) for surface in reversed(ACCEPTANCE_SURFACES)),
+                *(
+                    _surface_cell(surface, mode)
+                    for surface, mode in reversed(ACCEPTANCE_SURFACE_CELLS)
+                ),
             ],
         }
     )
 
-    assert tuple((cell.surface, cell.acceptance_role) for cell in parsed.cells) == (
-        *((surface, "surface") for surface in ACCEPTANCE_SURFACES),
-        ("codex-cli", "broker"),
+    assert tuple((cell.surface, cell.mode) for cell in parsed.cells) == (
+        *ACCEPTANCE_SURFACE_CELLS,
+        ("codex-cli", "identify"),
     )
 
 

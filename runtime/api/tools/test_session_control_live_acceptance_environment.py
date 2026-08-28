@@ -57,7 +57,7 @@ def test_full_runner_refuses_non_prod_before_loading_or_constructing_cli(
 def test_full_runner_pins_prod_after_active_env_switch(monkeypatch, capsys) -> None:
     matrix = AcceptanceMatrix(
         "yoke",
-        (AcceptanceCell("codex-desktop", "26.814.41407", "create"),),
+        (AcceptanceCell("codex-cli", "0.148.0-alpha.15", "create"),),
     )
     state = {"active_env": "prod"}
     captured: dict[str, object] = {}

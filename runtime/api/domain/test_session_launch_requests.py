@@ -172,16 +172,33 @@ def test_preview_requires_machine_when_multiple_eligible_machines_exist() -> Non
     assert auto_selected.selected_relay.relay_id == "r1"
 
 
-def test_preview_refuses_unsupported_create_surface() -> None:
+def test_codex_desktop_create_refuses_with_the_supported_recovery() -> None:
     conn = launch_connection()
     result = preview_launch(
         conn,
         auth=authorization(),
         project_id=10,
-        surface="claude-desktop",
+        surface="codex-desktop",
         now=NOW,
     )
     assert result.outcome == "unsupported_surface"
+
+    with pytest.raises(SessionLaunchError) as refused:
+        create_launch(
+            conn,
+            auth=authorization(),
+            request=LaunchRequest(
+                project_id=10,
+                executor_surface="codex-desktop",
+                instructions="Run the bounded task.",
+                idempotency_key="unsupported-desktop",
+            ),
+            now=NOW,
+        )
+
+    assert refused.value.code == "unsupported_surface"
+    assert "only writer lease" in str(refused.value)
+    assert "request codex-cli" in str(refused.value)
 
 
 def test_create_stores_instructions_once_and_deduplicates_exact_request() -> None:

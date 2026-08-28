@@ -52,7 +52,7 @@ def test_top_level_entrypoint_emits_machine_readable_report(
 ) -> None:
     matrix = AcceptanceMatrix(
         "yoke",
-        (AcceptanceCell("codex-desktop", "26.814.41407", "create"),),
+        (AcceptanceCell("codex-cli", "0.148.0-alpha.15", "create"),),
     )
     captured = {}
 
@@ -191,7 +191,7 @@ def test_entrypoint_refuses_release_mismatch_before_mutating_cli(
 ) -> None:
     matrix = AcceptanceMatrix(
         "yoke",
-        (AcceptanceCell("codex-desktop", "26.814.41407", "create"),),
+        (AcceptanceCell("codex-cli", "0.148.0-alpha.15", "create"),),
     )
 
     class _Client:

@@ -64,7 +64,7 @@ def test_fallback_requires_request_and_organization_gates(
     assert preview.launchable is (request_gate and organization_gate)
 
 
-def test_exact_surface_wins_even_when_fallback_is_enabled() -> None:
+def test_exact_surface_wins_and_unsupported_alternatives_are_ignored() -> None:
     conn = launch_connection()
     add_relay(conn, relay_id="exact", machine_id="m1", surface="codex-cli")
     add_relay(
@@ -88,6 +88,7 @@ def test_exact_surface_wins_even_when_fallback_is_enabled() -> None:
     assert preview.selected_surface == "codex-cli"
     assert preview.fallback_used is False
     assert preview.selected_relay and preview.selected_relay.relay_id == "exact"
+    assert [relay.relay_id for relay in preview.eligible_relays] == ["exact"]
 
 
 def test_fallback_is_same_family_version_proven_and_deterministic() -> None:
@@ -121,7 +122,7 @@ def test_fallback_is_same_family_version_proven_and_deterministic() -> None:
         conn,
         auth=authorization(),
         project_id=10,
-        surface="claude-desktop",
+        surface="codex-desktop",
         allow_surface_fallback=True,
         surface_fallback_enabled=True,
         now=NOW,
@@ -207,9 +208,9 @@ def test_retry_reselects_without_changing_the_original_request() -> None:
     conn.execute("UPDATE session_relays SET state='revoked'")
     add_relay(
         conn,
-        relay_id="desktop",
-        surface="codex-desktop",
-        version="26.814.41407",
+        relay_id="replacement-cli",
+        surface="codex-cli",
+        version="0.148.0-alpha.15",
     )
 
     with pytest.raises(SessionLaunchError) as gated:
@@ -231,4 +232,4 @@ def test_retry_reselects_without_changing_the_original_request() -> None:
     )
 
     assert retried.requested_surface == "codex-vscode"
-    assert retried.selected_surface == "codex-desktop"
+    assert retried.selected_surface == "codex-cli"
