@@ -25,6 +25,13 @@ steering scope. Do not wait for the operator to pick. Nothing else
 staffs: the fleet report names work that sat unpicked, and this seat is
 what acts on it, using the launcher recipe below.
 
+Surfaces are not exclusive. Each of `claude-cli`, `codex-cli`, and
+`cursor-cli` hosts as many concurrent sessions as the work needs. Do
+not invent a one-session-per-surface cap — nothing states one and no
+mechanism enforces one. Staff every runnable unclaimed item. The bound
+is that item set plus whether the chosen CLI surface is launchable
+(preview in rule 3). Balance never withholds a launch.
+
 Staff what this seat files in the same pass that files it, as soon as the
 item is runnable. Do not wait for a report to name work created seconds
 ago: the report exists for work this seat did not create, and an item it
@@ -36,18 +43,41 @@ Steering-launched sessions use `claude-cli`, `codex-cli`, or
 `cursor-cli`. Desktop surfaces only when the operator directs it or a
 named exception scenario requires it.
 
+Preview the chosen CLI surface before every launch. Pass that target
+`--surface` explicitly; never the calling session's own surface. A
+steering session commonly runs on a desktop surface that cannot create
+sessions.
+
+```text
+yoke session-control launch preview --project {_project} --surface {_surface} --json
+```
+
+Read `launchable`, `rejection_codes`, and `eligible_relays`.
+`claude-desktop` returns `launchable=false` with
+`rejection_codes=["unsupported_surface"]`; `codex-cli` returns
+`launchable=true` with relays and a version. Codes an agent meets:
+
+- `unsupported_surface` — requested surface cannot create. Preview a
+  CLI surface instead.
+- `surface_disabled` — operator mark; staff onto the other CLI surfaces.
+- `no_eligible_relay` — no live relay for that surface; try another CLI
+  surface.
+
+A refusal names the surface, not the item. Do not skip remaining work
+because one surface refused.
+
 Keep steady-state launches balanced across all three CLI surfaces. Deviate
 only for a named live reason, such as a failing launch path or a capability
 the item specifically needs, and return to balance when that reason expires.
-The spread is diagnostic: skew can hide a harness-specific regression.
-The fleet report's launch-balance block shows the live count per launchable
-surface on each machine. A surface absent from that line cannot accept a
-launch — do not read a missing surface as zero.
+The spread is diagnostic, not a quota: skew can hide a harness-specific
+regression. The fleet report's launch-balance block shows the live count
+per launchable surface on each machine. A surface absent from that line
+cannot accept a launch — do not read a missing surface as zero.
 
 Measure balance against live load; never assume it from the batch. Read those
 counts before staffing, then allocate each launch so the counts it leaves
-behind come out as level as they can. Leveling chooses which surface a launch
-goes to; it never withholds one.
+behind come out as level as they can. Leveling routes a launch onto the
+least-loaded launchable surface; it never withholds one.
 
 Never split a batch evenly across surfaces. An even split preserves whatever
 skew is already there: six items sent two per surface onto a fleet already
@@ -58,10 +88,6 @@ cursor.
 Allocation at launch is the only chance to get this right. Rebalancing
 afterwards would mean killing live workers mid-item, so there is no second
 pass that fixes a skewed batch.
-
-```text
-yoke session-control launch preview --project {_project} --surface {_surface} --json
-```
 
 ## 4. Route one item through its pinned workflow, never via `/yoke do`
 
@@ -116,7 +142,9 @@ yoke session-control launch preview --project {_project} --surface {_surface} --
 
 ## Launcher recipe
 
-Preview, then create. The body is stdin. CLI surface only. One item.
+Preview is mandatory. Do not create until preview returns
+`launchable=true` for the chosen CLI surface. The body is stdin. CLI
+surface only. One item.
 
 ```text
 printf '%s' "$BODY" | yoke session-control launch create \
