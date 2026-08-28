@@ -8,7 +8,7 @@ import sqlite3
 
 def test_migration_is_idempotent_and_declares_all_columns():
     migration = importlib.import_module(
-        "yoke_core.domain.migrations.0023_session_presentation_and_launch_name"
+        "yoke_core.domain.migrations.0024_session_presentation_and_launch_name"
     )
     conn = sqlite3.connect(":memory:")
     conn.execute("CREATE TABLE harness_sessions (session_id TEXT PRIMARY KEY)")
