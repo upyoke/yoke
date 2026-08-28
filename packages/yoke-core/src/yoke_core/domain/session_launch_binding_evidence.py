@@ -6,14 +6,16 @@ started: both end at the deadline with a terminal code and nothing else. The
 two need entirely different repairs, so the refusal itself is written onto the
 launch while it is still true.
 
-Model labels get their own pair of fields because they are the one binding
-fact the two sides do not share a vocabulary for. A launch requests the string
-its native command line accepts (Cursor's variant-qualified
-``cursor-grok-4.6-xhigh``); the hook payload often reports a bare id
-(``grok-4.6``). Comparing those for equality refused every correctly-bound
-Cursor launch, so bind identity ignores the model and records both labels.
-The cursor session row itself stores ``requested_model`` in the one model
-field; this evidence pair is launch diagnostics, not a second roster field.
+Model labels get their own pair of fields because a launch's model is a
+request and the session's model is a measurement, and the two legitimately
+differ. A launch asks for the string the native command line accepts
+(Cursor's variant-qualified ``cursor-grok-4.6-xhigh``); the session records
+what the native actually ran. Comparing them for equality refused every
+correctly-bound Cursor launch, so bind identity ignores the model and
+records both labels instead — which is also how an operator sees that a
+launch asked for one variant and got another. This pair is launch
+diagnostics, not a second roster field, and the session's own model field
+is never overwritten with the request.
 """
 
 from __future__ import annotations

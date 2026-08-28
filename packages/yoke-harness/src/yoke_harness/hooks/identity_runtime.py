@@ -66,14 +66,28 @@ def _is_placeholder_model(value: object) -> bool:
 
 
 def cursor_payload_model(payload: dict[str, Any]) -> str:
-    """Return the concrete model a Cursor hook payload names, or ``""``.
+    """Return the model a Cursor conversation is executing, or ``""``.
 
-    Cursor multiplexes providers, so the model a session runs under is only
-    knowable from what it reports. ``model`` is the variant-qualified id
-    and may carry an effort tier; ``model_id`` is the bare id and is
-    strictly less informative. Prefer ``model``. A build that still sends
-    the ``"default"`` placeholder is reporting no model at all.
+    Cursor's own conversation store names the variant that actually served
+    each request, tier included, so it is consulted first and is the only
+    source here that is a measurement rather than a report. The payload's
+    own fields answer for a conversation whose store cannot be read yet —
+    a fresh session whose first request has not been composed: ``model`` is
+    the variant-qualified id and may carry the effort tier, ``model_id`` is
+    the bare id and is strictly less informative, so ``model`` is preferred.
+    A build that still sends the ``"default"`` placeholder is reporting no
+    model at all.
+
+    An empty result means the model is not knowable yet, and the caller
+    records the session as unknown. It never means the machine default, and
+    a launch's requested model is deliberately not consulted: a request that
+    cursor-agent declined to honor would be recorded as the fact it is not.
     """
+    from yoke_harness.cursor_executed_model import executed_model_for_payload
+
+    executed = executed_model_for_payload(payload)
+    if executed:
+        return executed
     for key in ("model", "model_id"):
         value = payload.get(key)
         if isinstance(value, str) and not _is_placeholder_model(value):

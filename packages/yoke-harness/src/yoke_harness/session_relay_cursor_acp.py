@@ -27,11 +27,15 @@ from yoke_harness.session_relay_cursor_acp_stderr import (
     BoundedStderr,
     native_diagnostic_fields,
 )
+from yoke_harness.session_relay_cursor_acp_requests import (
+    acp_environment,
+    prompt_params,
+    session_params,
+)
 from yoke_harness.session_relay_cursor_acp_terminal import (
     CursorAcpTerminalRegistry,
     respond_to_agent_request,
 )
-from yoke_harness.session_relay_environment import native_session_environment
 
 
 CURSOR_ACP_TIMEOUT_SECONDS = 20.0
@@ -41,34 +45,6 @@ _MAX_LINE_BYTES = 4 * 1024 * 1024
 
 class CursorAcpError(RuntimeError):
     """The closed ACP exchange could not prove its requested boundary."""
-
-
-def _environment(
-    request: CursorCreateRequest | CursorWakeRequest,
-) -> dict[str, str]:
-    launch = request if isinstance(request, CursorCreateRequest) else None
-    return native_session_environment(
-        executor="cursor",
-        provider="cursor",
-        model=launch.requested_model if launch else None,
-        markers={"CURSOR_INVOKED_AS": "cursor-agent"},
-        launch_id=launch.launch_id if launch else None,
-        launch_attestation=launch.launch_attestation if launch else None,
-    )
-
-
-def _session_params(checkout: Path, model: str | None = None) -> dict[str, object]:
-    params: dict[str, object] = {"cwd": str(checkout.resolve()), "mcpServers": []}
-    if model:
-        params["model"] = model
-    return params
-
-
-def _prompt_params(session_id: str, instruction: str) -> dict[str, object]:
-    return {
-        "sessionId": session_id,
-        "prompt": [{"type": "text", "text": instruction}],
-    }
 
 
 class _Client:
@@ -178,7 +154,7 @@ class _Client:
 
     def start_prompt(self, session_id: str, instruction: str) -> None:
         request_id = self._request_id(
-            "session/prompt", _prompt_params(session_id, instruction)
+            "session/prompt", prompt_params(session_id, instruction)
         )
 
         def drain() -> None:
@@ -251,7 +227,7 @@ class CursorAcpTransport:
         checkout: Path,
         request: CursorCreateRequest | CursorWakeRequest,
     ) -> _Client:
-        client = _Client(self.binary, checkout, _environment(request), self.timeout)
+        client = _Client(self.binary, checkout, acp_environment(request), self.timeout)
         try:
             client.request(
                 "initialize",
@@ -281,10 +257,7 @@ class CursorAcpTransport:
         session_id: str | None = None
         try:
             client = self._client(request.checkout, request)
-            result = client.request(
-                "session/new",
-                _session_params(request.checkout, request.requested_model),
-            )
+            result = client.request("session/new", session_params(request.checkout))
             session_id = session_id_from_native_payload(result)
             if session_id is None:
                 diagnostic = native_diagnostic_fields(client)
@@ -303,6 +276,22 @@ class CursorAcpTransport:
                 client.process.pid,
                 native_session_id=session_id,
             )
+            if request.requested_model:
+                # ``session/new`` takes a model parameter and ignores it;
+                # this is the method that acts. It admits only its own
+                # bracket catalog, so a launch naming a command-line variant
+                # is refused and the session keeps its default — not hidden,
+                # because the executed model reads back as a divergence.
+                try:
+                    client.request(
+                        "session/set_model",
+                        {
+                            "sessionId": session_id,
+                            "modelId": request.requested_model,
+                        },
+                    )
+                except CursorAcpError:
+                    pass
             client.start_prompt(session_id, request.native_instruction)
             return CursorNativeResult(
                 "native_created",
@@ -326,7 +315,7 @@ class CursorAcpTransport:
         loaded = False
         try:
             client = self._client(request.checkout, request)
-            params = _session_params(request.checkout)
+            params = session_params(request.checkout)
             params["sessionId"] = request.target_session_id
             client.request("session/load", params)
             loaded = True

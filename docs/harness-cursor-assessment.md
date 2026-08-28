@@ -121,16 +121,13 @@ until the reconnects ran out. The budget this event once had is now zero,
 whatever the hook replies — bisect in
 [the decision record](archive/decisions/woken-turn-survives-to-take-delivery.md).
 
-Losing it costs nothing, because the same build moved the answer it
-carried. It was the only event naming a concrete model while every other
-payload reported the `"default"` placeholder, and nothing else recovered
-one: transcripts record only `{role, message}`, hook processes are children
-of `/bin/zsh -lc` not `cursor-agent`, and no model env var is exported. Now
-`sessionStart`/`sessionEnd` and the tool-call events name a bare `model`
-(`grok-4.6`) with no `model_id` and no effort tier. Registration prefers
-`model` over `model_id` when both exist; a launch-bound cursor session
-then stores the launch's `requested_model` in that same field. Owner:
-`yoke_harness.hooks.identity_runtime.cursor_payload_model`.
+Losing it costs nothing: `sessionStart`/`sessionEnd` and the tool-call events
+now name a bare `model` (`grok-4.6`), no `model_id` and no effort tier, and
+the tier is measured rather than reported. Cursor's per-conversation
+`store.db` names the variant that served each request, so it is read first
+and the payload answers only until a first request exists. A launch's
+requested model is never substituted; an unknowable model records as unknown.
+Owners: `yoke_harness.cursor_executed_model`, then `identity_runtime.cursor_payload_model`.
 
 **The one channel a resumed print-mode turn can be reached on is
 `sessionStart`.** A stopped session is woken with `cursor-agent --resume
@@ -316,18 +313,21 @@ closed. A map miss is now a created native with
 the outcome, and the supervision record still reaps a native that never
 registers.
 
-**Model labels are two vocabularies, and equality between them refused every
-correctly-bound launch.** A launch requests the string `cursor-agent --model`
-accepts (the machine-config preferred model, e.g `cursor-grok-4.6-high-fast`);
-a Cursor session registers the concrete model its own hook payload names
-(e.g `grok-4.6`). The launch binding compared the two for
+**A requested model and a recorded model are different facts, and equality
+between them refused every correctly-bound launch.** A launch requests the
+string `cursor-agent --model` accepts (`cursor-grok-4.6-xhigh`); a session
+registers the model it measurably ran. The binding compared the two for
 equality, so launches `e2b0473e` and `8e88bd1f` — natives that registered
-under exactly the `native_session_id` the relay recorded and ran 71 and 79
-tool calls — were refused `model_mismatch` on every attestation retry, never
-received their instruction, surveyed unassigned, and were reaped claim-free
-while their launch rows read `late_registration`. The native session id proves
-exact identity already, so the binding records `requested_model` /
-`registered_model` as evidence instead of refusing.
+under exactly the recorded `native_session_id` and ran 71 and 79 tool calls —
+were refused `model_mismatch` on every attestation retry, never received their
+instruction, and were reaped claim-free while their launch rows read
+`late_registration`. The native session id proves exact identity already, so
+the binding records `requested_model` / `registered_model` as evidence
+instead of refusing — which is also how an operator sees a launch that asked
+for one variant and ran another. ACP `session/new` takes a `model` parameter
+and ignores it (2026.08.25: `cursor-grok-4.6-xhigh` answered
+`grok-4.6[effort=high,fast=true]`), so `--model` on the CLI resume is the
+channel that holds; the conversation then keeps that variant.
 
 ## Open questions
 

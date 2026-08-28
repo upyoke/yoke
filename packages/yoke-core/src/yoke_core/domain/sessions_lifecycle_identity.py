@@ -241,18 +241,6 @@ def refresh_active_duplicate_identity(
     from yoke_harness.hooks.identity import _is_placeholder_model
 
     stored_model = _stored_value(existing, "model")
-    from yoke_core.domain.session_launch_cursor_model import (
-        heal_cursor_session_model_from_launch,
-    )
-
-    healed = heal_cursor_session_model_from_launch(
-        conn,
-        session_id,
-        _stored_value(existing, "executor_surface"),
-    )
-    if healed:
-        stored_model = healed
-        conn.commit()
     if _is_placeholder_model(stored_model) and not _is_placeholder_model(model):
         conn.execute(
             f"UPDATE harness_sessions SET model = {placeholder} "

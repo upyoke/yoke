@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from dataclasses import replace
 from pathlib import Path
 import time
 from types import SimpleNamespace
@@ -57,6 +58,7 @@ def _wake_request(tmp_path: Path) -> CursorWakeRequest:
         target_liveness="ended",
         wake_mode="waiting",
         native_instruction=CHECK_INBOX,
+        requested_model="composer-2",
     )
 
 
@@ -90,6 +92,9 @@ def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
     assert command[:3] == ["/opt/cursor-agent", "--resume", SESSION_ID]
     assert "--trust" in command
     assert "--force" in command
+    # The one channel cursor-agent honors: without it the turn silently runs
+    # the machine default, whatever the launch asked for.
+    assert command[command.index("--model") + 1] == "composer-2"
     assert command[-1] == CHECK_INBOX
     assert "CODEX_SESSION_ID" not in options["env"]
     assert options["env"]["YOKE_EXECUTOR"] == "cursor"
@@ -97,6 +102,26 @@ def test_cli_wake_spawns_the_exact_session_with_no_launch_identity(
     assert options["env"]["CURSOR_INVOKED_AS"] == "cursor-agent"
     # A wake carries no launch, so it must not carry a launch attestation.
     assert LAUNCH_CONTEXT_ENV not in options["env"]
+
+
+def test_cli_wake_names_no_model_when_the_relay_asked_for_none(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # A wake inherits whatever variant the conversation last ran, so naming a
+    # model the relay did not ask for would override the session's own.
+    spawns = []
+    monkeypatch.setattr(
+        cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
+    )
+    request = replace(_wake_request(tmp_path), requested_model=None)
+
+    CursorCliTransport(
+        process_factory=lambda command, **kwargs: spawns.append(command)
+        or RunningProcess()
+    ).resume_chat(request)
+
+    assert "--model" not in spawns[0]
 
 
 def test_cli_wake_refuses_an_inexact_session_before_spawn(
@@ -107,15 +132,7 @@ def test_cli_wake_refuses_an_inexact_session_before_spawn(
     monkeypatch.setattr(
         cli_module, "resolve_native_cli", lambda _name: "/opt/cursor-agent"
     )
-    request = _wake_request(tmp_path)
-    request = CursorWakeRequest(
-        checkout=request.checkout,
-        target_session_id="not-an-id",
-        surface_version=request.surface_version,
-        target_liveness=request.target_liveness,
-        wake_mode=request.wake_mode,
-        native_instruction=request.native_instruction,
-    )
+    request = replace(_wake_request(tmp_path), target_session_id="not-an-id")
 
     result = CursorCliTransport(
         process_factory=lambda *args, **kwargs: spawns.append((args, kwargs))
@@ -132,10 +149,13 @@ class FakeAcpClient:
         self.closed = False
         self.new_session_id = None
         self.new_session_result = None
+        self.refuse_set_model = False
         self.process = SimpleNamespace(pid=4321)
 
     def request(self, method, params):
         self.requests.append((method, params))
+        if method == "session/set_model" and self.refuse_set_model:
+            raise acp_module.CursorAcpError("Invalid model value")
         if method == "session/new":
             if self.new_session_result is not None:
                 return self.new_session_result
@@ -192,18 +212,39 @@ def test_acp_launch_creates_a_session_and_makes_it_containable(
     assert result.result_code == "native_created"
     assert result.native_session_id == SESSION_ID
     assert client.requests == [
+        ("session/new", {"cwd": str(tmp_path.resolve()), "mcpServers": []}),
         (
-            "session/new",
-            {
-                "cwd": str(tmp_path.resolve()),
-                "mcpServers": [],
-                "model": "composer-2",
-            },
-        )
+            "session/set_model",
+            {"sessionId": SESSION_ID, "modelId": "composer-2"},
+        ),
     ]
     assert client.prompts == [(SESSION_ID, BOOTSTRAP)]
     # The relay owns the process, so it records what it would have to kill.
     assert recorded == [(LAUNCH_ID, client.process.pid, SESSION_ID)]
+
+
+def test_acp_launch_survives_a_refused_model_selection(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    # session/set_model admits only its own bracket catalog, so a launch
+    # naming a command-line variant is refused there. The session still
+    # launches at its default and records what it actually ran.
+    client = FakeAcpClient()
+    client.new_session_id = SESSION_ID
+    client.refuse_set_model = True
+    transport = CursorAcpTransport(worker=True)
+    monkeypatch.setattr(transport, "_client", lambda _checkout, _request: client)
+    monkeypatch.setattr(
+        acp_module,
+        "record_supervised_native",
+        lambda launch_id, pid, native_session_id=None: None,
+    )
+
+    result = transport.new_session(_create_request(tmp_path))
+
+    assert result.result_code == "native_created"
+    assert client.prompts == [(SESSION_ID, BOOTSTRAP)]
 
 
 def test_acp_launch_parse_failure_carries_output_snippet(
