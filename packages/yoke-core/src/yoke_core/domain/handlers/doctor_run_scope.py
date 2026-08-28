@@ -24,6 +24,7 @@ PROJECT_SAFE_QUICK_HEALTH_CHECK_SLUGS = frozenset({
     "project-gh-auth",
     "project-deploy-flows",
     "projects-ci-workflow-configured",
+    "projects-ci-workflow-resolves",
 })
 
 

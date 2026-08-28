@@ -97,6 +97,29 @@ def _transport_failed(message: str) -> HandlerOutcome:
     )
 
 
+def _auth_transport_failed(message: str) -> HandlerOutcome:
+    return HandlerOutcome(
+        result_payload={},
+        primary_success=False,
+        error=FunctionError(code="rest_auth_error", message=message),
+    )
+
+
+def _workflow_missing(workflow: str, repo: str, detail: str) -> HandlerOutcome:
+    return HandlerOutcome(
+        result_payload={},
+        primary_success=False,
+        error=FunctionError(
+            code="workflow_not_found",
+            message=(
+                f"declared workflow {workflow} does not exist in {repo}. "
+                f"{detail} Create the workflow under .github/workflows/, "
+                "or correct the project's ci_workflow_file declaration."
+            ),
+        ),
+    )
+
+
 def _classify(run: Optional[Dict[str, Any]]) -> CheckCiResponse:
     """Translate the latest ``workflow_runs[0]`` payload into a typed response."""
     if not run:
@@ -143,7 +166,11 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
             jsonpath="$.payload.repo",
         )
 
-    from yoke_core.domain.gh_rest_transport import RestTransportError
+    from yoke_core.domain.gh_rest_transport import (
+        RestAuthError,
+        RestNotFoundError,
+        RestTransportError,
+    )
     from yoke_core.domain.github_actions_rest import latest_workflow_run
     from yoke_core.domain.project_github_auth import (
         ProjectGithubAuthError,
@@ -175,6 +202,10 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
             head_sha=payload.head_sha,
             token=resolved.token,
         )
+    except RestNotFoundError as exc:
+        return _workflow_missing(payload.workflow, payload.repo, str(exc))
+    except RestAuthError as exc:
+        return _auth_transport_failed(f"latest_workflow_run failed: {exc}")
     except RestTransportError as exc:
         return _transport_failed(f"latest_workflow_run failed: {exc}")
 
