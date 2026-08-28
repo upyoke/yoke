@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-28T18:40:58Z_
+_Audit generated_at: 2026-08-28T19:08:45Z_
 
 ## 1. Summary
 
-- Function ids registered: **437**
+- Function ids registered: **438**
 - Internal dispatch-only functions without CLI adapters: **86**
-- `yoke` CLI subcommands: **364** (364 carry usable `--help`)
-- Operation tracker: **341 wrapped**, 13 tool_cli, 126 permanent, 0 pending
+- `yoke` CLI subcommands: **365** (365 carry usable `--help`)
+- Operation tracker: **342 wrapped**, 13 tool_cli, 126 permanent, 0 pending
 - Skill-body recipes: 330 total (277 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **341** (operation tracker confirms 341 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **342** (operation tracker confirms 342 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -313,6 +313,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **341** (operation track
 | strategy | `yoke strategy surface get` | `strategy.surface.get` | ok |
 | strategy | `yoke strategy surface list` | `strategy.surface.list` | ok |
 | test_machine | `yoke test-machine get` | `test_machine.get` | ok |
+| test_machine | `yoke test-machine list` | `test_machine.list` | ok |
 | test_machine | `yoke test-machine settings-replace` | `test_machine.settings_replace` | ok |
 | test_machine | `yoke test-machine verify` | `test_machine.verify` | ok |
 | workflow | `yoke workflow execution-instruction create` | `workflow.execution_instruction.create` | ok |
@@ -546,9 +547,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 42 |
-| claude-code | 5 |
-| cursor | 3 |
+| codex | 46 |
+| claude-code | 3 |
+| cursor | 1 |
 
 ## 8. Contradictions
 
