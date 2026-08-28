@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from typing import Tuple
 
+from yoke_core.domain.populate_registry_data_authoritative import (
+    ITEM_STATUS_CHANGED_DESCRIPTION,
+)
 
 CORRECTIVE_UPDATES: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     (
         "ItemStatusChanged",
         "lifecycle",
         "item_status_change",
-        "yoke_core.api.service_client",
-        "Item status transition (emitted by yoke_core.api.service_client)",
+        "yoke_core.domain.item_status_transitions",
+        ITEM_STATUS_CHANGED_DESCRIPTION,
         "STATUS",
     ),
     (

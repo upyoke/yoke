@@ -13,12 +13,12 @@ from typing import Any
 
 from yoke_contracts.api.function_call import FunctionCallResponse, HandlerOutcome
 from yoke_core.domain.function_authz_scope import is_explicit_client_local
+from yoke_core.domain.handler_execution_context import invoke_client_local_handler
 from yoke_core.domain.yoke_function_dispatch_observability import dispatch_observation
 from yoke_core.domain.yoke_function_registry import lookup
 
 
 def _dispatch(request: Any) -> FunctionCallResponse:
-    from yoke_core.domain import project_label_policy
     from yoke_core.domain.yoke_function_dispatch import (
         _build_response,
         _coerce_request,
@@ -45,10 +45,7 @@ def _dispatch(request: Any) -> FunctionCallResponse:
     if not is_explicit_client_local(entry.function_id):
         return _dispatch_impl(typed_request)
 
-    with project_label_policy.request_overrides(
-        typed_request.options.get("label_color_overrides")
-    ):
-        outcome = entry.handler(typed_request)
+    outcome = invoke_client_local_handler(entry.handler, typed_request)
     if not isinstance(outcome, HandlerOutcome):
         return _error_response(
             typed_request,

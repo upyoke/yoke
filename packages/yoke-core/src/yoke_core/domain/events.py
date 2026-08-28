@@ -24,6 +24,10 @@ from .events_emit_write import (
     _write_event,
 )
 from .events_envelope_shrink import fit_envelope_context
+from .events_acting_identity import (
+    ActingEventIdentityUnavailable,
+    apply_acting_event_identity,
+)
 from .events_isolation import (
     SYNTHETIC_SMOKE_FLAG as SYNTHETIC_SMOKE_FLAG,
     _resolve_db_path,
@@ -245,6 +249,7 @@ def emit_event(
             context=context,
             created_at=created_at,
         )
+        apply_acting_event_identity(envelope, conn=conn, db_path=db_path)
 
         capture_file = os.environ.get("YOKE_EVENTS_FILE")
         if os.environ.get("YOKE_EVENTS_CAPTURE") == "1" and capture_file:
@@ -314,6 +319,9 @@ def emit_event(
 
     except RetiredEventNameError:
         raise
+    except ActingEventIdentityUnavailable as exc:
+        logger.warning("Required event attribution refused: %s", exc)
+        return EmitResult(False, None, "acting_identity_unavailable", None)
     except Exception as exc:
         logger.debug("Native event emission failed for %s: %s", event_name, exc)
         exc_text = str(exc)

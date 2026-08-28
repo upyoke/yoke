@@ -34,7 +34,7 @@ Every event is a row in the `events` table. The canonical columns are:
 | `event_name` | TEXT | Yes | `PascalCase` unique name (e.g., `TaskStatusChanged`, `SyncFailed`) |
 | `event_outcome` | TEXT | No | `completed`, `failed`, `skipped`, or null |
 | `org_id` | TEXT | No | Organization identifier |
-| `actor_id` | INTEGER | No | Authenticated engine actor; references `actors(id)` |
+| `actor_id` | INTEGER | No | Authenticated or named system actor; references `actors(id)` |
 | `environment` | TEXT | No | `prod`, `stage`, `local` |
 | `service` | TEXT | Yes | Emitting service (default `cli`) |
 | `project` | TEXT | Yes | Project scope (default `yoke`) |
@@ -94,6 +94,8 @@ The `envelope` column stores a full JSON object. The `context` key holds event-s
 New envelopes omit the retired human-user key. Historical envelopes are
 immutable and may retain that key with a null value; consumers must ignore it
 and use `actor_id` for engine identity.
+
+`ItemStatusChanged` and `QARunCompleted` override caller-supplied attribution with the emitting call's resolved acting identity. Their `actor_id` is required; a session-bound write also requires that session's `session_id`. A genuinely sessionless sweep, backstop, or boot operation records an empty `session_id` with the named `yoke-core` system actor. Historical unattributed rows remain unchanged and are distinguishable by their empty fields.
 
 ```json
 {
