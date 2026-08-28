@@ -7,6 +7,10 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
+from yoke_contracts.hook_driver_process import (
+    DRIVER_PAYLOAD_KEY,
+    collect_driver_process,
+)
 from yoke_contracts.hook_runner.hook_ordering import (
     matchers_for,
     ordered_pipeline_for,
@@ -224,6 +228,10 @@ def evaluate_local_subset(
         report = extract_turn_end_report(payload=payload, transcript_text=text)
         if report is not None:
             payload_extra[REPORT_PAYLOAD_KEY] = report.as_dict()
+    # The driving process names itself on the machine where it actually runs:
+    # over the relay the evaluating server's own pid names an API worker, not
+    # the harness hook child that ran. Rides to the server in payload_extra.
+    payload_extra[DRIVER_PAYLOAD_KEY] = collect_driver_process()
     if defer_main_commit:
         payload_extra.update(_client_scratch_root_fact())
         payload_extra.update(_client_claude_job_tmp_fact())

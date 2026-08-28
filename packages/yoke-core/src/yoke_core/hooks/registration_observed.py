@@ -18,6 +18,10 @@ class HookRegistrationFacts:
     project_id: Optional[int] = None
     transcript_path: str = ""
     cwd: str = ""
+    #: The process and hook event that drove this registration, resolved by
+    #: the dispatch tail. Empty for registration paths that carry no hook
+    #: dispatch behind them (an operator surface calling the registrar).
+    driver: Optional[dict] = None
 
 
 def _positive_int(value: Any) -> Optional[int]:
@@ -66,7 +70,16 @@ def parse_hook_registration_facts(
         ),
         transcript_path=transcript_path or _text("transcript_path"),
         cwd=_text("cwd"),
+        driver=_driver_block(payload),
     )
+
+
+def _driver_block(payload: dict) -> Optional[dict]:
+    """Return the dispatch tail's driving-process block, when it rode along."""
+    from yoke_contracts.hook_driver_process import DRIVER_PAYLOAD_KEY
+
+    block = payload.get(DRIVER_PAYLOAD_KEY)
+    return dict(block) if isinstance(block, dict) and block else None
 
 
 def enrich_local_observed_facts(

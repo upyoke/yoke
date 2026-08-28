@@ -20,7 +20,6 @@ from .sessions_lifecycle_canonicalize import (
 )
 from .sessions_lifecycle_identity import (
     normalize_observed_identity,
-    record_reactivation_wake_driver,
     refresh_active_duplicate_identity,
     resolve_reactivation_executor_version,
     resolve_reactivation_identity,
@@ -28,6 +27,10 @@ from .sessions_lifecycle_identity import (
     resolve_session_project_id,
 )
 from .sessions_lifecycle_reactivation import emit_reactivated_with_released_claims
+from .sessions_reactivation_driver import (
+    build_reactivation_driver_stamp,
+    record_reactivation_wake_driver,
+)
 from .sessions_queries import _now_iso, _row_to_dict
 from .work_claim_targets import from_row as target_from_row
 
@@ -81,8 +84,19 @@ def register_session(
     executor_version: Optional[str] = None,
     machine_id: Optional[str] = None,
     native_thread_id: Optional[str] = None,
+    driver: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Register a new active session.
+
+    ``driver`` is the process that drove this call — pid, ppid, and the hook
+    event behind it — resolved by the hook dispatch tail. A reactivation
+    stamps it on its ``HarnessSessionStarted`` context unconditionally, so
+    "which process revived this session, and what hook event drove it" is
+    answerable from stored rows for every reactivation. It is deliberately
+    not stamped on a fresh registration: there the driving surface and the
+    registered surface are the same row, whereas a reactivation can be driven
+    across surfaces (a CLI hook reviving a desktop session) and the two facts
+    genuinely differ.
 
     ``native_thread_id`` is the harness's own thread/session identity
     (currently Codex's ``CODEX_THREAD_ID``) when the environment or a
@@ -122,6 +136,9 @@ def register_session(
         insert_cols += ", episode_started_at"
         insert_values.append(now)
     insert_placeholders = ", ".join([p] * len(insert_values))
+    # Populated only on the reactivation branch below; a fresh insert leaves
+    # the event context untouched.
+    reactivation_driver: Dict[str, Any] = {}
 
     try:
         conn.execute(
@@ -225,11 +242,20 @@ def register_session(
                 f"Session '{session_id}' is already registered.",
             )
         conn.commit()
+        reactivation_driver = build_reactivation_driver_stamp(
+            driver_surface=display_name,
+            driver_version=driver_version,
+            driver=driver,
+        )
+        # The wake-attempt evidence row keeps its stamp where an attempt is
+        # in flight, built from the SAME resolved facts as the event context
+        # below — the two records agree rather than reporting separately.
         record_reactivation_wake_driver(
             conn,
             session_id=session_id,
             driver_surface=display_name,
             driver_version=driver_version,
+            driver=driver,
         )
         # Reactivation surfaces prior session-ended claims and conditionally
         # auto-reacquires targets that have no active conflicting holder.
@@ -271,6 +297,8 @@ def register_session(
     event_context["project_id"] = resolved_project_id
     if entrypoint:
         event_context["entrypoint"] = entrypoint
+    if reactivation_driver:
+        event_context.update(reactivation_driver)
     _sa._emit_session_event(
         EVENT_HARNESS_SESSION_STARTED,
         session_id=session_id,

@@ -56,6 +56,14 @@ def hook_emit_connection():
     Best-effort: yields ``None`` when the active authority cannot be opened,
     so callers transparently degrade to per-call connections. Targets the
     same authority ``emit_event`` resolves by default.
+
+    Commits before closing. ``write_event_row_on_conn`` never commits the
+    caller's transaction — on a caller-owned connection that is the caller's
+    job — and this connection is not autocommit, so closing without the
+    commit rolled every batched row back. Nothing failed and nothing was
+    logged; the rows simply never existed, which is how the whole
+    ``HookDispatchTelemetry`` record went silent for a month while the
+    emitters, the severity floor, and the registry all stayed healthy.
     """
     conn = None
     try:
@@ -66,6 +74,13 @@ def hook_emit_connection():
         yield conn
     finally:
         if conn is not None:
+            try:
+                conn.commit()
+            except Exception:  # noqa: BLE001 — best-effort; nothing to escalate to
+                try:
+                    conn.rollback()
+                except Exception:  # noqa: BLE001
+                    pass
             try:
                 conn.close()
             except Exception:  # noqa: BLE001 — close failures are non-fatal

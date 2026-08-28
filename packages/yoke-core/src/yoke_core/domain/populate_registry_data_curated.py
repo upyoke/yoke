@@ -146,7 +146,7 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "system",
         "session_lifecycle",
         "yoke_core.hooks",
-        "A new session was registered in harness_sessions (emitted from the SessionStart hook via yoke_core.hooks)",
+        "A new session was registered in harness_sessions (emitted from the SessionStart hook via yoke_core.hooks). On a REACTIVATION the context also carries driver_surface, driver_version, driver_pid, driver_ppid, driver_pid_origin, and driver_hook_event — the process and hook event that revived the row. This record is unconditional: it does not depend on a wake attempt being in flight, and where one is, that attempt's evidence row is stamped from the same values so the two agree. A fresh registration carries no driver fields, because there the driving surface and the registered surface are the same row",
         "INFO",
     ),
     (
