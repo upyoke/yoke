@@ -51,8 +51,8 @@ def _seed_two_projects(conn, fake_yoke_root):
         project_id("yoke"),
         create_checkout=False,
     )
-    seed_item(conn, item_id=42, branch="YOK-42", repo_path=fake_yoke_root)
-    seed_item_claim(conn, "sid-a", item_id=42)
+    seed_item(conn, item_id=801, branch="lane-a", repo_path=fake_yoke_root)
+    seed_item_claim(conn, "sid-a", item_id=801)
     seed_item(
         conn,
         item_id=99,
@@ -114,7 +114,7 @@ def test_claim_holder_own_worktree_still_allowed(conn, fake_yoke_root):
         {
             "session_id": "sid-a",
             "tool_input": {
-                "file_path": str(fake_yoke_root / ".worktrees" / "YOK-42" / "src.py"),
+                "file_path": str(fake_yoke_root / ".worktrees" / "lane-a" / "src.py"),
             },
         }
     )
