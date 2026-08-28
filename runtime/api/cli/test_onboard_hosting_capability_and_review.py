@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.config import aws_admin_capability as hosting
-from yoke_contracts import hosting_posture
+from yoke_contracts import api_urls, hosting_posture
 from yoke_cli.config import onboard_plan_labels
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_project_modes
@@ -22,7 +22,7 @@ from yoke_cli.config import onboard_reuse_state
 from yoke_cli.config import onboard_wizard_review_steps as review_steps
 
 _VERSION = "1.4.2"
-_BASE = "https://api.upyoke.com"
+_BASE = api_urls.AWS_BOOTSTRAP_TEMPLATE_PROD_URL
 
 
 # --------------------------------------------------------------------------- #
@@ -48,14 +48,6 @@ def test_link_is_absent_for_a_build_with_no_published_version() -> None:
     """A source checkout publishes no template, so it offers no link."""
     assert hosting.quick_create_url(version="", base_url=_BASE) is None
     assert hosting.template_url(version="", base_url=_BASE) is None
-
-
-def test_link_honors_the_distribution_host_override(monkeypatch) -> None:
-    monkeypatch.setenv("YOKE_INSTALL_BASE_URL", "https://api.stage.upyoke.com/")
-    url = hosting.quick_create_url(region="us-east-1", version=_VERSION)
-
-    assert url is not None
-    assert "https://api.stage.upyoke.com/dist/releases/" in url
 
 
 def test_region_follows_the_ambient_aws_region(monkeypatch) -> None:

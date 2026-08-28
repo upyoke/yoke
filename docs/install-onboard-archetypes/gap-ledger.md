@@ -16,14 +16,14 @@ filled in the last column.
 | ID | Severity | Lifecycle claim | Missing / unteachable declaration | Archetypes | Item |
 |---|---|---|---|---|---|
 | G-windows-native | blocker | installed | Native OS gate is a one-line `fail`; no WSL recipe (unlike uv-decline) | A04 A08 | YOK-2464 |
-| G-hosting-aws-only | missing-config-surface | deployed | Wizard: "AWS for now". Pack `vps-hosting` is EC2, not DigitalOcean. No PaaS. | A02 A04 A11 | YOK-2465 |
+| G-hosting-aws-only | missing-config-surface | deployed | Wizard declares AWS, self-hosted, or deferred; managed `vps-hosting` remains EC2-only and no PaaS apply exists | A02 A04 A11 | YOK-2465 |
 | G-deferred-hosting-flows | blocker | deployed / released | `/yoke onboard` step 5 still registers stage/prod and flows when hosting is deferred | A01 A02 A05 A09 A10 A12 | YOK-2466 |
 | G-forge-github-only | missing-config-surface | merged | Skip GitHub works; GitLab/Bitbucket cannot bind, clone-list, or merge-queue | A06 A11 | YOK-2469 |
 | G-handoff-cursor | taught | installed | Shim hand-off names Claude Code, Codex, or Cursor then `/yoke onboard` | A01 A03 A05 A09 | YOK-2468 |
 | G-app-store | missing-config-surface | deployed | No TestFlight/Play/`fastlane` runner; app-store delivery remains external to Yoke | A09 | YOK-2470 |
 | G-selfhost-not-in-wizard | friction | installed | Resolved: picker previews and performs guarded Compose first boot, captures the token, activates the local connection, and offers setup or handoff exits; the manual reference remains | A06 A07 | YOK-2471 |
 | G-migration-undeclared | missing-config-surface | migrated | No onboard question for `migration_model` / "no DB to migrate" | A03 A06 A07 | YOK-2472 |
-| G-byo-aws-identity | missing-config-surface | deployed | Hosting collects a new IAM user access key pair only | A03 A07 | YOK-2473 |
+| G-byo-aws-identity | missing-config-surface | deployed | AWS accepts guided or existing access keys; role, SSO/OIDC, instance-profile, and web-identity execution remain unsupported | A03 A07 | YOK-2473 |
 | G-idea-default-flow | blocker | released | `infer-and-create.md`: non-empty deploy-defaults **always** assigned | all with a default flow | YOK-2474 |
 | G-test-setup-unasked | blocker | merged / done | Wizard and profile never ask how tests run; gates still expect a registered command | all | YOK-2477 |
 | G-no-tests-posture | closed | merged / done | Closed: `verification_posture` singleton family, written by `yoke qa no-tests attest`, seeds a blocking `implementation_review` where the registered command would have run | A01 A05 A08 A10 A12 | YOK-2478 |
@@ -102,7 +102,7 @@ wizard.
 ## Source pins
 
 - Shim OS gate and uv consent: `packaging/public-installer/install`
-- Hosting copy: `HOSTING_CONNECT_TITLE` / `HOSTING_CONNECT_SUBTITLE`
+- Hosting copy: `HOSTING_PROVIDER_TITLE` / `HOSTING_AWS_SIGN_IN_TITLE`
 - Idea defaults: `.agents/skills/yoke/idea/infer-and-create.md` §b
 - Onboard step 5 entry with deferred hosting: `hosting-and-environments.md`
 - Usher Route A/B and exit 7: `.agents/skills/yoke/usher/deploy.md`

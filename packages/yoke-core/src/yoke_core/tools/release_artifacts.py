@@ -20,9 +20,10 @@ to the immutable versioned wheel URLs, so a single ``simple/`` tree spans every
 retained version. Third-party dependencies are never hosted here; the installer
 selects this as the first index and public PyPI as the explicit default index.
 
-``yoke-aws-admin.yaml`` rides the same immutable version directory: onboarding's
-one-click hosting link hands AWS CloudFormation that exact URL, so the template a
-user launches always matches the build that offered it.
+``yoke-aws-admin.yaml`` rides the same immutable version directory. Onboarding's
+one-click hosting link hands AWS CloudFormation the regional-S3 URL for that
+exact key, so the template a user launches always matches the build that offered
+it while the rest of the release tree keeps its distribution URL.
 """
 
 from __future__ import annotations

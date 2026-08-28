@@ -1,6 +1,6 @@
 """Live-wizard coverage for how the Hosting step takes the credential.
 
-The access key id and its secret are one answer, so the connect screen carries
+The access key id and its secret are one answer, so each key-entry screen carries
 both boxes: these scenarios assert where the caret starts, that Enter walks the
 boxes before it commits anything, that every control is reachable by keyboard,
 and that a rejected value is marked on the box it came from and nowhere else.
@@ -21,16 +21,16 @@ from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps  # noq
 
 from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     ACCESS_KEY_ID,
-    IDENTITY_JSON,
     SECRET_ACCESS_KEY,
     _isolated_machine_home,
     _stub_path_doctor,
     body_text,
     box,
     field_error,
-    reach_connect_screen,
+    reach_aws_sign_in_screen,
+    reach_credential_screen,
     seed_project,
-    stub_probe,
+    stub_identity,
 )
 from runtime.api.cli.onboard_wizard_test_helpers import make_app, type_text  # noqa: E402
 
@@ -40,13 +40,71 @@ _TYPED_ACCESS_KEY = "akiatypedexample1234"
 _TYPED_SECRET_ACCESS_KEY = "typed-secret-value-0987654321"
 
 
+def test_aws_level_has_the_locked_default_and_supported_choices() -> None:
+    app, _spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await reach_aws_sign_in_screen(app, pilot)
+            body = body_text(app)
+            assert hosting_steps.HOSTING_AWS_SIGN_IN_TITLE in body
+            assert "Create a dedicated deploy key" in body
+            assert "Use existing credentials" in body
+            assert "Not now" in body
+            assert "Recommended" in body
+            assert app.query_one("#onboard-body SelectionList").cursor == 0
+            unsupported = ("role arn", "sso", "instance profile", "web identity")
+            assert not any(term in body.lower() for term in unsupported)
+
+    asyncio.run(scenario())
+
+
+def test_only_guided_entry_shows_creation_help(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    quick_create = "https://console.aws.example/quick-create"
+    monkeypatch.setattr(hosting, "quick_create_url", lambda **_kwargs: quick_create)
+
+    async def entry_body(*, guided: bool) -> str:
+        app, _spy = make_app()
+        async with app.run_test() as pilot:
+            await reach_credential_screen(app, pilot, guided=guided)
+            return body_text(app)
+
+    guided = asyncio.run(entry_body(guided=True))
+    existing = asyncio.run(entry_body(guided=False))
+
+    assert hosting_steps.HOSTING_GUIDED_KEY_SUBTITLE in guided
+    assert quick_create in guided
+    assert hosting_steps.HOSTING_EXISTING_KEY_SUBTITLE in existing
+    assert quick_create not in existing
+    assert hosting_steps.HOSTING_GUIDED_KEY_SUBTITLE not in existing
+
+
+def test_guided_entry_teaches_recovery_when_no_safe_link(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(hosting, "quick_create_url", lambda **_kwargs: None)
+    app, _spy = make_app()
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await reach_credential_screen(app, pilot, guided=True)
+            body = body_text(app)
+            assert hosting_steps.NO_LINK_RECOVERY_LINE in body
+            assert "Open the one-click AWS link" not in body
+            assert "Set up the dedicated AWS key" in body
+
+    asyncio.run(scenario())
+
+
 def test_both_boxes_are_on_one_screen_with_the_caret_in_the_first() -> None:
     """The pair is explained and collected in the same place."""
     app, _spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await reach_connect_screen(app, pilot)
+            await reach_credential_screen(app, pilot)
             access = box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD)
             secret = box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD)
             assert access.password is False
@@ -65,12 +123,12 @@ def test_enter_walks_the_boxes_then_commits_the_pair(
     monkeypatch, tmp_path: Path,
 ) -> None:
     """Enter finishes a box; Enter on the last one saves both values at once."""
-    stub_probe(monkeypatch, stdout=IDENTITY_JSON)
+    stub_identity(monkeypatch)
     app, _spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await reach_connect_screen(app, pilot)
+            await reach_credential_screen(app, pilot)
             await type_text(pilot, _TYPED_ACCESS_KEY)
             await pilot.press("enter")
             assert box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).has_focus
@@ -78,7 +136,7 @@ def test_enter_walks_the_boxes_then_commits_the_pair(
             assert box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).value == (
                 _TYPED_ACCESS_KEY
             )
-            assert "Connect your hosting provider?" in body_text(app)
+            assert hosting_steps.HOSTING_GUIDED_KEY_TITLE in body_text(app)
             await type_text(pilot, _TYPED_SECRET_ACCESS_KEY)
             await pilot.press("enter")
             await app.workers.wait_for_complete()
@@ -103,14 +161,14 @@ def test_a_rejected_value_marks_only_the_box_it_came_from() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await reach_connect_screen(app, pilot)
+            await reach_credential_screen(app, pilot)
             # A pasted pair rather than a single value: rejected, and the other
             # box is left alone.
             box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).value = "AKIA1 AKIA2"
             box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).value = (
                 SECRET_ACCESS_KEY
             )
-            app._on_hosting_choice("connect")
+            app._on_hosting_credential_choice("connect")
             await pilot.pause()
             assert "paste the access key ID alone" in field_error(
                 app, hosting_steps.HOSTING_ACCESS_KEY_FIELD
@@ -118,7 +176,7 @@ def test_a_rejected_value_marks_only_the_box_it_came_from() -> None:
             assert field_error(app, hosting_steps.HOSTING_SECRET_KEY_FIELD) == ""
             assert box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).has_focus
             # Nothing was handed on: the screen still asks for the pair.
-            assert "Connect your hosting provider?" in body_text(app)
+            assert hosting_steps.HOSTING_GUIDED_KEY_TITLE in body_text(app)
             assert app.result.hosting_verification is None
 
     asyncio.run(scenario())
@@ -130,9 +188,9 @@ def test_an_empty_second_box_is_marked_on_thatbox() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await reach_connect_screen(app, pilot)
+            await reach_credential_screen(app, pilot)
             box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).value = ACCESS_KEY_ID
-            app._on_hosting_choice("connect")
+            app._on_hosting_credential_choice("connect")
             await pilot.pause()
             assert field_error(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD) == ""
             assert "Paste the secret access key." in field_error(
@@ -145,13 +203,13 @@ def test_an_empty_second_box_is_marked_on_thatbox() -> None:
 
 def test_a_corrected_value_clears_the_mark_and_saves(monkeypatch) -> None:
     """Fixing the rejected box lets the same screen commit the pair."""
-    stub_probe(monkeypatch, stdout=IDENTITY_JSON)
+    stub_identity(monkeypatch)
     app, _spy = make_app()
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await reach_connect_screen(app, pilot)
-            app._on_hosting_choice("connect")  # both boxes still empty
+            await reach_credential_screen(app, pilot)
+            app._on_hosting_credential_choice("connect")  # both boxes still empty
             await pilot.pause()
             assert "Paste the access key ID." in field_error(
                 app, hosting_steps.HOSTING_ACCESS_KEY_FIELD
@@ -160,7 +218,7 @@ def test_a_corrected_value_clears_the_mark_and_saves(monkeypatch) -> None:
             box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD).value = (
                 SECRET_ACCESS_KEY
             )
-            app._on_hosting_choice("connect")
+            app._on_hosting_credential_choice("connect")
             await app.workers.wait_for_complete()
             await pilot.pause()
             assert "aws-admin saved" in body_text(app)
@@ -174,7 +232,7 @@ def test_tab_walks_the_boxes_and_the_rows_in_both_directions() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            await reach_connect_screen(app, pilot)
+            await reach_credential_screen(app, pilot)
             access = box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD)
             secret = box(app, hosting_steps.HOSTING_SECRET_KEY_FIELD)
             rows = app.query_one("#onboard-body SelectionList")
@@ -200,6 +258,8 @@ def test_a_keystroke_during_the_swap_lands_in_the_firstbox() -> None:
             await app.workers.wait_for_complete()
             seed_project(app)
             app._goto_hosting()
+            app._on_hosting_provider_choice("aws")
+            app._on_hosting_aws_sign_in_choice("create-key")
             await pilot.press("a")
             await pilot.pause()
             assert box(app, hosting_steps.HOSTING_ACCESS_KEY_FIELD).value == "a"

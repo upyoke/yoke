@@ -1,10 +1,10 @@
 """Declaring that Yoke manages no host, and that declaration surviving apply.
 
-Skipping and declaring are different answers to the same question, and the
-difference has to hold all the way from the wizard row to the project row:
-the wizard offers the declaration wherever it offers a skip, choosing it
-collects no credential, apply writes the singleton family entry, and deciding
-later writes nothing at all so onboarding knows to ask again.
+Skipping and declaring are different provider-level answers, and the
+difference has to hold all the way from the wizard row to the project row.
+Declaring collects no credential and writes the singleton family entry;
+deciding later writes nothing so onboarding knows to ask again. AWS retry
+stays inside AWS and offers only re-entry or Not now.
 """
 
 from __future__ import annotations
@@ -25,7 +25,8 @@ from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     _stub_path_doctor,
     body_text,
     drive,
-    reach_connect_screen,
+    reach_aws_sign_in_screen,
+    reach_provider_screen,
     seed_project,
 )
 from runtime.api.cli.onboard_wizard_test_helpers import make_app  # noqa: E402
@@ -35,29 +36,27 @@ DECLARED_ROW = "no-managed-host"
 
 
 # --------------------------------------------------------------------------- #
-# The row is reachable from every screen that offers a skip
+# Provider-level truths stay separate from AWS recovery
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(
-    "rows",
-    [
-        hosting_steps.HOSTING_CONNECT_ROWS,
-        hosting_steps.HOSTING_RETRY_ROWS,
-        hosting_steps.HOSTING_UNVERIFIED_ROWS,
-    ],
-    ids=["connect", "retry", "unverified"],
-)
-def test_every_skippable_screen_also_offers_the_declaration(rows) -> None:
-    """Wherever an operator can defer, they can also tell the truth instead."""
-    values = [row.value for row in rows]
-    assert DECLARED_ROW in values
-    assert "skip" in values
+def test_provider_level_has_the_three_locked_answers() -> None:
+    rows = hosting_steps.HOSTING_PROVIDER_ROWS
+    assert [row.value for row in rows] == ["aws", DECLARED_ROW, "skip"]
+    assert [row.label for row in rows] == [
+        "AWS", "I host this myself", "Decide later",
+    ]
+
+
+def test_aws_retry_offers_reentry_or_not_now_without_changing_provider() -> None:
+    rows = hosting_steps.HOSTING_RETRY_ROWS
+    assert [row.value for row in rows] == ["retry", "skip"]
+    assert DECLARED_ROW not in [row.value for row in rows]
 
 
 def test_the_subtitle_does_not_present_aws_as_the_only_world() -> None:
-    """"AWS for now" read as "AWS eventually", which was never the offer."""
-    subtitle = hosting_steps.HOSTING_CONNECT_SUBTITLE
+    """Provider copy must not make AWS sound inevitable."""
+    subtitle = hosting_steps.HOSTING_PROVIDER_SUBTITLE
     assert "AWS" in subtitle
     assert "yourself" in subtitle
 
@@ -71,8 +70,8 @@ def test_declaring_reaches_a_screen_that_asks_for_no_credential() -> None:
     app, _spy = make_app()
 
     async def action(a: Any, pilot: Any) -> None:
-        await reach_connect_screen(a, pilot)
-        a._on_hosting_choice(DECLARED_ROW)
+        await reach_provider_screen(a, pilot)
+        a._on_hosting_provider_choice(DECLARED_ROW)
         await pilot.pause()
 
     screen = drive(app, action)
@@ -85,8 +84,8 @@ def test_declaring_records_the_posture_and_the_optional_provider_note() -> None:
     app, _spy = make_app()
 
     async def action(a: Any, pilot: Any) -> None:
-        await reach_connect_screen(a, pilot)
-        a._on_hosting_choice(DECLARED_ROW)
+        await reach_provider_screen(a, pilot)
+        a._on_hosting_provider_choice(DECLARED_ROW)
         await pilot.pause()
         a._after_no_managed_host_note({
             hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "  Render  ",
@@ -105,7 +104,7 @@ def test_an_empty_provider_note_stays_absent_rather_than_blank() -> None:
     app, _spy = make_app()
 
     async def action(a: Any, pilot: Any) -> None:
-        await reach_connect_screen(a, pilot)
+        await reach_provider_screen(a, pilot)
         a._after_no_managed_host_note({
             hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "   ",
         })
@@ -120,8 +119,8 @@ def test_deciding_later_stays_undecided_and_names_no_provider() -> None:
     app, _spy = make_app()
 
     async def action(a: Any, pilot: Any) -> None:
-        await reach_connect_screen(a, pilot)
-        a._on_hosting_choice("skip")
+        await reach_provider_screen(a, pilot)
+        a._on_hosting_provider_choice("skip")
         await pilot.pause()
 
     drive(app, action)
@@ -133,13 +132,25 @@ def test_backing_out_returns_to_the_connect_screen() -> None:
     app, _spy = make_app()
 
     async def action(a: Any, pilot: Any) -> None:
-        await reach_connect_screen(a, pilot)
-        a._on_hosting_choice(DECLARED_ROW)
+        await reach_provider_screen(a, pilot)
+        a._on_hosting_provider_choice(DECLARED_ROW)
         await pilot.pause()
         a._on_no_managed_host_choice("back")
         await pilot.pause()
 
-    assert hosting_steps.HOSTING_CONNECT_TITLE in drive(app, action)
+    assert hosting_steps.HOSTING_PROVIDER_TITLE in drive(app, action)
+
+
+def test_back_from_aws_sign_in_returns_to_the_provider_level() -> None:
+    app, _spy = make_app()
+
+    async def action(a: Any, pilot: Any) -> None:
+        await reach_aws_sign_in_screen(a, pilot)
+        assert hosting_steps.HOSTING_AWS_SIGN_IN_TITLE in body_text(a)
+        await a.action_back()
+        await pilot.pause()
+
+    assert hosting_steps.HOSTING_PROVIDER_TITLE in drive(app, action)
 
 
 # --------------------------------------------------------------------------- #

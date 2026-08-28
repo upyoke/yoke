@@ -53,9 +53,9 @@ def aws_admin_link(args: List[str]) -> int:
     url = aws_admin_capability.quick_create_url(region=parsed.region)
     if url is None:
         print(
-            "error: this build has no published release version, so no pinned "
-            "bootstrap template exists for it. Run this from an installed Yoke "
-            "build.",
+            "error: this build or distribution channel has no supported "
+            "CloudFormation bootstrap link. Reinstall from a hosted Yoke "
+            "release, or choose existing AWS credentials in `yoke onboard`.",
             file=sys.stderr,
         )
         return 1

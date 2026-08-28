@@ -19,15 +19,19 @@ imported dynamically at the call site (see the classified roster in
 from __future__ import annotations
 
 import importlib
-import json
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
 from yoke_cli.config import install_binding
-from yoke_contracts.api_urls import DISTRIBUTION_BASE_URL_ENV, DISTRIBUTION_PROD_URL
+from yoke_contracts.api_urls import (
+    AWS_BOOTSTRAP_TEMPLATE_PROD_URL,
+    AWS_BOOTSTRAP_TEMPLATE_STAGE_URL,
+    DISTRIBUTION_BASE_URL_ENV,
+    DISTRIBUTION_PROD_URL,
+    DISTRIBUTION_STAGE_URL,
+)
 from yoke_contracts.machine_config import capability_secrets as secret_contract
 from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.machine_config import schema as machine_schema
@@ -42,10 +46,13 @@ BOOTSTRAP_STACK_NAME = "yoke-aws-admin"
 BOOTSTRAP_TEMPLATE_FILENAME = "yoke-aws-admin.yaml"
 DEFAULT_REGION = "us-east-1"
 _REGION_ENV_VARS = ("AWS_REGION", "AWS_DEFAULT_REGION")
-
-# `aws` exits 127-style through Python as FileNotFoundError; a CLI that is
-# present but unauthenticated exits non-zero with a message on stderr.
-_AWS_MISSING_EXIT_CODE = 127
+_BOOTSTRAP_TEMPLATE_URL_BY_DISTRIBUTION = {
+    DISTRIBUTION_PROD_URL: AWS_BOOTSTRAP_TEMPLATE_PROD_URL,
+    DISTRIBUTION_STAGE_URL: AWS_BOOTSTRAP_TEMPLATE_STAGE_URL,
+}
+_SUPPORTED_BOOTSTRAP_TEMPLATE_BASE_URLS = frozenset(
+    _BOOTSTRAP_TEMPLATE_URL_BY_DISTRIBUTION.values()
+)
 
 
 class HostingCredentialError(RuntimeError):
@@ -54,10 +61,6 @@ class HostingCredentialError(RuntimeError):
 
 class HostingVerificationError(RuntimeError):
     """The stored hosting credential did not pass the caller-identity check."""
-
-
-class AwsCliMissingError(HostingVerificationError):
-    """The AWS CLI is not on PATH, so the identity check cannot run."""
 
 
 @dataclass(frozen=True)
@@ -81,12 +84,21 @@ def default_region() -> str:
     return DEFAULT_REGION
 
 
-def distribution_base_url() -> str:
-    """Distribution host serving this build's published artifacts."""
-    return (
+def bootstrap_template_base_url() -> str | None:
+    """CloudFormation-compatible S3 origin for the active hosted channel."""
+    distribution_url = (
         os.environ.get(DISTRIBUTION_BASE_URL_ENV, "").strip().rstrip("/")
         or DISTRIBUTION_PROD_URL
     )
+    return _BOOTSTRAP_TEMPLATE_URL_BY_DISTRIBUTION.get(distribution_url)
+
+
+def _supported_template_base_url(base_url: str) -> str | None:
+    """Return a known regional S3 origin, never an arbitrary template host."""
+    normalized = str(base_url or "").strip().rstrip("/")
+    if normalized in _SUPPORTED_BOOTSTRAP_TEMPLATE_BASE_URLS:
+        return normalized
+    return None
 
 
 def build_version() -> str:
@@ -94,16 +106,23 @@ def build_version() -> str:
     return install_binding.distribution_version()
 
 
-def template_url(*, version: str | None = None, base_url: str | None = None) -> str | None:
+def template_url(
+    *, version: str | None = None, base_url: str | None = None
+) -> str | None:
     """URL of the bootstrap template published with this exact build.
 
-    ``None`` when the running code has no released version (a source checkout):
-    nothing is published for it, so there is no honest URL to hand AWS.
+    ``None`` when the running code has no released version or its distribution
+    channel has no allowlisted regional S3 origin. CloudFormation rejects
+    custom distribution and S3 website hosts, so there is no honest one-click
+    URL in either case.
     """
     resolved_version = (version if version is not None else build_version()).strip()
     if not resolved_version:
         return None
-    base = (base_url or distribution_base_url()).rstrip("/")
+    candidate = base_url if base_url is not None else bootstrap_template_base_url()
+    base = _supported_template_base_url(candidate or "")
+    if base is None:
+        return None
     return (
         f"{base}/dist/releases/{quote(resolved_version, safe='%')}"
         f"/{BOOTSTRAP_TEMPLATE_FILENAME}"
@@ -128,7 +147,12 @@ def quick_create_url(
     # The nested template URL keeps its ``:`` and ``/`` literal: they are legal
     # fragment characters, it carries no ``&`` or ``#`` to confuse the console's
     # parser, and an operator has to be able to read the link Yoke asks them to
-    # open. Everything else is still escaped.
+    # open. Everything else is still escaped -- including the ``%`` that already
+    # encodes the release's ``+``, so a plus-bearing version reaches the console
+    # as ``%252B``. That second layer is load-bearing, not redundant: the console
+    # decodes this fragment parameter exactly once and hands S3 the ``%2B`` that
+    # resolves to the ``+`` key. Emitting a single-encoded ``%2B`` leaves the
+    # console a literal ``+``, which S3 reads as a space and answers NoSuchKey.
     return (
         f"https://console.aws.amazon.com/cloudformation/home?region={resolved_region}"
         f"#/stacks/quickcreate?stackName={BOOTSTRAP_STACK_NAME}"
@@ -199,79 +223,30 @@ def store_credential(
             )
         ]
     except Exception as exc:  # noqa: BLE001 - surfaced as a wizard error screen
-        raise HostingCredentialError(str(exc)) from exc
+        raise HostingCredentialError(
+            f"Yoke could not store the AWS credential ({type(exc).__name__})."
+        ) from exc
 
 
 def verify_caller_identity(project_slug: str, region: str) -> CallerIdentity:
-    """Prove the stored pair works, returning only non-secret identity facts.
-
-    Reads the credential back out of the machine store the way a deploy will,
-    so a pair that verifies here is a pair Yoke can actually use. The secret
-    value is never printed, logged, or returned.
-    """
+    """Prove the stored pair works through boto3, returning redacted facts."""
+    verifier = None
     try:
-        deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
-        env = deploy_remote.aws_machine_capability_env(project_slug, region)
+        verifier = importlib.import_module(
+            "yoke_core.domain.aws_machine_caller_identity"
+        )
+        identity = verifier.verify_machine_caller_identity(project_slug, region)
     except Exception as exc:  # noqa: BLE001 - surfaced as a wizard error screen
-        raise HostingVerificationError(str(exc)) from exc
-    try:
-        completed = subprocess.run(
-            ["aws", "sts", "get-caller-identity", "--output", "json"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=60,
+        expected = getattr(verifier, "CallerIdentityVerificationError", ())
+        detail = str(exc) if expected and isinstance(exc, expected) else (
+            f"Yoke could not verify the AWS credential ({type(exc).__name__})."
         )
-    except FileNotFoundError as exc:
-        raise AwsCliMissingError(
-            "the AWS CLI is not on PATH, so Yoke cannot run the caller-identity "
-            "check. Install it (https://aws.amazon.com/cli/) and re-run, or save "
-            "the credential without verifying it now."
-        ) from exc
-    except subprocess.SubprocessError as exc:
-        raise HostingVerificationError(str(exc)) from exc
-    if completed.returncode == _AWS_MISSING_EXIT_CODE:
-        raise AwsCliMissingError(
-            "the AWS CLI could not be executed, so Yoke cannot run the "
-            "caller-identity check. Install it (https://aws.amazon.com/cli/) and "
-            "re-run, or save the credential without verifying it now."
-        )
-    if completed.returncode != 0:
-        raise HostingVerificationError(
-            _probe_failure_message(completed.stderr)
-        )
-    return _identity_from_probe(completed.stdout)
-
-
-def _probe_failure_message(stderr: str) -> str:
-    detail = " ".join(str(stderr or "").split())
-    return detail or "AWS rejected the credential without explanation."
-
-
-def _identity_from_probe(stdout: str) -> CallerIdentity:
-    try:
-        payload = json.loads(stdout or "")
-    except ValueError as exc:
-        raise HostingVerificationError(
-            "the caller-identity check returned output Yoke could not read"
-        ) from exc
-    if not isinstance(payload, dict):
-        raise HostingVerificationError(
-            "the caller-identity check returned output Yoke could not read"
-        )
-    account = str(payload.get("Account") or "").strip()
-    arn = str(payload.get("Arn") or "").strip()
-    identity = arn.rsplit("/", 1)[-1] if arn else ""
-    if not account or not identity:
-        raise HostingVerificationError(
-            "the caller-identity check did not name an account and identity"
-        )
-    return CallerIdentity(account=account, identity=identity)
+        raise HostingVerificationError(detail) from exc
+    return CallerIdentity(account=identity.account, identity=identity.identity)
 
 
 __all__ = [
     "ACCESS_KEY_ID_KEY",
-    "AwsCliMissingError",
     "BOOTSTRAP_STACK_NAME",
     "BOOTSTRAP_TEMPLATE_FILENAME",
     "CAPABILITY_TYPE",
@@ -285,7 +260,7 @@ __all__ = [
     "credential_dir_display",
     "credential_saved",
     "default_region",
-    "distribution_base_url",
+    "bootstrap_template_base_url",
     "quick_create_url",
     "store_credential",
     "template_url",
