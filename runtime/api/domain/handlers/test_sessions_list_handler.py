@@ -149,7 +149,9 @@ class TestClaimsAndAttribution:
             claim["target_kind"]: claim["target"]
             for claim in list_sessions()[0]["claims"]
         }
-        assert targets["process"] == PROCESS_FEED
+        # Every hold names itself in its target, because the card that
+        # reads this adds no kind label of its own.
+        assert targets["process"] == f"process {PROCESS_FEED}"
         assert targets["epic_task"] == "epic 9 task 3"
 
     def test_system_actor_attribution_is_honest(self, test_db):

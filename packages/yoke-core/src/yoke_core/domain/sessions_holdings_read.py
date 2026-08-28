@@ -4,8 +4,8 @@ Split from :mod:`sessions_list_read` (authored-file line cap). Owns the
 per-session grouping the roster read composes into its rows:
 
 * :func:`active_claims_by_session` — active ``work_claims`` rows with
-  their rendered targets, worktree lane roles, and per-item public
-  drill-in coordinates resolved in one batched read.
+  their rendered targets, worktree lane roles, and per-item facts
+  (drill-in coordinates, stage, workflow) in one batched read.
 * :func:`active_leases_by_session` — live shared-operation claim rows
   keyed by holding session (session-owned by typed owner, item-owned
   by whoever currently claims ``owner_item_id``).
@@ -46,26 +46,19 @@ def _empty_on_missing_relation(conn: Any) -> None:
         pass
 
 
-def claim_item_coordinates(
+def claimed_item_facts(
     conn: Any,
     item_ids: List[int],
 ) -> Dict[int, Dict[str, Any]]:
-    """Map internal item ids to public identity facts in one read.
+    """Describe each claimed item in one read, keyed by internal id.
 
-    Returns ``{item_id: {"ref", "project_id", "project_sequence"}}``;
-    ids with no backing item row are absent so callers can apply the
-    same fallback :func:`display_claim_item_id` uses.
+    Values are the claim-payload shape itself — ``item_ref``,
+    ``item_project_id``, ``item_project_sequence``, ``item_status``,
+    ``item_workflow_id`` — so every item claim says what it is and how far
+    along it is, not only the one the session's focus names. An id with no
+    backing item row is absent; callers apply the display fallback.
     """
-    distinct: List[int] = []
-    seen: set[int] = set()
-    for value in item_ids:
-        try:
-            number = int(value)
-        except (TypeError, ValueError):
-            continue
-        if number not in seen:
-            seen.add(number)
-            distinct.append(number)
+    distinct = list(dict.fromkeys(int(value) for value in item_ids))
     if not distinct:
         return {}
     marker = _p(conn)
@@ -73,8 +66,8 @@ def claim_item_coordinates(
     try:
         rows = conn.execute(
             "SELECT i.id AS id, i.project_id AS project_id, "
-            "i.project_sequence AS project_sequence, "
-            "p.public_item_prefix AS public_item_prefix "
+            "i.project_sequence AS project_sequence, i.status AS status, "
+            "i.workflow_id AS workflow_id, p.public_item_prefix AS prefix "
             "FROM items i JOIN projects p ON p.id = i.project_id "
             f"WHERE i.id IN ({placeholders})",
             tuple(distinct),
@@ -82,25 +75,32 @@ def claim_item_coordinates(
     except db_backend.database_error_types(conn):
         _empty_on_missing_relation(conn)
         return {}
-    coordinates: Dict[int, Dict[str, Any]] = {}
+    facts: Dict[int, Dict[str, Any]] = {}
     for row in rows:
-        coordinates[int(row["id"])] = {
-            "ref": format_item_ref(
+        facts[int(row["id"])] = {
+            "item_ref": format_item_ref(
                 None,
-                row["public_item_prefix"],
+                row["prefix"],
                 row["project_sequence"],
             ),
-            "project_id": int(row["project_id"]),
-            "project_sequence": int(row["project_sequence"]),
+            "item_project_id": int(row["project_id"]),
+            "item_project_sequence": int(row["project_sequence"]),
+            "item_status": row["status"],
+            "item_workflow_id": row["workflow_id"],
         }
-    return coordinates
+    return facts
 
 
 def _render_target(
     claim: Dict[str, Any],
-    coordinates: Dict[int, Dict[str, Any]],
+    item_facts: Dict[int, Dict[str, Any]],
 ) -> Tuple[str, Dict[str, Any]]:
-    """Render one claim's display target plus its drill-in coordinates."""
+    """Name one claim's hold, plus the facts that row carries.
+
+    Every kind names itself here — there is no separate label for a reader
+    to add, and no path that puts a raw ``target_kind`` in front of an
+    operator.
+    """
     kind = str(claim.get("target_kind") or "")
     if kind == "item":
         raw_id = claim.get("item_id")
@@ -108,20 +108,13 @@ def _render_target(
             item_num = int(raw_id)
         except (TypeError, ValueError):
             return str(raw_id or ""), {}
-        found = coordinates.get(item_num)
+        found = item_facts.get(item_num)
         if found is not None:
-            return str(found["ref"]), {
-                "item_ref": found["ref"],
-                "item_project_id": found["project_id"],
-                "item_project_sequence": found["project_sequence"],
-            }
-        fallback_ref = format_item_ref(
-            None,
-            DEFAULT_PUBLIC_ITEM_PREFIX,
-            None,
-            item_id=item_num,
+            return str(found["item_ref"]), dict(found)
+        fallback = format_item_ref(
+            None, DEFAULT_PUBLIC_ITEM_PREFIX, None, item_id=item_num,
         )
-        return fallback_ref, {}
+        return fallback, {}
     if kind == "epic_task":
         return f"epic {claim.get('epic_id')} task {claim.get('task_num')}", {}
     if kind == "steering":
@@ -130,7 +123,13 @@ def _render_target(
             "scope": dict(steering.scope),
             "project_id": steering.project_id,
         }
-    return str(claim.get("process_key") or ""), {}
+    if kind in COORDINATION_TARGET_KINDS:
+        # The row of ``work_claims`` the lease projection also reads: naming
+        # it by its operator key lets a reader show one hold once, in the
+        # words an operator uses to address it.
+        key = key_for_target(work_claim_target_from_row(claim))
+        return key, {"lease_key": key}
+    return f"process {claim.get('process_key') or 'unnamed'}", {}
 
 
 def active_claims_by_session(
@@ -159,18 +158,18 @@ def active_claims_by_session(
         for claim in claims
         if claim.get("target_kind") == "item" and claim["item_id"] is not None
     ]
-    coordinates = claim_item_coordinates(conn, claimed_items)
+    item_facts = claimed_item_facts(conn, claimed_items)
 
     grouped: Dict[str, List[Dict[str, Any]]] = {}
     roles: Dict[str, List[Dict[str, Any]]] = {}
     for session_id, claims in raw_by_session.items():
         for claim in claims:
-            target, coords = _render_target(claim, coordinates)
+            target, facts = _render_target(claim, item_facts)
             grouped.setdefault(session_id, []).append(
                 {
                     "target_kind": str(claim.get("target_kind") or ""),
                     "target": target,
-                    **coords,
+                    **facts,
                     "claimed_at": claim.get("claimed_at"),
                     "reason": claim.get("reason"),
                 }
@@ -208,7 +207,7 @@ def _item_claim_sessions(
 
 def _lease_payload(
     row: Dict[str, Any],
-    coordinates: Dict[int, Dict[str, Any]],
+    item_facts: Dict[int, Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Display-shaped claim row, with owning-item identity when item-owned."""
     target = target_from_row(row)
@@ -227,11 +226,11 @@ def _lease_payload(
         return payload
     item_num = int(owner_item_id)
     payload["owner_item_id"] = item_num
-    found = coordinates.get(item_num)
+    found = item_facts.get(item_num)
     if found is not None:
-        payload["owner_item_ref"] = found["ref"]
-        payload["owner_item_project_id"] = found["project_id"]
-        payload["owner_item_project_sequence"] = found["project_sequence"]
+        payload["owner_item_ref"] = found["item_ref"]
+        payload["owner_item_project_id"] = found["item_project_id"]
+        payload["owner_item_project_sequence"] = found["item_project_sequence"]
     return payload
 
 
@@ -287,11 +286,11 @@ def active_leases_by_session(
         )
         if item_id is not None
     ]
-    coordinates = claim_item_coordinates(conn, owner_ids)
+    item_facts = claimed_item_facts(conn, owner_ids)
     grouped: Dict[str, List[Dict[str, Any]]] = {}
     seen: set[tuple[str, str]] = set()
     for row in rows:
-        payload = _lease_payload(dict(row), coordinates)
+        payload = _lease_payload(dict(row), item_facts)
         if not payload["lease_key"]:
             continue
         if payload["owner_kind"] == "item":
@@ -345,6 +344,6 @@ def claimed_blitz_worktree_ids_by_session(
 __all__ = [
     "active_claims_by_session",
     "active_leases_by_session",
-    "claim_item_coordinates",
+    "claimed_item_facts",
     "claimed_blitz_worktree_ids_by_session",
 ]

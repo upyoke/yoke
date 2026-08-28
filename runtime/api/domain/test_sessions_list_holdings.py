@@ -186,6 +186,44 @@ def test_item_claim_carries_public_drill_in_coordinates(test_db):
     assert claim["item_project_sequence"] == 4200
 
 
+def test_every_item_claim_carries_its_own_stage_and_workflow(test_db):
+    """A session holding several items describes each one, not just its focus.
+
+    The session-level ``current_item_status`` can only ever describe the
+    focused item, so a reader that has nothing else shows one stage and
+    guesses at the rest.
+    """
+    insert_item(
+        test_db,
+        id=6001,
+        project_sequence=6001,
+        title="focused",
+        status="implementing",
+        workflow_id="dash",
+    )
+    insert_item(
+        test_db,
+        id=6002,
+        project_sequence=6002,
+        title="also held",
+        status="reviewing-implementation",
+        workflow_id="issue",
+    )
+    _insert_session(test_db, "s-two", current_item_id="6001")
+    _insert_item_claim(test_db, "s-two", 6001)
+    _insert_item_claim(test_db, "s-two", 6002)
+
+    claims = {
+        claim["target"]: claim
+        for claim in list_sessions()[0]["claims"]
+    }
+
+    assert claims["YOK-6001"]["item_status"] == "implementing"
+    assert claims["YOK-6001"]["item_workflow_id"] == "dash"
+    assert claims["YOK-6002"]["item_status"] == "reviewing-implementation"
+    assert claims["YOK-6002"]["item_workflow_id"] == "issue"
+
+
 def test_steering_claim_carries_project_coordinates(test_db):
     _insert_session(test_db, "s-steering")
     _insert_steering_claim(test_db, "s-steering")
@@ -196,6 +234,33 @@ def test_steering_claim_carries_project_coordinates(test_db):
     assert claim["target"] == "steering for project 1"
     assert claim["scope"] == {"project_id": 1}
     assert claim["project_id"] == 1
+
+
+def test_coordination_claim_names_itself_by_its_operator_key(test_db):
+    """One `work_claims` row read by two projections stays one hold.
+
+    The claim projection carries the same ``lease_key`` the lease one
+    does, so a reader shows the hold once instead of once per surface —
+    and names the machine, never the `qa_admission` target kind.
+    """
+    _insert_session(test_db, "s-host")
+    _insert_lease(
+        test_db,
+        session_id="s-host",
+        lease_key="QA_HOST:test-mac",
+        owner_session_id="s-host",
+    )
+
+    row = list_sessions()[0]
+    claim = next(
+        claim for claim in row["claims"] if claim["target_kind"] == "qa_admission"
+    )
+
+    assert claim["target"] == "QA_HOST:test-mac"
+    assert claim["lease_key"] == "QA_HOST:test-mac"
+    assert [lease["lease_key"] for lease in row["coordination_claims"]] == [
+        "QA_HOST:test-mac"
+    ]
 
 
 def test_item_owned_lease_stays_off_sessions_that_do_not_claim_the_item(test_db):

@@ -5,10 +5,34 @@ const REPORT_STATES = new Set([
   "sent", "acknowledged", "cancelled", "expired", "unknown",
 ]);
 
-function scopeText(scope) {
-  const project = String(scope?.project || "project not reported");
+// Every project this session steers, named the way the rest of the card
+// names projects. The claims are the authority: a session steering three
+// projects holds three of them, while the scope projection describes only
+// the one its own project binding names.
+function steeredProjects(row, projects) {
+  const known = Array.isArray(projects) ? projects : [];
+  const named = (Array.isArray(row.claims) ? row.claims : [])
+    .filter((claim) => claim.target_kind === "steering")
+    .map((claim) => {
+      const projectId = claim.project_id ?? claim.scope?.project_id;
+      const found = known.find(
+        (candidate) => String(candidate.id) === String(projectId),
+      );
+      return String(found?.slug || found?.name || "").trim();
+    })
+    .filter(Boolean);
+  return [...new Set(named)];
+}
+
+// One line for the whole of steering: what is steered, and the strategy
+// document it is steered from. The document is the only pointer to what the
+// steering is actually driving, so it survives the collapse.
+function scopeText(scope, steered = []) {
+  const projects = steered.length
+    ? steered
+    : [String(scope?.project || "project not reported")];
   const docs = Array.isArray(scope?.strategy_docs) ? scope.strategy_docs : [];
-  return `${project} · ${docs.length ? docs.join(", ") : "all docs"}`;
+  return `${projects.join(", ")} · ${docs.length ? docs.join(", ") : "all docs"}`;
 }
 
 function appendContext(documentNode, body, tone, label, detail) {
@@ -53,10 +77,17 @@ function appendReport(documentNode, body, report) {
   body.appendChild(line);
 }
 
-export function appendSteeringContext(documentNode, body, row) {
-  if (row.steering_scope) {
+export function appendSteeringContext(documentNode, body, row, projects = []) {
+  const steered = steeredProjects(row, projects);
+  // A held steering claim is the fact; the badge is how a steering session
+  // stays recognizable at a glance now that its lock rows are gone.
+  if (row.steering_scope || steered.length) {
     appendContext(
-      documentNode, body, "holder", "Steering", scopeText(row.steering_scope),
+      documentNode,
+      body,
+      "holder",
+      "Steering",
+      scopeText(row.steering_scope, steered),
     );
   } else if (row.steering_parent) {
     appendContext(

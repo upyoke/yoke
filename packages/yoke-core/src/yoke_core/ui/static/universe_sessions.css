@@ -109,7 +109,6 @@
   overflow-wrap: anywhere;
 }
 
-.universe-app-root .session-work-role,
 .universe-app-root .session-lane,
 .universe-app-root .session-machine {
   display: inline-flex;
