@@ -141,6 +141,16 @@ class TestSteerSkillContract:
             assert finding in loop
         assert "A section with nothing to say prints nothing" in loop
 
+    def test_unregistered_launches_use_the_registered_list_read(self):
+        raw = _read(_STEER_DIR / "loop.md")
+        loop = _words(raw)
+        assert "yoke session-control launch list --project" in loop
+        assert "session_control.launch.list" in loop
+        assert "session_launches" in loop
+        assert "session_control_launches" in raw
+        assert "does not exist" in loop
+        assert "FROM session_launches" not in raw
+
     def test_starved_holder_triage_reads_the_stale_reclaim_clock(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "stale_eligible_at" in loop
@@ -269,6 +279,27 @@ class TestSteerWorkerLifecycle:
         assert "yoke say --item PREFIX-N --stdin" in text
         assert "yoke say --stdin --session" in text
         assert "Never expand a truncated session id" in text
+        assert "yoke session-control launch preview" in text
+        assert "session_control.launch.preview" in _read(_STEER_DIR / "SKILL.md")
+        assert "session_control.launch.list" in _read(_STEER_DIR / "SKILL.md")
+
+    def test_surfaces_are_not_exclusive_and_balance_is_not_a_quota(self):
+        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        assert "Surfaces are not exclusive" in text
+        assert "as many concurrent sessions as the work needs" in text
+        assert "one-session-per-surface cap" in text
+        assert "not a quota" in text
+        assert "never withholds a launch" in text
+        assert "it never withholds one" in text
+
+    def test_launch_preview_is_mandatory_and_names_surface_refusals(self):
+        text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))
+        assert "Preview the chosen CLI surface before every launch" in text
+        assert "never the calling session's own surface" in text
+        assert "unsupported_surface" in text
+        assert "A refusal names the surface, not the item" in text
+        assert "launchable=true" in text
+        assert "Do not create until preview returns" in text
 
 
 class TestSteerDiscoveryAndPacket:

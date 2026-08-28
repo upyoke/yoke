@@ -102,7 +102,16 @@ yours:
 - **Starved delivery** — revive the named recipient immediately: the
   registered wake where available, otherwise the manual native-resume
   bridge under **Revive starved workers** below.
-- **Unregistered launches** — `launch reconcile`, then `launch retry`.
+- **Unregistered launches** — list, then reconcile and retry each
+  `launch_id`. Never guess a table (`session_control_launches` does
+  not exist); the registered read is `session_control.launch.list`
+  against `session_launches`:
+
+  ```text
+  yoke session-control launch list --project {_project}
+  yoke session-control launch reconcile {LAUNCH_ID} --json
+  yoke session-control launch retry {LAUNCH_ID} --json
+  ```
 - **Landed without close-out** — nudge the live claim holder; with no live
   holder, route the normal starvation/restaffing path.
 - **Dead waits** — a row naming an ended answerer, or an answerer whose own
