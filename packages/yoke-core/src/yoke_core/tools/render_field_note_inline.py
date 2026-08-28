@@ -29,6 +29,7 @@ from typing import Sequence
 from yoke_core.domain.agents_render_workspace import resolve_target_root_for_cli
 from yoke_contracts import field_note_text as rft
 from yoke_core.tools.generated_block_render import (
+    FileRenderOutcome,
     RenderResult,
     begin_marker,
     end_marker,
@@ -36,6 +37,9 @@ from yoke_core.tools.generated_block_render import (
     render_blocks,
 )
 
+
+# Re-exported so callers keep one import site for the family's result rows.
+__all__ = ("INVENTORY", "FileRenderOutcome", "RenderResult", "render")
 
 SLUG: str = "field-note-directive"
 BEGIN_MARKER: str = begin_marker(SLUG)

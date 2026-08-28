@@ -19,9 +19,12 @@ Behaviour on each commit, in order:
    reports any hard-fail, the hook prints a summary to stderr and
    returns 1, which causes git to abort the commit.
 3. **Generated-content checks (hard-fail).** The field-note inline
-   renderer and the harness agent renderer both compare their generated
-   outputs against the sources they derive from, so a commit cannot pair
-   an edited source with a stale rendered artifact.
+   renderer, the harness wake-capability renderer, and the harness agent
+   renderer each compare their generated outputs against the sources they
+   derive from, so a commit cannot pair an edited source with a stale
+   rendered artifact. The capability pass additionally refuses a wake claim
+   written outside a generated block without naming the manifest fact it
+   depends on.
 
 If ``yoke_core.domain.file_line_check`` cannot be imported, the hook
 fails closed (returns 1) rather than silently skipping. This is
@@ -195,13 +198,39 @@ def _run_field_note_render_or_block() -> int:
     if result.ok and not result.changed:
         return 0
 
-    summary = rri._format_drift_summary(result, check=True)
-    if summary:
-        sys.stderr.write(summary)
-    sys.stderr.write(
-        "Run `python3 -m yoke_core.tools.render_field_note_inline` "
-        "and re-stage the rendered files.\n"
-    )
+    sys.stderr.write(rri._format_drift_summary(result, check=True))
+    return 1
+
+
+def _run_harness_capability_render_or_block() -> int:
+    """Refuse commits whose wake capability disagrees with its contract.
+
+    Fail-closed like :func:`_run_field_note_render_or_block`. The scan also
+    refuses a wake claim written past the contract, which is what went stale.
+    """
+    try:
+        from yoke_core.tools import render_harness_capability_inline as rhc
+    except ImportError:
+        sys.stderr.write(
+            "ERROR: harness capability renderer not available — install/"
+            "repair yoke_core.tools.render_harness_capability_inline.\n"
+            "Use `git commit --no-verify` to bypass this check.\n"
+        )
+        return 1
+
+    repo_root = _resolve_repo_root()
+    if repo_root is None:
+        return 0
+
+    root = pathlib.Path(repo_root)
+    result = rhc.render(root, check=True)
+    findings = rhc.uncited_capability_claims(root)
+    if result.ok and not result.changed and not findings:
+        return 0
+
+    # Both formatters return "" when they have nothing to report.
+    sys.stderr.write(rhc.format_render_drift(result, check=True))
+    sys.stderr.write(rhc.format_uncited_summary(findings))
     return 1
 
 
@@ -295,6 +324,9 @@ def run() -> int:
     if rc != 0:
         return rc
     rc = _run_field_note_render_or_block()
+    if rc != 0:
+        return rc
+    rc = _run_harness_capability_render_or_block()
     if rc != 0:
         return rc
     rc = _run_agent_render_check_or_block()
