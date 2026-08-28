@@ -14,14 +14,20 @@ AWSTemplateFormatVersion: "2010-09-09"
 #     scoped to the resources that pipeline actually touches.
 #   * Delete the stack to revoke the credential in one action.
 #
-# The generated secret access key is readable exactly once, from the Secrets
-# Manager secret this template creates. CloudFormation Outputs deliberately
-# carry no secret material — only the access key id, the account id, and a
-# console deep link to the secret.
+# The secret access key is a CloudFormation Output on purpose. Anyone with
+# CloudFormation read — including read-only console users, a wider group than
+# administrators — can see both values, and they persist in stack history.
+# That trade is accepted because the stack runs in the operator's own account
+# and mints a credential for that same account: anyone who can read these
+# Outputs already holds enough access to create an equivalent administrator
+# user. Putting the pair on the Outputs tab is the cheaper first-minute path
+# (open, acknowledge IAM capabilities, create, copy). Hiding the secret in
+# another service would cost two extra actions without changing who can mint
+# an equivalent key.
 
 Description: >-
-  Creates the yoke-aws-admin IAM user, its access key, and a Secrets Manager
-  secret holding the key pair for one-time retrieval during Yoke onboarding.
+  Creates the yoke-aws-admin IAM user and access key. Both values appear as
+  stack Outputs for one-time paste into the Yoke onboarding wizard.
 
 Resources:
   YokeAwsAdminUser:
@@ -41,33 +47,15 @@ Resources:
     Properties:
       UserName: !Ref YokeAwsAdminUser
 
-  # The key pair is assembled inside the template body so the secret value
-  # never leaves CloudFormation through an Output.
-  YokeAwsAdminCredential:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: yoke-aws-admin
-      Description: >-
-        Access key pair for the yoke-aws-admin bootstrap user. Copy both values
-        into the Yoke onboarding wizard, then close this page.
-      SecretString: !Sub
-        - '{"access_key_id":"${AccessKeyId}","secret_access_key":"${SecretAccessKey}"}'
-        - AccessKeyId: !Ref YokeAwsAdminAccessKey
-          SecretAccessKey: !GetAtt YokeAwsAdminAccessKey.SecretAccessKey
-      Tags:
-        - Key: ManagedBy
-          Value: yoke
-
 Outputs:
   AccessKeyId:
-    Description: Access key id for the yoke-aws-admin user (not secret).
+    Description: Access key id for the yoke-aws-admin user.
     Value: !Ref YokeAwsAdminAccessKey
-  CredentialConsoleUrl:
+  SecretAccessKey:
     Description: >-
-      Secrets Manager console page holding both values. Choose "Retrieve secret
-      value" there, then paste the pair into the Yoke wizard.
-    Value: !Sub >-
-      https://${AWS::Region}.console.aws.amazon.com/secretsmanager/secret?name=${YokeAwsAdminCredential}&region=${AWS::Region}
+      Secret access key for the yoke-aws-admin user. Visible to anyone who
+      can read this stack's Outputs, and retained in stack history.
+    Value: !GetAtt YokeAwsAdminAccessKey.SecretAccessKey
   AccountId:
     Description: AWS account id this credential administers.
     Value: !Ref AWS::AccountId

@@ -29,8 +29,8 @@ def aws_admin_link(args: List[str]) -> int:
         description=(
             "Print the one-click CloudFormation link that creates this "
             "project's aws-admin bootstrap credential. The stack makes an IAM "
-            "user, an access key, and a Secrets Manager secret holding the "
-            "pair; paste those two values into `yoke onboard`. The link pins "
+            "user and an access key; both values appear as stack Outputs — "
+            "paste them into `yoke onboard`. The link pins "
             "the template published with the running build."
         ),
     )
