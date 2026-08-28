@@ -11,8 +11,9 @@ Two gates keep that ride cheap and quiet. Composition is real work — it ranks
 the project's schedule — so it happens at most once per interval per steering
 session. And a composed report is only attached when it is *worth* a read:
 something needs the steerer's decision, or the picture changed since the last
-one they saw. Item 8 of the operator's plan named the failure mode directly —
-a report that arrives with nothing in it becomes a report the steerer skims.
+one they saw. The failure mode being avoided is specific: a report that keeps
+arriving with nothing in it becomes a report the steerer learns to skim, and
+then the one that mattered is skimmed too.
 """
 
 from __future__ import annotations
