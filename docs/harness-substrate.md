@@ -101,10 +101,21 @@ brief disconnect, idle timeout) — not only on permanent termination. The hook
 runner therefore never asserts the agent is gone on its own:
 
 - Both the Stop and SessionEnd hooks route through the non-destructive
-  `end_session_if_empty`, which only ends a session that holds no active
-  claims AND no chain-pending budget. Sessions with either are reported
-  as skipped (`has_claims` / `chain_pending`) and stay live — a transient
-  signal cannot discard mid-flight ownership state.
+  `end_session_if_empty`, which ends a session only when it holds nothing
+  at all. A session holding any of these is reported as skipped and stays
+  live, so a transient signal cannot discard mid-flight ownership state:
+  `has_claims`, `has_document_locks`, `keepalive_held`,
+  `wake_delivery_in_flight`, `chain_pending`.
+- `keepalive_held` is the one a session does not hold for itself. A broker
+  or other pure wake target holds no claim by design, so idle cleanup would
+  end it the moment its turn stopped; the caller that needs it alive takes
+  a bounded lease instead (`yoke sessions keepalive hold <session-id>
+  --reason ... [--seconds N]`, released by `yoke sessions keepalive
+  release` or by expiry). The lease is control-plane state, so the held
+  session's own tool calls neither set nor clear it — unlike `parked` mode,
+  which a session declares about itself and its next tool call takes back.
+  It guards only idle reaping: an explicit terminate, and the relay's
+  verified-process-death path, still end the session.
 - Destructive ends are explicit operator/CLI calls
   (`session-end --release-claims` through
   `sessions_render_end.end_session`). They fail closed with

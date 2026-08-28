@@ -21,6 +21,7 @@ from .sessions_render_end_chain_pending import (
     next_action_command,
     next_offer_step,
 )
+from .session_keepalive import session_keepalive_holds
 from .workflow_item_binding_lock import rollback_workflow_binding_write_errors
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
@@ -143,6 +144,7 @@ def end_session_blocker_facts(
     *,
     active_claim_count: int = 0,
     active_document_lock_count: int = 0,
+    keepalive: Dict[str, Any] | None = None,
     wake_delivery: Dict[str, Any] | None = None,
     chain_state: ChainPendingState | None = None,
 ) -> Dict[str, Any] | None:
@@ -157,6 +159,12 @@ def end_session_blocker_facts(
             "status": "has_document_locks",
             "active_claim_count": 0,
             "active_document_lock_count": int(active_document_lock_count),
+        }
+    if keepalive is not None:
+        return {
+            "status": "keepalive_held",
+            "active_claim_count": 0,
+            **keepalive,
         }
     if wake_delivery is not None:
         return dict(wake_delivery)
@@ -229,6 +237,15 @@ def end_session_if_empty(
             **end_session_blocker_facts(
                 active_document_lock_count=int(lock_count),
             ),
+        }
+
+    keepalive = session_keepalive_holds(conn, (session_id,)).get(session_id)
+    if keepalive is not None:
+        conn.commit()
+        return {
+            "session_id": session_id,
+            "ended": False,
+            **end_session_blocker_facts(keepalive=keepalive),
         }
 
     wake_delivery = wake_deliveries_in_flight(conn, (session_id,)).get(session_id)

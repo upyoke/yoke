@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-28T03:29:07Z_
+_Audit generated_at: 2026-08-28T04:53:59Z_
 
 ## 1. Summary
 
-- Function ids registered: **435**
+- Function ids registered: **437**
 - Internal dispatch-only functions without CLI adapters: **86**
-- `yoke` CLI subcommands: **360** (360 carry usable `--help`)
-- Operation tracker: **337 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- `yoke` CLI subcommands: **364** (364 carry usable `--help`)
+- Operation tracker: **341 wrapped**, 10 tool_cli, 126 permanent, 0 pending
 - Skill-body recipes: 322 total (269 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **337** (operation tracker confirms 337 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **341** (operation tracker confirms 341 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -232,6 +232,10 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **337** (operation track
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |
 | readiness | `yoke readiness repair-stale-count` | `readiness.repair_stale_count` | ok |
 | release_pin | `yoke release-pin record` | `release_pin.record` | ok |
+| session_control | `yoke session-control keepalive hold` | `session_control.keepalive.hold` | ok |
+| session_control | `yoke sessions keepalive hold` | `session_control.keepalive.hold` | ok |
+| session_control | `yoke session-control keepalive release` | `session_control.keepalive.release` | ok |
+| session_control | `yoke sessions keepalive release` | `session_control.keepalive.release` | ok |
 | session_control | `yoke session-control launch cancel` | `session_control.launch.cancel` | ok |
 | session_control | `yoke session-control launch create` | `session_control.launch.create` | ok |
 | session_control | `yoke sessions create` | `session_control.launch.create` | ok |

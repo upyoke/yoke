@@ -19,8 +19,13 @@ Yoke uses harness-native hook points to keep orchestration deterministic — sta
 The `yoke hook evaluate` CLI is the stable boundary project hook configs call; the spelling is identical on every transport. Other Python modules above are internal policy/telemetry owners executed behind the runner, not copy-paste hook config commands.
 
 `Stop` and `SessionEnd` call `end_session_if_empty`: they preserve an active
-session when it still owns unreleased work claims or has a resumable chain
-checkpoint. They do not drain claims. `SubagentStop` has a different local
+session when it still owns unreleased work claims, a session-owned strategy
+document lock, a keep-alive hold, an in-flight wake delivery, or a resumable
+chain checkpoint. They do not drain claims. The keep-alive hold is how a
+session that legitimately holds nothing — one whose whole job is to be a live
+wake target — survives this path: `yoke sessions keepalive hold <session-id>
+--reason ...` leases it against idle reaping, and the lease expires on its own
+rather than pinning the session forever. `SubagentStop` has a different local
 responsibility: it can safety-net auto-commit uncommitted work in a `YOK-N`
 item worktree and then emits `HarnessSessionStopped`; it does not terminate
 the parent session or release its claims.

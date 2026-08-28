@@ -30,6 +30,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("model", "TEXT"),
             ("mode", "TEXT"),
             ("parked_reason", "TEXT"),
+            ("keepalive_until", "TEXT"),
+            ("keepalive_reason", "TEXT"),
             ("execution_lane", "TEXT"),
             ("offer_envelope", "TEXT"),
             ("current_item_id", "TEXT"),
@@ -76,6 +78,17 @@ CLAIMS_TABLES: dict[str, dict] = {
             "optional short why when mode is parked, and is cleared with "
             "parked by any tool call (there is no manual unstamp). A stale "
             "guess that parked needs a second stamp to leave is wrong. "
+            "keepalive_until / keepalive_reason are a DIFFERENT concept "
+            "from parked and are not interchangeable with it (a stale "
+            "guess is that parked is what keeps an idle session alive): "
+            "they are a bounded lease another caller takes to stop idle "
+            "cleanup from ending a session that legitimately holds "
+            "nothing, taken with `yoke sessions keepalive hold "
+            "<session-id> --reason ...` and cleared by `yoke sessions "
+            "keepalive release` or by expiry. The held session's own tool "
+            "calls neither set nor clear it. Read a live hold through "
+            "session_keepalive_holds (an expired timestamp is not a "
+            "hold), never by testing keepalive_until for NULL. "
             "offer_envelope is the JSON "
             "session-offer payload (see JSON-nested-field schemas below). "
             "The default routing lane is execution_lane on this row; "

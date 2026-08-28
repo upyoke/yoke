@@ -12,12 +12,51 @@ from yoke_contracts.session_control.surface_versions import surface_version_meet
 from yoke_cli.commands.adapters.session_control_acceptance import PREPARE_BROKER_FLAG
 
 
+#: Candidates existed on the named machine and none of them, in either role,
+#: satisfied every declared axis.
 NO_CLAIM_FREE_PAIR_CODE = "no_claim_free_broker_pair"
-NO_CLAIM_FREE_PAIR_RECOVERY = (
+
+#: The roster named no session at all for the decision to weigh. A different
+#: fact from "every candidate was refused", and it wants the same next action
+#: for a different reason, so the operator is told which one they hit.
+NO_BROKER_CANDIDATES_CODE = "no_broker_candidates"
+
+#: Preparation launched a dedicated pair, the pair registered, and by the
+#: re-read the sessions were gone. Never reported as a shortage of candidates:
+#: the pair existed and did not survive.
+PREPARED_SESSIONS_ENDED_CODE = "prepared_broker_sessions_ended"
+
+_PREPARE_RECOVERY = (
     f"Rerun preview with {PREPARE_BROKER_FLAG} to launch two dedicated claim-free "
     "codex-cli sessions on the selected machine, wait for registration, and "
     "re-preview."
 )
+NO_CLAIM_FREE_PAIR_RECOVERY = (
+    "Every session considered failed at least one declared axis; the preview's "
+    "considered_sessions names which axis each failed for each role. "
+    + _PREPARE_RECOVERY
+)
+NO_BROKER_CANDIDATES_RECOVERY = (
+    "No session was considered at all on the selected machine. Confirm the "
+    "machine has a live relay for the surface, then: " + _PREPARE_RECOVERY
+)
+
+
+def prepared_sessions_ended_recovery(session_ids: Sequence[str]) -> str:
+    """Say which prepared sessions died, and how to keep the next pair alive."""
+    named = ", ".join(session_ids) or "the prepared pair"
+    return (
+        f"Preparation registered {named} and the sessions were gone by the "
+        "re-read, so preparation refuses rather than reporting a shortage of "
+        "candidates. A broker session holds no work claim by design, so idle "
+        "cleanup ends it the moment its turn stops unless something holds it: "
+        "preparation takes that hold itself, so this means the hold did not "
+        "land. Check `yoke sessions keepalive hold <session-id> --reason ...` "
+        "against one of those ids for the refusal it reports, then rerun "
+        f"preview with {PREPARE_BROKER_FLAG}."
+    )
+
+
 BrokerRole = Literal["target", "peer"]
 
 
@@ -35,6 +74,7 @@ class BrokerBindingDecision:
     failure_code: str | None = None
     recovery: str | None = None
     advertised_version: str = ""
+    considered: tuple[dict[str, Any], ...] = ()
 
 
 def _role_code(role: BrokerRole, target: str, peer: str) -> str:
@@ -234,6 +274,19 @@ def decide_broker_binding(
     peer: Mapping[str, Any] | None,
     candidates: Sequence[Mapping[str, Any]] = (),
 ) -> BrokerBindingDecision:
+    from runtime.api.tools.session_control_live_acceptance_broker_candidates import (
+        candidate_evidence,
+    )
+
+    considered = candidate_evidence(
+        binding,
+        project=project,
+        surface=surface,
+        advertised_version=advertised_version,
+        target=target,
+        peer=peer,
+        candidates=candidates,
+    )
     selected = select_broker_binding(
         binding,
         project=project,
@@ -245,25 +298,36 @@ def decide_broker_binding(
     )
     if selected is not None:
         return BrokerBindingDecision(
-            "ready", selected, advertised_version=advertised_version
+            "ready",
+            selected,
+            advertised_version=advertised_version,
+            considered=considered,
         )
+    empty = not considered
     return BrokerBindingDecision(
         "not_ready",
         binding,
-        failure_code=NO_CLAIM_FREE_PAIR_CODE,
-        recovery=NO_CLAIM_FREE_PAIR_RECOVERY,
+        failure_code=(NO_BROKER_CANDIDATES_CODE if empty else NO_CLAIM_FREE_PAIR_CODE),
+        recovery=(
+            NO_BROKER_CANDIDATES_RECOVERY if empty else NO_CLAIM_FREE_PAIR_RECOVERY
+        ),
         advertised_version=advertised_version,
+        considered=considered,
     )
 
 
 __all__ = [
+    "NO_BROKER_CANDIDATES_CODE",
+    "NO_BROKER_CANDIDATES_RECOVERY",
     "NO_CLAIM_FREE_PAIR_CODE",
     "NO_CLAIM_FREE_PAIR_RECOVERY",
+    "PREPARED_SESSIONS_ENDED_CODE",
     "BrokerBinding",
     "BrokerBindingDecision",
     "BrokerRole",
     "broker_session_eligibility",
     "decide_broker_binding",
     "require_broker_session_eligibility",
+    "prepared_sessions_ended_recovery",
     "select_broker_binding",
 ]

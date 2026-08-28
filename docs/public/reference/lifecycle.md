@@ -129,9 +129,10 @@ skill across implementation work; the stage name alone does not choose one.
 
 **Claim continuity across transient SessionEnd.** A Claude Desktop SessionEnd
 event (laptop sleep, app reload, idle timeout) never destroys mid-flight
-claims: the hook runs the non-destructive `end_session_if_empty`, which only
-ends sessions holding no active claims and no chain-pending budget — sessions
-with either are reported as skipped and stay live. Destructive ends are
+claims: the hook runs the non-destructive `end_session_if_empty`, which ends a
+session only when it holds nothing — no active claim, session-owned document
+lock, keep-alive hold, in-flight wake delivery, or chain-pending budget.
+A session holding any of those is reported as skipped and stays live. Destructive ends are
 explicit operator calls (`session-end --release-claims`) and fail closed with
 `CHAIN_PENDING` while a chainable checkpoint still has budget, unless
 `override_chain_end=True` plus a rationale is supplied; releases record

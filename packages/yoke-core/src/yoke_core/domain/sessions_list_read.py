@@ -278,6 +278,8 @@ def list_sessions(
                     "lane_glyph": presentation["lane_glyph"],
                     "mode": row.get("mode"),
                     "parked_reason": row.get("parked_reason"),
+                    "keepalive_until": row.get("keepalive_until"),
+                    "keepalive_reason": row.get("keepalive_reason"),
                     "actor_id": row.get("actor_id"),
                     "actor_kind": row.get("actor_kind"),
                     "actor_label": _actor_label(
