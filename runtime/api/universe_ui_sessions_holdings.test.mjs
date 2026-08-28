@@ -67,10 +67,12 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
           {
             target_kind: "steering", target: "steering for project 1",
             project_id: 1, scope: { project_id: 1 },
+            strategy_docs: ["CURRENT-PLAN"],
           },
           {
             target_kind: "steering", target: "steering for project 3",
             project_id: 3, scope: { project_id: 3 },
+            strategy_docs: ["CURRENT-PLAN"],
           },
           {
             target_kind: "item", target: "YOK-2552",
@@ -109,16 +111,14 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
   assert.equal(byClass(cards[0], "session-work").length, 1);
   assert.equal(byClass(cards[1], "session-work").length, 1);
   assert.equal(byClass(cards[0], "session-hold-target").length, 0);
-  assert.deepEqual(
-    byClass(cards[0], "session-steering-detail").map(
-      (node) => node.textContent,
-    ),
-    ["yoke, platform · CURRENT-PLAN"],
+  assert.equal(
+    byClass(cards[0], "session-steering-detail")[0].textContent,
+    "yoke · CURRENT-PLAN; platform · CURRENT-PLAN",
   );
   assert.equal(byClass(cards[0], "session-steering-badge")[0].textContent, "Steering");
-  assert.ok(!visibleText(cards[0]).includes("steering for"));
-  assert.ok(!visibleText(cards[0]).includes("project 1"));
-  assert.ok(!visibleText(cards[0]).includes("project 3"));
+  for (const gone of ["steering for", "project 1", "project 3"]) {
+    assert.ok(!visibleText(cards[0]).includes(gone), gone);
+  }
   const relay = byClass(cards[0], "session-relay-pill")[0];
   assert.equal(relay.textContent, longMachineName);
   assert.equal(relay.title, longMachineName);

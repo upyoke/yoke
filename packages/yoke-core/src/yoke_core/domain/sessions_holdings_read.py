@@ -4,8 +4,9 @@ Split from :mod:`sessions_list_read` (authored-file line cap). Owns the
 per-session grouping the roster read composes into its rows:
 
 * :func:`active_claims_by_session` — active ``work_claims`` rows with
-  their rendered targets, worktree lane roles, and per-item facts
-  (drill-in coordinates, stage, workflow) in one batched read.
+  their rendered targets, worktree lane roles, and the per-claim facts
+  from :mod:`sessions_holdings_claim_facts` (an item's coordinates,
+  stage and workflow; a steering claim's strategy documents).
 * :func:`active_leases_by_session` — live shared-operation claim rows
   keyed by holding session (session-owned by typed owner, item-owned
   by whoever currently claims ``owner_item_id``).
@@ -27,68 +28,16 @@ from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_TARGET_KINDS,
 )
+from yoke_core.domain.sessions_holdings_claim_facts import (
+    claimed_item_facts,
+    clear_failed_read,
+    steered_document_slugs,
+)
 from yoke_core.domain.coordination_claim_keys import key_for_target
 from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_MIGRATION_SERIALIZATION,
     from_row as target_from_row,
 )
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _empty_on_missing_relation(conn: Any) -> None:
-    """Clear an aborted transaction after a missing-relation read."""
-    try:
-        conn.rollback()
-    except Exception:
-        pass
-
-
-def claimed_item_facts(
-    conn: Any,
-    item_ids: List[int],
-) -> Dict[int, Dict[str, Any]]:
-    """Describe each claimed item in one read, keyed by internal id.
-
-    Values are the claim-payload shape itself — ``item_ref``,
-    ``item_project_id``, ``item_project_sequence``, ``item_status``,
-    ``item_workflow_id`` — so every item claim says what it is and how far
-    along it is, not only the one the session's focus names. An id with no
-    backing item row is absent; callers apply the display fallback.
-    """
-    distinct = list(dict.fromkeys(int(value) for value in item_ids))
-    if not distinct:
-        return {}
-    marker = _p(conn)
-    placeholders = ", ".join(marker for _ in distinct)
-    try:
-        rows = conn.execute(
-            "SELECT i.id AS id, i.project_id AS project_id, "
-            "i.project_sequence AS project_sequence, i.status AS status, "
-            "i.workflow_id AS workflow_id, p.public_item_prefix AS prefix "
-            "FROM items i JOIN projects p ON p.id = i.project_id "
-            f"WHERE i.id IN ({placeholders})",
-            tuple(distinct),
-        ).fetchall()
-    except db_backend.database_error_types(conn):
-        _empty_on_missing_relation(conn)
-        return {}
-    facts: Dict[int, Dict[str, Any]] = {}
-    for row in rows:
-        facts[int(row["id"])] = {
-            "item_ref": format_item_ref(
-                None,
-                row["prefix"],
-                row["project_sequence"],
-            ),
-            "item_project_id": int(row["project_id"]),
-            "item_project_sequence": int(row["project_sequence"]),
-            "item_status": row["status"],
-            "item_workflow_id": row["workflow_id"],
-        }
-    return facts
 
 
 def _render_target(
@@ -162,12 +111,25 @@ def active_claims_by_session(
         if claim.get("target_kind") == "item" and claim["item_id"] is not None
     ]
     item_facts = claimed_item_facts(conn, claimed_items)
+    doc_slugs = steered_document_slugs(
+        conn,
+        (
+            session_id
+            for session_id, claims in raw_by_session.items()
+            if any(claim.get("target_kind") == "steering" for claim in claims)
+        ),
+    )
 
     grouped: Dict[str, List[Dict[str, Any]]] = {}
     roles: Dict[str, List[Dict[str, Any]]] = {}
     for session_id, claims in raw_by_session.items():
         for claim in claims:
             target, facts = _render_target(claim, item_facts)
+            if claim.get("target_kind") == "steering":
+                # Each steered project pairs with its own documents; one
+                # session-level scope can only ever describe one of them.
+                key = (session_id, int(facts.get("project_id") or 0))
+                facts["strategy_docs"] = doc_slugs.get(key, [])
             grouped.setdefault(session_id, []).append(
                 {
                     "target_kind": str(claim.get("target_kind") or ""),
@@ -274,7 +236,7 @@ def active_leases_by_session(
             "ORDER BY claimed_at DESC, id DESC",
         ).fetchall()
     except db_backend.database_error_types(conn):
-        _empty_on_missing_relation(conn)
+        clear_failed_read(conn)
         return {}
     item_sessions = _item_claim_sessions(roles_by_session or {})
     owner_ids = [
@@ -327,7 +289,7 @@ def claimed_blitz_worktree_ids_by_session(
             "ORDER BY iw.id",
         ).fetchall()
     except db_backend.database_error_types(conn):
-        _empty_on_missing_relation(conn)
+        clear_failed_read(conn)
         return {}
     grouped: Dict[str, List[int]] = {}
     seen: set[tuple[str, int]] = set()
@@ -345,6 +307,5 @@ def claimed_blitz_worktree_ids_by_session(
 __all__ = [
     "active_claims_by_session",
     "active_leases_by_session",
-    "claimed_item_facts",
     "claimed_blitz_worktree_ids_by_session",
 ]

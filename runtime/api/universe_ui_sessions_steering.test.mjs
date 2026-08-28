@@ -78,21 +78,55 @@ test("steering states itself once however many projects it covers", () => {
   const holder = card(documentNode, {
     ...baseRow("holder-2"),
     claims: [
-      { target_kind: "steering", project_id: 1, scope: { project_id: 1 } },
-      { target_kind: "steering", project_id: 3, scope: { project_id: 3 } },
+      {
+        target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        strategy_docs: ["CURRENT-PLAN"],
+      },
+      {
+        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+        strategy_docs: ["CURRENT-PLAN"],
+      },
     ],
     steering_scope: { project: "yoke", strategy_docs: ["CURRENT-PLAN"] },
   }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
 
   // One line for the whole of steering: the lock row per project and the
-  // separate context badge said the same thing three times over.
+  // separate context badge said the same thing three times over. Both
+  // projects still read as two holds even though their documents share a
+  // slug, because each project is paired with its own.
   assert.equal(byClass(holder, "session-steering-context").length, 1);
   assert.equal(byClass(holder, "session-work").length, 1);
   assert.equal(
     byClass(holder, "session-steering-detail")[0].textContent,
-    "yoke, platform · CURRENT-PLAN",
+    "yoke · CURRENT-PLAN; platform · CURRENT-PLAN",
   );
   assert.equal(byClass(holder, "session-hold-target").length, 0);
+});
+
+
+test("each steered project carries the documents it is steered from", () => {
+  const documentNode = new FakeDocument();
+  const holder = card(documentNode, {
+    ...baseRow("holder-4"),
+    claims: [
+      {
+        target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        strategy_docs: ["MISSION", "VISION"],
+      },
+      {
+        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+        strategy_docs: ["MASTER-PLAN"],
+      },
+    ],
+    steering_scope: { project: "yoke", strategy_docs: ["MISSION", "VISION"] },
+  }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
+
+  // Semicolons separate projects, commas separate one project's documents,
+  // so the platform hold cannot be read as a third yoke document.
+  assert.equal(
+    byClass(holder, "session-steering-detail")[0].textContent,
+    "yoke · MISSION, VISION; platform · MASTER-PLAN",
+  );
 });
 
 
