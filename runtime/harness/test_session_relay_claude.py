@@ -29,6 +29,7 @@ BOOTSTRAP = native_launch_bootstrap(LAUNCH_ID)
 MESSAGE_ID = "message-1"
 CHECK_INBOX = native_wake_instruction(MESSAGE_ID)
 CLAUDE = "/opt/claude/bin/claude"
+CLAUDE_LOCAL_SETTINGS_JSON = '{"disableRemoteControl":true}'
 
 
 def _context(**overrides):
@@ -104,7 +105,7 @@ def test_create_reports_and_stages_the_actual_background_session() -> None:
         LAUNCH_ID,
         "--dangerously-skip-permissions",
         "--settings",
-        '{"disableRemoteControl":true}',
+        CLAUDE_LOCAL_SETTINGS_JSON,
         "--model",
         "claude-opus-4-1",
         "--name",

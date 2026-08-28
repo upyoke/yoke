@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.harness.test_session_relay_claude import CLAUDE_LOCAL_SETTINGS_JSON
 from yoke_harness.session_relay_claude_native import ClaudeNativeInvocation
 
 
@@ -21,7 +22,7 @@ def _resume(presentation):
 
 def test_managed_resume_disables_remote_control_for_this_invocation_only():
     argv = _resume("local").argv
-    assert argv[argv.index("--settings") + 1] == '{"disableRemoteControl":true}'
+    assert argv[argv.index("--settings") + 1] == CLAUDE_LOCAL_SETTINGS_JSON
 
 
 def test_operator_opened_resume_keeps_remote_control_behavior_unchanged():

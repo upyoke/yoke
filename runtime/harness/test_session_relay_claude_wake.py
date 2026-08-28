@@ -10,6 +10,7 @@ from runtime.harness.test_session_relay_claude import (
     ACTUAL_ID,
     CHECK_INBOX,
     CLAUDE,
+    CLAUDE_LOCAL_SETTINGS_JSON,
     _allow,
     _context,
 )
@@ -69,6 +70,8 @@ def test_waiting_wake_spawns_exact_yoke_session_and_returns_running(
         CLAUDE,
         "-p",
         "--dangerously-skip-permissions",
+        "--settings",
+        CLAUDE_LOCAL_SETTINGS_JSON,
         "--resume",
         ACTUAL_ID,
         CHECK_INBOX,
