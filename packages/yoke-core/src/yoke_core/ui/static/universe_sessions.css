@@ -16,7 +16,6 @@
   font-style: italic;
 }
 
-.universe-app-root .session-card { align-self: start; }
 .universe-app-root .session-card:hover {
   border-color: color-mix(
     in srgb,
@@ -209,11 +208,13 @@
   color: var(--yoke-muted);
 }
 
+/* A label, not a meter: width follows the name; the cap makes it truncate. */
 .universe-app-root .session-relay-pill {
-  flex: 1 1 auto;
+  max-width: 22ch;
   min-width: 0;
   font-family: var(--yoke-font-mono);
 }
+.universe-app-root .session-relay-pill::before { flex: 0 0 auto; }
 .universe-app-root .session-relay-machine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .universe-app-root .session-health-detail,

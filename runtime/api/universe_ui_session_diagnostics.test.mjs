@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  killCauseText,
+  killBadgeLabel,
+  killBadgeTitle,
   sessionHealthState,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
 import {
@@ -153,8 +154,19 @@ test("the health pill renders its state and detail on the card", () => {
 });
 
 test("a kill reads as a cause of death on ended, never as its own liveness", () => {
-  assert.equal(killCauseText({ liveness: "ended" }), "");
-  assert.equal(killCauseText({ ended_cause: "killed" }), "killed");
+  assert.equal(killBadgeLabel({ liveness: "ended" }), "");
+  assert.equal(killBadgeLabel({ ended_cause: "killed" }), "killed");
+  // The label stays one word whether or not a reason exists; the reason is
+  // hover detail, so it reaches the reader through the title instead.
+  assert.equal(
+    killBadgeLabel({ ended_cause: "killed", termination_reason: "a long reason" }),
+    "killed",
+  );
+  assert.match(
+    killBadgeTitle({ ended_cause: "killed", termination_reason: "a long reason" }),
+    /Reason: a long reason$/,
+  );
+  assert.ok(!killBadgeTitle({ ended_cause: "killed" }).includes("Reason:"));
 
   const rendered = card({
     session_id: "killed-1",
@@ -168,8 +180,7 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
     messageability: { messageable: false },
   });
   assert.equal(byClass(rendered, "session-health").length, 0);
-  assert.equal(
-    byClass(rendered, "session-kill-badge")[0].textContent,
-    "killed · operator stopped worker",
-  );
+  const badge = byClass(rendered, "session-kill-badge")[0];
+  assert.equal(badge.textContent, "killed");
+  assert.match(badge.title, /Reason: operator stopped worker$/);
 });

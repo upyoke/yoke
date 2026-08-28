@@ -19,10 +19,17 @@ function latestMessageBadge(documentNode, message) {
   return badge;
 }
 
-export function killCauseText(row) {
-  if (row.ended_cause !== "killed") return "";
+// The badge says what happened, not why: a termination reason is a sentence of
+// operator prose, and rendering it inline turns a status marker into a red
+// paragraph. The label is the word; `killBadgeTitle` carries the reason.
+export function killBadgeLabel(row) {
+  return row.ended_cause === "killed" ? "killed" : "";
+}
+
+export function killBadgeTitle(row) {
+  const base = "Terminated: this session cannot be revived, woken, or messaged.";
   const reason = String(row.termination_reason || "").trim();
-  return reason ? `killed · ${reason}` : "killed";
+  return reason ? `${base} Reason: ${reason}` : base;
 }
 
 // Past the staleness window: the session has been quiet long enough that the
@@ -80,11 +87,11 @@ export function sessionHealthState(row, now = Date.now()) {
 // A killed session is ended like any other gone session; the kill is a cause
 // of death, so it reads as a badge on ended rather than a liveness state.
 function appendKillCause(documentNode, body, row) {
-  const text = killCauseText(row);
-  if (!text) return;
+  const label = killBadgeLabel(row);
+  if (!label) return;
   const line = el(documentNode, "div", "session-ended-cause");
-  const badge = el(documentNode, "span", "session-kill-badge", text);
-  badge.title = "Terminated: this session cannot be revived, woken, or messaged.";
+  const badge = el(documentNode, "span", "session-kill-badge", label);
+  badge.title = killBadgeTitle(row);
   line.appendChild(badge);
   const at = relativeAge(row.terminated_at);
   if (at) line.appendChild(el(documentNode, "span", "session-kill-when", at));
