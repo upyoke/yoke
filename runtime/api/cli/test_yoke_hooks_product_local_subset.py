@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 from yoke_harness.hooks import local_subset
 from yoke_harness.hooks.deadline import HookDeadline
 from yoke_harness.hooks.local_policy_common import DENY, PolicyResult
+from yoke_contracts.hook_driver_process import DRIVER_PAYLOAD_KEY
 from yoke_contracts.hook_runner.session_cwd import (
     CLIENT_CLAUDE_JOB_TMP_KEY,
     CLIENT_CLAUDE_JOB_TMP_SCHEMA,
@@ -139,7 +141,13 @@ def test_relay_subset_reports_client_free_path_roots(
         defer_main_commit=True,
     )
 
-    assert result.payload_extra == {
+    reported = dict(result.payload_extra)
+    # The driving process self-reports here so the evaluating server does not
+    # have to guess it; its pids are this process's, so check the shape and
+    # hold the rest of the payload to exact equality.
+    driver = reported.pop(DRIVER_PAYLOAD_KEY)
+    assert driver == {"pid": os.getpid(), "ppid": os.getppid(), "origin": "client"}
+    assert reported == {
         CLIENT_CLAUDE_JOB_TMP_KEY: {
             "schema": CLIENT_CLAUDE_JOB_TMP_SCHEMA,
             "root": str(Path(job_dir) / "tmp"),
