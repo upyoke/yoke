@@ -3,6 +3,9 @@
   gap: 10px;
 }
 
+/* Cards take the grid's default stretch on purpose: a row of peers reads as a
+   row only when they end at the same line, and the grid equalizes each row
+   against its own tallest card without any height-matching code. */
 .universe-app-root .session-grid {
   display: grid;
   grid-template-columns: repeat(

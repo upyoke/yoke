@@ -212,9 +212,10 @@ test("roster State uses accepted liveness values while kill cause stays on the c
   state.value = "ended";
   state.dispatchEvent(new Event("change"));
   assert.equal(byClass(root, "session-card").length, 2);
-  assert.equal(
-    byClass(root, "session-kill-badge")[0].textContent,
-    "killed · operator stopped worker",
+  assert.equal(byClass(root, "session-kill-badge")[0].textContent, "killed");
+  assert.match(
+    byClass(root, "session-kill-badge")[0].title,
+    /Reason: operator stopped worker$/,
   );
   mounted.unmount();
 });
