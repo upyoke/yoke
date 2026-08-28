@@ -19,7 +19,7 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.project_github_auth",
     ): (
         "machine_local_credential_custody",
-        "bind refresh-only GitHub user authority inside the merge child",
+        "bind machine GitHub user authority inside the merge child",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",

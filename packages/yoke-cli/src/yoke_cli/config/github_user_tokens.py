@@ -1,4 +1,4 @@
-"""Refresh-only access over a serialized refresh-token rotation chain."""
+"""Local GitHub user access over a serialized refresh-token rotation chain."""
 
 from __future__ import annotations
 
