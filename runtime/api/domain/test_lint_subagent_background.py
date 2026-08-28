@@ -275,9 +275,9 @@ class TestSubagentAdapterWiring(unittest.TestCase):
     """Sibling regressions on the rendered adapter files.
 
     Walks the on-disk Claude adapter files for every Bash-capable subagent
-    and asserts every PreToolUse matcher routes through the universal
-    runner with the env-wrapped subagent identity. Also asserts PM/PD
-    adapters carry zero ``lint_subagent_background`` invocations.
+    and asserts one matcherless PreToolUse runner with the env-wrapped
+    subagent identity. Also asserts PM/PD adapters carry zero
+    ``lint_subagent_background`` invocations.
     """
 
     _BASH_CAPABLE_ROLES = ("engineer", "tester", "architect", "boss", "simulator")
@@ -297,7 +297,7 @@ class TestSubagentAdapterWiring(unittest.TestCase):
             / f"yoke-{role}.md"
         )
 
-    def test_each_bash_capable_adapter_renders_seven_pretool_runner_entries(self):
+    def test_each_bash_capable_adapter_renders_one_matcherless_pretool_entry(self):
         for role in self._BASH_CAPABLE_ROLES:
             adapter_text = self._claude_adapter_path(role).read_text(encoding="utf-8")
             expected_command = (
@@ -307,8 +307,8 @@ class TestSubagentAdapterWiring(unittest.TestCase):
             count = adapter_text.count(expected_command)
             self.assertEqual(
                 count,
-                7,
-                f"yoke-{role}.md: expected 7 hook CLI PreToolUse entries, got {count}",
+                1,
+                f"yoke-{role}.md: expected 1 matcherless PreToolUse entry, got {count}",
             )
             # Disk-side: no --agent-type CLI flag on any PreToolUse runner.
             self.assertNotIn(
