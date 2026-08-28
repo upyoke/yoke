@@ -25,6 +25,7 @@ SESSION_SURFACE_CAPABILITY_SOURCE_PATHS = frozenset(
     }
 )
 SESSION_SURFACE_CAPABILITY_TESTS = (
+    "runtime/api/domain/test_session_control_roster.py",
     "runtime/api/domain/test_session_control_surface_versions.py",
     "runtime/api/domain/test_session_launch_requests.py",
     "runtime/api/domain/test_session_launch_surface_fallback.py",

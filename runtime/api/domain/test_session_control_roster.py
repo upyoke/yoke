@@ -151,8 +151,10 @@ def _base_row(*, surface: str, liveness: str) -> dict[str, object]:
 
 def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     conn = _connection()
-    _add_session(conn, surface="codex-desktop", version="26.814.41407")
-    _add_relay(conn, surface_versions={"codex-desktop": "26.814.41407"})
+    surface = "codex-vscode"
+    version = "0.148.0-alpha.15"
+    _add_session(conn, surface=surface, version=version)
+    _add_relay(conn, surface_versions={surface: version})
     conn.execute(
         "INSERT INTO item_worktrees VALUES (?,?,?,?,?,?)",
         (1, TEST_ITEM_ID, "/repo/.worktrees/item-42", "item-42", "active", "worker"),
@@ -168,7 +170,7 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
             None,
         ),
     )
-    base = _base_row(surface="codex-desktop", liveness="active")
+    base = _base_row(surface=surface, liveness="active")
     base.update(
         {
             "claims": [{"target_kind": "item", "target": TEST_ITEM_REF}],
@@ -186,7 +188,7 @@ def test_roster_enriches_version_machine_relay_and_messageability() -> None:
     assert row["focus"] == TEST_ITEM_REF
     assert row["role"] == "implementation"
     assert row["worktree"] == "/repo/.worktrees/item-42"
-    assert row["executor_version"] == "26.814.41407"
+    assert row["executor_version"] == version
     assert row["machine_id"] == "machine-1"
     assert row["machine_name"] == "studio"
     assert row["relay"] == "connected"
