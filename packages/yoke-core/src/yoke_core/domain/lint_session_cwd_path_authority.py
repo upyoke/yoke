@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, List, Optional, Sequence
+from typing import Any, Iterable, List, Optional, Sequence
 
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
@@ -209,16 +209,41 @@ def derive_repo_roots(
     conn: Any,
     claims: Sequence[ClaimedWorktree],
 ) -> List[str]:
-    """Walk a claim's worktree path back to its repo root."""
+    """Walk held-claim worktree paths back to their repo roots.
+
+    Lane-main-write uses this claim-scoped set so a live lane only
+    guards its own project's main checkout.
+    """
     _ = conn
-    seen: set[str] = set()
-    out: List[str] = []
-    for claim in claims:
-        root = repo_root_from_worktree_path(claim.worktree_path)
-        if root and root not in seen:
-            seen.add(root)
-            out.append(root)
-    return out
+    return _unique_repo_roots(c.worktree_path for c in claims)
+
+
+def recorded_repo_roots(conn: Any) -> List[str]:
+    """Repo roots named by every recorded lane, not only held claims.
+
+    Session-cwd control-plane authorization uses this set so a claim in
+    one project does not revoke other projects' checkouts. Relayed
+    evaluation has no machine checkout map; recorded ``item_worktrees``
+    paths are the authority that survives HTTPS.
+    """
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "item_worktrees"):
+        return []
+    try:
+        rows = conn.execute(
+            "SELECT path FROM item_worktrees WHERE path IS NOT NULL"
+        ).fetchall()
+    except db_backend.operational_error_types(conn):
+        return []
+    paths: List[str] = []
+    for row in rows:
+        value = row["path"] if hasattr(row, "keys") else row[0]
+        text = str(value or "").strip()
+        if text:
+            paths.append(text)
+    return _unique_repo_roots(paths)
 
 
 def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
@@ -227,6 +252,17 @@ def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
         if parts[idx] == ".worktrees":
             return str(Path(*parts[:idx]))
     return None
+
+
+def _unique_repo_roots(worktree_paths: Iterable[str]) -> List[str]:
+    seen: set[str] = set()
+    out: List[str] = []
+    for worktree_path in worktree_paths:
+        root = repo_root_from_worktree_path(worktree_path)
+        if root and root not in seen:
+            seen.add(root)
+            out.append(root)
+    return out
 
 
 __all__ = [
@@ -241,5 +277,6 @@ __all__ = [
     "is_sanctioned_installed_read_path",
     "is_under_tool_dir",
     "is_yoke_watcher_capture_path",
+    "recorded_repo_roots",
     "resolve_for_display",
 ]

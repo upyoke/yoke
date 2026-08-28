@@ -281,22 +281,18 @@ def render_claims_block(claims: Sequence[ClaimedWorktree]) -> str:
 def render_allowed_block(repo_roots: Sequence[str]) -> str:
     """Render the allowed-targets listing.
 
-    Names the **project** control plane (the claimed project repo root)
-    distinctly from the **Yoke** control plane (the Yoke main repo
-    root). When the two are the same install, the Yoke line is
-    suppressed to avoid a duplicate.
+    Names every recorded **project** control plane (any checkout's repo
+    root, not only the claimed project's) distinctly from the **Yoke**
+    control plane (the Yoke main repo root). When the two are the same
+    install, the Yoke line is suppressed to avoid a duplicate.
     """
     lines = ["  - Any claimed worktree above"]
     if repo_roots:
         joined = ", ".join(repo_roots)
-        lines.append(
-            f"  - Project control plane: {joined} (excluding .worktrees/)"
-        )
+        lines.append(f"  - Any project control plane: {joined} (excluding .worktrees/)")
     root = yoke_main_root()
     if root and root not in repo_roots:
-        lines.append(
-            f"  - Yoke control plane: {root} (excluding .worktrees/)"
-        )
+        lines.append(f"  - Yoke control plane: {root} (excluding .worktrees/)")
     lines.append("  - Free paths: /tmp, /var/folders/...")
     return "\n".join(lines) + "\n"
 
@@ -312,7 +308,8 @@ def resolve_authority_cwd(payload: Mapping[str, Any]) -> str:
     app-container root is ignored because it is not a filesystem target.
     """
     from yoke_core.domain.lint_session_cwd_target_extract import (
-        extract_payload_command, resolve_payload_cwd,
+        extract_payload_command,
+        resolve_payload_cwd,
     )
 
     command = extract_payload_command(payload) if isinstance(payload, Mapping) else ""
