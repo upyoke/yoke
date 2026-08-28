@@ -24,9 +24,7 @@ SESSION_KEEPALIVE_HOLD_USAGE = (
     f"[--seconds N (default {DEFAULT_KEEPALIVE_SECONDS}, "
     f"max {MAX_KEEPALIVE_SECONDS})] [--json]"
 )
-SESSION_KEEPALIVE_RELEASE_USAGE = (
-    "yoke sessions keepalive release SESSION-ID [--json]"
-)
+SESSION_KEEPALIVE_RELEASE_USAGE = "yoke sessions keepalive release SESSION-ID [--json]"
 
 _HOLD_DESCRIPTION = (
     "Hold one live session against idle reaping until the lease expires. A "
@@ -81,9 +79,7 @@ def session_keepalive_hold(args: List[str]) -> int:
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID")
     parser.add_argument("--reason", required=True)
-    parser.add_argument(
-        "--seconds", type=int, default=DEFAULT_KEEPALIVE_SECONDS
-    )
+    parser.add_argument("--seconds", type=int, default=DEFAULT_KEEPALIVE_SECONDS)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSION_KEEPALIVE_HOLD_USAGE)

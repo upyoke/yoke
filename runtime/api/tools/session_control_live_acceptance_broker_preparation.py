@@ -148,9 +148,7 @@ def _prepared_pair(
             sleep=sleep,
             monotonic=monotonic,
         )[0]
-        _hold_alive(
-            client, session_id=session_id, surface=surface, run_id=run_id
-        )
+        _hold_alive(client, session_id=session_id, surface=surface, run_id=run_id)
         registered.append(session_id)
     return registered
 

@@ -25,9 +25,7 @@ def _ended_at(conn, session_id: str):
 
 def test_held_session_is_not_reaped_while_it_holds_nothing_else(conn):
     _register(conn, session_id="held-broker")
-    hold_session_keepalive(
-        conn, "held-broker", seconds=600, reason="acceptance broker"
-    )
+    hold_session_keepalive(conn, "held-broker", seconds=600, reason="acceptance broker")
 
     result = end_session_if_empty(conn, "held-broker")
 

@@ -307,9 +307,7 @@ def decide_broker_binding(
     return BrokerBindingDecision(
         "not_ready",
         binding,
-        failure_code=(
-            NO_BROKER_CANDIDATES_CODE if empty else NO_CLAIM_FREE_PAIR_CODE
-        ),
+        failure_code=(NO_BROKER_CANDIDATES_CODE if empty else NO_CLAIM_FREE_PAIR_CODE),
         recovery=(
             NO_BROKER_CANDIDATES_RECOVERY if empty else NO_CLAIM_FREE_PAIR_RECOVERY
         ),
