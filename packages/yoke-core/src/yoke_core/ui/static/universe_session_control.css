@@ -58,7 +58,6 @@
 }
 
 .universe-app-root .session-control-preview-heading,
-.universe-app-root .session-control-table-caption,
 .universe-app-root .session-relay-surfaces-heading {
   margin: 8px 0 4px;
   color: var(--yoke-ink);
@@ -74,7 +73,6 @@
 }
 
 .universe-app-root .session-message-preview-list,
-.universe-app-root .session-message-receipts,
 .universe-app-root .session-launch-eligible,
 .universe-app-root .session-relay-surfaces,
 .universe-app-root .session-launch-timeline {
@@ -84,23 +82,109 @@
   font-size: 12px;
 }
 
-.universe-app-root .session-message-receipts {
-  min-width: 210px;
-}
-
-.universe-app-root .session-control-table {
-  width: 100%;
-}
-
-.universe-app-root .session-message-summary {
+.universe-app-root .session-message-list {
   display: grid;
-  min-width: 220px;
-  gap: 4px;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.universe-app-root .session-message-sender {
+.universe-app-root .session-message-card {
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .session-message-card:first-child {
+  border-top: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .session-message-card.is-attention {
+  padding-left: 11px;
+  border-left: 3px solid var(--yoke-warn);
+  background: color-mix(in srgb, var(--yoke-warn) 5%, transparent);
+}
+
+.universe-app-root .session-message-header,
+.universe-app-root .session-message-route,
+.universe-app-root .session-message-recipient-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+}
+
+.universe-app-root .session-message-header {
+  justify-content: space-between;
+}
+
+.universe-app-root .session-message-copy {
+  margin: 10px 0 8px;
+  color: var(--yoke-ink);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.universe-app-root .session-message-route {
   color: var(--yoke-muted);
   font-size: 11px;
+}
+
+.universe-app-root .session-message-direction,
+.universe-app-root .session-message-sent {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.universe-app-root .session-message-party {
+  color: var(--yoke-ink);
+  font-family: var(--yoke-font-mono);
+}
+
+.universe-app-root .session-message-recipients {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.universe-app-root .session-message-recipient {
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
+}
+
+.universe-app-root .session-message-recipient.is-waiting {
+  background: color-mix(in srgb, var(--yoke-warn) 8%, var(--yoke-surface));
+}
+
+.universe-app-root .session-message-recipient-status {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .session-message-recipient-status .ago {
+  color: inherit;
+}
+
+.universe-app-root .session-message-delivery-marker {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--yoke-good) 12%, transparent);
+  color: var(--yoke-good);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.universe-app-root .session-message-delivery-marker.is-wake {
+  background: color-mix(in srgb, var(--yoke-accent) 12%, transparent);
+  color: var(--yoke-accent);
 }
 
 .universe-app-root .session-control-id {
@@ -160,9 +244,13 @@
 }
 
 @media (max-width: 640px) {
-  .universe-app-root .session-control-table {
-    display: block;
-    overflow-x: auto;
+  .universe-app-root .session-message-recipient-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .universe-app-root .session-message-recipient-status {
+    margin-left: 0;
   }
 }
 
