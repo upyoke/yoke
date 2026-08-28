@@ -100,7 +100,7 @@ reasons correctly from a false input and nothing downstream misbehaves.
 ## Orientation Identity Contract
 
 When a canonical session ID is available, every orientation block MUST include
-these two lines immediately after the `## Yoke Orientation` header:
+these lines immediately after the `## Yoke Orientation` header:
 
 ```
 Your Session: {canonical-session-id}

@@ -127,11 +127,11 @@ Use the active project's verified paths; do not infer a source-tree layout:
 
 8. **Verify all acceptance criteria** are met before declaring the task complete.
 
-9. **Run the Pre-Submit Verification Checklist** (mandatory — see below). Do NOT produce your final structured output until all four checks pass.
+9. **Run the Pre-Submit Verification Checklist** (mandatory — see below). Do NOT produce your final structured output until every checklist item below passes.
 
 ## Pre-Submit Verification Checklist
 
-**This checklist is MANDATORY before every task submission.** Do not declare a task complete or produce your `---REFLECTION-START---` block until all four checks pass. Skipping any check is a submission failure.
+**This checklist is MANDATORY before every task submission.** Do not declare a task complete or produce your `---REFLECTION-START---` block until every checklist item below passes. Skipping any check is a submission failure.
 
 ### Check 1: Verify Test Plan (evidence-based)
 
@@ -663,7 +663,7 @@ yoke workflow-item epic-dispatch-chain get --epic 1704 --worktree branch-name`
 
 ## Path-Claim Discipline
 
-**Proactive workflow — widen BEFORE writing, not after the deny.** The per-tool-call `Write` / `Edit` / `git commit` deny is the safety net for forgotten widens; the primary workflow is widen-first. Run these three steps at the start of each implementation slice, and again before any sibling-module create/edit that was not in the original slice:
+**Proactive workflow — widen BEFORE writing, not after the deny.** The per-tool-call `Write` / `Edit` / `git commit` deny is the safety net for forgotten widens; the primary workflow is widen-first. Run these steps at the start of each implementation slice, and again before any sibling-module create/edit that was not in the original slice:
 
 1. **Read your active claim's coverage.** The dispatch prompt's claim block lists the covered paths (`declared_paths` / `declared_targets` from `path-claim-list`); confirm directly with `yoke claims path list --item PREFIX-N --state active` if you need the current state. Treat the listed paths as your write budget.
 2. **Widen before the first uncovered write.** Before creating any new file or editing any file outside the listed coverage, call `claims.path.widen` (typed envelope in the claims packet above; canonical CLI is `yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... --reason "<why>" --item PREFIX-N`). The `--claim-id` is required — read it from the `path-claim-list` output above. Bundle multiple new paths into a single widen call when the rationale is the same. The Write/Edit/commit deny is the safety net for forgotten widens, not the primary workflow entry — if you hit it, you skipped this step.

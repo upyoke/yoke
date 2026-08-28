@@ -16,7 +16,7 @@ If `_MERGE_ONLY`: report merge-only complete, **stop**.
 
 For each merged item, read `deployment_flow` and `project` through the typed `items.get` function (typed reads, not shell `items get`). For every non-empty, non-`-internal` value, read `target_tier` through the registered `deployment_flows.get` function. A successful empty target tier is merge-only; an unavailable read is unresolved and must not be guessed merge-only.
 
-Two categories:
+Categories:
 - **Route A, no run:** `deployment_flow` is empty/null, ends in the registered
   project convention `-internal`, or names a registered flow whose
   `target_tier` is empty

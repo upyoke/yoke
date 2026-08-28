@@ -129,7 +129,7 @@ needs stronger serialization. A planned claim is not a stronger reason
 to yield than an active one. Never omit a required area to obtain a
 clear survey.
 
-Apply the two axes as a four-state matrix:
+Apply File Budget and path claims as this matrix:
 
 - both on: pair File Budget edit targets with complete claim coverage;
 - budget off / claims on: derive claim paths from the execution document and

@@ -2,7 +2,7 @@
 
 Single source of truth for the Ouroboros reflection entry shape. Every Yoke agent that emits reflections references this file from its own reflection section so the contract cannot drift across roles. Agents inline their role-specific intro and sweep questions; the contract bullets below are invariant across roles.
 
-## Category Enum (use one of exactly these four values)
+## Category Enum (use one of these values)
 
 Each end-of-session sweep question maps to exactly one `category` value. Use the value verbatim — lowercase, hyphens (not underscores), no aliases, no uppercase, no other inventions.
 
@@ -20,7 +20,7 @@ Include reflections in the final response using the exact delimited block below.
 - **Field rows** use lowercase keys followed by `: ` and the value. The body is every line after the last field row and before `---END ENTRY---`.
 - **`agent:`** is the agent's role name (`engineer`, `tester`, `architect`, `simulator`, `boss`, `product-manager`, `product-designer`, or `qa-walker`).
 - **`context:`** names the epic/task/PREFIX-N being worked on (e.g., `PREFIX-N task 001`, `conduct epic PREFIX-N`). Never empty.
-- **`category:`** is one of the four enum values above. Lowercase. Hyphens, not underscores. No other values.
+- **`category:`** is one of the enum values above. Lowercase. Hyphens, not underscores. No other values.
 
 Skeleton (replace `ROLE`, timestamp, context, body with actual values):
 

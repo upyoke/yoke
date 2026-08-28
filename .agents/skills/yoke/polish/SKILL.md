@@ -89,7 +89,7 @@ Read `.agents/skills/yoke/polish/context.md` and execute it. Reads the item's sp
 
 **This is the first pass of polish.** Run it before the staleness/blast-radius review (the Review the implementation step) and before any test re-run — shrink the diff before re-validating.
 
-The pass reviews the worktree diff against `main` along the three axes and future-concept lens from `AGENTS.md`'s `## Simplify — three-axis doctrine` section, applies fixes in place, and continues with the normal polish verification flow.
+The pass reviews the worktree diff against `main` along the reuse, quality, and efficiency axes and future-concept lens from `AGENTS.md`'s `## Simplify — three-axis doctrine` section, applies fixes in place, and continues with the normal polish verification flow.
 
 - **Scope:** implementation-worktree diffs only. For single-worktree items, inspect `git -C "{WORKTREE_PATH}" diff main...HEAD` plus any uncommitted changes. For multi-worktree epics, iterate every path in `WORKTREE_PATHS` and inspect each worktree's diff against `main`. **Do NOT expand to whole-repo cleanup** — that's deferred work, not polish.
 - **Run sequentially as a single pass.** Walk the diff once; carry findings across all three axes simultaneously rather than three independent sweeps. Parallel three-sub-agent fan-out is **explicitly deferred to v1**.

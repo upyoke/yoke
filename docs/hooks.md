@@ -72,7 +72,7 @@ Hooks produce structured events in the `events` table via `yoke_core.domain.even
 
 ### `HarnessSessionStopped`
 
-The agent stop hook (`yoke_core.domain.agent_stop`) emits `HarnessSessionStopped` with a `stop_reason` context field. The three values are:
+The agent stop hook (`yoke_core.domain.agent_stop`) emits `HarnessSessionStopped` with a `stop_reason` context field. The values are:
 
 - `completed` — the agent finished its task cleanly.
 - `auto_committed` — the hook detected uncommitted work and committed it as a safety net before the agent exited.

@@ -1,6 +1,6 @@
 # Harness Adapter Template
 
-*Reusable template for integrating a new harness with Yoke. Every adapter must implement the five required parts described below. The [Harness Bootstrap Contract](harness-bootstrap.md) defines the neutral startup expectations that every adapter loads.*
+*Reusable template for integrating a new harness with Yoke. Every adapter must implement the required parts described below. The [Harness Bootstrap Contract](harness-bootstrap.md) defines the neutral startup expectations that every adapter loads.*
 
 *Last updated: 2026-04-05 (neutral bootstrap spec + prompt doctrine universalization)*
 
@@ -8,7 +8,7 @@
 
 A harness adapter is a thin layer between a specific agent runtime (Claude Code, Codex, a future harness) and Yoke's core operator interface. The adapter does not contain business logic -- it translates harness-native mechanisms (hooks, config files, CLI wrappers) into Yoke's neutral contract surface.
 
-Every adapter must implement these five parts:
+Every adapter must implement these parts:
 
 1. **Bootstrap Loader** -- loads the Yoke-owned startup contract
 2. **Capability Manifest** -- declares identity and supported paths

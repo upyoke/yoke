@@ -215,7 +215,7 @@
 
 ## Tool-call outcome vocabulary
 
-`events.event_outcome` on tool-call rows (`event_type='tool_call'`) is one of five values, owned by `yoke_core.domain.events_tool_call_outcome.classify_tool_call_outcome`:
+`events.event_outcome` on tool-call rows (`event_type='tool_call'`) is one of these values, owned by `yoke_core.domain.events_tool_call_outcome.classify_tool_call_outcome`:
 
 - `completed` — clean success, `exit_code` 0 (or absent).
 - `failed` — the tool reported failure (non-zero exit, top-level error, defense-in-depth reclassification).

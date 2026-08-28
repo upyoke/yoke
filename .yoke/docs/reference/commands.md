@@ -198,7 +198,7 @@ Direct-mode entrypoint for the `strategize` action. Guided interactive loop for 
 
 **Arguments:** `--lane LANE`, `--model MODEL`.
 
-**Checkpoint model:** The pipeline includes 6 operator checkpoints (numbered 0-5) where the operator can confirm, request corrections, or abort:
+**Checkpoint model:** The pipeline includes these operator checkpoints (numbered 0-5) where the operator can confirm, request corrections, or abort:
 - Checkpoint 0: State refresh confirmation (delta summary review)
 - Checkpoint 1: Problem framing (prioritized problem list)
 - Checkpoint 2: Normative filter (research findings review)

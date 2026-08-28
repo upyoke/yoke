@@ -49,7 +49,7 @@ The Codex/bootstrap cluster is now Pythonized end-to-end. Entry and hook surface
 
 ## Required adapter parts
 
-Every adapter implements the six parts defined in the [Harness Adapter Template](../../docs/harness-adapter-template.md):
+Every adapter implements the parts defined in the [Harness Adapter Template](../../docs/harness-adapter-template.md):
 
 1. **Bootstrap Loader** -- loads the [Harness Bootstrap Contract](../../docs/harness-bootstrap.md) startup reads
 2. **Capability Manifest** -- `manifest.json` declaring identity, affordances, and substrate limitations
