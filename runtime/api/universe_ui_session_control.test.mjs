@@ -63,7 +63,7 @@ test("message history directs new composition to the roster", async (t) => {
   );
   assert.equal(button(root, "Compose message"), undefined);
   assert.ok(allNodes(root).some(
-    (node) => node.textContent.includes("filter the roster and choose Message all"),
+    (node) => node.textContent.includes("Send from the Sessions roster"),
   ));
   mounted.unmount();
 });
@@ -153,34 +153,55 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   const client = shellClient(requests, {
     "session_control.message.list": () => ok({
       messages: [{
-        message_id: "message-1", created_at: "2026-08-23T01:00:00Z",
+        message_id: "message-1", body: "Please report delivery status.",
+        sender_session_id: "session-sender",
+        created_at: "2026-08-23T01:00:00Z",
         recipients: [{
           session_id: "session-1", project_id: 1, state: "pending",
-          wake_attempt_count: 2, last_wake_at: "2026-08-23T01:05:00Z",
+          created_at: "2026-08-23T01:00:00Z", wake_attempt_count: 2,
+          last_wake_at: "2026-08-23T01:05:00Z",
         }, {
           session_id: "session-2", project_id: 1, state: "acknowledged",
-          wake_attempt_count: 0, wake_after: "2026-08-23T01:06:00Z",
+          wake_attempt_count: 0, acknowledged_at: "2026-08-23T01:06:00Z",
         }, {
           session_id: "session-3", project_id: 1, state: "acknowledged",
-          wake_attempt_count: 1, last_wake_at: "2026-08-23T01:07:00Z",
+          wake_attempt_count: 1, acknowledged_at: "2026-08-23T01:07:00Z",
         }],
       }],
       count: 1,
+    }),
+    "sessions.list": () => ok({
+      rows: ["sender", "1", "2", "3"].map((suffix) => ({
+        session_id: `session-${suffix}`,
+        executor_surface: "codex-cli",
+        current_item: `YOK-25${suffix}`,
+        claims: [{ target_kind: "item", target: `YOK-25${suffix}` }],
+      })),
     }),
     "session_control.message.cancel": () => ok({ message: {} }),
   });
   const { root, mounted } = await mountAt(
     t, "#/sessions/messages?project=1", client,
   );
-  const text = allNodes(root).map((node) => node._textContent).join(" ");
-  assert.ok(text.includes("session-1 · pending · 2 wake attempts"));
-  assert.ok(text.includes(
-    "session-2 · acknowledged · delivery acknowledged without a wake",
-  ));
-  assert.ok(text.includes(
-    "session-3 · acknowledged · delivery acknowledged after 1 wake attempt",
-  ));
-  assert.equal(text.includes("wake eligible"), false);
+  assert.equal(byClass(root, "session-message-card")[0].getAttribute(
+    "data-message-state",
+  ), "pending");
+  assert.deepEqual(
+    byClass(root, "session-message-delivery-marker").map((node) => node.textContent),
+    ["Wake ×2", "Direct", "Wake ×1"],
+  );
+  assert.deepEqual(
+    byClass(root, "session-message-party").map((node) => node.textContent),
+    [
+      "codex-cli · YOK-25sender",
+      "codex-cli · YOK-251",
+      "codex-cli · YOK-252",
+      "codex-cli · YOK-253",
+    ],
+  );
+  const acknowledged = byClass(root, "session-message-recipient-status")[1];
+  assert.equal(acknowledged.children[0].textContent, "Acknowledged ");
+  assert.equal(acknowledged.children[1].getAttribute("datetime"), "2026-08-23T01:06:00.000Z");
   button(root, "Cancel").dispatchEvent(new Event("click"));
   await settle();
   assert.ok(requests.some(
