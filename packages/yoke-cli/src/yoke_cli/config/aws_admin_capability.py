@@ -147,7 +147,12 @@ def quick_create_url(
     # The nested template URL keeps its ``:`` and ``/`` literal: they are legal
     # fragment characters, it carries no ``&`` or ``#`` to confuse the console's
     # parser, and an operator has to be able to read the link Yoke asks them to
-    # open. Everything else is still escaped.
+    # open. Everything else is still escaped -- including the ``%`` that already
+    # encodes the release's ``+``, so a plus-bearing version reaches the console
+    # as ``%252B``. That second layer is load-bearing, not redundant: the console
+    # decodes this fragment parameter exactly once and hands S3 the ``%2B`` that
+    # resolves to the ``+`` key. Emitting a single-encoded ``%2B`` leaves the
+    # console a literal ``+``, which S3 reads as a space and answers NoSuchKey.
     return (
         f"https://console.aws.amazon.com/cloudformation/home?region={resolved_region}"
         f"#/stacks/quickcreate?stackName={BOOTSTRAP_STACK_NAME}"
