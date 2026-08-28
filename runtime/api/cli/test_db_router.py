@@ -88,6 +88,19 @@ class TestUsage:
         assert "get" in err
         assert "update" in err
 
+    def test_query_help_teaches_project_scoped_item_resolution(
+        self, fresh_db: Path
+    ) -> None:
+        rc, out, err = _run(["query", "--help"])
+        assert rc == 0
+        assert err == ""
+        assert "WHERE project_id = <p> AND project_sequence = <n>" in out
+        assert "`id` and `project_sequence`" in out
+        assert "drift" in out
+        assert "strip the prefix" not in out.lower()
+        assert "pass the bare number" not in out.lower()
+        assert "YOK-N" not in out
+
     def test_help_for_unknown_domain_reports_it(self, fresh_db: Path) -> None:
         rc, out, err = _run(["help", "nope"])
         # help on an unknown domain prints "Unknown domain: ..." and usage

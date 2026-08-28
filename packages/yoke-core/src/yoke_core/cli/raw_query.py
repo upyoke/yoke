@@ -238,13 +238,18 @@ USAGE_LINE = 'Usage: python3 -m yoke_core.cli.db_router query [-separator S] "SE
 USAGE_DETAIL = """\
 Raw SQL escape hatch against the selected Yoke Postgres authority.
 
-Worked example (item lookup by YOK-N — the `item_id` column is integer):
+Worked example (`PREFIX` and `N` come from the public `PREFIX-N` ref):
   python3 -m yoke_core.cli.db_router query \\
-    "SELECT id, status, title FROM items WHERE id = 1791"
+    "SELECT i.id, i.status, i.title FROM items AS i "
+    "JOIN projects AS p ON p.id = i.project_id "
+    "WHERE p.public_item_prefix = 'PREFIX' AND i.project_sequence = N"
 
   python3 -m yoke_core.cli.db_router query -separator '|' \\
-    "SELECT id, state, owner_kind, owner_item_id FROM path_claims "
-    "WHERE owner_kind = 'item' AND owner_item_id = 1791"
+    "SELECT pc.id, pc.state, pc.owner_kind, pc.owner_item_id FROM path_claims AS pc "
+    "JOIN items AS i ON i.id = pc.owner_item_id "
+    "JOIN projects AS p ON p.id = i.project_id "
+    "WHERE pc.owner_kind = 'item' AND p.public_item_prefix = 'PREFIX' "
+    "AND i.project_sequence = N"
 
 Options:
   -separator S  Column separator (default `|`, matches sqlite3 CLI list mode).
@@ -252,8 +257,12 @@ Options:
 Rules and gotchas:
   - One statement per invocation (no multi-statement multiplexing).
   - DDL/DML commits its change and prints nothing.
-  - YOK-N never appears as a literal in SQL: items.id is integer; strip the
-    prefix and pass the bare number.
+  - A public `PREFIX-N` ref never appears as a literal in SQL. Resolve it with
+    `WHERE project_id = <p> AND project_sequence = <n>`; join `projects` to
+    match the prefix.
+  - Never use N from `PREFIX-N` as `items.id`: `id` and `project_sequence`
+    drift, so doing that can silently select a different item. `WHERE id =
+    <n>` is correct only when `<n>` is already an internal item id.
   - Prefer `!=`-free SQL: use `<>` per the project's raw-SQL convention.
   - Authority comes from the connected Postgres env / DSN binding; never
     construct or open `data/yoke.db`.
