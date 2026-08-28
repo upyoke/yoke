@@ -213,10 +213,7 @@ def test_every_item_claim_carries_its_own_stage_and_workflow(test_db):
     _insert_item_claim(test_db, "s-two", 6001)
     _insert_item_claim(test_db, "s-two", 6002)
 
-    claims = {
-        claim["target"]: claim
-        for claim in list_sessions()[0]["claims"]
-    }
+    claims = {claim["target"]: claim for claim in list_sessions()[0]["claims"]}
 
     assert claims["YOK-6001"]["item_status"] == "implementing"
     assert claims["YOK-6001"]["item_workflow_id"] == "dash"

@@ -7,12 +7,20 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.session_control_roster import SESSION_CONTROL_ROSTER_FIELDS
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.sessions_list_read import LIVENESS_STATES, list_sessions
-from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target, make_process_target
+from yoke_core.domain.work_claim_targets import (
+    make_epic_task_target,
+    make_item_target,
+    make_process_target,
+)
 from yoke_core.domain.work_processes import PROCESS_FEED
 
 

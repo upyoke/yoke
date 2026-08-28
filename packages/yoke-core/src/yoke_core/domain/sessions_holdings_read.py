@@ -112,7 +112,10 @@ def _render_target(
         if found is not None:
             return str(found["item_ref"]), dict(found)
         fallback = format_item_ref(
-            None, DEFAULT_PUBLIC_ITEM_PREFIX, None, item_id=item_num,
+            None,
+            DEFAULT_PUBLIC_ITEM_PREFIX,
+            None,
+            item_id=item_num,
         )
         return fallback, {}
     if kind == "epic_task":
@@ -212,9 +215,7 @@ def _lease_payload(
     """Display-shaped claim row, with owning-item identity when item-owned."""
     target = target_from_row(row)
     owner_item_id = (
-        target.item_id
-        if target.kind == TARGET_KIND_MIGRATION_SERIALIZATION
-        else None
+        target.item_id if target.kind == TARGET_KIND_MIGRATION_SERIALIZATION else None
     )
     payload: Dict[str, Any] = {
         "lease_key": key_for_target(target),
