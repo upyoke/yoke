@@ -50,7 +50,6 @@ class TestProfileGating:
                 worktree_path=apply_env["worktree"],
             )
 
-
     def test_unknown_item_raises(self, apply_env) -> None:
         with pytest.raises(MigrationApplyError):
             rehearse(
@@ -95,3 +94,43 @@ class TestUnresolvableItemReference:
         )
 
         assert migration_apply.main(["rehearse", "YOK-2218"]) == 1
+
+
+class TestRehearsalSessionIdentity:
+    def test_cli_passes_ambient_session_to_rehearsal(self, monkeypatch) -> None:
+        called = {}
+        monkeypatch.setattr(migration_apply, "_parse_item_argument", lambda _raw: 42)
+        monkeypatch.setattr(
+            migration_apply,
+            "resolve_ambient_session_id",
+            lambda: "session-42",
+        )
+
+        def capture(item_id, *, session_id):
+            called.update(item_id=item_id, session_id=session_id)
+            raise MigrationApplyError("captured")
+
+        monkeypatch.setattr(migration_apply, "rehearse", capture)
+
+        assert migration_apply.main(["rehearse", "YOK-42"]) == 1
+        assert called == {"item_id": 42, "session_id": "session-42"}
+
+    def test_cli_refuses_rehearsal_without_ambient_session(
+        self, monkeypatch, capsys
+    ) -> None:
+        monkeypatch.setattr(migration_apply, "_parse_item_argument", lambda _raw: 43)
+        monkeypatch.setattr(
+            migration_apply,
+            "resolve_ambient_session_id",
+            lambda: None,
+        )
+        monkeypatch.setattr(
+            migration_apply,
+            "rehearse",
+            lambda *_a, **_k: pytest.fail("rehearsed without a session"),
+        )
+
+        assert migration_apply.main(["rehearse", "YOK-43"]) == 1
+        assert (
+            "ambient session identity could not be resolved" in capsys.readouterr().err
+        )
