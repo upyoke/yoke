@@ -88,11 +88,29 @@ def client_model(
             )
         if _is_placeholder_model(model):
             return None
-        if session_id:
+        if session_id and _model_is_settled(executor, payload, model):
             _mark_model_shipped(session_id)
         return model
     except Exception:
         return None
+
+
+def _model_is_settled(executor: str, payload: dict[str, Any], model: str) -> bool:
+    """True when this model is the last word and need not be shipped again.
+
+    Cursor is the exception: its hook payload names a bare family id while
+    the variant that actually served the turn is written to the conversation
+    store, which does not exist until the session composes its first request
+    — and that is normally after the event this session first registers on.
+    Marking a payload-reported model as settled is what froze every launched
+    cursor session at its family id, so it stays unsettled and re-ships until
+    the store answers.
+    """
+    if not is_cursor(executor):
+        return True
+    from yoke_harness.cursor_executed_model import executed_model_for_payload
+
+    return model == executed_model_for_payload(payload)
 
 
 def _normalize_config_token(value: str) -> str:

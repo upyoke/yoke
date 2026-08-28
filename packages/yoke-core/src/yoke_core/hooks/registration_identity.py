@@ -101,12 +101,22 @@ def _lane_can_upgrade(
         return False
 
 
-def _placeholder_model_can_upgrade(
+def _model_can_upgrade(
     conn: Any,
     payload_json: str,
     session_id: str,
 ) -> bool:
-    """True when wire model can heal a placeholder stored row."""
+    """True when the wire model is a later answer than the stored one.
+
+    The client ships a model only when it newly resolved one, and its own
+    resolution is the better-informed side — it can read the transcript or,
+    for Cursor, the conversation store naming the variant that actually ran.
+    So a differing wire model replaces the stored value rather than only
+    filling a placeholder: gating on placeholders alone is what let a coarse
+    first answer (Cursor's bare family id, shipped before its store exists)
+    become permanent. Once the row agrees with the wire this returns False,
+    which keeps a settled session from re-registering on every event.
+    """
     try:
         if not payload_json:
             return False
@@ -132,7 +142,7 @@ def _placeholder_model_can_upgrade(
         if row is None:
             return False
         stored = row.get("model") if hasattr(row, "get") else row[0]
-        return _is_placeholder_model(stored or "")
+        return str(stored or "").strip() != wire_model.strip()
     except Exception:  # noqa: BLE001 - probe must never break dispatch
         return False
 
@@ -213,14 +223,14 @@ def placeholder_identity_can_upgrade(
     session_id: str,
     project_id: Any = None,
 ) -> bool:
-    """True when identity resolution can heal a placeholder stored row.
+    """True when identity resolution can improve the stored row.
 
     Model and lane heal from different authorities: the model rides the wire
     from the client that can read the transcript, while the lane's last word
     is project routing policy, which only the control plane can read.
     """
     return (
-        _placeholder_model_can_upgrade(
+        _model_can_upgrade(
             conn,
             payload_json,
             session_id,

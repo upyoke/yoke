@@ -240,8 +240,13 @@ def refresh_active_duplicate_identity(
         return
     from yoke_harness.hooks.identity import _is_placeholder_model
 
+    # A registration ships a model only when it resolved one, and its side
+    # is the better-informed one, so a differing real value replaces the
+    # stored answer instead of only filling a placeholder — that narrower
+    # rule is what pinned Cursor sessions to the family id they registered
+    # under before their conversation store named the variant.
     stored_model = _stored_value(existing, "model")
-    if _is_placeholder_model(stored_model) and not _is_placeholder_model(model):
+    if stored_model != model and not _is_placeholder_model(model):
         conn.execute(
             f"UPDATE harness_sessions SET model = {placeholder} "
             f"WHERE session_id = {placeholder}",
