@@ -18,10 +18,12 @@ from yoke_cli.config.session_relay_instance import (
 )
 from yoke_core.tools.install_yoke_launcher_sweep import canonical_shim_path
 from yoke_core.tools.launchctl_boundary import (
+    bootstrap_launchd_job,
     launch_agents_dir,
     launch_agents_home,
     launchd_target,
     run_launchctl,
+    wait_for_launchd_unload,
 )
 from yoke_core.tools.session_relay_executable import relay_executable_search_path
 from yoke_core.tools.session_relay_legacy import (
@@ -250,10 +252,17 @@ def install_relay_launchd(
     except LegacyRelayError as exc:
         raise RelayInstallError(str(exc)) from exc
     paths.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    _run(
-        ["launchctl", "bootout", launchd_target(paths.label, uid)],
-        runner=runner,
-    )
+    target = launchd_target(paths.label, uid)
+
+    def run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        return _run(command, runner=runner)
+
+    run(["launchctl", "bootout", target])
+    if not wait_for_launchd_unload(target, run=run):
+        raise RelayInstallError(
+            "launchctl kept the machine relay loaded after bootout; wait for "
+            f"teardown, then run `yoke --env {paths.environment} relay install`"
+        )
     _write_plist(
         paths.plist,
         relay_plist_document(
@@ -262,19 +271,14 @@ def install_relay_launchd(
             environ=source_env,
         ),
     )
-    result = _run(
-        [
-            "launchctl",
-            "bootstrap",
-            f"gui/{os.getuid() if uid is None else uid}",
-            str(paths.plist),
-        ],
-        runner=runner,
-    )
+    domain = f"gui/{os.getuid() if uid is None else uid}"
+    result = bootstrap_launchd_job(domain, paths.plist, run=run)
     if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "unknown launchd error").strip()
         raise RelayInstallError(
-            "launchctl bootstrap refused the machine relay plist: "
-            + (result.stderr or result.stdout or "unknown launchd error").strip()
+            "launchctl could not restart the machine relay; the relay is now "
+            f"stopped. Run `yoke --env {paths.environment} relay install` to "
+            f"bring it back. launchd: {detail}"
         )
     return relay_launchd_status(
         home=home,
@@ -306,19 +310,16 @@ def uninstall_relay_launchd(
         yoke_home=yoke_home,
     )
     paths = relay_launchd_paths(home=home, instance=selected)
-    _run(
-        ["launchctl", "bootout", launchd_target(paths.label, uid)],
-        runner=runner,
-    )
-    if (
-        _run(
-            ["launchctl", "print", launchd_target(paths.label, uid)],
-            runner=runner,
-        ).returncode
-        == 0
-    ):
+    target = launchd_target(paths.label, uid)
+
+    def run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        return _run(command, runner=runner)
+
+    run(["launchctl", "bootout", target])
+    if not wait_for_launchd_unload(target, run=run):
         raise RelayInstallError(
-            "launchctl kept the exact machine relay loaded after bootout"
+            "launchctl kept the exact machine relay loaded after bootout; retry "
+            f"`yoke --env {paths.environment} relay uninstall` after teardown"
         )
     try:
         paths.plist.unlink()

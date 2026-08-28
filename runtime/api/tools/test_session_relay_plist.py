@@ -142,9 +142,7 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
     with installed.plist_path.open("rb") as handle:
         document = plistlib.load(handle)
     assert document["Label"] == RELAY_LAUNCHD_LABEL
-    assert calls[0][:2] == ["launchctl", "bootout"]
-    assert calls[1][:2] == ["launchctl", "bootstrap"]
-    assert calls[2][:2] == ["launchctl", "print"]
+    assert [call[1] for call in calls[:4]] == ["bootout", "print", "bootstrap", "print"]
 
     removed = uninstall_relay_launchd(
         home=tmp_path,
@@ -158,7 +156,7 @@ def test_install_bootstraps_and_uninstall_boots_out_then_deletes(
     assert not removed.plist_present
     assert not removed.loaded
     assert not installed.plist_path.exists()
-    assert calls[3][:2] == ["launchctl", "bootout"]
+    assert [call[1] for call in calls[4:]] == ["bootout", "print", "print"]
 
 
 def test_prod_and_stage_have_isolated_labels_paths_and_pinned_commands(
@@ -234,7 +232,8 @@ def test_stage_install_never_boots_out_prod_and_status_is_env_exact(
         calls.append(command)
         returncode = 0
         if command[:2] == ["launchctl", "print"]:
-            returncode = 0 if command[-1].endswith(stage.label) else 3
+            stage_loaded = any(call[1] == "bootstrap" for call in calls)
+            returncode = 0 if stage_loaded and command[-1].endswith(stage.label) else 3
         return subprocess.CompletedProcess(command, returncode, "", "")
 
     installed = install_relay_launchd(
