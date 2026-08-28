@@ -13,19 +13,20 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 
 
 DB_READ_USAGE = (
-    'yoke db read "SELECT ..." [--format json|lines] '
-    '[--session-id S] [--json]'
+    'yoke db read "SELECT ..." [--format json|lines] [--session-id S] [--json]'
 )
 
-_DB_READ_HELP = """\
-Run one read-only diagnostic SQL statement through the registered function
-dispatcher. Default output is the handler result payload as JSON; ``--format
-lines`` emits one pipe-delimited row per line for shell consumption. ``--json``
-emits the full typed FunctionCallResponse envelope.
-"""
+_DB_READ_HELP = (
+    "Run one read-only diagnostic SQL statement through the registered "
+    "function dispatcher. Default output is the handler result payload "
+    "as JSON; ``--format lines`` emits one pipe-delimited row per line "
+    "for shell consumption. ``--json`` emits the full typed "
+    "FunctionCallResponse envelope.\n\n" + DB_GROUP_TEACHING
+)
 
 
 def _write_lines(response: Any, stdout: TextIO, stderr: TextIO) -> None:

@@ -14,10 +14,11 @@ from yoke_cli.commands.registry import (
     SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS, TOOL_SHAPED_USAGE
-from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
+from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
 )
+from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 
 GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
     ("deployments",): (("deployment-flows",), ("deployment-runs",)),
@@ -48,6 +49,7 @@ GUIDANCE_ROUTES: dict[tuple[str, ...], str] = {
 # operator reaches for under this prefix lives somewhere else, or does not
 # exist at all and the capability is reached another way.
 GROUP_TEACHING: dict[tuple[str, ...], str] = {
+    ("db",): DB_GROUP_TEACHING,
     ("deployment-runs",): ITEMLESS_RELEASE_RECIPE,
     ("connection",): (
         "Discovery: `yoke env list` prints every configured connection "
