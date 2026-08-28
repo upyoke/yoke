@@ -27,17 +27,21 @@ from yoke_cli.transport.dispatcher import (
 )
 
 
-GET_USAGE = "yoke test-machine get --project P [--json]"
+LIST_USAGE = "yoke test-machine list --project P [--json]"
+GET_USAGE = "yoke test-machine get --project P [--machine NAME] [--json]"
 SETTINGS_REPLACE_USAGE = (
     "yoke test-machine settings-replace --project P "
-    "--settings-file FILE (--base AS_READ_JSON | --new) [--json]"
+    "[--machine NAME] --settings-file FILE "
+    "(--base AS_READ_JSON | --new) [--json]"
 )
-VERIFY_USAGE = "yoke test-machine verify --project P [--json]"
+VERIFY_USAGE = "yoke test-machine verify --project P [--machine NAME] [--json]"
 
 
-def _parser(prog: str) -> argparse.ArgumentParser:
+def _parser(prog: str, *, with_machine: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog)
     parser.add_argument("--project", required=True)
+    if with_machine:
+        parser.add_argument("--machine")
     add_session_arg(parser)
     add_json_arg(parser)
     return parser
@@ -62,7 +66,15 @@ def test_machine_get(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, GET_USAGE)
     if parsed is None:
         return 2
-    return _dispatch(parsed, "test_machine.get", {})
+    return _dispatch(parsed, "test_machine.get", {"machine": parsed.machine})
+
+
+def test_machine_list(args: List[str]) -> int:
+    parser = _parser("yoke test-machine list", with_machine=False)
+    parsed = parse_or_usage_error(parser, args, LIST_USAGE)
+    if parsed is None:
+        return 2
+    return _dispatch(parsed, "test_machine.list", {})
 
 
 def test_machine_settings_replace(args: List[str]) -> int:
@@ -84,6 +96,7 @@ def test_machine_settings_replace(args: List[str]) -> int:
         parsed,
         "test_machine.settings_replace",
         {
+            "machine": parsed.machine,
             "settings": settings,
             "base_settings": None if parsed.new else parsed.base_settings,
         },
@@ -100,7 +113,7 @@ def test_machine_verify(args: List[str]) -> int:
     begin = call_dispatcher(
         function_id="test_machine.verify.begin",
         target=TargetRef(kind="global"),
-        payload={"project": parsed.project},
+        payload={"project": parsed.project, "machine": parsed.machine},
         actor=actor,
     )
     if not begin.success:
@@ -222,6 +235,7 @@ def _local_execution_error(
 
 
 USAGE_BY_FUNCTION_ID = {
+    "test_machine.list": LIST_USAGE,
     "test_machine.get": GET_USAGE,
     "test_machine.settings_replace": SETTINGS_REPLACE_USAGE,
     "test_machine.verify": VERIFY_USAGE,
@@ -230,10 +244,12 @@ USAGE_BY_FUNCTION_ID = {
 
 __all__ = [
     "GET_USAGE",
+    "LIST_USAGE",
     "SETTINGS_REPLACE_USAGE",
     "USAGE_BY_FUNCTION_ID",
     "VERIFY_USAGE",
     "test_machine_get",
+    "test_machine_list",
     "test_machine_settings_replace",
     "test_machine_verify",
 ]

@@ -22,6 +22,14 @@ from yoke_core.domain.schema_init import converge_core_schema
 
 _DROP_SAVEPOINT = "boot_schema_column_degradation"
 _INCIDENT_COLUMN = ("session_launch_attempts", "batch_id")
+# Columns delivered by ordered history with a data or key transformation are
+# current baseline columns on a newborn database, but intentionally have no
+# additive lookup. Their migration suites prove convergence from the prior
+# shape; this sweep must neither classify them as born-with nor drop them after
+# their ledger entry has already been recorded.
+_HISTORY_CONVERGED_COLUMNS = frozenset(
+    {("test_machine_verifications", "capability_type")}
+)
 # Digest of columns that shipped with their table and therefore have no
 # additive converge lookup. Update only when introducing a new table, or when
 # a governed migration retires a born-with column; a new column on an existing
@@ -104,7 +112,15 @@ def test_every_droppable_boot_schema_column_converges(
             }
             boot_lookups = _record_boot_column_lookups(conn, monkeypatch)
 
-            born_with = all_columns - boot_lookups
+            assert _HISTORY_CONVERGED_COLUMNS <= all_columns, (
+                "history-managed columns are absent from the current baseline: "
+                f"{sorted(_HISTORY_CONVERGED_COLUMNS - all_columns)}"
+            )
+            assert _HISTORY_CONVERGED_COLUMNS.isdisjoint(boot_lookups), (
+                "history-managed columns also have an additive converge path: "
+                f"{sorted(_HISTORY_CONVERGED_COLUMNS & boot_lookups)}"
+            )
+            born_with = all_columns - boot_lookups - _HISTORY_CONVERGED_COLUMNS
             born_with_digest = _column_pair_digest(born_with)
             assert born_with_digest == _BORN_WITH_COLUMN_DIGEST, (
                 "create-only columns changed; add boot convergence for columns on "

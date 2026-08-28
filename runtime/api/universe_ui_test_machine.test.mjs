@@ -44,7 +44,7 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
     byClass(main, "test-machine-columns")[0].classList.contains("split"),
     true,
   );
-  assert.match(rendered, /test-machine capability · composite · yoke/);
+  assert.match(rendered, /test-machine:mac-mini-lab · composite · yoke/);
   assert.match(rendered, /Terminal\.app · PTY · screenshots · post-install shell/);
   assert.match(rendered, /fresh-host · shell-preconfigured/);
   assert.match(
@@ -227,7 +227,10 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
 
   assert.equal(byClass(main, "test-machine-dialog").length, 1);
   const dialog = byClass(main, "test-machine-dialog")[0];
-  assert.equal(dialog.attributes.get("aria-label"), "Edit Test Mac settings");
+  assert.equal(
+    dialog.attributes.get("aria-label"),
+    "Edit Test Mac mac-mini-lab settings",
+  );
   const rendered = text(main);
   assert.match(rendered, /Secret values never enter the browser/);
   assert.match(
@@ -261,8 +264,33 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   await settle();
   assert.equal(
     prepared.requests.some(
-      (request) => request.function === "test_machine.settings_replace",
+      (request) => request.function === "test_machine.settings_replace" &&
+        request.payload.machine === "mac-mini-lab",
     ),
+    true,
+  );
+});
+
+test("Test Mac fleet chooser opens the selected machine", async () => {
+  const second = structuredClone(detail);
+  second.machine = "mac-studio-lab";
+  second.capability_type = "test-machine:mac-studio-lab";
+  second.display_name = "Test Mac · mac-studio-lab";
+  second.settings.resource_name = second.machine;
+  second.settings.host = "mac-studio-lab.local";
+  const prepared = context([detail, second]);
+  const main = prepared.documentNode.createElement("main");
+  await renderTestMachineDetail(prepared.value, main, "yoke");
+
+  assert.match(text(main), /Choose a machine to inspect/);
+  const choose = byClass(main, "test-machine-method")[1];
+  choose.dispatchEvent(new Event("click"));
+  await settle();
+  assert.match(text(main), /mac-studio-lab\.local/);
+  assert.equal(
+    prepared.requests.some((request) =>
+      request.function === "test_machine.get" &&
+      request.payload.machine === second.machine),
     true,
   );
 });

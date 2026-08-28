@@ -12,6 +12,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_contracts.machine_config.test_machine import (
+    test_machine_capability_type as _machine_type,
+)
 from yoke_core.domain import json_helper
 from yoke_core.domain.capabilities_list_read import (
     CAPABILITY_LIST_FIELDS,
@@ -64,7 +67,7 @@ class TestScopeAndSummary:
         )
         assert (
             summarize_settings(
-                "test-machine",
+                _machine_type("mac-mini-lab"),
                 '{"resource_name":"mac-mini-lab","host":"mac",'
                 '"user":"yoke","operating_notes":""}',
             )
@@ -91,10 +94,11 @@ class TestScopeAndSummary:
         assert list_capabilities()[0]["settings_summary"] == ""
 
     def test_capability_type_definition_projects_display_metadata(self, test_db):
-        _insert_capability(test_db, "test-machine")
+        machine_type = _machine_type("mac-mini-lab")
+        _insert_capability(test_db, machine_type)
         row = list_capabilities()[0]
         assert (row["display_label"], row["display_order"], row["detail_view"]) == (
-            "Test Mac",
+            "Test Mac · mac-mini-lab",
             0,
             "test-machine",
         )

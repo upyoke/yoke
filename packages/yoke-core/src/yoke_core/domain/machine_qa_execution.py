@@ -8,10 +8,7 @@ from typing import Any, Mapping
 
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.coordination_claims import (
-    CoordinationClaimHeldError,
     CoordinationClaimStaleHolderError,
-    acquire,
-    active_claim,
     release,
 )
 from yoke_core.domain.db_helpers import iso8601_now
@@ -23,7 +20,7 @@ from yoke_core.domain.host_control_runner import (
     HostActionResult,
     HostControl,
     TestMachineMaterial,
-    resolve_host_control,
+    resolve_contract_host_control,
 )
 from yoke_core.domain.machine_qa_method_contracts import (
     MACHINE_METHODS,
@@ -38,7 +35,10 @@ from yoke_core.domain.machine_qa_case_result import (
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
-from yoke_core.domain.machine_qa_capability import host_claim_target
+from yoke_core.domain.machine_qa_host_selection import (
+    TestMachineFleetBusy,
+    acquire_test_machine,
+)
 from yoke_core.domain.machine_verification_recording import (
     record_test_machine_verification,
 )
@@ -66,6 +66,7 @@ class MachineQaLease:
             record_test_machine_verification(
                 self.conn,
                 self.material.project_id,
+                machine=self.material.settings["resource_name"],
                 status="error",
                 checks=[self.baseline.evidence],
                 error_code=self.baseline.error_code,
@@ -207,6 +208,8 @@ def acquire_machine_qa_lease(
     *,
     project: str,
     session_id: str,
+    machine: str | None = None,
+    select_any: bool = True,
 ) -> MachineQaLease:
     """Materialize the approved adapter, then acquire its resource claim.
 
@@ -214,24 +217,28 @@ def acquire_machine_qa_lease(
     session row rather than passed in, so a claim can never disagree with
     the identity that took it.
     """
-    control, material = resolve_host_control(conn, project=project)
-    resource_name = str(material.settings["resource_name"])
-    target = host_claim_target(resource_name)
     try:
-        lease = acquire(conn, target, session_id, reason="machine-qa-execution")
+        contract, lease = acquire_test_machine(
+            conn,
+            project=project,
+            session_id=session_id,
+            machine=machine,
+            select_any=select_any,
+        )
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaExecutionError(str(exc)) from None
-    except CoordinationClaimHeldError as exc:
-        held = active_claim(conn, target)
-        if held is None:
-            raise MachineQaExecutionError(
-                "test-machine lease changed while acquiring; retry execution"
-            ) from None
+    except TestMachineFleetBusy as exc:
+        held = exc.busy[0]
         raise MachineQaLeaseHeld(
-            lease=held,
-            machine=resource_name,
-            contention=exc.contention,
+            lease=held.lease,
+            machine=held.machine,
+            contention=held.contention,
         ) from None
+    try:
+        control, material = resolve_contract_host_control(contract)
+    except Exception:
+        release(conn, lease.id, "machine-materialization-failed")
+        raise
     return MachineQaLease(
         conn=conn,
         control=control,
@@ -245,6 +252,7 @@ def verify_test_machine(
     *,
     project: str,
     session_id: str,
+    machine: str | None = None,
 ) -> dict[str, Any]:
     """Verify connection, control bridge, and both registered baselines."""
     checks: list[dict[str, Any]] = []
@@ -253,6 +261,8 @@ def verify_test_machine(
         conn,
         project=project,
         session_id=session_id,
+        machine=machine,
+        select_any=False,
     ) as execution:
         for name, action in (
             ("connection", execution.control.check_connection),
@@ -285,12 +295,14 @@ def verify_test_machine(
         record_test_machine_verification(
             conn,
             execution.material.project_id,
+            machine=execution.material.settings["resource_name"],
             status=status,
             checks=safe_checks,
             error_code=error_code,
         )
     return {
         "project": project,
+        "machine": execution.material.settings["resource_name"],
         "status": status,
         "checked_at": iso8601_now(),
         "checks": safe_checks,

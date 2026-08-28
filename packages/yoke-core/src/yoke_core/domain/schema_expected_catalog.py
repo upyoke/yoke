@@ -141,7 +141,7 @@ _EXPECTED_SCHEMA_STR = (
     "|strategy_doc_claims:id/INTEGER,project_id/INTEGER,strategy_doc_slug/TEXT,owner_kind/TEXT,owner_item_id/INTEGER,owner_session_id/TEXT,registered_by_actor_id/INTEGER,registered_by_session_id/TEXT,registered_at/TEXT,released_by_actor_id/INTEGER,released_by_session_id/TEXT,released_at/TEXT,release_mode/TEXT,release_reason/TEXT"
     "|strategy_doc_revisions:id/INTEGER,project_id/INTEGER,slug/TEXT,revision/INTEGER,content/TEXT,content_sha256/TEXT,byte_length/INTEGER,source_operation/TEXT,actor_id/INTEGER,created_at/TEXT,session_id/TEXT"
     "|strategy_docs:id/INTEGER,project_id/INTEGER,slug/TEXT,content/TEXT,updated_at/TEXT,updated_by_actor_id/INTEGER,archived_at/TEXT,parent_slug/TEXT"
-    "|test_machine_verifications:project_id/INTEGER,status/TEXT,checked_at/TEXT,receipt_json/TEXT,error_code/TEXT,updated_at/TEXT"
+    "|test_machine_verifications:project_id/INTEGER,capability_type/TEXT,status/TEXT,checked_at/TEXT,receipt_json/TEXT,error_code/TEXT,updated_at/TEXT"
     "|web_sessions:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,created_at/TEXT,expires_at/TEXT,revoked_at/TEXT,last_used_at/TEXT"
     "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,scope/TEXT,claim_type/TEXT,claimed_at/TEXT,last_heartbeat/TEXT,released_at/TEXT,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"
     "|workflow_execution_instruction_projects:instruction_id/INTEGER,project_id/INTEGER"

@@ -127,15 +127,15 @@ export function capabilityStateNode(
   const itemRef = capabilityContext?.active_lease?.item_ref;
   if (caseContext) {
     pill.title = itemRef
-      ? `The serial Test Mac lease is in use by ${itemRef} right now — ` +
+      ? `All registered Test Macs are occupied; one is in use by ${itemRef}. ` +
         "this case queues; nothing about the plan is blocked."
-      : "The serial Test Mac lease is held by another active execution " +
-        "right now — this case queues; nothing about the plan is blocked.";
+      : "All registered Test Macs are held by active executions; " +
+        "this case queues without blocking its plan.";
   } else {
     pill.title = itemRef
-      ? `The serial Test Mac lease is in use by ${itemRef} right now. ` +
+      ? `All registered Test Macs are occupied; one is in use by ${itemRef}. ` +
         "New machine cases queue without blocking their plans."
-      : "The serial Test Mac lease is held by another active execution. " +
+      : "All registered Test Macs are held by active executions. " +
         "New machine cases queue without blocking their plans.";
   }
   return pill;

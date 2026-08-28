@@ -10,9 +10,6 @@ from yoke_contracts.machine_config.capability_secrets import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.capabilities_list_read import (
-    STATE_CONFIGURED_UNVERIFIED,
-    STATE_ERROR,
-    STATE_IN_USE,
     STATE_READY,
 )
 from yoke_core.domain.capability_type_definitions import (
@@ -23,8 +20,8 @@ from yoke_core.domain.qa_method_definitions import (
     method_read_metadata,
 )
 from yoke_core.domain.qa_method_capabilities import capability_kinds
-from yoke_core.domain.capabilities_test_machine_read import (
-    read_test_machine_facts,
+from yoke_core.domain.qa_test_machine_capability_context import (
+    test_machine_capability_context,
 )
 from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
 from yoke_core.domain.project_identity import resolve_project
@@ -87,13 +84,16 @@ def _capability_contexts(
         contexts.update({kind: {"state": "project_scoped"} for kind in kinds})
         return contexts
     marker = _placeholder(conn)
-    markers = ", ".join([marker] * len(kinds))
-    rows = query_rows(
-        conn,
-        "SELECT type, verified_at FROM project_capabilities "
-        f"WHERE project_id={marker} AND type IN ({markers})",
-        (project_id, *kinds),
-    )
+    exact_kinds = [kind for kind in kinds if kind != TEST_MACHINE_CAPABILITY]
+    rows = []
+    if exact_kinds:
+        markers = ", ".join([marker] * len(exact_kinds))
+        rows = query_rows(
+            conn,
+            "SELECT type, verified_at FROM project_capabilities "
+            f"WHERE project_id={marker} AND type IN ({markers})",
+            (project_id, *exact_kinds),
+        )
     declarations = {str(row["type"]): row["verified_at"] for row in rows}
     contexts.update(
         {
@@ -109,35 +109,11 @@ def _capability_contexts(
             for kind in kinds
         }
     )
-    if (
-        TEST_MACHINE_CAPABILITY not in kinds
-        or TEST_MACHINE_CAPABILITY not in declarations
-    ):
-        return contexts
-    verification, active_items, _method_count = read_test_machine_facts(
-        conn,
-        [project_id],
-    )
-    machine = contexts[TEST_MACHINE_CAPABILITY]
-    machine["concurrency_mode"] = "serial"
-    if project_id in active_items:
-        machine.update(
-            {
-                "state": STATE_IN_USE,
-                "wait_reason": "serial_lease_in_use",
-                "active_lease": {
-                    "item_ref": active_items[project_id],
-                },
-            }
+    if TEST_MACHINE_CAPABILITY in kinds:
+        contexts[TEST_MACHINE_CAPABILITY] = test_machine_capability_context(
+            conn,
+            project_id=project_id,
         )
-    elif verification.get(project_id) == STATE_ERROR:
-        machine["state"] = STATE_ERROR
-    elif verification.get(project_id) == "verified":
-        machine["state"] = STATE_READY
-    elif verification.get(project_id) == STATE_CONFIGURED_UNVERIFIED:
-        machine["state"] = STATE_CONFIGURED_UNVERIFIED
-    elif not declarations.get(TEST_MACHINE_CAPABILITY):
-        machine["state"] = STATE_CONFIGURED_UNVERIFIED
     return contexts
 
 
@@ -276,8 +252,7 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         params = (int(identity.id),)
     rows = query_rows(
         conn,
-        f"{PLAN_WITH_TARGET_ENVIRONMENT_SELECT} {where} "
-        "ORDER BY pr.slug, p.slug",
+        f"{PLAN_WITH_TARGET_ENVIRONMENT_SELECT} {where} ORDER BY pr.slug, p.slug",
         params,
     )
     result = []

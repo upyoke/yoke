@@ -134,7 +134,7 @@ export function availabilityPanel(documentNode, detail) {
     "mini-grid test-machine-stats",
   );
   for (const [label, value] of [
-    ["Concurrency", "1 · serial"],
+    ["Concurrency", "1 · serial per machine"],
     [
       "Active lease",
       active

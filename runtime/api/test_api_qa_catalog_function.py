@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-import json
-
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
-from runtime.api.qa_catalog_test_support import CATALOG_CASES, create_release_readiness_plan
+from runtime.api.qa_catalog_test_support import (
+    CATALOG_CASES,
+    create_release_readiness_plan,
+)
+from yoke_contracts.machine_config.test_machine import (
+    test_machine_capability_type as _machine_type,
+)
 from yoke_core.domain.qa_catalog_reads import get_method, list_methods, list_plans
 from yoke_core.domain.qa_command_plan_registration import (
     ensure_registered_command_plan,
@@ -23,11 +27,12 @@ from yoke_core.domain.work_claim_targets import (
 )
 
 
-# The roster resolves a host lease through the registered resource name,
-# so the capability row must name the machine its lease references.
-MACHINE_SETTINGS = json.dumps(
-    {"host": "test-mac.local", "operating_notes": "", "resource_name": "mac-mini-lab", "user": "yoke-test"}, separators=(",", ":"), sort_keys=True
+# The capability row names the machine resolved by the roster's host lease.
+MACHINE_SETTINGS = (
+    '{"host":"test-mac.local","operating_notes":"",'
+    '"resource_name":"mac-mini-lab","user":"yoke-test"}'
 )
+MACHINE_TYPE = _machine_type("mac-mini-lab")
 
 
 def test_builtin_methods_seed_with_real_contracts() -> None:
@@ -56,15 +61,24 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
     assert command_ci["required_capability_kinds"] == []
     assert command_ci["verdict_path"] == "automatic"
     inspection = next(row for row in rows if row["id"] == "browser-inspection")
-    assert inspection["description"] == ("Captures screenshots; an agent judges whether they show the case's expected outcome.")
+    assert inspection["description"] == (
+        "Captures screenshots; an agent judges whether they show the case's expected outcome."
+    )
 
 
 def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
     with test_database() as conn:
         plan = create_release_readiness_plan(conn)
         item = insert_item(conn, id=2001, project_sequence=2001)
-        attached = set_project_default(conn, plan_id=plan["id"], workflow_id="issue", transition_id="release")
-        attach_plan_to_item(conn, plan_id=plan["id"], item_id=int(item["id"]), transition_id="reviewing-implementation")
+        attached = set_project_default(
+            conn, plan_id=plan["id"], workflow_id="issue", transition_id="release"
+        )
+        attach_plan_to_item(
+            conn,
+            plan_id=plan["id"],
+            item_id=int(item["id"]),
+            transition_id="reviewing-implementation",
+        )
         rows = list_plans(conn, project="yoke")
         detail = get_plan(conn, plan_id=plan["id"])
         methods = list_methods(conn, project="yoke")
@@ -74,7 +88,14 @@ def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
     assert rows[0]["case_count"] == 2
     assert rows[0]["materialized_requirement_count"] == 2
     assert rows[0]["attachments"] == [
-        {"kind": "project_default", "project": "yoke", "workflow_id": "issue", "transition_id": "release", "item_id": None, "transition_label": "release"},
+        {
+            "kind": "project_default",
+            "project": "yoke",
+            "workflow_id": "issue",
+            "transition_id": "release",
+            "item_id": None,
+            "transition_label": "release",
+        },
         {
             "kind": "item",
             "project": "yoke",
@@ -85,7 +106,10 @@ def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
             "item_ref": "YOK-2001",
         },
     ]
-    assert [case["case_key"] for case in detail["cases"]] == ["backend-suite", "checkout-flow"]
+    assert [case["case_key"] for case in detail["cases"]] == [
+        "backend-suite",
+        "checkout-flow",
+    ]
     command = next(row for row in methods if row["id"] == "command")
     assert command["used_by_plan_count"] == 1
 
@@ -93,7 +117,12 @@ def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
 def test_method_plan_roster_stays_inside_the_requested_project() -> None:
     with test_database() as conn:
         create_release_readiness_plan(conn)
-        external = create_plan(conn, project="externalwebapp", slug="external-command", name="External command")
+        external = create_plan(
+            conn,
+            project="externalwebapp",
+            slug="external-command",
+            name="External command",
+        )
         replace_plan_cases(conn, plan_id=external["id"], cases=[CATALOG_CASES[0]])
 
         method = get_method(conn, method_id="command", project="yoke")
@@ -105,10 +134,15 @@ def test_method_plan_roster_stays_inside_the_requested_project() -> None:
 def test_plan_reads_project_an_environmentless_command_target() -> None:
     with test_database() as conn:
         registered = ensure_registered_command_plan(
-            conn, project_id=1, project="yoke", scope="full", command="true",
+            conn,
+            project_id=1,
+            project="yoke",
+            scope="full",
+            command="true",
         )
         row = next(
-            plan for plan in list_plans(conn, project="yoke")
+            plan
+            for plan in list_plans(conn, project="yoke")
             if int(plan["id"]) == int(registered["plan_id"])
         )
         detail = get_plan(conn, plan_id=int(registered["plan_id"]))
@@ -123,8 +157,12 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
     with test_database() as conn:
         ensure_test_machine_schema(conn)
         create_governed_tables(conn)
-        item = insert_item(conn, id=2101, project_sequence=2101, title="Exercise the Test Mac")
-        plan = create_plan(conn, project="yoke", slug="machine-readiness", name="Machine readiness")
+        item = insert_item(
+            conn, id=2101, project_sequence=2101, title="Exercise the Test Mac"
+        )
+        plan = create_plan(
+            conn, project="yoke", slug="machine-readiness", name="Machine readiness"
+        )
         replace_plan_cases(
             conn,
             plan_id=plan["id"],
@@ -142,23 +180,32 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         conn.execute(
             "INSERT INTO project_capabilities("
             "project_id,type,settings,verified_at,created_at"
-            ") VALUES(1,'test-machine',%s,%s,%s) "
+            ") VALUES(1,%s,%s,%s,%s) "
             "ON CONFLICT(project_id,type) DO UPDATE SET "
             "verified_at=EXCLUDED.verified_at",
-            (MACHINE_SETTINGS, "2026-07-26T16:00:00Z", "2026-07-26T15:00:00Z"),
+            (
+                MACHINE_TYPE,
+                MACHINE_SETTINGS,
+                "2026-07-26T16:00:00Z",
+                "2026-07-26T15:00:00Z",
+            ),
         )
         conn.execute(
             "INSERT INTO test_machine_verifications("
-            "project_id,status,checked_at,receipt_json,error_code,updated_at"
-            ") VALUES(1,'verified',%s,'{}',NULL,%s) "
-            "ON CONFLICT(project_id) DO UPDATE SET "
+            "project_id,capability_type,status,checked_at,receipt_json,error_code,updated_at"
+            ") VALUES(1,%s,'verified',%s,'{}',NULL,%s) "
+            "ON CONFLICT(project_id,capability_type) DO UPDATE SET "
             "status=EXCLUDED.status, checked_at=EXCLUDED.checked_at, "
             "updated_at=EXCLUDED.updated_at",
-            ("2026-07-26T16:00:00Z", "2026-07-26T16:00:00Z"),
+            (MACHINE_TYPE, "2026-07-26T16:00:00Z", "2026-07-26T16:00:00Z"),
         )
         conn.execute(
             "INSERT INTO work_claims(session_id,target_kind,scope,claimed_at,last_heartbeat) VALUES('machine-session','item',%s,%s,%s)",
-            (make_item_target(int(item["id"])).scope_json(), "2026-07-26T16:05:00Z", "2026-07-26T16:06:00Z"),
+            (
+                make_item_target(int(item["id"])).scope_json(),
+                "2026-07-26T16:05:00Z",
+                "2026-07-26T16:06:00Z",
+            ),
         )
         conn.execute(
             "INSERT INTO work_claims("
@@ -174,38 +221,119 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
 
         methods = list_methods(conn, project="yoke")
         detail = get_plan(conn, plan_id=plan["id"])
-        conn.execute("UPDATE work_claims SET released_at=%s WHERE id=901", ("2026-07-26T16:10:00Z",))
-        conn.execute("UPDATE test_machine_verifications SET status='error' WHERE project_id=1")
-        error_state = next(row["required_capabilities"][0]["state"] for row in list_methods(conn, project="yoke") if row["id"] == "machine-state-check")
-        conn.execute("UPDATE test_machine_verifications SET status='configured_unverified' WHERE project_id=1")
-        configured_state = next(row["required_capabilities"][0]["state"] for row in list_methods(conn, project="yoke") if row["id"] == "machine-state-check")
-        conn.execute("UPDATE test_machine_verifications SET status='verified' WHERE project_id=1")
-        ready_state = next(row["required_capabilities"][0]["state"] for row in list_methods(conn, project="yoke") if row["id"] == "machine-state-check")
+        conn.execute(
+            "UPDATE work_claims SET released_at=%s WHERE id=901",
+            ("2026-07-26T16:10:00Z",),
+        )
+        conn.execute(
+            "UPDATE test_machine_verifications SET status='error' WHERE project_id=1"
+        )
+        error_state = next(
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(conn, project="yoke")
+            if row["id"] == "machine-state-check"
+        )
+        conn.execute(
+            "UPDATE test_machine_verifications SET status='configured_unverified' WHERE project_id=1"
+        )
+        configured_state = next(
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(conn, project="yoke")
+            if row["id"] == "machine-state-check"
+        )
+        conn.execute(
+            "UPDATE test_machine_verifications SET status='verified' WHERE project_id=1"
+        )
+        ready_state = next(
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(conn, project="yoke")
+            if row["id"] == "machine-state-check"
+        )
         conn.execute("DELETE FROM test_machine_verifications WHERE project_id=1")
         fallback_ready_state = next(
-            row["required_capabilities"][0]["state"] for row in list_methods(conn, project="yoke") if row["id"] == "machine-state-check"
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(conn, project="yoke")
+            if row["id"] == "machine-state-check"
         )
-        conn.execute("UPDATE project_capabilities SET verified_at=NULL WHERE project_id=1 AND type='test-machine'")
+        conn.execute(
+            "UPDATE project_capabilities SET verified_at=NULL "
+            "WHERE project_id=1 AND type=%s",
+            (MACHINE_TYPE,),
+        )
         fallback_configured_state = next(
-            row["required_capabilities"][0]["state"] for row in list_methods(conn, project="yoke") if row["id"] == "machine-state-check"
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(conn, project="yoke")
+            if row["id"] == "machine-state-check"
         )
-        conn.execute("DELETE FROM project_capabilities WHERE project_id=1 AND type='test-machine'")
-        missing_state = next(row["required_capabilities"][0]["state"] for row in list_methods(conn, project="yoke") if row["id"] == "machine-state-check")
-    expected_context = {"state": "in_use", "concurrency_mode": "serial", "wait_reason": "serial_lease_in_use", "active_lease": {"item_ref": "YOK-2101"}}
-    machine_methods = [row for row in methods if "test-machine" in row["required_capability_kinds"]]
+        conn.execute(
+            "DELETE FROM project_capabilities WHERE project_id=1 AND type=%s",
+            (MACHINE_TYPE,),
+        )
+        missing_state = next(
+            row["required_capabilities"][0]["state"]
+            for row in list_methods(conn, project="yoke")
+            if row["id"] == "machine-state-check"
+        )
+    expected_context = {
+        "state": "in_use",
+        "concurrency_mode": "serial_per_machine",
+        "machines_total": 1,
+        "machines_in_use": 1,
+        "wait_reason": "all_machine_leases_in_use",
+        "active_lease": {"item_ref": "YOK-2101"},
+    }
+    machine_methods = [
+        row for row in methods if "test-machine" in row["required_capability_kinds"]
+    ]
     assert len(machine_methods) == 4
-    scripted_machine_methods = [row for row in machine_methods if row["runner_id"] == "host_control"]
+    scripted_machine_methods = [
+        row for row in machine_methods if row["runner_id"] == "host_control"
+    ]
     assert all(
-        row["required_capabilities"] == [{"kind": "test-machine", "label": "Test Mac", "state": "in_use", "context": expected_context}]
+        row["required_capabilities"]
+        == [
+            {
+                "kind": "test-machine",
+                "label": "Test Mac",
+                "state": "in_use",
+                "context": expected_context,
+            }
+        ]
         for row in scripted_machine_methods
     )
-    mission = next(row for row in machine_methods if row["runner_id"] == "agent_mission")
+    mission = next(
+        row for row in machine_methods if row["runner_id"] == "agent_mission"
+    )
     assert mission["required_capabilities"] == [
-        {"kind": "browser-control", "label": "Browser control", "state": "not_configured", "context": {"state": "not_configured"}},
-        {"kind": "test-machine", "label": "Test Mac", "state": "in_use", "context": expected_context},
+        {
+            "kind": "browser-control",
+            "label": "Browser control",
+            "state": "not_configured",
+            "context": {"state": "not_configured"},
+        },
+        {
+            "kind": "test-machine",
+            "label": "Test Mac",
+            "state": "in_use",
+            "context": expected_context,
+        },
     ]
-    assert detail["cases"][0]["required_capabilities"] == [{"kind": "test-machine", "label": "Test Mac", "state": "in_use", "context": expected_context}]
-    assert [error_state, configured_state, ready_state, fallback_ready_state, fallback_configured_state, missing_state] == [
+    assert detail["cases"][0]["required_capabilities"] == [
+        {
+            "kind": "test-machine",
+            "label": "Test Mac",
+            "state": "in_use",
+            "context": expected_context,
+        }
+    ]
+    assert [
+        error_state,
+        configured_state,
+        ready_state,
+        fallback_ready_state,
+        fallback_configured_state,
+        missing_state,
+    ] == [
         "error",
         "configured_unverified",
         "ready",

@@ -8,6 +8,10 @@ from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
+from yoke_contracts.machine_config.test_machine import (
+    is_test_machine_capability_type,
+    test_machine_resource_name,
+)
 from yoke_contracts.project_contract.project_keys import (
     PROJECT_POLICY_CAPABILITY,
     SESSION_ROUTING_CAPABILITY,
@@ -84,8 +88,16 @@ CAPABILITY_TYPE_DEFINITIONS: dict[str, dict[str, Any]] = {
 
 def capability_type_definition(capability_type: str) -> dict[str, Any]:
     """Return a complete caller-owned definition for one stored type."""
+    definition = CAPABILITY_TYPE_DEFINITIONS.get(capability_type)
+    machine = None
+    if definition is None and is_test_machine_capability_type(capability_type):
+        definition = CAPABILITY_TYPE_DEFINITIONS[TEST_MACHINE_CAPABILITY]
+        machine = test_machine_resource_name(capability_type)
     result = dict(_DEFAULT_DEFINITION)
-    result.update(CAPABILITY_TYPE_DEFINITIONS.get(capability_type, {}))
+    result.update(definition or {})
+    if machine is not None:
+        result["display_label"] = f"Test Mac · {machine}"
+        result["display_type"] = capability_type
     result["display_label"] = result["display_label"] or capability_type.replace(
         "-", " "
     )

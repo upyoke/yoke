@@ -35,8 +35,12 @@ export function machineSettingsDialog(context, detail, close, saved) {
   dialog.addEventListener("click", (event) => event.stopPropagation());
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-label", "Edit Test Mac settings");
-  dialog.appendChild(el(documentNode, "h2", null, "Edit Test Mac"));
+  dialog.setAttribute(
+    "aria-label", `Edit Test Mac ${detail.machine} settings`,
+  );
+  dialog.appendChild(el(
+    documentNode, "h2", null, `Edit Test Mac · ${detail.machine}`,
+  ));
   dialog.appendChild(el(
     documentNode,
     "p",
@@ -55,6 +59,10 @@ export function machineSettingsDialog(context, detail, close, saved) {
     const wrapper = el(documentNode, "label", null, label);
     const input = el(documentNode, "input");
     input.value = detail.settings[key] || "";
+    if (key === "resource_name") {
+      input.readOnly = true;
+      input.title = "The resource name is this capability row's identity.";
+    }
     wrapper.appendChild(input);
     fields.appendChild(wrapper);
     inputs[key] = input;
@@ -133,6 +141,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
         "test_machine.settings_replace",
         {
           project: detail.project,
+          machine: detail.machine,
           settings: Object.fromEntries(
             Object.entries(inputs).map(([key, input]) => [key, input.value]),
           ),

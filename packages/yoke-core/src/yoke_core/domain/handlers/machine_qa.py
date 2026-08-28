@@ -29,11 +29,13 @@ from yoke_core.domain.machine_qa_capability import (
 class TestMachineGetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project: str
+    machine: str | None = None
 
 
 class TestMachineSettingsReplaceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project: str
+    machine: str | None = None
     settings: dict[str, Any]
     base_settings: str | None = None
 
@@ -41,6 +43,8 @@ class TestMachineSettingsReplaceRequest(BaseModel):
 class TestMachineResponse(BaseModel):
     project_id: int
     project: str
+    machine: str
+    capability_type: str
     kind: str
     display_name: str
     runner_id: str
@@ -58,6 +62,8 @@ class TestMachineResponse(BaseModel):
 class TestMachineSettingsReplaceResponse(BaseModel):
     project_id: int
     project: str
+    machine: str
+    capability_type: str
     settings: dict[str, str]
     settings_token: str
     verification_status: str
@@ -65,6 +71,7 @@ class TestMachineSettingsReplaceResponse(BaseModel):
 
 class TestMachineVerifyResponse(BaseModel):
     project: str
+    machine: str
     status: str
     checked_at: str
     checks: list[dict[str, Any]]
@@ -97,7 +104,11 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
         return _invalid(exc)
     conn = db_helpers.connect()
     try:
-        result = test_machine_detail(conn, project=parsed.project)
+        result = test_machine_detail(
+            conn,
+            project=parsed.project,
+            machine=parsed.machine,
+        )
     except TestMachineCapabilityError as exc:
         return _failure("test_machine_unavailable", str(exc))
     finally:
@@ -115,6 +126,7 @@ def handle_settings_replace(request: FunctionCallRequest) -> HandlerOutcome:
         result = replace_test_machine_settings(
             conn,
             project=parsed.project,
+            machine=parsed.machine,
             settings=parsed.settings,
             base_settings=parsed.base_settings,
         )
@@ -131,11 +143,12 @@ def handle_verify(request: FunctionCallRequest) -> HandlerOutcome:
         parsed = TestMachineGetRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _invalid(exc)
+    selector = f" --machine {parsed.machine}" if parsed.machine else ""
     return _failure(
         "host_control_client_required",
         "test-machine verification cannot execute on the hosted control "
         "plane; run `yoke test-machine verify --project "
-        f"{parsed.project}` from a credential-owning harness or CLI machine",
+        f"{parsed.project}{selector}` from a credential-owning harness or CLI machine",
     )
 
 
@@ -157,6 +170,8 @@ def handle_verify_begin(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             project=parsed.project,
             session_id=request.actor.session_id,
+            machine=parsed.machine,
+            select_any=False,
             operation="verify",
             checks=("connection", "terminal_bridge"),
             baselines=("fresh-host", "shell-preconfigured"),
@@ -244,6 +259,7 @@ def handle_verify_submit(request: FunctionCallRequest) -> HandlerOutcome:
         recorded = recorded_test_machine_verification(
             conn,
             contract.project_id,
+            machine=contract.settings["resource_name"],
             lease_id=lease.id,
             contract_digest=parsed.contract_digest,
         )
@@ -255,6 +271,7 @@ def handle_verify_submit(request: FunctionCallRequest) -> HandlerOutcome:
             recorded = record_test_machine_verification(
                 commit_deferred_connection(conn),
                 contract.project_id,
+                machine=contract.settings["resource_name"],
                 status=parsed.status,
                 checks=parsed.checks,
                 error_code=parsed.error_code,
@@ -269,7 +286,11 @@ def handle_verify_submit(request: FunctionCallRequest) -> HandlerOutcome:
             )
         else:
             conn.commit()
-        result = {"project": contract.project, **recorded}
+        result = {
+            "project": contract.project,
+            "machine": contract.settings["resource_name"],
+            **recorded,
+        }
     except (
         MachineQaProtocolError,
         TestMachineCapabilityError,

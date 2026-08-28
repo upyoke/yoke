@@ -36,16 +36,10 @@ from yoke_core.domain.machine_qa_execution_protocol import (
     MachineQaProtocolLeaseHeld,
 )
 from yoke_core.domain.machine_qa_capability import replace_test_machine_settings
-from yoke_core.domain.host_control_runner import (
-    TestMachineMaterial as MachineMaterial,
-)
 
 
-def test_held_lease_becomes_structured_machine_waiting_state(
-    monkeypatch,
-) -> None:
+def test_held_lease_becomes_structured_machine_waiting_state() -> None:
     from runtime.api.domain.machine_qa_test_support import (
-        FakeHostControl,
         make_conn,
         register_test_machine,
     )
@@ -59,21 +53,6 @@ def test_held_lease_becomes_structured_machine_waiting_state(
         "id,session_id,target_kind,scope,claimed_at,last_heartbeat,released_at"
         ") VALUES(9,'holder-session','qa_admission',?,?,?,NULL)",
         (make_qa_admission_target("mac-mini-lab").scope_json(), now, now),
-    )
-    material = MachineMaterial(
-        project_id=1,
-        project="yoke",
-        settings={
-            "resource_name": "mac-mini-lab",
-            "host": "test-mac.local",
-            "user": "yoke-test",
-            "operating_notes": "",
-        },
-        secrets={},
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_execution.resolve_host_control",
-        lambda _conn, *, project: (FakeHostControl(), material),
     )
 
     with pytest.raises(MachineQaLeaseHeld) as caught:

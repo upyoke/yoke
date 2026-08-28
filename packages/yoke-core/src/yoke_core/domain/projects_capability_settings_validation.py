@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+from yoke_contracts.machine_config.capability_secrets import (
+    TEST_MACHINE_CAPABILITY,
+)
 from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
+from yoke_contracts.machine_config.test_machine import (
+    is_test_machine_capability_type,
+    test_machine_capability_type,
+)
 from yoke_core.domain import json_helper
 
 
@@ -39,12 +46,24 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
         )
 
         return validate_json_string(raw_json)
-    if cap_type == "test-machine":
+    if cap_type == TEST_MACHINE_CAPABILITY:
+        raise ValueError(
+            "test-machine capability type must name a machine as test-machine:<name>"
+        )
+    if is_test_machine_capability_type(cap_type):
         from yoke_core.domain.machine_qa_capability import (
             validate_test_machine_json,
         )
 
-        return validate_test_machine_json(raw_json)
+        canonical = validate_test_machine_json(raw_json)
+        settings = json_helper.loads_text(canonical)
+        expected = test_machine_capability_type(settings["resource_name"])
+        if cap_type != expected:
+            raise ValueError(
+                f"test-machine capability type must be {expected!r} for its "
+                "resource_name"
+            )
+        return canonical
     if cap_type == RELEASE_PIN_CAPABILITY:
         from yoke_core.domain.release_pin_capability import validate_json_string
 

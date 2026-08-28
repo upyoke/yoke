@@ -186,6 +186,7 @@ def _record_failed_baseline(
     recorded = recorded_test_machine_verification(
         conn,
         contract.project_id,
+        machine=contract.settings["resource_name"],
         lease_id=lease_id,
         contract_digest=contract_digest,
     )
@@ -197,6 +198,7 @@ def _record_failed_baseline(
     record_test_machine_verification(
         commit_deferred_connection(conn),
         contract.project_id,
+        machine=contract.settings["resource_name"],
         status="error",
         checks=[check],
         error_code=str(result.error_code),
@@ -341,7 +343,6 @@ __all__ = [
     "TestMachineBaselineGroupExecuteRequest",
     "TestMachineBaselineGroupExecuteResponse",
     "TestMachineBaselineGroupSubmitRequest",
-    "_baseline_group_cases",
     "handle_baseline_group_begin",
     "handle_baseline_group_execute",
     "handle_baseline_group_submit",

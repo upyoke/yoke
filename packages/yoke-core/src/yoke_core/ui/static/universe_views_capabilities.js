@@ -146,13 +146,13 @@ export function renderCapabilitiesView(context, main, scope) {
   ));
   const calloutCopy = el(documentNode, "span");
   calloutCopy.appendChild(el(
-    documentNode, "strong", null, "Test Mac is one composite capability. ",
+    documentNode, "strong", null, "Each Test Mac is one composite capability. ",
   ));
   calloutCopy.appendChild(el(
     documentNode,
     "span",
     null,
-    "Connection, Terminal control, screenshot capture, its named host baselines, supported features, and secret references stay together because they describe one scarce machine—not six things the user should assemble by hand. A baseline is a registered operation on the capability's executor — reached and verified by code, never instructions a reader is trusted to follow.",
+    "Connection, Terminal control, screenshot capture, named host baselines, supported features, and secret references stay together in one row per machine. Machines keep independent settings, verification receipts, and serial leases. A baseline is a registered operation on the capability's executor — reached and verified by code, never instructions a reader is trusted to follow.",
   ));
   callout.appendChild(calloutCopy);
   const panel = section(

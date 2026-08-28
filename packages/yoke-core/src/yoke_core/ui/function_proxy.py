@@ -74,6 +74,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "workflows.canon.get",
         "workflows.canon_update.preview",
         "test_machine.get",
+        "test_machine.list",
         # Documented exception to "no side effects": the Overview activation
         # read latches newly satisfied module activations into
         # overview_activation_facts — universe-scoped, monotone, idempotent,
@@ -106,6 +107,7 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
         "session_control.relay.list",
         "session_control.surface_policy.list",
         "test_machine.get",
+        "test_machine.list",
         "workflows.mechanics.get",
     }
 )

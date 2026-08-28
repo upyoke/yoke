@@ -258,12 +258,13 @@ def list_capabilities(
                     verified_at = overlay
                     verified_source = VERIFIED_SOURCE_REPO_BINDING
             project_id = int(row["project_id"])
+            machine_key = (project_id, cap_type)
             if definition["state_model"] == "test_machine" and (
-                project_id in active_machines
+                machine_key in active_machines
             ):
                 state = STATE_IN_USE
             elif definition["state_model"] == "test_machine" and (
-                machine_status.get(project_id) == STATE_ERROR
+                machine_status.get(machine_key) == STATE_ERROR
             ):
                 state = STATE_ERROR
             elif kind == KIND_DECLARED_MODEL or verified_at:
@@ -284,7 +285,7 @@ def list_capabilities(
                     "detail_view": definition["detail_view"],
                     "kind": kind,
                     "state": state,
-                    "active_item_ref": active_machines.get(project_id),
+                    "active_item_ref": active_machines.get(machine_key),
                     "project_id": row.get("project_id"),
                     "project": row.get("project"),
                     "settings_summary": summarize_settings(

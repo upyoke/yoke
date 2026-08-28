@@ -11,6 +11,9 @@ from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_SECRET_KEYS,
     is_machine_local_capability_secret,
 )
+from yoke_contracts.machine_config.test_machine import (
+    test_machine_capability_type as _machine_type,
+)
 from yoke_core.domain.host_baseline_operations import run_host_baseline
 from yoke_core.domain.host_control_runner import (
     clear_host_control_factory,
@@ -314,11 +317,11 @@ def test_verifier_holds_one_lease_and_returns_only_redacted_receipts(
     assert "[REDACTED]" in json.dumps(result)
     active = conn.execute(
         "SELECT COUNT(*) FROM work_claims WHERE released_at IS NULL "
-            "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
+        "AND target_kind IN ('migration_serialization','qa_admission','route_qualification')"
     ).fetchone()[0]
     assert active == 0
     verified_at = conn.execute(
-        "SELECT verified_at FROM project_capabilities "
-        "WHERE project_id=1 AND type='test-machine'"
+        "SELECT verified_at FROM project_capabilities WHERE project_id=1 AND type=?",
+        (_machine_type("mac-mini-lab"),),
     ).fetchone()[0]
     assert verified_at

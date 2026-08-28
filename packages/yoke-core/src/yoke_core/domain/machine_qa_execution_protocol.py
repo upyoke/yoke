@@ -13,11 +13,8 @@ from yoke_core.domain.coordination_claim_record import (
     row_to_claim,
 )
 from yoke_core.domain.coordination_claims import (
-    CoordinationClaimHeldError,
     CoordinationClaimNotFoundError,
     CoordinationClaimStaleHolderError,
-    acquire,
-    active_claim,
     get_claim,
     release,
 )
@@ -26,6 +23,10 @@ from yoke_core.domain.host_control_runner import (
     TestMachineContract,
     load_test_machine_contract,
 )
+from yoke_core.domain.machine_qa_host_selection import (
+    TestMachineFleetBusy,
+    acquire_test_machine,
+)
 from yoke_core.domain.machine_qa_execution_contract import (
     HostControlExecutionContract,
     HostControlOperation,
@@ -33,7 +34,6 @@ from yoke_core.domain.machine_qa_execution_contract import (
 )
 from yoke_core.domain.machine_qa_capability import (
     host_claim_key,
-    host_claim_target,
 )
 
 HOST_CONTROL_SUBMISSION_RECEIPT_KEY = "host_control_submission"
@@ -120,8 +120,7 @@ def _lock_submission_claim(conn: Any, claim_id: int) -> CoordinationClaim:
         return get_claim(conn, claim_id)
     marker = "%s"
     row = conn.execute(
-        f"SELECT {SELECT_COLUMNS} {FROM_CLAUSE} "
-        f"WHERE wc.id={marker} FOR UPDATE OF wc",
+        f"SELECT {SELECT_COLUMNS} {FROM_CLAUSE} WHERE wc.id={marker} FOR UPDATE OF wc",
         (claim_id,),
     ).fetchone()
     if row is None:
@@ -177,32 +176,33 @@ def begin_host_control_execution(
     ordinal: int | None = None,
     case_position: int | None = None,
     baseline_position: int | None = None,
+    machine: str | None = None,
+    select_any: bool = True,
 ) -> HostControlExecutionContract:
     """Validate settings and acquire the serial host claim."""
     if not str(session_id or "").strip():
         raise MachineQaProtocolError(
             "host-control execution requires an owning session"
         )
-    machine = load_test_machine_contract(conn, project=project)
-    resource_name = machine.settings["resource_name"]
-    target = host_claim_target(resource_name)
     try:
-        lease = acquire(conn, target, session_id, reason="machine-qa-execution")
+        selected, lease = acquire_test_machine(
+            conn,
+            project=project,
+            session_id=session_id,
+            machine=machine,
+            select_any=select_any,
+        )
     except CoordinationClaimStaleHolderError as exc:
         raise MachineQaProtocolError(str(exc)) from None
-    except CoordinationClaimHeldError as exc:
-        held = active_claim(conn, target)
-        if held is None:
-            raise MachineQaProtocolError(
-                "test-machine lease changed while acquiring; retry execution"
-            ) from None
+    except TestMachineFleetBusy as exc:
+        held = exc.busy[0]
         raise MachineQaProtocolLeaseHeld(
-            lease=held,
-            machine=resource_name,
-            contention=exc.contention,
+            lease=held.lease,
+            machine=held.machine,
+            contention=held.contention,
         ) from None
     return _issue(
-        machine,
+        selected,
         lease,
         operation=operation,
         checks=checks,
@@ -231,7 +231,14 @@ def _validate_lease_owner(
         raise MachineQaProtocolError(
             f"host-control lease {lease_id} was not issued"
         ) from exc
-    machine = load_test_machine_contract(conn, project=project)
+    machine_id = lease.target.machine_id
+    if machine_id is None:
+        raise MachineQaProtocolError("host-control lease does not name a machine")
+    machine = load_test_machine_contract(
+        conn,
+        project=project,
+        machine=machine_id,
+    )
     resource_name = machine.settings["resource_name"]
     if lease.is_active and lease.key != host_claim_key(resource_name):
         raise MachineQaProtocolError(

@@ -19,7 +19,7 @@ import {
   secretPanel,
 } from "./test_machine_detail_panels.js";
 
-function renderDetail(context, main, detail, reload) {
+function renderDetail(context, main, detail, reload, showFleet = null) {
   const documentNode = context.document;
   const header = el(
     documentNode,
@@ -27,12 +27,14 @@ function renderDetail(context, main, detail, reload) {
     "page-head test-machine-head",
   );
   const copy = el(documentNode, "div", "h test-machine-head-copy");
-  copy.appendChild(el(documentNode, "h1", "title", "Test Mac"));
+  copy.appendChild(el(
+    documentNode, "h1", "title", detail.display_name || "Test Mac",
+  ));
   copy.appendChild(el(
     documentNode,
     "p",
     "subtitle muted",
-    `test-machine capability · composite · ${detail.project}`,
+    `${detail.capability_type} · composite · ${detail.project}`,
   ));
   header.appendChild(copy);
   const actions = el(
@@ -40,6 +42,12 @@ function renderDetail(context, main, detail, reload) {
     "div",
     "head-actions test-machine-actions",
   );
+  if (showFleet) {
+    const fleet = el(documentNode, "button", "btn", "All machines");
+    fleet.type = "button";
+    fleet.addEventListener("click", showFleet);
+    actions.appendChild(fleet);
+  }
   const edit = el(documentNode, "button", "btn", "Edit settings");
   edit.type = "button";
   edit.addEventListener("click", () => {
@@ -71,7 +79,7 @@ function renderDetail(context, main, detail, reload) {
       result = await callFunction(
         context.client,
         "test_machine.verify",
-        { project: detail.project },
+        { project: detail.project, machine: detail.machine },
       );
     } catch (error) {
       result = {
@@ -152,6 +160,115 @@ function renderDetail(context, main, detail, reload) {
   );
 }
 
+function renderMissing(documentNode, main, project) {
+  const missing = panel(documentNode, "Capability");
+  missing.body.appendChild(el(
+    documentNode,
+    "p",
+    "empty",
+    "No test machines are configured for this project.",
+  ));
+  const back = el(documentNode, "a", "btn", "Back to capabilities");
+  back.href = buildUniverseRoute("capabilities", project);
+  missing.body.appendChild(back);
+  main.replaceChildren(missing.root);
+}
+
+async function loadMachineDetail(
+  context,
+  main,
+  project,
+  machine,
+  navigation,
+  showFleet,
+) {
+  const documentNode = context.document;
+  main.replaceChildren(el(documentNode, "p", "empty", "loading machine…"));
+  let result;
+  try {
+    result = await callFunction(
+      context.client,
+      "test_machine.get",
+      { project, machine },
+    );
+  } catch (error) {
+    result = {
+      status: 0,
+      envelope: { success: false, error: { message: String(error) } },
+    };
+  }
+  if (!context.isMounted()) return;
+  if (!result.envelope?.success) {
+    main.replaceChildren();
+    renderError(main, result);
+    return;
+  }
+  const detail = result.envelope.result;
+  if (typeof navigation.setDetailLabel === "function") {
+    navigation.setDetailLabel(detail.display_name);
+  }
+  renderDetail(
+    context,
+    main,
+    detail,
+    () => loadMachineDetail(
+      context, main, project, detail.machine, navigation, showFleet,
+    ),
+    showFleet,
+  );
+}
+
+function renderMachineChooser(
+  context,
+  main,
+  project,
+  machines,
+  navigation,
+) {
+  const documentNode = context.document;
+  const fleet = panel(documentNode, `Test Macs · ${machines.length}`);
+  fleet.body.classList.add("stack");
+  fleet.body.appendChild(el(
+    documentNode,
+    "p",
+    "muted",
+    "Choose a machine to inspect, edit, or verify. Each machine has its own settings, receipt, and serial lease.",
+  ));
+  const showFleet = () => renderTestMachineDetail(
+    context, main, project, navigation,
+  );
+  for (const detail of machines) {
+    const choose = el(
+      documentNode,
+      "button",
+      "doc-link test-machine-method",
+    );
+    choose.type = "button";
+    choose.appendChild(el(
+      documentNode,
+      "strong",
+      "dl-title",
+      detail.display_name,
+    ));
+    choose.appendChild(el(
+      documentNode,
+      "small",
+      "dl-sub",
+      `${detail.settings.host} · ${detail.verification.status}`,
+    ));
+    choose.addEventListener("click", () => loadMachineDetail(
+      context,
+      main,
+      project,
+      detail.machine,
+      navigation,
+      showFleet,
+    ));
+    fleet.body.appendChild(choose);
+  }
+  main.replaceChildren(fleet.root);
+}
+
 export async function renderTestMachineDetail(
   context, main, project, navigation = {},
 ) {
@@ -164,7 +281,7 @@ export async function renderTestMachineDetail(
   try {
     result = await callFunction(
       context.client,
-      "test_machine.get",
+      "test_machine.list",
       { project },
     );
   } catch (error) {
@@ -177,30 +294,26 @@ export async function renderTestMachineDetail(
     };
   }
   if (!context.isMounted()) return;
-  if (!result.envelope.success) {
-    const message = result.envelope?.error?.message || "";
-    if (message.includes("has no test-machine capability")) {
-      const missing = panel(documentNode, "Capability");
-      missing.body.appendChild(el(
-        documentNode,
-        "p",
-        "empty",
-        "This capability is not configured for the project.",
-      ));
-      const back = el(
-        documentNode, "a", "btn", "Back to capabilities",
-      );
-      back.href = buildUniverseRoute("capabilities", project);
-      missing.body.appendChild(back);
-      main.replaceChildren(missing.root);
-    } else {
-      main.replaceChildren();
-      renderError(main, result);
-    }
+  if (!result.envelope?.success) {
+    main.replaceChildren();
+    renderError(main, result);
     return;
   }
-  if (typeof navigation.setDetailLabel === "function") {
-    navigation.setDetailLabel(result.envelope.result.display_name);
+  const machines = result.envelope.result?.machines || [];
+  if (!machines.length) {
+    renderMissing(documentNode, main, project);
+    return;
   }
-  renderDetail(context, main, result.envelope.result, reload);
+  if (machines.length > 1) {
+    if (typeof navigation.setDetailLabel === "function") {
+      navigation.setDetailLabel("Test Macs");
+    }
+    renderMachineChooser(context, main, project, machines, navigation);
+    return;
+  }
+  const detail = machines[0];
+  if (typeof navigation.setDetailLabel === "function") {
+    navigation.setDetailLabel(detail.display_name);
+  }
+  renderDetail(context, main, detail, reload);
 }

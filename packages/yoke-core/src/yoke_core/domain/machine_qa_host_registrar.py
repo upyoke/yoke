@@ -13,11 +13,10 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
-)
 from yoke_contracts.machine_config.test_machine import (
+    TEST_MACHINE_CAPABILITY_PREFIX,
     TestMachineCapabilityError,
+    test_machine_resource_name,
     validate_test_machine_resource_name,
 )
 
@@ -31,6 +30,7 @@ class HostRegistration:
 
     project_id: int
     project: str
+    capability_type: str
     resource_name: str
 
 
@@ -44,17 +44,20 @@ def host_registrations(conn: Any) -> list[HostRegistration]:
         return []
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
-        "SELECT c.project_id, COALESCE(p.slug, ''), COALESCE(c.settings, '{}') "
+        "SELECT c.project_id, COALESCE(p.slug, ''), c.type, "
+        "COALESCE(c.settings, '{}') "
         "FROM project_capabilities c "
         "LEFT JOIN projects p ON p.id = c.project_id "
-        f"WHERE c.type = {marker} "
-        "ORDER BY c.created_at, c.project_id",
-        (TEST_MACHINE_CAPABILITY,),
+        f"WHERE c.type LIKE {marker} "
+        "ORDER BY c.created_at, c.project_id, c.type",
+        (TEST_MACHINE_CAPABILITY_PREFIX + "%",),
     ).fetchall()
     registrations: list[HostRegistration] = []
     for row in rows:
         try:
-            settings = json.loads(str(row[2]))
+            capability_type = str(row[2])
+            type_machine = test_machine_resource_name(capability_type)
+            settings = json.loads(str(row[3]))
         except ValueError:
             continue
         if not isinstance(settings, dict):
@@ -65,10 +68,13 @@ def host_registrations(conn: Any) -> list[HostRegistration]:
             )
         except TestMachineCapabilityError:
             continue
+        if resource_name != type_machine:
+            continue
         registrations.append(
             HostRegistration(
                 project_id=int(row[0]),
                 project=str(row[1]),
+                capability_type=capability_type,
                 resource_name=resource_name,
             )
         )
@@ -79,12 +85,18 @@ def assert_sole_host_registrar(
     conn: Any,
     *,
     project_id: int,
+    capability_type: str,
     resource_name: str,
 ) -> None:
-    """Refuse a registration for a host another project already operates."""
+    """Refuse a second declaration for one globally unique physical host."""
     canonical = validate_test_machine_resource_name(resource_name)
     for registration in host_registrations(conn):
         if registration.resource_name != canonical:
+            continue
+        if (
+            registration.project_id == int(project_id)
+            and registration.capability_type == capability_type
+        ):
             continue
         if registration.project_id != int(project_id):
             owner = registration.project or str(registration.project_id)
@@ -92,6 +104,11 @@ def assert_sole_host_registrar(
                 f"test machine {canonical!r} is already registered by project "
                 f"{owner!r}; one physical host belongs to exactly one project"
             )
+        raise TestMachineCapabilityError(
+            f"project {registration.project!r} already registers test machine "
+            f"{canonical!r} as {registration.capability_type!r}; one physical "
+            "host cannot occupy two capability rows"
+        )
 
 
 __all__ = [

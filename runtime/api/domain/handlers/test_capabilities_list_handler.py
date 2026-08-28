@@ -16,11 +16,16 @@ from runtime.api.domain.handlers.capabilities_list_test_support import (
     iso_timestamp as _iso,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_contracts.machine_config.test_machine import (
+    test_machine_capability_type as _machine_type,
+)
 from yoke_core.domain.capabilities_list_read import list_capabilities
 from yoke_core.domain.work_claim_targets import (
     make_item_target,
     make_qa_admission_target,
 )
+
+MACHINE_TYPE = _machine_type("mac-mini-lab")
 
 
 class TestKindAndStateDerivation:
@@ -50,7 +55,7 @@ class TestKindAndStateDerivation:
     def test_test_machine_is_a_ready_test_resource(self, test_db):
         _insert_capability(
             test_db,
-            "test-machine",
+            MACHINE_TYPE,
             settings=(
                 '{"resource_name":"mac-mini-lab","host":"mac",'
                 '"user":"yoke","operating_notes":""}'
@@ -59,14 +64,14 @@ class TestKindAndStateDerivation:
         )
         row = list_capabilities()[0]
         assert (row["kind"], row["state"]) == ("test_resource", "ready")
-        assert row["display_type"] == "test-mac"
+        assert row["display_type"] == MACHINE_TYPE
         assert row["active_item_ref"] is None
         assert row["used_by_summary"].startswith("Machine methods ×")
 
     def test_test_machine_in_use_names_the_claimed_item(self, test_db):
         _insert_capability(
             test_db,
-            "test-machine",
+            MACHINE_TYPE,
             settings=(
                 '{"resource_name":"mac-mini-lab","host":"mac",'
                 '"user":"yoke","operating_notes":""}'

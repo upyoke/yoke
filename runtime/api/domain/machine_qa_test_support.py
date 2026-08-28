@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
+from yoke_contracts.machine_config.test_machine import (
+    test_machine_capability_type,
 )
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
@@ -288,7 +288,7 @@ def register_test_machine(
         "VALUES(?,?,?,?)",
         (
             project_id,
-            TEST_MACHINE_CAPABILITY,
+            test_machine_capability_type(resource_name),
             json.dumps(
                 {
                     "resource_name": resource_name,
