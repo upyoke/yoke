@@ -241,8 +241,9 @@ dependency, launch, and automatic document-archive boundary.
 Runnable work that sits unclaimed is this seat's to staff; nothing else
 does it. Work this seat files is staffed in the same pass, as soon as it is
 runnable; the report is not its trigger. The report covers work this seat
-did not create — unstaffed items, lost owners, quiet claim holders — and
-arrives appended to this session's messages; pull it between wakes with:
+did not create — its available list carries everything runnable and
+unclaimed, each row marked never-started or owner-released — and arrives
+appended to this session's messages; pull it between wakes with:
 
 ```text
 yoke steering report get --project {_project}
