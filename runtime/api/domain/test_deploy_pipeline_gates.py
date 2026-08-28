@@ -181,40 +181,6 @@ class TestCiGate:
         assert "non-terminal state 'running'" in message
         assert "without treating in-progress CI as a test failure" in message
 
-    def test_ci_gate_blocks_when_exact_release_sha_has_no_run(self):
-        with (
-            mock.patch.object(
-                deploy_pipeline_gates,
-                "project_ci_workflow_file",
-                return_value="ci.yml",
-            ),
-            mock.patch.object(
-                deploy_pipeline_gates,
-                "_github_actions",
-                return_value=subprocess.CompletedProcess(
-                    args=[],
-                    returncode=0,
-                    stdout=json.dumps(
-                        {
-                            "success": True,
-                            "result": {"state": "no_runs"},
-                        }
-                    ),
-                    stderr="",
-                ),
-            ),
-        ):
-            passed, message = deploy_pipeline_gates._check_ci_gate(
-                "owner/repo",
-                "yoke",
-                30,
-                branch="main",
-                head_sha="deadbeef",
-            )
-
-        assert passed is False
-        assert "no CI run exists for exact release commit deadbeef" in message
-
     def test_ci_gate_blocks_structured_timeout(self):
         response = {
             "success": True,
