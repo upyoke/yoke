@@ -22,6 +22,9 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 )
 from yoke_core.domain.project_renderer_settings import project_ci_workflow_file
 
+_AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
+_MISSING_WORKFLOW_CODE = "workflow_not_found"
+
 
 def _active_item_lane_branch(item_ref: str) -> str:
     """Return the primary active universal lane branch for one run member.
@@ -179,6 +182,34 @@ def _verify_branch_merged(
     )
 
 
+def _ci_adapter_failure_message(
+    code: str, failure: str, *, workflow: str, repo: str,
+) -> str:
+    if code == _MISSING_WORKFLOW_CODE:
+        return (
+            f"\nBLOCKED: Cannot deploy — declared CI workflow {workflow} "
+            f"does not exist in {repo}.\n\n"
+            "Create the workflow under .github/workflows/, or correct "
+            "the project's ci_workflow_file declaration.\n"
+        )
+    if code in _AUTH_ADAPTER_CODES:
+        kind = "an authorization failure"
+    elif code == "rest_transport_error":
+        kind = "a transport failure"
+    else:
+        return (
+            "\nBLOCKED: Cannot deploy — CI could not be verified; "
+            f"the GitHub Actions adapter returned {failure}.\n\n"
+            "The failure class is unknown; it is not a failing test "
+            "conclusion.\n"
+        )
+    return (
+        "\nBLOCKED: Cannot deploy — CI could not be verified; "
+        f"the GitHub Actions adapter returned {failure}.\n\n"
+        f"This is {kind}, not a failing test conclusion.\n"
+    )
+
+
 def _check_ci_gate(
     github_repo: str,
     project: str,
@@ -236,12 +267,10 @@ def _check_ci_gate(
             detail = str(error.get("message") or "").strip()
             failure = f"{code}: {detail}" if detail else code
         else:
+            code = "unknown_error"
             failure = "unknown_error"
-        return False, (
-            "\nBLOCKED: Cannot deploy — CI could not be verified; "
-            f"the GitHub Actions adapter returned {failure}.\n\n"
-            "This is an authorization or transport failure, not a "
-            "failing test conclusion.\n"
+        return False, _ci_adapter_failure_message(
+            code, failure, workflow=ci_workflow, repo=github_repo,
         )
 
     result = envelope.get("result")

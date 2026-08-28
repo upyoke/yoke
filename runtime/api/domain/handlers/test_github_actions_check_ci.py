@@ -212,6 +212,46 @@ class TestHandle:
         assert not outcome.primary_success
         assert outcome.error.code == "rest_transport_error"
 
+    def test_missing_workflow_is_not_a_transport_error(
+        self, monkeypatch, _resolver_ok,
+    ):
+        from yoke_core.domain.gh_rest_transport import RestNotFoundError
+
+        def _raise(*a, **kw):
+            raise RestNotFoundError(
+                "declared workflow missing.yml does not exist in upyoke/yoke",
+                status=404,
+            )
+
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.latest_workflow_run",
+            _raise,
+        )
+        outcome = handle_check_ci(_make_request({
+            "repo": "upyoke/yoke", "workflow": "missing.yml",
+        }))
+        assert not outcome.primary_success
+        assert outcome.error.code == "workflow_not_found"
+        assert "missing.yml" in outcome.error.message
+        assert "upyoke/yoke" in outcome.error.message
+        assert "authorization" not in outcome.error.message.lower()
+
+    def test_rest_auth_error_stays_authorization(
+        self, monkeypatch, _resolver_ok,
+    ):
+        from yoke_core.domain.gh_rest_transport import RestAuthError
+
+        def _raise(*a, **kw):
+            raise RestAuthError("HTTP 401: bad credentials", status=401)
+
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.latest_workflow_run",
+            _raise,
+        )
+        outcome = handle_check_ci(_make_request())
+        assert not outcome.primary_success
+        assert outcome.error.code == "rest_auth_error"
+
 
 class TestSingleShot:
     """The handler is single-shot: wait semantics live in the CLI adapter

@@ -32,6 +32,7 @@ from yoke_core.engines.doctor_hc_blocked_flag import (hc_blocked_flag_consistenc
 from yoke_core.engines.doctor_hc_branch_protection import hc_branch_protection_required_check  # noqa: F401
 from yoke_core.engines.doctor_hc_merge_queue import hc_merge_queue_binding  # noqa: F401
 from yoke_core.engines.doctor_hc_projects_ci import hc_projects_ci_workflow_configured  # noqa: F401
+from yoke_core.engines.doctor_hc_ci_workflow_resolves import hc_ci_workflow_declaration_resolves  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_project_verification import hc_project_verification_configured  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_gate_liveness import hc_gate_liveness  # noqa: F401
 from yoke_core.engines.doctor_hc_event_outcome_drift import hc_event_outcome_drift  # noqa: F401
@@ -305,6 +306,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("branch-protection-required-check", "Branch protection required check", hc_branch_protection_required_check, github_dependent=True),
     HealthCheck("merge-queue-binding", "Merge queue binding", hc_merge_queue_binding, github_dependent=True),
     HealthCheck("projects-ci-workflow-configured", "Per-project CI workflow capability", hc_projects_ci_workflow_configured),
+    HealthCheck("projects-ci-workflow-resolves", "Declared CI workflow resolves in checkout", hc_ci_workflow_declaration_resolves),  # noqa: E501
     HealthCheck("project-verification-configured", "Project has a test command or merge policy", hc_project_verification_configured),  # noqa: E501
     HealthCheck("gate-liveness", "Pre-commit gate is the live Yoke shim", hc_gate_liveness),  # noqa: E501
     HealthCheck("delegated-sync", "Delegated sync HCs", hc_delegated_sync, github_dependent=True),

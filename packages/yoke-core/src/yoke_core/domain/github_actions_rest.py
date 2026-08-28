@@ -173,6 +173,11 @@ def latest_workflow_run(
         query=query,
         token=token,
     )
+    if data is None:
+        raise RestNotFoundError(
+            f"declared workflow {workflow} does not exist in {repo}",
+            status=404,
+        )
     if not isinstance(data, dict):
         raise RestTransportError(
             "GitHub workflow-runs response must be an object"

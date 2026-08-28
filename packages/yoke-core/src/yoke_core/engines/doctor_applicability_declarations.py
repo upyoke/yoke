@@ -131,6 +131,7 @@ _SHAPES = (
             "project-json-validity",
             "project-verification-configured",
             "projects-ci-workflow-configured",
+            "projects-ci-workflow-resolves",
             "projects-config-alignment",
             "projects-without-flows",
             "qa-runs-mutated",
