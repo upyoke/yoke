@@ -217,6 +217,26 @@ def record_reactivation_wake_driver(
             pass
 
 
+def _model_should_upgrade(*, stored: str, incoming: str, executor: Any) -> bool:
+    """True when ``incoming`` is a better answer than the stored model.
+
+    Filling a placeholder always qualifies. Replacing one real model with
+    another is refused, because a re-registration carrying a differently
+    resolved model would otherwise swap the row on every prompt — except on
+    Cursor, where the stored model is not a report but a measurement of the
+    conversation's current variant. A Cursor session registers under the
+    bare family id its payload names, learns the variant only once its
+    conversation store exists, and can be switched to another model
+    mid-conversation; refusing the later reading there is what pinned every
+    launched cursor session to the family id it started under.
+    """
+    from yoke_harness.hooks.identity import _is_placeholder_model, is_cursor
+
+    if _is_placeholder_model(incoming) or stored == incoming:
+        return False
+    return _is_placeholder_model(stored) or is_cursor(str(executor or ""))
+
+
 def refresh_active_duplicate_identity(
     conn: Any,
     *,
@@ -238,15 +258,14 @@ def refresh_active_duplicate_identity(
     """
     if existing is None:
         return
-    from yoke_harness.hooks.identity import _is_placeholder_model
-
-    # A registration ships a model only when it resolved one, and its side
-    # is the better-informed one, so a differing real value replaces the
-    # stored answer instead of only filling a placeholder — that narrower
-    # rule is what pinned Cursor sessions to the family id they registered
-    # under before their conversation store named the variant.
     stored_model = _stored_value(existing, "model")
-    if stored_model != model and not _is_placeholder_model(model):
+    if _model_should_upgrade(
+        stored=stored_model,
+        incoming=model,
+        # The stored surface is NULL for a row registered before its
+        # entrypoint was known, so the incoming one stands in.
+        executor=_stored_value(existing, "executor_surface") or executor_surface,
+    ):
         conn.execute(
             f"UPDATE harness_sessions SET model = {placeholder} "
             f"WHERE session_id = {placeholder}",

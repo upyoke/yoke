@@ -106,16 +106,17 @@ def _model_can_upgrade(
     payload_json: str,
     session_id: str,
 ) -> bool:
-    """True when the wire model is a later answer than the stored one.
+    """True when the wire model is an answer the stored row does not have.
 
-    The client ships a model only when it newly resolved one, and its own
-    resolution is the better-informed side — it can read the transcript or,
-    for Cursor, the conversation store naming the variant that actually ran.
-    So a differing wire model replaces the stored value rather than only
-    filling a placeholder: gating on placeholders alone is what let a coarse
-    first answer (Cursor's bare family id, shipped before its store exists)
-    become permanent. Once the row agrees with the wire this returns False,
-    which keeps a settled session from re-registering on every event.
+    Filling a placeholder always qualifies. So does a differing real model on
+    Cursor, whose stored model is a measurement of the conversation's current
+    variant rather than a report: the session registers under the bare family
+    id its payload names and learns the variant only once its conversation
+    store exists, so refusing the later reading is what pinned every launched
+    cursor session to the family id it started under. Every other harness
+    keeps the placeholder-only rule, because a re-resolved model there would
+    otherwise swap the row on every prompt. Once the row agrees with the wire
+    this returns False, which keeps a settled session from re-registering.
     """
     try:
         if not payload_json:
@@ -136,13 +137,23 @@ def _model_can_upgrade(
 
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT model FROM harness_sessions WHERE session_id = {p}",
+            "SELECT model, executor_surface, executor FROM harness_sessions "
+            f"WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
         if row is None:
             return False
-        stored = row.get("model") if hasattr(row, "get") else row[0]
-        return str(stored or "").strip() != wire_model.strip()
+        keyed = hasattr(row, "get")
+        stored = (row.get("model") if keyed else row[0]) or ""
+        surface = (row.get("executor_surface") if keyed else row[1]) or ""
+        executor = (row.get("executor") if keyed else row[2]) or ""
+        from yoke_core.domain.sessions_lifecycle_identity import _model_should_upgrade
+
+        return _model_should_upgrade(
+            stored=str(stored).strip(),
+            incoming=wire_model.strip(),
+            executor=surface or executor,
+        )
     except Exception:  # noqa: BLE001 - probe must never break dispatch
         return False
 
