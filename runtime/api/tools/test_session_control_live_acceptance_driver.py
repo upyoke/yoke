@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from typing import Any
 
@@ -275,7 +273,7 @@ def _driver(client: _ScenarioClient) -> LiveAcceptanceDriver:
 
 
 def test_create_cell_requires_binding_ack_wait_wake_and_dedupe() -> None:
-    cell = AcceptanceCell("codex-desktop", "26.814.41407", "create", model="gpt-5.6")
+    cell = AcceptanceCell("codex-cli", "0.148.0-alpha.15", "create")
     client = _ScenarioClient(cell)
 
     report = _driver(client)._run_cell(

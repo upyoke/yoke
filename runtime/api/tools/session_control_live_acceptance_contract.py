@@ -8,6 +8,14 @@ from pathlib import Path
 import re
 from typing import Any
 
+from runtime.api.tools.session_control_live_acceptance_cells import (
+    ACCEPTANCE_SURFACE_CELLS,
+    ACCEPTANCE_SURFACES,
+    AcceptanceCell,
+    REGISTERED_BROKER_PROOF_SCOPE,
+    REGISTERED_SURFACE_PROOF_SCOPE,
+    acceptance_operation,
+)
 from runtime.api.tools.session_control_live_acceptance_wake_route import (
     MACHINE_SELECTED_ROUTE,
     surface_route_mismatch,
@@ -19,15 +27,7 @@ from yoke_contracts.session_control.surface_versions import (
 )
 
 
-SCHEMA_VERSION = 3
-ACCEPTANCE_SURFACES = (
-    "claude-cli",
-    "claude-desktop",
-    "codex-cli",
-    "codex-desktop",
-    "cursor-cli",
-)
-_IDENTIFY_ONLY_SURFACES = frozenset({"claude-desktop"})
+SCHEMA_VERSION = 4
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _RELEASE_SHA = re.compile(r"^[0-9a-f]{40}$")
 _SERVER_BUILD = re.compile(r"^[0-9a-f]{40}$")
@@ -40,6 +40,7 @@ _CELL_KEYS = frozenset(
         "machine_id",
         "mode",
         "model",
+        "proof_scope",
         "session_id",
         "surface",
         "wake_route",
@@ -49,10 +50,6 @@ _ACCEPTANCE_ROLES = frozenset({"surface", "broker"})
 _WAKE_ROUTES = frozenset({"direct", MACHINE_SELECTED_ROUTE, "none"})
 
 
-def acceptance_operation(surface: str) -> str:
-    return "message_active" if surface == "claude-desktop" else "message_stopped"
-
-
 class AcceptanceContractError(ValueError):
     """A safe, body-free refusal suitable for machine-readable output."""
 
@@ -60,38 +57,6 @@ class AcceptanceContractError(ValueError):
         super().__init__(code)
         self.code, self.surface = code, surface
         self.evidence: dict[str, Any] | None = evidence
-
-
-@dataclass(frozen=True)
-class AcceptanceCell:
-    surface: str
-    expected_version: str
-    mode: str
-    session_id: str | None = None
-    machine_id: str | None = None
-    model: str | None = None
-    acceptance_role: str = "surface"
-    wake_route: str | None = None
-    broker_session_id: str | None = None
-
-    @property
-    def wake_supported(self) -> bool:
-        return surface_operation_supported(
-            self.surface,
-            self.expected_version,
-            "message_stopped",
-        )
-
-    @property
-    def route(self) -> str:
-        if self.wake_route:
-            return self.wake_route
-        return "direct" if self.wake_supported else "none"
-
-    @property
-    def acceptance_key(self) -> str:
-        suffix = "" if self.acceptance_role == "surface" else ":broker"
-        return f"{self.surface}{suffix}"
 
 
 @dataclass(frozen=True)
@@ -142,17 +107,14 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
         code="expected_version_missing",
         surface=surface,
     )
-    if evidence_required and not surface_operation_supported(
-        surface, version, acceptance_operation(surface)
-    ):
-        raise AcceptanceContractError("expected_version_unproven", surface=surface)
     mode = require_text(raw.get("mode"), code="mode_missing", surface=surface)
     if mode not in {"create", "identify"}:
         raise AcceptanceContractError("mode_invalid", surface=surface)
-    if mode == "create" and (
-        surface in _IDENTIFY_ONLY_SURFACES
-        or not surface_operation_supported(surface, version, "create")
+    if evidence_required and not surface_operation_supported(
+        surface, version, acceptance_operation(surface, mode)
     ):
+        raise AcceptanceContractError("expected_version_unproven", surface=surface)
+    if mode == "create" and not surface_operation_supported(surface, version, "create"):
         raise AcceptanceContractError("create_unproven", surface=surface)
     session_id = _optional_text(
         raw.get("session_id"), code="session_id_invalid", surface=surface
@@ -176,6 +138,16 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
     )
     if role not in _ACCEPTANCE_ROLES:
         raise AcceptanceContractError("acceptance_role_invalid", surface=surface)
+    proof_scope = require_text(
+        raw.get("proof_scope"), code="proof_scope_missing", surface=surface
+    )
+    expected_proof_scope = (
+        REGISTERED_BROKER_PROOF_SCOPE
+        if role == "broker"
+        else REGISTERED_SURFACE_PROOF_SCOPE
+    )
+    if proof_scope != expected_proof_scope:
+        raise AcceptanceContractError("proof_scope_invalid", surface=surface)
     wake_route = require_text(
         raw.get("wake_route"), code="wake_route_missing", surface=surface
     )
@@ -197,7 +169,7 @@ def _cell(raw: Any, *, evidence_required: bool) -> AcceptanceCell:
             )
         if mode != "identify":
             raise AcceptanceContractError("broker_identify_required", surface=surface)
-        if surface in _IDENTIFY_ONLY_SURFACES:
+        if surface.endswith("-desktop"):
             raise AcceptanceContractError("broker_surface_unproven", surface=surface)
         if machine_id is None:
             raise AcceptanceContractError("broker_machine_required", surface=surface)
@@ -239,7 +211,7 @@ def _parse_matrix(
         if len(keys) != len(set(keys)):
             raise AcceptanceContractError("candidate_cell_duplicate")
         for cell in cells:
-            operation = acceptance_operation(cell.surface)
+            operation = cell.operation
             capability = capability_for_surface(cell.surface)
             interface = getattr(capability, operation, "none")
             if not surface_version_supported(cell.surface, cell.expected_version):
@@ -261,7 +233,7 @@ def _parse_matrix(
                 cells,
                 key=lambda cell: (
                     0 if cell.acceptance_role == "surface" else 1,
-                    ACCEPTANCE_SURFACES.index(cell.surface),
+                    ACCEPTANCE_SURFACE_CELLS.index((cell.surface, cell.mode)),
                 ),
             )
         )
@@ -271,16 +243,19 @@ def _parse_matrix(
             "surface_wake_route_invalid", surface=mismatched.surface
         )
     surface_cells = tuple(cell for cell in cells if cell.acceptance_role == "surface")
-    surfaces = tuple(cell.surface for cell in surface_cells)
-    if len(surfaces) != len(set(surfaces)):
-        raise AcceptanceContractError("surface_duplicate")
-    if set(surfaces) != set(ACCEPTANCE_SURFACES):
+    surface_keys = tuple((cell.surface, cell.mode) for cell in surface_cells)
+    if len(surface_keys) != len(set(surface_keys)):
+        raise AcceptanceContractError("surface_cell_duplicate")
+    if set(surface_keys) != set(ACCEPTANCE_SURFACE_CELLS):
         raise AcceptanceContractError("surface_matrix_incomplete")
     broker_cells = tuple(cell for cell in cells if cell.acceptance_role == "broker")
     if len(broker_cells) != 1:
         raise AcceptanceContractError("broker_cell_count_invalid")
     ordered_surfaces = tuple(
-        sorted(surface_cells, key=lambda cell: ACCEPTANCE_SURFACES.index(cell.surface))
+        sorted(
+            surface_cells,
+            key=lambda cell: ACCEPTANCE_SURFACE_CELLS.index((cell.surface, cell.mode)),
+        )
     )
     ordered = (*ordered_surfaces, broker_cells[0])
     return AcceptanceMatrix(project=project, cells=ordered)
@@ -320,6 +295,7 @@ def load_readiness_matrix(path: Path) -> AcceptanceMatrix:
 
 
 __all__ = [
+    "ACCEPTANCE_SURFACE_CELLS",
     "ACCEPTANCE_SURFACES",
     "AcceptanceCell",
     "AcceptanceContractError",
@@ -331,6 +307,8 @@ __all__ = [
     "parse_candidate_matrix",
     "parse_matrix",
     "parse_readiness_matrix",
+    "REGISTERED_BROKER_PROOF_SCOPE",
+    "REGISTERED_SURFACE_PROOF_SCOPE",
     "require_text",
     "validate_deployed_release",
     "validate_run_id",

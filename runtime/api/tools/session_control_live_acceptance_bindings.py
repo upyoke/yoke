@@ -25,7 +25,6 @@ class _AcceptanceVersions(BaseModel):
     claude_cli: _SurfaceVersion = Field(alias="claude-cli")
     claude_desktop: _SurfaceVersion = Field(alias="claude-desktop")
     codex_cli: _SurfaceVersion = Field(alias="codex-cli")
-    codex_desktop: _SurfaceVersion = Field(alias="codex-desktop")
     cursor_cli: _SurfaceVersion = Field(alias="cursor-cli")
 
 

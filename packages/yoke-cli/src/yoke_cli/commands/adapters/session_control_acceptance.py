@@ -30,9 +30,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="yoke session-control acceptance run",
         description=(
-            "Run the canonical six-cell production acceptance or stage candidate "
+            "Run the canonical five-cell production acceptance or stage candidate "
             "qualification from a clean, release-bound Yoke source checkout. "
-            "Bindings are read only by the runner. The sixth cell proves route "
+            "Bindings are read only by the runner. The fifth cell proves route "
             "selection rather than one fixed route: on a machine whose relay is "
             "connected the plane must wake the target directly, on a machine "
             "without one it must wake through the bound same-machine peer, and "

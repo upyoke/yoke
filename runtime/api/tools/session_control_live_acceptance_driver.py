@@ -24,7 +24,6 @@ from runtime.api.tools.session_control_live_acceptance_launch import create_and_
 from runtime.api.tools import session_control_live_acceptance_protocol as protocol
 from runtime.api.tools.session_control_live_acceptance_reporting import (
     FAILED_STATUS,
-    deferred_cell_report,
     failed_cell_report,
     passed_cell_report,
 )
@@ -177,16 +176,6 @@ class LiveAcceptanceDriver:
             monotonic=self.monotonic,
             one_shot_private_wake_candidate=candidate and cell.route == "direct",
         )
-        if roster.desktop_single_writer_deferral_ready(cell, waiting):
-            return deferred_cell_report(
-                cell,
-                session_id=session_id,
-                baseline=baseline,
-                initial=initial,
-                initial_deduplicated=initial_deduplicated,
-                waiting=waiting,
-                launch=launch,
-            )
         route, selection = resolve_route_selection(waiting, cell=cell)
         grant = (
             qualification.open(cell, "message_stopped", route) if candidate else None

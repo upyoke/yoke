@@ -94,7 +94,9 @@ def test_canonical_example_seeds_blank_launchable_surfaces() -> None:
     assert all(value == "" for value in seeded.values())
     assert contract.validate_payload(payload) == []
     assert "claude-cli" in launchable
+    assert "claude-desktop" not in launchable
     assert "codex-cli" in launchable
+    assert "codex-desktop" not in launchable
     assert "cursor-cli" in launchable
     assert all(
         SESSION_SURFACE_CAPABILITIES[surface].create == "supported"

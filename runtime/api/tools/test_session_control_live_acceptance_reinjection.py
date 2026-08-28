@@ -71,7 +71,7 @@ def test_fake_receipt_reads_do_not_simulate_target_hooks() -> None:
 
 
 def test_live_create_launch_message_accepts_first_injection_ack() -> None:
-    cell = AcceptanceCell("codex-desktop", "26.818.31338", "create")
+    cell = AcceptanceCell("claude-cli", "2.1.241", "create", wake_route="direct")
     client = _ScenarioClient(cell)
 
     report = _driver(client)._run_cell(

@@ -9,7 +9,6 @@ import pytest
 from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
-    acceptance_operation,
 )
 from runtime.api.tools.test_session_control_live_acceptance_driver import (
     _ScenarioClient,
@@ -54,9 +53,7 @@ class _VersionGatedReadinessClient(_ScenarioClient):
     ) -> None:
         super().__init__(cell)
         self.invalid_operation = invalid_operation
-        self.granted_send_suffix = _GRANTED_SEND_KEY_SUFFIX[
-            acceptance_operation(cell.surface)
-        ]
+        self.granted_send_suffix = _GRANTED_SEND_KEY_SUFFIX[cell.operation]
         self.grant_active = False
         self.readiness_grant_states: list[bool] = []
 
@@ -88,7 +85,7 @@ class _Qualification:
 
     def __init__(self, client: _ScenarioClient) -> None:
         self.client = client
-        self.granted_operation = acceptance_operation(client.cell.surface)
+        self.granted_operation = client.cell.operation
         self.events: list[tuple[str, str, int]] = []
 
     def open(self, _cell: AcceptanceCell, operation: str, _route: str = ""):
@@ -139,7 +136,7 @@ def test_private_grant_opens_just_before_delivery_and_verifies_after_ack() -> No
 def test_unproven_private_route_readiness_reads_precede_scoped_grant() -> None:
     cell = UNPROVEN_PRIVATE_ROUTE_CELL
     assert not surface_operation_supported(
-        cell.surface, cell.expected_version, acceptance_operation(cell.surface)
+        cell.surface, cell.expected_version, cell.operation
     )
     client = _VersionGatedReadinessClient(cell)
     qualification = _Qualification(client)

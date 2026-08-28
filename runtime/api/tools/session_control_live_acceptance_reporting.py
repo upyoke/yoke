@@ -11,13 +11,18 @@ FAILED_STATUS = "failed"
 
 
 def _cell_identity(cell: AcceptanceCell) -> dict[str, Any]:
-    return {
+    identity = {
+        "cell_name": cell.cell_name,
         "surface": cell.surface,
         "expected_version": cell.expected_version,
         "mode": cell.mode,
         "acceptance_role": cell.acceptance_role,
+        "proof_scope": cell.proof_scope,
         "wake_route": cell.route,
     }
+    if cell.surface.endswith("-desktop"):
+        identity["operator_visible_desktop_occupancy_proven"] = False
+    return identity
 
 
 def failed_cell_report(
@@ -68,34 +73,6 @@ def _with_launch(
     return report
 
 
-def deferred_cell_report(
-    cell: AcceptanceCell,
-    *,
-    session_id: str,
-    baseline: dict[str, Any],
-    initial: dict[str, Any],
-    initial_deduplicated: bool,
-    waiting: dict[str, Any],
-    launch: dict[str, Any] | None,
-) -> dict[str, Any]:
-    report = _observed_cell(
-        cell,
-        session_id=session_id,
-        baseline=baseline,
-        initial=initial,
-        initial_deduplicated=initial_deduplicated,
-        waiting=waiting,
-    )
-    report.update(
-        {
-            "status": "deferred",
-            "deferral_code": "desktop_single_writer_lock",
-            "wake_outcome": "deferred_environment",
-        }
-    )
-    return _with_launch(report, launch)
-
-
 def passed_cell_report(
     cell: AcceptanceCell,
     *,
@@ -133,7 +110,6 @@ def passed_cell_report(
 
 __all__ = [
     "FAILED_STATUS",
-    "deferred_cell_report",
     "failed_cell_report",
     "passed_cell_report",
 ]

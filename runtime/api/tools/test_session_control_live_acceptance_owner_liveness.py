@@ -15,7 +15,6 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
     AcceptanceMatrix,
-    acceptance_operation,
 )
 from runtime.api.tools.session_control_live_acceptance_driver import (
     LiveAcceptanceDriver,
@@ -63,7 +62,7 @@ class _Qualification:
 
     def __init__(self, client: _OwnerClient) -> None:
         self.client = client
-        self.granted_operation = acceptance_operation(client.cell.surface)
+        self.granted_operation = client.cell.operation
         self.granted_call_counts: list[int] = []
 
     def open(
