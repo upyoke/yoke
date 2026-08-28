@@ -2,14 +2,14 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-28T17:01:01Z_
+_Audit generated_at: 2026-08-28T18:40:58Z_
 
 ## 1. Summary
 
 - Function ids registered: **437**
 - Internal dispatch-only functions without CLI adapters: **86**
 - `yoke` CLI subcommands: **364** (364 carry usable `--help`)
-- Operation tracker: **341 wrapped**, 10 tool_cli, 126 permanent, 0 pending
+- Operation tracker: **341 wrapped**, 13 tool_cli, 126 permanent, 0 pending
 - Skill-body recipes: 330 total (277 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
@@ -373,8 +373,11 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | tools.ruff_changed | `yoke dev ruff-changed` | tool_shaped |
 | tools.source_dev_run | `yoke dev run` | tool_shaped |
 | tools.watch | `yoke watch ci-run` | tool_shaped |
+| tools.watch | `yoke watch deploy` | tool_shaped |
 | tools.watch | `yoke watch doctor` | tool_shaped |
+| tools.watch | `yoke watch fleet` | tool_shaped |
 | tools.watch | `yoke watch merge` | tool_shaped |
+| tools.watch | `yoke watch preflight` | tool_shaped |
 | tools.watch | `yoke watch pytest` | tool_shaped |
 | tools.watch | `yoke watch qa-case` | tool_shaped |
 | tools.watch | `yoke watch qa-plan` | tool_shaped |
@@ -543,9 +546,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 35 |
-| claude-code | 14 |
-| cursor | 1 |
+| codex | 42 |
+| claude-code | 5 |
+| cursor | 3 |
 
 ## 8. Contradictions
 

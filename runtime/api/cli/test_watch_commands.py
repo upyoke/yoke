@@ -42,6 +42,28 @@ def test_every_cli_form_carries_top_level_usage() -> None:
     assert forms == set(watchers.TOOL_SHAPED_USAGE)
 
 
+def test_every_cli_form_is_in_the_operation_inventory() -> None:
+    """A wrapper that runs but is not inventoried reads as undefined teaching.
+
+    Resolution of a taught ``yoke`` command is two lookups, not one: the
+    adapter registry makes the command *run*, and the operation inventory
+    makes it *known*. A wrapper registered only in the first resolves at
+    the shell and still fails the Atlas taught-command audit the moment a
+    skill teaches it — a failure that surfaces in CI rather than here.
+    Assert the parity so the next wrapper's missing row is a local red.
+    """
+    from yoke_cli import operation_inventory as inventory
+
+    for module in WRAPPER_MODULES:
+        form = cli_form(module)
+        entry = inventory.lookup(form)
+        assert entry is not None, (
+            f"{form} has a CLI adapter but no operation-inventory row; "
+            "add it to TOOL_CLI_ROWS in operation_inventory_tool_cli.py"
+        )
+        assert entry.status in (inventory.TOOL_CLI, inventory.PERMANENT)
+
+
 def test_uv_project_root_requires_lockfile_beside_pyproject(tmp_path: Path) -> None:
     project = tmp_path / "project"
     nested = project / "packages" / "thing"

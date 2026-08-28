@@ -127,9 +127,12 @@ class TestRegistryShape:
             "yoke watch pytest",
             "yoke watch doctor",
             "yoke watch merge",
+            "yoke watch fleet",
             "yoke watch ci-run",
             "yoke watch qa-case",
             "yoke watch qa-plan",
+            "yoke watch deploy",
+            "yoke watch preflight",
             "yoke release-pin verify",
         }
         for entry in inv.by_status(inv.TOOL_CLI):
