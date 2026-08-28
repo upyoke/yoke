@@ -24,6 +24,7 @@ from yoke_contracts.hook_driver_process import (
     DRIVER_PAYLOAD_KEY,
     resolve_driver_process,
 )
+from yoke_contracts.hook_runner.chain_registry import TERMINAL_HOOK_EVENTS
 
 
 def _str_or(value: Any, default: Optional[str] = None) -> Optional[str]:
@@ -40,8 +41,11 @@ def _ensure_session_request(
     preflight_complete: bool,
     driver: dict[str, Any] | None = None,
 ) -> tuple[Any, ...] | None:
+    """Build registration proof only for hooks that demonstrate live work."""
     from yoke_core.hooks.cursor_payload import is_folded_cursor_session
 
+    if event_name in TERMINAL_HOOK_EVENTS:
+        return None
     if not context.session_id:
         return None
     if isinstance(payload, dict) and is_folded_cursor_session(payload):

@@ -7,7 +7,7 @@ callers drive the same sequence so they never drift apart on detection
 precedence: the SessionStart canonical path, the UserPromptSubmit
 safety-net path, and ``ensure_registered_from_hook`` — the
 ensure-register-on-first-sight path the dispatch telemetry flush drives
-when ANY hook event (PreToolUse/PostToolUse included) observes a session
+when a non-terminal hook event (PreToolUse/PostToolUse included) observes a session
 id whose ``harness_sessions`` row is missing *or already ended*. Tool-call
 hooks are the only empirically guaranteed event class (a live desktop
 session ran full PreToolUse chains all day with neither env stamp nor any

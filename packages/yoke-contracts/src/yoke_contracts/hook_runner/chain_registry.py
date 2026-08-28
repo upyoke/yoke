@@ -33,13 +33,12 @@ from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 # check at the call site.
 _LIFECYCLE_DISPATCH: tuple[str, ...] = ("yoke_core.hooks.session_dispatch",)
 
-_LIFECYCLE_EVENTS: frozenset[str] = frozenset(
+TERMINAL_HOOK_EVENTS: frozenset[str] = frozenset({"SessionEnd", "Stop", "SubagentStop"})
+
+_LIFECYCLE_EVENTS: frozenset[str] = TERMINAL_HOOK_EVENTS | frozenset(
     {
         "SessionStart",
         "UserPromptSubmit",
-        "SessionEnd",
-        "Stop",
-        "SubagentStop",
         "PreCompact",
         "Notification",
     }
