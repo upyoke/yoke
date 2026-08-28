@@ -6,8 +6,8 @@ The policy answers two questions per target, in order. First: does a
 That refusal applies to every caller, including one holding no claim at
 all, because a session with no stake in a lane is the shape that walks
 into somebody else's. Second, and only for a caller that holds claims:
-the target must land under (a) a claimed worktree, (b) the control plane
-of a claimed project (repo root excluding ``.worktrees/``), or (c) the
+the target must land under (a) a claimed worktree, (b) any project's
+control plane (repo root excluding ``.worktrees/``), or (c) the
 free-path allowlist (``/tmp``, ``/var/folders/...``). A session with no
 claims is otherwise unconstrained.
 

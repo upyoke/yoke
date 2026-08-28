@@ -4,8 +4,8 @@ Diagnostic surface paired with the lint at
 :mod:`yoke_core.domain.lint_session_cwd`. For each active session
 that holds one or more ``work_claims``, this HC asks: is the session's
 most recently observed harness cwd inside a claimed worktree, under
-the control plane of one of its claimed projects, or under a free
-path? If not, the session is structurally misbound and the operator
+any project's control plane, or under a free path? If not, the
+session is structurally misbound and the operator
 should relaunch before a write lands.
 
 The lint blocks individual tool calls structurally; this HC reveals

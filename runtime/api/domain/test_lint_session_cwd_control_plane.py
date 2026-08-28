@@ -257,7 +257,7 @@ class TestBlockedMessageWording:
             "tool_input": {"file_path": str(foreign)},
         })
         assert verdict.allow is False
-        assert "Project control plane:" in verdict.reason
+        assert "Any project control plane:" in verdict.reason
         assert str(cross_project_repo) in verdict.reason
         assert "Yoke control plane:" in verdict.reason
         assert str(fake_yoke_root) in verdict.reason
@@ -286,7 +286,7 @@ class TestBlockedMessageWording:
             "tool_input": {"file_path": str(foreign)},
         })
         assert verdict.allow is False
-        assert "Project control plane:" in verdict.reason
+        assert "Any project control plane:" in verdict.reason
         # No second 'Yoke control plane' line when the project repo
         # already equals the Yoke main root.
         assert verdict.reason.count("control plane:") == 1

@@ -1,8 +1,8 @@
 """Per-tool-call claim-based validation for the session-cwd policy.
 
 The session-cwd policy's authority is a session's **active work_claims**:
-the session may write under any worktree it holds a claim on, under the
-main control plane (the project repo root excluding ``.worktrees/``),
+the session may write under any worktree it holds a claim on, under any
+project control plane (repo root excluding ``.worktrees/``),
 or under the free-path allowlist (``/tmp``, ``/var/folders/...``, and
 the local or client-evidenced machine scratch root).
 
@@ -21,8 +21,8 @@ Behaviour:
 * Session with no claims → allowed everywhere except another session's
   live lane.
 * Session with one or more claims → each target path must additionally
-  land under (a) a claimed worktree, (b) a control-plane repo root (the
-  project's ``repo_path`` excluding ``.worktrees/``), or (c) a free path.
+  land under (a) a claimed worktree, (b) any recorded project's control
+  plane (repo root excluding ``.worktrees/``), or (c) a free path.
 * Bash with no extractable targets → the caller passes ``fallback_cwd``
   as a synthetic target so a worktree-binding session that runs a
   control-plane read from outside its worktree still validates against
@@ -43,6 +43,7 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     FREE_PATH_PREFIXES,
     TOOL_DIR_PREFIXES,
     derive_repo_roots as _derive_repo_roots,
+    recorded_repo_roots as _recorded_repo_roots,
     is_inside as _is_inside,
     is_inside_control_plane as _is_inside_control_plane,
     is_free_path as _path_is_free_path,
@@ -127,10 +128,11 @@ def validate_targets(
     """
     if not (session_id or "").strip():
         return ValidationVerdict(
-            allow=False, failure_class=IDENTITY_FAILURE_CLASS,
+            allow=False,
+            failure_class=IDENTITY_FAILURE_CLASS,
         )
     claims = claimed_worktrees(conn, session_id=session_id)
-    repo_roots = tuple(_derive_repo_roots(conn, claims))
+    repo_roots = tuple(_recorded_repo_roots(conn) or _derive_repo_roots(conn, claims))
 
     targets_to_check: List[str] = [
         t for t in targets if isinstance(t, str) and t.strip()
@@ -291,7 +293,8 @@ def _matching_claim(
 
 
 def _lookup_item_status(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> Optional[str]:
     """Return ``items.status`` for ``item_id`` or ``None`` on lookup miss.
 
@@ -302,7 +305,8 @@ def _lookup_item_status(
     try:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT status FROM items WHERE id = {p}", (int(item_id),),
+            f"SELECT status FROM items WHERE id = {p}",
+            (int(item_id),),
         ).fetchone()
     except db_backend.operational_error_types(conn):
         return None
