@@ -137,7 +137,9 @@ class TestSteerSkillContract:
         assert "1440-minute stale TTL" in loop
         # The runnable query keys on elapsed idle time, never on the label.
         query = _sql_after(loop, "FROM work_claims c JOIN harness_sessions s")
-        assert "s.last_tool_call_at::timestamptz < now() - interval '20 minutes'" in query
+        assert (
+            "s.last_tool_call_at::timestamptz < now() - interval '20 minutes'" in query
+        )
         assert "liveness" not in query
         # A holder that declared its wait is not idle.
         assert "s.mode <> 'parked'" in query
@@ -149,7 +151,9 @@ class TestSteerSkillContract:
         assert "no reply is coming" in loop
         assert "Answer on the ended session's behalf" in loop
         assert "the current state of whatever it was" in loop
-        query = _sql_after(loop, "FROM session_messages m JOIN session_message_recipients r")
+        query = _sql_after(
+            loop, "FROM session_messages m JOIN session_message_recipients r"
+        )
         assert "m.sender_session_id = '{IDLE_SESSION_ID}'" in query
         assert "a.ended_at AS answerer_ended_at" in query
 
