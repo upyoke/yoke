@@ -18,6 +18,7 @@ from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_turn_posture import stamp_turn_posture
 from runtime.api.domain.test_session_message_support import (
+    IDLE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
     message_connection,
@@ -31,7 +32,6 @@ def _fixed_message_clock(monkeypatch):
 
 
 def _working_at(conn, when: str, session_id: str = "s1") -> None:
-    """Stamp a session as having called a tool at ``when``."""
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
         "WHERE session_id=?",
@@ -40,12 +40,12 @@ def _working_at(conn, when: str, session_id: str = "s1") -> None:
     conn.commit()
 
 
-def _send(conn, *, body="Persistent instructions.") -> str:
+def _send(conn, *, body="Persistent instructions.", session_id: str = "s1") -> str:
     return send_message(
         conn,
         actor_id=10,
         sender_session_id="s1",
-        selector=selector(session_ids=["s1"]),
+        selector=selector(session_ids=[session_id]),
         body=body,
         now=NOW,
     )["message_id"]
@@ -232,9 +232,9 @@ def test_central_expiry_closes_active_lease_and_prevents_completion() -> None:
 
 def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> None:
     conn = message_connection()
-    message_id = _send(conn)
+    message_id = _send(conn, session_id=IDLE_WAKE_SESSION_ID)
     # Active means the turn still calls tools, so its own hooks serve this.
-    _working_at(conn, "2026-08-22T16:10:00Z")
+    _working_at(conn, "2026-08-22T16:10:00Z", session_id=IDLE_WAKE_SESSION_ID)
     pending = wake_eligible_recipients(conn, now=NOW + timedelta(minutes=11))
     assert pending == []
     active_at = "2026-08-22T16:11:00Z"
@@ -243,7 +243,7 @@ def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> Non
         "injection_count=1,last_injected_at=? WHERE message_id=?",
         (active_at, message_id),
     )
-    _working_at(conn, active_at)
+    _working_at(conn, active_at, session_id=IDLE_WAKE_SESSION_ID)
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=20)) == []
     long_idle = wake_eligible_recipients(conn, now=NOW + timedelta(hours=3))
     assert len(long_idle) == 1

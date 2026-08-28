@@ -28,6 +28,7 @@ SESSION_SURFACE_CAPABILITY_TESTS = (
     "runtime/api/domain/test_session_control_surface_versions.py",
     "runtime/api/domain/test_session_launch_requests.py",
     "runtime/api/domain/test_session_launch_surface_fallback.py",
+    "runtime/api/domain/test_session_message_delivery.py",
     "runtime/api/domain/test_session_message_routing.py",
     "runtime/api/domain/test_session_message_wake_posture.py",
     "runtime/api/domain/test_session_message_wake_starvation.py",
