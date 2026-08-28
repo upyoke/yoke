@@ -114,9 +114,7 @@ class FleetSnapshot:
     self_session_id: str
     sessions: Mapping[str, SessionRow] = field(default_factory=dict)
     items: Mapping[str, ItemRow] = field(default_factory=dict)
-    envelopes: Mapping[tuple[str, str], EnvelopeRow] = field(
-        default_factory=dict
-    )
+    envelopes: Mapping[tuple[str, str], EnvelopeRow] = field(default_factory=dict)
 
 
 def _result(response: Any, function_id: str) -> dict[str, Any]:
@@ -124,9 +122,7 @@ def _result(response: Any, function_id: str) -> dict[str, Any]:
     if not getattr(response, "success", False):
         error = getattr(response, "error", None)
         detail = (
-            f"{error.code}: {error.message}"
-            if error is not None
-            else "unknown error"
+            f"{error.code}: {error.message}" if error is not None else "unknown error"
         )
         raise FleetReadError(function_id, detail)
     return dict(getattr(response, "result", None) or {})
@@ -210,9 +206,7 @@ def envelope_rows(
                 sender_session_id=sender,
                 state=str(recipient.get("state") or "unknown"),
                 injection_count=int(recipient.get("injection_count") or 0),
-                created_at=(
-                    parse_timestamp(recipient.get("created_at")) or created
-                ),
+                created_at=(parse_timestamp(recipient.get("created_at")) or created),
             )
             rows[row.key] = row
     return rows

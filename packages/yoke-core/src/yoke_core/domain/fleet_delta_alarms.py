@@ -84,9 +84,7 @@ def _clear(state: DeltaState, live_keys: set[str], kind: str) -> list[str]:
     )
     for key in resolved:
         state.active_alarms.discard(key)
-    return [
-        f"{LINE_PREFIX} CLEAR {kind} {key.split(':', 1)[1]}" for key in resolved
-    ]
+    return [f"{LINE_PREFIX} CLEAR {kind} {key.split(':', 1)[1]}" for key in resolved]
 
 
 def _holding_sessions(current: FleetSnapshot) -> Iterable[SessionRow]:
@@ -183,9 +181,7 @@ def _starved_minutes(row: EnvelopeRow, current: FleetSnapshot) -> int | None:
     return waiting
 
 
-def starved_envelope_alarms(
-    current: FleetSnapshot, state: DeltaState
-) -> list[str]:
+def starved_envelope_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     """Undelivered envelopes whose recipient has gone quiet since the send."""
     lines: list[str] = []
     live: set[str] = set()

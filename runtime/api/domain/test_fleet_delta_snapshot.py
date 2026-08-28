@@ -121,13 +121,11 @@ def test_envelope_rows_flatten_one_row_per_recipient() -> None:
     first = rows[("de0fcd51-a4ad-4a92-9b05-4f98203eb4ec", "a")]
     assert first.state == "pending"
     assert first.injection_count == 0
-    assert first.created_at == datetime(
-        2026, 8, 28, 16, 32, 49, tzinfo=timezone.utc
-    )
+    assert first.created_at == datetime(2026, 8, 28, 16, 32, 49, tzinfo=timezone.utc)
     second = rows[("de0fcd51-a4ad-4a92-9b05-4f98203eb4ec", "b")]
-    assert second.created_at == datetime(
-        2026, 8, 28, 16, 32, 5, tzinfo=timezone.utc
-    ), "a recipient without its own timestamp falls back to the message's"
+    assert second.created_at == datetime(2026, 8, 28, 16, 32, 5, tzinfo=timezone.utc), (
+        "a recipient without its own timestamp falls back to the message's"
+    )
 
 
 def test_envelope_rows_are_empty_for_an_envelope_without_messages() -> None:

@@ -104,8 +104,7 @@ def test_items_entering_and_leaving_the_frontier_are_reported() -> None:
     lines = item_deltas(before, after)
     assert "fleet item YOK-2 entered status=idea claim=unclaimed" in lines
     assert (
-        "fleet item YOK-1 left-frontier last-status=reviewing-implementation"
-        in lines
+        "fleet item YOK-1 left-frontier last-status=reviewing-implementation" in lines
     )
 
 
@@ -117,17 +116,13 @@ def test_session_registration_and_ending_are_reported_once() -> None:
     ]
 
     ended = _snapshot(sessions={"a": _session("a", ended=True)})
-    assert session_deltas(after, ended) == [
-        "fleet session a ended surface=codex-cli"
-    ]
+    assert session_deltas(after, ended) == ["fleet session a ended surface=codex-cli"]
     assert session_deltas(ended, ended) == []
 
 
 def test_a_terminated_session_reports_termination_not_ending() -> None:
     before = _snapshot(sessions={"a": _session("a")})
-    after = _snapshot(
-        sessions={"a": _session("a", ended=True, terminated=True)}
-    )
+    after = _snapshot(sessions={"a": _session("a", ended=True, terminated=True)})
     assert session_deltas(before, after) == [
         "fleet session a terminated surface=codex-cli"
     ]
@@ -165,9 +160,7 @@ def test_inbox_reports_only_unacknowledged_envelopes_for_this_session() -> None:
 
 def test_inbox_reports_a_state_change_but_not_a_steady_state() -> None:
     pending = _snapshot(envelopes={_envelope("pending").key: _envelope("pending")})
-    injected = _snapshot(
-        envelopes={_envelope("injected").key: _envelope("injected")}
-    )
+    injected = _snapshot(envelopes={_envelope("injected").key: _envelope("injected")})
     assert inbox_deltas(pending, pending) == []
     assert inbox_deltas(pending, injected) == [
         "fleet inbox msg-4444 state=injected from=worker-9"

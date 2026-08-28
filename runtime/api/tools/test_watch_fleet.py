@@ -17,12 +17,8 @@ def test_the_wrapper_is_registered_on_every_roster() -> None:
     assert WATCH_CLI_TOKENS[watch_fleet.WRAPPER_MODULE] == ("watch", "fleet")
     assert cli_form(watch_fleet.WRAPPER_MODULE) == "yoke watch fleet"
     assert WRAPPER_MAINS[watch_fleet.WRAPPER_MODULE] is watch_fleet.main
-    assert watch_fleet.WRAPPER_MODULE.replace(
-        "yoke_core.tools.", ""
-    ) in FALLBACK_TOKENS
-    assert (
-        "packages/yoke-core/src/yoke_core/tools/watch_fleet.py" in EXCLUDE_PATHS
-    )
+    assert watch_fleet.WRAPPER_MODULE.replace("yoke_core.tools.", "") in FALLBACK_TOKENS
+    assert "packages/yoke-core/src/yoke_core/tools/watch_fleet.py" in EXCLUDE_PATHS
 
 
 def test_the_cli_usage_table_carries_the_command() -> None:
@@ -85,10 +81,7 @@ def test_print_streaming_pair_emits_the_background_monitor_inspect_triple(
     captured = io.StringIO()
     monkeypatch.setattr("sys.stdout", captured)
 
-    assert (
-        watch_fleet.main(["--print-streaming-pair", "--", "--project", "yoke"])
-        == 0
-    )
+    assert watch_fleet.main(["--print-streaming-pair", "--", "--project", "yoke"]) == 0
     output = captured.getvalue()
     assert "yoke watch fleet" in output
     assert f"--raw-capture {raw}" in output
@@ -118,8 +111,6 @@ def test_the_wrapper_writes_the_exit_sentinel_a_follower_can_exit_on(
     )
     assert code == 2
     sentinel_lines = [
-        line
-        for line in progress.read_text().splitlines()
-        if EXIT_SENTINEL.match(line)
+        line for line in progress.read_text().splitlines() if EXIT_SENTINEL.match(line)
     ]
     assert sentinel_lines == ["# watch_fleet exit=2 raw=" + str(raw)]

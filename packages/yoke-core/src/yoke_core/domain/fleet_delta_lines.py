@@ -40,8 +40,7 @@ def item_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]:
             continue
         if was.status != now_row.status:
             lines.append(
-                f"{LINE_PREFIX} item {ref} status {was.status} -> "
-                f"{now_row.status}"
+                f"{LINE_PREFIX} item {ref} status {was.status} -> {now_row.status}"
             )
         if was.claim_state != now_row.claim_state:
             lines.append(
@@ -56,9 +55,7 @@ def item_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]:
     return lines
 
 
-def session_deltas(
-    previous: FleetSnapshot, current: FleetSnapshot
-) -> list[str]:
+def session_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]:
     """Registration, ending, and termination across the roster."""
     lines: list[str] = []
     for session_id in sorted(current.sessions):

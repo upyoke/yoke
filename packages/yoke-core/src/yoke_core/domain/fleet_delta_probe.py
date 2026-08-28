@@ -102,9 +102,7 @@ def run(
     without a control plane and without wall-clock waiting.
     """
     stream = out if out is not None else sys.stdout
-    resolved_session = (
-        session_id if session_id is not None else ambient_session_id()
-    )
+    resolved_session = session_id if session_id is not None else ambient_session_id()
     state = DeltaState()
     previous: FleetSnapshot | None = None
     consecutive_failures = 0

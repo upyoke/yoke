@@ -78,9 +78,7 @@ def test_one_pass_reads_the_three_registered_functions() -> None:
 
 def test_an_unchanged_fleet_prints_nothing_across_passes() -> None:
     roster = _ok({"rows": [{"session_id": "a", "activity_at": "2026-08-28T17:00:00Z"}]})
-    frontier = _ok(
-        {"ranked_steps": [{"item_id": "YOK-1", "status": "idea"}]}
-    )
+    frontier = _ok({"ranked_steps": [{"item_id": "YOK-1", "status": "idea"}]})
     envelopes = _ok({"messages": []})
     code, output, _ = _drive(
         [roster, frontier, envelopes, roster, frontier, envelopes],

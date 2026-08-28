@@ -81,9 +81,7 @@ def test_idle_holder_ignores_parked_and_fresh_holders() -> None:
         sessions={
             "parked": _session("parked", activity_at=stale, parked=True),
             "fresh": _session("fresh"),
-            "unclaimed": _session(
-                "unclaimed", activity_at=stale, claimed_items=()
-            ),
+            "unclaimed": _session("unclaimed", activity_at=stale, claimed_items=()),
         }
     )
     assert idle_holder_alarms(snapshot, DeltaState()) == []
@@ -96,9 +94,7 @@ def test_idle_holder_clears_once_when_the_holder_returns() -> None:
         _snapshot(sessions={"a": _session("a", activity_at=stale)}), state
     )
 
-    cleared = idle_holder_alarms(
-        _snapshot(sessions={"a": _session("a")}), state
-    )
+    cleared = idle_holder_alarms(_snapshot(sessions={"a": _session("a")}), state)
     assert cleared == ["fleet CLEAR idle-holder session=a"]
     assert idle_holder_alarms(_snapshot(sessions={"a": _session("a")}), state) == []
 
@@ -151,9 +147,7 @@ def test_starved_envelope_fires_for_a_quiet_live_recipient() -> None:
     row = _envelope()
     snapshot = _snapshot(
         sessions={
-            "a": _session(
-                "a", activity_at=NOW - timedelta(hours=2), claimed_items=()
-            )
+            "a": _session("a", activity_at=NOW - timedelta(hours=2), claimed_items=())
         },
         envelopes={row.key: row},
     )
@@ -194,9 +188,7 @@ def test_starved_envelope_ignores_injected_and_recent_envelopes() -> None:
     recent = _envelope(message_id="msg-3333", created_at=NOW)
     snapshot = _snapshot(
         sessions={
-            "a": _session(
-                "a", activity_at=NOW - timedelta(hours=2), claimed_items=()
-            )
+            "a": _session("a", activity_at=NOW - timedelta(hours=2), claimed_items=())
         },
         envelopes={injected.key: injected, recent.key: recent},
     )
