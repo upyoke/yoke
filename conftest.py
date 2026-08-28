@@ -139,28 +139,34 @@ def _forbid_local_privacy_access(monkeypatch: pytest.MonkeyPatch):
 
     real_popen = subprocess.Popen
 
-    def _guarded_popen(*popen_args, **kwargs):
-        child_env = kwargs.get("env")
-        allow = (
-            child_env.get(LOCAL_PRIVACY_INTEGRATION_ENV)
-            if isinstance(child_env, dict)
-            else os.environ.get(LOCAL_PRIVACY_INTEGRATION_ENV)
-        )
-        if allow != "1":
-            args = popen_args[0] if popen_args else kwargs.get("args", ())
-            violation = classify_subprocess_args(
-                args,
-                home=Path.home(),
-                cwd=kwargs.get("cwd") or Path.cwd(),
+    # A subclass rather than a wrapping function, so the guarded name keeps
+    # every part of the real type's surface. Production modules annotate with
+    # ``subprocess.Popen[bytes]``, and a plain function is not subscriptable:
+    # the first import of such a module from inside a test would die on its
+    # own type annotation while the guard was installed.
+    class _GuardedPopen(real_popen):
+        def __init__(self, *popen_args, **kwargs):
+            child_env = kwargs.get("env")
+            allow = (
+                child_env.get(LOCAL_PRIVACY_INTEGRATION_ENV)
+                if isinstance(child_env, dict)
+                else os.environ.get(LOCAL_PRIVACY_INTEGRATION_ENV)
             )
-            if violation is not None:
-                pytest.fail(
-                    "Automated tests may not cross a local privacy boundary.\n"
-                    + violation.reason()
+            if allow != "1":
+                args = popen_args[0] if popen_args else kwargs.get("args", ())
+                violation = classify_subprocess_args(
+                    args,
+                    home=Path.home(),
+                    cwd=kwargs.get("cwd") or Path.cwd(),
                 )
-        return real_popen(*popen_args, **kwargs)
+                if violation is not None:
+                    pytest.fail(
+                        "Automated tests may not cross a local privacy boundary.\n"
+                        + violation.reason()
+                    )
+            super().__init__(*popen_args, **kwargs)
 
-    monkeypatch.setattr(subprocess, "Popen", _guarded_popen)
+    monkeypatch.setattr(subprocess, "Popen", _GuardedPopen)
 
 
 @pytest.fixture()
