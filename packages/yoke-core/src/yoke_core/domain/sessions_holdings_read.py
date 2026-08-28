@@ -9,6 +9,8 @@ per-session grouping the roster read composes into its rows:
   stage and workflow; a steering claim's strategy documents).
 * :func:`claimed_blitz_worktree_ids_by_session` — active worker and
   integration worktrees on blitz items each session claims.
+* :func:`live_item_claim_holders` — which live session holds each claimed
+  item, so a card never shows another session's item as its own work.
 """
 
 from __future__ import annotations
@@ -148,6 +150,40 @@ def active_claims_by_session(
     return grouped, roles
 
 
+def live_item_claim_holders(conn: Any) -> Dict[int, str]:
+    """Map each claimed item to the live session holding its work claim.
+
+    A session that merely filed or updated an item must not show it where
+    a held item shows, so the roster needs to know who is actually doing
+    it. Only a session that has neither ended nor been terminated counts:
+    a claim left behind by a session that is gone holds nothing, and the
+    reader deserves to see the item as unclaimed rather than as somebody
+    else's. Missing tables yield an empty map.
+    """
+    try:
+        rows = conn.execute(
+            "SELECT "
+            f"{scope_int_sql(conn, 'wc.scope', 'item_id')} AS item_id, "
+            "wc.session_id AS session_id "
+            "FROM work_claims wc "
+            "JOIN harness_sessions hs ON hs.session_id = wc.session_id "
+            "WHERE wc.released_at IS NULL AND wc.target_kind = 'item' "
+            "AND hs.ended_at IS NULL AND hs.terminated_at IS NULL "
+            "ORDER BY wc.claimed_at, wc.id",
+        ).fetchall()
+    except db_backend.database_error_types(conn):
+        clear_failed_read(conn)
+        return {}
+    holders: Dict[int, str] = {}
+    for row in rows:
+        item_id = row["item_id"]
+        session_id = str(row["session_id"] or "")
+        if item_id is None or not session_id:
+            continue
+        holders.setdefault(int(item_id), session_id)
+    return holders
+
+
 def claimed_blitz_worktree_ids_by_session(
     conn: Any,
 ) -> Dict[str, List[int]]:
@@ -188,5 +224,6 @@ def claimed_blitz_worktree_ids_by_session(
 __all__ = [
     "active_claims_by_session",
     "claimed_blitz_worktree_ids_by_session",
+    "live_item_claim_holders",
     "render_claim_target",
 ]

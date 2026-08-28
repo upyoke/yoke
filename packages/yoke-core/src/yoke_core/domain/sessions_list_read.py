@@ -47,11 +47,13 @@ from yoke_core.domain.actors import (
 )
 from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.session_focus_attribution import focus_attribution
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.sessions_holdings_read import (
     active_claims_by_session,
     claimed_blitz_worktree_ids_by_session,
+    live_item_claim_holders,
 )
 from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.sessions_list_query import build_sessions_query
@@ -201,6 +203,7 @@ def list_sessions(
         rows = conn.execute(query, tuple(params)).fetchall()
 
         claims_by_session, roles_by_session = active_claims_by_session(conn)
+        item_holders = live_item_claim_holders(conn)
         holdings_by_session = session_holdings_by_session(conn)
         blitz_lanes_by_session = claimed_blitz_worktree_ids_by_session(conn)
         label_cache: Dict[int, str] = {}
@@ -233,37 +236,14 @@ def list_sessions(
                 display_claim_item_id(str(current_item), conn) if current_item else None
             )
             claims = claims_by_session.get(session_id, [])
-            item_claims = [
-                claim
-                for claim in claims
-                if claim.get("target_kind") == "item"
-                and claim.get("target") == current_item_display
-            ]
-            owns_current_item = bool(item_claims)
-            current_item_num = int(current_item) if current_item is not None else None
-            held_roles = [
-                claim
-                for claim in roles_by_session.get(session_id, [])
-                if claim.get("item_id") == current_item_num
-            ]
-            task_roles = [
-                claim.get("lane_role")
-                for claim in held_roles
-                if claim.get("target_kind") == "epic_task" and claim.get("lane_role")
-            ]
-            item_roles = [
-                claim.get("lane_role")
-                for claim in held_roles
-                if claim.get("target_kind") == "item" and claim.get("lane_role")
-            ]
-            # The lane role of the session's own claim on its current
-            # item, or "item" when it holds that claim without a lane.
-            # A session whose focus is mere attribution — an item it
-            # filed or updated but holds no claim on — has no role at
-            # all, so readers never dress attribution as a worktree lane.
-            work_role = next(iter(task_roles or item_roles), None)
-            if not work_role and owns_current_item:
-                work_role = "item"
+            focus = focus_attribution(
+                session_id,
+                current_item_display,
+                current_item,
+                claims=claims,
+                roles=roles_by_session.get(session_id, []),
+                item_holders=item_holders,
+            )
             executor_surface = row.get("executor_surface")
             presentation = session_presentation(conn, row)
             result.append(
@@ -315,11 +295,7 @@ def list_sessions(
                     "current_item_workflow_version_id": row.get(
                         "current_item_workflow_version_id",
                     ),
-                    "work_role": work_role,
-                    "owns_current_item": owns_current_item,
-                    "claim_started_at": (
-                        item_claims[0].get("claimed_at") if item_claims else None
-                    ),
+                    **focus,
                     "claims": claims,
                     "holdings": holdings_by_session.get(session_id)
                     or {"current": [], "previous": [], "previous_remainder": 0},

@@ -28,25 +28,64 @@ function strategyDocs(row, projectId) {
     .filter(Boolean);
 }
 
-// One line for the whole of steering: every project this session steers,
-// each beside the documents it steers THAT project from. Current holdings are
-// the authority — a session steering three projects holds three claim targets.
-// Pairing each project with its own documents is also what keeps two
-// projects steering from same-named documents readable as two holds: the
-// projects differ even where the slugs do not. Semicolons separate
-// projects, commas separate one project's documents.
-function steeringText(row, projects) {
-  const entries = steeringClaims(row).map((claim) => {
-    const slug = projectSlug(
-      projects, claim.project_id ?? claim.scope?.project_id,
-    );
-    const docs = strategyDocs(
-      row, claim.project_id ?? claim.scope?.project_id,
-    );
-    return `${slug || "unknown project"} · ${
-      docs.length ? docs.join(", ") : "all docs"}`;
+function claimProjectId(claim) {
+  return claim.project_id ?? claim.scope?.project_id;
+}
+
+// Every project this session steers, each beside the documents it steers
+// THAT project from. Current holdings are the authority — a session
+// steering three projects holds three claim targets. Pairing each project
+// with its own documents is also what keeps two projects steering from
+// same-named documents readable as two holds: the projects differ even
+// where the slugs do not.
+function steeringScopes(row, projects) {
+  return steeringClaims(row).map((claim) => {
+    const docs = strategyDocs(row, claimProjectId(claim));
+    return {
+      project: projectSlug(projects, claimProjectId(claim)) || "unknown project",
+      docs: docs.length ? docs.join(", ") : "all docs",
+    };
   });
-  return entries.join("; ");
+}
+
+// Which current holdings the steering block above the roster already
+// states, so the holdings list can leave them out instead of repeating
+// them. A document lock on a project this session does not steer is not
+// covered — it belongs in the ordinary holdings.
+export function steeringLeadCovers(row) {
+  const steered = new Set(
+    steeringClaims(row).map((claim) => String(claimProjectId(claim))),
+  );
+  if (!steered.size) return () => false;
+  return (holding) => holding.target_kind === "steering"
+    || (holding.holding_kind === "strategy_document"
+      && steered.has(String(holding.project_id)));
+}
+
+// A steering seat holds no item; its scope IS its work, so on its card the
+// scope leads the body where a worker card leads with its claim. Reading a
+// steering card, the first question is which projects this seat drives and
+// from which documents — the same question a worker card answers with an
+// item ref.
+export function appendSteeringHoldings(documentNode, body, row, projects = []) {
+  const scopes = steeringScopes(row, projects);
+  if (!scopes.length) return false;
+  const lead = el(documentNode, "div", "session-steering-lead");
+  lead.appendChild(el(
+    documentNode, "div", "session-steering-lead-label", "Steering",
+  ));
+  for (const scope of scopes) {
+    const line = el(documentNode, "div", "session-steering-scope");
+    line.appendChild(el(
+      documentNode, "span", "session-steering-project", scope.project,
+    ));
+    line.appendChild(el(
+      documentNode, "span", "session-steering-docs", scope.docs,
+    ));
+    lead.appendChild(line);
+  }
+  body.appendChild(lead);
+  return true;
 }
 
 function appendContext(documentNode, body, tone, label, detail) {
@@ -91,18 +130,11 @@ function appendReport(documentNode, body, report) {
   body.appendChild(line);
 }
 
-export function appendSteeringContext(documentNode, body, row, projects = []) {
-  // A held steering claim is the fact; the badge is how a steering session
-  // stays recognizable at a glance now that its lock rows are gone.
-  if (steeringClaims(row).length) {
-    appendContext(
-      documentNode,
-      body,
-      "holder",
-      "Steering",
-      steeringText(row, projects),
-    );
-  } else if (row.steering_parent) {
+// The relationships a session has to steering it does not hold. The holder
+// case is not here: that is a holding, and it leads the card body through
+// appendSteeringHoldings rather than trailing it as an annotation.
+export function appendSteeringContext(documentNode, body, row) {
+  if (row.steering_parent) {
     appendContext(
       documentNode,
       body,

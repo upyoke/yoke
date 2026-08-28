@@ -68,11 +68,16 @@ test("holder and covered operator cards show scope and report custody", () => {
     },
   });
 
-  assert.equal(byClass(holder, "session-steering-badge")[0].textContent, "Steering");
   assert.equal(
-    byClass(holder, "session-steering-detail")[0].textContent,
-    "yoke · MISSION, VISION",
+    byClass(holder, "session-steering-lead-label")[0].textContent, "Steering",
   );
+  assert.equal(byClass(holder, "session-steering-project")[0].textContent, "yoke");
+  assert.equal(
+    byClass(holder, "session-steering-docs")[0].textContent, "MISSION, VISION",
+  );
+  // The block states the seat and both documents, so the holdings list below
+  // does not repeat them.
+  assert.equal(byClass(holder, "session-hold-target").length, 0);
   assert.equal(
     byClass(operator, "session-steering-detail")[0].textContent,
     "yoke · held by holder-1",
@@ -112,15 +117,18 @@ test("steering states itself once however many projects it covers", () => {
     ], previous: [], previous_remainder: 0 },
   }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
 
-  // The holdings group names two steering seats and two document locks; the
-  // context summarizes those four targets without losing either project.
-  assert.equal(byClass(holder, "session-steering-context").length, 1);
-  assert.equal(byClass(holder, "session-work").length, 4);
-  assert.equal(
-    byClass(holder, "session-steering-detail")[0].textContent,
-    "yoke · CURRENT-PLAN; platform · CURRENT-PLAN",
+  // Two seats and two document locks read as two projects, each beside its
+  // own document, in one block — never as one project with two documents.
+  assert.equal(byClass(holder, "session-steering-lead").length, 1);
+  assert.deepEqual(
+    byClass(holder, "session-steering-project").map((node) => node.textContent),
+    ["yoke", "platform"],
   );
-  assert.equal(byClass(holder, "session-hold-target").length, 4);
+  assert.deepEqual(
+    byClass(holder, "session-steering-docs").map((node) => node.textContent),
+    ["CURRENT-PLAN", "CURRENT-PLAN"],
+  );
+  assert.equal(byClass(holder, "session-hold-target").length, 0);
 });
 
 
@@ -152,11 +160,11 @@ test("each steered project carries the documents it is steered from", () => {
     ], previous: [], previous_remainder: 0 },
   }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
 
-  // Semicolons separate projects, commas separate one project's documents,
-  // so the platform hold cannot be read as a third yoke document.
-  assert.equal(
-    byClass(holder, "session-steering-detail")[0].textContent,
-    "yoke · MISSION, VISION; platform · MASTER-PLAN",
+  // Each project keeps its own documents, so the platform hold cannot be
+  // read as a third yoke document.
+  assert.deepEqual(
+    byClass(holder, "session-steering-scope").map((node) => node.textContent),
+    ["yokeMISSION, VISION", "platformMASTER-PLAN"],
   );
 });
 
@@ -173,11 +181,13 @@ test("a steering claim alone still marks the session as steering", () => {
     }], previous: [], previous_remainder: 0 },
   }, [{ id: 3, slug: "platform" }]);
 
-  assert.equal(byClass(holder, "session-steering-badge")[0].textContent, "Steering");
   assert.equal(
-    byClass(holder, "session-steering-detail")[0].textContent,
-    "platform · all docs",
+    byClass(holder, "session-steering-lead-label")[0].textContent, "Steering",
   );
+  assert.equal(
+    byClass(holder, "session-steering-project")[0].textContent, "platform",
+  );
+  assert.equal(byClass(holder, "session-steering-docs")[0].textContent, "all docs");
 });
 
 

@@ -5,6 +5,7 @@ import {
   sessionModePill,
   whoColumn,
 } from "./universe_view_support.js";
+import { focusAttribution } from "./universe_sessions_holdings.js";
 import { holdScopedSection, rowsInScope } from "./universe_held_reads.js";
 import { relativeTime } from "./universe_time.js";
 import {
@@ -18,6 +19,8 @@ import {
   routeCell,
   SESSION_SUMMARY_ROW_LIMIT,
 } from "./universe_overview_primitives.js";
+
+const CLAIM_CELL_RELATIONS = { claim: "owns claim", filed: "filed · unclaimed" };
 
 function sessionWhoIdentity(documentNode, row, who, mode) {
   const identity = el(
@@ -189,14 +192,15 @@ export function loadSessions(context, panel, getScope) {
           "overview-age-cell",
         );
         const claim = el(documentNode, "span", "overview-claim");
-        if (row.current_item) {
+        // Same rule the session card follows: an item another live session
+        // holds is that session's work, whatever attributed it to this row.
+        const attributed = focusAttribution(row);
+        if (attributed) {
           claim.textContent =
-            `${row.owns_current_item ? "🔒" : "↳"} ${row.current_item}`;
+            `${attributed === "claim" ? "🔒" : "↳"} ${row.current_item}`;
           claim.title = [
             row.current_item_title,
-            row.owns_current_item
-              ? "owns claim"
-              : (row.work_role || "attributed · no claim held"),
+            attributed === "lane" ? row.work_role : CLAIM_CELL_RELATIONS[attributed],
           ].filter(Boolean).join(" · ");
         } else {
           claim.textContent = "—";

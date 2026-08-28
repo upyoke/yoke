@@ -24,14 +24,25 @@ def iso(minutes_ago: int = 0) -> str:
 
 
 def insert_session(
-    conn, session_id: str, *, current_item_id: str | None = None
+    conn,
+    session_id: str,
+    *,
+    current_item_id: str | None = None,
+    ended_at: str | None = None,
 ) -> None:
+    """Seed one harness session, optionally already ended.
+
+    ``ended_at`` seeds a session that is gone: readers that ask who is
+    actually holding an item need one to prove a leftover claim does not
+    count as a holder.
+    """
     now = iso()
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id, executor, provider, model, execution_lane, workspace, "
-        "project_id, mode, offered_at, last_heartbeat, current_item_id"
-        ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "project_id, mode, offered_at, last_heartbeat, current_item_id, "
+        "ended_at"
+        ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             session_id,
             "claude-code",
@@ -44,6 +55,7 @@ def insert_session(
             now,
             now,
             current_item_id,
+            ended_at,
         ),
     )
     conn.commit()

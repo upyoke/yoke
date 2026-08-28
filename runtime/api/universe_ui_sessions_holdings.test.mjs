@@ -116,13 +116,17 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
 
   const cards = byClass(root, "session-card");
   assert.equal(cards.length, 2);
-  assert.equal(byClass(cards[0], "session-work").length, 5);
+  // The steering seat's four steering holdings lead the card as its scope,
+  // leaving the item claim as the one ordinary holding below them.
+  assert.equal(byClass(cards[0], "session-work").length, 1);
   assert.equal(byClass(cards[1], "session-work").length, 1);
-  assert.equal(
-    byClass(cards[0], "session-steering-detail")[0].textContent,
-    "yoke · CURRENT-PLAN; platform · CURRENT-PLAN",
+  assert.deepEqual(
+    byClass(cards[0], "session-steering-scope").map((node) => node.textContent),
+    ["yokeCURRENT-PLAN", "platformCURRENT-PLAN"],
   );
-  assert.equal(byClass(cards[0], "session-steering-badge")[0].textContent, "Steering");
+  assert.equal(
+    byClass(cards[0], "session-steering-lead-label")[0].textContent, "Steering",
+  );
   const relay = byClass(cards[0], "session-relay-pill")[0];
   assert.equal(relay.textContent, longMachineName);
   assert.equal(relay.title, longMachineName);
@@ -274,7 +278,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   );
   const attributed = byClass(root, "session-attached");
   assert.deepEqual(attributed.map((node) => node.textContent), ["↳"]);
-  assert.match(attributed[0].title, /^attributed to this session/);
+  assert.match(attributed[0].title, /^filed or updated by this session/);
   assert.equal(byClass(root, "session-work-role").length, 0);
   assert.deepEqual(
     byClass(root, "session-item-stage").map((node) => node.textContent),
@@ -282,7 +286,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   );
   const text = visibleText(root);
   assert.ok(!text.includes("worktree attached"), "no worktree line");
-  assert.ok(text.includes("attributed · active"), "attributed age lead");
+  assert.ok(text.includes("filed · active"), "filed age lead");
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children.map(
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
@@ -319,7 +323,10 @@ test("Session cards contain variable text and stretch to their grid row", () => 
     sessionCss("universe_secondary_activity.css"),
     /\.session-grid \{[^}]*display: grid;/,
   );
-  assert.match(css, /\.session-steering-worker-grid \{[^}]*display: grid;/);
+  assert.match(
+    sessionCss("universe_sessions_steering.css"),
+    /\.session-steering-worker-grid \{[^}]*display: grid;/,
+  );
   assert.ok(
     !/\.session-card \{[^}]*align-self/.test(css),
     "cards must inherit the grid's per-row stretch, not align to start",

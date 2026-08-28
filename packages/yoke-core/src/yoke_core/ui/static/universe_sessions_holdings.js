@@ -1,4 +1,5 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
+import { steeringLeadCovers } from "./universe_sessions_steering.js";
 import { el, statePill } from "./universe_view_support.js";
 
 function holdingGroups(row) {
@@ -32,6 +33,20 @@ export function ownsFocusedItem(row) {
     (holding) =>
       holding.target_kind === "item" && holding.target === row.current_item,
   );
+}
+
+// What puts this session's focused item on its card, if anything. A claim
+// is work. A worktree lane on the owning session's item is work too. A
+// filing attribution is only work while nobody else has picked the item
+// up: once another live session holds the claim, the item is that
+// session's, and showing it here points the card at somebody else's work.
+export function focusAttribution(row) {
+  if (!row.current_item || row.liveness === "ended") return null;
+  if (row.owns_current_item || ownsFocusedItem(row)) return "claim";
+  if (row.work_role) return "lane";
+  // Nobody holds it: this session filed it and it is still sitting there,
+  // which is worth saying — under its own label, not in the work position.
+  return row.current_item_holder_session_id ? null : "filed";
 }
 
 function appendStage(documentNode, work, status, workflow) {
@@ -108,14 +123,13 @@ function appendHoldingEntry(
   body.appendChild(work);
 }
 
-function appendAttachedEntry(documentNode, body, row) {
+function appendAttachedEntry(documentNode, body, row, attribution) {
   const work = el(documentNode, "div", "session-work");
-  const laneRole = row.work_role || "";
   const marker = el(documentNode, "span", "session-attached", "↳");
-  marker.title = laneRole
+  marker.title = attribution === "lane"
     ? "worktree lane on the owning session's item; holds no item claim"
-    : "attributed to this session by filing or updating it; "
-      + "no claim and no worktree lane on it";
+    : "filed or updated by this session and unclaimed; "
+      + "no session holds a work claim on it";
   work.appendChild(marker);
   const href = itemDrillInHref({
     projectId: row.current_item_project_id,
@@ -155,9 +169,13 @@ function appendHoldingGroup(documentNode, body, row, label, entries, previous) {
 export function appendHoldings(documentNode, body, row) {
   const groups = holdingGroups(row);
   let rendered = false;
-  if (groups.current.length) {
+  // The steering block above the holdings already names every seat and
+  // document it covers; repeating them here says the same hold twice.
+  const coveredAbove = steeringLeadCovers(row);
+  const current = groups.current.filter((holding) => !coveredAbove(holding));
+  if (current.length) {
     appendHoldingGroup(
-      documentNode, body, row, "Currently held", groups.current, false,
+      documentNode, body, row, "Currently held", current, false,
     );
     rendered = true;
   }
@@ -175,10 +193,19 @@ export function appendHoldings(documentNode, body, row) {
     }
     rendered = true;
   }
-  if (
-    row.liveness !== "ended" && row.current_item && !ownsFocusedItem(row)
-  ) {
-    appendAttachedEntry(documentNode, body, row);
+  const attribution = focusAttribution(row);
+  if (attribution === "lane") {
+    appendAttachedEntry(documentNode, body, row, attribution);
+    rendered = true;
+  } else if (attribution === "filed") {
+    // Its own labelled group, because an unclaimed item this session
+    // typed is provenance, not the work the card leads with.
+    const group = el(documentNode, "div", "session-holdings-group");
+    group.appendChild(el(
+      documentNode, "div", "session-holdings-label", "Filed · unclaimed",
+    ));
+    appendAttachedEntry(documentNode, group, row, attribution);
+    body.appendChild(group);
     rendered = true;
   }
   if (!rendered && row.liveness !== "ended") {

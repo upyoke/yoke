@@ -89,9 +89,13 @@ test("previous holdings render for active stale and ended sessions", () => {
       previous: [item("YOK-19", "Previous title")],
       previous_remainder: 0,
     });
+    // A live session still names the item it filed and nobody claimed;
+    // an ended one has nothing outstanding to say about it.
     assert.deepEqual(
       byClass(rendered, "session-holdings-label").map((node) => node.textContent),
-      ["Previously held"],
+      liveness === "ended"
+        ? ["Previously held"]
+        : ["Previously held", "Filed · unclaimed"],
     );
   }
 });
