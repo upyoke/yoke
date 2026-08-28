@@ -42,7 +42,9 @@ def test_message_completion_can_share_the_callers_transaction() -> None:
         now="2026-08-22T12:00:30Z",
     )
     conn.execute(
-        "INSERT INTO harness_sessions VALUES "
+        "INSERT INTO harness_sessions "
+        "(session_id, project_id, executor_surface, executor_version, "
+        "machine_id, model) VALUES "
         "('session-shared-transaction', 10, 'codex-cli', '0.148.0a15', "
         "'machine-1', 'gpt-5')"
     )
@@ -97,7 +99,9 @@ def test_first_launch_instruction_records_append_only_attempt_evidence(
         now="2026-08-22T12:00:30Z",
     )
     conn.execute(
-        "INSERT INTO harness_sessions VALUES "
+        "INSERT INTO harness_sessions "
+        "(session_id, project_id, executor_surface, executor_version, "
+        "machine_id, model) VALUES "
         "('session-first-instruction-evidence', 10, 'codex-cli', '0.148.0a15', "
         "'machine-1', 'gpt-5')"
     )

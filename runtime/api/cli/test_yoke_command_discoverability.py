@@ -5,6 +5,9 @@ from __future__ import annotations
 import pytest
 
 from yoke_cli.main import main
+from yoke_contracts.session_control.launch_bootstrap import (
+    AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
+)
 
 
 @pytest.mark.parametrize(
@@ -40,6 +43,14 @@ def test_environment_terminology_lists_registration_and_settings(argv, capsys) -
 def test_unknown_member_suggests_nearest_real_subcommand(capsys) -> None:
     assert main(["doctor", "rn"]) == 2
     assert "Did you mean `yoke doctor run`?" in capsys.readouterr().err
+
+
+def test_launch_registration_guess_teaches_the_automatic_hook_path(capsys) -> None:
+    assert main(["sessions", "register", "--launch-id", "launch-example"]) == 2
+    err = capsys.readouterr().err
+    assert AUTOMATIC_LAUNCH_REGISTRATION_TEACHING in err
+    assert "yoke sessions identity" in err
+    assert "launch cancel" not in err
 
 
 def test_unknown_top_level_suggests_hyphenated_family(capsys) -> None:

@@ -36,7 +36,6 @@ def _connection():
         "execution_lane TEXT",
         "last_heartbeat TEXT",
         "offered_at TEXT",
-        "ended_at TEXT",
         "last_tool_call_at TEXT",
         "turn_posture TEXT NOT NULL DEFAULT 'unknown'",
         "turn_posture_at TEXT",

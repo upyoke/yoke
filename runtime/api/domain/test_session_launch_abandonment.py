@@ -152,7 +152,7 @@ def test_worker_that_held_a_claim_keeps_its_successful_launch() -> None:
     )
 
 
-def test_worker_that_acknowledged_its_instruction_keeps_success_without_alarm(
+def test_worker_that_acknowledged_and_ran_a_tool_without_claiming_is_reported(
     monkeypatch,
 ) -> None:
     conn = launch_connection()
@@ -166,20 +166,6 @@ def test_worker_that_acknowledged_its_instruction_keeps_success_without_alarm(
         "WHERE message_id=? AND session_id=?",
         (NOW, launch.message_id, WORKER),
     )
-    conn.commit()
-
-    assert (
-        settle_and_notify(conn, WORKER, end_reason="session_empty_auto_ended") is None
-    )
-    assert get_launch(conn, launch.launch_id).state == "succeeded"
-    assert notifications == []
-
-
-def test_worker_that_ran_a_tool_keeps_its_successful_launch() -> None:
-    conn = launch_connection()
-    _worker_tables(conn)
-    add_relay(conn)
-    _delivered_launch(conn)
     conn.execute(
         "UPDATE harness_sessions "
         "SET last_tool_call_at=?, tool_call_count=1 WHERE session_id=?",
@@ -187,10 +173,12 @@ def test_worker_that_ran_a_tool_keeps_its_successful_launch() -> None:
     )
     conn.commit()
 
-    assert (
-        settle_abandoned_launch(conn, WORKER, end_reason="session_ended", now=NOW)
-        is None
-    )
+    flipped = settle_and_notify(conn, WORKER, end_reason="session_empty_auto_ended")
+
+    assert flipped is not None
+    assert flipped.result_code == ABANDONED_RESULT_CODE
+    assert get_launch(conn, launch.launch_id).state == "failed"
+    assert notifications == [(launch.launch_id, WORKER)]
 
 
 def test_worker_that_reported_to_its_orchestrator_keeps_its_launch() -> None:
