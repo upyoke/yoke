@@ -314,8 +314,14 @@ Transition through the `doc_completion` gate:
 yoke lifecycle transition ITEM --from reviewing-implementation --to done --reason "Execution document reconciled with passing evidence"
 ```
 
-The terminal transition releases the item-owned document claim and every
-registered Blitz worktree lane. Release the remaining session work claim:
+The terminal transition atomically archives the linked execution document
+when no other non-terminal Blitz still links it, then releases the item-owned
+document claim and every registered Blitz worktree lane. An already-archived
+document is a no-op; a shared live document stays active; and the parent
+document is never archived by this path. If the archive write fails,
+`GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED` keeps the item at
+`reviewing-implementation` and names the retry recovery. Do not archive the
+document by hand after completion. Release the remaining session work claim:
 
 ```text
 yoke claims work release --item ITEM --reason "Blitz completed"

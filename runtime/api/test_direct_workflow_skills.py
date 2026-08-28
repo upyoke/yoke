@@ -116,6 +116,7 @@ def test_dash_rechecks_keep_survey_contacts_advisory():
 
 def test_blitz_skill_carries_slice_and_document_completion_contract():
     content = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
+    normalized = " ".join(content.split())
     for required in (
         "strategy execution get",
         "direct-workflow blitz survey",
@@ -126,12 +127,15 @@ def test_blitz_skill_carries_slice_and_document_completion_contract():
         "parent strategy was reconciled",
         "doc_completion",
         "registered worker worktree",
-        "terminal transition releases the item-owned document claim",
+        "terminal transition atomically archives the linked execution document",
+        "shared live document stays active",
+        "parent document is never archived",
+        "GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED",
         # Slice merges route through the same named boundary as Dash, and
         # leave the item non-terminal until the document completes.
         "yoke merge item ITEM --skip-status",
     ):
-        assert required in content
+        assert required in normalized
     assert "through the project's protected merge path" not in content
 
 

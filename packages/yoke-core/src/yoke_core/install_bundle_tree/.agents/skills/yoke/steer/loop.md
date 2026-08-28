@@ -246,35 +246,9 @@ yoke claims work release --item PREFIX-N --reason "steering spec write complete"
 
 ### 4. Hand a chunk to an executor
 
-Steer existing work in its pinned workflow; never convert or re-file it.
-For ordinary new work filed by the steerer, default to
-`/yoke idea --workflow dash` unless the work genuinely needs Issue, Epic, or
-Blitz structure, or the operator directs another workflow.
-
-When a chunk of the doc needs an implementer:
-
-1. File a Blitz from the doc (`/yoke idea --workflow blitz "{title}"`).
-   Link it before anyone claims it:
-
-   ```text
-   yoke strategy execution link ITEM --slug {SLUG} --project {_project}
-   ```
-
-2. **Release the document lock** so the worker can claim the Blitz. A
-   session-held lock and a live Blitz on the same slug are mutually exclusive
-   — leaving the lock held is a handoff defect.
-
-   ```text
-   yoke strategy doc-claim release {SLUG} --project {_project} --reason "blitz-handoff"
-   ```
-
-3. Encode `item_dependencies` edges (or an explicit no-edges attestation
-   on the filed items) in the same action that files a related batch.
-   Title-only batches that are already claimable are a defect.
-
-4. Launch per [`worker-lifecycle.md`](worker-lifecycle.md). After the
-   Blitz reaches `done`, re-acquire the document lock if this coordinator
-   is still steering the slug.
+Read and follow [`blitz-handoff.md`](blitz-handoff.md) completely whenever a
+strategy-document chunk needs an executor. It owns the link, lock-release,
+dependency, launch, and automatic document-archive boundary.
 
 ### 5. Staff unpicked runnable work
 

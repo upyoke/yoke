@@ -72,13 +72,14 @@ class TestSteerSkillContract:
 
     def test_loop_covers_frontier_reports_doc_blitz_staffing_escalate(self):
         loop = _read(_STEER_DIR / "loop.md")
+        blitz_handoff = _read(_STEER_DIR / "blitz-handoff.md")
         assert "yoke charge schedule" in loop
         assert "yoke say --item PREFIX-N --stdin" in loop
         assert "yoke messages acknowledge" in loop
         assert "yoke strategy doc get" in loop
-        assert "yoke strategy execution link" in loop
-        assert "yoke strategy doc-claim release" in loop
         assert "blitz-handoff" in loop
+        assert "yoke strategy execution link" in blitz_handoff
+        assert "yoke strategy doc-claim release" in blitz_handoff
         assert "yoke steering report get" in loop
         assert "unclaimed" in loop
         assert "Escalate" in loop
@@ -202,11 +203,11 @@ class TestSteerSkillContract:
         assert "There is no second staffing" in lifecycle
 
     def test_blitz_handoff_releases_the_document_lock(self):
-        loop = _read(_STEER_DIR / "loop.md")
-        release_at = loop.index("yoke strategy doc-claim release")
-        link_at = loop.index("yoke strategy execution link")
+        blitz_handoff = _read(_STEER_DIR / "blitz-handoff.md")
+        release_at = blitz_handoff.index("yoke strategy doc-claim release")
+        link_at = blitz_handoff.index("yoke strategy execution link")
         assert link_at < release_at
-        assert "mutually exclusive" in loop
+        assert "mutually exclusive" in blitz_handoff
 
     def test_operator_escalation_path_waits(self):
         loop = _read(_STEER_DIR / "loop.md")
