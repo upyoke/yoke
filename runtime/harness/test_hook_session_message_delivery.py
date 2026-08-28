@@ -1,4 +1,4 @@
-"""Focused hook delivery, settlement, and reinjection tests.
+"""Focused hook delivery and settlement tests.
 
 Wake eligibility is the sibling concern and lives in
 ``test_hook_wake_eligibility.py``.
@@ -249,18 +249,19 @@ def test_missing_render_token_does_not_claim_injection(
     assert port.completed == [("lease-1", False, "render_output_missing")]
 
 
-def test_message_reinjects_on_later_hook_until_explicit_ack(
+def test_message_is_not_reinjected_on_the_post_hook_for_one_tool_call(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     port = FakePort()
     monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
 
     first = delivery.evaluate(_context())
+    rendered, _ = render_codex_decision([first], "PreToolUse")
+    delivery.settle_after_render(
+        [first], rendered_text=rendered, denied=False, port=port
+    )
     second = delivery.evaluate(_context("PostToolUse"))
-    port.acknowledged = True
-    after_ack = delivery.evaluate(_context("PostToolUse"))
 
     assert MESSAGE_ID in first.audit_fields["additionalContext"]
-    assert MESSAGE_ID in second.audit_fields["additionalContext"]
-    assert after_ack.outcome is Outcome.NOOP
-    assert len(port.leased) == 3
+    assert second.outcome is Outcome.NOOP
+    assert len(port.leased) == 2

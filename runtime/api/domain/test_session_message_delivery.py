@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
@@ -51,13 +50,14 @@ def _send(conn, *, body="Persistent instructions.", session_id: str = "s1") -> s
     )["message_id"]
 
 
-def test_hook_completion_reinjects_until_explicit_acknowledgment() -> None:
+def test_hook_completion_delivers_each_receipt_once() -> None:
     conn = message_connection()
     message_id = _send(conn)
 
     first = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
     assert first == {
         "lease_id": first["lease_id"],
+        "remaining_count": 0,
         "messages": [
             {
                 "message_id": message_id,
@@ -73,17 +73,14 @@ def test_hook_completion_reinjects_until_explicit_acknowledgment() -> None:
         == 1
     )
     second = lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
-    assert second and second["messages"][0]["message_id"] == message_id
-    complete_hook_lease(
-        conn, lease_id=second["lease_id"], injected=True, result="injected"
-    )
+    assert second is None
 
     receipt = conn.execute(
         "SELECT state,injection_count FROM session_message_recipients"
     ).fetchone()
-    assert tuple(receipt) == ("injected", 2)
+    assert tuple(receipt) == ("injected", 1)
     assert (
-        conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 2
+        conn.execute("SELECT COUNT(*) FROM session_message_attempts").fetchone()[0] == 1
     )
 
 
@@ -230,7 +227,7 @@ def test_central_expiry_closes_active_lease_and_prevents_completion() -> None:
     assert attempt["result_code"] == "recipient_expired"
 
 
-def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> None:
+def test_wake_eligibility_excludes_delivered_receipts_at_every_idle_age() -> None:
     conn = message_connection()
     message_id = _send(conn, session_id=IDLE_WAKE_SESSION_ID)
     # Active means the turn still calls tools, so its own hooks serve this.
@@ -245,8 +242,7 @@ def test_wake_eligibility_excludes_active_pending_and_injected_receipts() -> Non
     )
     _working_at(conn, active_at, session_id=IDLE_WAKE_SESSION_ID)
     assert wake_eligible_recipients(conn, now=NOW + timedelta(minutes=20)) == []
-    long_idle = wake_eligible_recipients(conn, now=NOW + timedelta(hours=3))
-    assert len(long_idle) == 1
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(hours=3)) == []
 
 
 def test_waiting_pending_receipt_does_not_bypass_native_wake_gates() -> None:
@@ -301,30 +297,6 @@ def test_waiting_receipt_with_injection_lease_does_not_wake_immediately() -> Non
     )
     conn.commit()
     assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=1)) == []
-
-
-def test_reinjection_policy_disables_both_repeat_hook_and_injected_wake() -> None:
-    conn = message_connection()
-    _send(conn)
-    lease = lease_for_hook(conn, session_id="s1", hook_event="PreToolUse", limit=10)
-    assert lease
-    complete_hook_lease(
-        conn, lease_id=lease["lease_id"], injected=True, result="injected"
-    )
-    conn.execute(
-        "UPDATE organizations SET settings=? WHERE id=1",
-        (json.dumps({"fleet": {"reinject_until_acknowledged": False}}),),
-    )
-    conn.execute(
-        "UPDATE harness_sessions SET last_heartbeat='2000-01-01T00:00:00Z',"
-        "last_tool_call_at='2000-01-01T00:00:00Z' WHERE session_id='s1'"
-    )
-    conn.commit()
-    assert (
-        lease_for_hook(conn, session_id="s1", hook_event="PostToolUse", limit=10)
-        is None
-    )
-    assert wake_eligible_recipients(conn, now=NOW + timedelta(hours=1)) == []
 
 
 def test_hook_completion_closes_bound_launch_in_the_same_mutation() -> None:

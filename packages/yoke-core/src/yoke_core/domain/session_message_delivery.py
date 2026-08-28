@@ -9,7 +9,6 @@ from typing import Any
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_core.domain import db_backend
-from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_types import (
     row_dict,
     timestamp,
@@ -104,7 +103,6 @@ def _lease_candidates(
     session_id: str,
     now: datetime,
     limit: int,
-    reinject_project_ids: tuple[int, ...],
 ) -> list[dict[str, Any]]:
     marker = _p(conn)
     stamp = timestamp(now)
@@ -113,31 +111,36 @@ def _lease_candidates(
         if db_backend.connection_is_postgres(conn)
         else ""
     )
-    reinject = ""
-    reinject_params: list[Any] = []
-    if reinject_project_ids:
-        slots = ",".join(marker for _ in reinject_project_ids)
-        reinject = f" OR (r.state='injected' AND r.project_id IN ({slots}))"
-        reinject_params.extend(reinject_project_ids)
     rows = conn.execute(
         "SELECT r.message_id,r.session_id,r.project_id,r.state,"
         "r.injection_lease_id,m.body,"
         "m.sender_actor_id,m.created_at FROM session_message_recipients r "
         "JOIN session_messages m ON m.message_id=r.message_id "
-        f"WHERE r.session_id={marker} AND (r.state='pending'{reinject}) "
+        f"WHERE r.session_id={marker} AND r.state='pending' "
         "AND m.cancelled_at IS NULL AND m.expires_at>" + marker + " "
         "AND (r.injection_lease_id IS NULL "
         "OR r.injection_lease_expires_at<=" + marker + ") "
         "ORDER BY m.created_at,r.message_id LIMIT " + marker + lock,
         (
             session_id,
-            *reinject_params,
             stamp,
             stamp,
             max(1, min(int(limit), 50)),
         ),
     ).fetchall()
     return [row_dict(row) for row in rows]
+
+
+def _pending_receipt_count(conn: Any, *, session_id: str, now: datetime) -> int:
+    marker = _p(conn)
+    row = conn.execute(
+        "SELECT COUNT(*) FROM session_message_recipients r "
+        "JOIN session_messages m ON m.message_id=r.message_id "
+        f"WHERE r.session_id={marker} AND r.state='pending' "
+        f"AND m.cancelled_at IS NULL AND m.expires_at>{marker}",
+        (session_id, timestamp(now)),
+    ).fetchone()
+    return int(row[0])
 
 
 def lease_for_hook(
@@ -147,7 +150,7 @@ def lease_for_hook(
     hook_event: str,
     limit: int,
 ) -> dict[str, Any] | None:
-    """Atomically lease deliverable receipts for one top-level session."""
+    """Atomically lease each pending receipt for one model delivery."""
     if not _eligible_hook_event(conn, session_id, hook_event):
         return None
     current = utc_now()
@@ -157,22 +160,12 @@ def lease_for_hook(
     _begin_mutation(conn)
     try:
         _expire_rows(conn, now=current)
-        project_rows = conn.execute(
-            "SELECT DISTINCT project_id FROM session_message_recipients "
-            f"WHERE session_id={marker} AND state IN ('pending','injected')",
-            (session_id,),
-        ).fetchall()
-        reinject_project_ids = tuple(
-            int(row[0])
-            for row in project_rows
-            if project_policy(conn, int(row[0])).reinject_until_acknowledged
-        )
+        pending_count = _pending_receipt_count(conn, session_id=session_id, now=current)
         rows = _lease_candidates(
             conn,
             session_id=session_id,
             now=current,
             limit=limit,
-            reinject_project_ids=reinject_project_ids,
         )
         leased_at = timestamp(current)
         lease_expires = timestamp(current + timedelta(seconds=HOOK_LEASE_SECONDS))
@@ -243,7 +236,13 @@ def lease_for_hook(
     except Exception:
         conn.rollback()
         raise
-    return {"lease_id": lease_id, "messages": leased} if leased else None
+    if not leased:
+        return None
+    return {
+        "lease_id": lease_id,
+        "messages": leased,
+        "remaining_count": max(0, pending_count - len(leased)),
+    }
 
 
 def _complete_launches(conn: Any, rows: list[dict[str, Any]], *, now: datetime) -> None:

@@ -136,7 +136,7 @@ def wake_eligible_recipients(
             "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "
-            "WHERE r.state IN ('pending','injected') AND m.cancelled_at IS NULL "
+            "WHERE r.state='pending' AND m.cancelled_at IS NULL "
             "AND r.wake_after<="
             + marker
             + " AND m.expires_at>"
@@ -189,18 +189,6 @@ def wake_eligible_recipients(
                 ):
                     continue
                 escalation = STARVED_HOOK_ROUTE
-            if not explicit_wake and row["state"] == "injected":
-                if not policy.reinject_until_acknowledged:
-                    continue
-                # An injected envelope has already reached the session; what
-                # it needs next is time to acknowledge, not another wake. The
-                # idleness clock alone cannot tell those apart, and a wake
-                # fired inside the acknowledgement window lands a second
-                # successful attempt on a delivery that was already working.
-                injected_at = parse_timestamp(row.get("last_injected_at"))
-                grace = timedelta(seconds=policy.wake_ack_grace_seconds)
-                if injected_at is not None and injected_at + grace > current:
-                    continue
             idle_window = timedelta(seconds=policy.wake_after_idle_seconds)
             waiting_pending = row["state"] == "pending" and (
                 explicit_wake or row.get("turn_posture") == "waiting"

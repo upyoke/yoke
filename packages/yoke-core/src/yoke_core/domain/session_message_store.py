@@ -187,6 +187,9 @@ def insert_message(
     return message_details(conn, message_id), True
 
 
+_UNACKNOWLEDGED_STATES: tuple[str, ...] = ("pending", "injected")
+
+
 def list_message_ids(
     conn: Any,
     *,
@@ -197,7 +200,11 @@ def list_message_ids(
     marker = _p(conn)
     clauses: list[str] = []
     params: list[Any] = []
-    if state is not None:
+    if state == "unacknowledged":
+        slots = ",".join(marker for _ in _UNACKNOWLEDGED_STATES)
+        clauses.append(f"r.state IN ({slots})")
+        params.extend(_UNACKNOWLEDGED_STATES)
+    elif state is not None:
         clauses.append(f"r.state={marker}")
         params.append(state)
     if session_id is not None:
@@ -212,11 +219,6 @@ def list_message_ids(
         tuple(params),
     ).fetchall()
     return [str(row[0]) for row in rows]
-
-
-# Receipt states a session may acknowledge from. Ordered so the SQL
-# placeholder tuple stays stable across calls.
-_ACKNOWLEDGEABLE_STATES: tuple[str, ...] = ("pending", "injected")
 
 
 def acknowledge_recipient(
@@ -251,11 +253,11 @@ def acknowledge_recipient(
     # before any hook event has flipped the row to `injected` — refusing
     # there would deny receipt of a message the sender can see was received.
     # Terminal states stay refused: expired and cancelled receipts are over.
-    if state not in _ACKNOWLEDGEABLE_STATES:
+    if state not in _UNACKNOWLEDGED_STATES:
         raise SessionMessageError(
             "invalid_state", f"recipient state {state!r} cannot be acknowledged"
         )
-    slots = ",".join(marker for _ in _ACKNOWLEDGEABLE_STATES)
+    slots = ",".join(marker for _ in _UNACKNOWLEDGED_STATES)
     cursor = conn.execute(
         "UPDATE session_message_recipients SET state='acknowledged', "
         f"acknowledged_at={marker}, injection_lease_id=NULL, "
@@ -266,7 +268,7 @@ def acknowledge_recipient(
             timestamp(acknowledged_at),
             message_id,
             session_id,
-            *_ACKNOWLEDGEABLE_STATES,
+            *_UNACKNOWLEDGED_STATES,
         ),
     )
     if cursor.rowcount != 1:

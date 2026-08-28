@@ -8,7 +8,7 @@ from uuid import UUID
 FLEET_MESSAGE_RECIPE = """yoke sessions list --liveness active
 yoke say --preview --session SESSION-ID
 printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin
-yoke messages list --recipient-session CURRENT-SESSION-ID --state injected
+yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID
 yoke messages acknowledge MESSAGE-ID"""
 FLEET_UNDELIVERED_CANCEL_RECIPE = (

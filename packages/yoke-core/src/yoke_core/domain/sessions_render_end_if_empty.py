@@ -92,9 +92,9 @@ def wake_deliveries_in_flight(
     for. Every later wake then finds an ended session and repeats the loop,
     which is what a cursor-cli acceptance cell recorded three times over.
 
-    The window is the same ``wake_ack_grace_seconds`` the wake sweep uses to
-    decide a delivery is already working and needs time rather than another
-    wake; rating both sides on the same clock is what keeps them agreeing.
+    The window is the same ``wake_ack_grace_seconds`` that message and manual
+    wake recovery use before treating a hook or wake delivery as stalled;
+    rating both sides on the same clock is what keeps them agreeing.
     """
     from .db_optional_queries import fetch_optional_rows
 

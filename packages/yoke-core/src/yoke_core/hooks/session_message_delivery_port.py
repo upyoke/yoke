@@ -31,6 +31,7 @@ class SessionMessageLease:
 
     lease_id: str
     messages: tuple[LeasedSessionMessage, ...]
+    remaining_count: int = 0
     report: str = ""
 
 
@@ -113,6 +114,7 @@ def _coerce_lease(value: Any) -> SessionMessageLease | None:
     return SessionMessageLease(
         lease_id=lease_id,
         messages=_coerce_messages(payload.get("messages")),
+        remaining_count=max(0, int(payload.get("remaining_count") or 0)),
         report=str(payload.get("report") or ""),
     )
 

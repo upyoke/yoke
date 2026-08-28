@@ -9,19 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.liveness import LIVENESS_CHOICES
-
-MessageState = Literal["pending", "injected", "acknowledged", "expired", "cancelled"]
-LaunchState = Literal[
-    "queued",
-    "assigned",
-    "launching",
-    "awaiting_registration",
-    "succeeded",
-    "failed",
-    "cancelled",
-    "expired",
-    "outcome_unknown",
-]
+from yoke_contracts.session_control.states import (
+    LaunchState,
+    MessageListState,
+    MessageState,
+)
 
 
 class RecipientSelector(BaseModel):
@@ -101,7 +93,7 @@ class MessageSendResponse(BaseModel):
 
 
 class MessageListRequest(BaseModel):
-    state: Optional[MessageState] = None
+    state: Optional[MessageListState] = None
     session_id: Optional[str] = None
     limit: int = Field(default=50, ge=1, le=500)
 
@@ -146,6 +138,7 @@ class MessageMutationResponse(MessageGetResponse):
 class MessageLeaseResponse(BaseModel):
     lease_id: str
     messages: List[Dict[str, Any]]
+    remaining_count: int = Field(default=0, ge=0)
 
 
 class LaunchPreviewRequest(BaseModel):
@@ -329,6 +322,7 @@ __all__ = [
     "MessageLeaseResponse",
     "MessageListRequest",
     "MessageListResponse",
+    "MessageListState",
     "MessageMutationResponse",
     "MessagePreviewRequest",
     "MessagePreviewResponse",
