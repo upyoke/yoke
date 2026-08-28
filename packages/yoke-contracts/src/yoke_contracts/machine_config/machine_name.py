@@ -79,7 +79,9 @@ def _probe_commands() -> tuple[tuple[str, ...], ...]:
 
 
 def _report_unavailable_probes(reasons: list[str], fallback: str) -> None:
-    unreported = [reason for reason in reasons if reason not in _reported_probe_failures]
+    unreported = [
+        reason for reason in reasons if reason not in _reported_probe_failures
+    ]
     if not unreported:
         return
     _reported_probe_failures.update(unreported)
