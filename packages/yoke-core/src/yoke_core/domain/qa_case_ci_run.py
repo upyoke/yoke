@@ -1,11 +1,17 @@
 """Run a Command-method QA case on the project's CI workflow.
 
-Push the lane, reuse a pull-request run on that exact commit when one
-exists, otherwise dispatch the declared workflow. Merge-queue projects
-open the landing pull request so its entry run is the gate. An empty
-diff against the integration target is inapplicable CI
+Push the lane, then let :mod:`yoke_core.domain.qa_case_ci_covering_run`
+say what has already happened to that exact commit: adopt a run that
+already concluded, attach to one still in flight, or dispatch when the
+tree is unexamined. Merge-queue projects open the landing pull request so
+its entry run is the run under consideration. An empty diff against the
+integration target is inapplicable CI
 (:mod:`yoke_core.domain.qa_case_ci_empty_diff`). ``worktree_run`` stays
 the local Command runner and is never a silent downgrade.
+
+Which of the three happened is recorded as ``ci_run_source`` on the
+result and in the run's evidence, so a reader can tell a verdict this
+invocation paid for from one it inherited.
 """
 
 from __future__ import annotations
@@ -19,6 +25,7 @@ from yoke_contracts.api.function_call import ActorContext
 
 from yoke_core.domain import (
     qa_case_budget,
+    qa_case_ci_covering_run,
     qa_case_ci_empty_diff,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
@@ -26,7 +33,6 @@ from yoke_core.domain import (
     verification_tree_binding,
 )
 from yoke_core.domain.qa_case_ci_conclusion import (
-    BINDING_CONCLUSIONS,
     conclusion_from_poll,
     failure_verdict,
 )
@@ -147,8 +153,10 @@ def execute_ci_case(
         return empty
     ci_run_id = ""
     run_url = ""
-    reused_pull_request_run = False
+    ci_run_source = qa_case_ci_covering_run.DISPATCHED
     known_conclusion = ""
+    exit_code = 0
+    poll_output = ""
     try:
         qa_case_ci_lane.push_lane(checkout, branch, source_ref=source_ref)
         with qa_case_ci_lane.github_actions_authority():
@@ -160,7 +168,7 @@ def execute_ci_case(
                     target=entry_run_base,
                     lane_head=head_sha,
                 )
-                covering_run = qa_case_ci_entry_run.await_entry_run(
+                covering_run = qa_case_ci_entry_run.find_entry_run(
                     requirement_id=requirement_id,
                     project=project,
                     repo=repo,
@@ -169,34 +177,17 @@ def execute_ci_case(
                     timeout_seconds=budget,
                 )
             else:
-                covering_run = qa_case_ci_lane.find_pull_request_run(
+                covering_run = qa_case_ci_covering_run.find_run_for_tree(
                     project=project,
                     repo=repo,
                     workflow=workflow,
                     head_sha=head_sha,
                     timeout_seconds=budget,
                 )
-            if (
-                covering_run is not None
-                and covering_run.status == "completed"
-                and covering_run.head_sha == head_sha
-                and covering_run.conclusion in BINDING_CONCLUSIONS
-            ):
-                reused_pull_request_run = True
-                ci_run_id = covering_run.run_id
-                run_url = covering_run.html_url
-                known_conclusion = covering_run.conclusion
-                if entry_run_base is None:
-                    qa_case_ci_progress.announce_run(
-                        requirement_id,
-                        repo=repo,
-                        run_id=ci_run_id,
-                        html_url=run_url,
-                        source="covering",
-                    )
-                exit_code = 0 if known_conclusion == "success" else 1
-                poll_output = f"reused pull_request run: {known_conclusion}"
-            else:
+            ci_run_source = qa_case_ci_covering_run.classify(
+                covering_run, head_sha=head_sha,
+            )
+            if ci_run_source == qa_case_ci_covering_run.DISPATCHED:
                 qa_case_ci_progress.announce_dispatch(
                     requirement_id,
                     repo=repo,
@@ -215,8 +206,24 @@ def execute_ci_case(
                     requirement_id,
                     repo=repo,
                     run_id=ci_run_id,
-                    source="dispatched",
+                    source=ci_run_source,
                 )
+            else:
+                ci_run_id = covering_run.run_id
+                run_url = qa_case_ci_progress.announce_run(
+                    requirement_id,
+                    repo=repo,
+                    run_id=ci_run_id,
+                    html_url=covering_run.html_url,
+                    source=ci_run_source,
+                )
+            if ci_run_source == qa_case_ci_covering_run.ADOPTED:
+                # The run is already over. Nothing is polled and no CI
+                # capacity is spent: its conclusion is the verdict.
+                known_conclusion = covering_run.conclusion
+                exit_code = 0 if known_conclusion == "success" else 1
+                poll_output = f"adopted completed run: {known_conclusion}"
+            else:
                 exit_code, poll_output = qa_case_ci_lane.await_workflow(
                     project=project,
                     repo=repo,
@@ -232,6 +239,7 @@ def execute_ci_case(
                 "branch": branch,
                 "ci_run_id": ci_run_id or None,
                 "ci_conclusion": "error",
+                "ci_run_source": ci_run_source,
                 "failure_class": "infrastructure_transient",
                 "error": str(exc),
                 "verification_tree": tree.as_payload(),
@@ -265,7 +273,7 @@ def execute_ci_case(
             "run_url": run_url,
             "exit_code": exit_code,
             "ci_conclusion": conclusion,
-            "reused_pull_request_run": reused_pull_request_run,
+            "ci_run_source": ci_run_source,
             "failure_class": failure_class or None,
             "verification_tree": tree.as_payload(),
             **selected_budget.as_record(),
@@ -302,7 +310,7 @@ def execute_ci_case(
         "ci_run_id": ci_run_id,
         "run_url": run_url,
         "ci_conclusion": conclusion,
-        "reused_pull_request_run": reused_pull_request_run,
+        "ci_run_source": ci_run_source,
         "failure_class": failure_class or None,
         **selected_budget.as_record(),
         "verification_tree": tree.as_payload(),

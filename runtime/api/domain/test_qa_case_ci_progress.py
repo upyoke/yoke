@@ -8,10 +8,12 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
     LANE_HEAD,
     ci_case,
     completed_run,
+    in_flight_run,
     wire_ci_case,
 )
 from yoke_core.domain import (
     deploy_pipeline_reporting,
+    qa_case_ci_covering_run,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
     qa_case_ci_progress,
@@ -107,44 +109,77 @@ def test_dispatched_run_is_announced_before_the_wait(
     assert result["ci_run_id"] == "9182736"
 
 
-def test_entry_run_waits_are_live_before_polling(monkeypatch, capsys):
-    pending = qa_case_ci_lane.WorkflowRun(
-        "77",
-        "in_progress",
-        "",
-        "https://github.test/actions/runs/77",
-        LANE_HEAD,
-    )
-    runs = iter([None, None, pending, completed_run(LANE_HEAD)])
+def test_entry_run_waits_are_live_while_the_run_has_no_id_yet(
+    monkeypatch, capsys,
+):
+    """Appearance waits narrate; naming the run is the runner's job."""
+    runs = iter([None, None, completed_run(LANE_HEAD)])
     monkeypatch.setattr(
-        qa_case_ci_lane,
-        "find_pull_request_run",
+        qa_case_ci_covering_run,
+        "find_run_for_tree",
         lambda **kwargs: next(runs),
     )
-
-    def _await(**kwargs):
-        captured = capsys.readouterr()
-        assert captured.out == ""
-        assert captured.err.count("no run id yet") == 2
-        assert "requirement=41 covering run=77" in captured.err
-        assert "https://github.test/actions/runs/77" in captured.err
-        return 0, "success"
-
-    monkeypatch.setattr(qa_case_ci_lane, "await_workflow", _await)
     clock = {"now": 0.0}
 
-    def _sleep(seconds: float) -> None:
-        clock["now"] += seconds
-
-    result = qa_case_ci_entry_run.await_entry_run(
+    result = qa_case_ci_entry_run.find_entry_run(
         requirement_id=41,
         project="yoke",
         repo="acme/widgets",
         workflow="ci.yml",
         head_sha=LANE_HEAD,
         timeout_seconds=60,
-        sleep=_sleep,
+        sleep=lambda seconds: clock.__setitem__("now", clock["now"] + seconds),
         monotonic=lambda: clock["now"],
     )
 
+    captured = capsys.readouterr()
     assert result == completed_run(LANE_HEAD)
+    assert captured.out == ""
+    assert captured.err.count("no run id yet") == 2
+    assert "run=77" not in captured.err
+
+
+def test_an_attached_run_is_announced_as_attached_before_the_wait(
+    monkeypatch, tmp_path, capsys,
+):
+    checkout, _, _ = wire_ci_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        qa_case_ci_covering_run,
+        "find_run_for_tree",
+        lambda **kwargs: in_flight_run(LANE_HEAD),
+    )
+
+    def _await(**kwargs):
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "requirement=41 attached run=77" in captured.err
+        assert "dispatching" not in captured.err
+        assert "https://github.test/actions/runs/77" in captured.err
+        return 0, "success"
+
+    monkeypatch.setattr(qa_case_ci_lane, "await_workflow", _await)
+
+    result = qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
+
+    assert result["ci_run_source"] == "attached"
+    assert result["verdict"] == "pass"
+
+
+def test_the_run_announcement_teaches_the_interrupted_recovery(
+    monkeypatch, tmp_path, capsys,
+):
+    """An interrupted gate is why adoption exists; the run line says so."""
+    checkout, _, _ = wire_ci_case(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        qa_case_ci_lane, "dispatch_workflow", lambda **kwargs: "9182736",
+    )
+    monkeypatch.setattr(
+        qa_case_ci_lane, "await_workflow", lambda **kwargs: (0, "success"),
+    )
+
+    qa_case_ci_run.execute_ci_case(ci_case(), checkout_path=checkout)
+
+    recovery = capsys.readouterr().err
+    assert "if this invocation is interrupted".casefold() in recovery.casefold()
+    assert "yoke qa case run --requirement-id 41" in recovery
+    assert "re-executed" in recovery

@@ -75,7 +75,14 @@ def announce_run(
     source: str,
     stream: TextIO | None = None,
 ) -> str:
-    """Name the dispatched or covering run immediately before polling it."""
+    """Name the run this case is about, and how it came to be the one.
+
+    ``source`` is one of
+    :mod:`yoke_core.domain.qa_case_ci_covering_run`'s values, so the
+    stderr stream and the recorded evidence agree about whether this
+    invocation dispatched the run, attached to one already in flight, or
+    adopted one that had already concluded.
+    """
     run_url = html_url or f"https://github.com/{repo}/actions/runs/{run_id}"
     _emit(
         f"requirement={requirement_id} {source} run={run_id} {run_url}",
@@ -91,8 +98,10 @@ def announce_run(
     _emit(
         "if cancellation stalls, force-cancel with "
         f"`gh api --method POST repos/{repo}/actions/runs/{run_id}/"
-        f"force-cancel`; after this invocation exits, retry "
-        f"`yoke qa case run --requirement-id {requirement_id}`",
+        f"force-cancel`. If this invocation is interrupted before the run "
+        f"concludes, re-run `yoke qa case run --requirement-id "
+        f"{requirement_id}` on the same commit: the run above is adopted "
+        "or rejoined rather than re-executed",
         stream=stream,
     )
     return run_url

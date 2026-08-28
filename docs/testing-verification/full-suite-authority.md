@@ -61,13 +61,36 @@ A project that declares its required-status-check workflow gets its
 3. waits for the run and records its conclusion as the verdict, with the
    run URL and the exact head sha as evidence.
 
-A `pull_request` run that reached a verdict on that exact commit —
-`success` or `failure` — is reused instead of step 2, because it already
-proved the same tree. A run that stopped short of one (`cancelled`,
-`timed_out`, `startup_failure`) proved nothing and is not evidence: the
-gate dispatches instead, which is what lets the same commit reach green
-after a run was cancelled. Reusing it would wedge the gate there, because
-every retry finds that same completed run at that same head sha.
+Before step 2 the gate asks GitHub what has already happened to that
+exact commit, and the answer picks one of three paths. A run that reached
+a verdict there — `success` or `failure` — is **adopted**: its conclusion
+is the verdict and no CI capacity is spent. A run still in flight there is
+**attached** to and polled, so a second invocation joins the first run
+instead of racing a duplicate. Only an unexamined commit is
+**dispatched**. Which path ran is recorded as `ci_run_source` in the run's
+evidence and printed on the `# qa case run:` outcome line, so an adopted
+verdict never reads like one this invocation paid for.
+
+The lookup asks about the commit rather than about how a run started,
+because a run this gate dispatched earlier is evidence about this tree
+however it was triggered. Matching is exact-sha and nothing looser: a run
+on any other commit checked out a different tree. Queue projects narrow it
+to the entry run (see *Queue projects verify pull-request-first*).
+
+A run that stopped short of a verdict (`cancelled`, `timed_out`,
+`startup_failure`) proved nothing and is not adopted: the gate dispatches
+instead, which is what lets the same commit reach green after a run was
+cancelled. Adopting it would wedge the gate there, because every retry
+finds that same completed run at that same head sha.
+
+**Adoption is the recovery when a gate invocation dies mid-poll.** A
+watcher killed at a turn boundary — `interrupted by signal 15` in its raw
+capture — leaves the CI run going and records no verdict. The run itself
+is not lost, because GitHub holds it, so re-running `yoke qa case run` on
+the same commit adopts its conclusion, or rejoins it while it is still
+running, for the cost of one lookup instead of another 13-14 minute
+suite. A silent watcher is not evidence that CI is still going: grep its
+capture for that signal, then re-run the gate.
 
 The CI budget is wall clock spanning the push, the pull request, the
 Actions queue, and the suite — not execution alone the way a local
@@ -93,11 +116,12 @@ declaring the `merge_queue` capability, the gate runs steps 1-3 as:
    one already open) through the same `ensure_landing_pull_request` the
    landing itself uses, so the landing enqueues this pull request rather
    than opening a second;
-3. **wait for the pull-request entry run** and record its conclusion as
-   the verdict. Dispatch stays the fallback for a commit that produced no
-   entry run, a run whose head sha does not match, and a run that
-   concluded without a verdict — an entry run cancelled by the workflow's
-   concurrency group when the next push superseded it, for instance.
+3. **wait for the pull-request entry run to appear**, then adopt or
+   attach to it exactly as above and record its conclusion as the verdict.
+   Dispatch stays the fallback for a commit that produced no entry run, a
+   run whose head sha does not match, and a run that concluded without a
+   verdict — an entry run cancelled by the workflow's concurrency group
+   when the next push superseded it, for instance.
 
 The merge queue's `merge_group` train run then applies the same tree-oid
 reuse probe as a main push: a solo item rebased onto the base builds a
