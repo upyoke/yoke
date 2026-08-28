@@ -73,9 +73,13 @@ slice. A distinct `full` command is the aggregate. A known-red or materially
 flaky suite stays review-only: preserve roots and argv, then seed blocking
 human/agent review plus a non-blocking executable case per item.
 
-**Refuses (correct, if declared).** `command-ci` when no workflow is
-declared. `merge_queue` without GitHub + `ci_workflow_file`. HTTPS
-`yoke migration rehearse` (unrelated, but the same honesty pattern).
+**Refuses (correct, if declared).** `command-ci` against a workflow the gate
+cannot start — absent from `.github/workflows/`, not an Actions workflow, or
+carrying no `workflow_dispatch` / `yoke_dispatch_id` input; and, for a
+merge-queue project, one with no `pull_request` trigger. `merge_queue` without
+GitHub + `ci_workflow_file`, or whose declared workflow has no `merge_group`
+trigger. HTTPS `yoke migration rehearse` (unrelated, but the same honesty
+pattern).
 
 **Silent mis-binds today.**
 
@@ -86,11 +90,16 @@ declared. `merge_queue` without GitHub + `ci_workflow_file`. HTTPS
    `ci.yml` land), never declaring the capability or plan — closed by the
    step-2 box plus the step-5 binding; the box has no silent default, so
    the profile cannot be confirmed without an answer.
-3. Treating Jenkins / GitLab CI / Bitbucket Pipelines / `fastlane` as
-   `ci_workflow_file` — that capability is a **GitHub Actions filename**.
-4. Declaring `command-ci` against a workflow that deploys but does not run
-   the registered command (onboard step 5: existing CI is a **hint**, not a
-   contract).
+Two mis-binds that used to live in this list are now structurally refused
+rather than documented against: treating Jenkins / GitLab CI / Bitbucket
+Pipelines / `fastlane` as `ci_workflow_file`, and declaring `command-ci`
+against a workflow that deploys. Registration reads the named file and
+refuses one the gate cannot start, naming any other CI system the repository
+carries. What remains unrefusable is a deploy workflow into which someone
+deliberately wired Yoke's dispatch correlation input on a project with no
+merge queue; `HC-projects-ci-workflow-configured` surfaces every declaration
+it can read so that stays reviewable.
+
 ## No-tests: what the QA gate should mean
 
 For a repo with no runnable suite, the step-2 question offers these honest

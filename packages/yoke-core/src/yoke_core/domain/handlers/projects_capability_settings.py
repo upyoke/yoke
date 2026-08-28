@@ -96,6 +96,26 @@ def handle_capability_settings_get(
     return _success(parsed.project, parsed.cap_type, settings_json)
 
 
+def _require_capability_prerequisites(project_ref: str, cap_type: str) -> None:
+    """Refuse minting a capability whose prerequisites are unmet.
+
+    Creation is the boundary, so the check rides the create branch of this
+    handler rather than the settings write it wraps: an existing row is the
+    project's recorded state and is not re-litigated on every edit.
+    """
+    from yoke_core.domain.capability_prerequisites import require_prerequisites
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_identity import resolve_project_id
+
+    with connect() as conn:
+        require_prerequisites(
+            conn,
+            project_id=resolve_project_id(conn, project_ref),
+            project=project_ref,
+            cap_type=cap_type,
+        )
+
+
 def handle_capability_settings_set(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -111,6 +131,8 @@ def handle_capability_settings_set(
 
     try:
         project_ref = _authorized_project_ref(request, parsed.project)
+        if parsed.create:
+            _require_capability_prerequisites(project_ref, parsed.cap_type)
         message = cmd_capability_set_settings(
             project_ref,
             parsed.cap_type,

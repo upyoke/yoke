@@ -13,6 +13,10 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.capability_prerequisites import (
+    CapabilityPrerequisiteError,
+    require_prerequisites,
+)
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
@@ -64,6 +68,25 @@ def configure_capability(
         is_new = existing is None
 
         if is_new:
+            # Creation is the boundary the prerequisite gate defends, and this
+            # route is the second way to reach it: a gate on only the settings
+            # CLI would be bypassable from here.
+            slug_row = conn.execute(
+                f"SELECT slug FROM projects WHERE id = {p}", (project_id,)
+            ).fetchone()
+            try:
+                require_prerequisites(
+                    conn,
+                    project_id=project_id,
+                    project=(
+                        str(slug_row[0]) if slug_row else str(project_id)
+                    ),
+                    cap_type=req.type,
+                )
+            except CapabilityPrerequisiteError as exc:
+                return _main._error_response(
+                    422, "VALIDATION_ERROR", str(exc),
+                )
             cursor = conn.execute(
                 f"""INSERT INTO project_capabilities (project_id, type, settings, created_at)
                    VALUES ({p}, {p}, {p}, {p})

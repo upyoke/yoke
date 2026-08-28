@@ -26,7 +26,15 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
-from yoke_core.domain.projects_seed_ci_workflow import CI_WORKFLOW_CAPABILITY_TYPE
+from yoke_core.domain.github_actions_workflow_inspection import (
+    WorkflowInspection,
+    resolve_ci_workflow_binding,
+)
+from yoke_core.domain.project_checkout_locations import checkout_for_project_id
+from yoke_core.domain.projects_seed_ci_workflow import (
+    CI_WORKFLOW_CAPABILITY_TYPE,
+    MERGE_QUEUE_CAPABILITY_TYPE,
+)
 
 #: Key inside the ``ci_workflow_file`` capability's settings document mapping a
 #: verification scope to the workflow that runs it. The document is untyped
@@ -104,11 +112,60 @@ def workflow_for_scope(
     )
 
 
+def lands_through_merge_queue(conn: Any, project_id: int) -> bool:
+    """Whether this project's branches land through the GitHub merge queue.
+
+    A queued project's verification reads the landing pull request's own run,
+    so its declared workflow has to run on pull requests; every other project
+    falls back to dispatching the workflow directly. The routing decision
+    belongs beside the other "where does this project's verification run"
+    reads rather than beside the merge boundary that consumes the same row.
+    """
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    count = query_scalar(
+        conn,
+        "SELECT COUNT(*) FROM project_capabilities "
+        f"WHERE project_id={marker} AND type={marker}",
+        (int(project_id), MERGE_QUEUE_CAPABILITY_TYPE),
+    )
+    return int(count or 0) > 0
+
+
+def ci_binding_for_scope(
+    conn: Any,
+    *,
+    project_id: int,
+    project: str,
+    scope: str,
+    ci_workflow: str,
+    refuse_unreachable: bool,
+) -> tuple[str, WorkflowInspection]:
+    """Resolve the workflow a scope binds to, once, for both callers.
+
+    Registration and the boot-time convergence ask the identical question and
+    differ only in what they do with an unreachable answer, so the reads that
+    question needs — the project's merge-queue declaration and this machine's
+    checkout — live here rather than being spelled out at both call sites.
+    """
+    return resolve_ci_workflow_binding(
+        ci_workflow,
+        checkout=checkout_for_project_id(int(project_id)),
+        project=project,
+        scope=scope,
+        lands_through_merge_queue=lands_through_merge_queue(
+            conn, int(project_id)
+        ),
+        refuse_unreachable=refuse_unreachable,
+    )
+
+
 __all__ = [
     "DEFAULT_WORKFLOW_KEY",
     "SCOPE_WORKFLOWS_KEY",
     "capability_settings",
+    "ci_binding_for_scope",
     "default_workflow",
+    "lands_through_merge_queue",
     "scope_workflow",
     "workflow_for_scope",
 ]

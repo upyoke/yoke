@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 REPO = Path(__file__).resolve().parents[2]
-ONBOARD = REPO / ".agents/skills/yoke/onboard/hosting-and-environments.md"
+ONBOARD = REPO / ".agents/skills/yoke/onboard/verification-binding.md"
 PUBLIC_QA = REPO / "docs/public/qa.md"
 QA_MIRRORS = (
     REPO / ".yoke/docs/qa.md",
@@ -15,7 +15,7 @@ QA_MIRRORS = (
 ONBOARD_MIRROR = (
     REPO
     / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke/"
-    / "onboard/hosting-and-environments.md"
+    / "onboard/verification-binding.md"
 )
 
 

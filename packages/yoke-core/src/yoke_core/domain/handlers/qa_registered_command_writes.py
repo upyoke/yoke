@@ -30,6 +30,11 @@ class RegisteredCommandSetResponse(BaseModel):
     transitions: Dict[str, str]
     ci_workflow: str
     method_id: str
+    # What the declared workflow was checked against, and what could not be
+    # checked here. A caller that binds CI needs to see an unverifiable
+    # outcome named rather than read the binding as proof.
+    ci_workflow_verification: str = ""
+    ci_workflow_verification_detail: str = ""
     target_mode: str
     target_environment: Optional[str]
     requires_base_url: bool

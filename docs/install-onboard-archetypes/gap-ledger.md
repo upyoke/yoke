@@ -28,11 +28,11 @@ filled in the last column.
 | G-test-setup-unasked | blocker | merged / done | Wizard and profile never ask how tests run; gates still expect a registered command | all | YOK-2477 |
 | G-no-tests-posture | closed | merged / done | Closed: `verification_posture` singleton family, written by `yoke qa no-tests attest`, seeds a blocking `implementation_review` where the registered command would have run | A01 A05 A08 A10 A12 | YOK-2478 |
 | G-scaffold-tests-unregistered | friction | merged / done | `webapp-scaffold` lands tests + `ci.yml`; onboard does not declare `ci_workflow_file` or `registered-command-*` | A01 A12 | YOK-2477 |
-| G-ci-workflow-undeclared | friction | merged | Survey sees Actions; onboard never writes `ci_workflow_file` | A02 A03 A04 A07 A09 | YOK-2479 |
-| G-command-ci-misbind | blocker | merged / done | Deploy YAML / Jenkins / GitLab / fastlane store-upload treated as the verification workflow | A03 A04 A06 A09 A11 | YOK-2479 |
+| G-ci-workflow-undeclared | closed | merged / done | Closed: the step-1 survey classifies each workflow by purpose and the step-2 profile proposes `ci_workflow_file` for the test workflow only | A02 A03 A04 A07 A09 | YOK-2479 |
+| G-command-ci-misbind | closed | merged / done | Closed: registration reads the named file and refuses one the gate cannot start — absent, not an Actions workflow, or no `workflow_dispatch` / `yoke_dispatch_id` input — naming any other CI system the repo carries | A03 A04 A06 A09 A11 | YOK-2479 |
 | G-qa-plan-needs-env | closed | merged / done | Closed: registered `quick`/`full` plans carry a project target; deployed scopes select an environment or runtime base URL. Generic plan creation remains intentionally environment-bound | A01 A09 A12 | YOK-2480 |
 | G-legacy-suite-unmapped | missing-config-surface | merged / done | JUnit/Jenkins, PHPUnit, XCTest, monorepo many suites have no scope map | A06 A07 A09 A11 | YOK-2481 |
-| G-merge-queue-github-only | missing-config-surface | merged | `merge_queue` requires `ci_workflow_file` + `github`; App skip / other forge cannot declare it | A06 A07 A11 | YOK-2479 |
+| G-merge-queue-github-only | closed | merged / done | Closed: the `requires` list on the capability template is enforced at row creation, plus the `merge_group` trigger it cannot express; a project without GitHub is refused by name and keeps the standalone merge engine | A06 A07 A11 | YOK-2479 |
 
 ## Declare / refuse / instead (crux)
 
@@ -78,9 +78,12 @@ needs a validation DB.
 `ci_workflow_file` / `merge_queue`; or an operator-attested no-tests
 posture. Surfaces in [test-setup.md](test-setup.md).
 
-**Refuse:** `command-ci` without a declared GitHub Actions workflow that
-runs that command. `merge_queue` without GitHub + `ci_workflow_file`.
-Inventing `pytest` for a repo that has none.
+**Refuse:** `command-ci` against a workflow the gate cannot start — absent
+from `.github/workflows/`, not an Actions workflow, or carrying no
+`workflow_dispatch` / `yoke_dispatch_id` input; and, for a merge-queue
+project, one with no `pull_request` trigger. `merge_queue` without GitHub +
+`ci_workflow_file`, or whose workflow has no `merge_group` trigger. Inventing
+`pytest` for a repo that has none.
 
 **Instead:** offer scaffold (or Pack tests) first; if declined, attested
 no-tests → seed `implementation_review`. Local `command` when CI is not

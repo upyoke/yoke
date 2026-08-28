@@ -42,6 +42,16 @@ Present the whole profile in one block — a smart proposal, never a blank inter
 - **Domain posture** — start on the default subdomain; bring-your-own later.
 - **Test setup** — how this project's tests run, and therefore what the
   `reviewing-implementation` gate will execute. See the box below.
+- **CI routing** — whether a GitHub Actions workflow runs that command, and
+  therefore whether the gate runs in CI or on this machine. Propose a
+  `ci_workflow_file` declaration only for the **test** workflow the step-1
+  survey classified as running the suite; never a deploy, release, or
+  artifact-build workflow, and never a Jenkins, GitLab, Bitbucket, or
+  `fastlane` job. Those keep the local `command` runner, which is a correct
+  configuration. Propose the merge queue only when GitHub is bound, that test
+  workflow is declared, and it carries a `merge_group` trigger — without the
+  trigger the queue's integration gate has nothing to run and a queued pull
+  request never merges.
 
 ### The delivery box
 

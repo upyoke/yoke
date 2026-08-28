@@ -233,7 +233,7 @@ def test_onboard_profile_always_carries_a_test_setup_box():
 
 def test_onboard_binds_the_confirmed_test_setup_to_the_gate():
     """AC-bearing gate commands come from the binding, not from prose."""
-    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
+    text = _read(ONBOARD_DIR / "verification-binding.md")
     assert (
         "yoke qa registered-command set --project {project} --scope quick" in text
     )
