@@ -266,7 +266,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `claims.steering.acquire` | `None` (handler refuses a second live project seat) | `yoke_core.domain.handlers.claims_steering.handle_acquire` |
 | `claims.steering.release` | `"self_only"` | same handler; ordinary work-claim release by claim id |
 | `claims.steering.list` | `None` (project-scoped read) | same handler; project/holder/active filters |
-| `steering.report.get` | `None` (handler requires the caller's live steering claim) | `yoke_core.domain.handlers.steering_report.handle_get` — composes the scope's fleet report; see [qa-and-sessions.md § Steering fleet report](qa-and-sessions.md). |
+| `steering.report.get` | `None` (handler requires the caller's live steering claim) | `yoke_core.domain.handlers.steering_report.handle_get` — composes the scope's fleet report; see [steering-fleet-report.md](steering-fleet-report.md). |
 | `claims.path.register` | `"item"` | `yoke_core.domain.handlers.claims_path.register` (routes through `path_claims_resolve`) |
 | `claims.path.widen` | `"item"` | same handler → `claims_path.widen` |
 | `claims.path.release` | `"item"` | same handler → `claims_path.release` |

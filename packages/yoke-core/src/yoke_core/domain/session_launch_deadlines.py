@@ -22,6 +22,7 @@ from yoke_core.domain.session_launch_store import (
     value,
 )
 from yoke_core.domain.session_launch_types import LAUNCH_LEASE_SECONDS, LaunchRecord
+from .session_launch_delivery_state import IN_FLIGHT_LAUNCH_STATES
 
 
 def _deadline_candidates(
@@ -31,8 +32,9 @@ def _deadline_candidates(
     project_id: int | None,
 ) -> list[LaunchRecord]:
     p = marker(conn)
-    where = ["state IN ('queued','assigned','launching','awaiting_registration')"]
-    params: list[Any] = []
+    states = sorted(IN_FLIGHT_LAUNCH_STATES)
+    where = [f"state IN ({', '.join(p for _ in states)})"]
+    params: list[Any] = list(states)
     if launch_id is not None:
         where.append(f"launch_id = {p}")
         params.append(launch_id)

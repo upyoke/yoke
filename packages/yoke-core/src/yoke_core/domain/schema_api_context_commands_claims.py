@@ -65,10 +65,11 @@ CLAIMS_COMMANDS: list[dict] = [
             "releases before a Blitz can claim it, workers launch CLI-only "
             "and item-bound (never `/yoke do`), workers are addressed with "
             "`yoke say --item PREFIX-N --stdin` (`--session UUID` only for "
-            "claim-less recipients), and the fleet report naming unstaffed, "
-            "unowned, and idle work arrives appended to the messages this "
-            "session receives — pull it between wakes with "
-            "`yoke steering report get --project P`."
+            "claim-less recipients), and the fleet report arrives appended "
+            "to the messages this session receives — available work first, "
+            "then idle holders, starved delivery, unregistered launches, "
+            "items landed without close-out, and dead waits; pull it between "
+            "wakes with `yoke steering report get --project P`."
         ),
     },
     {

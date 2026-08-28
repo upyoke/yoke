@@ -1,9 +1,45 @@
 """What the steering seat cannot see from inside its own turn.
 
-Composes unstaffed work, idle holders, launchable surfaces, and live
-session counts into one report. It decides nothing and launches nothing.
-Every detector is a time threshold: a zero-owner snapshot is the normal
-shape of a claim handoff, and a parked session declared its wait.
+Composes available work, idle holders, four silent failure classes,
+launchable surfaces, and live session counts into one report. It decides
+nothing and launches nothing. The only detector used to be the steerer's own
+memory to go and look, which is a habit rather than a guarantee.
+
+Two thresholds, because two different questions
+-----------------------------------------------
+``staffing_after_seconds`` answers "how long may runnable work sit unclaimed
+before the report calls that a failure rather than an opportunity". For a
+seat whose standing instruction is to keep the frontier staffed the honest
+answer is nearly zero; it is not zero only because every lifecycle segment
+boundary releases a claim and reacquires moments later, and a report that
+fires on that window teaches the seat to ignore it.
+
+``idle_after_seconds`` answers "how long must a claim holder be quiet before
+it is presumed stuck". That is a judgment about a worker mid-task, not about
+a queue, and it is legitimately a longer number. The two shared one value
+once; they are unrelated concepts that happened to share a default.
+
+The stale-claim window is already covered
+-----------------------------------------
+A stale claim is deliberately not a candidate for available work: the item
+still has a holder until the stale-session sweep releases it, and reporting
+it as available invites a second worker onto an item it cannot claim. That
+leaves the window between a holder going stale and the sweep firing -- and
+that window is not silent. ``claim_holders`` excludes only ended and
+terminated sessions, and idleness is measured from ``last_tool_call_at``
+rather than from any liveness label, so a stale-but-unswept holder is in the
+idle list from ``idle_after_seconds`` onward and its item moves to available
+the moment the sweep releases it. There is no moment when the item is in no
+section, so the window gets no line of its own.
+
+A deliberately held item is the operator's flag to set
+------------------------------------------------------
+An item an operator is holding on purpose would otherwise read as available
+forever. The report does not guess at intent: the frontier composition it
+reads already drops frozen and operator-blocked items before they reach it,
+so ``yoke items freeze`` and ``yoke items block`` are the whole mechanism.
+An item that has read "waiting 30h12m" all day is one nobody flagged, and
+teaching the report to infer a hold from age would hide real unstaffed work.
 """
 
 from __future__ import annotations
@@ -11,16 +47,29 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Sequence
+from typing import Any
 
-from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
-from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_ref_render import render_item_refs
-from yoke_core.domain.scheduler import compute_schedule
-from yoke_core.domain.scheduler_types import ClaimState, NextStep
-from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.steering_fleet_report_available import (
+    FrontierEntry,
+    scope_candidates,
+)
+from yoke_core.domain.steering_fleet_report_capacity import (
+    SurfaceReadiness,
+    launchable_surfaces,
+    live_session_counts,
+)
+from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
+from yoke_core.domain.steering_fleet_report_detectors import (
+    LandedItem,
+    StarvedDelivery,
+    UnregisteredLaunch,
+    age_seconds,
+    landed_without_closeout,
+    starved_deliveries,
+    unregistered_launches,
+)
 
 
 def _p(conn: Any) -> str:
@@ -31,33 +80,6 @@ def _scope_item_id(conn: Any, column: str = "c.scope") -> str:
     from yoke_core.domain.work_claim_targets import scope_int_sql
 
     return scope_int_sql(conn, column, "item_id")
-
-
-def _parse(raw: str) -> datetime:
-    parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
-
-
-def _age_seconds(stamp: str | None, now: str) -> int | None:
-    if not stamp:
-        return None
-    return max(0, int((_parse(now) - _parse(stamp)).total_seconds()))
-
-
-@dataclass(frozen=True)
-class FrontierEntry:
-    """Runnable unclaimed step; ``was_owned`` means a claim release put it there."""
-
-    item_id: int
-    item_ref: str
-    title: str
-    next_step: str
-    rank: int
-    pickable_since: str
-    was_owned: bool
-
-    def waiting_seconds(self, now: str) -> int:
-        return _age_seconds(self.pickable_since, now) or 0
 
 
 @dataclass(frozen=True)
@@ -74,44 +96,61 @@ class ClaimHolder:
 
 
 @dataclass(frozen=True)
-class SurfaceReadiness:
-    """One ``(machine, surface)`` pair a launch could reach right now."""
-
-    machine_id: str
-    surface: str
-
-
-@dataclass(frozen=True)
 class FleetReport:
-    """One steering scope's unowned, idle, and available work."""
+    """One steering scope's available work, quiet workers, and silent failures."""
 
     project_id: int
     composed_at: str
-    stale_after_seconds: int
-    frontier: tuple[FrontierEntry, ...]
-    unstaffed: tuple[FrontierEntry, ...]
-    unowned: tuple[FrontierEntry, ...]
+    staffing_after_seconds: int
+    idle_after_seconds: int
+    available: tuple[FrontierEntry, ...]
     holders: tuple[ClaimHolder, ...]
     idle: tuple[ClaimHolder, ...]
+    starved: tuple[StarvedDelivery, ...]
+    unregistered_launches: tuple[UnregisteredLaunch, ...]
+    landed_open: tuple[LandedItem, ...]
+    dead_waits: tuple[DeadWait, ...]
     launchable: tuple[SurfaceReadiness, ...]
     session_counts: tuple[tuple[str, str, int], ...]
+
+    def waited_too_long(self) -> tuple[FrontierEntry, ...]:
+        """Available work past the staffing threshold: the alarm, not the list."""
+        return tuple(
+            entry
+            for entry in self.available
+            if entry.waiting_seconds(self.composed_at) >= self.staffing_after_seconds
+        )
 
     @property
     def actionable(self) -> bool:
         """True when something in this report needs the steerer to act."""
-        return bool(self.unstaffed or self.unowned or self.idle)
+        return bool(
+            self.waited_too_long()
+            or self.idle
+            or self.starved
+            or self.unregistered_launches
+            or self.landed_open
+            or self.dead_waits
+        )
 
     def fingerprint(self) -> str:
         """Content identity, blind to ages so the report is not noise."""
         counts = {(machine, surface): n for machine, surface, n in self.session_counts}
         material = {
-            "frontier": sorted(entry.item_id for entry in self.frontier),
-            "unstaffed": sorted(entry.item_id for entry in self.unstaffed),
-            "unowned": sorted(entry.item_id for entry in self.unowned),
+            "available": sorted(entry.item_id for entry in self.available),
             "holders": sorted(
                 (holder.session_id, holder.item_id) for holder in self.holders
             ),
             "idle": sorted((holder.session_id, holder.item_id) for holder in self.idle),
+            "starved": sorted(entry.session_id for entry in self.starved),
+            "unregistered_launches": sorted(
+                entry.launch_id for entry in self.unregistered_launches
+            ),
+            "landed_open": sorted(entry.item_id for entry in self.landed_open),
+            "dead_waits": sorted(
+                (entry.session_id, entry.answerer_session_id, entry.reason)
+                for entry in self.dead_waits
+            ),
             "launch_balance": sorted(
                 (r.machine_id, r.surface, counts.get((r.machine_id, r.surface), 0))
                 for r in self.launchable
@@ -119,82 +158,6 @@ class FleetReport:
         }
         encoded = json.dumps(material, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-
-def _pickable_since(conn: Any, item_ids: Sequence[int]) -> dict[int, tuple[str, bool]]:
-    """When each item became pickable, and whether a claim release put it there."""
-    if not item_ids:
-        return {}
-    marker = _p(conn)
-    holes = ", ".join(marker for _ in item_ids)
-    rows = conn.execute(
-        f"""SELECT i.id AS id,
-                   i.updated_at AS updated_at,
-                   i.created_at AS created_at,
-                   MAX(c.released_at) AS released_at
-              FROM items i
-              LEFT JOIN work_claims c
-                ON c.target_kind = 'item'
-               AND c.released_at IS NOT NULL
-               AND {_scope_item_id(conn)} = i.id
-             WHERE i.id IN ({holes})
-             GROUP BY i.id, i.updated_at, i.created_at""",
-        tuple(int(item_id) for item_id in item_ids),
-    ).fetchall()
-    resolved: dict[int, tuple[str, bool]] = {}
-    for row in rows:
-        record = dict(row)
-        released = str(record.get("released_at") or "")
-        stamps = [
-            str(record.get(name) or "")
-            for name in ("updated_at", "created_at", "released_at")
-        ]
-        latest = max(stamp for stamp in stamps if stamp)
-        resolved[int(record["id"])] = (latest, bool(released) and released == latest)
-    return resolved
-
-
-def scope_candidates(
-    conn: Any,
-    *,
-    project_id: int,
-    session_id: str,
-) -> tuple[FrontierEntry, ...]:
-    """Runnable, unclaimed, dispatchable steps in one steering scope.
-
-    A stale claim is deliberately not a candidate: the work still has a
-    holder until the stale-session sweep releases it, and reporting it as
-    available invites a second worker onto an item it cannot claim.
-    """
-    schedule = compute_schedule(
-        conn,
-        [int(project_id)],
-        session_id=session_id,
-        emit_events=False,
-    )
-    steps = [
-        step
-        for step in schedule.ranked_steps
-        if step.claim_state is ClaimState.UNCLAIMED
-        and step.next_step is not NextStep.WAIT
-    ]
-    refs = render_item_refs(conn, [step.item_id for step in steps])
-    pickable = _pickable_since(conn, [step.item_id for step in steps])
-    entries = []
-    for step in steps:
-        since, was_owned = pickable.get(step.item_id, (step.created_at, False))
-        entries.append(
-            FrontierEntry(
-                item_id=step.item_id,
-                item_ref=refs.get(step.item_id, str(step.item_id)),
-                title=step.title,
-                next_step=step.next_step.value,
-                rank=step.rank,
-                pickable_since=since or step.created_at,
-                was_owned=was_owned,
-            )
-        )
-    return tuple(entries)
 
 
 def claim_holders(
@@ -245,62 +208,10 @@ def claim_holders(
                 mode=mode,
                 parked=mode == "parked",
                 last_activity_at=last_activity,
-                idle_seconds=_age_seconds(last_activity, now) or 0,
+                idle_seconds=age_seconds(last_activity, now) or 0,
             )
         )
     return tuple(holders)
-
-
-def launchable_surfaces(
-    conn: Any,
-    *,
-    project_id: int,
-    now: str,
-) -> tuple[SurfaceReadiness, ...]:
-    """Every ``(machine, surface)`` a launch could reach for this project.
-
-    Read through the same eligibility composition the launch preview uses, so
-    the report can never claim a surface the launch plane would refuse.
-    """
-    ready: set[tuple[str, str]] = set()
-    for surface in KNOWN_SURFACE_LABELS:
-        capability = capability_for_surface(surface)
-        if capability is None or capability.create == "none":
-            continue
-        snapshot = derive_launch_eligibility(
-            conn,
-            project_id=int(project_id),
-            surface=surface,
-            machine_id=None,
-            now=now,
-        )
-        for relay in snapshot.relays:
-            ready.add((relay.machine_id, surface))
-    return tuple(
-        SurfaceReadiness(machine_id=machine, surface=surface)
-        for machine, surface in sorted(ready)
-    )
-
-
-def live_session_counts(
-    conn: Any, *, project_id: int
-) -> tuple[tuple[str, str, int], ...]:
-    """Live sessions in this project, grouped by machine and surface."""
-    marker = _p(conn)
-    rows = conn.execute(
-        f"""SELECT machine_id, executor_surface, COUNT(*) AS n
-              FROM harness_sessions
-             WHERE ended_at IS NULL AND terminated_at IS NULL
-               AND project_id = {marker}
-               AND COALESCE(machine_id, '') <> ''
-               AND COALESCE(executor_surface, '') <> ''
-             GROUP BY machine_id, executor_surface""",
-        (int(project_id),),
-    ).fetchall()
-    return tuple(
-        (str(row["machine_id"]), str(row["executor_surface"]), int(row["n"]))
-        for row in rows
-    )
 
 
 def compose_report(
@@ -308,27 +219,33 @@ def compose_report(
     *,
     project_id: int,
     session_id: str,
-    stale_after_seconds: int,
+    staffing_after_seconds: int,
+    idle_after_seconds: int,
     now: str,
 ) -> FleetReport:
     """Assemble one steering scope's report from live control-plane state."""
-    frontier = scope_candidates(conn, project_id=project_id, session_id=session_id)
-    stale = int(stale_after_seconds)
-    aged = [entry for entry in frontier if entry.waiting_seconds(now) >= stale]
     holders = claim_holders(conn, project_id=project_id, now=now)
+    idle = tuple(
+        holder
+        for holder in holders
+        if not holder.parked and holder.idle_seconds >= int(idle_after_seconds)
+    )
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
-        stale_after_seconds=stale,
-        frontier=frontier,
-        unstaffed=tuple(entry for entry in aged if not entry.was_owned),
-        unowned=tuple(entry for entry in aged if entry.was_owned),
-        holders=holders,
-        idle=tuple(
-            holder
-            for holder in holders
-            if not holder.parked and holder.idle_seconds >= stale
+        staffing_after_seconds=int(staffing_after_seconds),
+        idle_after_seconds=int(idle_after_seconds),
+        available=scope_candidates(
+            conn, project_id=project_id, session_id=session_id
         ),
+        holders=holders,
+        idle=idle,
+        starved=starved_deliveries(conn, project_id=project_id, now=now),
+        unregistered_launches=unregistered_launches(
+            conn, project_id=project_id, now=now
+        ),
+        landed_open=landed_without_closeout(conn, project_id=project_id, now=now),
+        dead_waits=dead_waits(conn, idle=idle, now=now),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
         session_counts=live_session_counts(conn, project_id=project_id),
     )

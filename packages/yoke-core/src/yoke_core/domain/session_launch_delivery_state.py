@@ -10,6 +10,12 @@ from yoke_core.domain import db_backend
 TERMINAL_DELIVERY_STATES = frozenset(
     {"cancelled", "expired", "failed", "outcome_unknown"}
 )
+#: The complement: a launch in one of these states is still on its way to a
+#: session. Named once so the deadline sweep and every reader that asks "which
+#: launches are still in flight" cannot drift apart.
+IN_FLIGHT_LAUNCH_STATES = frozenset(
+    {"queued", "assigned", "launching", "awaiting_registration"}
+)
 _LAUNCH_CANCELLATION_REASONS = tuple(
     f"launch_{state}" for state in sorted(TERMINAL_DELIVERY_STATES)
 )
@@ -116,6 +122,7 @@ def reopen_launch_delivery(conn: Any, *, launch_id: str) -> None:
 
 
 __all__ = [
+    "IN_FLIGHT_LAUNCH_STATES",
     "TERMINAL_DELIVERY_STATES",
     "close_launch_delivery",
     "reopen_launch_delivery",

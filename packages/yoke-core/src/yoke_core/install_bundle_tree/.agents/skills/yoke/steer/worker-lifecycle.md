@@ -184,7 +184,7 @@ yoke sessions touch --mode parked --reason "waiting on PREFIX-N"
 Any later tool call clears parked automatically. Do not unstamp by hand.
 
 Use this recipe for every launch, whether the item just became runnable
-or the fleet report named it as unstaffed. There is no second staffing
+or the fleet report named it as available. There is no second staffing
 path: every launch is item-bound and CLI-only, and this seat composes it.
 
 When same-surface worker failures carry a vendor-side signature, disable

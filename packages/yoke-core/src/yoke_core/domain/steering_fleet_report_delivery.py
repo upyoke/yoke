@@ -22,8 +22,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from yoke_contracts.project_contract.project_keys import (
+    DEFAULT_STEERING_REPORT_IDLE_MINUTES,
     DEFAULT_STEERING_REPORT_INTERVAL_MINUTES,
-    DEFAULT_STEERING_REPORT_STALE_MINUTES,
+    DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_policy_capabilities import project_policy_value
@@ -143,12 +144,19 @@ def steering_report_for_delivery(
         conn,
         project_id=project_id,
         session_id=session_id,
-        stale_after_seconds=60
+        staffing_after_seconds=60
         * _policy_minutes(
             conn,
             project_id,
-            "steering_report_stale_minutes",
-            DEFAULT_STEERING_REPORT_STALE_MINUTES,
+            "steering_report_staffing_minutes",
+            DEFAULT_STEERING_REPORT_STAFFING_MINUTES,
+        ),
+        idle_after_seconds=60
+        * _policy_minutes(
+            conn,
+            project_id,
+            "steering_report_idle_minutes",
+            DEFAULT_STEERING_REPORT_IDLE_MINUTES,
         ),
         now=_stamp(current),
     )
