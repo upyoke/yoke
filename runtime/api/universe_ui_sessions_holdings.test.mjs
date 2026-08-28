@@ -67,13 +67,19 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
           {
             target_kind: "steering", target: "steering for project 1",
             project_id: 1, scope: { project_id: 1 },
+            strategy_docs: ["CURRENT-PLAN"],
           },
           {
             target_kind: "steering", target: "steering for project 3",
             project_id: 3, scope: { project_id: 3 },
+            strategy_docs: ["CURRENT-PLAN"],
           },
-          { target_kind: "item", target: "YOK-2552" },
+          {
+            target_kind: "item", target: "YOK-2552",
+            item_status: "implementing", item_workflow_id: "dash",
+          },
         ],
+        steering_scope: { project: "yoke", strategy_docs: ["CURRENT-PLAN"] },
         coordination_claims: [], machine_id: "machine-1",
         machine_name: longMachineName, relay: "connected",
         messageability: {
@@ -100,19 +106,19 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
 
   const cards = byClass(root, "session-card");
   assert.equal(cards.length, 2);
-  assert.equal(byClass(cards[0], "session-work").length, 3);
+  // Two steering claims and one item claim leave ONE holdings row: steering
+  // states itself once, on its own line, however many projects it covers.
+  assert.equal(byClass(cards[0], "session-work").length, 1);
   assert.equal(byClass(cards[1], "session-work").length, 1);
-  assert.deepEqual(
-    byClass(cards[0], "session-hold-target").map((node) => node.textContent),
-    ["steering for yoke", "steering for platform"],
+  assert.equal(byClass(cards[0], "session-hold-target").length, 0);
+  assert.equal(
+    byClass(cards[0], "session-steering-detail")[0].textContent,
+    "yoke · CURRENT-PLAN; platform · CURRENT-PLAN",
   );
-  assert.equal(byClass(cards[0], "session-work-role").length, 0);
-  assert.deepEqual(
-    byClass(cards[1], "session-work-role").map((node) => node.textContent),
-    ["process"],
-  );
-  assert.ok(!visibleText(cards[0]).includes("project 1"));
-  assert.ok(!visibleText(cards[0]).includes("project 3"));
+  assert.equal(byClass(cards[0], "session-steering-badge")[0].textContent, "Steering");
+  for (const gone of ["steering for", "project 1", "project 3"]) {
+    assert.ok(!visibleText(cards[0]).includes(gone), gone);
+  }
   const relay = byClass(cards[0], "session-relay-pill")[0];
   assert.equal(relay.textContent, longMachineName);
   assert.equal(relay.title, longMachineName);
@@ -152,12 +158,23 @@ test("Sessions lists every work claim and coordination lease a session holds", a
             item_ref: "YOK-2100",
             item_project_id: 1,
             item_project_sequence: 2100,
+            item_status: "reviewing-implementation",
+            item_workflow_id: "issue",
           },
-          { target_kind: "item", target: "YOK-2228" },
-          { target_kind: "process", target: "feed" },
+          {
+            target_kind: "item", target: "YOK-2228",
+            item_status: "implementing", item_workflow_id: "blitz",
+          },
+          { target_kind: "process", target: "process feed" },
+          {
+            target_kind: "qa_admission", target: "QA_HOST:test-mac",
+            lease_key: "QA_HOST:test-mac",
+          },
         ],
         coordination_claims: [
-          { lease_key: "QA_HOST:yoke", owner_kind: "session", project_id: 1 },
+          {
+            lease_key: "QA_HOST:test-mac", owner_kind: "session", project_id: 1,
+          },
           {
             lease_key: "LIVE_DB_MIGRATION:primary",
             owner_kind: "item",
@@ -173,21 +190,35 @@ test("Sessions lists every work claim and coordination lease a session holds", a
 
   const text = visibleText(root);
   for (const expected of [
-    "cursor-desktop", "YOK-2228", "YOK-2100", "feed", "QA_HOST:yoke",
-    "LIVE_DB_MIGRATION:primary (YOK-2100)",
+    "cursor-desktop", "YOK-2228", "YOK-2100", "process feed",
+    "QA_HOST:test-mac", "LIVE_DB_MIGRATION:primary (YOK-2100)",
     "Execute WORKFLOW-TYPES",
   ]) {
     assert.ok(text.includes(expected), expected);
   }
+  // The test-machine hold is one row of `work_claims` that both the claim
+  // and the lease projection carry; the card shows it once, in the operator
+  // key rather than the `qa_admission` enum.
   assert.deepEqual(
     byClass(root, "session-lease-key").map((node) => node.textContent),
-    ["QA_HOST:yoke", "LIVE_DB_MIGRATION:primary (YOK-2100)"],
+    ["QA_HOST:test-mac", "LIVE_DB_MIGRATION:primary (YOK-2100)"],
   );
+  assert.equal(byClass(root, "session-work").length, 5);
+  assert.ok(!text.includes("qa_admission"), "no raw target_kind label");
   assert.deepEqual(
     byClass(root, "session-item-link").map((node) => node.textContent),
     ["YOK-2100", "YOK-2228"],
   );
-  assert.equal(byClass(root, "session-hold-target")[0].textContent, "feed");
+  assert.equal(
+    byClass(root, "session-hold-target")[0].textContent, "process feed",
+  );
+  // Every item claim states its own stage and workflow — the unfocused one
+  // used to render the bare label `item` in exactly this slot.
+  assert.deepEqual(
+    byClass(root, "session-item-stage").map((node) => node.textContent),
+    ["issue · reviewing-implementation", "blitz · implementing"],
+  );
+  assert.equal(byClass(root, "session-work-role").length, 0);
   assert.equal(
     byClass(root, "session-item-link")[0].href,
     "#/items/2100?project=1",
@@ -235,7 +266,10 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
         owns_current_item: false, work_role: null,
         claim_started_at: null,
         activity_at: "2026-07-26T12:04:00Z",
-        claims: [{ target_kind: "item", target: "YOK-4090" }],
+        claims: [{
+          target_kind: "item", target: "YOK-4090",
+          item_status: "implementing", item_workflow_id: "dash",
+        }],
         coordination_claims: [],
       },
     ]),
@@ -250,15 +284,12 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   const attributed = byClass(root, "session-attached");
   assert.deepEqual(attributed.map((node) => node.textContent), ["↳"]);
   assert.match(attributed[0].title, /^attributed to this session/);
-  // The attributed row names the item's own stage; only the claim on the
-  // other item still needs a target-kind label to say what it holds.
-  assert.deepEqual(
-    byClass(root, "session-work-role").map((node) => node.textContent),
-    ["item"],
-  );
+  // Both rows name their own item's stage; neither carries a kind label,
+  // because the ref already says the hold is on an item.
+  assert.equal(byClass(root, "session-work-role").length, 0);
   assert.deepEqual(
     byClass(root, "session-item-stage").map((node) => node.textContent),
-    ["refining-idea"],
+    ["dash · implementing", "refining-idea"],
   );
   const text = visibleText(root);
   assert.ok(!text.includes("worktree attached"), "no worktree line");

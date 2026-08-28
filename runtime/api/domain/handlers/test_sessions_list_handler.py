@@ -7,12 +7,20 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain.handlers.sessions_list import handle_sessions_list
 from yoke_core.domain.session_control_roster import SESSION_CONTROL_ROSTER_FIELDS
 from yoke_core.domain.session_control_schema import create_session_control_tables
 from yoke_core.domain.sessions_list_read import LIVENESS_STATES, list_sessions
-from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target, make_process_target
+from yoke_core.domain.work_claim_targets import (
+    make_epic_task_target,
+    make_item_target,
+    make_process_target,
+)
 from yoke_core.domain.work_processes import PROCESS_FEED
 
 
@@ -149,7 +157,9 @@ class TestClaimsAndAttribution:
             claim["target_kind"]: claim["target"]
             for claim in list_sessions()[0]["claims"]
         }
-        assert targets["process"] == PROCESS_FEED
+        # Every hold names itself in its target, because the card that
+        # reads this adds no kind label of its own.
+        assert targets["process"] == f"process {PROCESS_FEED}"
         assert targets["epic_task"] == "epic 9 task 3"
 
     def test_system_actor_attribution_is_honest(self, test_db):

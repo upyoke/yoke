@@ -5,10 +5,40 @@ const REPORT_STATES = new Set([
   "sent", "acknowledged", "cancelled", "expired", "unknown",
 ]);
 
-function scopeText(scope) {
-  const project = String(scope?.project || "project not reported");
+function projectSlug(projects, projectId) {
+  const found = (Array.isArray(projects) ? projects : []).find(
+    (candidate) => String(candidate.id) === String(projectId),
+  );
+  return String(found?.slug || found?.name || "").trim();
+}
+
+function steeringClaims(row) {
+  return (Array.isArray(row.claims) ? row.claims : []).filter(
+    (claim) => claim.target_kind === "steering",
+  );
+}
+
+// One line for the whole of steering: every project this session steers,
+// each beside the documents it steers THAT project from. The claims are the
+// authority — a session steering three projects holds three of them, while
+// `steering_scope` describes only the one its own project binding names.
+// Pairing each project with its own documents is also what keeps two
+// projects steering from same-named documents readable as two holds: the
+// projects differ even where the slugs do not. Semicolons separate
+// projects, commas separate one project's documents.
+function steeringText(row, projects, scope) {
+  const entries = steeringClaims(row).map((claim) => {
+    const slug = projectSlug(
+      projects, claim.project_id ?? claim.scope?.project_id,
+    );
+    const docs = Array.isArray(claim.strategy_docs) ? claim.strategy_docs : [];
+    return `${slug || "unknown project"} · ${
+      docs.length ? docs.join(", ") : "all docs"}`;
+  });
+  if (entries.length) return entries.join("; ");
   const docs = Array.isArray(scope?.strategy_docs) ? scope.strategy_docs : [];
-  return `${project} · ${docs.length ? docs.join(", ") : "all docs"}`;
+  return `${String(scope?.project || "project not reported")} · ${
+    docs.length ? docs.join(", ") : "all docs"}`;
 }
 
 function appendContext(documentNode, body, tone, label, detail) {
@@ -53,10 +83,16 @@ function appendReport(documentNode, body, report) {
   body.appendChild(line);
 }
 
-export function appendSteeringContext(documentNode, body, row) {
-  if (row.steering_scope) {
+export function appendSteeringContext(documentNode, body, row, projects = []) {
+  // A held steering claim is the fact; the badge is how a steering session
+  // stays recognizable at a glance now that its lock rows are gone.
+  if (row.steering_scope || steeringClaims(row).length) {
     appendContext(
-      documentNode, body, "holder", "Steering", scopeText(row.steering_scope),
+      documentNode,
+      body,
+      "holder",
+      "Steering",
+      steeringText(row, projects, row.steering_scope),
     );
   } else if (row.steering_parent) {
     appendContext(

@@ -8,13 +8,15 @@ and coordination-claim decoration logic for the existing Claims column:
 * ``📁<total> (🔩 <process_key>)`` — process-anchored orphan via the owning
   work claim.
 * ``🔒 <key>`` — shared-operation coordination claim.
-* ``doc:<SLUG>`` — session-owned strategy-document lock.
+* ``🛞 steering <slug>·<DOC>; <slug>·<DOC>`` — everything this session
+  steers, on one entry.
 
 Keeps :mod:`sections_sessions` lean: the wire-in layer fetches claims and
 calls :func:`build_session_keycaps` for the final ordered, decorated target
-list. Session-owned strategy-document locks append as ``doc:<SLUG>`` after
-work-claim keycaps. ``_chunk_claims`` (in the parent module) wraps the
-layout to a display-width budget.
+list. An item keycap carries its own ``workflow·stage``, because the
+session-level status beside it describes only one of the items a session
+holds. ``_chunk_claims`` (in the parent module) wraps the layout to a
+display-width budget.
 """
 
 from __future__ import annotations
@@ -29,8 +31,9 @@ from yoke_contracts.board.sections_sessions_claim_reads import (
     _path_claims_for_items,
     coordination_claims_for_session,
     path_claims_for_session,
-    strategy_doc_claims_for_session,
+    strategy_docs_by_project_for_session,
 )
+from yoke_contracts.board.sections_sessions_occupancy import occupancy_project_slug
 from yoke_contracts.coordination_claim_keys import (
     TARGET_KIND_MIGRATION_SERIALIZATION,
 )
@@ -41,6 +44,52 @@ from yoke_contracts.merge_queue_status import render_merge_queue_status
 PATH_GLYPH = "\U0001f4c1"  # 📁
 LEASE_GLYPH = "\U0001f512"  # 🔒
 PROCESS_GLYPH = "🔩"
+STEERING_GLYPH = "🛞"
+
+
+def _item_lifecycle(db: BoardDBLike, item_ids: List[int]) -> Dict[int, str]:
+    """Return ``workflow·stage`` per claimed item, read in one query.
+
+    An item claim that shows only its ref leaves an operator unable to say
+    how far along the work is or which lifecycle its stage names belong to,
+    and the session-level status field beside it describes only one claim.
+    """
+    if not item_ids:
+        return {}
+    sql = (
+        "SELECT id, workflow_id, status FROM items WHERE id IN ("
+        + ",".join("%s" for _ in item_ids)
+        + ")"
+    )
+    params = tuple(item_ids)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return {}
+    labels: Dict[int, str] = {}
+    for row in db.query_quiet(sql, params):
+        if not row or row[0] is None or not row[2]:
+            continue
+        labels[int(row[0])] = f"{row[1]}·{row[2]}" if row[1] else str(row[2])
+    return labels
+
+
+def _steering_keycap(
+    db: BoardDBLike,
+    project_ids: List[int],
+    docs_by_project: Dict[int, List[str]],
+) -> str:
+    """One entry naming every project steered and the documents behind each.
+
+    Semicolons separate projects and commas separate one project's
+    documents, so two projects steering from same-named documents still
+    read as two holds.
+    """
+    entries: List[str] = []
+    for project_id in project_ids:
+        slug = occupancy_project_slug(db, project_id) or str(project_id)
+        docs = docs_by_project.get(project_id) or []
+        entries.append(f"{slug}·{', '.join(docs)}" if docs else slug)
+    return f"{STEERING_GLYPH} steering {'; '.join(entries)}"
 
 
 def _merge_queue_status(db: BoardDBLike, item_id: int) -> str:
@@ -122,6 +171,7 @@ def build_session_keycaps(
     work_claim_targets: List[Tuple[str, Optional[int], Optional[str]]],
     *,
     active_only: bool,
+    steering_project_ids: Optional[List[int]] = None,
 ) -> List[str]:
     """Return ordered keycap strings for a session row.
 
@@ -171,10 +221,13 @@ def build_session_keycaps(
     rolled = _roll_up_path_claims(merged_rows)
 
     work_item_ids = {item_id for _, item_id, _ in work_claim_targets}
+    lifecycle = _item_lifecycle(db, work_item_ids_int)
     decorated_targets: List[str] = []
     for target_str, item_id, _release_reason in work_claim_targets:
         bucket = rolled.get(item_id)
         cell = target_str
+        if item_id is not None and lifecycle.get(int(item_id)):
+            cell = f"{cell} {lifecycle[int(item_id)]}"
         if bucket and int(bucket["count"]) > 0:
             cell = f"{cell} {PATH_GLYPH}{int(bucket['count'])}"
         if item_id is not None:
@@ -183,12 +236,19 @@ def build_session_keycaps(
                 cell = f"{cell} · {queue_status}"
         decorated_targets.append(cell)
 
-    for slug in strategy_doc_claims_for_session(
+    # Steering is one fact however many projects it covers: one entry, not a
+    # lock row per project plus a separate document row.
+    docs_by_project = strategy_docs_by_project_for_session(
         db,
         session_id,
         active_only=active_only,
-    ):
-        decorated_targets.append(f"doc:{slug}")
+    )
+    steered = list(steering_project_ids or [])
+    if steered or docs_by_project:
+        for project_id in sorted(docs_by_project):
+            if project_id not in steered:
+                steered.append(project_id)
+        decorated_targets.append(_steering_keycap(db, steered, docs_by_project))
 
     # Orphan path_claims (no matching work_claim on the same item).
     orphan_items = sorted(
@@ -237,6 +297,7 @@ __all__ = [
     "LEASE_GLYPH",
     "PATH_GLYPH",
     "PROCESS_GLYPH",
+    "STEERING_GLYPH",
     "build_session_keycaps",
     "path_claims_for_session",
 ]

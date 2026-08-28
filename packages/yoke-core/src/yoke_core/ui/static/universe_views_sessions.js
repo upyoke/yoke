@@ -137,10 +137,10 @@ export function sessionCard(
 
   const body = el(documentNode, "div", "session-card-body");
   appendModel(documentNode, body, row);
-  appendHoldings(documentNode, body, row, projects);
+  appendHoldings(documentNode, body, row);
   appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
-  appendSteeringContext(documentNode, body, row);
+  appendSteeringContext(documentNode, body, row, projects);
   appendSessionMessaging(documentNode, body, row, onMessage);
   card.appendChild(body);
   return card;

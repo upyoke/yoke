@@ -44,7 +44,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         owns_current_item: true, work_role: "integration",
         claim_started_at: "2026-07-26T12:00:00Z",
         activity_at: "2026-07-26T12:04:00Z",
-        claims: [{ target_kind: "item", target: "YOK-2228" }],
+        claims: [{
+          target_kind: "item", target: "YOK-2228",
+          item_status: "implementing", item_workflow_id: "blitz",
+        }],
         claimed_blitz_worktree_ids: [101, 102],
         machine_id: "machine-1", machine_name: "test-mac", relay: "connected",
         messageability: {
@@ -161,8 +164,8 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     [],
   );
   // The mode pill is gone; the lane names the session beside its harness, the
-  // item's own stage sits beside the item link, and the relay pill is the one
-  // reachability fact the card keeps.
+  // item's own workflow and stage sit beside the item link, and the relay pill
+  // is the one reachability fact the card keeps.
   assert.deepEqual(
     byClass(root, "session-lane").map((lane) => lane.textContent),
     ["🧭 Integration", "DARIUS"],
@@ -170,9 +173,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.deepEqual(
     byClass(root, "pill").map((pill) => [pill.textContent, pill.className]),
     [
-      ["implementing", "pill run session-item-stage"],
+      ["blitz · implementing", "pill run session-item-stage"],
       ["test-mac", "pill good session-relay-pill"],
-      ["implementing", "pill run session-item-stage"],
+      ["blitz · implementing", "pill run session-item-stage"],
       ["machine-2", "pill crit session-relay-pill"],
     ],
   );
@@ -182,9 +185,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   );
   assert.deepEqual(
     byClass(root, "session-lock").map(
-      (marker) => [marker.textContent, marker.className],
+      (marker) => [marker.textContent, marker.className, marker.title],
     ),
-    [["🔒", "session-lock"]],
+    [["🔒", "session-lock", "work claim — this session holds it"]],
   );
   assert.deepEqual(
     byClass(root, "session-attached").map(
@@ -192,8 +195,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     ),
     [["↳", "session-attached"]],
   );
-  // Item rows say what the item is doing; only a non-item hold still needs a
-  // target-kind label.
+  // Item rows say which workflow the item runs and what it is doing. No row
+  // carries a kind label at all, and nothing the card renders — the lock's
+  // tooltip included — puts a raw `target_kind` in front of an operator.
   assert.equal(byClass(root, "session-work-role").length, 0);
   // The removed anatomy. `session-id` and `session-actor-avatar` still exist
   // for the overview table, so their absence here is the card's own change.
