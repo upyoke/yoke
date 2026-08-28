@@ -58,8 +58,7 @@ def _yoke_fleet_rehearse_command(environment: str, receipt_connection: str = "")
     )
     return (
         "yoke watch preflight -- "
-        f"{admin_env} --engine-wheel <yoke_core-wheel-from-yoke-build-artifacts> "
-        "--record-receipt --product-sha <sha> "
+        f"{admin_env} --record-receipt --product-sha <sha> "
         f"--receipt-env {receipt_env_arg}"
     )
 
@@ -67,10 +66,13 @@ def _yoke_fleet_rehearse_command(environment: str, receipt_connection: str = "")
 def _engine_wheel_source(product_sha: str) -> str:
     sha = product_sha.strip() or "<product-sha>"
     return (
-        "The engine wheel is the yoke_core wheel produced by "
-        f"{_BUILD_ARTIFACTS_WORKFLOW} for commit {sha} "
-        "(yoke-release.yml calls that factory). Take that wheel artifact "
-        "from the factory run for this SHA and pass it to --engine-wheel."
+        "Ordinary pre-release rehearsal is the source tree at that commit "
+        f"(no --engine-wheel); the release wheel for commit {sha} does not "
+        "exist until after tag allocation. --engine-wheel pins an "
+        f"already-built artifact from {_BUILD_ARTIFACTS_WORKFLOW} when you "
+        "have one. The gate treats both receipts the same: coverage is "
+        "history entries plus schema-shape digest of the selected engine, "
+        "not packaging form."
     )
 
 

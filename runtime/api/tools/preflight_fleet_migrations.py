@@ -6,17 +6,27 @@ apply to the databases that are behind? — by running it against a copy of
 each of them, on the local embedded cluster, exactly as a booting container
 would. The live databases are only read.
 
+Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
+The release wheel is produced after tag allocation, so it cannot exist at
+the only moment a receipt can be written. The wheel is built from the same
+commit; rehearsing that commit's sources proves the history and schema-shape
+the wheel will package. ``--engine-wheel`` pins an already-built artifact.
+
 Usage::
 
-    yoke watch preflight -- <env-name> [db ...]
-        [--engine-wheel PATH]
+    yoke watch preflight -- stage --record-receipt --receipt-env prod
+    yoke watch preflight -- prod --record-receipt --receipt-env prod
+
+    yoke watch preflight -- <environment-or-admin> [db ...]
         [--record-receipt [--product-sha SHA] [--receipt-env NAME]]
+        [--engine-wheel PATH]
 
     yoke watch preflight -- <admin-connection-for-one-env> --record-receipt --receipt-env <control-plane>
     yoke watch preflight -- <admin-connection-for-another-env> --record-receipt --receipt-env <control-plane>
 
-where *env-name* is the admin connection for the fleet being rehearsed.
-The positional names the fleet to rehearse; ``--receipt-env`` names the
+The positional names the fleet to rehearse: the registered environment
+(``stage``, ``prod``) or its paired admin connection (``stage-db-admin``,
+``prod-db-admin``). Both select the same fleet. ``--receipt-env`` names the
 control plane that records the receipt. Naming databases limits the run
 to those; the default is every tenant database on that cluster.
 
@@ -24,19 +34,16 @@ to those; the default is every tenant database on that cluster.
 release gate reads before allocating a tag; a receipt covers exactly the
 environment whose fleet was rehearsed, a release targeting an environment
 requires that environment's receipt, and one environment's receipt never satisfies another.
-The receipt names the history entries covered and the schema-shape digest of
-the boot-converge sources in the selected engine artifact, so an additive
-schema change without a new history entry is still uncovered until rehearsed.
-Receipts always write to the release-gate control plane.
+The receipt names the history entries covered, the schema-shape digest of
+the boot-converge sources in the selected engine, and whether that engine
+was the source tree or a wheel. Receipts always write to the release-gate control plane.
 The selected admin connection changes the covered fleet, not the receipt
 plane. Receipts are recorded only on passing runs, so they cannot exist for
 fleets this did not clear.
 
-``--engine-wheel`` puts the named release artifact at the head of the import
-path before any ``yoke_core`` module loads. The preflight refuses a prior core
-import or an origin outside that wheel, so a selected artifact can never fall
-back to the ambient checkout. Its filename, digest, and schema member are
-printed and included in any recorded receipt.
+``--engine-wheel`` puts a named already-built artifact at the head of the
+import path before any ``yoke_core`` module loads. Omit it for ordinary
+pre-release rehearsal.
 
 The watcher keeps output unbuffered, streams the per-database verdicts and
 receipt, writes the sentinel consumed by ``yoke watch tail``, and preserves
@@ -177,8 +184,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"engine artifact selection failed: {exc}", file=sys.stderr)
         return 2
     if not positional:
-        print("name the admin connection to rehearse against", file=sys.stderr)
+        print(
+            "name the fleet to rehearse: a registered environment (stage, prod) "
+            "or its paired admin connection (stage-db-admin, prod-db-admin)",
+            file=sys.stderr,
+        )
         return 2
+    from yoke_core.domain import migration_preflight_receipt as receipt
+
+    admin_env = receipt.admin_connection_for_environment(positional[0])
+    covered_env = receipt.target_environment_for_admin_env(positional[0])
     # Read before selecting admin readiness so the receipt remains explicitly
     # bound to the caller's control plane rather than the admin cluster.
     receipt_env = receipt_env or os.environ.get("YOKE_ENV", "")
@@ -202,7 +217,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if receipt_env != release_gate_env:
             print(
                 "--record-receipt must write to the prod release-gate control "
-                f"plane. Retry: yoke watch preflight -- {positional[0]} "
+                f"plane. Retry: yoke watch preflight -- {admin_env} "
                 "[db ...] --record-receipt --product-sha <sha> "
                 f"--receipt-env {release_gate_env}",
                 file=sys.stderr,
@@ -210,12 +225,24 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 2
 
     from yoke_core.domain import local_universe, migration_fleet_preflight
-    from yoke_core.domain.connected_env_readiness import activate_selected_postgres
+    from yoke_core.domain.connected_env_readiness import (
+        SelectedPostgresError,
+        activate_selected_postgres,
+    )
     from yoke_core.tools.yoke_migration_fleet import database_dsn
     from runtime.api.tools import yoke_migration_fleet
 
     print(f"engine artifact: {engine_artifact.display()}")
-    authority = activate_selected_postgres(positional[0])
+    try:
+        authority = activate_selected_postgres(admin_env)
+    except SelectedPostgresError as exc:
+        print(
+            f"fleet rehearsal needs the local-postgres admin connection for "
+            f"{covered_env}, which is {admin_env!r}. {exc} "
+            f"Retry: yoke watch preflight -- {admin_env}",
+            file=sys.stderr,
+        )
+        return 2
 
     spec = local_universe.cluster_spec(
         bin_dir=local_universe.ensure_engine_binaries(lambda msg: print(f"  {msg}"))
@@ -226,7 +253,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     databases = positional[1:] or yoke_migration_fleet.tenant_databases(dsn_for)
     plan = yoke_migration_fleet.rehearsal_plan()
-    print(f"environment: {positional[0]}")
+    print(f"environment: {covered_env} (admin connection {admin_env})")
     print(f"rehearsal cluster: {spec.sock_dir}")
 
     with tempfile.TemporaryDirectory(prefix="yoke-migration-rehearsal-") as work:
@@ -261,7 +288,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     unwritten = _record_receipt(
         receipt_env=receipt_env,
-        environment=positional[0],
+        environment=admin_env,
         product_sha=product_sha,
         entries=entries,
         engine_artifact=engine_artifact.evidence(),
@@ -278,8 +305,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 1
     print(
-        f"receipt recorded on {receipt_env} covering {len(entries)} history "
-        f"entries and schema-shape {schema_digest}"
+        f"receipt recorded on {receipt_env} covering {covered_env} via "
+        f"{engine_artifact.display()}; {len(entries)} history entries "
+        f"and schema-shape {schema_digest}"
     )
     return 0
 

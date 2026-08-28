@@ -182,8 +182,10 @@ def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> N
     refusal = capsys.readouterr().err
     assert "release unsafe before tag" in refusal
     assert "yoke watch preflight -- prod-db-admin" in refusal
-    assert "--engine-wheel <yoke_core-wheel-from-yoke-build-artifacts>" in refusal
+    assert "--engine-wheel <yoke_core-wheel-from-yoke-build-artifacts>" not in refusal
+    assert "--record-receipt --product-sha <sha>" in refusal
     assert "--receipt-env prod" in refusal
+    assert "source tree" in refusal
 
 
 def test_refusal_recipe_requires_explicit_connection_without_ambient_env(

@@ -71,6 +71,25 @@ def admin_connection_for_environment(environment: str) -> str:
     return f"{admin_env}{_ADMIN_SUFFIX}"
 
 
+def rehearsed_build_description(
+    engine_artifact: Mapping[str, Any] | None,
+) -> str:
+    """Plain-language identity of the engine a receipt rehearsed."""
+    if not engine_artifact:
+        return "unspecified engine (legacy receipt)"
+    kind = str(engine_artifact.get("kind") or "").strip()
+    name = str(engine_artifact.get("name") or "").strip()
+    sha = str(engine_artifact.get("sha256") or "").strip()
+    origin = str(engine_artifact.get("schema_origin") or "").strip()
+    if kind == "wheel":
+        digest = f" sha256:{sha}" if sha else ""
+        return f"release wheel {name or 'unnamed.whl'}{digest}"
+    if kind == "ambient":
+        origin_note = f" schema={origin}" if origin else ""
+        return f"source-tree engine{origin_note}"
+    return f"engine kind={kind or 'unknown'} name={name or 'unknown'}"
+
+
 def receipt_context(
     environment: str,
     product_sha: str,
