@@ -77,7 +77,9 @@ function appendStage(documentNode, work, status, workflow) {
 function appendClaimEntry(documentNode, body, row, claim) {
   const work = el(documentNode, "div", "session-work");
   const marker = el(documentNode, "span", "session-lock", "🔒");
-  marker.title = `this session holds the ${claim.target_kind || "work"} claim`;
+  // What the lock means, not what kind of row it sits on — the row already
+  // names that, and naming it here again would be the `target_kind` enum.
+  marker.title = "work claim — this session holds it";
   work.appendChild(marker);
   const href = claimHref(claim, row);
   const target = el(

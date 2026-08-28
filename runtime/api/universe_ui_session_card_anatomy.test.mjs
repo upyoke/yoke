@@ -185,9 +185,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   );
   assert.deepEqual(
     byClass(root, "session-lock").map(
-      (marker) => [marker.textContent, marker.className],
+      (marker) => [marker.textContent, marker.className, marker.title],
     ),
-    [["🔒", "session-lock"]],
+    [["🔒", "session-lock", "work claim — this session holds it"]],
   );
   assert.deepEqual(
     byClass(root, "session-attached").map(
@@ -195,8 +195,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     ),
     [["↳", "session-attached"]],
   );
-  // Item rows say which workflow the item runs and what it is doing; only a
-  // non-item hold still needs a target-kind label.
+  // Item rows say which workflow the item runs and what it is doing. No row
+  // carries a kind label at all, and nothing the card renders — the lock's
+  // tooltip included — puts a raw `target_kind` in front of an operator.
   assert.equal(byClass(root, "session-work-role").length, 0);
   // The removed anatomy. `session-id` and `session-actor-avatar` still exist
   // for the overview table, so their absence here is the card's own change.
