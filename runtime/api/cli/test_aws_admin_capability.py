@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
+from yoke_cli.commands.adapters import aws as aws_adapter
 from yoke_cli.config import aws_admin_capability as hosting
 from yoke_contracts import api_urls
 
@@ -72,6 +73,21 @@ def test_hosted_channels_select_their_supported_s3_origins(
 def test_unapproved_template_hosts_never_generate_a_link(base_url: str) -> None:
     assert hosting.template_url(version=_PLUS_VERSION, base_url=base_url) is None
     assert hosting.quick_create_url(version=_PLUS_VERSION, base_url=base_url) is None
+
+
+def test_admin_link_refusal_teaches_the_supported_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(hosting, "quick_create_url", lambda **_kwargs: None)
+
+    assert aws_adapter.aws_admin_link([]) == 1
+
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "no supported CloudFormation bootstrap link" in output.err
+    assert "Reinstall from a hosted Yoke release" in output.err
+    assert "existing AWS credentials" in output.err
 
 
 def test_store_failure_never_echoes_the_secret(

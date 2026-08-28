@@ -99,7 +99,9 @@ Facts:
   → `yoke watch merge done-transition -- PREFIX-N --skip-deploy`. Route B is a
   persistent/ephemeral flow. Exit 7 remains the fail-closed result for a flow
   that requires a pipeline or cannot be resolved (`usher/deploy.md`).
-- Hosting in the wizard is AWS-only (`HOSTING_CONNECT_SUBTITLE`: "AWS for now").
+- Hosting separates provider choice (AWS, self-hosted, or undecided) from AWS
+  sign-in (guided access key, existing access key, or Not now). Role, SSO/OIDC,
+  instance-profile, and web-identity execution remain unsupported.
 - The `vps-hosting` Pack provisions **AWS EC2**, not DigitalOcean.
 - Native Windows install fails in the shim (`Darwin|Linux` only). Native
   Windows onboarding git advice: "not supported yet. Use WSL/Linux or macOS".
