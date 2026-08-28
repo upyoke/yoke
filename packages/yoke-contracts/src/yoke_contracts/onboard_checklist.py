@@ -149,7 +149,11 @@ ROW_SPECS = (
                      "yoke onboard",
                      "Bind the project's test command as the QA gate, or "
                      "record that it has no suite to bind."),
-    ChecklistRowSpec("work-seeding", "17g", "Work seeding",
+    ChecklistRowSpec("migration-model-setup", "17g", "Migration model setup",
+                     LAYER_CAPABILITY, "yoke onboard",
+                     "Declare the project's governed migration model, or "
+                     "record that it has no governed database."),
+    ChecklistRowSpec("work-seeding", "17h", "Work seeding",
                      LAYER_AGENTIC, "yoke onboard",
                      "File the first backlog items from CURRENT-PLAN via idea intake."),
     ChecklistRowSpec("verification", "18", "Verification", LAYER_VERIFICATION,

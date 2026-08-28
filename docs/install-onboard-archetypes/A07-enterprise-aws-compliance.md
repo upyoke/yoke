@@ -80,6 +80,6 @@ when App is forbidden.
 | GitHub App on the org | Machine GitHub step | Skip; `disabled` binding; pending install URL | Self-hosted GitHub origin config (not asked in wizard) |
 | AWS credentials | AWS level: guided key, existing access key, or Not now | Choose Not now; step 7 unreachable | Role assumption / no-static-key execution remains unsupported |
 | Data residency | Destination picker (local / existing server / guided self-host / upyoke.com) | Hosted beta refusal; guided setup refuses missing Docker before writes | Team server on-prem with enterprise-owned networking/TLS |
-| Migration | Not in wizard | Silent | Architecture/capability later |
+| Migration | Step-2 governed-database box, recorded on `migration-model-setup` | Unsupported authoritative kinds refused by name | Declare the model, name it for later, or record `not-needed` with the reason |
 
 Ledger: G-byo-aws-identity, G-forge-github-only (org App policy), G-enterprise-static-keys, G-test-setup-unasked, G-ci-workflow-undeclared, G-legacy-suite-unmapped, G-merge-queue-github-only.

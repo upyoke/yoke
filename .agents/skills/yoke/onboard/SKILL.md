@@ -70,7 +70,7 @@ Execute the steps in order. Read each sub-file when its step is next; each file 
 | 2 | Derive the execution profile | [profile-and-scaffold.md](profile-and-scaffold.md) | Strategy docs accepted | Only when steps 3–8 all already satisfy their skip predicates (nothing left to apply); otherwise re-derive and re-confirm — the profile is never persisted |
 | 3 | Install the scaffold Pack | [profile-and-scaffold.md](profile-and-scaffold.md) | Confirmed profile includes a scaffold Pack (an existing app maps instead of installing) | `.yoke/packs.json` receipt already records the Pack |
 | 4 | Hosting capability | [hosting-and-environments.md](hosting-and-environments.md) | The project has not declared that Yoke manages no host | Declared posture is `no-yoke-managed-host`, or `aws-admin` capability present AND live identity probe passes |
-| 5 | Infra Packs + verification binding; hosted registrations or no-host delivery | [hosting-and-environments.md](hosting-and-environments.md) + [verification-binding.md](verification-binding.md) | Scaffold present; branch on live `hosting-setup=verified\|configured` versus `deferred\|not-needed` | Live hosting branch matches the profile: managed registrations/default plus test binding exist, or the no-host delivery choice is verified as a registered merge-only default or an empty default; terminal rows and independent Project Structure work match; recorded Packs skip individually |
+| 5 | Infra Packs + verification binding + governed-database declaration; hosted registrations or no-host delivery | [hosting-and-environments.md](hosting-and-environments.md) + [verification-binding.md](verification-binding.md) + [governed-database.md](governed-database.md) | Scaffold present; branch on live `hosting-setup=verified\|configured` versus `deferred\|not-needed` | Live hosting branch matches the profile: managed registrations/default plus test binding exist, or the no-host delivery choice is verified as a registered merge-only default or an empty default; terminal rows and independent Project Structure work match; the governed-database answer is recorded as a declared `migration_model` capability or a terminal `migration-model-setup` row; recorded Packs skip individually |
 | 6 | Domain | [domain-and-deploy.md](domain-and-deploy.md) | Hosted environments registered, or live hosting row is `deferred\|not-needed` | Live managed-host domain exists, or the current no-host branch recorded `domain-setup=not-needed` |
 | 7 | Gated infra apply + first deploy | [domain-and-deploy.md](domain-and-deploy.md) | Live hosting row is `verified\|configured` and every earlier managed-host step is satisfied; no-host branch records its terminal result without entering the gate | Managed deploy is live and healthy, or terminal `deferred\|not-needed` still matches the live hosting row |
 | 8 | Seed the first work | [seed-work.md](seed-work.md) | CURRENT-PLAN exists (a deferred deploy does not block seeding) | This run already recorded seeded items on its checklist row |
@@ -83,7 +83,7 @@ Checklist rows written per step:
 | 2 | `human-interview` |
 | 3 | `scaffold-install`, `documentation-context-setup` |
 | 4 | `hosting-setup`, `capability-setup` |
-| 5 | `environment-registration`, `project-structure-setup`, `delivery-setup`, `verification-command-binding` |
+| 5 | `environment-registration`, `project-structure-setup`, `delivery-setup`, `verification-command-binding`, `migration-model-setup` |
 | 6 | `domain-setup` |
 | 7 | `infra-apply-first-deploy` |
 | 8 | `work-seeding`, `lifecycle-readiness`, `verification` |

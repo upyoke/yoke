@@ -124,6 +124,6 @@ binding `command-ci` to a deploy-only YAML.
 |---|---|---|---|
 | AWS apply | Hosting verified + step 7 explicit yes | Gate default No; `deferred` does not block seed | Do not assign persistent default flow until apply succeeded |
 | Existing CI | `.github/workflows` is a **hint**, not a Yoke flow | Do not fail onboard if Actions already deploy | Map or ignore; never dual-write two production pipelines silently |
-| Migration | If the app has Postgres, `migration_model` is a project capability — not asked here | Rehearsal refuses HTTPS product connections | Declare model later; idea items that mutate DB need a DB claim |
+| Migration | Step-2 governed-database box; step 5 writes the `migration_model` capability or records the model to attach once the stack exists | Rehearsal refuses HTTPS product connections | Attach-later is recorded on `migration-model-setup`; idea items that mutate DB need a DB claim |
 
 Ledger: G-byo-aws-identity, G-no-deploy-default-flow (deferred apply), G-installer-handoff-cursor, G-test-setup-unasked, G-ci-workflow-undeclared, G-command-ci-misbind.

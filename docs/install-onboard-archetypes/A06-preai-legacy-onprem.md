@@ -105,8 +105,11 @@ Merge is local engine (`merge_queue` capability is GitHub).
 Usher Route A works if no deployment_flow. A persistent AWS flow would be a
 lie.
 
-Migration: legacy DB exists. Onboard never asks `migration_model`. Governed
-rehearsal is a later capability; absence is silent.
+Migration: legacy DB exists, but its authoritative kind has no supported
+runner pairing, so no `migration_model` can be declared for it. The step-2
+governed-database box asks, and step 5 records `migration-model-setup`
+`not-needed` naming that reason — work items keep `db_claim` `none`, and
+the operator is told that is the complete answer rather than a gap.
 
 ## Test setup
 
@@ -135,4 +138,4 @@ G-legacy-suite-unmapped, G-command-ci-misbind.
 | Deploy environment | On-prem Jenkins not a `step_runner` | Do not create AWS persistent flows | Empty default; document Jenkins as external |
 | Self-host server | Guided host setup or existing URL+token | Missing Docker/Compose is named before writes; networking remains operator-owned | Run guided Start on the host or use `yoke self-host init` (`docs/self-host.md`) |
 
-Ledger: G-forge-github-only, G-migration-undeclared, G-no-deploy-default-flow, G-test-setup-unasked, G-legacy-suite-unmapped, G-command-ci-misbind.
+Ledger: G-forge-github-only, G-no-deploy-default-flow, G-test-setup-unasked, G-legacy-suite-unmapped, G-command-ci-misbind.
