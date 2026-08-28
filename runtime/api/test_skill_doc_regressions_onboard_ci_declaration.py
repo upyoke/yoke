@@ -33,7 +33,7 @@ def profile() -> str:
 
 @pytest.fixture(scope="module")
 def binding() -> str:
-    return _skill("hosting-and-environments.md")
+    return _skill("verification-binding.md")
 
 
 def test_survey_enumerates_and_classifies_workflows(survey: str) -> None:

@@ -25,7 +25,8 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_scalar
+from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.db_optional_queries import fetch_optional_rows
 from yoke_core.domain.github_actions_workflow_inspection import (
     WORKFLOWS_DIRECTORY,
     declares_merge_group,
@@ -47,12 +48,21 @@ def _p(conn: Any) -> str:
 
 
 def declared_prerequisites(conn: Any, cap_type: str) -> list[str]:
-    """The capability types a template says must already be declared."""
-    raw = query_scalar(
+    """The capability types a template says must already be declared.
+
+    The template table is optional: a minimal or partially-migrated database
+    can carry `project_capabilities` without it. A control plane that cannot
+    read the declaration knows of no prerequisites, which is the same answer
+    as a template that declares none — and is emphatically not a reason to
+    fail the write it was asked to guard.
+    """
+    rows = fetch_optional_rows(
         conn,
         f"SELECT requires FROM capability_templates WHERE id={_p(conn)}",
         (cap_type,),
+        savepoint="_yoke_capability_template_requires_probe",
     )
+    raw = rows[0][0] if rows else None
     if not raw:
         return []
     try:
@@ -65,10 +75,12 @@ def declared_prerequisites(conn: Any, cap_type: str) -> list[str]:
 
 
 def _declared_types(conn: Any, project_id: int) -> set[str]:
-    rows = conn.execute(
+    rows = fetch_optional_rows(
+        conn,
         f"SELECT type FROM project_capabilities WHERE project_id={_p(conn)}",
         (int(project_id),),
-    ).fetchall()
+        savepoint="_yoke_project_capability_types_probe",
+    )
     return {str(row[0]) for row in rows}
 
 
