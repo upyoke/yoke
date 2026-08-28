@@ -127,9 +127,14 @@ def test_create_reads_the_organization_surface_fallback_gate(monkeypatch) -> Non
         surface="codex-cli",
         connected_until="2026-08-24T12:00:00Z",
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_launch_assignment.assignment_session_name",
+        lambda *_args, **_kwargs: "YOK-41: Surface fallback fixture",
+    )
     _wire_handler(monkeypatch, conn)
     payload = {
         "project": "launch-project",
+        "item": "YOK-41",
         "executor_surface": "codex-vscode",
         "instructions": "Use an explicitly selected same-family surface.",
         "idempotency_key": "policy-off",
