@@ -122,11 +122,17 @@ Preview, then create. The body is stdin. CLI surface only. One item.
 printf '%s' "$BODY" | yoke session-control launch create \
   --project {_project} \
   --surface {_surface} \
+  --item {ITEM} \
   --stdin \
   --idempotency-key "steer:{_project}:{ITEM}:{_surface}" \
   --model {_model} \
   --json
 ```
+
+Managed `claude-*` launches are local-only per launch: Yoke disables Claude
+Remote Control without changing the operator's normal Claude settings. The
+display name is derived from `{ITEM}` plus its authoritative backlog title;
+the instruction body never becomes a title or command-line argument.
 
 Retain the returned `launch_id` and `deadline_at`. By that deadline, require
 `state=succeeded` and a non-empty `registered_session_id`:
