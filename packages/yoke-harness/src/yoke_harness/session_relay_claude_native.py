@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import json
 import shutil
 from typing import Callable
 
@@ -11,6 +12,10 @@ from yoke_contracts.session_control.launch_permission_bypass import (
     CLAUDE_BYPASS_ARGUMENTS,
 )
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
+from yoke_contracts.session_control.presentation import (
+    CLAUDE_LOCAL_PRESENTATION,
+    CLAUDE_REMOTE_CONTROL_SETTING,
+)
 from yoke_harness.session_relay_claude_identity import resolve_background_agent
 from yoke_harness.session_relay_claude_process import (
     ClaudeProcessResult,
@@ -38,6 +43,18 @@ class ClaudeNativeInvocation:
     instruction: str = field(repr=False)
     resume: bool = False
     model: str | None = None
+    presentation: str | None = None
+    session_name: str | None = None
+
+    @property
+    def settings_arguments(self) -> tuple[str, ...]:
+        if self.presentation != CLAUDE_LOCAL_PRESENTATION:
+            return ()
+        settings = json.dumps(
+            {CLAUDE_REMOTE_CONTROL_SETTING: True},
+            separators=(",", ":"),
+        )
+        return "--settings", settings
 
     @property
     def argv(self) -> tuple[str, ...]:
@@ -46,6 +63,7 @@ class ClaudeNativeInvocation:
                 self.executable,
                 "-p",
                 *CLAUDE_BYPASS_ARGUMENTS,
+                *self.settings_arguments,
                 "--resume",
                 self.session_id,
                 self.instruction,
@@ -57,9 +75,12 @@ class ClaudeNativeInvocation:
             "--session-id",
             self.session_id,
             *CLAUDE_BYPASS_ARGUMENTS,
+            *self.settings_arguments,
         ]
         if self.model:
             arguments.extend(("--model", self.model))
+        if self.session_name:
+            arguments.extend(("--name", self.session_name))
         arguments.extend(("--bg", self.instruction))
         return tuple(arguments)
 
@@ -195,6 +216,8 @@ def native_invocation(
         instruction,
         resume=not launch,
         model=str(raw_model).strip() if raw_model else None,
+        presentation=context.presentation,
+        session_name=context.session_name if launch else None,
     )
 
 

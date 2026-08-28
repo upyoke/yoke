@@ -9,6 +9,10 @@ from yoke_harness.session_relay_runtime import (
     RelayExecutionContext,
     RelayPrivateDiagnostic,
 )
+from yoke_contracts.session_control.presentation import (
+    CLAUDE_LOCAL_PRESENTATION,
+    CLAUDE_REMOTE_CONTROL_SETTING,
+)
 
 
 def _private_process_diagnostic(
@@ -35,6 +39,9 @@ def _evidence(
         "result_code": code,
         "surface": context.surface,
     }
+    if context.presentation == CLAUDE_LOCAL_PRESENTATION:
+        evidence["presentation_preference"] = CLAUDE_LOCAL_PRESENTATION
+        evidence["presentation_control"] = CLAUDE_REMOTE_CONTROL_SETTING
     if process is not None:
         evidence["duration_ms"] = max(0, min(process.duration_ms, 3_600_000))
         evidence["exit_code"] = int(process.returncode)

@@ -38,9 +38,10 @@ from yoke_harness.session_relay_runtime import (
     wake_operation,
 )
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
+from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
 
 
-CLAUDE_ADAPTER_REVISION = "claude-native-v3"
+CLAUDE_ADAPTER_REVISION = "claude-native-v4"
 CLAUDE_CLI_SURFACE = "claude-cli"
 _result = partial(
     build_claude_result,
@@ -108,7 +109,7 @@ def unsupported_claude_route(
 
 
 def _context_extensions_present(context: RelayExecutionContext) -> bool:
-    names = ("surface_version", "requested_model", "presentation")
+    names = ("surface_version", "requested_model", "presentation", "session_name")
     return all(hasattr(context, name) for name in names)
 
 
@@ -148,12 +149,18 @@ def run_claude_cli_adapter(
     if context.job_kind == "launch":
         if not _context_extensions_present(context):
             return _result(context, "not_created", "context_incomplete")
+        if context.presentation != CLAUDE_LOCAL_PRESENTATION:
+            return _result(context, "not_created", "presentation_unsupported")
+        if not context.session_name:
+            return _result(context, "not_created", "assignment_name_missing")
         try:
             UUID(context.job_id)
         except (TypeError, ValueError, AttributeError):
             return _result(context, "not_created", "native_session_invalid")
         if not context.launch_attestation or attestation_handoff is None:
             return _result(context, "not_created", "attestation_handoff_unavailable")
+    elif context.presentation not in (None, CLAUDE_LOCAL_PRESENTATION):
+        return _result(context, "failed", "presentation_unsupported")
     # The native is handed the sentence the control plane issued, never a
     # second one written here: an adapter that validates against `expected`
     # and then delivers its own wording is how a native reads an instruction

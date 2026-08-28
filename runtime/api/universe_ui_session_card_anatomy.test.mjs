@@ -140,6 +140,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     [
       ["2", "sessions shown"],
       ["1", "items claimed"],
+      ["0", "Remote Control attached"],
       ["2", "actors"],
     ],
   );
@@ -259,7 +260,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "sessions-stats")[0].children.map(
       (tile) => tile.children[0].textContent,
     ),
-    ["1", "1", "1"],
+    ["1", "1", "0", "1"],
   );
   assert.equal(reclaim.disabled, true);
   assert.equal(

@@ -30,6 +30,84 @@ def _str_or(value: Any, default: Optional[str] = None) -> Optional[str]:
     return value if isinstance(value, str) else default
 
 
+def _ensure_session_request(
+    *,
+    event_name: str,
+    context: Any,
+    payload: Any,
+    stdin_data: str,
+    controls: Any,
+    preflight_complete: bool,
+    driver: dict[str, Any] | None = None,
+) -> tuple[Any, ...] | None:
+    from yoke_core.hooks.cursor_payload import is_folded_cursor_session
+
+    if not context.session_id:
+        return None
+    if isinstance(payload, dict) and is_folded_cursor_session(payload):
+        return None
+    remote = controls is not None and controls.remote
+    force = remote and event_name in ("SessionStart", "UserPromptSubmit")
+    ensure_payload = (
+        {**payload, DRIVER_PAYLOAD_KEY: driver}
+        if isinstance(payload, dict) and driver is not None
+        else payload
+    )
+    return (
+        context.session_id,
+        json.dumps(ensure_payload)
+        if isinstance(ensure_payload, dict)
+        else (stdin_data or ""),
+        _str_or(payload.get("transcript_path"), "") or "",
+        not remote,
+        (context.executor_family or "") if remote else "",
+        True,
+        force and not preflight_complete,
+        controls.actor_id if remote else None,
+        payload.get("project_id") if isinstance(payload, dict) else None,
+    )
+
+
+def preflight_remote_registration(
+    *,
+    event_name: str,
+    context: Any,
+    payload: Any,
+    stdin_data: str,
+    controls: Any,
+    deadline: Any,
+) -> bool:
+    """Register remote opening events before launch attestation reads the row."""
+    if (
+        controls is None
+        or not controls.remote
+        or event_name not in ("SessionStart", "UserPromptSubmit")
+    ):
+        return False
+    ensure_session = _ensure_session_request(
+        event_name=event_name,
+        context=context,
+        payload=payload,
+        stdin_data=stdin_data,
+        controls=controls,
+        preflight_complete=False,
+        driver=resolve_driver_process(
+            payload if isinstance(payload, dict) else None,
+            hook_event=event_name,
+        ),
+    )
+    if ensure_session is None:
+        return False
+    from yoke_core.hooks import telemetry as _telemetry
+
+    _telemetry.flush_hook_telemetry(
+        [],
+        deadline=deadline,
+        ensure_session=ensure_session,
+    )
+    return True
+
+
 def flush_run_tail(
     *,
     event_name: str,
@@ -43,6 +121,7 @@ def flush_run_tail(
     stdin_data: str,
     controls,
     telem_records: list,
+    registration_preflight: bool = False,
 ) -> None:
     """Append the dispatch record, flush telemetry, run remote lifecycle."""
     from yoke_core.hooks import telemetry as _telemetry
@@ -90,43 +169,15 @@ def flush_run_tail(
             },
         )
     )
-    ensure_session = None
-    # Cursor folds Task/subagent and linked-worktree remount activity onto
-    # the container session_id; the container row already exists from the
-    # parent chat (or claim holder). Driving ensure-register from the child
-    # / remapped conversation is unnecessary and was how phantom
-    # harness_sessions rows were minted before fold recovery. Skip when
-    # the parser flagged a folded session.
-    from yoke_core.hooks.cursor_payload import (
-        is_folded_cursor_session,
+    ensure_session = _ensure_session_request(
+        event_name=event_name,
+        context=context,
+        payload=payload,
+        stdin_data=stdin_data,
+        controls=controls,
+        preflight_complete=registration_preflight,
+        driver=driver,
     )
-
-    is_folded = isinstance(payload, dict) and is_folded_cursor_session(payload)
-    if context.session_id and not is_folded:
-        remote = controls is not None and controls.remote
-        # The ensure-register payload carries the resolved driver so a
-        # reactivation driven by this dispatch can stamp the process and hook
-        # event that drove it, whether or not a wake attempt is in flight.
-        ensure_payload = (
-            {**payload, DRIVER_PAYLOAD_KEY: driver}
-            if isinstance(payload, dict)
-            else None
-        )
-        ensure_session = (  # merged payload: wire extras included
-            context.session_id,
-            json.dumps(ensure_payload)
-            if ensure_payload is not None
-            else (stdin_data or ""),
-            _str_or(payload.get("transcript_path"), "") or "",
-            not remote,
-            (context.executor_family or "") if remote else "",
-            True,
-            remote and event_name in ("SessionStart", "UserPromptSubmit"),
-            # Verified bearer-token actor (server side only): binds
-            # harness_sessions.actor_id at relayed ensure-register.
-            controls.actor_id if remote else None,
-            payload.get("project_id") if isinstance(payload, dict) else None,
-        )
     _telemetry.flush_hook_telemetry(
         telem_records,
         deadline=deadline,
@@ -153,4 +204,4 @@ def flush_run_tail(
         run_remote_session_lifecycle(event_name, context)
 
 
-__all__ = ["flush_run_tail"]
+__all__ = ["flush_run_tail", "preflight_remote_registration"]

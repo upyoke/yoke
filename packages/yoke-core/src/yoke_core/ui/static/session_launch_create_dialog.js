@@ -78,6 +78,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   shell.dialog.appendChild(help);
   const fields = {
     project: el(documentNode, "select", "session-control-input"),
+    item: el(documentNode, "input", "session-control-input"),
     surface: el(documentNode, "select", "session-control-input"),
     machine: el(documentNode, "select", "session-control-input"),
     model: el(documentNode, "input", "session-control-input"),
@@ -97,8 +98,11 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   fields.model.type = "text";
   fields.model.placeholder = "Optional provider model ID";
   fields.model.value = "";
+  fields.item.type = "text";
+  fields.item.placeholder = "Required work item ref";
   for (const [label, field] of [
     ["Project", fields.project],
+    ["Work item", fields.item],
     ["Requested surface", fields.surface],
     ["Allow same-family fallback", fields.fallback],
     ["Machine", fields.machine],
@@ -179,9 +183,12 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
   fields.fallback.addEventListener("change", refreshMachines);
   cancel.addEventListener("click", shell.dismiss);
   preview.addEventListener("click", async () => {
-    if (!fields.project.value || !fields.surface.value || !fields.instructions.value.trim()) {
+    if (
+      !fields.project.value || !fields.item.value.trim()
+      || !fields.surface.value || !fields.instructions.value.trim()
+    ) {
       status.hidden = false;
-      status.textContent = "Choose a project and surface, then add instructions.";
+      status.textContent = "Choose a project, work item, and surface, then add instructions.";
       return;
     }
     preview.disabled = true;
@@ -199,7 +206,11 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
         create.disabled = true;
         return;
       }
-      previewed = { request, instructions: String(fields.instructions.value) };
+      previewed = {
+        request,
+        item: String(fields.item.value).trim(),
+        instructions: String(fields.instructions.value),
+      };
       renderEligible(documentNode, eligible, result.eligible_relays || []);
       const outcome = result.launchable
         ? (result.fallback_used
@@ -227,6 +238,7 @@ export async function openSessionLaunchDialog(context, host, projectRefs, onCrea
     try {
       const result = await sessionControlCall(context, "session_control.launch.create", {
         ...previewed.request,
+        item: previewed.item,
         instructions: previewed.instructions,
         idempotency_key: idempotencyKey,
       });

@@ -32,6 +32,9 @@ from yoke_core.domain.session_relay_types import (
 from yoke_core.domain.session_relay_private_qualification import (
     authorize_wake_candidate,
 )
+from yoke_core.domain.session_relay_managed_presentation import (
+    managed_session_presentation,
+)
 
 
 def _lock(conn: Any, alias: str) -> str:
@@ -156,6 +159,11 @@ def _adopt_attempt(
             target_session_id=str(candidate["session_id"]),
             target_native_thread_id=(
                 str(candidate.get("native_thread_id") or "") or None
+            ),
+            presentation=managed_session_presentation(
+                conn,
+                session_id=str(candidate["session_id"]),
+                surface=execution[0],
             ),
             wake_mode=WakeMode(str(candidate["wake_mode"])),
             target_liveness=str(candidate["liveness"]),

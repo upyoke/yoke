@@ -87,9 +87,10 @@ test("launch fallback requires a visible opt-in and shows the selected surface",
   button(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
   const inputs = byClass(root, "session-control-input");
-  inputs[1].value = "codex-vscode";
-  inputs[3].value = "gpt-5.6-sol";
-  inputs[4].value = "Use an explicitly approved same-family fallback.";
+  inputs[1].value = "YOK-2580";
+  inputs[2].value = "codex-vscode";
+  inputs[4].value = "gpt-5.6-sol";
+  inputs[5].value = "Use an explicitly approved same-family fallback.";
   const fallback = byClass(root, "session-control-checkbox")[0];
   fallback.checked = true;
   fallback.dispatchEvent(new Event("change"));
@@ -111,6 +112,7 @@ test("launch fallback requires a visible opt-in and shows the selected surface",
     (request) => request.function === "session_control.launch.create",
   );
   assert.equal(create.payload.executor_surface, "codex-vscode");
+  assert.equal(create.payload.item, "YOK-2580");
   assert.equal(create.payload.model, "gpt-5.6-sol");
   assert.equal(create.payload.allow_surface_fallback, true);
   mounted.unmount();
@@ -143,8 +145,9 @@ test("launch preview refuses an unconfirmed model constraint", async (t) => {
   button(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
   const inputs = byClass(root, "session-control-input");
-  inputs[3].value = "gpt-5.6-sol";
-  inputs[4].value = "Open the assigned work.";
+  inputs[1].value = "YOK-2580";
+  inputs[4].value = "gpt-5.6-sol";
+  inputs[5].value = "Open the assigned work.";
   button(root, "Preview launch").dispatchEvent(new Event("click"));
   await settle();
 

@@ -161,6 +161,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(parsed, HandlerOutcome):
         return parsed
     from yoke_core.domain.session_launch_requests import create_launch
+    from yoke_core.domain.session_launch_assignment import assignment_session_name
 
     conn = _open()
     try:
@@ -169,6 +170,11 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
             int(_fleet_policy(conn, project_id, "fleet.launch_deadline_minutes")) * 60
         )
         max_body_bytes = int(_fleet_policy(conn, project_id, "fleet.max_body_bytes"))
+        session_name = assignment_session_name(
+            conn,
+            item_ref=parsed.item,
+            project_id=project_id,
+        )
         outcome = create_launch(
             conn,
             auth=_authorization(conn, request, project_id),
@@ -180,6 +186,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                 machine_id=parsed.machine_id,
                 model=parsed.model,
                 presentation=parsed.presentation,
+                session_name=session_name,
                 allow_surface_fallback=parsed.allow_surface_fallback,
                 deadline_seconds=deadline_seconds,
             ),

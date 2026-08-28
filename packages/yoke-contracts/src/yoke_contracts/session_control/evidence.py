@@ -27,6 +27,8 @@ _TEXT_FIELDS = frozenset(
         # step that says nothing here says nothing anywhere.
         "hook_event",
         "probe_detail",
+        "presentation_control",
+        "presentation_preference",
         # What the receipt looked like when a wake attempt was settled from
         # its injection facts, and what the relay had reported before that
         # verdict replaced it. An undelivered wake is otherwise a bare code

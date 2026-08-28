@@ -111,8 +111,6 @@ def _register_from_hook(
     # Relayed payloads carry the CLIENT's entrypoint (merged from the wire);
     # local payloads never carry one, so local detection is unchanged.
     entrypoint = facts.entrypoint or detect_entrypoint()
-    if not entrypoint and executor in {"claude", "claude-code"}:
-        entrypoint = "claude-cli"
     executor_version, machine_id = enrich_local_observed_facts(
         facts.executor_version, facts.machine_id, executor, executor_surface=entrypoint
     )

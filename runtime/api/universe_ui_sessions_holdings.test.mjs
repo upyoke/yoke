@@ -230,6 +230,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
     [
       ["1", "sessions shown"],
       ["2", "items claimed"],
+      ["0", "Remote Control attached"],
       ["1", "actor"],
     ],
   );
@@ -294,6 +295,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
     [
       ["1", "sessions shown"],
       ["1", "items claimed"],
+      ["0", "Remote Control attached"],
       ["1", "actor"],
     ],
   );

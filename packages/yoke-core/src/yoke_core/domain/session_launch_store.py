@@ -15,7 +15,7 @@ from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchErr
 LAUNCH_COLUMNS = (
     "launch_id, requester_actor_id, requester_session_id, project_id, "
     "requested_surface, selected_surface, requested_machine_id, requested_model, "
-    "presentation_preference, allow_surface_fallback, message_id, "
+    "presentation_preference, session_name, allow_surface_fallback, message_id, "
     "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
     "native_session_id, attestation_hash, attestation_consumed_at, "
     "registered_session_id, deadline_at, created_at, assigned_at, launching_at, "
@@ -101,25 +101,26 @@ def row_to_launch(row: Any) -> LaunchRecord:
         requested_machine_id=value(row, "requested_machine_id", 6),
         requested_model=value(row, "requested_model", 7),
         presentation_preference=value(row, "presentation_preference", 8),
-        allow_surface_fallback=bool(value(row, "allow_surface_fallback", 9)),
-        message_id=str(value(row, "message_id", 10)),
-        idempotency_key=value(row, "idempotency_key", 11),
-        state=str(value(row, "state", 12)),
-        assigned_relay_id=value(row, "assigned_relay_id", 13),
-        assigned_machine_id=value(row, "assigned_machine_id", 14),
-        native_session_id=value(row, "native_session_id", 15),
-        attestation_hash=value(row, "attestation_hash", 16),
-        attestation_consumed_at=value(row, "attestation_consumed_at", 17),
-        registered_session_id=value(row, "registered_session_id", 18),
-        deadline_at=str(value(row, "deadline_at", 19)),
-        created_at=str(value(row, "created_at", 20)),
-        assigned_at=value(row, "assigned_at", 21),
-        launching_at=value(row, "launching_at", 22),
-        awaiting_registration_at=value(row, "awaiting_registration_at", 23),
-        completed_at=value(row, "completed_at", 24),
-        result_code=value(row, "result_code", 25),
-        result_evidence=value(row, "result_evidence", 26),
-        origin=str(value(row, "origin", 27)),
+        session_name=value(row, "session_name", 9),
+        allow_surface_fallback=bool(value(row, "allow_surface_fallback", 10)),
+        message_id=str(value(row, "message_id", 11)),
+        idempotency_key=value(row, "idempotency_key", 12),
+        state=str(value(row, "state", 13)),
+        assigned_relay_id=value(row, "assigned_relay_id", 14),
+        assigned_machine_id=value(row, "assigned_machine_id", 15),
+        native_session_id=value(row, "native_session_id", 16),
+        attestation_hash=value(row, "attestation_hash", 17),
+        attestation_consumed_at=value(row, "attestation_consumed_at", 18),
+        registered_session_id=value(row, "registered_session_id", 19),
+        deadline_at=str(value(row, "deadline_at", 20)),
+        created_at=str(value(row, "created_at", 21)),
+        assigned_at=value(row, "assigned_at", 22),
+        launching_at=value(row, "launching_at", 23),
+        awaiting_registration_at=value(row, "awaiting_registration_at", 24),
+        completed_at=value(row, "completed_at", 25),
+        result_code=value(row, "result_code", 26),
+        result_evidence=value(row, "result_evidence", 27),
+        origin=str(value(row, "origin", 28)),
     )
 
 
