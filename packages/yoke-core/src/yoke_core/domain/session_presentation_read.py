@@ -30,8 +30,8 @@ def _lane_display(conn: Any, project_id: Any, lane: Any) -> dict[str, str]:
     return lane_presentation(str(lane or ""), settings)
 
 
-def session_presentation(conn: Any, row: dict[str, Any]) -> dict[str, str]:
-    """Return lane and executor metadata for a session query row."""
+def session_presentation(conn: Any, row: dict[str, Any]) -> dict[str, Any]:
+    """Return execution and observed-presentation metadata for a session."""
     display_name = str(row.get("executor_surface") or row.get("executor") or "")
     executor = executor_presentation(display_name)
     lane = _lane_display(conn, row.get("project_id"), row.get("execution_lane"))
@@ -40,6 +40,11 @@ def session_presentation(conn: Any, row: dict[str, Any]) -> dict[str, str]:
         "lane_glyph": lane["glyph"],
         "executor_mark": executor["mark"],
         "executor_class_name": executor["class_name"],
+        "presentation_surface": row.get("presentation_surface"),
+        "presentation_state": row.get("presentation_state"),
+        "presentation_mode": row.get("presentation_mode"),
+        "presentation_source": row.get("presentation_source"),
+        "presentation_observed_at": row.get("presentation_observed_at"),
     }
 
 

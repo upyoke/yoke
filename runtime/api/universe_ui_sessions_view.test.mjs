@@ -61,7 +61,7 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
     byClass(emptyRoot, "sessions-stats")[0].children.map(
       (tile) => tile.children[0].textContent,
     ),
-    ["0", "0", "0"],
+    ["0", "0", "0", "0"],
   );
   assert.equal(
     byClass(emptyRoot, "item-button").find(

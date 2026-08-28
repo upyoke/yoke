@@ -78,6 +78,7 @@ class LaunchRequest:
     machine_id: str | None = None
     model: str | None = None
     presentation: str | None = None
+    session_name: str | None = None
     allow_surface_fallback: bool = False
     deadline_seconds: int = DEFAULT_LAUNCH_DEADLINE_SECONDS
     origin: str = LAUNCH_ORIGIN_OPERATOR
@@ -133,6 +134,7 @@ class LaunchRecord:
     requested_machine_id: str | None
     requested_model: str | None
     presentation_preference: str | None
+    session_name: str | None
     allow_surface_fallback: bool
     message_id: str
     idempotency_key: str | None

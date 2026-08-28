@@ -97,7 +97,8 @@ export function sessionRosterFilters(documentNode, onChange) {
         ].join(" ").toLowerCase();
         return (!query || searchable.includes(query))
           && (!harness || includes(row.executor, harness)
-            || includes(row.executor_surface, harness))
+            || includes(row.executor_surface, harness)
+            || includes(row.presentation_surface, harness))
           && (
             includes(row.machine_id, String(controls.machine.value || "").toLowerCase())
             || includes(row.machine_name, String(controls.machine.value || "").toLowerCase())

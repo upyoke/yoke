@@ -36,7 +36,8 @@ def test_client_lane_without_machine_config_match_is_none(monkeypatch) -> None:
     here would arrive server-side as an explicit lane and overrule it.
     """
     monkeypatch.setattr(
-        f"{_MACHINE_CONFIG}.load_config", lambda: {"settings": {}},
+        f"{_MACHINE_CONFIG}.load_config",
+        lambda: {"settings": {}},
     )
 
     assert client_lane("SessionStart", "claude-desktop") is None
@@ -53,15 +54,17 @@ def test_client_lane_skips_tool_call_events(monkeypatch) -> None:
 
 
 def test_tool_call_client_model_marks_first_real_model_then_skips(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ) -> None:
     calls: list[tuple[str, str]] = []
     monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
     monkeypatch.setattr(f"{_RELAY}.is_codex", lambda executor: False)
     monkeypatch.setattr(
         f"{_RELAY}.detect_model",
-        lambda executor, transcript_path="":
-            calls.append((executor, transcript_path)) or "claude-fable-5[1m]",
+        lambda executor, transcript_path="": (
+            calls.append((executor, transcript_path)) or "claude-fable-5[1m]"
+        ),
     )
     payload = {"session_id": "s-model", "transcript_path": "/t/live.jsonl"}
 
@@ -79,9 +82,14 @@ def test_placeholder_client_model_does_not_mark_shipped(monkeypatch, tmp_path) -
         lambda executor, transcript_path="": "unknown",
     )
 
-    assert client_model(
-        "PreToolUse", {"session_id": "s-placeholder"}, "claude-code",
-    ) is None
+    assert (
+        client_model(
+            "PreToolUse",
+            {"session_id": "s-placeholder"},
+            "claude-code",
+        )
+        is None
+    )
     assert not (tmp_path / "relay-model-shipped" / "s-placeholder").exists()
 
 
@@ -176,6 +184,7 @@ def test_client_entrypoint_non_cursor_families_unchanged(monkeypatch) -> None:
     monkeypatch.setenv("CLAUDE_CODE_ENTRYPOINT", "claude-desktop")
 
     assert client_entrypoint("claude-code", {}) == "claude-desktop"
+    assert client_entrypoint("claude-code", {"entrypoint": "cli"}) == "cli"
 
     monkeypatch.delenv("CLAUDE_CODE_ENTRYPOINT")
-    assert client_entrypoint("claude-code", {}) == "claude-cli"
+    assert client_entrypoint("claude-code", {}) is None

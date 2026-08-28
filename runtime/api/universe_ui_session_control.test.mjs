@@ -118,9 +118,10 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   await settle();
   const inputs = byClass(root, "session-control-input");
   assert.equal(inputs[0].value, "1");
-  assert.equal(inputs[1].value, "codex-desktop");
-  inputs[3].value = "gpt-5.6-sol";
-  inputs[4].value = "Open the assigned work and report through hooks.";
+  inputs[1].value = "YOK-2580";
+  assert.equal(inputs[2].value, "codex-desktop");
+  inputs[4].value = "gpt-5.6-sol";
+  inputs[5].value = "Open the assigned work and report through hooks.";
   button(root, "Preview launch").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(lastButton(root, "Create session").disabled, false);
@@ -139,6 +140,7 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   assert.equal(preview.payload.executor_surface, "codex-desktop");
   assert.equal(preview.payload.model, "gpt-5.6-sol");
   assert.equal(create.payload.executor_surface, preview.payload.executor_surface);
+  assert.equal(create.payload.item, "YOK-2580");
   assert.equal(create.payload.allow_surface_fallback, false);
   assert.ok(create.payload.idempotency_key.startsWith("workbench-launch:"));
   assert.equal(

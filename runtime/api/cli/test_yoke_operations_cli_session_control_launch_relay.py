@@ -50,6 +50,8 @@ def test_sessions_create_preview_and_create_use_registered_functions(
             [
                 *base,
                 "--stdin",
+                "--item",
+                "YOK-2580",
                 "--idempotency-key",
                 "launch-1",
                 "--presentation",
@@ -70,6 +72,7 @@ def test_sessions_create_preview_and_create_use_registered_functions(
     assert calls[1]["payload"] == {
         **calls[0]["payload"],
         "instructions": "private instructions",
+        "item": "YOK-2580",
         "idempotency_key": "launch-1",
         "presentation": "focused",
     }

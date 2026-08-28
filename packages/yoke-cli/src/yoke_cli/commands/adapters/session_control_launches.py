@@ -26,12 +26,12 @@ LAUNCH_PREVIEW_USAGE = (
 )
 LAUNCH_CREATE_USAGE = (
     "yoke session-control launch create --project P --surface S --stdin "
-    "--idempotency-key K [--machine M] [--model M] [--presentation P] "
+    "--item PREFIX-N --idempotency-key K [--machine M] [--model M] [--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     "yoke sessions create --project P --surface S "
-    "(--preview | --stdin --idempotency-key K) "
+    "(--preview | --stdin --item PREFIX-N --idempotency-key K) "
     "[--machine M] [--model M] [--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
 )
@@ -147,7 +147,12 @@ def _launch_create_parser(
     else:
         parser.add_argument("--stdin", action="store_true", required=True)
     parser.add_argument("--idempotency-key", default=None)
-    parser.add_argument("--presentation", default=None)
+    parser.add_argument("--item", default=None)
+    parser.add_argument(
+        "--presentation",
+        default=None,
+        help="Requested native presentation; Claude accepts only 'local'.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     return parser
@@ -171,6 +176,8 @@ def _create(args: List[str], *, alias: bool) -> int:
         )
     if not parsed.idempotency_key:
         return usage_error("launch create requires --idempotency-key")
+    if not parsed.item:
+        return usage_error("launch create requires --item PREFIX-N")
     instructions = read_stdin_payload(parsed)
     if instructions is None:
         return usage_error("launch create requires non-empty instructions on --stdin")
@@ -178,6 +185,7 @@ def _create(args: List[str], *, alias: bool) -> int:
         **_preview_payload(parsed),
         "instructions": instructions,
         "idempotency_key": parsed.idempotency_key,
+        "item": parsed.item,
     }
     if parsed.presentation:
         payload["presentation"] = parsed.presentation

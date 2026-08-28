@@ -113,6 +113,7 @@ def create_session_control_tables(conn: Any) -> None:
             requested_machine_id TEXT,
             requested_model TEXT,
             presentation_preference TEXT,
+            session_name TEXT,
             allow_surface_fallback INTEGER NOT NULL DEFAULT 0,
             message_id TEXT NOT NULL REFERENCES session_messages(message_id),
             idempotency_key TEXT,
@@ -237,6 +238,8 @@ def create_session_control_tables(conn: Any) -> None:
         conn.execute(
             f"ALTER TABLE session_launches ADD COLUMN origin {ORIGIN_COLUMN_DDL}"
         )
+    if not _column_exists(conn, "session_launches", "session_name"):
+        conn.execute("ALTER TABLE session_launches ADD COLUMN session_name TEXT")
 
 
 def required_tables() -> tuple[str, ...]:

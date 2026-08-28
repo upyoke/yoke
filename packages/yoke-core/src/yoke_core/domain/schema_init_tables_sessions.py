@@ -36,6 +36,11 @@ def create_session_tables(conn: Any) -> None:
           executor TEXT NOT NULL CHECK(executor IN ({executor_values})),
           executor_surface TEXT DEFAULT NULL
             CHECK(executor_surface IS NULL OR executor_surface IN ({surface_values})),
+          presentation_surface TEXT DEFAULT NULL,
+          presentation_state TEXT DEFAULT NULL,
+          presentation_mode TEXT DEFAULT NULL,
+          presentation_source TEXT DEFAULT NULL,
+          presentation_observed_at TEXT DEFAULT NULL,
           executor_version TEXT DEFAULT NULL,
           machine_id TEXT DEFAULT NULL,
           provider TEXT NOT NULL,

@@ -239,6 +239,16 @@ def run_event(
         payload=payload,
         remote=controls.remote if controls is not None else False,
     )
+    from yoke_core.hooks.run_tail import preflight_remote_registration
+
+    registration_preflight = preflight_remote_registration(
+        event_name=event_name,
+        context=context,
+        payload=payload,
+        stdin_data=stdin_data,
+        controls=controls,
+        deadline=deadline,
+    )
     started_at = time.monotonic()
     decisions: list[HookDecision] = []
     extra_stdout_parts: list[str] = []
@@ -322,5 +332,6 @@ def run_event(
         stdin_data=stdin_data,
         controls=controls,
         telem_records=telem_records,
+        registration_preflight=registration_preflight,
     )
     return rendered_text, exit_code

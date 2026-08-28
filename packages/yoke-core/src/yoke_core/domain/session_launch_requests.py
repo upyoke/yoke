@@ -8,6 +8,7 @@ from uuid import uuid4
 from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
 from yoke_core.domain.session_launch_surface_selection import preview_launch
 from yoke_core.domain.session_launch_validation import validate_launch_request
+from yoke_core.domain import session_relay_managed_presentation as managed_presentation
 from yoke_core.domain.session_launch_store import (
     add_seconds,
     begin_mutation,
@@ -45,6 +46,7 @@ def _same_request(conn: Any, launch: LaunchRecord, request: LaunchRequest) -> bo
             launch.requested_machine_id == request.machine_id,
             launch.requested_model == request.model,
             launch.presentation_preference == request.presentation,
+            launch.session_name == request.session_name,
             launch.allow_surface_fallback == request.allow_surface_fallback,
             launch.origin == request.origin,
             body_hash == sha256_text(request.instructions),
@@ -85,7 +87,7 @@ def _insert_launch(
     columns = (
         "launch_id, requester_actor_id, requester_session_id, project_id, "
         "requested_surface, selected_surface, requested_machine_id, requested_model, "
-        "presentation_preference, allow_surface_fallback, message_id, "
+        "presentation_preference, session_name, allow_surface_fallback, message_id, "
         "idempotency_key, state, assigned_relay_id, assigned_machine_id, "
         "deadline_at, created_at, assigned_at, origin"
     )
@@ -99,6 +101,7 @@ def _insert_launch(
         request.machine_id,
         request.model,
         request.presentation,
+        request.session_name,
         int(request.allow_surface_fallback),
         message_id,
         request.idempotency_key,
@@ -132,6 +135,7 @@ def create_launch(
 ) -> LaunchCreateOutcome:
     """Persist one instruction message and an assigned launch atomically."""
     ensure_operator(auth)
+    request = managed_presentation.normalize_launch_presentation(request)
     validate_launch_request(request, max_body_bytes=max_body_bytes)
     current = now or utc_now()
     begin_mutation(conn)

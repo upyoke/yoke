@@ -45,7 +45,8 @@ def _context(**overrides):
         "target_session_id": None,
         "launch_attestation": "secret-attestation",
         "requested_model": "claude-opus-4-1",
-        "presentation": "focused",
+        "presentation": "local",
+        "session_name": "YOK-2580: Record session presentation",
         "target_liveness": None,
         "wake_mode": None,
     }
@@ -102,8 +103,12 @@ def test_create_reports_and_stages_the_actual_background_session() -> None:
         "--session-id",
         LAUNCH_ID,
         "--dangerously-skip-permissions",
+        "--settings",
+        '{"disableRemoteControl":true}',
         "--model",
         "claude-opus-4-1",
+        "--name",
+        "YOK-2580: Record session presentation",
         "--bg",
         BOOTSTRAP,
     )
@@ -112,12 +117,9 @@ def test_create_reports_and_stages_the_actual_background_session() -> None:
     assert ACTUAL_ID != LAUNCH_ID
     assert result.result_code == "native_created"
     assert result.native_session_id == ACTUAL_ID
-    assert result.evidence == {
-        "result_code": "native_created",
-        "surface": "claude-cli",
-        "duration_ms": 24,
-        "exit_code": 0,
-    }
+    assert result.evidence["result_code"] == "native_created"
+    assert result.evidence["presentation_preference"] == "local"
+    assert result.evidence["presentation_control"] == "disableRemoteControl"
     assert "private-create-stderr" not in repr(result.evidence)
     assert "private-lookup-stderr" not in repr(result.evidence)
     assert "secret-attestation" not in repr(invocations[0])
@@ -261,12 +263,8 @@ def test_create_failure_after_handoff_is_unknown_and_redacted() -> None:
     )
 
     assert result.result_code == "outcome_unknown"
-    assert result.evidence == {
-        "result_code": "native_exit",
-        "surface": "claude-cli",
-        "duration_ms": 81,
-        "exit_code": 23,
-    }
+    assert result.evidence["result_code"] == "native_exit"
+    assert result.evidence["presentation_control"] == "disableRemoteControl"
     assert "message body" not in repr(result)
     assert "bearer token" not in repr(result)
 

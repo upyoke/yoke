@@ -32,6 +32,9 @@ from yoke_harness.hooks.identity_observed import (
     client_executor_version,
     client_machine_id,
 )
+from yoke_harness.hooks.identity_claude_presentation import (
+    observe_claude_presentation,
+)
 
 
 REGISTRATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
@@ -183,6 +186,9 @@ def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
     needs env the IDE surface has not exported yet at sessionStart.
     """
     try:
+        direct = payload.get("entrypoint")
+        if is_claude(executor) and isinstance(direct, str) and direct.strip():
+            return direct.strip()
         if is_codex(executor):
             sid = resolve_session_id(json.dumps(payload))
             return _codex_resolve_entrypoint(thread_id=sid or None) or None
@@ -191,11 +197,6 @@ def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
         detected = detect_entrypoint()
         if detected:
             return detected
-        # Claude Code's terminal surface does not consistently export an
-        # entrypoint. Desktop and VS Code do, so the signal-free Claude case
-        # is the CLI surface rather than an unknown surface.
-        if executor == "claude-code" or executor == "claude":
-            return "claude-cli"
         return None
     except Exception:
         return None
@@ -286,6 +287,7 @@ def relay_identity_payload(
             executor,
             resolve_session_id(json.dumps(payload)),
         ),
+        **observe_claude_presentation(executor, payload),
     }
 
 

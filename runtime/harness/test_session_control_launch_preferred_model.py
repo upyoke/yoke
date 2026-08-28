@@ -39,6 +39,8 @@ def test_launch_create_without_model_sends_configured_preference(
                 "--surface",
                 "cursor-cli",
                 "--stdin",
+                "--item",
+                "YOK-2580",
                 "--idempotency-key",
                 "launch-preferred",
             ]

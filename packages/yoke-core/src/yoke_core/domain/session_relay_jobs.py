@@ -31,6 +31,7 @@ from yoke_core.domain.session_relay_types import (
 from yoke_core.domain.session_relay_private_qualification import (
     authorize_wake_candidate,
 )
+from yoke_core.domain import session_relay_managed_presentation as managed_presentation
 
 
 LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
@@ -124,6 +125,11 @@ def claim_wake_job(
         message_id=str(message_id),
         target_session_id=str(session_id),
         target_native_thread_id=str(selected.get("native_thread_id") or "") or None,
+        presentation=managed_presentation.managed_session_presentation(
+            conn,
+            session_id=session_id,
+            surface=execution[0],
+        ),
         wake_mode=WakeMode(str(selected["wake_mode"])),
         target_liveness=str(selected["liveness"]),
         wake_route="direct",
@@ -162,13 +168,8 @@ def report_wake_job(
     reported = str(row[2] or "")
     if reported == result_code and result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         return {"attempt_id": attempt_id, "result_code": result_code}
-    # A resume whose delivery is still unverified settles after its batch
-    # drained; its lease is authority.
     if reported not in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         require_relay_batch(conn, relay_id=relay_id, now=now)
-    # A relay reports the native it started, never whether the envelope
-    # arrived. Delivery is settled from the receipt itself, so an attempt
-    # carrying a transport observation stays open until that verdict lands.
     completed_at = None if result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS else now
     conn.execute(
         "UPDATE session_message_attempts SET completed_at="

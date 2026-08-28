@@ -18,6 +18,7 @@ _PUBLIC_FIELDS = (
     "requested_machine_id",
     "requested_model",
     "presentation_preference",
+    "session_name",
     "allow_surface_fallback",
     "state",
     "assigned_relay_id",

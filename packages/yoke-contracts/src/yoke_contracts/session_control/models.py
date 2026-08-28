@@ -164,9 +164,15 @@ class LaunchPreviewRequest(BaseModel):
 
 
 class LaunchCreateRequest(LaunchPreviewRequest):
+    item: str = Field(min_length=1, max_length=64)
     instructions: str
     idempotency_key: str
-    presentation: Optional[str] = None
+    presentation: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
+    )
 
 
 class LaunchMutationRequest(BaseModel):

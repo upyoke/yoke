@@ -16,6 +16,7 @@ import {
 } from "./universe_view_support.js";
 import { relativeAge, relativeTime } from "./universe_time.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
+import { appendSessionPresentation, remotePresentationCount } from "./universe_session_presentation.js";
 import { appendSteeringContext, appendSteeringGroups, appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
   appendSessionMessaging,
@@ -148,6 +149,7 @@ export function sessionCard(
   const body = el(documentNode, "div", "session-card-body");
   appendModel(documentNode, body, row);
   appendSteeringHoldings(documentNode, body, row, projects);
+  appendSessionPresentation(documentNode, body, row);
   appendHoldings(documentNode, body, row);
   if (row.liveness !== "ended") appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
@@ -170,6 +172,7 @@ function metricFacts(rows) {
   return [
     [rows.length, "sessions shown"],
     [claimedItems.size, "items claimed"],
+    [remotePresentationCount(rows), "Remote Control attached"],
     [actorCount, `actor${actorCount === 1 ? "" : "s"}`],
   ];
 }

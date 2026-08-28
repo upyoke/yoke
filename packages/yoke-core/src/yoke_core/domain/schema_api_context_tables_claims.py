@@ -26,6 +26,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("session_id", "TEXT"),
             ("executor", "TEXT"),
             ("executor_surface", "TEXT"),
+            ("presentation_surface", "TEXT"),
+            ("presentation_state", "TEXT"),
+            ("presentation_mode", "TEXT"),
+            ("presentation_source", "TEXT"),
+            ("presentation_observed_at", "TEXT"),
             ("provider", "TEXT"),
             ("model", "TEXT"),
             ("mode", "TEXT"),
@@ -68,6 +73,10 @@ CLAIMS_TABLES: dict[str, dict] = {
             "Board/session rendering prefers executor_surface and "
             "falls back to executor; event-envelope executor fields are "
             "canonical-only. The primary key is `session_id` — there is "
+            "Observed presentation is independent: presentation_surface "
+            "records Remote Control only when bounded client state proves it; "
+            "state/mode/source/observed_at describe the latest material "
+            "transition without guessing a frontend or initiator. "
             "NO `id` column on this table (stale guess). Primary "
             "attribution key is current_item_id "
             "(set when the session is actively working on an item); "

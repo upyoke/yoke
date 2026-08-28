@@ -209,6 +209,48 @@ def test_create_stores_instructions_once_and_deduplicates_exact_request() -> Non
     assert message[0] == request.instructions
 
 
+def test_claude_launch_defaults_to_local_presentation_and_keeps_structured_name() -> (
+    None
+):
+    conn = launch_connection()
+    add_relay(conn, surface="claude-cli", version="2.1.238")
+    outcome = create_launch(
+        conn,
+        auth=authorization(),
+        request=LaunchRequest(
+            project_id=10,
+            executor_surface="claude-cli",
+            instructions="Do the bounded task.",
+            idempotency_key="claude-local",
+            session_name="YOK-2580: Record session presentation",
+        ),
+        now=NOW,
+    )
+
+    assert outcome.launch.presentation_preference == "local"
+    assert outcome.launch.session_name == "YOK-2580: Record session presentation"
+
+
+def test_claude_launch_refuses_an_ignored_presentation_preference() -> None:
+    conn = launch_connection()
+    add_relay(conn, surface="claude-cli", version="2.1.238")
+    with pytest.raises(SessionLaunchError) as raised:
+        create_launch(
+            conn,
+            auth=authorization(),
+            request=LaunchRequest(
+                project_id=10,
+                executor_surface="claude-cli",
+                instructions="Do the bounded task.",
+                idempotency_key="claude-remote",
+                presentation="remote-control",
+                session_name="YOK-2580: Record session presentation",
+            ),
+            now=NOW,
+        )
+    assert raised.value.code == "presentation_unsupported"
+
+
 def test_idempotency_key_refuses_changed_body() -> None:
     conn = launch_connection()
     add_relay(conn)

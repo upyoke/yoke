@@ -55,6 +55,7 @@ class RelayExecutionContext:
     target_native_thread_id: str | None = None
     requested_model: str | None = None
     presentation: str | None = None
+    session_name: str | None = None
     target_liveness: str | None = None
     wake_mode: WakeMode | None = None
     wake_route: str | None = None
@@ -158,6 +159,7 @@ def execution_context(job: Mapping[str, Any]) -> RelayExecutionContext:
             str(job["requested_model"]) if job.get("requested_model") else None
         ),
         presentation=(str(job["presentation"]) if job.get("presentation") else None),
+        session_name=(str(job["session_name"]) if job.get("session_name") else None),
         target_liveness=(
             str(job["target_liveness"]) if job.get("target_liveness") else None
         ),

@@ -55,6 +55,7 @@ from yoke_core.hooks.stdin import (  # noqa: F401
     emit_session_hook_failed,
 )
 
+
 def _emit_hook_event(
     event_name: str,
     *,
@@ -229,6 +230,7 @@ _KIND_EVENT_SEVERITY = {
 }
 _HOOK_SOURCE_TYPE = "hook"
 
+
 def flush_hook_telemetry(records, *, deadline=None, ensure_session=None) -> None:
     """Flush accumulated hook-telemetry records over ONE reused connection.
 
@@ -263,31 +265,24 @@ def flush_hook_telemetry(records, *, deadline=None, ensure_session=None) -> None
             hook_emit_connection,
         )
     except Exception:  # noqa: BLE001 — degrade to per-call connections, no skip
-        _flush_records(records, emitters, conn=None, severity_check=None, deadline=deadline)
+        _flush_records(
+            records, emitters, conn=None, severity_check=None, deadline=deadline
+        )
         return
     with hook_emit_connection() as conn:
         if ensure_session is not None and conn is not None:
             try:  # register-if-missing; the net must never break dispatch
-                from yoke_core.hooks.registration import (
-                    ensure_registered_from_hook,
+                from yoke_core.hooks.hook_registration_tail import (
+                    apply_hook_registration,
                 )
 
-                (session_id, payload_json, transcript_path, record_anchor,
-                 executor_hint, in_process, force, actor_id,
-                 project_id) = ensure_session
-                ensure_registered_from_hook(
-                    conn, payload_json, session_id,
-                    transcript_path=transcript_path,
-                    record_anchor=record_anchor,
-                    executor_hint=executor_hint,
-                    register_in_process=in_process,
-                    force_reregister=force, actor_id=actor_id,
-                    project_id=project_id,
-                )
+                apply_hook_registration(conn, ensure_session)
             except Exception:  # noqa: BLE001
                 pass
         check = check_severity_conn if conn is not None else None
-        _flush_records(records, emitters, conn=conn, severity_check=check, deadline=deadline)
+        _flush_records(
+            records, emitters, conn=conn, severity_check=check, deadline=deadline
+        )
 
 
 def _flush_records(records, emitters, *, conn, severity_check, deadline) -> None:
@@ -311,7 +306,9 @@ def _flush_records(records, emitters, *, conn, severity_check, deadline) -> None
             ok = floor_ok.get(kind)
             if ok is None:
                 try:
-                    ok = severity_check(conn, name_sev[0], _HOOK_SOURCE_TYPE, name_sev[1])
+                    ok = severity_check(
+                        conn, name_sev[0], _HOOK_SOURCE_TYPE, name_sev[1]
+                    )
                 except Exception:  # noqa: BLE001 — a probe failure must not drop the row
                     ok = True
                 floor_ok[kind] = ok
