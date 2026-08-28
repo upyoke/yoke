@@ -71,7 +71,9 @@ test("session status line leads with total age from offered_at", (t) => {
       offered_at: new Date(now - 3 * 3_600_000).toISOString(),
       current_item: "YOK-1",
       claim_started_at: new Date(now - 60_000).toISOString(),
-      holdings: { current: [{ target_kind: "item", target: "YOK-1" }] },
+      holdings: { current: [{
+        holding_kind: "work_claim", target_kind: "item", target: "YOK-1",
+      }] },
     }),
     "3h old · claim held 1m · active now",
   );

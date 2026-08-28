@@ -1,12 +1,28 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
-import { steeringLeadCovers } from "./universe_sessions_steering.js";
+import {
+  steeringHoldingText,
+  steeringLeadCovers,
+} from "./universe_sessions_steering.js";
 import { el, statePill } from "./universe_view_support.js";
+
+const HOLDING_AUTHORITY_KINDS = new Set([
+  "work_claim", "path_claim", "strategy_document", "coordination",
+  "worktree_lane",
+]);
+
+export function hasHoldingAuthority(holding) {
+  return HOLDING_AUTHORITY_KINDS.has(String(holding?.holding_kind || ""));
+}
+
+function heldEntries(entries) {
+  return (Array.isArray(entries) ? entries : []).filter(hasHoldingAuthority);
+}
 
 function holdingGroups(row) {
   const model = row.holdings || {};
   return {
-    current: Array.isArray(model.current) ? model.current : [],
-    previous: Array.isArray(model.previous) ? model.previous : [],
+    current: heldEntries(model.current),
+    previous: heldEntries(model.previous),
     previousRemainder: Number(model.previous_remainder || 0),
   };
 }
@@ -77,7 +93,10 @@ function holdingMarker(holding) {
   return { text: "🔒", title: "work claim — this session holds it" };
 }
 
-function holdingTarget(holding) {
+function holdingTarget(holding, projects) {
+  if (holding.target_kind === "steering") {
+    return steeringHoldingText(holding, projects);
+  }
   if (holding.holding_kind === "coordination" && holding.owner_item_ref) {
     return `${holding.target} (${holding.owner_item_ref})`;
   }
@@ -85,7 +104,7 @@ function holdingTarget(holding) {
 }
 
 function appendHoldingEntry(
-  documentNode, body, row, holding, { showTitle = false } = {},
+  documentNode, body, row, holding, projects, { showTitle = false } = {},
 ) {
   const work = el(documentNode, "div", "session-work");
   const markerFacts = holdingMarker(holding);
@@ -102,7 +121,7 @@ function appendHoldingEntry(
         ? "session-lease-key"
         : "session-hold-target",
   );
-  target.textContent = holdingTarget(holding);
+  target.textContent = holdingTarget(holding, projects);
   if (href) target.href = href;
   work.appendChild(target);
   if (holding.path_count !== undefined) {
@@ -151,14 +170,16 @@ function appendAttachedEntry(documentNode, body, row, attribution) {
   body.appendChild(work);
 }
 
-function appendHoldingGroup(documentNode, body, row, label, entries, previous) {
+function appendHoldingGroup(
+  documentNode, body, row, label, entries, previous, projects,
+) {
   const group = el(documentNode, "div", "session-holdings-group");
   group.appendChild(el(
     documentNode, "div", "session-holdings-label", label,
   ));
   const titled = titleHolding(entries, row, previous);
   for (const entry of entries) {
-    appendHoldingEntry(documentNode, group, row, entry, {
+    appendHoldingEntry(documentNode, group, row, entry, projects, {
       showTitle: entry === titled,
     });
   }
@@ -166,22 +187,34 @@ function appendHoldingGroup(documentNode, body, row, label, entries, previous) {
   return group;
 }
 
-export function appendHoldings(documentNode, body, row) {
+export function appendHoldings(documentNode, body, row, projects = []) {
   const groups = holdingGroups(row);
   let rendered = false;
   // The steering block above the holdings already names every seat and
   // document it covers; repeating them here says the same hold twice.
   const coveredAbove = steeringLeadCovers(row);
   const current = groups.current.filter((holding) => !coveredAbove(holding));
+  const attribution = focusAttribution(row);
+  let currentGroup = null;
   if (current.length) {
-    appendHoldingGroup(
-      documentNode, body, row, "Currently held", current, false,
+    currentGroup = appendHoldingGroup(
+      documentNode, body, row, "Currently held", current, false, projects,
     );
+    rendered = true;
+  }
+  if (attribution === "lane") {
+    if (!currentGroup) {
+      currentGroup = appendHoldingGroup(
+        documentNode, body, row, "Currently held", [], false, projects,
+      );
+    }
+    appendAttachedEntry(documentNode, currentGroup, row, attribution);
     rendered = true;
   }
   if (groups.previous.length || groups.previousRemainder) {
     const group = appendHoldingGroup(
       documentNode, body, row, "Previously held", groups.previous, true,
+      projects,
     );
     if (groups.previousRemainder) {
       group.appendChild(el(
@@ -193,11 +226,7 @@ export function appendHoldings(documentNode, body, row) {
     }
     rendered = true;
   }
-  const attribution = focusAttribution(row);
-  if (attribution === "lane") {
-    appendAttachedEntry(documentNode, body, row, attribution);
-    rendered = true;
-  } else if (attribution === "filed") {
+  if (attribution === "filed") {
     // Its own labelled group, because an unclaimed item this session
     // typed is provenance, not the work the card leads with.
     const group = el(documentNode, "div", "session-holdings-group");

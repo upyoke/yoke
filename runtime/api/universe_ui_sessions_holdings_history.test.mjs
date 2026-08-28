@@ -85,8 +85,11 @@ test("previous holdings render for active stale and ended sessions", () => {
   const documentNode = new FakeDocument();
   for (const liveness of ["active", "stale", "ended"]) {
     const rendered = card(documentNode, liveness, {
-      current: [],
-      previous: [item("YOK-19", "Previous title")],
+      current: [{ holding_kind: "attribution", target: "YOK-20" }],
+      previous: [
+        item("YOK-19", "Previous title"),
+        { holding_kind: "attribution", target: "YOK-20" },
+      ],
       previous_remainder: 0,
     });
     // A live session still names the item it filed and nobody claimed;
@@ -97,6 +100,7 @@ test("previous holdings render for active stale and ended sessions", () => {
         ? ["Previously held"]
         : ["Previously held", "Filed · unclaimed"],
     );
+    assert.equal(byClass(rendered, "session-lock").length, 1);
   }
 });
 
