@@ -124,10 +124,12 @@ function appendRelay(documentNode, body, row) {
     documentNode,
     "span",
     `pill ${connected ? "good" : "crit"} session-relay-pill`,
-    machineLabel(row),
   );
+  pill.appendChild(el(
+    documentNode, "span", "session-relay-machine", machineLabel(row),
+  ));
   pill.setAttribute("data-state", connected ? "connected" : "unavailable");
-  if (row.machine_id) pill.title = String(row.machine_id);
+  pill.title = machineLabel(row);
   line.appendChild(pill);
   if (!connected) {
     line.appendChild(el(

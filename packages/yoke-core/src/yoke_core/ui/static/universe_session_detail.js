@@ -70,6 +70,7 @@ export function renderRegisteredSessionDetail(
       whoColumn(context.capabilities),
       portabilityMode(context.capabilities),
       openMessage,
+      context.projects(),
     ));
   };
   load();

@@ -18,6 +18,16 @@ function claimHref(claim, row) {
   return null;
 }
 
+function claimTarget(claim, projects) {
+  if (claim.target_kind !== "steering") return String(claim.target);
+  const projectId = claim.project_id ?? claim.scope?.project_id;
+  const project = (Array.isArray(projects) ? projects : []).find(
+    (candidate) => String(candidate.id) === String(projectId),
+  );
+  const slug = String(project?.slug || project?.name || "").trim();
+  return `steering for ${slug || "unknown project"}`;
+}
+
 // One entry per thing the session holds: its work claims, its
 // coordination leases, and — when the session's focus names an item no
 // claim of theirs covers — one attached row for that item. Only the
@@ -57,7 +67,7 @@ function appendStage(documentNode, work, row) {
   work.appendChild(stage);
 }
 
-function appendClaimEntry(documentNode, body, row, claim) {
+function appendClaimEntry(documentNode, body, row, claim, projects) {
   const work = el(documentNode, "div", "session-work");
   const marker = el(documentNode, "span", "session-lock", "🔒");
   marker.title = `this session holds the ${claim.target_kind || "work"} claim`;
@@ -68,7 +78,7 @@ function appendClaimEntry(documentNode, body, row, claim) {
     href ? "a" : "span",
     href ? "session-item-link" : "session-hold-target",
   );
-  target.textContent = String(claim.target);
+  target.textContent = claimTarget(claim, projects);
   if (href) target.href = href;
   work.appendChild(target);
   const ownsFocus =
@@ -83,7 +93,7 @@ function appendClaimEntry(documentNode, body, row, claim) {
         row.current_item_title,
       ));
     }
-  } else {
+  } else if (claim.target_kind !== "steering") {
     work.appendChild(el(
       documentNode,
       "span",
@@ -146,7 +156,7 @@ function appendAttachedEntry(documentNode, body, row) {
   body.appendChild(work);
 }
 
-export function appendHoldings(documentNode, body, row) {
+export function appendHoldings(documentNode, body, row, projects = []) {
   const entries = holdingEntries(row);
   if (!entries.length) {
     const work = el(documentNode, "div", "session-work");
@@ -161,7 +171,7 @@ export function appendHoldings(documentNode, body, row) {
   }
   for (const entry of entries) {
     if (entry.kind === "claim") {
-      appendClaimEntry(documentNode, body, row, entry.claim);
+      appendClaimEntry(documentNode, body, row, entry.claim, projects);
     } else if (entry.kind === "lease") {
       appendLeaseEntry(documentNode, body, entry.lease);
     } else {

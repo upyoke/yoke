@@ -16,6 +16,7 @@
   font-style: italic;
 }
 
+.universe-app-root .session-card { align-self: start; }
 .universe-app-root .session-card:hover {
   border-color: color-mix(
     in srgb,
@@ -73,6 +74,7 @@
   min-width: 0;
   color: var(--yoke-ink);
 }
+.universe-app-root .session-work > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 
 .universe-app-root .session-lock {
   flex: 0 0 auto;
@@ -208,8 +210,11 @@
 }
 
 .universe-app-root .session-relay-pill {
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: var(--yoke-font-mono);
 }
+.universe-app-root .session-relay-machine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .universe-app-root .session-health-detail,
 .universe-app-root .session-relay-warning,

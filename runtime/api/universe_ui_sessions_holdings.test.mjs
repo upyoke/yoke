@@ -29,7 +29,10 @@ function sessionsClient(rows) {
       }
       if (request.function === "projects.list") {
         return ok({
-          rows: [{ id: 1, slug: "yoke", name: "Yoke", emoji: "🛠" }],
+          rows: [
+            { id: 1, slug: "yoke", name: "Yoke", emoji: "🛠" },
+            { id: 3, slug: "platform", name: "Platform", emoji: "☁" },
+          ],
         });
       }
       if (request.function === "sessions.list") {
@@ -39,6 +42,82 @@ function sessionsClient(rows) {
     },
   };
 }
+
+test("Sessions contains a long relay name and unequal multi-claim cards", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  const root = documentNode.createElement("div");
+  const longMachineName = "beebauman-macbook-pro-16.fios-router.home";
+  const mounted = mountUniverseApp(root, {
+    client: sessionsClient([
+      {
+        session_id: "steering-1", liveness: "active",
+        execution_lane: "DARIUS", mode: "steer", executor: "codex",
+        model: "gpt-5.6-sol", actor_id: 2, actor_kind: "human",
+        actor_label: "Ben", project_id: 1, project: "yoke",
+        current_item: "YOK-2552", current_item_project_id: 1,
+        current_item_project_sequence: 2552,
+        current_item_title: "Sessions roster rendering polish",
+        current_item_status: "implementing",
+        activity_at: "2026-07-26T12:04:00Z",
+        claims: [
+          {
+            target_kind: "steering", target: "steering for project 1",
+            project_id: 1, scope: { project_id: 1 },
+          },
+          {
+            target_kind: "steering", target: "steering for project 3",
+            project_id: 3, scope: { project_id: 3 },
+          },
+          { target_kind: "item", target: "YOK-2552" },
+        ],
+        coordination_claims: [], machine_id: "machine-1",
+        machine_name: longMachineName, relay: "connected",
+        messageability: {
+          messageable: true, wake_available: true, relay_connected: true,
+        },
+      },
+      {
+        session_id: "single-1", liveness: "active",
+        execution_lane: "ALTMAN", mode: "feed", executor: "claude-code",
+        model: "claude-opus-4-8", actor_id: 2, actor_kind: "human",
+        actor_label: "Ben", project_id: 1, project: "yoke",
+        current_item: null, activity_at: "2026-07-26T12:04:00Z",
+        claims: [{ target_kind: "process", target: "feed" }],
+        coordination_claims: [], machine_id: "machine-2",
+        machine_name: "test-mac", relay: "connected",
+        messageability: {
+          messageable: true, wake_available: true, relay_connected: true,
+        },
+      },
+    ]),
+    capabilities: { data: { portability: { mode: "hosted" } } },
+  });
+  await settle();
+
+  const cards = byClass(root, "session-card");
+  assert.equal(cards.length, 2);
+  assert.equal(byClass(cards[0], "session-work").length, 3);
+  assert.equal(byClass(cards[1], "session-work").length, 1);
+  assert.deepEqual(
+    byClass(cards[0], "session-hold-target").map((node) => node.textContent),
+    ["steering for yoke", "steering for platform"],
+  );
+  assert.equal(byClass(cards[0], "session-work-role").length, 0);
+  assert.deepEqual(
+    byClass(cards[1], "session-work-role").map((node) => node.textContent),
+    ["process"],
+  );
+  assert.ok(!visibleText(cards[0]).includes("project 1"));
+  assert.ok(!visibleText(cards[0]).includes("project 3"));
+  const relay = byClass(cards[0], "session-relay-pill")[0];
+  assert.equal(relay.textContent, longMachineName);
+  assert.equal(relay.title, longMachineName);
+  mounted.unmount();
+});
 
 test("Sessions lists every work claim and coordination lease a session holds", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -203,4 +282,14 @@ test("Sessions lease keys share the mono typeface of item refs", () => {
     import.meta.url,
   ), "utf8");
   assert.match(css, /\.session-lease-key,/);
+});
+
+test("Session cards contain variable text and size each grid row independently", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
+    import.meta.url,
+  ), "utf8");
+  assert.match(css, /\.session-card \{ align-self: start; \}/);
+  assert.match(css, /\.session-work > \* \{[^}]*overflow-wrap: anywhere;/);
+  assert.match(css, /\.session-relay-machine \{[^}]*text-overflow: ellipsis;/);
 });

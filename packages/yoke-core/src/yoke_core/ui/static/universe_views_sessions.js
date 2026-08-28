@@ -113,7 +113,9 @@ function appendAge(documentNode, body, row) {
 // Identity, work, health — in that order and nothing else. The harness and its
 // lane name the session, the model says what is running it, the holdings say
 // what it is doing, and the diagnostics say whether that is going anywhere.
-export function sessionCard(documentNode, row, who, mode, onMessage) {
+export function sessionCard(
+  documentNode, row, who, mode, onMessage, projects = [],
+) {
   const card = el(documentNode, "article", "session-card");
   card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", row.liveness || "unknown");
@@ -135,7 +137,7 @@ export function sessionCard(documentNode, row, who, mode, onMessage) {
 
   const body = el(documentNode, "div", "session-card-body");
   appendModel(documentNode, body, row);
-  appendHoldings(documentNode, body, row);
+  appendHoldings(documentNode, body, row, projects);
   appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
   appendSteeringContext(documentNode, body, row);
@@ -161,7 +163,9 @@ function metricFacts(rows) {
   ];
 }
 
-function renderSessions(documentNode, host, rows, who, mode, onMessage, filtered = false) {
+function renderSessions(
+  documentNode, host, rows, who, mode, onMessage, projects, filtered = false,
+) {
   host.replaceChildren(statRow(documentNode, metricFacts(rows)));
   if (!rows.length) {
     host.appendChild(el(
@@ -173,7 +177,9 @@ function renderSessions(documentNode, host, rows, who, mode, onMessage, filtered
     return;
   }
   const grid = el(documentNode, "div", "session-grid");
-  appendSteeringGroups(documentNode, grid, rows, (row) => sessionCard(documentNode, row, who, mode, onMessage));
+  appendSteeringGroups(documentNode, grid, rows, (row) => sessionCard(
+    documentNode, row, who, mode, onMessage, projects,
+  ));
   host.appendChild(grid);
 }
 
@@ -201,6 +207,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     const rows = currentRows();
     renderSessions(
       documentNode, content, rows, who, mode, openMessage,
+      context.projects(),
       filters.isRestrictive(),
     );
     messageAll.disabled = rows.length === 0;
