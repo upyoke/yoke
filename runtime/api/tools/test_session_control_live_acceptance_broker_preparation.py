@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from runtime.api.tools.session_control_live_acceptance_broker_binding import (
     preview_document,
 )
@@ -15,6 +17,9 @@ from runtime.api.tools.session_control_live_acceptance_broker_eligibility import
 from runtime.api.tools.session_control_live_acceptance_broker_preparation import (
     BROKER_KEEPALIVE_SECONDS,
     resolve_or_prepare_broker_binding,
+)
+from runtime.api.tools.session_control_live_acceptance_contract import (
+    AcceptanceContractError,
 )
 from runtime.api.tools.session_control_live_acceptance_protocol import (
     RECEIPT_ONLY_PROTOCOL,
@@ -64,6 +69,7 @@ class _RecoveryClient:
             "busy-peer": _row("busy-peer", claims=[{"target": "YOK-2473"}]),
         }
         self.create_calls: list[tuple[list[str], str]] = []
+        self.used_keys: set[str] = set()
         self.keepalive_calls: list[list[str]] = []
         self.held: set[str] = set()
 
@@ -102,7 +108,10 @@ class _RecoveryClient:
         if args[:2] == ["sessions", "create"]:
             assert stdin is not None
             key = args[args.index("--idempotency-key") + 1]
-            role = key.rsplit("broker-", 1)[1]
+            if key in self.used_keys:
+                raise AcceptanceContractError("idempotency_conflict")
+            self.used_keys.add(key)
+            role = key.rsplit(":broker-", 1)[1].split(":", 1)[0]
             self.create_calls.append((list(args), stdin))
             return {
                 "launch": {
@@ -220,3 +229,50 @@ def test_ended_prepared_pair_reports_its_own_failure_code() -> None:
     assert "dedicated-target" in decision.recovery
     assert "dedicated-peer" in decision.recovery
     assert "keepalive hold" in decision.recovery
+
+
+def test_unconsumed_run_retry_prepares_a_replacement_pair() -> None:
+    client = _UnheldClient()
+    first = _prepare(client)
+    first_keys = set(client.used_keys)
+
+    assert first.status == "not_ready"
+    assert first.failure_code == PREPARED_SESSIONS_ENDED_CODE
+    assert len(first_keys) == 2
+
+    client.rows = {
+        key: row
+        for key, row in client.rows.items()
+        if not str(key).startswith("dedicated-")
+    }
+    client.keepalive_prevents_reap = True
+    second = _prepare(client)
+
+    assert second.status == "ready"
+    assert second.binding == BrokerBinding(
+        "dedicated-target", MACHINE, "dedicated-peer"
+    )
+    assert len(client.create_calls) == 4
+    assert first_keys.isdisjoint(client.used_keys - first_keys)
+    assert all(":broker-" in key and key.count(":") >= 4 for key in client.used_keys)
+
+
+class _DuplicateAttemptClient(_RecoveryClient):
+    def call(self, args: list[str], *, stdin: str | None = None) -> dict[str, Any]:
+        if args[:2] == ["sessions", "create"] and "--preview" not in args:
+            raise AcceptanceContractError("idempotency_conflict")
+        return super().call(args, stdin=stdin)
+
+
+def test_duplicate_create_inside_one_attempt_is_refused() -> None:
+    with pytest.raises(AcceptanceContractError) as failure:
+        _prepare(_DuplicateAttemptClient())
+
+    assert failure.value.code == "idempotency_conflict"
+    evidence = failure.value.evidence or {}
+    assert evidence["run_id"] == RUN_ID
+    assert evidence["run_consumed"] is False
+    assert evidence["owning_attempt_id"]
+    assert RUN_ID in evidence["recovery"]
+    assert evidence["owning_attempt_id"] in evidence["recovery"]
+    assert "--prepare-broker" in evidence["recovery"]

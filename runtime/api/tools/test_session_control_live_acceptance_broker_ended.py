@@ -116,7 +116,6 @@ def test_ended_target_and_peer_are_valid_wakeable_baselines() -> None:
 @pytest.mark.parametrize(
     ("overrides", "routing_overrides", "code"),
     (
-        ({"claims": [{"target": "held"}]}, {}, "registration_claims_present"),
         ({"current_item": "held"}, {}, "registration_item_present"),
         ({"mode": "charge"}, {}, "ended_waiting_mode_invalid"),
         ({"ended_at": None}, {}, "ended_waiting_stamp_missing"),

@@ -226,9 +226,18 @@ def _refusal(exc: AcceptanceContractError) -> dict[str, Any]:
     }
     if exc.surface:
         report["surface"] = exc.surface
-    recovery = (exc.evidence or {}).get("recovery")
+    evidence = exc.evidence or {}
+    recovery = evidence.get("recovery")
     if isinstance(recovery, str) and recovery.strip():
         report["recovery"] = recovery
+    owning_attempt = evidence.get("owning_attempt_id")
+    if isinstance(owning_attempt, str) and owning_attempt.strip():
+        report["owning_attempt_id"] = owning_attempt
+    if "run_consumed" in evidence:
+        report["run_consumed"] = bool(evidence["run_consumed"])
+    run_id = evidence.get("run_id")
+    if isinstance(run_id, str) and run_id.strip():
+        report["run_id"] = run_id
     return report
 
 
