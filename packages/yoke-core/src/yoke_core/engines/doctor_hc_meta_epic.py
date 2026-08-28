@@ -16,6 +16,7 @@ from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.schema_common import _column_exists
 
 import yoke_core.engines.doctor_report as _base
 
@@ -28,18 +29,31 @@ from yoke_core.engines.doctor_workflow_behavior import (
 )
 
 
+def _closeout_recovery(ref: str) -> str:
+    return (
+        f"Status is not the landing signal. Finish close-out with "
+        f"`yoke merge item {ref}` (Dash) or `/yoke usher {ref}` "
+        "(delivery). Confirm merged_at, the merge receipt, or git ancestry."
+    )
+
+
 def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-orphaned-active-items: Orphaned active items (merged code, non-done status)."""
     repo_root = _base._resolve_repo_root()
     issues: List[str] = []
     flagged: set = set()
 
-    # Check items with merged_at set but status not done/cancelled
+    landed = "(merged_at IS NOT NULL AND merged_at <> '')"
+    if _column_exists(conn, "items", "merge_queue_landed_at"):
+        landed = (
+            f"({landed} OR (merge_queue_landed_at IS NOT NULL "
+            "AND merge_queue_landed_at <> ''))"
+        )
     rows = query_rows(
         conn,
         "SELECT id, status "
-        "FROM items WHERE merged_at IS NOT NULL AND merged_at <> '' "
-        "AND status NOT IN ('done', 'cancelled') ORDER BY id",
+        f"FROM items WHERE {landed} "
+        "AND status NOT IN ('done', 'cancelled', 'stopped') ORDER BY id",
     )
     for row in rows:
         item_id = row["id"]
@@ -48,16 +62,20 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
         flagged.add(item_id)
         ref = render_item_ref(conn, item_id)
         issues.append(
-            f"- {ref} (status: {row['status']}): merged_at is set but status is not done. "
-            f"Run: `/yoke usher {ref}` to complete the done transition."
+            f"- {ref} (status: {row['status']}): landed but not terminal. "
+            f"{_closeout_recovery(ref)}"
         )
 
     # Check items with active lane branches merged into main
     if repo_root:
         main_branch = "main"
-        r = _base._run(["git", "-C", repo_root, "rev-parse", "--verify", "main"], timeout=5)
+        r = _base._run(
+            ["git", "-C", repo_root, "rev-parse", "--verify", "main"], timeout=5
+        )
         if r.returncode != 0:
-            r2 = _base._run(["git", "-C", repo_root, "rev-parse", "--verify", "master"], timeout=5)
+            r2 = _base._run(
+                ["git", "-C", repo_root, "rev-parse", "--verify", "master"], timeout=5
+            )
             if r2.returncode == 0:
                 main_branch = "master"
 
@@ -75,21 +93,35 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
                 continue
             wt = row["branch"]
             # Check if branch is ancestor of main
-            r = _base._run(["git", "-C", repo_root, "merge-base", "--is-ancestor", wt, main_branch],
-                      timeout=5)
+            r = _base._run(
+                [
+                    "git",
+                    "-C",
+                    repo_root,
+                    "merge-base",
+                    "--is-ancestor",
+                    wt,
+                    main_branch,
+                ],
+                timeout=5,
+            )
             if r.returncode == 0:
                 flagged.add(item_id)
                 ref = render_item_ref(conn, item_id)
                 issues.append(
-                    f"- {ref} (status: {row['status']}): branch '{wt}' is merged to {main_branch}. "
-                    f"Run: `/yoke usher {ref}` to complete the done transition."
+                    f"- {ref} (status: {row['status']}): branch '{wt}' is "
+                    f"merged to {main_branch}. {_closeout_recovery(ref)}"
                 )
 
     if issues:
-        rec.record("HC-orphaned-active-items", "Orphaned active items", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-orphaned-active-items",
+            "Orphaned active items",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-orphaned-active-items", "Orphaned active items", "PASS", "")
-
 
 
 def hc_premature_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -104,14 +136,19 @@ def hc_premature_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     issues = [
         f"- {render_item_ref(conn, r['id'])} ({r['workflow_id']}: {r['title']}): "
         "status=done but merged_at is null"
-        for r in rows if min_item_id is None or r["id"] >= min_item_id
+        for r in rows
+        if min_item_id is None or r["id"] >= min_item_id
     ]
 
     if issues:
-        rec.record("HC-premature-done", "Done items without merged_at", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-premature-done",
+            "Done items without merged_at",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-premature-done", "Done items without merged_at", "PASS", "")
-
 
 
 def hc_shepherd_spec_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -134,24 +171,35 @@ def hc_shepherd_spec_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> 
             )
 
     if issues:
-        rec.record("HC-shepherd-spec-integrity", "Shepherd spec body integrity", "WARN",
-                    "\n".join(issues))
+        rec.record(
+            "HC-shepherd-spec-integrity",
+            "Shepherd spec body integrity",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
-        rec.record("HC-shepherd-spec-integrity", "Shepherd spec body integrity", "PASS", "")
-
+        rec.record(
+            "HC-shepherd-spec-integrity", "Shepherd spec body integrity", "PASS", ""
+        )
 
 
 def hc_stale_body(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-stale-body: Retired. Body cache columns no longer exist."""
-    rec.record("HC-stale-body", "Stale body (retired)", "PASS", "Retired — body is rendered on demand")
-
+    rec.record(
+        "HC-stale-body",
+        "Stale body (retired)",
+        "PASS",
+        "Retired — body is rendered on demand",
+    )
 
 
 def hc_reviewed_implementation_epics_no_sim(
     conn, args: DoctorArgs, rec: RecordCollector
 ) -> None:
     """HC-reviewed-implementation-epics-no-sim: Reviewed epics without integration simulation."""
-    if not _base._table_exists(conn, "qa_runs") or not _base._table_exists(conn, "qa_requirements"):
+    if not _base._table_exists(conn, "qa_runs") or not _base._table_exists(
+        conn, "qa_requirements"
+    ):
         rec.record(
             "HC-reviewed-implementation-epics-no-sim",
             "Reviewed-implementation epics without simulation",
@@ -172,7 +220,7 @@ def hc_reviewed_implementation_epics_no_sim(
         # directly so the predicate is portable (PG rejects integer = text)
         "    AND qreq.item_id = i.id "
         # deliberate case-sensitive match against internal JSON-literal phase token
-        "    AND qreq.success_policy LIKE '%%\"phase\":\"integration\"%%'"
+        '    AND qreq.success_policy LIKE \'%%"phase":"integration"%%\''
         ") ORDER BY i.id",
     )
 
@@ -199,12 +247,15 @@ def hc_reviewed_implementation_epics_no_sim(
         )
 
 
-
 def hc_missing_flow(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-missing-flow: non-terminal items without deployment_flow."""
     if not _base._column_exists(conn, "items", "deployment_flow"):
-        rec.record("HC-missing-flow", "Items without deployment flow", "PASS",
-                    "deployment_flow column does not exist yet — skipping")
+        rec.record(
+            "HC-missing-flow",
+            "Items without deployment flow",
+            "PASS",
+            "deployment_flow column does not exist yet — skipping",
+        )
         return
 
     # blocked is now a flag; the legacy 'blocked' status survives
@@ -226,6 +277,11 @@ def hc_missing_flow(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     ]
 
     if issues:
-        rec.record("HC-missing-flow", "Items without deployment flow", "WARN", "\n".join(issues))
+        rec.record(
+            "HC-missing-flow",
+            "Items without deployment flow",
+            "WARN",
+            "\n".join(issues),
+        )
     else:
         rec.record("HC-missing-flow", "Items without deployment flow", "PASS", "")

@@ -225,10 +225,14 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
 
     overdue_row = next(line for line in body.splitlines() if "YOK-1" in line)
     fresh_row = next(line for line in body.splitlines() if "YOK-2" in line)
+    landed_row = next(line for line in body.splitlines() if "YOK-4" in line)
     assert overdue_row.lstrip().startswith("!")
     assert " new " in overdue_row
     assert not fresh_row.lstrip().startswith("!")
     assert " stopped " in fresh_row
+    assert "still reviewing-implementation" in landed_row
+    assert "do not wait on status" in landed_row
+    assert "yoke merge item YOK-4" in landed_row
 
 
 def test_the_populated_report_stays_short_enough_to_ride_every_message():
@@ -240,5 +244,3 @@ def test_the_populated_report_stays_short_enough_to_ride_every_message():
 
 def test_full_sections_are_reported_as_actionable():
     assert _populated_report().actionable is True
-
-

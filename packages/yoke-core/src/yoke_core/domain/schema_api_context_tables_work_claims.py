@@ -62,7 +62,11 @@ WORK_CLAIM_TABLES: dict[str, dict] = {
             "classification, and release_reason_intent the caller's release "
             "intent versus the release_reason enum. Read these columns, "
             "never the telemetry-only events ledger; NULL means no intent "
-            "was recorded."
+            "was recorded. A session serializing behind another item must "
+            "not treat the peer's status as the landing signal — status is "
+            "what strands after a cap-overruled close-out. The durable "
+            "landed facts are the merge receipt, items.merged_at / "
+            "merge_queue_landed_at, and git ancestry of the merge sha."
         ),
     },
 }
