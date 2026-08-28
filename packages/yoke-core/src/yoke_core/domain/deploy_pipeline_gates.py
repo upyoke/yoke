@@ -20,6 +20,7 @@ from yoke_core.domain.deploy_pipeline_reporting import (
     _github_actions,
     _run_cmd,
 )
+from yoke_core.domain import deploy_pipeline_ci_recovery as ci_recovery
 from yoke_core.domain.project_renderer_settings import project_ci_workflow_file
 
 _AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
@@ -218,6 +219,7 @@ def _check_ci_gate(
     branch: str,
     head_sha: str = "",
     sd: Optional[str] = None,
+    _dispatched_run_id: str = "",
 ) -> Tuple[bool, str]:
     """Check CI for the exact release commit before deploying.
 
@@ -283,9 +285,20 @@ def _check_ci_gate(
         return False, _timed_out_ci_message(branch, timeout_sec)
     if state == "no_runs":
         if head_sha:
-            return False, (
-                "\nBLOCKED: Cannot deploy — no CI run exists for exact "
-                f"release commit {head_sha} on {branch}.\n"
+            return ci_recovery.recover_missing_ci_gate(
+                github_actions=_github_actions,
+                recheck=lambda run_id: _check_ci_gate(
+                    github_repo, project, timeout_sec, branch=branch,
+                    head_sha=head_sha, sd=sd, _dispatched_run_id=run_id,
+                ),
+                github_repo=github_repo,
+                project=project,
+                workflow=ci_workflow,
+                branch=branch,
+                head_sha=head_sha,
+                dispatched_run_id=_dispatched_run_id,
+                timeout_sec=timeout_sec,
+                sd=sd,
             )
         return True, f"  CI gate: no CI runs found on {branch} — skipping"
     return False, (

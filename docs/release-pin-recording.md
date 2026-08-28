@@ -80,3 +80,18 @@ Platform's promotion workflow owns branch materialization, deployment, and
 failure restoration. It carries no control-plane settings token and contains
 no desired-pin writer. This keeps one writer at the outer success boundary and
 prevents a failed inner deployment from advancing desired authority.
+
+The materialization push moves Platform's environment branch before the inner
+deployment starts. For production that is Platform's default branch, so a Yoke
+release advances Platform default-branch state before deployment. The gate
+therefore binds two identities to that new branch tip: the build attestation
+and the declared `ci_workflow_file` run must both name the exact materialization
+commit. When a push-triggered run does not appear, the gate dispatches the
+declared workflow with its `yoke_dispatch_id`, waits, and verifies the same
+commit; no manual workflow dispatch is part of the release procedure. A
+refusal names the commit, workflow, and repair steps.
+
+The gate does not reuse CI from an older commit merely because selected files
+or a derived tree appear equivalent. Pin files and locks select what the build
+ships, while commit identity binds the attestation, so identical-tree reuse
+would reopen the source mismatch the gate prevents.
