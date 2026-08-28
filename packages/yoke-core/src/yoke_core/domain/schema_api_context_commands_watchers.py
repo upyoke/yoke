@@ -48,8 +48,10 @@ WATCHERS_COMMANDS: list[dict] = [
             "project's test anchors:\n"
             "yoke watch pytest "
             "--print-streaming-pair -- <project test anchors>\n"
-            "# Paste the printed pair into the harness's "
-            "background + progress-tail surfaces.\n"
+            "# Paste both printed lines verbatim into the harness's "
+            "background + progress-tail surfaces — the printed "
+            "--raw-capture/--progress-capture flags are what bind the run "
+            "to the tail.\n"
             "# After completion: tail -80 <raw-capture> "
             "(the helper-resolved path the wrapper printed)"
         ),
@@ -67,7 +69,10 @@ WATCHERS_COMMANDS: list[dict] = [
             "yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair "
             "under the machine temp root's watcher-captures directory and prints the resolved "
             "paths; --raw-capture <path> is the operator carve-out for "
-            "pinning to a known location. Subagents must run the foreground "
+            "pinning to a known location. Running the wrapper without the "
+            "printed capture flags mints a different pair, so the tail "
+            "follows a file the run never writes and refuses once its "
+            "grace window passes. Subagents must run the foreground "
             "variant below — backgrounded watchers from subagent context "
             "are denied by lint-subagent-background. `uv run --frozen` "
             "materializes the locked dev environment in a clean worktree, "
@@ -98,8 +103,8 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch doctor "
             "--print-streaming-pair -- --quick\n"
-            "# Paste the printed pair into the harness's "
-            "background + progress-tail surfaces."
+            "# Paste both printed lines verbatim — the printed "
+            "--raw-capture/--progress-capture flags bind the run to the tail."
         ),
         "notes": (
             "Doctor must run under this wrapper — bare invocations risk "

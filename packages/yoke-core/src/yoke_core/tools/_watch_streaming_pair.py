@@ -119,6 +119,27 @@ def print_streaming_pair(
         "# Progress tail — arm Monitor ONCE against this capture file.\n"
     )
     stream.write(
+        "# Paste the background command above VERBATIM: the two lines are a\n"
+    )
+    stream.write(
+        "# matched pair, and its --raw-capture/--progress-capture flags are\n"
+    )
+    stream.write(
+        "# exactly what bind that run to this tail. Run the wrapper without\n"
+    )
+    stream.write(
+        "# them and it mints a fresh capture pair, writes its progress and\n"
+    )
+    stream.write(
+        "# exit sentinel there, and leaves this tail following a file nothing\n"
+    )
+    stream.write(
+        "# writes — which watch_tail then refuses, non-zero, once its grace\n"
+    )
+    stream.write(
+        "# window passes with no writer.\n"
+    )
+    stream.write(
         "# Monitor is a subscription: matched lines arrive as wake events\n"
     )
     stream.write(

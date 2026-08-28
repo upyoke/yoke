@@ -45,6 +45,22 @@ def _command_lines(text: str) -> list[str]:
     return [line for line in text.splitlines() if line.startswith("cd ")]
 
 
+def test_warns_that_the_two_printed_commands_are_a_bound_pair():
+    """The pair binds only when the bg command is pasted verbatim.
+
+    Arming the tail on the printed progress capture while running the
+    wrapper without the printed capture flags mints a second pair, so
+    the run's sentinel lands where nobody reads it.
+    """
+    text = _pair_text(["runtime/api/"])
+    assert "VERBATIM" in text
+    assert "matched pair" in text
+    assert "--raw-capture/--progress-capture" in text
+    # The warning must say what happens when they are dropped, not just
+    # that they matter.
+    assert "mints a fresh capture pair" in text
+
+
 def test_emits_background_and_progress_tail_invocations():
     text = _pair_text(["runtime/api/", "-k", "fast"])
     assert "yoke watch pytest" in text

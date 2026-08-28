@@ -36,10 +36,13 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO
 
 from yoke_core.domain import process_group_reaping
-from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 
 # Re-exported so wrappers keep importing one watcher entrypoint.
+from yoke_core.tools._watch_capture_binding import (  # noqa: F401
+    bind_capture_paths,
+    mint_capture_paths,
+)
 from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
 from yoke_core.tools._watch_throttle import (
     Classification,
@@ -78,22 +81,6 @@ def _unbuffered_child_environment(
     """Return an isolated child environment with immediate Python output."""
     source = os.environ if env is None else env
     return {**source, "PYTHONUNBUFFERED": "1"}
-
-
-def mint_capture_paths(kind: str) -> tuple[Path, Path]:
-    """Mint ``(raw, progress)`` capture file paths under the scratch root.
-
-    Thin wrapper over
-    :func:`yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair`
-    so every watcher writes captures into the project-scoped
-    ``watcher-captures`` subdir with a shared nonce linking the raw and
-    progress files. Both files are created empty so downstream callers
-    that ``stat`` the path before opening it observe an existing file.
-    """
-    raw_path, progress_path = mint_watcher_capture_pair(kind)
-    raw_path.touch()
-    progress_path.touch()
-    return raw_path, progress_path
 
 
 def filter_match(pattern: re.Pattern[str], line: str) -> bool:
@@ -228,7 +215,11 @@ def run_watcher(
     )
 
     raw_f = raw_capture.open("w", encoding="utf-8", buffering=1)
-    progress_f = progress_capture.open("w", encoding="utf-8", buffering=1)
+    # Appended, not truncated: ``bind_capture_paths`` has already stamped
+    # this process's ownership marker as the file's first line, and a
+    # follower may already be reading past it. Truncating here would both
+    # drop the marker and strand that reader beyond a shortened file.
+    progress_f = progress_capture.open("a", encoding="utf-8", buffering=1)
 
     try:
         # Wrapper metadata is class METADATA: emit immediately, never to raw.
