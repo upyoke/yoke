@@ -26,6 +26,7 @@ from yoke_harness.session_relay_claude_native import (
 )
 from yoke_harness.session_relay_claude_result import (
     build_claude_result,
+    control_plane_schema_skew_detail,
 )
 from yoke_harness.session_relay_claude_transcript import (
     claude_session_transcript_exists,
@@ -41,7 +42,7 @@ from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_contracts.session_control.presentation import CLAUDE_LOCAL_PRESENTATION
 
 
-CLAUDE_ADAPTER_REVISION = "claude-native-v4"
+CLAUDE_ADAPTER_REVISION = "claude-native-v5"
 CLAUDE_CLI_SURFACE = "claude-cli"
 _result = partial(
     build_claude_result,
@@ -108,9 +109,14 @@ def unsupported_claude_route(
     return _result(context, code, "unsupported_surface")
 
 
-def _context_extensions_present(context: RelayExecutionContext) -> bool:
-    names = ("surface_version", "requested_model", "presentation", "session_name")
-    return all(hasattr(context, name) for name in names)
+def _missing_control_plane_launch_field(
+    context: RelayExecutionContext,
+) -> str | None:
+    for name in ("surface_version", "presentation"):
+        value = getattr(context, name, None)
+        if not isinstance(value, str) or not value.strip():
+            return name
+    return None
 
 
 def run_claude_cli_adapter(
@@ -128,6 +134,15 @@ def run_claude_cli_adapter(
         return unsupported_claude_route(context)
     if context.job_kind not in {"launch", "wake"}:
         return _result(context, "failed", "job_kind_invalid")
+    if context.job_kind == "launch":
+        missing_field = _missing_control_plane_launch_field(context)
+        if missing_field is not None:
+            return _result(
+                context,
+                "not_created",
+                "control_plane_schema_skew",
+                probe_detail=control_plane_schema_skew_detail(missing_field),
+            )
     operation = "create"
     if context.job_kind == "wake":
         operation = wake_operation(
@@ -147,12 +162,8 @@ def run_claude_cli_adapter(
         result = "not_created" if context.job_kind == "launch" else "failed"
         return _result(context, result, "executable_unavailable")
     if context.job_kind == "launch":
-        if not _context_extensions_present(context):
-            return _result(context, "not_created", "context_incomplete")
         if context.presentation != CLAUDE_LOCAL_PRESENTATION:
             return _result(context, "not_created", "presentation_unsupported")
-        if not context.session_name:
-            return _result(context, "not_created", "assignment_name_missing")
         try:
             UUID(context.job_id)
         except (TypeError, ValueError, AttributeError):
