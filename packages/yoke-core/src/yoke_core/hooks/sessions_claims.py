@@ -117,7 +117,8 @@ def cmd_release_all(conn, session_id: str, reason: str = "released") -> str:
     )
     conn.execute(
         "UPDATE work_claims SET released_at=%s, release_reason=%s "
-        "WHERE session_id=%s AND released_at IS NULL",
+        "WHERE session_id=%s AND released_at IS NULL "
+        f"AND {LIVENESS_BOUND_SQL}",
         (now, reason, session_id),
     )
     # The caller's release intent is first-class claim state.
@@ -185,7 +186,8 @@ def cmd_reclaim(conn, session_id: str) -> str:
     _clear_current_item(conn, session_id)
     conn.execute(
         "UPDATE work_claims SET released_at=%s, release_reason='reclaimed' "
-        "WHERE session_id=%s AND released_at IS NULL",
+        "WHERE session_id=%s AND released_at IS NULL "
+        f"AND {LIVENESS_BOUND_SQL}",
         (now, session_id),
     )
     conn.execute(

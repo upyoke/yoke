@@ -29,6 +29,7 @@ from .sessions_render_end_claim_release import (
     AGENT_HANDOFF_RELEASE_VIA,
     release_session_claims,
 )
+from .work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
 AGENT_HANDOFF_RELEASE_REASON = "agent_handoff_session_scoped"
@@ -39,13 +40,14 @@ def _p(conn: Any) -> str:
 
 
 def release_all_claims_for_session(session_id: str) -> Dict[str, Any]:
-    """Release every active work-claim held by ``session_id``.
+    """Release every active liveness-bound work-claim held by ``session_id``.
 
     Returns a dict with ``released_count`` and ``released_claims`` (the
     JSON-safe per-claim payload from
     :func:`release_session_claims`). Zero-effect when the session holds
-    no active claims (returns ``{"released_count": 0,
-    "released_claims": []}``).
+    no active liveness-bound claims (returns ``{"released_count": 0,
+    "released_claims": []}``). Sticky resource claims survive for audited
+    operator release.
 
     Implementation reuses :func:`release_session_claims` rather than
     re-implementing the per-row loop, ensuring event emission,
@@ -75,6 +77,7 @@ def release_all_claims_for_session(session_id: str) -> Dict[str, Any]:
             f"""SELECT id, target_kind, scope
                 FROM work_claims
                 WHERE session_id = {p} AND released_at IS NULL
+                  AND {LIVENESS_BOUND_SQL}
                 ORDER BY claimed_at ASC, id ASC""",
             (session_id,),
         ).fetchall()
