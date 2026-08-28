@@ -89,7 +89,7 @@ TYPICAL FLOW
  BLITZ FLOW
  1. /yoke idea --workflow blitz "my document-led plan" -> Blitz at idea
  2. /yoke refine PREFIX-N -> link exactly one execution strategy document -> refined-idea
- 3. /yoke blitz PREFIX-N -> execute integrated slices -> reconcile document -> done
+ 3. /yoke blitz PREFIX-N -> execute slices -> reconcile document -> done + archive linked document
 
 DEPENDENCY INSPECTION
  Authoritative dependency data lives in the item_dependencies table.

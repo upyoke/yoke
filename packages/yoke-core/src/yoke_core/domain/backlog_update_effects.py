@@ -62,9 +62,13 @@ def run_transactional_update_effects(
         # var so env-driven callers keep the historical "backlog-registry"
         # default.
         _, ctx_status_source = resolve_claim_bypass()
-        source = status_source or ctx_status_source or os.environ.get(
-            "YOKE_STATUS_SOURCE",
-            "backlog-registry",
+        source = (
+            status_source
+            or ctx_status_source
+            or os.environ.get(
+                "YOKE_STATUS_SOURCE",
+                "backlog-registry",
+            )
         )
         record_item_transition(
             conn,
@@ -141,6 +145,20 @@ def run_transactional_update_effects(
             )
         if terminal_receipt.migration_territories_released:
             messages.append("Released the item migration territory.")
+        if value == "done" and runtime.workflow_id == "blitz":
+            from yoke_core.domain.blitz_document_archive import (
+                archive_completed_blitz_document,
+            )
+
+            archive = archive_completed_blitz_document(conn, item_id=item_id)
+            if archive is not None and archive.retained_for_item_ref:
+                messages.append(
+                    f"Kept execution document {archive.slug!r} active for "
+                    f"live Blitz {archive.retained_for_item_ref}."
+                )
+            elif archive is not None:
+                disposition = "Archived" if archive.changed else "Already archived"
+                messages.append(f"{disposition} execution document {archive.slug!r}.")
     path_claim_ids_to_propagate: tuple[int, ...] = ()
     if (
         field == "status"

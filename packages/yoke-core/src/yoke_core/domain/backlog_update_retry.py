@@ -9,6 +9,7 @@ from yoke_core.domain.backlog_status_write_precondition import (
     WORKFLOW_STATUS_PRECONDITION_FAILED,
 )
 from yoke_core.domain.backlog_update_op import _execute_update_once
+from yoke_core.domain.blitz_document_archive import BlitzDocumentArchiveError
 
 
 def execute_update(
@@ -33,25 +34,36 @@ def execute_update(
 
         resolution, reason_error = normalize_cancellation_reason(resolution)
         if reason_error:
-            return {"success": False, "error": reason_error, "error_code": "VALIDATION_ERROR"}
+            return {
+                "success": False,
+                "error": reason_error,
+                "error_code": "VALIDATION_ERROR",
+            }
     result: dict = {}
     for _attempt in range(2):
-        result = _execute_update_once(
-            item_id=item_id,
-            field=field,
-            value=value,
-            resolution=resolution,
-            done_nonce_verified=done_nonce_verified,
-            force=force,
-            qa_bypass=qa_bypass,
-            session_id=session_id,
-            dry_run=dry_run,
-            rebuild_board=rebuild_board,
-            no_github=no_github,
-            out=out,
-            expected_status=expected_status,
-            originator_actor_id=originator_actor_id,
-        )
+        try:
+            result = _execute_update_once(
+                item_id=item_id,
+                field=field,
+                value=value,
+                resolution=resolution,
+                done_nonce_verified=done_nonce_verified,
+                force=force,
+                qa_bypass=qa_bypass,
+                session_id=session_id,
+                dry_run=dry_run,
+                rebuild_board=rebuild_board,
+                no_github=no_github,
+                out=out,
+                expected_status=expected_status,
+                originator_actor_id=originator_actor_id,
+            )
+        except BlitzDocumentArchiveError as exc:
+            return {
+                "success": False,
+                "error": str(exc),
+                "error_code": exc.code,
+            }
         if result.get("error_code") != WORKFLOW_STATUS_PRECONDITION_FAILED:
             return result
     return result

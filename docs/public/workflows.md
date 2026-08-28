@@ -16,6 +16,10 @@ Choose the smallest workflow that fits. Posture knobs can tighten
 verification, file budget, path claims, approval, or deployment where the
 workflow allows — they cannot remove core gates.
 
+A successful Blitz `done` transition archives its linked execution document
+without deleting the row or its revision history. The parent remains active,
+and a document shared with another non-terminal Blitz stays active.
+
 ## Inspect
 
 ```bash
