@@ -126,10 +126,10 @@ carried. It was the only event naming a concrete model while every other
 payload reported the `"default"` placeholder, and nothing else recovered
 one: transcripts record only `{role, message}`, hook processes are children
 of `/bin/zsh -lc` not `cursor-agent`, and no model env var is exported. Now
-`sessionStart` and `sessionEnd` name the real
-model (`cursor-grok-4.6-high-fast`), so registration reads it from the
-payload that opens the session; a build still reporting the placeholder
-leaves `model=unknown` until the first prompt heals it. Owner:
+`sessionStart`/`sessionEnd` and the tool-call events name a bare `model`
+(`grok-4.6`) with no `model_id` and no effort tier. Registration prefers
+`model` over `model_id` when both exist; a launch-bound cursor session
+then stores the launch's `requested_model` in that same field. Owner:
 `yoke_harness.hooks.identity_runtime.cursor_payload_model`.
 
 **The one channel a resumed print-mode turn can be reached on is

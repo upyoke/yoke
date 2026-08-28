@@ -9,11 +9,11 @@ launch while it is still true.
 Model labels get their own pair of fields because they are the one binding
 fact the two sides do not share a vocabulary for. A launch requests the string
 its native command line accepts (Cursor's variant-qualified
-``cursor-grok-4.6-high-fast``); the session registers the concrete model the
-harness reports (``grok-4.6``). Comparing those for equality refused every
-correctly-bound Cursor launch, so the difference is recorded rather than
-enforced — the native session id already proves this is the exact session the
-relay created for this launch.
+``cursor-grok-4.6-xhigh``); the hook payload often reports a bare id
+(``grok-4.6``). Comparing those for equality refused every correctly-bound
+Cursor launch, so bind identity ignores the model and records both labels.
+The cursor session row itself stores ``requested_model`` in the one model
+field; this evidence pair is launch diagnostics, not a second roster field.
 """
 
 from __future__ import annotations
