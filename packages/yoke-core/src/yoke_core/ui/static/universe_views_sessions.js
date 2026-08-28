@@ -94,11 +94,18 @@ function appendAge(documentNode, body, row) {
   const age = el(documentNode, "div", "session-age");
   const add = (prefix, timestamp, now = Date.now()) => {
     const activeNow = prefix === "idle " && relativeAge(timestamp, now) === "now";
-    age.appendChild(el(
-      documentNode, "span", "session-age-prefix", activeNow ? "active " : prefix,
-    ));
+    const label = activeNow ? "active " : prefix;
+    if (label) {
+      age.appendChild(el(documentNode, "span", "session-age-prefix", label));
+    }
     age.appendChild(relativeTime(documentNode, timestamp, now));
   };
+  const startedAt = row.offered_at;
+  if (startedAt && !Number.isNaN(new Date(startedAt).getTime())) {
+    add("", startedAt);
+    age.appendChild(el(documentNode, "span", "session-age-prefix", " old"));
+    age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
+  }
   if (row.current_item && ownsFocusedItem(row)) {
     add("claim held ", row.claim_started_at || row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
