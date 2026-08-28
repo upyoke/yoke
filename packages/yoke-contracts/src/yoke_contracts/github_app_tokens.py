@@ -79,6 +79,12 @@ GITHUB_OAUTH_DEVICE_CODE_MAX_SECONDS = 15 * 60
 GITHUB_OAUTH_POLL_INTERVAL_MAX_SECONDS = 60
 GITHUB_APP_USER_ACCESS_TOKEN_MAX_SECONDS = 24 * 60 * 60
 GITHUB_APP_USER_REFRESH_TOKEN_MAX_SECONDS = 366 * 24 * 60 * 60
+# A stored access token is served until this much of its life remains, so a
+# git command that starts inside the margin still finishes with a token the
+# remote accepts. Refreshing rotates the authorization and revokes whatever
+# token another process is already carrying, so the margin is the whole
+# reason a busy machine can share one token instead of racing for new ones.
+GITHUB_APP_USER_ACCESS_TOKEN_REFRESH_MARGIN_SECONDS = 120
 GITHUB_APP_USER_AUTH_CONFIGURATION_HINT = (
     "In the GitHub App settings, enable Device Flow and "
     "'Expire user authorization tokens', then reconnect GitHub."
@@ -111,5 +117,6 @@ __all__ = [
     "GITHUB_API_RESPONSE_MAX_BYTES",
     "GITHUB_APP_USER_ACCESS_TOKEN_MAX_SECONDS",
     "GITHUB_APP_USER_REFRESH_TOKEN_MAX_SECONDS",
+    "GITHUB_APP_USER_ACCESS_TOKEN_REFRESH_MARGIN_SECONDS",
     "GITHUB_APP_USER_AUTH_CONFIGURATION_HINT",
 ]

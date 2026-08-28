@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
+from yoke_cli.config import github_git_credential_access_cache as access_cache
 from yoke_cli.config import github_git_credential_document as credential_document
 from yoke_cli.config import github_git_credential_file as credential_file
 
@@ -23,7 +24,7 @@ def credential_document_from_token_response(
         now=now,
         error_type=error_type,
     )
-    document = credential_document.persisted_document(
+    document = access_cache.persisted_document(
         token_state,
         schema_version=schema_version,
         error_type=error_type,
@@ -58,7 +59,7 @@ def claim_config_owner(
         )
         _write(
             selected,
-            credential_document.persisted_document(
+            access_cache.persisted_document(
                 current,
                 schema_version=schema_version,
                 error_type=error_type,
@@ -92,7 +93,7 @@ def release_config_owner(
         current[credential_document.CONFIG_OWNERS_KEY] = remaining
         _write(
             selected,
-            credential_document.persisted_document(
+            access_cache.persisted_document(
                 current,
                 schema_version=schema_version,
                 error_type=error_type,

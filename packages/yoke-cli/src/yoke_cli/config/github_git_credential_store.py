@@ -1,4 +1,4 @@
-"""Atomic refresh-only storage with a serialized refresh-token rotation chain."""
+"""Atomic credential storage that serves a stored access token until it ages out."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
-import urllib.parse
 
 if __package__:
+    from yoke_cli.config import github_git_credential_access_cache as access_cache
     from yoke_cli.config import github_git_credential_document as credential_document
     from yoke_cli.config import github_git_credential_file as credential_file
     from yoke_cli.config import github_machine_operation
@@ -26,6 +26,7 @@ if __package__:
     _MachineOperationError = github_machine_operation.GitHubMachineOperationError
 else:  # pragma: no cover - copied helper always uses its immutable siblings
     import _yoke_github_app_tokens as token_contract  # type: ignore
+    import _yoke_github_git_credential_access_cache as access_cache  # type: ignore
     import _yoke_github_git_credential_document as credential_document  # type: ignore
     import _yoke_github_git_credential_file as credential_file  # type: ignore
     import _yoke_github_origin as github_origin  # type: ignore
@@ -55,7 +56,7 @@ def access_token_from_machine_config(
     expected_service_api_url: str | None = None,
     expected_local_connection: bool = False,
 ) -> dict[str, Any]:
-    with _machine_operation_lock(config_path):
+    with machine_operation_lock(config_path):
         return access_token_from_config(
             load_config(config_path),
             config_path=config_path,
@@ -67,30 +68,6 @@ def access_token_from_machine_config(
             profile_proven=profile_proven,
             expected_service_api_url=expected_service_api_url,
             expected_local_connection=expected_local_connection,
-        )
-
-
-def access_token_for_git_request(
-    config_path: str | Path | None, fields: Mapping[str, str],
-    *,
-    opener: Callable[..., Any] | None = None,
-) -> dict[str, Any] | None:
-    """Atomically match a Git credential request and refresh its profile."""
-
-    with _machine_operation_lock(config_path):
-        config = load_config(config_path)
-        github = config.get("github")
-        if not isinstance(github, Mapping) or fields.get("protocol") != "https":
-            return None
-        expected = urllib.parse.urlsplit(
-            validated_web_url(str(github.get("web_url") or DEFAULT_GITHUB_WEB_URL))
-        ).netloc
-        if fields.get("host", "").casefold() != expected.casefold():
-            return None
-        return access_token_from_config(
-            config,
-            config_path=config_path,
-            opener=opener,
         )
 
 
@@ -179,6 +156,13 @@ def access_token_from_config(
                 "GitHub App refresh credential expired; run `yoke github connect` "
                 "to authorize again"
             )
+        usable = access_cache.usable_token_state(
+            current, now=selected_now, error_type=GitHubCredentialStoreError,
+        )
+        if usable is not None:
+            return access_cache.result(
+                usable, path=path, cached=True, rotated=False,
+            )
         refreshed = refresh_credential_document(
             client_id=client_id,
             refresh_token=_required_string(
@@ -201,7 +185,9 @@ def access_token_from_config(
                 "GitHub rotated the user credential but its local save failed; "
                 "run `yoke github connect` to recover"
             ) from exc
-        return _result(refreshed, path=path, cached=False, rotated=rotated)
+        return access_cache.result(
+            refreshed, path=path, cached=False, rotated=rotated,
+        )
 
 
 def refresh_credential_document(
@@ -277,7 +263,7 @@ def _locked(path: Path) -> Iterator[None]:
 
 
 @contextmanager
-def _machine_operation_lock(config_path: str | Path | None) -> Iterator[None]:
+def machine_operation_lock(config_path: str | Path | None) -> Iterator[None]:
     try:
         if __package__:
             with github_machine_operation.operation_lock(config_path):
@@ -320,23 +306,12 @@ def validated_web_url(value: str) -> str:
         ) from exc
 
 
-def _result(
-    payload: Mapping[str, Any], *, path: Path, cached: bool, rotated: bool
-) -> dict[str, Any]:
-    return dict(
-        payload,
-        cached=cached,
-        refresh_rotated=rotated,
-        refresh_credential_ref=str(path),
-    )
-
-
 _token_state_from_response = partial(
     credential_document.token_state_from_response,
     error_type=GitHubCredentialStoreError,
 )
 _persisted_document = partial(
-    credential_document.persisted_document,
+    access_cache.persisted_document,
     schema_version=CREDENTIAL_SCHEMA_VERSION, error_type=GitHubCredentialStoreError,
 )
 _required_string = partial(

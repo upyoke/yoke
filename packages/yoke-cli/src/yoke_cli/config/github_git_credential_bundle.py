@@ -12,6 +12,7 @@ import stat
 import tempfile
 from typing import Iterator
 
+from yoke_cli.config import github_git_credential_access_cache
 from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_git_credential_document
 from yoke_cli.config import github_git_credential_helper
@@ -31,6 +32,7 @@ STABLE_ORIGIN_FILE_NAME = github_git_credential_launcher.BUNDLE_ORIGIN_NAME
 STABLE_API_URLS_NAME = github_git_credential_launcher.BUNDLE_API_URLS_NAME
 STABLE_FILE_IO_NAME = github_git_credential_launcher.BUNDLE_FILE_IO_NAME
 STABLE_DOCUMENT_NAME = github_git_credential_launcher.BUNDLE_DOCUMENT_NAME
+STABLE_ACCESS_CACHE_NAME = github_git_credential_launcher.BUNDLE_ACCESS_CACHE_NAME
 STABLE_TOKEN_CONTRACT_NAME = (
     github_git_credential_launcher.BUNDLE_TOKEN_CONTRACT_NAME
 )
@@ -78,6 +80,10 @@ def _bundle_sources() -> tuple[tuple[Path, str], ...]:
         ),
         (Path(github_git_credential_file.__file__), STABLE_FILE_IO_NAME),
         (Path(github_git_credential_document.__file__), STABLE_DOCUMENT_NAME),
+        (
+            Path(github_git_credential_access_cache.__file__),
+            STABLE_ACCESS_CACHE_NAME,
+        ),
         (Path(github_git_credential_store.__file__), STABLE_STORE_FILE_NAME),
         (Path(github_git_credential_helper.__file__), STABLE_HELPER_FILE_NAME),
     )

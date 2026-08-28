@@ -1,4 +1,4 @@
-"""Refresh-only GitHub credential document validation and token timing."""
+"""GitHub credential document validation and token timing."""
 
 from __future__ import annotations
 
@@ -143,11 +143,6 @@ def read_document(
         )
     required_string(payload.get("refresh_token"), "refresh_token", error_type)
     parse_timestamp(payload.get("refresh_expires_at"), "refresh_expires_at", error_type)
-    forbidden = {"access_token", "expires_at", "scope", "token_type"} & set(payload)
-    if forbidden:
-        raise error_type(
-            "GitHub App credential contains access-token state; reconnect GitHub"
-        )
     return payload
 
 

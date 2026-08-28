@@ -164,3 +164,42 @@ def test_suspended_installation_is_not_misreported_as_missing_permissions(
     assert "github_app_installation_suspended" in codes
     assert "github_app_no_usable_installation" in codes
     assert "github_app_installation_permissions_incomplete" not in codes
+
+
+def test_offline_status_reports_the_access_token_a_push_would_carry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The two halves of the credential are separately reportable.
+
+    The refresh credential can read healthy while pushes fail, because a push
+    presents the access token instead. Proving that half live would mean
+    refreshing, which rotates the authorization and breaks a push in flight —
+    so this reads the stored document and nothing else.
+    """
+
+    config, credential = _configured_machine(tmp_path, monkeypatch)
+    document = json.loads(credential.read_text(encoding="utf-8"))
+    document["access_token"] = "stored-access"
+    document["expires_at"] = "2099-12-09T17:00:00+00:00"
+    credential.write_text(json.dumps(document), encoding="utf-8")
+
+    report = github_machine.status(config_path=config, check=False)
+    binding = report["bindings"]["git_access_token"]
+
+    assert binding["verdict"] == "ok"
+    assert "2099-12-09T17:00:00+00:00" in binding["message"]
+
+
+def test_a_machine_with_no_cached_token_is_reported_but_still_provable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A cold cache is not a fault, so it never gates readiness."""
+
+    config, _credential = _configured_machine(tmp_path, monkeypatch)
+
+    report = github_machine.status(config_path=config, check=False)
+    binding = report["bindings"]["git_access_token"]
+
+    assert binding["verdict"] == "unproven"
+    assert "no access token is stored yet" in binding["message"]
+    assert report["ok"] is True
