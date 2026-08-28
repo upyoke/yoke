@@ -47,10 +47,15 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, Tuple[str, str]] = {
         "5",
         "dispatch attempts per epic task before the chain halts",
     ),
-    "steering_report_stale_minutes": (
+    "steering_report_staffing_minutes": (
+        "5",
+        "how long runnable unclaimed work may sit before the steering report "
+        "marks it overdue rather than merely available",
+    ),
+    "steering_report_idle_minutes": (
         "20",
-        "how long work sits unowned, or a holder stays quiet, before the "
-        "steering report names it",
+        "how long a claim holder stays quiet before the steering report "
+        "presumes it stuck",
     ),
     "steering_report_interval_minutes": (
         "2",
@@ -68,6 +73,10 @@ RETIRED_PROJECT_KEYS: Dict[str, str] = {
     "steering_backstop_unpicked_minutes": (
         "the steering seat staffs work itself; the fleet report names it"
     ),
+    "steering_report_stale_minutes": (
+        "one number answered two unrelated questions; staffing and idle "
+        "thresholds are now separate keys"
+    ),
     "steering_backstop_worker_budget": (
         "no automatic staffing means no concurrent-worker budget to cap"
     ),
@@ -78,8 +87,11 @@ RETIRED_PROJECT_KEYS: Dict[str, str] = {
 DEFAULT_WIP_CAP = int(RECOGNIZED_PROJECT_KEYS["wip_cap"][0])
 
 # Typed int forms of the steering-report defaults, for the same reason.
-DEFAULT_STEERING_REPORT_STALE_MINUTES = int(
-    RECOGNIZED_PROJECT_KEYS["steering_report_stale_minutes"][0]
+DEFAULT_STEERING_REPORT_STAFFING_MINUTES = int(
+    RECOGNIZED_PROJECT_KEYS["steering_report_staffing_minutes"][0]
+)
+DEFAULT_STEERING_REPORT_IDLE_MINUTES = int(
+    RECOGNIZED_PROJECT_KEYS["steering_report_idle_minutes"][0]
 )
 DEFAULT_STEERING_REPORT_INTERVAL_MINUTES = int(
     RECOGNIZED_PROJECT_KEYS["steering_report_interval_minutes"][0]

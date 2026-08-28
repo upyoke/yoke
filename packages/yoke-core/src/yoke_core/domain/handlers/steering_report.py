@@ -26,14 +26,18 @@ class SteeringReportGetRequest(BaseModel):
 class SteeringReportGetResponse(BaseModel):
     project_id: int
     composed_at: str
-    stale_after_seconds: int
+    staffing_after_seconds: int
+    idle_after_seconds: int
     actionable: bool
     fingerprint: str
-    frontier: List[Dict[str, Any]] = Field(default_factory=list)
-    unstaffed: List[Dict[str, Any]] = Field(default_factory=list)
-    unowned: List[Dict[str, Any]] = Field(default_factory=list)
+    available: List[Dict[str, Any]] = Field(default_factory=list)
+    waited_too_long: List[Dict[str, Any]] = Field(default_factory=list)
     holders: List[Dict[str, Any]] = Field(default_factory=list)
     idle: List[Dict[str, Any]] = Field(default_factory=list)
+    starved: List[Dict[str, Any]] = Field(default_factory=list)
+    unregistered_launches: List[Dict[str, Any]] = Field(default_factory=list)
+    landed_open: List[Dict[str, Any]] = Field(default_factory=list)
+    dead_waits: List[Dict[str, Any]] = Field(default_factory=list)
     launchable: List[Dict[str, Any]] = Field(default_factory=list)
     body: str = ""
 
@@ -100,8 +104,10 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
             conn,
             project_id=project_id,
             session_id=session_id,
-            stale_after_seconds=60
-            * get_project_int_for_id(project_id, "steering_report_stale_minutes"),
+            staffing_after_seconds=60
+            * get_project_int_for_id(project_id, "steering_report_staffing_minutes"),
+            idle_after_seconds=60
+            * get_project_int_for_id(project_id, "steering_report_idle_minutes"),
             now=utc_now(),
         )
     except LookupError as exc:

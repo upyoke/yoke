@@ -34,7 +34,8 @@ _INT_POLICY_KEYS = frozenset(
         "wip_cap",
         "merge_conflict_threshold",
         "max_attempts",
-        "steering_report_stale_minutes",
+        "steering_report_staffing_minutes",
+        "steering_report_idle_minutes",
         "steering_report_interval_minutes",
     }
 )

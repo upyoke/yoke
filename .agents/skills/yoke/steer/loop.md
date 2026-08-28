@@ -66,93 +66,79 @@ printf '%s' "GO PREFIX-N: dependency gate cleared; resume the routed leg" | yoke
 
 #### Negative-space checks — first, every periodic pass
 
-Positive wake events are not enough. Run this checklist **first** on every
-periodic pass — before consuming events, messages, or worker reports — and
-run it whether or not anything looks wrong. When a pass arrives dense with
-events, the events wait and the checklist still runs; never the reverse.
-Event handling expands to fill the pass, and this checklist is the only
-detector for the failures that arrive as silence.
+Positive wake events are not enough. Failures arrive as silence, and the
+fleet report is the detector for them: it is composed server-side and
+appended to the messages this session already receives, so on every
+periodic pass you **read the report you were given** before consuming
+events, messages, or worker reports. Between wakes, pull the current one:
 
-- **Outbound delivery:** find every envelope still `state='pending'` with
-  `injection_count=0` past the project's grace window whose recipient has
-  made no tool call since the send. Sender is not a filter: worker-to-worker
-  and worker-to-steerer envelopes starve exactly like the ones this steerer
-  sent, and recipient idleness is the whole trigger.
+```text
+yoke steering report get --project {_project}
+```
 
-  ```text
-  yoke db read "SELECT r.message_id, r.session_id, r.created_at, s.last_tool_call_at FROM session_message_recipients r JOIN harness_sessions s ON s.session_id = r.session_id WHERE r.state = 'pending' AND r.injection_count = 0 AND r.created_at::timestamptz < now() - interval '10 minutes' AND (s.last_tool_call_at IS NULL OR s.last_tool_call_at::timestamptz < r.created_at::timestamptz) ORDER BY r.created_at DESC"
-  ```
+The report already answers, from live control-plane state, every check that
+used to be a hand query here — available work with a per-row never-started
+/ owner-released marker and an overdue flag, idle claim holders keyed on
+`last_tool_call_at` rather than any liveness label, starved outbound
+delivery, unregistered launches past their deadline, items whose branch
+landed while the item stayed open, and whether an idle holder's last
+question can still be answered. Do not re-run those queries by hand: a
+steering seat that did burned a pass rediscovering what the report on
+screen had already told it. A section with nothing to say prints nothing,
+so a short report is a quiet fleet, not a broken detector.
 
-  Treat every returned row as starved and revive it immediately: use the
-  registered wake when available, otherwise the manual native-resume bridge
-  under **Revive starved workers** below.
-- **Idle claim holders:** any session holding a live work claim whose
-  `last_tool_call_at` is older than **20 minutes**, whatever its liveness
-  label says. Never key this check on `liveness=stale`: a claim-holding
-  session carries a 1440-minute stale TTL, so a worker idle for two hours
-  still reads `active` and a label-based check never fires. Observed: a
-  holder sat idle 2h mid-item while the steerer watched claim-count churn
-  and saw nothing.
+What the report gives you is a finding. What to do with each one is still
+yours:
 
-  ```text
-  yoke db read "SELECT (c.scope::json->>'item_id') AS item_id, c.session_id, s.mode, s.executor_surface, s.last_tool_call_at, round(extract(epoch FROM (now() - s.last_tool_call_at::timestamptz)) / 60) AS idle_minutes FROM work_claims c JOIN harness_sessions s ON s.session_id = c.session_id WHERE c.released_at IS NULL AND c.target_kind = 'item' AND s.ended_at IS NULL AND s.mode <> 'parked' AND (s.last_tool_call_at IS NULL OR s.last_tool_call_at::timestamptz < now() - interval '20 minutes') ORDER BY s.last_tool_call_at NULLS FIRST"
-  ```
-
-  A holder that stamped `--mode parked` declared its wait and the query
-  excludes it. Every other row is probed and revived. A starved holder is
+- **Available work** — staff it. An `!` row has waited past the staffing
+  threshold; an unmarked row is simply available.
+- **Idle holders** — probe and revive. A holder that stamped `--mode
+  parked` declared its wait and never appears here. A starved holder is
   also burning down its stale clock, so read `stale_eligible_at` and
   `effective_stale_ttl_minutes` from its `yoke sessions list --json` row
-  while triaging it. At `stale_eligible_at` the reclaim sweep releases that
-  session's claims and its item reads as untouched, so a starved holder
-  near reclaim is revived before anything else in the pass.
-- **Dead waits:** before reviving an idle holder, read what it last asked
-  and who was meant to answer. A `WAKE` alone parks it on the same question.
+  while triaging: at `stale_eligible_at` the reclaim sweep releases its
+  claims and the item reads as untouched, so a holder near reclaim is
+  revived before anything else in the pass.
+- **Starved delivery** — revive the named recipient immediately: the
+  registered wake where available, otherwise the manual native-resume
+  bridge under **Revive starved workers** below.
+- **Unregistered launches** — `launch reconcile`, then `launch retry`.
+- **Landed without close-out** — nudge the live claim holder; with no live
+  holder, route the normal starvation/restaffing path.
+- **Dead waits** — a row naming an ended answerer, or an answerer whose own
+  item is terminal, means no reply is coming: answer on the ended session's
+  behalf, sending the asker the answer plus the current state of whatever
+  it was waiting on. A `unresolved` row is an open question with a live
+  answerer; it is context for the probe, not a finding to act on. Never
+  send a bare `WAKE` to an idle holder without reading its row here — a
+  wake alone parks it on the same question.
 
-  ```text
-  yoke db read "SELECT m.created_at, r.session_id AS intended_answerer, r.state, a.ended_at AS answerer_ended_at, left(m.body, 200) AS body FROM session_messages m JOIN session_message_recipients r ON r.message_id = m.message_id LEFT JOIN harness_sessions a ON a.session_id = r.session_id WHERE m.sender_session_id = '{IDLE_SESSION_ID}' ORDER BY m.created_at DESC LIMIT 5"
-  ```
+Two things the report deliberately does not do, so do them yourself:
 
-  A non-null `answerer_ended_at`, or an answerer whose own item is already
-  terminal, means no reply is coming. Answer on the ended session's behalf:
-  send the asker the answer plus the current state of whatever it was
-  waiting on. Observed: a worker asked a peer to reply if it saw a path
-  overlap as order-dependent; the peer merged, went `done`, and ended, so
-  the asker waited on a reply that could never arrive.
-- **Unregistered launches:** any launch past `deadline_at` without a
-  `registered_session_id` gets `launch reconcile` followed by `launch retry`.
-- **Unowned in-flight work:** a non-terminal item with zero live claims is a
-  finding only once it has been unowned **continuously past 15 minutes**.
-  Never act on a snapshot: every lifecycle segment boundary releases the
-  claim and reacquires moments later, and a sweep reading that window as
-  abandonment launches a duplicate worker onto live work. Observed: a sweep
-  hit that window and staffed a second worker onto a healthy item; the
-  duplicate refused to override and reported the conflict, which is the only
-  reason it cost nothing.
-
-  ```text
-  yoke db read "SELECT i.id, i.status, i.title, max(c.released_at) AS last_release_at FROM items i LEFT JOIN work_claims c ON c.target_kind = 'item' AND (c.scope::json->>'item_id')::int = i.id WHERE i.project_id = {PROJECT_ID} AND i.status NOT IN ('idea', 'done', 'cancelled', 'stopped') GROUP BY i.id, i.status, i.title HAVING count(*) FILTER (WHERE c.id IS NOT NULL AND c.released_at IS NULL) = 0 AND coalesce(max(c.released_at)::timestamptz, i.updated_at::timestamptz) < now() - interval '15 minutes' ORDER BY 4"
-  ```
-
-  Then re-verify ownership immediately before launching or reclaiming — the
-  gap between the sweep and the action is one more handoff window. A holder
-  returned here ends it: the item is owned, take no action.
+- **Re-verify ownership immediately before launching or reclaiming.** The
+  gap between the report's composition and your action is one more claim
+  handoff window. Observed: a sweep hit that window and staffed a second
+  worker onto a healthy item.
 
   ```text
   yoke claims work holder-get PREFIX-N
   ```
-- **Landed without close-out:** any item whose pull request is merged while
-  the item remains non-terminal gets an immediate nudge to its live claim
-  holder; with no live holder, route the normal starvation/restaffing path.
+
+- **Set the hold flag on work you are holding on purpose.** The report
+  excludes frozen and operator-blocked items rather than guessing intent
+  from age, so an item you have parked reports as available until you say
+  so with `yoke items freeze PREFIX-N` or `yoke items block PREFIX-N
+  --reason TEXT`.
 
 The dashboard session card carries these signals faster when the operator
 has it open: every card renders an explicit `idle <age>` line, and a
 claim-holding card carries a `waiting` / `probed` / `possibly stale` health
 pill. Read the idle age, not the pill — the pill only appears past the
-staleness window, the same 1440-minute clock that makes the liveness label
-useless here. The queries above are the headless pass.
+staleness window, a 1440-minute clock that makes the liveness label useless
+here.
 
-Wake sources are events; failures are silences — every pass scans the
-silences.
+Wake sources are events; failures are silences — the report scans the
+silences on every pass.
 
 ### 2. Consume worker reports
 
@@ -255,8 +241,9 @@ dependency, launch, and automatic document-archive boundary.
 Runnable work that sits unclaimed is this seat's to staff; nothing else
 does it. Work this seat files is staffed in the same pass, as soon as it is
 runnable; the report is not its trigger. The report covers work this seat
-did not create — unstaffed items, lost owners, quiet claim holders — and
-arrives appended to this session's messages; pull it between wakes with:
+did not create — its available list carries everything runnable and
+unclaimed, each row marked never-started or owner-released — and arrives
+appended to this session's messages; pull it between wakes with:
 
 ```text
 yoke steering report get --project {_project}

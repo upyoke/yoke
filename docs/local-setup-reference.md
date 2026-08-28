@@ -118,7 +118,8 @@ Shared project behavior lives in the Yoke DB, not checkout files:
 
 - `project-policy` capability settings own `base_branch`, `wip_cap`,
   `default_priority`, `merge_conflict_threshold`, `max_attempts`, and the
-  steering-report knobs `steering_report_stale_minutes` and
+  steering-report knobs `steering_report_staffing_minutes`,
+  `steering_report_idle_minutes`, and
   `steering_report_interval_minutes`, plus
   nested `board` appearance and scope settings. The authored-file line limit
   is not among them: it must hold in a fresh clone with no DB reachable, so it

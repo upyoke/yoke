@@ -19,20 +19,29 @@ STEERING_REPORT_GET_USAGE = "yoke steering report get --project P [--json]"
 STEERING_REPORT_GET_DESCRIPTION = """\
 Read this steering scope's fleet report.
 
-The report names what a steering session cannot see from inside its own turn:
-runnable work nobody picked up, work whose owner was released and never
-replaced, claim holders that have gone quiet, and which machine/surface pairs
-a launch could actually reach right now. It reports; it never staffs.
+The report names what a steering session cannot see from inside its own turn.
+It leads with available work -- everything runnable and unclaimed, each row
+marked `new` (never started) or `stopped` (owner released) and flagged `!`
+once it has waited past the staffing threshold -- and then names the failures
+that arrive as silence: claim holders that have gone quiet, envelopes the
+delivery plane never injected, launches past their deadline that never
+registered a session, branches that landed while their item stayed open, and
+idle holders waiting on an answer that cannot arrive. It closes with the
+machine/surface pairs a launch could actually reach. It reports; it never
+staffs. A detector with nothing to say prints nothing.
 
 Runs from the live steering claim holder. The same report is appended to the
 messages that session receives, so this command is the pull form of what
 already arrives on its own -- reach for it when you want the picture between
 wakes.
 
-Two `project-policy` keys tune it: `steering_report_stale_minutes` (default
-20) is how long work sits unowned, or a holder stays quiet, before the report
-names it, and `steering_report_interval_minutes` (default 2) is the shortest
-gap between reports appended to one session's messages.
+Three `project-policy` keys tune it. `steering_report_staffing_minutes`
+(default 5) is how long runnable unclaimed work may sit before the report
+marks it overdue. `steering_report_idle_minutes` (default 20) is how long a
+claim holder stays quiet before the report presumes it stuck -- a separate
+judgment from the staffing one, not the same number twice. And
+`steering_report_interval_minutes` (default 2) is the shortest gap between
+reports appended to one session's messages.
 
   yoke steering report get --project yoke
   yoke steering report get --project yoke --json
