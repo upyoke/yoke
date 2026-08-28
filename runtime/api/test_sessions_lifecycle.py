@@ -103,6 +103,28 @@ class TestRegisterSession:
         ).fetchone()
         assert row["model"] == TEST_MODEL_ID
 
+    def test_register_takes_a_later_cursor_model_over_the_stored_one(self, conn):
+        """Cursor's stored model is a measurement, not a report: it registers
+        under the bare family id its payload names and learns the variant
+        only once its conversation store exists, so the later reading wins.
+        """
+        cursor = dict(executor="cursor-cli", provider="cursor")
+        _register(conn, session_id="cursor-sess", model="grok-4.6", **cursor)
+        with pytest.raises(SessionError) as exc_info:
+            _register(
+                conn,
+                session_id="cursor-sess",
+                model="cursor-grok-4.6-xhigh",
+                **cursor,
+            )
+        assert exc_info.value.code == "SESSION_EXISTS"
+
+        row = conn.execute(
+            f"SELECT model FROM harness_sessions WHERE session_id = {_p(conn)}",
+            ("cursor-sess",),
+        ).fetchone()
+        assert row["model"] == "cursor-grok-4.6-xhigh"
+
     def test_reactivate_refuses_to_downgrade_real_model_to_placeholder(self, conn):
         """VS Code sessions auto-end between prompts (session-end-if-empty),
         then the next prompt re-fires SessionStart. The SessionStart payload

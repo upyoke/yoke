@@ -83,8 +83,16 @@ class CursorCliTransport:
         checkout: Path,
         session_id: str,
         instruction: str,
-        model: str | None = None,
+        model: str | None,
     ) -> tuple[subprocess.Popen[bytes] | None, int | None]:
+        """Start one print-mode resume, naming the model when one is asked for.
+
+        ``--model`` is the only channel cursor-agent honors for this: the
+        ACP ``session/new`` model parameter is accepted and ignored, so a
+        session created there is born at the machine default and a resume
+        that omits the flag runs the default too. Naming it here sticks —
+        the conversation keeps the variant for later resumes that omit it.
+        """
         command = [
             binary,
             "--resume",
@@ -130,6 +138,7 @@ class CursorCliTransport:
             checkout=request.checkout,
             session_id=session_id,
             instruction=request.native_instruction,
+            model=request.requested_model,
         )
         if process is None:
             return CursorNativeResult("failed", duration_ms=_elapsed_ms(started))

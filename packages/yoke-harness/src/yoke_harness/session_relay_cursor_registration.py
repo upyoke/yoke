@@ -203,6 +203,13 @@ def _drive_registration_turn(
     context: RelayExecutionContext,
     session_id: str,
 ) -> None:
+    """Resume the created session once, at the model the launch asked for.
+
+    This is the turn the worker actually runs its instruction on whenever
+    ACP create did not fire a hook in time, and it is the first place in a
+    launch where cursor-agent honors a model at all, so the requested
+    variant rides here rather than being dropped.
+    """
     from yoke_harness.session_relay_cursor import CursorWakeRequest
 
     resume = getattr(port, "resume_chat", None)
@@ -217,6 +224,7 @@ def _drive_registration_turn(
                 target_liveness="ended",
                 wake_mode="waiting",
                 native_instruction=context.native_instruction,
+                requested_model=context.requested_model,
             )
         )
     except Exception:

@@ -9,7 +9,6 @@ from yoke_core.domain.session_launch_binding_evidence import (
     bound_registration_evidence,
     late_registration_evidence,
 )
-from yoke_core.domain.session_launch_cursor_model import apply_cursor_launch_model
 from yoke_core.domain.session_launch_store import (
     attestation_digest,
     begin_mutation,
@@ -169,7 +168,6 @@ def prepare_launch_registration(
             )
         facts = _session_facts(conn, session_id)
         _require_exact_binding(launch, session_id, facts)
-        apply_cursor_launch_model(conn, launch, session_id)
         hold_launch_registration_grace(conn, session_id, now=current)
         _insert_pending_recipient(
             conn,

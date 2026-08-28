@@ -85,6 +85,37 @@ def test_placeholder_client_model_does_not_mark_shipped(monkeypatch, tmp_path) -
     assert not (tmp_path / "relay-model-shipped" / "s-placeholder").exists()
 
 
+def test_cursor_reported_model_ships_but_stays_unsettled(monkeypatch, tmp_path) -> None:
+    # Cursor's payload names a family id before its conversation store names
+    # the variant. Marking that answer settled is what froze launched cursor
+    # sessions at the family id, so it ships and keeps shipping.
+    monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
+    monkeypatch.setattr(
+        "yoke_harness.cursor_executed_model.CURSOR_CHATS_DIR", tmp_path / "no-chats"
+    )
+    payload = {"session_id": "s-cursor", "model": "grok-4.6"}
+
+    assert client_model("PreToolUse", payload, "cursor") == "grok-4.6"
+    assert client_model("PostToolUse", payload, "cursor") == "grok-4.6"
+    assert not (tmp_path / "relay-model-shipped" / "s-cursor").exists()
+
+
+def test_cursor_measured_model_settles(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(f"{_MACHINE_CONFIG}.yoke_home", lambda: tmp_path)
+    monkeypatch.setattr(
+        f"{_RELAY}.cursor_payload_model", lambda _payload: "cursor-grok-4.6-xhigh"
+    )
+    monkeypatch.setattr(
+        "yoke_harness.cursor_executed_model.executed_model_for_payload",
+        lambda _payload: "cursor-grok-4.6-xhigh",
+    )
+    payload = {"session_id": "s-cursor-measured", "model": "grok-4.6"}
+
+    assert client_model("PreToolUse", payload, "cursor") == "cursor-grok-4.6-xhigh"
+    assert (tmp_path / "relay-model-shipped" / "s-cursor-measured").exists()
+    assert client_model("PostToolUse", payload, "cursor") is None
+
+
 def test_client_project_id_resolves_workspace_roots_payloads(monkeypatch) -> None:
     """Cursor sessionStart payloads carry only ``workspace_roots`` (a list
     of absolute paths); the relay must resolve the project from it."""

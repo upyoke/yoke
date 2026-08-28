@@ -63,7 +63,12 @@ class CursorCreateRequest:
 
 @dataclass(frozen=True)
 class CursorWakeRequest:
-    """One exact-session wake carrying only the check-inbox sentence."""
+    """One exact-session resume carrying only the check-inbox sentence.
+
+    ``requested_model`` is the variant this turn must run under. cursor-agent
+    resumes a session at whichever model it last ran, so naming it once — on
+    the launch's own first resume — is what makes every later wake inherit it.
+    """
 
     checkout: Path
     target_session_id: str
@@ -71,6 +76,7 @@ class CursorWakeRequest:
     target_liveness: str | None
     wake_mode: WakeMode
     native_instruction: str = field(repr=False)
+    requested_model: str | None = None
 
     def __post_init__(self) -> None:
         if normalize_wake_mode(self.wake_mode) is None:
@@ -291,6 +297,7 @@ def build_cursor_adapter(
             target_liveness=context.target_liveness,
             wake_mode=wake_mode,
             native_instruction=context.native_instruction,
+            requested_model=context.requested_model,
         )
         operation = wake_operation(request.wake_mode, request.target_liveness)
         if operation == "message_idle" and acp_port is None:

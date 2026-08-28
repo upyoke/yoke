@@ -32,6 +32,70 @@ def _patch_existing_row(monkeypatch):
     )
 
 
+def test_existing_coarse_model_with_better_wire_model_drives_reregister(monkeypatch):
+    # Cursor registers under the bare family id its payload names, then its
+    # conversation store names the variant that ran. The later answer has to
+    # reach the row, so a differing wire model drives the upgrade too.
+    _patch_existing_row(monkeypatch)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+    )
+
+    drove = register_module.ensure_registered_from_hook(
+        _Conn([{"model": "grok-4.6", "executor_surface": "cursor-cli", "executor": "cursor"}]),
+        '{"model": "cursor-grok-4.6-xhigh"}',
+        "s-model-measured",
+    )
+
+    assert drove is True
+    assert calls == ["s-model-measured"]
+
+
+def test_differing_real_model_off_cursor_does_not_drive_reregister(monkeypatch):
+    # Everywhere else a re-resolved model is a report, not a measurement, so
+    # it must not swap the row on every prompt.
+    _patch_existing_row(monkeypatch)
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda *_a, **_kw: pytest.fail("a real stored model must not be swapped"),
+    )
+
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn([{"model": "claude-opus-4-7[1m]", "executor_surface": "claude-cli",
+                 "executor": "claude-code"}]),
+            '{"model": "claude-sonnet-4-6"}',
+            "s-model-stable",
+        )
+        is False
+    )
+
+
+def test_agreeing_wire_model_does_not_drive_reregister(monkeypatch):
+    _patch_existing_row(monkeypatch)
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda *_a, **_kw: pytest.fail("a settled model must not re-register"),
+    )
+
+    assert (
+        register_module.ensure_registered_from_hook(
+            _Conn(
+                [{"model": "cursor-grok-4.6-xhigh", "executor_surface": "cursor-cli",
+                        "executor": "cursor"}]
+            ),
+            '{"model": "cursor-grok-4.6-xhigh"}',
+            "s-model-settled",
+        )
+        is False
+    )
+
+
 def test_existing_placeholder_model_with_wire_model_drives_reregister(monkeypatch):
     _patch_existing_row(monkeypatch)
     calls: list[str] = []

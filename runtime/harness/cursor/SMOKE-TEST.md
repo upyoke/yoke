@@ -28,8 +28,12 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    - `preToolUse` fires for `Read`/`Write`/`Task` with canonicalized
      `tool_name` (`Shell` payloads arrive as `Bash` after the parser).
    - `sessionEnd` fires at process exit with `reason`/`final_status`.
-   - The session row's `model` is the launch's `requested_model` when
-     launch-bound; otherwise the payload's `model` (current CLI: bare id).
+   - The session row's `model` is the variant Cursor's own conversation
+     `store.db` records for the run — including the effort tier, and never
+     the launch's `requested_model`. A run whose store names no model yet
+     records `unknown` and heals on a later hook event.
+   - A launch naming a model puts `--model` on the resume it drives; confirm
+     with `ps` on the live native and against the store's `modelName`.
    - **The run itself must exit 0**, and `.cursor/hooks.json` must carry no
      `afterAgentThought` entry at all. That event fires inside the token
      stream, and a hook there breaks the stream whatever it replies:

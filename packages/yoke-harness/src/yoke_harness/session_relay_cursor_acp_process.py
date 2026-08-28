@@ -48,6 +48,7 @@ def _request_payload(request: Request) -> dict[str, object]:
         "target_liveness": request.target_liveness,
         "wake_mode": request.wake_mode,
         "native_instruction": request.native_instruction,
+        "requested_model": request.requested_model,
     }
 
 
@@ -80,6 +81,11 @@ def _request_from_payload(payload: object) -> Request:
                 else None
             ),
             wake_mode=str(payload.get("wake_mode") or ""),
+            requested_model=(
+                str(payload["requested_model"])
+                if payload.get("requested_model")
+                else None
+            ),
         )
     raise ValueError("worker request kind is invalid")
 
@@ -158,12 +164,12 @@ def run_detached_operation(
     process_factory: ProcessFactory = subprocess.Popen,
     timeout: float = START_TIMEOUT_SECONDS,
 ) -> CursorNativeResult:
-    from yoke_harness.session_relay_cursor_acp import _environment
+    from yoke_harness.session_relay_cursor_acp_requests import acp_environment
 
     return run_detached_json_worker(
         module=_MODULE,
         checkout=request.checkout,
-        environment=_environment(request),
+        environment=acp_environment(request),
         payload=_request_payload(request),
         decode=_outcome_from_payload,
         initial_failure=_initial_failure(request),
