@@ -225,4 +225,6 @@ def test_dispatch_tail_revival_records_driver_and_telemetry(conn) -> None:
         (SESSION_ID, "HookDispatchTelemetry"),
     ).fetchone()
     assert telemetry_row is not None, "the dispatch row was rolled back at close"
-    assert json.loads(telemetry_row["envelope"])["context"]["driver_pid"] == DRIVER["pid"]
+    assert (
+        json.loads(telemetry_row["envelope"])["context"]["driver_pid"] == DRIVER["pid"]
+    )

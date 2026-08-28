@@ -64,8 +64,9 @@ def flush_run_tail(
     # One resolved answer to "which process drove this hook event", read by
     # both consumers below: the telemetry row, and — when this dispatch
     # revives an ended session — the reactivation's own driver stamp.
-    driver = resolve_driver_process(payload if isinstance(payload, dict) else None,
-                                    hook_event=event_name)
+    driver = resolve_driver_process(
+        payload if isinstance(payload, dict) else None, hook_event=event_name
+    )
     telem_records.append(
         (
             "dispatch",
@@ -113,7 +114,9 @@ def flush_run_tail(
         )
         ensure_session = (  # merged payload: wire extras included
             context.session_id,
-            json.dumps(ensure_payload) if ensure_payload is not None else (stdin_data or ""),
+            json.dumps(ensure_payload)
+            if ensure_payload is not None
+            else (stdin_data or ""),
             _str_or(payload.get("transcript_path"), "") or "",
             not remote,
             (context.executor_family or "") if remote else "",
