@@ -33,9 +33,7 @@ def _run(*argv: str) -> tuple[int, FunctionCallRequest]:
             side_effect=dispatch,
         ):
             with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
-                with redirect_stdout(io.StringIO()), redirect_stderr(
-                    io.StringIO()
-                ):
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     result = cli_main(list(argv))
     assert captured
     return result, captured[-1]
@@ -62,6 +60,7 @@ def test_registry_exposes_mechanics_and_test_machine_functions() -> None:
             "approval-defaults",
             "publish",
         ): "workflows.approval_defaults.publish",
+        ("test-machine", "list"): "test_machine.list",
         ("test-machine", "get"): "test_machine.get",
         (
             "test-machine",
@@ -71,9 +70,7 @@ def test_registry_exposes_mechanics_and_test_machine_functions() -> None:
     }
     for tokens, function_id in expected.items():
         assert SUBCOMMAND_REGISTRY[tokens][0] == function_id
-        inventory_entry = operation_inventory.lookup(
-            "yoke " + " ".join(tokens)
-        )
+        inventory_entry = operation_inventory.lookup("yoke " + " ".join(tokens))
         assert inventory_entry is not None
         assert inventory_entry.status == operation_inventory.WRAPPED
 
@@ -137,9 +134,11 @@ def test_delivery_default_dispatches_typed_project_binding() -> None:
 def test_approval_publish_reads_bounded_defaults_document(tmp_path) -> None:
     defaults_file = tmp_path / "approval-defaults.json"
     defaults_file.write_text(
-        json.dumps({
-            "done": {"roles": ["owner"], "actors": [2]},
-        }),
+        json.dumps(
+            {
+                "done": {"roles": ["owner"], "actors": [2]},
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -163,4 +162,57 @@ def test_approval_publish_reads_bounded_defaults_document(tmp_path) -> None:
         "approval_defaults": {
             "done": {"roles": ["owner"], "actors": [2]},
         },
+    }
+
+
+def test_test_machine_commands_dispatch_the_machine_selector(tmp_path) -> None:
+    result, request = _run(
+        "test-machine",
+        "list",
+        "--project",
+        "yoke",
+    )
+    assert result == 0
+    assert request.function == "test_machine.list"
+    assert request.payload == {"project": "yoke"}
+
+    result, request = _run(
+        "test-machine",
+        "get",
+        "--project",
+        "yoke",
+        "--machine",
+        "mac-mini-lab",
+    )
+    assert result == 0
+    assert request.payload == {
+        "project": "yoke",
+        "machine": "mac-mini-lab",
+    }
+
+    settings_file = tmp_path / "test-machine.json"
+    settings = {
+        "resource_name": "mac-mini-lab",
+        "host": "test-mac.local",
+        "user": "yoke-test",
+        "operating_notes": "",
+    }
+    settings_file.write_text(json.dumps(settings), encoding="utf-8")
+    result, request = _run(
+        "test-machine",
+        "settings-replace",
+        "--project",
+        "yoke",
+        "--machine",
+        "mac-mini-lab",
+        "--settings-file",
+        str(settings_file),
+        "--new",
+    )
+    assert result == 0
+    assert request.payload == {
+        "project": "yoke",
+        "machine": "mac-mini-lab",
+        "settings": settings,
+        "base_settings": None,
     }

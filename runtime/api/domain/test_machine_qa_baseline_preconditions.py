@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from yoke_contracts.machine_config.test_machine import (
+    test_machine_capability_type as _machine_type,
+)
 from yoke_core.domain.coordination_claim_record import CoordinationClaim
 from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.host_control_runner import TestMachineMaterial
@@ -13,7 +16,8 @@ def _execution(control: FakeHostControl) -> MachineQaLease:
     conn.execute(
         "INSERT INTO project_capabilities("
         "project_id,type,settings,verified_at,created_at"
-        ") VALUES(1,'test-machine','{}',NULL,'now')"
+        ") VALUES(1,?,'{}',NULL,'now')",
+        (_machine_type("mac-mini-lab"),),
     )
     return MachineQaLease(
         conn=conn,

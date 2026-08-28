@@ -9,17 +9,20 @@ from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
 )
+from yoke_contracts.machine_config.test_machine import (
+    TestMachineCapabilityError,
+    validate_test_machine_settings,
+)
 from yoke_harness.test_machine_types import HostActionResult
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.capability_machine_secrets import (
     machine_capability_secret_path,
     read_machine_capability_secret,
 )
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.machine_qa_capability import (
-    TestMachineCapabilityError,
-    validate_test_machine_settings,
+from yoke_core.domain.machine_qa_capability_rows import (
+    select_test_machine_row,
+    test_machine_capability_rows,
 )
 
 if TYPE_CHECKING:
@@ -154,29 +157,41 @@ def load_test_machine_contract(
     conn: Any,
     *,
     project: str,
+    machine: str | None = None,
 ) -> TestMachineContract:
     """Resolve server-authoritative settings without touching local secrets."""
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT COALESCE(settings, '{}') FROM project_capabilities "
-        f"WHERE project_id={marker} AND type={marker}",
-        (identity.id, TEST_MACHINE_CAPABILITY),
-    ).fetchone()
-    if row is None:
-        raise TestMachineCapabilityError(
-            f"project {identity.slug!r} has no test-machine capability"
-        )
-    import json
-
-    settings = validate_test_machine_settings(json.loads(str(row[0])))
+    selected = select_test_machine_row(
+        test_machine_capability_rows(conn, project_id=identity.id),
+        project=identity.slug,
+        machine=machine,
+    )
     return TestMachineContract(
         project_id=int(identity.id),
         project=identity.slug,
-        settings=settings,
+        settings=selected.settings,
     )
+
+
+def list_test_machine_contracts(
+    conn: Any,
+    *,
+    project: str,
+) -> list[TestMachineContract]:
+    """Return every machine contract in deterministic resource-name order."""
+    identity = resolve_project(conn, project, required=False)
+    if identity is None:
+        raise TestMachineCapabilityError(f"project {project!r} not found")
+    return [
+        TestMachineContract(
+            project_id=int(identity.id),
+            project=identity.slug,
+            settings=row.settings,
+        )
+        for row in test_machine_capability_rows(conn, project_id=identity.id)
+    ]
 
 
 def materialize_test_machine_contract(
@@ -232,10 +247,15 @@ def materialize_test_machine_contract(
     )
 
 
-def materialize_test_machine(conn: Any, *, project: str) -> TestMachineMaterial:
+def materialize_test_machine(
+    conn: Any,
+    *,
+    project: str,
+    machine: str | None = None,
+) -> TestMachineMaterial:
     """Resolve settings and required machine-local secrets for local execution."""
     return materialize_test_machine_contract(
-        load_test_machine_contract(conn, project=project),
+        load_test_machine_contract(conn, project=project, machine=machine),
     )
 
 
@@ -252,11 +272,14 @@ def resolve_contract_host_control(
 
 
 def resolve_host_control(
-    conn: Any, *, project: str
+    conn: Any,
+    *,
+    project: str,
+    machine: str | None = None,
 ) -> tuple[HostControl, TestMachineMaterial]:
     """Materialize the configured adapter or fail closed."""
     return resolve_contract_host_control(
-        load_test_machine_contract(conn, project=project),
+        load_test_machine_contract(conn, project=project, machine=machine),
     )
 
 
@@ -268,6 +291,7 @@ __all__ = [
     "TestMachineMaterial",
     "clear_host_control_factory",
     "load_test_machine_contract",
+    "list_test_machine_contracts",
     "materialize_test_machine",
     "materialize_test_machine_contract",
     "register_host_control_factory",

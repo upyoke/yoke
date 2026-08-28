@@ -85,6 +85,10 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
 }
 
 TEST_MACHINE_SUBCOMMAND_REGISTRY = {
+    ("test-machine", "list"): (
+        "test_machine.list",
+        test_machine.test_machine_list,
+    ),
     ("test-machine", "get"): (
         "test_machine.get",
         test_machine.test_machine_get,

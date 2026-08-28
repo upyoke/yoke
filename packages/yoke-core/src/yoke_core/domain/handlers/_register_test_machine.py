@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import machine_qa as _handlers
+from yoke_core.domain.handlers import machine_qa_list as _list
 from yoke_core.domain.handlers import machine_qa_case as _case
 from yoke_core.domain.handlers import machine_qa_execution_abort as _abort
 from yoke_core.domain.handlers import machine_qa_plan_case as _plan_case
@@ -210,6 +211,20 @@ def register(registry) -> None:
         ],
         adapter_status="internal",
         claim_required_kind="qa_subject",
+    )
+    registry.register(
+        "test_machine.list",
+        _list.handle_list,
+        _list.TestMachineListRequest,
+        _list.TestMachineListResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["secret_values_never_returned"],
+        adapter_status="live",
+        claim_required_kind=None,
     )
     registry.register(
         "test_machine.get",

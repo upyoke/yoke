@@ -38,6 +38,7 @@ PRODUCT_ADAPTER_EXPORTS = {
             test_machine,
             (
                 "test_machine_get",
+                "test_machine_list",
                 "test_machine_settings_replace",
                 "test_machine_verify",
             ),

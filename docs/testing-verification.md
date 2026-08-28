@@ -106,7 +106,7 @@ yoke qa plan run \
 The command verifies that the run and plan belong to the same project,
 idempotently snapshots the plan cases onto
 `qa_requirements.deployment_run_id`, and executes the server-issued roster.
-The durable cursor and serial Test Mac lease are bound to that deployment
+The durable cursor and selected Test Mac lease are bound to that deployment
 run; normal QA runs, artifacts, and verdicts remain attached to the
 materialized requirements. Host control always uses the registered
 two-phase execution protocol.
@@ -125,23 +125,24 @@ project without an item join.
 
 ## Capabilities and secrets
 
-A capability is the configured resource a method may need. Its availability
-is one of: not configured, configured (unverified), ready, in use, or error.
+Capability availability is: not configured, configured (unverified), ready, in use, or error.
 Serial resources queue while in use; that does not prevent plan attachment.
 
-The Test Mac is one `test-machine` capability, not three separate resources.
-`resource_name` identifies the physical host globally: only one project may
-register a given name, and every project's run contends on the registering
-project's `QA_HOST:<resource_name>` lease, so the machine admits one
-execution at a time no matter which project or item drives it.
-Inspect, update non-secret settings, and verify it with:
+Each Test Mac is one composite `test-machine:<resource_name>` capability row,
+so a project may register several machines
+without splitting one host into separate resources. A resource name identifies
+the physical host globally: only one project may register it, and its
+`QA_HOST:<resource_name>` lease admits one execution at a time. Machine-backed
+missions choose the first free registered machine in name order; an explicit
+read, settings update, or verification selects one machine by name:
 
 ```text
-yoke test-machine get --project <project> --json
+yoke test-machine list --project <project> --json
+yoke test-machine get --project <project> --machine <resource-name> --json
 yoke test-machine settings-replace \
-  --project <project> --settings-file <settings.json> \
+  --project <project> --machine <resource-name> --settings-file <settings.json> \
   (--new | --base '<as-read-json>')
-yoke test-machine verify --project <project>
+yoke test-machine verify --project <project> --machine <resource-name>
 ```
 
 Provision the host once before saving the capability. The general procedure —
@@ -181,8 +182,9 @@ capability-owned machine-local file with restricted permissions. Do not copy
 it to the remote host, the project checkout, or control-plane settings. Host
 baselines run as the dedicated test user and do not invoke `sudo`; no sudo
 credential is required. After provisioning or changing any setting, SSH key,
-or required macOS permission, run `yoke test-machine verify`; the capability
-is not ready until connectivity and terminal-control checks pass. That command
+or required macOS permission, run `yoke test-machine verify --project <project>
+--machine <resource-name>`; that machine is not ready until connectivity and
+terminal-control checks pass. That command
 is **destructive** — it performs the full host reset before installing the
 current release. It is a readiness gate, not a reachability probe; answer "can
 I see the machine?" with a plain SSH command.

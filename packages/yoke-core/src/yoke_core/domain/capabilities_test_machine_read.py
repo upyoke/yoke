@@ -24,31 +24,36 @@ from yoke_core.domain.work_claim_targets import TARGET_KIND_QA_ADMISSION
 def read_test_machine_facts(
     conn: Any,
     project_ids: list[int],
-) -> tuple[dict[int, str], dict[int, str | None], int]:
-    """Return verification states, active-lease item refs, and method count."""
+) -> tuple[
+    dict[tuple[int, str], str],
+    dict[tuple[int, str], str | None],
+    int,
+]:
+    """Return per-machine verification, active-item, and method facts."""
     if not project_ids:
         return {}, {}, 0
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join([marker] * len(project_ids))
-    verification = {}
+    verification: dict[tuple[int, str], str] = {}
     if _table_exists(conn, "test_machine_verifications"):
         verification = {
-            int(row["project_id"]): str(row["status"])
+            (int(row["project_id"]), str(row["capability_type"])): str(row["status"])
             for row in conn.execute(
-                "SELECT project_id,status FROM test_machine_verifications "
+                "SELECT project_id,capability_type,status "
+                "FROM test_machine_verifications "
                 f"WHERE project_id IN ({placeholders})",
                 tuple(project_ids),
             ).fetchall()
         }
     requested = set(project_ids)
     host_machines = {
-        registration.project_id: host_claim_target(
+        (registration.project_id, registration.capability_type): host_claim_target(
             registration.resource_name
         ).machine_id
         for registration in host_registrations(conn)
         if registration.project_id in requested
     }
-    active_sessions: dict[int, str] = {}
+    active_sessions: dict[tuple[int, str], str] = {}
     if host_machines and _table_exists(conn, "work_claims"):
         # One physical host is one claim, so a shared machine reads busy
         # for every project that names it.
@@ -66,12 +71,12 @@ def read_test_machine_facts(
             ).fetchall()
         }
         active_sessions = {
-            project_id: holders[machine]
-            for project_id, machine in host_machines.items()
+            key: holders[machine]
+            for key, machine in host_machines.items()
             if machine in holders
         }
-    active_items: dict[int, str | None] = {
-        project_id: None for project_id in active_sessions
+    active_items: dict[tuple[int, str], str | None] = {
+        key: None for key in active_sessions
     }
     required_columns = {
         "work_claims": (
@@ -118,8 +123,8 @@ def read_test_machine_facts(
                 ),
             )
         active_items = {
-            project_id: refs_by_session.get(session_id)
-            for project_id, session_id in active_sessions.items()
+            key: refs_by_session.get(session_id)
+            for key, session_id in active_sessions.items()
         }
     method_count = 0
     if _table_exists(conn, "qa_methods"):

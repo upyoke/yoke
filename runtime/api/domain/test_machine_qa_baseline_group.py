@@ -14,6 +14,9 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from yoke_cli.commands.adapters import test_machine as test_machine_cli
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.machine_config.test_machine import (
+    test_machine_capability_type as _machine_type,
+)
 from yoke_core.domain.handlers.machine_qa_case import (
     handle_baseline_group_begin,
     handle_baseline_group_execute,
@@ -189,13 +192,25 @@ def test_cli_verify_orchestrates_begin_and_submit_over_active_transport(
         ),
     )
 
-    exit_code = test_machine_cli.test_machine_verify(["--project", "yoke", "--json"])
+    exit_code = test_machine_cli.test_machine_verify(
+        [
+            "--project",
+            "yoke",
+            "--machine",
+            "mac-mini-lab",
+            "--json",
+        ]
+    )
 
     assert exit_code == 0
     assert [call["function_id"] for call in calls] == [
         "test_machine.verify.begin",
         "test_machine.verify.submit",
     ]
+    assert calls[0]["payload"] == {
+        "project": "yoke",
+        "machine": "mac-mini-lab",
+    }
     assert calls[1]["payload"]["contract_digest"] == "digest"
     assert json.loads(capsys.readouterr().out)["function"] == "test_machine.verify"
 
@@ -255,7 +270,8 @@ def test_failed_local_group_baseline_submits_every_case_as_blocked(
     assert (
         test_db.execute(
             "SELECT verified_at FROM project_capabilities "
-            "WHERE project_id=1 AND type='test-machine'"
+            "WHERE project_id=1 AND type=%s",
+            (_machine_type("mac-mini-lab"),),
         ).fetchone()["verified_at"]
         is None
     )

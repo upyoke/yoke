@@ -70,7 +70,7 @@ their recoveries differ:
 | --- | --- | --- |
 | passed | the program reported itself signed in | none |
 | `baseline_probe_failed` | the program ran and did not report itself signed in | recapture the golden with it signed in, or correct the probe argv or expectation |
-| `baseline_probe_bridge_unavailable` | the bridge never delivered the probe, so the program said nothing | repair Terminal.app control on the host, then re-run `yoke test-machine verify` |
+| `baseline_probe_bridge_unavailable` | the bridge never delivered the probe, so the program said nothing | repair Terminal.app control on the host, then re-run `yoke test-machine verify --project <project> --machine <resource-name>` |
 
 The third row is the one worth knowing about. The bridge reports its own
 failure the way it reports a program's — a synthetic result carrying an exit

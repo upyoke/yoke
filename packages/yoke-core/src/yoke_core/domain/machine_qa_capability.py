@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping
+from typing import Any
 
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
@@ -26,9 +26,13 @@ from yoke_core.domain.capability_type_definitions import (
 )
 from yoke_core.domain.coordination_claim_keys import QA_HOST_KEY_PREFIX
 from yoke_core.domain.coordination_claims import active_claim
-from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.machine_qa_host_registrar import (
-    assert_sole_host_registrar,
+from yoke_core.domain.machine_qa_capability_rows import (
+    TestMachineCapabilityRow,
+    select_test_machine_row,
+    test_machine_capability_rows,
+)
+from yoke_core.domain.machine_qa_capability_settings import (
+    replace_test_machine_settings,
 )
 from yoke_core.domain.project_identity import (
     DEFAULT_PUBLIC_ITEM_PREFIX,
@@ -75,9 +79,7 @@ def host_claim_target(resource_name: str):
     names the machine and nothing else, so whichever project drives a run
     contends for the same single row.
     """
-    return make_qa_admission_target(
-        validate_test_machine_resource_name(resource_name)
-    )
+    return make_qa_admission_target(validate_test_machine_resource_name(resource_name))
 
 
 def host_claim_key(resource_name: str) -> str:
@@ -143,104 +145,21 @@ def _holder_item(
     }
 
 
-def replace_test_machine_settings(
+def _test_machine_detail(
     conn: Any,
     *,
-    project: str,
-    settings: Mapping[str, Any],
-    base_settings: str | None,
+    row: TestMachineCapabilityRow,
 ) -> dict[str, Any]:
-    """CAS-replace settings and invalidate every prior verification receipt."""
-    identity = resolve_project(conn, project, required=False)
-    if identity is None:
-        raise TestMachineCapabilityError(f"project {project!r} not found")
-    ensure_test_machine_schema(conn)
-    document = validate_test_machine_settings(settings)
-    assert_sole_host_registrar(
-        conn,
-        project_id=identity.id,
-        resource_name=document["resource_name"],
-    )
-    canonical = json.dumps(document, separators=(",", ":"), sort_keys=True)
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT COALESCE(settings, '{}') FROM project_capabilities "
-        f"WHERE project_id={marker} AND type={marker}",
-        (identity.id, TEST_MACHINE_CAPABILITY),
-    ).fetchone()
-    if row is None:
-        if base_settings is not None:
-            raise TestMachineCapabilityError(
-                "test-machine settings changed; reload before saving"
-            )
-        conn.execute(
-            "INSERT INTO project_capabilities("
-            "project_id,type,settings,verified_at,created_at"
-            f") VALUES({marker},{marker},{marker},NULL,{marker})",
-            (
-                identity.id,
-                TEST_MACHINE_CAPABILITY,
-                canonical,
-                iso8601_now(),
-            ),
-        )
-    else:
-        stored = str(row[0])
-        if base_settings is None or stored != base_settings:
-            raise TestMachineCapabilityError(
-                "test-machine settings changed; reload before saving"
-            )
-        conn.execute(
-            "UPDATE project_capabilities SET settings="
-            f"{marker}, verified_at=NULL WHERE project_id={marker} AND type={marker}",
-            (canonical, identity.id, TEST_MACHINE_CAPABILITY),
-        )
-    now = iso8601_now()
-    conn.execute(
-        "INSERT INTO test_machine_verifications("
-        "project_id,status,checked_at,receipt_json,error_code,updated_at"
-        f") VALUES({marker},'configured_unverified',NULL,'{{}}',NULL,{marker}) "
-        "ON CONFLICT(project_id) DO UPDATE SET "
-        "status='configured_unverified', checked_at=NULL, receipt_json='{}', "
-        "error_code=NULL, updated_at=EXCLUDED.updated_at",
-        (identity.id, now),
-    )
-    conn.commit()
-    return {
-        "project_id": int(identity.id),
-        "project": identity.slug,
-        "settings": json.loads(canonical),
-        "settings_token": canonical,
-        "verification_status": "configured_unverified",
-    }
-
-
-def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
     """Return the exact secret-free projection needed by the Test Mac screen."""
-    identity = resolve_project(conn, project, required=False)
-    if identity is None:
-        raise TestMachineCapabilityError(f"project {project!r} not found")
-    ensure_test_machine_schema(conn)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT COALESCE(settings, '{}'), verified_at "
-        "FROM project_capabilities "
-        f"WHERE project_id={marker} AND type={marker}",
-        (identity.id, TEST_MACHINE_CAPABILITY),
-    ).fetchone()
-    if row is None:
-        raise TestMachineCapabilityError(
-            f"project {identity.slug!r} has no test-machine capability"
-        )
-    settings_token = str(row[0])
-    settings = validate_test_machine_settings(json.loads(settings_token))
     verification = conn.execute(
         "SELECT status,checked_at,receipt_json,error_code "
-        f"FROM test_machine_verifications WHERE project_id={marker}",
-        (identity.id,),
+        "FROM test_machine_verifications "
+        f"WHERE project_id={marker} AND capability_type={marker}",
+        (row.project_id, row.capability_type),
     ).fetchone()
     receipt = json.loads(str(verification[2] or "{}")) if verification else {}
-    resource_name = settings["resource_name"]
+    resource_name = row.settings["resource_name"]
     claim = active_claim(conn, host_claim_target(resource_name))
     claim_item = (
         _holder_item(conn, session_id=claim.session_id) if claim is not None else None
@@ -258,29 +177,30 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
         )
     ]
     stored_keys = set(
-        list_machine_capability_secret_keys(identity.slug, TEST_MACHINE_CAPABILITY)
+        list_machine_capability_secret_keys(row.project, TEST_MACHINE_CAPABILITY)
     )
     status = (
         str(verification[0])
         if verification is not None
-        else ("verified" if row[1] else "configured_unverified")
+        else ("verified" if row.verified_at else "configured_unverified")
     )
+    definition = capability_type_definition(row.capability_type)
     return {
-        "project_id": int(identity.id),
-        "project": identity.slug,
+        "project_id": row.project_id,
+        "project": row.project,
+        "machine": row.machine,
+        "capability_type": row.capability_type,
         "kind": TEST_MACHINE_CAPABILITY,
-        "display_name": capability_type_definition(TEST_MACHINE_CAPABILITY)[
-            "display_label"
-        ],
+        "display_name": definition["display_label"],
         "runner_id": HOST_CONTROL_EXECUTOR_ID,
-        "settings": settings,
-        "settings_token": settings_token,
+        "settings": row.settings,
+        "settings_token": row.settings_token,
         "features": list(TEST_MACHINE_FEATURES),
         "host_baselines": list(TEST_MACHINE_BASELINES),
-        "concurrency": {"limit": 1, "mode": "serial"},
+        "concurrency": {"limit": 1, "mode": "serial", "scope": "machine"},
         "verification": {
             "status": status,
-            "checked_at": verification[1] if verification else row[1],
+            "checked_at": verification[1] if verification else row.verified_at,
             "error_code": verification[3] if verification else None,
             "checks": list(receipt.get("checks") or []),
         },
@@ -307,6 +227,40 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
     }
 
 
+def test_machine_detail(
+    conn: Any,
+    *,
+    project: str,
+    machine: str | None = None,
+) -> dict[str, Any]:
+    """Return one selected machine, allowing omission only for one-row fleets."""
+    identity = resolve_project(conn, project, required=False)
+    if identity is None:
+        raise TestMachineCapabilityError(f"project {project!r} not found")
+    ensure_test_machine_schema(conn)
+    rows = test_machine_capability_rows(conn, project_id=identity.id)
+    selected = select_test_machine_row(
+        rows,
+        project=identity.slug,
+        machine=machine,
+    )
+    return _test_machine_detail(conn, row=selected)
+
+
+def test_machine_list(conn: Any, *, project: str) -> dict[str, Any]:
+    """Return every independently readable machine registered by a project."""
+    identity = resolve_project(conn, project, required=False)
+    if identity is None:
+        raise TestMachineCapabilityError(f"project {project!r} not found")
+    ensure_test_machine_schema(conn)
+    rows = test_machine_capability_rows(conn, project_id=identity.id)
+    return {
+        "project_id": int(identity.id),
+        "project": identity.slug,
+        "machines": [_test_machine_detail(conn, row=row) for row in rows],
+    }
+
+
 __all__ = [
     "HOST_CONTROL_EXECUTOR_ID",
     "TEST_MACHINE_BASELINES",
@@ -316,6 +270,7 @@ __all__ = [
     "host_claim_target",
     "replace_test_machine_settings",
     "test_machine_detail",
+    "test_machine_list",
     "validate_test_machine_json",
     "validate_test_machine_settings",
 ]

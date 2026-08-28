@@ -26,6 +26,7 @@ WRAPPED_ROWS = (
     _w("yoke item-worktrees path-record", "item_worktrees"),
     _w("yoke item-worktrees release", "item_worktrees"),
     _w("yoke test-machine get", "test_machine"),
+    _w("yoke test-machine list", "test_machine"),
     _w("yoke test-machine settings-replace", "test_machine"),
     _w("yoke test-machine verify", "test_machine"),
     _w("yoke overview activation get", "overview"),

@@ -6,6 +6,10 @@ from pathlib import PurePosixPath
 import re
 from typing import Any, Mapping
 
+from yoke_contracts.machine_config.capability_secrets import (
+    TEST_MACHINE_CAPABILITY,
+)
+
 
 _RESOURCE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 _REMOTE_USER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$")
@@ -14,6 +18,7 @@ _SETTING_KEYS = frozenset({"resource_name", "host", "user", "operating_notes"})
 # restore instead of an enumeration, so its absence means the machine has opted
 # out of that reset rather than that the settings are incomplete.
 _OPTIONAL_SETTING_KEYS = frozenset({"golden_baseline_path"})
+TEST_MACHINE_CAPABILITY_PREFIX = f"{TEST_MACHINE_CAPABILITY}:"
 
 
 class TestMachineCapabilityError(ValueError):
@@ -26,6 +31,40 @@ def validate_test_machine_resource_name(value: Any) -> str:
     if not _RESOURCE_NAME.fullmatch(normalized):
         raise TestMachineCapabilityError("resource_name is not a safe resource label")
     return normalized
+
+
+def test_machine_capability_type(resource_name: Any) -> str:
+    """Return the stored capability type owned by one physical machine."""
+    return TEST_MACHINE_CAPABILITY_PREFIX + validate_test_machine_resource_name(
+        resource_name
+    )
+
+
+def test_machine_resource_name(capability_type: Any) -> str:
+    """Return the machine suffix from a stored test-machine capability type."""
+    normalized = str(capability_type or "").strip()
+    if not normalized.startswith(TEST_MACHINE_CAPABILITY_PREFIX):
+        raise TestMachineCapabilityError(
+            "test-machine capability type must name a machine as "
+            f"{TEST_MACHINE_CAPABILITY_PREFIX}<name>"
+        )
+    machine = validate_test_machine_resource_name(
+        normalized[len(TEST_MACHINE_CAPABILITY_PREFIX) :]
+    )
+    if test_machine_capability_type(machine) != normalized:
+        raise TestMachineCapabilityError(
+            "test-machine capability type is not canonical"
+        )
+    return machine
+
+
+def is_test_machine_capability_type(capability_type: Any) -> bool:
+    """Return whether a value is a canonical per-machine capability type."""
+    try:
+        test_machine_resource_name(capability_type)
+    except TestMachineCapabilityError:
+        return False
+    return True
 
 
 def validate_golden_baseline_path(value: Any) -> str:
@@ -93,7 +132,11 @@ def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]
 
 
 __all__ = [
+    "TEST_MACHINE_CAPABILITY_PREFIX",
     "TestMachineCapabilityError",
+    "is_test_machine_capability_type",
+    "test_machine_capability_type",
+    "test_machine_resource_name",
     "validate_golden_baseline_path",
     "validate_test_machine_resource_name",
     "validate_test_machine_settings",

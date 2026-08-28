@@ -8,19 +8,23 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 TEST_MACHINE_ADAPTERS = [
     read_entry(
+        function_id="test_machine.list",
+        cli_invocation="yoke test-machine list --project P",
+    ),
+    read_entry(
         function_id="test_machine.get",
-        cli_invocation="yoke test-machine get --project P",
+        cli_invocation="yoke test-machine get --project P --machine NAME",
     ),
     AdapterEntry(
         function_id="test_machine.settings_replace",
         cli_invocation=(
             "yoke test-machine settings-replace --project P "
-            "--settings-file FILE --base AS_READ_JSON"
+            "--machine NAME --settings-file FILE --base AS_READ_JSON"
         ),
     ),
     AdapterEntry(
         function_id="test_machine.verify",
-        cli_invocation="yoke test-machine verify --project P",
+        cli_invocation="yoke test-machine verify --project P --machine NAME",
     ),
 ]
 

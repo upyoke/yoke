@@ -15,6 +15,12 @@ from yoke_core.domain.qa_method_capabilities import (
     capability_kinds,
     missing_capability_kinds,
 )
+from yoke_contracts.machine_config.capability_secrets import (
+    TEST_MACHINE_CAPABILITY,
+)
+from yoke_contracts.machine_config.test_machine import (
+    is_test_machine_capability_type,
+)
 
 
 class QaCaseExecutionError(ValueError):
@@ -44,7 +50,8 @@ def execution_host_capability_kinds(
     )
 
     projection = resolve_harness_capabilities(
-        str(session["executor"] or ""), str(session["workspace"] or ""),
+        str(session["executor"] or ""),
+        str(session["workspace"] or ""),
     )
     return tuple(projection.get("host_capability_kinds") or ())
 
@@ -148,7 +155,11 @@ def get_case_execution_context(
 
         if _table_exists(conn, "project_capabilities"):
             available_capabilities.update(
-                str(capability["type"])
+                (
+                    TEST_MACHINE_CAPABILITY
+                    if is_test_machine_capability_type(capability["type"])
+                    else str(capability["type"])
+                )
                 for capability in query_rows(
                     conn,
                     f"SELECT type FROM project_capabilities WHERE project_id={marker}",

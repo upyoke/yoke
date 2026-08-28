@@ -6,8 +6,9 @@ network. This document is the general provisioning contract for that host. It
 names no host, credential, account, or project — those live in the installing
 project's own capability record and machine-local secret files.
 
-Follow it once per physical host, in order, before saving the `test-machine`
-capability. Every step ends in an observable check. A host that skips a step
+Follow it once per physical host, in order, before saving its
+`test-machine:<resource-name>` capability row. Every step ends in an observable
+check. A host that skips a step
 usually fails later in a way that reads as agent confusion rather than as
 missing machine state, which is why each check is stated as a command whose
 output you can look at rather than as something to remember doing.
@@ -215,7 +216,7 @@ After provisioning, and after changing any setting, SSH key, or privacy grant,
 run the project's readiness gate:
 
 ```text
-yoke test-machine verify --project <project>
+yoke test-machine verify --project <project> --machine <resource-name>
 ```
 
 **This command is destructive.** It performs the full host reset before
@@ -223,8 +224,10 @@ installing the current release — it is a readiness gate, not a reachability
 probe. Do not reach for it to answer "can I see the machine?"; use a plain SSH
 command for that. Run it deliberately, knowing the host's user state is reset.
 
-The capability is not ready until its connectivity and terminal-control checks
-pass.
+That machine is not ready until its connectivity and terminal-control checks
+pass. Register additional hosts as additional capability rows. Machine-backed
+missions choose the first free row in name order, while each host retains its
+own settings, verification receipt, and one-at-a-time lease.
 
 ## Acceptance set
 

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_contracts.machine_config.test_machine import TestMachineCapabilityError
+from yoke_contracts.machine_config.test_machine import (
+    TestMachineCapabilityError,
+    test_machine_capability_type as _machine_type,
+)
 from yoke_contracts.machine_qa_execution import (
     VERIFICATION_BASELINES,
     VERIFICATION_CHECKS,
@@ -167,6 +170,9 @@ def test_a_leased_shared_host_reads_as_in_use_for_every_naming_project() -> None
 
     _verification, active_items, _method_count = read_test_machine_facts(conn, [1, 2])
 
-    assert set(active_items) == {1, 2}
+    assert set(active_items) == {
+        (1, _machine_type(SHARED_HOST)),
+        (2, _machine_type(SHARED_HOST)),
+    }
     detail = read_test_machine_detail(conn, project="buzz")
     assert detail["active_lease"]["session_id"] == "yoke-session"
