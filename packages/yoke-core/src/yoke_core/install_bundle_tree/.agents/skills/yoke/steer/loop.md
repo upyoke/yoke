@@ -1,8 +1,7 @@
 # /yoke steer — standing loop
 
-Run this loop after the steering-scope claim and the strategy-doc lock are
-held. No new scheduler: each pass is a message-wake or a periodic frontier
-check. Keep the claimed document current on every material change.
+Run this loop after the steering-scope claim and strategy-doc lock are held. Each
+pass reads the claimed document first, then keeps it current while moving the scope.
 
 Do not invoke `/yoke feed`.
 
@@ -25,16 +24,26 @@ mode is no longer `steer`.
 
 ## Pass
 
-### 1. Read the scope frontier
+### 1. Read the standing plan first, then the scope frontier
+
+```text
+yoke strategy doc get {SLUG} --project {_project}
+```
+
+Extract its next steps and standing decisions before reading the live DB frontier:
 
 ```text
 yoke charge schedule --project {_project} --json
 yoke claims steering list --project {_project} --active-only --json
 ```
 
-`charge.schedule` is a frontier **read**. It does not dispatch and it is
-not feed. Record runnable unclaimed items, dependency gates, and anything
-already claimed. Write material frontier movement into the doc (step 7).
+The document wins on intended scope, priority, order, and constraints; the DB wins
+on live item status, claims, dependencies, and runnable eligibility. A DB-gated item
+waits and refreshes the doc; a DB-runnable item absent from or ordered differently
+by the doc does not silently become next. Reconcile through registered surfaces
+before acting; escalate only for a reserved human decision.
+
+`charge.schedule` is a frontier **read**, not dispatch or feed. Record runnable items, dependency gates, and claims; write material movement into the doc (step 7).
 
 When a blocker merges and an activation gate clears, explicitly wake the
 waiting dependent; activation dependencies do not send their own go-signal:
@@ -206,17 +215,12 @@ exhausted, which currently resembles a crash. Verify by running that harness
 CLI interactively, rebalance new lanes onto the other surfaces while it
 recovers, and restore the steady-state balance afterward.
 
-### 3. Work the strategy document itemless
+### 3. Write the strategy document itemless
 
-```text
-yoke strategy doc get {SLUG} --project {_project}
-```
-
-The coordinator holds no work item. Plan-level progress lives in the
-claimed doc: objective, frontier, decisions, gates, dead ends. Edit
-through the registered strategy surfaces (`strategy.doc.get`,
-`strategy render`, `strategy ingest` / `strategy.doc.replace`). The doc
-plus the items survive coordinator death.
+The coordinator holds no work item. The claimed doc is the durable write target
+for plan-level progress: objective, frontier, decisions, gates, and dead ends.
+Edit through `strategy render`, `strategy ingest`, or `strategy.doc.replace`;
+the doc plus the items survive coordinator death.
 
 Item-spec writes are the exception to itemless authority. Hold a temporary
 item claim for exactly the registered structured-field write, then release

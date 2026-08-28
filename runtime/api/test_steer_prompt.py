@@ -84,6 +84,26 @@ class TestSteerSkillContract:
         assert "Escalate" in loop
         assert "wait" in loop.lower()
 
+    def test_each_pass_reads_plan_before_frontier_and_reconciles_authority(self):
+        skill = _read(_STEER_DIR / "SKILL.md")
+        loop = _read(_STEER_DIR / "loop.md")
+        skill_words = " ".join(skill.split())
+        loop_words = " ".join(loop.split())
+        assert loop.index("yoke strategy doc get {SLUG}") < loop.index(
+            "yoke charge schedule"
+        )
+        assert "Each pass reads the claimed document first" in loop_words
+        assert "document wins on intended scope, priority, order" in loop_words
+        assert "DB wins" in loop_words
+        assert "live item status, claims, dependencies" in loop_words
+        assert "does not silently become next" in loop_words
+        assert "durable write target" in loop_words
+        assert "plan-level progress" in loop_words
+        assert "Strategy doc is both input and output" in skill_words
+        assert "cold-start refresh" in skill_words
+        assert "open-work index" in skill_words
+        assert "standing decision that constrains action" in skill_words
+
     def test_negative_space_checklist_runs_first_and_unconditionally(self):
         loop = _read(_STEER_DIR / "loop.md")
         assert "Negative-space checks — first, every periodic pass" in loop
@@ -117,7 +137,9 @@ class TestSteerSkillContract:
         assert "1440-minute stale TTL" in loop
         # The runnable query keys on elapsed idle time, never on the label.
         query = _sql_after(loop, "FROM work_claims c JOIN harness_sessions s")
-        assert "s.last_tool_call_at::timestamptz < now() - interval '20 minutes'" in query
+        assert (
+            "s.last_tool_call_at::timestamptz < now() - interval '20 minutes'" in query
+        )
         assert "liveness" not in query
         # A holder that declared its wait is not idle.
         assert "s.mode <> 'parked'" in query
@@ -129,7 +151,9 @@ class TestSteerSkillContract:
         assert "no reply is coming" in loop
         assert "Answer on the ended session's behalf" in loop
         assert "the current state of whatever it was" in loop
-        query = _sql_after(loop, "FROM session_messages m JOIN session_message_recipients r")
+        query = _sql_after(
+            loop, "FROM session_messages m JOIN session_message_recipients r"
+        )
         assert "m.sender_session_id = '{IDLE_SESSION_ID}'" in query
         assert "a.ended_at AS answerer_ended_at" in query
 
