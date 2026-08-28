@@ -173,10 +173,15 @@ def test_wake_without_a_background_job_skips_the_stop(monkeypatch) -> None:
     )
 
     assert commands == []
-    assert detached[0][0][:5] == (
+    assert detached[0][0][:7] == (
         CLAUDE,
         "-p",
         "--dangerously-skip-permissions",
+        "--settings",
+        json.dumps(
+            {CLAUDE_REMOTE_CONTROL_SETTING: True},
+            separators=(",", ":"),
+        ),
         "--resume",
         ACTUAL_ID,
     )
