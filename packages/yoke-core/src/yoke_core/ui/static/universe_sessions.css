@@ -64,6 +64,8 @@
   color: var(--yoke-muted);
   font-size: 12.5px;
 }
+.universe-app-root .session-holdings-group { display: flex; flex-direction: column; gap: 5px; }
+.universe-app-root .session-holdings-label, .universe-app-root .session-holdings-more { color: var(--yoke-muted); font-size: 10px; font-weight: 700; letter-spacing: .055em; text-transform: uppercase; }
 
 .universe-app-root .session-work {
   display: flex;

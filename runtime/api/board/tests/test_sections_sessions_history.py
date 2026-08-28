@@ -1,0 +1,63 @@
+"""Active and closed BOARD.md rows share one bounded holdings path."""
+
+from __future__ import annotations
+
+from yoke_contracts.board import sections_sessions
+
+
+def test_active_and_closed_rows_render_the_same_holdings_shape(monkeypatch) -> None:
+    active = (
+        "active-1",
+        "codex",
+        "codex-cli",
+        "model",
+        "dash",
+        "ALTMAN",
+        "2026-08-28T12:00:00Z",
+        "2026-08-28T12:05:00Z",
+        "/tmp",
+        1,
+    )
+    closed = (
+        "closed-1",
+        "codex",
+        "codex-cli",
+        "model",
+        "dash",
+        "ALTMAN",
+        "2026-08-28T10:00:00Z",
+        "2026-08-28T11:00:00Z",
+        "/tmp",
+        1,
+        "2026-08-28T11:00:00Z",
+    )
+
+    def rows(_db, *, scope, active_only):
+        assert scope == "all"
+        return [active] if active_only else [closed]
+
+    labels = {
+        "active-1": ["YOK-8", "YOK-7", "and 3 more"],
+        "closed-1": ["YOK-6", "and 9 more"],
+    }
+    monkeypatch.setattr(sections_sessions, "session_rows", rows)
+    monkeypatch.setattr(
+        sections_sessions,
+        "session_holding_labels",
+        lambda _db, session_id: labels[session_id],
+    )
+    monkeypatch.setattr(
+        sections_sessions,
+        "session_common_cells",
+        lambda *_args: ["session", "project", "executor", "model"],
+    )
+    monkeypatch.setattr(
+        sections_sessions, "session_lane_presentation", lambda *_args: None
+    )
+    monkeypatch.setattr(sections_sessions, "_format_session_age", lambda _value: "1h")
+
+    rendered = sections_sessions.render_sessions_section(object())
+
+    assert rendered.count("Claims") == 2
+    for target in ("YOK-8", "YOK-7", "YOK-6", "and 3 more", "and 9 more"):
+        assert target in rendered

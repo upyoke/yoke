@@ -2,14 +2,12 @@
 
 Sibling of :mod:`yoke_contracts.board.sections_sessions`. Owns the pure
 target-list layout step shared by the Active and Recent Harness Sessions
-tables: dedup of repeat claims and width-budgeted row wrapping. Keeps the
-parent module focused on the table assembly and the keycap decoration in
-:mod:`sections_sessions_extra_claims`.
+tables: width-budgeted row wrapping. Keeps the parent module focused on the
+table assembly and the keycap decoration in
+:mod:`sections_sessions_holdings`.
 """
 
 from __future__ import annotations
-
-from typing import List, Optional, Tuple
 
 from yoke_contracts.board.utils import display_width
 
@@ -23,50 +21,6 @@ _CLAIMS_WRAP_WIDTH = 43
 def _index_prefix(n: int) -> str:
     """Render a positive integer as a plain index prefix (universal; no VS16 keycaps)."""
     return f"{n}."
-
-
-def _dedup_work_targets(
-    targets: List[Tuple[str, Optional[int], Optional[str]]],
-) -> List[Tuple[str, Optional[int], Optional[str]]]:
-    """Collapse repeat claims on the same target to the most recent one.
-
-    A session may claim the same item several times (e.g. re-acquired across a
-    lifecycle loop). ``_claims_for_session`` returns rows newest-first, so the
-    first occurrence of each rendered target is the most recent — keep it and
-    drop the rest. Distinct items are each kept once, preserving the
-    most-recent-first order. Keying on the rendered target string (not the raw
-    item_id) keeps process-key and epic-task targets — whose item_id is None —
-    distinct from one another.
-    """
-    seen: set[str] = set()
-    deduped: List[Tuple[str, Optional[int], Optional[str]]] = []
-    for entry in targets:
-        key = entry[0]
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(entry)
-    return deduped
-
-
-def _dedup_lease_rows(rows: List[Tuple]) -> List[Tuple]:
-    """Collapse repeat leases on the same lease_key to the most recent one.
-
-    ``leases_for_session`` returns rows newest-first (``ORDER BY id DESC``),
-    so the first occurrence of each ``lease_key`` is the most recent — keep
-    it and drop the rest. Mirrors :func:`_dedup_work_targets` for the Claims
-    column so a closed session that retook ``QA_HOST:…`` many times still
-    renders one ``🔒`` keycap per key.
-    """
-    seen: set[str] = set()
-    deduped: List[Tuple] = []
-    for row in rows:
-        key = str(row[1] or "")
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(row)
-    return deduped
 
 
 def _chunk_claims(targets: list[str], max_width: int = _CLAIMS_WRAP_WIDTH) -> list[str]:
@@ -84,8 +38,7 @@ def _chunk_claims(targets: list[str], max_width: int = _CLAIMS_WRAP_WIDTH) -> li
         entry = f"{_index_prefix(i + 1)} {t}"
         entry_width = display_width(entry)
         projected = (
-            entry_width if not current
-            else current_width + sep_width + entry_width
+            entry_width if not current else current_width + sep_width + entry_width
         )
         if current and projected > max_width:
             rows.append(" · ".join(current))
@@ -102,7 +55,5 @@ def _chunk_claims(targets: list[str], max_width: int = _CLAIMS_WRAP_WIDTH) -> li
 __all__ = [
     "_CLAIMS_WRAP_WIDTH",
     "_chunk_claims",
-    "_dedup_lease_rows",
-    "_dedup_work_targets",
     "_index_prefix",
 ]

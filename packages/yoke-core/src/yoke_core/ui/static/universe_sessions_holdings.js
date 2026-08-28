@@ -1,14 +1,23 @@
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { el, statePill } from "./universe_view_support.js";
 
-function claimHref(claim, row) {
+function holdingGroups(row) {
+  const model = row.holdings || {};
+  return {
+    current: Array.isArray(model.current) ? model.current : [],
+    previous: Array.isArray(model.previous) ? model.previous : [],
+    previousRemainder: Number(model.previous_remainder || 0),
+  };
+}
+
+function holdingHref(holding, row) {
   const explicit = itemDrillInHref({
-    projectId: claim.item_project_id,
-    projectSequence: claim.item_project_sequence,
-    publicRef: claim.item_ref || claim.target,
+    projectId: holding.item_project_id,
+    projectSequence: holding.item_project_sequence,
+    publicRef: holding.item_ref || holding.target,
   });
   if (explicit) return explicit;
-  if (claim.target_kind === "item" && claim.target === row.current_item) {
+  if (holding.target_kind === "item" && holding.target === row.current_item) {
     return itemDrillInHref({
       projectId: row.current_item_project_id,
       projectSequence: row.current_item_project_sequence,
@@ -18,54 +27,13 @@ function claimHref(claim, row) {
   return null;
 }
 
-// One entry per thing the session holds: its work claims, its
-// coordination leases, and — when the session's focus names an item no
-// claim of theirs covers — one attached row for that item. Only the
-// claim entries are holds; the attached row is a worktree lane the
-// session watches, or the bare attribution left by filing or updating
-// the item, and `work_role` is what tells those two apart.
-//
-// One hold, one row. Two kinds of claim are deliberately absent, because
-// another surface of this same card already states them: steering, which the
-// card names once however many projects it covers, and any claim whose
-// coordination lease is listed below it — one `work_claims` row that two
-// projections both carry. Item claims lead, because they are what an operator
-// opens this card to read.
-export function holdingEntries(row) {
-  const entries = [];
-  const leases = Array.isArray(row.coordination_claims)
-    ? row.coordination_claims
-    : [];
-  const leased = new Set(leases.map((lease) => String(lease.lease_key)));
-  const claims = (Array.isArray(row.claims) ? row.claims : []).filter(
-    (claim) => claim.target_kind !== "steering"
-      && !(claim.lease_key && leased.has(String(claim.lease_key))),
-  );
-  const isItem = (claim) => claim.target_kind === "item";
-  for (const claim of [...claims.filter(isItem), ...claims.filter(
-    (claim) => !isItem(claim),
-  )]) entries.push({ kind: "claim", claim });
-  for (const lease of leases) entries.push({ kind: "lease", lease });
-  const ownsFocus = claims.some(
-    (claim) =>
-      claim.target_kind === "item" && claim.target === row.current_item,
-  );
-  if (row.current_item && !ownsFocus) entries.push({ kind: "attached" });
-  return entries;
-}
-
 export function ownsFocusedItem(row) {
-  return (Array.isArray(row.claims) ? row.claims : []).some(
-    (claim) =>
-      claim.target_kind === "item" && claim.target === row.current_item,
+  return holdingGroups(row).current.some(
+    (holding) =>
+      holding.target_kind === "item" && holding.target === row.current_item,
   );
 }
 
-// What an item is doing right now, beside the link that opens it — the stage
-// answers "how far along is this work", and the workflow in front of it says
-// which lifecycle those stage names belong to, so `dash` and `blitz` work is
-// told apart without opening the item. One pill carries both facts: a fourth
-// chip per row would cost this already dense card more than it returns.
 function appendStage(documentNode, work, status, workflow) {
   const label = workflow ? `${workflow} · ${status}` : status;
   const stage = statePill(documentNode, status, label);
@@ -74,63 +42,69 @@ function appendStage(documentNode, work, status, workflow) {
   work.appendChild(stage);
 }
 
-function appendClaimEntry(documentNode, body, row, claim) {
+function titleHolding(entries, row, previous) {
+  const items = entries.filter((entry) => entry.target_kind === "item");
+  if (!items.length) return null;
+  if (previous) return items[0];
+  return items.find((entry) => entry.target === row.current_item) || items[0];
+}
+
+function holdingMarker(holding) {
+  if (holding.holding_kind === "path_claim") {
+    return { text: "📁", title: "file claim — this session holds it" };
+  }
+  if (holding.holding_kind === "strategy_document") {
+    return { text: "🛞", title: "strategy-document hold" };
+  }
+  if (holding.holding_kind === "coordination") {
+    return { text: "🔒", title: "coordination lease — shared-operation hold" };
+  }
+  return { text: "🔒", title: "work claim — this session holds it" };
+}
+
+function holdingTarget(holding) {
+  if (holding.holding_kind === "coordination" && holding.owner_item_ref) {
+    return `${holding.target} (${holding.owner_item_ref})`;
+  }
+  return String(holding.target || "holding not reported");
+}
+
+function appendHoldingEntry(
+  documentNode, body, row, holding, { showTitle = false } = {},
+) {
   const work = el(documentNode, "div", "session-work");
-  const marker = el(documentNode, "span", "session-lock", "🔒");
-  // What the lock means, not what kind of row it sits on — the row already
-  // names that, and naming it here again would be the `target_kind` enum.
-  marker.title = "work claim — this session holds it";
+  const markerFacts = holdingMarker(holding);
+  const marker = el(documentNode, "span", "session-lock", markerFacts.text);
+  marker.title = markerFacts.title;
   work.appendChild(marker);
-  const href = claimHref(claim, row);
+  const href = holding.target_kind === "item" ? holdingHref(holding, row) : null;
   const target = el(
     documentNode,
     href ? "a" : "span",
-    href ? "session-item-link" : "session-hold-target",
+    href
+      ? "session-item-link"
+      : holding.holding_kind === "coordination"
+        ? "session-lease-key"
+        : "session-hold-target",
   );
-  target.textContent = String(claim.target);
+  target.textContent = holdingTarget(holding);
   if (href) target.href = href;
   work.appendChild(target);
-  // Every hold names itself: `YOK-2567`, `epic 41 task 3`, `process feed`,
-  // `QA_HOST:test-mac`. So the card adds no kind label — one would either
-  // repeat the target or, as `item` and `qa_admission` did, put an internal
-  // enum in front of an operator. An item claim spends that slot on the
-  // stage and workflow the ref cannot say.
-  if (claim.target_kind === "item") {
-    appendStage(
-      documentNode, work, claim.item_status, claim.item_workflow_id,
-    );
-    const ownsFocus = claim.target === row.current_item;
-    if (ownsFocus && row.current_item_title) {
-      work.appendChild(el(
-        documentNode,
-        "span",
-        "session-item-title",
-        row.current_item_title,
-      ));
+  if (holding.path_count !== undefined) {
+    work.appendChild(el(
+      documentNode,
+      "span",
+      "session-path-count",
+      `📁${Number(holding.path_count || 0)}`,
+    ));
+  }
+  if (showTitle) {
+    const title = holding.item_title
+      || (holding.target === row.current_item ? row.current_item_title : "");
+    if (title) {
+      work.appendChild(el(documentNode, "span", "session-item-title", title));
     }
   }
-  body.appendChild(work);
-}
-
-function leaseLabel(lease) {
-  const key = String(lease.lease_key);
-  if (lease.owner_kind === "item" && lease.owner_item_ref) {
-    return `${key} (${lease.owner_item_ref})`;
-  }
-  return key;
-}
-
-function appendLeaseEntry(documentNode, body, lease) {
-  const work = el(documentNode, "div", "session-work");
-  const marker = el(documentNode, "span", "session-lock", "🔒");
-  marker.title = "coordination lease — shared-operation hold";
-  work.appendChild(marker);
-  work.appendChild(el(
-    documentNode,
-    "span",
-    "session-lease-key",
-    leaseLabel(lease),
-  ));
   body.appendChild(work);
 }
 
@@ -157,18 +131,57 @@ function appendAttachedEntry(documentNode, body, row) {
   );
   if (row.current_item_title) {
     work.appendChild(el(
-      documentNode,
-      "span",
-      "session-item-title",
-      row.current_item_title,
+      documentNode, "span", "session-item-title", row.current_item_title,
     ));
   }
   body.appendChild(work);
 }
 
+function appendHoldingGroup(documentNode, body, row, label, entries, previous) {
+  const group = el(documentNode, "div", "session-holdings-group");
+  group.appendChild(el(
+    documentNode, "div", "session-holdings-label", label,
+  ));
+  const titled = titleHolding(entries, row, previous);
+  for (const entry of entries) {
+    appendHoldingEntry(documentNode, group, row, entry, {
+      showTitle: entry === titled,
+    });
+  }
+  body.appendChild(group);
+  return group;
+}
+
 export function appendHoldings(documentNode, body, row) {
-  const entries = holdingEntries(row);
-  if (!entries.length) {
+  const groups = holdingGroups(row);
+  let rendered = false;
+  if (groups.current.length) {
+    appendHoldingGroup(
+      documentNode, body, row, "Currently held", groups.current, false,
+    );
+    rendered = true;
+  }
+  if (groups.previous.length || groups.previousRemainder) {
+    const group = appendHoldingGroup(
+      documentNode, body, row, "Previously held", groups.previous, true,
+    );
+    if (groups.previousRemainder) {
+      group.appendChild(el(
+        documentNode,
+        "div",
+        "session-holdings-more",
+        `and ${groups.previousRemainder} more`,
+      ));
+    }
+    rendered = true;
+  }
+  if (
+    row.liveness !== "ended" && row.current_item && !ownsFocusedItem(row)
+  ) {
+    appendAttachedEntry(documentNode, body, row);
+    rendered = true;
+  }
+  if (!rendered && row.liveness !== "ended") {
     const work = el(documentNode, "div", "session-work");
     work.appendChild(el(
       documentNode,
@@ -177,15 +190,5 @@ export function appendHoldings(documentNode, body, row) {
       row.current_item_title || "No actionable work right now",
     ));
     body.appendChild(work);
-    return;
-  }
-  for (const entry of entries) {
-    if (entry.kind === "claim") {
-      appendClaimEntry(documentNode, body, row, entry.claim);
-    } else if (entry.kind === "lease") {
-      appendLeaseEntry(documentNode, body, entry.lease);
-    } else {
-      appendAttachedEntry(documentNode, body, row);
-    }
   }
 }

@@ -6,10 +6,12 @@ import contextlib
 from pathlib import Path
 
 from yoke_contracts.board.renderer import render_board_from_payload
-from yoke_contracts.board.sections_sessions import _render_claim_target
-from yoke_contracts.board.sections_sessions_extra_claims import build_session_keycaps
+from yoke_contracts.board.sections_sessions_holdings import session_holding_labels
 from yoke_contracts.board.sections_sessions_occupancy import prefetch_session_occupancy
-from yoke_contracts.board.sections_sessions_rendering import _claims_for_session
+from yoke_contracts.board.sections_sessions_rendering import (
+    _claims_for_session,
+    _render_claim_target,
+)
 from yoke_core.board.db import BoardDB
 from yoke_core.domain.work_claim_targets import make_steering_target
 from runtime.api.fixtures.file_test_db import (
@@ -82,18 +84,25 @@ def _seed(db_path: str) -> None:
         conn.execute("INSERT INTO projects VALUES (1,'yoke')")
         conn.execute("INSERT INTO projects VALUES (3,'platform')")
         conn.execute(
-            "INSERT INTO harness_sessions VALUES "
-            "('holder-1',NULL,NULL,NULL,NULL)"
+            "INSERT INTO harness_sessions VALUES ('holder-1',NULL,NULL,NULL,NULL)"
         )
         conn.execute(
-            "INSERT INTO work_claims VALUES "
-            "(%s,%s,'steering',%s,NULL,%s,NULL,NULL)",
-            (1, "holder-1", make_steering_target(1).scope_json(), "2026-08-26T11:00:00Z"),
+            "INSERT INTO work_claims VALUES (%s,%s,'steering',%s,NULL,%s,NULL,NULL)",
+            (
+                1,
+                "holder-1",
+                make_steering_target(1).scope_json(),
+                "2026-08-26T11:00:00Z",
+            ),
         )
         conn.execute(
-            "INSERT INTO work_claims VALUES "
-            "(%s,%s,'steering',%s,NULL,%s,NULL,NULL)",
-            (2, "holder-1", make_steering_target(3).scope_json(), "2026-08-26T11:00:01Z"),
+            "INSERT INTO work_claims VALUES (%s,%s,'steering',%s,NULL,%s,NULL,NULL)",
+            (
+                2,
+                "holder-1",
+                make_steering_target(3).scope_json(),
+                "2026-08-26T11:00:01Z",
+            ),
         )
         conn.execute(
             "INSERT INTO strategy_doc_claims VALUES "
@@ -112,7 +121,7 @@ def test_steering_claims_stay_readable_as_typed_claim_rows(tmp_path: Path) -> No
     """The claim rows still carry the kind; only the rendering collapsed."""
     with _board_db(tmp_path) as (db, db_path):
         _seed(db_path)
-        claims = _claims_for_session(db, "holder-1", active_only=True)
+        claims = _claims_for_session(db, "holder-1")
 
     assert [claim[7] for claim in claims] == ["steering", "steering"]
 
@@ -130,22 +139,21 @@ def test_unknown_kind_renders_compact_scope() -> None:
     )
 
 
-def test_steering_is_one_keycap_pairing_each_project_with_its_documents(
+def test_steering_claims_and_document_locks_are_each_holdings(
     tmp_path: Path,
 ) -> None:
     """One entry, not a lock row per project plus a separate document row."""
     with _board_db(tmp_path) as (db, db_path):
         _seed(db_path)
         prefetch_session_occupancy(db, "all")
-        keycaps = build_session_keycaps(
-            db,
-            "holder-1",
-            [],
-            active_only=True,
-            steering_project_ids=[1, 3],
-        )
+        keycaps = session_holding_labels(db, "holder-1")
 
-    assert keycaps == ["🛞 steering yoke·MISSION; platform·CURRENT-PLAN"]
+    assert keycaps == [
+        "🛞 steering platform",
+        "🛞 steering yoke",
+        "🛞 yoke · MISSION",
+        "🛞 platform · CURRENT-PLAN",
+    ]
 
 
 def test_a_project_steered_without_a_document_still_names_itself(
@@ -153,14 +161,24 @@ def test_a_project_steered_without_a_document_still_names_itself(
 ) -> None:
     with _board_db(tmp_path) as (db, db_path):
         _seed(db_path)
+        conn = connect_test_db(db_path)
+        try:
+            conn.execute(
+                "INSERT INTO harness_sessions VALUES ('holder-2',NULL,NULL,NULL,NULL)"
+            )
+            conn.execute(
+                "INSERT INTO work_claims VALUES (3,%s,'steering',%s,NULL,%s,NULL,NULL)",
+                (
+                    "holder-2",
+                    make_steering_target(3).scope_json(),
+                    "2026-08-26T11:00:02Z",
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
         prefetch_session_occupancy(db, "all")
-        keycaps = build_session_keycaps(
-            db,
-            "holder-2",
-            [],
-            active_only=True,
-            steering_project_ids=[3],
-        )
+        keycaps = session_holding_labels(db, "holder-2")
 
     assert keycaps == ["🛞 steering platform"]
 

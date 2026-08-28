@@ -23,6 +23,7 @@ function baseRow(sessionId) {
     mode: "wait",
     executor: "codex",
     claims: [],
+    holdings: { current: [], previous: [], previous_remainder: 0 },
     coordination_leases: [],
     activity_at: "2026-08-26T12:00:00Z",
     messageability: { messageable: false },
@@ -39,11 +40,21 @@ test("holder and covered operator cards show scope and report custody", () => {
   const documentNode = new FakeDocument();
   const holder = card(documentNode, {
     ...baseRow("holder-1"),
-    steering_scope: {
-      project: "yoke",
-      strategy_docs: ["MISSION", "VISION"],
-    },
-  });
+    holdings: { current: [
+      {
+        holding_kind: "work_claim",
+        target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+      },
+      {
+        holding_kind: "strategy_document", project_id: 1,
+        strategy_doc: "MISSION", target: "yoke · MISSION",
+      },
+      {
+        holding_kind: "strategy_document", project_id: 1,
+        strategy_doc: "VISION", target: "yoke · VISION",
+      },
+    ], previous: [], previous_remainder: 0 },
+  }, [{ id: 1, slug: "yoke" }]);
   const operator = card(documentNode, {
     ...baseRow("operator-1"),
     steering_coverage: {
@@ -66,6 +77,10 @@ test("holder and covered operator cards show scope and report custody", () => {
     byClass(operator, "session-steering-detail")[0].textContent,
     "yoke · held by holder-1",
   );
+  assert.equal(
+    byClass(operator, "session-steering-badge")[0].textContent,
+    "Steering coverage",
+  );
   assert.match(
     byClass(operator, "session-steering-report-badge")[0].textContent,
     /^sent · /,
@@ -77,30 +92,35 @@ test("steering states itself once however many projects it covers", () => {
   const documentNode = new FakeDocument();
   const holder = card(documentNode, {
     ...baseRow("holder-2"),
-    claims: [
+    holdings: { current: [
       {
+        holding_kind: "work_claim",
         target_kind: "steering", project_id: 1, scope: { project_id: 1 },
-        strategy_docs: ["CURRENT-PLAN"],
       },
       {
-        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
-        strategy_docs: ["CURRENT-PLAN"],
+        holding_kind: "strategy_document", project_id: 1,
+        strategy_doc: "CURRENT-PLAN", target: "yoke · CURRENT-PLAN",
       },
-    ],
-    steering_scope: { project: "yoke", strategy_docs: ["CURRENT-PLAN"] },
+      {
+        holding_kind: "work_claim",
+        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+      },
+      {
+        holding_kind: "strategy_document", project_id: 3,
+        strategy_doc: "CURRENT-PLAN", target: "platform · CURRENT-PLAN",
+      },
+    ], previous: [], previous_remainder: 0 },
   }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
 
-  // One line for the whole of steering: the lock row per project and the
-  // separate context badge said the same thing three times over. Both
-  // projects still read as two holds even though their documents share a
-  // slug, because each project is paired with its own.
+  // The holdings group names two steering seats and two document locks; the
+  // context summarizes those four targets without losing either project.
   assert.equal(byClass(holder, "session-steering-context").length, 1);
-  assert.equal(byClass(holder, "session-work").length, 1);
+  assert.equal(byClass(holder, "session-work").length, 4);
   assert.equal(
     byClass(holder, "session-steering-detail")[0].textContent,
     "yoke · CURRENT-PLAN; platform · CURRENT-PLAN",
   );
-  assert.equal(byClass(holder, "session-hold-target").length, 0);
+  assert.equal(byClass(holder, "session-hold-target").length, 4);
 });
 
 
@@ -108,17 +128,28 @@ test("each steered project carries the documents it is steered from", () => {
   const documentNode = new FakeDocument();
   const holder = card(documentNode, {
     ...baseRow("holder-4"),
-    claims: [
+    holdings: { current: [
       {
+        holding_kind: "work_claim",
         target_kind: "steering", project_id: 1, scope: { project_id: 1 },
-        strategy_docs: ["MISSION", "VISION"],
       },
       {
-        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
-        strategy_docs: ["MASTER-PLAN"],
+        holding_kind: "strategy_document", project_id: 1,
+        strategy_doc: "MISSION", target: "yoke · MISSION",
       },
-    ],
-    steering_scope: { project: "yoke", strategy_docs: ["MISSION", "VISION"] },
+      {
+        holding_kind: "strategy_document", project_id: 1,
+        strategy_doc: "VISION", target: "yoke · VISION",
+      },
+      {
+        holding_kind: "work_claim",
+        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+      },
+      {
+        holding_kind: "strategy_document", project_id: 3,
+        strategy_doc: "MASTER-PLAN", target: "platform · MASTER-PLAN",
+      },
+    ], previous: [], previous_remainder: 0 },
   }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
 
   // Semicolons separate projects, commas separate one project's documents,
@@ -136,9 +167,10 @@ test("a steering claim alone still marks the session as steering", () => {
   // session steering only some other project has a claim and no scope row.
   const holder = card(documentNode, {
     ...baseRow("holder-3"),
-    claims: [
-      { target_kind: "steering", project_id: 3, scope: { project_id: 3 } },
-    ],
+    holdings: { current: [{
+      holding_kind: "work_claim",
+      target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+    }], previous: [], previous_remainder: 0 },
   }, [{ id: 3, slug: "platform" }]);
 
   assert.equal(byClass(holder, "session-steering-badge")[0].textContent, "Steering");
@@ -172,7 +204,10 @@ test("steering-launched workers nest under their visible holder", () => {
   const documentNode = new FakeDocument();
   const holder = {
     ...baseRow("holder-1"),
-    steering_scope: { project: "yoke", strategy_docs: [] },
+    holdings: { current: [{
+      holding_kind: "work_claim",
+      target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+    }], previous: [], previous_remainder: 0 },
   };
   const worker = {
     ...baseRow("worker-1"),
@@ -193,4 +228,23 @@ test("steering-launched workers nest under their visible holder", () => {
   assert.equal(byClass(group, "session-steering-workers-title")[0].textContent, "Steering workers (1)");
   assert.equal(byClass(group, "session-steering-worker-grid")[0].textContent, "worker-1");
   assert.equal(grid.children[1].textContent, "independent-1");
+});
+
+
+test("a worker whose holder is absent remains a top-level card", () => {
+  const documentNode = new FakeDocument();
+  const worker = {
+    ...baseRow("worker-2"),
+    steering_parent: { session_id: "missing-holder", project: "yoke" },
+  };
+  const grid = documentNode.createElement("div");
+
+  appendSteeringGroups(documentNode, grid, [worker], (row) => {
+    const node = documentNode.createElement("article");
+    node.textContent = row.session_id;
+    return node;
+  });
+
+  assert.equal(byClass(grid, "session-steering-group").length, 0);
+  assert.equal(grid.textContent, "worker-2");
 });

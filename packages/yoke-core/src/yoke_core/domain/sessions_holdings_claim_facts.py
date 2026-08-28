@@ -49,7 +49,7 @@ def claimed_item_facts(
     placeholders = ", ".join(marker for _ in distinct)
     try:
         rows = conn.execute(
-            "SELECT i.id AS id, i.project_id AS project_id, "
+            "SELECT i.id AS id, i.project_id AS project_id, i.title AS title, "
             "i.project_sequence AS project_sequence, i.status AS status, "
             "i.workflow_id AS workflow_id, p.public_item_prefix AS prefix "
             "FROM items i JOIN projects p ON p.id = i.project_id "
@@ -69,6 +69,7 @@ def claimed_item_facts(
             ),
             "item_project_id": int(row["project_id"]),
             "item_project_sequence": int(row["project_sequence"]),
+            "item_title": row["title"],
             "item_status": row["status"],
             "item_workflow_id": row["workflow_id"],
         }

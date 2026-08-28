@@ -1,6 +1,6 @@
 """BOARD.md Claims-column queries.
 
-Sibling of :mod:`yoke_contracts.board.sections_sessions_extra_claims`,
+Sibling of :mod:`yoke_contracts.board.sections_sessions_holdings`,
 which turns these rows into keycaps. This module owns the reads: which
 path claims a session is attributable for, which path claims its items
 own, and which shared-operation coordination claims it is holding — plus
@@ -10,10 +10,9 @@ the engine's key decoder.
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
-from yoke_contracts.board.sections_sessions_occupancy import occupancy_docs_by_project
 from yoke_contracts.coordination_claim_keys import (
     COORDINATION_SCOPE_KEY,
     COORDINATION_TARGET_KINDS,
@@ -21,9 +20,7 @@ from yoke_contracts.coordination_claim_keys import (
     key_prefix_for_kind,
 )
 
-_COORDINATION_KINDS_SQL = ", ".join(
-    f"'{kind}'" for kind in COORDINATION_TARGET_KINDS
-)
+_COORDINATION_KINDS_SQL = ", ".join(f"'{kind}'" for kind in COORDINATION_TARGET_KINDS)
 #: Render each claim's operator key in SQL so the board never needs the
 #: engine's decoder to show what a session is holding.
 _COORDINATION_KEY_SQL = (
@@ -40,15 +37,13 @@ _COORDINATION_KEY_SQL = (
 def path_claims_for_session(
     db: BoardDBLike,
     session_id: str,
-    *,
-    active_only: bool,
 ) -> List[Tuple]:
     """Fetch orphan path_claims attributable to ``session_id``.
 
     Returns only true session-owned or process-owned-via-held-work-claim
     rows — item-owned claims an item owns are intentionally NOT returned
     here even when the session registered them; they roll into the
-    work-claim file count via :func:`_path_claims_for_items`. The
+    work-claim file count via :func:`path_claims_for_items`. The
     registering session is provenance, not authority.
 
     Two match branches (any one returns the row):
@@ -58,19 +53,14 @@ def path_claims_for_session(
     2. Typed process-owned via a work_claim this session holds:
        ``owner_kind='process'`` AND ``owner_work_claim_id`` resolves
        to a ``work_claims`` row with ``session_id = session_id``.
-    Item-owned claims are excluded here; they roll up through :func:`_path_claims_for_items`.
+    Item-owned claims are excluded here; they roll up through
+    :func:`path_claims_for_items`.
 
     Rows: (claim_id, item_id, work_claim_id, released_at, cancelled_at,
-    release_reason, cancel_reason, declared_count). Terminal rows
-    (released OR cancelled) are filtered when ``active_only`` is True.
+    release_reason, cancel_reason, declared_count). Current and terminal rows
+    both remain so the shared holdings model can partition them once.
     """
-    terminal_filter = (
-        " AND pc.released_at IS NULL AND pc.cancelled_at IS NULL "
-        if active_only
-        else ""
-    )
-    return db.query_quiet(
-        f"""
+    sql = """
         SELECT pc.id, pc.owner_item_id AS item_id,
                pc.owner_work_claim_id AS work_claim_id,
                pc.released_at, pc.cancelled_at,
@@ -85,18 +75,18 @@ def path_claims_for_session(
               SELECT id FROM work_claims WHERE session_id = %s
           ))
         )
-        {terminal_filter}
-        ORDER BY pc.id ASC
-        """,
-        (session_id, session_id),
-    )
+        ORDER BY pc.id DESC
+        """
+    params = (session_id, session_id)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return []
+    return db.query_quiet(sql, params)
 
 
-def _path_claims_for_items(
+def path_claims_for_items(
     db: BoardDBLike,
     item_ids: List[int],
-    *,
-    active_only: bool,
 ) -> List[Tuple]:
     """Fetch typed item-owned path_claims for the given ``item_ids``.
 
@@ -105,21 +95,13 @@ def _path_claims_for_items(
     Claims column reflects the same file authority everyone else
     sees, regardless of which session registered the claim.
 
-    Row shape mirrors :func:`path_claims_for_session`. Terminal rows
-    are filtered when ``active_only`` is True. Returns an empty list
-    when ``item_ids`` is empty so callers do not need to guard the
-    no-work-claim case before invoking.
+    Row shape mirrors :func:`path_claims_for_session`, including current and
+    terminal rows. Returns an empty list when ``item_ids`` is empty.
     """
     if not item_ids:
         return []
-    terminal_filter = (
-        " AND pc.released_at IS NULL AND pc.cancelled_at IS NULL "
-        if active_only
-        else ""
-    )
     placeholders = ",".join("%s" for _ in item_ids)
-    return db.query_quiet(
-        f"""
+    sql = f"""
         SELECT pc.id, pc.owner_item_id AS item_id,
                pc.owner_work_claim_id AS work_claim_id,
                pc.released_at, pc.cancelled_at,
@@ -131,28 +113,27 @@ def _path_claims_for_items(
         WHERE (
           (pc.owner_kind = 'item' AND pc.owner_item_id IN ({placeholders}))
         )
-        {terminal_filter}
-        ORDER BY pc.id ASC
-        """,
-        tuple(item_ids),
-    )
+        ORDER BY pc.id DESC
+        """
+    params = tuple(item_ids)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return []
+    return db.query_quiet(sql, params)
 
 
 def coordination_claims_for_session(
     db: BoardDBLike,
     session_id: str,
-    *,
-    active_only: bool,
 ) -> List[Tuple]:
     """Fetch shared-operation coordination claims for ``session_id``.
 
     Rows: (claim_id, key, released_at, release_reason, target_kind,
     owner_item_id). A session sees the claims it holds plus the
-    migration territory owned by any item it currently claims, because
-    that hold outlives the session and still belongs on its row.
-    Terminal claims are filtered when ``active_only`` is True.
+    migration territory owned by any item it currently or previously claimed,
+    because that item-scoped hold belongs in the same session history.
+    Current and terminal claims both remain for shared partitioning.
     """
-    terminal_filter = " AND cc.released_at IS NULL " if active_only else ""
     typed_sql = f"""
         SELECT cc.id, {_COORDINATION_KEY_SQL}, cc.released_at,
                cc.release_reason, cc.target_kind,
@@ -168,7 +149,6 @@ def coordination_claims_for_session(
               WHERE wc.session_id = %s AND wc.target_kind = 'item'
           ))
         )
-        {terminal_filter}
         ORDER BY cc.id DESC
         """
     params = (session_id, session_id)
@@ -181,48 +161,30 @@ def coordination_claims_for_session(
     return db.query_quiet(typed_sql, params)
 
 
-
-def strategy_docs_by_project_for_session(
+def strategy_doc_claims_for_session(
     db: BoardDBLike,
     session_id: str,
-    *,
-    active_only: bool,
-) -> Dict[int, List[str]]:
-    """Session-owned strategy-document slugs, keyed by the project each steers.
-
-    The steering line pairs every steered project with its own documents,
-    so the project has to survive the read — two projects steering from
-    same-named documents are otherwise indistinguishable. Missing table or
-    an unrecorded replay query yields an empty mapping so a board payload
-    from before this read still renders.
-    """
-    if active_only:
-        cached = occupancy_docs_by_project(db, session_id)
-        if cached:
-            return cached
-    terminal_filter = " AND sdc.released_at IS NULL" if active_only else ""
-    sql = f"""
+) -> List[Tuple]:
+    """Return session-owned document targets with their release state."""
+    sql = """
         SELECT sdc.project_id, sdc.strategy_doc_slug
+             , sdc.released_at
         FROM strategy_doc_claims sdc
         WHERE sdc.owner_kind = 'session'
           AND sdc.owner_session_id = %s
-          {terminal_filter}
-        ORDER BY sdc.project_id, sdc.strategy_doc_slug
+        ORDER BY CASE WHEN sdc.released_at IS NULL THEN 0 ELSE 1 END,
+                 sdc.released_at DESC, sdc.project_id, sdc.strategy_doc_slug
         """
     params = (session_id,)
     probe = getattr(db, "has_query_quiet", None)
     if callable(probe) and not probe(sql, params):
-        return {}
-    by_project: Dict[int, List[str]] = {}
-    for row in db.query_quiet(sql, params):
-        if not row or row[1] is None or row[0] is None:
-            continue
-        by_project.setdefault(int(row[0]), []).append(str(row[1]))
-    return by_project
+        return []
+    return db.query_quiet(sql, params)
 
 
 __all__ = [
     "coordination_claims_for_session",
     "path_claims_for_session",
-    "strategy_docs_by_project_for_session",
+    "path_claims_for_items",
+    "strategy_doc_claims_for_session",
 ]

@@ -79,12 +79,7 @@ def test_steering_claim_carries_project_coordinates(test_db):
 
 
 def test_coordination_claim_names_itself_by_its_operator_key(test_db):
-    """One `work_claims` row read by two projections stays one hold.
-
-    The claim projection carries the same ``lease_key`` the lease one
-    does, so a reader shows the hold once instead of once per surface —
-    and names the machine, never the `qa_admission` target kind.
-    """
+    """A coordination row uses its operator key in claims and holdings."""
     insert_session(test_db, "s-host")
     insert_lease(
         test_db,
@@ -100,9 +95,12 @@ def test_coordination_claim_names_itself_by_its_operator_key(test_db):
 
     assert claim["target"] == "QA_HOST:test-mac"
     assert claim["lease_key"] == "QA_HOST:test-mac"
-    assert [lease["lease_key"] for lease in row["coordination_claims"]] == [
-        "QA_HOST:test-mac"
-    ]
+    coordination = next(
+        holding
+        for holding in row["holdings"]["current"]
+        if holding["holding_kind"] == "coordination"
+    )
+    assert coordination["lease_key"] == "QA_HOST:test-mac"
 
 
 def test_each_steering_claim_carries_its_own_strategy_documents(test_db):

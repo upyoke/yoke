@@ -72,7 +72,7 @@ class TestClaimDecorationGlyphs:
     """Claim-decoration glyphs stay 1:1 and render the same in every terminal."""
 
     def test_steering_has_its_own_glyph(self):
-        from yoke_contracts.board.sections_sessions_extra_claims import (
+        from yoke_contracts.board.sections_sessions_holdings import (
             LEASE_GLYPH,
             PATH_GLYPH,
             PROCESS_GLYPH,
@@ -85,7 +85,7 @@ class TestClaimDecorationGlyphs:
     def test_no_claim_glyph_needs_a_variation_selector_or_skin_tone(self):
         # Text-default bases (VS16) and Fitzpatrick modifiers collapse toward
         # one cell in macOS Terminal and shear the aligned session table.
-        from yoke_contracts.board.sections_sessions_extra_claims import (
+        from yoke_contracts.board.sections_sessions_holdings import (
             LEASE_GLYPH,
             PATH_GLYPH,
             PROCESS_GLYPH,

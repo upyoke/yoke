@@ -19,6 +19,8 @@ from yoke_contracts.session_lane import (
 )
 
 _RENDERED_ITEM_REF_RE = re.compile(r"^[A-Za-z]+-\d")
+
+
 def _format_session_age(iso_ts: str) -> str:
     try:
         ts = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
@@ -36,17 +38,13 @@ def _format_session_age(iso_ts: str) -> str:
         return iso_ts[:16] if iso_ts else "?"
 
 
-def _claims_for_session(
-    db: BoardDBLike, session_id: str, active_only: bool
-) -> List[Tuple]:
-    released_filter = "AND wc.released_at IS NULL" if active_only else ""
+def _claims_for_session(db: BoardDBLike, session_id: str) -> List[Tuple]:
     params = (session_id,)
-    scope_sql = f"""
+    scope_sql = """
         SELECT wc.scope, wc.claim_type, wc.claimed_at, wc.released_at,
                wc.release_reason, wc.target_kind
         FROM work_claims wc
         WHERE wc.session_id = %s
-        {released_filter}
         ORDER BY wc.claimed_at DESC
         """
     rows = db.query_quiet(
