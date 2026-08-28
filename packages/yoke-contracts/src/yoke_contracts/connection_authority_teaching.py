@@ -28,11 +28,10 @@ CONNECTION_AUTHORITY_STANZA = (
     "product/API authority — registered `yoke` commands relay there; "
     "it has no local SQL write. A local-Postgres `*-db-admin` "
     "connection is direct database authority for sanctioned "
-    "source-dev/admin and audited break-glass SQL "
-    "(`python3 -m yoke_core.cli.db_router query` under "
-    "`--env NAME`). `yoke db` is read-only; that admin path "
-    "is the escape hatch, not a missing write command. Ordinary "
-    "writes use registered `yoke <subcommand>`."
+    "source-dev/admin and audited break-glass SQL. "
+    "`yoke db` is read-only; `yoke db` `--help` names the "
+    "operator-debug query path. Ordinary writes use registered "
+    "`yoke <subcommand>`."
 )
 
 # Human footer on `yoke env list`. JSON inventory stays sanitized rows.
