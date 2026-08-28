@@ -24,8 +24,8 @@ from yoke_core.hooks.session_lifecycle_client import (
 )
 from yoke_core.hooks.registration_identity import (
     placeholder_identity_can_upgrade,
-    project_lane_for_executor,
 )
+from yoke_core.hooks.registration_in_process import _register_in_process
 from yoke_core.hooks.registration_observed import (
     enrich_local_observed_facts,
     parse_hook_registration_facts,
@@ -147,6 +147,7 @@ def _register_from_hook(
             executor_version=executor_version or None,
             machine_id=machine_id or None,
             native_thread_id=facts.native_thread_id or detect_native_thread_id(),
+            driver=facts.driver,
         )
         return (err, executor, provider, model, entrypoint)
 
@@ -165,68 +166,6 @@ def _register_from_hook(
         native_thread_id=facts.native_thread_id or detect_native_thread_id(),
     )
     return (err, executor, provider, model, entrypoint)
-
-
-def _register_in_process(
-    session_id: str,
-    executor: str,
-    provider: str,
-    model: str,
-    workspace: str,
-    entrypoint: Optional[str],
-    *,
-    actor_id: Optional[int] = None,
-    execution_lane: Optional[str] = None,
-    project_id: Optional[int] = None,
-    executor_version: Optional[str] = None,
-    machine_id: Optional[str] = None,
-    native_thread_id: Optional[str] = None,
-) -> str:
-    """Direct domain registration for server-side (remote) contexts.
-
-    Project routing policy is server-side shared authority: when a project
-    declares ``session-routing``, resolve the executor's lane from that DB
-    capability. ``execution_lane`` is only a no-policy fallback for older
-    source-dev/test paths.
-    """
-    try:
-        from yoke_core.domain import db_helpers
-        from yoke_core.domain.sessions_lifecycle_registry import register_session
-
-        if project_id is None:
-            return "session registration requires project_id"
-        conn = db_helpers.connect()
-        try:
-            resolved_lane = (
-                project_lane_for_executor(
-                    conn,
-                    project_id,
-                    executor,
-                    explicit_lane=execution_lane,
-                )
-                or execution_lane
-            )
-            lane_kwargs = {"execution_lane": resolved_lane} if resolved_lane else {}
-            register_session(
-                conn,
-                session_id=session_id,
-                executor=executor,
-                provider=provider,
-                model=model,
-                workspace=workspace,
-                entrypoint=entrypoint,
-                actor_id=actor_id,
-                project_id=project_id,
-                executor_version=executor_version,
-                machine_id=machine_id,
-                native_thread_id=native_thread_id,
-                **lane_kwargs,
-            )
-        finally:
-            conn.close()
-        return ""
-    except Exception as exc:  # noqa: BLE001 — best-effort net, mirror the wrapper
-        return str(exc)
 
 
 def _record_process_anchor(session_id: str, transcript_path: str) -> None:

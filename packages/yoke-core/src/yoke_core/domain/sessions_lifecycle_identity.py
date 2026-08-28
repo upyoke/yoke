@@ -165,58 +165,6 @@ def resolve_reactivation_executor_version(
     return stored_version
 
 
-def record_reactivation_wake_driver(
-    conn: Any,
-    *,
-    session_id: str,
-    driver_surface: Optional[str],
-    driver_version: Optional[str],
-) -> None:
-    """Stamp the re-registering process on the open wake attempt, if any."""
-    surface = (driver_surface or "").strip() or None
-    version = (driver_version or "").strip() or None
-    if surface is None and version is None:
-        return
-    from yoke_contracts.session_control.evidence import redacted_evidence_document
-    from yoke_core.domain import db_backend, json_helper
-
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    try:
-        row = conn.execute(
-            "SELECT attempt_id, evidence FROM session_message_attempts "
-            f"WHERE target_session_id = {marker} "
-            "AND attempt_kind IN ('wake_relay','wake_broker') "
-            "AND completed_at IS NULL "
-            "ORDER BY started_at DESC LIMIT 1",
-            (session_id,),
-        ).fetchone()
-        if row is None:
-            return
-        try:
-            stored = json_helper.loads_text(str(row["evidence"] or "{}"))
-        except (TypeError, ValueError):
-            stored = {}
-        payload = dict(stored) if isinstance(stored, dict) else {}
-        if surface:
-            payload["driver_surface"] = surface
-        if version:
-            payload["driver_version"] = version
-        conn.execute(
-            f"UPDATE session_message_attempts SET evidence = {marker} "
-            f"WHERE attempt_id = {marker}",
-            (
-                json_helper.dumps_compact(redacted_evidence_document(payload)),
-                row["attempt_id"],
-            ),
-        )
-        conn.commit()
-    except db_backend.operational_error_types(conn):
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-
-
 def _model_should_upgrade(*, stored: str, incoming: str, executor: Any) -> bool:
     """True when ``incoming`` is a better answer than the stored model.
 
@@ -326,7 +274,6 @@ def refresh_active_duplicate_identity(
 __all__ = [
     "lane_should_upgrade",
     "normalize_observed_identity",
-    "record_reactivation_wake_driver",
     "refresh_active_duplicate_identity",
     "resolve_session_actor_id",
     "resolve_session_project_id",

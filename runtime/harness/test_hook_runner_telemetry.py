@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+
 import yoke_core.hooks.denial as denial
 import yoke_core.hooks.identity as identity
 import yoke_core.hooks.service_client as svc_client
@@ -220,3 +221,58 @@ def test_flush_skips_throwaway_rows_and_resolves_floor_once(
     assert len(dispatch) == 1, "INFO dispatch rows are keepers"
     # Resolve-once: the floor for the two guardrail rows is probed a single time.
     assert floor_calls.count("HookGuardrailEvaluated") == 1
+
+
+def test_dispatch_record_names_the_driving_process(monkeypatch) -> None:
+    """``flush_run_tail`` puts the driving process on the dispatch record."""
+    from yoke_contracts.hook_driver_process import DRIVER_PAYLOAD_KEY
+    from yoke_core.hooks import run_tail
+
+    telem_records: list = []
+    monkeypatch.setattr(
+        run_tail, "flush_run_tail", run_tail.flush_run_tail
+    )  # explicit: exercise the real tail
+    monkeypatch.setattr(
+        telemetry, "flush_hook_telemetry", lambda *a, **k: None
+    )
+    monkeypatch.setattr(
+        "yoke_core.hooks.session_turn_posture_tail."
+        "persist_accepted_hook_turn_posture",
+        lambda **k: None,
+    )
+
+    run_tail.flush_run_tail(
+        event_name="PostToolUse",
+        context=_DriverContext(),
+        chain_length=1,
+        final_outcome="allow",
+        hook_wait_ms=3,
+        timed_out=False,
+        deadline=_AllowingDeadline(),
+        payload={DRIVER_PAYLOAD_KEY: {"pid": 909, "ppid": 8, "origin": "client"}},
+        stdin_data="{}",
+        controls=None,
+        telem_records=telem_records,
+    )
+
+    kind, record = telem_records[-1]
+    assert kind == "dispatch"
+    # The CLIENT's pids win: server-side os.getpid() names an API worker.
+    assert record["extra"]["driver_pid"] == 909
+    assert record["extra"]["driver_ppid"] == 8
+    assert record["extra"]["driver_origin"] == "client"
+
+
+class _DriverContext:
+    session_id = ""
+    executor_family = "claude"
+    item_id = None
+    tool_name = "Bash"
+    now = None
+
+
+class _AllowingDeadline:
+    budget_ms = 5000
+
+    def telemetry_allowed(self) -> bool:
+        return True

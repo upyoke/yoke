@@ -20,6 +20,11 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
+from yoke_contracts.hook_driver_process import (
+    DRIVER_PAYLOAD_KEY,
+    resolve_driver_process,
+)
+
 
 def _str_or(value: Any, default: Optional[str] = None) -> Optional[str]:
     return value if isinstance(value, str) else default
@@ -56,6 +61,11 @@ def flush_run_tail(
             failed=failed,
         )
         return
+    # One resolved answer to "which process drove this hook event", read by
+    # both consumers below: the telemetry row, and — when this dispatch
+    # revives an ended session — the reactivation's own driver stamp.
+    driver = resolve_driver_process(payload if isinstance(payload, dict) else None,
+                                    hook_event=event_name)
     telem_records.append(
         (
             "dispatch",
@@ -72,6 +82,9 @@ def flush_run_tail(
                     "hook_wait_ms": hook_wait_ms,
                     "timed_out": timed_out,
                     "total_timeout_ms": deadline.budget_ms,
+                    "driver_pid": driver.get("pid"),
+                    "driver_ppid": driver.get("ppid"),
+                    "driver_origin": driver.get("origin"),
                 },
             },
         )
@@ -90,9 +103,17 @@ def flush_run_tail(
     is_folded = isinstance(payload, dict) and is_folded_cursor_session(payload)
     if context.session_id and not is_folded:
         remote = controls is not None and controls.remote
+        # The ensure-register payload carries the resolved driver so a
+        # reactivation driven by this dispatch can stamp the process and hook
+        # event that drove it, whether or not a wake attempt is in flight.
+        ensure_payload = (
+            {**payload, DRIVER_PAYLOAD_KEY: driver}
+            if isinstance(payload, dict)
+            else None
+        )
         ensure_session = (  # merged payload: wire extras included
             context.session_id,
-            json.dumps(payload) if isinstance(payload, dict) else (stdin_data or ""),
+            json.dumps(ensure_payload) if ensure_payload is not None else (stdin_data or ""),
             _str_or(payload.get("transcript_path"), "") or "",
             not remote,
             (context.executor_family or "") if remote else "",
