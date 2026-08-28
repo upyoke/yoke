@@ -1,4 +1,5 @@
 @import url("./universe_session_control.css");
+@import url("./universe_sessions_steering.css");
 
 /* Sessions follows the product prototype's compact harness card: runtime
    identity and directive first, assignment in the middle, operator last. */
@@ -260,91 +261,4 @@
   font-weight: 650;
   letter-spacing: .04em;
   text-transform: uppercase;
-}
-
-.universe-app-root .session-steering-context,
-.universe-app-root .session-steering-report {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.universe-app-root .session-steering-badge,
-.universe-app-root .session-steering-report-badge {
-  display: inline-flex;
-  flex: 0 0 auto;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.universe-app-root .session-steering-badge.is-holder {
-  background: color-mix(in srgb, var(--yoke-accent) 16%, transparent);
-  color: var(--yoke-accent);
-}
-
-.universe-app-root .session-steering-badge.is-worker,
-.universe-app-root .session-steering-badge.is-covered {
-  background: var(--yoke-surface-2);
-  color: var(--yoke-ink-2);
-}
-
-.universe-app-root .session-steering-detail,
-.universe-app-root .session-steering-report-recipient {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-family: var(--yoke-font-mono);
-  font-size: 10.5px;
-}
-
-.universe-app-root .session-steering-report-badge.is-sent {
-  background: color-mix(in srgb, var(--yoke-warn) 15%, transparent);
-  color: var(--yoke-warn);
-}
-
-.universe-app-root .session-steering-report-badge.is-acknowledged {
-  background: color-mix(in srgb, var(--yoke-good) 15%, transparent);
-  color: var(--yoke-good);
-}
-
-.universe-app-root .session-steering-report-badge.is-cancelled,
-.universe-app-root .session-steering-report-badge.is-expired,
-.universe-app-root .session-steering-report-badge.is-unknown {
-  background: var(--yoke-surface-2);
-  color: var(--yoke-muted);
-}
-
-.universe-app-root .session-steering-group {
-  display: grid;
-  grid-column: 1 / -1;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--yoke-accent) 28%, var(--yoke-border));
-  border-radius: var(--yoke-radius);
-  background: color-mix(in srgb, var(--yoke-accent) 4%, transparent);
-}
-
-.universe-app-root .session-steering-group > .session-card {
-  max-width: 420px;
-}
-
-.universe-app-root .session-steering-workers {
-  padding-left: 16px;
-  border-left: 2px solid color-mix(in srgb, var(--yoke-accent) 30%, transparent);
-}
-
-.universe-app-root .session-steering-workers-title {
-  margin: 0 0 8px;
-  color: var(--yoke-muted);
-  font-size: 10px;
-  letter-spacing: .055em;
-  text-transform: uppercase;
-}
-
-.universe-app-root .session-steering-worker-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 10px;
 }

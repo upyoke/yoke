@@ -3,7 +3,7 @@ import {
   presentSessionControlFailure,
   renderSessionControlFailure,
 } from "./universe_session_control_data.js";
-import { appendHoldings, ownsFocusedItem } from "./universe_sessions_holdings.js";
+import { appendHoldings, focusAttribution, ownsFocusedItem } from "./universe_sessions_holdings.js";
 import {
   callFunction,
   el,
@@ -16,7 +16,7 @@ import {
 } from "./universe_view_support.js";
 import { relativeAge, relativeTime } from "./universe_time.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
-import { appendSteeringContext, appendSteeringGroups } from "./universe_sessions_steering.js";
+import { appendSteeringContext, appendSteeringGroups, appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
   appendSessionMessaging,
   sessionRosterFilters,
@@ -106,11 +106,12 @@ function appendAge(documentNode, body, row) {
     age.appendChild(el(documentNode, "span", "session-age-prefix", " old"));
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
+  const attributed = focusAttribution(row);
   if (row.current_item && ownsFocusedItem(row)) {
     add("claim held ", row.claim_started_at || row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
-  } else if (row.current_item) {
-    add(row.work_role ? "worktree attached · active " : "attributed · active ", row.activity_at);
+  } else if (attributed) {
+    add(attributed === "lane" ? "worktree attached · active " : "filed · active ", row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
   add("idle ", row.activity_at);
@@ -120,6 +121,8 @@ function appendAge(documentNode, body, row) {
 // Identity, work, health — in that order and nothing else. The harness and its
 // lane name the session, the model says what is running it, the holdings say
 // what it is doing, and the diagnostics say whether that is going anywhere.
+// Steering scope is a holding, so on a steering seat it leads the work the
+// way a claimed item leads a worker's.
 export function sessionCard(
   documentNode, row, who, mode, onMessage, projects = [],
 ) {
@@ -144,10 +147,11 @@ export function sessionCard(
 
   const body = el(documentNode, "div", "session-card-body");
   appendModel(documentNode, body, row);
+  appendSteeringHoldings(documentNode, body, row, projects);
   appendHoldings(documentNode, body, row);
   if (row.liveness !== "ended") appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
-  appendSteeringContext(documentNode, body, row, projects);
+  appendSteeringContext(documentNode, body, row);
   appendSessionMessaging(documentNode, body, row, onMessage);
   card.appendChild(body);
   return card;

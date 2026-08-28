@@ -148,6 +148,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_delivery_flows.css": "text/css; charset=utf-8",
     "universe_delivery_flow_detail.css": "text/css; charset=utf-8",
     "universe_sessions.css": "text/css; charset=utf-8",
+    "universe_sessions_steering.css": "text/css; charset=utf-8",
     "universe_session_control.css": "text/css; charset=utf-8",
     "universe_organization_fleet.css": "text/css; charset=utf-8",
     "universe_overview_legacy.css": "text/css; charset=utf-8",
