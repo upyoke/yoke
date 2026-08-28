@@ -75,6 +75,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "Run a deployment pipeline under the shared raw+progress watcher; "
         "pass the run id and `deployment-runs execute` flags after `--`."
     ),
+    "yoke watch fleet": (
+        "Watch fleet state under the shared raw+progress watcher; prints "
+        "one line per item, session, envelope, or alarm change."
+    ),
     "yoke watch ci-run": (
         "Watch a commit's CI runs under the shared raw+progress watcher; "
         "pass the ref and any commit run watch flags after `--`."
