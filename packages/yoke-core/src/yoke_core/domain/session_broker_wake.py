@@ -8,6 +8,9 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
+from yoke_contracts.session_control.wake_delivery import (
+    TURN_WITHOUT_INJECTION_RESULT,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_broker_wake_recruit import (
     machine_has_fresh_relay,
@@ -34,6 +37,9 @@ BROKER_COMMAND = "yoke relay serve-once --broker"
 DIRECT_FALLBACK_RESULTS = frozenset(
     {
         "failed",
+        # A native resume that delivered nothing has proved the direct route
+        # cannot reach this turn. The peer-hook broker is the other route.
+        TURN_WITHOUT_INJECTION_RESULT,
         "not_found",
         "outcome_unknown",
         "relay_lease_expired",

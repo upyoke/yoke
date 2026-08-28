@@ -1,4 +1,4 @@
-"""Detached wake settlement from accepted session hook state."""
+"""Wake settlement from the receipt the wake was sent to deliver."""
 
 from __future__ import annotations
 
@@ -17,9 +17,11 @@ from runtime.api.domain.test_session_relay import (
 from yoke_contracts.session_control.resume import (
     RESUME_NEVER_STARTED_RESULT,
     RESUME_RUNAWAY_RESULT,
-    RESUMED_COMPLETED_RESULT,
     RESUMED_DIED_RESULT,
     RESUMED_RUNNING_RESULT,
+)
+from yoke_contracts.session_control.wake_delivery import (
+    TURN_WITHOUT_INJECTION_RESULT,
 )
 from yoke_core.domain.session_wake_reconciliation import (
     EVENT_SESSION_WAKE_OUTCOME_RECORDED,
@@ -88,7 +90,7 @@ def _connection():
     return conn
 
 
-def test_accepted_stop_settles_completed_and_emits_terminal_event() -> None:
+def test_a_finished_resume_that_delivered_nothing_is_named_a_failure() -> None:
     conn = _connection()
     _add_events_table(conn)
     conn.execute(
@@ -109,18 +111,21 @@ def test_accepted_stop_settles_completed_and_emits_terminal_event() -> None:
     assert changed == 1
     assert tuple(attempt[:2]) == (
         "2026-08-22T12:00:30Z",
-        RESUMED_COMPLETED_RESULT,
+        TURN_WITHOUT_INJECTION_RESULT,
     )
     evidence = json.loads(attempt[2])
     assert evidence["native_pid"] == 4321
-    assert evidence["result_code"] == RESUMED_COMPLETED_RESULT
+    assert evidence["result_code"] == TURN_WITHOUT_INJECTION_RESULT
+    # The transport observation the verdict replaced stays readable.
+    assert evidence["transport_result"] == RESUMED_RUNNING_RESULT
+    assert evidence["injection_count"] == 0
     event = conn.execute(
         "SELECT event_name,session_id,event_outcome,envelope FROM events"
     ).fetchone()
     assert tuple(event[:3]) == (
         EVENT_SESSION_WAKE_OUTCOME_RECORDED,
         "target",
-        "completed",
+        "failed",
     )
     assert json.loads(event[3])["context"]["attempt_id"] == "attempt-1"
 

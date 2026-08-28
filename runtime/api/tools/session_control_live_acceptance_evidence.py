@@ -9,7 +9,10 @@ from runtime.api.tools.session_control_live_acceptance_contract import (
     AcceptanceCell,
     AcceptanceContractError,
 )
-from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
+from yoke_contracts.session_control.wake_delivery import (
+    WAKE_ATTEMPT_SUCCESS_RESULTS,
+    wake_attempt_unsettled,
+)
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
@@ -28,7 +31,6 @@ _ATTEMPT_KEYS = frozenset(
         "target_session_id",
     }
 )
-_SUCCESS_RESULTS = frozenset({"accepted", RESUMED_RUNNING_RESULT, "resumed_completed"})
 _SKIP_RESULTS = frozenset({"skipped_surface", "skipped_version", "skipped_operation"})
 _WAKE_KINDS = frozenset({"wake_relay", "wake_broker"})
 
@@ -167,7 +169,7 @@ def native_wake_evidence(
     successes = [
         index
         for index, attempt in enumerate(wake_attempts)
-        if attempt.get("result_code") in _SUCCESS_RESULTS
+        if attempt.get("result_code") in WAKE_ATTEMPT_SUCCESS_RESULTS
     ]
     if not successes:
         raise AcceptanceContractError("wake_attempt_not_accepted", surface=cell.surface)
@@ -199,7 +201,7 @@ def native_wake_evidence(
     _require_attempt_metadata(
         attempt,
         surface=cell.surface,
-        completed_required=result_code != RESUMED_RUNNING_RESULT,
+        completed_required=not wake_attempt_unsettled(result_code),
     )
     evidence = attempt.get("evidence")
     digest = native_wake_instruction_sha256(message_id)
@@ -317,7 +319,7 @@ def wait_for_ack(
                     raise _receipt_failure(
                         "wake_attempt_count_mismatch", cell=cell, observed=observed
                     )
-                if observed["native_wake"]["result_code"] == RESUMED_RUNNING_RESULT:
+                if wake_attempt_unsettled(observed["native_wake"]["result_code"]):
                     if monotonic() >= deadline:
                         raise _receipt_failure(
                             "wake_attempt_settlement_timeout",

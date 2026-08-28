@@ -20,6 +20,7 @@ from yoke_core.domain.actor_permissions import (
     seed_roles_and_permissions,
 )
 from yoke_core.domain.session_stale_alive_probe import (
+    PROBE_UNDELIVERED_STATUS,
     PROBE_UNRESPONSIVE_REASON,
     end_probe_unresponsive_sessions,
     probe_key,
@@ -161,6 +162,22 @@ def _mark_woken(conn, session_id: str, when: datetime) -> None:
     conn.commit()
 
 
+def _mark_delivered(conn, session_id: str, when: datetime) -> None:
+    """Stand in for the hook that attached the probe inside a woken turn."""
+    conn.execute(
+        "UPDATE session_message_recipients SET state = 'injected', "
+        "injection_count = 1, last_injected_at = %s WHERE session_id = %s",
+        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), session_id),
+    )
+    conn.commit()
+
+
+def _woken_and_delivered(conn, session_id: str) -> None:
+    when = _now() - GRACE - timedelta(seconds=30)
+    _mark_woken(conn, session_id, when)
+    _mark_delivered(conn, session_id, when)
+
+
 def test_a_parked_quiet_claim_holder_is_not_probed_or_ended(conn):
     session_id = _quiet_holder(conn)
     conn.execute(
@@ -216,7 +233,7 @@ def test_another_machines_session_is_not_this_relays_business(conn):
 def test_a_session_that_answers_its_probe_is_never_ended(conn):
     session_id = _quiet_holder(conn)
     assert _probe(conn) == {"probed": [session_id], "skipped": []}
-    _mark_woken(conn, session_id, _now() - GRACE - timedelta(seconds=30))
+    _woken_and_delivered(conn, session_id)
     # Its turn ran again, which is the whole answer the probe was after.
     # The stamp has to be unambiguously after the probe rather than inside
     # the same second, because equal timestamps cannot prove which came
@@ -242,7 +259,7 @@ def test_a_probe_still_inside_its_wake_window_is_not_ended_yet(conn):
 def test_a_probe_woken_and_still_ignored_ends_the_session_and_frees_its_claims(conn):
     session_id = _quiet_holder(conn)
     assert _probe(conn) == {"probed": [session_id], "skipped": []}
-    _mark_woken(conn, session_id, _now() - GRACE - timedelta(seconds=30))
+    _woken_and_delivered(conn, session_id)
 
     assert _end_unanswered(conn)["ended"] == [session_id]
     assert _ended_at(conn, session_id) is not None
@@ -256,12 +273,29 @@ def test_a_probe_woken_and_still_ignored_ends_the_session_and_frees_its_claims(c
     assert held == 0
 
 
+def test_a_wake_that_delivered_nothing_ends_no_session(conn):
+    """Three accepted wakes with zero injections are not three refusals."""
+    session_id = _quiet_holder(conn)
+    assert _probe(conn) == {"probed": [session_id], "skipped": []}
+    # Woken well outside the grace window, but the resumed turn made no tool
+    # call, so no hook ever attached the probe.
+    _mark_woken(conn, session_id, _now() - GRACE - timedelta(seconds=30))
+
+    outcome = _end_unanswered(conn)
+
+    assert outcome == {
+        "ended": [],
+        "skipped": [{"session_id": session_id, "status": PROBE_UNDELIVERED_STATUS}],
+    }
+    assert _ended_at(conn, session_id) is None
+
+
 def test_the_end_names_the_probe_and_wake_it_rests_on(conn):
     from yoke_core.domain.sessions_analytics import EVENT_HARNESS_SESSION_ENDED
 
     session_id = _quiet_holder(conn)
     _probe(conn)
-    _mark_woken(conn, session_id, _now() - GRACE - timedelta(seconds=30))
+    _woken_and_delivered(conn, session_id)
     _end_unanswered(conn)
 
     envelope = conn.execute(

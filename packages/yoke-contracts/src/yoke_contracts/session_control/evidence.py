@@ -27,6 +27,12 @@ _TEXT_FIELDS = frozenset(
         # step that says nothing here says nothing anywhere.
         "hook_event",
         "probe_detail",
+        # What the receipt looked like when a wake attempt was settled from
+        # its injection facts, and what the relay had reported before that
+        # verdict replaced it. An undelivered wake is otherwise a bare code
+        # with nothing behind it to question.
+        "receipt_state",
+        "transport_result",
         "identity_output_snippet",
         "identity_parse_expectation",
         "machine_id",
@@ -65,6 +71,7 @@ _INTEGER_FIELDS = frozenset(
         "duration_ms",
         "exit_code",
         "handles_considered",
+        "injection_count",
         "native_launch_pid",
         "native_pid",
     }

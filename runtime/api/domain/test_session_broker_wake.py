@@ -148,7 +148,7 @@ def test_broker_hook_reserves_then_existing_relay_executes_same_attempt() -> Non
         "FROM session_message_attempts WHERE attempt_id=?",
         (lease.attempt_id,),
     ).fetchone()
-    assert tuple(final) == (_stamp(seconds=4), "accepted", "codex-relay-v4")
+    assert tuple(final) == (None, "accepted", "codex-relay-v4")  # delivery unsettled
 
 
 def test_failed_direct_route_skips_broker_while_relay_is_fresh() -> None:

@@ -18,9 +18,12 @@ RESUME_EXITED_NONZERO_RESULT = "resume_exited_nonzero"
 RESUME_NEVER_STARTED_RESULT = "resume_never_started"
 RESUME_RUNAWAY_RESULT = "resume_runaway"
 
+# A resume that failed outright. ``resumed_completed`` is deliberately not
+# here: a resume process exiting cleanly says the turn is over, not that the
+# envelope arrived, so it leaves the attempt open for the delivery verdict in
+# ``wake_delivery`` to close.
 RESUME_TERMINAL_RESULTS = frozenset(
     {
-        RESUMED_COMPLETED_RESULT,
         RESUMED_DIED_RESULT,
         RESUME_EXITED_NONZERO_RESULT,
         RESUME_NEVER_STARTED_RESULT,
@@ -38,15 +41,17 @@ RESUME_RELAY_SETTLEMENT_RESULTS = frozenset(
         RESUME_EXITED_NONZERO_RESULT,
     }
 )
-RESUME_RESULT_CODES = frozenset({RESUMED_RUNNING_RESULT, *RESUME_TERMINAL_RESULTS})
+RESUME_RESULT_CODES = frozenset(
+    {RESUMED_RUNNING_RESULT, RESUMED_COMPLETED_RESULT, *RESUME_TERMINAL_RESULTS}
+)
 
 
 def resume_roster_state(result_code: object) -> str | None:
     """Project one stored attempt result onto the compact roster vocabulary."""
-    if result_code == RESUMED_RUNNING_RESULT:
+    if result_code in {RESUMED_RUNNING_RESULT, RESUMED_COMPLETED_RESULT}:
+        # Both mean the resume happened and the delivery verdict has not
+        # landed yet, which the roster reads as still resuming.
         return "resumed-running"
-    if result_code == RESUMED_COMPLETED_RESULT:
-        return "resumed-completed"
     if result_code in RESUME_TERMINAL_RESULTS:
         return "resumed-died"
     return None

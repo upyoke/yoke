@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
-from yoke_contracts.session_control.resume import (
-    RESUME_RELAY_SETTLEMENT_RESULTS,
-    RESUMED_RUNNING_RESULT,
+from yoke_contracts.session_control.wake_delivery import (
+    WAKE_DELIVERY_UNVERIFIED_RESULTS,
+    WAKE_REPORT_CODES,
 )
 from yoke_core.domain.session_broker_wake import direct_wake_waits_for_broker
 from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
@@ -33,11 +33,6 @@ from yoke_core.domain.session_relay_private_qualification import (
 )
 
 
-WAKE_REPORT_CODES = frozenset(
-    "accepted failed not_found outcome_unknown thread_id_unknown "
-    "unsupported_surface version_mismatch".split()
-    + [RESUMED_RUNNING_RESULT, *RESUME_RELAY_SETTLEMENT_RESULTS]
-)
 LAUNCH_REPORT_CODES = frozenset({"native_created", "not_created", "outcome_unknown"})
 LAUNCH_PROGRESS_CODE = "progress"
 
@@ -164,12 +159,17 @@ def report_wake_job(
         if str(row[2] or "") == result_code:
             return {"attempt_id": attempt_id, "result_code": result_code}
         raise SessionRelayError("report_conflict", "wake attempt was already reported")
-    if str(row[2] or "") == result_code == RESUMED_RUNNING_RESULT:
+    reported = str(row[2] or "")
+    if reported == result_code and result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         return {"attempt_id": attempt_id, "result_code": result_code}
-    # A detached resume settles after its batch drained; its lease is authority.
-    if str(row[2] or "") != RESUMED_RUNNING_RESULT:
+    # A resume whose delivery is still unverified settles after its batch
+    # drained; its lease is authority.
+    if reported not in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         require_relay_batch(conn, relay_id=relay_id, now=now)
-    completed_at = None if result_code == RESUMED_RUNNING_RESULT else now
+    # A relay reports the native it started, never whether the envelope
+    # arrived. Delivery is settled from the receipt itself, so an attempt
+    # carrying a transport observation stays open until that verdict lands.
+    completed_at = None if result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS else now
     conn.execute(
         "UPDATE session_message_attempts SET completed_at="
         + p
@@ -341,7 +341,6 @@ def report_launch_progress(
 __all__ = [
     "LAUNCH_PROGRESS_CODE",
     "LAUNCH_REPORT_CODES",
-    "WAKE_REPORT_CODES",
     "claim_wake_job",
     "report_launch_job",
     "report_launch_progress",

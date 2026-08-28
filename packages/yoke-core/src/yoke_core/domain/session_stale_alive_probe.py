@@ -22,11 +22,20 @@ produced no answer:
 2. **Wake.** A probe nobody collects is a starved envelope like any other,
    so the existing wake machinery escalates it — the native resume when the
    session reads active, the ordinary idle route while it reads stale.
-3. **End.** A probe that was sent, then woken, and *still* produced no tool
-   call one further window later has had every chance a live process would
-   have taken. Ending it releases the claims immediately rather than leaving
-   them for the holdings TTL, and carries the probe and wake evidence so the
+3. **End.** A probe that was *delivered*, then produced no tool call one
+   further window later, has had every chance a live process would have
+   taken. Ending it releases the claims immediately rather than leaving them
+   for the holdings TTL, and carries the probe and wake evidence so the
    verdict can be questioned afterwards.
+
+Delivery is the hinge of that last step, and it is not the same fact as
+having woken the session. A wake that resumed a session whose turn then ran
+no tool call injects nothing, and three such wakes against one parked
+session look — from wake attempts alone — exactly like a session that was
+asked three times and refused to answer. It was never asked. So a probe the
+receipt does not show as delivered ends nothing: the verdict falls back to
+the holdings TTL, which costs time, rather than to ending a session that was
+never reached, which costs its work.
 
 Nothing here pages an operator. Each step is evidence for the next, and the
 session can end the sequence at any point simply by calling a tool.
@@ -55,6 +64,10 @@ PROBE_KEY_PREFIX = "stale-alive-probe:"
 
 #: The end reason recorded when a probed session never answers.
 PROBE_UNRESPONSIVE_REASON = "probe_unresponsive"
+
+#: Why a probed session was left alone: the probe never reached it, so its
+#: silence is the wake route's failure and not the session's answer.
+PROBE_UNDELIVERED_STATUS = "wake_never_delivered"
 
 PROBE_BODY = (
     "Status probe: this session holds an active work claim but has not made "
@@ -222,6 +235,7 @@ def _unanswered_probes(
     placeholders = ",".join(marker for _ in projects)
     rows = conn.execute(
         "SELECT r.session_id,r.wake_attempt_count,r.last_wake_at,r.state,"
+        "r.injection_count,r.last_injected_at,"
         "m.message_id,m.created_at AS probe_created_at,hs.project_id,"
         "hs.last_tool_call_at,hs.mode "
         "FROM session_message_recipients r "
@@ -269,6 +283,13 @@ def end_probe_unresponsive_sessions(
             # It answered. The probe having been woken says nothing once a
             # turn actually ran.
             continue
+        if int(row.get("injection_count") or 0) < 1:
+            # Woken but never handed the probe. Nothing here is evidence
+            # about the session; it is evidence about the wake route.
+            skipped.append(
+                {"session_id": session_id, "status": PROBE_UNDELIVERED_STATUS}
+            )
+            continue
         window = timedelta(
             seconds=project_policy(conn, int(row["project_id"])).wake_ack_grace_seconds
         )
@@ -280,6 +301,7 @@ def end_probe_unresponsive_sessions(
             "probe_message_id": str(row["message_id"]),
             "probe_sent_at": str(row.get("probe_created_at") or ""),
             "probe_state": str(row.get("state") or ""),
+            "probe_injected_at": str(row.get("last_injected_at") or ""),
             "wake_attempt_count": int(row.get("wake_attempt_count") or 0),
             "last_wake_at": str(row.get("last_wake_at") or ""),
         }
@@ -307,6 +329,7 @@ def end_probe_unresponsive_sessions(
 __all__ = [
     "PROBE_BODY",
     "PROBE_KEY_PREFIX",
+    "PROBE_UNDELIVERED_STATUS",
     "PROBE_UNRESPONSIVE_REASON",
     "end_probe_unresponsive_sessions",
     "probe_key",

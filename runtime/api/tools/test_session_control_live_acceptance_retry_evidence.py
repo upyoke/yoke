@@ -20,6 +20,10 @@ from runtime.api.tools.test_session_control_live_acceptance_clock import (
 from runtime.api.tools.session_control_live_acceptance_wake_route import (
     MACHINE_SELECTED_ROUTE,
 )
+from yoke_contracts.session_control.wake_delivery import (
+    WAKE_DELIVERED_RESULT,
+    WAKE_DELIVERY_UNVERIFIED_RESULTS,
+)
 from yoke_contracts.session_control.wake_instruction import (
     native_wake_instruction_sha256,
 )
@@ -38,7 +42,7 @@ def _attempt(
 ) -> dict[str, Any]:
     evidence = (
         {"native_instruction_sha256": native_wake_instruction_sha256(MESSAGE_ID)}
-        if result_code in {"accepted", "resumed_running", "resumed_completed"}
+        if result_code in {WAKE_DELIVERED_RESULT, *WAKE_DELIVERY_UNVERIFIED_RESULTS}
         else {"reason": "body-free retry outcome"}
     )
     return {
@@ -98,17 +102,17 @@ def test_settled_retries_before_one_success_are_retained_body_free() -> None:
         [
             _attempt("attempt-1", "relay_lease_expired"),
             _attempt("attempt-2", "broker_timeout", kind="wake_broker"),
-            _attempt("attempt-3", "resumed_completed"),
+            _attempt("attempt-3", WAKE_DELIVERED_RESULT),
         ],
     )
 
-    assert parsed["result_code"] == "resumed_completed"
+    assert parsed["result_code"] == WAKE_DELIVERED_RESULT
     assert parsed["attempt_count"] == 3
     assert parsed["retry_count"] == 2
     assert [item["result_code"] for item in parsed["attempts"]] == [
         "relay_lease_expired",
         "broker_timeout",
-        "resumed_completed",
+        WAKE_DELIVERED_RESULT,
     ]
     assert all("evidence" not in item for item in parsed["attempts"])
 
@@ -123,12 +127,12 @@ def test_resumed_running_shape_is_valid_while_in_flight() -> None:
     assert parsed["attempts"][0]["completed_at"] is None
 
 
-def test_ack_waits_for_running_resume_to_settle() -> None:
+def test_ack_waits_for_the_delivery_verdict_to_settle() -> None:
     cell = AcceptanceCell("claude-cli", "2.1.245", "identify", wake_route="direct")
     receipts = iter(
         (
             _acknowledged(_attempt("attempt-1", "resumed_running", completed_at=None)),
-            _acknowledged(_attempt("attempt-1", "resumed_completed")),
+            _acknowledged(_attempt("attempt-1", WAKE_DELIVERED_RESULT)),
         )
     )
     clock = AcceptanceClock()
@@ -146,7 +150,7 @@ def test_ack_waits_for_running_resume_to_settle() -> None:
         require_wake=True,
     )
 
-    assert observed["native_wake"]["result_code"] == "resumed_completed"
+    assert observed["native_wake"]["result_code"] == WAKE_DELIVERED_RESULT
     assert observed["native_wake"]["attempts"][0]["completed_at"]
     assert clock.value == 1
 
@@ -183,17 +187,20 @@ def test_ack_reports_a_named_timeout_when_resume_never_settles() -> None:
         (
             [
                 _attempt("attempt-1", "relay_lease_expired", completed_at=None),
-                _attempt("attempt-2", "accepted"),
+                _attempt("attempt-2", WAKE_DELIVERED_RESULT),
             ],
             "wake_attempt_settlement_invalid",
         ),
         (
-            [_attempt("attempt-1", "accepted"), _attempt("attempt-2", "accepted")],
+            [
+                _attempt("attempt-1", WAKE_DELIVERED_RESULT),
+                _attempt("attempt-2", WAKE_DELIVERED_RESULT),
+            ],
             "wake_attempt_count_invalid",
         ),
         (
             [
-                _attempt("attempt-1", "accepted"),
+                _attempt("attempt-1", WAKE_DELIVERED_RESULT),
                 _attempt("attempt-2", "relay_lease_expired"),
             ],
             "wake_attempt_order_invalid",
@@ -220,7 +227,7 @@ def test_broker_success_still_requires_the_exact_peer() -> None:
         _attempt("attempt-1", "broker_lost", kind="wake_broker"),
         _attempt(
             "attempt-2",
-            "accepted",
+            WAKE_DELIVERED_RESULT,
             kind="wake_broker",
             broker_session_id="wrong-broker",
         ),
