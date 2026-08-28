@@ -70,20 +70,24 @@ def render_item_entry_surface_block() -> list[str]:
 
     Both the top-level ``main_agent`` packet and every Bash-capable
     ``*_agent`` packet inherit ``core`` so every Yoke agent sees this
-    rule before creating work items. Enforcement owner:
-    ``yoke_core.domain.item_entry_surface``.
+    rule before creating work items. Enforcement owners:
+    ``yoke_core.domain.item_entry_surface`` (typed surface + attestation)
+    and the ``yoke items create`` adapter (scaffolding gate).
     """
     return [
         "**Work-item entry surfaces:** every create names a workflow and "
         "a typed entry surface (`web_form`, `cli`, `harness_skill`, or "
         "`promotion`). The selected immutable workflow version must allow "
-        "that surface. `/yoke idea` uses `yoke items create ... "
-        "--entry-surface harness_skill "
-        "--execution-instructions-considered`; dry-run and test-isolated "
-        "DB targets may omit both. That flag attests you ran `yoke "
-        "workflow execution-instruction resolve --workflow W --project P` "
-        "before authoring; every non-web surface is refused without it, "
-        "and no adapter sets it for you.",
+        "that surface. File through `/yoke idea` (the skill-owned "
+        "`harness_skill` path) or `yoke dash TITLE INSTRUCTION`. "
+        "`yoke items create` refuses a live harness session that is not "
+        "in idea mode — the entry-surface token is caller-asserted and "
+        "skips skill-side scaffolding. Operator/debug, `--dry-run`, and "
+        "test isolation retain the low-level adapter. `/yoke idea` "
+        "attests with `--execution-instructions-considered` after `yoke "
+        "workflow execution-instruction resolve --workflow W --project P`; "
+        "every non-web surface is refused without that attestation, and "
+        "no adapter sets it for you.",
     ]
 
 

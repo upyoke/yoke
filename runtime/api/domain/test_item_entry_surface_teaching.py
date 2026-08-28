@@ -32,6 +32,13 @@ def test_core_topic_packet_carries_item_entry_doctrine() -> None:
         assert token in body, f"core packet missing token: {token}"
 
 
+def test_core_topic_packet_teaches_items_create_scaffolding_gate() -> None:
+    body = _core_body()
+    assert "yoke items create" in body
+    assert "idea mode" in body
+    assert "yoke dash TITLE INSTRUCTION" in body
+
+
 def test_item_entry_block_renders_before_function_call_surface() -> None:
     """The rule appears before lower-level API affordances."""
     body = _core_body()
@@ -50,9 +57,7 @@ def test_every_role_packet_inherits_item_entry_doctrine() -> None:
     for role in seed.ROLE_TOPICS:
         body = schema_api_context.render_role_packet(role)
         for token in _ENTRY_TOKENS:
-            assert token in body, (
-                f"role {role!r} packet missing token: {token}"
-            )
+            assert token in body, f"role {role!r} packet missing token: {token}"
 
 
 # ---------------------------------------------------------------------------
