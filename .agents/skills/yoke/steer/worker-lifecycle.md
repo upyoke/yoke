@@ -44,11 +44,10 @@ The fleet report's launch-balance block shows the live count per launchable
 surface on each machine. A surface absent from that line cannot accept a
 launch — do not read a missing surface as zero.
 
-Measure balance against live load; never assume it from the batch. Read the
-current per-surface counts from the fleet report's launch-balance block
-before staffing, then allocate each launch so the counts it leaves behind
-come out as level as they can. Leveling chooses which surface a launch goes
-to; it never withholds one.
+Measure balance against live load; never assume it from the batch. Read those
+counts before staffing, then allocate each launch so the counts it leaves
+behind come out as level as they can. Leveling chooses which surface a launch
+goes to; it never withholds one.
 
 Never split a batch evenly across surfaces. An even split preserves whatever
 skew is already there: six items sent two per surface onto a fleet already
