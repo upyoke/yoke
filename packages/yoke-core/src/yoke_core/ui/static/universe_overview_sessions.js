@@ -19,6 +19,7 @@ import {
   routeCell,
   SESSION_SUMMARY_ROW_LIMIT,
 } from "./universe_overview_primitives.js";
+import { displaySessionModel } from "./session_model_display.js";
 
 const CLAIM_CELL_RELATIONS = { claim: "owns claim", filed: "filed · unclaimed" };
 
@@ -168,7 +169,8 @@ export function loadSessions(context, panel, getScope) {
         }
         appendCell(documentNode, tableRow, row.executor || "—");
         appendCell(
-          documentNode, tableRow, row.model || "—", "overview-model-cell",
+          documentNode, tableRow, displaySessionModel(row, "—"),
+          "overview-model-cell",
         );
         appendCell(
           documentNode,
@@ -242,7 +244,7 @@ export function loadSessions(context, panel, getScope) {
         );
         const detail = [
           row.executor,
-          row.model,
+          displaySessionModel(row, ""),
           row.execution_lane,
           row.mode,
           showWho ? who.value(row) : null,

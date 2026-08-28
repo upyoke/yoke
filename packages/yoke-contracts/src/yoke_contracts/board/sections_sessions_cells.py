@@ -22,6 +22,25 @@ def _resolve_executor_emoji(executor: str) -> str:
     return ""
 
 
+_CURSOR_FAMILY_PREFIX = "cursor-"
+
+
+def _display_model(
+    model: Optional[str],
+    executor: str,
+    executor_surface: Optional[str],
+) -> str:
+    """Store the composed wire name; drop a redundant harness prefix here."""
+    text = (model or "").strip() or "?"
+    harness = (executor_surface or executor or "").lower()
+    prefix = _CURSOR_FAMILY_PREFIX
+    if (harness == "cursor" or harness.startswith(prefix)) and text.lower().startswith(
+        prefix
+    ):
+        return text[len(prefix) :]
+    return text
+
+
 def _display_session_id(session_id: Optional[str]) -> str:
     """Keep session labels compact without hiding suffix differences."""
     if not session_id:
@@ -34,11 +53,7 @@ def _display_session_id(session_id: Optional[str]) -> str:
 def _render_executor(executor: str, executor_surface: Optional[str]) -> str:
     display_value = executor_surface or executor
     exec_emoji = _resolve_executor_emoji(display_value or "")
-    return (
-        f"{exec_emoji} {display_value}"
-        if exec_emoji
-        else (display_value or "?")
-    )
+    return f"{exec_emoji} {display_value}" if exec_emoji else (display_value or "?")
 
 
 def session_common_cells(
@@ -53,5 +68,5 @@ def session_common_cells(
         f"`{_display_session_id(sid)}`",
         session_project_label(db, project_id),
         _render_executor(executor, executor_surface),
-        model or "?",
+        _display_model(model, executor, executor_surface),
     ]

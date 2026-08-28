@@ -124,8 +124,8 @@ whatever the hook replies — bisect in
 Losing it costs nothing: `sessionStart`/`sessionEnd` and the tool-call events
 now name a bare `model` (`grok-4.6`), no `model_id` and no effort tier, and
 the tier is measured rather than reported. Cursor's per-conversation
-`store.db` names the variant that served each request, so it is read first
-and the payload answers only until a first request exists. A launch's
+`store.db` names the variant that served each request, so it is the only
+recorded fact; the payload is never stored. A launch's
 requested model is never substituted; an unknowable model records as unknown.
 Owners: `yoke_harness.cursor_executed_model`, then `identity_runtime.cursor_payload_model`.
 

@@ -22,6 +22,7 @@ import {
   appendSessionMessaging,
   sessionRosterFilters,
 } from "./universe_session_roster_filters.js";
+import { displaySessionModel } from "./session_model_display.js";
 const ROSTER_STATES = new Set(["active", "stale", "ended"]);
 function statRow(documentNode, facts) {
   const row = el(documentNode, "div", "stat-row sessions-stats");
@@ -52,8 +53,7 @@ function harnessIdentity(row) {
     label: executor,
   };
 }
-// The lane is the job Yoke assigned this session, and it names the session the
-// way the fleet does, so it belongs beside the harness that is running it.
+// The lane is the job Yoke assigned this session, named the way the fleet does.
 function laneChip(documentNode, row) {
   const laneLabel = row.lane_label || row.execution_lane || "no lane";
   const chip = el(
@@ -87,7 +87,7 @@ function appendModel(documentNode, body, row) {
     documentNode,
     "div",
     "session-model",
-    row.model || "model not reported",
+    displaySessionModel(row),
   ));
 }
 

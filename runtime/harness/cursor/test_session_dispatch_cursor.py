@@ -113,7 +113,7 @@ def test_session_start_wraps_orientation_in_additional_context(
     assert f"orientation for {MAIN}" in envelope["additional_context"]
 
 
-def test_session_start_registers_with_payload_model(
+def test_session_start_does_not_register_hook_payload_as_model(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
@@ -123,20 +123,16 @@ def test_session_start_registers_with_payload_model(
         "model": "cursor-grok-4.6-xhigh",
     }
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "cursor-grok-4.6-xhigh", "cursor-cli")
-    ]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
 
 
-def test_session_start_records_bare_model_when_payload_has_no_tier(
+def test_session_start_records_unknown_when_store_is_not_yet_readable(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     payload = {"session_id": MAIN, "model": "grok-4.6"}
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "grok-4.6", "cursor-cli")
-    ]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
 
 
 def test_session_start_degrades_without_session_id(
@@ -176,21 +172,24 @@ def test_later_prompt_does_not_register_when_touch_would_have_failed(
     assert quiet_side_effects["touch"] == []
 
 
-def test_prompt_submit_heals_a_session_that_opened_without_a_model(
+def test_prompt_submit_heals_when_the_store_names_the_model(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A surface that named no model when the session opened gets one free
-    correction on its first prompt; registration is upgrade-only and
-    later prompts do not heartbeat."""
+    """A first prompt whose conversation store has answered can heal the
+    row; the hook payload itself is not a measurement."""
     monkeypatch.setattr(
         "yoke_core.hooks.session_dispatch._first_prompt",
         lambda session_id, codex: True,
     )
-    payload = {"session_id": MAIN, "model": "composer-2.5"}
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity.cursor_payload_model",
+        lambda _payload: "cursor-grok-4.6-xhigh",
+    )
+    payload = {"session_id": MAIN, "model": "grok-4.6"}
     dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
     assert quiet_side_effects["touch"] == []
     assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "composer-2.5", "cursor-desktop")
+        ("/repo", MAIN, "cursor-grok-4.6-xhigh", "cursor-desktop")
     ]
 
 
@@ -206,18 +205,15 @@ def test_prompt_submit_does_not_heal_without_a_named_model(
     assert quiet_side_effects["register"] == []
 
 
-def test_session_start_registers_the_display_model_when_it_is_the_only_one(
+def test_session_start_records_unknown_until_the_store_answers(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The terminal agent opens a session naming ``model`` and no
-    ``model_id``. That is a real answer, not a placeholder, and it is the
-    only one the session gets - no mid-stream event reports another."""
+    """The hook payload's model field is not a measurement. Until the
+    conversation store names a variant, the row records unknown."""
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
     payload = {"session_id": MAIN, "model": "cursor-grok-4.6-high-fast"}
     dispatch_cursor.run_session_start(_context(payload), "/repo")
-    assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "cursor-grok-4.6-high-fast", "cursor-cli")
-    ]
+    assert quiet_side_effects["register"] == [("/repo", MAIN, "unknown", "cursor-cli")]
 
 
 def test_session_start_refuses_to_store_the_default_placeholder(

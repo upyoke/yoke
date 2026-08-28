@@ -107,26 +107,32 @@ def test_the_measured_model_outranks_what_the_payload_reports(
 ) -> None:
     chats = tmp_path / "chats"
     _store(chats, CONVERSATION, [_request("cursor-grok-4.6-high-fast")])
-    monkeypatch.setattr(
-        "yoke_harness.cursor_executed_model.CURSOR_CHATS_DIR", chats
-    )
+    monkeypatch.setattr("yoke_harness.cursor_executed_model.CURSOR_CHATS_DIR", chats)
 
     # The payload's tiered self-report is a claim; the store is the record.
-    assert identity_runtime.cursor_payload_model(
-        {
-            "session_id": CONVERSATION,
-            "model": "cursor-grok-4.6-xhigh",
-            "model_id": "grok-4.6",
-        }
-    ) == "cursor-grok-4.6-high-fast"
+    assert (
+        identity_runtime.cursor_payload_model(
+            {
+                "session_id": CONVERSATION,
+                "model": "cursor-grok-4.6-xhigh",
+                "model_id": "grok-4.6",
+            }
+        )
+        == "cursor-grok-4.6-high-fast"
+    )
 
 
-def test_the_payload_answers_when_the_store_cannot(monkeypatch, tmp_path: Path) -> None:
+def test_the_payload_is_not_the_model_when_the_store_cannot_answer(
+    monkeypatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
         "yoke_harness.cursor_executed_model.CURSOR_CHATS_DIR", tmp_path / "empty"
     )
 
-    assert identity_runtime.cursor_payload_model(
-        {"session_id": CONVERSATION, "model_id": "grok-4.6"}
-    ) == "grok-4.6"
+    assert (
+        identity_runtime.cursor_payload_model(
+            {"session_id": CONVERSATION, "model_id": "grok-4.6"}
+        )
+        == ""
+    )
     assert identity_runtime.cursor_payload_model({"session_id": CONVERSATION}) == ""

@@ -33,9 +33,8 @@ def _patch_existing_row(monkeypatch):
 
 
 def test_existing_coarse_model_with_better_wire_model_drives_reregister(monkeypatch):
-    # Cursor registers under the bare family id its payload names, then its
-    # conversation store names the variant that ran. The later answer has to
-    # reach the row, so a differing wire model drives the upgrade too.
+    # A row that still holds the bare family id (recorded before the store
+    # answered) must take the later store measurement.
     _patch_existing_row(monkeypatch)
     calls: list[str] = []
     monkeypatch.setattr(

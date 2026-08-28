@@ -18,9 +18,13 @@ BOTH = pytest.mark.parametrize("identity", [tree_identity, wheel_identity])
 @pytest.fixture(autouse=True)
 def _clean_identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for var in (
-        "YOKE_EXECUTOR", "CODEX_THREAD_ID", "CLAUDE_CODE_SESSION_ID",
-        "CLAUDE_CODE_ENTRYPOINT", "CURSOR_CONVERSATION_ID",
-        "CURSOR_TRANSCRIPT_PATH", "CURSOR_INVOKED_AS",
+        "YOKE_EXECUTOR",
+        "CODEX_THREAD_ID",
+        "CLAUDE_CODE_SESSION_ID",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "CURSOR_CONVERSATION_ID",
+        "CURSOR_TRANSCRIPT_PATH",
+        "CURSOR_INVOKED_AS",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -46,8 +50,14 @@ def test_canonical_harness_id_maps_cursor(identity) -> None:
 
 @BOTH
 def test_compose_executor_from_entrypoint(identity) -> None:
-    assert identity.compose_executor_from_entrypoint("cursor", "cursor-cli") == "cursor-cli"
-    assert identity.compose_executor_from_entrypoint("cursor", "desktop") == "cursor-desktop"
+    assert (
+        identity.compose_executor_from_entrypoint("cursor", "cursor-cli")
+        == "cursor-cli"
+    )
+    assert (
+        identity.compose_executor_from_entrypoint("cursor", "desktop")
+        == "cursor-desktop"
+    )
     assert identity.compose_executor_from_entrypoint("cursor", None) == "cursor"
 
 
@@ -117,7 +127,8 @@ def test_cursor_surface_entrypoint_ignores_unrecognized_invoked_as(
 
 @BOTH
 def test_detect_executor_conversation_id_only_is_cursor_desktop(
-    identity, monkeypatch: pytest.MonkeyPatch,
+    identity,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CURSOR_CONVERSATION_ID", "conv-ide-shell")
     assert identity.detect_executor() == "cursor-desktop"
@@ -125,33 +136,48 @@ def test_detect_executor_conversation_id_only_is_cursor_desktop(
 
 @BOTH
 def test_detect_executor_claude_session_wins_over_conversation_id(
-    identity, monkeypatch: pytest.MonkeyPatch,
+    identity,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "claude-nested")
     monkeypatch.setenv("CURSOR_CONVERSATION_ID", "conv-ide-shell")
     assert identity.detect_executor() == "claude-code"
 
 
-def test_cursor_payload_model_prefers_tiered_model_over_bare_id(tmp_path) -> None:
-    # No conversation store for this id, so the payload is the only source.
-    assert wheel_identity.cursor_payload_model(
-        {"session_id": "no-such-conversation", "model_id": "grok-4.6",
-         "model": "cursor-grok-4.6-xhigh"}
-    ) == "cursor-grok-4.6-xhigh"
+def test_cursor_payload_model_ignores_payload_when_the_store_cannot_answer(
+    tmp_path,
+) -> None:
+    assert (
+        wheel_identity.cursor_payload_model(
+            {
+                "session_id": "no-such-conversation",
+                "model_id": "grok-4.6",
+                "model": "cursor-grok-4.6-xhigh",
+            }
+        )
+        == ""
+    )
 
 
-def test_cursor_payload_model_records_bare_model_when_no_tier() -> None:
-    assert wheel_identity.cursor_payload_model(
-        {"session_id": "no-such-conversation", "model": "grok-4.6"}
-    ) == "grok-4.6"
-    assert wheel_identity.cursor_payload_model(
-        {"session_id": "no-such-conversation", "model_id": "grok-4.6"}
-    ) == "grok-4.6"
+def test_cursor_payload_model_records_nothing_from_a_bare_payload() -> None:
+    assert (
+        wheel_identity.cursor_payload_model(
+            {"session_id": "no-such-conversation", "model": "grok-4.6"}
+        )
+        == ""
+    )
+    assert (
+        wheel_identity.cursor_payload_model(
+            {"session_id": "no-such-conversation", "model_id": "grok-4.6"}
+        )
+        == ""
+    )
 
 
 @BOTH
 def test_detect_executor_codex_thread_wins_over_conversation_id(
-    identity, monkeypatch: pytest.MonkeyPatch,
+    identity,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CODEX_THREAD_ID", "codex-nested")
     monkeypatch.setenv("CURSOR_CONVERSATION_ID", "conv-ide-shell")
