@@ -107,6 +107,18 @@ def test_shell_tool_name_canonicalizes_to_bash(container_env: None) -> None:
     assert parse_payload(payload)["tool_name"] == "Bash"
 
 
+def test_str_replace_canonicalizes_to_edit(container_env: None) -> None:
+    payload = json.dumps(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "StrReplace",
+            "tool_input": {"path": "/x"},
+            "session_id": MAIN,
+        }
+    )
+    assert parse_payload(payload)["tool_name"] == "Edit"
+
+
 def test_non_shell_tool_names_pass_through(container_env: None) -> None:
     payload = json.dumps(
         {

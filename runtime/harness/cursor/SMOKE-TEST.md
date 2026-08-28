@@ -63,6 +63,15 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    silently costs the session every guard, telemetry write, heartbeat, and
    inbound message injection. If a newer build starts firing both for tool
    events, widen that set rather than reintroducing a blanket skip.
+6c. PreToolUse coverage. Claude `settings.json` PreToolUse is matcherless so
+    every tool that can fire a hook reaches the runner (chain selection stays
+    in `HOOK_ORDERING` by `tool_name`). Cursor-native `preToolUse` /
+    `postToolUse` match every tool except `Shell` (`^(?!Shell$).+$`); Shell
+    stays on `beforeShellExecution` / `afterShellExecution`. Tools Cursor
+    never hooks — observed: `Glob`, `GetDynamicTools` / MCP-style calls —
+    emit neither Pre nor Post; that is a declared harness gap, not a matcher
+    miss. `HC-pretool-posttool-coverage` fails when a surface's PreToolUse
+    count falls materially below its PostToolUse count.
 
 ## Hook-enhanced — IDE surface
 

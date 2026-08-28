@@ -35,14 +35,14 @@
       {
         "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor YOKE_HOOK_CONFIG_OWNER=cursor-project yoke hook evaluate PreToolUse'",
         "timeout": 30,
-        "matcher": "Write|Read|Task"
+        "matcher": "^(?!Shell$).+$"
       }
     ],
     "postToolUse": [
       {
         "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor YOKE_HOOK_CONFIG_OWNER=cursor-project yoke hook evaluate PostToolUse'",
         "timeout": 30,
-        "matcher": "Write|Read|Task"
+        "matcher": "^(?!Shell$).+$"
       }
     ],
     "postToolUseFailure": [

@@ -15,6 +15,7 @@ from yoke_contracts.hook_runner.config_owner import (
 
 from yoke_core.domain.agents_render_hooks import (
     _CURSOR_HOOK_TIMEOUT_S,
+    _CURSOR_NON_SHELL_TOOL_MATCHER,
     render_claude_hooks_block,
     render_codex_hooks_block,
     render_cursor_hooks_block,
@@ -23,7 +24,13 @@ from yoke_core.domain.agents_render_hooks import (
 
 def test_default_only_events_render_single_matcherless_entry() -> None:
     block = render_claude_hooks_block()
-    for event in ("SessionStart", "SessionEnd", "Stop", "UserPromptSubmit"):
+    for event in (
+        "SessionStart",
+        "SessionEnd",
+        "Stop",
+        "UserPromptSubmit",
+        "PreToolUse",
+    ):
         entries = block[event]
         assert len(entries) == 1, (event, entries)
         assert "matcher" not in entries[0], (event, entries)
@@ -102,6 +109,13 @@ def test_cursor_entries_carry_explicit_timeout() -> None:
         for entry in entries:
             assert entry.get("timeout") == _CURSOR_HOOK_TIMEOUT_S, (event, entry)
     assert _CURSOR_HOOK_TIMEOUT_S >= 30
+
+
+def test_cursor_pre_post_matchers_cover_every_tool_except_shell() -> None:
+    """Shell stays on before/afterShellExecution; everything else must match."""
+    block = render_cursor_hooks_block()["hooks"]
+    assert block["preToolUse"][0]["matcher"] == _CURSOR_NON_SHELL_TOOL_MATCHER
+    assert block["postToolUse"][0]["matcher"] == _CURSOR_NON_SHELL_TOOL_MATCHER
 
 
 def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:

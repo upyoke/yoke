@@ -29,7 +29,7 @@ from yoke_cli.filesystem_safety import first_symlink_component
 
 
 # Required Cursor-native events in hooks.json. The shell gate rides
-# beforeShellExecution; preToolUse carries the Write|Read|Task matcher; the
+# beforeShellExecution; preToolUse matches every tool except Shell; the
 # IDE-only events (beforeSubmitPrompt, stop) still render so the IDE surface
 # gets them, even though the non-interactive terminal agent never fires them.
 # afterAgentThought is required to be ABSENT rather than present: it fires

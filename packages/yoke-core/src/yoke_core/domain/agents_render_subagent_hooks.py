@@ -11,8 +11,8 @@ orchestrator (:mod:`yoke_core.domain.agents_render`) used to inline:
 - :func:`render_claude_agent` — produce the full rendered Claude
   adapter file (frontmatter + body) for a single agent.
 - :func:`render_claude_subagent_hooks_block` — compose the per-subagent
-  ``hooks`` YAML block by walking
-  :data:`yoke_contracts.hook_runner.hook_ordering.HOOK_ORDERING`.
+  ``hooks`` YAML block: matcherless PreToolUse (runner selects the chain
+  from ``tool_name``), PostToolUse observe, and SubagentStop.
 
 Single source of truth for subagent hook chains:
 
@@ -36,8 +36,7 @@ The discriminator is :func:`is_bash_capable_subagent`.
 
 Imports from :mod:`yoke_core.domain.agents_render` would create a cycle;
 this module's only Yoke dependencies are the conditional renderer, the
-canonical-context expander, the workspace resolver, and the universal hook
-ordering. Higher-level orchestration (writers, drift detection) stays in
+canonical-context expander, and the workspace resolver. Higher-level orchestration (writers, drift detection) stays in
 ``agents_render.py`` and re-exports the names here for backwards
 compatibility.
 """
@@ -46,7 +45,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 import yaml
 
@@ -55,10 +54,6 @@ from yoke_core.domain.agents_render_conditional import (
 )
 from yoke_core.domain.agents_render_references import render_agent_prompt_body
 from yoke_core.domain.agents_render_workspace import require_reader_root
-from yoke_contracts.hook_runner.hook_ordering import (
-    matchers_for,
-    ordered_pipeline_for,
-)
 from yoke_contracts.hook_runner.config_owner import (
     CLAUDE_CONFIG_OWNER,
     CONFIG_OWNER_ENV_VAR,
@@ -93,18 +88,6 @@ CLAUDE_SPEC_KEY_ORDER = [
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
 _OBSERVE_MODULE = "python3 -m yoke_core.domain.observe"
 _SUBAGENT_STOP_MODULE = "python3 -m yoke_core.domain.agent_stop"
-
-# Claude's PreToolUse matchers: skip Codex-only ``apply_patch`` and the
-# ``_default`` placeholder used by non-Pre events.
-_CLAUDE_PRETOOL_OMIT: frozenset[str] = frozenset({"_default", "apply_patch"})
-
-# Matchers whose underlying tool is only reachable when ``Bash`` is granted.
-# Non-Bash agents (PM/PD) cannot reach these tools, so the entries would be
-# inert noise — emit only matchers whose tool is in the agent's grant.
-_BASH_ONLY_MATCHERS: frozenset[str] = frozenset(
-    {"Bash", "Monitor", "ScheduleWakeup", "TaskOutput"}
-)
-
 
 def _granted_tools(tools: str) -> set[str]:
     return {part.strip() for part in tools.split(",") if part.strip()}
@@ -152,27 +135,6 @@ def _subagent_stop_command(agent: str) -> str:
     return f"{_env_prefix(agent)} {_SUBAGENT_STOP_MODULE}"
 
 
-def _pretool_matchers_for(
-    agent_tools: set[str], *, bash_capable: bool
-) -> Iterable[str]:
-    """Yield matchers to emit for PreToolUse, in registry order.
-
-    Bash-capable subagents get every registered matcher whose chain is
-    non-empty (full deny coverage for ``lint_subagent_background``).
-    Non-Bash subagents (PM/PD) emit only matchers whose underlying tool
-    is granted; the Bash-only matchers would never fire for them.
-    """
-    for matcher in matchers_for("PreToolUse"):
-        if matcher in _CLAUDE_PRETOOL_OMIT:
-            continue
-        if not ordered_pipeline_for("PreToolUse", matcher):
-            continue
-        if not bash_capable:
-            if matcher in _BASH_ONLY_MATCHERS or matcher not in agent_tools:
-                continue
-        yield matcher
-
-
 def render_claude_subagent_hooks_block(
     agent: str, *, tools: str
 ) -> Optional[dict]:
@@ -194,21 +156,13 @@ def render_claude_subagent_hooks_block(
     composer or fall back to the canonical JSON's hand-authored block
     (PM/PD remain hand-authored).
     """
-    granted = _granted_tools(tools)
-    bash_capable = "Bash" in granted
-
+    # Matcherless: the runner selects the chain from tool_name. Per-tool
+    # matchers here would skip Grep/Glob and any tool the grant later adds.
+    _ = tools
     block: dict[str, list[dict]] = {}
-
-    pre_entries: list[dict] = []
-    for matcher in _pretool_matchers_for(granted, bash_capable=bash_capable):
-        pre_entries.append(
-            {
-                "matcher": matcher,
-                "hooks": [_hook_entry(_runner_command(agent, "PreToolUse"))],
-            }
-        )
-    if pre_entries:
-        block["PreToolUse"] = pre_entries
+    block["PreToolUse"] = [
+        {"hooks": [_hook_entry(_runner_command(agent, "PreToolUse"))]}
+    ]
 
     block["PostToolUse"] = [
         {"hooks": [_hook_entry(_observe_command(agent, "PostToolUse"))]}

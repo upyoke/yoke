@@ -128,6 +128,31 @@ def test_smoke_uses_current_evaluate_payload_signature():
     assert ok, detail
 
 
+def test_matcherless_pretool_counts_as_bash_coverage():
+    doc = {
+        "hooks": {
+            "PreToolUse": [
+                {"hooks": [{"command": "yoke hook evaluate PreToolUse"}]},
+            ]
+        }
+    }
+    assert mod._bash_pretool_commands(doc) == ["yoke hook evaluate PreToolUse"]
+
+
+def test_edit_matcher_does_not_count_as_bash_coverage():
+    doc = {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Edit",
+                    "hooks": [{"command": "yoke hook evaluate PreToolUse"}],
+                },
+            ]
+        }
+    }
+    assert mod._bash_pretool_commands(doc) == []
+
+
 def test_hc_passes_against_production_hook_configs(conn):
     """End-to-end: the HC must report PASS against the actual rendered hook configs and chain registry."""
     rec = RecordCollector()

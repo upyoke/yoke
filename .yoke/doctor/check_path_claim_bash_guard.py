@@ -4,9 +4,10 @@ Verifies the wiring of ``yoke_core.domain.path_claim_bash_guard`` in the
 PreToolUse@Bash chain. Two layers are checked:
 
 1. Both Claude ``settings.json`` and Codex ``hooks.json`` register a
-   ``yoke hook evaluate`` command for the PreToolUse@Bash matcher --
-   that is, the rendered hook config delegates the chain to the stable
-   Yoke CLI boundary.
+   ``yoke hook evaluate`` command that fires for Bash -- an explicit
+   PreToolUse@Bash matcher, or a matcherless PreToolUse entry that
+   covers every tool. The rendered config delegates the chain to the
+   stable Yoke CLI boundary.
 2. ``yoke_contracts.hook_runner.chain_registry.chain_for("PreToolUse",
    "Bash")`` includes ``yoke_core.domain.path_claim_bash_guard`` -- the
    ordered policy module list the runner actually executes.
@@ -50,14 +51,24 @@ def _root_path(rel: Path) -> Path:
     return Path(root) / rel if root else rel
 
 
+def _covers_bash(entry: dict) -> bool:
+    """True when this PreToolUse entry fires for Bash.
+
+    A missing matcher is matcherless and matches every tool. An explicit
+    ``Bash`` matcher is the Codex (and historical Claude) shape.
+    """
+    matcher = entry.get("matcher")
+    return matcher in (None, "", "Bash")
+
+
 def _bash_pretool_commands(hook_doc: dict) -> List[str]:
-    """Return the list of command strings registered for PreToolUse@Bash."""
+    """Return command strings registered for PreToolUse on Bash."""
     pretool = (hook_doc.get("hooks") or {}).get("PreToolUse") or []
     out: List[str] = []
     for entry in pretool:
         if not isinstance(entry, dict):
             continue
-        if entry.get("matcher") != "Bash":
+        if not _covers_bash(entry):
             continue
         for hk in entry.get("hooks") or []:
             cmd = hk.get("command") if isinstance(hk, dict) else None

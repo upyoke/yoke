@@ -79,12 +79,14 @@ def _claude_chain_for(event: str, matcher: str) -> list[str]:
 
 
 # Events whose chain applies regardless of matcher — rendered as a single
-# entry with no ``matcher`` key.
+# entry with no ``matcher`` key. PreToolUse is matcherless so every tool
+# reaches the runner; per-tool chain selection stays in HOOK_ORDERING.
 _CLAUDE_DEFAULT_ONLY_EVENTS = {
     "SessionStart",
     "SessionEnd",
     "Stop",
     "UserPromptSubmit",
+    "PreToolUse",
 }
 
 # Canonical verbs no Claude surface fires. The ordering registry is
@@ -251,18 +253,21 @@ _CURSOR_IDENTITY_ENV = (
 # differences. The shell gate anchors on beforeShellExecution (raw command
 # + sandbox state; a deny holds even under the CLI's force mode) rather
 # than a preToolUse Shell matcher — wiring both would run the Bash chain
-# twice per command. Subagent lifecycle events stay unwired until the
-# container-mapping guard exists in session dispatch; wiring them first
-# would feed per-subagent session ids into ensure-register.
+# twice per command. Every other Cursor tool must reach preToolUse, or a
+# Cursor-only workspace never consults the guardrail chain for it.
+# Subagent lifecycle events stay unwired until the container-mapping guard
+# exists in session dispatch; wiring them first would feed per-subagent
+# session ids into ensure-register.
 #
 # afterAgentThought is absent, and no other table wires it: it fires inside
 # the token stream, and on cursor-agent 2026.08.25 a hook there breaks the
 # stream whatever it replies — see docs/archive/decisions for the bisect.
 # Nothing is lost by leaving it unwired, because the events that open and
 # close a session now name the model themselves.
+_CURSOR_NON_SHELL_TOOL_MATCHER = "^(?!Shell$).+$"
 _CURSOR_MATCHER_BY_NATIVE_EVENT = {
-    "preToolUse": "Write|Read|Task",
-    "postToolUse": "Write|Read|Task",
+    "preToolUse": _CURSOR_NON_SHELL_TOOL_MATCHER,
+    "postToolUse": _CURSOR_NON_SHELL_TOOL_MATCHER,
 }
 _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = tuple(
     (native_event, runner_event, _CURSOR_MATCHER_BY_NATIVE_EVENT.get(native_event))
