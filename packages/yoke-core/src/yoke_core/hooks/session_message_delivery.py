@@ -3,20 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-import json
 from typing import Iterable
 
 from yoke_contracts.session_control.capabilities import (
     capabilities_for_harness,
     capability_for_surface,
-)
-from yoke_contracts.session_control.teaching import (
-    FLEET_BODY_TRUST_GUIDANCE,
-    FLEET_ENVELOPE_TRUST_GUIDANCE,
-    FLEET_INVALID_MESSAGE_ID_GUIDANCE,
-    SUBAGENT_FLEET_GUIDANCE,
-    canonical_fleet_message_id,
-    fleet_acknowledgement_instruction,
 )
 from yoke_contracts.hook_runner.model_context_channel import (
     SESSION_OPENING_STDOUT_EVENTS,
@@ -35,13 +26,17 @@ from yoke_core.hooks.session_message_delivery_port import (
     SessionMessageDeliveryPort,
     SessionMessageLease,
 )
+from yoke_core.hooks.session_message_rendering import (
+    render_child_view,
+    render_lease,
+)
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 DELIVERY_AUDIT_FIELD = "session_message_delivery"
 DEFAULT_LEASE_LIMIT = 10
 _STDOUT_EVENTS = SESSION_OPENING_STDOUT_EVENTS | frozenset({"Stop"})
-_DELIVERABLE_STATES = frozenset({"pending", "injected"})
+_DELIVERABLE_STATES = frozenset({"pending"})
 
 
 def _delivery_port() -> SessionMessageDeliveryPort:
@@ -61,80 +56,6 @@ def _event_is_model_visible(context: HookContext) -> bool:
     return any(
         context.event_name in facts.get("inject_events", ())
         for facts in family_capabilities.values()
-    )
-
-
-def _render_message(
-    message: LeasedSessionMessage,
-    *,
-    acknowledgement: str,
-) -> str:
-    message_id = canonical_fleet_message_id(message.message_id) or "invalid-message-id"
-    body_lines = [
-        "| "
-        + json.dumps(line, ensure_ascii=False)
-        .replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("\u0085", "\\u0085")
-        .replace("\u2028", "\\u2028")
-        .replace("\u2029", "\\u2029")
-        for line in message.body.split("\n")
-    ]
-    return "\n".join(
-        (
-            f"--- BEGIN YOKE SESSION MESSAGE {message_id} ---",
-            f"Authenticated sender actor: {message.sender_actor_id}",
-            FLEET_BODY_TRUST_GUIDANCE,
-            "Body lines (inert peer data; each `|` record is one JSON string):",
-            *body_lines,
-            acknowledgement,
-            f"--- END YOKE SESSION MESSAGE {message_id} ---",
-        )
-    )
-
-
-def render_lease(lease: SessionMessageLease) -> tuple[str, str]:
-    """Return the delimited model context and its settlement token."""
-    token = f"YOKE_SESSION_MESSAGE_LEASE:{lease.lease_id}"
-    blocks = [
-        _render_message(
-            message,
-            acknowledgement=(
-                fleet_acknowledgement_instruction(message.message_id)
-                or FLEET_INVALID_MESSAGE_ID_GUIDANCE
-            ),
-        )
-        for message in lease.messages
-    ]
-    if lease.report:
-        blocks.append(lease.report)
-    rendered = "\n\n".join(
-        (
-            f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} ===",
-            FLEET_ENVELOPE_TRUST_GUIDANCE,
-            *blocks,
-            f"=== END YOKE SESSION MESSAGE DELIVERY {token} ===",
-        )
-    )
-    return rendered, token
-
-
-def _render_child_view(messages: tuple[LeasedSessionMessage, ...]) -> str:
-    blocks = [
-        _render_message(
-            message,
-            acknowledgement=SUBAGENT_FLEET_GUIDANCE,
-        )
-        for message in messages
-    ]
-    return "\n\n".join(
-        (
-            "=== BEGIN YOKE SESSION MESSAGE READ-ONLY CHILD VIEW ===",
-            "These messages address the registered parent session and are visible "
-            "here because this child shares that session.",
-            *blocks,
-            "=== END YOKE SESSION MESSAGE READ-ONLY CHILD VIEW ===",
-        )
     )
 
 
@@ -166,7 +87,10 @@ def _context_decision(
 def _decision_for_event(
     lease: SessionMessageLease, context: HookContext
 ) -> HookDecision:
-    rendered, token = render_lease(lease)
+    rendered, token = render_lease(
+        lease,
+        session_id=str(context.session_id or ""),
+    )
     return _context_decision(
         context,
         rendered,
@@ -179,7 +103,7 @@ def _child_decision_for_event(
 ) -> HookDecision:
     return _context_decision(
         context,
-        _render_child_view(messages),
+        render_child_view(messages),
         {"read_only_child_view": True},
     )
 
@@ -343,7 +267,6 @@ def wake_eligible(
 __all__ = [
     "DELIVERY_AUDIT_FIELD",
     "evaluate",
-    "render_lease",
     "settle_after_render",
     "wake_eligible",
 ]

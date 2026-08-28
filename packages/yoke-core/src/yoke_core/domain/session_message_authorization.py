@@ -26,7 +26,6 @@ class MessageProjectPolicy:
     expiry_hours: int
     wake_after_idle_seconds: int
     max_body_bytes: int
-    reinject_until_acknowledged: bool
     wake_ack_grace_seconds: int
     stale_alive_probe_seconds: int
     max_wake_attempts: int
@@ -65,7 +64,6 @@ def project_policy(conn: Any, project_id: int) -> MessageProjectPolicy:
         expiry_hours=int(setting("fleet.message_expiry_hours")),
         wake_after_idle_seconds=int(setting("fleet.wake_after_idle_seconds")),
         max_body_bytes=int(setting("fleet.max_body_bytes")),
-        reinject_until_acknowledged=bool(setting("fleet.reinject_until_acknowledged")),
         wake_ack_grace_seconds=int(setting("fleet.wake_ack_grace_seconds")),
         stale_alive_probe_seconds=int(setting("fleet.stale_alive_probe_seconds")),
         max_wake_attempts=int(setting("fleet.max_wake_attempts")),

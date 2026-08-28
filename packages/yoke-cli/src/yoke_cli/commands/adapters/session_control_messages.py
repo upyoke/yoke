@@ -19,7 +19,7 @@ from yoke_cli.commands.adapters.session_control_common import (
     write_message_result,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.session_control.models import MessageState
+from yoke_contracts.session_control.models import MessageListState
 from yoke_contracts.session_control.teaching import (
     FLEET_MESSAGE_WORKFLOW_HELP,
     FLEET_OWNERSHIP_GUIDANCE,
@@ -199,9 +199,12 @@ def session_message_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "--state",
-        choices=get_args(MessageState),
-        default=None,
-        help="Only show messages with this recipient state.",
+        choices=get_args(MessageListState),
+        default="unacknowledged",
+        help=(
+            "Filter by recipient state; defaults to unacknowledged, which includes "
+            "pending and injected."
+        ),
     )
     parser.add_argument(
         "--recipient-session",
@@ -215,8 +218,7 @@ def session_message_list(args: List[str]) -> int:
     if parsed is None:
         return 2
     payload: dict[str, Any] = {"limit": parsed.limit}
-    if parsed.state:
-        payload["state"] = parsed.state
+    payload["state"] = parsed.state
     if parsed.recipient_session:
         payload["session_id"] = parsed.recipient_session
     return dispatch_and_emit(

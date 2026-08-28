@@ -32,15 +32,10 @@ FLEET_KEY_SPECS: dict[str, FleetKeySpec] = {
         "Seconds without hook, tool, or heartbeat activity before wake is eligible.",
         1,
     ),
-    "fleet.reinject_until_acknowledged": FleetKeySpec(
-        True,
-        bool,
-        "Re-surface injected messages until explicit acknowledgment.",
-    ),
     "fleet.wake_ack_grace_seconds": FleetKeySpec(
         300,
         int,
-        "Seconds an injected message may go unacknowledged before re-waking.",
+        "Seconds before a wake or injection missing acknowledgement is stalled.",
         1,
     ),
     "fleet.stale_alive_probe_seconds": FleetKeySpec(

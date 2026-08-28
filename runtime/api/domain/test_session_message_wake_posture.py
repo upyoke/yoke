@@ -196,31 +196,11 @@ def _injected(conn, injected_at: str, session_id: str = NATIVE_WAKE_SESSION_ID) 
     conn.commit()
 
 
-def test_an_injected_message_is_left_its_acknowledgement_window() -> None:
-    """A second wake inside the ack window lands on a delivery already working.
-
-    The idleness clock alone cannot tell "gone quiet" from "still reading
-    what it was just handed", so re-wakes rate on delivery state too.
-    """
+def test_an_injected_message_never_reenters_the_wake_queue() -> None:
     conn = message_connection()
     _send(conn)
     _stop(conn)
     _injected(conn, NOW_TEXT)
 
     assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=299)) == []
-    assert len(wake_eligible_recipients(conn, now=NOW + timedelta(seconds=301))) == 1
-
-
-def test_the_acknowledgement_window_is_organization_policy() -> None:
-    conn = message_connection()
-    conn.execute(
-        "UPDATE organizations SET settings=? WHERE id=1",
-        (json.dumps({"fleet": {"wake_ack_grace_seconds": 900}}),),
-    )
-    conn.commit()
-    _send(conn)
-    _stop(conn)
-    _injected(conn, NOW_TEXT)
-
-    assert wake_eligible_recipients(conn, now=NOW + timedelta(seconds=899)) == []
-    assert len(wake_eligible_recipients(conn, now=NOW + timedelta(seconds=901))) == 1
+    assert wake_eligible_recipients(conn, now=NOW + timedelta(days=30)) == []

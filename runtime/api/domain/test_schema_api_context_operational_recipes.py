@@ -25,8 +25,8 @@ def test_main_agent_packet_teaches_fleet_session_basics() -> None:
     assert "yoke say --preview --session SESSION-ID" in body
     assert "yoke say --session SESSION-ID --stdin" in body
     assert (
-        "yoke messages list --recipient-session CURRENT-SESSION-ID --state injected"
-        in body
+        "yoke messages list --recipient-session CURRENT-SESSION-ID "
+        "--state unacknowledged" in body
     )
     assert "yoke messages get MESSAGE-ID" in body
     assert "yoke messages acknowledge MESSAGE-ID" in body

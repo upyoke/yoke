@@ -26,6 +26,7 @@ class FakePort:
     """Records every call and answers from ``acknowledged`` / ``lease_error``."""
 
     acknowledged: bool = False
+    delivered: bool = False
     lease_error: Exception | None = None
     empty_lease: bool = False
     body: str = "Please re-run the focused verifier."
@@ -49,7 +50,7 @@ class FakePort:
         limit: int,
     ) -> tuple[LeasedSessionMessage, ...]:
         self.read.append((session_id, hook_event, limit))
-        if self.acknowledged:
+        if self.acknowledged or self.delivered:
             return ()
         return (self._message(),)
 
@@ -63,7 +64,7 @@ class FakePort:
         self.leased.append((session_id, hook_event, limit))
         if self.lease_error is not None:
             raise self.lease_error
-        if self.acknowledged:
+        if self.acknowledged or self.delivered:
             return None
         lease_id = f"lease-{len(self.leased)}"
         if self.empty_lease:
@@ -78,6 +79,8 @@ class FakePort:
         result: str,
     ) -> None:
         self.completed.append((lease_id, injected, result))
+        if injected:
+            self.delivered = True
 
     def probe_undelivered(
         self,

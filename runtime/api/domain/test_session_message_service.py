@@ -219,6 +219,53 @@ def test_get_and_list_visibility_follows_sender_recipient_or_project_read() -> N
     assert denied.value.code == "message_forbidden"
 
 
+def test_unacknowledged_list_includes_pending_and_injected_receipts() -> None:
+    conn = message_connection()
+    pending_id = _send(conn, body="Still pending.")["message_id"]
+    injected_id = _send(conn, body="Already delivered.")["message_id"]
+    acknowledged_id = _send(conn, body="Already acknowledged.")["message_id"]
+    conn.execute(
+        "UPDATE session_message_recipients SET state='injected',injection_count=1 "
+        "WHERE message_id=?",
+        (injected_id,),
+    )
+    conn.commit()
+    acknowledge_message(
+        conn,
+        message_id=acknowledged_id,
+        session_id="s1",
+        now=NOW,
+    )
+
+    unacknowledged = list_messages(
+        conn,
+        actor_id=10,
+        caller_session_id="s1",
+        state="unacknowledged",
+        limit=10,
+    )
+    default_view = list_messages(
+        conn,
+        actor_id=10,
+        caller_session_id="s1",
+        limit=10,
+    )
+    pending = list_messages(
+        conn,
+        actor_id=10,
+        caller_session_id="s1",
+        state="pending",
+        limit=10,
+    )
+
+    assert {row["message_id"] for row in unacknowledged} == {
+        pending_id,
+        injected_id,
+    }
+    assert injected_id in {row["message_id"] for row in default_view}
+    assert [row["message_id"] for row in pending] == [pending_id]
+
+
 def test_sender_or_every_project_admin_cancels_and_receipt_state_is_terminal() -> None:
     conn = message_connection()
     message_id = _send(conn)["message_id"]

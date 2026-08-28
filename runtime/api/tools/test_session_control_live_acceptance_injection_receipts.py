@@ -1,4 +1,4 @@
-"""Reinjection proof for the first Fleet acceptance receipt."""
+"""One-shot injection proof for Fleet live-acceptance receipts."""
 
 from __future__ import annotations
 
@@ -30,14 +30,14 @@ class _MissingInjectionAckClient(_ScenarioClient):
         self.tool_hook_events.append("initial-message")
 
 
-class _ExtraProbeInjectionClient(_ScenarioClient):
+class _RepeatedInjectionClient(_ScenarioClient):
     def simulate_target_tool_hook(self) -> None:
         super().simulate_target_tool_hook()
         message_id = self.tool_hook_events[-1]
         self.message_states[message_id] = (True, 3)
 
 
-def test_all_acceptance_surfaces_retain_reinjection_hook_coverage() -> None:
+def test_all_acceptance_surfaces_retain_message_hook_coverage() -> None:
     for surface in ACCEPTANCE_SURFACES:
         capability = capability_for_surface(surface)
         assert capability is not None
@@ -77,7 +77,7 @@ def test_live_create_launch_message_accepts_first_injection_ack() -> None:
     report = _driver(client)._run_cell(
         "yoke",
         cell,
-        run_id="launch-reinjection-proof",
+        run_id="launch-injection-proof",
         timeout=10,
         poll=1,
         unsupported_observation=2,
@@ -101,14 +101,14 @@ def test_live_initial_delivery_accepts_first_injection_ack() -> None:
         "codex-cli",
         "0.149.0-alpha.4",
         "identify",
-        session_id="reinjection-target",
+        session_id="injection-target",
     )
     client = _ScenarioClient(cell)
 
     report = _driver(client)._run_cell(
         "yoke",
         cell,
-        run_id="reinjection-proof",
+        run_id="injection-proof",
         timeout=10,
         poll=1,
         unsupported_observation=2,
@@ -129,15 +129,16 @@ def test_live_initial_delivery_accepts_first_injection_ack() -> None:
         phase="stopped-session wake",
     )
 
-    extra_report = _driver(_ExtraProbeInjectionClient(cell))._run_cell(
-        "yoke",
-        cell,
-        run_id="extra-probe-injection",
-        timeout=10,
-        poll=1,
-        unsupported_observation=2,
-    )
-    assert extra_report["initial_message"]["injection_count"] == 3
+    with pytest.raises(AcceptanceContractError) as repeated:
+        _driver(_RepeatedInjectionClient(cell))._run_cell(
+            "yoke",
+            cell,
+            run_id="repeated-injection",
+            timeout=10,
+            poll=1,
+            unsupported_observation=2,
+        )
+    assert repeated.value.code == "injection_receipt_invalid"
 
     with pytest.raises(AcceptanceContractError) as captured:
         _driver(_MissingInjectionAckClient(cell))._run_cell(
@@ -148,4 +149,4 @@ def test_live_initial_delivery_accepts_first_injection_ack() -> None:
             poll=1,
             unsupported_observation=2,
         )
-    assert captured.value.code == "ack_evidence_invalid"
+    assert captured.value.code == "injection_receipt_invalid"

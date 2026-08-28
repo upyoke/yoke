@@ -280,18 +280,14 @@ def wait_for_ack(
     monotonic: Callable[[], float],
     expected_route: str,
     require_wake: bool = False,
-    minimum_injections: int = 1,
 ) -> dict[str, Any]:
     deadline = monotonic() + timeout
     while True:
         observed = receipt(cell, session_id, message_id)
         if observed["state"] == "acknowledged":
-            if (
-                observed["injection_count"] < minimum_injections
-                or not observed["acknowledged_at"]
-            ):
+            if observed["injection_count"] != 1 or not observed["acknowledged_at"]:
                 raise _receipt_failure(
-                    "ack_evidence_invalid", cell=cell, observed=observed
+                    "injection_receipt_invalid", cell=cell, observed=observed
                 )
             if require_wake and (
                 observed["wake_attempt_count"] < 1 or not observed["last_wake_at"]
