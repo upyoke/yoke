@@ -6,6 +6,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
@@ -140,6 +141,20 @@ def _probe_env_without_managed_paths(
     return environ
 
 
+def _seeded_probe_home(
+    shell: str, path_dirs: Sequence[str]
+) -> tempfile.TemporaryDirectory[str]:
+    """Isolated HOME/ZDOTDIR containing only the startup files Yoke writes."""
+    home = tempfile.TemporaryDirectory(prefix="yoke-path-probe-")
+    root = Path(home.name)
+    block = render_managed_block(path_dirs) + "\n"
+    default_startup_file(shell, root).write_text(block)
+    ssh = default_ssh_startup_file(shell, root)
+    if ssh is not None:
+        ssh.write_text(block)
+    return home
+
+
 def _verify_shell(
     flag: str,
     shell: str | None = None,
@@ -155,16 +170,19 @@ def _verify_shell(
         sh = "zsh"
     shell_path = shutil.which(sh, path=probe_env.get("PATH")) or f"/bin/{sh}"
     script = "; ".join(f"command -v {tool} || true" for tool in PATH_TOOLS)
-    try:
-        proc = subprocess.run(
-            [shell_path, flag, script],
-            capture_output=True,
-            text=True,
-            timeout=_VERIFY_TIMEOUT_S,
-            env=probe_env,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return [ToolResolution(tool, None) for tool in PATH_TOOLS]
+    with _seeded_probe_home(sh, path_dirs) as probe_home:
+        probe_env["HOME"] = probe_home
+        probe_env["ZDOTDIR"] = probe_home
+        try:
+            proc = subprocess.run(
+                [shell_path, flag, script],
+                capture_output=True,
+                text=True,
+                timeout=_VERIFY_TIMEOUT_S,
+                env=probe_env,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return [ToolResolution(tool, None) for tool in PATH_TOOLS]
     resolved: dict[str, str] = {}
     for candidate in map(str.strip, proc.stdout.splitlines()):
         base = Path(candidate).name
@@ -179,6 +197,15 @@ def verify_fresh_login(
     env: dict[str, str] | None = None,
     managed_path_dirs: Sequence[str] | None = None,
 ) -> list[ToolResolution]:
+    """Resolve tools in a login-interactive shell that sources Yoke's files only.
+
+    Still uses ``-lic`` so the probe observes login-shell init order, including
+    system files such as ``/etc/zprofile``. It does not source the operator's
+    real rc files: HOME/ZDOTDIR are a temp tree seeded with the managed block.
+    Combined with ``diagnose``'s static read of the real startup file, this
+    proves the block works as a login PATH, not that other operator rc content
+    is harmless.
+    """
     return _verify_shell("-lic", shell, env=env, managed_path_dirs=managed_path_dirs)
 
 
