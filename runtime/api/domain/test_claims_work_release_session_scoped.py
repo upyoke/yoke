@@ -17,7 +17,10 @@ from unittest import mock
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain import claims_work_release_session_scoped as mod
-from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_core.domain.work_claim_targets import (
+    make_item_target,
+    make_qa_admission_target,
+)
 
 
 _DDL = """
@@ -98,6 +101,18 @@ def _insert_item_claim(conn, session_id, item_id, *, released=False):
     return claim_id
 
 
+def _insert_qa_claim(conn, session_id):
+    cur = conn.execute(
+        "INSERT INTO work_claims (session_id, target_kind, scope, claim_type, "
+        "claimed_at, last_heartbeat) VALUES (%s, 'qa_admission', %s, "
+        "'exclusive', %s, %s) RETURNING id",
+        (session_id, make_qa_admission_target("test-mac").scope_json(), _now(), _now()),
+    )
+    claim_id = int(cur.fetchone()[0])
+    conn.commit()
+    return claim_id
+
+
 class _ConnCM:
     def __init__(self, conn):
         self._conn = conn
@@ -125,6 +140,21 @@ def _patches(conn):
 
 
 class TestReleaseAllClaimsForSession(unittest.TestCase):
+    def test_sticky_claim_survives_session_scoped_release(self):
+        conn = _build_conn()
+        _insert_session(conn, "sess-sticky")
+        item_id = _insert_item_claim(conn, "sess-sticky", 100)
+        sticky_id = _insert_qa_claim(conn, "sess-sticky")
+        p1, p2, p3 = _patches(conn)
+        with p1, p2, p3:
+            result = mod.release_all_claims_for_session("sess-sticky")
+        self.assertEqual(result["released_count"], 1)
+        self.assertEqual(result["released_claims"][0]["claim_id"], item_id)
+        row = conn.execute(
+            "SELECT released_at FROM work_claims WHERE id=%s", (sticky_id,)
+        ).fetchone()
+        self.assertIsNone(row["released_at"])
+
     def test_releases_every_active_claim_for_caller(self):
         conn = _build_conn()
         _insert_session(conn, "sess-A")

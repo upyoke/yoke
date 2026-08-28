@@ -84,7 +84,7 @@ class TestPolicy:
 
 
 class TestStaleSessionSweep:
-    def test_reclaim_releases_only_liveness_bound_claims(
+    def test_qa_and_migration_claims_survive_stale_session_reclaim(
         self, db_path: str
     ) -> None:
         from yoke_core.domain.sessions_render_reclaim import reclaim_stale_session
@@ -102,6 +102,21 @@ class TestStaleSessionSweep:
 
 
 class TestSessionEndRelease:
+    @pytest.mark.parametrize("release_claims", [False, True])
+    def test_qa_and_migration_claims_survive_session_end(
+        self, db_path: str, release_claims: bool
+    ) -> None:
+        from yoke_core.domain.sessions_render_end import end_session
+
+        conn = _connect(db_path)
+        try:
+            claims = _hold_everything(conn)
+            result = end_session(conn, HOLDER, release_claims=release_claims)
+            assert result["ended_at"] is not None
+            _assert_sticky_survived(conn, claims)
+        finally:
+            conn.close()
+
     def test_release_all_leaves_the_sticky_holds_alone(self, db_path: str) -> None:
         from yoke_core.domain.sessions_lifecycle_release_bulk import (
             release_all_claims,
@@ -111,6 +126,26 @@ class TestSessionEndRelease:
         try:
             claims = _hold_everything(conn)
             release_all_claims(conn, HOLDER)
+            _assert_sticky_survived(conn, claims)
+        finally:
+            conn.close()
+
+
+class TestHarnessSessionCommands:
+    @pytest.mark.parametrize("command_name", ["release_all", "reclaim"])
+    def test_session_scoped_commands_preserve_sticky_claims(
+        self, db_path: str, command_name: str, monkeypatch
+    ) -> None:
+        from yoke_core.hooks import sessions_claims
+
+        conn = _connect(db_path)
+        try:
+            claims = _hold_everything(conn)
+            monkeypatch.setattr(sessions_claims, "_emit_event", lambda *a, **k: None)
+            if command_name == "release_all":
+                sessions_claims.cmd_release_all(conn, HOLDER)
+            else:
+                sessions_claims.cmd_reclaim(conn, HOLDER)
             _assert_sticky_survived(conn, claims)
         finally:
             conn.close()

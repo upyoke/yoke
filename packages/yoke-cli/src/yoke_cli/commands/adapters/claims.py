@@ -137,8 +137,8 @@ CLAIM_WORK_RELEASE_USAGE = (
     "epic_task claim on (epic_id, task_num).\n"
     "  --process KEY releases this session's active process claim "
     "(STRATEGIZE, FEED, DOCTOR).\n"
-    "  --all-mine releases every active claim this session holds, without "
-    "ending the session (harness owns session lifecycle)."
+    "  --all-mine releases every active liveness-bound claim this session "
+    "holds, without ending the session; sticky resource claims survive."
 )
 
 _SELECTOR_ERR = (
@@ -178,18 +178,16 @@ def claims_work_release(args: List[str]) -> int:
         "--all-mine",
         action="store_true",
         help=(
-            "Release every active claim this session still holds without "
-            "ending the session (canonical reason "
+            "Release every active liveness-bound claim this session still "
+            "holds without ending the session; sticky resource claims survive "
+            "(canonical reason "
             "'agent_handoff_session_scoped')."
         ),
     )
     parser.add_argument(
         "--reason",
         default=None,
-        help=(
-            "Required with --claim-id, --item, --epic-id+--task-num, "
-            "or --process."
-        ),
+        help=("Required with --claim-id, --item, --epic-id+--task-num, or --process."),
     )
     add_session_arg(parser)
     add_json_arg(parser)

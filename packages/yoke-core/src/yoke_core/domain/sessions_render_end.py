@@ -31,6 +31,7 @@ from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
+from yoke_core.domain.work_claim_target_sql import LIVENESS_BOUND_SQL
 
 
 @rollback_workflow_binding_write_errors
@@ -47,9 +48,10 @@ def end_session(
 ) -> Dict[str, Any]:
     """Mark a session as ended.
 
-    Sessions with active unreleased claims are protected from termination
-    by default. When ``release_claims`` is True, the destructive
-    claim-release branch releases every active claim before ending.
+    Sessions with active unreleased liveness-bound claims are protected from
+    termination by default. When ``release_claims`` is True, the destructive
+    claim-release branch releases those claims before ending. Sticky resource
+    claims survive both branches.
 
     Args:
         conn: Read-write database connection.
@@ -128,9 +130,10 @@ def end_session(
         )
 
     active_claim_rows = conn.execute(
-        """SELECT id, target_kind, scope
+        f"""SELECT id, target_kind, scope
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
+             AND {LIVENESS_BOUND_SQL}
            ORDER BY claimed_at ASC, id ASC""",
         (session_id,),
     ).fetchall()
@@ -139,20 +142,21 @@ def end_session(
         (int(claim_row["id"]) for claim_row in active_claim_rows),
     )
     active_claim_rows = conn.execute(
-        """SELECT id, target_kind, scope
+        f"""SELECT id, target_kind, scope
            FROM work_claims
            WHERE session_id = %s AND released_at IS NULL
+             AND {LIVENESS_BOUND_SQL}
            ORDER BY claimed_at ASC, id ASC""",
         (session_id,),
     ).fetchall()
 
     # Active-claim handling:
     #   * ``release_claims`` is True — destructive branch. Releases
-    #     all claims and falls through to the normal session-end
+    #     all liveness-bound claims and falls through to the normal session-end
     #     commit; the CHAIN_PENDING guard above has already refused
     #     any chain-pending session without an authorized override.
     #   * ``release_claims`` is False — explicit no-flags CLI / loop
-    #     cleanup path. Auto-release the session's active work-claims
+    #     cleanup path. Auto-release the session's active liveness-bound claims
     #     with ``release_reason='session_ended'`` via the typed
     #     release path so item, epic_task, and process targets all
     #     use the same semantics and process-owned linked path claims
