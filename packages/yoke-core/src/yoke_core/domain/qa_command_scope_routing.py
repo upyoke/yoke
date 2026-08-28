@@ -26,6 +26,11 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.github_actions_workflow_inspection import (
+    WorkflowInspection,
+    resolve_ci_workflow_binding,
+)
+from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.projects_seed_ci_workflow import (
     CI_WORKFLOW_CAPABILITY_TYPE,
     MERGE_QUEUE_CAPABILITY_TYPE,
@@ -134,7 +139,7 @@ def ci_binding_for_scope(
     scope: str,
     ci_workflow: str,
     refuse_unreachable: bool,
-) -> tuple[str, Any]:
+) -> tuple[str, WorkflowInspection]:
     """Resolve the workflow a scope binds to, once, for both callers.
 
     Registration and the boot-time convergence ask the identical question and
@@ -142,13 +147,6 @@ def ci_binding_for_scope(
     question needs — the project's merge-queue declaration and this machine's
     checkout — live here rather than being spelled out at both call sites.
     """
-    from yoke_core.domain.github_actions_workflow_inspection import (
-        resolve_ci_workflow_binding,
-    )
-    from yoke_core.domain.project_checkout_locations import (
-        checkout_for_project_id,
-    )
-
     return resolve_ci_workflow_binding(
         ci_workflow,
         checkout=checkout_for_project_id(int(project_id)),

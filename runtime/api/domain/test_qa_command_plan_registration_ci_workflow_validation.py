@@ -13,7 +13,7 @@ import json
 import pytest
 
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain import project_checkout_locations
+from yoke_core.domain import qa_command_scope_routing
 from yoke_core.domain.projects_seed_ci_workflow import (
     CI_WORKFLOW_CAPABILITY_TYPE,
     MERGE_QUEUE_CAPABILITY_TYPE,
@@ -87,7 +87,7 @@ def _bind_checkout(monkeypatch, tmp_path, workflow_text: str | None):
     else:
         root.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(
-        project_checkout_locations,
+        qa_command_scope_routing,
         "checkout_for_project_id",
         lambda project_id, **kwargs: root,
     )
@@ -146,7 +146,7 @@ def test_an_unreadable_declaration_binds_ci_and_names_what_went_unchecked(
 ):
     with test_database() as conn:
         monkeypatch.setattr(
-            project_checkout_locations,
+            qa_command_scope_routing,
             "checkout_for_project_id",
             lambda project_id, **kwargs: None,
         )
