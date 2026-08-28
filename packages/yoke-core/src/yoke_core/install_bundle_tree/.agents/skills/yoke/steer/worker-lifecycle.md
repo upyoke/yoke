@@ -25,6 +25,11 @@ steering scope. Do not wait for the operator to pick. Nothing else
 staffs: the fleet report names work that sat unpicked, and this seat is
 what acts on it, using the launcher recipe below.
 
+Staff what this seat files in the same pass that files it, as soon as the
+item is runnable. Do not wait for a report to name work created seconds
+ago: the report exists for work this seat did not create, and an item it
+just filed needs no discovery step. Filing and staffing are one action.
+
 ## 3. Launch CLI surfaces only
 
 Steering-launched sessions use `claude-cli`, `codex-cli`, or
@@ -38,6 +43,22 @@ The spread is diagnostic: skew can hide a harness-specific regression.
 The fleet report's launch-balance block shows the live count per launchable
 surface on each machine. A surface absent from that line cannot accept a
 launch — do not read a missing surface as zero.
+
+Measure balance against live load; never assume it from the batch. Read the
+current per-surface counts from the fleet report's launch-balance block
+before staffing, then allocate each launch so the counts it leaves behind
+come out as level as they can. Leveling chooses which surface a launch goes
+to; it never withholds one.
+
+Never split a batch evenly across surfaces. An even split preserves whatever
+skew is already there: six items sent two per surface onto a fleet already
+running codex 5, claude 3, cursor 1 leaves codex 7, claude 5, cursor 3 — the
+same skew, one size larger. Leveling that fleet sends most of the six to
+cursor.
+
+Allocation at launch is the only chance to get this right. Rebalancing
+afterwards would mean killing live workers mid-item, so there is no second
+pass that fixes a skewed batch.
 
 ```text
 yoke session-control launch preview --project {_project} --surface {_surface} --json
