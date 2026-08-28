@@ -11,6 +11,7 @@ from yoke_core.domain.session_message_wake import wake_eligible_recipients
 from yoke_core.domain.session_relay_versions import wake_operation
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from runtime.api.domain.test_session_message_support import (
+    NATIVE_WAKE_SESSION_ID,
     NOW,
     NOW_TEXT,
     message_connection,
@@ -21,7 +22,6 @@ from runtime.api.domain.test_session_message_support import (
 #: ``fleet.wake_ack_grace_seconds`` — the window the escalation reuses.
 GRACE = timedelta(seconds=300)
 STARVED = NOW + GRACE + timedelta(seconds=1)
-TARGET_SESSION_ID = "s4"
 
 
 def _send(conn) -> str:
@@ -29,7 +29,7 @@ def _send(conn) -> str:
         conn,
         actor_id=10,
         sender_session_id="s2",
-        selector=selector(session_ids=[TARGET_SESSION_ID]),
+        selector=selector(session_ids=[NATIVE_WAKE_SESSION_ID]),
         body="Never pass this body to a native wake.",
         now=NOW,
     )["message_id"]
@@ -45,7 +45,7 @@ def _stamp(conn, *, when, tool_call: str = NOW_TEXT) -> None:
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
         "WHERE session_id=?",
-        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, TARGET_SESSION_ID),
+        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, NATIVE_WAKE_SESSION_ID),
     )
     conn.commit()
 

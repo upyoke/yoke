@@ -52,6 +52,8 @@ SHARED_TEST_FIXTURE_PATHS = (
 TEST_TOOLING_PATHS = (
     "packages/yoke-core/src/yoke_core/tools/_impacted_changed_paths.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py",
+    "packages/yoke-core/src/yoke_core/tools/"
+    "_impacted_contract_tests_session_control.py",
     "packages/yoke-core/src/yoke_core/tools/impacted_tests.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_selection.py",
     "packages/yoke-core/src/yoke_core/tools/watch_pytest.py",
