@@ -80,6 +80,15 @@
       }
     }
   },
+  "agent_wake": {
+    "source": "yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES",
+    "idle_wake": "supported",
+    "idle_wake_mechanism": "Monitor",
+    "timer_wake": "supported",
+    "timer_wake_mechanism": "ScheduleWakeup",
+    "verified_on_surface": "claude-cli",
+    "evidence": "Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on."
+  },
   "worktree_hook_enablement": {
     "config_path": ".claude/settings.json",
     "operations": [

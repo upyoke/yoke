@@ -8,6 +8,31 @@ Yoke's hook infrastructure provides startup orientation, Bash tool guardrails, p
 
 The tested Codex hook events (`SessionStart`, `UserPromptSubmit`, `PreToolUse` Bash/apply_patch matchers, `PostToolUse` Bash/apply_patch matchers, and `Stop`) are the basis for the cross-harness parity slice. `PostToolUseFailure` is not part of the Codex hook surface. Bash failure classification on Codex is handled inside the `PostToolUse` path, not by a separate event. Hooks outside this tested set remain Claude-Code-only until verified in additional harnesses.
 
+## Harness Wake Capability
+
+Whether a harness can resume an ended turn from an out-of-band signal decides
+which tier a watcher-shaped behavior can live in, so the tables below depend
+on these facts rather than restating them.
+
+<!-- BEGIN GENERATED: harness-wake-capability -->
+Wake capability is a manifest fact, not prose. Source of truth:
+`agent_wake` in `runtime/harness/<harness_id>/manifest.json`, rendered from
+`yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
+restate one of these facts on a document's own authority.
+
+| Harness | Idle wake (resume an ended turn) | Timer wake | Verified on |
+|---|---|---|---|
+| `claude-code` | supported (`Monitor`) | supported (`ScheduleWakeup`) | `claude-cli` |
+| `codex` | none | none | `codex-cli` |
+| `cursor` | supported (`notify_on_output`) | none | `cursor-cli` |
+
+Evidence behind each row:
+
+- `claude-code` — Monitor and ScheduleWakeup are first-class model-facing tools. Every stdout line a Monitor filter matches resumes the turn, which is what the main-session long-command rule is built on.
+- `codex` — Live probe: foreground exec_command/PTY output streams only while the turn stays active; backgrounding with (...) & returns a prompt but stdout does not resume the model; a detached nohup child vanished when its command invocation ended and wrote zero lines. Continuations are an exec_command session_id plus explicit write_stdin polling; none resumes a turn after it ends.
+- `cursor` — Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed.
+<!-- END GENERATED: harness-wake-capability -->
+
 ## Three-Tier Classification
 
 ### Universal (no hook dependency)
@@ -67,7 +92,7 @@ Behaviors in this tier use hook events or matchers that have no tested equivalen
 | `PreToolUse` (Edit matcher) | Write-side guardrails via the Claude `Edit` tool | Same — covered cross-harness through Codex's `apply_patch` matcher in Tier 2 |
 | `PostToolUse` (Write/Edit/Read) | Python-owned telemetry on non-Bash tools | Codex `PostToolUse` is only tested with the Bash matcher; non-Bash tool telemetry remains Claude-only |
 | `PostToolUseFailure` (any matcher) | Python-owned telemetry for tool failures routed through a distinct event | Not a Codex hook event — OpenAI's hooks docs only document `SessionStart`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`. Codex Bash failures are recovered inside `PostToolUse` via text parsing + transcript reconciliation; non-Bash tool failures on Codex remain unrecovered for now. |
-| `PreToolUse` (Monitor matcher) | Python-owned Monitor guardrails: (1) `lint_monitor_watcher_tail` denies a bare `tail -f`/`tail -F` first arm on a watcher capture and prints the sentinel-aware `yoke watch tail` replacement; (2) `lint_long_command_polling.evaluate_duplicate_monitor` enforces one Monitor subscription per capture for the full session; (3) `hint_monitor_relay` injects the canonical relay-only reminder into `additionalContext`. Both denial suppressions are audit-only. | **Not a Codex event.** Codex has no Monitor primitive — long-running commands stream via native PTY output, so there is no `Monitor` tool to wake on per-match, no duplicate-Monitor failure mode, and no `tail -f`-style watcher arming to gate against. Codex callers run watcher wrappers (`watch_pytest`, `watch_merge`) as foreground commands and rely on PTY streaming; the floor-level rule from AGENTS.md's `## Command Output — Hard Rule` (capture-first, fallback cadence 60s -> 90s -> 120s -> max ~300s) is the complete Codex-side surface. |
+| `PreToolUse` (Monitor matcher) | Python-owned Monitor guardrails: (1) `lint_monitor_watcher_tail` denies a bare `tail -f`/`tail -F` first arm on a watcher capture and prints the sentinel-aware `yoke watch tail` replacement; (2) `lint_long_command_polling.evaluate_duplicate_monitor` enforces one Monitor subscription per capture for the full session; (3) `hint_monitor_relay` injects the canonical relay-only reminder into `additionalContext`. Both denial suppressions are audit-only. | **Not a Codex event.** The manifest records `agent_wake.idle_wake = none` for codex, so nothing can resume an ended turn per match: there is no `Monitor` tool to wake on, no duplicate-Monitor failure mode, and no `tail -f`-style watcher arming to gate against. Long-running commands stream via native PTY output instead. Codex callers run watcher wrappers (`watch_pytest`, `watch_merge`) as foreground commands and rely on PTY streaming; the floor-level rule from AGENTS.md's `## Command Output — Hard Rule` (capture-first, fallback cadence 60s -> 90s -> 120s -> max ~300s) is the complete Codex-side surface. |
 | `PostToolUse` (Bash, Engineer-only) | Python-owned progress sync to GitHub | Agent-scoped hooks require subagent dispatch infrastructure |
 | `Stop` | `yoke hook evaluate Stop` for both Claude Code and Codex. Codex pins `YOKE_EXECUTOR=codex YOKE_PROVIDER=openai` in the rendered command. Both routes run bounded `session-end-if-empty` through the CLI-backed local runner; Codex stdout stays `{}`. Claimless sessions end during the hook, while claimed or chain-pending sessions stay active for prompt reactivation / stale-session reclaim. | Codex Stop event not tested as a true archive/session-end equivalent |
 

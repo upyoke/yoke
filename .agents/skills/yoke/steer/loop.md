@@ -16,8 +16,20 @@ probe and/or a `ScheduleWakeup` fallback of at least 1200 seconds. This keeps
 quiet stretches producing frontier passes without manual polling.
 <!-- YOKE:HARNESS end -->
 
-Codex and Cursor steering sessions rely on message wakes plus their native
-loop. Never teach them Claude-only wake primitives.
+Which wake primitives this session actually has is a declared fact, not a
+guess. Never teach a harness one it does not declare; a harness declaring
+neither runs its passes on message wakes plus its native loop.
+
+<!-- BEGIN GENERATED: harness-wake-capability -->
+Wake capability is a manifest fact, not prose. Source of truth:
+`agent_wake` in `runtime/harness/<harness_id>/manifest.json`, rendered from
+`yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
+restate one of these facts on a document's own authority.
+
+- `claude-code` — idle wake: supported (`Monitor`); timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
+- `codex` — idle wake: none; timer wake: none. Verified on codex-cli.
+- `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
+<!-- END GENERATED: harness-wake-capability -->
 
 Stamp `yoke sessions touch --mode steer` at the start of each pass if the
 mode is no longer `steer`.

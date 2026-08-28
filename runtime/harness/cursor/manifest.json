@@ -66,6 +66,15 @@
       }
     }
   },
+  "agent_wake": {
+    "source": "yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES",
+    "idle_wake": "supported",
+    "idle_wake_mechanism": "notify_on_output",
+    "timer_wake": "none",
+    "timer_wake_mechanism": "",
+    "verified_on_surface": "cursor-cli",
+    "evidence": "Live probe: the session ends its turn after a Shell call with block_until_ms=0 and a notify_on_output pattern, then receives system_notification pattern matches while idle — a working equivalent of Claude's Monitor. No timer wake was observed."
+  },
   "worktree_hook_enablement": {
     "config_path": ".cursor/hooks.json",
     "operations": [

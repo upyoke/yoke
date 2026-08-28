@@ -123,6 +123,10 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         # import names.
         "yoke_core.domain.worktree",
         "yoke_core.domain.db_helpers",
+        # The harness capability authority. Every role gets `core`, so no
+        # agent has to discover from prose that manifests, not documents,
+        # decide what a harness can do.
+        "runtime/harness/<harness_id>/manifest.json",
     ),
     "claims": (
         "harness_sessions",

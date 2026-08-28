@@ -26,6 +26,7 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 | `identity` | object | Yes | Session-identity sources for `executor`, `provider`, `model`, `workspace`. See [Identity](#identity). |
 | `supports` | object | Yes | Affordance and command-source posture. See [Supports](#supports). |
 | `session_control` | object | Yes | Versioned per-surface facts used to compute session messaging and launch routes. See [Session control](#session-control). |
+| `agent_wake` | object | Yes | Whether the harness can resume an idle model turn, by which primitive, and on what evidence. See [Agent wake](#agent-wake). |
 | `worktree_hook_enablement` | object | Yes | Operations that make the harness hook chain live and workspace-bound in linked worktree lanes. See [Worktree hook enablement](#worktree-hook-enablement). |
 | `telemetry` | object | Yes | Telemetry source posture. See [Telemetry](#telemetry). |
 | `fallback` | object | Yes | Behavior when affordances or paths are unsupported. See [Fallback](#fallback). |
@@ -112,6 +113,36 @@ adapter contract. `inject_events` names the model-visible hook events that can
 lease and render a pending message; it is independent of native wake/create
 support.
 
+## Agent wake
+
+The object is rendered from
+`yoke_contracts.harness_wake_capability.HARNESS_WAKE_CAPABILITIES`. It is the
+single authority for what a harness can do with an out-of-band wake; no
+document, skill, agent body, or rules file states one of these facts on its
+own. Teaching surfaces that show the capability to a reader render it through
+`yoke_core.tools.render_harness_capability_inline`, and a surface that only
+explains a consequence names the field it depends on.
+
+An **idle wake** resumes a model turn *after* that turn has ended — the
+property that decides whether a session can arm a background watcher and be
+woken per match, or must keep the turn alive and poll. A **timer wake** is the
+same resumption the session schedules for itself.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `source` | string | Canonical Python contract that owns the facts. |
+| `idle_wake` | string | `supported` \| `none` \| `unverified`. |
+| `idle_wake_mechanism` | string | Named primitive that performs the idle wake (for example, `Monitor`, `notify_on_output`). Empty when the class is not `supported`. |
+| `timer_wake` | string | `supported` \| `none` \| `unverified`. |
+| `timer_wake_mechanism` | string | Named primitive that performs the timer wake. Empty when the class is not `supported`. |
+| `verified_on_surface` | string | Session surface the probe ran against. Empty when unverified. |
+| `evidence` | string | How the answer was established — what was measured, and what the measurement showed. |
+
+`unverified` is a first-class value and the default for an unknown harness id:
+a harness nobody has probed says so rather than inheriting a neighbour's
+answer. Adding a harness adapter means adding its measured entry to the
+contract before any surface states what it can do.
+
 ## Worktree hook enablement
 
 This object is the harness adapter's contribution to linked-lane preparation.
@@ -167,4 +198,4 @@ The schema in this file is the contract. When new fields are added:
 - Update the manifest source dicts (or note the new field is optional and document the default).
 - Update doctor checks that read the affected field.
 
-All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. Author changes in the source dicts, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.
+All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. The `session_control` and `agent_wake` objects are composed from `yoke_contracts.session_control` and `yoke_contracts.harness_wake_capability` respectively, so those facts are authored in their contracts rather than in the manifest dicts. Author changes in the source dicts or the contract they read, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.
