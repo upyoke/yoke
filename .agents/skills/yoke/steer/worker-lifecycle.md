@@ -35,6 +35,9 @@ Keep steady-state launches balanced across all three CLI surfaces. Deviate
 only for a named live reason, such as a failing launch path or a capability
 the item specifically needs, and return to balance when that reason expires.
 The spread is diagnostic: skew can hide a harness-specific regression.
+The fleet report's launch-balance block shows the live count per launchable
+surface on each machine. A surface absent from that line cannot accept a
+launch — do not read a missing surface as zero.
 
 ```text
 yoke session-control launch preview --project {_project} --surface {_surface} --json

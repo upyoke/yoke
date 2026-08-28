@@ -1,24 +1,9 @@
 """What the steering seat cannot see from inside its own turn.
 
-A steering session spends its attention on whatever it is currently doing,
-and the fleet keeps changing underneath it: an item becomes runnable and
-nobody picks it up, a worker's claim is released by a liveness sweep and the
-item quietly stops moving, a claim-holder goes silent. None of those announce
-themselves. The only detector used to be the steerer's own memory to go and
-look, which is a habit rather than a guarantee — three runnable items once sat
-unstaffed while the steerer worked on something else.
-
-This module composes that negative space into one report. It decides nothing
-and launches nothing: staffing is the steerer's judgment, and a report that
-hires workers is the system this one replaced.
-
-Every detector here is a **time threshold**, never an instantaneous read.
-Each lifecycle segment boundary releases a claim and reacquires moments
-later, so a zero-owner snapshot is the normal shape of healthy work — a
-sweep that read that window as abandonment once staffed a duplicate worker
-onto a live item. A parked session is also a separate fact from an unowned
-item: a session that stamped ``parked`` declared its wait, and folding the
-two into one alarm teaches the steerer to skim.
+Composes unstaffed work, idle holders, launchable surfaces, and live
+session counts into one report. It decides nothing and launches nothing.
+Every detector is a time threshold: a zero-owner snapshot is the normal
+shape of a claim handoff, and a parked session declared its wait.
 """
 
 from __future__ import annotations
@@ -61,14 +46,7 @@ def _age_seconds(stamp: str | None, now: str) -> int | None:
 
 @dataclass(frozen=True)
 class FrontierEntry:
-    """One runnable, unclaimed, non-waiting step in a steering scope.
-
-    ``pickable_since`` is when the work became available — the later of its
-    own last change and the last release of a claim on it — so its age reads
-    "how long has this sat there", not "how old is the item". ``was_owned``
-    records which of those two won: work whose clock restarted at a claim
-    release stopped, while work that never carried a claim never started.
-    """
+    """Runnable unclaimed step; ``was_owned`` means a claim release put it there."""
 
     item_id: int
     item_ref: str
@@ -116,6 +94,7 @@ class FleetReport:
     holders: tuple[ClaimHolder, ...]
     idle: tuple[ClaimHolder, ...]
     launchable: tuple[SurfaceReadiness, ...]
+    session_counts: tuple[tuple[str, str, int], ...]
 
     @property
     def actionable(self) -> bool:
@@ -123,12 +102,8 @@ class FleetReport:
         return bool(self.unstaffed or self.unowned or self.idle)
 
     def fingerprint(self) -> str:
-        """Identity of the report's content, blind to how old anything is.
-
-        Ages advance every second; including them would make every report
-        "changed" and defeat the suppression that keeps this from becoming
-        noise the steerer learns to skim.
-        """
+        """Content identity, blind to ages so the report is not noise."""
+        counts = {(machine, surface): n for machine, surface, n in self.session_counts}
         material = {
             "frontier": sorted(entry.item_id for entry in self.frontier),
             "unstaffed": sorted(entry.item_id for entry in self.unstaffed),
@@ -137,8 +112,9 @@ class FleetReport:
                 (holder.session_id, holder.item_id) for holder in self.holders
             ),
             "idle": sorted((holder.session_id, holder.item_id) for holder in self.idle),
-            "launchable": sorted(
-                (ready.machine_id, ready.surface) for ready in self.launchable
+            "launch_balance": sorted(
+                (r.machine_id, r.surface, counts.get((r.machine_id, r.surface), 0))
+                for r in self.launchable
             ),
         }
         encoded = json.dumps(material, sort_keys=True, separators=(",", ":"))
@@ -306,6 +282,27 @@ def launchable_surfaces(
     )
 
 
+def live_session_counts(
+    conn: Any, *, project_id: int
+) -> tuple[tuple[str, str, int], ...]:
+    """Live sessions in this project, grouped by machine and surface."""
+    marker = _p(conn)
+    rows = conn.execute(
+        f"""SELECT machine_id, executor_surface, COUNT(*) AS n
+              FROM harness_sessions
+             WHERE ended_at IS NULL AND terminated_at IS NULL
+               AND project_id = {marker}
+               AND COALESCE(machine_id, '') <> ''
+               AND COALESCE(executor_surface, '') <> ''
+             GROUP BY machine_id, executor_surface""",
+        (int(project_id),),
+    ).fetchall()
+    return tuple(
+        (str(row["machine_id"]), str(row["executor_surface"]), int(row["n"]))
+        for row in rows
+    )
+
+
 def compose_report(
     conn: Any,
     *,
@@ -333,6 +330,7 @@ def compose_report(
             if not holder.parked and holder.idle_seconds >= stale
         ),
         launchable=launchable_surfaces(conn, project_id=project_id, now=now),
+        session_counts=live_session_counts(conn, project_id=project_id),
     )
 
 
