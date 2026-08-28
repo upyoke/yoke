@@ -24,6 +24,9 @@ from yoke_harness.hooks.local_policy_common import DENY, NOOP
 
 
 HOME = Path.home()
+# Captured at import time, before the autouse privacy guard replaces the
+# name for each test.
+_REAL_POPEN = subprocess.Popen
 REPO = Path(__file__).resolve().parents[3]
 
 
@@ -160,3 +163,14 @@ def test_product_local_subset_denies_before_https_relay() -> None:
     assert result.denied is True
     assert result.denial_audit is not None
     assert result.denial_audit["guard_key"] == ("yoke_core.domain.lint_local_privacy")
+
+
+def test_the_installed_guard_keeps_the_real_popen_type_surface() -> None:
+    # The autouse guard replaces subprocess.Popen for the whole session.
+    # Production modules annotate factories as subprocess.Popen[bytes] at
+    # module scope, so a replacement that is not subscriptable turns the
+    # first in-test import of such a module into a TypeError that has
+    # nothing to do with the test.
+    assert subprocess.Popen is not _REAL_POPEN
+    assert subprocess.Popen[bytes] is not None
+    assert issubclass(subprocess.Popen, _REAL_POPEN)
