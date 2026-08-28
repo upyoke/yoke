@@ -39,6 +39,8 @@ REINJECTION_COOLDOWN = timedelta(minutes=30)
 REINJECTION_CEILING = 3
 REASON_REINJECTED = "promised_work_reinjected"
 REASON_CAP_REACHED = "reinjection_cap_reached"
+UNFINISHED_CLOSE_OUT = "lifecycle_close_out"
+UNFINISHED_CLAIMED_ITEM = "claimed_item_in_progress"
 EVIDENCE_UNAVAILABLE_REASON = "turn-evidence-unavailable"
 DIRECTIVE = (
     "This session still holds a live work claim. Finish the current step "
@@ -97,7 +99,8 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     item_id_scope = scope_int_sql(conn, "wc.scope", "item_id")
     row = conn.execute(
-        f"""SELECT i.id AS item_id, i.status
+        f"""SELECT i.id AS item_id, i.status,
+                    i.merged_at, i.merge_queue_landed_at
               FROM work_claims wc
               JOIN items i ON i.id = {item_id_scope}
              WHERE wc.session_id = {placeholder}
@@ -109,7 +112,12 @@ def _live_claim(conn: Any, session_id: str) -> Optional[dict[str, Any]]:
     ).fetchone()
     if row is None:
         return None
-    return {"item_id": row["item_id"], "status": row["status"]}
+    return {
+        "item_id": row["item_id"],
+        "status": row["status"],
+        "merged_at": row["merged_at"],
+        "merge_queue_landed_at": row["merge_queue_landed_at"],
+    }
 
 
 def _item_blocks_hold(status: Any) -> bool:
@@ -164,6 +172,32 @@ def _at_reinjection_cap(
     return anchor.astimezone(timezone.utc) < last_hold_at + REINJECTION_COOLDOWN
 
 
+def _landed_but_open(claim: dict[str, Any]) -> bool:
+    return bool(claim.get("merged_at") or claim.get("merge_queue_landed_at"))
+
+
+def unfinished_work_name(claim: dict[str, Any]) -> str:
+    """Name the work the cap is about to abandon."""
+    if _landed_but_open(claim):
+        return UNFINISHED_CLOSE_OUT
+    return UNFINISHED_CLAIMED_ITEM
+
+
+def recovery_for(claim: dict[str, Any]) -> str:
+    """Recovery the next agent can run; status is never the landing signal."""
+    ref = str(claim.get("item_id") or "")
+    status = str(claim.get("status") or "")
+    if _landed_but_open(claim):
+        return (
+            f"item {ref} is still {status} after landing; status is not the "
+            "landing signal. Finish close-out with "
+            f"`yoke merge item {ref}` (Dash) or `/yoke usher {ref}` "
+            "(delivery). Confirm merged_at, the merge receipt, or git "
+            "ancestry of the merge sha."
+        )
+    return DIRECTIVE
+
+
 def _emit_deferred(
     *,
     conn: Any,
@@ -171,6 +205,7 @@ def _emit_deferred(
     item_id: Any,
     reason: str,
     cap_reached: bool,
+    claim: Optional[dict[str, Any]] = None,
 ) -> None:
     from yoke_core.domain.scheduler_events import emit_chain_end_deferred
     from yoke_core.domain.sessions_render_end_chain_pending import (
@@ -179,6 +214,15 @@ def _emit_deferred(
     )
 
     state = chain_pending_state(conn, session_id)
+    extras: dict[str, Any] = {}
+    if cap_reached:
+        held = claim or {"item_id": item_id}
+        extras = {
+            "unfinished_work": unfinished_work_name(held),
+            "item_status": str(held.get("status") or "") or None,
+            "recovery": recovery_for(held),
+            "severity": "WARN",
+        }
     emit_chain_end_deferred(
         session_id=session_id,
         triggered_by="turn-end-promised-work-gate",
@@ -191,6 +235,7 @@ def _emit_deferred(
         last_release_at=last_released_at(conn, session_id),
         reason=reason,
         cap_reached=cap_reached,
+        **extras,
     )
 
 
@@ -227,6 +272,7 @@ def evaluate(record: HookContext) -> HookDecision:
                 item_id=claim["item_id"],
                 reason=REASON_CAP_REACHED,
                 cap_reached=True,
+                claim=claim,
             )
             return _allow()
         _emit_deferred(
@@ -235,6 +281,7 @@ def evaluate(record: HookContext) -> HookDecision:
             item_id=claim["item_id"],
             reason=REASON_REINJECTED,
             cap_reached=False,
+            claim=claim,
         )
         return _hold()
     except Exception:
@@ -253,5 +300,9 @@ __all__ = [
     "REASON_REINJECTED",
     "REINJECTION_CEILING",
     "REINJECTION_COOLDOWN",
+    "UNFINISHED_CLAIMED_ITEM",
+    "UNFINISHED_CLOSE_OUT",
     "evaluate",
+    "recovery_for",
+    "unfinished_work_name",
 ]

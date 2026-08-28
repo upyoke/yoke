@@ -10,6 +10,7 @@ from .scheduler_types import SchedulerResult
 
 _logger = logging.getLogger(__name__)
 
+
 def _emit_frontier_step_selected(
     conn: Any,
     result: SchedulerResult,
@@ -49,10 +50,14 @@ def _emit_frontier_step_selected(
 
         ctx["project_scope"] = list(result.project_scope)
         emit_event(
-            "FrontierStepSelected", event_kind="workflow",
-            event_type="scheduler_selection", source_type="backend",
-            session_id=session_id or "", item_id=selected.item_id,
-            project=_canonical_project_label(conn, result.project_scope), context=ctx,
+            "FrontierStepSelected",
+            event_kind="workflow",
+            event_type="scheduler_selection",
+            source_type="backend",
+            session_id=session_id or "",
+            item_id=selected.item_id,
+            project=_canonical_project_label(conn, result.project_scope),
+            context=ctx,
         )
     except Exception as exc:
         _logger.debug("FrontierStepSelected emission failed: %s", exc)
@@ -86,15 +91,18 @@ def emit_scheduler_offer_skipped(
         from .events import emit_event
 
         ctx: dict[str, Any] = {
-            "session_id": session_id, "skip_reason": skip_reason,
+            "session_id": session_id,
+            "skip_reason": skip_reason,
             "chain_step": chain_step,
         }
         for k, v in (
-            ("item_id", item_id), ("process_key", process_key),
+            ("item_id", item_id),
+            ("process_key", process_key),
             ("recommended_action", recommended_action),
             ("current_status", current_status),
             ("claim_holder_session_id", holder_session_id),
-            ("claim_id", claim_id), ("claimed_at", claimed_at),
+            ("claim_id", claim_id),
+            ("claimed_at", claimed_at),
             ("config_key", config_key),
         ):
             if v is not None:
@@ -103,10 +111,14 @@ def emit_scheduler_offer_skipped(
             for k, v in extra.items():
                 ctx.setdefault(k, v)
         emit_event(
-            "SchedulerOfferSkipped", event_kind="audit",
-            event_type="scheduler_selection", source_type="backend",
-            session_id=session_id, item_id=item_id,
-            project=project, context=ctx,
+            "SchedulerOfferSkipped",
+            event_kind="audit",
+            event_type="scheduler_selection",
+            source_type="backend",
+            session_id=session_id,
+            item_id=item_id,
+            project=project,
+            context=ctx,
         )
     except Exception as exc:
         _logger.debug("SchedulerOfferSkipped emission failed: %s", exc)
@@ -163,12 +175,18 @@ def emit_chain_end_deferred(
     last_release_at: Optional[str] = None,
     reason: Optional[str] = None,
     cap_reached: Optional[bool] = None,
+    unfinished_work: Optional[str] = None,
+    item_status: Optional[str] = None,
+    recovery: Optional[str] = None,
+    severity: str = "INFO",
 ) -> None:
     """Emit ``ChainEndDeferred`` when a Stop path declines to end a session.
 
     Checkpoint callers (``session-end-if-empty``) omit turn-gate fields.
     The promised-work gate adds ``reason`` / ``cap_reached`` on the same
-    event so doctor resolution can tell a reinjection from a cap.
+    event so doctor resolution can tell a reinjection from a cap. A
+    cap-overruled gate is WARN with ``unfinished_work`` and ``recovery``
+    so it cannot pass as a clean finish.
     """
     try:
         from .events import emit_event
@@ -188,6 +206,12 @@ def emit_chain_end_deferred(
             context["reason"] = reason
         if cap_reached is not None:
             context["cap_reached"] = cap_reached
+        if unfinished_work is not None:
+            context["unfinished_work"] = unfinished_work
+        if item_status is not None:
+            context["item_status"] = item_status
+        if recovery is not None:
+            context["recovery"] = recovery
         emit_event(
             "ChainEndDeferred",
             event_kind="audit",
@@ -196,6 +220,7 @@ def emit_chain_end_deferred(
             session_id=session_id,
             item_id=item_id,
             project=project,
+            severity=severity,
             context=context,
         )
     except Exception as exc:

@@ -69,6 +69,8 @@ class TestOrphanedActiveItems:
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "WARN"
         assert "YOK-30" in _result(rec).detail
+        assert "yoke merge item YOK-30" in _result(rec).detail
+        assert "Status is not the landing signal" in _result(rec).detail
 
     def test_done_items_not_flagged(self):
         """T7: Items in done/cancelled status are not flagged."""

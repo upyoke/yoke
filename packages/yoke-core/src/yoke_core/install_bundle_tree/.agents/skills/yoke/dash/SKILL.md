@@ -243,8 +243,8 @@ For every reported survey contact, read the advisory and choose:
   evidence with the harness task-messaging tool (`send_message_to_thread` in
   Codex). When the holder is not addressable in the current harness, give the
   operator its session id and wait;
-- when the edits are order-dependent, wait for the holding work to finish and
-  re-run the survey before editing or continuing;
+- when the edits are order-dependent, wait for the holding work to land
+  (merge receipt, merged_at, or git ancestry — not status) and re-run the survey;
 - when a directory survey was only a discovery aid, narrow it to the complete
   concrete file set before preparation, repeating every required file in the
   replacement survey;

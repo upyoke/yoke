@@ -50,6 +50,10 @@ OVERDUE_MARK = "!"
 LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch"
 
 
+def _landed_recovery(item_ref: str) -> str:
+    return f"finish close-out with `yoke merge item {item_ref}`; do not wait on status"
+
+
 def _minutes(seconds: int) -> str:
     if seconds < 60:
         return f"{seconds}s"
@@ -108,6 +112,7 @@ def _landed_dict(entry: LandedItem) -> dict[str, Any]:
         "status": entry.status,
         "landed_at": entry.landed_at,
         "landed_seconds": entry.landed_seconds,
+        "recovery": _landed_recovery(entry.item_ref),
     }
 
 
@@ -201,7 +206,8 @@ def _launch_lines(report: FleetReport) -> list[str]:
 def _landed_lines(report: FleetReport) -> list[str]:
     lines = [
         f"  {entry.item_ref}  still {entry.status}  "
-        f"landed {_minutes(entry.landed_seconds)} ago"
+        f"landed {_minutes(entry.landed_seconds)} ago  "
+        f"{_landed_recovery(entry.item_ref)}"
         for entry in report.landed_open[:SECTION_LIMIT]
     ]
     return _capped(lines, len(report.landed_open))

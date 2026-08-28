@@ -98,7 +98,7 @@ def test_dash_rechecks_keep_survey_contacts_advisory():
     contact_rules = " ".join(contact_rules.split())
     for required in (
         "ask an addressable holder for that evidence",
-        "wait for the holding work to finish",
+        "wait for the holding work to land",
         "re-run the survey",
         "release the work claim",
         "present the holder, paths, and evidence to the operator",

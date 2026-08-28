@@ -24,9 +24,11 @@ SURVEY_ADVISORY_PROCEED = (
 )
 SURVEY_ADVISORY_YIELD = (
     "Yield when the edits are order-dependent: wait for the holding work to "
-    "finish, then re-run the survey. If the contact cannot be resolved from "
-    "the surfaced evidence, release the work claim and present the overlapping "
-    "path, holder, and evidence to the operator; do not continue editing."
+    "land (merge receipt, merged_at, or git ancestry of the merge sha — not "
+    "the peer's status field), then re-run the survey. If the contact cannot "
+    "be resolved from the surfaced evidence, release the work claim and "
+    "present the overlapping path, holder, and evidence to the operator; "
+    "do not continue editing."
 )
 
 # ``classify_overlap`` is exercised against deliberately minimal schemas

@@ -38,7 +38,8 @@ yoke direct-workflow dash survey ITEM --no-changes --json  # genuine no-change o
 
 A reported overlap remains advisory. Read the overlapping path, holding item,
 and sanctioned routes. Proceed when the edits are independent. When they are
-order-dependent, wait for the holding work to finish and re-run the survey; when
+order-dependent, wait for the holding work to land (merge receipt, merged_at,
+or git ancestry — not status) and re-run the survey; when
 they remain unresolved, release the work claim and present the path, holder, and
 evidence to the operator. The re-survey itself remains mandatory, but a contact
 does not by itself prevent the commit or case. Commit the coherent change in the
@@ -149,7 +150,8 @@ yoke direct-workflow dash survey ITEM --no-changes --json  # genuine no-change o
 
 Read any reported contacts as advisories here too; a recorded overlap does not
 itself prevent merge. Proceed when the edits are independent. For
-order-dependent work, wait for the holding work to finish and re-run the survey;
+order-dependent work, wait for the holding work to land (merge receipt,
+merged_at, or git ancestry — not status) and re-run the survey;
 for an unresolved contact, release the work claim and present the path, holder,
 and evidence to the operator. Then require a clean worktree whose HEAD is the
 tree named by every passing SHA-bound verdict. Any intervening edit, commit,

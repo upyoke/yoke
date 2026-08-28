@@ -26,7 +26,7 @@ SHARED = "src/shared.py"
 
 def test_survey_yield_route_uses_survey_native_actions():
     for required in (
-        "wait for the holding work to finish",
+        "wait for the holding work to land",
         "re-run the survey",
         "release the work claim",
         "present the overlapping path, holder, and evidence to the operator",

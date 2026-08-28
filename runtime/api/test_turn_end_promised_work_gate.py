@@ -138,6 +138,7 @@ def test_cap_allows_and_records(monkeypatch) -> None:
     assert decision.outcome is Outcome.ALLOW
     assert captured[0]["reason"] == gate.REASON_CAP_REACHED
     assert captured[0]["cap_reached"] is True
+    assert captured[0]["claim"]["item_id"] == 5
 
 
 def test_recent_hold_stays_capped_without_consulting_tool_use(monkeypatch) -> None:
@@ -299,6 +300,8 @@ def test_emit_deferred_consumes_chain_pending_state(monkeypatch) -> None:
     assert seen == ["snapshot"]
     assert emitted[0]["reason"] == gate.REASON_REINJECTED
     assert emitted[0]["checkpoint_step"] == 0
+    assert emitted[0].get("unfinished_work") is None
+    assert emitted[0].get("severity", "INFO") == "INFO"
 
 
 def test_remote_tail_skips_lifecycle_on_deny(monkeypatch) -> None:
