@@ -24,7 +24,7 @@ def test_the_no_suite_branch_offers_three_named_choices():
 
 
 def test_the_attestation_recipe_is_a_copy_pasteable_command():
-    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
+    text = _read(ONBOARD_DIR / "verification-binding.md")
     assert "yoke qa no-tests attest --project {project} --reason" in text
     assert "yoke qa no-tests clear --project" in text
     # The refusal that pairs with the posture is named where it is taught.
@@ -34,7 +34,7 @@ def test_the_attestation_recipe_is_a_copy_pasteable_command():
 def test_the_checklist_records_an_attestation_as_configured():
     # A reader must be able to tell an attested project from one nobody asked;
     # marking both `not-needed` would erase that difference.
-    text = _read(ONBOARD_DIR / "hosting-and-environments.md")
+    text = _read(ONBOARD_DIR / "verification-binding.md")
     assert "attested no-tests posture, mark `verification-command-binding=configured`" in text
     assert "`deferred` for the operator who has not decided" in text
 

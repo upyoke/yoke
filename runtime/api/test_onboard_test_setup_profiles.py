@@ -33,10 +33,11 @@ def test_profile_accepts_native_commands_and_review_only_suites() -> None:
 
 
 def test_binding_keeps_non_actions_and_legacy_suites_honest() -> None:
-    binding = _read(ONBOARD / "hosting-and-environments.md")
+    binding = _read(ONBOARD / "verification-binding.md")
+    hosting = _read(ONBOARD / "hosting-and-environments.md")
     seeding = _read(ONBOARD / "seed-work.md")
 
-    assert "one keyed `put` operation per surveyed test tree" in binding
+    assert "one keyed `put` operation per surveyed test tree" in hosting
     assert "Jenkins, GitLab CI, Bitbucket" in binding
     assert "not `ci_workflow_file`" in binding
     assert "blocking `implementation_review` requirement" in binding
@@ -67,6 +68,7 @@ def test_install_bundle_mirrors_the_canonical_guidance() -> None:
     for name in (
         "profile-and-scaffold.md",
         "hosting-and-environments.md",
+        "verification-binding.md",
         "seed-work.md",
     ):
         source = ONBOARD / name
