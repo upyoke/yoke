@@ -18,6 +18,7 @@ import pytest
 from runtime.api.domain.qa_case_ci_test_helpers import LANE_HEAD, completed_run
 
 from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
+from yoke_core.domain import qa_case_ci_covering_run
 from yoke_core.domain import qa_case_ci_entry_run as entry_run
 from yoke_core.domain import qa_case_ci_lane
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
@@ -277,28 +278,23 @@ def test_a_timed_out_rebase_aborts_and_returns_a_typed_recovery(monkeypatch):
     assert isinstance(raised.value.__cause__, subprocess.TimeoutExpired)
 
 
-# Waiting for the entry run
+# Waiting for the entry run to appear
 
 
-def _await_entry(monkeypatch, runs, *, awaited=None):
-    """Drive ``await_entry_run`` over a scripted sequence of lookups."""
+def _find_entry(monkeypatch, runs):
+    """Drive ``find_entry_run`` over a scripted sequence of lookups."""
     pending = list(runs)
     monkeypatch.setattr(
-        qa_case_ci_lane,
-        "find_pull_request_run",
+        qa_case_ci_covering_run,
+        "find_run_for_tree",
         lambda **kwargs: pending.pop(0) if pending else None,
-    )
-    monkeypatch.setattr(
-        qa_case_ci_lane,
-        "await_workflow",
-        awaited or (lambda **kwargs: (0, "success")),
     )
     clock = {"now": 0.0}
 
     def _sleep(seconds):
         clock["now"] += seconds
 
-    return entry_run.await_entry_run(
+    return entry_run.find_entry_run(
         requirement_id=41,
         project="yoke",
         repo="acme/widgets",
@@ -310,34 +306,44 @@ def _await_entry(monkeypatch, runs, *, awaited=None):
     )
 
 
-def test_a_run_that_appears_late_is_waited_for_then_awaited(monkeypatch):
+@pytest.mark.parametrize("absences", [0, 2])
+def test_the_run_is_returned_in_whatever_state_it_appears_in(
+    monkeypatch, absences,
+):
+    """Concluding it is the runner's job; appearing is this one's."""
     pending = qa_case_ci_lane.WorkflowRun(
-        "77",
-        "in_progress",
-        "",
-        "https://github.test/actions/runs/77",
+        "77", "in_progress", "", "https://github.test/actions/runs/77",
         LANE_HEAD,
     )
-    awaited = mock.Mock(return_value=(0, "success"))
+    scripted = [None] * absences
 
-    run = _await_entry(
-        monkeypatch,
-        [None, None, pending, completed_run(LANE_HEAD)],
-        awaited=awaited,
+    assert _find_entry(monkeypatch, [*scripted, pending]) == pending
+    assert _find_entry(
+        monkeypatch, [*scripted, completed_run(LANE_HEAD)],
+    ) == completed_run(LANE_HEAD)
+
+
+def test_the_entry_lookup_asks_only_about_pull_request_runs(monkeypatch):
+    """A dispatch green can never satisfy this project's required check."""
+    seen: dict = {}
+
+    def _lookup(**kwargs):
+        seen.update(kwargs)
+        return completed_run(LANE_HEAD)
+
+    monkeypatch.setattr(qa_case_ci_covering_run, "find_run_for_tree", _lookup)
+    entry_run.find_entry_run(
+        requirement_id=41,
+        project="yoke",
+        repo="acme/widgets",
+        workflow="ci.yml",
+        head_sha=LANE_HEAD,
+        timeout_seconds=60,
     )
 
-    assert run == completed_run(LANE_HEAD)
-    assert awaited.call_args.kwargs["run_id"] == "77"
-
-
-def test_a_run_already_complete_is_returned_without_awaiting(monkeypatch):
-    awaited = mock.Mock(side_effect=AssertionError("must not await"))
-
-    run = _await_entry(monkeypatch, [completed_run(LANE_HEAD)], awaited=awaited)
-
-    assert run == completed_run(LANE_HEAD)
-    awaited.assert_not_called()
+    assert seen["event"] == "pull_request"
+    assert seen["head_sha"] == LANE_HEAD
 
 
 def test_no_entry_run_within_the_window_returns_none(monkeypatch):
-    assert _await_entry(monkeypatch, []) is None
+    assert _find_entry(monkeypatch, []) is None

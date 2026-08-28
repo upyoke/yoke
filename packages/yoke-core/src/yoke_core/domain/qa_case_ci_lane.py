@@ -2,7 +2,10 @@
 
 The plumbing behind :mod:`yoke_core.domain.qa_case_ci_run`: resolve which
 repository and branch the tree under test belongs to, publish it, then
-dispatch and await the project's declared workflow.
+dispatch and await the project's declared workflow. Deciding whether a
+run already exists for that tree belongs to
+:mod:`yoke_core.domain.qa_case_ci_covering_run`, which is what keeps this
+module about driving a run rather than about choosing one.
 
 Dispatch and await reuse the deployment layer's machinery
 (:mod:`yoke_core.domain.deploy_pipeline_github_workflow_dispatch` and
@@ -166,64 +169,6 @@ def workflow_file(case: dict) -> str:
     return workflow
 
 
-def find_pull_request_run(
-    *,
-    project: str,
-    repo: str,
-    workflow: str,
-    head_sha: str,
-    timeout_seconds: int,
-    status: str = "completed",
-) -> WorkflowRun | None:
-    """Return the PR run for the exact source commit, if any.
-
-    ``status`` narrows the lookup to runs in that state; passing ``""``
-    asks for the newest run whatever it is doing, which is what a gate
-    that just opened the pull request needs — the entry run it is waiting
-    for has not concluded yet.
-    """
-    from yoke_core.domain.deploy_pipeline_reporting import _github_actions
-
-    status_args = ("--status", status) if status else ()
-    result = _github_actions(
-        "find-run", repo, workflow, head_sha,
-        "--event", "pull_request", *status_args, "--json",
-        project=project, sd=None, timeout=timeout_seconds,
-    )
-    try:
-        response = json.loads(result.stdout)
-    except (TypeError, json.JSONDecodeError) as exc:
-        detail = (result.stderr or result.stdout or "").strip()
-        raise QaCaseExecutionError(
-            f"could not query pull-request runs for {workflow} "
-            f"on {repo}@{head_sha[:12]}: {detail or 'invalid response'}"
-        ) from exc
-    payload = response.get("result") if isinstance(response, dict) else None
-    if result.returncode == 1 and isinstance(payload, dict):
-        if not payload.get("found"):
-            return None
-    if result.returncode != 0 or not isinstance(payload, dict):
-        detail = (result.stderr or result.stdout or "").strip()
-        raise QaCaseExecutionError(
-            f"could not query pull-request runs for {workflow} "
-            f"on {repo}@{head_sha[:12]}: {detail or 'lookup failed'}"
-        )
-    if not payload.get("found"):
-        return None
-    run_id = str(payload.get("run_id") or "").strip()
-    if not run_id:
-        raise QaCaseExecutionError(
-            "pull-request workflow lookup returned no run id"
-        )
-    return WorkflowRun(
-        run_id=run_id,
-        status=str(payload.get("status") or "").strip(),
-        conclusion=str(payload.get("conclusion") or "").strip(),
-        html_url=str(payload.get("html_url") or "").strip(),
-        head_sha=str(payload.get("head_sha") or "").strip(),
-    )
-
-
 def dispatch_workflow(
     *,
     project: str,
@@ -277,8 +222,6 @@ def run_head_sha(*, project: str, repo: str, run_id: str) -> str:
     a control plane older than the field looks like; the caller names that
     degradation rather than treating it as a failure.
     """
-    import json
-
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
     result = _github_actions(
@@ -327,7 +270,6 @@ __all__ = [
     "await_workflow",
     "checked_out_branch",
     "dispatch_workflow",
-    "find_pull_request_run",
     "github_actions_authority",
     "run_head_sha",
     "lane_branch",

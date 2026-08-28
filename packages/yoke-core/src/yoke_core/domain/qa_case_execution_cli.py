@@ -25,11 +25,17 @@ def _report_outcome(result: dict) -> None:
 
     A timed-out run adds a second line: its verdict is the same ``fail`` a
     broken branch reports, so the reader is told which one happened.
+
+    A CI-routed case also names ``ci_run_source``, because a verdict this
+    invocation adopted from a run that had already concluded reads
+    identically to one it waited 14 minutes for unless the line says so.
     """
     fields = [
         f"verdict={result.get('verdict')}",
         f"outcome={result.get('case_outcome')}",
     ]
+    if result.get("ci_run_source"):
+        fields.append(f"ci_run_source={result['ci_run_source']}")
     if result.get("exit_code") is not None:
         fields.append(f"exit_code={result['exit_code']}")
     if result.get("output_capture"):

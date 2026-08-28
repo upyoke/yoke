@@ -61,7 +61,7 @@ def test_the_entry_run_is_the_verdict_and_nothing_is_dispatched(
     opened = mock.Mock(return_value="213")
     monkeypatch.setattr(entry_run, "open_landing_pull_request", opened)
     monkeypatch.setattr(
-        entry_run, "await_entry_run", lambda **k: completed_run(LANE_HEAD),
+        entry_run, "find_entry_run", lambda **k: completed_run(LANE_HEAD),
     )
     dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
 
@@ -71,7 +71,7 @@ def test_the_entry_run_is_the_verdict_and_nothing_is_dispatched(
     )
 
     assert result["verdict"] == "pass"
-    assert result["reused_pull_request_run"] is True
+    assert result["ci_run_source"] == "adopted"
     assert result["run_url"] == "https://github.test/actions/runs/77"
     assert opened.call_args.kwargs["target"] == "main"
     dispatch.assert_not_called()
@@ -99,7 +99,7 @@ def test_the_lane_is_rebased_before_the_pull_request_opens(wired, monkeypatch):
     monkeypatch.setattr(entry_run, "rebase_lane_onto_base", _rebase)
     monkeypatch.setattr(entry_run, "open_landing_pull_request", _open)
     monkeypatch.setattr(
-        entry_run, "await_entry_run", lambda **k: completed_run(POST_REBASE_HEAD),
+        entry_run, "find_entry_run", lambda **k: completed_run(POST_REBASE_HEAD),
     )
 
     result = _run(
@@ -121,7 +121,7 @@ def test_an_entry_run_for_another_sha_falls_back_to_dispatch(wired, monkeypatch)
         entry_run, "open_landing_pull_request", lambda *a, **k: "213",
     )
     monkeypatch.setattr(
-        entry_run, "await_entry_run", lambda **k: completed_run("b" * 40),
+        entry_run, "find_entry_run", lambda **k: completed_run("b" * 40),
     )
     dispatch = mock.Mock(return_value="42")
 
@@ -132,7 +132,7 @@ def test_an_entry_run_for_another_sha_falls_back_to_dispatch(wired, monkeypatch)
 
     dispatch.assert_called_once()
     assert result["ci_run_id"] == "42"
-    assert result["reused_pull_request_run"] is False
+    assert result["ci_run_source"] == "dispatched"
 
 
 def test_a_cancelled_entry_run_falls_back_to_dispatch(wired, monkeypatch):
@@ -143,7 +143,7 @@ def test_a_cancelled_entry_run_falls_back_to_dispatch(wired, monkeypatch):
         entry_run, "open_landing_pull_request", lambda *a, **k: "213",
     )
     monkeypatch.setattr(
-        entry_run, "await_entry_run",
+        entry_run, "find_entry_run",
         lambda **k: completed_run(LANE_HEAD, "cancelled"),
     )
     dispatch = mock.Mock(return_value="42")
@@ -155,7 +155,7 @@ def test_a_cancelled_entry_run_falls_back_to_dispatch(wired, monkeypatch):
 
     dispatch.assert_called_once()
     assert result["verdict"] == "pass"
-    assert result["reused_pull_request_run"] is False
+    assert result["ci_run_source"] == "dispatched"
     assert result["verification_tree"]["head_sha"] == LANE_HEAD
 
 
@@ -165,7 +165,7 @@ def test_no_entry_run_at_all_falls_back_to_dispatch(wired, monkeypatch):
     monkeypatch.setattr(
         entry_run, "open_landing_pull_request", lambda *a, **k: "213",
     )
-    monkeypatch.setattr(entry_run, "await_entry_run", lambda **k: None)
+    monkeypatch.setattr(entry_run, "find_entry_run", lambda **k: None)
     dispatch = mock.Mock(return_value="42")
 
     result = _run(
@@ -188,7 +188,7 @@ def test_a_recorded_commit_still_opens_the_landing_pull_request(
     opened = mock.Mock(return_value="213")
     monkeypatch.setattr(entry_run, "open_landing_pull_request", opened)
     monkeypatch.setattr(
-        entry_run, "await_entry_run", lambda **k: completed_run(LANE_HEAD),
+        entry_run, "find_entry_run", lambda **k: completed_run(LANE_HEAD),
     )
     dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
 
@@ -198,7 +198,7 @@ def test_a_recorded_commit_still_opens_the_landing_pull_request(
         case=ci_case(lane_commit_sha=LANE_HEAD),
     )
 
-    assert result["reused_pull_request_run"] is True
+    assert result["ci_run_source"] == "adopted"
     opened.assert_called_once()
     dispatch.assert_not_called()
 

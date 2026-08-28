@@ -5,9 +5,9 @@ three times when the gate dispatches a workflow run of its own: that
 dispatch run, the ``pull_request`` run GitHub mints the moment the landing
 pull request opens on the same tree, and the ``merge_group`` train run.
 Only the last two are structural. GitHub's required checks take the latest
-check run per name, so a dispatch green can never satisfy entry — the reuse
-:func:`yoke_core.domain.qa_case_ci_lane.find_pull_request_run` already
-knows how to do is reachable only when the pull-request run comes *first*.
+check run per name, so a dispatch green can never satisfy entry — the
+adoption :mod:`yoke_core.domain.qa_case_ci_covering_run` already knows how
+to do is reachable only when the pull-request run comes *first*.
 
 So for those projects the gate opens the pull request itself and waits for
 the run that opening it produces: rebase the lane onto the base branch,
@@ -32,7 +32,11 @@ from typing import Callable, Optional
 from yoke_contracts.git_hook_markers import POST_COMMIT_SNAPSHOT_SKIP_ENV
 from yoke_cli.config import credentialed_git
 from yoke_core.domain import process_group_reaping
-from yoke_core.domain import qa_case_ci_lane, qa_case_ci_progress
+from yoke_core.domain import (
+    qa_case_ci_covering_run,
+    qa_case_ci_lane,
+    qa_case_ci_progress,
+)
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: How long to wait for GitHub to mint the entry run after the pull request
@@ -275,7 +279,7 @@ def open_landing_pull_request(
     return pr_num
 
 
-def await_entry_run(
+def find_entry_run(
     *,
     requirement_id: int,
     project: str,
@@ -286,24 +290,30 @@ def await_entry_run(
     sleep: Callable[[float], None] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> Optional[qa_case_ci_lane.WorkflowRun]:
-    """Return the concluded entry run for *head_sha*, or ``None``.
+    """Return the entry run for *head_sha* once it appears, or ``None``.
 
-    ``None`` means no pull-request run ever appeared for this commit, which
-    the caller answers by dispatching — the same fallback it uses when a
-    project has no pull request open at all.
+    The run is handed back in whatever state it is in. Whether that state
+    means adopt a finished verdict or attach to a run still going is the
+    caller's one decision for both routes
+    (:mod:`yoke_core.domain.qa_case_ci_covering_run`), so this waits only
+    for the run to exist.
+
+    ``None`` means no pull-request run ever appeared for this commit,
+    which the caller answers by dispatching — the same fallback it uses
+    when a project has no pull request open at all.
     """
     deadline = monotonic() + ENTRY_RUN_APPEARANCE_TIMEOUT_SECONDS
     while True:
-        run = qa_case_ci_lane.find_pull_request_run(
+        run = qa_case_ci_covering_run.find_run_for_tree(
             project=project,
             repo=repo,
             workflow=workflow,
             head_sha=head_sha,
             timeout_seconds=timeout_seconds,
-            status="",
+            event="pull_request",
         )
         if run is not None:
-            break
+            return run
         if monotonic() >= deadline:
             return None
         qa_case_ci_progress.announce_covering_wait(
@@ -313,36 +323,13 @@ def await_entry_run(
             next_poll_seconds=ENTRY_RUN_POLL_SECONDS,
         )
         sleep(ENTRY_RUN_POLL_SECONDS)
-    qa_case_ci_progress.announce_run(
-        requirement_id,
-        repo=repo,
-        run_id=run.run_id,
-        html_url=run.html_url,
-        source="covering",
-    )
-    if run.status == "completed":
-        return run
-    qa_case_ci_lane.await_workflow(
-        project=project,
-        repo=repo,
-        run_id=run.run_id,
-        timeout_seconds=timeout_seconds,
-    )
-    return qa_case_ci_lane.find_pull_request_run(
-        project=project,
-        repo=repo,
-        workflow=workflow,
-        head_sha=head_sha,
-        timeout_seconds=timeout_seconds,
-        status="",
-    )
 
 
 __all__ = [
     "ENTRY_RUN_APPEARANCE_TIMEOUT_SECONDS",
     "ENTRY_RUN_POLL_SECONDS",
-    "await_entry_run",
     "base_branch",
+    "find_entry_run",
     "open_landing_pull_request",
     "prepare_entry_run_lane",
     "rebase_lane_onto_base",

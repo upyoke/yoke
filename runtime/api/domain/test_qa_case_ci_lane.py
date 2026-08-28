@@ -192,7 +192,6 @@ def test_authority_under_a_db_admin_connection_uses_its_own_https_plane(
 
 def test_run_head_sha_reads_through_the_relay(monkeypatch):
     """The head-sha read reaches GitHub the way dispatch and polling do."""
-    import json
 
     seen: dict = {}
 
@@ -216,7 +215,6 @@ def test_run_head_sha_reads_through_the_relay(monkeypatch):
 
 def test_run_head_sha_reports_a_control_plane_without_the_field(monkeypatch):
     """A plane predating the field answers empty, not with an error."""
-    import json
 
     monkeypatch.setattr(
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
@@ -233,7 +231,6 @@ def test_run_head_sha_reports_a_control_plane_without_the_field(monkeypatch):
 
 
 def test_run_head_sha_raises_when_the_relay_refuses(monkeypatch):
-    import json
 
     monkeypatch.setattr(
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
@@ -287,59 +284,3 @@ def test_dispatch_reports_a_refused_trigger(monkeypatch):
             project="yoke", repo="acme/widgets", workflow="ci.yml",
             branch="PRJ-9", request_id="qa-case:7:abc", timeout_seconds=1,
         )
-
-
-@pytest.mark.parametrize(
-    ("status", "state_filter"),
-    [("completed", ("--status", "completed")), ("", ())],
-)
-def test_pull_request_lookup_uses_exact_run_filters(
-    monkeypatch, status, state_filter,
-):
-    seen: dict = {}
-
-    def _fake_github_actions(*args, **kwargs):
-        seen.update(args=args, kwargs=kwargs)
-        body = {
-            "result": {
-                "found": True,
-                "run_id": "77",
-                "status": "completed",
-                "conclusion": "success",
-                "html_url": "https://github.test/actions/runs/77",
-                "head_sha": "a" * 40,
-            }
-        }
-        return subprocess.CompletedProcess(list(args), 0, json.dumps(body), "")
-
-    monkeypatch.setattr(
-        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
-        _fake_github_actions,
-    )
-    run = lane.find_pull_request_run(
-        project="yoke", repo="acme/widgets", workflow="ci.yml",
-        head_sha="a" * 40, timeout_seconds=60, status=status,
-    )
-
-    assert run == lane.WorkflowRun(
-        "77", "completed", "success",
-        "https://github.test/actions/runs/77", "a" * 40,
-    )
-    assert seen["args"] == (
-        "find-run", "acme/widgets", "ci.yml", "a" * 40,
-        "--event", "pull_request", *state_filter, "--json",
-    )
-
-
-def test_pull_request_lookup_returns_none_when_absent(monkeypatch):
-    monkeypatch.setattr(
-        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
-        lambda *a, **k: subprocess.CompletedProcess(
-            list(a), 1, json.dumps({"result": {"found": False}}), "",
-        ),
-    )
-
-    assert lane.find_pull_request_run(
-        project="yoke", repo="acme/widgets", workflow="ci.yml",
-        head_sha="a" * 40, timeout_seconds=60,
-    ) is None

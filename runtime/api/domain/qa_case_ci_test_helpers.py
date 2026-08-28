@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain import (
+    qa_case_ci_covering_run,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
     qa_case_execution,
@@ -72,9 +73,17 @@ class Recorder:
 
 
 def completed_run(head_sha: str, conclusion: str = "success"):
-    """A concluded pull-request run for *head_sha*."""
+    """A concluded run for *head_sha*."""
     return qa_case_ci_lane.WorkflowRun(
         "77", "completed", conclusion,
+        "https://github.test/actions/runs/77", head_sha,
+    )
+
+
+def in_flight_run(head_sha: str, status: str = "in_progress"):
+    """A run for *head_sha* that has not concluded yet."""
+    return qa_case_ci_lane.WorkflowRun(
+        "77", status, "",
         "https://github.test/actions/runs/77", head_sha,
     )
 
@@ -97,7 +106,7 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     monkeypatch.setattr(qa_case_ci_lane, "repo_slug", lambda _c: "acme/widgets")
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a, **k: None)
     monkeypatch.setattr(
-        qa_case_ci_lane, "find_pull_request_run", lambda **k: None,
+        qa_case_ci_covering_run, "find_run_for_tree", lambda **k: None,
     )
     monkeypatch.setattr(
         qa_case_ci_entry_run, "routes_through_merge_queue", lambda _p: False,
@@ -114,5 +123,6 @@ __all__ = [
     "Recorder",
     "ci_case",
     "completed_run",
+    "in_flight_run",
     "wire_ci_case",
 ]

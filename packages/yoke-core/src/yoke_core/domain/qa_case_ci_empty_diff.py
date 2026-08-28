@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext
 
-from yoke_core.domain import qa_case_ci_lane
+from yoke_core.domain import qa_case_ci_covering_run, qa_case_ci_lane
 from yoke_core.domain.qa_case_budget import CommandCaseBudget
 from yoke_core.domain.verification_tree_binding import TreeIdentity
 
@@ -91,46 +91,6 @@ def lane_has_no_commits_against_target(checkout: Path, target: str) -> bool:
     return counted == 0
 
 
-def find_covering_run(
-    *,
-    project: str,
-    repo: str,
-    workflow: str,
-    head_sha: str,
-    timeout_seconds: int,
-) -> Optional[qa_case_ci_lane.WorkflowRun]:
-    """Return any workflow run already recorded for *head_sha*, if any."""
-    from yoke_core.domain.deploy_pipeline_reporting import _github_actions
-
-    result = _github_actions(
-        "find-run",
-        repo,
-        workflow,
-        head_sha,
-        "--json",
-        project=project,
-        sd=None,
-        timeout=timeout_seconds,
-    )
-    try:
-        response = json.loads(result.stdout or "{}")
-    except (TypeError, json.JSONDecodeError):
-        return None
-    payload = response.get("result") if isinstance(response, dict) else None
-    if not isinstance(payload, dict) or not payload.get("found"):
-        return None
-    run_id = str(payload.get("run_id") or "").strip()
-    if not run_id:
-        return None
-    return qa_case_ci_lane.WorkflowRun(
-        run_id=run_id,
-        status=str(payload.get("status") or "").strip(),
-        conclusion=str(payload.get("conclusion") or "").strip(),
-        html_url=str(payload.get("html_url") or "").strip(),
-        head_sha=str(payload.get("head_sha") or head_sha).strip(),
-    )
-
-
 def record_pass_if_empty(
     case: dict,
     checkout: Path,
@@ -172,7 +132,7 @@ def record_pass_if_empty(
             "ci_conclusion": "success",
             "empty_diff": True,
             "integration_target": target,
-            "reused_pull_request_run": False,
+            "ci_run_source": qa_case_ci_covering_run.NOT_EXECUTED,
             "failure_class": None,
             "verification_tree": tree.as_payload(),
             **selected_budget.as_record(),
@@ -205,7 +165,7 @@ def record_pass_if_empty(
         "ci_run_id": ci_run_id,
         "run_url": run_url,
         "ci_conclusion": "success",
-        "reused_pull_request_run": False,
+        "ci_run_source": qa_case_ci_covering_run.NOT_EXECUTED,
         "empty_diff": True,
         "failure_class": None,
         **selected_budget.as_record(),
@@ -214,10 +174,15 @@ def record_pass_if_empty(
 
 
 def _lookup_covering_run(**kwargs) -> Optional[qa_case_ci_lane.WorkflowRun]:
+    """Name the run that already tested this commit, if one is reachable.
+
+    The pointer is a convenience on a pass the empty diff already earned,
+    so an unreachable lookup answers ``None`` rather than failing it.
+    """
     try:
         with qa_case_ci_lane.github_actions_authority():
-            return find_covering_run(**kwargs)
-    except Exception:  # noqa: BLE001 — a missed covering run must not fail the pass
+            return qa_case_ci_covering_run.find_run_for_tree(**kwargs)
+    except Exception:  # noqa: BLE001 — a missed pointer must not fail the pass
         return None
 
 
@@ -232,7 +197,6 @@ def _rev_list_count(checkout: Path, spec: str) -> Optional[int]:
 
 
 __all__ = [
-    "find_covering_run",
     "lane_has_no_commits_against_target",
     "record_pass_if_empty",
 ]

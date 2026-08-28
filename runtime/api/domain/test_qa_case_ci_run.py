@@ -17,7 +17,12 @@ from runtime.api.domain.qa_case_ci_test_helpers import (
     wire_ci_case,
 )
 
-from yoke_core.domain import qa_case_ci_lane, qa_case_ci_run, qa_case_execution
+from yoke_core.domain import (
+    qa_case_ci_covering_run,
+    qa_case_ci_lane,
+    qa_case_ci_run,
+    qa_case_execution,
+)
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 
@@ -84,7 +89,7 @@ def test_completed_exact_pull_request_run_is_reused_without_dispatch(
     await_result = mock.Mock(side_effect=AssertionError("must not await"))
 
     with mock.patch.object(
-        qa_case_ci_lane, "find_pull_request_run",
+        qa_case_ci_covering_run, "find_run_for_tree",
         return_value=covering,
     ):
         result = _run(
@@ -93,7 +98,7 @@ def test_completed_exact_pull_request_run_is_reused_without_dispatch(
 
     assert result["verdict"] == verdict
     assert result["run_url"] == covering.html_url
-    assert result["reused_pull_request_run"] is True
+    assert result["ci_run_source"] == "adopted"
     evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
     assert evidence["verification_tree"]["head_sha"] == "a" * 40
     dispatch.assert_not_called()
@@ -115,7 +120,7 @@ def test_a_run_that_reached_no_verdict_is_not_reused_as_evidence(
     dispatch = mock.Mock(return_value="42")
 
     with mock.patch.object(
-        qa_case_ci_lane, "find_pull_request_run", return_value=stopped,
+        qa_case_ci_covering_run, "find_run_for_tree", return_value=stopped,
     ):
         result = _run(
             checkout, dispatch=dispatch,
@@ -123,7 +128,7 @@ def test_a_run_that_reached_no_verdict_is_not_reused_as_evidence(
         )
 
     dispatch.assert_called_once()
-    assert result["reused_pull_request_run"] is False
+    assert result["ci_run_source"] == "dispatched"
     assert result["ci_run_id"] == "42"
     assert result["verdict"] == "pass"
     assert result["verification_tree"]["head_sha"] == "a" * 40
@@ -137,7 +142,7 @@ def test_pull_request_run_for_a_different_sha_dispatches(wired):
     )
     dispatch = mock.Mock(return_value="42")
     with mock.patch.object(
-        qa_case_ci_lane, "find_pull_request_run",
+        qa_case_ci_covering_run, "find_run_for_tree",
         return_value=covering,
     ):
         result = _run(
@@ -147,7 +152,7 @@ def test_pull_request_run_for_a_different_sha_dispatches(wired):
 
     dispatch.assert_called_once()
     assert result["ci_run_id"] == "42"
-    assert result["reused_pull_request_run"] is False
+    assert result["ci_run_source"] == "dispatched"
 
 
 def test_failed_run_records_a_fail(wired):

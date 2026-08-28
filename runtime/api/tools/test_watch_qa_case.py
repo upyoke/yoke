@@ -41,6 +41,8 @@ class TestGateClassifier:
         [
             "# qa case run: verdict=pass outcome=passed exit_code=0",
             "# qa case run: verdict=fail outcome=failed exit_code=1 capture=/x.log",
+            "# qa case run: verdict=pass outcome=passed ci_run_source=adopted "
+            "exit_code=0",
             '{"artifact_id": 1, "exit_code": 0, "verdict": "pass"}',
         ],
     )
@@ -50,7 +52,9 @@ class TestGateClassifier:
     @pytest.mark.parametrize(
         "line",
         [
-            "# qa case run: requirement=15582 covering run=32421897187 "
+            "# qa case run: requirement=15582 adopted run=32421897187 "
+            "https://github.com/o/r/actions/runs/32421897187",
+            "# qa case run: requirement=15582 attached run=32421897187 "
             "https://github.com/o/r/actions/runs/32421897187",
             "# qa case run: requirement=15582 waiting for a covering run on "
             "o/r@aac38c7b5f2f; no run id yet; next poll=10s",
