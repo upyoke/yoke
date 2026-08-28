@@ -28,6 +28,10 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — 
 from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures
 from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
 
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+TEST_SESSION_ID = "session-42"
+
 
 class TestProfileGating:
     def test_state_none_profile_refused(self, apply_env) -> None:
@@ -69,14 +73,14 @@ class TestUnresolvableItemReference:
             migration_apply,
             "_parse_item_argument",
             lambda _raw: (_ for _ in ()).throw(
-                ValueError("item ref 'YOK-2218' not found")
+                ValueError(f"item ref '{TEST_ITEM_REF}' not found")
             ),
         )
 
-        assert migration_apply.main(["rehearse", "YOK-2218"]) == 1
+        assert migration_apply.main(["rehearse", TEST_ITEM_REF]) == 1
 
         reported = capsys.readouterr().err
-        assert "item ref 'YOK-2218' not found" in reported
+        assert f"item ref '{TEST_ITEM_REF}' not found" in reported
         assert CONNECTION_READER in reported
 
     def test_rehearsal_never_runs_when_the_reference_cannot_resolve(
@@ -93,17 +97,21 @@ class TestUnresolvableItemReference:
             lambda *_a, **_k: pytest.fail("rehearsed an unresolved reference"),
         )
 
-        assert migration_apply.main(["rehearse", "YOK-2218"]) == 1
+        assert migration_apply.main(["rehearse", TEST_ITEM_REF]) == 1
 
 
 class TestRehearsalSessionIdentity:
     def test_cli_passes_ambient_session_to_rehearsal(self, monkeypatch) -> None:
         called = {}
-        monkeypatch.setattr(migration_apply, "_parse_item_argument", lambda _raw: 42)
+        monkeypatch.setattr(
+            migration_apply,
+            "_parse_item_argument",
+            lambda _raw: TEST_ITEM_ID,
+        )
         monkeypatch.setattr(
             migration_apply,
             "resolve_ambient_session_id",
-            lambda: "session-42",
+            lambda: TEST_SESSION_ID,
         )
 
         def capture(item_id, *, session_id):
@@ -112,13 +120,17 @@ class TestRehearsalSessionIdentity:
 
         monkeypatch.setattr(migration_apply, "rehearse", capture)
 
-        assert migration_apply.main(["rehearse", "YOK-42"]) == 1
-        assert called == {"item_id": 42, "session_id": "session-42"}
+        assert migration_apply.main(["rehearse", TEST_ITEM_REF]) == 1
+        assert called == {"item_id": TEST_ITEM_ID, "session_id": TEST_SESSION_ID}
 
     def test_cli_refuses_rehearsal_without_ambient_session(
         self, monkeypatch, capsys
     ) -> None:
-        monkeypatch.setattr(migration_apply, "_parse_item_argument", lambda _raw: 43)
+        monkeypatch.setattr(
+            migration_apply,
+            "_parse_item_argument",
+            lambda _raw: TEST_ITEM_ID,
+        )
         monkeypatch.setattr(
             migration_apply,
             "resolve_ambient_session_id",
@@ -130,7 +142,7 @@ class TestRehearsalSessionIdentity:
             lambda *_a, **_k: pytest.fail("rehearsed without a session"),
         )
 
-        assert migration_apply.main(["rehearse", "YOK-43"]) == 1
+        assert migration_apply.main(["rehearse", TEST_ITEM_REF]) == 1
         assert (
             "ambient session identity could not be resolved" in capsys.readouterr().err
         )
