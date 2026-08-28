@@ -63,6 +63,6 @@ can hit reviewing-implementation. Recommend scaffold if they accepted
 |---|---|---|---|
 | Future AWS | Hosting skip + profile "defer infra" | Do not create persistent flows while deferred | Merge-only or empty default until apply succeeded |
 | Deploy on items | Idea uses `deploy-defaults get` | Empty-tier default → Route A with no run; empty default → omit flow | Replace with persistent only after hosting verifies |
-| Migration | Still N/A | — | Add `migration_model` when a DB exists |
+| Migration | Step-2 governed-database box | — | Record `not-needed` now, or name the model to attach once the database exists |
 
 Ledger: G-test-setup-unasked, G-no-tests-posture, G-qa-plan-needs-env.
