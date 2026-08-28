@@ -1,10 +1,14 @@
-"""Who asked for a launch: an operator, or the automatic staffing backstop.
+"""Who asked for a launch, recorded on the row rather than inferred later.
 
-Both answers create the same launch through the same state machine, so the
-row itself is the only place the difference survives.  Readers that need to
-tell a hand-requested worker from one the steering backstop staffed — the
-backstop's own concurrency budget, operator listings, audit — read the
-``origin`` column rather than inferring intent from the requester.
+Every launch is created through the same state machine whatever asked for it,
+so the ``origin`` column is the only place that difference survives — operator
+listings and audit read it instead of guessing intent from the requester.
+
+``steering_backstop`` is a value the vocabulary still accepts and nothing
+still writes: it marks launches filed by an automatic staffing pass the
+steering seat no longer runs. Rows carrying it are live history, and the
+``CHECK`` constraint has to keep admitting it or those rows stop validating,
+so retiring the value is a governed destructive migration for no gain.
 
 One vocabulary, so the ``CREATE TABLE`` column and the additive ``ALTER``
 that converges databases born before it cannot drift into two different
@@ -15,6 +19,8 @@ from __future__ import annotations
 
 
 LAUNCH_ORIGIN_OPERATOR = "operator"
+
+#: Historical only — see the module docstring. No writer sets this.
 LAUNCH_ORIGIN_STEERING_BACKSTOP = "steering_backstop"
 
 LAUNCH_ORIGINS = (LAUNCH_ORIGIN_OPERATOR, LAUNCH_ORIGIN_STEERING_BACKSTOP)

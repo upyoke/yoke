@@ -70,7 +70,7 @@ class TestSteerSkillContract:
         assert "Do not invoke `/yoke feed`" in corpus
         assert "unrelated" in corpus.lower()
 
-    def test_loop_covers_frontier_reports_doc_blitz_backstop_escalate(self):
+    def test_loop_covers_frontier_reports_doc_blitz_staffing_escalate(self):
         loop = _read(_STEER_DIR / "loop.md")
         assert "yoke charge schedule" in loop
         assert "yoke say --item PREFIX-N --stdin" in loop
@@ -79,7 +79,7 @@ class TestSteerSkillContract:
         assert "yoke strategy execution link" in loop
         assert "yoke strategy doc-claim release" in loop
         assert "blitz-handoff" in loop
-        assert "yoke steering backstop evaluate" in loop
+        assert "yoke steering report get" in loop
         assert "unclaimed" in loop
         assert "Escalate" in loop
         assert "wait" in loop.lower()
@@ -193,11 +193,13 @@ class TestSteerSkillContract:
         corpus = _corpus()
         assert "every envelope this steerer sent" not in corpus
 
-    def test_backstop_is_only_for_unpicked_work(self):
+    def test_steering_seat_is_the_only_staffing_path(self):
         loop = _read(_STEER_DIR / "loop.md")
         assert "unclaimed" in loop
-        assert "yoke steering backstop evaluate --project" in loop
-        assert "safety net for work that sat" in loop
+        assert "yoke steering report get --project" in loop
+        assert "this seat's to staff; nothing else" in loop
+        lifecycle = _read(_STEER_DIR / "worker-lifecycle.md")
+        assert "There is no second staffing" in lifecycle
 
     def test_blitz_handoff_releases_the_document_lock(self):
         loop = _read(_STEER_DIR / "loop.md")
@@ -270,10 +272,10 @@ class TestSteerDiscoveryAndPacket:
         assert "/yoke steer" in _read(_ROUTER)
         assert "/yoke steer" in _read(_HELP)
 
-    def test_packet_teaches_steer_loop_and_backstop(self):
+    def test_packet_teaches_steer_loop_and_fleet_report(self):
         notes = _read(_CLAIMS_PACKET)
         assert "/yoke steer SLUG" in notes
         assert "offer to create if absent" in notes
-        assert "yoke steering backstop evaluate --project P" in notes
+        assert "yoke steering report get --project P" in notes
         assert "never `/yoke do`" in notes
         assert "yoke say --item PREFIX-N --stdin" in notes

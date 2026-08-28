@@ -18,6 +18,7 @@ from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
     RECOGNIZED_PROJECT_KEYS,
+    RETIRED_PROJECT_KEYS,
     SESSION_ROUTING_CAPABILITY,
 )
 
@@ -33,8 +34,8 @@ _INT_POLICY_KEYS = frozenset(
         "wip_cap",
         "merge_conflict_threshold",
         "max_attempts",
-        "steering_backstop_unpicked_minutes",
-        "steering_backstop_worker_budget",
+        "steering_report_stale_minutes",
+        "steering_report_interval_minutes",
     }
 )
 
@@ -50,16 +51,18 @@ class CapabilityRepairResult:
     capability: str
     created: bool
     repaired_keys: tuple[str, ...]
+    retired_keys: tuple[str, ...] = ()
 
     @property
     def reused(self) -> bool:
-        return not self.created and not self.repaired_keys
+        return not self.created and not self.repaired_keys and not self.retired_keys
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "capability": self.capability,
             "created": self.created,
             "repaired_keys": list(self.repaired_keys),
+            "retired_keys": list(self.retired_keys),
             "reused": self.reused,
         }
 
@@ -234,7 +237,8 @@ def _ensure_capability_settings(
     merged = copy.deepcopy(current)
     repaired: list[str] = []
     _merge_missing(merged, defaults, repaired, prefix="")
-    if repaired:
+    retired = _drop_retired_keys(merged, cap_type)
+    if repaired or retired:
         conn.execute(
             f"UPDATE project_capabilities SET settings={_p(conn)} "
             f"WHERE project_id={_p(conn)} AND type={_p(conn)}",
@@ -244,7 +248,29 @@ def _ensure_capability_settings(
         capability=cap_type,
         created=False,
         repaired_keys=tuple(repaired),
+        retired_keys=retired,
     )
+
+
+def _drop_retired_keys(
+    settings: MutableMapping[str, Any],
+    cap_type: str,
+) -> tuple[str, ...]:
+    """Remove keys this contract no longer recognizes, in place.
+
+    The merge above only ever adds, so a key outlives the code that read it
+    unless something takes it back out. This converge runs wherever the
+    defaults do — DB init, project upsert, installer refresh — so every
+    install sheds a retired key on its next pass without a migration entry:
+    the change is to a settings document this module already owns and
+    rewrites, and no build reads what it removes.
+    """
+    if cap_type != PROJECT_POLICY_CAPABILITY:
+        return ()
+    dropped = [key for key in RETIRED_PROJECT_KEYS if key in settings]
+    for key in dropped:
+        settings.pop(key, None)
+    return tuple(dropped)
 
 
 def _read_capability_settings(

@@ -12,7 +12,7 @@ from yoke_cli.commands.adapters.claims_steering import (
     claims_steering_list,
     claims_steering_release,
 )
-from yoke_cli.commands.adapters.steering_backstop import steering_backstop_evaluate
+from yoke_cli.commands.adapters.steering_report import steering_report_get
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -35,9 +35,9 @@ CLAIMS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "claims.coordination_claim.list",
         claims_coordination_claim_list,
     ),
-    ("steering", "backstop", "evaluate"): (
-        "steering.backstop.evaluate",
-        steering_backstop_evaluate,
+    ("steering", "report", "get"): (
+        "steering.report.get",
+        steering_report_get,
     ),
 }
 

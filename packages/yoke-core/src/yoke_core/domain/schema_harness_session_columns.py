@@ -41,6 +41,8 @@ def apply_harness_session_columns(conn: Any) -> None:
         ("parked_reason", "TEXT DEFAULT NULL"),
         ("keepalive_until", "TEXT DEFAULT NULL"),
         ("keepalive_reason", "TEXT DEFAULT NULL"),
+        ("last_steering_report_at", "TEXT DEFAULT NULL"),
+        ("last_steering_report_fingerprint", "TEXT DEFAULT NULL"),
     ):
         _add_column_if_not_exists(conn, "harness_sessions", column, ddl)
     conn.commit()

@@ -52,7 +52,9 @@ CREATE TABLE IF NOT EXISTS harness_sessions (
     last_checkpoint_at TEXT DEFAULT NULL,
     turn_posture {TURN_POSTURE_COLUMN_DDL},
     turn_posture_at {TURN_POSTURE_AT_COLUMN_DDL},
-    native_thread_id TEXT DEFAULT NULL
+    native_thread_id TEXT DEFAULT NULL,
+    last_steering_report_at TEXT DEFAULT NULL,
+    last_steering_report_fingerprint TEXT DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS session_tool_calls (

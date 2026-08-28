@@ -7,7 +7,7 @@ rendering and settlement without constructing a control-plane database.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping, Protocol
 
 
@@ -22,10 +22,16 @@ class LeasedSessionMessage:
 
 @dataclass(frozen=True)
 class SessionMessageLease:
-    """A batch leased atomically for one recipient hook invocation."""
+    """A batch leased atomically for one recipient hook invocation.
+
+    ``report`` carries a control-plane block composed for this recipient and
+    rendered alongside the messages. It is empty for every recipient that is
+    not owed one, which is almost all of them.
+    """
 
     lease_id: str
     messages: tuple[LeasedSessionMessage, ...]
+    report: str = ""
 
 
 class SessionMessageDeliveryPort(Protocol):
@@ -107,6 +113,7 @@ def _coerce_lease(value: Any) -> SessionMessageLease | None:
     return SessionMessageLease(
         lease_id=lease_id,
         messages=_coerce_messages(payload.get("messages")),
+        report=str(payload.get("report") or ""),
     )
 
 
@@ -153,7 +160,7 @@ class CoreSessionMessageDeliveryPort:
 
         conn = db_backend.connect(busy_timeout_ms=2000)
         try:
-            return _coerce_lease(
+            lease = _coerce_lease(
                 lease_for_hook(
                     conn,
                     session_id=session_id,
@@ -161,8 +168,28 @@ class CoreSessionMessageDeliveryPort:
                     limit=limit,
                 )
             )
+            if lease is None or not lease.messages:
+                return lease
+            return replace(lease, report=self._steering_report(conn, session_id))
         finally:
             conn.close()
+
+    @staticmethod
+    def _steering_report(conn: Any, session_id: str) -> str:
+        """Compose the fleet report this delivery owes its recipient.
+
+        Composed after the lease commits so the ranking read never runs
+        inside the lease's lock window, and best-effort because a report is
+        an advisory: losing one must never cost the recipient its messages.
+        """
+        from yoke_core.domain.steering_fleet_report_delivery import (
+            steering_report_for_delivery,
+        )
+
+        try:
+            return steering_report_for_delivery(conn, session_id=session_id) or ""
+        except Exception:
+            return ""
 
     def complete_hook_lease(
         self,

@@ -106,6 +106,8 @@ def render_lease(lease: SessionMessageLease) -> tuple[str, str]:
         )
         for message in lease.messages
     ]
+    if lease.report:
+        blocks.append(lease.report)
     rendered = "\n\n".join(
         (
             f"=== BEGIN YOKE SESSION MESSAGE DELIVERY {token} ===",

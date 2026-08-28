@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-28T15:18:44Z_
+_Audit generated_at: 2026-08-28T17:01:01Z_
 
 ## 1. Summary
 
@@ -281,7 +281,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **341** (operation track
 | shepherd | `yoke shepherd dependency-remove` | `shepherd.dependency_remove.run` | ok |
 | shepherd | `yoke shepherd dependency-update` | `shepherd.dependency_update.run` | ok |
 | shepherd | `yoke shepherd verdict` | `shepherd.verdict.run` | ok |
-| steering | `yoke steering backstop evaluate` | `steering.backstop.evaluate` | ok |
+| steering | `yoke steering report get` | `steering.report.get` | ok |
 | strategy | `yoke strategy carry candidate-set` | `strategy.carry.candidate_set` | ok |
 | strategy | `yoke strategy carry mark` | `strategy.carry.mark` | ok |
 | strategy | `yoke strategy carry register-new` | `strategy.carry.register_new` | ok |
@@ -543,9 +543,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 30 |
+| codex | 35 |
 | claude-code | 14 |
-| cursor | 6 |
+| cursor | 1 |
 
 ## 8. Contradictions
 

@@ -123,3 +123,37 @@ def test_malformed_message_identity_renders_no_command_looking_text() -> None:
         line for line in rendered.splitlines() if not line.startswith("| ")
     ]
     assert not any("yoke messages acknowledge" in line for line in non_body_lines)
+
+
+def test_the_fleet_report_rides_inside_the_authenticated_envelope() -> None:
+    report = "=== BEGIN YOKE FLEET REPORT ===\nunstaffed: none\n=== END YOKE FLEET REPORT ==="
+    rendered, token = render_lease(
+        SessionMessageLease(
+            lease_id="lease-1",
+            messages=(_message(),),
+            report=report,
+        )
+    )
+    lines = rendered.splitlines()
+
+    assert report in rendered
+    # Inside the delivery envelope, so the trust guidance covers it, and after
+    # the peer-authored message it rides on.
+    assert lines.index("=== BEGIN YOKE FLEET REPORT ===") > lines.index(
+        f"--- END YOKE SESSION MESSAGE {MESSAGE_ID} ---"
+    )
+    assert lines.index("=== END YOKE FLEET REPORT ===") < lines.index(
+        f"=== END YOKE SESSION MESSAGE DELIVERY {token} ==="
+    )
+
+
+def test_a_lease_with_no_report_renders_exactly_as_before() -> None:
+    without, _ = render_lease(
+        SessionMessageLease(lease_id="lease-1", messages=(_message(),))
+    )
+    explicit_empty, _ = render_lease(
+        SessionMessageLease(lease_id="lease-1", messages=(_message(),), report="")
+    )
+
+    assert without == explicit_empty
+    assert "YOKE FLEET REPORT" not in without
