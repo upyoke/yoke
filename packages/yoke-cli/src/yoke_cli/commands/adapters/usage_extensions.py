@@ -6,7 +6,7 @@ from typing import Dict
 
 from yoke_cli.commands.adapters import claims_coordination_claim
 from yoke_cli.commands.adapters import claims_steering
-from yoke_cli.commands.adapters import steering_backstop
+from yoke_cli.commands.adapters import steering_report
 from yoke_cli.commands.adapters import qa
 from yoke_cli.commands.adapters import shepherd_writes
 from yoke_cli.commands.adapters import strategy_event_usage
@@ -25,7 +25,7 @@ def extend_adapter_usage(target: Dict[str, str]) -> None:
     target.update(usage_product_surfaces.USAGE_BY_FUNCTION_ID)
     target.update(claims_coordination_claim.USAGE_BY_FUNCTION_ID)
     target.update(claims_steering.USAGE_BY_FUNCTION_ID)
-    target.update(steering_backstop.USAGE_BY_FUNCTION_ID)
+    target.update(steering_report.USAGE_BY_FUNCTION_ID)
 
 
 __all__ = ["extend_adapter_usage"]

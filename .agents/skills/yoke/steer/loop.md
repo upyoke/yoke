@@ -266,21 +266,17 @@ When a chunk of the doc needs an implementer:
 
 ### 5. Staff unpicked runnable work
 
-When runnable work sits unclaimed, invoke the steering backstop — not a
-hand-rolled spawn, and not `/yoke do`:
+Runnable work that sits unclaimed is this seat's to staff; nothing else
+does it. The fleet report names what is unstaffed, what lost its owner,
+and which claim holders have gone quiet. It arrives appended to the
+messages this session receives; pull it between wakes with:
 
 ```text
-yoke steering backstop evaluate --project {_project}
+yoke steering report get --project {_project}
 ```
 
-The backstop launches only work the scheduler already calls runnable that
-carries no live work claim and has waited past the project's unpicked
-grace. It refuses callers who do not hold the steering-scope claim. Use
-`--dry-run` only to inspect; a live pass files the launches.
-
-Prompt launches for newly runnable unclaimed items follow
-[`worker-lifecycle.md`](worker-lifecycle.md) (keep the frontier maxed
-out). The backstop is the safety net for work that sat.
+Launch per [`worker-lifecycle.md`](worker-lifecycle.md) — item-bound and
+CLI-only, never a hand-rolled spawn and never `/yoke do`.
 
 ### 6. Deploy merged work in batches
 

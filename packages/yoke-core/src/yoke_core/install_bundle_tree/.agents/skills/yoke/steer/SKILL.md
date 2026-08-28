@@ -41,7 +41,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `workflows.item.get` | `yoke workflows item get PREFIX-N --json` |
 | `claims.work.acquire` | `yoke claims work acquire --item PREFIX-N --reason TEXT` |
 | `claims.work.release` | `yoke claims work release --item PREFIX-N --reason TEXT` |
-| `steering.backstop.evaluate` | `yoke steering backstop evaluate --project P` |
+| `steering.report.get` | `yoke steering report get --project P` |
 | `session_control.launch.create` | `yoke session-control launch create --project P --surface S --stdin --idempotency-key K` |
 | `session_control.launch.get` | `yoke session-control launch get LAUNCH-ID --json` |
 | `session_control.launch.reconcile` | `yoke session-control launch reconcile LAUNCH-ID --json` |

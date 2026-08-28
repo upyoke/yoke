@@ -21,9 +21,9 @@ frontier should not have offered.
 ## 2. Keep the frontier maxed out
 
 Launch a worker promptly for every runnable unclaimed item in this
-steering scope. Do not wait for the operator to pick. The backstop
-(`steering.backstop.evaluate`) covers work that sat unpicked; prompt
-staffing uses the launcher recipe below.
+steering scope. Do not wait for the operator to pick. Nothing else
+staffs: the fleet report names work that sat unpicked, and this seat is
+what acts on it, using the launcher recipe below.
 
 ## 3. Launch CLI surfaces only
 
@@ -160,10 +160,9 @@ yoke sessions touch --mode parked --reason "waiting on PREFIX-N"
 
 Any later tool call clears parked automatically. Do not unstamp by hand.
 
-The steering backstop composes the same single-item mandate for unpicked
-work. Prefer `yoke steering backstop evaluate --project {_project}` for
-work that sat; use this recipe for prompt staffing of newly runnable
-unclaimed items. Both paths must stay item-bound and CLI-only.
+Use this recipe for every launch, whether the item just became runnable
+or the fleet report named it as unstaffed. There is no second staffing
+path: every launch is item-bound and CLI-only, and this seat composes it.
 
 When same-surface worker failures carry a vendor-side signature, disable
 that surface with `yoke session-control surface-policy disable` and staff

@@ -111,8 +111,8 @@ CLAIMS_ADAPTERS = [
         ),
     ),
     AdapterEntry(
-        "steering.backstop.evaluate",
-        "yoke steering backstop evaluate --project P [--dry-run]",
+        "steering.report.get",
+        "yoke steering report get --project P [--json]",
     ),
 ]
 

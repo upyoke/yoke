@@ -67,7 +67,9 @@ def create_session_tables(conn: Any) -> None:
           episode_started_at TEXT DEFAULT NULL,
           pending_resume_notice TEXT DEFAULT NULL,
           last_chain_step INTEGER DEFAULT NULL,
-          last_checkpoint_at TEXT DEFAULT NULL
+          last_checkpoint_at TEXT DEFAULT NULL,
+          last_steering_report_at TEXT DEFAULT NULL,
+          last_steering_report_fingerprint TEXT DEFAULT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_lane ON harness_sessions(execution_lane);
         CREATE INDEX IF NOT EXISTS idx_harness_sessions_heartbeat ON harness_sessions(last_heartbeat);
