@@ -1,8 +1,7 @@
 """Curated and corrective event-registry data tuples.
 
-Sibling module of :mod:`yoke_core.domain.populate_registry`. Holds the
-operator-authored data tables that drive the curated, corrective, and
-severity-only update layers of the populator pipeline:
+Operator-authored tables drive the curated, corrective, and severity-only
+update layers of the populator pipeline:
 
 - :data:`CURATED_EVENTS`: events explicitly registered idempotently
   because they may not yet have call sites reachable by discovery.

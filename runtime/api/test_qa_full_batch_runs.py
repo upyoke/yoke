@@ -12,7 +12,12 @@ import json
 
 import pytest
 
-from yoke_core.domain import db_backend, qa
+from yoke_core.domain import actors, db_backend, qa
+from yoke_core.domain.schema_init_actor_path_claim_tables import (
+    create_actor_identity_tables,
+)
+from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from runtime.api.fixtures.schema_ddl_runtime_sessions import _SESSIONS_FAMILY_DDL
 from runtime.api.qa_full_test_helpers import conn_with_rows, make_qa_db_file
 from runtime.api.qa_transition_test_support import add_bound_requirement
 
@@ -191,6 +196,36 @@ class TestRunAddBatch:
     def test_emits_one_event_per_created_run(
         self, db_path, capsys, tmp_path, monkeypatch
     ):
+        session_id = "qa-batch-event-test"
+        conn = _conn(db_path)
+        create_actor_identity_tables(conn)
+        apply_fixture_ddl(conn, _SESSIONS_FAMILY_DDL)
+        _, actor_id = actors.seed_canonical_actors(
+            conn,
+            local_human_label="qa-batch-event-test-human",
+        )
+        conn.execute(
+            "INSERT INTO harness_sessions "
+            "(session_id, executor, provider, model, execution_lane, workspace, "
+            "project_id, offered_at, last_heartbeat, actor_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                session_id,
+                "codex",
+                "openai",
+                "test-model",
+                "ALTMAN",
+                "/tmp",
+                1,
+                "2026-08-28T00:00:00Z",
+                "2026-08-28T00:00:00Z",
+                actor_id,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        monkeypatch.setenv("YOKE_SESSION_ID", session_id)
+
         req1 = self._seed_requirement(db_path, capsys)
         req2 = self._seed_requirement(db_path, capsys, item_id=200)
 
@@ -231,6 +266,8 @@ class TestRunAddBatch:
             "QARunCompleted",
         ]
         assert [event["context"]["detail"]["run_id"] for event in events] == ids
+        assert {event["session_id"] for event in events} == {session_id}
+        assert {event["actor_id"] for event in events} == {actor_id}
 
     def test_rejects_agent_for_browser_method(self, db_path, capsys, tmp_path):
         req_id = self._seed_requirement(
