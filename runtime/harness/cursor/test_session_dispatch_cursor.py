@@ -117,10 +117,25 @@ def test_session_start_registers_with_payload_model(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
-    payload = {"session_id": MAIN, "model_id": "composer-2.5", "model": "x"}
+    payload = {
+        "session_id": MAIN,
+        "model_id": "grok-4.6",
+        "model": "cursor-grok-4.6-xhigh",
+    }
     dispatch_cursor.run_session_start(_context(payload), "/repo")
     assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "composer-2.5", "cursor-cli")
+        ("/repo", MAIN, "cursor-grok-4.6-xhigh", "cursor-cli")
+    ]
+
+
+def test_session_start_records_bare_model_when_payload_has_no_tier(
+    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    payload = {"session_id": MAIN, "model": "grok-4.6"}
+    dispatch_cursor.run_session_start(_context(payload), "/repo")
+    assert quiet_side_effects["register"] == [
+        ("/repo", MAIN, "grok-4.6", "cursor-cli")
     ]
 
 

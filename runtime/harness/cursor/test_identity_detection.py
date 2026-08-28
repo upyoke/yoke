@@ -132,6 +132,17 @@ def test_detect_executor_claude_session_wins_over_conversation_id(
     assert identity.detect_executor() == "claude-code"
 
 
+def test_cursor_payload_model_prefers_tiered_model_over_bare_id() -> None:
+    assert wheel_identity.cursor_payload_model(
+        {"model_id": "grok-4.6", "model": "cursor-grok-4.6-xhigh"}
+    ) == "cursor-grok-4.6-xhigh"
+
+
+def test_cursor_payload_model_records_bare_model_when_no_tier() -> None:
+    assert wheel_identity.cursor_payload_model({"model": "grok-4.6"}) == "grok-4.6"
+    assert wheel_identity.cursor_payload_model({"model_id": "grok-4.6"}) == "grok-4.6"
+
+
 @BOTH
 def test_detect_executor_codex_thread_wins_over_conversation_id(
     identity, monkeypatch: pytest.MonkeyPatch,

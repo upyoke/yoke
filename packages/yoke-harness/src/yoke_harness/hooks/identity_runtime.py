@@ -69,11 +69,12 @@ def cursor_payload_model(payload: dict[str, Any]) -> str:
     """Return the concrete model a Cursor hook payload names, or ``""``.
 
     Cursor multiplexes providers, so the model a session runs under is only
-    knowable from what it reports. ``model_id`` is the bare id and ``model``
-    the display id; either is a real answer, and a build that still sends
+    knowable from what it reports. ``model`` is the variant-qualified id
+    and may carry an effort tier; ``model_id`` is the bare id and is
+    strictly less informative. Prefer ``model``. A build that still sends
     the ``"default"`` placeholder is reporting no model at all.
     """
-    for key in ("model_id", "model"):
+    for key in ("model", "model_id"):
         value = payload.get(key)
         if isinstance(value, str) and not _is_placeholder_model(value):
             return value.strip()
