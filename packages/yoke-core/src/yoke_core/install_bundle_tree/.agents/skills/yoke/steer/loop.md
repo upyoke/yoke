@@ -65,20 +65,70 @@ detector for the failures that arrive as silence.
   Treat every returned row as starved and revive it immediately: use the
   registered wake when available, otherwise the manual native-resume bridge
   under **Revive starved workers** below.
-- **Stale claim holders:** any session with a live work claim and
-  `liveness=stale` gets the same probe-and-revive treatment. A starved
-  holder is also burning down its stale clock, so read `stale_eligible_at`
-  and `effective_stale_ttl_minutes` from its `yoke sessions list --json`
-  row while triaging it. At `stale_eligible_at` the reclaim sweep releases
-  that session's claims and its item reads as untouched, so a starved
-  holder near reclaim is revived before anything else in the pass.
+- **Idle claim holders:** any session holding a live work claim whose
+  `last_tool_call_at` is older than **20 minutes**, whatever its liveness
+  label says. Never key this check on `liveness=stale`: a claim-holding
+  session carries a 1440-minute stale TTL, so a worker idle for two hours
+  still reads `active` and a label-based check never fires. Observed: a
+  holder sat idle 2h mid-item while the steerer watched claim-count churn
+  and saw nothing.
+
+  ```text
+  yoke db read "SELECT (c.scope::json->>'item_id') AS item_id, c.session_id, s.mode, s.executor_surface, s.last_tool_call_at, round(extract(epoch FROM (now() - s.last_tool_call_at::timestamptz)) / 60) AS idle_minutes FROM work_claims c JOIN harness_sessions s ON s.session_id = c.session_id WHERE c.released_at IS NULL AND c.target_kind = 'item' AND s.ended_at IS NULL AND s.mode <> 'parked' AND (s.last_tool_call_at IS NULL OR s.last_tool_call_at::timestamptz < now() - interval '20 minutes') ORDER BY s.last_tool_call_at NULLS FIRST"
+  ```
+
+  A holder that stamped `--mode parked` declared its wait and the query
+  excludes it. Every other row is probed and revived. A starved holder is
+  also burning down its stale clock, so read `stale_eligible_at` and
+  `effective_stale_ttl_minutes` from its `yoke sessions list --json` row
+  while triaging it. At `stale_eligible_at` the reclaim sweep releases that
+  session's claims and its item reads as untouched, so a starved holder
+  near reclaim is revived before anything else in the pass.
+- **Dead waits:** before reviving an idle holder, read what it last asked
+  and who was meant to answer. A `WAKE` alone parks it on the same question.
+
+  ```text
+  yoke db read "SELECT m.created_at, r.session_id AS intended_answerer, r.state, a.ended_at AS answerer_ended_at, left(m.body, 200) AS body FROM session_messages m JOIN session_message_recipients r ON r.message_id = m.message_id LEFT JOIN harness_sessions a ON a.session_id = r.session_id WHERE m.sender_session_id = '{IDLE_SESSION_ID}' ORDER BY m.created_at DESC LIMIT 5"
+  ```
+
+  A non-null `answerer_ended_at`, or an answerer whose own item is already
+  terminal, means no reply is coming. Answer on the ended session's behalf:
+  send the asker the answer plus the current state of whatever it was
+  waiting on. Observed: a worker asked a peer to reply if it saw a path
+  overlap as order-dependent; the peer merged, went `done`, and ended, so
+  the asker waited on a reply that could never arrive.
 - **Unregistered launches:** any launch past `deadline_at` without a
   `registered_session_id` gets `launch reconcile` followed by `launch retry`.
-- **Silent in-flight work:** any in-flight item with no worker activity beyond
-  the project's sanity window gets an immediate holder probe and revival.
+- **Unowned in-flight work:** a non-terminal item with zero live claims is a
+  finding only once it has been unowned **continuously past 15 minutes**.
+  Never act on a snapshot: every lifecycle segment boundary releases the
+  claim and reacquires moments later, and a sweep reading that window as
+  abandonment launches a duplicate worker onto live work. Observed: a sweep
+  hit that window and staffed a second worker onto a healthy item; the
+  duplicate refused to override and reported the conflict, which is the only
+  reason it cost nothing.
+
+  ```text
+  yoke db read "SELECT i.id, i.status, i.title, max(c.released_at) AS last_release_at FROM items i LEFT JOIN work_claims c ON c.target_kind = 'item' AND (c.scope::json->>'item_id')::int = i.id WHERE i.project_id = {PROJECT_ID} AND i.status NOT IN ('idea', 'done', 'cancelled', 'stopped') GROUP BY i.id, i.status, i.title HAVING count(*) FILTER (WHERE c.id IS NOT NULL AND c.released_at IS NULL) = 0 AND coalesce(max(c.released_at)::timestamptz, i.updated_at::timestamptz) < now() - interval '15 minutes' ORDER BY 4"
+  ```
+
+  Then re-verify ownership immediately before launching or reclaiming — the
+  gap between the sweep and the action is one more handoff window. A holder
+  returned here ends it: the item is owned, take no action.
+
+  ```text
+  yoke claims work holder-get PREFIX-N
+  ```
 - **Landed without close-out:** any item whose pull request is merged while
   the item remains non-terminal gets an immediate nudge to its live claim
   holder; with no live holder, route the normal starvation/restaffing path.
+
+The dashboard session card carries these signals faster when the operator
+has it open: every card renders an explicit `idle <age>` line, and a
+claim-holding card carries a `waiting` / `probed` / `possibly stale` health
+pill. Read the idle age, not the pill — the pill only appears past the
+staleness window, the same 1440-minute clock that makes the liveness label
+useless here. The queries above are the headless pass.
 
 Wake sources are events; failures are silences — every pass scans the
 silences.

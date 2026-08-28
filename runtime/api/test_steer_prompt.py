@@ -24,6 +24,12 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _sql_after(text: str, marker: str) -> str:
+    """Return the single-line `yoke db read` statement containing `marker`."""
+    at = text.index(marker)
+    return text[text.rindex('yoke db read "', 0, at) : text.index('"\n', at)]
+
+
 def _corpus() -> str:
     return "".join(_read(path) for path in sorted(_STEER_DIR.glob("*.md")))
 
@@ -103,6 +109,62 @@ class TestSteerSkillContract:
         assert "yoke sessions list --json" in loop
         assert "near reclaim is revived before anything else in the pass" in loop
 
+    def test_quiet_holder_check_is_idle_duration_not_liveness_label(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "**Idle claim holders:**" in loop
+        assert "older than **20 minutes**" in loop
+        assert "Never key this check on `liveness=stale`" in loop
+        assert "1440-minute stale TTL" in loop
+        # The runnable query keys on elapsed idle time, never on the label.
+        query = _sql_after(loop, "FROM work_claims c JOIN harness_sessions s")
+        assert "s.last_tool_call_at::timestamptz < now() - interval '20 minutes'" in query
+        assert "liveness" not in query
+        # A holder that declared its wait is not idle.
+        assert "s.mode <> 'parked'" in query
+
+    def test_dead_wait_check_names_the_ended_answerer_and_its_resolution(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "**Dead waits:**" in loop
+        assert "answerer_ended_at" in loop
+        assert "no reply is coming" in loop
+        assert "Answer on the ended session's behalf" in loop
+        assert "the current state of whatever it was" in loop
+        query = _sql_after(loop, "FROM session_messages m JOIN session_message_recipients r")
+        assert "m.sender_session_id = '{IDLE_SESSION_ID}'" in query
+        assert "a.ended_at AS answerer_ended_at" in query
+
+    def test_ownership_check_requires_sustained_unowned_time_and_a_reverify(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "**Unowned in-flight work:**" in loop
+        assert "unowned **continuously past 15 minutes**" in loop
+        assert "Never act on a snapshot" in loop
+        # The duplicate-launch incident is the reason the guard exists.
+        assert "staffed a second worker onto a healthy item" in loop
+        assert "refused to override and reported the conflict" in loop
+        query = _sql_after(loop, "FROM items i LEFT JOIN work_claims c")
+        assert "interval '15 minutes'" in query
+        # Re-verify happens immediately before acting, after the sweep.
+        sweep_at = loop.index("**Unowned in-flight work:**")
+        reverify_at = loop.index("yoke claims work holder-get PREFIX-N", sweep_at)
+        assert "re-verify ownership immediately before launching or reclaiming" in loop
+        assert reverify_at > loop.index("FROM items i LEFT JOIN work_claims c")
+
+    def test_dashboard_card_is_named_as_the_faster_read(self):
+        loop = _read(_STEER_DIR / "loop.md")
+        assert "dashboard session card" in loop
+        assert "`idle <age>`" in loop
+        assert "`waiting` / `probed` / `possibly stale`" in loop
+        assert "Read the idle age, not the pill" in loop
+        assert "headless pass" in loop
+
+    def test_no_steer_file_teaches_the_retired_label_or_snapshot_reads(self):
+        corpus = _corpus()
+        assert "**Stale claim holders:**" not in corpus
+        assert "**Silent in-flight work:**" not in corpus
+        # `liveness=stale` survives only as the explicit do-not-use warning.
+        assert corpus.count("liveness=stale") == 1
+        assert "Never key this check on `liveness=stale`" in corpus
+
     def test_no_steer_file_teaches_steerer_sent_only_scope(self):
         corpus = _corpus()
         assert "every envelope this steerer sent" not in corpus
@@ -134,7 +196,6 @@ class TestSteerSkillContract:
         assert "cursor-agent --resume <session-id>" in loop
         assert "Negative-space checks — first, every periodic pass" in loop
         assert "injection_count=0" in loop
-        assert "liveness=stale" in loop
         assert "failures are silences" in loop
         assert "release_reason=completed" in loop
         assert "yoke claims work acquire --item PREFIX-N --reason steering" in loop
