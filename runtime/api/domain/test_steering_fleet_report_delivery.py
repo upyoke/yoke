@@ -82,9 +82,7 @@ def steering_scope(test_db):
 def test_a_session_without_the_seat_is_owed_nothing(steering_scope):
     assert steered_project_id(steering_scope, PLAIN_SESSION) is None
     assert (
-        steering_report_for_delivery(
-            steering_scope, session_id=PLAIN_SESSION, now=NOW
-        )
+        steering_report_for_delivery(steering_scope, session_id=PLAIN_SESSION, now=NOW)
         is None
     )
 

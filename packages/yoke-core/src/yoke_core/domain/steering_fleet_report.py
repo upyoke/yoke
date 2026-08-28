@@ -136,9 +136,7 @@ class FleetReport:
             "holders": sorted(
                 (holder.session_id, holder.item_id) for holder in self.holders
             ),
-            "idle": sorted(
-                (holder.session_id, holder.item_id) for holder in self.idle
-            ),
+            "idle": sorted((holder.session_id, holder.item_id) for holder in self.idle),
             "launchable": sorted(
                 (ready.machine_id, ready.surface) for ready in self.launchable
             ),
