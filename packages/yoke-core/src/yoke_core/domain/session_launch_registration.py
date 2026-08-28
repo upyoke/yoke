@@ -26,6 +26,7 @@ from yoke_core.domain.session_launch_types import (
     LaunchRegistrationInjection,
     SessionLaunchError,
 )
+from .session_launch_registration_grace import hold_launch_registration_grace
 
 
 def _session_facts(conn: Any, session_id: str) -> dict[str, Any]:
@@ -170,6 +171,7 @@ def prepare_launch_registration(
             )
         facts = _session_facts(conn, session_id)
         _require_exact_binding(launch, session_id, facts)
+        hold_launch_registration_grace(conn, session_id, now=current)
         _insert_pending_recipient(
             conn,
             launch=launch,

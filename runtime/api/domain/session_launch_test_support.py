@@ -31,7 +31,10 @@ def launch_connection() -> sqlite3.Connection:
             executor_surface TEXT,
             executor_version TEXT,
             machine_id TEXT,
-            model TEXT
+            model TEXT,
+            keepalive_until TEXT,
+            keepalive_reason TEXT,
+            ended_at TEXT
         );
         INSERT INTO actors (id) VALUES (1), (2), (3);
         INSERT INTO projects (id, slug) VALUES (10, 'launch-project');
@@ -63,7 +66,6 @@ def relay_connection(
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN execution_lane TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_heartbeat TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN offered_at TEXT")
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN ended_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN terminated_at TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN last_tool_call_at TEXT")
     conn.execute(

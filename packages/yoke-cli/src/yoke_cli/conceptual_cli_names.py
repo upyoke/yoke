@@ -19,6 +19,10 @@ from yoke_cli.commands.adapters.qa_read import (
     QA_RUN_LIST_USAGE,
 )
 from yoke_cli.commands.adapters.session_control_messages import SAY_USAGE
+from yoke_cli.commands.adapters.sessions import SESSIONS_IDENTITY_USAGE
+from yoke_contracts.session_control.launch_bootstrap import (
+    AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
+)
 
 # Conceptual argv prefix -> ((canonical cli form, one-line recipe), ...)
 CONCEPTUAL_CLI_NAMES: dict[tuple[str, ...], tuple[tuple[str, str], ...]] = {
@@ -31,6 +35,13 @@ CONCEPTUAL_CLI_NAMES: dict[tuple[str, ...], tuple[tuple[str, str], ...]] = {
         ("yoke direct-workflow conflict-survey status", CONFLICT_SURVEY_STATUS_USAGE),
     ),
     ("messages", "send"): (("yoke say", SAY_USAGE),),
+    ("sessions", "register"): (
+        (
+            "yoke sessions identity",
+            f"{AUTOMATIC_LAUNCH_REGISTRATION_TEACHING} "
+            f"Inspect the registered session with `{SESSIONS_IDENTITY_USAGE}`.",
+        ),
+    ),
 }
 
 _HELP_TOKENS = frozenset(("-h", "--help", "help"))

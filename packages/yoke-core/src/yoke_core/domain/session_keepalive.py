@@ -1,12 +1,11 @@
 """Hold a claim-free session alive on purpose, against idle reaping.
 
-A session that exists to be a wake target holds nothing by design: no work
-claim, no document lock, no chain budget. Idle cleanup reads that emptiness as
-"nothing would be lost" and ends the session, which is right for one that
-merely finished and exactly wrong for one whose whole job is to still be there
-when someone wakes it. The Fleet acceptance broker pair is the worked case:
-two prepared sessions ended within seconds of their own last tool call, and
-the run that had just prepared them re-read the roster and found nothing.
+A session that exists to be a wake target or is still entering its first
+launch mandate holds nothing by design: no work claim, no document lock, no
+chain budget. Idle cleanup reads that emptiness as "nothing would be lost" and
+ends the session, which is right for one that merely finished and exactly
+wrong for one whose whole job is to still be there when someone wakes it or
+while it reads the instruction that tells it what to claim.
 
 So the caller that needs the session says so, and says it with an expiry.
 
@@ -127,11 +126,13 @@ def hold_session_keepalive(
     seconds: int = DEFAULT_KEEPALIVE_SECONDS,
     reason: str,
     now: Optional[datetime] = None,
+    commit: bool = True,
 ) -> Dict[str, Any]:
     """Hold one live session against idle reaping until the lease expires.
 
     Re-holding an already-held session replaces the window, so a caller that
     needs longer renews rather than stacking leases it would have to unwind.
+    Transactional registration callers defer the commit to their outer unit.
     """
     stated = (reason or "").strip()
     if not stated:
@@ -170,7 +171,8 @@ def hold_session_keepalive(
         f"keepalive_reason = {marker} WHERE session_id = {marker}",
         (until, stated, session_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return _load_session(conn, session_id)
 
 

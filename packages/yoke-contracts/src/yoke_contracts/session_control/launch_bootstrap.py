@@ -1,15 +1,14 @@
 """Opaque native launch bootstrap shared by the launch store and relays.
 
 The sentence a freshly spawned native reads is the only instruction it has
-before it knows who it is, so it has to be safe when the rest of the
-handshake does not happen.  A bootstrap that says only "register, pull your
-message, act" reads, to a native whose registration silently failed, as
-permission to find its own work: observed natives went on to read the
-backlog, adopt briefs they were never assigned, and write code straight into
-the shared checkout with no claim, no lane, and none of the hook guards that
-a registered session runs behind.  The refusal clause below is therefore
-part of the instruction rather than a nicety — it names stopping as the
-outcome when registration does not succeed.
+before it knows who it is, so it has to distinguish automatic opening-hook
+registration from an action the worker must take.  A bare instruction to
+"register" makes a nonexistent self-registration command an obvious guess.
+It also has to be safe when the handshake does not happen: a native whose
+registration silently failed must not find its own work, adopt a brief it was
+never assigned, or write into a shared checkout with none of the hook guards
+that a registered session runs behind.  The automatic-registration and
+refusal clauses below are therefore part of the instruction, not niceties.
 
 The claim-first clause is the other half of the same lesson.  A worker that
 surveys before it claims holds nothing, and a session holding nothing is
@@ -29,8 +28,12 @@ import hashlib
 
 
 LAUNCH_BOOTSTRAP_REFUSAL = (
-    "If registration does not succeed, stop: take no repository, worktree, "
+    "If automatic registration does not succeed, stop: take no repository, worktree, "
     "or backlog action, and claim no work."
+)
+AUTOMATIC_LAUNCH_REGISTRATION_TEACHING = (
+    "Launch registration is automatic in the opening hook; do not run a session "
+    "registration command."
 )
 LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
     "If your message assigns you a work item, acquire that item's work claim "
@@ -41,7 +44,8 @@ LAUNCH_BOOTSTRAP_CLAIM_FIRST = (
 def native_launch_bootstrap(launch_id: str) -> str:
     """Return the launch sentence: act, claim first, and stop if unregistered."""
     return (
-        f"Yoke launch `{launch_id}`: register, pull your message, act. "
+        f"Yoke launch `{launch_id}`: {AUTOMATIC_LAUNCH_REGISTRATION_TEACHING} "
+        "Pull your message, then act. "
         f"{LAUNCH_BOOTSTRAP_CLAIM_FIRST} {LAUNCH_BOOTSTRAP_REFUSAL}"
     )
 
@@ -53,6 +57,7 @@ def native_launch_bootstrap_sha256(launch_id: str) -> str:
 
 
 __all__ = [
+    "AUTOMATIC_LAUNCH_REGISTRATION_TEACHING",
     "LAUNCH_BOOTSTRAP_CLAIM_FIRST",
     "LAUNCH_BOOTSTRAP_REFUSAL",
     "native_launch_bootstrap",

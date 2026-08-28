@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_harness import session_relay_codex as adapter_module
 from yoke_harness.session_relay_codex import (
     CodexNativeOutcome,
@@ -22,7 +23,7 @@ from yoke_harness.session_relay_codex_cli import (
 
 
 SECRET = "one-time-launch-attestation"
-INSTRUCTION = "Yoke launch launch-1: register and check your Yoke messages."
+INSTRUCTION = native_launch_bootstrap("launch-1")
 
 
 class FakeTransport:

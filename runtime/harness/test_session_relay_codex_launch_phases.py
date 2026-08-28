@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.session_control.launch_bootstrap import native_launch_bootstrap
 from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_harness import session_relay_codex_app_server as app_module
 from yoke_harness import session_relay_codex_app_server_client as client_module
@@ -25,7 +26,7 @@ from yoke_harness.session_relay_inventory import ResolvedNativeCli
 
 
 THREAD_ID = "01a038d8-96df-7802-be79-cc35851a919c"
-INSTRUCTION = "Yoke launch launch-1: register and check your Yoke messages."
+INSTRUCTION = native_launch_bootstrap("launch-1")
 
 
 class _FakeNative:

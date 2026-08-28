@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_contracts.session_control.launch_bootstrap import (
+    AUTOMATIC_LAUNCH_REGISTRATION_TEACHING,
+)
 from yoke_core.domain.session_launch_types import LaunchRegistrationInjection
 from yoke_core.hooks import session_launch_attestation as launch_hook
 from yoke_core.hooks.types import HookContext, Outcome
@@ -85,6 +88,7 @@ def test_instruction_framing_denies_inherited_authority() -> None:
     assert "does not override approvals" in rendered
     assert "Sender actor: 42" in rendered
     assert "Message ID: message-1" in rendered
+    assert AUTOMATIC_LAUNCH_REGISTRATION_TEACHING in rendered
     assert "yoke messages acknowledge message-1" in rendered
 
 
