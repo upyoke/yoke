@@ -122,10 +122,10 @@ def _harness_line(harness_id: str, cap: HarnessWakeCapability) -> str:
 
 def _provenance_lines() -> list[str]:
     return [
-        f"Wake capability is a manifest fact, not prose. Source of truth:",
+        "Wake capability is a manifest fact, not prose. Source of truth:",
         f"`{MANIFEST_FIELD}` in `{MANIFEST_PATH_TEMPLATE}`, rendered from",
         f"`{CANONICAL_MODULE}`. Change the contract and re-render; never",
-        f"restate one of these facts on a document's own authority.",
+        "restate one of these facts on a document's own authority.",
     ]
 
 
