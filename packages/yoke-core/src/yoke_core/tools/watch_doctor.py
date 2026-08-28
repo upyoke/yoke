@@ -247,13 +247,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         )
         return 0
 
-    if ns.raw_capture is None or ns.progress_capture is None:
-        minted_raw, minted_progress = _watch_runner.mint_capture_paths(KIND)
-        raw_path = ns.raw_capture or minted_raw
-        progress_path = ns.progress_capture or minted_progress
-    else:
-        raw_path = ns.raw_capture
-        progress_path = ns.progress_capture
+    raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)
 
     return _watch_runner.run_watcher(
         argv=_doctor_argv(doctor_args),

@@ -1,6 +1,6 @@
 """Tests for :mod:`yoke_core.tools.watch_tail`.
 
-Covers four cases:
+Covers the follow cases:
 
 - exits cleanly when the watcher exit sentinel is already present at
   invocation (the "already-complete file" case),
@@ -10,7 +10,12 @@ Covers four cases:
   beginning,
 - the CLI ``python3 -m yoke_core.tools.watch_tail`` exits cleanly
   on a pre-populated file via subprocess (smoke test for the entry
-  point that ``print_streaming_pair`` will hand the operator).
+  point that ``print_streaming_pair`` will hand the operator),
+
+plus the writer-evidence refusals: a capture no watcher ever claimed,
+a capture whose claiming watcher died before its sentinel, and the two
+non-regressions those must not break -- a claimed but slow-starting run
+and a sentinel written in the instant before the writer exited.
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ import threading
 import time
 from pathlib import Path
 
+from yoke_core.tools import _watch_capture_binding as binding
 from yoke_core.tools import watch_tail
 
 
@@ -152,3 +158,106 @@ def test_cli_subprocess_exits_cleanly(tmp_path: Path) -> None:
     )
     assert "subprocess line" in result.stdout
     assert "# watch_pytest exit=0" in result.stdout
+
+
+def _stamped(progress: Path, kind: str = "pytest", pid: int | None = None) -> None:
+    """Claim *progress* for *pid* the way a bound watcher run does."""
+    progress.write_text(
+        binding.writer_marker_line(kind, pid=pid), encoding="utf-8"
+    )
+
+
+def test_refuses_a_capture_no_watcher_ever_claimed(tmp_path: Path) -> None:
+    """The observed failure: an empty capture followed for 29 minutes."""
+    progress = tmp_path / "progress.log"
+    progress.write_text("", encoding="utf-8")
+    out = io.StringIO()
+
+    rc = watch_tail.follow(
+        progress, out=out, poll_interval=0.01, grace_seconds=0.05
+    )
+    text = out.getvalue()
+
+    assert rc == binding.UNWRITTEN_CAPTURE_EXIT
+    assert "no watcher claimed" in text
+    assert "--raw-capture/--progress-capture" in text
+
+
+def test_refuses_when_the_capture_never_appears(tmp_path: Path) -> None:
+    out = io.StringIO()
+
+    rc = watch_tail.follow(
+        tmp_path / "never-created.log",
+        out=out,
+        poll_interval=0.01,
+        grace_seconds=0.05,
+    )
+
+    assert rc == binding.UNWRITTEN_CAPTURE_EXIT
+    assert "--print-streaming-pair" in out.getvalue()
+
+
+def test_refuses_when_the_claiming_watcher_died_without_a_sentinel(
+    tmp_path: Path,
+) -> None:
+    progress = tmp_path / "progress.log"
+    dead_pid = 2**31 - 1
+    _stamped(progress, pid=dead_pid)
+    with progress.open("a", encoding="utf-8") as handle:
+        handle.write("[ 12%] partial progress\n")
+    out = io.StringIO()
+
+    rc = watch_tail.follow(
+        progress, out=out, poll_interval=0.01, grace_seconds=5.0
+    )
+    text = out.getvalue()
+
+    assert rc == binding.UNWRITTEN_CAPTURE_EXIT
+    assert "[ 12%] partial progress" in text
+    assert f"watcher pid {dead_pid}" in text
+
+
+def test_a_claimed_capture_survives_a_slow_start(tmp_path: Path) -> None:
+    """A queued run stamps immediately and writes much later."""
+    progress = tmp_path / "progress.log"
+    _stamped(progress)
+
+    def producer() -> None:
+        time.sleep(0.15)
+        with progress.open("a", encoding="utf-8") as handle:
+            handle.write("[ 99%] finally started\n")
+            handle.write("# watch_pytest exit=0 raw=/tmp/raw.log\n")
+            handle.flush()
+
+    thread = threading.Thread(target=producer)
+    thread.start()
+    out = io.StringIO()
+    try:
+        # The grace window has long since passed by the time content
+        # arrives; the live marker is what keeps the follow going.
+        rc = watch_tail.follow(
+            progress, out=out, poll_interval=0.01, grace_seconds=0.01
+        )
+    finally:
+        thread.join(timeout=2.0)
+
+    assert rc == 0
+    assert "[ 99%] finally started" in out.getvalue()
+
+
+def test_a_sentinel_written_just_before_the_writer_exited_still_exits_zero(
+    tmp_path: Path,
+) -> None:
+    """Liveness is read before the final drain, so this is not a refusal."""
+    progress = tmp_path / "progress.log"
+    _stamped(progress, pid=2**31 - 1)
+    with progress.open("a", encoding="utf-8") as handle:
+        handle.write("# watch_pytest exit=0 raw=/tmp/raw.log\n")
+    out = io.StringIO()
+
+    rc = watch_tail.follow(
+        progress, out=out, poll_interval=0.01, grace_seconds=5.0
+    )
+
+    assert rc == 0
+    assert "# watch_pytest exit=0" in out.getvalue()
