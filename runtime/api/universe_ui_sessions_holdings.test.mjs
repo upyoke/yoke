@@ -68,7 +68,7 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
           {
             holding_kind: "work_claim",
             target_kind: "steering", target: "steering for project 1",
-            project_id: 1, scope: { project_id: 1 },
+            project_id: 1, scope: { project_id: 1 }, strategy_docs: ["CURRENT-PLAN"],
           },
           {
             holding_kind: "strategy_document", target_kind: "strategy_document",
@@ -78,7 +78,7 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
           {
             holding_kind: "work_claim",
             target_kind: "steering", target: "steering for project 3",
-            project_id: 3, scope: { project_id: 3 },
+            project_id: 3, scope: { project_id: 3 }, strategy_docs: ["CURRENT-PLAN"],
           },
           {
             holding_kind: "strategy_document", target_kind: "strategy_document",

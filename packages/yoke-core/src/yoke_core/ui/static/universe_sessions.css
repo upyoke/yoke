@@ -83,8 +83,8 @@
   color: var(--yoke-warn);
 }
 
-/* Attached rows are not holds — the muted glyph keeps a worktree lane
-   or a filing attribution from reading as the lock a claim earns. */
+/* Attached rows hold no claim. The muted glyph distinguishes a worktree-lane
+   hold and a filing attribution from the lock a claim earns. */
 .universe-app-root .session-attached {
   flex: 0 0 auto;
   color: var(--yoke-muted);

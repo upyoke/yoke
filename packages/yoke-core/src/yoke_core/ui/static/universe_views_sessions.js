@@ -150,7 +150,7 @@ export function sessionCard(
   appendModel(documentNode, body, row);
   appendSteeringHoldings(documentNode, body, row, projects);
   appendSessionPresentation(documentNode, body, row);
-  appendHoldings(documentNode, body, row);
+  appendHoldings(documentNode, body, row, projects);
   if (row.liveness !== "ended") appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
   appendSteeringContext(documentNode, body, row);

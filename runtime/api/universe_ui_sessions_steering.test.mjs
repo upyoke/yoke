@@ -44,6 +44,7 @@ test("holder and covered operator cards show scope and report custody", () => {
       {
         holding_kind: "work_claim",
         target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        strategy_docs: ["MISSION", "VISION"],
       },
       {
         holding_kind: "strategy_document", project_id: 1,
@@ -101,6 +102,7 @@ test("steering states itself once however many projects it covers", () => {
       {
         holding_kind: "work_claim",
         target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        strategy_docs: ["CURRENT-PLAN"],
       },
       {
         holding_kind: "strategy_document", project_id: 1,
@@ -109,6 +111,7 @@ test("steering states itself once however many projects it covers", () => {
       {
         holding_kind: "work_claim",
         target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+        strategy_docs: ["CURRENT-PLAN"],
       },
       {
         holding_kind: "strategy_document", project_id: 3,
@@ -140,6 +143,7 @@ test("each steered project carries the documents it is steered from", () => {
       {
         holding_kind: "work_claim",
         target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        strategy_docs: ["MISSION", "VISION"],
       },
       {
         holding_kind: "strategy_document", project_id: 1,
@@ -152,6 +156,7 @@ test("each steered project carries the documents it is steered from", () => {
       {
         holding_kind: "work_claim",
         target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+        strategy_docs: ["MASTER-PLAN"],
       },
       {
         holding_kind: "strategy_document", project_id: 3,
@@ -188,6 +193,25 @@ test("a steering claim alone still marks the session as steering", () => {
     byClass(holder, "session-steering-project")[0].textContent, "platform",
   );
   assert.equal(byClass(holder, "session-steering-docs")[0].textContent, "all docs");
+});
+
+
+test("previous steering holdings use the paired project and document label", () => {
+  const documentNode = new FakeDocument();
+  const rendered = card(documentNode, {
+    ...baseRow("previous-holder"),
+    holdings: { current: [], previous: [{
+      holding_kind: "work_claim", target_kind: "steering",
+      target: "steering for project 3", project_id: 3,
+      strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-26T12:00:00Z",
+    }], previous_remainder: 0 },
+  }, [{ id: 3, slug: "platform" }]);
+
+  assert.deepEqual(
+    byClass(rendered, "session-hold-target").map((node) => node.textContent),
+    ["platform · CURRENT-PLAN"],
+  );
+  assert.ok(!rendered.textContent.includes("project 3"));
 });
 
 

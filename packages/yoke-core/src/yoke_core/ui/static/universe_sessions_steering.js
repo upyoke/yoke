@@ -18,18 +18,23 @@ function steeringClaims(row) {
   );
 }
 
-function strategyDocs(row, projectId) {
-  return (Array.isArray(row?.holdings?.current) ? row.holdings.current : [])
-    .filter(
-      (holding) => holding.holding_kind === "strategy_document"
-        && String(holding.project_id) === String(projectId),
-    )
-    .map((holding) => String(holding.strategy_doc || ""))
-    .filter(Boolean);
-}
-
 function claimProjectId(claim) {
   return claim.project_id ?? claim.scope?.project_id;
+}
+
+function steeringScope(claim, projects) {
+  const docs = (Array.isArray(claim.strategy_docs) ? claim.strategy_docs : [])
+    .map((slug) => String(slug || ""))
+    .filter(Boolean);
+  return {
+    project: projectSlug(projects, claimProjectId(claim)) || "unknown project",
+    docs: docs.length ? docs.join(", ") : "all docs",
+  };
+}
+
+export function steeringHoldingText(claim, projects = []) {
+  const scope = steeringScope(claim, projects);
+  return `${scope.project} · ${scope.docs}`;
 }
 
 // Every project this session steers, each beside the documents it steers
@@ -39,13 +44,7 @@ function claimProjectId(claim) {
 // same-named documents readable as two holds: the projects differ even
 // where the slugs do not.
 function steeringScopes(row, projects) {
-  return steeringClaims(row).map((claim) => {
-    const docs = strategyDocs(row, claimProjectId(claim));
-    return {
-      project: projectSlug(projects, claimProjectId(claim)) || "unknown project",
-      docs: docs.length ? docs.join(", ") : "all docs",
-    };
-  });
+  return steeringClaims(row).map((claim) => steeringScope(claim, projects));
 }
 
 // Which current holdings the steering block above the roster already

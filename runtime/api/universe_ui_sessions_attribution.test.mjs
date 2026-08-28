@@ -82,7 +82,10 @@ test("a worktree lane on another session's item is untouched by the rule", () =>
   assert.equal(focusAttribution(row), "lane");
   const body = bodyFor(row);
   assert.match(byClass(body, "session-attached")[0].title, /^worktree lane/);
-  assert.equal(byClass(body, "session-holdings-label").length, 0);
+  assert.deepEqual(
+    byClass(body, "session-holdings-label").map((node) => node.textContent),
+    ["Currently held"],
+  );
 });
 
 

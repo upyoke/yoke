@@ -13,6 +13,7 @@ from runtime.api.fixtures.session_holdings import (
     insert_item_claim,
     insert_lease,
     insert_session,
+    insert_steering_claim,
     iso,
 )
 from yoke_core.domain.sessions_list_read import list_sessions
@@ -162,6 +163,25 @@ def test_claimed_focus_with_an_active_lane_reports_that_lane_role(test_db):
     row = list_sessions()[0]
     assert row["owns_current_item"] is True
     assert row["work_role"] == "integration"
+
+
+def test_steering_holding_reuses_the_claims_document_pairing(test_db):
+    insert_session(test_db, "s-steering")
+    insert_steering_claim(test_db, "s-steering")
+    insert_document_lock(test_db, "s-steering", 1, "CURRENT-PLAN")
+
+    row = list_sessions()[0]
+    claim = next(
+        entry for entry in row["claims"] if entry["target_kind"] == "steering"
+    )
+    holding = next(
+        entry
+        for entry in row["holdings"]["current"]
+        if entry["target_kind"] == "steering"
+    )
+
+    assert holding["project_id"] == claim["project_id"] == 1
+    assert holding["strategy_docs"] == claim["strategy_docs"] == ["CURRENT-PLAN"]
 
 
 def test_claimed_blitz_worktrees_project_onto_the_holding_session(test_db):
