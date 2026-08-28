@@ -100,7 +100,7 @@ When a normal command runs against an existing DB whose baseline schema is missi
 
 Columns (and tables) retired across a project's governed migration lifecycle are catalogued in the retired-schema registry. The registry is the single live source authorised to name retired columns by their literal identifier.
 
-It feeds three downstream checks:
+It feeds these downstream checks:
 
 - The `check_implementing_to_reviewing_implementation_gate` evidence gate performs a post-state verification against the authoritative DB. If a work item's `db_mutation_profile.affected_surfaces[].columns` names a retired column and that column is still present on the authoritative DB, the advance is blocked with remediation.
 - Idempotent `ALTER TABLE ... ADD COLUMN` call sites in init/bootstrap modules consult `yoke_core.domain.retired_schema_registry.guard_add_column` before executing. A registered column skips the `ADD COLUMN` and emits a WARN `RetiredSchemaResurrectionAttempt` event.

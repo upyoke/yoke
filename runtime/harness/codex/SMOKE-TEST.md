@@ -262,7 +262,7 @@ python3 -m pytest runtime/api/domain/test_agents_render_substrate.py runtime/api
 
 ## Event Lineage Verification
 
-The session-offer path emits two canonical events regardless of harness:
+The session-offer path emits these canonical events regardless of harness:
 
 1. **HarnessSessionOffered** -- emitted before decision-engine evaluation; includes `supported_paths`
 2. **NextActionChosen** -- emitted after the engine returns a directive; includes `action`, `reason`, `correlation_id`

@@ -216,7 +216,7 @@ release_reason_intent TEXT -- caller's release intent
 
 Indexes: `idx_work_claims_session(session_id)`, `idx_work_claims_session_released(session_id, released_at)`, and `idx_work_claims_heartbeat(last_heartbeat)`.
 
-Active-claim exclusivity invariants — four partial unique indexes, each scoped to `released_at IS NULL` so historical released overlap rows remain queryable evidence:
+Active-claim exclusivity invariants — these partial unique indexes, each scoped to `released_at IS NULL` so historical released overlap rows remain queryable evidence:
 
 - `idx_work_claims_active_item ON work_claims(scope) WHERE released_at IS NULL AND target_kind='item'`.
 - `idx_work_claims_active_epic_task ON work_claims(scope) WHERE released_at IS NULL AND target_kind='epic_task'`.

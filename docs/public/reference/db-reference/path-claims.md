@@ -76,7 +76,7 @@ in scope for this slice.
 The `HC-path-integrity` doctor check now runs the
 `render_relationship` invariant from
 `yoke_core.domain.path_integrity_invariants_render_relationship`.
-Three failure shapes surface stale registrations:
+These failure shapes surface stale registrations:
 
 - `stale_target` — `FAMILY_RENDER_TARGET` row references a deleted
   path_targets row (FK normally prevents; defense in depth).

@@ -122,7 +122,7 @@ Add `--gui-session` when a macOS command needs the login keychain or window
 server. The Terminal bridge, not SSH or `launchctl asuser`, is the supported
 route into that session.
 
-Treat these three failures as one diagnosis—wrong session context:
+Treat these failures as one diagnosis—wrong session context:
 
 - `screencapture` cannot create an image from the display;
 - switching to the audit session is not permitted;

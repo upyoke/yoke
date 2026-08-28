@@ -4,7 +4,7 @@ Reference content for the Simulator prompt. Read and follow this file when invok
 
 ## Gap Categories
 
-Check for these 5 categories of system-wide gaps:
+Check for these categories of system-wide gaps:
 
 1. **Stale agent references:** Agent prompt files (`.claude/agents/yoke-*.md`) reference tool names, file paths, script names, directory structures, or command outputs that no longer match the actual codebase. Example: an agent prompt references a retired script name but the script has been renamed or removed.
 

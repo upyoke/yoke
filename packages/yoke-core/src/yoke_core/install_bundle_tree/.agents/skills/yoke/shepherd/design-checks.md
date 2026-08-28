@@ -68,7 +68,7 @@ if [ -n "$_available_flows" ]; then
  _flow_guidance="
 ## Deployment Flow Selection
 
-After writing the spec, include a **## Definition of Done** section at the end (before any Shepherd Log/Caveats sections). This section MUST contain a deployment flow selection with these three fields:
+After writing the spec, include a **## Definition of Done** section at the end (before any Shepherd Log/Caveats sections). This section MUST contain a deployment flow selection with these fields:
 
 - **Project:** {project id, e.g., yoke or external-webapp}
 - **Flow:** {flow id from the list below}

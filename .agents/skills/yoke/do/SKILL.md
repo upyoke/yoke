@@ -49,7 +49,7 @@ The loop handles:
 
 ## Events
 
-This skill relies on two structured events emitted by the shared `yoke sessions offer` path / the `/v1/session/offer` API endpoint:
+This skill relies on these structured events emitted by the shared `yoke sessions offer` path / the `/v1/session/offer` API endpoint:
 
 - **HarnessSessionOffered** — Emitted by the shared offer path before decision-engine evaluation. Includes the stable session identity (executor, provider, model, lane, workspace, supported_paths) for that `/yoke do` invocation.
 - **NextActionChosen** — Emitted by the shared offer path after the decision engine returns a `NextAction`. Captures the chosen action, reason, chainable flag, and correlation ID.

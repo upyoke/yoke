@@ -170,7 +170,7 @@ Authentication: Bearer token in `Authorization` header. Token validation authent
 
 ### Consideration: exit_code and tool_name Placement
 
-`exit_code` and `tool_name` are promoted to root-level columns (not context-only) for two reasons:
+`exit_code` and `tool_name` are promoted to root-level columns (not context-only) for these reasons:
 
 1. **Query performance.** These fields appear in nearly every agent event and are the primary filter criteria for anomaly detection. Root-level columns avoid JSON parsing on every query.
 2. **Cross-source relevance.** While `tool_name` is agent-specific today, backend services may emit tool/function-level telemetry in the future. `exit_code` is universally meaningful for any process-level event.
