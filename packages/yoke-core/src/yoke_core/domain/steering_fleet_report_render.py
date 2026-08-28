@@ -120,6 +120,30 @@ def _section(heading: str, lines: list[str]) -> list[str]:
     return [heading + ":", *lines]
 
 
+LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch"
+
+
+def _launch_balance_lines(report: FleetReport) -> list[str]:
+    counts = {(machine, surface): n for machine, surface, n in report.session_counts}
+    by_machine: dict[str, list[str]] = {}
+    for ready in report.launchable:
+        by_machine.setdefault(ready.machine_id, []).append(ready.surface)
+    lines: list[str] = []
+    for machine in sorted(by_machine):
+        parts = [
+            f"{surface} {counts.get((machine, surface), 0)}"
+            for surface in sorted(by_machine[machine])
+        ]
+        lines.extend(
+            [
+                f"launch balance  {machine}",
+                f"  {' · '.join(parts)}",
+                f"  {LAUNCH_BALANCE_NOTE}",
+            ]
+        )
+    return lines
+
+
 def report_body(report: FleetReport) -> str:
     """The steerer-facing text of one report."""
     now = report.composed_at
@@ -152,6 +176,7 @@ def report_body(report: FleetReport) -> str:
         ),
         *_section("live item claims", _holder_lines(report.holders)),
         f"launchable machine/surface pairs: {launchable or 'none'}",
+        *_launch_balance_lines(report),
         REPORT_END,
     ]
     return "\n".join(lines)

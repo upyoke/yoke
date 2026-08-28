@@ -30,20 +30,24 @@ def _seed_session(conn, session_id: str, **columns) -> None:
         "INSERT INTO harness_sessions "
         "(session_id, executor, provider, model, execution_lane, workspace, "
         "project_id, mode, offered_at, last_heartbeat, actor_id, "
-        "executor_surface, last_tool_call_at, ended_at) "
-        "VALUES (%s, 'codex', 'openai', 'test-model', 'primary', %s, %s, "
-        "%s, %s, %s, %s, %s, %s, %s)",
+        "executor_surface, machine_id, last_tool_call_at, ended_at, "
+        "terminated_at) "
+        "VALUES (%s, %s, 'openai', 'test-model', 'primary', %s, %s, "
+        "%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             session_id,
+            columns.get("executor", "codex"),
             f"/tmp/{session_id}",
             PROJECT_ID,
             columns.get("mode", "wait"),
             NOW,
             NOW,
             ACTOR_ID,
-            SURFACE,
+            columns.get("executor_surface", SURFACE),
+            columns.get("machine_id", "machine-1"),
             columns.get("last_tool_call_at"),
             columns.get("ended_at"),
+            columns.get("terminated_at"),
         ),
     )
 
@@ -243,3 +247,51 @@ def test_the_body_leads_with_what_needs_a_decision(steering_scope):
     assert body.index("unstaffed") < body.index("frontier")
     assert "not instructions" in body
     assert "YOK-1" in body
+    assert "launch balance  machine-1" in body
+    assert "codex-cli 2" in body
+    assert "try to maximize balance with each new session launch" in body
+
+
+def test_launch_balance_omits_a_surface_that_cannot_accept_a_launch(steering_scope):
+    _seed_session(
+        steering_scope,
+        "desktop-worker",
+        executor="claude-code",
+        executor_surface="claude-desktop",
+    )
+    steering_scope.commit()
+
+    body = report_body(_compose(steering_scope))
+
+    assert "claude-desktop" not in body
+    assert "codex-cli 2" in body
+
+
+def test_launch_balance_shows_zero_only_for_an_empty_launchable_surface(
+    steering_scope,
+):
+    steering_scope.execute(
+        "UPDATE session_relays SET surface_versions = %s WHERE relay_id = 'relay-1'",
+        (json.dumps({SURFACE: "0.148.0a15", "claude-cli": "2.1.238"}),),
+    )
+    steering_scope.commit()
+
+    body = report_body(_compose(steering_scope))
+
+    assert "claude-cli 0" in body
+    assert "codex-cli 2" in body
+    assert "claude-desktop" not in body
+
+
+def test_ended_and_terminated_sessions_do_not_count_toward_launch_balance(
+    steering_scope,
+):
+    _seed_session(steering_scope, "ended-worker", ended_at=JUST_NOW)
+    _seed_session(steering_scope, "terminated-worker", terminated_at=JUST_NOW)
+    steering_scope.commit()
+
+    body = report_body(_compose(steering_scope))
+
+    assert "codex-cli 2" in body
+    assert "codex-cli 3" not in body
+    assert "codex-cli 4" not in body
