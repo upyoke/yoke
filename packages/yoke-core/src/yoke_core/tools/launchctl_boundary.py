@@ -19,6 +19,7 @@ from pathlib import Path
 import plistlib
 import subprocess
 import sys
+import time
 from typing import Any, Callable
 
 from yoke_cli.config.machine_config import default_yoke_home
@@ -29,6 +30,8 @@ CANONICAL_RELAY_LABEL = PROD_RELAY_LABEL
 CANONICAL_RELAY_PLIST_NAME = f"{PROD_RELAY_LABEL}.plist"
 LAUNCH_AGENTS_DIR_NAME = "LaunchAgents"
 JOURNAL_NAME = "launchctl-journal.jsonl"
+UNLOAD_POLL_ATTEMPTS = 10
+UNLOAD_POLL_INTERVAL_SECONDS = 0.05
 
 #: Directory a test process lends this boundary: launch-agent plists are
 #: written under it and launchctl commands are recorded into its journal
@@ -182,6 +185,40 @@ def run_launchctl(
     )
 
 
+def wait_for_launchd_unload(
+    target: str,
+    *,
+    run: Callable[[Sequence[str]], subprocess.CompletedProcess[str]],
+    pause: Callable[[float], None] = time.sleep,
+) -> bool:
+    """Poll until launchd no longer reports the exact job as loaded."""
+    for attempt in range(UNLOAD_POLL_ATTEMPTS):
+        if run(["launchctl", "print", target]).returncode != 0:
+            return True
+        if attempt + 1 < UNLOAD_POLL_ATTEMPTS:
+            pause(UNLOAD_POLL_INTERVAL_SECONDS)
+    return False
+
+
+def bootstrap_launchd_job(
+    domain: str,
+    plist: Path,
+    *,
+    run: Callable[[Sequence[str]], subprocess.CompletedProcess[str]],
+) -> subprocess.CompletedProcess[str]:
+    """Bootstrap once, retrying only launchd's known transient I/O refusal."""
+    command = ["launchctl", "bootstrap", domain, str(plist)]
+    result = run(command)
+    detail = f"{result.stderr or ''}\n{result.stdout or ''}".casefold()
+    if (
+        result.returncode
+        and "bootstrap failed: 5:" in detail
+        and "input/output error" in detail
+    ):
+        return run(command)
+    return result
+
+
 def recorded_commands(sandbox: Path) -> list[list[str]]:
     """Return the launchctl commands a sandboxed process asked for, in order."""
     journal = sandbox / JOURNAL_NAME
@@ -284,6 +321,7 @@ __all__ = [
     "REAL_LAUNCHD_OPT_IN_ENV",
     "SANDBOX_ENV",
     "bootout_labels",
+    "bootstrap_launchd_job",
     "integration_domain",
     "launch_agents_dir",
     "launch_agents_home",
@@ -294,4 +332,5 @@ __all__ = [
     "run_launchctl",
     "sandbox_root",
     "under_test",
+    "wait_for_launchd_unload",
 ]

@@ -242,6 +242,7 @@ def test_a_child_process_installing_a_relay_lands_in_the_sandbox(
         "bootout",
         "print",
         "bootout",
+        "print",
         "bootstrap",
         "print",
     ]
