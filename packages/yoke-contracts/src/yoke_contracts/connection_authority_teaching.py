@@ -13,9 +13,9 @@ DB_GROUP_TEACHING = """\
 `yoke db` is read-only diagnostic SQL over the active connection.
 Ordinary writes use registered `yoke <subcommand>` surfaces.
 A one-off SQL write that no registered command covers is break-glass:
-`yoke --env <https-env>-db-admin` then
 `python3 -m yoke_core.cli.db_router query "SQL"`
-on that local-Postgres admin connection. The path stays
+under `--env <https-env>-db-admin` on that local-Postgres admin
+connection. The path stays
 source-dev/operator-debug; it is not missing, and it is not the
 agent default. `yoke env list` shows which admin connection this
 machine has.
@@ -30,7 +30,7 @@ CONNECTION_AUTHORITY_STANZA = (
     "connection is direct database authority for sanctioned "
     "source-dev/admin and audited break-glass SQL "
     "(`python3 -m yoke_core.cli.db_router query` under "
-    "`yoke --env <name>`). `yoke db` is read-only; that admin path "
+    "`--env NAME`). `yoke db` is read-only; that admin path "
     "is the escape hatch, not a missing write command. Ordinary "
     "writes use registered `yoke <subcommand>`."
 )
@@ -42,7 +42,7 @@ ENV_LIST_AUTHORITY_FOOTER = (
     "on a *-db-admin connection: sanctioned source-dev/admin and "
     "audited break-glass SQL via "
     "`python3 -m yoke_core.cli.db_router query` under "
-    "`yoke --env <name>`. `yoke db` stays read-only."
+    "`--env NAME`. `yoke db` stays read-only."
 )
 
 
