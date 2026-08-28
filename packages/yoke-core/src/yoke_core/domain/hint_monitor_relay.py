@@ -21,9 +21,10 @@ Failure posture is fail-open: empty stdin, malformed JSON, or a non-Monitor
 tool exits zero without emitting ``additionalContext`` so a reminder defect
 cannot block tool use. Missing or blank config falls back to
 ``DEFAULT_REMINDER``. The binding is harness-specific (Claude Code only;
-Codex has no Monitor wake primitive), so the only harness-aware surface is the
-``runtime/harness/claude/settings.json`` matcher entry; this module imports
-nothing from checkout-only harness modules.
+Codex has no Monitor wake primitive). Matcherless Claude PreToolUse
+reaches this module because the runner selects the Monitor chain by
+``tool_name``. This module imports nothing from checkout-only harness
+modules.
 """
 
 from __future__ import annotations

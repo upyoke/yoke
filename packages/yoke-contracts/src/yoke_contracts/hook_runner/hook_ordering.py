@@ -265,9 +265,8 @@ _STOP_CHAIN: tuple[str, ...] = (
     "yoke_core.hooks.session_dispatch",
 )
 
-# The PreToolUse mapping is matcher-keyed; non-Pre events use a single
-# default chain keyed under ``_default`` (matchers are not meaningful for
-# session lifecycle hooks).
+# PreToolUse is matcher-keyed plus ``_default`` for unmatched tools;
+# other events use a single ``_default`` chain.
 _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
     "PreToolUse": {
         "Bash": _PRE_BASH,
@@ -278,6 +277,7 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
         "TaskOutput": _PRE_TASK_OUTPUT,
         "Monitor": _PRE_MONITOR,
         "apply_patch": _PRE_APPLY_PATCH,
+        "_default": _PRE_READ,
     },
     "PostToolUse": {
         "Bash": _POST_DEFAULT,

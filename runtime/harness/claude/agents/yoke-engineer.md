@@ -7,32 +7,7 @@ maxTurns: 300
 permissionMode: bypassPermissions
 hooks:
   PreToolUse:
-  - matcher: Bash
-    hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
-  - matcher: Edit
-    hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
-  - matcher: Write
-    hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
-  - matcher: Read
-    hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
-  - matcher: ScheduleWakeup
-    hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
-  - matcher: TaskOutput
-    hooks:
-    - type: command
-      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
-  - matcher: Monitor
-    hooks:
+  - hooks:
     - type: command
       command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   PostToolUse:

@@ -47,10 +47,10 @@ from yoke_contracts.payload_session_fold import (
 
 
 # Cursor tool vocabulary -> canonical chain matcher vocabulary. Only names
-# that differ are listed; unknown names pass through untouched so new
-# Cursor tools degrade to "no registered chain" rather than crashing.
+# that differ are listed; unknown names pass through to PreToolUse ``_default``.
 _TOOL_NAME_CANONICAL: Dict[str, str] = {
     "Shell": "Bash",
+    "StrReplace": "Edit",
 }
 
 # Events whose payload is a shell execution without a tool_name field.

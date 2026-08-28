@@ -8,62 +8,7 @@
             "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Write"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Read"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "ScheduleWakeup"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "TaskOutput"
-      },
-      {
-        "hooks": [
-          {
-            "command": "/bin/sh -c 'PATH=\"${XDG_BIN_HOME:-$HOME/.local/bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}\"; export PATH; env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
-            "type": "command"
-          }
-        ],
-        "matcher": "Monitor"
+        ]
       }
     ],
     "PostToolUse": [

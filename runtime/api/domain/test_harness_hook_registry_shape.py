@@ -33,9 +33,11 @@ class TestRegistryShape(unittest.TestCase):
         expected = ordered_pipeline_for("PostToolUse", "Edit")
         self.assertEqual(chain, expected)
 
-    def test_TC_pretooluse_unknown_matcher_returns_empty_when_no_default(self):
+    def test_TC_pretooluse_unknown_matcher_falls_back_to_default(self):
         chain = ordered_pipeline_for("PreToolUse", "TotallyMadeUp")
-        self.assertEqual(chain, [])
+        expected = ordered_pipeline_for("PreToolUse", "_default")
+        self.assertEqual(chain, expected)
+        self.assertEqual(chain, ordered_pipeline_for("PreToolUse", "Read"))
 
     def test_TC_returned_list_is_fresh(self):
         chain1 = ordered_pipeline_for("PreToolUse", "Bash")
