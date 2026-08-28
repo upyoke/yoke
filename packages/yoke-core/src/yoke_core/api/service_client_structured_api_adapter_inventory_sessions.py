@@ -56,6 +56,16 @@ SESSION_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="session_control.keepalive.hold",
+        cli_invocation=(
+            "yoke sessions keepalive hold SESSION-ID --reason R [--seconds N]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="session_control.keepalive.release",
+        cli_invocation="yoke sessions keepalive release SESSION-ID",
+    ),
+    AdapterEntry(
         function_id="session_control.session.terminate",
         cli_invocation=(
             "yoke sessions terminate SESSION-ID --reason R "

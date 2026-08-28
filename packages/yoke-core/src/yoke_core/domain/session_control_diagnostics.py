@@ -22,6 +22,7 @@ from yoke_core.domain.sessions_render_end_if_empty import (
     end_session_blocker_facts,
     wake_deliveries_in_flight,
 )
+from yoke_core.domain.session_keepalive import session_keepalive_holds
 
 
 def _marker(conn: Any) -> str:
@@ -115,6 +116,7 @@ def session_diagnostics(
     document_locks = _document_lock_counts(conn, session_ids)
     holding_sessions = active_holding_sessions(conn)
     wake_deliveries = wake_deliveries_in_flight(conn, session_ids)
+    keepalive_holds = session_keepalive_holds(conn, session_ids)
     projected: dict[str, dict[str, Any]] = {}
     for row in rows:
         session_id = str(row.get("session_id") or "")
@@ -137,6 +139,7 @@ def session_diagnostics(
             blocker = end_session_blocker_facts(
                 active_claim_count=len(row.get("claims") or []),
                 active_document_lock_count=document_locks.get(session_id, 0),
+                keepalive=keepalive_holds.get(session_id),
                 wake_delivery=wake_deliveries.get(session_id),
                 chain_state=chain_pending_state_from_envelope(
                     identity.get("offer_envelope"),

@@ -8,6 +8,10 @@ from yoke_cli.commands.adapters.session_control_acceptance import (
     ACCEPTANCE_RUN_USAGE,
     session_control_acceptance_run,
 )
+from yoke_cli.commands.adapters.session_control_keepalive import (
+    session_keepalive_hold,
+    session_keepalive_release,
+)
 from yoke_cli.commands.adapters.session_control_launches import (
     session_launch_cancel,
     session_launch_create,
@@ -126,6 +130,14 @@ SESSION_CONTROL_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute] = {
         "session_control.session.terminate",
         session_terminate,
     ),
+    ("session-control", "keepalive", "hold"): (
+        "session_control.keepalive.hold",
+        session_keepalive_hold,
+    ),
+    ("session-control", "keepalive", "release"): (
+        "session_control.keepalive.release",
+        session_keepalive_release,
+    ),
     ("session-control", "session", "wake"): (
         "session_control.session.wake",
         session_wake,
@@ -179,6 +191,14 @@ SESSION_CONTROL_SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], RegisteredRoute
     ("sessions", "terminate"): (
         "session_control.session.terminate",
         session_terminate,
+    ),
+    ("sessions", "keepalive", "hold"): (
+        "session_control.keepalive.hold",
+        session_keepalive_hold,
+    ),
+    ("sessions", "keepalive", "release"): (
+        "session_control.keepalive.release",
+        session_keepalive_release,
     ),
 }
 

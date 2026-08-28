@@ -111,6 +111,10 @@ def preview_document(
     if decision.status != "ready":
         document["failure_code"] = decision.failure_code
         document["recovery"] = decision.recovery
+        # Name what was weighed and how each candidate failed, per role, so the
+        # next operator reads the failing axis instead of re-deriving it against
+        # a roster that has already moved on.
+        document["considered_sessions"] = [dict(row) for row in decision.considered]
     return document
 
 
@@ -126,7 +130,10 @@ def refuse_unready_broker(decision: BrokerBindingDecision, *, surface: str) -> N
     raise AcceptanceContractError(
         decision.failure_code or NO_CLAIM_FREE_PAIR_CODE,
         surface=surface,
-        evidence={"recovery": decision.recovery},
+        evidence={
+            "recovery": decision.recovery,
+            "considered_sessions": [dict(row) for row in decision.considered],
+        },
     )
 
 
