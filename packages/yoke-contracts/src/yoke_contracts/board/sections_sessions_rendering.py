@@ -9,8 +9,6 @@ from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import item_ref
-from yoke_contracts.board.sections_sessions_occupancy import occupancy_project_slug
-from yoke_contracts.board.sections_sessions_scope import _project_for_id
 from yoke_contracts.board.utils import display_width
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_contracts.item_ref import format_item_ref
@@ -21,33 +19,6 @@ from yoke_contracts.session_lane import (
 )
 
 _RENDERED_ITEM_REF_RE = re.compile(r"^[A-Za-z]+-\d")
-_MODE_EMOJI: Dict[str, str] = {
-    "hook": "🪝",
-    "refine": "📝",
-    "polish": "✨",
-    "charge": "⚡",
-    "dash": "💨",
-    "strategize": "🧠",
-    "escalate": "🚨",
-    "manual": "🔧",
-    "operator": "🦾",
-    "resume": "🔄",
-    "advance": "⏩",
-    "wait": "⏳",
-    "conduct": "🎼",
-    "shepherd": "🧑‍🌾",
-    "usher": "🎬",
-    "curate": "🧹",
-    "doctor": "🩺",
-    "simulate": "🔮",
-    "idea": "💡",
-    "wrapup": "🧾",
-    "do": "🎮",
-    "feed": "🍴",
-    "plan": "📌",
-}
-
-
 def _format_session_age(iso_ts: str) -> str:
     try:
         ts = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
@@ -141,27 +112,6 @@ def _compact_scope(scope: dict) -> str:
     return json.dumps(scope, sort_keys=True, separators=(",", ":"))
 
 
-def _steering_label(scope: dict, db: Optional[BoardDBLike]) -> str:
-    project_id = scope.get("project_id")
-    if project_id is None:
-        return f"steering:{_compact_scope(scope)}"
-    try:
-        pid = int(project_id)
-    except (TypeError, ValueError):
-        return f"steering:{_compact_scope(scope)}"
-    slug = occupancy_project_slug(db, pid)
-    if slug:
-        return f"steering:{slug}"
-    if db is not None:
-        try:
-            row = _project_for_id(db, pid)
-        except Exception:
-            row = None
-        if row and row[1]:
-            return f"steering:{row[1]}"
-    return f"steering:{pid}"
-
-
 def _render_claim_target(
     item_id,
     epic_id: Optional[int],
@@ -174,8 +124,6 @@ def _render_claim_target(
 ) -> str:
     payload = scope if isinstance(scope, dict) else {}
     kind = str(target_kind or "")
-    if kind == "steering":
-        return _steering_label(payload, db)
     if process_key:
         return f"🔩 {process_key}"
     if item_id is not None:
@@ -201,7 +149,6 @@ def _render_claim_target(
 
 
 __all__ = [
-    "_MODE_EMOJI",
     "_aligned_table",
     "_claims_for_session",
     "_format_session_age",

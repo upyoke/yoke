@@ -92,8 +92,8 @@ def _active_steering_holders(
 def _docs_by_session(
     db: BoardDBLike,
     claims: list[dict[str, Any]],
-) -> dict[str, list[str]]:
-    by_session: dict[str, list[str]] = {}
+) -> dict[str, dict[int, list[str]]]:
+    by_session: dict[str, dict[int, list[str]]] = {}
     if not claims:
         return by_session
     projects = tuple(int(claim["project_id"]) for claim in claims)
@@ -109,14 +109,15 @@ def _docs_by_session(
         + ") ORDER BY project_id,strategy_doc_slug",
         (*projects, *holders),
     )
-    seen: set[tuple[str, str]] = set()
-    for _project_id, holder, slug in rows:
+    seen: set[tuple[str, int, str]] = set()
+    for project_id, holder, slug in rows:
         session_id = str(holder)
         name = str(slug)
-        if not name or (session_id, name) in seen:
+        project = int(project_id)
+        if not name or (session_id, project, name) in seen:
             continue
-        seen.add((session_id, name))
-        by_session.setdefault(session_id, []).append(name)
+        seen.add((session_id, project, name))
+        by_session.setdefault(session_id, {}).setdefault(project, []).append(name)
     return by_session
 
 
@@ -147,7 +148,16 @@ def occupancy_project_slug(db: BoardDBLike | None, project_id: int) -> str | Non
     return str(slug) if slug else None
 
 
-def occupancy_doc_slugs(db: BoardDBLike | None, session_id: str) -> list[str] | None:
+def occupancy_docs_by_project(
+    db: BoardDBLike | None,
+    session_id: str,
+) -> dict[int, list[str]] | None:
+    """Documents this session locks, per project it steers.
+
+    Keyed by project because a session steering several projects holds a
+    lock per project, and a reader that flattens them cannot say which
+    document belongs to which — the more so when two share a slug.
+    """
     if db is None:
         return None
     cache = getattr(db, _OCCUPANCY_ATTR, None)
@@ -157,11 +167,11 @@ def occupancy_doc_slugs(db: BoardDBLike | None, session_id: str) -> list[str] | 
     if not isinstance(docs, dict):
         return None
     found = docs.get(session_id)
-    return list(found) if found else []
+    return {int(k): list(v) for k, v in found.items()} if found else {}
 
 
 __all__ = [
-    "occupancy_doc_slugs",
+    "occupancy_docs_by_project",
     "occupancy_project_slug",
     "prefetch_session_occupancy",
 ]

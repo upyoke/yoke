@@ -17,11 +17,9 @@ Allocation registry (canonical owner per glyph; reassignments noted):
   Buckets (stats box == section headers):
     🎫 Active · 💧 Pipeline · 🌱 Backlog · ⛔ Blocked · 🧊 Frozen · ✅ Done · ❓ Unknown
   Per-row lifecycle status (STATUS_EMOJI): see dict below.
-  Session actions (sections_sessions._MODE_EMOJI):
-    📝 refine · ✨ polish · ⚡ charge · 🧠 strategize · 🚨 escalate · 🔧 manual
-    🦾 operator · 🔄 resume · ⏩ advance · ⏳ wait · 🎼 conduct · 🧑‍🌾 shepherd
-    🎬 usher · 🧹 curate · 🩺 doctor · 🔮 simulate · 💡 idea · 🧾 wrapup
-    🎮 do · 🍴 feed · 📌 plan · 🪝 hook · 💨 dash
+  Session mode: no glyph. Mode names the command a session is running,
+    which its lane and claims already say; the table renders only the
+    parked case, as its reason text in the Parked column.
   Executors (sections_sessions_cells._EXECUTOR_EMOJI):
     🤖 claude-code · 🍎 claude-desktop · 🪟 claude-vscode · 📟 claude-cli
     📕 codex · 💻 codex-desktop · 🪄 codex-vscode · 📠 codex-cli
@@ -30,7 +28,7 @@ Allocation registry (canonical owner per glyph; reassignments noted):
   Velocity meter (widgets_velocity_meter):
     📊 activity · 💾 code · 📦 delivery · 🧭 strategy
   Session section headers: 🟢 Active Harness Sessions · 🔴 Recent Harness Sessions
-  Claim decorations: 📁 path-claim · 🔒 lease · 🔩 process-anchor
+  Claim decorations: 📁 path-claim · 🔒 lease · 🔩 process-anchor · 🛞 steering
 """
 
 from __future__ import annotations

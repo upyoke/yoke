@@ -108,21 +108,13 @@ def _seed(db_path: str) -> None:
         conn.close()
 
 
-def test_steering_claim_renders_project_slug(tmp_path: Path) -> None:
+def test_steering_claims_stay_readable_as_typed_claim_rows(tmp_path: Path) -> None:
+    """The claim rows still carry the kind; only the rendering collapsed."""
     with _board_db(tmp_path) as (db, db_path):
         _seed(db_path)
-        label = _render_claim_target(
-            None,
-            None,
-            None,
-            db=db,
-            target_kind="steering",
-            scope={"project_id": 1},
-        )
         claims = _claims_for_session(db, "holder-1", active_only=True)
 
-    assert label == "steering:yoke"
-    assert claims[0][7] == "steering"
+    assert [claim[7] for claim in claims] == ["steering", "steering"]
 
 
 def test_unknown_kind_renders_compact_scope() -> None:
@@ -138,41 +130,39 @@ def test_unknown_kind_renders_compact_scope() -> None:
     )
 
 
-def test_prefetch_resolves_platform_slug_and_doc_locks(tmp_path: Path) -> None:
+def test_steering_is_one_keycap_pairing_each_project_with_its_documents(
+    tmp_path: Path,
+) -> None:
+    """One entry, not a lock row per project plus a separate document row."""
     with _board_db(tmp_path) as (db, db_path):
         _seed(db_path)
         prefetch_session_occupancy(db, "all")
-        platform = _render_claim_target(
-            None,
-            None,
-            None,
-            db=db,
-            target_kind="steering",
-            scope={"project_id": 3},
-        )
         keycaps = build_session_keycaps(
             db,
             "holder-1",
-            [("steering:yoke", None, None), (platform, None, None)],
+            [],
             active_only=True,
+            steering_project_ids=[1, 3],
         )
 
-    assert platform == "steering:platform"
-    assert "doc:MISSION" in keycaps
-    assert "doc:CURRENT-PLAN" in keycaps
+    assert keycaps == ["🛞 steering yoke·MISSION; platform·CURRENT-PLAN"]
 
 
-def test_session_owned_doc_lock_is_a_claims_keycap(tmp_path: Path) -> None:
+def test_a_project_steered_without_a_document_still_names_itself(
+    tmp_path: Path,
+) -> None:
     with _board_db(tmp_path) as (db, db_path):
         _seed(db_path)
+        prefetch_session_occupancy(db, "all")
         keycaps = build_session_keycaps(
             db,
-            "holder-1",
-            [("steering:yoke", None, None)],
+            "holder-2",
+            [],
             active_only=True,
+            steering_project_ids=[3],
         )
 
-    assert keycaps == ["steering:yoke", "doc:CURRENT-PLAN", "doc:MISSION"]
+    assert keycaps == ["🛞 steering platform"]
 
 
 def test_board_renderer_omits_the_steering_section() -> None:

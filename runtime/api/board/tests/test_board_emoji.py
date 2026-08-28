@@ -68,40 +68,46 @@ class TestCanonicalVocabulary:
         assert STATUS_EMOJI["planned"] != STATUS_EMOJI["plan-drafted"]
 
 
-class TestSessionModeGlyphs:
-    """Session-mode glyphs stay 1:1 and render the same in every terminal."""
+class TestClaimDecorationGlyphs:
+    """Claim-decoration glyphs stay 1:1 and render the same in every terminal."""
 
-    def test_dash_has_its_own_glyph(self):
-        from yoke_contracts.board.sections_sessions import _MODE_EMOJI
+    def test_steering_has_its_own_glyph(self):
+        from yoke_contracts.board.sections_sessions_extra_claims import (
+            LEASE_GLYPH,
+            PATH_GLYPH,
+            PROCESS_GLYPH,
+            STEERING_GLYPH,
+        )
 
-        assert _MODE_EMOJI["dash"] == "💨"
-        others = [m for m, g in _MODE_EMOJI.items() if g == "💨"]
-        assert others == ["dash"]
-
-    def test_operator_has_its_own_glyph(self):
-        from yoke_contracts.board.sections_sessions import _MODE_EMOJI
-
-        assert _MODE_EMOJI["operator"] == "🦾"
-        others = [m for m, g in _MODE_EMOJI.items() if g == "🦾"]
-        assert others == ["operator"]
-
-    def test_every_mode_glyph_is_unique(self):
-        from yoke_contracts.board.sections_sessions import _MODE_EMOJI
-
-        glyphs = list(_MODE_EMOJI.values())
+        glyphs = [LEASE_GLYPH, PATH_GLYPH, PROCESS_GLYPH, STEERING_GLYPH]
         assert len(glyphs) == len(set(glyphs))
 
-    def test_no_mode_glyph_needs_a_variation_selector_or_skin_tone(self):
+    def test_no_claim_glyph_needs_a_variation_selector_or_skin_tone(self):
         # Text-default bases (VS16) and Fitzpatrick modifiers collapse toward
         # one cell in macOS Terminal and shear the aligned session table.
-        from yoke_contracts.board.sections_sessions import _MODE_EMOJI
+        from yoke_contracts.board.sections_sessions_extra_claims import (
+            LEASE_GLYPH,
+            PATH_GLYPH,
+            PROCESS_GLYPH,
+            STEERING_GLYPH,
+        )
 
-        offenders = {
-            mode: glyph
-            for mode, glyph in _MODE_EMOJI.items()
+        offenders = [
+            glyph
+            for glyph in (LEASE_GLYPH, PATH_GLYPH, PROCESS_GLYPH, STEERING_GLYPH)
             if any(ord(ch) == 0xFE0F or 0x1F3FB <= ord(ch) <= 0x1F3FF for ch in glyph)
-        }
-        assert offenders == {}
+        ]
+        assert offenders == []
+
+    def test_the_parked_cell_carries_no_glyph_at_all(self):
+        # Mode is not glyph vocabulary any more; the column renders the
+        # reason text, so no width-ambiguous base can shear the table.
+        from yoke_contracts.board.sections_sessions import _parked_cell
+
+        assert _parked_cell("parked") == "parked"
+        assert _parked_cell("dash") == ""
+        assert _parked_cell("wait") == ""
+        assert _parked_cell(None) == ""
 
 
 class TestCentralizedConstants:

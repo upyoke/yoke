@@ -20,13 +20,40 @@ from yoke_contracts.board.sections_sessions_layout import (
 from yoke_contracts.board.sections_sessions_scope import session_rows
 from yoke_contracts.board.sections_sessions_scope import session_lane_presentation
 from yoke_contracts.board.sections_sessions_rendering import (
-    _MODE_EMOJI,
     _aligned_table,
     _claims_for_session,
     _format_session_age,
     _render_claim_target,
     _render_lane,
 )
+
+
+def _steered_project_ids(claims: List[tuple]) -> List[int]:
+    """Project ids this session steers, in claim order, no repeats."""
+    found: List[int] = []
+    for claim in claims:
+        if claim[7] != "steering":
+            continue
+        scope = claim[9] if isinstance(claim[9], dict) else {}
+        project_id = scope.get("project_id")
+        if project_id is None:
+            continue
+        value = int(project_id)
+        if value not in found:
+            found.append(value)
+    return found
+
+
+def _parked_cell(mode: str | None) -> str:
+    """Parked is the one mode worth a column; every other reads as noise.
+
+    A session's mode names the command it happens to be running, which the
+    lane and its claims already say. Parked is different: it is a state the
+    session declared about itself and holds until it takes it back. The
+    reason it parked stays on the session card, which reads one session at
+    a time and has the width for it.
+    """
+    return "parked" if str(mode or "").lower() == "parked" else ""
 
 
 def render_sessions_section(
@@ -72,6 +99,7 @@ def render_sessions_section(
 
             # Get active claims for this session (work_claims + path_claims + leases)
             claims = _claims_for_session(db, sid, active_only=True)
+            steered = _steered_project_ids(claims)
             work_targets = _dedup_work_targets(
                 [
                     (
@@ -88,6 +116,7 @@ def render_sessions_section(
                         None,
                     )
                     for c in claims
+                    if c[7] != "steering"
                 ]
             )
             keycaps = build_session_keycaps(
@@ -95,11 +124,11 @@ def render_sessions_section(
                 sid,
                 work_targets,
                 active_only=True,
+                steering_project_ids=steered,
             )
             claim_rows = _chunk_claims(keycaps) if keycaps else ["—"]
 
-            mode_emoji = _MODE_EMOJI.get(mode or "", "")
-            mode_str = f"{mode_emoji} {mode}" if mode_emoji else (mode or "wait")
+            parked_str = _parked_cell(mode)
             lane_str = _render_lane(
                 lane,
                 session_lane_presentation(db, project_id, lane),
@@ -119,7 +148,7 @@ def render_sessions_section(
                         [
                             *common_cells,
                             lane_str,
-                            mode_str,
+                            parked_str,
                             age,
                             claims_str,
                         ]
@@ -135,7 +164,7 @@ def render_sessions_section(
                     "Executor",
                     "Model",
                     "Lane",
-                    "Mode",
+                    "Parked",
                     "Age",
                     "Claims",
                 ],
@@ -201,6 +230,7 @@ def render_sessions_section(
                         c[6],
                     )
                     for c in claims
+                    if c[7] != "steering"
                 ]
             )
             keycaps = build_session_keycaps(
@@ -208,6 +238,7 @@ def render_sessions_section(
                 sid,
                 work_targets,
                 active_only=False,
+                steering_project_ids=_steered_project_ids(claims),
             )
             claim_rows = _chunk_claims(keycaps) if keycaps else ["—"]
 
