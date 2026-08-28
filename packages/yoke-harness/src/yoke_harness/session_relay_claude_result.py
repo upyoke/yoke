@@ -34,11 +34,17 @@ def _evidence(
     context: RelayExecutionContext,
     code: str,
     process: ClaudeProcessResult | None = None,
+    *,
+    probe_detail: str | None = None,
 ) -> dict[str, object]:
     evidence: dict[str, object] = {
         "result_code": code,
         "surface": context.surface,
     }
+    if probe_detail:
+        evidence["probe_detail"] = probe_detail
+    elif context.job_kind == "launch" and not getattr(context, "session_name", None):
+        evidence["probe_detail"] = control_plane_schema_skew_detail("session_name")
     if context.presentation == CLAUDE_LOCAL_PRESENTATION:
         evidence["presentation_preference"] = CLAUDE_LOCAL_PRESENTATION
         evidence["presentation_control"] = CLAUDE_REMOTE_CONTROL_SETTING
@@ -46,6 +52,14 @@ def _evidence(
         evidence["duration_ms"] = max(0, min(process.duration_ms, 3_600_000))
         evidence["exit_code"] = int(process.returncode)
     return evidence
+
+
+def control_plane_schema_skew_detail(field: str) -> str:
+    """Explain a launch-contract field gap and its operator recovery."""
+    return (
+        f"{field} absent: control plane is behind relay; "
+        "deploy control plane to converge launch contract"
+    )
 
 
 def build_claude_result(
@@ -57,6 +71,7 @@ def build_claude_result(
     native_session_id: str | None = None,
     process: ClaudeProcessResult | None = None,
     private_diagnostic: RelayPrivateDiagnostic | None = None,
+    probe_detail: str | None = None,
 ) -> RelayAdapterResult:
     if private_diagnostic is None and process is not None and process.returncode != 0:
         private_diagnostic = _private_process_diagnostic(
@@ -67,9 +82,14 @@ def build_claude_result(
         result_code,
         native_session_id=native_session_id,
         adapter_revision=adapter_revision,
-        evidence=_evidence(context, evidence_code, process),
+        evidence=_evidence(
+            context,
+            evidence_code,
+            process,
+            probe_detail=probe_detail,
+        ),
         private_diagnostic=private_diagnostic,
     )
 
 
-__all__ = ["build_claude_result"]
+__all__ = ["build_claude_result", "control_plane_schema_skew_detail"]
