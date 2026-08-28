@@ -60,8 +60,7 @@ def path_claims_for_session(
     release_reason, cancel_reason, declared_count). Current and terminal rows
     both remain so the shared holdings model can partition them once.
     """
-    return db.query_quiet(
-        """
+    sql = """
         SELECT pc.id, pc.owner_item_id AS item_id,
                pc.owner_work_claim_id AS work_claim_id,
                pc.released_at, pc.cancelled_at,
@@ -77,9 +76,12 @@ def path_claims_for_session(
           ))
         )
         ORDER BY pc.id DESC
-        """,
-        (session_id, session_id),
-    )
+        """
+    params = (session_id, session_id)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return []
+    return db.query_quiet(sql, params)
 
 
 def path_claims_for_items(
@@ -99,8 +101,7 @@ def path_claims_for_items(
     if not item_ids:
         return []
     placeholders = ",".join("%s" for _ in item_ids)
-    return db.query_quiet(
-        f"""
+    sql = f"""
         SELECT pc.id, pc.owner_item_id AS item_id,
                pc.owner_work_claim_id AS work_claim_id,
                pc.released_at, pc.cancelled_at,
@@ -113,9 +114,12 @@ def path_claims_for_items(
           (pc.owner_kind = 'item' AND pc.owner_item_id IN ({placeholders}))
         )
         ORDER BY pc.id DESC
-        """,
-        tuple(item_ids),
-    )
+        """
+    params = tuple(item_ids)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return []
+    return db.query_quiet(sql, params)
 
 
 def coordination_claims_for_session(
