@@ -5,12 +5,12 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import json
+from pathlib import Path
 import stat
+from typing import Any
 import urllib.parse
 
 import pytest
-
-from pathlib import Path
 
 from yoke_cli.config import github_user_tokens, machine_config
 from yoke_cli.config import github_git_credential_store as credential_store

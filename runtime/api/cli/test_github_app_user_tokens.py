@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 import json
-import stat
 import urllib.parse
 from typing import Any
 
