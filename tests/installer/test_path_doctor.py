@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
+import shutil
 import subprocess
+
+import pytest
 
 from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
@@ -137,9 +141,14 @@ def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
     tool_dir.mkdir(parents=True)
     observed_probe_env: dict[str, str] = {}
 
+    seeded_homes: list[tuple[str, str]] = []
+    seeded_blocks: list[str] = []
+
     def fake_run(command, *, capture_output, text, timeout, env):
         del capture_output, text, timeout
         observed_probe_env.update(env)
+        seeded_homes.append((env["HOME"], env["ZDOTDIR"]))
+        seeded_blocks.append((Path(env["HOME"]) / ".zprofile").read_text())
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(doctor.subprocess, "run", fake_run)
@@ -154,6 +163,11 @@ def test_diagnose_ignores_installer_prepended_path(tmp_path, monkeypatch):
     assert diag.current_on_path is True
     assert str(tool_dir) not in observed_probe_env["PATH"].split(":")
     assert diag.needs_fix is True
+    assert seeded_homes
+    assert all(
+        home != str(tmp_path) and home == zdotdir for home, zdotdir in seeded_homes
+    )
+    assert all(doctor.MANAGED_BEGIN in block for block in seeded_blocks)
 
 
 def test_diagnose_reports_yoke_shadowing(tmp_path, monkeypatch):
@@ -194,6 +208,38 @@ def test_diagnose_reports_yoke_shadowing(tmp_path, monkeypatch):
     assert diag.yoke_shadowed_by == str(other_dir / "yoke")
     assert diag.future_yoke_shadowed_by == str(other_dir / "yoke")
     assert diag.needs_fix is True
+
+
+def test_fresh_login_probe_does_not_source_operator_rc(tmp_path):
+    zsh = shutil.which("zsh")
+    if not zsh:
+        pytest.skip("zsh is required to exercise login-shell isolation")
+    operator = tmp_path / "operator"
+    operator.mkdir()
+    sentinel = tmp_path / "operator-rc-sourced"
+    for name in (".zshenv", ".zprofile", ".zshrc", ".zlogin"):
+        (operator / name).write_text(f'printf sourced >> "{sentinel}"\n')
+    tool_dir = tmp_path / "xdg-bin"
+    tool_dir.mkdir()
+    yoke = tool_dir / "yoke"
+    yoke.write_text("#!/bin/sh\nexit 0\n")
+    yoke.chmod(0o755)
+    env = {
+        "HOME": str(operator),
+        "ZDOTDIR": str(operator),
+        "SHELL": zsh,
+        "PATH": "/usr/bin:/bin",
+        "XDG_BIN_HOME": str(tool_dir),
+    }
+
+    login = doctor.verify_fresh_login(
+        "zsh", env=env, managed_path_dirs=(str(tool_dir),)
+    )
+    ssh = doctor.verify_ssh_command("zsh", env=env, managed_path_dirs=(str(tool_dir),))
+
+    assert not sentinel.exists()
+    assert {row.name: row.path for row in login}["yoke"] == str(yoke)
+    assert {row.name: row.path for row in ssh}["yoke"] == str(yoke)
 
 
 def test_path_check_json_is_parseable(capsys):

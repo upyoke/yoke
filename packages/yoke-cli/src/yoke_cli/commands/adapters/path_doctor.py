@@ -224,7 +224,7 @@ def path_group(args: List[str]) -> int:
         "  yoke path fix [--yes] [--file PATH] [--print-block]  preview, consent, write a managed block, verify"
     )
     print(
-        "  yoke path verify [--json]                      check a fresh login shell resolves the tools"
+        "  yoke path verify [--json]                      probe login PATH via Yoke-seeded startup files"
     )
     return 0
 
