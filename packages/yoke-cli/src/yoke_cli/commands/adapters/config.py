@@ -10,6 +10,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_cli.config import status as machine_config_status
+from yoke_contracts.connection_authority_teaching import (
+    ENV_LIST_AUTHORITY_FOOTER,
+)
 from yoke_contracts.machine_config import schema as machine_config_contract
 
 
@@ -55,6 +58,7 @@ def env_list(args: List[str]) -> int:
                 f"{row['env']}|{str(row['active']).lower()}|"
                 f"{row['transport']}|{str(row['prod']).lower()}|{row['api_url']}"
             )
+        print(ENV_LIST_AUTHORITY_FOOTER)
     return 0
 
 

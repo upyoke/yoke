@@ -35,6 +35,10 @@ from __future__ import annotations
 
 import shutil
 
+from yoke_contracts.connection_authority_teaching import (
+    CONNECTION_AUTHORITY_STANZA,
+)
+
 
 MAIN_AGENT_ROLE = "main_agent"
 
@@ -44,12 +48,8 @@ MAIN_AGENT_ROLE = "main_agent"
 # self-contained: the packet ships into managed projects, where a
 # pointer at a Yoke source-repo doc would name a file that is not there.
 # Renders empty when ``yoke`` is on PATH so installed sessions see no noise.
-INSTALL_ADVISORY_HEADING = (
-    "Yoke CLI not on PATH — install with one command:"
-)
-INSTALL_ADVISORY_COMMAND = (
-    "    python3 -m yoke_core.tools.install_yoke_launcher"
-)
+INSTALL_ADVISORY_HEADING = "Yoke CLI not on PATH — install with one command:"
+INSTALL_ADVISORY_COMMAND = "    python3 -m yoke_core.tools.install_yoke_launcher"
 INSTALL_ADVISORY_POINTER = (
     "(add --help for variants; --repair rewrites ~/.local/bin/yoke)"
 )
@@ -218,7 +218,20 @@ def render_main_agent_section() -> str:
         return ""
     if not body:
         return ""
-    return "\n".join([f"{_MAIN_AGENT_HEADING}:", _MAIN_AGENT_PREFIX, "", body])
+    return _join_packet_frame(f"{_MAIN_AGENT_HEADING}:", body)
+
+
+def _join_packet_frame(heading: str, body: str) -> str:
+    return "\n".join(
+        [
+            heading,
+            _MAIN_AGENT_PREFIX,
+            "",
+            CONNECTION_AUTHORITY_STANZA,
+            "",
+            body,
+        ]
+    )
 
 
 def render_main_agent_block() -> str:
@@ -233,14 +246,7 @@ def render_main_agent_block() -> str:
     if not body:
         return ""
     parts: list[str] = _render_leading_advisories()
-    parts.extend(
-        [
-            f"{_MAIN_AGENT_HEADING}:",
-            _MAIN_AGENT_PREFIX,
-            "",
-            body,
-        ]
-    )
+    parts.append(_join_packet_frame(f"{_MAIN_AGENT_HEADING}:", body))
     return "\n".join(parts).rstrip()
 
 
@@ -255,14 +261,7 @@ def render_main_agent_block_full() -> str:
     if not body:
         return ""
     parts: list[str] = _render_leading_advisories()
-    parts.extend(
-        [
-            f"=== {_MAIN_AGENT_HEADING} ===",
-            _MAIN_AGENT_PREFIX,
-            "",
-            body,
-        ]
-    )
+    parts.append(_join_packet_frame(f"=== {_MAIN_AGENT_HEADING} ===", body))
     return "\n".join(parts).rstrip()
 
 

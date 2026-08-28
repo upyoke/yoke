@@ -55,6 +55,41 @@ def test_env_list_reports_sanitized_connection_inventory(
     assert "secret" not in json.dumps(report)
 
 
+def test_env_list_human_output_names_what_each_transport_unlocks(
+    tmp_path: Path, capsys,
+) -> None:
+    from yoke_contracts.connection_authority_teaching import (
+        ENV_LIST_AUTHORITY_FOOTER,
+    )
+
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "active_env": "prod",
+                "connections": {
+                    "prod": {
+                        "transport": "https",
+                        "prod": True,
+                        "api_url": "https://example.test",
+                    },
+                    "prod-db-admin": {"transport": "local-postgres"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = yoke_operations_cli.main(["env", "list", "--config", str(config)])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "prod|true|https|" in out
+    assert "prod-db-admin|false|local-postgres|" in out
+    assert ENV_LIST_AUTHORITY_FOOTER in out
+    assert "direct database authority" in out
+
+
 def test_status_json_validates_machine_and_project_config(
     tmp_path: Path, capsys, monkeypatch,
 ) -> None:
