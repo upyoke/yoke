@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import time
 from typing import Any
+from uuid import uuid4
 
 from runtime.api.tools.session_control_live_acceptance import (
     DEFAULT_POLL_SECONDS,
@@ -43,10 +44,46 @@ from runtime.api.tools.session_control_live_acceptance_launch import (
 from runtime.api.tools.session_control_live_acceptance_protocol import (
     broker_preparation_message,
 )
+from yoke_cli.commands.adapters.session_control_acceptance import PREPARE_BROKER_FLAG
 from yoke_contracts.session_control.keepalive import DEFAULT_KEEPALIVE_SECONDS
 
 
 BROKER_ROLES = ("target", "peer")
+
+
+def broker_preparation_idempotency_key(
+    run_id: str, surface: str, role: str, attempt_id: str
+) -> str:
+    """Key one preparation attempt, not the unconsumed run it may retry."""
+    return f"fleet-live:{run_id}:{surface}:broker-{role}:{attempt_id}"
+
+
+def _idempotency_conflict(
+    *,
+    surface: str,
+    run_id: str,
+    role: str,
+    attempt_id: str,
+) -> AcceptanceContractError:
+    key = broker_preparation_idempotency_key(run_id, surface, role, attempt_id)
+    return AcceptanceContractError(
+        "idempotency_conflict",
+        surface=surface,
+        evidence={
+            "owning_attempt_id": attempt_id,
+            "run_id": run_id,
+            "run_consumed": False,
+            "recovery": (
+                f"Idempotency key {key} already names a launch for preparation "
+                f"attempt {attempt_id}. Run {run_id} is unconsumed — this gate "
+                "runs before the matrix executes, so the run id was preserved. "
+                "This refusal protects a duplicate create inside one attempt. "
+                f"Rerun preview with {PREPARE_BROKER_FLAG} to start a new "
+                "attempt; do not retry the same create."
+            ),
+        },
+    )
+
 
 #: How long a prepared broker is held against idle reaping. The default lease
 #: window already covers an acceptance run with room to spare, and a hold that
@@ -62,23 +99,34 @@ def _create_launch(
     machine_id: str,
     run_id: str,
     role: str,
+    attempt_id: str,
 ) -> dict[str, Any]:
-    result = client.call(
-        [
-            "sessions",
-            "create",
-            "--project",
-            project,
-            "--surface",
-            surface,
-            "--machine",
-            machine_id,
-            "--stdin",
-            "--idempotency-key",
-            f"fleet-live:{run_id}:{surface}:broker-{role}",
-        ],
-        stdin=broker_preparation_message(surface=surface, role=role),
-    )
+    try:
+        result = client.call(
+            [
+                "sessions",
+                "create",
+                "--project",
+                project,
+                "--surface",
+                surface,
+                "--machine",
+                machine_id,
+                "--stdin",
+                "--idempotency-key",
+                broker_preparation_idempotency_key(run_id, surface, role, attempt_id),
+            ],
+            stdin=broker_preparation_message(surface=surface, role=role),
+        )
+    except AcceptanceContractError as exc:
+        if exc.code == "idempotency_conflict":
+            raise _idempotency_conflict(
+                surface=surface,
+                run_id=run_id,
+                role=role,
+                attempt_id=attempt_id,
+            ) from exc
+        raise
     launch = result.get("launch")
     if not isinstance(launch, dict):
         raise AcceptanceContractError(
@@ -129,6 +177,7 @@ def _prepared_pair(
     monotonic: Callable[[], float],
 ) -> list[str]:
     """Launch, register, and hold alive one dedicated session per broker role."""
+    attempt_id = uuid4().hex
     registered: list[str] = []
     for role in BROKER_ROLES:
         launch = _create_launch(
@@ -138,6 +187,7 @@ def _prepared_pair(
             machine_id=machine_id,
             run_id=run_id,
             role=role,
+            attempt_id=attempt_id,
         )
         session_id = wait_for_registered_launch(
             client,
@@ -214,5 +264,6 @@ def resolve_or_prepare_broker_binding(
 __all__ = [
     "BROKER_KEEPALIVE_SECONDS",
     "BROKER_ROLES",
+    "broker_preparation_idempotency_key",
     "resolve_or_prepare_broker_binding",
 ]

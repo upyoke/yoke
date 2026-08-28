@@ -97,6 +97,10 @@ def broker_session_eligibility(
     baseline allowance. Therefore every preview-ready row is accepted by the
     same registration predicate while wakeable rows that end after preview can
     still satisfy the runner's explicit ended-baseline contract.
+
+    Leftover claims on an ended session are not live occupancy: session-end
+    is non-destructive and does not release claims, so they cannot disqualify
+    a broker candidate. Only an active session's claims occupy the slot.
     """
     if row is None:
         return _role_code(role, "registration_missing", "broker_registration_missing")
@@ -120,14 +124,14 @@ def broker_session_eligibility(
     mode = row.get("mode")
     if not isinstance(mode, str) or not mode.strip():
         return "registration_mode_missing"
-    if row.get("claims") != []:
-        return "registration_claims_present"
     if "current_item" not in row or row.get("current_item") is not None:
         return "registration_item_present"
     liveness = row.get("liveness")
     active = liveness == "active" and not row.get("terminated_at")
     if not active and not (allow_ended and liveness == "ended"):
         return _role_code(role, "registration_not_active", "broker_not_active")
+    if row.get("claims") != [] and active:
+        return "registration_claims_present"
     if role == "peer" and active:
         routing = row.get("messageability")
         if not isinstance(routing, dict) or routing.get("hook_injection") is not True:

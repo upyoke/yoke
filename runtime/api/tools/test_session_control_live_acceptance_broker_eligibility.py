@@ -103,3 +103,36 @@ def test_claimed_peer_is_rejected_by_preview_and_registration() -> None:
 
     assert preview_code == "registration_claims_present"
     assert failure.value.code == preview_code
+
+
+def test_ended_session_leftover_claims_do_not_disqualify() -> None:
+    cell = _broker_cell()
+    row = _row(str(cell.session_id))
+    row.update(
+        {
+            "liveness": "ended",
+            "terminated_at": None,
+            "claims": [{"target": "YOK-2473"}],
+        }
+    )
+
+    preview = broker_session_eligibility(
+        row,
+        project="yoke",
+        surface=cell.surface,
+        advertised_version=cell.expected_version,
+        machine_id=str(cell.machine_id),
+        role="target",
+    )
+    allowed = broker_session_eligibility(
+        row,
+        project="yoke",
+        surface=cell.surface,
+        advertised_version=cell.expected_version,
+        machine_id=str(cell.machine_id),
+        role="target",
+        allow_ended=True,
+    )
+
+    assert preview == "registration_not_active"
+    assert allowed is None
