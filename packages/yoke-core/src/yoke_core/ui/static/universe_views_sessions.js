@@ -138,7 +138,7 @@ export function sessionCard(
   const body = el(documentNode, "div", "session-card-body");
   appendModel(documentNode, body, row);
   appendHoldings(documentNode, body, row);
-  appendAge(documentNode, body, row);
+  if (row.liveness !== "ended") appendAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
   appendSteeringContext(documentNode, body, row, projects);
   appendSessionMessaging(documentNode, body, row, onMessage);
@@ -148,7 +148,7 @@ export function sessionCard(
 
 function metricFacts(rows) {
   const claimedItems = new Set(rows.flatMap(
-    (row) => (Array.isArray(row.claims) ? row.claims : [])
+    (row) => (Array.isArray(row.holdings?.current) ? row.holdings.current : [])
       .filter((claim) => claim.target_kind === "item")
       .map((claim) => String(claim.target)),
   ).filter(Boolean));

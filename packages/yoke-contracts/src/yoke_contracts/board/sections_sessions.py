@@ -12,36 +12,15 @@ from typing import List
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.sections_sessions_cells import session_common_cells
-from yoke_contracts.board.sections_sessions_extra_claims import build_session_keycaps
-from yoke_contracts.board.sections_sessions_layout import (
-    _chunk_claims,
-    _dedup_work_targets,
-)
+from yoke_contracts.board.sections_sessions_holdings import session_holding_labels
+from yoke_contracts.board.sections_sessions_layout import _chunk_claims
 from yoke_contracts.board.sections_sessions_scope import session_rows
 from yoke_contracts.board.sections_sessions_scope import session_lane_presentation
 from yoke_contracts.board.sections_sessions_rendering import (
     _aligned_table,
-    _claims_for_session,
     _format_session_age,
-    _render_claim_target,
     _render_lane,
 )
-
-
-def _steered_project_ids(claims: List[tuple]) -> List[int]:
-    """Project ids this session steers, in claim order, no repeats."""
-    found: List[int] = []
-    for claim in claims:
-        if claim[7] != "steering":
-            continue
-        scope = claim[9] if isinstance(claim[9], dict) else {}
-        project_id = scope.get("project_id")
-        if project_id is None:
-            continue
-        value = int(project_id)
-        if value not in found:
-            found.append(value)
-    return found
 
 
 def _parked_cell(mode: str | None) -> str:
@@ -97,35 +76,7 @@ def render_sessions_section(
             ) = row
             age = _format_session_age(offered_at or "")
 
-            # Get active claims for this session (work_claims + path_claims + leases)
-            claims = _claims_for_session(db, sid, active_only=True)
-            steered = _steered_project_ids(claims)
-            work_targets = _dedup_work_targets(
-                [
-                    (
-                        _render_claim_target(
-                            c[0],
-                            c[1],
-                            c[2],
-                            c[8],
-                            db=db,
-                            target_kind=c[7],
-                            scope=c[9],
-                        ),
-                        c[0],
-                        None,
-                    )
-                    for c in claims
-                    if c[7] != "steering"
-                ]
-            )
-            keycaps = build_session_keycaps(
-                db,
-                sid,
-                work_targets,
-                active_only=True,
-                steering_project_ids=steered,
-            )
+            keycaps = session_holding_labels(db, sid)
             claim_rows = _chunk_claims(keycaps) if keycaps else ["—"]
 
             parked_str = _parked_cell(mode)
@@ -212,34 +163,7 @@ def render_sessions_section(
             except (ValueError, TypeError):
                 pass
 
-            # Get ALL claims for closed session (work_claims + path_claims + leases)
-            claims = _claims_for_session(db, sid, active_only=False)
-            work_targets = _dedup_work_targets(
-                [
-                    (
-                        _render_claim_target(
-                            c[0],
-                            c[1],
-                            c[2],
-                            c[8],
-                            db=db,
-                            target_kind=c[7],
-                            scope=c[9],
-                        ),
-                        c[0],
-                        c[6],
-                    )
-                    for c in claims
-                    if c[7] != "steering"
-                ]
-            )
-            keycaps = build_session_keycaps(
-                db,
-                sid,
-                work_targets,
-                active_only=False,
-                steering_project_ids=_steered_project_ids(claims),
-            )
+            keycaps = session_holding_labels(db, sid)
             claim_rows = _chunk_claims(keycaps) if keycaps else ["—"]
 
             common_cells = session_common_cells(

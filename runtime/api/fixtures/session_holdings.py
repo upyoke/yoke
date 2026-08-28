@@ -49,17 +49,26 @@ def insert_session(
     conn.commit()
 
 
-def insert_item_claim(conn, session_id: str, item_id: int) -> None:
+def insert_item_claim(
+    conn,
+    session_id: str,
+    item_id: int,
+    *,
+    released_at: str | None = None,
+) -> None:
     conn.execute(
         "INSERT INTO work_claims ("
-        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason"
-        ") VALUES (%s, 'item', %s, %s, %s, %s)",
+        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason, "
+        "released_at, release_reason"
+        ") VALUES (%s, 'item', %s, %s, %s, %s, %s, %s)",
         (
             session_id,
             make_item_target(item_id).scope_json(),
             iso(),
             iso(),
             "implementation",
+            released_at,
+            "completed" if released_at else None,
         ),
     )
     conn.commit()

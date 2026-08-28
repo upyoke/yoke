@@ -2,8 +2,8 @@
 
 The read behind ``sessions.list``: one row per harness session carrying
 the attribution facts (actor id/kind plus the canonical display label),
-what the session holds (its active work-claims and coordination leases,
-typed targets rendered to display strings), how alive it is, and what
+what the session holds (its current and previous typed holdings), how alive it
+is, and what
 Yoke directed it to do (``execution_lane`` + ``mode``, both stored on
 ``harness_sessions``).
 
@@ -51,9 +51,9 @@ from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.sessions_holdings_read import (
     active_claims_by_session,
-    active_leases_by_session,
     claimed_blitz_worktree_ids_by_session,
 )
+from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
 from yoke_core.domain.session_presentation_read import session_presentation
@@ -61,10 +61,9 @@ from yoke_core.domain.session_presentation_read import session_presentation
 
 DEFAULT_SESSIONS_LIST_LIMIT = 100
 MAX_SESSIONS_LIST_LIMIT = 500
-
 #: Under the unscoped (``project=None``) roster read with ``per_project=True``,
-#: the newest-N sessions kept PER PROJECT — each project, and the NULL-project
-#: partition, gets its own slice — so a busy project cannot crowd a quiet one
+#: each project and the NULL-project partition gets its own newest-N slice,
+#: so a busy project cannot crowd a quiet one
 #: out of the fetch window. Opt-in so the flat unscoped read (search, the full
 #: roster view) keeps its universe-wide newest-N behavior.
 PER_PROJECT_SESSIONS_LIST_CAP = 20
@@ -202,7 +201,7 @@ def list_sessions(
         rows = conn.execute(query, tuple(params)).fetchall()
 
         claims_by_session, roles_by_session = active_claims_by_session(conn)
-        leases_by_session = active_leases_by_session(conn, roles_by_session)
+        holdings_by_session = session_holdings_by_session(conn)
         blitz_lanes_by_session = claimed_blitz_worktree_ids_by_session(conn)
         label_cache: Dict[int, str] = {}
         result: List[Dict[str, Any]] = []
@@ -322,7 +321,8 @@ def list_sessions(
                         item_claims[0].get("claimed_at") if item_claims else None
                     ),
                     "claims": claims,
-                    "coordination_claims": leases_by_session.get(session_id, []),
+                    "holdings": holdings_by_session.get(session_id)
+                    or {"current": [], "previous": [], "previous_remainder": 0},
                     "claimed_blitz_worktree_ids": blitz_lanes_by_session.get(
                         session_id,
                         [],

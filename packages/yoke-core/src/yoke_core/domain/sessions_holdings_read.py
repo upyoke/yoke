@@ -1,4 +1,4 @@
-"""Session holdings derivation: active work claims and coordination leases.
+"""Session holdings derivation for active work claims and blitz lanes.
 
 Split from :mod:`sessions_list_read` (authored-file line cap). Owns the
 per-session grouping the roster read composes into its rows:
@@ -7,9 +7,6 @@ per-session grouping the roster read composes into its rows:
   their rendered targets, worktree lane roles, and the per-claim facts
   from :mod:`sessions_holdings_claim_facts` (an item's coordinates,
   stage and workflow; a steering claim's strategy documents).
-* :func:`active_leases_by_session` — live shared-operation claim rows
-  keyed by holding session (session-owned by typed owner, item-owned
-  by whoever currently claims ``owner_item_id``).
 * :func:`claimed_blitz_worktree_ids_by_session` — active worker and
   integration worktrees on blitz items each session claims.
 """
@@ -25,22 +22,16 @@ from yoke_core.domain.work_claim_targets import (
     scope_int_sql,
 )
 from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
-from yoke_contracts.coordination_claim_keys import (
-    COORDINATION_TARGET_KINDS,
-)
+from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_core.domain.sessions_holdings_claim_facts import (
     claimed_item_facts,
     clear_failed_read,
     steered_document_slugs,
 )
 from yoke_core.domain.coordination_claim_keys import key_for_target
-from yoke_core.domain.work_claim_targets import (
-    TARGET_KIND_MIGRATION_SERIALIZATION,
-    from_row as target_from_row,
-)
 
 
-def _render_target(
+def render_claim_target(
     claim: Dict[str, Any],
     item_facts: Dict[int, Dict[str, Any]],
 ) -> Tuple[str, Dict[str, Any]]:
@@ -124,7 +115,7 @@ def active_claims_by_session(
     roles: Dict[str, List[Dict[str, Any]]] = {}
     for session_id, claims in raw_by_session.items():
         for claim in claims:
-            target, facts = _render_target(claim, item_facts)
+            target, facts = render_claim_target(claim, item_facts)
             if claim.get("target_kind") == "steering":
                 # Each steered project pairs with its own documents; one
                 # session-level scope can only ever describe one of them.
@@ -155,116 +146,6 @@ def active_claims_by_session(
                 }
             )
     return grouped, roles
-
-
-def _item_claim_sessions(
-    roles_by_session: Dict[str, List[Dict[str, Any]]],
-) -> Dict[int, List[str]]:
-    """Map claimed item ids to the sessions that currently hold them."""
-    mapping: Dict[int, List[str]] = {}
-    for session_id, roles in roles_by_session.items():
-        for role in roles:
-            if role.get("target_kind") != "item" or role.get("item_id") is None:
-                continue
-            mapping.setdefault(int(role["item_id"]), []).append(session_id)
-    return mapping
-
-
-def _lease_payload(
-    row: Dict[str, Any],
-    item_facts: Dict[int, Dict[str, Any]],
-) -> Dict[str, Any]:
-    """Display-shaped claim row, with owning-item identity when item-owned."""
-    target = target_from_row(row)
-    owner_item_id = (
-        target.item_id if target.kind == TARGET_KIND_MIGRATION_SERIALIZATION else None
-    )
-    payload: Dict[str, Any] = {
-        "lease_key": key_for_target(target),
-        "acquired_at": row.get("claimed_at"),
-        "owner_kind": "item" if owner_item_id is not None else "session",
-        "project_id": int(target.project_id or 0),
-    }
-    if owner_item_id is None:
-        return payload
-    item_num = int(owner_item_id)
-    payload["owner_item_id"] = item_num
-    found = item_facts.get(item_num)
-    if found is not None:
-        payload["owner_item_ref"] = found["item_ref"]
-        payload["owner_item_project_id"] = found["item_project_id"]
-        payload["owner_item_project_sequence"] = found["item_project_sequence"]
-    return payload
-
-
-def _attach_lease(
-    grouped: Dict[str, List[Dict[str, Any]]],
-    seen: set[tuple[str, str]],
-    holder: str,
-    payload: Dict[str, Any],
-) -> None:
-    """Append ``payload`` to ``holder`` unless this lease_key is already there."""
-    lease_key = str(payload.get("lease_key") or "")
-    if not holder or not lease_key:
-        return
-    dedup_key = (holder, lease_key)
-    if dedup_key in seen:
-        return
-    seen.add(dedup_key)
-    grouped.setdefault(holder, []).append(dict(payload))
-
-
-def active_leases_by_session(
-    conn: Any,
-    roles_by_session: Dict[str, List[Dict[str, Any]]] | None = None,
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Group active coordination claims by the session that holds them.
-
-    Session-held rows attach to the holding ``session_id``. Migration
-    territory attaches to every session that currently holds an item
-    claim on the owning item — the board Claims column uses the same rule
-    so a migration hold owned by the claimed item still shows on the
-    holding session even after the acquiring session ends. Newest-first,
-    one row per ``(session, lease_key)``. Missing table → empty map.
-    """
-    kinds_sql = ", ".join(f"'{kind}'" for kind in COORDINATION_TARGET_KINDS)
-    try:
-        rows = conn.execute(
-            "SELECT target_kind, scope, session_id, claimed_at "
-            f"FROM work_claims WHERE target_kind IN ({kinds_sql}) "
-            "AND released_at IS NULL "
-            "ORDER BY claimed_at DESC, id DESC",
-        ).fetchall()
-    except db_backend.database_error_types(conn):
-        clear_failed_read(conn)
-        return {}
-    item_sessions = _item_claim_sessions(roles_by_session or {})
-    owner_ids = [
-        item_id
-        for item_id in (
-            target_from_row(row).item_id
-            if str(row["target_kind"]) == TARGET_KIND_MIGRATION_SERIALIZATION
-            else None
-            for row in rows
-        )
-        if item_id is not None
-    ]
-    item_facts = claimed_item_facts(conn, owner_ids)
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
-    seen: set[tuple[str, str]] = set()
-    for row in rows:
-        payload = _lease_payload(dict(row), item_facts)
-        if not payload["lease_key"]:
-            continue
-        if payload["owner_kind"] == "item":
-            owner_item_id = payload.get("owner_item_id")
-            if owner_item_id is None:
-                continue
-            for holder in item_sessions.get(int(owner_item_id), []):
-                _attach_lease(grouped, seen, holder, payload)
-            continue
-        _attach_lease(grouped, seen, str(row["session_id"] or ""), payload)
-    return grouped
 
 
 def claimed_blitz_worktree_ids_by_session(
@@ -306,6 +187,6 @@ def claimed_blitz_worktree_ids_by_session(
 
 __all__ = [
     "active_claims_by_session",
-    "active_leases_by_session",
     "claimed_blitz_worktree_ids_by_session",
+    "render_claim_target",
 ]
