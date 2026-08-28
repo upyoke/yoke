@@ -7,6 +7,8 @@ export const detail = {
   project_id: 1,
   project: "yoke",
   kind: "test-machine",
+  machine: "mac-mini-lab",
+  capability_type: "test-machine:mac-mini-lab",
   display_name: "Test Mac",
   runner_id: "host_control",
   settings: {
@@ -71,7 +73,7 @@ export const detail = {
   ],
 };
 
-export function context() {
+export function context(machines = [detail]) {
   const requests = [];
   const documentNode = new FakeDocument();
   return {
@@ -83,10 +85,19 @@ export function context() {
       client: {
         async call(request) {
           requests.push(request);
-          if (request.function === "test_machine.get") {
+          if (request.function === "test_machine.list") {
             return {
               status: 200,
-              envelope: { success: true, result: detail },
+              envelope: { success: true, result: { machines } },
+            };
+          }
+          if (request.function === "test_machine.get") {
+            const selected = machines.find(
+              (machine) => machine.machine === request.payload.machine,
+            );
+            return {
+              status: 200,
+              envelope: { success: true, result: selected || detail },
             };
           }
           if (request.function === "test_machine.settings_replace") {

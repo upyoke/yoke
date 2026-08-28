@@ -35,7 +35,9 @@ export function machineSettingsDialog(context, detail, close, saved) {
   dialog.addEventListener("click", (event) => event.stopPropagation());
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-label", `Edit Test Mac ${detail.machine}`);
+  dialog.setAttribute(
+    "aria-label", `Edit Test Mac ${detail.machine} settings`,
+  );
   dialog.appendChild(el(
     documentNode, "h2", null, `Edit Test Mac · ${detail.machine}`,
   ));
