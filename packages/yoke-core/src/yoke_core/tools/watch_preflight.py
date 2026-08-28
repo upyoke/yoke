@@ -71,24 +71,37 @@ def _preflight_argv(args: Sequence[str]) -> list[str]:
 
 
 HELP_EPILOG = """\
-The positional names the fleet to rehearse; ``--receipt-env`` names the
+The positional names the fleet to rehearse: the registered environment
+(``stage``, ``prod``) or its paired admin connection (``stage-db-admin``,
+``prod-db-admin``). Both select the same fleet. ``--receipt-env`` names the
 control plane that records the receipt. ``--record-receipt`` writes the
 receipt the release gate reads for the environment whose fleet the
 positional named — one environment's receipt never satisfies another, so
 rehearse each environment a release targets.
 
+Ordinary pre-release rehearsal uses the source tree (no ``--engine-wheel``).
+The release wheel does not exist until after tag allocation.
+``--engine-wheel`` pins an already-built artifact when you have one.
+
 examples:
-  yoke watch preflight -- <admin-connection-for-one-env> \\
-      --engine-wheel /path/to/yoke_core-release.whl --record-receipt \\
+  yoke watch preflight -- stage --record-receipt \\
       --product-sha SHA --receipt-env <control-plane>
 
-  yoke watch preflight -- <admin-connection-for-another-env> \\
+  yoke watch preflight -- prod --record-receipt \\
+      --product-sha SHA --receipt-env <control-plane>
+
+  yoke watch preflight -- <admin-connection-for-one-env> --record-receipt \\
+      --product-sha SHA --receipt-env <control-plane>
+
+  yoke watch preflight -- <admin-connection-for-another-env> --record-receipt \\
+      --product-sha SHA --receipt-env <control-plane>
+
+  yoke watch preflight -- stage-db-admin \\
       --engine-wheel /path/to/yoke_core-release.whl --record-receipt \\
       --product-sha SHA --receipt-env <control-plane>
 
   yoke watch preflight --print-streaming-pair -- \\
-      <admin-connection-for-one-env> --engine-wheel /path/to/yoke_core-release.whl \\
-      --record-receipt --product-sha SHA --receipt-env <control-plane>
+      stage --record-receipt --product-sha SHA --receipt-env <control-plane>
 
 Pass bare preflight arguments after ``--``. The wrapper supplies
 ``python3 -m runtime.api.tools.preflight_fleet_migrations``.

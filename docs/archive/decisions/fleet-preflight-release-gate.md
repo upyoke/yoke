@@ -122,6 +122,37 @@ not again until the shape changes. A receipt recorded before this field
 existed covers no current digest, which is the bootstrap for the new
 obligation — one passing preflight per environment clears it.
 
+## What a pre-release receipt proves
+
+The release gate refuses before allocating its tag. The release wheel is
+produced by the artifact factory after that tag. At the only moment a
+receipt can be written, the shipping wheel does not exist, so ordinary
+pre-release rehearsal runs against the source tree of the commit that will
+be tagged.
+
+That is sufficient. The wheel is built from the same commit, and the
+receipt already records the schema-shape digest of the boot-converge
+sources in the selected engine. A source-tree rehearsal of that commit
+answers the same two questions a wheel rehearsal would: do pending history
+entries still apply to the aged fleet copies, and does this build's
+additive schema converge on those copies?
+
+`--engine-wheel` is the narrower case of pinning an already-built artifact
+when one exists (re-verifying a published wheel, or rehearsing a hotfix
+artifact). It is optional. Help and refusal recipes show the no-wheel
+invocation first.
+
+The gate treats source-tree and wheel receipts identically because coverage
+is the union of history entries and schema-shape digests per environment,
+not packaging form. A receipt states which engine it selected (`ambient`
+source-tree vs `wheel`) so an operator can see what was proved. Residual
+risk — a wheel that packages different sources than the rehearsed tree —
+belongs to the artifact factory and CI, not this gate.
+
+The positional names the fleet: a registered environment (`stage`) or its
+paired admin connection (`stage-db-admin`). Both select the same fleet, so
+passing the environment name is not a transport error.
+
 ## What is deliberately not here
 
 - Where the rehearsal runs. Still an open infrastructure decision, and this

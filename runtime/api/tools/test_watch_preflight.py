@@ -69,6 +69,11 @@ def test_help_epilog_teaches_per_environment_receipts() -> None:
     assert "<admin-connection-for-one-env>" in epilog
     assert "<admin-connection-for-another-env>" in epilog
     assert "--receipt-env <control-plane>" in epilog
+    assert "yoke watch preflight -- stage --record-receipt" in epilog
+    assert "Ordinary pre-release rehearsal uses the source tree" in epilog
+    assert epilog.index(
+        "yoke watch preflight -- stage --record-receipt"
+    ) < epilog.index("--engine-wheel /path/to/yoke_core-release.whl")
 
 
 def test_streaming_pair_uses_the_registered_wrapper(

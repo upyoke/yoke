@@ -272,6 +272,23 @@ class TestAdminConnectionForEnvironment:
         assert receipt.admin_connection_for_environment("stage") == "stage-db-admin"
 
 
+class TestRehearsedBuildDescription:
+    def test_a_source_tree_receipt_is_labeled_as_source_tree(self):
+        assert "source-tree engine" in receipt.rehearsed_build_description(
+            {"kind": "ambient", "name": "import-path", "schema_origin": "/src"}
+        )
+
+    def test_a_wheel_receipt_names_the_wheel_and_digest(self):
+        labeled = receipt.rehearsed_build_description(
+            {"kind": "wheel", "name": "yoke_core.whl", "sha256": "abc"}
+        )
+        assert "release wheel yoke_core.whl" in labeled
+        assert "sha256:abc" in labeled
+
+    def test_a_legacy_receipt_without_an_artifact_is_labeled_unspecified(self):
+        assert "legacy receipt" in receipt.rehearsed_build_description(None)
+
+
 class TestUnreadableMessage:
     def test_unreadable_is_stated_as_unknown_rather_than_as_unrehearsed(self):
         message = receipt.unreadable_message("stage", "connection refused")
