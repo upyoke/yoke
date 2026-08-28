@@ -1,10 +1,10 @@
 """Differences between two fleet observations, one line each.
 
 Deltas are edges: an item changed status or ownership, a session
-registered or ended, an envelope addressed to the steerer arrived
-unread. Every one of them needs a previous observation to compare
-against, so the arming pass emits none — only the level conditions in
-:mod:`yoke_core.domain.fleet_delta_alarms` can fire that early.
+registered or ended. Every one of them needs a previous observation to
+compare against, so the arming pass emits none — only the level
+conditions in :mod:`yoke_core.domain.fleet_delta_alarms`, which
+:func:`compare` folds in here, can fire that early.
 
 Silence is the contract: when nothing moved, this module returns an
 empty list and the probe prints nothing.
@@ -16,14 +16,12 @@ from yoke_core.domain.fleet_delta_alarms import (
     DeltaState,
     LINE_PREFIX,
     idle_holder_alarms,
+    inbox_lines,
     short,
     starved_envelope_alarms,
     unowned_item_alarms,
 )
 from yoke_core.domain.fleet_delta_snapshot import FleetSnapshot
-
-#: Envelope states that mean the recipient has not dealt with it yet.
-UNREAD_STATES = frozenset({"pending", "injected"})
 
 
 def item_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]:
@@ -75,25 +73,6 @@ def session_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]
     return lines
 
 
-def inbox_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]:
-    """Envelopes addressed to this steerer that are not yet acknowledged."""
-    lines: list[str] = []
-    for key in sorted(current.envelopes):
-        row = current.envelopes[key]
-        if row.recipient_session_id != current.self_session_id:
-            continue
-        if row.state not in UNREAD_STATES:
-            continue
-        was = previous.envelopes.get(key)
-        if was is not None and was.state == row.state:
-            continue
-        lines.append(
-            f"{LINE_PREFIX} inbox {short(row.message_id)} state={row.state} "
-            f"from={short(row.sender_session_id)}"
-        )
-    return lines
-
-
 def compare(
     previous: FleetSnapshot | None,
     current: FleetSnapshot,
@@ -101,8 +80,8 @@ def compare(
 ) -> list[str]:
     """Return every line this pass should emit, in reading order."""
     lines: list[str] = []
+    lines.extend(inbox_lines(current, state))
     if previous is not None:
-        lines.extend(inbox_deltas(previous, current))
         lines.extend(item_deltas(previous, current))
         lines.extend(session_deltas(previous, current))
     lines.extend(idle_holder_alarms(current, state))
@@ -129,11 +108,9 @@ def fatal_line(function_id: str, detail: str, limit: int) -> str:
 
 
 __all__ = [
-    "UNREAD_STATES",
     "compare",
     "error_line",
     "fatal_line",
-    "inbox_deltas",
     "item_deltas",
     "session_deltas",
 ]

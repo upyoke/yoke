@@ -34,6 +34,9 @@ UNOWNED_ITEM_MINUTES = 15
 #: made no tool call since it was sent, is starved rather than in flight.
 STARVED_ENVELOPE_MINUTES = 10
 
+#: Envelope states that mean the recipient has not dealt with it yet.
+UNREAD_STATES = frozenset({"pending", "injected"})
+
 #: Statuses that are in the backlog rather than in flight; an unclaimed
 #: idea is the normal resting state, not an abandoned lane.
 BACKLOG_STATUSES = frozenset({"idea"})
@@ -159,6 +162,40 @@ def unowned_item_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
     return lines + _clear(state, live, "unowned-item")
 
 
+def inbox_lines(current: FleetSnapshot, state: DeltaState) -> list[str]:
+    """Envelopes addressed to this session that it has not acknowledged.
+
+    Unread is a level rather than an edge. An envelope already waiting
+    when the watch arms is exactly what the reader needs told first, so
+    this fires on the arming pass — where no comparison is possible —
+    and then once per state change, never once per pass.
+
+    An envelope leaving the unread set needs no line: acknowledging it
+    was the reader's own action, so a clear would only be noise.
+    """
+    lines: list[str] = []
+    live: set[str] = set()
+    for key in sorted(current.envelopes):
+        row = current.envelopes[key]
+        if row.recipient_session_id != current.self_session_id:
+            continue
+        if row.state not in UNREAD_STATES:
+            continue
+        inbox_key = f"inbox:{short(row.message_id)} state={row.state}"
+        live.add(inbox_key)
+        lines.extend(
+            _raise_once(
+                state,
+                inbox_key,
+                f"{LINE_PREFIX} inbox {short(row.message_id)} "
+                f"state={row.state} from={short(row.sender_session_id)}",
+            )
+        )
+    stale = {key for key in state.active_alarms if key.startswith("inbox:")} - live
+    state.active_alarms -= stale
+    return lines
+
+
 def _starved_minutes(row: EnvelopeRow, current: FleetSnapshot) -> int | None:
     """Minutes an envelope has been starved, or ``None`` if it is fine."""
     if row.state != "pending" or row.injection_count:
@@ -216,7 +253,9 @@ __all__ = [
     "SHORT_ID_CHARS",
     "STARVED_ENVELOPE_MINUTES",
     "UNOWNED_ITEM_MINUTES",
+    "UNREAD_STATES",
     "idle_holder_alarms",
+    "inbox_lines",
     "minutes_since",
     "short",
     "starved_envelope_alarms",

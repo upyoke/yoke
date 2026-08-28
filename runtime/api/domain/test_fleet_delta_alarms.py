@@ -10,6 +10,7 @@ from yoke_core.domain.fleet_delta_alarms import (
     STARVED_ENVELOPE_MINUTES,
     UNOWNED_ITEM_MINUTES,
     idle_holder_alarms,
+    inbox_lines,
     starved_envelope_alarms,
     unowned_item_alarms,
 )
@@ -193,3 +194,48 @@ def test_starved_envelope_ignores_injected_and_recent_envelopes() -> None:
         envelopes={injected.key: injected, recent.key: recent},
     )
     assert starved_envelope_alarms(snapshot, DeltaState()) == []
+
+
+def _inbox(message_id: str, state: str, recipient: str) -> EnvelopeRow:
+    return EnvelopeRow(
+        message_id=message_id,
+        recipient_session_id=recipient,
+        sender_session_id="worker-9999",
+        state=state,
+        injection_count=1,
+        created_at=NOW,
+    )
+
+
+def test_inbox_fires_on_the_arming_pass_for_an_envelope_already_waiting() -> None:
+    """Unread is a level: the first thing a steerer needs told on arming."""
+    waiting = _inbox("msg-1111", "pending", "steerer-0000")
+    snapshot = _snapshot(envelopes={waiting.key: waiting})
+    state = DeltaState()
+
+    assert inbox_lines(snapshot, state) == [
+        "fleet inbox msg-1111 state=pending from=worker-9"
+    ]
+    assert inbox_lines(snapshot, state) == [], "a level fires once, not per pass"
+
+
+def test_inbox_ignores_envelopes_for_other_sessions_and_acknowledged_ones() -> None:
+    theirs = _inbox("msg-2222", "pending", "someone-else")
+    done = _inbox("msg-3333", "acknowledged", "steerer-0000")
+    snapshot = _snapshot(envelopes={theirs.key: theirs, done.key: done})
+    assert inbox_lines(snapshot, DeltaState()) == []
+
+
+def test_inbox_reports_a_state_change_and_stays_silent_on_acknowledgement() -> None:
+    state = DeltaState()
+    pending = _inbox("msg-1111", "pending", "steerer-0000")
+    inbox_lines(_snapshot(envelopes={pending.key: pending}), state)
+
+    injected = _inbox("msg-1111", "injected", "steerer-0000")
+    assert inbox_lines(_snapshot(envelopes={injected.key: injected}), state) == [
+        "fleet inbox msg-1111 state=injected from=worker-9"
+    ]
+
+    done = _inbox("msg-1111", "acknowledged", "steerer-0000")
+    assert inbox_lines(_snapshot(envelopes={done.key: done}), state) == []
+    assert not any(key.startswith("inbox:") for key in state.active_alarms)

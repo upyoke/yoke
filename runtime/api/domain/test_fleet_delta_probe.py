@@ -141,3 +141,44 @@ def test_projects_default_to_the_checkout_project(monkeypatch: Any) -> None:
     monkeypatch.setenv("YOKE_PROJECT", "yoke")
     assert fleet_delta_probe.resolve_projects(None) == ["yoke"]
     assert fleet_delta_probe.resolve_projects(["platform"]) == ["platform"]
+
+
+def test_the_session_id_is_resolved_from_ambient_identity(monkeypatch: Any) -> None:
+    """Nothing passes the steerer's id in, so a handoff needs no edit."""
+    monkeypatch.setattr(
+        fleet_delta_probe, "ambient_session_id", lambda: "resolved-0000"
+    )
+    seen: list[str] = []
+
+    def call(function_id: str, payload: dict[str, Any]) -> Any:
+        if function_id == ENVELOPES_FUNCTION:
+            return _ok(
+                {
+                    "messages": [
+                        {
+                            "message_id": "m",
+                            "sender_session_id": "w",
+                            "created_at": "2026-08-28T17:00:00Z",
+                            "recipients": [
+                                {"session_id": "resolved-0000", "state": "pending"},
+                                {"session_id": "another-0000", "state": "pending"},
+                            ],
+                        }
+                    ]
+                }
+            )
+        return _ok({})
+
+    out = io.StringIO()
+    run(
+        ["yoke"],
+        out=out,
+        call=call,
+        clock=_Clock(),
+        sleep=lambda _seconds: None,
+        duration=90,
+    )
+    seen.append(out.getvalue())
+    # Only the envelope addressed to the resolved session is reported, and
+    # the second pass is what compares it against the first.
+    assert seen[0] == "fleet inbox m state=pending from=w\n"

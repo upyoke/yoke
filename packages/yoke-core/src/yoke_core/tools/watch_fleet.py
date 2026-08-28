@@ -62,7 +62,18 @@ def _probe_argv(args: Sequence[str]) -> list[str]:
 
 HELP_EPILOG = """\
 Pass bare probe arguments after ``--``; the wrapper supplies
-``python3 -m yoke_core.domain.fleet_delta_probe``.
+``python3 -m yoke_core.domain.fleet_delta_probe``:
+
+  --project P    Project to watch. Repeatable. Defaults to the
+                 checkout's mapped project.
+  --interval N   Seconds between passes (default 60).
+  --duration N   Seconds to poll before exiting cleanly (default 3600;
+                 0 runs until interrupted). A bounded run always writes
+                 the exit sentinel, so an armed follower always ends.
+
+The negative-space thresholds are the steering loop's and are not
+flags: a claim holder idle past 20 minutes, an in-flight item unowned
+continuously past 15, an envelope undelivered past 10.
 
 The steerer's session id is resolved from ambient harness identity, so
 the same command works unedited after a steering handoff. Each pass
