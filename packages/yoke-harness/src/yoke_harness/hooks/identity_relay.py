@@ -69,7 +69,12 @@ def client_model(
 ) -> Optional[str]:
     session_id = payload.get("session_id")
     session_id = session_id if isinstance(session_id, str) else ""
-    if event_name not in REGISTRATION_EVENTS:
+    cursor = is_cursor(executor)
+    # Cursor must keep shipping the store measurement. Skipping after a local
+    # settle marked the executed name "already sent" before the relay
+    # acknowledged it, and later events then left stdin's bare family id on
+    # the wire.
+    if event_name not in REGISTRATION_EVENTS and not cursor:
         if not session_id:
             return None
         try:
@@ -78,8 +83,8 @@ def client_model(
         except Exception:
             return None
     try:
-        if is_cursor(executor):
-            model = cursor_payload_model(payload)
+        if cursor:
+            return cursor_payload_model(payload) or "unknown"
         elif is_codex(executor):
             sid = resolve_session_id(json.dumps(payload))
             model = _codex_resolve_model(thread_id=sid or None) or ""

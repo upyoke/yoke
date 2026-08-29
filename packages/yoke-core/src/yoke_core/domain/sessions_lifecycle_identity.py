@@ -165,24 +165,40 @@ def resolve_reactivation_executor_version(
     return stored_version
 
 
+def _cursor_incoming_replaces_stored(stored: str, incoming: str) -> bool:
+    """True when Cursor's incoming value is a better measurement than stored.
+
+    A composed wire name is more specific than the bare family id it
+    contains. A less-specific family id must not overwrite a measurement.
+    Two different composed names are both measurements (a mid-conversation
+    switch) and the later one wins.
+    """
+    if stored in incoming and len(incoming) > len(stored):
+        return True
+    if incoming in stored:
+        return False
+    return True
+
+
 def _model_should_upgrade(*, stored: str, incoming: str, executor: Any) -> bool:
     """True when ``incoming`` is a better answer than the stored model.
 
     Filling a placeholder always qualifies. Replacing one real model with
     another is refused, because a re-registration carrying a differently
     resolved model would otherwise swap the row on every prompt — except on
-    Cursor, where the stored model is not a report but a measurement of the
-    conversation's current variant. A Cursor session registers under the
-    bare family id its payload names, learns the variant only once its
-    conversation store exists, and can be switched to another model
-    mid-conversation; refusing the later reading there is what pinned every
-    launched cursor session to the family id it started under.
+    Cursor, where the stored model is a measurement of the conversation's
+    current variant. A later store reading must replace a bare family id; a
+    later family id must not replace a measurement.
     """
     from yoke_harness.hooks.identity import _is_placeholder_model, is_cursor
 
     if _is_placeholder_model(incoming) or stored == incoming:
         return False
-    return _is_placeholder_model(stored) or is_cursor(str(executor or ""))
+    if _is_placeholder_model(stored):
+        return True
+    if not is_cursor(str(executor or "")):
+        return False
+    return _cursor_incoming_replaces_stored(stored, incoming)
 
 
 def refresh_active_duplicate_identity(
@@ -212,7 +228,11 @@ def refresh_active_duplicate_identity(
         incoming=model,
         # The stored surface is NULL for a row registered before its
         # entrypoint was known, so the incoming one stands in.
-        executor=_stored_value(existing, "executor_surface") or executor_surface,
+        executor=(
+            _stored_value(existing, "executor_surface")
+            or executor_surface
+            or _stored_value(existing, "executor")
+        ),
     ):
         conn.execute(
             f"UPDATE harness_sessions SET model = {placeholder} "

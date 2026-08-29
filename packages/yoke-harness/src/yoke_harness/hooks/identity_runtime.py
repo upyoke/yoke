@@ -66,33 +66,16 @@ def _is_placeholder_model(value: object) -> bool:
 
 
 def cursor_payload_model(payload: dict[str, Any]) -> str:
-    """Return the model a Cursor conversation is executing, or ``""``.
+    """Return the model Cursor's conversation store proves, or ``""``.
 
-    Cursor's own conversation store names the variant that actually served
-    each request, tier included, so it is consulted first and is the only
-    source here that is a measurement rather than a report. The payload's
-    own fields answer for a conversation whose store cannot be read yet —
-    a fresh session whose first request has not been composed: ``model`` is
-    the variant-qualified id and may carry the effort tier, ``model_id`` is
-    the bare id and is strictly less informative, so ``model`` is preferred.
-    A build that still sends the ``"default"`` placeholder is reporting no
-    model at all.
-
-    An empty result means the model is not knowable yet, and the caller
-    records the session as unknown. It never means the machine default, and
-    a launch's requested model is deliberately not consulted: a request that
-    cursor-agent declined to honor would be recorded as the fact it is not.
+    The hook payload names a bare family id that drops the effort tier.
+    That value is never a measurement — a caller records unknown until the
+    store answers, then records the store's wire name. A launch's requested
+    model is deliberately not consulted.
     """
     from yoke_harness.cursor_executed_model import executed_model_for_payload
 
-    executed = executed_model_for_payload(payload)
-    if executed:
-        return executed
-    for key in ("model", "model_id"):
-        value = payload.get(key)
-        if isinstance(value, str) and not _is_placeholder_model(value):
-            return value.strip()
-    return ""
+    return executed_model_for_payload(payload)
 
 
 def is_codex(executor: Optional[str]) -> bool:
@@ -185,9 +168,8 @@ def resolve_session_id(stdin_data: str) -> str:
     Codex hook subprocess normally carries neither and falls through to
     the payload, where Codex names the parent.
     """
-    return (
-        resolve_env_session_id(os.environ)
-        or _payload_field(stdin_data, "session_id")
+    return resolve_env_session_id(os.environ) or _payload_field(
+        stdin_data, "session_id"
     )
 
 
@@ -196,11 +178,17 @@ def detect_executor() -> str:
         return os.environ["YOKE_EXECUTOR"]
     if os.environ.get("CODEX_THREAD_ID"):
         return _compose_executor(
-            _CODEX_COARSE, _CODEX_COARSE, _codex_resolve_entrypoint(),
+            _CODEX_COARSE,
+            _CODEX_COARSE,
+            _codex_resolve_entrypoint(),
         )
-    if os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+    if os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get(
+        "CLAUDE_CODE_ENTRYPOINT"
+    ):
         return _compose_executor(
-            "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
+            "claude",
+            _CLAUDE_COARSE,
+            os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
         )
     # Hook/CLI markers, then CURSOR_CONVERSATION_ID as the IDE-shell fallback.
     # Conversation id is last so a nested Claude/Codex terminal keeps its family.
@@ -209,7 +197,9 @@ def detect_executor() -> str:
     if os.environ.get(_CURSOR_CONVERSATION_ENV):
         return cursor_surface_entrypoint()
     return _compose_executor(
-        "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
+        "claude",
+        _CLAUDE_COARSE,
+        os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
     )
 
 
@@ -265,7 +255,7 @@ def _extract_model_from_argv(argv: list[str]) -> str:
             val = argv[index + 1]
             return "" if _is_placeholder_model(val) else val
         if arg.startswith("--model="):
-            val = arg[len("--model="):]
+            val = arg[len("--model=") :]
             return "" if _is_placeholder_model(val) else val
     return ""
 
@@ -304,10 +294,9 @@ def detect_model(
     if is_codex(resolved_executor):
         return _codex_resolve_model() or "unknown"
     if is_cursor(resolved_executor):
-        # Cursor names the active model only inside each hook payload
-        # (model/model_id fields); session registration passes it from the
-        # payload explicitly. Without a payload in scope there is no
-        # truthful ambient source.
+        # The conversation store is the only Cursor measurement, and it is
+        # keyed by the hook payload's session/conversation id. Ambient
+        # detection has neither.
         return "unknown"
     claude_env = os.environ.get("CLAUDE_MODEL", "")
     if claude_env and not _is_placeholder_model(claude_env):

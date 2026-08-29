@@ -33,7 +33,7 @@ def _payload_json(payload: dict) -> str:
 
 
 def _payload_model(payload: dict) -> str:
-    """Return the concrete model the payload names, or ``""``."""
+    """Return the model the conversation store proves, or ``""``."""
     from yoke_harness.hooks.identity import cursor_payload_model
 
     return cursor_payload_model(payload)

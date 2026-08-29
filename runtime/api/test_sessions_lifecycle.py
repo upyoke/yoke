@@ -104,10 +104,7 @@ class TestRegisterSession:
         assert row["model"] == TEST_MODEL_ID
 
     def test_register_takes_a_later_cursor_model_over_the_stored_one(self, conn):
-        """Cursor's stored model is a measurement, not a report: it registers
-        under the bare family id its payload names and learns the variant
-        only once its conversation store exists, so the later reading wins.
-        """
+        """A later store measurement replaces a less-specific family id."""
         cursor = dict(executor="cursor-cli", provider="cursor")
         _register(conn, session_id="cursor-sess", model="grok-4.6", **cursor)
         with pytest.raises(SessionError) as exc_info:
