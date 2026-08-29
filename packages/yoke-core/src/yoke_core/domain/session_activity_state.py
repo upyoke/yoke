@@ -231,10 +231,6 @@ def apply_envelope_state(conn: Any, envelope: Dict[str, Any]) -> None:
             observed_at = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
         except ValueError:
             observed_at = None
-    if event_name in _TOOL_ACTIVITY_EVENT_NAMES:
-        from yoke_core.domain.session_mode import clear_parked_mode
-
-        clear_parked_mode(conn, session_id)
     if observed_at is not None:
         from yoke_core.domain.session_turn_posture import stamp_turn_posture
 

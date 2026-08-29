@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from yoke_core.domain.session_mode import session_is_parked
+
 #: Registered function ids this observation is composed from.
 SESSIONS_FUNCTION = "sessions.list"
 FRONTIER_FUNCTION = "charge.schedule"
@@ -150,7 +152,7 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             session_id=session_id,
             executor_surface=str(raw.get("executor_surface") or "unknown"),
             mode=str(raw.get("mode") or ""),
-            parked=bool(raw.get("parked_reason")) or raw.get("mode") == "parked",
+            parked=session_is_parked(raw.get("mode")),
             ended=bool(raw.get("ended_at")),
             terminated=bool(raw.get("terminated_at")),
             activity_at=parse_timestamp(raw.get("activity_at")),

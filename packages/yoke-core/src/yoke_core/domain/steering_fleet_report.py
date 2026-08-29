@@ -51,6 +51,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_ref_render import render_item_refs
+from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.steering_fleet_report_available import (
     FrontierEntry,
     scope_candidates,
@@ -206,7 +207,7 @@ def claim_holders(
                 item_id=int(record["item_id"]),
                 item_ref=refs.get(int(record["item_id"]), str(record["item_id"])),
                 mode=mode,
-                parked=mode == "parked",
+                parked=session_is_parked(mode),
                 last_activity_at=last_activity,
                 idle_seconds=age_seconds(last_activity, now) or 0,
             )
@@ -235,9 +236,7 @@ def compose_report(
         composed_at=now,
         staffing_after_seconds=int(staffing_after_seconds),
         idle_after_seconds=int(idle_after_seconds),
-        available=scope_candidates(
-            conn, project_id=project_id, session_id=session_id
-        ),
+        available=scope_candidates(conn, project_id=project_id, session_id=session_id),
         holders=holders,
         idle=idle,
         starved=starved_deliveries(conn, project_id=project_id, now=now),

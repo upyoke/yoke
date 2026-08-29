@@ -7,11 +7,14 @@ import pytest
 from runtime.api.steering_fleet_test_helpers import (
     JUST_NOW,
     LONG_AGO,
+    NOW,
     SURFACE,
     WORKER_SESSION,
     compose as _compose,
     seed_steering_scope,
 )
+from yoke_core.domain.session_activity_state import apply_envelope_state
+from yoke_core.domain.session_mode import SESSION_MODE_PARKED, set_session_mode
 from yoke_core.domain.sessions_lifecycle_claim import claim_work
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -50,9 +53,7 @@ def test_work_whose_owner_was_released_stays_in_one_list_marked_stopped(
     report = _compose(steering_scope)
 
     stopped = {entry.item_id for entry in report.available if entry.was_owned}
-    never_started = {
-        entry.item_id for entry in report.available if not entry.was_owned
-    }
+    never_started = {entry.item_id for entry in report.available if not entry.was_owned}
     assert stopped == {2}
     assert never_started == {1, 3}
 
@@ -129,11 +130,22 @@ def test_a_parked_holder_declared_its_wait_and_is_not_idle(steering_scope):
         session_id=WORKER_SESSION,
         target=make_item_target(1),
     )
-    steering_scope.execute(
-        "UPDATE harness_sessions SET mode = 'parked' WHERE session_id = %s",
-        (WORKER_SESSION,),
+    set_session_mode(
+        steering_scope,
+        WORKER_SESSION,
+        SESSION_MODE_PARKED,
+        reason="waiting on a blocking claim",
     )
-    steering_scope.commit()
+    apply_envelope_state(
+        steering_scope,
+        {
+            "event_name": "HarnessToolCallStarted",
+            "session_id": WORKER_SESSION,
+            "event_time": NOW,
+            "tool_use_id": "tool-1",
+            "tool_name": "Shell",
+        },
+    )
 
     report = _compose(steering_scope)
 
@@ -197,4 +209,3 @@ def test_an_operator_blocked_item_is_not_reported_as_available(steering_scope):
     report = _compose(steering_scope)
 
     assert 3 not in {entry.item_id for entry in report.available}
-
