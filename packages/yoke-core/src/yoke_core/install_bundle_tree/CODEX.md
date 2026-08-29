@@ -60,6 +60,35 @@ The remaining named substrate gap is on the telemetry edge: Codex does not emit 
 
 Future shared-registry additions inherit to Codex unless a real substrate limitation is declared in the manifest.
 
+## Shell differences on Codex
+
+`AGENTS.md` and the Yoke skills write their search recipes around `rg`, which
+Claude Code ships as a shell builtin. Codex has no such builtin, so unless
+ripgrep is separately installed those recipes are `command not found` and a few
+neighbouring shapes need translating. Everything not listed here applies to
+Codex unchanged.
+
+- **Search with `grep -rn 'pattern' <dir>` or `git grep -n 'pattern'`.** Do not
+  translate an `rg` recipe flag-for-flag: `-r` means *recursive* in grep and
+  *replace* in rg, so a copied `-r` silently rewrites what the search returns
+  instead of widening it.
+- **Enumerate paths; never pass a shell glob.** The path-glob guard denies an
+  unmatched zsh glob before the command runs, and its recovery line names
+  `rg --files`. List candidates with `git ls-files` or search a directory you
+  have confirmed exists, and use `grep --include` rather than a shell wildcard.
+- **Single-quote the whole pattern.** Mixed single/double quoting inside one
+  regex is the most frequent denial here; a single-quoted literal avoids both
+  zsh expansion and the unmatched-quote refusal.
+- **Run lane tests through `yoke watch pytest -- <bare pytest args>`.** A bare
+  `python3 -m pytest` inside `.worktrees/<branch>/` resolves the main
+  checkout's install: it either fails collection with
+  `ModuleNotFoundError: yoke_contracts` or, worse, passes while testing the
+  wrong source. `yoke dev run -- <command>` binds any other lane-source command
+  the same way.
+- **Yoke adapters take `--item PREFIX-N`, never a positional ref.** For example
+  `yoke claims work acquire --item PREFIX-N --reason "..."`; the positional form
+  is refused.
+
 ## Identity
 
 The Codex adapter sets these environment variables:
