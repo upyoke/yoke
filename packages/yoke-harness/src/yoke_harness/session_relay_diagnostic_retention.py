@@ -16,6 +16,7 @@ NATIVE_FAILURE_CLASSES = frozenset(
     {
         "adapter_exception",
         "background_session_in_use",
+        "identity_parse_failed",
         "native_exception",
         "no_conversation_found",
         "process_exit",

@@ -131,7 +131,7 @@ def test_cancelled_launch_closes_an_active_hook_lease() -> None:
     assert attempt[0] == "launch_cancelled"
 
 
-def test_cancelled_native_create_requires_reconciliation_before_registration() -> None:
+def test_cancelled_native_create_reconciliation_binds_the_registered_session() -> None:
     conn = launch_connection()
     add_relay(conn)
     launch = assigned_launch(conn, key="cancel-native-create")
@@ -191,15 +191,26 @@ def test_cancelled_native_create_requires_reconciliation_before_registration() -
         observed_native_id="late-native-session",
         now="2026-08-22T12:00:22Z",
     )
-    injection = prepare_launch_registration(
-        conn,
-        launch_id=launch.launch_id,
-        attestation=claim.attestation,
-        session_id="late-native-session",
-        now="2026-08-22T12:00:23Z",
-    )
     assert reconciled.state == "awaiting_registration"
-    assert injection.session_id == "late-native-session"
+    assert reconciled.native_session_id == "late-native-session"
+    assert reconciled.registered_session_id == "late-native-session"
+    assert reconciled.result_code == "registration_bound"
+    assert reconciled.attestation_consumed_at == "2026-08-22T12:00:22Z"
+    recipient = conn.execute(
+        "SELECT session_id,state FROM session_message_recipients WHERE message_id=?",
+        (launch.message_id,),
+    ).fetchone()
+    assert tuple(recipient) == ("late-native-session", "pending")
+
+    with pytest.raises(SessionLaunchError) as consumed:
+        prepare_launch_registration(
+            conn,
+            launch_id=launch.launch_id,
+            attestation=claim.attestation,
+            session_id="late-native-session",
+            now="2026-08-22T12:00:23Z",
+        )
+    assert consumed.value.code == "attestation_consumed"
 
 
 def test_deadline_expiry_closes_launch_instruction() -> None:
@@ -252,7 +263,7 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
         machine_id="machine-1",
         now="2026-08-22T12:11:02Z",
     )
-    report_launch_attempt(
+    rebound = report_launch_attempt(
         conn,
         launch_id=retried.launch_id,
         lease_id=claim.lease_id,
@@ -260,14 +271,9 @@ def test_retry_reopens_message_without_reactivating_an_old_recipient() -> None:
         native_session_id=session_id,
         now="2026-08-22T12:11:03Z",
     )
-    prepare_launch_registration(
-        conn,
-        launch_id=retried.launch_id,
-        attestation=claim.attestation,
-        session_id=session_id,
-        now="2026-08-22T12:11:04Z",
-    )
 
+    assert rebound.registered_session_id == session_id
+    assert rebound.result_code == "registration_bound"
     assert _delivery_state(conn, launch.message_id) == (None, "pending")
     reset = conn.execute(
         "SELECT injection_count,last_injected_at,wake_attempt_count,last_wake_at "

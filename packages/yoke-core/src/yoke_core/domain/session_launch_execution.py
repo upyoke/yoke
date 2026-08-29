@@ -7,6 +7,9 @@ from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
+from yoke_core.domain.session_launch_registered_session_binding import (
+    bind_existing_registered_session,
+)
 from yoke_core.domain.session_launch_store import (
     add_seconds,
     attestation_digest,
@@ -328,6 +331,7 @@ def report_launch_attempt(
                 result_code=evidence_code or "outcome_unknown",
                 result_evidence=result_evidence,
             )
+        result = bind_existing_registered_session(conn, launch=result, now=current)
         conn.commit()
         return result
     except Exception:

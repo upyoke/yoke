@@ -92,6 +92,8 @@ def test_public_launch_record_uses_one_allowlisted_evidence_projection() -> None
 
     assert projected["native_session_id"] == "caller"
     assert projected["registered_session_id"] == "caller"
+    assert projected["identity_correlation"] == "matched"
+    assert projected["instruction_delivery"] == "pending"
     assert projected["result_evidence"] == {
         "adapter_revision": "adapter-v2",
         "duration_ms": 17,
@@ -137,6 +139,23 @@ def test_get_and_list_return_the_safe_projection_after_operator_auth(
         }
         assert "message_id" not in row
         assert "attestation_hash" not in row
+
+
+def test_projection_names_failed_correlation_and_undelivered_instruction() -> None:
+    conn = launch_connection()
+    add_relay(conn)
+    launch = assigned_launch(conn, key="failed-correlation-projection")
+    conn.execute(
+        "UPDATE session_launches SET state='outcome_unknown',"
+        "result_code='identity_parse_failed' WHERE launch_id=?",
+        (launch.launch_id,),
+    )
+    conn.commit()
+
+    projected = public_launch_record(get_launch(conn, launch.launch_id))
+
+    assert projected["identity_correlation"] == "correlation_failed"
+    assert projected["instruction_delivery"] == "not_delivered"
 
 
 def test_safe_projection_does_not_weaken_project_operator_authorization(

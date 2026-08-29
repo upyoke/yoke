@@ -29,35 +29,36 @@ const RESULT_EVIDENCE_FIELDS = Object.freeze([
 export function launchIdentityPresentation(launch) {
   const nativeSessionId = String(launch.native_session_id || "").trim();
   const registeredSessionId = String(launch.registered_session_id || "").trim();
-  if (nativeSessionId && registeredSessionId) {
-    return nativeSessionId === registeredSessionId
-      ? {
-        state: "matched", label: "Identity matched",
-        nativeSessionId, registeredSessionId,
-      }
-      : {
-        state: "mismatch",
-        label: "Identity mismatch: native and registered sessions differ",
-        nativeSessionId, registeredSessionId,
-      };
-  }
-  if (nativeSessionId) {
-    return {
-      state: "awaiting-registration", label: "Awaiting registration",
-      nativeSessionId, registeredSessionId: null,
-    };
-  }
-  if (registeredSessionId) {
-    return {
-      state: "native-unreported",
-      label: "Registered; native identity not reported",
-      nativeSessionId: null, registeredSessionId,
-    };
-  }
-  return {
-    state: "pending", label: "Waiting for native session",
-    nativeSessionId: null, registeredSessionId: null,
+  const state = String(launch.identity_correlation || "unknown");
+  const result = String(launch.result_code || "unknown").replaceAll("_", " ");
+  const labels = {
+    matched: "Identity matched",
+    mismatch: "Identity mismatch: native and registered sessions differ",
+    awaiting_registration: "Awaiting registration",
+    registration_failed: "Session registration failed",
+    native_unreported: "Registered; native identity not reported",
+    correlation_failed: `Identity correlation failed: ${result}`,
+    unavailable: "Native identity unavailable",
+    pending: "Waiting for native session",
+    unknown: "Identity correlation status unavailable",
   };
+  return {
+    state: state.replaceAll("_", "-"),
+    label: labels[state] || state.replaceAll("_", " "),
+    nativeSessionId: nativeSessionId || null,
+    registeredSessionId: registeredSessionId || null,
+  };
+}
+
+function instructionDeliveryPresentation(launch) {
+  const state = String(launch.instruction_delivery || "unknown");
+  const labels = {
+    delivered: "Launch instruction delivered",
+    not_delivered: "Launch instruction not delivered",
+    pending: "Launch instruction delivery pending",
+    unknown: "Launch instruction delivery status unavailable",
+  };
+  return { state: state.replaceAll("_", "-"), label: labels[state] || state };
 }
 
 function appendLaunchIdentity(documentNode, body, launch) {
@@ -73,6 +74,13 @@ function appendLaunchIdentity(documentNode, body, launch) {
     "p",
     `session-launch-correlation ${identity.state}`,
     identity.label,
+  ));
+  const delivery = instructionDeliveryPresentation(launch);
+  body.appendChild(el(
+    documentNode,
+    "p",
+    `session-launch-delivery ${delivery.state}`,
+    delivery.label,
   ));
   const evidence = launch.result_evidence;
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return;
@@ -155,7 +163,7 @@ function launchCard(documentNode, launch, mutate) {
       documentNode,
       "p",
       "session-launch-guidance",
-      "Native session creation is uncertain. Reconcile whether a session exists before retrying or creating another one.",
+      "The launch instruction was not delivered. Reconcile whether a native session exists before retrying or creating another one.",
     ));
     const observedNativeId = el(
       documentNode, "input", "session-control-input session-launch-reconcile-id",

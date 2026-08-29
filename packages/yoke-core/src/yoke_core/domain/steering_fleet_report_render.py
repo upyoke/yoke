@@ -24,6 +24,7 @@ from yoke_core.domain.steering_fleet_report_detectors import (
     StarvedDelivery,
     UnregisteredLaunch,
 )
+from yoke_core.domain.session_launch_visibility import CORRELATION_FAILURE_CODES
 
 
 #: Longest list rendered per section. The report is a wake, not an inventory:
@@ -102,6 +103,9 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
         "machine_id": entry.machine_id,
         "state": entry.state,
         "overdue_seconds": entry.overdue_seconds,
+        "result_code": entry.result_code,
+        "native_session_id": entry.native_session_id,
+        "observed_session_id": entry.observed_session_id,
     }
 
 
@@ -195,11 +199,31 @@ def _starved_lines(report: FleetReport) -> list[str]:
 
 
 def _launch_lines(report: FleetReport) -> list[str]:
-    lines = [
-        f"  launch {entry.launch_id}  {entry.surface} on {entry.machine_id}  "
-        f"{entry.state}, overdue {_minutes(entry.overdue_seconds)}"
-        for entry in report.unregistered_launches[:SECTION_LIMIT]
-    ]
+    lines = []
+    for entry in report.unregistered_launches[:SECTION_LIMIT]:
+        native = entry.observed_session_id or entry.native_session_id
+        if native:
+            problem = f"registered session {native} exists; launch binding is absent"
+            recovery = (
+                "reconcile before retry: `yoke session-control launch reconcile "
+                f"{entry.launch_id} --observed-native-id {native}`"
+            )
+        elif entry.result_code in CORRELATION_FAILURE_CODES:
+            problem = entry.result_code.replace("_", " ")
+            recovery = (
+                "find the native session ID, then reconcile before retry with "
+                f"`yoke session-control launch reconcile {entry.launch_id} "
+                "--observed-native-id ID`"
+            )
+        else:
+            problem = (
+                f"{entry.state}, deadline overdue {_minutes(entry.overdue_seconds)}"
+            )
+            recovery = "inspect registration before retry"
+        lines.append(
+            f"  launch {entry.launch_id}  {entry.surface} on {entry.machine_id}  "
+            f"{problem}; instruction not delivered; {recovery}"
+        )
     return _capped(lines, len(report.unregistered_launches))
 
 
@@ -284,7 +308,7 @@ def report_body(report: FleetReport) -> str:
             _starved_lines(report),
         ),
         *_section(
-            "unregistered launches — past deadline, no session ever registered",
+            "unregistered launches — launch/session binding absent",
             _launch_lines(report),
         ),
         *_section(

@@ -175,8 +175,9 @@ def _populated_report():
                 launch_id="launch-1",
                 surface=SURFACE,
                 machine_id="machine-1",
-                state="awaiting_registration",
-                overdue_seconds=900,
+                state="outcome_unknown",
+                overdue_seconds=0,
+                result_code="identity_parse_failed",
             ),
         ),
         landed_open=(
@@ -233,6 +234,10 @@ def test_a_row_carries_the_marks_that_decide_what_to_do_with_it():
     assert "still reviewing-implementation" in landed_row
     assert "do not wait on status" in landed_row
     assert "yoke merge item YOK-4" in landed_row
+    launch_row = next(line for line in body.splitlines() if "launch-1" in line)
+    assert "identity parse failed" in launch_row
+    assert "instruction not delivered" in launch_row
+    assert "reconcile launch-1 --observed-native-id ID" in launch_row
 
 
 def test_the_populated_report_stays_short_enough_to_ride_every_message():

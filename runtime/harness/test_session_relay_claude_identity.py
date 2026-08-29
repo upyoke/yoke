@@ -6,6 +6,7 @@ import json
 
 from yoke_harness.session_relay_claude_identity import (
     CLAUDE_IDENTITY_LOOKUP_ATTEMPTS,
+    background_agent_id,
     resolve_background_agent,
     resolve_background_session,
 )
@@ -32,6 +33,19 @@ def _agents(session_id, *, status: str) -> ClaudeProcessResult:
             }
         ),
     )
+
+
+def test_background_identity_uses_the_current_titled_output_record() -> None:
+    current = ClaudeProcessResult(
+        0,
+        7,
+        f"backgrounded · {SHORT_ID} · Example session\n"
+        f"  claude attach {SHORT_ID}    open in this terminal",
+    )
+    obsolete = ClaudeProcessResult(0, 7, f"backgrounded · {SHORT_ID}")
+
+    assert background_agent_id(current) == SHORT_ID
+    assert background_agent_id(obsolete) is None
 
 
 def test_lookup_retries_until_completed_agent_has_full_session_id() -> None:

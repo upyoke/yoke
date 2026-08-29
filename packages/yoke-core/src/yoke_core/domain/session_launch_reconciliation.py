@@ -6,6 +6,9 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_launch_closure_evidence import closure_evidence
+from yoke_core.domain.session_launch_registered_session_binding import (
+    bind_existing_registered_session,
+)
 from yoke_core.domain.session_launch_store import (
     begin_mutation,
     canonical_json,
@@ -188,6 +191,7 @@ def reconcile_launch(
                 completed_at=current,
                 result_code="reconciled_not_created",
             )
+        result = bind_existing_registered_session(conn, launch=result, now=current)
         conn.commit()
         return result
     except Exception:

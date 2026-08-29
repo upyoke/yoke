@@ -19,11 +19,12 @@ def _private_process_diagnostic(
     process: ClaudeProcessResult,
     *,
     error_step: str,
+    failure_class: str | None = None,
 ) -> RelayPrivateDiagnostic:
     stdout = process.stdout_bytes or process.stdout.encode("utf-8", errors="replace")
     stderr = process.stderr_bytes or process.stderr.encode("utf-8", errors="replace")
     return RelayPrivateDiagnostic(
-        classify_native_failure(stderr),
+        failure_class or classify_native_failure(stderr),
         error_step=error_step,
         stdout=stdout,
         stderr=stderr,
@@ -73,10 +74,23 @@ def build_claude_result(
     private_diagnostic: RelayPrivateDiagnostic | None = None,
     probe_detail: str | None = None,
 ) -> RelayAdapterResult:
-    if private_diagnostic is None and process is not None and process.returncode != 0:
+    capture_identity_output = bool(
+        process is not None
+        and evidence_code == "identity_parse_failed"
+        and (
+            process.stdout_bytes
+            or process.stderr_bytes
+            or process.stdout
+            or process.stderr
+        )
+    )
+    if private_diagnostic is None and process is not None and (
+        process.returncode != 0 or capture_identity_output
+    ):
         private_diagnostic = _private_process_diagnostic(
             process,
             error_step="resume" if context.job_kind == "wake" else "launch",
+            failure_class=("identity_parse_failed" if capture_identity_output else None),
         )
     return RelayAdapterResult(
         result_code,

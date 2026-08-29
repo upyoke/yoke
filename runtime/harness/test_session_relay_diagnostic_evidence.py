@@ -64,7 +64,7 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
                 "exit_code": 1,
             },
             private_diagnostic=RelayPrivateDiagnostic(
-                "process_exit",
+                "identity_parse_failed",
                 error_step="session_lookup",
                 stdout=b"private stdout body",
                 stderr=b"actual native stderr",
@@ -79,7 +79,7 @@ def test_native_failure_reports_only_safe_reference_and_fingerprint(
     assert evidence["diagnostic_availability"] == "relay_local"
     assert evidence["machine_id"] == MACHINE_ID
     assert evidence["relay_id"] == f"machine:{MACHINE_ID}"
-    assert evidence["native_error_class"] == "process_exit"
+    assert evidence["native_error_class"] == "identity_parse_failed"
     assert evidence["native_error_step"] == "session_lookup"
     assert len(evidence["native_error_sha256"]) == 64
     assert evidence["native_diagnostic_ref"].startswith("nd-")

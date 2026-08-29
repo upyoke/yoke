@@ -43,6 +43,7 @@ test("launch cards show identity correlation and exact registered-session links"
     {
       launch_id: "launch-matched", project_id: 1, state: "completed",
       native_session_id: "session-matched", registered_session_id: "session-matched",
+      identity_correlation: "matched", instruction_delivery: "delivered",
       result_code: "native_created",
       result_evidence: {
         adapter_revision: "adapter-v2",
@@ -62,15 +63,25 @@ test("launch cards show identity correlation and exact registered-session links"
     {
       launch_id: "launch-mismatch", project_id: 1, state: "completed",
       native_session_id: "native-a", registered_session_id: "registered-b",
+      identity_correlation: "mismatch", instruction_delivery: "pending",
     },
     {
       launch_id: "launch-awaiting", project_id: 1, state: "awaiting_registration",
       native_session_id: "native-awaiting", registered_session_id: null,
+      identity_correlation: "awaiting_registration", instruction_delivery: "pending",
     },
     {
       launch_id: "launch-native-unreported", project_id: 1, state: "completed",
       native_session_id: null, registered_session_id: "registered-only",
+      identity_correlation: "native_unreported", instruction_delivery: "pending",
       result_evidence: "raw secret evidence must not render",
+    },
+    {
+      launch_id: "launch-correlation-failed", project_id: 1,
+      state: "outcome_unknown", result_code: "identity_parse_failed",
+      native_session_id: null, registered_session_id: null,
+      identity_correlation: "correlation_failed",
+      instruction_delivery: "not_delivered",
     },
   ];
   const client = {
@@ -94,6 +105,17 @@ test("launch cards show identity correlation and exact registered-session links"
       "Identity mismatch: native and registered sessions differ",
       "Awaiting registration",
       "Registered; native identity not reported",
+      "Identity correlation failed: identity parse failed",
+    ],
+  );
+  assert.deepEqual(
+    byClass(root, "session-launch-delivery").map((node) => node.textContent),
+    [
+      "Launch instruction delivered",
+      "Launch instruction delivery pending",
+      "Launch instruction delivery pending",
+      "Launch instruction delivery pending",
+      "Launch instruction not delivered",
     ],
   );
   assert.match(
