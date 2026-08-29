@@ -32,7 +32,10 @@ with `-C <path>` and a push behind `-C` must not read as local.
 **Which URL will it contact?** A named remote is resolved against the checkout,
 a URL operand is taken as written, and an omitted operand means `origin`.
 
-**Is that URL the machine's configured GitHub origin?**
+**Is that URL the machine's configured GitHub origin?** The answer is
+recorded, not re-derived: the decision travels with the environment, so a
+failed command's attribution line reports what the run actually did rather
+than what a later re-derivation would guess.
 
 - *No* — another host, a file remote, no remote at all: the command runs
   non-interactively with no credential. A missing GitHub credential is not
@@ -70,6 +73,42 @@ mid-flight by any other Yoke process on the machine that refreshed in
 between. The symptom is a push that fails with a credential prompt on a busy
 machine and succeeds on a quiet one.
 
+## One token, shared
+
+The store keeps the access token beside the refresh token that minted it and
+hands the stored one back until it is within
+`GITHUB_APP_USER_ACCESS_TOKEN_REFRESH_MARGIN_SECONDS` of expiring. That margin
+is what lets a command starting just inside the window still finish with a
+token the remote accepts.
+
+Without it, every remote git command performed a live refresh grant. Two
+commands running at once each minted a token and revoked the other's, so the
+same push failed, succeeded, and failed again within minutes with no
+credential change in between — and a single gate run rotated twice, because a
+lane publish fetches and then pushes. Caching turns the common read into a
+lookup, so concurrent commands carry the same token and the refresh exchange
+happens about once per token lifetime.
+
+Storing the access token costs no reach. The document already holds the
+refresh token, which mints access tokens for months, under the same owner-only
+permissions that an access token expiring in hours now lives under.
+
+The cache lives under one nested `cached_access` key rather than beside the
+refresh fields. A build shipped before the cache existed refuses a document
+carrying `access_token`, `expires_at`, `scope`, or `token_type` at the top
+level, and the recovery it names is a reconnect — the one action that revokes
+the token every other live process holds. Since a machine runs many Yoke
+processes that upgrade at different times, nesting is what keeps an older build
+reading the document: it sees a key it does not know, ignores it, and refreshes
+exactly as before. That is one storage shape and one reader, not a
+compatibility layer.
+
+`yoke github status` reports that stored token as its own binding — when it
+expires, and whether the next command will renew it. It reads the document
+locally and rotates nothing, so a status check cannot break a push in flight.
+The binding is informational and never gates `ready`: a machine with no token
+cached yet simply mints one on its next command.
+
 Which Yoke connection the machine profile is proven against is pinned the
 same way a merge child pins it. An owner-only `<env>-db-admin` connection is
 a door into one universe's database, not a plane that can answer for the
@@ -79,7 +118,10 @@ has already switched to the admin connection by then.
 
 ## When no credential resolves
 
-The command is refused, by name, with its recovery:
+A read that loses the machine operation lock, or cannot reach GitHub, is
+replayed within the shared authorization retry budget
+(`yoke_contracts.github_auth_transience`). Only a failure that survives the
+budget refuses, and the refusal names the recovery that matches what failed:
 
 ```
 cannot authenticate a git operation against https://github.com/acme/widgets.git:
@@ -88,6 +130,13 @@ this machine's GitHub App user authorization and nothing else stands in for it.
 Run `yoke github status` to see what is stored, then `yoke github connect` to
 authorize this machine.
 ```
+
+A retry-shaped failure gets the opposite advice, deliberately: the stored
+authorization still stands, so the recovery is to retry. **No failure path
+here recommends reconnecting to clear contention.** `yoke github connect
+--replace` rotates the authorization, which revokes the access token every
+other running command is carrying — on a busy machine that turns one blocked
+command into a machine-wide outage.
 
 The refusal comes back as a failed command — git's own fatal exit code, with
 the message on stderr — so every existing return-code branch surfaces the

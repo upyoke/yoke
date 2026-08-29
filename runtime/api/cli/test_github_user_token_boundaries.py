@@ -8,11 +8,11 @@ import urllib.error
 
 import pytest
 
-from runtime.api.cli.test_github_app_user_tokens import (
+from runtime.api.cli.github_user_token_test_support import (
     NOW,
-    _FakeResponse,
-    _RawResponse,
-    _configured_credential,
+    FakeResponse,
+    RawResponse,
+    configured_credential,
 )
 from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_git_credential_document as credential_document
@@ -25,7 +25,7 @@ def test_explicit_config_outside_default_home_uses_default_secret_authority(
 ) -> None:
     monkeypatch.delenv(machine_config.HOME_ENV, raising=False)
     home = tmp_path / "default-home"
-    original_config, credential = _configured_credential(
+    original_config, credential = configured_credential(
         home, expires_at=NOW + timedelta(hours=1),
     )
     config = tmp_path / "operator-config" / "config.json"
@@ -39,7 +39,7 @@ def test_explicit_config_outside_default_home_uses_default_secret_authority(
     token = github_user_tokens.access_token_from_machine_config(
         config_path=config,
         now=NOW,
-        opener=lambda request, timeout: _FakeResponse({
+        opener=lambda request, timeout: FakeResponse({
             "access_token": "new-access",
             "expires_in": 28_800,
             "refresh_token": "new-refresh",
@@ -54,7 +54,7 @@ def test_refresh_ref_cannot_target_an_operator_managed_file(
     tmp_path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
-    config_path, _credential_path = _configured_credential(
+    config_path, _credential_path = configured_credential(
         tmp_path, expires_at=NOW + timedelta(hours=1),
     )
     external = (
@@ -103,7 +103,7 @@ def test_credential_read_rejects_oversize_document_without_echoing_it(
     tmp_path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
-    config_path, credential_path = _configured_credential(
+    config_path, credential_path = configured_credential(
         tmp_path, expires_at=NOW + timedelta(hours=1)
     )
     marker = b"credential-body-must-not-leak"
@@ -124,7 +124,7 @@ def test_credential_read_rejects_invalid_utf8_without_echoing_it(
     tmp_path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
-    config_path, credential_path = _configured_credential(
+    config_path, credential_path = configured_credential(
         tmp_path, expires_at=NOW + timedelta(hours=1)
     )
     credential_path.write_bytes(b"credential-body-must-not-leak-\xff")
@@ -145,7 +145,7 @@ def test_refresh_invalid_utf8_is_a_typed_response_error() -> None:
     ):
         github_user_tokens.refresh_user_access_token(
             client_id="Iv1.hosted", refresh_token="refresh-secret", now=NOW,
-            opener=lambda request, timeout: _RawResponse(b"\xff"),
+            opener=lambda request, timeout: RawResponse(b"\xff"),
         )
 
 
@@ -201,5 +201,5 @@ def test_refresh_rejects_unbounded_token_timing(
     ):
         github_user_tokens.refresh_user_access_token(
             client_id="Iv1.hosted", refresh_token="refresh-secret", now=NOW,
-            opener=lambda request, timeout: _FakeResponse(payload),
+            opener=lambda request, timeout: FakeResponse(payload),
         )

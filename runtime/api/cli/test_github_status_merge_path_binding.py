@@ -158,7 +158,8 @@ def test_offline_status_reports_an_unproven_merge_path_and_is_not_ready(
 
     report = github_machine.status(config_path=config, check=False)
     verdicts = {
-        name: binding["verdict"] for name, binding in report["bindings"].items()
+        name: report["bindings"][name]["verdict"]
+        for name in merge_path_binding.READINESS_BINDINGS
     }
 
     assert verdicts == {
@@ -181,7 +182,8 @@ def test_a_proven_machine_reports_both_bindings_ok_and_ready(
         api_opener=_api_opener(installed=True),
     )
     verdicts = {
-        name: binding["verdict"] for name, binding in report["bindings"].items()
+        name: report["bindings"][name]["verdict"]
+        for name in merge_path_binding.READINESS_BINDINGS
     }
 
     assert verdicts == {
@@ -211,7 +213,8 @@ def test_status_under_the_admin_connection_proves_the_plane_it_administers(
         api_opener=_api_opener(installed=True),
     )
     verdicts = {
-        name: binding["verdict"] for name, binding in report["bindings"].items()
+        name: report["bindings"][name]["verdict"]
+        for name in merge_path_binding.READINESS_BINDINGS
     }
 
     assert verdicts == {

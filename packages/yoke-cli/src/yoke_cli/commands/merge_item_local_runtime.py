@@ -2,7 +2,7 @@
 
 The public CLI starts a child process so the merge engine can own signals and
 exit status without importing engine internals into the command registry. This
-runtime binds the machine's refresh-only GitHub App user authorization, then
+runtime binds the machine's GitHub App user authorization, then
 selects the same-universe local Postgres connection before loading the engine.
 """
 

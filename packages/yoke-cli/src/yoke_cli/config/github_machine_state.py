@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -16,6 +17,8 @@ from yoke_cli.config.github_machine_credential_lifecycle import (
     remove_quarantined_credential as remove_quarantined_credential,
     restore_quarantined_credential as restore_quarantined_credential,
 )
+from yoke_cli.config import github_git_credential_access_cache as access_cache
+from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_cli.config import github_machine_installations
 from yoke_cli.config import github_machine_report as reports
 from yoke_cli.config import github_merge_path_binding as merge_path_binding
@@ -136,6 +139,9 @@ def connected_report(
                 installation_count=len(installations),
                 permissions_usable=permissions["usable"],
             ),
+            "git_access_token": merge_path_binding.git_access_token_binding(
+                **stored_access_token(github)
+            ),
         },
     )
     try:
@@ -221,6 +227,37 @@ def github_entry(
 
 def existing_config(path: str | Path | None) -> dict[str, Any]:
     return machine_config.github_config(path)
+
+
+def stored_access_token(github: Mapping[str, Any]) -> dict[str, Any]:
+    """Report the access token a git command would carry, without a network call.
+
+    Deliberately local and read-only. The refresh credential this report also
+    covers is a different secret with a different lifetime, and proving it live
+    means refreshing, which rotates the authorization and breaks any push
+    already in flight — so a status check answers this half from the stored
+    document alone.
+    """
+
+    path = credential_ref(github)
+    if not path:
+        return {"expires_at": None, "stale": False}
+    now = datetime.now(timezone.utc)
+    try:
+        document = credential_store.read_credential_document(path)
+        expires_at = access_cache.access_state(
+            document, error_type=credential_store.GitHubCredentialStoreError,
+        ).get(access_cache.ACCESS_EXPIRES_AT_KEY)
+        stale = access_cache.usable_token_state(
+            document,
+            now=now,
+            error_type=credential_store.GitHubCredentialStoreError,
+        ) is None
+    except credential_store.GitHubCredentialStoreError:
+        # An unreadable document is already reported by the authorization
+        # binding; this half only answers for a token it can actually read.
+        return {"expires_at": None, "stale": False}
+    return {"expires_at": expires_at, "stale": bool(expires_at) and stale}
 
 
 def credential_ref(github: Mapping[str, Any]) -> str:

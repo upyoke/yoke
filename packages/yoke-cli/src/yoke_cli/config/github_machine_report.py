@@ -17,6 +17,7 @@ _HUMAN_LIST_LIMIT = 20
 _BINDING_LABELS = (
     ("user_authorization", "user authorization (merge path)"),
     ("app_installation", "App installation"),
+    ("git_access_token", "stored access token (git commands)"),
 )
 
 
@@ -35,12 +36,22 @@ def not_configured(
             "ok": None, "usable": None, "mode": "github_app_installation",
         },
         "bindings": {
-            name: {
-                "verdict": merge_path_binding.VERDICT_BROKEN,
-                "message": "machine GitHub App authorization is not configured",
-                "hint": "Run `yoke github connect` against the active Yoke service.",
-            }
-            for name, _label in _BINDING_LABELS
+            **{
+                name: {
+                    "verdict": merge_path_binding.VERDICT_BROKEN,
+                    "message": (
+                        "machine GitHub App authorization is not configured"
+                    ),
+                    "hint": (
+                        "Run `yoke github connect` against the active Yoke "
+                        "service."
+                    ),
+                }
+                for name in merge_path_binding.READINESS_BINDINGS
+            },
+            "git_access_token": merge_path_binding.git_access_token_binding(
+                expires_at=None, stale=False,
+            ),
         },
         "issues": [issue(
             "error", "github_not_configured",
@@ -91,8 +102,8 @@ def connected(
         repositories.append(normalized)
     ok = not any(item.get("severity") == "error" for item in issues)
     proven = all(
-        binding.get("verdict") == merge_path_binding.VERDICT_OK
-        for binding in bindings.values()
+        (bindings.get(name) or {}).get("verdict") == merge_path_binding.VERDICT_OK
+        for name in merge_path_binding.READINESS_BINDINGS
     )
     try:
         login = github_app_snapshot.user_login(auth.get("login"))
@@ -158,7 +169,13 @@ def render_human(report: Mapping[str, Any]) -> str:
             if not isinstance(binding, Mapping):
                 continue
             lines.append(f"    {label}: {binding.get('verdict')}")
-            if binding.get("verdict") == merge_path_binding.VERDICT_OK:
+            # A proven merge-path binding needs no further words; the access
+            # token's message is the answer to "which token will git present",
+            # so it prints at every verdict.
+            if (
+                name in merge_path_binding.READINESS_BINDINGS
+                and binding.get("verdict") == merge_path_binding.VERDICT_OK
+            ):
                 continue
             if binding.get("message"):
                 lines.append(f"      {binding['message']}")

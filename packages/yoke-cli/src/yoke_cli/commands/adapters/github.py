@@ -203,7 +203,10 @@ def github_status(args: List[str]) -> int:
             "reads a user token the same way, then reports one verdict per "
             "binding: user authorization for the merge path (ok/busy/broken) "
             "and App installation access (ok/broken). `ready` is true only "
-            "when both are proven ok, so --offline never reports ready."
+            "when both are proven ok, so --offline never reports ready. A "
+            "third binding reports the stored access token git commands "
+            "actually present and when it next renews; it is read locally, "
+            "rotates nothing, and so never breaks a push in flight."
         ),
     )
     parser.add_argument("--config", dest="config_path", default=None)

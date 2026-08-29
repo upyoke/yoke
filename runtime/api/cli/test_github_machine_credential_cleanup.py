@@ -198,7 +198,7 @@ def test_two_configs_share_refresh_and_disconnect_without_cross_deletion(
         opener=lambda request, timeout: _Response(request),
     )
     document = github_git_credential_store.read_credential_document(shared)
-    assert result["access_token"] == "access-refreshed"
+    assert (result["access_token"], result["cached"]) == ("access-initial", True)
     assert document["config_owners"] == [str(second_config.resolve())]
     assert document["config_ownership_complete"] is True
 

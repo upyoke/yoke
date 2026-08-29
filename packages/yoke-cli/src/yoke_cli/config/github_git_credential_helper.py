@@ -1,6 +1,6 @@
 """Git credential entrypoint backed by a GitHub App user authorization.
 
-Source-dev onboarding copies this file and its credential-store sibling into
+Source-dev onboarding copies this file and its credential-store siblings into
 site-packages. The fallback import keeps HTTPS clones working while an editable
 install is being moved to the checkout that Git is currently cloning.
 """
@@ -8,13 +8,50 @@ install is being moved to the checkout that Git is currently cloning.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import sys
-from typing import TextIO
+from typing import Any, Callable, Mapping, TextIO
+import urllib.parse
 
 if __package__:
     from yoke_cli.config import github_git_credential_store as credential_store
 else:  # pragma: no cover - copied helper always uses its immutable siblings
     import _yoke_github_git_credential_store as credential_store  # type: ignore
+
+
+def access_token_for_git_request(
+    config_path: str | Path | None,
+    fields: Mapping[str, str],
+    *,
+    opener: Callable[..., Any] | None = None,
+) -> dict[str, Any] | None:
+    """Answer a Git credential request for this machine's GitHub host, or decline.
+
+    Git asks every configured helper about every host it contacts, so declining
+    a request for anything but the configured HTTPS origin is the normal answer,
+    not a failure.
+    """
+
+    with credential_store.machine_operation_lock(config_path):
+        config = credential_store.load_config(config_path)
+        github = config.get("github")
+        if not isinstance(github, Mapping) or fields.get("protocol") != "https":
+            return None
+        expected = urllib.parse.urlsplit(
+            credential_store.validated_web_url(
+                str(
+                    github.get("web_url")
+                    or credential_store.DEFAULT_GITHUB_WEB_URL
+                )
+            )
+        ).netloc
+        if fields.get("host", "").casefold() != expected.casefold():
+            return None
+        return credential_store.access_token_from_config(
+            config,
+            config_path=config_path,
+            opener=opener,
+        )
 
 
 def main(
@@ -33,15 +70,20 @@ def main(
         return 0
     fields = _read_fields(stdin or sys.stdin)
     try:
-        credential = credential_store.access_token_for_git_request(
-            parsed.config_path, fields,
-        )
+        credential = access_token_for_git_request(parsed.config_path, fields)
         if credential is None:
             return 0
     except credential_store.GitHubCredentialStoreError:
+        # The store's own message can name the credential path, and this
+        # stderr goes to whoever ran git, so the text here is fixed rather
+        # than interpolated. It also never advises reconnecting: a reconnect
+        # rotates the authorization and revokes the token every other local
+        # process is holding, while this failure is most often contention a
+        # retry clears. `yoke github status` reads without rotating and says
+        # when a reconnect is genuinely the answer.
         print(
-            "yoke GitHub credential unavailable; run `yoke github status` "
-            "and reconnect with `yoke github connect`",
+            "yoke GitHub credential unavailable. Retry the git command; run "
+            "`yoke github status` if it keeps failing",
             file=sys.stderr,
         )
         return 1
@@ -67,4 +109,4 @@ if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
 
 
-__all__ = ["main"]
+__all__ = ["access_token_for_git_request", "main"]

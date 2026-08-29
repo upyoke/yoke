@@ -24,6 +24,11 @@ from yoke_contracts.github_origin import (
 )
 
 
+# The two bindings a merge has to prove. The stored access token is reported
+# beside them but never gates readiness: a machine with no token cached yet is
+# perfectly able to mint one on its next command.
+READINESS_BINDINGS = ("user_authorization", "app_installation")
+
 VERDICT_OK = "ok"
 VERDICT_BROKEN = "broken"
 VERDICT_BUSY = "busy"
@@ -148,6 +153,40 @@ def user_authorization_binding(
     )
 
 
+def git_access_token_binding(
+    *,
+    expires_at: str | None,
+    stale: bool,
+) -> dict[str, str]:
+    """Describe the stored access token a git command would actually carry.
+
+    The refresh credential can be perfectly healthy while pushes fail, because
+    the two are different secrets with different lifetimes. Reading this one
+    costs no network call and rotates nothing, so a diagnostic can answer
+    "what will the next push present?" without breaking a push in flight.
+    """
+
+    if expires_at is None:
+        return _binding(
+            VERDICT_UNPROVEN,
+            "no access token is stored yet; the next git command mints one",
+            "",
+        )
+    if stale:
+        return _binding(
+            VERDICT_UNPROVEN,
+            f"the stored access token expires at {expires_at} and the next "
+            "git command renews it",
+            "",
+        )
+    return _binding(
+        VERDICT_OK,
+        f"a stored access token valid until {expires_at} serves git commands "
+        "without renewing the authorization",
+        "",
+    )
+
+
 def app_installation_binding(
     *,
     checked: bool,
@@ -197,6 +236,7 @@ def _binding(verdict: str, message: str, hint: str) -> dict[str, str]:
 
 __all__ = [
     "MergePathSelection",
+    "READINESS_BINDINGS",
     "RECONNECT_RECOVERY",
     "RETRY_RECOVERY",
     "VERDICT_BROKEN",
@@ -204,6 +244,7 @@ __all__ = [
     "VERDICT_OK",
     "VERDICT_UNPROVEN",
     "app_installation_binding",
+    "git_access_token_binding",
     "resolve_selection",
     "status_connection_scope",
     "user_authorization_binding",

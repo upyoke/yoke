@@ -22,6 +22,7 @@ BUNDLE_OAUTH_TRANSPORT_NAME = "_yoke_github_oauth_transport.py"
 BUNDLE_SERVICE_PROFILE_PROOF_NAME = "_yoke_github_service_profile_proof.py"
 BUNDLE_FILE_IO_NAME = "_yoke_github_git_credential_file.py"
 BUNDLE_DOCUMENT_NAME = "_yoke_github_git_credential_document.py"
+BUNDLE_ACCESS_CACHE_NAME = "_yoke_github_git_credential_access_cache.py"
 BUNDLE_STORE_NAME = "_yoke_github_git_credential_store.py"
 BUNDLE_MODULE_NAMES = (
     BUNDLE_ORIGIN_NAME,
@@ -32,6 +33,7 @@ BUNDLE_MODULE_NAMES = (
     BUNDLE_SERVICE_PROFILE_PROOF_NAME,
     BUNDLE_FILE_IO_NAME,
     BUNDLE_DOCUMENT_NAME,
+    BUNDLE_ACCESS_CACHE_NAME,
     BUNDLE_STORE_NAME,
     BUNDLE_HELPER_NAME,
 )

@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from yoke_cli import main as yoke_operations_cli
 from yoke_cli.config import github_git_credential_store
+from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_contracts import github_app_installation_permissions
 
 TOKEN = "manual-token-rejected-by-github-app-flow"
@@ -316,8 +317,8 @@ def test_github_status_reads_app_config_offline(
     # An offline read proves neither binding, so it never claims readiness.
     assert payload["ready"] is False
     assert {
-        name: binding["verdict"]
-        for name, binding in payload["bindings"].items()
+        name: payload["bindings"][name]["verdict"]
+        for name in merge_path_binding.READINESS_BINDINGS
     } == {"user_authorization": "unproven", "app_installation": "unproven"}
     assert payload["access"]["snapshot_source"] == "cached"
     assert payload["access"]["repo_listing_ok"] is None

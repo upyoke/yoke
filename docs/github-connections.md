@@ -11,9 +11,11 @@ This answers: **which GitHub user may this copy of the Yoke CLI act as?**
 approves it, Yoke records public App and user metadata in the selected machine
 config, normally `~/.yoke/config.json`. The rotating refresh credential lives
 in an owner-only file under `~/.yoke/secrets/` named like
-`github-app-user-<generated-id>.json`. Short-lived access tokens stay in the
-running process; they are not written to machine config, Git remotes, project
-rows, or reports.
+`github-app-user-<generated-id>.json`, together with the short-lived access
+token it last minted, so concurrent local commands share one token instead of
+each refreshing and revoking the other's (see
+[github-credentialed-git.md](github-credentialed-git.md)). Neither token is
+written to machine config, Git remotes, project rows, or reports.
 
 This is machine/config scoped, not Yoke-actor scoped. The control-plane DB does
 not currently store a GitHub user authorization on an actor. A Yoke actor token

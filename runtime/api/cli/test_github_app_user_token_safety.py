@@ -7,7 +7,10 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_github_app_user_tokens import NOW, _configured_credential
+from runtime.api.cli.github_user_token_test_support import (
+    NOW,
+    configured_credential,
+)
 from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_user_tokens, machine_config
 
@@ -42,7 +45,7 @@ def test_machine_token_provider_rejects_mismatched_oauth_origin_before_network(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
-    config_path, _credential_path = _configured_credential(
+    config_path, _credential_path = configured_credential(
         tmp_path, expires_at=NOW + timedelta(hours=1)
     )
     payload = json.loads(config_path.read_text(encoding="utf-8"))
