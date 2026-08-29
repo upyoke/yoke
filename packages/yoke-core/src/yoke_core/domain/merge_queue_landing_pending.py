@@ -11,7 +11,9 @@ from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
+from yoke_core.domain.session_message_store import message_details
 from yoke_core.domain.session_message_types import row_dict, timestamp, utc_now
 from yoke_core.domain.work_claim_targets import scope_int_sql
 from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
@@ -88,14 +90,14 @@ def _recipient(conn: Any, *, item_id: int, project_id: int) -> tuple[str, int, s
     project_scope = scope_int_sql(conn, "wc.scope", "project_id")
     common = (
         " FROM work_claims wc JOIN harness_sessions hs ON hs.session_id=wc.session_id "
-        "WHERE wc.released_at IS NULL AND hs.ended_at IS NULL "
-        "AND hs.terminated_at IS NULL "
+        "WHERE wc.released_at IS NULL AND hs.terminated_at IS NULL "
     )
     row = conn.execute(
         "SELECT wc.session_id, hs.actor_id"
         + common
-        + f"AND wc.target_kind='item' AND {item_scope}={marker} "
-        "ORDER BY wc.id DESC LIMIT 1",
+        +         f"AND wc.target_kind='item' AND {item_scope}={marker} "
+        "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC "
+        "LIMIT 1",
         (item_id,),
     ).fetchone()
     route = "holder"
@@ -103,8 +105,9 @@ def _recipient(conn: Any, *, item_id: int, project_id: int) -> tuple[str, int, s
         row = conn.execute(
             "SELECT wc.session_id, hs.actor_id"
             + common
-            + f"AND wc.target_kind='steering' AND {project_scope}={marker} "
-            "ORDER BY wc.id DESC LIMIT 1",
+            +         f"AND wc.target_kind='steering' AND {project_scope}={marker} "
+        "ORDER BY CASE WHEN hs.ended_at IS NULL THEN 0 ELSE 1 END, wc.id DESC "
+        "LIMIT 1",
             (project_id,),
         ).fetchone()
         route = "steering"
@@ -127,6 +130,20 @@ def _message_body(item_ref: str, pr_number: str, route: str) -> str:
     )
 
 
+def _landing_receipt_delivered(conn: Any, message_id: str, session_id: str) -> bool:
+    """True when the recipient actually received the envelope, not merely queued."""
+    details = message_details(conn, message_id)
+    for recipient in details.get("recipients") or ():
+        if str(recipient.get("session_id") or "") != session_id:
+            continue
+        if recipient.get("last_injected_at") or recipient.get("acknowledged_at"):
+            return True
+        if int(recipient.get("injection_count") or 0) > 0:
+            return True
+        return str(recipient.get("state") or "") in {"injected", "acknowledged"}
+    return False
+
+
 def observe_pending_landings(
     conn: Any,
     project_ids: Iterable[int],
@@ -134,7 +151,7 @@ def observe_pending_landings(
     now: datetime | None = None,
     read_state: Callable[..., Any] = read_pr_landing_state,
 ) -> dict[str, int]:
-    """Notify one live owner exactly once after each pending PR lands."""
+    """Push a landing notice to the claim holder; stamp notified_at on delivery."""
     current = now or utc_now()
     current_text = timestamp(current)
     rows = _pending_rows(conn, project_ids)
@@ -153,17 +170,17 @@ def observe_pending_landings(
         )
         if error or state is None or not bool(state.merged):
             continue
-        cursor = conn.execute(
-            "UPDATE items SET merge_queue_landed_at=COALESCE("
-            f"merge_queue_landed_at, {marker}) WHERE id={marker} "
-            f"AND merge_queue_pr_number={marker} "
-            "AND merge_queue_notified_at IS NULL AND merged_at IS NULL",
-            (current_text, int(row["id"]), pr_number),
-        )
-        if not cursor.rowcount:
-            conn.rollback()
-            continue
-        result["landed"] += 1
+        if not str(row.get("merge_queue_landed_at") or ""):
+            cursor = conn.execute(
+                f"UPDATE items SET merge_queue_landed_at={marker} "
+                f"WHERE id={marker} AND merge_queue_pr_number={marker} "
+                "AND merge_queue_landed_at IS NULL AND merged_at IS NULL",
+                (current_text, int(row["id"]), pr_number),
+            )
+            if not cursor.rowcount:
+                conn.rollback()
+                continue
+            result["landed"] += 1
         session_id, actor_id, route = _recipient(
             conn,
             item_id=int(row["id"]),
@@ -180,7 +197,7 @@ def observe_pending_landings(
             item_id=int(row["id"]),
         )
         try:
-            send_message(
+            created = send_message(
                 conn,
                 actor_id=actor_id,
                 sender_session_id=None,
@@ -190,14 +207,21 @@ def observe_pending_landings(
                 now=current,
                 commit=False,
             )
-            conn.execute(
-                f"UPDATE items SET merge_queue_notified_at={marker} "
-                f"WHERE id={marker} AND merge_queue_pr_number={marker} "
-                "AND merge_queue_notified_at IS NULL",
-                (current_text, int(row["id"]), pr_number),
+            message_id = str(created["message_id"])
+            mark_explicit_stopped_wake(
+                conn,
+                message_id=message_id,
+                session_id=session_id,
             )
+            if _landing_receipt_delivered(conn, message_id, session_id):
+                conn.execute(
+                    f"UPDATE items SET merge_queue_notified_at={marker} "
+                    f"WHERE id={marker} AND merge_queue_pr_number={marker} "
+                    "AND merge_queue_notified_at IS NULL",
+                    (current_text, int(row["id"]), pr_number),
+                )
+                result["notified"] += 1
             conn.commit()
-            result["notified"] += 1
         except Exception:
             conn.rollback()
     return result

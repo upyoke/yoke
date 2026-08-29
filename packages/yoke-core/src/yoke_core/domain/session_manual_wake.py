@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from time import monotonic, sleep
 from typing import Any
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from yoke_contracts.session_control.models import RecipientSelector
-from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
-from yoke_core.domain import db_backend
+from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_authorization import (
     authorize_recipients,
 )
@@ -251,22 +249,11 @@ def request_session_wake(
                 "target again and retry.",
             )
         if not created["deduplicated"]:
-            recipient_snapshot = dict(recipients[0]["routing_snapshot"])
-            recipient_snapshot["messageability"] = routing
-            recipient_snapshot[EXPLICIT_WAKE_ROUTING_FLAG] = True
-            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-            conn.execute(
-                "UPDATE session_message_recipients SET routing_snapshot="
-                + marker
-                + " WHERE message_id="
-                + marker
-                + " AND session_id="
-                + marker,
-                (
-                    json.dumps(recipient_snapshot, sort_keys=True),
-                    message_id,
-                    recipient.session_id,
-                ),
+            mark_explicit_stopped_wake(
+                conn,
+                message_id=message_id,
+                session_id=recipient.session_id,
+                messageability=routing,
             )
         conn.commit()
         details = message_details(conn, message_id)
