@@ -56,17 +56,13 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
         )
     if selector.process_keys:
         return f"no session holds the process key(s) {_listed(selector.process_keys)}."
-    if selector.projects or selector.universe:
-        return (
-            "the roster audience resolved to zero sessions. Recipient filters "
-            "intersect the anchor, and --project and --universe resolve "
-            "against active sessions unless --liveness widens them; check "
-            "`yoke sessions list --liveness active` and drop a filter."
-        )
+    # The selector model requires an anchor, and the four above are the
+    # addressed ones, so what is left is a roster audience.
     return (
-        "the recipient selector resolved to zero sessions. Choose an anchor: "
-        "--item PREFIX-N addresses the holder of a live claim, and --session "
-        "takes a whole id from `yoke sessions list --liveness active`."
+        "the roster audience resolved to zero sessions. Recipient filters "
+        "intersect the anchor, and --project and --universe resolve against "
+        "active sessions unless --liveness widens them; check "
+        "`yoke sessions list --liveness active` and drop a filter."
     )
 
 
