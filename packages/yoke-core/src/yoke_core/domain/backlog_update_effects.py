@@ -8,7 +8,7 @@ from typing import Any, Optional, TextIO
 
 from yoke_core.domain.backlog_epic_task_cascade import _cascade_epic_tasks
 from yoke_core.domain.backlog_session_attribution import (
-    _maybe_set_session_current_item,
+    record_touched_item,
 )
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
@@ -197,11 +197,11 @@ def run_post_commit_update_effects(
     item_id, old_status, new_status, source = receipt.status_event
     if receipt.terminal_holder_session_ids:
         try:
-            from yoke_core.domain.sessions_terminal_focus_cleanup import (
-                clear_terminal_item_focuses,
+            from yoke_core.domain.sessions_item_focus_release import (
+                release_item_focus_for_sessions,
             )
 
-            clear_terminal_item_focuses(
+            release_item_focus_for_sessions(
                 conn,
                 item_id,
                 receipt.terminal_holder_session_ids,
@@ -214,7 +214,7 @@ def run_post_commit_update_effects(
             )
     else:
         try:
-            _maybe_set_session_current_item(conn, item_id, receipt.session_id)
+            record_touched_item(conn, item_id, receipt.session_id)
         except Exception as exc:  # noqa: BLE001 - postcommit attribution
             conn.rollback()
             print(

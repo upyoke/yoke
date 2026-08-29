@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from .runtime_settings import get_seconds
 from .sessions_analytics import SessionError
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
+from .sessions_render_attribution import (
+    focus_fallback_item_id,
+    set_current_item,
+)
 from .workflow_item_binding_lock import (
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -195,9 +199,33 @@ def auto_reacquire_session_ended_claims(
         new_id = _insert_reacquired_claim(conn, row, now_iso=now_iso)
         reacquired.append({**target, "new_claim_id": new_id})
 
+    if reacquired:
+        _restore_focus_for_reacquired_claims(conn, session_id)
     if commit:
         conn.commit()
     return reacquired, conflicts
+
+
+def _restore_focus_for_reacquired_claims(conn: Any, session_id: str) -> None:
+    """Point focus back at claimed work the resumed episode still holds.
+
+    Ending the session archived ``current_item_id`` to ``recent_item_id``,
+    so a session whose item claims came back would otherwise read as
+    holding work while attending nothing. Focus is claim-derived, so it
+    is restored from the newest active item claim and never invented: a
+    session that reacquired only epic-task, process, or steering claims
+    keeps an empty slot, and one that already refocused keeps that.
+    """
+    row = conn.execute(
+        "SELECT current_item_id FROM harness_sessions WHERE session_id = %s",
+        (session_id,),
+    ).fetchone()
+    if row is None or row["current_item_id"] is not None:
+        return
+    item_id = focus_fallback_item_id(conn, session_id)
+    if item_id is None:
+        return
+    set_current_item(conn, session_id, item_id, commit=False)
 
 
 __all__ = [

@@ -80,7 +80,7 @@ from yoke_core.domain.backlog_updates import (  # noqa: F401
     _current_session_id,
     _insert_item,
     _maybe_migrate_project_issue,
-    _maybe_set_session_current_item,
+    record_touched_item,
     _run_authoritative_status_gate,
     _update_item_field,
     _update_item_multi,

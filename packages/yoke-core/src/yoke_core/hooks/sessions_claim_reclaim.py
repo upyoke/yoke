@@ -26,8 +26,13 @@ def reclaim_stale_conflicts(
     target_label: str,
     attempting_session_id: str,
     now: str,
-) -> None:
-    """Revalidate and release holders stale in the initial snapshot."""
+) -> tuple[str, ...]:
+    """Revalidate and release holders stale in the initial snapshot.
+
+    Returns the sessions whose claim was actually reclaimed, so the
+    caller can release their item focus once this claim-row transaction
+    has committed.
+    """
     snapshot_stale_claims = [
         row
         for row in conflict_claims
@@ -38,6 +43,7 @@ def reclaim_stale_conflicts(
         )
     ]
     item_id = str(target.item_id) if target.kind == TARGET_KIND_ITEM else None
+    reclaimed_holders: list[str] = []
     for claim in snapshot_stale_claims:
         original_session_id = claim[1]
         recheck = classify_reclaimable(
@@ -74,6 +80,7 @@ def reclaim_stale_conflicts(
             "WHERE id=%s AND released_at IS NULL",
             (now, claim[0]),
         )
+        reclaimed_holders.append(str(original_session_id))
         _emit_event(
             conn,
             original_session_id,
@@ -88,6 +95,7 @@ def reclaim_stale_conflicts(
             ),
             item_id=item_id,
         )
+    return tuple(reclaimed_holders)
 
 
 __all__ = ["reclaim_stale_conflicts"]

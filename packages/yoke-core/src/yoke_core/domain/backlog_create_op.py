@@ -28,7 +28,7 @@ from yoke_core.domain.project_identity import (
 from yoke_core.domain import backlog_rendering as _rendering
 from yoke_core.domain.backlog_item_db_writes import _insert_item
 from yoke_core.domain.backlog_session_attribution import (
-    _maybe_set_session_current_item,
+    record_touched_item,
 )
 from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
 
@@ -311,7 +311,7 @@ def execute_create(
                 conn.rollback()
                 raise
 
-        _maybe_set_session_current_item(conn, current_id, session_id)
+        record_touched_item(conn, current_id, session_id)
 
         item_ref = render_item_ref(conn, current_id)
         print(f"Created: {item_ref}", file=out)

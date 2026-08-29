@@ -1,4 +1,4 @@
-"""Stale-session reclaim, done cleanup, and claim handoff."""
+"""Stale-session reclaim and claim handoff."""
 
 from __future__ import annotations
 
@@ -8,29 +8,23 @@ from . import sessions_analytics as _sa
 from .sessions_analytics import (
     DEFAULT_STALE_THRESHOLD_MINUTES,
     EVENT_WORK_HANDED_OFF,
-    EVENT_WORK_RELEASED,
     SessionError,
 )
 from .session_launch_abandonment import settle_and_notify
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_claim, _get_session
-from .sessions_queries import (
-    _now_iso,
-    _row_to_dict,
-    clear_chain_checkpoint,
-    normalize_claim_item_id,
+from .sessions_queries import _now_iso, _row_to_dict, clear_chain_checkpoint
+from .sessions_render_attribution import (
+    clear_current_item,
+    release_item_focus_if_current,
+    set_current_item,
 )
-from .sessions_render_attribution import clear_current_item, set_current_item
 from .sessions_lifecycle_claim_events import emit_reclaimed_work_claim
 from .workflow_item_binding_lock import (
-    lock_item_workflow_bindings,
     lock_work_claims_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-from .work_claim_targets import (
-    from_row as work_claim_target_from_row,
-    scope_int_sql,
-)
+from .work_claim_targets import from_row as work_claim_target_from_row
 from .workflow_item_binding_validation import (
     WorkflowItemBindingError,
     validate_work_claim_target,
@@ -144,62 +138,6 @@ def reclaim_stale_session(
     return _get_session(conn, session_id)
 
 
-@rollback_workflow_binding_write_errors
-def release_claims_for_done_item(
-    conn: Any,
-    item_id: str,
-) -> int:
-    """Release all unreleased claims on an item that has transitioned to done.
-
-    When an item completes in any session, foreign claims from other sessions
-    (e.g., stale offer sessions that never engaged) must be cleaned up.
-    Claims reuse the existing ``completed`` release_reason vocabulary to avoid
-    expanding the schema enum; the item-done cause remains queryable via
-    per-claim ``WorkReleased`` event context.
-
-    Returns the number of claims released.
-    """
-    now = _now_iso()
-    normalized = normalize_claim_item_id(item_id)
-    if not normalized.isdigit():
-        return 0
-    item_id_int = int(normalized)
-    lock_item_workflow_bindings(conn, (item_id_int,))
-
-    item_scope = scope_int_sql(conn, "wc.scope", "item_id")
-    unreleased = conn.execute(
-        f"""SELECT wc.id, wc.session_id, wc.target_kind, wc.scope
-           FROM work_claims wc
-           WHERE wc.target_kind='item' AND {item_scope} = %s
-             AND wc.released_at IS NULL""",
-        (item_id_int,),
-    ).fetchall()
-
-    released = 0
-    for claim_row in unreleased:
-        target = work_claim_target_from_row(dict(claim_row))
-        conn.execute(
-            "UPDATE work_claims SET released_at = %s, release_reason = 'completed' WHERE id = %s",
-            (now, claim_row["id"]),
-        )
-        released += 1
-
-        _sa._emit_session_event(
-            EVENT_WORK_RELEASED,
-            session_id=claim_row["session_id"],
-            item_id=str(target.item_id),
-            task_num=None,
-            context={
-                "claim_id": claim_row["id"],
-                "release_reason": "completed",
-                "cleanup_reason": "item_done",
-            },
-        )
-
-    conn.commit()
-    return released
-
-
 def _resolve_effective_ttl(
     executor: Optional[str],
     base_ttl_minutes: int,
@@ -310,8 +248,10 @@ def handoff_claim(
             now,
         ),
     )
-    clear_current_item(conn, old_dict["session_id"], commit=False)
     if old_target.kind == "item":
+        release_item_focus_if_current(
+            conn, old_dict["session_id"], old_target.item_id
+        )
         set_current_item(
             conn,
             target_session_id,

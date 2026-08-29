@@ -26,7 +26,7 @@ from .sessions_lifecycle_release_events import (
     POST_COMMIT_RECEIPT_KEY as _POST_COMMIT_RECEIPT_KEY,
 )
 from .sessions_queries import _now_iso, normalize_claim_item_id
-from .sessions_render_attribution import release_current_item_focus
+from .sessions_render_attribution import release_item_focus_if_current
 from .workflow_runtime import load_item_workflow_runtime
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
@@ -212,7 +212,7 @@ def release_work_claim_for_execution(
             raise
 
     if target.kind == TARGET_KIND_ITEM and target.item_id is not None:
-        _maybe_clear_current_item(conn, session_id, str(target.item_id))
+        release_item_focus_if_current(conn, session_id, target.item_id)
 
     conn.execute(
         f"UPDATE work_claims SET released_at = {_p(conn)}, "
@@ -257,30 +257,6 @@ def release_work_claim_for_execution(
     if not commit:
         result[_POST_COMMIT_RECEIPT_KEY] = receipt
     return result
-
-
-def _maybe_clear_current_item(
-    conn: Any,
-    session_id: str,
-    item_id_text: str,
-) -> None:
-    """Re-focus the session when the claim behind the focus is released.
-
-    When focus points at this claim's item, archive it to
-    ``recent_item_id`` and fall back to the newest still-active item
-    claim (``release_current_item_focus``); a session holding several
-    claims keeps pointing at real work instead of dropping to none.
-    Focus naming a different item is left untouched.
-    """
-    current_row = conn.execute(
-        f"SELECT current_item_id FROM harness_sessions WHERE session_id = {_p(conn)}",
-        (session_id,),
-    ).fetchone()
-    if current_row is None or current_row["current_item_id"] is None:
-        return
-    current = normalize_claim_item_id(str(current_row["current_item_id"]))
-    if current == normalize_claim_item_id(item_id_text):
-        release_current_item_focus(conn, session_id, commit=False)
 
 
 def _release_linked_path_claims(

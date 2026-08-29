@@ -124,9 +124,9 @@ def release_claim_by_id(
     """
     from .sessions_lifecycle_release import (
         _canonical_release_reason,
-        _maybe_clear_current_item,
         _release_linked_path_claims,
     )
+    from .sessions_render_attribution import release_item_focus_if_current
     from .idea_claim_events import emit_if_idea_release
 
     now = _now_iso()
@@ -182,10 +182,10 @@ def release_claim_by_id(
         )
 
     if target.kind == TARGET_KIND_ITEM:
-        _maybe_clear_current_item(
+        release_item_focus_if_current(
             conn,
             str(row["session_id"] or ""),
-            str(target.item_id),
+            target.item_id,
         )
 
     # Deliberate claim release is real item activity (R1 board-activity
