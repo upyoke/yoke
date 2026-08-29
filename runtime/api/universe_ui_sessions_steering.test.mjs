@@ -2,9 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  appendSteeringGroups,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
-import {
   sessionCard,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
@@ -36,7 +33,17 @@ function card(documentNode, row, projects = []) {
 }
 
 
-test("holder and covered operator cards show scope and report custody", () => {
+function steeringMarkup(node) {
+  return {
+    lead: byClass(node, "session-steering-lead").length,
+    context: byClass(node, "session-steering-context").length,
+    report: byClass(node, "session-steering-report").length,
+    group: byClass(node, "session-steering-group").length,
+  };
+}
+
+
+test("holder cards show scope and omit it from the holdings list", () => {
   const documentNode = new FakeDocument();
   const holder = card(documentNode, {
     ...baseRow("holder-1"),
@@ -56,18 +63,6 @@ test("holder and covered operator cards show scope and report custody", () => {
       },
     ], previous: [], previous_remainder: 0 },
   }, [{ id: 1, slug: "yoke" }]);
-  const operator = card(documentNode, {
-    ...baseRow("operator-1"),
-    steering_coverage: {
-      project: "yoke",
-      holder_session_id: "holder-1",
-    },
-    steering_report: {
-      recipient_session_id: "holder-1",
-      recipient_state: "pending",
-      created_at: new Date().toISOString(),
-    },
-  });
 
   assert.equal(
     byClass(holder, "session-steering-lead-label")[0].textContent, "Steering",
@@ -76,21 +71,32 @@ test("holder and covered operator cards show scope and report custody", () => {
   assert.equal(
     byClass(holder, "session-steering-docs")[0].textContent, "MISSION, VISION",
   );
-  // The block states the seat and both documents, so the holdings list below
-  // does not repeat them.
   assert.equal(byClass(holder, "session-hold-target").length, 0);
-  assert.equal(
-    byClass(operator, "session-steering-detail")[0].textContent,
-    "yoke · held by holder-1",
-  );
-  assert.equal(
-    byClass(operator, "session-steering-badge")[0].textContent,
-    "Steering coverage",
-  );
-  assert.match(
-    byClass(operator, "session-steering-report-badge")[0].textContent,
-    /^sent · /,
-  );
+  assert.deepEqual(steeringMarkup(holder), {
+    lead: 1, context: 0, report: 0, group: 0,
+  });
+});
+
+
+test("a non-steerer card does not render steering context or report custody", () => {
+  const documentNode = new FakeDocument();
+  const operator = card(documentNode, {
+    ...baseRow("operator-1"),
+    steering_coverage: {
+      project: "yoke",
+      holder_session_id: "holder-1",
+    },
+    steering_parent: { session_id: "holder-1", project: "yoke" },
+    steering_report: {
+      recipient_session_id: "holder-1",
+      recipient_state: "pending",
+      created_at: new Date().toISOString(),
+    },
+  });
+
+  assert.deepEqual(steeringMarkup(operator), {
+    lead: 0, context: 0, report: 0, group: 0,
+  });
 });
 
 
@@ -212,73 +218,4 @@ test("previous steering holdings use the paired project and document label", () 
     ["platform · CURRENT-PLAN"],
   );
   assert.ok(!rendered.textContent.includes("project 3"));
-});
-
-
-test("acknowledged recipient state advances report custody", () => {
-  const documentNode = new FakeDocument();
-  const operator = card(documentNode, {
-    ...baseRow("operator-1"),
-    steering_report: {
-      recipient_session_id: "holder-1",
-      recipient_state: "acknowledged",
-      created_at: "2026-08-26T12:00:00Z",
-      acknowledged_at: new Date().toISOString(),
-    },
-  });
-
-  assert.match(
-    byClass(operator, "session-steering-report-badge")[0].textContent,
-    /^acknowledged · /,
-  );
-});
-
-
-test("steering-launched workers nest under their visible holder", () => {
-  const documentNode = new FakeDocument();
-  const holder = {
-    ...baseRow("holder-1"),
-    holdings: { current: [{
-      holding_kind: "work_claim",
-      target_kind: "steering", project_id: 1, scope: { project_id: 1 },
-    }], previous: [], previous_remainder: 0 },
-  };
-  const worker = {
-    ...baseRow("worker-1"),
-    steering_parent: { session_id: "holder-1", project: "yoke" },
-  };
-  const independent = baseRow("independent-1");
-  const grid = documentNode.createElement("div");
-
-  appendSteeringGroups(documentNode, grid, [holder, worker, independent], (row) => {
-    const node = documentNode.createElement("article");
-    node.className = "test-session-card";
-    node.textContent = row.session_id;
-    return node;
-  });
-
-  const group = byClass(grid, "session-steering-group")[0];
-  assert.equal(group.getAttribute("data-steering-holder"), "holder-1");
-  assert.equal(byClass(group, "session-steering-workers-title")[0].textContent, "Steering workers (1)");
-  assert.equal(byClass(group, "session-steering-worker-grid")[0].textContent, "worker-1");
-  assert.equal(grid.children[1].textContent, "independent-1");
-});
-
-
-test("a worker whose holder is absent remains a top-level card", () => {
-  const documentNode = new FakeDocument();
-  const worker = {
-    ...baseRow("worker-2"),
-    steering_parent: { session_id: "missing-holder", project: "yoke" },
-  };
-  const grid = documentNode.createElement("div");
-
-  appendSteeringGroups(documentNode, grid, [worker], (row) => {
-    const node = documentNode.createElement("article");
-    node.textContent = row.session_id;
-    return node;
-  });
-
-  assert.equal(byClass(grid, "session-steering-group").length, 0);
-  assert.equal(grid.textContent, "worker-2");
 });
