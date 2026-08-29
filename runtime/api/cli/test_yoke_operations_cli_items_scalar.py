@@ -84,7 +84,7 @@ class TestItemsScalarUpdateDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.scalar.update"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "42"
+        assert req.target.public_ref == "42"
         assert req.payload == {
             "field": "priority",
             "value": "high",
@@ -175,7 +175,7 @@ class TestItemsScalarUpdateErrors:
             "--field", "priority", "--value", "high",
         )
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.item_ref == "not-a-sun-id"
+        assert _CAPTURED_REQUESTS[-1].target.public_ref == "not-a-sun-id"
 
     def test_bad_value_json_returns_two(self) -> None:
         rc = _run_with_dispatch(

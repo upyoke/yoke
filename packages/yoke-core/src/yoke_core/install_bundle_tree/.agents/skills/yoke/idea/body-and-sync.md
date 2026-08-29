@@ -182,7 +182,7 @@ After the body has been written and verified (step 8 complete), classify and per
      echo "Error: failed to read spec for PREFIX-{N}; refusing DB-claim default" >&2
      exit 1
    fi
-   _prose_check=$(printf '%s' "$_spec" | yoke db-claim prose-check --stdin --item-ref "PREFIX-{N}" --json)
+   _prose_check=$(printf '%s' "$_spec" | yoke db-claim prose-check --stdin --public-ref "PREFIX-{N}" --json)
    _prose_blocks=$(printf '%s' "$_prose_check" | python3 -c "import json,sys; r=json.load(sys.stdin); print('1' if (r.get('result') or {}).get('blocks') else '0')")
    ```
 

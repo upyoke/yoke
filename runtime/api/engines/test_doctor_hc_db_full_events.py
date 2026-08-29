@@ -121,11 +121,11 @@ class TestHCShepherdLifecycleFull:
         insert_item(conn, id=epic_id, title=f"Test epic {epic_id}",
                     workflow_id="epic", status=status, spec="body")
 
-    def _insert_verdict(self, conn, item_ref, transition, verdict):
+    def _insert_verdict(self, conn, public_ref, transition, verdict):
         conn.execute(
             "INSERT INTO shepherd_verdicts (item, transition, worker, verdict, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
-            (item_ref, transition, "PM", verdict, "2026-01-01T00:00:00Z"),
+            (public_ref, transition, "PM", verdict, "2026-01-01T00:00:00Z"),
         )
         conn.commit()
 

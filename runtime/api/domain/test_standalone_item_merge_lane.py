@@ -104,7 +104,7 @@ def test_preflight_uses_the_active_head_not_a_released_record(
 ) -> None:
     commit_sha, error = merge_qa.preflight(
         _item(_stale_and_live()),
-        item_ref="YOK-10",
+        public_ref="YOK-10",
         repo_root=tmp_path,
         branch="YOK-10",
     )
@@ -130,7 +130,7 @@ def test_already_merged_cannot_be_derived_from_a_released_record(
             "state": "released",
             "commit_sha": RELEASED_SHA,
         }]),
-        item_ref="YOK-10",
+        public_ref="YOK-10",
         repo_root=tmp_path,
         branch="YOK-10",
     )

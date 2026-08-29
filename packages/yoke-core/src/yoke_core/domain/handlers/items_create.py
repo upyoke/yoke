@@ -89,14 +89,14 @@ class ItemCreateRequest(BaseModel):
 class ItemCreateResponse(BaseModel):
     """Successful result envelope.
 
-    ``item_ref`` is the public ``{prefix}-{sequence}`` reference (for
+    ``public_ref`` is the public ``{prefix}-{sequence}`` reference (for
     example, ``YOK-N``) — the canonical handle for the downstream claim /
     body-write / sync steps, since the internal ``item_id`` can diverge
     from the per-project public sequence. Absent on dry-run.
     """
 
     item_id: int
-    item_ref: Optional[str] = None
+    public_ref: Optional[str] = None
     dry_run: bool = False
     log: str = ""
     # The attestation this create was accepted under, so the receipt an
@@ -192,7 +192,7 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
 
     response = ItemCreateResponse(
         item_id=int(result["item_id"]),
-        item_ref=result.get("item_ref"),
+        public_ref=result.get("public_ref"),
         dry_run=bool(result.get("dry_run", False)),
         log=captured.getvalue(),
         execution_instructions_considered=(

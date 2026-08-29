@@ -226,7 +226,7 @@ class TestExecuteCreate:
         log = out.getvalue()
         assert "created with no body content" in log
         assert (
-            f"yoke items structured-field replace {result['item_ref']} "
+            f"yoke items structured-field replace {result['public_ref']} "
             "--field spec --stdin"
         ) in log
         assert "python3 -m yoke_core.cli.db_router" not in log

@@ -48,7 +48,7 @@ def test_itemless_lock_is_session_owned_and_visible_in_the_listing(
         assert claim["owner_kind"] == "session"
         assert claim["owner_session_id"] == COORDINATOR
         assert claim["owner_item_id"] is None
-        assert claim["item_ref"] is None
+        assert claim["public_ref"] is None
         assert COORDINATOR in claim["holder_label"]
 
         listed = list_strategy_doc_claims(conn, project_id=1)

@@ -84,7 +84,7 @@ def archive_completed_blitz_document(
                 raise BlitzDocumentArchiveError(
                     "the completed Blitz still owns its execution-document claim"
                 )
-            retained_ref = str(live.get("item_ref") or f"item {live['item_id']}")
+            retained_ref = str(live.get("public_ref") or f"item {live['item_id']}")
             return BlitzDocumentArchiveReceipt(
                 slug=slug,
                 changed=False,

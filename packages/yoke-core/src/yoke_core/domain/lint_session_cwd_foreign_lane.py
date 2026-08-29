@@ -50,8 +50,8 @@ def build_denial_message(
     payload: Mapping[str, Any] | None = None,
 ) -> str:
     """Name the lane, its holder, and the two ways forward."""
-    owner = occupant.item_ref or f"item {occupant.item_id}"
-    acquire_ref = occupant.item_ref or "PREFIX-N"
+    owner = occupant.public_ref or f"item {occupant.item_id}"
+    acquire_ref = occupant.public_ref or "PREFIX-N"
     is_write = _payload_is_write(payload)
     verb = "write" if is_write else "read"
     lines = [

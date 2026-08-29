@@ -41,8 +41,8 @@ class TestApplyDiscoveryScan:
         assert "9" in result.steps_completed
 
     def test_refusal_is_named_not_recorded_as_a_clean_step(self, result, capsys):
-        def refuse(item_ref, *, stdout, stderr):
-            stderr.write(f"Error: item ref {item_ref!r} not found\n")
+        def refuse(public_ref, *, stdout, stderr):
+            stderr.write(f"Error: item ref {public_ref!r} not found\n")
             return 2
 
         with mock.patch(
@@ -71,8 +71,8 @@ class TestCloseoutRefShape:
         the public one, never ``items.id``."""
         recorded: list[object] = []
 
-        def record(item_ref, res):
-            recorded.append(item_ref)
+        def record(public_ref, res):
+            recorded.append(public_ref)
             res.add_step("9")
 
         fake_engine = SimpleNamespace(
@@ -130,4 +130,4 @@ class TestCloseoutRefShape:
             )
 
         assert step_8.call_args.args[0] == INTERNAL_ID
-        assert step_8.call_args.kwargs["item_ref"] == ITEM_REF
+        assert step_8.call_args.kwargs["public_ref"] == ITEM_REF

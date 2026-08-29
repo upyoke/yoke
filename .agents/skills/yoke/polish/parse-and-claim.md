@@ -117,8 +117,8 @@ Function-call equivalent (for dispatch-surface callers — the CLI above builds 
 {
   "function": "claims.work.acquire",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
-  "payload": {"target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"}, "reason": "polish_run"}
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
+  "payload": {"target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"}, "reason": "polish_run"}
 }
 ```
 
@@ -136,7 +136,7 @@ Function-call equivalent (for dispatch-surface callers — `/yoke advance` build
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
   "intent": "enter_polish",
   "payload": {"source_status": "reviewed-implementation", "target_status": "polishing-implementation"}
 }

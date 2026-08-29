@@ -10,7 +10,7 @@ def test_demo_seed_next_step_is_non_paging(monkeypatch):
 
     def fake_create(**kwargs):
         calls.append(kwargs)
-        return {"success": True, "item_id": 1, "item_ref": "LOC-1"}
+        return {"success": True, "item_id": 1, "public_ref": "LOC-1"}
 
     monkeypatch.setattr(local_demo_seed, "_local_human_actor_id", lambda: 3)
     monkeypatch.setattr(

@@ -94,7 +94,7 @@ def quiet_holder(session_id: str, item_id: int = 1) -> ClaimHolder:
     return ClaimHolder(
         session_id=session_id,
         item_id=item_id,
-        item_ref=f"YOK-{item_id}",
+        public_ref=f"YOK-{item_id}",
         mode="wait",
         parked=False,
         last_activity_at=LONG_AGO,

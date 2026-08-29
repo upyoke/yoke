@@ -340,6 +340,6 @@ class TestPortableOwnerReferences:
         start = text.index("**Runnable-elsewhere branch.**")
         end = text.index("**Lane-filtered branch.**")
         branch = text[start:end]
-        for field in "runnable_elsewhere group.project group.item_refs checkout_path".split():
+        for field in "runnable_elsewhere group.project group.public_refs checkout_path".split():
             assert field in branch
         assert "No actionable work exists" not in branch

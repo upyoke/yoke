@@ -86,7 +86,7 @@ class TestEveryTierOneFamilyDispatches:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.get.run"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1791"
+        assert req.target.public_ref == "1791"
         assert req.target.item_id is None
         assert req.payload["fields"] == ["spec"]
         assert req.actor.session_id == "test-session"
@@ -117,7 +117,7 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.progress_log.append"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload["headline"] == "test"
         assert req.payload["content"] == "body"
 
@@ -130,7 +130,7 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.structured_field.replace"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload == {
             "field": "spec", "content": "hello",
             "source": "", "force": False,
@@ -144,7 +144,7 @@ class TestEveryTierOneFamilyDispatches:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.github_sync"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-1819"
+        assert req.target.public_ref == "YOK-1819"
         assert req.payload == {}
 
     def test_claims_work_acquire_dispatches_item(self) -> None:
@@ -157,7 +157,7 @@ class TestEveryTierOneFamilyDispatches:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.acquire"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload["target"]["kind"] == "item"
         assert "item_id" not in req.payload["target"]
         assert req.payload["reason"] == "polish pass"
@@ -185,7 +185,7 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.path.register"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload["paths"] == [
             "runtime/api/cli/foo.py", "runtime/api/cli/bar.py",
         ]
@@ -204,7 +204,7 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.path.widen"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload == {
             "claim_id": 273,
             "add_paths": ["runtime/api/cli/new.py"],
@@ -227,7 +227,7 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.path.widen"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload == {
             "claim_id": 273,
             "add_paths": [
@@ -259,7 +259,7 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert "item_id" not in req.payload
 
     def test_lifecycle_transition_dispatches(self) -> None:
@@ -273,7 +273,7 @@ class TestEveryTierOneFamilyDispatches:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "lifecycle.transition.execute"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload == {
             "target_status": "polishing-implementation",
             "source_status": "implemented",
@@ -319,13 +319,13 @@ class TestErrorShapes:
 
     def test_bad_ref_relays_verbatim_for_server_resolution(self) -> None:
         # Relay contract: the client never validates item refs; the raw
-        # token rides target.item_ref and the dispatcher owns rejection.
+        # token rides target.public_ref and the dispatcher owns rejection.
         rc = _run_with_dispatch(
             _stub_dispatch_ok, "items", "get", "not-a-sun-id",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
-        assert req.target.item_ref == "not-a-sun-id"
+        assert req.target.public_ref == "not-a-sun-id"
         assert req.target.item_id is None
 
     def test_bad_integer_flag_returns_two(self) -> None:

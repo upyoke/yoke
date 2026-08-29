@@ -159,7 +159,7 @@ def _resolve_active_claim(
     state = str(row[3] if not hasattr(row, "keys") else row["state"])
 
     parsed_item_id = _coerce_int(item_id)
-    item_ref = (
+    public_ref = (
         render_item_ref(conn, parsed_item_id)
         if parsed_item_id is not None
         else None
@@ -179,7 +179,7 @@ def _resolve_active_claim(
     return {
         "id": claim_id,
         "item_id": parsed_item_id,
-        "item_ref": item_ref,
+        "public_ref": public_ref,
         "integration_target": integration_target,
         "state": state,
         "covered_paths": [path for path, _kind in covered_targets],

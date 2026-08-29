@@ -1,7 +1,7 @@
 """Shared fixtures for Yoke CLI adapter tests.
 
 Adapters are DB-free pre-dispatch under the relay contract: raw item
-refs ride the envelope target (``TargetRef.item_ref``) and resolve
+refs ride the envelope target (``TargetRef.public_ref``) and resolve
 server-side in the dispatcher. CLI tests stub ``dispatch`` and assert
 the captured envelope, so no item-ref parser stub is needed here.
 """

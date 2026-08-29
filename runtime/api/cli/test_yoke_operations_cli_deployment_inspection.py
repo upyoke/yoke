@@ -32,7 +32,7 @@ def test_deployment_inspection_adapters_build_typed_requests() -> None:
     assert calls[0]["function_id"] == "deployment_flows.list"
     assert calls[0]["payload"] == {"project": "yoke", "include_disabled": True}
     assert calls[1]["function_id"] == "deployment_runs.find_by_item"
-    assert calls[1]["target"].item_ref == "YOK-711"
+    assert calls[1]["target"].public_ref == "YOK-711"
     assert calls[1]["payload"] == {"status": "succeeded"}
     assert calls[2]["function_id"] == "deployment_runs.stages"
     assert calls[2]["target"].workflow_run_id == "run-20260616-001"

@@ -32,11 +32,11 @@ def lock_status_write_precondition(
         (int(item_id),),
     ).fetchone()
     if row is None:
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
         conn.rollback()
         return {
             "success": False,
-            "error": f"Item {item_ref} no longer exists",
+            "error": f"Item {public_ref} no longer exists",
             "error_code": WORKFLOW_STATUS_PRECONDITION_FAILED,
         }
     live_status = str(row["status"] if hasattr(row, "keys") else row[0])

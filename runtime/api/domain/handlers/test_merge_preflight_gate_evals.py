@@ -141,8 +141,8 @@ class TestDependencyGate:
         monkeypatch.setattr(
             dependency_planning,
             "evaluate_item_gate",
-            lambda _conn, item_ref, gate_point: (
-                seen.update(item_ref=item_ref, gate_point=gate_point)
+            lambda _conn, public_ref, gate_point: (
+                seen.update(public_ref=public_ref, gate_point=gate_point)
                 or SimpleNamespace(is_blocked=False, unsatisfied_blockers=[])
             ),
         )
@@ -155,7 +155,7 @@ class TestDependencyGate:
             )
         )
         assert outcome.primary_success, outcome.error
-        assert seen == {"item_ref": "EXT-5", "gate_point": "integration"}
+        assert seen == {"public_ref": "EXT-5", "gate_point": "integration"}
 
     def test_missing_typed_item_identity_fails_closed(self, db):
         outcome = gates.handle_dependency_gate(
@@ -208,7 +208,7 @@ class TestDependencyGate:
         outcome = gates.handle_dependency_gate(
             _global_envelope(
                 "merge.preflight.dependency_gate",
-                payload={"item_ref": f"YOK-{dependent}", "gate_point": "integration"},
+                payload={"public_ref": f"YOK-{dependent}", "gate_point": "integration"},
             )
         )
         assert outcome.primary_success, outcome.error

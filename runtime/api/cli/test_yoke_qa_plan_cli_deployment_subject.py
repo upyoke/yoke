@@ -38,6 +38,6 @@ def test_plan_engine_cli_accepts_deployment_run_subject(capsys) -> None:
 
     assert code == 0
     assert json.loads(capsys.readouterr().out)["deployment_run_id"] == deployment_run_id
-    assert execute.call_args.kwargs["item_ref"] is None
+    assert execute.call_args.kwargs["public_ref"] is None
     assert execute.call_args.kwargs["deployment_run_id"] == deployment_run_id
     assert execute.call_args.kwargs["plan"] == "installer-campaign"

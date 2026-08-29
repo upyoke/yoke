@@ -120,7 +120,7 @@ def _apply(
     attestation_json = dca.canonical_json(normalized_attestation)
     # Rendered before the write so both failure messages below can name the
     # item without re-querying a connection that may be mid-rollback.
-    item_ref = render_item_ref(conn, item_id)
+    public_ref = render_item_ref(conn, item_id)
 
     # The two-field write and event audit row are committed together
     # through the shared connection. Validation already ran; a SQL or
@@ -150,7 +150,7 @@ def _apply(
         )
         if event_id is None:
             raise DbClaimAmendmentError(
-                f"DbClaimAmended event emission failed for {item_ref}; "
+                f"DbClaimAmended event emission failed for {public_ref}; "
                 "claim was not written"
             )
         if commit:
@@ -159,7 +159,7 @@ def _apply(
         if commit:
             conn.rollback()
         raise DbClaimAmendmentError(
-            f"amendment write failed for {item_ref}: {exc}"
+            f"amendment write failed for {public_ref}: {exc}"
         ) from exc
     except DbClaimAmendmentError:
         if commit:

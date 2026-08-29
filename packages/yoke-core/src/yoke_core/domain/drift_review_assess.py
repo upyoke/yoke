@@ -64,10 +64,10 @@ def _classify_drift(
 
     # The delta spans every item delivered since the checkpoint, so its refs
     # resolve in one read rather than one per delivered item.
-    item_ref = render_item_ref_lookup(conn, (item["id"] for item in delivered_items))
+    public_ref = render_item_ref_lookup(conn, (item["id"] for item in delivered_items))
 
     for item in delivered_items:
-        item_ids.append(item_ref(item["id"]))
+        item_ids.append(public_ref(item["id"]))
         title_lower = (item.get("title") or "").lower()
         delivered_at = item.get("delivered_at", "")
         if delivered_at and delivered_at > latest_delivered:

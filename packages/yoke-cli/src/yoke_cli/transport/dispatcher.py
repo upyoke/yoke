@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import importlib
-import json
 import os
-import sys
 import uuid
 from typing import Any, Callable, Dict, Optional
 
@@ -13,6 +11,7 @@ from yoke_cli.config import machine_config
 from yoke_cli.transport import function_version_skew
 from yoke_cli.transport import https as https_transport
 from yoke_cli.transport import local_github_dispatch
+from yoke_cli.transport.public_ref_display import emit_response
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -200,22 +199,6 @@ def response_to_dict(response: FunctionCallResponse) -> Dict[str, Any]:
     return response.model_dump(mode="json")
 
 
-def emit_response(
-    response: FunctionCallResponse,
-    *,
-    json_mode: bool,
-    human_writer=None,
-) -> int:
-    if json_mode:
-        print(json.dumps(response_to_dict(response), sort_keys=True))
-    else:
-        if human_writer is not None and response.success:
-            human_writer(response, sys.stdout, sys.stderr)
-        else:
-            _default_human_writer(response, sys.stdout, sys.stderr)
-    return 0 if response.success else 1
-
-
 def _resolve_session_id() -> Optional[str]:
     """Resolve the caller's harness session via the canonical ambient chain.
 
@@ -322,23 +305,6 @@ def _error_response(
             recovery_hint=recovery_hint,
         ),
     )
-
-
-def _default_human_writer(response: FunctionCallResponse, stdout, stderr) -> None:
-    if response.success:
-        print(json.dumps(response.result, sort_keys=True), file=stdout)
-        for warning in response.warnings:
-            print(
-                f"warning: {warning.code} ({warning.step}): {warning.detail}",
-                file=stderr,
-            )
-        return
-    if response.error is not None:
-        print(f"error ({response.error.code}): {response.error.message}", file=stderr)
-        if response.error.recovery_hint:
-            print(f"hint: {response.error.recovery_hint}", file=stderr)
-    else:
-        print("error: dispatch returned success=False", file=stderr)
 
 
 __all__ = [

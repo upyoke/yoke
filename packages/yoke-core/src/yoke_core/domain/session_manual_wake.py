@@ -39,10 +39,10 @@ SESSION_WAKE_RESULT_WAIT_SECONDS = 10.0
 _RESULT_POLL_SECONDS = 0.25
 
 
-def _selector(*, session_id: str | None, item_ref: str | None) -> RecipientSelector:
+def _selector(*, session_id: str | None, public_ref: str | None) -> RecipientSelector:
     return RecipientSelector(
         session_ids=[session_id] if session_id else [],
-        item_refs=[item_ref] if item_ref else [],
+        public_refs=[public_ref] if public_ref else [],
     )
 
 
@@ -190,14 +190,14 @@ def request_session_wake(
     actor_id: int,
     caller_session_id: str | None,
     session_id: str | None,
-    item_ref: str | None,
+    public_ref: str | None,
     prompt: str | None,
     idempotency_key: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Queue one forced stopped-route wake and return body-free attempt facts."""
     current = now or utc_now()
-    target_selector = _selector(session_id=session_id, item_ref=item_ref)
+    target_selector = _selector(session_id=session_id, public_ref=public_ref)
     message_id = _message_id(actor_id, idempotency_key)
     begin_message_mutation(conn)
     try:

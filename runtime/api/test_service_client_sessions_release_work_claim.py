@@ -32,7 +32,7 @@ class TestReleaseItemClaim:
         db_path = session_offer_db["db_path"]
         sid = "release-item-test"
         item_id = 99
-        item_ref = _sun(item_id)
+        public_ref = _sun(item_id)
 
         # Create an active session and claim
         conn = connect_test_db(db_path)
@@ -52,7 +52,7 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", item_ref, "--reason", "completed"], db_path=db_path)
+        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "completed"], db_path=db_path)
         assert result.returncode == 0, f"stderr: {result.stderr}"
 
         out = json.loads(result.stdout)
@@ -155,7 +155,7 @@ class TestReleaseItemClaim:
         """No active claim returns a distinct exit code and warning."""
         db_path = session_offer_db["db_path"]
         sid = "release-noop-test"
-        item_ref = _sun(99)
+        public_ref = _sun(99)
 
         # Create an active session but no claim
         conn = connect_test_db(db_path)
@@ -169,7 +169,7 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", item_ref, "--reason", "cleanup"], db_path=db_path)
+        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "cleanup"], db_path=db_path)
         # This requested item has never had a claim row in this fixture.
         assert result.returncode == 5
         out = json.loads(result.stdout)
@@ -184,7 +184,7 @@ class TestReleaseItemClaim:
         db_path = session_offer_db["db_path"]
         owner_sid = "release-owner"
         caller_sid = "release-caller"
-        item_ref = _sun(99)
+        public_ref = _sun(99)
 
         conn = connect_test_db(db_path)
         for sid in (owner_sid, caller_sid):
@@ -204,7 +204,7 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", caller_sid, "--item", item_ref, "--reason", "handoff-to-polish"], db_path=db_path)
+        result = _run_client(["release-work-claim", "--session-id", caller_sid, "--item", public_ref, "--reason", "handoff-to-polish"], db_path=db_path)
 
         assert result.returncode == 3
         out = json.loads(result.stdout)
@@ -217,7 +217,7 @@ class TestReleaseItemClaim:
         """Released historical claims return ALREADY_TERMINAL."""
         db_path = session_offer_db["db_path"]
         sid = "release-terminal-test"
-        item_ref = _sun(99)
+        public_ref = _sun(99)
 
         conn = connect_test_db(db_path)
         conn.execute(
@@ -237,7 +237,7 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", item_ref, "--reason", "finalize-exit"], db_path=db_path)
+        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "finalize-exit"], db_path=db_path)
 
         assert result.returncode == 4
         out = json.loads(result.stdout)
@@ -250,7 +250,7 @@ class TestReleaseItemClaim:
         db_path = session_offer_db["db_path"]
         sid = "release-active-status-test"
         item_id = 99
-        item_ref = _sun(item_id)
+        public_ref = _sun(item_id)
 
         conn = connect_test_db(db_path)
         conn.execute("UPDATE items SET status='polishing-implementation' WHERE id=99")
@@ -270,7 +270,7 @@ class TestReleaseItemClaim:
         conn.commit()
         conn.close()
 
-        result = _run_client(["release-work-claim", "--session-id", sid, "--item", item_ref, "--reason", "completed"], db_path=db_path)
+        result = _run_client(["release-work-claim", "--session-id", sid, "--item", public_ref, "--reason", "completed"], db_path=db_path)
         # Validation rejection now exits DOMAIN_ERROR (6), emits
         # ItemClaimReleaseFailed, and logs a single Warning line.
         assert result.returncode == 6

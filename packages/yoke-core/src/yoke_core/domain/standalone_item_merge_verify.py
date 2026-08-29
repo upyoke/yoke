@@ -33,7 +33,7 @@ def verify_and_land(
     item: dict[str, Any],
     args: argparse.Namespace,
     *,
-    item_ref: str,
+    public_ref: str,
     item_id: int,
     branch: str,
     target: str,
@@ -47,14 +47,14 @@ def verify_and_land(
     )
     commit_sha, qa_error = qa_preflight(
         qa_item,
-        item_ref=item_ref,
+        public_ref=public_ref,
         repo_root=repo_root,
         branch=branch,
     )
     if qa_error:
         commit_sha, qa_error = commit_bound.recover_and_recheck(
             qa_item,
-            item_ref=item_ref,
+            public_ref=public_ref,
             repo_root=repo_root,
             branch=branch,
             qa_error=qa_error,
@@ -70,9 +70,9 @@ def verify_and_land(
         target=target,
         repo_root=str(repo_root),
         project=project,
-        item_ref=item_ref,
+        public_ref=public_ref,
         local_merge=not args.pr,
-        resume_command=_timeout.merge_item_resume_command(item_ref, args),
+        resume_command=_timeout.merge_item_resume_command(public_ref, args),
         wait_for_landing=bool(getattr(args, "wait", False)),
     ), ""
 

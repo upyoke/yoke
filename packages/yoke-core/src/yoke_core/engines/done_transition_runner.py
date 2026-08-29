@@ -70,7 +70,7 @@ def run(
     # context relay (project-sequence aware, no local connection). Until that
     # load completes the only identity available is the bare items.id, so the
     # temp result-file name and the "item not found" error carry the raw id
-    # (not a fabricated ref); every user-facing ref below is context.item_ref.
+    # (not a fabricated ref); every user-facing ref below is context.public_ref.
     result = TransitionResult(item=str(item_id))
     result_file = os.path.join(
         os.environ.get("TMPDIR", "/tmp"),
@@ -90,8 +90,8 @@ def run(
         print(f"Error: Item {item_id} not found.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
 
-    item_ref = context.item_ref
-    result.item = item_ref
+    public_ref = context.public_ref
+    result.item = public_ref
     title = context.title
     old_status = context.stage_id
     lane_branch = context.lane_branch
@@ -101,12 +101,12 @@ def run(
     # PREFIX-N rather than the internal id — a digit string there is a
     # project-local sequence and can address a different row entirely. The
     # empty value still means "standalone lane, no epic".
-    task_parent_ref = item_ref if has_task_graph else ""
+    task_parent_ref = public_ref if has_task_graph else ""
     item_project = context.project
     result.old_status = result.new_status = old_status
     if lane_branch in ("null", ""):
         lane_branch = ""
-    print(f"\n=== Done transition: {item_ref} ===")
+    print(f"\n=== Done transition: {public_ref} ===")
     print(f"Title: {title}")
     print(f"Old status: {old_status}")
     print(f"Workflow: {workflow.workflow_id}@{workflow.version}\n")
@@ -126,13 +126,13 @@ def run(
 
     if requires_plan_simulation(workflow):
         sim_exit = _check_simulation_gate(
-            item_id, skip_simulation, item_ref=item_ref
+            item_id, skip_simulation, public_ref=public_ref
         )
         if sim_exit is not None:
             return result.fail(result_file, sim_exit, "2a")
     result.add_step("2a")
     if (
-        blocked_exit := mw._check_blocked_flag(item_id, item_ref=item_ref)
+        blocked_exit := mw._check_blocked_flag(item_id, public_ref=public_ref)
     ) is not None:
         return result.fail(result_file, blocked_exit, "2a-blocked")
 
@@ -145,7 +145,7 @@ def run(
             project_repo,
             base_branch,
             item_id,
-            item_ref=item_ref,
+            public_ref=public_ref,
         )
         if empty_exit is not None:
             print(f"RESULT_FILE={result_file}")
@@ -156,7 +156,7 @@ def run(
 
     if already_done:
         return _handle_already_done(
-            item_id, project_repo, result, result_file, item_ref=item_ref
+            item_id, project_repo, result, result_file, public_ref=public_ref
         )
 
     if (
@@ -169,7 +169,7 @@ def run(
                 old_status,
                 result,
                 result_file,
-                item_ref=item_ref,
+                public_ref=public_ref,
             )
         )
         is not None
@@ -182,7 +182,7 @@ def run(
 
     if not resume_from_step6:
         redirect = _check_deployment_redirect(
-            deploy_flow, skip_deploy, item_id, item_ref=item_ref
+            deploy_flow, skip_deploy, item_id, public_ref=public_ref
         )
         if redirect is not None:
             print(f"RESULT_FILE={result_file}")
@@ -200,7 +200,7 @@ def run(
                 task_parent_ref,
                 project_repo,
                 item_project,
-                item_ref=item_ref,
+                public_ref=public_ref,
             )
             if merge_exit == 0:
                 merge_ran = True
@@ -274,7 +274,7 @@ def run(
         item_project,
         old_status,
         delivery_redirect_stage(workflow),
-        item_ref=item_ref,
+        public_ref=public_ref,
     )
     if deploy_guard is not None:
         exit_code, new_status = deploy_guard
@@ -294,7 +294,7 @@ def run(
     print("\n=== Step 6: Update status to done ===")
     _populate_merged_at(item_id)
 
-    success = _update_status_to_done(item_id, skip_qa, item_ref=item_ref)
+    success = _update_status_to_done(item_id, skip_qa, public_ref=public_ref)
     if not success:
         verify = _query_item_field(item_id, "status")
         print(
@@ -321,7 +321,7 @@ def run(
     result.add_step("6c")
 
     if has_task_graph and task_parent_ref:
-        _cascade_epic_tasks_to_done(item_id, item_ref=item_ref)
+        _cascade_epic_tasks_to_done(item_id, public_ref=public_ref)
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
     return finish_done_transition(
@@ -334,7 +334,7 @@ def run(
         workflow=workflow,
         repo_root=repo_root,
         merge_ran=merge_ran,
-        item_ref=item_ref,
+        public_ref=public_ref,
         prune_lane=lambda: _cleanup_stale_branches(
             item_id, lane_branch, project_repo, base_branch,
             authority_block=lane_authority_block,

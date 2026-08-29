@@ -237,12 +237,12 @@ def backfill_oversized_bodies(
             for item_id in sorted(set(oversized) | set(flag_only))
         ]
         for item_id, body_bytes in candidates:
-            item_ref = _item_ref(item_id, conn=conn)
+            public_ref = _item_ref(item_id, conn=conn)
             allow, _reason, holder = check_ownership(item_id, conn=conn)
             if not allow:
                 skipped_claimed += 1
                 print(
-                    f"Skipped: {item_ref} skipped_claimed (held by session {holder})",
+                    f"Skipped: {public_ref} skipped_claimed (held by session {holder})",
                     file=stderr,
                 )
                 continue
@@ -255,7 +255,7 @@ def backfill_oversized_bodies(
             except ProjectGithubAuthError as exc:
                 auth_failures += 1
                 print(
-                    f"Skipped: {item_ref} auth failure: {type(exc).__name__}: {exc}",
+                    f"Skipped: {public_ref} auth failure: {type(exc).__name__}: {exc}",
                     file=stderr,
                 )
                 continue
@@ -264,7 +264,7 @@ def backfill_oversized_bodies(
             if rc != 0:
                 sync_failures += 1
                 print(
-                    f"Failed: {item_ref} sync_body returned {rc}",
+                    f"Failed: {public_ref} sync_body returned {rc}",
                     file=stderr,
                 )
                 continue
@@ -273,14 +273,14 @@ def backfill_oversized_bodies(
                 repaired += 1
                 source = "flag+oversized" if item_id in flag_derived else "oversized"
                 print(
-                    f"Backfilled: {item_ref} → compact mirror "
+                    f"Backfilled: {public_ref} → compact mirror "
                     f"(was {body_bytes} bytes, source={source})",
                     file=stdout,
                 )
             else:
                 restored += 1
                 print(
-                    f"Restored: {item_ref} → full body "
+                    f"Restored: {public_ref} → full body "
                     "(fits under budget again, source=flag)",
                     file=stdout,
                 )

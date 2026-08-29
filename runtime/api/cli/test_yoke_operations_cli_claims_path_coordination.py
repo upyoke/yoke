@@ -39,7 +39,7 @@ def test_claims_path_coordination_decision_build_dispatches() -> None:
     req = captured["request"]
     assert req.function == "claims.path.coordination_decision_build"
     assert req.target.kind == "item"
-    assert req.target.item_ref == "YOK-1819"
+    assert req.target.public_ref == "YOK-1819"
     assert "candidate_item_id" not in req.payload
     assert req.payload == {
         "conflicting_claim_id": 273,

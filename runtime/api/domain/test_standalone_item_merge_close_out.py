@@ -153,7 +153,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     monkeypatch.setattr(
         verify,
         "qa_preflight",
-        lambda item, *, item_ref, repo_root, branch: (LANE_SHA, ""),
+        lambda item, *, public_ref, repo_root, branch: (LANE_SHA, ""),
     )
     monkeypatch.setattr(
         verify,

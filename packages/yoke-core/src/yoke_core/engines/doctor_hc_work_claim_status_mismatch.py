@@ -92,14 +92,14 @@ def hc_work_claim_status_mismatch(
 
         age_text = f"{age:.1f}m" if age is not None else "unknown"
         ended_clause = " ended" if row["session_ended_at"] else ""
-        item_ref = render_item_ref(conn, int(row["item_id"]))
+        public_ref = render_item_ref(conn, int(row["item_id"]))
         recovery = (
-            f"/yoke usher {item_ref}"
+            f"/yoke usher {public_ref}"
             if status == "release"
             else "inspect/release the stale draft claim"
         )
         findings.append(
-            f"  - {item_ref} status={status} "
+            f"  - {public_ref} status={status} "
             f"holder={row['session_id']} mode={mode or '<none>'}{ended_clause} "
             f"heartbeat_age={age_text} claim_id={int(row['claim_id'])} "
             f"recovery: {recovery}"

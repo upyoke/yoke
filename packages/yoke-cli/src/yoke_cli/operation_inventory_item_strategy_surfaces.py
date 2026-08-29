@@ -6,6 +6,7 @@ from yoke_cli.operation_inventory_model import _Row, _w
 WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke items overview list", "items.read"),
     _w("yoke items detail get", "items.read"),
+    _w("yoke items public-ref lookup", "items.read"),
     _w("yoke strategy surface list", "strategy"),
     _w("yoke strategy surface get", "strategy"),
     _w("yoke strategy revision diff", "strategy"),

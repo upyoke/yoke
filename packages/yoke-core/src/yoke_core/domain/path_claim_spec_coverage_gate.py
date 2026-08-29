@@ -52,7 +52,7 @@ class CoverageResult:
         missing_paths: ``file_budget_paths - claim_paths``, sorted.
         active_claim_ids: Non-terminal claim ids contributing coverage.
         no_claims: True when the item has no non-terminal claim rows.
-        item_ref: The item's public display ref (``PREFIX-sequence``),
+        public_ref: The item's public display ref (``PREFIX-sequence``),
             used in operator-facing messages.
     """
 
@@ -63,12 +63,12 @@ class CoverageResult:
     missing_paths: List[str] = field(default_factory=list)
     active_claim_ids: List[int] = field(default_factory=list)
     no_claims: bool = False
-    item_ref: str = ""
+    public_ref: str = ""
 
     def to_dict(self) -> dict:
         return {
             "item_id": self.item_id,
-            "item_ref": self.item_ref,
+            "public_ref": self.public_ref,
             "is_blocked": self.is_blocked,
             "file_budget_paths": list(self.file_budget_paths),
             "claim_paths": list(self.claim_paths),
@@ -172,12 +172,12 @@ def evaluate(
         # Resolved while the connection is open so every CoverageResult
         # below (including the ones built after ``finally`` closes an
         # owned connection) carries the public display ref.
-        item_ref = render_item_ref(conn, item_id)
+        public_ref = render_item_ref(conn, item_id)
 
         effective = load_item_effective_workflow_policies(conn, item_id)
         if not effective.requires_budget_claim_parity:
             return CoverageResult(
-                item_id=item_id, is_blocked=False, item_ref=item_ref
+                item_id=item_id, is_blocked=False, public_ref=public_ref
             )
         task_scoped = effective.path_claims == "required_per_task"
         if task_scoped:
@@ -197,7 +197,7 @@ def evaluate(
                 missing_paths=list(coverage.uncovered_paths),
                 active_claim_ids=list(claim_ids),
                 no_claims=not claim_ids,
-                item_ref=item_ref,
+                public_ref=public_ref,
             )
         spec = _read_spec_text(conn, item_id)
         budget_paths = extract_file_budget_paths(spec)
@@ -206,7 +206,7 @@ def evaluate(
                 item_id=item_id,
                 is_blocked=False,
                 file_budget_paths=budget_paths,
-                item_ref=item_ref,
+                public_ref=public_ref,
             )
         claim_ids, claim_paths = _active_claim_coverage(conn, item_id)
     finally:
@@ -222,7 +222,7 @@ def evaluate(
             missing_paths=[],
             active_claim_ids=[],
             no_claims=True,
-            item_ref=item_ref,
+            public_ref=public_ref,
         )
 
     claim_set = set(claim_paths)
@@ -235,13 +235,13 @@ def evaluate(
         missing_paths=missing,
         active_claim_ids=claim_ids,
         no_claims=False,
-        item_ref=item_ref,
+        public_ref=public_ref,
     )
 
 
 def _format_block_message(result: CoverageResult) -> str:
     lines = [
-        f"BLOCKED: {result.item_ref} File Budget lists "
+        f"BLOCKED: {result.public_ref} File Budget lists "
         f"{len(result.missing_paths)} path(s) not covered by any "
         f"active path_claim.",
         "",
@@ -263,7 +263,7 @@ def _format_block_message(result: CoverageResult) -> str:
         lines.append(
             f"  yoke claims path widen --claim-id {target_id} "
             f'--add-paths "{added}" --reason "..." '
-            f"--item {result.item_ref} [--allow-planned]"
+            f"--item {result.public_ref} [--allow-planned]"
         )
         lines.append(
             "Use --allow-planned when the file does not yet exist on "
@@ -303,7 +303,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(_format_block_message(result), file=sys.stderr)
     else:
         print(
-            f"OK: {result.item_ref} File Budget coverage matches "
+            f"OK: {result.public_ref} File Budget coverage matches "
             f"active claims ({len(result.file_budget_paths)} path(s) "
             f"checked)."
         )

@@ -48,7 +48,7 @@ def test_machine_capability_context(
                 "state": STATE_IN_USE,
                 "wait_reason": "all_machine_leases_in_use",
                 "active_lease": {
-                    "item_ref": next(
+                    "public_ref": next(
                         (active_items[key] for key in busy if active_items[key]),
                         None,
                     ),

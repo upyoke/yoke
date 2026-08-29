@@ -27,17 +27,17 @@ _AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
 _MISSING_WORKFLOW_CODE = "workflow_not_found"
 
 
-def _active_item_lane_branch(item_ref: str) -> str:
+def _active_item_lane_branch(public_ref: str) -> str:
     """Return the primary active universal lane branch for one run member.
 
-    ``item_ref`` is a ``deployment_run_items.item_id`` value — the bare
+    ``public_ref`` is a ``deployment_run_items.item_id`` value — the bare
     internal ``items.id`` — so it is threaded straight through as an
     integer, never prefix-stripped.
     """
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.item_worktrees import primary_item_worktree
 
-    item_id = int(str(item_ref).strip())
+    item_id = int(str(public_ref).strip())
     with connect() as conn:
         lane = primary_item_worktree(conn, item_id)
     return str((lane or {}).get("branch") or "")
@@ -112,14 +112,14 @@ def _resolve_and_verify_branch(
     return ok, first_item, branch
 
 
-def _merge_evidence_pattern(item_ref: str, item_id: str) -> str:
+def _merge_evidence_pattern(public_ref: str, item_id: str) -> str:
     """Extended-regex alternation matching an item in commit subjects.
 
     Subjects carry the item's public ref; the legacy ``YOK-{items.id}``
     token stays in the alternation so history written before refs were
     rendered still counts as merge evidence.
     """
-    tokens = {item_ref, f"YOK-{item_id}"}
+    tokens = {public_ref, f"YOK-{item_id}"}
     return "|".join(sorted(tokens))
 
 
@@ -133,11 +133,11 @@ def _verify_branch_merged(
 
     Returns (ok, message).  ``ok=True`` means proceed.
     """
-    item_ref = item_ref_for_id(int(first_item)) if str(first_item).isdigit() else str(first_item)
-    grep_pattern = _merge_evidence_pattern(item_ref, str(first_item))
+    public_ref = item_ref_for_id(int(first_item)) if str(first_item).isdigit() else str(first_item)
+    grep_pattern = _merge_evidence_pattern(public_ref, str(first_item))
     if not branch or branch == "null":
         return True, (
-            f"Warning: {item_ref} has no branch set — cannot verify "
+            f"Warning: {public_ref} has no branch set — cannot verify "
             f"commits are on {target_branch}. Proceeding."
         )
 
@@ -152,8 +152,8 @@ def _verify_branch_merged(
         merge_found = r2.stdout.strip().split("\n")[0] if r2.stdout.strip() else ""
         if not merge_found:
             return True, (
-                f"Warning: {item_ref} branch '{branch}' not found and "
-                f"no merge commit referencing {item_ref} found on "
+                f"Warning: {public_ref} branch '{branch}' not found and "
+                f"no merge commit referencing {public_ref} found on "
                 f"{target_branch}. Proceeding with caution."
             )
         return True, ""
@@ -171,7 +171,7 @@ def _verify_branch_merged(
     squash_evidence = r2.stdout.strip().split("\n")[0] if r2.stdout.strip() else ""
     if squash_evidence:
         return True, (
-            f"Squash-merge detected for {item_ref} "
+            f"Squash-merge detected for {public_ref} "
             f"(branch exists but is not ancestor of {target_branch}). Proceeding."
         )
 

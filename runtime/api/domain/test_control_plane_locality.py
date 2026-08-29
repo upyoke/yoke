@@ -180,7 +180,7 @@ def test_a_public_ref_resolves_without_a_local_database(monkeypatch) -> None:
     seen: list = []
 
     def fake_relay(function_id, payload, target=None):
-        seen.append((function_id, target.kind, target.item_ref))
+        seen.append((function_id, target.kind, target.public_ref))
         return {"item": {"id": 4242}}
 
     monkeypatch.setattr(control_plane_transport, "relay", fake_relay)
@@ -210,7 +210,7 @@ def test_done_closeout_relays_instead_of_failing_the_step(monkeypatch) -> None:
     seen: list = []
 
     def fake_relay(function_id, payload, target=None):
-        seen.append((function_id, payload, target.item_id, target.item_ref))
+        seen.append((function_id, payload, target.item_id, target.public_ref))
         return {"item_id": 4242, "exit_code": 0, "board_rebuild_requested": True}
 
     monkeypatch.setattr(control_plane_transport, "relay", fake_relay)
@@ -232,5 +232,5 @@ def test_done_closeout_relays_instead_of_failing_the_step(monkeypatch) -> None:
 def test_a_public_ref_closeout_targets_the_ref_not_a_sequence_number() -> None:
     numeric = backlog_github_done_sync._done_sync_target("4242")
     public = backlog_github_done_sync._done_sync_target("YOK-7")
-    assert (numeric.item_id, numeric.item_ref) == (4242, None)
-    assert (public.item_id, public.item_ref) == (None, "YOK-7")
+    assert (numeric.item_id, numeric.public_ref) == (4242, None)
+    assert (public.item_id, public.public_ref) == (None, "YOK-7")

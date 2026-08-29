@@ -81,7 +81,7 @@ class LandedItem:
     """One item whose branch landed while the item stayed open."""
 
     item_id: int
-    item_ref: str
+    public_ref: str
     status: str
     landed_at: str
     landed_seconds: int
@@ -261,7 +261,7 @@ def landed_without_closeout(
         landed.append(
             LandedItem(
                 item_id=item_id,
-                item_ref=refs.get(item_id, str(item_id)),
+                public_ref=refs.get(item_id, str(item_id)),
                 status=str(record.get("status") or ""),
                 landed_at=landed_at,
                 landed_seconds=age_seconds(landed_at, now) or 0,

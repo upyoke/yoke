@@ -126,12 +126,12 @@ def _retired_parent_epic_cli_pattern() -> str:
     return r"items\s+(get|update|set)\s+\S+\s+" + "epic" + r"\b"
 
 
-def _db_router_items_cmd(verb: str, item_ref: str, field: str, value: str = "") -> str:
+def _db_router_items_cmd(verb: str, public_ref: str, field: str, value: str = "") -> str:
     parts = [
         "python3 -m yoke_core.cli.db_router",
         "items",
         verb,
-        item_ref,
+        public_ref,
         field,
     ]
     if value:

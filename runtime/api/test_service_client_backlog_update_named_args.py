@@ -164,6 +164,6 @@ def test_cli_structured_field_write_routes_to_dispatcher():
     assert rc == 0
     dispatch_mock.assert_called_once()
     call = dispatch_mock.call_args
-    assert call.kwargs["item_ref"] == "42"
+    assert call.kwargs["public_ref"] == "42"
     assert call.kwargs["field"] == "spec"
     assert call.kwargs["content"] == "# spec content"

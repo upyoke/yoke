@@ -19,7 +19,7 @@ def test_undetermined_requirement_issue_preserves_reason():
             }
         ],
         accepted_shas=(),
-        item_ref="YOK-41",
+        public_ref="YOK-41",
         require_any=True,
     )
 

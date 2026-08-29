@@ -44,14 +44,14 @@ class OwnershipDenial(Exception):
         claim_id: Optional[int],
         caller_session_id: str,
         holder_session_id: Optional[str],
-        item_ref: Optional[str] = None,
+        public_ref: Optional[str] = None,
     ) -> None:
         self.action = action
         self.item_id = int(item_id)
         # Live callers pass the canonical public ref rendered from a conn;
         # a conn-less construction falls back to the default-prefix form of
         # the internal id (mirrors ``render_item_ref``'s own fallback).
-        self.item_ref = item_ref or format_item_ref(
+        self.public_ref = public_ref or format_item_ref(
             None, DEFAULT_PUBLIC_ITEM_PREFIX, self.item_id, item_id=self.item_id
         )
         self.claim_id = int(claim_id) if claim_id is not None else None
@@ -70,12 +70,12 @@ class OwnershipDenial(Exception):
         recovery = (
             "acquire the work claim first: "
             "yoke claims work acquire "
-            f'--item {self.item_ref} --reason "<intent>"'
+            f'--item {self.public_ref} --reason "<intent>"'
         )
-        inspect = f"yoke claims work holder-get {self.item_ref}"
+        inspect = f"yoke claims work holder-get {self.public_ref}"
         return (
             f"path-claims {self.action} requires the ambient session to "
-            f"hold item {self.item_ref}'s work claim. "
+            f"hold item {self.public_ref}'s work claim. "
             f"caller={caller}{who}. Recovery: {recovery}. Inspect: {inspect}."
         )
 
@@ -86,7 +86,7 @@ class OwnershipDenial(Exception):
             "caller_session_id": self.caller_session_id,
             "holder_session_id": self.holder_session_id,
             "recovery": (
-                f'yoke claims work acquire --item {self.item_ref} --reason "<intent>"'
+                f'yoke claims work acquire --item {self.public_ref} --reason "<intent>"'
             ),
         }
         if self.claim_id is not None:
@@ -165,7 +165,7 @@ def require_item_ownership(
             claim_id=claim_id,
             caller_session_id=caller,
             holder_session_id=holder,
-            item_ref=render_item_ref(conn, int(item_id)),
+            public_ref=render_item_ref(conn, int(item_id)),
         )
     return int(item_id)
 

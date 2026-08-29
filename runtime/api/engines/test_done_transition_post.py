@@ -100,7 +100,7 @@ class TestCascadeEpicTasksToDone:
             ) as mock_task_direct,
             mock.patch.object(done_transition_status, "_batch_github_sync_tasks"),
         ):
-            done_transition._cascade_epic_tasks_to_done(823, item_ref="YOK-823")
+            done_transition._cascade_epic_tasks_to_done(823, public_ref="YOK-823")
 
         # The task-list relay fires exactly once, for the epic ref.
         task_list_calls = [
@@ -132,7 +132,7 @@ class TestCascadeEpicTasksToDone:
                 done_transition, "_update_task_status_direct"
             ) as mock_task_direct,
         ):
-            done_transition._cascade_epic_tasks_to_done(823, item_ref="YOK-823")
+            done_transition._cascade_epic_tasks_to_done(823, public_ref="YOK-823")
         # Only the task-list relay was called — no update writes.
         assert [c["function_id"] for c in calls] == ["done_transition.epic_task_list"]
         mock_task_direct.assert_not_called()
@@ -185,7 +185,7 @@ class TestHandleAlreadyDone:
         ):
             mock_git.return_value = mock.Mock(returncode=0, stdout="")
             rc = done_transition._handle_already_done(
-                42, project_repo, result, result_file, item_ref="BUZ-7"
+                42, project_repo, result, result_file, public_ref="BUZ-7"
             )
 
         assert rc == 0

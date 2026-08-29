@@ -18,7 +18,7 @@ from yoke_contracts.board.project_scope import project_filter
 from yoke_contracts.board.status import status_to_board_bucket
 from yoke_contracts.board.sections_definition_queries import query_item_rows
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.merge_queue_status import render_merge_queue_status
 
 # ---------------------------------------------------------------------------

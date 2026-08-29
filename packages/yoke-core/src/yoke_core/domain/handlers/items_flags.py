@@ -62,7 +62,7 @@ class FlagResponse(BaseModel):
     """Post-write flag state plus whether this call changed anything."""
 
     item_id: int
-    item_ref: str
+    public_ref: str
     status: str
     frozen: bool
     blocked: bool
@@ -106,7 +106,7 @@ def _load_state(item_id: int) -> Optional[Dict[str, Any]]:
         if row is None:
             return None
         return {
-            "item_ref": render_item_ref(conn, int(item_id)),
+            "public_ref": render_item_ref(conn, int(item_id)),
             "status": str(_cell(row, 0, "status") or ""),
             "frozen": bool(_cell(row, 1, "frozen")),
             "blocked": bool(_cell(row, 2, "blocked")),
@@ -138,7 +138,7 @@ def _prepare(
 
 def _apply(
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     writes: List[Tuple[str, Any]],
     request: FunctionCallRequest,
     captured: io.StringIO,
@@ -150,12 +150,12 @@ def _apply(
     """
     try:
         acquired = _acquire_for_caller(
-            item_id, item_ref, str(request.actor.session_id or "")
+            item_id, public_ref, str(request.actor.session_id or "")
         )
     except _ClaimRefused as refused:
         return _error(
             "claim_held",
-            f"{refused.item_ref} is claimed by session {refused.holder}; "
+            f"{refused.public_ref} is claimed by session {refused.holder}; "
             "coordinate with the holder before changing its coordination flags.",
         )
     try:
@@ -199,7 +199,7 @@ def _done(
     final = _load_state(item_id) or state
     response = FlagResponse(
         item_id=item_id,
-        item_ref=str(final["item_ref"]),
+        public_ref=str(final["public_ref"]),
         status=str(final["status"]),
         frozen=bool(final["frozen"]),
         blocked=bool(final["blocked"]),
@@ -225,14 +225,14 @@ def handle_freeze(request: FunctionCallRequest) -> HandlerOutcome:
     if state["status"] == "done":
         return _error(
             "item_done",
-            f"Cannot freeze {state['item_ref']}: the item is done. Advance it "
+            f"Cannot freeze {state['public_ref']}: the item is done. Advance it "
             "back into an in-flight status first.",
         )
     captured = io.StringIO()
     if state["frozen"]:
         return _done(item_id, state, False, captured)
     failure = _apply(
-        item_id, state["item_ref"], [("frozen", True)], request, captured
+        item_id, state["public_ref"], [("frozen", True)], request, captured
     )
     return failure or _done(item_id, state, True, captured)
 
@@ -250,7 +250,7 @@ def handle_thaw(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.path_claims_thaw import revalidate_item_path_claims_on_thaw
     revalidate_item_path_claims_on_thaw(int(item_id))
     failure = _apply(
-        item_id, state["item_ref"], [("frozen", False)], request, captured
+        item_id, state["public_ref"], [("frozen", False)], request, captured
     )
     return failure or _done(item_id, state, True, captured)
 
@@ -268,7 +268,7 @@ def handle_block(request: FunctionCallRequest) -> HandlerOutcome:
     if state["status"] == "done":
         return _error(
             "item_done",
-            f"Cannot block {state['item_ref']}: the item is done. Advance it "
+            f"Cannot block {state['public_ref']}: the item is done. Advance it "
             "back into an in-flight status first.",
         )
     captured = io.StringIO()
@@ -278,7 +278,7 @@ def handle_block(request: FunctionCallRequest) -> HandlerOutcome:
     writes: List[Tuple[str, Any]] = [("blocked_reason", reason)]
     if not state["blocked"]:
         writes.append(("blocked", True))
-    failure = _apply(item_id, state["item_ref"], writes, request, captured)
+    failure = _apply(item_id, state["public_ref"], writes, request, captured)
     return failure or _done(item_id, state, True, captured)
 
 
@@ -294,7 +294,7 @@ def handle_unblock(request: FunctionCallRequest) -> HandlerOutcome:
         return _done(item_id, state, False, captured)
     failure = _apply(
         item_id,
-        state["item_ref"],
+        state["public_ref"],
         [("blocked", False), ("blocked_reason", None)],
         request,
         captured,

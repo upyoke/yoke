@@ -122,7 +122,7 @@ def cmd_db_claim_amend(args: list[str]) -> int:
         )
         return 2
 
-    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_contracts.public_ref import parse_public_item_ref
 
     _, sequence = parse_public_item_ref(parsed.item)
     if sequence is None:
@@ -178,7 +178,7 @@ def cmd_db_claim_amend(args: list[str]) -> int:
         function_id="db_claim.amend",
         target=TargetRef(
             kind="item",
-            item_ref=parsed.item.strip(),
+            public_ref=parsed.item.strip(),
             project_id=None if project is None else str(project),
         ),
         payload={"claim": payload, "reason": reason},

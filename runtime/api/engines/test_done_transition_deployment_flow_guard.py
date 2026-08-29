@@ -81,7 +81,7 @@ class TestDeploymentRedirectTargetTier:
             return_value="",
         ):
             result = done_transition_gates._check_deployment_redirect(
-                "custom-merge", False, 500, item_ref="YOK-500"
+                "custom-merge", False, 500, public_ref="YOK-500"
             )
         assert result is None
 
@@ -95,7 +95,7 @@ class TestDeploymentRedirectTargetTier:
             return_value=target_tier,
         ):
             result = done_transition_gates._check_deployment_redirect(
-                "custom-flow", False, 501, item_ref="YOK-501"
+                "custom-flow", False, 501, public_ref="YOK-501"
             )
         assert result == 7
         assert "merge and deploy through the pipeline" in capsys.readouterr().out
@@ -111,7 +111,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
-                item_ref="YOK-510",
+                public_ref="YOK-510",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -130,7 +130,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
-                item_ref="YOK-511",
+                public_ref="YOK-511",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -147,7 +147,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
-                item_ref="YOK-512",
+                public_ref="YOK-512",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -172,7 +172,7 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
-                item_ref="YOK-520",
+                public_ref="YOK-520",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -197,7 +197,7 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
-                item_ref="YOK-521",
+                public_ref="YOK-521",
             )
         assert result is None
 
@@ -211,6 +211,6 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
-                item_ref="YOK-530",
+                public_ref="YOK-530",
             )
         assert result is None

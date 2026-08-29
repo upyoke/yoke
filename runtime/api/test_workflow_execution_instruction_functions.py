@@ -276,7 +276,7 @@ def test_item_create_returns_instructions_without_a_refetch(monkeypatch):
 
     monkeypatch.setattr(
         backlog_create_op, "execute_create",
-        lambda **kwargs: {"success": True, "item_id": 51, "item_ref": "R-51"},
+        lambda **kwargs: {"success": True, "item_id": 51, "public_ref": "R-51"},
     )
     request = FunctionCallRequest(
         function="items.create",

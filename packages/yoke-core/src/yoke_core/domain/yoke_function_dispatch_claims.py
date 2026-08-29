@@ -189,15 +189,15 @@ def verify_claim(
         row = who_claims_for_item(int(target_id))
         claim_session = str((row or {}).get("session_id") or "")
         if not row or claim_session != actor_session:
-            item_ref = (
+            public_ref = (
                 _claim_recovery_item_ref(int(target_id)) if kind == "item" else None
             )
             recovery = (
-                f'yoke claims work acquire --item {item_ref} --reason "<intent>"'
-                if item_ref
+                f'yoke claims work acquire --item {public_ref} --reason "<intent>"'
+                if public_ref
                 else "acquire the required claim before retrying"
             )
-            target_ref = item_ref or str(target_id)
+            target_ref = public_ref or str(target_id)
             return _claim_error(
                 request,
                 fid,

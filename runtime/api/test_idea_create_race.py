@@ -91,7 +91,7 @@ def test_layer1_draft_claim_blocks_concurrent_session_offer(session_offer_db):
     drafter_id = "drafter-session"
     poacher_id = "poacher-session"
     item_num = 10
-    item_ref = f"YOK-{item_num}"
+    public_ref = f"YOK-{item_num}"
 
     _pre_register_session(db_path, drafter_id, workspace=workspace)
     _pre_register_session(db_path, poacher_id, workspace=workspace)
@@ -102,7 +102,7 @@ def test_layer1_draft_claim_blocks_concurrent_session_offer(session_offer_db):
             "claim-work",
             "--session-id", drafter_id,
             "--reason", "draft-in-progress",
-            "--item", item_ref,
+            "--item", public_ref,
         ],
         db_path=db_path,
     )
@@ -114,8 +114,8 @@ def test_layer1_draft_claim_blocks_concurrent_session_offer(session_offer_db):
     assert poacher.returncode == 0, poacher.stderr
     poacher_offer = json.loads(poacher.stdout)
     context = poacher_offer.get("context") or {}
-    assert context.get("selected_item") != item_ref
-    assert item_ref not in context.get("runnable_items", [])
+    assert context.get("selected_item") != public_ref
+    assert public_ref not in context.get("runnable_items", [])
 
     # Drafter releases with the canonical idea-complete intent.
     release = _run_client(
@@ -123,7 +123,7 @@ def test_layer1_draft_claim_blocks_concurrent_session_offer(session_offer_db):
             "release-work-claim",
             "--session-id", drafter_id,
             "--reason", "idea-complete",
-            "--item", item_ref,
+            "--item", public_ref,
         ],
         db_path=db_path,
     )
@@ -134,7 +134,7 @@ def test_layer1_draft_claim_blocks_concurrent_session_offer(session_offer_db):
     assert poacher_post.returncode == 0, poacher_post.stderr
     post_offer = json.loads(poacher_post.stdout)
     assert post_offer["action"] == "charge"
-    assert post_offer["context"]["selected_item"] == item_ref
+    assert post_offer["context"]["selected_item"] == public_ref
 
 
 def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
@@ -142,7 +142,7 @@ def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
     db_path = session_offer_db["db_path"]
     drafter_id = "drafter-emit"
     item_num = 10
-    item_ref = f"YOK-{item_num}"
+    public_ref = f"YOK-{item_num}"
     _pre_register_session(db_path, drafter_id)
 
     claim = _run_client(
@@ -150,7 +150,7 @@ def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
             "claim-work",
             "--session-id", drafter_id,
             "--reason", "draft-in-progress",
-            "--item", item_ref,
+            "--item", public_ref,
         ],
         db_path=db_path,
     )
@@ -161,7 +161,7 @@ def test_layer1_release_emits_idea_claim_held_event(session_offer_db):
             "release-work-claim",
             "--session-id", drafter_id,
             "--reason", "idea-complete",
-            "--item", item_ref,
+            "--item", public_ref,
         ],
         db_path=db_path,
     )
@@ -211,12 +211,12 @@ def test_layer1_dispatcher_release_canonicalizes_and_emits(
     monkeypatch.setenv("YOKE_SESSION_ID", drafter_id)
 
     item_num = 10
-    item_ref = f"YOK-{item_num}"
+    public_ref = f"YOK-{item_num}"
     _pre_register_session(db_path, drafter_id)
 
     claim = _run_client(
         ["claim-work", "--session-id", drafter_id,
-         "--reason", "draft-in-progress", "--item", item_ref],
+         "--reason", "draft-in-progress", "--item", public_ref],
         db_path=db_path,
     )
     assert claim.returncode == 0, claim.stderr

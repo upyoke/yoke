@@ -255,6 +255,15 @@ def _forget_schema_readiness_verdict():
     items_health.reset_schema_readiness_cache()
 
 
+@pytest.fixture(autouse=True)
+def _skip_print_layer_lookup(monkeypatch):
+    """Tests that stub ``dispatch`` must not capture a print-layer lookup."""
+    monkeypatch.setattr(
+        "yoke_cli.transport.public_ref_display.lookup_public_refs",
+        lambda _ids: {},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Backward-compatible re-exports
 # ---------------------------------------------------------------------------

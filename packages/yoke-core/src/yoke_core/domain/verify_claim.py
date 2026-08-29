@@ -37,7 +37,7 @@ import os
 import sys
 from typing import Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.claim_recovery import canonical_item_ref
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
 from yoke_core.domain.work_claim_targets import scope_int_sql
@@ -133,7 +133,7 @@ def _emit_lifecycle_event(
     name: str,
     severity: str,
     outcome: str,
-    item_ref: str,
+    public_ref: str,
     context: dict,
 ) -> None:
     """Fire a lifecycle event via the Python emit_event owner."""
@@ -158,7 +158,7 @@ def _emit_lifecycle_event(
                 "--outcome",
                 outcome,
                 "--item-id",
-                item_ref,
+                public_ref,
                 "--context",
                 json.dumps(context, separators=(",", ":")),
             ]
@@ -174,7 +174,7 @@ def verify(item_id: int) -> tuple[int, dict]:
     Returns ``(exit_code, result_dict)`` where the dict is the JSON
     payload written to stdout by ``main``.
     """
-    item_ref = canonical_item_ref(item_id) or format_item_ref(
+    public_ref = canonical_item_ref(item_id) or format_item_ref(
         None, None, None, item_id=item_id
     )
     session_id = _resolve_session_id()
@@ -184,13 +184,13 @@ def verify(item_id: int) -> tuple[int, dict]:
         context = {
             "bypass_source": bypass_source,
             "session_id": session_id or "unknown",
-            "work_unit": item_ref,
+            "work_unit": public_ref,
         }
         _emit_lifecycle_event(
             "ClaimVerificationBypassed",
             "INFO",
             "completed",
-            item_ref,
+            public_ref,
             context,
         )
         return 0, {
@@ -206,8 +206,8 @@ def verify(item_id: int) -> tuple[int, dict]:
             "ClaimVerificationDenied",
             "WARN",
             "failed",
-            item_ref,
-            {"failure_type": "no_session_id", "work_unit": item_ref},
+            public_ref,
+            {"failure_type": "no_session_id", "work_unit": public_ref},
         )
         return 1, {
             "verified": False,
@@ -232,18 +232,18 @@ def verify(item_id: int) -> tuple[int, dict]:
             "ClaimVerificationDenied",
             "WARN",
             "failed",
-            item_ref,
+            public_ref,
             {
                 "failure_type": "no_active_claim",
                 "session_id": session_id,
-                "work_unit": item_ref,
+                "work_unit": public_ref,
             },
         )
         return 1, {
             "verified": False,
             "session_id": session_id,
             "claimant": "",
-            "reason": "no active claim on %s" % item_ref,
+            "reason": "no active claim on %s" % public_ref,
             "bypassed": False,
         }
 
@@ -261,12 +261,12 @@ def verify(item_id: int) -> tuple[int, dict]:
         "ClaimVerificationDenied",
         "WARN",
         "failed",
-        item_ref,
+        public_ref,
         {
             "failure_type": "wrong_session",
             "session_id": session_id,
             "claimant_session": claimant,
-            "work_unit": item_ref,
+            "work_unit": public_ref,
         },
     )
     return 1, {

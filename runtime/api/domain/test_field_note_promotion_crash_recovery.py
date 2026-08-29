@@ -78,7 +78,7 @@ def _patch_create(monkeypatch, conn, *, crash=None):
         insert_item(conn, id=item_id, workflow_id="dash", title=kwargs["title"])
         if crash == "after_create" and len(calls) == 1:
             raise RuntimeError("injected crash after item creation")
-        return {"success": True, "item_id": item_id, "item_ref": f"YOK-{item_id}"}
+        return {"success": True, "item_id": item_id, "public_ref": f"YOK-{item_id}"}
 
     monkeypatch.setattr(backlog_create_op, "execute_create", _create)
     return calls

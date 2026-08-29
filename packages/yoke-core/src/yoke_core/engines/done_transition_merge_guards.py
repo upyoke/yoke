@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 
 
 def _parent():
@@ -94,7 +94,7 @@ def _verify_recovery_evidence(
     project_repo: Path,
     base_branch: str,
     *,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> bool:
     """Return whether the remote base contains item-specific merge evidence."""
     _parent()._run_git(
@@ -109,8 +109,8 @@ def _verify_recovery_evidence(
     if origin_check.returncode != 0:
         target_ref = base_branch
     legacy_ref = format_item_ref(None, None, None, item_id=item_id)
-    search_refs = [item_ref or legacy_ref]
-    if item_ref and item_ref != legacy_ref:
+    search_refs = [public_ref or legacy_ref]
+    if public_ref and public_ref != legacy_ref:
         search_refs.append(legacy_ref)
     for search_ref in search_refs:
         log_check = _parent()._run_git(
@@ -137,13 +137,13 @@ def _handle_resume_from_step6(
     result,
     result_file: str,
     *,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> Optional[int]:
     """Validate recovery evidence before resuming post-merge work."""
     if not _verify_recovery_evidence(
-        item_id, project_repo, base_branch, item_ref=item_ref
+        item_id, project_repo, base_branch, public_ref=public_ref
     ):
-        ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+        ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
         print(
             f"\nError: {ref} has no active worktree lane and no merge "
             f"evidence found on origin/{base_branch}.\n"

@@ -195,7 +195,7 @@ def _step_is_compatible_with_offer(
     return True
 
 
-def _serialize_filtered_step(step: Any, item_ref: ItemRefLookup) -> Dict[str, Any]:
+def _serialize_filtered_step(step: Any, public_ref: ItemRefLookup) -> Dict[str, Any]:
     """Serialize an incompatible ScheduledStep for downstream rendering.
 
     Captures the fields the decision engine and ``/yoke do`` loop need to
@@ -211,7 +211,7 @@ def _serialize_filtered_step(step: Any, item_ref: ItemRefLookup) -> Dict[str, An
         claim_state_val = claim_state_val.value
     raw_item_id = getattr(step, "item_id", "")
     return {
-        "item_id": item_ref(raw_item_id),
+        "item_id": public_ref(raw_item_id),
         "title": getattr(step, "title", ""),
         "status": getattr(step, "status", ""),
         "next_step": next_step_val,

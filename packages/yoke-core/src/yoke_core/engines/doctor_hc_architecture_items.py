@@ -64,11 +64,11 @@ def hc_architecture_impact_declaration(
     findings: List[str] = []
     for row in rows:
         item_id, status, raw_value = row[0], row[1], row[2]
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
         value = (raw_value or "").strip().lower()
         if value not in _IMPACT_ALLOWED:
             findings.append(
-                f"- {item_ref}: architecture_impact='{raw_value}' is "
+                f"- {public_ref}: architecture_impact='{raw_value}' is "
                 f"not one of {sorted(_IMPACT_ALLOWED)}. Repair: rewrite "
                 "via `db_router items update YOK-N architecture_impact "
                 "--stdin` with a valid enum value."
@@ -76,7 +76,7 @@ def hc_architecture_impact_declaration(
             continue
         if value == IMPACT_UNCERTAIN and status in _NON_UNCERTAIN_STATUSES:
             findings.append(
-                f"- {item_ref}: status='{status}' but "
+                f"- {public_ref}: status='{status}' but "
                 "architecture_impact='uncertain'. Refine should have "
                 "resolved this to one of the three declared classes "
                 "before advance to refined-idea."

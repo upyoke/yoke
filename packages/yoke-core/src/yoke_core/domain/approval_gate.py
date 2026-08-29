@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 from typing import Any, Iterable, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import REQUEST_WITHDRAWN_EVENT
@@ -167,7 +167,7 @@ def evaluate_lifecycle_approval(
                 session_id=session_id,
             )
 
-    item_ref = format_item_ref(
+    public_ref = format_item_ref(
         str(item["project"]),
         str(item["public_item_prefix"] or ""),
         int(item["project_sequence"]),
@@ -183,8 +183,8 @@ def evaluate_lifecycle_approval(
         named_actor_ids=named_actor_ids,
         subject_context={
             "item_id": int(item_id),
-            "item_ref": item_ref,
-            "title": f"{item_ref} — approve the {target} transition",
+            "public_ref": public_ref,
+            "title": f"{public_ref} — approve the {target} transition",
             "item_title": str(item["title"]),
             "from_stage": str(item["status"]),
             "transition": target,

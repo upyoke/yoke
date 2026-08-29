@@ -38,7 +38,7 @@ class DeadWait:
 
     session_id: str
     item_id: int
-    item_ref: str
+    public_ref: str
     asked_seconds: int
     answerer_session_id: str
     reason: str
@@ -151,7 +151,7 @@ def dead_waits(
             DeadWait(
                 session_id=holder.session_id,
                 item_id=holder.item_id,
-                item_ref=holder.item_ref,
+                public_ref=holder.public_ref,
                 asked_seconds=age_seconds(asked_at, now) or 0,
                 answerer_session_id=answerer,
                 reason=_answerability(conn, answerer),

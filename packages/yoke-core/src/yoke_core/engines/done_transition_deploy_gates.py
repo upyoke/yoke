@@ -75,11 +75,11 @@ def _check_deployment_flow_guard(
     old_status: str,
     delivery_stage_id: str | None,
     *,
-    item_ref: str,
+    public_ref: str,
 ) -> Optional[Tuple[int, str]]:
     """Post-merge deployment flow guard.
 
-    ``item_ref`` is the project-aware public ref resolved once (server-side)
+    ``public_ref`` is the project-aware public ref resolved once (server-side)
     by the caller, so the guard renders its block narratives without opening a
     local connection on this read path.
 
@@ -98,7 +98,7 @@ def _check_deployment_flow_guard(
     if deploy_flow not in registered_flows:
         print("\n=== Deployment flow guard ===")
         print(
-            f"Blocked: Item {item_ref} has deployment_flow '{deploy_flow}' "
+            f"Blocked: Item {public_ref} has deployment_flow '{deploy_flow}' "
             f"which is NOT a registered deployment flow."
         )
         if registered_flows:
@@ -119,7 +119,7 @@ def _check_deployment_flow_guard(
         if not has_evidence:
             print("\n=== Deployment evidence guard ===")
             print(
-                f"Blocked: --skip-deploy passed for {item_ref} but no "
+                f"Blocked: --skip-deploy passed for {public_ref} but no "
                 "successful deployment evidence found."
             )
             print(
@@ -127,9 +127,9 @@ def _check_deployment_flow_guard(
                 "to done without evidence that the deployment pipeline ran "
                 "successfully."
             )
-            print(f"Run '/yoke usher {item_ref}' to deploy first.")
+            print(f"Run '/yoke usher {public_ref}' to deploy first.")
             return 7, old_status
-        print(f"Deployment evidence verified for {item_ref}.")
+        print(f"Deployment evidence verified for {public_ref}.")
         print("  Skipping live deployment pipeline checks per --skip-deploy.")
         return None
 
@@ -153,41 +153,41 @@ def _check_deployment_flow_guard(
         elif run_status in ("created", "executing"):
             print("\n=== Deployment run guard ===")
             print(
-                f"Blocked: Item {item_ref} has a deployment run at "
+                f"Blocked: Item {public_ref} has a deployment run at "
                 f"status '{run_status}'."
             )
             print("\nThe deployment pipeline has not completed yet.")
             print(
                 f"Wait for the deployment run to finish, or run "
-                f"'/yoke usher {item_ref}' to retry."
+                f"'/yoke usher {public_ref}' to retry."
             )
             return 7, old_status
         elif run_status in ("failed", "cancelled"):
             print("\n=== Deployment run guard ===")
             print(
-                f"Blocked: Item {item_ref} has a deployment run at "
+                f"Blocked: Item {public_ref} has a deployment run at "
                 f"status '{run_status}'."
             )
             print("\nThe deployment pipeline did not succeed.")
-            print(f"Run '/yoke usher {item_ref}' to create a new deployment run.")
+            print(f"Run '/yoke usher {public_ref}' to create a new deployment run.")
             return 7, old_status
         else:
             print(
                 f"Warning: unexpected run status '{run_status}' for "
-                f"{item_ref}, falling back to deploy_stage check."
+                f"{public_ref}, falling back to deploy_stage check."
             )
 
     if not run_status:
         # No runs recorded — no deployment evidence.
         print("\n=== Deployment evidence guard ===")
         print(
-            f"Blocked: Item {item_ref} has deployment flow "
+            f"Blocked: Item {public_ref} has deployment flow "
             f"'{deploy_flow}' but no deployment evidence."
         )
         print("\nThe deployment pipeline was never executed for this item.")
-        print(f"Run '/yoke usher {item_ref}' to deploy first.")
+        print(f"Run '/yoke usher {public_ref}' to deploy first.")
         return _redirect_to_delivery_stage(
-            item_id, old_status, delivery_stage_id, item_ref=item_ref
+            item_id, old_status, delivery_stage_id, public_ref=public_ref
         )
 
     # deploy_stage check for runless deployment evidence.
@@ -198,11 +198,11 @@ def _check_deployment_flow_guard(
             return None
         print("\n=== Deployment flow guard ===")
         print(
-            f"Item {item_ref} has deployment flow '{deploy_flow}' "
+            f"Item {public_ref} has deployment flow '{deploy_flow}' "
             f"(deploy_stage='{deploy_stage}')."
         )
         return _redirect_to_delivery_stage(
-            item_id, old_status, delivery_stage_id, item_ref=item_ref
+            item_id, old_status, delivery_stage_id, public_ref=public_ref
         )
 
     return None
@@ -213,11 +213,11 @@ def _redirect_to_delivery_stage(
     old_status: str,
     delivery_stage_id: str | None,
     *,
-    item_ref: str,
+    public_ref: str,
 ) -> Tuple[int, str]:
     """Move to the pinned definition's delivery stage when it declares one.
 
-    ``item_ref`` is the caller's already-resolved public ref, so the redirect
+    ``public_ref`` is the caller's already-resolved public ref, so the redirect
     narrative renders without opening a local connection.
     """
     if delivery_stage_id is None:
@@ -229,11 +229,11 @@ def _redirect_to_delivery_stage(
         delivery_stage_id,
         env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
         rebuild_board=False,
-        item_ref=item_ref,
+        public_ref=public_ref,
     )
     _parent()._rebuild_board_direct()
     print(
-        f"\nNext step: run '/yoke usher {item_ref}' to execute "
+        f"\nNext step: run '/yoke usher {public_ref}' to execute "
         "the deployment pipeline."
     )
     return 7, delivery_stage_id

@@ -174,7 +174,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
     for row in done_rows:
         did = row["id"]
         proj = row["project"]
-        item_ref = render_item_ref(conn, int(did))
+        public_ref = render_item_ref(conn, int(did))
 
         # Resolve only the owning project's inspected checkout. Never use the
         # current/default repository for a different project's item.
@@ -218,7 +218,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                     if result.status == "deleted":
                         issues.append(
                             f"- Fixed: deleted stale remote branch "
-                            f"{pattern}{proj_label} -- {item_ref} is done/cancelled"
+                            f"{pattern}{proj_label} -- {public_ref} is done/cancelled"
                         )
                     else:
                         issues.append(
@@ -234,7 +234,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
             else:
                 issues.append(
                     f"- Stale remote branch: {pattern}{proj_label} "
-                    f"-- {item_ref} is done/cancelled "
+                    f"-- {public_ref} is done/cancelled "
                     "(rerun this check with --fix for proof-gated cleanup)"
                 )
 

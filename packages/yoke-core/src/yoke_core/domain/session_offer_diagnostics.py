@@ -19,8 +19,8 @@ def _value(value: Any) -> str:
     return value.value if hasattr(value, "value") else str(value)
 
 
-def _step_refs(steps: Iterable[Any], item_ref: ItemRefLookup) -> List[str]:
-    return [item_ref(getattr(step, "item_id", "")) for step in steps]
+def _step_refs(steps: Iterable[Any], public_ref: ItemRefLookup) -> List[str]:
+    return [public_ref(getattr(step, "item_id", "")) for step in steps]
 
 
 def _step_path(step: Any) -> str:
@@ -42,9 +42,9 @@ def _filter_entry(
     return entry
 
 
-def _wip_occupants(schedule: Any, item_ref: ItemRefLookup) -> List[str]:
+def _wip_occupants(schedule: Any, public_ref: ItemRefLookup) -> List[str]:
     return [
-        item_ref(item_id)
+        public_ref(item_id)
         for item_id in getattr(schedule, "wip_active_items", [])
     ]
 
@@ -144,7 +144,7 @@ def build_schedule_offer_diagnostics(
 
     # Every ref the chain renders resolves in one read up front; the chain
     # then formats from the resolved map.
-    item_ref = render_item_ref_lookup(
+    public_ref = render_item_ref_lookup(
         conn,
         [
             *(getattr(step, "item_id", "") for step in lane_filtered_steps),
@@ -169,7 +169,7 @@ def build_schedule_offer_diagnostics(
                 config_source=(
                     f"project capability {SESSION_ROUTING_CAPABILITY}"
                 ),
-                eliminated_items=_step_refs(lane_filtered_steps, item_ref),
+                eliminated_items=_step_refs(lane_filtered_steps, public_ref),
             ),
             _filter_entry(
                 "wip_cap",
@@ -177,15 +177,15 @@ def build_schedule_offer_diagnostics(
                 len(wip_filtered_steps),
                 cap=getattr(schedule, "wip_cap", None),
                 active=getattr(schedule, "wip_active", 0),
-                occupying_items=_wip_occupants(schedule, item_ref),
-                eliminated_items=_step_refs(wip_filtered_steps, item_ref),
+                occupying_items=_wip_occupants(schedule, public_ref),
+                eliminated_items=_step_refs(wip_filtered_steps, public_ref),
             ),
             _filter_entry(
                 "claim_state",
                 len(compatible_steps) - len(wip_filtered_steps),
                 len(claim_filtered_steps),
                 claim_state_counts=dict(sorted(claim_counts.items())),
-                eliminated_items=_step_refs(claim_filtered_steps, item_ref),
+                eliminated_items=_step_refs(claim_filtered_steps, public_ref),
             ),
             _filter_entry(
                 "posture_gate_holds",
@@ -194,7 +194,7 @@ def build_schedule_offer_diagnostics(
                 blocked=len(blocked),
                 exceptional=len(exceptional),
                 frozen=len(frozen),
-                held_items=_step_refs(posture_holds, item_ref),
+                held_items=_step_refs(posture_holds, public_ref),
             ),
         ],
         "remaining_candidates": sum(

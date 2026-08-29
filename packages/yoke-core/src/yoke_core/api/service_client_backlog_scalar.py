@@ -29,7 +29,7 @@ import sys
 from typing import Any, List, Optional
 
 
-def _dispatch_scalar(item_ref: str, field: str, value: Any, intent: str) -> Any:
+def _dispatch_scalar(public_ref: str, field: str, value: Any, intent: str) -> Any:
     """Dispatch one ``items.scalar.update`` call. Returns the FunctionCallResponse."""
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
     from yoke_core.api.service_client_shared_session_resolver import current_session_id
@@ -39,7 +39,7 @@ def _dispatch_scalar(item_ref: str, field: str, value: Any, intent: str) -> Any:
     sid = current_session_id() or "operator-cli"
     from yoke_core.domain.yok_n_parser import item_argument_project
 
-    target: dict[str, Any] = {"kind": "item", "item_ref": item_ref}
+    target: dict[str, Any] = {"kind": "item", "public_ref": public_ref}
     project = item_argument_project()
     if project is not None:
         target["project_id"] = str(project)
@@ -79,20 +79,20 @@ def _single_item_ref_arg(args: List[str], verb: str) -> Optional[str]:
 
 def cmd_freeze(args: List[str]) -> int:
     """``db_router items freeze <PREFIX-N>`` — set frozen=true via items.scalar.update."""
-    item_ref = _single_item_ref_arg(args, "freeze")
-    if item_ref is None:
+    public_ref = _single_item_ref_arg(args, "freeze")
+    if public_ref is None:
         return 2
-    response = _dispatch_scalar(item_ref, "frozen", True, "freeze")
-    return _emit_outcome(response, f"{item_ref}: frozen")
+    response = _dispatch_scalar(public_ref, "frozen", True, "freeze")
+    return _emit_outcome(response, f"{public_ref}: frozen")
 
 
 def cmd_thaw(args: List[str]) -> int:
     """``db_router items thaw <PREFIX-N>`` — set frozen=false via items.scalar.update."""
-    item_ref = _single_item_ref_arg(args, "thaw")
-    if item_ref is None:
+    public_ref = _single_item_ref_arg(args, "thaw")
+    if public_ref is None:
         return 2
-    response = _dispatch_scalar(item_ref, "frozen", False, "thaw")
-    return _emit_outcome(response, f"{item_ref}: thawed")
+    response = _dispatch_scalar(public_ref, "frozen", False, "thaw")
+    return _emit_outcome(response, f"{public_ref}: thawed")
 
 
 def cmd_block(args: List[str]) -> int:
@@ -100,55 +100,55 @@ def cmd_block(args: List[str]) -> int:
     if len(args) != 2:
         print('Usage: db_router items block <PREFIX-N> "<reason>"', file=sys.stderr)
         return 2
-    item_ref = str(args[0]).strip()
+    public_ref = str(args[0]).strip()
     reason = args[1]
     if not reason.strip():
         print("Error: reason must be a non-empty string", file=sys.stderr)
         return 2
 
-    flag_response = _dispatch_scalar(item_ref, "blocked", True, "block")
+    flag_response = _dispatch_scalar(public_ref, "blocked", True, "block")
     if not flag_response.success:
         return _emit_outcome(flag_response, "")
-    reason_response = _dispatch_scalar(item_ref, "blocked_reason", reason, "block")
+    reason_response = _dispatch_scalar(public_ref, "blocked_reason", reason, "block")
     if not reason_response.success:
         # Flag was set but reason write failed — partial state. Report both.
         err = reason_response.error
         code = getattr(err, "code", None) or (err.get("code") if isinstance(err, dict) else "")
         msg = getattr(err, "message", None) or (err.get("message") if isinstance(err, dict) else str(err))
         print(
-            f"PARTIAL: {item_ref} blocked=true set but reason write failed "
+            f"PARTIAL: {public_ref} blocked=true set but reason write failed "
             f"({code}: {msg}). Recover with: "
-            f"python3 -m yoke_core.cli.db_router items update {item_ref} "
+            f"python3 -m yoke_core.cli.db_router items update {public_ref} "
             f"blocked_reason '<reason>'",
             file=sys.stderr,
         )
         return 1
-    return _emit_outcome(reason_response, f'{item_ref}: blocked (reason: {reason})')
+    return _emit_outcome(reason_response, f'{public_ref}: blocked (reason: {reason})')
 
 
 def cmd_unblock(args: List[str]) -> int:
     """``db_router items unblock <PREFIX-N>`` — clear blocked flag and reason."""
-    item_ref = _single_item_ref_arg(args, "unblock")
-    if item_ref is None:
+    public_ref = _single_item_ref_arg(args, "unblock")
+    if public_ref is None:
         return 2
 
-    flag_response = _dispatch_scalar(item_ref, "blocked", False, "unblock")
+    flag_response = _dispatch_scalar(public_ref, "blocked", False, "unblock")
     if not flag_response.success:
         return _emit_outcome(flag_response, "")
-    reason_response = _dispatch_scalar(item_ref, "blocked_reason", None, "unblock")
+    reason_response = _dispatch_scalar(public_ref, "blocked_reason", None, "unblock")
     if not reason_response.success:
         err = reason_response.error
         code = getattr(err, "code", None) or (err.get("code") if isinstance(err, dict) else "")
         msg = getattr(err, "message", None) or (err.get("message") if isinstance(err, dict) else str(err))
         print(
-            f"PARTIAL: {item_ref} blocked=false set but reason clear failed "
+            f"PARTIAL: {public_ref} blocked=false set but reason clear failed "
             f"({code}: {msg}). Recover with: "
-            f"python3 -m yoke_core.cli.db_router items update {item_ref} "
+            f"python3 -m yoke_core.cli.db_router items update {public_ref} "
             f"blocked_reason ''",
             file=sys.stderr,
         )
         return 1
-    return _emit_outcome(reason_response, f"{item_ref}: unblocked")
+    return _emit_outcome(reason_response, f"{public_ref}: unblocked")
 
 
 __all__ = [

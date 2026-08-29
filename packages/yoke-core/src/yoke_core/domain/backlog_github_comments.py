@@ -69,17 +69,17 @@ def post_comment(
         except ValueError:
             print(f"Error: Item {item_id} not found", file=stderr)
             return 1
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
             print(
-                f"[DRY-RUN] Skipping GitHub: post-comment for {item_ref} ({old_status} -> {new_status})",
+                f"[DRY-RUN] Skipping GitHub: post-comment for {public_ref} ({old_status} -> {new_status})",
                 file=stdout,
             )
             return 0
 
         context = _item_context(item_pk, conn=conn)
         if context is None:
-            print(f"Error: Item {item_ref} not found", file=stderr)
+            print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         github_issue, project, repo = context
         issue_num_str = github_issue.lstrip("#")
@@ -100,7 +100,7 @@ def post_comment(
         colors = _label_colors()
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref,
+            public_ref,
             str(issue_num),
             project=gh_project,
             stderr=stderr,
@@ -108,7 +108,7 @@ def post_comment(
             max_attempts=github_max_attempts,
         ):
             print(
-                f"Warning: post_comment skipped for {item_ref} — "
+                f"Warning: post_comment skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
@@ -159,7 +159,7 @@ def post_comment(
         return 0
     except ProjectGithubAuthError as exc:
         print(
-            f"Warning: post_comment skipped for {locals().get('item_ref', str(item_id))} — "
+            f"Warning: post_comment skipped for {locals().get('public_ref', str(item_id))} — "
             f"sync_warning={exc.__class__.__name__}: {exc}",
             file=stderr,
         )

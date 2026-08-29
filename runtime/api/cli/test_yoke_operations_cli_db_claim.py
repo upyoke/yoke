@@ -66,7 +66,7 @@ class TestDbClaimAmendDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "db_claim.amend"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "42"
+        assert req.target.public_ref == "42"
         assert req.payload == {
             "claim": {"state": "none"},
             "reason": "no governed work",
@@ -93,7 +93,7 @@ class TestDbClaimProseCheckDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "db_claim.prose_check"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-42"
+        assert req.target.public_ref == "YOK-42"
         assert req.payload == {}
 
     def test_prose_check_stdin_runs_locally(self) -> None:

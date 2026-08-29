@@ -94,7 +94,7 @@ def _error_outcome(code: str, message: str) -> HandlerOutcome:
 
 
 def _read_current_status(item_id: int) -> tuple[Optional[str], str]:
-    """Return ``(status, item_ref)``; status is ``None`` when the item is gone.
+    """Return ``(status, public_ref)``; status is ``None`` when the item is gone.
 
     The public ref is read alongside the status so the caller's operator
     messages name the item the way the operator does.
@@ -108,12 +108,12 @@ def _read_current_status(item_id: int) -> tuple[Optional[str], str]:
             f"SELECT status, frozen FROM items WHERE id = {p}",
             (int(item_id),),
         ).fetchone()
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
     if row is None:
-        return None, item_ref
+        return None, public_ref
     if hasattr(row, "keys"):
-        return str(row["status"] or ""), item_ref
-    return str(row[0] or ""), item_ref
+        return str(row["status"] or ""), public_ref
+    return str(row[0] or ""), public_ref
 
 
 def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
@@ -129,7 +129,7 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
             f"SELECT frozen FROM items WHERE id = {p}",
             (int(item_id),),
         ).fetchone()
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
     if row is None:
         return None
     frozen_val = row[0] if not hasattr(row, "keys") else row["frozen"]
@@ -137,7 +137,7 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
         return None
     return _error_outcome(
         "frozen",
-        f"{item_ref} is frozen; thaw the item before transitioning "
+        f"{public_ref} is frozen; thaw the item before transitioning "
         f"status (or pass force=True for sanctioned overrides).",
     )
 
@@ -171,16 +171,16 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         capture_db_mutation_gate_warnings,
     )
 
-    current, item_ref = _read_current_status(item_id)
+    current, public_ref = _read_current_status(item_id)
     if current is None:
         return _error_outcome(
             "target_not_found",
-            f"{item_ref} not found.",
+            f"{public_ref} not found.",
         )
     if payload.source_status and payload.source_status != current:
         return _error_outcome(
             "precondition_failed",
-            f"{item_ref} status is {current!r}, not {payload.source_status!r}.",
+            f"{public_ref} status is {current!r}, not {payload.source_status!r}.",
         )
     blocked = _frozen_blocked(item_id, payload.force)
     if blocked is not None:
@@ -198,7 +198,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
 
     captured = io.StringIO()
     with (
-        acting_item_ref_bound(target.item_ref),
+        acting_item_ref_bound(target.public_ref),
         capture_db_mutation_gate_warnings() as gate_warnings,
     ):
         result = backlog.execute_update(

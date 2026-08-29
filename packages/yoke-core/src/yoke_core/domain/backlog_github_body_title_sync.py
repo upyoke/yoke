@@ -67,14 +67,14 @@ def sync_body(
         except ValueError:
             print(f"Error: Item {item_id} not found", file=stderr)
             return 1
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: sync-body for {item_ref}", file=stdout)
+            print(f"[DRY-RUN] Skipping GitHub: sync-body for {public_ref}", file=stdout)
             return 0
 
         context = _item_context(item_pk, conn=conn)
         if context is None:
-            print(f"Error: Item {item_ref} not found", file=stderr)
+            print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         github_issue, project, repo = context
         issue_num = github_issue.lstrip("#")
@@ -98,19 +98,19 @@ def sync_body(
             resolve_project_github_auth(gh_project)
         except ProjectGithubAuthError as exc:
             print(
-                f"Error: sync_body short-circuit for {item_ref}: "
+                f"Error: sync_body short-circuit for {public_ref}: "
                 f"{type(exc).__name__}: {exc}",
                 file=stderr,
             )
             return 1
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref, issue_num, project=gh_project, stderr=stderr,
+            public_ref, issue_num, project=gh_project, stderr=stderr,
             timeout_seconds=github_timeout_seconds,
             max_attempts=github_max_attempts,
         ):
             print(
-                f"Error: sync_body skipped for {item_ref} — "
+                f"Error: sync_body skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
@@ -126,7 +126,7 @@ def sync_body(
         item_fields = _item_fields(
             item_pk, ["title", "status", "workflow_id", "project"], conn=conn,
         ) or {}
-        item_fields.setdefault("identity", item_ref)
+        item_fields.setdefault("identity", public_ref)
         selected_body, mode = _budget.select_body_for_github(
             body,
             item_fields=item_fields,
@@ -148,7 +148,7 @@ def sync_body(
         # mirror went compact; clear it when a full body landed.
         _budget.record_sync_mode(conn, int(item_pk), mode)
         _budget.emit_compact_notice(mode, int(item_pk), stderr)
-        print(f"Synced body: {item_ref} → {github_issue}", file=stdout)
+        print(f"Synced body: {public_ref} → {github_issue}", file=stdout)
         return 0
     finally:
         _close_if_owned(conn, owns_conn)
@@ -177,14 +177,14 @@ def sync_title(
         except ValueError:
             print(f"Error: Item {item_id} not found", file=stderr)
             return 1
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: sync-title for {item_ref}", file=stdout)
+            print(f"[DRY-RUN] Skipping GitHub: sync-title for {public_ref}", file=stdout)
             return 0
 
         context = _item_context(item_pk, conn=conn)
         if context is None:
-            print(f"Error: Item {item_ref} not found", file=stderr)
+            print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         github_issue, project, repo = context
         issue_num = github_issue.lstrip("#")
@@ -202,10 +202,10 @@ def sync_title(
             return 1
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref, issue_num, project=gh_project, stderr=stderr,
+            public_ref, issue_num, project=gh_project, stderr=stderr,
         ):
             print(
-                f"Error: sync_title skipped for {item_ref} — "
+                f"Error: sync_title skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
@@ -214,19 +214,19 @@ def sync_title(
         fields = _item_fields(item_pk, ["title"], conn=conn)
         title = fields.get("title", "") if fields else ""
         if not title:
-            print(f"Error: No title found for {item_ref}", file=stderr)
+            print(f"Error: No title found for {public_ref}", file=stderr)
             return 1
 
         try:
             github_rest.update_issue(
                 project=gh_project, number=int(issue_num),
-                title=f"[{item_ref}] {title}",
+                title=f"[{public_ref}] {title}",
             )
         except github_rest.RestTransportError as exc:
             print(f"Error: Failed to update title for {github_issue}: {exc}", file=stderr)
             return 1
 
-        print(f"Synced title: {item_ref} → {github_issue}", file=stdout)
+        print(f"Synced title: {public_ref} → {github_issue}", file=stdout)
         return 0
     finally:
         _close_if_owned(conn, owns_conn)

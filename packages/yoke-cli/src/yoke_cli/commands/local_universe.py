@@ -259,7 +259,7 @@ def local_demo_seed(args: List[str]) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         for item in report.get("items", []):
-            print(f"{item.get('item_ref')}: {item.get('title')}")
+            print(f"{item.get('public_ref')}: {item.get('title')}")
         print(report.get(
             "next_step",
             "run `yoke board rebuild --print --no-pager`",

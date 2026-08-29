@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX
+from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.item_ref_construction_baseline import baseline_counts
 from yoke_core.domain.lint_item_ref_bare_cli_token import (
     scan_bare_internal_cli_token,

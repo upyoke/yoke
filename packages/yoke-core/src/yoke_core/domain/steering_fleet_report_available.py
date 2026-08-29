@@ -22,7 +22,7 @@ class FrontierEntry:
     """Runnable unclaimed step; ``was_owned`` means a claim release put it there."""
 
     item_id: int
-    item_ref: str
+    public_ref: str
     title: str
     next_step: str
     rank: int
@@ -101,7 +101,7 @@ def scope_candidates(
         entries.append(
             FrontierEntry(
                 item_id=step.item_id,
-                item_ref=refs.get(step.item_id, str(step.item_id)),
+                public_ref=refs.get(step.item_id, str(step.item_id)),
                 title=step.title,
                 next_step=step.next_step.value,
                 rank=step.rank,

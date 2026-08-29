@@ -20,7 +20,7 @@ import io
 from yoke_core.api.service_client_shared import _emit_backlog_result
 def _dispatch_structured_field_replace(
     *,
-    item_ref: str,
+    public_ref: str,
     field: str,
     content: str,
     force: bool,
@@ -43,7 +43,7 @@ def _dispatch_structured_field_replace(
         function_id="items.structured_field.replace",
         target=TargetRef(
             kind="item",
-            item_ref=item_ref,
+            public_ref=public_ref,
             project_id=None if project is None else str(project),
         ),
         payload={
@@ -74,7 +74,7 @@ def _dispatch_structured_field_replace(
                 break
         if sync_warning:
             legacy["sync_warning"] = sync_warning
-        captured.write(f"Structured write complete: {item_ref} {field}\n")
+        captured.write(f"Structured write complete: {public_ref} {field}\n")
         return _emit_backlog_result(legacy, log=captured.getvalue())
 
     err_msg = (

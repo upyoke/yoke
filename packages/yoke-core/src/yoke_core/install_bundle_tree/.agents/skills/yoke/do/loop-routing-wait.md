@@ -18,7 +18,7 @@ If `context.offer_diagnostics.top_eliminator.eliminated > 0`, print `Top elimina
 ```
 {context.runnable_elsewhere_note}
 Projects:
- - {group.project} ({group.count}): {group.item_refs} — invoke /yoke do from {group.checkout_path or 'the <project> checkout'}
+ - {group.project} ({group.count}): {group.public_refs} — invoke /yoke do from {group.checkout_path or 'the <project> checkout'}
 ```
 
 Do not charge or resume an item from another checkout. This action is NOT chainable. Stop the loop.

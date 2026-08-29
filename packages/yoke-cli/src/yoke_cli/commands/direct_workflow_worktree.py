@@ -7,7 +7,7 @@ import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import client_project_context
-from yoke_contracts.item_ref import parse_public_item_ref
+from yoke_contracts.public_ref import parse_public_item_ref
 
 AdapterFn = Callable[[List[str]], int]
 PREPARE_USAGE = (

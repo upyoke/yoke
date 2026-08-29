@@ -41,7 +41,7 @@ def _fetch_browser_context(
     ``expected_branch`` is given) the latest deployed_sha for the freshness
     gate. ``item_id`` accepts the numeric id or a public ref
     (``PREFIX-N`` / bare project-local number) — refs resolve server-side
-    via ``target.item_ref``, and the result payload echoes the resolved
+    via ``target.public_ref``, and the result payload echoes the resolved
     numeric ``item_id``. Raises ``RuntimeError`` with the
     transport/handler error message on failure.
     """
@@ -54,7 +54,7 @@ def _fetch_browser_context(
         target = TargetRef(kind="item", item_id=int(item_id))
     except (TypeError, ValueError):
         target = TargetRef(
-            kind="item", item_ref=str(item_id).strip(), project_id=project,
+            kind="item", public_ref=str(item_id).strip(), project_id=project,
         )
 
     payload: Dict[str, Any] = {

@@ -142,7 +142,7 @@ def _usable_existing_pull_request(
 
 
 def ensure_landing_pull_request(
-    ctx: MergeContext, item_ref: str, *, lane_head: str = "",
+    ctx: MergeContext, public_ref: str, *, lane_head: str = "",
 ) -> tuple[str, Optional[str]]:
     """Find the pull request this landing may use, or open one.
 
@@ -175,9 +175,9 @@ def ensure_landing_pull_request(
         return "", publish_error
     created = create_pr(
         ctx,
-        title=f"{item_ref}: merge queue landing",
+        title=f"{public_ref}: merge queue landing",
         body=(
-            f"Item branch for {item_ref}; lands through the merge queue's "
+            f"Item branch for {public_ref}; lands through the merge queue's "
             "merge_group integration gate."
         ),
     )

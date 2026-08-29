@@ -138,11 +138,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     if unlabeled > 0:
         from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
-        item_ref = item_ref_for_id(number)
+        public_ref = item_ref_for_id(number)
         print(unlabeled)
         print(
             "Warning: %s has %d unlabeled checkbox AC(s) under ## Acceptance Criteria."
-            % (item_ref, unlabeled),
+            % (public_ref, unlabeled),
             file=sys.stderr,
         )
         print(
@@ -151,7 +151,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         )
         print(
             "Run /yoke shepherd %s or normalize manually to canonical AC-N labels."
-            % item_ref,
+            % public_ref,
             file=sys.stderr,
         )
         return 0

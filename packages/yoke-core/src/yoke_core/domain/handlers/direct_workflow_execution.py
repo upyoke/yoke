@@ -211,7 +211,7 @@ def handle_dash_escalate(request: FunctionCallRequest) -> HandlerOutcome:
             str(created.get("error") or "Issue creation failed"),
         )
     issue_item_id = int(created["item_id"])
-    issue_ref = str(created.get("item_ref") or issue_item_id)
+    issue_ref = str(created.get("public_ref") or issue_item_id)
     with connect() as conn:
         record_dash_escalation(
             conn,

@@ -63,7 +63,7 @@ class TestClaimsWorkHolderGet:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1818"
+        assert req.target.public_ref == "1818"
         assert req.payload == {}
 
     def test_item_flag_form_dispatches(self) -> None:
@@ -72,7 +72,7 @@ class TestClaimsWorkHolderGet:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1818"
+        assert req.target.public_ref == "1818"
         assert req.payload == {}
 
     def test_missing_item_returns_usage_error(self) -> None:
@@ -96,7 +96,7 @@ class TestClaimsWorkHolderGet:
         # Relay contract: ref validation is server-side.
         rc = _run(_stub_ok, "claims", "work", "holder-get", "not-a-sun-id")
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.item_ref == "not-a-sun-id"
+        assert _CAPTURED_REQUESTS[-1].target.public_ref == "not-a-sun-id"
 
 
 class TestClaimsWorkCurrent:
@@ -108,7 +108,7 @@ class TestClaimsWorkCurrent:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1880"
+        assert req.target.public_ref == "1880"
         assert req.payload == {}
 
     def test_positional_form_dispatches(self) -> None:
@@ -116,7 +116,7 @@ class TestClaimsWorkCurrent:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_get"
-        assert req.target.item_ref == "1880"
+        assert req.target.public_ref == "1880"
 
     def test_missing_item_returns_usage_error(self) -> None:
         rc = _run(_stub_ok, "claims", "work", "current")
@@ -131,7 +131,7 @@ class TestClaimsWorkHolderList:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.work.holder_list"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1818"
+        assert req.target.public_ref == "1818"
         assert req.payload == {}
 
     def test_session_filter_dispatches_global(self) -> None:
@@ -197,7 +197,7 @@ class TestPathClaimsConflictsList:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.target.kind == "item"
-        assert req.target.item_ref == "7"
+        assert req.target.public_ref == "7"
 
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run(_stub_fail, "path-claims", "conflicts", "list")

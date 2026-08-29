@@ -90,7 +90,7 @@ class ClaimHolder:
 
     session_id: str
     item_id: int
-    item_ref: str
+    public_ref: str
     mode: str
     parked: bool
     last_activity_at: str
@@ -206,7 +206,7 @@ def claim_holders(
             ClaimHolder(
                 session_id=str(record["session_id"]),
                 item_id=int(record["item_id"]),
-                item_ref=refs.get(int(record["item_id"]), str(record["item_id"])),
+                public_ref=refs.get(int(record["item_id"]), str(record["item_id"])),
                 mode=mode,
                 parked=session_is_parked(mode),
                 last_activity_at=last_activity,

@@ -1,9 +1,9 @@
 """Server-side target item-ref resolution tests (relay contract).
 
 Covers :mod:`yoke_core.domain.yoke_function_dispatch_target`: raw
-``target.item_ref`` values resolve into ``target.item_id`` inside the
+``target.public_ref`` values resolve into ``target.item_id`` inside the
 dispatcher from explicit project context, and unresolvable refs return a
-typed ``item_ref_unresolved`` envelope.
+typed ``public_ref_unresolved`` envelope.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from unittest.mock import patch
 
 from yoke_core.domain.yoke_function_dispatch_target import (
-    resolve_target_item_ref,
+    resolve_target_public_ref,
 )
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -33,12 +33,12 @@ def _request(target: TargetRef, session_id: str = "s-1") -> FunctionCallRequest:
 class TestResolveTargetItemRef(unittest.TestCase):
     def test_noop_without_item_ref(self):
         request = _request(TargetRef(kind="item", item_id=42))
-        self.assertIsNone(resolve_target_item_ref(request))
+        self.assertIsNone(resolve_target_public_ref(request))
         self.assertEqual(request.target.item_id, 42)
 
     def test_mismatched_item_id_and_ref_is_refused(self):
         request = _request(
-            TargetRef(kind="item", item_id=42, item_ref="YOK-99"),
+            TargetRef(kind="item", item_id=42, public_ref="YOK-99"),
         )
 
         @contextmanager
@@ -52,7 +52,7 @@ class TestResolveTargetItemRef(unittest.TestCase):
             "yoke_core.domain.yok_n_parser.parse_item_id",
             return_value=99,
         ):
-            response = resolve_target_item_ref(request)
+            response = resolve_target_public_ref(request)
         assert response is not None
         self.assertFalse(response.success)
         assert response.error is not None
@@ -61,7 +61,7 @@ class TestResolveTargetItemRef(unittest.TestCase):
 
     def test_matching_item_id_and_ref_keeps_resolved_id(self):
         request = _request(
-            TargetRef(kind="item", item_id=42, item_ref="YOK-99"),
+            TargetRef(kind="item", item_id=42, public_ref="YOK-99"),
         )
 
         @contextmanager
@@ -75,13 +75,13 @@ class TestResolveTargetItemRef(unittest.TestCase):
             "yoke_core.domain.yok_n_parser.parse_item_id",
             return_value=42,
         ):
-            self.assertIsNone(resolve_target_item_ref(request))
+            self.assertIsNone(resolve_target_public_ref(request))
         self.assertEqual(request.target.item_id, 42)
         self.assertIsNone(request.target.project_id)
 
     def test_resolves_ref_with_target_project_context(self):
         request = _request(
-            TargetRef(kind="item", item_ref="123", project_id="yoke"),
+            TargetRef(kind="item", public_ref="123", project_id="yoke"),
         )
         captured = {}
 
@@ -101,7 +101,7 @@ class TestResolveTargetItemRef(unittest.TestCase):
             "yoke_core.domain.yok_n_parser.parse_item_id",
             side_effect=_parse,
         ):
-            self.assertIsNone(resolve_target_item_ref(request))
+            self.assertIsNone(resolve_target_public_ref(request))
         self.assertEqual(request.target.item_id, 4242)
         self.assertEqual(captured["ref"], "123")
         self.assertEqual(captured["project"], "yoke")
@@ -110,7 +110,7 @@ class TestResolveTargetItemRef(unittest.TestCase):
         self.assertIsNone(request.target.project_id)
 
     def test_unresolved_ref_returns_typed_error(self):
-        request = _request(TargetRef(kind="item", item_ref="123"))
+        request = _request(TargetRef(kind="item", public_ref="123"))
 
         @contextmanager
         def _cm(*_a, **_k):
@@ -123,11 +123,11 @@ class TestResolveTargetItemRef(unittest.TestCase):
             "yoke_core.domain.yok_n_parser.parse_item_id",
             side_effect=ValueError("bare numeric item refs are project-local"),
         ):
-            response = resolve_target_item_ref(request)
+            response = resolve_target_public_ref(request)
         assert response is not None
         self.assertFalse(response.success)
         assert response.error is not None
-        self.assertEqual(response.error.code, "item_ref_unresolved")
+        self.assertEqual(response.error.code, "public_ref_unresolved")
         self.assertIn("project-local", response.error.message)
 if __name__ == "__main__":
     unittest.main()

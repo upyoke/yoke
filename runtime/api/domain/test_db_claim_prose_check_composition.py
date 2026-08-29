@@ -34,7 +34,7 @@ class TestCheckComposition:
         outcome = check(
             "We will ALTER TABLE items to add due_date.",
             profile_raw='{"state":"none"}',
-            item_ref="BUZ-999",
+            public_ref="BUZ-999",
         )
         assert outcome.blocks is True
         assert "ALTER TABLE" in outcome.triggers
@@ -55,7 +55,7 @@ class TestCheckComposition:
             "This work item is expected to be control-plane code only. "
             "It should not mutate live Yoke DB schema or bulk data.",
             profile_raw='{"state":"none"}',
-            item_ref="YOK-88",
+            public_ref="YOK-88",
         )
         assert outcome.triggers
         assert outcome.negative_claim_detected is True
@@ -67,7 +67,7 @@ class TestCheckComposition:
             "This work item does not run live DB apply during refine, but "
             "the implementation will ALTER TABLE items ADD COLUMN due_date TEXT.",
             profile_raw='{"state":"none"}',
-            item_ref="YOK-89",
+            public_ref="YOK-89",
         )
         assert outcome.negative_claim_detected is False
         assert outcome.blocks is True
@@ -91,7 +91,7 @@ class TestCheckComposition:
         outcome = check(
             "Updates migration_audit during apply.",
             profile_raw='{"state":"none"}',
-            item_ref="BUZ-42",
+            public_ref="BUZ-42",
         )
         assert "yoke db-claim amend BUZ-42" in outcome.recovery
         assert '--reason "<why no governed DB mutation>" --state none' in outcome.recovery
@@ -103,7 +103,7 @@ class TestCheckComposition:
         outcome = check(
             "ALTER TABLE x",
             profile_raw=None,
-            item_ref="YOK-1",
+            public_ref="YOK-1",
         )
         assert outcome.has_declared_claim is False
         assert outcome.blocks is True
@@ -112,7 +112,7 @@ class TestCheckComposition:
         outcome = check(
             "ALTER TABLE x",
             profile_raw="{not-json",
-            item_ref="YOK-1",
+            public_ref="YOK-1",
         )
         assert outcome.has_declared_claim is False
         assert outcome.blocks is True

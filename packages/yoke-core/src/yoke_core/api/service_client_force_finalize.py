@@ -21,12 +21,12 @@ _FORCE_FINALIZE_REASONS = {
 }
 
 
-def _next_step(item_ref: str, status: str) -> str:
+def _next_step(public_ref: str, status: str) -> str:
     if status == "reviewed-implementation":
-        return f"Next: /yoke polish {item_ref}"
+        return f"Next: /yoke polish {public_ref}"
     if status == "implemented":
-        return f"Next: /yoke usher {item_ref}"
-    return f"Force finalize complete for {item_ref} at {status}."
+        return f"Next: /yoke usher {public_ref}"
+    return f"Force finalize complete for {public_ref} at {status}."
 
 
 def run_force_finalize_handoff(
@@ -48,11 +48,11 @@ def run_force_finalize_handoff(
 
     conn = _get_db_readwrite()
     try:
-        item_ref = render_item_ref(conn, item_id)
+        public_ref = render_item_ref(conn, item_id)
         session_id = _resolve_session_id(None)
         if not session_id:
             print(
-                f"Warning: execute-update --force reached {value} for {item_ref} "
+                f"Warning: execute-update --force reached {value} for {public_ref} "
                 "but no session id was available for claim handoff.",
                 file=out,
             )
@@ -65,7 +65,7 @@ def run_force_finalize_handoff(
             )
         except ValueError as exc:
             print(
-                f"Warning: claim release failed for {item_ref} "
+                f"Warning: claim release failed for {public_ref} "
                 f"(reason=domain_error): {exc}",
                 file=out,
             )
@@ -81,7 +81,7 @@ def run_force_finalize_handoff(
     result["force_finalize"] = release_result
     if release_result.get("released"):
         print(
-            f"Force finalize: released claim for {item_ref} "
+            f"Force finalize: released claim for {public_ref} "
             f"with reason {release_reason}.",
             file=out,
         )
@@ -90,11 +90,11 @@ def run_force_finalize_handoff(
         holder = release_result.get("holder_session_id")
         holder_clause = f" held by session '{holder}'" if holder else ""
         print(
-            f"Warning: claim release failed for {item_ref} "
+            f"Warning: claim release failed for {public_ref} "
             f"(reason={failure}){holder_clause}: see events for ItemClaimReleaseFailed.",
             file=out,
         )
-    print(_next_step(item_ref, value), file=out)
+    print(_next_step(public_ref, value), file=out)
 
 
 __all__ = ["run_force_finalize_handoff"]

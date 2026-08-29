@@ -121,7 +121,7 @@ def authoritative_status_is(item_id: int, expected_status: str) -> bool:
 def closed_out_envelope(
     item: dict[str, Any],
     *,
-    item_ref: str,
+    public_ref: str,
     branch: str,
     claim_note: str,
 ) -> Optional[dict[str, Any]]:
@@ -138,7 +138,7 @@ def closed_out_envelope(
     return {
         "ok": True,
         "item_id": int(item["id"]),
-        "item_ref": item_ref,
+        "public_ref": public_ref,
         "branch": branch,
         "already_merged": True,
         "commit_sha": str(evidence.get("commit_sha") or ""),
@@ -150,7 +150,7 @@ def closed_out_envelope(
         "evidence_recorded": True,
         "status": str(item.get("status") or ""),
         "warnings": [
-            f"{item_ref} already closed out: evidence recorded at "
+            f"{public_ref} already closed out: evidence recorded at "
             f"{evidence.get('recorded_at') or 'an earlier attempt'} and the "
             f"item is {CLOSED_OUT_STATUS} ({claim_note})"
         ],

@@ -37,7 +37,7 @@ def test_create_builds_an_item_targeted_lane_registration(monkeypatch) -> None:
 
     assert captured["function_id"] == "item_worktrees.create"
     assert captured["target"].kind == "item"
-    assert captured["target"].item_ref == "YOK-971"
+    assert captured["target"].public_ref == "YOK-971"
     assert captured["target"].project_id == "yoke"
     assert captured["payload"] == {
         "lane_role": "worker",

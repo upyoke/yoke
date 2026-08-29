@@ -106,7 +106,7 @@ def test_get_builds_an_item_targeted_lane_read(monkeypatch) -> None:
 
     assert captured["function_id"] == "item_worktrees.get"
     assert captured["target"].kind == "item"
-    assert captured["target"].item_ref == "YOK-951"
+    assert captured["target"].public_ref == "YOK-951"
     assert captured["payload"] == {"lane_role": "implementation"}
 
     stdout = StringIO()
@@ -143,7 +143,7 @@ def test_release_attests_a_clean_lane_before_dispatch(
 
     assert captured["function_id"] == "item_worktrees.release"
     assert captured["target"].kind == "item"
-    assert captured["target"].item_ref == "YOK-952"
+    assert captured["target"].public_ref == "YOK-952"
     assert captured["payload"] == {
         "all_active": True,
         "reason": "evidence-only-recovery",

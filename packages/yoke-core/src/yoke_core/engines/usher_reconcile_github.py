@@ -167,18 +167,18 @@ def reconcile_item(
 ) -> ReconcileResult:
     # The nested item CLI boundary receives the canonical public ref, never a
     # stringified internal id that it could reinterpret as a public sequence.
-    item_ref = _display_item_ref(item_id)
-    deploy_stage = (_yoke_db("items", "get", item_ref, "deploy_stage") or "").strip()
+    public_ref = _display_item_ref(item_id)
+    deploy_stage = (_yoke_db("items", "get", public_ref, "deploy_stage") or "").strip()
     if not deploy_stage:
         return ReconcileResult(
             outcome="no-action", item_id=item_id,
-            message=f"{item_ref} has no deploy_stage set; nothing to reconcile.",
+            message=f"{public_ref} has no deploy_stage set; nothing to reconcile.",
         )
     if not deploy_stage.endswith(_FAILED_SUFFIX):
         return ReconcileResult(
             outcome="no-action", item_id=item_id, deploy_stage=deploy_stage,
             message=(
-                f"{item_ref} deploy_stage='{deploy_stage}' does not carry the "
+                f"{public_ref} deploy_stage='{deploy_stage}' does not carry the "
                 "'<stage>-failed' shape; nothing to reconcile."
             ),
         )
@@ -187,7 +187,7 @@ def reconcile_item(
     run_id = _resolve_run_for_item(item_id)
     if not run_id:
         return _error(item_id, deploy_stage, (
-            f"{item_ref} has no deployment_run_items row; cannot resolve "
+            f"{public_ref} has no deployment_run_items row; cannot resolve "
             "Yoke deployment run. Investigate the usher session manually."
         ))
 
@@ -256,7 +256,7 @@ def reconcile_item(
             gh_conclusion="success",
             message=(
                 "Yoke records aligned with GitHub truth. "
-                f"Resume usher with: /yoke usher {item_ref} --resume"
+                f"Resume usher with: /yoke usher {public_ref} --resume"
             ),
         )
     if rc == 1:

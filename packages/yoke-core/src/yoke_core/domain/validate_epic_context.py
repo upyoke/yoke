@@ -55,7 +55,7 @@ def _int_scalar(conn: Any, sql: str, params: tuple = ()) -> int:
 def _resolve_epic(
     conn: Any, epic_ref: str
 ) -> tuple[str, str]:
-    """Return ``(display_ref, canonical_epic_id)``.
+    """Return ``(public_ref, canonical_epic_id)``.
 
     ``PREFIX-N`` resolves via the project's ``public_item_prefix`` +
     ``items.project_sequence``; a bare number uses the mapped checkout project.
@@ -63,7 +63,7 @@ def _resolve_epic(
 
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
-    display_ref = epic_ref
+    public_ref = epic_ref
     item_id = parse_item_argument(epic_ref, conn=conn)
     resolved = _query_scalar(
         conn,
@@ -73,7 +73,7 @@ def _resolve_epic(
     if not resolved:
         raise ValueError(f"Item {epic_ref} does not exist")
 
-    return display_ref, resolved
+    return public_ref, resolved
 
 
 def _parse_timestamp(value: str) -> Optional[datetime]:

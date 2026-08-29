@@ -81,7 +81,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     # Resolve the branch's public item ref to the internal items.id every
     # downstream consumer expects. The ref carries the project sequence,
     # which is not the internal id once the two diverge, so it is passed
-    # as ``item_ref`` for the dispatcher to resolve server-side — that
+    # as ``public_ref`` for the dispatcher to resolve server-side — that
     # keeps resolution authoritative over an https control plane as well
     # as an in-process local connection, with no client DB read.
     ctx.item_id = str(args.item_id) if args.item_id is not None else None
@@ -90,7 +90,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
-                target=TargetRef(kind="item", item_ref=match.group(1)),
+                target=TargetRef(kind="item", public_ref=match.group(1)),
                 payload={},
             )
             if detail.success:
@@ -107,7 +107,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
-                target=TargetRef(kind="item", item_ref=str(ctx.epic_id).strip()),
+                target=TargetRef(kind="item", public_ref=str(ctx.epic_id).strip()),
                 payload={},
             )
             if detail.success:

@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Tuple
 
-from yoke_contracts.item_ref import (
+from yoke_contracts.public_ref import (
     DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
 )
@@ -124,7 +124,7 @@ def scope_project_id(db: Any, scope: str | int) -> int:
     return int(rows[0][0])
 
 
-def item_ref(db: Any, item_id: int) -> str:
+def public_ref(db: Any, item_id: int) -> str:
     """Render the public ``PREFIX-N`` reference for an item id."""
     rows = db.query(
         "SELECT p.slug, p.public_item_prefix, i.project_sequence "
@@ -139,7 +139,7 @@ def item_ref(db: Any, item_id: int) -> str:
 
 
 __all__ = [
-    "item_ref",
+    "public_ref",
     "project_filter",
     "project_id_filter",
     "project_ref_where",

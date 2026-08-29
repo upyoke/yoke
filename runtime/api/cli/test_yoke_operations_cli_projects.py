@@ -306,7 +306,7 @@ class TestProjectStructurePatchApply:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "project_structure.patch.apply"
         assert req.target.kind == "project_structure"
-        assert req.target.item_ref is None
+        assert req.target.public_ref is None
         assert req.payload == {
             "project_id": "yoke",
             "ops": [{"op": "replace", "path": "/foo", "value": "bar"}],
@@ -320,7 +320,7 @@ class TestProjectStructurePatchApply:
             "--actor", "ops@example.com",
         )
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.item_ref == "YOK-2137"
+        assert _CAPTURED_REQUESTS[-1].target.public_ref == "YOK-2137"
         assert _CAPTURED_REQUESTS[-1].payload["actor"] == "ops@example.com"
 
     def test_bad_ops_json_returns_two(self) -> None:

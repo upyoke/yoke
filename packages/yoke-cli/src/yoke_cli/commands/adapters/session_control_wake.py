@@ -84,7 +84,7 @@ def session_wake(args: List[str]) -> int:
     payload = (
         {"session_id": parsed.target_session_id}
         if parsed.target_session_id
-        else {"item_ref": parsed.item}
+        else {"public_ref": parsed.item}
     )
     if parsed.prompt:
         payload["prompt"] = parsed.prompt

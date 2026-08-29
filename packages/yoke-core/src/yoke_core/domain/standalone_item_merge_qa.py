@@ -99,7 +99,7 @@ def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
 def evaluate(
     item: dict[str, Any],
     *,
-    item_ref: str,
+    public_ref: str,
     repo_root: Path,
     branch: str,
 ) -> tuple[str, list[BlockingRequirementIssue], str]:
@@ -127,7 +127,7 @@ def evaluate(
         blocking_requirement_issues(
             requirements,
             accepted_shas=(commit_sha,),
-            item_ref=item_ref,
+            public_ref=public_ref,
             require_any=require_any,
         ),
         "",
@@ -137,14 +137,14 @@ def evaluate(
 def preflight(
     item: dict[str, Any],
     *,
-    item_ref: str,
+    public_ref: str,
     repo_root: Path,
     branch: str,
 ) -> tuple[str, str]:
     """Return the merging commit and any terminal-QA refusal before landing."""
     commit_sha, issues, error = evaluate(
         item,
-        item_ref=item_ref,
+        public_ref=public_ref,
         repo_root=repo_root,
         branch=branch,
     )
@@ -152,7 +152,7 @@ def preflight(
         return commit_sha, error
     errors = requirement_issue_errors(
         issues,
-        item_ref=item_ref,
+        public_ref=public_ref,
         target_status="done",
     )
     if errors:

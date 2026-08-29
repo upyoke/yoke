@@ -180,9 +180,9 @@ def task_scope_issues(
     """Return deterministic task diagnostics without mutating scope."""
     issues: list[str] = []
     legacy_schema = not schema_available(conn)
-    item_ref = render_item_ref(conn, int(item_id))
+    public_ref = render_item_ref(conn, int(item_id))
     for row in _rows(conn, int(item_id)):
-        label = f"{item_ref} task {row['task_num']}"
+        label = f"{public_ref} task {row['task_num']}"
         state = row["state"]
         count = row["file_count"]
         if legacy_schema:
@@ -239,12 +239,12 @@ def finalize_generated_task_scopes(
     after_membership_read: Callable[[], None] | None = None,
 ) -> None:
     """Atomically finalize every task scope or leave every task unpublished."""
-    item_ref = render_item_ref(conn, int(item_id))
+    public_ref = render_item_ref(conn, int(item_id))
     if not schema_available(conn):
         issues = task_scope_issues(conn, int(item_id))
         if issues:
             raise TaskScopeIncomplete(
-                f"{item_ref} generated task scope cannot finalize: "
+                f"{public_ref} generated task scope cannot finalize: "
                 + "; ".join(issues)
             )
         return
@@ -269,14 +269,14 @@ def finalize_generated_task_scopes(
                 issues.append(f"task {row['task_num']} has invalid state {state!r}")
         if issues:
             raise TaskScopeIncomplete(
-                f"{item_ref} generated task scope cannot finalize: "
+                f"{public_ref} generated task scope cannot finalize: "
                 + "; ".join(issues)
             )
         if after_membership_read is not None:
             after_membership_read()
         if not rows and not stamp_membership_finalized(conn, int(item_id)):
             raise TaskScopeIncomplete(
-                f"{item_ref} empty task membership cannot be finalized until the item snapshot schema is available"
+                f"{public_ref} empty task membership cannot be finalized until the item snapshot schema is available"
             )
         conn.execute(
             "UPDATE epic_tasks SET scope_state='paths' "

@@ -125,7 +125,7 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     for row in rows:
         item_id = row["id"]
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
         gh = row["github_issue"]
         project = row["project"]
         num = gh.replace("#", "")
@@ -162,7 +162,7 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 project_auth_cache[project] = cached
         if isinstance(cached, ProjectGithubAuthError):
             issues.append(
-                f"- {item_ref} (project={project}): "
+                f"- {public_ref} (project={project}): "
                 f"cannot resolve auth: {cached}\n"
                 f"  Repair: {repair_command_hint(cached, project)}"
             )
@@ -194,23 +194,23 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     ):
                         fixed_count += 1
                         issues.append(
-                            f"- {item_ref} (project={project}): "
+                            f"- {public_ref} (project={project}): "
                             f"migrated #{num} from {yoke_repo} to {target_repo}"
                         )
                     else:
                         issues.append(
-                            f"- {item_ref} (project={project}): "
+                            f"- {public_ref} (project={project}): "
                             f"issue #{num} exists in {yoke_repo} but should be "
                             f"in {target_repo} (migration failed)"
                         )
                 else:
                     issues.append(
-                        f"- {item_ref} (project={project}): "
+                        f"- {public_ref} (project={project}): "
                         f"issue #{num} exists in {yoke_repo} but should be in {target_repo}"
                     )
             else:
                 issues.append(
-                    f"- {item_ref} (project={project}): "
+                    f"- {public_ref} (project={project}): "
                     f"issue #{num} not found in {target_repo} or {yoke_repo}"
                 )
 

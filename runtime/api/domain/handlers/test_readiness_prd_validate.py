@@ -27,9 +27,9 @@ def _request(payload=None, *, item_id: int = 42) -> FunctionCallRequest:
 def _patch_prd(monkeypatch: pytest.MonkeyPatch, report: prd_validate.Report):
     calls = {}
 
-    def resolve_body(item_ref, body_text):
-        calls["resolve_body"] = (item_ref, body_text)
-        return "body text", item_ref
+    def resolve_body(public_ref, body_text):
+        calls["resolve_body"] = (public_ref, body_text)
+        return "body text", public_ref
 
     def validate_prd(body, item_label):
         calls["validate_prd"] = (body, item_label)

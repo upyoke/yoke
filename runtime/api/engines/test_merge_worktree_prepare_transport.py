@@ -81,7 +81,7 @@ class TestResolveContextRelays:
             "items.detail.get", "items.detail.get",
         ]
         assert calls[0]["target"].kind == "item"
-        assert calls[0]["target"].item_ref == "YOK-4242"
+        assert calls[0]["target"].public_ref == "YOK-4242"
         assert calls[0]["target"].item_id is None
         assert calls[1]["target"].item_id == 4242
         assert ctx.project == "yoke"
@@ -127,13 +127,13 @@ class TestResolveContextRelays:
         def fake(**kwargs):
             target = kwargs["target"]
             seen.append(
-                (kwargs["function_id"], target.item_ref, target.item_id)
+                (kwargs["function_id"], target.public_ref, target.item_id)
             )
             if kwargs["function_id"] == "items.detail.get":
                 # The dispatcher resolves a public ref to its internal id
                 # server-side; an id-targeted read echoes the same id back.
-                if target.item_ref:
-                    resolved = int(str(target.item_ref).rsplit("-", 1)[-1])
+                if target.public_ref:
+                    resolved = int(str(target.public_ref).rsplit("-", 1)[-1])
                 else:
                     resolved = target.item_id
                 return _resp("items.detail.get", {"item": {
@@ -182,7 +182,7 @@ def _pass_responses():
         ),
         "merge.preflight.blocked_gate": _resp(
             "merge.preflight.blocked_gate",
-            {"applicable": True, "item_id": TEST_ITEM_ID, "item_ref": TEST_ITEM_REF, "blocked": False},
+            {"applicable": True, "item_id": TEST_ITEM_ID, "public_ref": TEST_ITEM_REF, "blocked": False},
         ),
     }
 
@@ -290,7 +290,7 @@ class TestPreflightRelays:
             {
                 "applicable": True,
                 "item_id": TEST_ITEM_ID,
-                "item_ref": TEST_ITEM_REF,
+                "public_ref": TEST_ITEM_REF,
                 "blocked": True,
                 "reason": "upstream unresolved",
             },

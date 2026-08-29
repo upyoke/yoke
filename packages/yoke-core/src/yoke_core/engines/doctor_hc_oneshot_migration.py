@@ -88,7 +88,7 @@ def _parse_json_field(raw: Optional[str]) -> Optional[Dict]:
     return data
 
 
-def _profile_issues(item_ref: str, profile: Dict) -> List[str]:
+def _profile_issues(public_ref: str, profile: Dict) -> List[str]:
     """Return per-item drift messages for a governed profile."""
     state = str(profile.get("state") or "").strip()
     if not state or state == "none":
@@ -110,20 +110,20 @@ def _profile_issues(item_ref: str, profile: Dict) -> List[str]:
 
     if missing:
         issues.append(
-            f"- {item_ref}: db_mutation_profile missing required "
+            f"- {public_ref}: db_mutation_profile missing required "
             f"field(s): {', '.join(sorted(set(missing)))}."
         )
 
     modules = profile.get("migration_modules")
     if modules is not None and not isinstance(modules, list):
         issues.append(
-            f"- {item_ref}: db_mutation_profile.migration_modules "
+            f"- {public_ref}: db_mutation_profile.migration_modules "
             f"must be a list (got {type(modules).__name__})."
         )
 
     if intent and intent != "apply":
         issues.append(
-            f"- {item_ref}: db_mutation_profile.mutation_intent must "
+            f"- {public_ref}: db_mutation_profile.mutation_intent must "
             f"be 'apply' (got {intent!r})."
         )
 
@@ -131,7 +131,7 @@ def _profile_issues(item_ref: str, profile: Dict) -> List[str]:
 
 
 def _attestation_issues(
-    item_ref: str, profile: Dict, attestation_raw: Optional[str]
+    public_ref: str, profile: Dict, attestation_raw: Optional[str]
 ) -> List[str]:
     """Return per-item drift messages for pre_merge_safe attestation."""
     compat = str(profile.get("compatibility_class") or "").strip()
@@ -141,7 +141,7 @@ def _attestation_issues(
     attestation = _parse_json_field(attestation_raw)
     if attestation is None:
         return [
-            f"- {item_ref}: pre_merge_safe profile with no "
+            f"- {public_ref}: pre_merge_safe profile with no "
             f"db_compatibility_attestation — all four authored fields "
             f"must be present and non-empty."
         ]
@@ -154,7 +154,7 @@ def _attestation_issues(
 
     if missing:
         return [
-            f"- {item_ref}: pre_merge_safe attestation missing or "
+            f"- {public_ref}: pre_merge_safe attestation missing or "
             f"empty field(s): {', '.join(sorted(set(missing)))}."
         ]
     return []
@@ -269,18 +269,18 @@ def hc_oneshot_migration_coverage(
         )
         for row in rows:
             item_id = int(row["id"])
-            item_ref = render_item_ref(conn, item_id)
+            public_ref = render_item_ref(conn, item_id)
             profile = _parse_json_field(row["db_mutation_profile"])
             if profile is None:
                 issues.append(
-                    f"- {item_ref}: db_mutation_profile is present "
+                    f"- {public_ref}: db_mutation_profile is present "
                     f"but not valid JSON; expected an object."
                 )
                 continue
-            issues.extend(_profile_issues(item_ref, profile))
+            issues.extend(_profile_issues(public_ref, profile))
             issues.extend(
                 _attestation_issues(
-                    item_ref, profile, row["db_compatibility_attestation"]
+                    public_ref, profile, row["db_compatibility_attestation"]
                 )
             )
 

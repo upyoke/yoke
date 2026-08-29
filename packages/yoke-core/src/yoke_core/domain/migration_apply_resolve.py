@@ -150,7 +150,7 @@ def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:
 
 
 def _resolve_profile_or_raise(item: Mapping[str, Any]) -> Dict[str, Any]:
-    item_ref = format_item_ref(
+    public_ref = format_item_ref(
         item.get("project"),
         item.get("public_item_prefix"),
         item.get("project_sequence"),
@@ -160,18 +160,18 @@ def _resolve_profile_or_raise(item: Mapping[str, Any]) -> Dict[str, Any]:
     parsed = _safe_parse_json_dict(raw)
     if not parsed or parsed.get("state") == STATE_NONE:
         raise ProfileNotApplyError(
-            f"Item {item_ref} has no declared db_mutation_profile "
+            f"Item {public_ref} has no declared db_mutation_profile "
             "(state=none) — two-unit apply contract does not run"
         )
     profile = validate_profile(parsed)
     if profile["state"] != STATE_DECLARED:
         raise ProfileNotApplyError(
-            f"Item {item_ref} profile state is {profile['state']!r}, "
+            f"Item {public_ref} profile state is {profile['state']!r}, "
             "expected 'declared'"
         )
     if profile["mutation_intent"] != MUTATION_INTENT_APPLY:
         raise ProfileNotApplyError(
-            f"Item {item_ref} mutation_intent is "
+            f"Item {public_ref} mutation_intent is "
             f"{profile['mutation_intent']!r}, expected 'apply'"
         )
     return profile

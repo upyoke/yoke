@@ -179,14 +179,14 @@ def cmd_execute_update_cli(args: list[str]) -> int:
         )
         return 2
 
-    item_ref = positional_args[0].strip()
-    from yoke_contracts.item_ref import parse_public_item_ref
+    public_ref = positional_args[0].strip()
+    from yoke_contracts.public_ref import parse_public_item_ref
 
-    if parse_public_item_ref(item_ref)[1] is None:
+    if parse_public_item_ref(public_ref)[1] is None:
         return _emit_backlog_result(
             {
                 "success": False,
-                "error": f"Item ref must be PREFIX-N or bare N, got '{item_ref}'",
+                "error": f"Item ref must be PREFIX-N or bare N, got '{public_ref}'",
             }
         )
 
@@ -205,7 +205,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
     item_id: Optional[int] = None
     if not is_structured and not is_raw_body:
         try:
-            item_id = _parse_item_id_arg(item_ref)
+            item_id = _parse_item_id_arg(public_ref)
         except ValueError as exc:
             return _emit_backlog_result({"success": False, "error": str(exc)})
 
@@ -284,7 +284,7 @@ def cmd_execute_update_cli(args: list[str]) -> int:
                 return 1
 
         return _dispatch_structured_field_replace(
-            item_ref=item_ref,
+            public_ref=public_ref,
             field=field,
             content=content_str,
             force=force_flag,

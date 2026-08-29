@@ -138,7 +138,7 @@ class TestClaimsPathReadDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "claims.path.list"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1819"
+        assert req.target.public_ref == "1819"
         assert req.payload == {"states": ["planned", "active", "blocked"]}
 
     def test_claims_path_get_dispatches(self) -> None:
@@ -325,7 +325,7 @@ class TestShepherdDependencyListDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "shepherd.dependency_list.run"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-10"
+        assert req.target.public_ref == "YOK-10"
 
     def test_item_flag(self) -> None:
         rc = _run_with_dispatch(
@@ -333,7 +333,7 @@ class TestShepherdDependencyListDispatch:
             "--item", "1819",
         )
         assert rc == 0
-        assert _CAPTURED_REQUESTS[-1].target.item_ref == "1819"
+        assert _CAPTURED_REQUESTS[-1].target.public_ref == "1819"
 
     def test_missing_item_is_usage_error(self) -> None:
         rc = _run_with_dispatch(

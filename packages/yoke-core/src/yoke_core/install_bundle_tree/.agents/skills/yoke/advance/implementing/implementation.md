@@ -70,7 +70,7 @@ If, during implementation, you discover that the work touches a governed DB — 
    {
      "function": "db_claim.amend",
      "actor": {"session_id": "<this-session>"},
-     "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
+     "target": {"kind": "item", "public_ref": "PREFIX-{N}"},
      "intent": "implementation_db_mutation_discovered",
      "payload": {
        "reason": "implementation discovered governed DB mutation",

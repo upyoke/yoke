@@ -233,9 +233,9 @@ def _cli_readback_report(
     status: Mapping[str, Any],
     direct: Mapping[str, Any],
 ) -> dict[str, Any]:
-    item_ref = str(direct["item_ref"])
+    public_ref = str(direct["public_ref"])
     item_get = run_json(
-        [str(yoke), "items", "get", item_ref, "title", "--json"],
+        [str(yoke), "items", "get", public_ref, "title", "--json"],
         step="yoke-items-get",
         cwd=clone,
         commands=commands,
@@ -256,7 +256,7 @@ def _cli_readback_report(
         "ok": True,
         "event_name": SMOKE_EVENT_NAME,
         "event_id": direct["event_id"],
-        "item_ref": item_ref,
+        "public_ref": public_ref,
         "source_root": str(source_root),
         "clone_root": str(clone),
         "work_dir": str(root),

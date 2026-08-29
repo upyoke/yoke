@@ -27,7 +27,7 @@ def run(args: List[str]) -> int:
     target = (
         TargetRef(
             kind="item",
-            item_ref=str(parsed.item),
+            public_ref=str(parsed.item),
             project_id=parsed.project,
         )
         if parsed.item

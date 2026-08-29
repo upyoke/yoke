@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 
@@ -53,7 +53,7 @@ def promoted_dash_by_field_note_ids(
     return {
         int(row["entry_id"]): {
             "item_id": int(row["dash_item_id"]),
-            "item_ref": format_item_ref(
+            "public_ref": format_item_ref(
                 row["project_slug"],
                 row["public_item_prefix"],
                 int(row["project_sequence"]),

@@ -51,8 +51,8 @@ OVERDUE_MARK = "!"
 LAUNCH_BALANCE_NOTE = "try to maximize balance with each new session launch"
 
 
-def _landed_recovery(item_ref: str) -> str:
-    return f"finish close-out with `yoke merge item {item_ref}`; do not wait on status"
+def _landed_recovery(public_ref: str) -> str:
+    return f"finish close-out with `yoke merge item {public_ref}`; do not wait on status"
 
 
 def _minutes(seconds: int) -> str:
@@ -66,7 +66,7 @@ def _minutes(seconds: int) -> str:
 def _entry_dict(entry: FrontierEntry, now: str) -> dict[str, Any]:
     return {
         "item_id": entry.item_id,
-        "item_ref": entry.item_ref,
+        "public_ref": entry.public_ref,
         "title": entry.title,
         "next_step": entry.next_step,
         "rank": entry.rank,
@@ -80,7 +80,7 @@ def _holder_dict(holder: ClaimHolder) -> dict[str, Any]:
     return {
         "session_id": holder.session_id,
         "item_id": holder.item_id,
-        "item_ref": holder.item_ref,
+        "public_ref": holder.public_ref,
         "mode": holder.mode,
         "parked": holder.parked,
         "last_activity_at": holder.last_activity_at,
@@ -112,11 +112,11 @@ def _launch_dict(entry: UnregisteredLaunch) -> dict[str, Any]:
 def _landed_dict(entry: LandedItem) -> dict[str, Any]:
     return {
         "item_id": entry.item_id,
-        "item_ref": entry.item_ref,
+        "public_ref": entry.public_ref,
         "status": entry.status,
         "landed_at": entry.landed_at,
         "landed_seconds": entry.landed_seconds,
-        "recovery": _landed_recovery(entry.item_ref),
+        "recovery": _landed_recovery(entry.public_ref),
     }
 
 
@@ -124,7 +124,7 @@ def _dead_wait_dict(entry: DeadWait) -> dict[str, Any]:
     return {
         "session_id": entry.session_id,
         "item_id": entry.item_id,
-        "item_ref": entry.item_ref,
+        "public_ref": entry.public_ref,
         "asked_seconds": entry.asked_seconds,
         "answerer_session_id": entry.answerer_session_id,
         "reason": entry.reason,
@@ -171,7 +171,7 @@ def _available_lines(report: FleetReport) -> list[str]:
     now = report.composed_at
     overdue = {entry.item_id for entry in report.waited_too_long()}
     lines = [
-        f"  {OVERDUE_MARK if entry.item_id in overdue else ' '} {entry.item_ref}  "
+        f"  {OVERDUE_MARK if entry.item_id in overdue else ' '} {entry.public_ref}  "
         f"rank {entry.rank}  next {entry.next_step}  "
         f"{'stopped' if entry.was_owned else 'new'}  "
         f"waiting {_minutes(entry.waiting_seconds(now))}  {entry.title}"
@@ -182,7 +182,7 @@ def _available_lines(report: FleetReport) -> list[str]:
 
 def _holder_lines(holders: tuple[ClaimHolder, ...]) -> list[str]:
     lines = [
-        f"  {holder.item_ref}  session {holder.session_id}  mode "
+        f"  {holder.public_ref}  session {holder.session_id}  mode "
         f"{holder.mode or 'unset'}  quiet {_minutes(holder.idle_seconds)}"
         for holder in holders[:SECTION_LIMIT]
     ]
@@ -229,9 +229,9 @@ def _launch_lines(report: FleetReport) -> list[str]:
 
 def _landed_lines(report: FleetReport) -> list[str]:
     lines = [
-        f"  {entry.item_ref}  still {entry.status}  "
+        f"  {entry.public_ref}  still {entry.status}  "
         f"landed {_minutes(entry.landed_seconds)} ago  "
-        f"{_landed_recovery(entry.item_ref)}"
+        f"{_landed_recovery(entry.public_ref)}"
         for entry in report.landed_open[:SECTION_LIMIT]
     ]
     return _capped(lines, len(report.landed_open))
@@ -239,7 +239,7 @@ def _landed_lines(report: FleetReport) -> list[str]:
 
 def _dead_wait_lines(report: FleetReport) -> list[str]:
     lines = [
-        f"  {entry.item_ref}  session {entry.session_id}  asked "
+        f"  {entry.public_ref}  session {entry.session_id}  asked "
         f"{_minutes(entry.asked_seconds)} ago  {entry.answerer_session_id}: "
         f"{entry.reason}"
         for entry in report.dead_waits[:SECTION_LIMIT]

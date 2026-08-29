@@ -204,7 +204,7 @@ def test_narrative_includes_session_id_and_say_recipe(monkeypatch):
     verdict = guard.evaluate_dirty_main_for_item(
         "/repo",
         item_id=1,
-        item_ref="YOK-1",
+        public_ref="YOK-1",
         session_id="caller",
         needed_paths=("foo.py",),
     )
@@ -226,7 +226,7 @@ def test_untracked_scratch_warns_and_does_not_block(monkeypatch):
     verdict = guard.evaluate_dirty_main_for_item(
         "/repo",
         item_id=1,
-        item_ref="YOK-1",
+        public_ref="YOK-1",
         session_id="caller",
         needed_paths=("scratch.py",),
         source_root_prefixes=("src",),
@@ -298,7 +298,7 @@ def test_unknown_machine_falls_back_to_self_clear_recipe(monkeypatch):
     verdict = guard.evaluate_dirty_main_for_item(
         "/repo",
         item_id=1,
-        item_ref="YOK-1",
+        public_ref="YOK-1",
         session_id="caller",
         needed_paths=("foo.py",),
     )

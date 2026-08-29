@@ -48,9 +48,6 @@ class TestClaimsAcquireTargetScope(unittest.TestCase):
         with patch(
             "yoke_core.domain.sessions_lifecycle_claim.claim_work",
             return_value=fake_row,
-        ), patch(
-            "yoke_core.domain.result_item_ref_enrichment.enrich_result_item_refs",
-            side_effect=lambda result, **_k: dict(result),
         ):
             resp = dispatch(
                 FunctionCallRequest(
@@ -64,7 +61,7 @@ class TestClaimsAcquireTargetScope(unittest.TestCase):
         self.assertEqual(resp.result["target_kind"], "item")
         self.assertEqual(resp.result["scope"], {"item_id": 42})
         self.assertNotIn("item_id", resp.result)
-        self.assertNotIn("item_ref", resp.result)
+        self.assertNotIn("public_ref", resp.result)
 
 
 if __name__ == "__main__":

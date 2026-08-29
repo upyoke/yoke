@@ -96,7 +96,7 @@ def land_item_through_merge_queue(
     ctx: MergeContext,
     *,
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     commit_sha: str,
     target: str = "main",
     dispatch: Callable[..., Any] = call_dispatcher,
@@ -139,10 +139,10 @@ def land_item_through_merge_queue(
         if member.head_ref and member.head_ref != ctx.args.branch
     )
 
-    candidate, candidate_err = candidate_shape(dispatch, item_ref)
+    candidate, candidate_err = candidate_shape(dispatch, public_ref)
     if candidate_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=candidate_err)
-    context, context_err = train_context(dispatch, item_ref, member_refs, ctx.project)
+    context, context_err = train_context(dispatch, public_ref, member_refs, ctx.project)
     if context_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=context_err)
     warnings.extend(context.notes)
@@ -159,7 +159,7 @@ def land_item_through_merge_queue(
     # routed through the queue, so this call normally converges on it.
     pr_num, pr_err = ensure_landing_pull_request(
         ctx,
-        item_ref,
+        public_ref,
         lane_head=commit_sha,
     )
     if pr_err:
@@ -312,7 +312,7 @@ def land_item_through_merge_queue(
                 pr_num=pr_num,
                 deadline_seconds=deadline_seconds,
                 item_id=item_id,
-                item_ref=item_ref,
+                public_ref=public_ref,
                 resume_command=resume_command,
                 dispatch=dispatch,
                 last_observed=last_seen,
@@ -325,7 +325,7 @@ def land_item_through_merge_queue(
         item_id=item_id,
         commit_sha=commit_sha,
         pr_num=pr_num,
-        member_snapshot=tuple(dict.fromkeys((*member_refs, item_ref))),
+        member_snapshot=tuple(dict.fromkeys((*member_refs, public_ref))),
     )
     warnings.extend(close_out.warnings)
     return QueueLandingOutcome(

@@ -203,7 +203,7 @@ def list_main_lane_holders(
 
 def format_dirty_main_narrative(
     *,
-    item_ref: str,
+    public_ref: str,
     kind: str,
     paths: Sequence[str],
     holders: Sequence[Mapping[str, str]] = (),
@@ -218,7 +218,7 @@ def format_dirty_main_narrative(
         listing += f"\n  - ... +{len(paths) - _PATH_LIST_CAP} more"
     if tracked:
         lead = (
-            f"Cannot create worktree for {item_ref}: overlapping tracked or "
+            f"Cannot create worktree for {public_ref}: overlapping tracked or "
             "staged files on main match paths this lane needs. git worktree "
             "add copies HEAD and does not require a clean tree; this guard "
             "only refuses overlap."
@@ -226,7 +226,7 @@ def format_dirty_main_narrative(
         ask = "Please commit, stash, or drop overlapping dirty files on main: "
     else:
         lead = (
-            f"Cannot create worktree for {item_ref}: untracked files under "
+            f"Cannot create worktree for {public_ref}: untracked files under "
             "source/package roots on main could collide with a new module. "
             "Untracked files outside package roots are a warning, not a block."
         )
@@ -258,7 +258,7 @@ def evaluate_dirty_main_for_item(
     repo_root: str,
     *,
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     session_id: str = "",
     worktrees_dir: str = "",
     needed_paths: Sequence[str] | None = None,
@@ -287,7 +287,7 @@ def evaluate_dirty_main_for_item(
         paths,
         tuple(needed),
         format_dirty_main_narrative(
-            item_ref=item_ref, kind=kind, paths=paths, holders=holders
+            public_ref=public_ref, kind=kind, paths=paths, holders=holders
         ),
         note,
         prefixes,

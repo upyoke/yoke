@@ -63,7 +63,7 @@ def test_postgres_schema_authority_and_transactional_resolution(test_db):
         subject_type="item_transition", subject_key="17:done",
         project_id=project_id, originator_actor_id=actor_ids[0],
         role_authorities=[RoleAuthority("project", project_id, "owner")],
-        subject_context={"item_ref": "IBX-17", "transition": "done"},
+        subject_context={"public_ref": "IBX-17", "transition": "done"},
     )
     assert created is True
     assert pending_requests_for_actor(test_db, actor_ids[1])[0]["id"] == (

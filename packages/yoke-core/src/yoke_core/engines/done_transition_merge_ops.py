@@ -52,7 +52,7 @@ def _do_merge(
     project_repo: Path,
     item_project: str,
     *,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> Tuple[int, str, bool]:
     """Execute merge-worktree. Returns (exit_code, output, merge_ran)."""
     # Resolve actual branch from worktree directory. Lanes live at
@@ -69,9 +69,9 @@ def _do_merge(
         )
         actual = (br.stdout or "").strip()
         if actual and actual != lane_branch:
-            from yoke_contracts.item_ref import format_item_ref
+            from yoke_contracts.public_ref import format_item_ref
 
-            ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+            ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
             print(f"Warning: branch mismatch for {ref}", file=sys.stderr)
             print(f"  Stored:  {lane_branch}", file=sys.stderr)
             print(f"  Actual:  {actual}", file=sys.stderr)
@@ -97,7 +97,7 @@ def _do_merge(
             target=base_branch,
             repo_root=str(project_repo),
             project=item_project,
-            item_ref=item_ref or "",
+            public_ref=public_ref or "",
             local_merge=False,
         )
         for warning in outcome.warnings:
@@ -272,12 +272,12 @@ def _handle_already_done(
     result,
     result_file: str,
     *,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> int:
     """Handle already-completed items with a tiny idempotent fast path."""
-    from yoke_contracts.item_ref import format_item_ref
+    from yoke_contracts.public_ref import format_item_ref
 
-    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
     print(
         f"Pre-flight: {ref} is already completed (status=done, "
         "worktree cleared)."

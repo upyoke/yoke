@@ -144,7 +144,7 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
         if not session_id:
             continue
         claims = tuple(
-            str(claim.get("target") or claim.get("item_ref") or "")
+            str(claim.get("target") or claim.get("public_ref") or "")
             for claim in raw.get("claims") or []
             if isinstance(claim, Mapping) and claim.get("target_kind") == "item"
         )

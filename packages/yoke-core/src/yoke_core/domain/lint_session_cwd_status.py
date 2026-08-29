@@ -102,17 +102,17 @@ def build_denial_message(item_id: int, status: str) -> str:
     """Render the denial message body."""
     from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
-    item_ref = item_ref_for_id(int(item_id))
+    public_ref = item_ref_for_id(int(item_id))
     return (
         f"BLOCKED: worktree write while item is in pre-implementing status.\n\n"
-        f"{item_ref} is at status='{status}'. Worktree-bound writes "
+        f"{public_ref} is at status='{status}'. Worktree-bound writes "
         f"require the item to be in an implementing-class status "
         f"(implementing, reviewing-implementation, polishing-implementation).\n\n"
-        f"The most likely cause: /yoke advance {item_ref} "
+        f"The most likely cause: /yoke advance {public_ref} "
         f"implementation acquired the work claim and created the worktree, "
         f"but the finalize step never ran to flip the status to "
         f"implementing. Re-enter via:\n"
-        f"    /yoke advance {item_ref} implementation\n"
+        f"    /yoke advance {public_ref} implementation\n"
         f"to resume finalize, or apply the lifecycle.transition function "
         f"call from .agents/skills/yoke/advance/finalize.md step 6 to "
         f"flip status directly."

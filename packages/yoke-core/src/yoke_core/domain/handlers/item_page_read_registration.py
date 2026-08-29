@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import item_page_reads as _reads
+from yoke_core.domain.handlers import items_public_ref as _public_ref
 
 
 def register(registry) -> None:
@@ -28,6 +29,20 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.item_page_reads",
         target_kinds=["item"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "items.public_ref.lookup",
+        _public_ref.handle_items_public_ref_lookup,
+        _public_ref.ItemsPublicRefLookupRequest,
+        _public_ref.ItemsPublicRefLookupResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.items_public_ref",
+        target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],

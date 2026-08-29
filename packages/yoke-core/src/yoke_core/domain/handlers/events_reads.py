@@ -206,7 +206,7 @@ def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, An
         _EVT_SELECT_COLS,
         EVT_COLUMN_NAMES,
     )
-    from yoke_contracts.item_ref import format_item_ref
+    from yoke_contracts.public_ref import format_item_ref
 
     conn = connect()
     try:

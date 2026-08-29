@@ -2,7 +2,7 @@
 
 A public item ref is display-only — ``{public_item_prefix}-{project_sequence}``
 — and is produced solely by the canonical helpers
-(``yoke_contracts.item_ref.format_item_ref`` /
+(``yoke_contracts.public_ref.format_item_ref`` /
 ``yoke_core.domain.project_identity.render_item_ref``). Internal code addresses
 items by the bare integer ``items.id`` and resolves a user token back to an id
 via ``project_identity.resolve_item_id`` — never by stripping a prefix.
@@ -50,7 +50,7 @@ _EXEMPT_SEGMENTS: Tuple[str, ...] = (
 # whole allowlist — keep it small and explicit.
 _EXEMPT_RELPATHS: frozenset[str] = frozenset(
     {
-        "packages/yoke-contracts/src/yoke_contracts/item_ref.py",
+        "packages/yoke-contracts/src/yoke_contracts/public_ref.py",
         "packages/yoke-core/src/yoke_core/domain/project_identity.py",
         "packages/yoke-core/src/yoke_core/domain/project_identity_item_ref.py",
         "packages/yoke-core/src/yoke_core/domain/yok_n_parser.py",

@@ -117,7 +117,7 @@ def group_runnable_elsewhere(steps: List[Any], conn: Any = None) -> List[Dict[st
                 "project": slug,
                 "project_id": project_id,
                 "count": len(refs),
-                "item_refs": refs,
+                "public_refs": refs,
                 "checkout_path": str(checkout) if checkout is not None else "",
             }
         )
@@ -152,7 +152,7 @@ def render_runnable_elsewhere_note(
     parts = []
     for group in groups:
         checkout = group.get("checkout_path") or f"the {group['project']} checkout"
-        refs = ", ".join(group.get("item_refs") or [])
+        refs = ", ".join(group.get("public_refs") or [])
         parts.append(
             f"{group['count']} runnable in {group['project']} ({refs})"
             f" — invoke /yoke do from {checkout}"

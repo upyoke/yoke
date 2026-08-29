@@ -33,7 +33,7 @@ def _validate_item_target_status(
     )
 
 
-def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason: str) -> int:
+def repair_item_status(public_ref: str, new_status: str, *, dry_run: bool, reason: str) -> int:
     """Repair a backlog item's status through the canonical owner."""
     # Lazy import: the front door owns ``_connect`` and also imports this module
     # at top level. Importing at function-call time avoids the bidirectional
@@ -49,7 +49,7 @@ def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason:
         # ``project_sequence`` (not a stripped global id), while a bare number
         # uses the mapped checkout project.
         try:
-            item_id = parse_item_argument(item_ref, conn=conn)
+            item_id = parse_item_argument(public_ref, conn=conn)
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1

@@ -166,7 +166,7 @@ def _format_narrative(
         claim_id=ctx.claim_id,
         item_id=ctx.item_id,
         target_path=target_path,
-        item_ref=ctx.item_ref,
+        public_ref=ctx.public_ref,
     )
     expected_wt = failure.effective_worktree_path or ctx.worktree_path
     if failure.mode == WRONG_CWD:

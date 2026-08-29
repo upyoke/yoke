@@ -69,7 +69,7 @@ class TestItemsSectionDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.section.upsert"
         assert req.target.kind == "section"
-        assert req.target.item_ref == "42"
+        assert req.target.public_ref == "42"
         assert req.target.section_name == "Progress Log"
         assert req.payload == {
             "content": "entry body", "ordering": 200, "source": "advance",
@@ -111,7 +111,7 @@ class TestStructuredFieldAdditiveDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.structured_field.append_addendum"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "7"
+        assert req.target.public_ref == "7"
         assert req.payload == {
             "field": "spec", "heading": "AC-N: foo",
             "content": "addendum body", "source": "refine",
@@ -127,7 +127,7 @@ class TestStructuredFieldAdditiveDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "items.structured_field.section_upsert"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "8"
+        assert req.target.public_ref == "8"
         assert req.payload == {"section": "Findings", "content": "fresh body"}
 
     def test_section_upsert_with_ordering_and_source(self) -> None:

@@ -313,21 +313,21 @@ def execute_create(
 
         record_touched_item(conn, current_id, session_id)
 
-        item_ref = render_item_ref(conn, current_id)
-        print(f"Created: {item_ref}", file=out)
+        public_ref = render_item_ref(conn, current_id)
+        print(f"Created: {public_ref}", file=out)
 
         # Body completeness warning
         title_threshold = len(f"# {title}") + 4
         body_len = len(body)
         if not clean_instruction and body_len <= title_threshold:
             print("", file=out)
-            print(f"WARNING: {item_ref} created with no body content.", file=out)
+            print(f"WARNING: {public_ref} created with no body content.", file=out)
             print(
                 "Cold-start sessions need full context: problem, fix plan, acceptance criteria.",
                 file=out,
             )
             print(
-                f"Use: printf '%s' \"$content\" | yoke items structured-field replace {item_ref} --field spec --stdin",
+                f"Use: printf '%s' \"$content\" | yoke items structured-field replace {public_ref} --field spec --stdin",
                 file=out,
             )
             print("", file=out)
@@ -340,7 +340,7 @@ def execute_create(
 
     _rendering._maybe_rebuild_board(rebuild_board, dry_run=dry_run, out=out)
 
-    return {"success": True, "item_id": current_id, "item_ref": item_ref}
+    return {"success": True, "item_id": current_id, "public_ref": public_ref}
 
 
 __all__ = [

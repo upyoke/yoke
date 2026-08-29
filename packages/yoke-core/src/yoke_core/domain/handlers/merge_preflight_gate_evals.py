@@ -47,7 +47,7 @@ class EpicTaskStatusesResponse(BaseModel):
 
 
 class DependencyGateRequest(BaseModel):
-    item_ref: Optional[str] = None
+    public_ref: Optional[str] = None
     gate_point: str = "integration"
 
 
@@ -63,7 +63,7 @@ class BlockedGateRequest(BaseModel):
 class BlockedGateResponse(BaseModel):
     applicable: bool
     item_id: Optional[int] = None
-    item_ref: Optional[str] = None
+    public_ref: Optional[str] = None
     blocked: bool = False
     reason: Optional[str] = None
 
@@ -132,7 +132,7 @@ def handle_dependency_gate(request: FunctionCallRequest) -> HandlerOutcome:
     Wraps :func:`yoke_core.domain.dependency_planning.evaluate_item_gate`
     unchanged and returns its blocked flag + per-blocker detail dicts. The
     Typed item targets render their project-aware public reference server-side.
-    The global + ``item_ref`` form remains for compatibility with generic
+    The global + ``public_ref`` form remains for compatibility with generic
     branch merges.
     """
     try:
@@ -146,23 +146,23 @@ def handle_dependency_gate(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         with _connect_rw() as conn:
             if request.target.item_id is not None:
-                item_ref = render_item_ref(
+                public_ref = render_item_ref(
                     conn,
                     int(request.target.item_id),
                     required=True,
                 )
-            elif body.item_ref and "-" in body.item_ref:
+            elif body.public_ref and "-" in body.public_ref:
                 # Already qualified (a PREFIX-N ref or a lane branch named for
                 # one). A bare sequence names no project, and guessing one
                 # would evaluate the gate against the wrong item.
-                item_ref = body.item_ref
+                public_ref = body.public_ref
             else:
                 return _err(
                     "target_invalid",
                     "dependency_gate requires an item target or a "
-                    "project-qualified item_ref",
+                    "project-qualified public_ref",
                 )
-            result = evaluate_item_gate(conn, item_ref, body.gate_point)
+            result = evaluate_item_gate(conn, public_ref, body.gate_point)
     except Exception as exc:  # noqa: BLE001 - degrade to an error the caller can skip
         return _err("dependency_gate_failed", str(exc))
 
@@ -182,7 +182,7 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
     branch (the gate does nothing in that case, matching the engine). When a
     lane exists the item's blocked verdict comes from the unchanged
     :func:`yoke_core.domain.advance_blocked_gate.evaluate`. The public
-    ``item_ref`` is rendered server-side (while the connection is live) so the
+    ``public_ref`` is rendered server-side (while the connection is live) so the
     engine's block narrative reads the same project-prefixed reference over
     https as it does on a local connection.
     """
@@ -209,7 +209,7 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
                 )
             item_id = int(row[0])
             decision = _eval_blocked(conn, item_id)
-            item_ref = render_item_ref(conn, item_id)
+            public_ref = render_item_ref(conn, item_id)
     except Exception as exc:  # noqa: BLE001 - degrade to an error the caller can skip
         return _err("blocked_gate_failed", str(exc))
 
@@ -217,7 +217,7 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={
             "applicable": True,
             "item_id": item_id,
-            "item_ref": item_ref,
+            "public_ref": public_ref,
             "blocked": bool(decision.blocked),
             "reason": decision.reason,
         },

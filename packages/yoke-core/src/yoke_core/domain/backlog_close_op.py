@@ -59,7 +59,7 @@ def execute_close(
         lock_item_workflow_bindings(conn, (int(item_id),))
         # Best-effort public ref for every operator-facing message; falls
         # back to the default prefix form when the item cannot be resolved.
-        item_ref = render_item_ref(conn, item_id)
+        public_ref = render_item_ref(conn, item_id)
         row = conn.execute(
             "SELECT i.*, p.slug AS project FROM items i "
             "LEFT JOIN projects p ON p.id = i.project_id "
@@ -67,7 +67,7 @@ def execute_close(
             (item_id,),
         ).fetchone()
         if row is None:
-            return {"success": False, "error": f"Item {item_ref} not found"}
+            return {"success": False, "error": f"Item {public_ref} not found"}
 
         item = dict(row)
         status = item["status"]
@@ -75,7 +75,7 @@ def execute_close(
 
         if status == "cancelled" and (item.get("resolution") or "") == reason:
             print(
-                f"{item_ref} already cancelled with resolution={reason} — no-op.",
+                f"{public_ref} already cancelled with resolution={reason} — no-op.",
                 file=out,
             )
             return {"success": True, "item_id": item_id, "noop": True}
@@ -83,7 +83,7 @@ def execute_close(
         if status == "done":
             return {
                 "success": False,
-                "error": f"{item_ref} is already done — cannot close a delivered item.",
+                "error": f"{public_ref} is already done — cannot close a delivered item.",
             }
 
         if status in {
@@ -95,7 +95,7 @@ def execute_close(
             return {
                 "success": False,
                 "error": (
-                    f"{item_ref} is in delivery tail (status={status}). "
+                    f"{public_ref} is in delivery tail (status={status}). "
                     "Cannot close items past review."
                 ),
             }
@@ -105,7 +105,7 @@ def execute_close(
             return {
                 "success": False,
                 "error": (
-                    f"{item_ref} has merged_at set ({merged_at}). "
+                    f"{public_ref} has merged_at set ({merged_at}). "
                     "Cannot close items with merge evidence."
                 ),
             }
@@ -116,7 +116,7 @@ def execute_close(
             return {
                 "success": False,
                 "error": (
-                    f"{item_ref} has active worktree lanes ({branches}). "
+                    f"{public_ref} has active worktree lanes ({branches}). "
                     "Complete or release those lanes before cancellation."
                 ),
             }
@@ -230,7 +230,7 @@ def execute_close(
         conn.commit()
 
         print(
-            f"Updated: {item_ref} status → cancelled (resolution: {reason})",
+            f"Updated: {public_ref} status → cancelled (resolution: {reason})",
             file=out,
         )
         run_post_commit_update_effects(
@@ -241,19 +241,19 @@ def execute_close(
         if removed_outbound:
             print(
                 f"Reconciled: removed {len(removed_outbound)} outbound "
-                f"dependency row(s) where {item_ref} was the dependent_item.",
+                f"dependency row(s) where {public_ref} was the dependent_item.",
                 file=out,
             )
         if removed_absorbed:
             print(
                 f"Reconciled: removed {len(removed_absorbed)} absorbed-self "
-                f"inbound row(s) where {item_ref} blocked {normalized_resolution_ref}.",
+                f"inbound row(s) where {public_ref} blocked {normalized_resolution_ref}.",
                 file=out,
             )
         if preserved_ambiguous:
             print(
                 f"Warning: {len(preserved_ambiguous)} inbound dependency "
-                f"row(s) preserved — cancelled {item_ref} still listed as "
+                f"row(s) preserved — cancelled {public_ref} still listed as "
                 "blocker. Review with `python3 -m yoke_core.cli.db_router "
                 "shepherd dependency-list` and remove with "
                 "`dependency-remove` if stale:",
@@ -274,7 +274,7 @@ def execute_close(
 
         if _bu._is_dry_run():
             print(
-                f"[DRY-RUN] Skipping GitHub: close + comment for {item_ref}",
+                f"[DRY-RUN] Skipping GitHub: close + comment for {public_ref}",
                 file=out,
             )
         else:

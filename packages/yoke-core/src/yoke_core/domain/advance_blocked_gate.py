@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.queries import is_blocked
 
@@ -41,7 +41,7 @@ def render_blocked_narrative(
     item_id: int,
     reason: Optional[str],
     *,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> str:
     """Render the operator-facing blocked-flag refusal narrative.
 
@@ -49,7 +49,7 @@ def render_blocked_narrative(
     already hold the blocked flag + reason from a relayed read, so both
     paths surface identical text.
     """
-    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
     rendered = (
         f"**Blocked:** {ref} has items.blocked=1 — "
         f"the operator-set blocked flag refuses forward progression. "
@@ -81,12 +81,12 @@ def evaluate(conn: Any, item_id: int) -> AdvanceBlockedDecision:
         return AdvanceBlockedDecision(blocked=False)
     from yoke_core.domain.project_identity import render_item_ref
 
-    item_ref = render_item_ref(conn, item_id)
+    public_ref = render_item_ref(conn, item_id)
     return AdvanceBlockedDecision(
         blocked=True,
         reason=str(reason) if reason else None,
         rendered_blocker=render_blocked_narrative(
-            item_id, reason, item_ref=item_ref
+            item_id, reason, public_ref=public_ref
         ),
     )
 

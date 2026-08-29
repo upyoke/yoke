@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-29T14:11:02Z_
+_Audit generated_at: 2026-08-29T18:05:46Z_
 
 ## 1. Summary
 
-- Function ids registered: **440**
+- Function ids registered: **441**
 - Internal dispatch-only functions without CLI adapters: **86**
-- `yoke` CLI subcommands: **367** (367 carry usable `--help`)
-- Operation tracker: **344 wrapped**, 13 tool_cli, 126 permanent, 0 pending
+- `yoke` CLI subcommands: **368** (368 carry usable `--help`)
+- Operation tracker: **345 wrapped**, 13 tool_cli, 126 permanent, 0 pending
 - Skill-body recipes: 328 total (276 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **344** (operation tracker confirms 344 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **345** (operation tracker confirms 345 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -130,6 +130,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **344** (operation track
 | items | `yoke items merge-provenance operator-correct` | `items.merge_provenance.operator_correct` | ok |
 | items | `yoke items overview list` | `items.overview.list` | ok |
 | items | `yoke items progress-log append` | `items.progress_log.append` | ok |
+| items | `yoke items public-ref lookup` | `items.public_ref.lookup` | ok |
 | items | `yoke items scalar update` | `items.scalar.update` | ok |
 | items | `yoke items search` | `items.search.run` | ok |
 | items | `yoke items section delete` | `items.section.delete` | ok |
@@ -549,8 +550,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 36 |
-| claude-code | 14 |
+| codex | 42 |
+| claude-code | 7 |
+| cursor | 1 |
 
 ## 8. Contradictions
 

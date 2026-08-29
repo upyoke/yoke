@@ -109,7 +109,7 @@ def test_selection_declared_adapts_queue_outcome(monkeypatch):
     monkeypatch.setattr(selection_mod, "merge_standalone_branch", forbidden)
     outcome = selection_mod.route_standalone_landing(
         item_id=1, branch="YOK-200", target="main", commit_sha="c" * 40,
-        repo_root="/tmp/repo", project="yoke", item_ref="YOK-200",
+        repo_root="/tmp/repo", project="yoke", public_ref="YOK-200",
     )
     assert isinstance(outcome, StandaloneMergeOutcome)
     assert outcome.ok

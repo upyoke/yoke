@@ -151,7 +151,7 @@ def _resolve_over_relay(text: str, *, project: str | int | None) -> int | None:
 
     target = TargetRef(
         kind="item",
-        item_ref=text,
+        public_ref=text,
         project_id=None if project is None else str(project),
     )
     try:

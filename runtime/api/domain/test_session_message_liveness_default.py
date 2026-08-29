@@ -112,7 +112,7 @@ def test_an_item_anchor_reaching_an_ended_holder_is_unaffected() -> None:
         conn.execute("UPDATE work_claims SET session_id=? WHERE id=1", (ENDED,))
         conn.commit()
 
-        assert _resolved(conn, item_refs=["ALP-1"]) == [ENDED]
+        assert _resolved(conn, public_refs=["ALP-1"]) == [ENDED]
     finally:
         conn.close()
 

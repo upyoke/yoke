@@ -35,7 +35,7 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
     context = json.loads(conn.execute(
         "SELECT subject_context FROM decision_requests"
     ).fetchone()[0])
-    assert context["item_ref"] == "YOK-4200"
+    assert context["public_ref"] == "YOK-4200"
     assert conn.execute(
         "SELECT status FROM items WHERE id=1907"
     ).fetchone()[0] == "implementing"

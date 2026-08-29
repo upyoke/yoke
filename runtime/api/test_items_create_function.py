@@ -327,8 +327,8 @@ class TestItemsCreateEndToEnd:
         assert outcome.primary_success is True, outcome.error
         item_id = outcome.result_payload["item_id"]
         # The public ref (prefix-sequence) is surfaced for downstream steps.
-        item_ref = outcome.result_payload["item_ref"]
-        assert item_ref and "-" in item_ref, f"item_ref={item_ref!r}"
+        public_ref = outcome.result_payload["public_ref"]
+        assert public_ref and "-" in public_ref, f"public_ref={public_ref!r}"
         # Source resolved to the seeded local human (numeric actor id).
         source = _item_field(tmp_db, item_id, "source")
         assert source.isdigit(), f"source={source!r} must be a numeric actor id"

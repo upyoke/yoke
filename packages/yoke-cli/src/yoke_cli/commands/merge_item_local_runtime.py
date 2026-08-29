@@ -67,7 +67,7 @@ def _work_claim_lookup(argv: List[str]) -> Optional[dict[str, Any]]:
         function_id="claims.work.holder_get",
         target=TargetRef(
             kind="item",
-            item_ref=str(parsed.item),
+            public_ref=str(parsed.item),
             project_id=parsed.project,
         ),
         actor=actor,

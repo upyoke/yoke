@@ -27,7 +27,6 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.opaque_contract_payload import opaque_contract_payload
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +123,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         and request.target.item_id is not None
     ):
         # Dispatcher-resolved envelope target carries the id when the
-        # client shipped a raw item_ref (relay contract).
+        # client shipped a raw public_ref (relay contract).
         target_spec.item_id = int(request.target.item_id)
     try:
         target = _spec_to_target(target_spec)
@@ -155,7 +154,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
             "claim_id": int(row["id"]),
             "session_id": str(row["session_id"]),
             "target_kind": acquired_target.kind,
-            "scope": opaque_contract_payload(acquired_target.scope),
+            "scope": acquired_target.scope,
             "linked_path_claim_ids": list(row.get("linked_path_claim_ids") or []),
         },
     )

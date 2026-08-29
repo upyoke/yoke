@@ -125,9 +125,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Usage:\n{USAGE}", file=sys.stderr)
         return 1
 
-    item_ref, new_status = args.refs
+    public_ref, new_status = args.refs
     return repair_item_status(
-        item_ref,
+        public_ref,
         new_status,
         dry_run=args.dry_run,
         reason=args.reason,

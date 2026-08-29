@@ -67,8 +67,8 @@ def test_reported_ref_comes_from_project_sequence_not_row_id(test_db):
 
     result = operator_correct_merged_at(test_db, ITEM_ID, LANDED_AT, REASON)
 
-    assert result["item_ref"].endswith(str(ITEM_ID - 7))
-    assert not result["item_ref"].endswith(str(ITEM_ID))
+    assert result["public_ref"].endswith(str(ITEM_ID - 7))
+    assert not result["public_ref"].endswith(str(ITEM_ID))
 
 
 def test_refuses_when_merged_at_already_recorded(test_db):

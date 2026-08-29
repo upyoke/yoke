@@ -44,7 +44,7 @@ def created(monkeypatch):
 
     def _record(**kwargs):
         captured.update(kwargs)
-        return {"success": True, "item_id": 11, "item_ref": "YOK-11"}
+        return {"success": True, "item_id": 11, "public_ref": "YOK-11"}
 
     monkeypatch.setattr(
         "yoke_core.domain.backlog_create_op.execute_create", _record,

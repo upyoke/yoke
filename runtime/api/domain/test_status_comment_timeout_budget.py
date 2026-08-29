@@ -63,8 +63,8 @@ def test_status_comment_forwards_budget_to_comment_and_labels(monkeypatch):
             calls["github_auth_project"] = project
             return True
 
-        def _validate_issue_in_repo(self, item_ref, issue_num, **kwargs):
-            calls["validate"] = (item_ref, issue_num, kwargs)
+        def _validate_issue_in_repo(self, public_ref, issue_num, **kwargs):
+            calls["validate"] = (public_ref, issue_num, kwargs)
             return True
 
     def fake_post_comment(**kwargs):

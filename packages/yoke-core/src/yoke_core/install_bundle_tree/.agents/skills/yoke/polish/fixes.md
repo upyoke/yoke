@@ -40,7 +40,7 @@ Function-call equivalent (for dispatch-surface callers — `db-claim-amend` buil
 {
   "function": "db_claim.amend",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
   "intent": "polish_db_mutation_discovered",
   "payload": {
     "reason": "polish discovered governed DB mutation",

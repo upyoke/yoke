@@ -141,9 +141,9 @@ def sync_labels(
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
             return 0
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: sync-labels for {item_ref}", file=stdout)
+            print(f"[DRY-RUN] Skipping GitHub: sync-labels for {public_ref}", file=stdout)
             return 0
         context = _item_context(item_pk, conn=conn)
         if context is None:
@@ -164,13 +164,13 @@ def sync_labels(
             )
             return 1
         if not _bgs()._validate_issue_in_repo(
-            item_ref,
+            public_ref,
             str(issue_num),
             project=gh_project,
             stderr=stderr,
         ):
             print(
-                f"Warning: sync_labels skipped for {item_ref} — "
+                f"Warning: sync_labels skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
@@ -318,7 +318,7 @@ def sync_labels(
             _rest.remove_label(target_repo, issue_num, "blocked", token=auth.token)
 
         print(
-            f"Labels synced: {item_ref} → {github_issue} "
+            f"Labels synced: {public_ref} → {github_issue} "
             f"(status:{status}, priority:{priority}, workflow:{workflow_id}, "
             f"source:{source_label or '-'}, owner:{owner_label or '-'})",
             file=stdout,

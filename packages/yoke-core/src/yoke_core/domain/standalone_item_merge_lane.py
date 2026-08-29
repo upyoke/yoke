@@ -63,7 +63,7 @@ def lane_resolution_error(item: dict[str, Any]) -> str:
     )
 
 
-def lane_branch(item: dict[str, Any], item_ref: str) -> str:
+def lane_branch(item: dict[str, Any], public_ref: str) -> str:
     """Branch of the resolved active lane, else the item-ref recovery key.
 
     The fallback is the receipt lookup key when no active lane exists; it is
@@ -76,7 +76,7 @@ def lane_branch(item: dict[str, Any], item_ref: str) -> str:
         if branch:
             return branch
     recorded = str(item.get("worktree") or "").strip()
-    return recorded if recorded and recorded != "null" else item_ref
+    return recorded if recorded and recorded != "null" else public_ref
 
 
 def lane_path(item: dict[str, Any]) -> str:

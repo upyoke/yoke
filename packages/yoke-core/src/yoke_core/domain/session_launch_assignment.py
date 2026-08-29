@@ -18,15 +18,15 @@ MAX_SESSION_NAME_LENGTH = 160
 def assignment_session_name(
     conn: Any,
     *,
-    item_ref: str,
+    public_ref: str,
     project_id: int,
 ) -> str:
     """Return ``PREFIX-N: title`` from authoritative item columns."""
-    item_id = resolve_item_id(conn, item_ref, project=project_id)
+    item_id = resolve_item_id(conn, public_ref, project=project_id)
     if item_id is None:
         raise SessionLaunchError(
             "assignment_item_not_found",
-            f"assignment item {item_ref!r} was not found; pass a current item ref",
+            f"assignment item {public_ref!r} was not found; pass a current item ref",
         )
     row = conn.execute(
         f"SELECT project_id,title FROM items WHERE id={placeholder(conn)}",

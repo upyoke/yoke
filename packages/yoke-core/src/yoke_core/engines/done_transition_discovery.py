@@ -38,8 +38,8 @@ def _load_discovery_metadata(path: Path) -> int:
     return unreviewed
 
 
-def _apply_discovery_scan(item_ref: str, result) -> DiscoveryScanResult:
-    """Run the discovery scan for *item_ref*, mirror output, record the step.
+def _apply_discovery_scan(public_ref: str, result) -> DiscoveryScanResult:
+    """Run the discovery scan for *public_ref*, mirror output, record the step.
 
     Records ``"9"`` on a clean scan and ``"9-degraded"`` with a structured
     ``discovery_scan_degraded`` warning when the scan refuses, so a scan
@@ -50,7 +50,7 @@ def _apply_discovery_scan(item_ref: str, result) -> DiscoveryScanResult:
 
     buf = io.StringIO()
     err = io.StringIO()
-    rc = _discovery_scan.run_scan(item_ref, stdout=buf, stderr=err)
+    rc = _discovery_scan.run_scan(public_ref, stdout=buf, stderr=err)
     disc_output = buf.getvalue()
     if disc_output:
         print(disc_output, end="" if disc_output.endswith("\n") else "\n")
@@ -71,7 +71,7 @@ def _apply_discovery_scan(item_ref: str, result) -> DiscoveryScanResult:
         return outcome
 
     message = (
-        f"discovery scan returned {rc} for {item_ref} — unreviewed "
+        f"discovery scan returned {rc} for {public_ref} — unreviewed "
         f"ouroboros entries were not surfaced: {scan_error.strip() or 'no detail'}. "
         "Review them with /yoke curate."
     )

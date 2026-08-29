@@ -42,7 +42,7 @@ For any non-zero exit code that revert-to-implemented requires, call `lifecycle.
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_ref": "PREFIX-N"},
+  "target": {"kind": "item", "public_ref": "PREFIX-N"},
   "intent": "usher_rollback_to_implemented",
   "payload": {"target_status": "implemented", "source_status": "release", "reason": "<exit-code summary>"}
 }

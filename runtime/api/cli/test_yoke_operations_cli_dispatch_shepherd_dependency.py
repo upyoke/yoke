@@ -30,7 +30,7 @@ class TestShepherdDependencyWriteDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "shepherd.dependency_add.run"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-20"
+        assert req.target.public_ref == "YOK-20"
         assert req.payload == {
             "blocking_item": "YOK-10",
             "source": "idea",
@@ -74,7 +74,7 @@ class TestShepherdDependencyWriteDispatch:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "shepherd.dependency_update.run"
-        assert req.target.item_ref == "YOK-20"
+        assert req.target.public_ref == "YOK-20"
         assert req.payload == {
             "blocking_item": "YOK-10",
             "match_gate_point": "activation",
@@ -91,7 +91,7 @@ class TestShepherdDependencyWriteDispatch:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "shepherd.dependency_remove.run"
-        assert req.target.item_ref == "YOK-20"
+        assert req.target.public_ref == "YOK-20"
         assert req.payload == {"blocking_item": "YOK-10"}
 
     def test_dependency_add_help_lists_authoring_flags(self) -> None:
@@ -120,7 +120,7 @@ class TestShepherdVerdictWriteDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "shepherd.verdict.run"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-42"
+        assert req.target.public_ref == "YOK-42"
         assert req.payload == {
             "transition": "planning_to_plan_drafted",
             "worker": "Worker F",
@@ -145,7 +145,7 @@ class TestShepherdVerdictWriteDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "shepherd.caveat_disposition.run"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-42"
+        assert req.target.public_ref == "YOK-42"
         assert req.payload == {
             "transition": "planning_to_plan_drafted",
             "attempt": 2,

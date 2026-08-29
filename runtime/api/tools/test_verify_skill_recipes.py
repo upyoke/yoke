@@ -61,9 +61,9 @@ class TestExtractRecipes:
         assert recipe == "yoke items get 99999"
         assert expect == "not_found"
 
-    @pytest.mark.parametrize("item_ref", ["YOK-{N}", "PREFIX-N"])
-    def test_placeholder_recipe_flagged_as_template(self, item_ref: str) -> None:
-        text = f"```bash\nyoke items get {item_ref} spec\n```\n"
+    @pytest.mark.parametrize("public_ref", ["YOK-{N}", "PREFIX-N"])
+    def test_placeholder_recipe_flagged_as_template(self, public_ref: str) -> None:
+        text = f"```bash\nyoke items get {public_ref} spec\n```\n"
         recipes = vsr.extract_recipes(text)
         assert len(recipes) == 1
         _line, _recipe, _expect, is_template = recipes[0]

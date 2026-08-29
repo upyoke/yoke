@@ -15,9 +15,9 @@ from yoke_core.domain import machine_config
 from yoke_core.domain.db_backend import connection_is_postgres
 
 # Pure item-ref formatting and parsing moved to the shipped
-# yoke_contracts.item_ref tier (so the board render ships core-free);
+# yoke_contracts.public_ref tier (so the board render ships core-free);
 # re-exported here for existing callers.
-from yoke_contracts.item_ref import (  # noqa: F401
+from yoke_contracts.public_ref import (  # noqa: F401
     DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
     parse_public_item_ref,
@@ -276,7 +276,7 @@ def render_item_ref(
     return rendered
 
 
-# format_item_ref relocated to yoke_contracts.item_ref (re-exported above).
+# format_item_ref relocated to yoke_contracts.public_ref (re-exported above).
 
 
 def item_project_join_select(

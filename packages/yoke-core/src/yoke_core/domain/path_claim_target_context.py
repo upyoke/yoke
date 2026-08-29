@@ -24,7 +24,7 @@ class ClaimContext:
     covered_target_kinds: Tuple[Tuple[str, str], ...] = ()
     project_repo_path: Optional[str] = None
     project: str = "yoke"
-    item_ref: Optional[str] = None
+    public_ref: Optional[str] = None
     task_lanes: bool = False
     chain_worktrees: Tuple[Tuple[str, str], ...] = ()
 
@@ -50,8 +50,8 @@ class ClaimContext:
             worktree_path=claim.get("worktree_path"),
             project_repo_path=claim.get("project_repo_path"),
             project=str(claim.get("project") or "yoke"),
-            item_ref=(str(claim["item_ref"]).strip() or None)
-            if claim.get("item_ref") is not None
+            public_ref=(str(claim["public_ref"]).strip() or None)
+            if claim.get("public_ref") is not None
             else None,
             task_lanes=bool(claim.get("task_lanes", False)),
             chain_worktrees=chains,

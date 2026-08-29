@@ -143,7 +143,7 @@ def blocking_requirement_issues(
     requirements: list[dict[str, Any]],
     *,
     accepted_shas: Sequence[str],
-    item_ref: str,
+    public_ref: str,
     require_any: bool,
 ) -> list[BlockingRequirementIssue]:
     """Evaluate the latest run read model for a terminal blocking set."""
@@ -158,7 +158,7 @@ def blocking_requirement_issues(
             "materialization",
             "missing",
             "no blocking QA requirement was materialized",
-            f"yoke qa plan run --item {item_ref} "
+            f"yoke qa plan run --item {public_ref} "
             "--transition reviewing-implementation",
         )]
     return [
@@ -173,14 +173,14 @@ def blocking_requirement_issues(
 def requirement_issue_errors(
     issues: list[BlockingRequirementIssue],
     *,
-    item_ref: str,
+    public_ref: str,
     target_status: str,
 ) -> list[str]:
     """Render actionable missing, incomplete, and stale-SHA refusals."""
     if not issues:
         return []
     errors = [
-        f"Error: Cannot transition {item_ref} to {target_status!r} -- "
+        f"Error: Cannot transition {public_ref} to {target_status!r} -- "
         f"{len(issues)} blocking QA requirement(s) lack a completed verdict "
         "for the merging commit.",
         "  A waiver is an explicit, recorded, requirement-scoped operator "
@@ -318,14 +318,14 @@ def terminal_transition_result(
         return None
     from yoke_core.domain.project_identity import render_item_ref
 
-    item_ref = render_item_ref(conn, item_id)
+    public_ref = render_item_ref(conn, item_id)
     issues = blocking_requirement_issues(
         _blocking_requirement_rows(conn, item_id),
         accepted_shas=accepted_merging_shas(conn, item_id),
-        item_ref=item_ref,
+        public_ref=public_ref,
         require_any=True,
     )
-    errors = requirement_issue_errors(issues, item_ref=item_ref, target_status=target_status)
+    errors = requirement_issue_errors(issues, public_ref=public_ref, target_status=target_status)
     return {
         "success": False,
         "error_code": "GATE_QA_TERMINAL_VERDICT",

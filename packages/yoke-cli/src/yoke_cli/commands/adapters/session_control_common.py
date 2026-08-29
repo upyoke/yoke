@@ -18,7 +18,7 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
 
 SELECTOR_ARGUMENTS = (
     ("session_ids", "--session"),
-    ("item_refs", "--item"),
+    ("public_refs", "--item"),
     ("epic_tasks", "--epic-task"),
     ("process_keys", "--process"),
     ("projects", "--project"),
@@ -37,7 +37,7 @@ def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
     """Add union anchors followed by intersecting recipient filters."""
     anchor_help = {
         "session_ids": "Exact top-level Yoke session id (repeatable).",
-        "item_refs": "Item whose current holder is a recipient (repeatable).",
+        "public_refs": "Item whose current holder is a recipient (repeatable).",
         "epic_tasks": "Epic task as QUALIFIED-ITEM:TASK (repeatable).",
         "process_keys": "Claimed process key (repeatable).",
         "projects": "Project slug or id (repeatable).",

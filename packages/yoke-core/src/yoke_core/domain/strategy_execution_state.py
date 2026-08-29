@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
@@ -113,7 +113,7 @@ def claim_holder_label(claim: dict[str, Any]) -> str:
     """Name the holder the way a refusal message should say it."""
     if str(claim.get("owner_kind")) == "session":
         return f"session {claim.get('owner_session_id')!r}"
-    reference = claim.get("item_ref") or f"item {claim.get('owner_item_id')}"
+    reference = claim.get("public_ref") or f"item {claim.get('owner_item_id')}"
     title = claim.get("item_title")
     return f"{reference} ({title})" if title else str(reference)
 
@@ -122,7 +122,7 @@ def decorate_claim(claim: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
     """Add the public item reference and holder label to a claim row."""
     if claim is None:
         return None
-    claim["item_ref"] = (
+    claim["public_ref"] = (
         format_item_ref(
             claim["project_slug"],
             claim["public_item_prefix"],

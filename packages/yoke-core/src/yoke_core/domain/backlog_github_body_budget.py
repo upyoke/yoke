@@ -95,8 +95,8 @@ def _truncate(text: str, limit: int = _TITLE_TRUNCATE_CHARS) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def _display_ref(item_ref: int | str) -> str:
-    text = str(item_ref).strip()
+def _fallback_public_ref(public_ref: int | str) -> str:
+    text = str(public_ref).strip()
     if text.isdigit():
         return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{text}"
     return text or f"{DEFAULT_PUBLIC_ITEM_PREFIX}-0"
@@ -104,11 +104,11 @@ def _display_ref(item_ref: int | str) -> str:
 
 def _public_ref(conn: Optional[Any], item_id: int) -> str:
     if conn is None:
-        return _display_ref(item_id)
+        return _fallback_public_ref(item_id)
     try:
         return render_item_ref(conn, item_id)
     except Exception:
-        return _display_ref(item_id)
+        return _fallback_public_ref(item_id)
 
 
 def _evidence_summary(
@@ -136,11 +136,11 @@ def _evidence_summary(
     )
 
 
-def _lifecycle_commands(status: str, item_ref: str) -> list[str]:
+def _lifecycle_commands(status: str, public_ref: str) -> list[str]:
     template = _COMMANDS_BY_LIFECYCLE.get(status)
     if not template:
-        return [f"`/yoke do {item_ref}` — pick the next available action."]
-    return [line.format(id=item_ref) for line in template]
+        return [f"`/yoke do {public_ref}` — pick the next available action."]
+    return [line.format(id=public_ref) for line in template]
 
 
 def render_compact_mirror(
@@ -159,7 +159,7 @@ def render_compact_mirror(
     status = str(item_fields.get("status") or "")
     workflow_id = str(item_fields.get("workflow_id") or "")
     subject_kind = str(item_fields.get("subject_kind") or "")
-    subject_ref = _display_ref(item_fields.get("identity") or _public_ref(conn, item_id))
+    subject_ref = _fallback_public_ref(item_fields.get("identity") or _public_ref(conn, item_id))
     body_command = str(
         item_fields.get("body_command")
         or f"python3 -m yoke_core.cli.db_router items get {subject_ref} body"
@@ -263,7 +263,7 @@ def emit_compact_notice(
     """Write a one-line notice to ``out`` when ``mode == "compact"``."""
     if mode == "compact":
         print(
-            f"Note: {_display_ref(item_id)} body exceeded GitHub budget; "
+            f"Note: {_fallback_public_ref(item_id)} body exceeded GitHub budget; "
             "synced compact mirror instead.",
             file=out,
         )

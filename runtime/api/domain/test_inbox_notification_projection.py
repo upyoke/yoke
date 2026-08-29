@@ -108,7 +108,7 @@ def test_event_envelope_fanout_derives_exact_recipients(conn):
         session_id="",
         project_id=10,
         org_id=None,
-        context={"item_ref": "YOK-9"},
+        context={"public_ref": "YOK-9"},
         created_at="2026-07-26T14:01:00Z",
     )
     assert (

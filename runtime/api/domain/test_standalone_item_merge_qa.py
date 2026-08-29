@@ -213,7 +213,7 @@ def test_skip_status_keeps_non_done_requirements_fail_closed(
 
     commit_sha, error = merge_qa.preflight(
         scoped,
-        item_ref="YOK-10",
+        public_ref="YOK-10",
         repo_root=tmp_path,
         branch="YOK-10",
     )
@@ -272,7 +272,7 @@ def test_skip_status_recovery_ignores_deferred_done_failure(
 def test_preflight_accepts_bound_hand_run_and_refuses_prose(tmp_path: Path):
     commit_sha, error = merge_qa.preflight(
         _item(_requirement(verdict="pass", sha=MERGING_SHA)),
-        item_ref="YOK-10",
+        public_ref="YOK-10",
         repo_root=tmp_path,
         branch="YOK-10",
     )
@@ -280,7 +280,7 @@ def test_preflight_accepts_bound_hand_run_and_refuses_prose(tmp_path: Path):
     assert error == ""
     commit_sha, error = merge_qa.preflight(
         _item(_requirement(verdict="pass", sha="")),
-        item_ref="YOK-10",
+        public_ref="YOK-10",
         repo_root=tmp_path,
         branch="YOK-10",
     )
@@ -316,7 +316,7 @@ def test_preflight_reads_raw_proof_from_an_older_item_detail_server(
     )
     commit_sha, error = merge_qa.preflight(
         _item(requirement),
-        item_ref="YOK-10",
+        public_ref="YOK-10",
         repo_root=tmp_path,
         branch="YOK-10",
     )

@@ -35,8 +35,8 @@ def _silence_claim(monkeypatch):
     item_ids = {"YOK-1": 1, "YOK-3": 3, "YOK-9": 9, "YOK-42": 42}
 
     def _resolve_target(request):
-        if request.target.item_ref is not None:
-            request.target.item_id = item_ids[request.target.item_ref]
+        if request.target.public_ref is not None:
+            request.target.item_id = item_ids[request.target.public_ref]
             request.target.project_id = None
         return None
 
@@ -44,7 +44,7 @@ def _silence_claim(monkeypatch):
         dispatch_module, "verify_claim", lambda *a, **kw: None,
     )
     monkeypatch.setattr(
-        dispatch_module, "resolve_target_item_ref", _resolve_target,
+        dispatch_module, "resolve_target_public_ref", _resolve_target,
     )
     monkeypatch.setattr(
         yok_n_parser,

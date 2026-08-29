@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -106,16 +106,16 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     canonical = int(ac.get("canonical") or 0)
     # No-conn fallback: this gate path must not open a bare local connect
     # (https control planes relay gate reads server-side). Prefer an
-    # item_ref the relay already returned; otherwise format from the id.
-    item_ref = (
-        ac.get("item_ref")
+    # public_ref the relay already returned; otherwise format from the id.
+    public_ref = (
+        ac.get("public_ref")
         or format_item_ref(None, None, None, item_id=int(item_id))
     )
     if title is None:
-        return False, f"{item_ref} not found in DB."
+        return False, f"{public_ref} not found in DB."
     if canonical <= 0:
         return False, (
-            f"{item_ref} has no acceptance criteria. Add "
+            f"{public_ref} has no acceptance criteria. Add "
             f"`## Acceptance Criteria` with `- [ ] AC-N: ...` checkboxes."
         )
 
@@ -127,8 +127,8 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     if cov.get("is_blocked"):
         missing = cov.get("missing_paths") or []
         cov_ref = (
-            cov.get("item_ref")
-            or item_ref
+            cov.get("public_ref")
+            or public_ref
         )
         return False, (
             f"BLOCKED: {cov_ref} File Budget lists "

@@ -202,7 +202,7 @@ class ItemState:
     #: connection. Mutation messages address the operator by this ref; the
     #: bare ``id`` is the internal address and is never displayed with a
     #: prefix glued on.
-    item_ref: Optional[str] = None
+    public_ref: Optional[str] = None
     frozen: bool = False
     blocked: bool = False
     blocked_reason: Optional[str] = None
@@ -216,7 +216,7 @@ class ItemState:
     @property
     def ref(self) -> str:
         """How the operator names this item, with the id as the last resort."""
-        return self.item_ref or str(self.id)
+        return self.public_ref or str(self.id)
 
 
 # ---------------------------------------------------------------------------

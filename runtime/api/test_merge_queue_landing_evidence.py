@@ -62,7 +62,7 @@ def _route(**overrides):
         "target": "main",
         "repo_root": CHECKOUT,
         "project": "yoke",
-        "item_ref": "YOK-200",
+        "public_ref": "YOK-200",
     }
     kwargs.update(overrides)
     return selection_mod.route_standalone_landing(**kwargs)

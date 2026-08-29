@@ -123,7 +123,7 @@ def _update_item_direct(
     qa_bypass: bool | None = None,
     rebuild_board: bool = False,
     no_github: bool = False,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> int:
     """Relay an item field write through the transport.
 
@@ -174,9 +174,9 @@ def _update_item_direct(
         )
     else:
         message = resp.error.message if resp.error else "unknown error"
-    from yoke_contracts.item_ref import format_item_ref
+    from yoke_contracts.public_ref import format_item_ref
 
-    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
     print(
         f"Warning: backlog update {field}={value} for {ref} "
         f"failed: {message}",

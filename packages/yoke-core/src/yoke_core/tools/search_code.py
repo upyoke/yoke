@@ -167,14 +167,14 @@ def _split_worktrees(
     return existing, missing
 
 
-def _emit_no_worktree_remediation(item_ref: str) -> None:
+def _emit_no_worktree_remediation(public_ref: str) -> None:
     msg = (
-        f"ERROR: no worktree directory exists for {item_ref}. "
+        f"ERROR: no worktree directory exists for {public_ref}. "
         "search_code --scope worktree requires a bound worktree.\n"
         "Remediation:\n"
         f"  yoke dev run -- python3 -m yoke_core.domain.worktree_preflight "
-        f"--item {item_ref}\n"
-        f"  /yoke advance {item_ref} implementation\n"
+        f"--item {public_ref}\n"
+        f"  /yoke advance {public_ref} implementation\n"
         "Or rerun with --scope main to search the project repo root."
     )
     print(msg, file=sys.stderr)

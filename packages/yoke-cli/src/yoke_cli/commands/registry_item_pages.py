@@ -19,6 +19,10 @@ ITEM_PAGE_SUBCOMMAND_REGISTRY: Dict[
         "items.detail.get",
         item_pages.items_detail_get,
     ),
+    ("items", "public-ref", "lookup"): (
+        "items.public_ref.lookup",
+        item_pages.items_public_ref_lookup,
+    ),
 }
 
 

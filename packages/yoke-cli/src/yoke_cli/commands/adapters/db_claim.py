@@ -42,7 +42,7 @@ DB_CLAIM_AMEND_USAGE = (
 )
 DB_CLAIM_PROSE_CHECK_USAGE = (
     "yoke db-claim prose-check (<PREFIX-N> | --stdin) "
-    "[--item-ref PREFIX-N] [--session-id S] [--json]"
+    "[--public-ref PREFIX-N] [--session-id S] [--json]"
 )
 
 
@@ -120,7 +120,8 @@ def db_claim_prose_check(args: List[str]) -> int:
         help="Detect over prose from stdin (local; no DB).",
     )
     parser.add_argument(
-        "--item-ref",
+        "--public-ref",
+        dest="public_ref",
         default=None,
         help="Public ref quoted in recovery when using --stdin.",
     )
@@ -135,7 +136,7 @@ def db_claim_prose_check(args: List[str]) -> int:
                 "pass either PREFIX-N or --stdin, not both"
             )
         return _prose_check_stdin(
-            item_ref=parsed.item_ref,
+            public_ref=parsed.public_ref,
             json_mode=parsed.json_mode,
         )
     if not parsed.item:
@@ -151,7 +152,7 @@ def db_claim_prose_check(args: List[str]) -> int:
 
 def _prose_check_stdin(
     *,
-    item_ref: Optional[str],
+    public_ref: Optional[str],
     json_mode: bool,
 ) -> int:
     """Local detector over stdin prose — https-safe, no control-plane DB."""
@@ -162,7 +163,7 @@ def _prose_check_stdin(
     ).check
 
     prose = sys.stdin.read()
-    outcome = check(prose, profile_raw=None, item_ref=item_ref)
+    outcome = check(prose, profile_raw=None, public_ref=public_ref)
     payload = {
         "blocks": bool(outcome.blocks),
         "triggers": list(outcome.triggers),

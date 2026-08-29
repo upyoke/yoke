@@ -6,7 +6,7 @@ import io
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.field_note_dash_promotion_reads import (

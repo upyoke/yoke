@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
@@ -56,7 +56,7 @@ def plan_attachment_rows(conn: Any, plan_id: int) -> list[dict]:
         if row["kind"] == "item":
             prefix = row.pop("public_item_prefix")
             sequence = row.pop("project_sequence")
-            row["item_ref"] = format_item_ref(
+            row["public_ref"] = format_item_ref(
                 row["project"], prefix, sequence, item_id=int(row["item_id"])
             )
         result.append(row)

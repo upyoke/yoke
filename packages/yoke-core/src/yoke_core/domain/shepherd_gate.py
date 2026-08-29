@@ -58,7 +58,7 @@ def _placeholder(conn: Any) -> str:
 
 def _lookup_latest_verdict(
     conn: Any,
-    item_ref: str,
+    public_ref: str,
     transition: str,
 ) -> Optional[str]:
     p = _placeholder(conn)
@@ -69,7 +69,7 @@ def _lookup_latest_verdict(
         f"WHERE item = {p} AND transition = {p} "
         f"AND verdict IN ({verdict_placeholders}) "
         "ORDER BY id DESC LIMIT 1",
-        (item_ref, transition, *ACCEPTABLE_VERDICTS),
+        (public_ref, transition, *ACCEPTABLE_VERDICTS),
     )
     if row is None:
         return None
@@ -92,7 +92,7 @@ def check_gate(
     verdict_key = f"YOK-{item_id}"
 
     def _evaluate(c: Any) -> GateResult:
-        item_ref = render_item_ref(c, int(item_id))
+        public_ref = render_item_ref(c, int(item_id))
         current = _lookup_latest_verdict(c, verdict_key, CURRENT_TRANSITION)
         if current is not None:
             return GateResult(
@@ -101,7 +101,7 @@ def check_gate(
                 verdict=current,
                 reason=(
                     f"Gate satisfied by {CURRENT_TRANSITION}={current} "
-                    f"on {item_ref}."
+                    f"on {public_ref}."
                 ),
             )
         legacy = _lookup_latest_verdict(c, verdict_key, LEGACY_TRANSITION)
@@ -112,7 +112,7 @@ def check_gate(
                 verdict=legacy,
                 reason=(
                     f"Gate satisfied by legacy {LEGACY_TRANSITION}={legacy} "
-                    f"on {item_ref} (pre-2026-04-07 compat)."
+                    f"on {public_ref} (pre-2026-04-07 compat)."
                 ),
             )
         return GateResult(
@@ -120,7 +120,7 @@ def check_gate(
             transition=None,
             verdict=None,
             reason=(
-                f"No qualifying shepherd verdict for {item_ref}. "
+                f"No qualifying shepherd verdict for {public_ref}. "
                 f"Expected transition '{CURRENT_TRANSITION}' in "
                 f"{ACCEPTABLE_VERDICTS!r} (legacy '{LEGACY_TRANSITION}' also "
                 f"accepted for pre-2026-04-07 compat)."

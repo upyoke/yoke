@@ -134,7 +134,7 @@ def test_path_claim_survey_contact_advises_and_prepares(monkeypatch, capsys):
     by_kind = {row["kind"]: row for row in emitted["advisories"]}
     assert set(by_kind) == {"path_claim", "work_claim"}
     for advisory in by_kind.values():
-        assert advisory["item_ref"] == "YOK-4200"
+        assert advisory["public_ref"] == "YOK-4200"
         assert advisory["status"] == "implementing"
         assert advisory["shared_paths"] == [SHARED]
         assert advisory["routes"]["proceed"] == SURVEY_ADVISORY_PROCEED

@@ -34,9 +34,9 @@ def create_run_for_item_ref(
 
     Failure paths print their own operator-facing error to stderr.
     """
-    item_ref = str(primary_arg).strip()
+    public_ref = str(primary_arg).strip()
     try:
-        resolved_item = parse_item_argument(item_ref)
+        resolved_item = parse_item_argument(public_ref)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return None
@@ -47,8 +47,8 @@ def create_run_for_item_ref(
         file=sys.stderr,
     )
 
-    flow_id = _yoke_db("items", "get", item_ref, "deployment_flow", sd=sd)
-    project = _yoke_db("items", "get", item_ref, "project", sd=sd)
+    flow_id = _yoke_db("items", "get", public_ref, "deployment_flow", sd=sd)
+    project = _yoke_db("items", "get", public_ref, "project", sd=sd)
 
     if not flow_id:
         print(

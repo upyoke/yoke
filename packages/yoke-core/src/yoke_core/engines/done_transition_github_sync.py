@@ -37,7 +37,7 @@ def run_step_8(
     old_status: str,
     *,
     stderr: Optional[TextIO] = None,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> Step8Result:
     """Run the done-state GitHub sync and classify the outcome.
 
@@ -49,7 +49,7 @@ def run_step_8(
     stderr = stderr or sys.stderr
     # Display only. Never fabricate a default-prefix public ref from the
     # internal id — that number is not the project's sequence.
-    ref = item_ref or f"items.id={item_id}"
+    ref = public_ref or f"items.id={item_id}"
 
     try:
         from yoke_core.domain import backlog_github_sync
@@ -100,7 +100,7 @@ def apply_step_8(
     old_status: str,
     result,
     *,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> Step8Result:
     """Run Step 8 and stamp the outcome onto the caller's ``TransitionResult``.
 
@@ -124,7 +124,7 @@ def apply_step_8(
     """
     import sys
     outcome = run_step_8(
-        item_id, old_status, stderr=sys.stderr, item_ref=item_ref
+        item_id, old_status, stderr=sys.stderr, public_ref=public_ref
     )
     result.add_step(outcome.step_marker)
     if outcome.is_degraded:

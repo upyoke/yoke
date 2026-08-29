@@ -144,7 +144,7 @@ def _execute_update_once(
         workflow = load_item_workflow_runtime(conn, item_id)
         item_state = mutations.ItemState(
             id=item_dict["id"],
-            item_ref=render_item_ref(conn, int(item_dict["id"])),
+            public_ref=render_item_ref(conn, int(item_dict["id"])),
             title=item_dict["title"],
             status=item_dict["status"],
             priority=item_dict["priority"],
@@ -241,13 +241,13 @@ def _execute_update_once(
         if field == "status":
             claim_verified, claim_reason = _verify_status_claim(conn, item_id, out, session_id=session_id)
             if not claim_verified:
-                item_ref = render_item_ref(conn, item_id)
+                public_ref = render_item_ref(conn, item_id)
                 return {
                     "success": False,
                     "error": (
-                        f"Claim verification denied for {item_ref}: {claim_reason}\n"
-                        f'  Claim first: yoke claims work acquire --item {item_ref} --reason "<intent>"\n'
-                        f"  Incident recovery: yoke lifecycle repair-status {item_ref} "
+                        f"Claim verification denied for {public_ref}: {claim_reason}\n"
+                        f'  Claim first: yoke claims work acquire --item {public_ref} --reason "<intent>"\n'
+                        f"  Incident recovery: yoke lifecycle repair-status {public_ref} "
                         f'--to {value} --reason "reconcile lifecycle state"\n'
                         "  Audit bypass: set YOKE_CLAIM_BYPASS=<source> for sanctioned system transitions"
                     ),

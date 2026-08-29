@@ -59,7 +59,7 @@ class TestFetchBrowserContextSeam:
         target = calls[0]["target"]
         assert target.kind == "item"
         assert target.item_id == 42
-        assert target.item_ref is None
+        assert target.public_ref is None
         assert calls[0]["payload"] == {
             "project": "externalwebapp",
             "requirement_id": 10,
@@ -84,7 +84,7 @@ class TestFetchBrowserContextSeam:
         target = calls[0]["target"]
         assert target.kind == "item"
         assert target.item_id is None
-        assert target.item_ref == "EXT-1732"
+        assert target.public_ref == "EXT-1732"
         assert target.project_id == "externalwebapp"
 
     def test_dispatch_failure_raises_with_code(self) -> None:

@@ -190,7 +190,7 @@ def test_baseline_counts_matches_classified_entries() -> None:
 
 
 def test_repository_item_ref_policy_has_no_stale_allowances() -> None:
-    from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX
+    from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX
     from yoke_core.domain.item_ref_construction_baseline import baseline_counts
 
     root = Path(__file__).resolve().parents[3]
@@ -269,6 +269,6 @@ def test_rendered_item_ref_cli_token_is_not_flagged(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/pkg/src/ok.py",
-        '_yoke_db("items", "get", item_ref, "deploy_stage")\n',
+        '_yoke_db("items", "get", public_ref, "deploy_stage")\n',
     )
     assert scan_bare_internal_cli_token(tmp_path) == []

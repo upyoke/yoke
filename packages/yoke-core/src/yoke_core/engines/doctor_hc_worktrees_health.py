@@ -114,7 +114,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         )
         for owner in owners:
             if owner["status"] in ("done", "cancelled"):
-                item_ref = render_item_ref(conn, owner["item_id"])
+                public_ref = render_item_ref(conn, owner["item_id"])
                 authority_block = _authority_block(conn, int(owner["item_id"]))
                 assessment = assess_landed_lane(
                     repo_root=str(repo_root or Path(wt_path).parents[1]),
@@ -135,10 +135,10 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                         emit=lambda *_a, **_kw: None,
                     )
                     if not preserved:
-                        fixed.append(f"- Fixed: removed terminal lane {branch} at {wt_path} — {item_ref}")
+                        fixed.append(f"- Fixed: removed terminal lane {branch} at {wt_path} — {public_ref}")
                         continue
                     label = preserved[0]
-                issues.append(f"- Terminal-item lane: {branch} at {wt_path} — {item_ref} is {owner['status']}; {label}")
+                issues.append(f"- Terminal-item lane: {branch} at {wt_path} — {public_ref} is {owner['status']}; {label}")
 
     # Check configured worktrees_dir for extra directories
     if repo_root:

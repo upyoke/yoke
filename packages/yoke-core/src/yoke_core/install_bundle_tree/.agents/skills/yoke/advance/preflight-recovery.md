@@ -42,7 +42,7 @@ If `_item_flow` is empty or null:
   {
     "function": "items.scalar.update",
     "actor": {"session_id": "<this-session>"},
-    "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
+    "target": {"kind": "item", "public_ref": "PREFIX-{N}"},
     "intent": "advance_recover_deployment_flow",
     "payload": {"field": "deployment_flow", "value": "<_default_flow>"}
   }

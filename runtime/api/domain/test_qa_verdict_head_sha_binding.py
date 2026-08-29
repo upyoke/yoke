@@ -110,7 +110,7 @@ def test_stale_sha_recovery_names_the_json_shape():
             }
         ],
         accepted_shas=(HEAD_SHA,),
-        item_ref="YOK-1",
+        public_ref="YOK-1",
         require_any=True,
     )
 

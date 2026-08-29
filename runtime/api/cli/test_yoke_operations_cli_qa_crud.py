@@ -67,7 +67,7 @@ class TestQaRequirementList:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.requirement.list"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1833"
+        assert req.target.public_ref == "1833"
         assert req.payload == {}
 
     def test_epic_filter_rides_payload(self) -> None:
@@ -144,7 +144,7 @@ class TestQaRequirementAdd:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.requirement.add"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1833"
+        assert req.target.public_ref == "1833"
         assert req.payload == {
             "qa_kind": "ac_verification",
             "qa_phase": "verification",
@@ -243,7 +243,7 @@ class TestQaRequirementAddBatch:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.requirement.add_batch"
-        assert req.target.item_ref == "1833"
+        assert req.target.public_ref == "1833"
         assert req.payload == {"rows": rows}
 
     def test_rows_file_dispatch(self, tmp_path) -> None:

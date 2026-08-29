@@ -26,7 +26,7 @@ def test_item_claim_carries_public_drill_in_coordinates(test_db):
     insert_item_claim(test_db, "s-div", 5001)
     claim = list_sessions()[0]["claims"][0]
     assert claim["target"] == "YOK-4200"
-    assert claim["item_ref"] == "YOK-4200"
+    assert claim["public_ref"] == "YOK-4200"
     assert claim["item_project_id"] == 1
     assert claim["item_project_sequence"] == 4200
 

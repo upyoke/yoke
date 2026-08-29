@@ -201,10 +201,10 @@ def format_deny(
     """Render the operator-facing block message for a coverage refusal."""
     from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
-    item_ref = item_ref_for_id(int(item_id))
+    public_ref = item_ref_for_id(int(item_id))
     lines: list[str] = [
         "ERROR: pre-commit refused — staged files exceed the active "
-        f"path-claim coverage for {item_ref} (claim id {claim_id}).",
+        f"path-claim coverage for {public_ref} (claim id {claim_id}).",
         "",
         "Files outside declared coverage:",
     ]

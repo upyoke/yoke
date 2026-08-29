@@ -69,7 +69,7 @@ Function-call equivalent (for dispatch-surface callers — `/yoke advance` build
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_id": $ITEM_NUM, "item_ref": "$ITEM_REF"},
+  "target": {"kind": "item", "item_id": $ITEM_NUM, "public_ref": "$ITEM_REF"},
   "intent": "polish_complete",
   "payload": {"source_status": "polishing-implementation", "target_status": "implemented"},
   "options": {"sync_github_body": true}

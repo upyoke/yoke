@@ -8,10 +8,10 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
-from yoke_contracts.board.project_scope import item_ref
+from yoke_contracts.board.project_scope import public_ref
 from yoke_contracts.board.utils import display_width
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.session_lane import (
     UNRESOLVED_EXECUTION_LANE,
     lane_is_unresolved,
@@ -127,7 +127,7 @@ def _render_claim_target(
     if item_id is not None:
         if db is not None:
             try:
-                return item_ref(db, int(item_id))
+                return public_ref(db, int(item_id))
             except Exception:
                 pass
         item_str = str(item_id)
@@ -137,7 +137,7 @@ def _render_claim_target(
     if epic_id is not None and task_num is not None:
         if db is not None:
             try:
-                return f"{item_ref(db, int(epic_id))} T{task_num:03d}"
+                return f"{public_ref(db, int(epic_id))} T{task_num:03d}"
             except Exception:
                 pass
         return f"{format_item_ref(None, None, epic_id)} T{task_num:03d}"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.workflows_definition_read import _stage_names
