@@ -8,12 +8,14 @@ The endpoint is ``GET /repos/{owner}/{name}/actions/runs/{run_id}/logs``
 which returns a 302 redirect to a streamed ZIP archive. ``urlopen``
 follows the redirect transparently and yields the ZIP body as bytes.
 
-Two public surfaces:
+Public surfaces:
 
 - :func:`fetch_failed_log_zip` — raw bytes, no parse.
 - :func:`parse_failed_log_zip` — bytes → ``{job_name: log_text}``.
 - :func:`fetch_failed_log` — composes the two with a per-job fallback
   when the ZIP endpoint returns 404 (re-run only kept per-job logs).
+- :func:`fetch_job_log` — fetches one exact job, including an earlier
+  failed attempt that a later rerun replaced in the run-level listing.
 
 Errors surface as the typed :class:`gh_rest_transport.RestTransportError`
 hierarchy. No host ``gh`` binary required.
@@ -103,6 +105,7 @@ __all__ = [
     "fetch_failed_log_zip",
     "parse_failed_log_zip",
     "fetch_failed_log",
+    "fetch_job_log",
 ]
 
 
@@ -307,43 +310,36 @@ def _failed_job_names(repo: str, run_id: int | str, *, token: str) -> set[str]:
     return names
 
 
-def _per_job_fallback(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
-    """Fetch each failed job's log individually when the ZIP 404s.
-
-    Lists jobs via :func:`github_actions_rest.rest_get`, filters to those
-    with ``conclusion == "failure"``, and fetches each job's log via
-    ``GET /repos/{repo}/actions/jobs/{job_id}/logs`` (returns plain text).
-    """
-    jobs = _run_jobs(repo, run_id, token=token)
-    failed = [j for j in jobs if str(j.get("conclusion") or "") == "failure"]
-    if not failed:
-        return {}
-
+def fetch_job_log(repo: str, job_id: int | str, *, token: str) -> str:
+    """Fetch and redact the plain-text log for one exact Actions job."""
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
         "User-Agent": "yoke-merge-engine",
     }
+    body = _fetch_once(
+        f"{github_api_base()}/repos/{repo}/actions/jobs/{job_id}/logs",
+        headers=headers,
+        token=token,
+        response_limit_bytes=GITHUB_ACTIONS_LOG_ENTRY_LIMIT_BYTES,
+        deadline=deadline_after(_FETCH_TIMEOUT_SECONDS),
+    )
+    return redact_exact_secrets(body.decode("utf-8", errors="replace"), (token,))
+
+
+def _per_job_fallback(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
+    """Fetch each failed job's log individually when the ZIP 404s."""
+    jobs = _run_jobs(repo, run_id, token=token)
+    failed = [j for j in jobs if str(j.get("conclusion") or "") == "failure"]
     result: Dict[str, str] = {}
-    operation_deadline = deadline_after(_FETCH_TIMEOUT_SECONDS)
     for job in failed:
         job_id = job.get("id")
         if job_id in (None, ""):
             continue
         job_name = str(job.get("name") or f"job-{job_id}")
-        url = f"{github_api_base()}/repos/{repo}/actions/jobs/{job_id}/logs"
         try:
-            body_bytes = _fetch_once(
-                url,
-                headers=headers,
-                token=token,
-                response_limit_bytes=GITHUB_ACTIONS_LOG_ENTRY_LIMIT_BYTES,
-                deadline=operation_deadline,
-            )
+            result[job_name] = fetch_job_log(repo, job_id, token=token)
         except RestNotFoundError:
             continue
-        result[job_name] = redact_exact_secrets(
-            body_bytes.decode("utf-8", errors="replace"), (token,)
-        )
     return result

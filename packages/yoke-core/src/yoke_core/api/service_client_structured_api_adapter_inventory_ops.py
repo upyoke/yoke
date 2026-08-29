@@ -82,6 +82,10 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-runs find-by-item PREFIX-N",
     ),
     _read_entry(
+        function_id="deployment_runs.failure_trace",
+        cli_invocation="yoke deployment-runs failure-trace RUN-ID",
+    ),
+    _read_entry(
         function_id="deployment_runs.stages",
         cli_invocation="yoke deployment-runs stages RUN-ID",
     ),

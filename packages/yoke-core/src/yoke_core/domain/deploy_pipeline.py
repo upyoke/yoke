@@ -18,6 +18,7 @@ from yoke_core.domain.deploy_pipeline_gates import (
     resolve_flow_gate_branch,
 )
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
+from yoke_core.domain import deploy_pipeline_failure
 from yoke_core.domain.deploy_pipeline_reporting import (
     _flow_db,
     _parse_stages,
@@ -38,7 +39,7 @@ from yoke_core.domain.deploy_product_source import DeployProductSourceError, val
 
 
 EXIT_SUCCESS = 0
-EXIT_STAGE_FAILED = 1
+EXIT_STAGE_FAILED = deploy_pipeline_failure.EXIT_STAGE_FAILED
 EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
 _release_control_plane_env = deploy_env.release_control_plane_env
@@ -245,28 +246,17 @@ def run_pipeline(
                 run_id, s_name, "pass", script_dir=sd,
             )
         else:
-            if exec_diag:
-                print(f"Step runner diagnostic: {exec_diag}", file=sys.stderr)
-            failure_ctx = {"run_id": run_id, "stage": s_name, "result": "failed", "exit_code": exec_rc}
-            if exec_diag:
-                failure_ctx["step_runner_diagnostic"] = exec_diag
-            _emit_run_event(
-                "DeploymentRunStageFailed", "failed",
-                failure_ctx,
-                member_items=member_items, project=project, sd=sd,
+            return deploy_pipeline_failure.fail_pipeline_stage(
+                exit_code=exec_rc,
+                diagnostic=exec_diag,
+                stage_name=s_name,
+                run_id=run_id,
+                flow_id=flow_id,
+                member_items=member_items,
+                project=project,
+                sd=sd,
+                emit_event=_emit_run_event,
             )
-            _set_deploy_stage(f"{s_name}-failed", run_id, member_items, sd=sd)
-            deploy_qa_recorder.cmd_record_stage_result(
-                run_id, s_name, "fail", script_dir=sd,
-            )
-            _yoke_db("runs", "update", run_id, "status", "failed", sd=sd)
-            _emit_run_event(
-                "DeploymentRunFailed", "failed",
-                {"run_id": run_id, "stage": s_name, "flow": flow_id},
-                member_items=member_items, project=project, sd=sd,
-            )
-            print(f"Error: stage '{s_name}' failed (exit code: {exec_rc})", file=sys.stderr)
-            return EXIT_STAGE_FAILED
 
     # Guard: start_stage never matched
     if not found_start:

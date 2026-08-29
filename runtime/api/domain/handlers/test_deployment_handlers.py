@@ -5,10 +5,12 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock, patch
 
+from yoke_contracts.api.function_call import TargetRef
+
 from runtime.api.domain.handlers.deployment_handler_test_support import (
     deployment_request as _request,
 )
-from yoke_core.domain.handlers import deployment_flows
+from yoke_core.domain.handlers import deployment_failure_trace, deployment_flows
 
 
 def _assert_flow_connect_restored(testcase: unittest.TestCase) -> None:
@@ -85,6 +87,45 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
         self.assertEqual(outcome.error.code, "payload_invalid")
 
 
+class TestDeploymentFailureTraceHandler(unittest.TestCase):
+    def test_trace_returns_complete_or_partial_result_without_hiding_chain(self):
+        traced = {
+            "deployment_run_id": "run-1",
+            "stage": "hosted-release",
+            "complete": False,
+            "chain": [
+                {
+                    "repo": "owner/repo",
+                    "run_id": "123",
+                    "url": "https://github.com/owner/repo/actions/runs/123",
+                    "failed_job": "relay",
+                }
+            ],
+            "terminal_job": "",
+            "terminal_error": "",
+            "stop_reason": "downstream run is not visible",
+            "recovery": "restore Actions read permission",
+        }
+        with patch(
+            "yoke_core.domain.deployment_failure_trace_runtime.trace_deployment_failure",
+            return_value=traced,
+        ) as trace:
+            outcome = deployment_failure_trace.handle_deployment_failure_trace(
+                _request(
+                    function="deployment_runs.failure_trace",
+                    target=TargetRef(
+                        kind="deployment_run",
+                        deployment_run_id="run-1",
+                    ),
+                    actor_id="2",
+                ),
+            )
+
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(outcome.result_payload, traced)
+        trace.assert_called_once_with("run-1", actor_id=2)
+
+
 class TestDeploymentHandlerRegistration(unittest.TestCase):
     def test_deployment_function_ids_are_registered(self):
         from yoke_core.domain.handlers.__init_register__ import (
@@ -102,9 +143,15 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             self.assertIn("deployment_runs.create", ids)
             self.assertIn("deployment_runs.approve", ids)
             self.assertIn("deployment_runs.get", ids)
+            self.assertIn("deployment_runs.failure_trace", ids)
             self.assertIn("deployment_runs.list", ids)
             self.assertIn("deployment_runs.update", ids)
             self.assertIn("deployment_runs.resolve_target", ids)
+            failure_trace = registry.lookup("deployment_runs.failure_trace")
+            self.assertEqual(
+                list(failure_trace.target_kinds),
+                ["deployment_run"],
+            )
             update = registry.lookup("deployment_runs.update")
             self.assertEqual(
                 list(update.side_effects),

@@ -16,6 +16,7 @@ from unittest import mock
 from yoke_core.domain import (
     deploy_pipeline_run_context,
     deploy_pipeline,
+    deploy_pipeline_failure,
     deploy_pipeline_step_runners,
     deploy_pipeline_gates,
     deploy_pipeline_reporting,
@@ -169,6 +170,10 @@ class _Harness:
             ),
             mock.patch(
                 "subprocess.run",
+            ),
+            mock.patch.object(
+                deploy_pipeline_failure,
+                "_report_failure_trace",
             ),
         ):
             rc = deploy_pipeline.run_pipeline(_RUN_ID, sd="/tmp/sd")

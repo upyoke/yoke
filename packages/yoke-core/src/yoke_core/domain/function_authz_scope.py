@@ -184,6 +184,10 @@ _BY_ID: dict[str, AuthzSpec] = {
         PROJECT,
         PERM_GITHUB_ACTIONS_RUN_READ,
     ),
+    "deployment_runs.failure_trace": AuthzSpec(
+        PROJECT,
+        PERM_GITHUB_ACTIONS_RUN_READ,
+    ),
     "github_actions.variable.get": AuthzSpec(
         PROJECT,
         PERM_GITHUB_ACTIONS_VARIABLE_READ,

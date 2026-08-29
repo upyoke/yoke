@@ -27,6 +27,7 @@ from yoke_cli.commands.adapters.deployment_run_terminalize import (
 )
 from yoke_cli.commands.adapters.deployment_inspection import (
     DEPLOYMENT_FLOWS_LIST_USAGE,
+    DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE,
     DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,
     DEPLOYMENT_RUNS_STAGES_USAGE,
 )
@@ -41,6 +42,7 @@ DEPLOYMENT_USAGE = {
     "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
     "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
+    "deployment_runs.failure_trace": DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE,
     "deployment_runs.find_by_item": DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,
     "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
     "deployment_runs.stages": DEPLOYMENT_RUNS_STAGES_USAGE,
