@@ -183,7 +183,14 @@ def test_conduct_proceed_handoff_splits_item_ids() -> None:
     }
 
 
-def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps() -> None:
+def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "yoke_cli.transport.public_ref_display.lookup_public_refs",
+        lambda ids: {1687: "YOK-1687"} if 1687 in ids else {},
+    )
+
     def _repair_response(request: FunctionCallRequest) -> FunctionCallResponse:
         return FunctionCallResponse(
             success=True,
@@ -226,6 +233,6 @@ def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps() -> None:
     assert "file-add" in text
     assert "scope-no-files" in text
     assert "scope-finalize" in text
-    assert "--epic 1687 --task-num 1" in text
+    assert "--epic YOK-1687 --task-num 1" in text
     assert "tenant=4 item=YOK-1687 task=2 scope=paths" in text
-    assert "--epic 1687 --task-num 2" not in text
+    assert "--epic YOK-1687 --task-num 2" not in text

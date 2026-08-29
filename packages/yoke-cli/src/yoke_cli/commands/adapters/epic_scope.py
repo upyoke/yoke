@@ -30,6 +30,7 @@ def _write_scope_repair(response, stdout, stderr) -> None:
     result = response.result or {}
     diagnostics = result.get("diagnostics", [])
     stdout.write(f"{result.get('message', '')}\n")
+    epic = result.get("epic_public_ref")
     deferred = []
     for diagnostic in diagnostics:
         stdout.write(f"- {diagnostic}\n")
@@ -37,14 +38,13 @@ def _write_scope_repair(response, stdout, stderr) -> None:
             continue
         task_num = diagnostic.split(" task=", 1)[1].split(" ", 1)[0]
         deferred.append(task_num)
-        stdout.write(
-            "  Repair: run `file-add` or `scope-no-files` for "
-            f"--epic {result.get('epic_id')} --task-num {task_num}.\n"
-        )
-    if deferred:
-        stdout.write(
-            f"Then run `scope-finalize --epic {result.get('epic_id')}`.\n"
-        )
+        if epic:
+            stdout.write(
+                "  Repair: run `file-add` or `scope-no-files` for "
+                f"--epic {epic} --task-num {task_num}.\n"
+            )
+    if deferred and epic:
+        stdout.write(f"Then run `scope-finalize --epic {epic}`.\n")
 
 
 def _run(
