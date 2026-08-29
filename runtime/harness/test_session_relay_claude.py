@@ -66,7 +66,8 @@ def _created(output: str | None = None) -> ClaudeProcessResult:
     return ClaudeProcessResult(
         0,
         17,
-        output or f"backgrounded · {SHORT_ID}\nclaude attach {SHORT_ID}",
+        output
+        or f"backgrounded · {SHORT_ID} · Example session\nclaude attach {SHORT_ID}",
         "private-create-stderr",
     )
 

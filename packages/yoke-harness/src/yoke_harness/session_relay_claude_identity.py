@@ -16,7 +16,7 @@ CLAUDE_IDENTITY_LOOKUP_ATTEMPTS = 4
 CLAUDE_IDENTITY_RETRY_SECONDS = 0.1
 _SHORT_ID_FRAGMENT = r"[A-Za-z0-9_-]{4,64}"
 _BACKGROUND_ID_PATTERN = re.compile(
-    rf"(?im)^\s*backgrounded\s*[·:]\s*({_SHORT_ID_FRAGMENT})\s*$"
+    rf"(?im)^\s*backgrounded\s*·\s*({_SHORT_ID_FRAGMENT})\s*·\s*\S.*$"
 )
 _SHORT_ID_PATTERN = re.compile(rf"^{_SHORT_ID_FRAGMENT}$")
 
