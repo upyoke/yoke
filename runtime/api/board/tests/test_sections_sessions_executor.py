@@ -34,6 +34,7 @@ _RENDER_SCHEMA = """
         project_id INTEGER NOT NULL REFERENCES projects(id),
         offered_at TEXT NOT NULL,
         last_heartbeat TEXT,
+        last_tool_call_at TEXT,
         ended_at TEXT,
         terminated_at TEXT
     );

@@ -124,6 +124,7 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 offered_at TEXT NOT NULL,
                 last_heartbeat TEXT,
+                last_tool_call_at TEXT,
                 ended_at TEXT,
                 terminated_at TEXT
             )

@@ -239,10 +239,18 @@ class TestBoardDataOverHttpBoundary:
                 p.start()
             conn = connect_test_db(populated_db)
             try:
+                # The roster section reads these columns whether or not any
+                # session row exists, and a column it cannot read is now a
+                # loud failure rather than an empty section.
                 apply_fixture_ddl(conn, (
                     "CREATE TABLE IF NOT EXISTS harness_sessions ("
                     " session_id TEXT PRIMARY KEY, actor_id TEXT,"
-                    " current_item_id TEXT, recent_item_id TEXT)"
+                    " current_item_id TEXT, recent_item_id TEXT,"
+                    " executor TEXT, executor_surface TEXT, model TEXT,"
+                    " mode TEXT, execution_lane TEXT, workspace TEXT,"
+                    " project_id INTEGER, offered_at TEXT,"
+                    " last_heartbeat TEXT, last_tool_call_at TEXT,"
+                    " ended_at TEXT, terminated_at TEXT)"
                 ))
                 auth = mint_api_auth_context(conn)
             finally:

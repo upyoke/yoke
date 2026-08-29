@@ -41,6 +41,11 @@ def session_rows(
     than a locally spelled one. The live half holds every session the server
     classifies active or stale, folded together — the board shows one live
     table and does not present the two tiers separately.
+
+    The ``executor_surface`` pair below is replay coverage, not live column
+    tolerance. Only a payload replay defines ``has_query_quiet``, so a live
+    database always takes the enriched read, while a payload recorded before
+    that column joined the plan still renders.
     """
     ended_filter = live_session_sql("hs") if active_only else ended_session_sql("hs")
     order_col = "hs.offered_at" if active_only else ended_at_sql("hs")
