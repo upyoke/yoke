@@ -14,7 +14,7 @@ import {
   settledScopedCalls,
   whoColumn,
 } from "./universe_view_support.js";
-import { relativeAge, relativeTime } from "./universe_time.js";
+import { relativeTime } from "./universe_time.js";
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
 import { appendSessionPresentation, remotePresentationCount } from "./universe_session_presentation.js";
 import { appendSteeringContext, appendSteeringGroups, appendSteeringHoldings } from "./universe_sessions_steering.js";
@@ -94,10 +94,8 @@ function appendModel(documentNode, body, row) {
 function appendAge(documentNode, body, row) {
   const age = el(documentNode, "div", "session-age");
   const add = (prefix, timestamp, now = Date.now()) => {
-    const activeNow = prefix === "idle " && relativeAge(timestamp, now) === "now";
-    const label = activeNow ? "active " : prefix;
-    if (label) {
-      age.appendChild(el(documentNode, "span", "session-age-prefix", label));
+    if (prefix) {
+      age.appendChild(el(documentNode, "span", "session-age-prefix", prefix));
     }
     age.appendChild(relativeTime(documentNode, timestamp, now));
   };
@@ -112,10 +110,12 @@ function appendAge(documentNode, body, row) {
     add("claim held ", row.claim_started_at || row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   } else if (attributed) {
-    add(attributed === "lane" ? "worktree attached · active " : "filed · active ", row.activity_at);
+    add(attributed === "lane" ? "worktree attached " : "filed ", row.activity_at);
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
-  add("idle ", row.activity_at);
+  // The server classified this session against an executor-aware TTL; the card
+  // says which state that was and never decides it again from elapsed time.
+  add(`${row.liveness || "unknown"} `, row.activity_at);
   body.appendChild(age);
 }
 

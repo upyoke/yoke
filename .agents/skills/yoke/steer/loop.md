@@ -140,11 +140,16 @@ Two things the report deliberately does not do, so do them yourself:
   --reason TEXT`.
 
 The dashboard session card carries these signals faster when the operator
-has it open: every card renders an explicit `idle <age>` line, and a
-claim-holding card carries a `waiting` / `probed` / `possibly stale` health
-pill. Read the idle age, not the pill — the pill only appears past the
-staleness window, a 1440-minute clock that makes the liveness label useless
-here.
+has it open: every card renders the control plane's own liveness word beside
+the elapsed activity — `active <age>` or `stale <age>` — and a claim-holding
+card carries a `waiting` / `probed` / `possibly stale` health pill. The word
+and the age answer different questions. The word is the server's
+classification against the executor-aware TTL (1440 minutes on this surface),
+so a session reading `active 6h` is one the control plane still counts, not a
+card that has gone unrefreshed. The age is how long it has been quiet, which
+is what tells you whether to nudge it. The pill only appears past the
+staleness window, so it names a quiet claim-holder rather than replacing
+either.
 
 Wake sources are events; failures are silences — the report scans the
 silences on every pass.
