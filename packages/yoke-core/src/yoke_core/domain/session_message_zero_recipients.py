@@ -55,9 +55,7 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
             "before addressing it."
         )
     if selector.process_keys:
-        return (
-            f"no session holds the process key(s) {_listed(selector.process_keys)}."
-        )
+        return f"no session holds the process key(s) {_listed(selector.process_keys)}."
     if selector.projects or selector.universe:
         return (
             "the roster audience resolved to zero sessions. Recipient filters "

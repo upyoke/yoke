@@ -133,9 +133,7 @@ class TruncationHit:
 
 def _hits_in_text(relative_path: str, text: str) -> Iterator[TruncationHit]:
     patterns = (
-        (_PY_SLICE, _PY_COLUMN)
-        if relative_path.endswith(".py")
-        else (_JS_SLICE,)
+        (_PY_SLICE, _PY_COLUMN) if relative_path.endswith(".py") else (_JS_SLICE,)
     )
     for number, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()

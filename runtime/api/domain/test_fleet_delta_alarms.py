@@ -216,7 +216,7 @@ def test_inbox_fires_on_the_arming_pass_for_an_envelope_already_waiting() -> Non
     state = DeltaState()
 
     assert inbox_lines(snapshot, state) == [
-        "fleet inbox msg-1111 state=pending from=worker-9"
+        "fleet inbox msg-1111 state=pending from=worker-9999"
     ]
     assert inbox_lines(snapshot, state) == [], "a level fires once, not per pass"
 
@@ -235,7 +235,7 @@ def test_inbox_reports_a_state_change_and_stays_silent_on_acknowledgement() -> N
 
     injected = _inbox("msg-1111", "injected", "steerer-0000")
     assert inbox_lines(_snapshot(envelopes={injected.key: injected}), state) == [
-        "fleet inbox msg-1111 state=injected from=worker-9"
+        "fleet inbox msg-1111 state=injected from=worker-9999"
     ]
 
     done = _inbox("msg-1111", "acknowledged", "steerer-0000")
@@ -249,9 +249,7 @@ OTHER_SESSION_ID = "019e41e1-1d77-7c02-9a55-3b81f4e6c0aa"
 
 def test_a_line_carries_the_whole_session_id() -> None:
     stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
-    snapshot = _snapshot(
-        sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)}
-    )
+    snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)})
     line = idle_holder_alarms(snapshot, DeltaState())[0]
     assert f"session={SESSION_ID}" in line
 
@@ -275,17 +273,13 @@ def test_two_sessions_sharing_a_prefix_stay_distinguishable() -> None:
 
 def test_an_alarm_names_the_item_address_that_reaches_the_holder() -> None:
     stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
-    snapshot = _snapshot(
-        sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)}
-    )
+    snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)})
     line = idle_holder_alarms(snapshot, DeltaState())[0]
     assert "reach='yoke say --item YOK-1 --stdin'" in line
 
 
 def test_a_holderless_session_is_addressed_by_its_whole_id() -> None:
-    snapshot = _snapshot(
-        sessions={SESSION_ID: _session(SESSION_ID, claimed_items=())}
-    )
+    snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, claimed_items=())})
     assert address_recipe(SESSION_ID, snapshot) == (
         f"yoke say --session {SESSION_ID} --stdin"
     )

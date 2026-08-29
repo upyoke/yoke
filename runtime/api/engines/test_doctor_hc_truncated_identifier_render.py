@@ -56,7 +56,7 @@ def test_wrapped_python_slice_is_a_hit(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/render.py",
-        'def line(row):\n    return str(row.message_id)[:12]\n',
+        "def line(row):\n    return str(row.message_id)[:12]\n",
     )
     assert _relatives(hc.scan(tmp_path)) == ["packages/render.py"]
 
@@ -65,9 +65,9 @@ def test_identifier_column_declaring_a_width_is_a_hit(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/table.py",
-        'COLUMNS = (\n'
+        "COLUMNS = (\n"
         '    ("TARGET", lambda row: row.get("target_session_id"), 20),\n'
-        ')\n',
+        ")\n",
     )
     assert _relatives(hc.scan(tmp_path)) == ["packages/table.py"]
 
@@ -76,9 +76,9 @@ def test_identifier_column_without_a_width_passes(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/table.py",
-        'COLUMNS = (\n'
+        "COLUMNS = (\n"
         '    ("TARGET", lambda row: row.get("target_session_id"), None),\n'
-        ')\n',
+        ")\n",
     )
     assert hc.scan(tmp_path) == []
 
@@ -87,9 +87,9 @@ def test_browser_slice_of_a_session_id_is_a_hit(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/view.js",
-        'function label(sessionId) {\n'
-        '  return `session ${sessionId.slice(0, 8)}`;\n'
-        '}\n',
+        "function label(sessionId) {\n"
+        "  return `session ${sessionId.slice(0, 8)}`;\n"
+        "}\n",
     )
     assert _relatives(hc.scan(tmp_path)) == ["packages/view.js"]
 
@@ -98,7 +98,7 @@ def test_browser_slice_of_a_wrapped_session_id_is_a_hit(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/view.js",
-        'const label = String(row.sessionId).slice(0, 8);\n',
+        "const label = String(row.sessionId).slice(0, 8);\n",
     )
     assert _relatives(hc.scan(tmp_path)) == ["packages/view.js"]
 
@@ -116,18 +116,18 @@ def test_digest_fingerprints_stay_out_of_scope(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "packages/render.py",
-        'def fingerprint(head_sha):\n    return head_sha[:12]\n',
+        "def fingerprint(head_sha):\n    return head_sha[:12]\n",
     )
     _write(
         tmp_path,
         "packages/view.js",
-        'const short = String(revision.content_sha256).slice(0, 8);\n',
+        "const short = String(revision.content_sha256).slice(0, 8);\n",
     )
     assert hc.scan(tmp_path) == []
 
 
 def test_archive_and_generated_snapshot_are_not_scanned(tmp_path: Path) -> None:
-    body = 'x = session_id[:8]\n'
+    body = "x = session_id[:8]\n"
     _write(tmp_path, "docs/archive/note.py", body)
     _write(
         tmp_path,
@@ -140,7 +140,7 @@ def test_archive_and_generated_snapshot_are_not_scanned(tmp_path: Path) -> None:
 def test_test_files_may_write_the_shape_the_guard_forbids(
     tmp_path: Path,
 ) -> None:
-    body = 'x = session_id[:8]\n'
+    body = "x = session_id[:8]\n"
     _write(tmp_path, "packages/test_render.py", body)
     _write(tmp_path, "packages/render_test.py", body)
     assert hc.scan(tmp_path) == []
@@ -165,11 +165,11 @@ def test_exempt_path_is_not_reported_but_must_still_truncate(
     tmp_path: Path,
 ) -> None:
     exempt = ("packages/external.py", "external tool's own naming")
-    _write(tmp_path, "packages/external.py", 'p = root / session_id[:8]\n')
+    _write(tmp_path, "packages/external.py", "p = root / session_id[:8]\n")
     with mock.patch.object(hc, "_EXEMPTIONS", (exempt,)):
         assert hc.scan(tmp_path) == []
         assert hc.stale_exemptions(tmp_path) == []
-        _write(tmp_path, "packages/external.py", 'p = root / session_id\n')
+        _write(tmp_path, "packages/external.py", "p = root / session_id\n")
         assert hc.stale_exemptions(tmp_path) == ["packages/external.py"]
 
 
