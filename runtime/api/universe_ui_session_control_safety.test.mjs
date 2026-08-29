@@ -104,7 +104,10 @@ test("uncertain launches require reconciliation before retry", async (t) => {
 
   assert.equal(button(root, "Retry").disabled, true);
   const text = allNodes(root).map((node) => node._textContent).join(" ");
-  assert.equal(text.includes("Reconcile whether a session exists before retrying"), true);
+  assert.equal(text.includes("The launch instruction was not delivered"), true);
+  assert.equal(
+    text.includes("Reconcile whether a native session exists before retrying"), true,
+  );
   assert.equal(requests.some(
     (request) => request.function === "session_control.launch.retry",
   ), false);
