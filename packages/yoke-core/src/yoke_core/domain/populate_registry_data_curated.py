@@ -1,8 +1,7 @@
 """Curated and corrective event-registry data tuples.
 
-Sibling module of :mod:`yoke_core.domain.populate_registry`. Holds the
-operator-authored data tables that drive the curated, corrective, and
-severity-only update layers of the populator pipeline:
+Operator-authored tables drive the curated, corrective, and severity-only
+update layers of the populator pipeline:
 
 - :data:`CURATED_EVENTS`: events explicitly registered idempotently
   because they may not yet have call sites reachable by discovery.
@@ -22,6 +21,9 @@ from __future__ import annotations
 
 from typing import Tuple
 
+from yoke_core.domain.populate_registry_data_authoritative import (
+    QA_RUN_COMPLETED_DESCRIPTION,
+)
 from yoke_core.domain.populate_registry_data_updates import (  # noqa: F401
     CORRECTIVE_UPDATES,
     SEVERITY_ONLY_UPDATES,
@@ -103,8 +105,8 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "QARunCompleted",
         "lifecycle",
         "qa_execution",
-        "qa-db",
-        "QA run completed with verdict",
+        "yoke_core.domain.qa_events",
+        QA_RUN_COMPLETED_DESCRIPTION,
         "INFO",
     ),
     (

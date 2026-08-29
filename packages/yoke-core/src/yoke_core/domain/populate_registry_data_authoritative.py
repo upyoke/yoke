@@ -37,6 +37,15 @@ from yoke_core.domain.sessions_lifecycle_claim_events import (
 )
 from yoke_core.domain.session_termination_events import EVENT_SESSION_TERMINATED
 
+ITEM_STATUS_CHANGED_DESCRIPTION = (
+    "Item status transition stamped with the resolved acting session and "
+    "actor; sessionless transitions carry the named yoke-core system actor."
+)
+QA_RUN_COMPLETED_DESCRIPTION = (
+    "QA run completed with a verdict and stamped with the resolved acting "
+    "session and actor; sessionless runs carry the named yoke-core system actor."
+)
+
 # fmt: off
 # Authoritative metadata layer — see module docstring for ordering and apply contract.
 AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
@@ -82,7 +91,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("IdeaReadinessAutofixApplied", "lifecycle", "readiness_repair", "yoke_core.domain.idea_readiness_repair", "INFO", "Refine-entry idea_readiness_check stale-count auto-repair applied. Carries item_id, field (typically 'spec'), repaired_paths (path/recorded/actual), refused_paths, and rerun_verdict ('pass' or 'block')."),
     ("IdeaReadinessClaimCoverageRepairApplied", "lifecycle", "readiness_repair", "yoke_core.domain.idea_readiness_repair_claim_coverage", "INFO", "Refine-entry claim-coverage auto-repair applied: widen for FILE_BUDGET_NOT_IN_CLAIM, narrow for CLAIM_NOT_IN_FILE_BUDGET, or widen_and_narrow when both axes are present (partial-progress flow runs both, aggregates repaired and refused paths). Carries item_id, action ('widen'/'narrow'/'widen_and_narrow'), repaired_paths, refused_paths, and rerun_verdict ('pass' or 'block')."),
     ("IssueMigrated", "system", "github_sync", "yoke_core.engines.doctor", "INFO", "GitHub issue migrated to correct repo (emitted by yoke_core.engines.doctor)"),
-    ("ItemStatusChanged", "lifecycle", "item_status_change", "yoke_core.api.service_client", "STATUS", "Item status transition (emitted by yoke_core.api.service_client)"),
+    ("ItemStatusChanged", "lifecycle", "item_status_change", "yoke_core.domain.item_status_transitions", "STATUS", ITEM_STATUS_CHANGED_DESCRIPTION),
     ("LaneRoutingDecision", "workflow", "lane_routing", "cli", "INFO", "Emitted from shared post-decision path for lane routing outcomes"),
     ("LeaseAcquired", "lifecycle", "lease_lifecycle", "yoke_core.domain.coordination_claims", "INFO", "A shared-operation coordination claim was acquired. Carries claim_id, project_id, lease_key, target_kind, scope, session_id, owner_item_id, actor_id, sticky, claimed_at, last_heartbeat."),
     ("LeaseHeartbeated", "lifecycle", "lease_lifecycle", "yoke_core.domain.coordination_claims", "INFO", "A live coordination claim's heartbeat was refreshed. Carries claim_id, project_id, lease_key, target_kind, session_id, last_heartbeat."),
@@ -124,7 +133,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("QARequirementCreated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement created and attached to item, task, or deployment run"),
     ("QARequirementUpdated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement field updated via qa requirement-update"),
     ("QARequirementWaived", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "QA requirement waived with rationale"),
-    ("QARunCompleted", "lifecycle", "qa_execution", "qa-db", "INFO", "QA run completed with verdict"),
+    ("QARunCompleted", "lifecycle", "qa_execution", "yoke_core.domain.qa_events", "INFO", QA_RUN_COMPLETED_DESCRIPTION),
     ("RetiredSchemaResurrectionAttempt", "system", "schema_guard", "yoke_core.domain.retired_schema_registry", "WARN", "Ambient init/bootstrap attempted to re-add a column registered in yoke_core/domain/retired_schema_surfaces.yaml; the ADD COLUMN was skipped. Context names project, table, column, caller, and the retiring migration module."),
     ("SchedulerOfferSkipped", "audit", "scheduler_selection", "backend", "INFO", "A scheduler offer was skipped before claim acquisition. Carries session_id, item_id (or process_key), recommended_action, skip_reason (stale_lifecycle, live_claim_conflict, recoverable_substrate, process_disabled_by_config, ...), current_status, claim_holder_session_id, claim_id, claimed_at, chain_step. Drives within-chain skip/cooldown memory."),
     ("SMLChangeApproved", "lifecycle", "strategize", "strategize-skill", "STATUS", "SML change approved by operator"),

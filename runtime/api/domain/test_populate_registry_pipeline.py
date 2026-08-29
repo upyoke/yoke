@@ -166,8 +166,8 @@ def test_corrective_updates_override_inferred_metadata(fake_repo: Path):
     db = str(fake_repo / "runtime" / "yoke.db")
 
     row = events_crud.cmd_registry_get(db_path=db, name="ItemStatusChanged")
-    assert "yoke_core.api.service_client" in row, row
-    assert "lifecycle" in row
+    assert "yoke_core.domain.item_status_transitions" in row, row
+    assert "resolved acting session and actor" in row
     assert "STATUS" in row
 
     tcc_row = events_crud.cmd_registry_get(db_path=db, name="HarnessToolCallCompleted")

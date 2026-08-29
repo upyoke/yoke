@@ -58,6 +58,7 @@ from yoke_core.domain.yoke_function_dispatch_idempotency import (
 from yoke_core.domain.yoke_function_dispatch_target import (
     resolve_target_item_ref,
 )
+from yoke_core.domain.handler_execution_context import invoke_resolved_handler
 from yoke_core.domain.yoke_function_idempotency_scope import (
     authorization_scope_key,
     idempotency_payload_checksum,
@@ -281,13 +282,8 @@ def _dispatch_impl(
         if claim_error is not None:
             return claim_error
 
-        from yoke_core.domain import project_label_policy
-
         handler_started = start_duration_measurement()
-        with project_label_policy.request_overrides(
-            typed_request.options.get("label_color_overrides")
-        ):
-            outcome = entry.handler(typed_request)
+        outcome = invoke_resolved_handler(entry.handler, typed_request)
         handler_duration_ms = elapsed_duration_ms(handler_started)
         if not isinstance(outcome, HandlerOutcome):
             return _error_response(
