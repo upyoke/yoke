@@ -53,8 +53,9 @@ Every agent-facing result that includes a bare internal `item_id` (the
 dispatcher applies this at the envelope layer via
 `yoke_core.domain.result_item_ref_enrichment.enrich_result_item_refs`
 (one shared helper; handlers must not assemble refs themselves). Mapped
-id keys gain sibling refs at every object and array depth, including
-nested `scope` (`item_id` / `epic_id`). DB rows, events,
+id keys gain sibling refs at every display-object and array depth. Nested
+exact-shape contracts such as claim scopes and Machine QA execution
+payloads remain opaque to enrichment. DB rows, events,
 telemetry, and test assertions keep bare integer `item_id` unchanged —
 only the result envelope is enriched. `items.create` established the
 dual-field shape; acquire, lifecycle, structured writes, and sessions

@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
+    case_contract,
+)
+from yoke_core.domain.machine_qa_execution_contract import (
+    HostControlExecutionContract,
+    issue_execution_contract,
+)
 from yoke_core.domain.result_item_ref_enrichment import enrich_result_item_refs
 
 _LOOKUP_TARGET = "yoke_core.domain.item_ref_render.render_item_ref_lookup"
@@ -64,54 +71,54 @@ def test_enrich_session_current_item_id_gains_ref() -> None:
     assert out["session"]["current_item_ref"] == "PLAT-1950"
 
 
-def test_enrich_nested_claim_scope_gains_item_ref() -> None:
+def test_enrich_nested_display_mapping_gains_item_ref() -> None:
     conn = MagicMock()
     lookup = _prefix_lookup()
     with patch(_LOOKUP_TARGET, side_effect=lookup):
         out = enrich_result_item_refs(
-            {"holder": {"scope": {"item_id": 42}}},
+            {"holder": {"summary": {"item_id": 42}}},
             conn=conn,
         )
-    assert out["holder"]["scope"]["item_id"] == 42
-    assert out["holder"]["scope"]["item_ref"] == "BUZ-42"
+    assert out["holder"]["summary"]["item_id"] == 42
+    assert out["holder"]["summary"]["item_ref"] == "BUZ-42"
 
 
-def test_enrich_top_level_scope_gains_item_ref() -> None:
+def test_enrich_top_level_nested_display_mapping_gains_item_ref() -> None:
     conn = MagicMock()
     lookup = _prefix_lookup()
     with patch(_LOOKUP_TARGET, side_effect=lookup):
         out = enrich_result_item_refs(
-            {"target_kind": "item", "scope": {"item_id": 42}},
+            {"target_kind": "item", "summary": {"item_id": 42}},
             conn=conn,
         )
-    assert out["scope"]["item_id"] == 42
-    assert out["scope"]["item_ref"] == "BUZ-42"
+    assert out["summary"]["item_id"] == 42
+    assert out["summary"]["item_ref"] == "BUZ-42"
     assert lookup.calls == [[42]]  # type: ignore[attr-defined]
 
 
-def test_enrich_epic_task_scope_gains_epic_ref() -> None:
+def test_enrich_nested_epic_summary_gains_epic_ref() -> None:
     conn = MagicMock()
     lookup = _prefix_lookup()
     with patch(_LOOKUP_TARGET, side_effect=lookup):
         out = enrich_result_item_refs(
-            {"scope": {"epic_id": 833, "task_num": 5}},
+            {"summary": {"epic_id": 833, "task_num": 5}},
             conn=conn,
         )
-    assert out["scope"]["epic_id"] == 833
-    assert out["scope"]["task_num"] == 5
-    assert out["scope"]["epic_ref"] == "BUZ-833"
+    assert out["summary"]["epic_id"] == 833
+    assert out["summary"]["task_num"] == 5
+    assert out["summary"]["epic_ref"] == "BUZ-833"
 
 
-def test_enrich_list_of_scopes_gains_refs() -> None:
+def test_enrich_list_of_display_mappings_gains_refs() -> None:
     conn = MagicMock()
     lookup = _prefix_lookup()
     with patch(_LOOKUP_TARGET, side_effect=lookup):
         out = enrich_result_item_refs(
-            {"claims": [{"scope": {"item_id": 7}}, {"scope": {"item_id": 8}}]},
+            {"items": [{"item_id": 7}, {"item_id": 8}]},
             conn=conn,
         )
-    assert out["claims"][0]["scope"]["item_ref"] == "BUZ-7"
-    assert out["claims"][1]["scope"]["item_ref"] == "BUZ-8"
+    assert out["items"][0]["item_ref"] == "BUZ-7"
+    assert out["items"][1]["item_ref"] == "BUZ-8"
     assert lookup.calls == [[7, 8]]  # type: ignore[attr-defined]
 
 
@@ -122,13 +129,43 @@ def test_enrich_resolves_duplicate_ids_once() -> None:
         out = enrich_result_item_refs(
             {
                 "item_id": 42,
-                "holder": {"scope": {"item_id": 42}},
+                "holder": {"summary": {"item_id": 42}},
             },
             conn=conn,
         )
     assert out["item_ref"] == "BUZ-42"
-    assert out["holder"]["scope"]["item_ref"] == "BUZ-42"
+    assert out["holder"]["summary"]["item_ref"] == "BUZ-42"
     assert lookup.calls == [[42]]  # type: ignore[attr-defined]
+
+
+def test_enrich_preserves_issued_machine_qa_contract() -> None:
+    contract = issue_execution_contract(
+        operation="case",
+        lease_id=1,
+        lease_key="QA_HOST:test-mac",
+        project_id=1,
+        project="yoke",
+        settings={
+            "resource_name": "test-mac",
+            "host": "test-mac.example",
+            "user": "tester",
+            "operating_notes": "",
+        },
+        cases=[case_contract().model_dump(mode="json")],
+    )
+    lookup = _prefix_lookup()
+    with patch(_LOOKUP_TARGET, side_effect=lookup):
+        out = enrich_result_item_refs(
+            {"execution": contract.model_dump(mode="json")},
+            conn=MagicMock(),
+        )
+
+    execution = out["execution"]
+    assert execution["cases"][0]["item_id"] == 1
+    assert "item_ref" not in execution["cases"][0]
+    decoded = HostControlExecutionContract.model_validate(execution)
+    assert decoded.contract_digest == contract.contract_digest
+    assert lookup.calls == []  # type: ignore[attr-defined]
 
 
 def test_enrich_cycle_does_not_hang() -> None:

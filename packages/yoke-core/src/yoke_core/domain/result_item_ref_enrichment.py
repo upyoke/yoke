@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Mapping, MutableMapping, Optional
 
+from yoke_contracts.opaque_contract_payload import OpaqueContractPayload
+
 # Mapped result keys whose integer (or numeric-string) value is an
 # internal items.id and should gain a sibling public-ref field wherever
 # they appear. ``epic_id`` is the same identifier (the epic's items.id);
@@ -59,6 +61,8 @@ def _collect_ids(
     depth: int,
 ) -> None:
     if depth > _MAX_NESTING_DEPTH:
+        return
+    if isinstance(node, OpaqueContractPayload):
         return
     if isinstance(node, dict):
         node_id = id(node)
@@ -105,6 +109,8 @@ def _apply(
     seen_nodes: set[int],
     depth: int,
 ) -> Any:
+    if isinstance(node, OpaqueContractPayload):
+        return dict(node)
     if isinstance(node, dict):
         if depth > _MAX_NESTING_DEPTH or id(node) in seen_nodes:
             return dict(node)
@@ -134,8 +140,9 @@ def enrich_result_item_refs(
 ) -> dict[str, Any]:
     """Return a copy of ``result`` with public refs beside bare ids.
 
-    Walks nested objects and arrays so a mapped key gains its sibling ref
-    wherever it appears. Distinct ids are resolved in one statement.
+    Walks nested display objects and arrays so a mapped key gains its sibling
+    ref wherever it appears. Exact-shape contract payloads are copied without
+    enrichment. Distinct ids are resolved in one statement.
     Opens a short-lived control-plane connection when ``conn`` is omitted.
     On connection or lookup failure the original fields are preserved
     unchanged — never invent a wrong ref.

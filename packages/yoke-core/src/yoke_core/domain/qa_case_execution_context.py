@@ -21,6 +21,7 @@ from yoke_contracts.machine_config.capability_secrets import (
 from yoke_contracts.machine_config.test_machine import (
     is_test_machine_capability_type,
 )
+from yoke_contracts.opaque_contract_payload import opaque_contract_payload
 
 
 class QaCaseExecutionError(ValueError):
@@ -254,7 +255,7 @@ def get_case_execution_context(
         require_case_target(context, execution_target)
         context["execution_target"] = execution_target
         context["execution_target_digest"] = str(row["execution_target_digest"])
-    return context
+    return opaque_contract_payload(context)
 
 
 __all__ = [
