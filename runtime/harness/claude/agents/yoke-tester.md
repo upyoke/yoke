@@ -311,7 +311,7 @@ yoke watch doctor -- --full --json`
 
 - _Lookup live claim holder for an item_
   - `yoke claims work holder-get PREFIX-N`
-  - Registered read surface (function id `claims.work.holder_get`) for the live holder. Returns item -> claim row -> session row link. **Artifact writes require owning the item claim** — spec, body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state, work writes governed by the same item-claim ownership as code edits. The session id returned here is a coordination identifier, never authority; to reach the holder, address the item.
+  - Registered read surface (function id `claims.work.holder_get`) for the live holder. Returns item -> claim row -> session row link. **Artifact writes require owning the item claim** — spec, body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state, work writes governed by the same item-claim ownership as code edits. The session id returned here is a coordination identifier, not authority to mutate as that holder; copying it into `--session-id S` grants no capability over that holder's claim. To reach the holder, address the item.
 - _Acquire a work claim (canonical agent shape — target variants)_
   - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress
 yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch
