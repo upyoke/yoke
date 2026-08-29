@@ -51,20 +51,71 @@ def require_registered_session_facts(conn: Any, session_id: str) -> dict[str, An
     return facts
 
 
-def require_exact_launch_session(
-    launch: LaunchRecord, session_id: str, facts: dict[str, Any]
+def _require_launch_session_context(
+    launch: LaunchRecord, facts: dict[str, Any]
 ) -> None:
-    if launch.native_session_id != session_id:
-        raise SessionLaunchError(
-            "native_session_mismatch",
-            "registered session does not equal the native binding id",
-        )
     if facts["project_id"] != launch.project_id:
         raise SessionLaunchError("project_mismatch", "registered project differs")
     if facts["surface"] != launch.selected_surface:
         raise SessionLaunchError("surface_mismatch", "registered surface differs")
     if launch.assigned_machine_id and facts["machine_id"] != launch.assigned_machine_id:
         raise SessionLaunchError("machine_mismatch", "registered machine differs")
+
+
+def require_exact_launch_session(
+    launch: LaunchRecord, session_id: str, facts: dict[str, Any]
+) -> None:
+    _require_launch_session_context(launch, facts)
+    if launch.native_session_id != session_id:
+        raise SessionLaunchError(
+            "native_session_mismatch",
+            "registered session does not equal the native binding id",
+        )
+
+
+def adopt_attested_session_identity(
+    conn: Any,
+    *,
+    launch: LaunchRecord,
+    session_id: str,
+    facts: dict[str, Any],
+    now: str,
+) -> LaunchRecord:
+    """Recover a missing native id from a validated launch attestation."""
+    if (
+        launch.state != "outcome_unknown"
+        or launch.native_session_id
+        or launch.registered_session_id
+    ):
+        raise SessionLaunchError(
+            "invalid_state",
+            "launch cannot adopt an attested session identity",
+        )
+    _require_launch_session_context(launch, facts)
+    p = marker(conn)
+    stamped = conn.execute(
+        "UPDATE session_launch_attempts SET native_session_id="
+        + p
+        + " WHERE native_session_id IS NULL AND attempt_id=("
+        "SELECT attempt_id FROM session_launch_attempts WHERE launch_id="
+        + p
+        + " ORDER BY attempt_number DESC LIMIT 1)",
+        (session_id, launch.launch_id),
+    )
+    if stamped.rowcount != 1:
+        raise SessionLaunchError(
+            "attempt_identity_conflict",
+            "latest launch attempt cannot adopt the attested session identity",
+        )
+    return update_launch(
+        conn,
+        launch.launch_id,
+        state="awaiting_registration",
+        native_session_id=session_id,
+        awaiting_registration_at=now,
+        completed_at=None,
+        result_code="native_identity_attested",
+    )
 
 
 def _insert_pending_recipient(
@@ -189,6 +240,7 @@ def bind_existing_registered_session(
 
 
 __all__ = [
+    "adopt_attested_session_identity",
     "bind_existing_registered_session",
     "bind_launch_to_session",
     "require_registered_session_facts",

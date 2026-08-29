@@ -9,7 +9,10 @@ from yoke_core.domain.session_launch_execution import (
     reconcile_launch,
     report_launch_attempt,
 )
-from yoke_core.domain.session_launch_registration import complete_launch_for_message
+from yoke_core.domain.session_launch_registration import (
+    complete_launch_for_message,
+    prepare_launch_registration,
+)
 from yoke_core.domain.session_launch_store import get_launch
 from runtime.api.domain.session_launch_test_support import (
     NOW,
@@ -136,6 +139,52 @@ def test_reconciliation_reopens_and_routes_the_stranded_instruction() -> None:
         "reconciled-session",
         "pending",
         "2026-08-22T12:00:30Z",
+    )
+    reopened = conn.execute(
+        "SELECT cancellation_reason FROM session_messages WHERE message_id=?",
+        (launch.message_id,),
+    ).fetchone()
+    assert reopened[0] is None
+
+
+def test_attested_registration_recovers_a_missing_native_identity() -> None:
+    conn = launch_connection()
+    add_relay(conn)
+    launch, claim = _claim(conn, key="attested-identity")
+    uncertain = report_launch_attempt(
+        conn,
+        launch_id=launch.launch_id,
+        lease_id=claim.lease_id,
+        result_code="outcome_unknown",
+        evidence={"result_code": "identity_parse_failed"},
+        now="2026-08-22T12:00:20Z",
+    )
+    assert uncertain.native_session_id is None
+    _register(conn, "attested-session")
+
+    injection = prepare_launch_registration(
+        conn,
+        launch_id=launch.launch_id,
+        attestation=claim.attestation,
+        session_id="attested-session",
+        now="2026-08-22T12:00:30Z",
+    )
+    bound = get_launch(conn, launch.launch_id)
+
+    assert injection.session_id == "attested-session"
+    assert bound.state == "awaiting_registration"
+    assert bound.native_session_id == bound.registered_session_id == "attested-session"
+    assert bound.result_code == "registration_bound"
+    assert bound.attestation_consumed_at == "2026-08-22T12:00:30Z"
+    attempt = conn.execute(
+        "SELECT native_session_id FROM session_launch_attempts WHERE launch_id=?",
+        (launch.launch_id,),
+    ).fetchone()
+    assert attempt[0] == "attested-session"
+    assert tuple(_recipient(conn, launch.message_id)) == (
+        "attested-session",
+        "pending",
+        launch.deadline_at,
     )
     reopened = conn.execute(
         "SELECT cancellation_reason FROM session_messages WHERE message_id=?",

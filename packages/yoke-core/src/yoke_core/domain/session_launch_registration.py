@@ -23,6 +23,7 @@ from yoke_core.domain.session_launch_types import (
     SessionLaunchError,
 )
 from .session_launch_registered_session_binding import (
+    adopt_attested_session_identity,
     bind_launch_to_session,
     require_registered_session_facts,
 )
@@ -46,10 +47,15 @@ def prepare_launch_registration(
     begin_mutation(conn)
     try:
         launch = get_launch(conn, launch_id, for_update=True)
-        if launch.state != "awaiting_registration":
+        recover_missing_identity = (
+            launch.state == "outcome_unknown"
+            and not launch.native_session_id
+            and not launch.registered_session_id
+        )
+        if launch.state != "awaiting_registration" and not recover_missing_identity:
             raise SessionLaunchError(
                 "invalid_state",
-                f"launch is {launch.state!r}, not awaiting registration",
+                f"launch in state {launch.state!r} cannot register this session",
             )
         if launch.attestation_consumed_at:
             raise SessionLaunchError(
@@ -79,6 +85,14 @@ def prepare_launch_registration(
                 "attestation_invalid", "launch attestation is invalid"
             )
         facts = require_registered_session_facts(conn, session_id)
+        if recover_missing_identity:
+            launch = adopt_attested_session_identity(
+                conn,
+                launch=launch,
+                session_id=session_id,
+                facts=facts,
+                now=current,
+            )
         bind_launch_to_session(
             conn,
             launch=launch,
