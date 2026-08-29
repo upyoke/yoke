@@ -269,8 +269,7 @@ def release_item_focus_if_current(
     whether this session's focus was released.
     """
     row = conn.execute(
-        f"SELECT current_item_id FROM harness_sessions "
-        f"WHERE session_id = {_p(conn)}",
+        f"SELECT current_item_id FROM harness_sessions WHERE session_id = {_p(conn)}",
         (session_id,),
     ).fetchone()
     if row is None:

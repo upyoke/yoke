@@ -249,9 +249,7 @@ def handoff_claim(
         ),
     )
     if old_target.kind == "item":
-        release_item_focus_if_current(
-            conn, old_dict["session_id"], old_target.item_id
-        )
+        release_item_focus_if_current(conn, old_dict["session_id"], old_target.item_id)
         set_current_item(
             conn,
             target_session_id,
