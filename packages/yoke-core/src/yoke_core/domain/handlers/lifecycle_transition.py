@@ -77,7 +77,6 @@ class LifecycleTransitionResponse(BaseModel):
     from_status: str
     to_status: str
     reason: Optional[str] = None
-    rework_count: Optional[int] = None
     log: str = ""
 
 
@@ -240,7 +239,6 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         reason=cancellation_reason
         if payload.target_status == "cancelled"
         else payload.reason,
-        rework_count=result.get("rework_count"),
         log=captured.getvalue(),
     )
     return HandlerOutcome(

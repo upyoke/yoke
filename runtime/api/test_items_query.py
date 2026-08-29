@@ -260,7 +260,3 @@ class TestUpdateItemField:
         """Structured fields must go through update_structured_field."""
         with pytest.raises(ValueError, match="structured field"):
             update_item_field(1, "spec", "content", db_path=db_with_item)
-
-    def test_integer_field_rework_count(self, db_with_item):
-        update_item_field(1, "rework_count", "3", db_path=db_with_item)
-        assert query_item(1, "rework_count", db_path=db_with_item) == "3"

@@ -42,7 +42,9 @@ def _p(conn) -> str:
 
 def _iso_offset(**kwargs) -> str:
     """Return a UTC timestamp offset from now."""
-    return (datetime.now(timezone.utc) + timedelta(**kwargs)).strftime("%Y-%m-%d %H:%M:%S")
+    return (datetime.now(timezone.utc) + timedelta(**kwargs)).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
 
 
 # Intentional minimal items table — see ``test_schema_fixture_derivation``
@@ -59,7 +61,6 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             project_id INTEGER DEFAULT 1,
             project_sequence INTEGER,
             github_issue TEXT,
-            rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,
             spec TEXT,

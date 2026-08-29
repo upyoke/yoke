@@ -77,6 +77,7 @@ __all__ = [
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def _build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -101,7 +102,6 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ins.add_argument("--workflow", default=None)
     p_ins.add_argument("--status", default=None)
     p_ins.add_argument("--priority", default=None)
-    p_ins.add_argument("--rework-count", type=int, default=None)
     p_ins.add_argument("--frozen", type=int, default=None)
     p_ins.add_argument("--blocked", type=int, default=None)
     p_ins.add_argument("--blocked-reason", default=None)
@@ -131,7 +131,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_struct.add_argument("id", type=int, help="Item ID (numeric)")
     p_struct.add_argument("field", help="Structured field name")
     p_struct.add_argument("--body-file", default=None, help="Path to content file")
-    p_struct.add_argument("--stdin", action="store_true", dest="use_stdin", help="Read content from stdin")
+    p_struct.add_argument(
+        "--stdin", action="store_true", dest="use_stdin", help="Read content from stdin"
+    )
     p_struct.add_argument("--force", action="store_true", help="Bypass shrinkage guard")
     p_struct.add_argument("--source", default="", help="Source name for tracking")
 
@@ -174,16 +176,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             # Build kwargs, omitting None values so function defaults apply
             kwargs: Dict[str, Any] = {"item_id": args.id}
             _cli_field_map = {
-                "title": args.title, "workflow": args.workflow,
-                "status": args.status, "priority": args.priority,
-                "rework_count": args.rework_count,
+                "title": args.title,
+                "workflow": args.workflow,
+                "status": args.status,
+                "priority": args.priority,
                 "frozen": args.frozen,
-                "blocked": args.blocked, "blocked_reason": args.blocked_reason,
+                "blocked": args.blocked,
+                "blocked_reason": args.blocked_reason,
                 "github_issue": args.github_issue,
                 "deployed_to": args.deployed_to,
-                "body": body, "created_at": args.created_at,
-                "updated_at": args.updated_at, "source": args.source,
-                "project": args.project, "deployment_flow": args.deployment_flow,
+                "body": body,
+                "created_at": args.created_at,
+                "updated_at": args.updated_at,
+                "source": args.source,
+                "project": args.project,
+                "deployment_flow": args.deployment_flow,
             }
             for k, v in _cli_field_map.items():
                 if v is not None:
@@ -212,13 +219,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         elif args.command == "update-structured":
             if args.body_file and args.use_stdin:
                 print(
-                    json.dumps({"success": False, "error": "cannot use both --stdin and --body-file; pick one"}),
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": "cannot use both --stdin and --body-file; pick one",
+                        }
+                    ),
                     file=sys.stderr,
                 )
                 return 2
             if not args.body_file and not args.use_stdin:
                 print(
-                    json.dumps({"success": False, "error": "structured field write requires --body-file or --stdin"}),
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": "structured field write requires --body-file or --stdin",
+                        }
+                    ),
                     file=sys.stderr,
                 )
                 return 2

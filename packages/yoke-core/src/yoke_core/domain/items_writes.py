@@ -55,7 +55,6 @@ def insert_item(
     workflow: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = "medium",
-    rework_count: Optional[int] = 0,
     frozen: Optional[int] = 0,
     blocked: Optional[int] = 0,
     blocked_reason: Optional[str] = None,
@@ -116,11 +115,11 @@ def insert_item(
             INSERT INTO items (
                 id, title, workflow_id, workflow_version_id,
                 status, priority,
-                rework_count, frozen, blocked, blocked_reason,
+                frozen, blocked, blocked_reason,
                 github_issue, deployed_to,
                 created_at, updated_at, source,
                 project_id, project_sequence, deployment_flow
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 item_id,
@@ -129,7 +128,6 @@ def insert_item(
                 workflow_version_id,
                 status,
                 priority,
-                rework_count,
                 frozen,
                 blocked,
                 blocked_reason,
@@ -160,7 +158,7 @@ def update_item_field(
     """Update a single non-structured field on an item.
 
     Handles ``frozen`` boolean mapping, ``"null"`` -> SQL NULL, and integer
-    fields (rework_count, frozen, id). Body and structured-field writes are
+    fields (frozen, id). Body and structured-field writes are
     rejected; use :func:`update_structured_field` for the latter.
 
     Raises ``ValueError`` for body writes and invalid fields.

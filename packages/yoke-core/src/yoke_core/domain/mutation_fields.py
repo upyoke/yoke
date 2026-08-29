@@ -23,18 +23,19 @@ TITLE_MAX_LENGTH: int = 100
 VALID_PRIORITIES: FrozenSet[str] = frozenset({"high", "medium", "low"})
 
 # Fields supported by the update surface.
-SUPPORTED_UPDATE_FIELDS: FrozenSet[str] = frozenset({
-    "status", "frozen", "blocked", "blocked_reason",
-    "priority", "project", "deployment_flow", "deployed_to", "title",
-})
-
-# Statuses that trigger rework detection when work re-enters implementation.
-REWORK_SOURCE_STATUSES: FrozenSet[str] = frozenset({
-    "done",
-    "implemented",
-    "reviewed-implementation",
-    "polishing-implementation",
-})
+SUPPORTED_UPDATE_FIELDS: FrozenSet[str] = frozenset(
+    {
+        "status",
+        "frozen",
+        "blocked",
+        "blocked_reason",
+        "priority",
+        "project",
+        "deployment_flow",
+        "deployed_to",
+        "title",
+    }
+)
 
 # Fields cleared on done-transition cleanup.
 DONE_CLEANUP_FIELDS: Dict[str, Any] = {
@@ -51,10 +52,10 @@ DONE_CLEANUP_FIELDS: Dict[str, Any] = {
 
 class MutationEventKind(str, Enum):
     """Kinds of mutation events produced during a mutation."""
+
     CREATED = "created"
     FIELD_UPDATED = "field_updated"
     STATUS_TRANSITIONED = "status_transitioned"
-    REWORK_INCREMENTED = "rework_incremented"
     DONE_CLEANUP = "done_cleanup"
     APPROVAL_APPLIED = "approval_applied"
     RUN_STAGE_ADVANCED = "run_stage_advanced"
@@ -68,6 +69,7 @@ class MutationEvent:
     Downstream adapters (API, shell) consume these to drive side effects
     like GitHub sync, board rebuilds, telemetry, etc.
     """
+
     kind: MutationEventKind
     detail: Dict[str, Any] = field(default_factory=dict)
 
@@ -85,6 +87,7 @@ class MutationResult:
             Adapters apply these writes in a single transaction.
         item_id: The item ID affected (set after create assigns an ID).
     """
+
     success: bool
     error: Optional[str] = None
     error_code: Optional[str] = None
@@ -101,6 +104,7 @@ class CreateResult(MutationResult):
     Attributes:
         defaults: Dict of field->value defaults applied to the new item.
     """
+
     defaults: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -114,6 +118,7 @@ class ApprovalResult(MutationResult):
         member_item_ids: Item IDs of all run members to sync stage to.
         approved_at: ISO timestamp of approval.
     """
+
     next_stage: Optional[str] = None
     run_id: Optional[str] = None
     member_item_ids: Tuple[int, ...] = ()
@@ -188,6 +193,7 @@ class ItemState:
 
     Only the fields needed for mutation validation/semantics are included.
     """
+
     id: int
     title: str
     status: str
@@ -197,7 +203,6 @@ class ItemState:
     #: bare ``id`` is the internal address and is never displayed with a
     #: prefix glued on.
     item_ref: Optional[str] = None
-    rework_count: int = 0
     frozen: bool = False
     blocked: bool = False
     blocked_reason: Optional[str] = None
@@ -244,6 +249,7 @@ class GateContext:
             the mutation layer.
         qa_bypass: True if QA gates should be bypassed.
     """
+
     epic_task_count: Optional[int] = None
     qa_requirement_count: int = 0
     unsatisfied_verification_blocking: int = 0

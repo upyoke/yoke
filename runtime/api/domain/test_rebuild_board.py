@@ -51,9 +51,9 @@ def _init_repo(tmp_path: Path):
             conn.execute(
                 """
                 INSERT INTO items (
-                    id, title, workflow_id, workflow_version_id, status, priority, rework_count, frozen,
+                    id, title, workflow_id, workflow_version_id, status, priority, frozen,
                     created_at, updated_at, source, project_id, project_sequence
-                ) VALUES (1, 'Test item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 0, 0,
+                ) VALUES (1, 'Test item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 0,
                           '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'user', 1, 1)
                 """
             )
@@ -156,22 +156,21 @@ def test_rebuild_composes_over_https_transport(tmp_path: Path, monkeypatch) -> N
 
     with _init_repo(tmp_path) as (repo_root, yoke_root):
         connection = yoke_transport.HttpsConnection(
-            api_url="https://api.example.test", token="tok",
+            api_url="https://api.example.test",
+            token="tok",
         )
 
         def fake_relay(request, conn, **_kwargs):
             assert conn is connection
-            wire_request = _json.loads(
-                _json.dumps(request.model_dump(mode="json"))
-            )
+            wire_request = _json.loads(_json.dumps(request.model_dump(mode="json")))
             response = dispatch(wire_request)
-            wire_response = _json.loads(
-                _json.dumps(response.model_dump(mode="json"))
-            )
+            wire_response = _json.loads(_json.dumps(response.model_dump(mode="json")))
             return FunctionCallResponse.model_validate(wire_response)
 
         monkeypatch.setattr(
-            yoke_transport, "resolve_https_connection", lambda *a, **k: connection,
+            yoke_transport,
+            "resolve_https_connection",
+            lambda *a, **k: connection,
         )
         monkeypatch.setattr(yoke_transport, "relay_https", fake_relay)
 

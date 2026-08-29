@@ -26,7 +26,6 @@ _QI_ALL_FIELDS = {
     "workflow_version_id",
     "status",
     "priority",
-    "rework_count",
     "frozen",
     "blocked",
     "blocked_reason",

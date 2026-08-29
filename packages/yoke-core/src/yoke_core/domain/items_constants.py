@@ -34,10 +34,19 @@ _DB_COLUMNS = tuple(c for c in CANONICAL_COLUMNS if c != "body")
 
 # Columns used in the shorter ``list`` output (16 columns).
 LIST_COLUMNS = (
-    "id", "title", "workflow_id", "workflow_version_id",
-    "status", "priority",
-    "rework_count", "frozen", "github_issue", "deployed_to",
-    "body", "merged_at", "created_at", "updated_at",
+    "id",
+    "title",
+    "workflow_id",
+    "workflow_version_id",
+    "status",
+    "priority",
+    "frozen",
+    "github_issue",
+    "deployed_to",
+    "body",
+    "merged_at",
+    "created_at",
+    "updated_at",
 )
 
 # Fields that contain large text and need file-based read/write paths.
@@ -48,22 +57,35 @@ LARGE_TEXT_FIELDS = STRUCTURED_FIELDS | {"body"}
 # db_mutation_profile / db_compatibility_attestation ARE content-bearing: each
 # declares or argues about a governed DB mutation and is part of the item's
 # editable spec surface.
-CONTENT_FIELDS = frozenset({
-    "spec", "design_spec", "technical_plan", "worktree_plan",
-    "db_mutation_profile", "db_compatibility_attestation",
-})
+CONTENT_FIELDS = frozenset(
+    {
+        "spec",
+        "design_spec",
+        "technical_plan",
+        "worktree_plan",
+        "db_mutation_profile",
+        "db_compatibility_attestation",
+    }
+)
 
 # Integer fields (no quoting needed in raw SQL — but we use parameterised
 # queries everywhere, so this is mainly for the frozen / blocked bool mapping).
-INTEGER_FIELDS = frozenset({
-    "rework_count", "frozen", "blocked", "id", "project_id",
-    "project_sequence", "workflow_version_id",
-})
+INTEGER_FIELDS = frozenset(
+    {
+        "frozen",
+        "blocked",
+        "id",
+        "project_id",
+        "project_sequence",
+        "workflow_version_id",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _now_utc() -> str:
     """Return current UTC timestamp in ISO 8601 format."""

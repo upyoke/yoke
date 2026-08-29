@@ -21,7 +21,6 @@ CREATE TABLE projects (
 CREATE TABLE items (
     id INTEGER PRIMARY KEY, title TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'idea', priority TEXT NOT NULL DEFAULT 'medium',
-    rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0, blocked INTEGER DEFAULT 0, blocked_reason TEXT,
     github_issue TEXT, deployed_to TEXT, merged_at TEXT,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, source TEXT NOT NULL DEFAULT '2',

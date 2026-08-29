@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS items (
     workflow_version_id INTEGER,
     status TEXT NOT NULL DEFAULT 'idea',
     priority TEXT NOT NULL DEFAULT 'medium',
-    rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0,
     blocked INTEGER DEFAULT 0,
     blocked_reason TEXT,

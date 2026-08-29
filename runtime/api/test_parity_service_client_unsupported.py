@@ -43,8 +43,13 @@ class TestUnsupportedFieldRegression:
         """The service-client update-item should reject 'body' updates."""
         db_path = write_parity_env["db_path"]
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "body", "--value", "new body",
+            db_path,
+            "update-item",
+            "1",
+            "--field",
+            "body",
+            "--value",
+            "new body",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -61,8 +66,13 @@ class TestUnsupportedFieldRegression:
         """The service-client update-item should reject 'source' updates."""
         db_path = write_parity_env["db_path"]
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "source", "--value", "auto",
+            db_path,
+            "update-item",
+            "1",
+            "--field",
+            "source",
+            "--value",
+            "auto",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -72,8 +82,13 @@ class TestUnsupportedFieldRegression:
         """The service-client update-item should reject 'epic' updates."""
         db_path = write_parity_env["db_path"]
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "epic", "--value", "42",
+            db_path,
+            "update-item",
+            "1",
+            "--field",
+            "epic",
+            "--value",
+            "42",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -84,8 +99,13 @@ class TestUnsupportedFieldRegression:
         """The service-client update-item should reject 'type' updates."""
         db_path = write_parity_env["db_path"]
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "type", "--value", "epic",
+            db_path,
+            "update-item",
+            "1",
+            "--field",
+            "type",
+            "--value",
+            "epic",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -101,12 +121,22 @@ class TestUnsupportedFieldRegression:
         )
 
         item = ItemState(
-            id=1, title="Test",
-            status="implementing", priority="medium",
+            id=1,
+            title="Test",
+            status="implementing",
+            priority="medium",
         )
 
-        unsupported_fields = ["body", "source", "epic", "type", "github_issue",
-                              "created_at", "updated_at", "merged_at", "rework_count"]
+        unsupported_fields = [
+            "body",
+            "source",
+            "epic",
+            "type",
+            "github_issue",
+            "created_at",
+            "updated_at",
+            "merged_at",
+        ]
 
         for field_name in unsupported_fields:
             result = prepare_update(item=item, field_name=field_name, value="test")
@@ -121,8 +151,15 @@ class TestUnsupportedFieldRegression:
         from yoke_core.domain.mutations import SUPPORTED_UPDATE_FIELDS
 
         expected = {
-            "status", "frozen", "blocked", "blocked_reason",
-            "priority", "project", "deployment_flow", "deployed_to", "title",
+            "status",
+            "frozen",
+            "blocked",
+            "blocked_reason",
+            "priority",
+            "project",
+            "deployment_flow",
+            "deployed_to",
+            "title",
         }
         assert SUPPORTED_UPDATE_FIELDS == expected, (
             f"SUPPORTED_UPDATE_FIELDS has drifted: "

@@ -125,7 +125,6 @@ class ItemObject(BaseModel):
     status: str
     priority: str
     flow: Optional[str] = None
-    rework_count: int = 0
     frozen: bool = False
     github_issue: Optional[str] = None
     deployed_to: Optional[str] = None

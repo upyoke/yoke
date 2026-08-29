@@ -67,10 +67,10 @@
           "PermissionRequest",
           "PostToolUse"
         ],
-        "create": "supported",
-        "message_active": "supported",
-        "message_idle": "supported",
-        "message_stopped": "supported"
+        "create": "none",
+        "message_active": "none",
+        "message_idle": "none",
+        "message_stopped": "none"
       },
       "codex-vscode": {
         "minimum_version": "0.148.0-alpha.15",

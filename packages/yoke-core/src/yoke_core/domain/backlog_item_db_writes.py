@@ -25,7 +25,6 @@ def _insert_item(
     title: str,
     status: str,
     priority: str,
-    rework_count: int,
     frozen: int,
     github_issue: Optional[str],
     deployed_to: Optional[str],
@@ -57,7 +56,7 @@ def _insert_item(
     conn.execute(
         """INSERT INTO items (
             id, title, status, priority,
-            rework_count, frozen,
+            frozen,
             github_issue, deployed_to,
             created_at, updated_at, source, owner,
             project_id, project_sequence, deployment_flow,
@@ -65,15 +64,13 @@ def _insert_item(
             spec, spec_updated_at, spec_updated_by
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         )""",
         (
             item_id,
             title,
             status,
             priority,
-            rework_count,
             frozen,
             github_issue,
             deployed_to,

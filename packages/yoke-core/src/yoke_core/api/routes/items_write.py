@@ -266,7 +266,6 @@ def update_item(
             title=item_dict["title"],
             status=item_dict["status"],
             priority=item_dict["priority"],
-            rework_count=item_dict.get("rework_count", 0),
             frozen=bool(item_dict.get("frozen", 0)),
             project=prospective_project,
             deployment_flow=item_dict.get("deployment_flow"),

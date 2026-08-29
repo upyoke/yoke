@@ -53,7 +53,7 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     ]
     rows = query_rows(
         conn,
-        "SELECT id, priority, github_issue, rework_count FROM items",
+        "SELECT id, priority, github_issue FROM items",
     )
     for row in rows:
         yok_id = render_item_ref(conn, row["id"])
@@ -65,19 +65,6 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         gh = row["github_issue"]
         if gh and gh != "null" and not re.match(r"^#\d+", gh):
             issues.append(f"- {yok_id}: github_issue '{gh}' does not match #N format")
-        rw = row["rework_count"]
-        if rw is not None and str(rw) != "null" and str(rw) != "":
-            try:
-                val = int(rw)
-                if val < 0:
-                    issues.append(
-                        f"- {yok_id}: rework_count '{rw}' is not a non-negative integer"
-                    )
-            except (ValueError, TypeError):
-                issues.append(
-                    f"- {yok_id}: rework_count '{rw}' is not a non-negative integer"
-                )
-
     if issues:
         rec.record(
             "HC-frontmatter-schema",

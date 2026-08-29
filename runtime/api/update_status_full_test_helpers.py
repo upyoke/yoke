@@ -73,11 +73,17 @@ class UpdateStatusEnv:
 
         self.mock_dir.mkdir()
         self._write_mock_gh(_MOCK_GH_DEFAULT)
-        self.machine_config_file.write_text(json.dumps({
-            "projects": machine_config_contract.upsert_project_entry(
-                None, checkout=str(self.root), project_id=1,
-            ),
-        }))
+        self.machine_config_file.write_text(
+            json.dumps(
+                {
+                    "projects": machine_config_contract.upsert_project_entry(
+                        None,
+                        checkout=str(self.root),
+                        project_id=1,
+                    ),
+                }
+            )
+        )
 
         # The path token is legacy; the backend resolves the per-test DSN.
         self._stack = contextlib.ExitStack()
@@ -101,12 +107,12 @@ class UpdateStatusEnv:
         conn.execute(
             "INSERT INTO items"
             " (id, title, workflow_id, workflow_version_id, status, priority,"
-            "  rework_count, frozen,"
+            "  frozen,"
             "  created_at, updated_at, project_id, project_sequence)"
             " VALUES (42, 'Test Epic Item', 'epic',"
             " (SELECT current_version_id FROM workflows WHERE id='epic'),"
             " 'implementing', 'medium',"
-            " 0, 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1, 42)"
+            " 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1, 42)"
             f" ON CONFLICT (id) DO UPDATE SET {_ITEM_UPSERT_SET}"
         )
         for row in [

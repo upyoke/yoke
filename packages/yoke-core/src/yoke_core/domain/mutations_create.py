@@ -14,6 +14,7 @@ from .mutation_fields import (
 )
 from .workflow_runtime import WorkflowRuntime
 
+
 def prepare_create(
     *,
     title: str,
@@ -83,7 +84,6 @@ def prepare_create(
 
     defaults = {
         "status": effective_status,
-        "rework_count": 0,
         "frozen": False,
         "blocked": False,
         "blocked_reason": None,
@@ -99,7 +99,6 @@ def prepare_create(
         "status": effective_status,
         "project": project,
         "deployment_flow": deployment_flow,
-        "rework_count": 0,
         "frozen": False,
         "blocked": False,
         "blocked_reason": None,

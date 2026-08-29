@@ -226,7 +226,6 @@ def execute_close(
             field="status",
             value="cancelled",
             old_status=old_status,
-            mutation_events=(),
             session_id=None,
             out=out,
             status_source="execute-close",

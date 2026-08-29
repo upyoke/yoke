@@ -38,7 +38,6 @@ _SCHEMA_DDL = """
         workflow_version_id INTEGER,
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
-        rework_count INTEGER DEFAULT 0,
         frozen INTEGER DEFAULT 0,
         github_issue TEXT,
         deployed_to TEXT,
@@ -153,12 +152,14 @@ def _seed(db_path: str) -> None:
     try:
         from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
-        stages_json = json.dumps([
-            {"name": "merged", "step_runner": "auto"},
-            {"name": "approve-deploy", "step_runner": "human-approval"},
-            {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
-            {"name": "complete", "step_runner": "auto"},
-        ])
+        stages_json = json.dumps(
+            [
+                {"name": "merged", "step_runner": "auto"},
+                {"name": "approve-deploy", "step_runner": "human-approval"},
+                {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+                {"name": "complete", "step_runner": "auto"},
+            ]
+        )
         conn.execute(
             """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
                VALUES ('test-flow', 1, 'TestFlow', %s, '2026-04-20T00:00:00Z')""",
@@ -192,8 +193,7 @@ def _seed(db_path: str) -> None:
             (issue_id, issue_version_id),
         )
         conn.execute(
-            "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
-            "WHERE id = 12",
+            "UPDATE items SET workflow_id = %s, workflow_version_id = %s WHERE id = 12",
             (epic_id, epic_version_id),
         )
 

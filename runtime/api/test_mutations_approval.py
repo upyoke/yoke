@@ -24,7 +24,6 @@ def _make_item(**overrides) -> ItemState:
         title="Test item",
         status="idea",
         priority="medium",
-        rework_count=0,
         frozen=False,
         project="yoke",
         workflow=builtin_workflow_runtime("issue"),
@@ -54,8 +53,11 @@ class TestPrepareApproval:
         )
         stages = self._make_flow_stages()
         run = DeploymentRun(
-            id="run-123", project="yoke", flow="main-flow",
-            status="executing", current_stage="staging-gate",
+            id="run-123",
+            project="yoke",
+            flow="main-flow",
+            status="executing",
+            current_stage="staging-gate",
         )
         result = prepare_approval(
             item=item,
@@ -71,13 +73,20 @@ class TestPrepareApproval:
         assert result.field_writes["deploy_stage"] == "deploy-prod"
         assert result.field_writes["status"] == "release"
         assert any(e.kind == MutationEventKind.APPROVAL_APPLIED for e in result.events)
-        assert any(e.kind == MutationEventKind.RUN_STAGE_ADVANCED for e in result.events)
-        assert any(e.kind == MutationEventKind.MEMBER_STAGE_SYNCED for e in result.events)
+        assert any(
+            e.kind == MutationEventKind.RUN_STAGE_ADVANCED for e in result.events
+        )
+        assert any(
+            e.kind == MutationEventKind.MEMBER_STAGE_SYNCED for e in result.events
+        )
 
     def test_approval_no_deploy_stage(self):
         item = _make_item(deploy_stage=None, deployment_flow="main-flow")
         result = prepare_approval(
-            item=item, flow_stages=[], active_run=None, member_item_ids=[],
+            item=item,
+            flow_stages=[],
+            active_run=None,
+            member_item_ids=[],
         )
         assert result.success is False
         assert result.error_code == "INVALID_STATE"
@@ -86,7 +95,10 @@ class TestPrepareApproval:
     def test_approval_no_deployment_flow(self):
         item = _make_item(deploy_stage="staging-gate", deployment_flow=None)
         result = prepare_approval(
-            item=item, flow_stages=[], active_run=None, member_item_ids=[],
+            item=item,
+            flow_stages=[],
+            active_run=None,
+            member_item_ids=[],
         )
         assert result.success is False
         assert "deployment_flow" in result.error
@@ -98,7 +110,10 @@ class TestPrepareApproval:
         )
         stages = self._make_flow_stages()
         result = prepare_approval(
-            item=item, flow_stages=stages, active_run=None, member_item_ids=[],
+            item=item,
+            flow_stages=stages,
+            active_run=None,
+            member_item_ids=[],
         )
         assert result.success is False
         assert "human-approval" in result.error
@@ -111,7 +126,10 @@ class TestPrepareApproval:
         )
         stages = self._make_flow_stages()
         result = prepare_approval(
-            item=item, flow_stages=stages, active_run=None, member_item_ids=[],
+            item=item,
+            flow_stages=stages,
+            active_run=None,
+            member_item_ids=[],
         )
         assert result.success is True
         assert result.run_id is None
@@ -131,7 +149,10 @@ class TestPrepareApproval:
             deployment_flow="main-flow",
         )
         result = prepare_approval(
-            item=item, flow_stages=stages, active_run=None, member_item_ids=[],
+            item=item,
+            flow_stages=stages,
+            active_run=None,
+            member_item_ids=[],
         )
         assert result.success is True
         assert result.next_stage == "complete"

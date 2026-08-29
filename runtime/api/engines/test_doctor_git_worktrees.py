@@ -45,7 +45,6 @@ def _make_conn():
             project_id INTEGER DEFAULT 1,
             project_sequence INTEGER,
             github_issue TEXT,
-            rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,
             deployment_flow TEXT
@@ -201,7 +200,11 @@ class TestHcWorktreeHealth:
         and only the git-worktree-list path runs.
         """
         mock_run.side_effect = [
-            _make_completed(stdout=("worktree /fake/repo\nbranch refs/heads/main\n\nworktree /fake/wt/YOK-9999\nbranch refs/heads/YOK-9999\n\n")),
+            _make_completed(
+                stdout=(
+                    "worktree /fake/repo\nbranch refs/heads/main\n\nworktree /fake/wt/YOK-9999\nbranch refs/heads/YOK-9999\n\n"
+                )
+            ),
             _make_completed(stdout="M file.py\n"),
         ]
         conn = _make_conn()
@@ -235,7 +238,9 @@ class TestHcPathConfabulation:
     @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
     def test_suppressed_line_passes(self, mock_root):
         conn = _make_conn()
-        conn.execute("INSERT INTO ouroboros_entries (id, body) VALUES (1, 'The word ouraboros here <!-- not-confabulated -->')")
+        conn.execute(
+            "INSERT INTO ouroboros_entries (id, body) VALUES (1, 'The word ouraboros here <!-- not-confabulated -->')"
+        )
         rec = _run_hc(hc_path_confabulation, conn)
         assert rec.results[0].result == "PASS"
 
