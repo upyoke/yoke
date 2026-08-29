@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Optional, TextIO
 
@@ -33,7 +32,6 @@ def run_transactional_update_effects(
     field: str,
     value: str,
     old_status: Optional[str],
-    mutation_events: Iterable[Any],
     session_id: Optional[str],
     out: TextIO,
     status_source: Optional[str] = None,
@@ -43,14 +41,6 @@ def run_transactional_update_effects(
 ) -> UpdateEffectReceipt:
     """Emit transition evidence, cascade tasks, and clean terminal claims."""
     messages: list[str] = []
-    for event in mutation_events:
-        if event.kind.value == "rework_incremented":
-            rework_count = event.detail.get("rework_count", "")
-            if rework_count:
-                messages.append(
-                    f"Rework detected: {render_item_ref(conn, item_id)} "
-                    f"rework_count → {rework_count}"
-                )
 
     transitioned = field == "status" and bool(old_status) and old_status != value
     status_event: Optional[tuple[int, str, str, str]] = None

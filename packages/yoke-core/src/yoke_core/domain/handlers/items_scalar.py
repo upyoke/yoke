@@ -67,7 +67,6 @@ class ScalarUpdateResponse(BaseModel):
     item_id: int
     field: str
     value: Any
-    rework_count: Optional[int] = None
     log: str = ""
 
 
@@ -207,7 +206,6 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
         item_id=int(target.item_id),
         field=payload.field,
         value=payload.value,
-        rework_count=result.get("rework_count"),
         log=captured.getvalue(),
     )
     return HandlerOutcome(

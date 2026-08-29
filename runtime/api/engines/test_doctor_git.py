@@ -34,10 +34,10 @@ from yoke_core.engines.doctor import (
 def _make_conn():
     """Disposable Postgres DB with minimal schema for git/file HC testing."""
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
-    apply_fixture_ddl(conn, textwrap.dedent("""\
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
+    apply_fixture_ddl(
+        conn,
+        textwrap.dedent("""\
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
@@ -48,7 +48,6 @@ def _make_conn():
             project_id INTEGER DEFAULT 1,
             project_sequence INTEGER,
             github_issue TEXT,
-            rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,
             deployment_flow TEXT
@@ -92,7 +91,9 @@ def _make_conn():
             reviewed_at TEXT,
             archived_at TEXT
         );
-    """) + ITEM_WORKTREES_TABLE_SQL)
+    """)
+        + ITEM_WORKTREES_TABLE_SQL,
+    )
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
@@ -122,6 +123,7 @@ def _args(**kw) -> DoctorArgs:
 def _make_completed(returncode=0, stdout="", stderr=""):
     """Create a mock CompletedProcess."""
     import subprocess
+
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
 
@@ -134,7 +136,9 @@ class TestHcMainCheckout:
         assert rec.results[0].result == "WARN"
         assert "Could not resolve" in rec.results[0].detail
 
-    @patch("yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_main_branch_passes(self, mock_run, mock_root):
         # Make .git dir exist
@@ -143,7 +147,9 @@ class TestHcMainCheckout:
             rec = _run_hc(hc_main_checkout)
             assert rec.results[0].result == "PASS"
 
-    @patch("yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_detached_head_warns(self, mock_run, mock_root):
         with patch.object(Path, "exists", return_value=True):
@@ -152,7 +158,9 @@ class TestHcMainCheckout:
             assert rec.results[0].result == "WARN"
             assert "detached HEAD" in rec.results[0].detail
 
-    @patch("yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo")
+    @patch(
+        "yoke_core.engines.doctor_report._resolve_main_root", return_value="/fake/repo"
+    )
     @patch("yoke_core.engines.doctor_report._run")
     def test_wrong_branch_warns(self, mock_run, mock_root):
         with patch.object(Path, "exists", return_value=True):
@@ -206,9 +214,7 @@ class TestHcBranchDivergence:
 
     @patch("yoke_cli.config.credentialed_git.run")
     @patch("yoke_core.engines.doctor_report._run")
-    def test_unreachable_origin_is_reported_not_swallowed(
-        self, mock_run, mock_fetch
-    ):
+    def test_unreachable_origin_is_reported_not_swallowed(self, mock_run, mock_fetch):
         """A fetch that cannot authenticate must not read as "no divergence".
 
         Before the fetch carried a credential it simply failed silently and
@@ -221,7 +227,8 @@ class TestHcBranchDivergence:
             _make_completed(stdout="abc123\n"),
         ]
         mock_fetch.return_value = _make_completed(
-            returncode=128, stderr="fatal: could not read Username",
+            returncode=128,
+            stderr="fatal: could not read Username",
         )
         rec = _run_hc(hc_branch_divergence)
         assert rec.results[0].result == "WARN"
@@ -299,8 +306,14 @@ class TestHcCrossProjectCommits:
     def test_contaminated_commit_warns(self, mock_run):
         conn = _make_conn()
         _seed_project(conn, "externalwebapp")
-        _insert_item(conn, 42, "ExternalWebapp fix", project="externalwebapp",
-                     workflow_id="issue", status="done")
+        _insert_item(
+            conn,
+            42,
+            "ExternalWebapp fix",
+            project="externalwebapp",
+            workflow_id="issue",
+            status="done",
+        )
         mock_run.side_effect = [
             # git log for the item
             _make_completed(stdout="aabbccddee\n"),
@@ -318,8 +331,14 @@ class TestHcCrossProjectCommits:
     def test_bookkeeping_only_passes(self, mock_run):
         conn = _make_conn()
         _seed_project(conn, "externalwebapp")
-        _insert_item(conn, 42, "ExternalWebapp fix", project="externalwebapp",
-                     workflow_id="issue", status="done")
+        _insert_item(
+            conn,
+            42,
+            "ExternalWebapp fix",
+            project="externalwebapp",
+            workflow_id="issue",
+            status="done",
+        )
         mock_run.side_effect = [
             # git log for the item
             _make_completed(stdout="aabbccddee\n"),

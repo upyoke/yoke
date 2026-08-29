@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from yoke_core.domain.mutations import (
     GateContext,
     ItemState,
-    MutationEventKind,
     prepare_update,
 )
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
@@ -23,7 +22,6 @@ def _make_item(**overrides) -> ItemState:
         title="Test item",
         status="idea",
         priority="medium",
-        rework_count=0,
         frozen=False,
         project="yoke",
     )
@@ -43,7 +41,9 @@ class TestEpicTaskGate:
         before the epic task gate is even reached."""
         item = _make_item(workflow="epic")
         gate = _make_gate(epic_task_count=0, done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="ready", gate=gate)
+        result = prepare_update(
+            item=item, field_name="status", value="ready", gate=gate
+        )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
 
@@ -52,7 +52,9 @@ class TestEpicTaskGate:
         before the epic task gate is even reached."""
         item = _make_item(workflow="epic")
         gate = _make_gate(epic_task_count=0, done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="active", gate=gate)
+        result = prepare_update(
+            item=item, field_name="status", value="active", gate=gate
+        )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
 
@@ -60,7 +62,9 @@ class TestEpicTaskGate:
         """Issue items reject 'ready' (shared-only status)."""
         item = _make_item(workflow="issue")
         gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="ready", gate=gate)
+        result = prepare_update(
+            item=item, field_name="status", value="ready", gate=gate
+        )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
 
@@ -269,14 +273,3 @@ class TestCombinedGateScenarios:
         result = prepare_update(item=item, field_name="status", value="done", gate=gate)
         assert result.success is False
         assert result.error_code == "GATE_EPIC_MERGE"
-
-    def test_rework_plus_status_events(self):
-        """Rework from reviewed-implementation -> implementing produces both events."""
-        item = _make_item(workflow="issue", status="reviewed-implementation", rework_count=2)
-        gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="implementing", gate=gate)
-        assert result.success is True
-        kinds = {e.kind for e in result.events}
-        assert MutationEventKind.REWORK_INCREMENTED in kinds
-        assert MutationEventKind.STATUS_TRANSITIONED in kinds
-        assert result.field_writes["rework_count"] == 3

@@ -98,7 +98,7 @@ curl "http://localhost:8765/v1/items?project=yoke&status=implementing"
 ```
 
 ```json
-{"items":[{"id":42,"title":"Example item","workflow_id":"dash","workflow_version_id":8,"workflow_version":2,"stage_index":1,"status":"implementing","priority":"high","flow":"accelerated","rework_count":0,"frozen":false,"github_issue":"#123","deployed_to":null,"project":"yoke","deployment_flow":null,"deploy_stage":null,"source":"2","created_at":"2026-03-08T03:41:07Z","updated_at":"2026-03-09T14:56:18Z","merged_at":null}],"count":1}
+{"items":[{"id":42,"title":"Example item","workflow_id":"dash","workflow_version_id":8,"workflow_version":2,"stage_index":1,"status":"implementing","priority":"high","flow":"accelerated","frozen":false,"github_issue":"#123","deployed_to":null,"project":"yoke","deployment_flow":null,"deploy_stage":null,"source":"2","created_at":"2026-03-08T03:41:07Z","updated_at":"2026-03-09T14:56:18Z","merged_at":null}],"count":1}
 ```
 
 Note: `body` is excluded from list responses to keep payload sizes manageable. Use the single-item endpoint to retrieve the body.

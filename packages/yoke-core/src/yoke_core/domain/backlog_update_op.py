@@ -29,7 +29,8 @@ from yoke_core.domain.backlog_project_issue_migration import (
 from yoke_core.domain.backlog_unsupported_field_writes import _apply_shell_fallback
 from yoke_core.domain.backlog_status_claim_verification import _verify_status_claim
 from yoke_core.domain.deployment_flow_validator import (
-    normalize_deployment_flow_value, validate_and_lookup_flow_project,
+    normalize_deployment_flow_value,
+    validate_and_lookup_flow_project,
 )
 from yoke_core.domain.item_block_notifications import (
     emit_item_block_state_change_if_needed,
@@ -37,10 +38,12 @@ from yoke_core.domain.item_block_notifications import (
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
+
 def _execute_update_once(
     item_id: int,
     field: str,
-    value: str, resolution: Optional[str] = None,
+    value: str,
+    resolution: Optional[str] = None,
     done_nonce_verified: bool = False,
     force: bool = False,
     qa_bypass: bool = False,
@@ -102,7 +105,10 @@ def _execute_update_once(
             (item_id,),
         ).fetchone()
         if row is None:
-            return {"success": False, "error": f"Item {render_item_ref(conn, item_id)} not found"}
+            return {
+                "success": False,
+                "error": f"Item {render_item_ref(conn, item_id)} not found",
+            }
 
         flow_project = None
         if field == "deployment_flow":
@@ -125,12 +131,14 @@ def _execute_update_once(
                 }
             lock_item_workflow_bindings(conn, (int(item_id),))
             row = conn.execute(
-                "SELECT i.*, p.slug AS project FROM items i JOIN projects p "
-                "ON p.id = i.project_id WHERE i.id = %s",
+                "SELECT i.*, p.slug AS project FROM items i JOIN projects p ON p.id = i.project_id WHERE i.id = %s",
                 (item_id,),
             ).fetchone()
             if row is None:
-                return {"success": False, "error": f"Item {render_item_ref(conn, item_id)} not found"}
+                return {
+                    "success": False,
+                    "error": f"Item {render_item_ref(conn, item_id)} not found",
+                }
 
         item_dict = dict(row)
         workflow = load_item_workflow_runtime(conn, item_id)
@@ -140,7 +148,6 @@ def _execute_update_once(
             title=item_dict["title"],
             status=item_dict["status"],
             priority=item_dict["priority"],
-            rework_count=item_dict.get("rework_count", 0),
             frozen=bool(item_dict.get("frozen", 0)),
             blocked=bool(item_dict.get("blocked", 0)),
             blocked_reason=item_dict.get("blocked_reason"),
@@ -189,9 +196,7 @@ def _execute_update_once(
                        )""",
                     (item_dict["id"],),
                 ).fetchone()
-                gate.unsatisfied_verification_blocking = (
-                    unsatisfied_val["cnt"] if unsatisfied_val else 0
-                )
+                gate.unsatisfied_verification_blocking = unsatisfied_val["cnt"] if unsatisfied_val else 0
 
                 unsatisfied_all = conn.execute(
                     """SELECT COUNT(*) as cnt FROM qa_requirements qr
@@ -204,9 +209,7 @@ def _execute_update_once(
                        )""",
                     (item_dict["id"],),
                 ).fetchone()
-                gate.unsatisfied_all_blocking = (
-                    unsatisfied_all["cnt"] if unsatisfied_all else 0
-                )
+                gate.unsatisfied_all_blocking = unsatisfied_all["cnt"] if unsatisfied_all else 0
 
         # Deployed-to validation
         if field == "deployed_to" and value:
@@ -236,9 +239,7 @@ def _execute_update_once(
         if field == "status" and value == "cancelled":
             mutation_result.field_writes["resolution"] = resolution
         if field == "status":
-            claim_verified, claim_reason = _verify_status_claim(
-                conn, item_id, out, session_id=session_id
-            )
+            claim_verified, claim_reason = _verify_status_claim(conn, item_id, out, session_id=session_id)
             if not claim_verified:
                 item_ref = render_item_ref(conn, item_id)
                 return {
@@ -253,9 +254,7 @@ def _execute_update_once(
                 }
 
         if field == "project":
-            migrated, migration_error = _maybe_migrate_project_issue(
-                conn, item_dict, value, out
-            )
+            migrated, migration_error = _maybe_migrate_project_issue(conn, item_dict, value, out)
             if not migrated:
                 return {
                     "success": False,
@@ -304,7 +303,6 @@ def _execute_update_once(
             field=field,
             value=value,
             old_status=old_status,
-            mutation_events=mutation_result.events,
             session_id=session_id,
             out=out,
             approval_request_id=approval_request_id,
@@ -319,9 +317,7 @@ def _execute_update_once(
             receipt=effect_receipt,
             out=out,
         )
-        emit_item_block_state_change_if_needed(
-            conn, item=item_dict, field=field, value=value, session_id=session_id
-        )
+        emit_item_block_state_change_if_needed(conn, item=item_dict, field=field, value=value, session_id=session_id)
     finally:
         conn.close()
 

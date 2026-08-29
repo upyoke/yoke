@@ -24,10 +24,20 @@ live in mutation_fields.py and are re-exported here for backward compatibility.
 from __future__ import annotations
 
 from .mutation_fields import (
-    DONE_CLEANUP_FIELDS, REWORK_SOURCE_STATUSES, SUPPORTED_UPDATE_FIELDS,
-    TITLE_MAX_LENGTH, VALID_PRIORITIES, ApprovalResult,
-    CreateResult, GateContext, ItemState, MutationEvent, MutationEventKind,
-    MutationResult, validate_frozen, validate_priority, validate_title,
+    DONE_CLEANUP_FIELDS,
+    SUPPORTED_UPDATE_FIELDS,
+    TITLE_MAX_LENGTH,
+    VALID_PRIORITIES,
+    ApprovalResult,
+    CreateResult,
+    GateContext,
+    ItemState,
+    MutationEvent,
+    MutationEventKind,
+    MutationResult,
+    validate_frozen,
+    validate_priority,
+    validate_title,
 )
 from .mutations_approval import prepare_approval
 from .mutations_create import prepare_create
@@ -38,9 +48,9 @@ def prepare_update(*args, **kwargs):
     """Forward to the canonical workflow-aware update owner."""
     return _prepare_update(*args, **kwargs)
 
+
 __all__ = [
     "DONE_CLEANUP_FIELDS",
-    "REWORK_SOURCE_STATUSES",
     "SUPPORTED_UPDATE_FIELDS",
     "TITLE_MAX_LENGTH",
     "VALID_PRIORITIES",

@@ -118,9 +118,9 @@ class TestUpdateItem:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, rework_count,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, deploy_stage)
-               VALUES (7, 'Reopened issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 7, 0,
+               VALUES (7, 'Reopened issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 7,
                        '2026-03-01T00:00:00Z', '2026-03-02T00:00:00Z', 'user', NULL)"""
         )
         conn.commit()
@@ -129,11 +129,9 @@ class TestUpdateItem:
         resp = client.patch("/v1/items/7", json={"status": "implementing"})
         assert resp.status_code == 409
         conn = connect_test_db(test_db["db_path"])
-        row = conn.execute(
-            "SELECT status, rework_count FROM items WHERE id = 7"
-        ).fetchone()
+        row = conn.execute("SELECT status FROM items WHERE id = 7").fetchone()
         conn.close()
-        assert tuple(row) == ("done", 0)
+        assert tuple(row) == ("done",)
 
     def test_update_rejects_unregistered_deployment_flow(self, client, test_db):
         """PATCH rejects an unregistered non-empty deployment_flow value."""

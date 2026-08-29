@@ -41,7 +41,6 @@ CREATE TABLE items (
     title TEXT DEFAULT '',
     status TEXT DEFAULT 'idea',
     priority TEXT DEFAULT 'medium',
-    rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0, github_issue INTEGER,
     deployed_to TEXT, merged_at TEXT,
     created_at TEXT, updated_at TEXT, source TEXT,
@@ -82,32 +81,27 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
     @pytest.fixture(autouse=True)
     def _suite(self, tmp_path):
         with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
-            with mock.patch.dict(
-                os.environ, {"YOKE_DB": db_path}, clear=False
-            ):
+            with mock.patch.dict(os.environ, {"YOKE_DB": db_path}, clear=False):
                 reset_registry_for_tests()
                 register_all_handlers()
-                self._event_patch = mock.patch.object(
-                    events_module, "emit_event")
+                self._event_patch = mock.patch.object(events_module, "emit_event")
                 self._event_patch.start()
                 self._idem_patch = mock.patch.object(
-                    dispatch_module, "_idempotency_lookup", return_value=None,
+                    dispatch_module,
+                    "_idempotency_lookup",
+                    return_value=None,
                 )
                 self._idem_patch.start()
                 conn = connect_test_db(db_path)
                 try:
                     auth = mint_api_auth_context(conn)
-                    p = (
-                        "%s"
-                        if db_backend.connection_is_postgres(conn)
-                        else "?"
-                    )
+                    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
                     from yoke_core.domain.workflow_registry import (
                         resolve_current_workflow_pin,
                     )
 
-                    workflow_id, workflow_version_id = (
-                        resolve_current_workflow_pin(conn, "issue")
+                    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+                        conn, "issue"
                     )
                     conn.execute(
                         "INSERT INTO items "

@@ -5,7 +5,21 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from .mutation_fields import (DONE_CLEANUP_FIELDS, REWORK_SOURCE_STATUSES, SUPPORTED_UPDATE_FIELDS, GateContext, ItemState, MutationEvent, MutationEventKind, MutationResult, validate_blocked, validate_blocked_reason, validate_frozen, validate_priority, validate_title)
+from .mutation_fields import (
+    DONE_CLEANUP_FIELDS,
+    SUPPORTED_UPDATE_FIELDS,
+    GateContext,
+    ItemState,
+    MutationEvent,
+    MutationEventKind,
+    MutationResult,
+    validate_blocked,
+    validate_blocked_reason,
+    validate_frozen,
+    validate_priority,
+    validate_title,
+)
+
 
 def prepare_update(
     *,
@@ -49,8 +63,10 @@ def prepare_update(
         err = validate_title(value)
         if err:
             return MutationResult(
-                success=False, error=err,
-                error_code="VALIDATION_ERROR", item_id=item.id,
+                success=False,
+                error=err,
+                error_code="VALIDATION_ERROR",
+                item_id=item.id,
             )
 
     elif field_name == "status":
@@ -100,10 +116,7 @@ def prepare_update(
                     )
 
         # Done-ceremony nonce gate: mutation layer trusts caller assertion
-        if (
-            value == "done"
-            and workflow.policies["delivery"] == "release_stage"
-        ):
+        if value == "done" and workflow.policies["delivery"] == "release_stage":
             if not gate.force and not gate.done_nonce_verified:
                 return MutationResult(
                     success=False,
@@ -116,10 +129,7 @@ def prepare_update(
                 )
 
         # Epic merge gate: block epics from done without merged_at
-        if (
-            value == "done"
-            and workflow.policies["generated_children"] == "epic_tasks"
-        ):
+        if value == "done" and workflow.policies["generated_children"] == "epic_tasks":
             if not gate.has_merged_at and not gate.force:
                 return MutationResult(
                     success=False,
@@ -191,73 +201,70 @@ def prepare_update(
 
         # --- Status-change side effects ---
 
-        # Rework detection: reopened work increments rework_count when it
-        # re-enters active implementation.
-        rework_target = value == "implementing"
-        if rework_target and item.status in REWORK_SOURCE_STATUSES:
-            new_rework = item.rework_count + 1
-            field_writes["rework_count"] = new_rework
-            events.append(MutationEvent(
-                kind=MutationEventKind.REWORK_INCREMENTED,
-                detail={
-                    "from_status": item.status,
-                    "to_status": value,
-                    "rework_count": new_rework,
-                },
-            ))
-
         # Done cleanup: clear item posture flags. Lane release is a
         # universal-registry side effect owned by the write adapter.
         if value == "done":
             for k, v in DONE_CLEANUP_FIELDS.items():
                 field_writes[k] = v
-            events.append(MutationEvent(
-                kind=MutationEventKind.DONE_CLEANUP,
-                detail=dict(DONE_CLEANUP_FIELDS),
-            ))
+            events.append(
+                MutationEvent(
+                    kind=MutationEventKind.DONE_CLEANUP,
+                    detail=dict(DONE_CLEANUP_FIELDS),
+                )
+            )
 
-        events.append(MutationEvent(
-            kind=MutationEventKind.STATUS_TRANSITIONED,
-            detail={
-                "from_status": item.status,
-                "to_status": value,
-                "is_forward": workflow.is_forward_transition(
-                    item.status,
-                    value,
-                ),
-            },
-        ))
+        events.append(
+            MutationEvent(
+                kind=MutationEventKind.STATUS_TRANSITIONED,
+                detail={
+                    "from_status": item.status,
+                    "to_status": value,
+                    "is_forward": workflow.is_forward_transition(
+                        item.status,
+                        value,
+                    ),
+                },
+            )
+        )
 
     elif field_name == "priority":
         err = validate_priority(value)
         if err:
             return MutationResult(
-                success=False, error=err,
-                error_code="VALIDATION_ERROR", item_id=item.id,
+                success=False,
+                error=err,
+                error_code="VALIDATION_ERROR",
+                item_id=item.id,
             )
 
     elif field_name == "frozen":
         err = validate_frozen(value)
         if err:
             return MutationResult(
-                success=False, error=err,
-                error_code="VALIDATION_ERROR", item_id=item.id,
+                success=False,
+                error=err,
+                error_code="VALIDATION_ERROR",
+                item_id=item.id,
             )
 
     elif field_name == "blocked":
         err = validate_blocked(value)
         if err:
             return MutationResult(
-                success=False, error=err,
-                error_code="VALIDATION_ERROR", item_id=item.id,
+                success=False,
+                error=err,
+                error_code="VALIDATION_ERROR",
+                item_id=item.id,
             )
 
     elif field_name == "blocked_reason":
         err = validate_blocked_reason(value)
         if err:
             return MutationResult(
-                success=False, error=err,
-                error_code="VALIDATION_ERROR", item_id=item.id,
+                success=False,
+                error=err,
+                error_code="VALIDATION_ERROR",
+                item_id=item.id,
             )
 
     elif field_name == "deployment_flow":
@@ -307,10 +314,12 @@ def prepare_update(
     field_writes["updated_at"] = now
 
     if not events:
-        events.append(MutationEvent(
-            kind=MutationEventKind.FIELD_UPDATED,
-            detail={"field": field_name, "value": value},
-        ))
+        events.append(
+            MutationEvent(
+                kind=MutationEventKind.FIELD_UPDATED,
+                detail={"field": field_name, "value": value},
+            )
+        )
 
     return MutationResult(
         success=True,

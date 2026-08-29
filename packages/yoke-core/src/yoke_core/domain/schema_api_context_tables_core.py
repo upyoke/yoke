@@ -66,8 +66,7 @@ CORE_TABLES: dict[str, dict] = {
             "`result.fields`; wrong guess: top-level `db_mutation_profile`), "
             "db_compatibility_attestation, architecture_impact, "
             "resolution, resolution_ref, resolution_comment, "
-            "spec_updated_at, spec_updated_by, rework_count, merged_at, "
-            "deployed_to. Worktree branches and paths live exclusively in "
+            "spec_updated_at, spec_updated_by, merged_at, deployed_to. Worktree branches and paths live exclusively in "
             "item_worktrees; task and dispatch rows reference those lanes "
             "through item_worktree_id."
         ),

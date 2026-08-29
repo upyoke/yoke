@@ -85,14 +85,12 @@ def seed_item(conn, item_id: int, *, status: str, workflow: str = "issue") -> No
     """
     now = "2026-01-01T00:00:00Z"
     p = _p(conn)
-    workflow_id, workflow_version_id = resolve_current_workflow_pin(
-        conn, workflow
-    )
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, workflow)
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
-        "status, priority, rework_count, frozen, created_at, "
+        "status, priority, frozen, created_at, "
         "updated_at, source, project_id, project_sequence) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, 'medium', 0, 0, "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, 'medium', 0, "
         f"{p}, {p}, 'test', 1, {p})",
         (
             item_id,

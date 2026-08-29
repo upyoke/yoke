@@ -80,16 +80,14 @@ def _seed_item(
     workflow: str = "issue",
 ) -> None:
     p = _p(conn)
-    workflow_id, workflow_version_id = resolve_current_workflow_pin(
-        conn, workflow
-    )
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, workflow)
     conn.execute(
         f"""
         INSERT INTO items (
             id, title, workflow_id, workflow_version_id, status, priority,
-            rework_count, frozen,
+            frozen,
             created_at, updated_at, source, project_id, project_sequence
-        ) VALUES ({p}, {p}, {p}, {p}, 'idea', 'medium', 0, 0,
+        ) VALUES ({p}, {p}, {p}, {p}, 'idea', 'medium', 0,
                   {p}, {p}, 'user', {p}, {p})
         """,
         (

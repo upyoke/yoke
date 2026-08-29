@@ -15,13 +15,13 @@ from yoke_core.domain.mutations import (
 )
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
+
 def _make_item(**overrides) -> ItemState:
     defaults = dict(
         id=42,
         title="Test item",
         status="idea",
         priority="medium",
-        rework_count=0,
         frozen=False,
         project="yoke",
     )
@@ -40,7 +40,9 @@ class TestStatusTransition:
         """Epic items accept statuses declared by the Epic workflow."""
         item = _make_item(workflow="epic", status="idea")
         gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="planning", gate=gate)
+        result = prepare_update(
+            item=item, field_name="status", value="planning", gate=gate
+        )
         assert result.success is True
         assert result.field_writes["status"] == "planning"
         assert any(
@@ -51,7 +53,9 @@ class TestStatusTransition:
         """Issue items accept statuses declared by the Issue workflow."""
         item = _make_item(workflow="issue", status="idea")
         gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="refining-idea", gate=gate)
+        result = prepare_update(
+            item=item, field_name="status", value="refining-idea", gate=gate
+        )
         assert result.success is True
         assert result.field_writes["status"] == "refining-idea"
 
@@ -64,12 +68,24 @@ class TestStatusTransition:
     def test_issue_rejects_shared_only_status(self):
         """FR-3: Issue items reject legacy shared-only statuses."""
         item = _make_item(workflow="issue", status="idea")
-        for legacy in ("defined", "designed", "planned", "ready", "active",
-                        "review", "validate", "passed"):
+        for legacy in (
+            "defined",
+            "designed",
+            "planned",
+            "ready",
+            "active",
+            "review",
+            "validate",
+            "passed",
+        ):
             result = prepare_update(
-                item=item, field_name="status", value=legacy,
+                item=item,
+                field_name="status",
+                value=legacy,
             )
-            assert result.success is False, f"Expected rejection of '{legacy}' for issue"
+            assert result.success is False, (
+                f"Expected rejection of '{legacy}' for issue"
+            )
             assert result.error_code == "VALIDATION_ERROR"
             assert "for issue@" in result.error
             assert "Defined stages:" in result.error
@@ -81,15 +97,26 @@ class TestStatusTransition:
             qa_requirement_count=1,
             unsatisfied_verification_blocking=0,
         )
-        for status in ("refining-idea", "refined-idea", "implementing",
-                        "reviewing-implementation", "reviewed-implementation",
-                        "polishing-implementation",
-                        "implemented", "release"):
+        for status in (
+            "refining-idea",
+            "refined-idea",
+            "implementing",
+            "reviewing-implementation",
+            "reviewed-implementation",
+            "polishing-implementation",
+            "implemented",
+            "release",
+        ):
             item = _make_item(workflow="issue", status="idea")
             result = prepare_update(
-                item=item, field_name="status", value=status, gate=gate,
+                item=item,
+                field_name="status",
+                value=status,
+                gate=gate,
             )
-            assert result.success is True, f"Expected acceptance of '{status}' for issue"
+            assert result.success is True, (
+                f"Expected acceptance of '{status}' for issue"
+            )
 
     def test_issue_accepts_exceptional_statuses(self):
         """FR-3: Issue items accept exceptional statuses."""
@@ -97,9 +124,14 @@ class TestStatusTransition:
         for status in ("blocked", "stopped", "failed", "cancelled"):
             item = _make_item(workflow="issue", status="idea")
             result = prepare_update(
-                item=item, field_name="status", value=status, gate=gate,
+                item=item,
+                field_name="status",
+                value=status,
+                gate=gate,
             )
-            assert result.success is True, f"Expected acceptance of '{status}' for issue"
+            assert result.success is True, (
+                f"Expected acceptance of '{status}' for issue"
+            )
 
     def test_epic_accepts_epic_family_statuses(self):
         """FR-3: Epic items accept every status in the Epic workflow."""
@@ -110,24 +142,45 @@ class TestStatusTransition:
             unsatisfied_verification_blocking=0,
         )
         # Exclude done (needs special gates) — test the Epic progression.
-        for status in ("refining-idea", "refined-idea", "planning", "plan-drafted",
-                        "refining-plan", "planned", "implementing",
-                        "reviewing-implementation", "reviewed-implementation",
-                        "polishing-implementation",
-                        "implemented", "release"):
+        for status in (
+            "refining-idea",
+            "refined-idea",
+            "planning",
+            "plan-drafted",
+            "refining-plan",
+            "planned",
+            "implementing",
+            "reviewing-implementation",
+            "reviewed-implementation",
+            "polishing-implementation",
+            "implemented",
+            "release",
+        ):
             item = _make_item(workflow="epic", status="idea")
             result = prepare_update(
-                item=item, field_name="status", value=status, gate=gate,
+                item=item,
+                field_name="status",
+                value=status,
+                gate=gate,
             )
             assert result.success is True, f"Expected acceptance of '{status}' for epic"
 
     def test_epic_rejects_legacy_shared_only_statuses(self):
         """FR-3: Epic items reject legacy shared-only statuses."""
         item = _make_item(workflow="epic", status="idea")
-        for legacy in ("defined", "designed", "ready", "active",
-                        "review", "validate", "passed"):
+        for legacy in (
+            "defined",
+            "designed",
+            "ready",
+            "active",
+            "review",
+            "validate",
+            "passed",
+        ):
             result = prepare_update(
-                item=item, field_name="status", value=legacy,
+                item=item,
+                field_name="status",
+                value=legacy,
             )
             assert result.success is False, f"Expected rejection of '{legacy}' for epic"
             assert result.error_code == "VALIDATION_ERROR"
@@ -140,7 +193,10 @@ class TestStatusTransition:
         for status in ("blocked", "stopped", "failed", "cancelled"):
             item = _make_item(workflow="epic", status="idea")
             result = prepare_update(
-                item=item, field_name="status", value=status, gate=gate,
+                item=item,
+                field_name="status",
+                value=status,
+                gate=gate,
             )
             assert result.success is True, f"Expected acceptance of '{status}' for epic"
 
@@ -149,16 +205,23 @@ class TestStatusTransition:
         item = _make_item(workflow="epic", status="planning")
         gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(
-            item=item, field_name="status", value="idea", gate=gate,
+            item=item,
+            field_name="status",
+            value="idea",
+            gate=gate,
         )
         assert result.success is True
 
     def test_forward_transition_flag(self):
         item = _make_item(workflow="epic", status="idea")
         gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="implementing", gate=gate)
+        result = prepare_update(
+            item=item, field_name="status", value="implementing", gate=gate
+        )
         assert result.success is True
-        event = [e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED][0]
+        event = [
+            e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED
+        ][0]
         assert event.detail["is_forward"] is True
 
     def test_backward_transition_flag(self):
@@ -166,7 +229,9 @@ class TestStatusTransition:
         gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(item=item, field_name="status", value="idea", gate=gate)
         assert result.success is True
-        event = [e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED][0]
+        event = [
+            e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED
+        ][0]
         assert event.detail["is_forward"] is False
 
     def test_forward_transition_flag_uses_pinned_workflow(self):
@@ -174,7 +239,10 @@ class TestStatusTransition:
         item = _make_item(workflow="issue", status="idea")
         gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(
-            item=item, field_name="status", value="implementing", gate=gate,
+            item=item,
+            field_name="status",
+            value="implementing",
+            gate=gate,
         )
 
         assert result.success is True
@@ -184,34 +252,10 @@ class TestStatusTransition:
             if event.kind == MutationEventKind.STATUS_TRANSITIONED
         )
         assert transition.detail["is_forward"] is True
-        event = [e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED][0]
+        event = [
+            e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED
+        ][0]
         assert event.detail["is_forward"] is True
-
-
-class TestReworkDetection:
-    def test_done_to_implementing_increments_rework(self):
-        item = _make_item(workflow="issue", status="done", rework_count=1)
-        gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="implementing", gate=gate)
-        assert result.success is True
-        assert result.field_writes["rework_count"] == 2
-        assert any(
-            e.kind == MutationEventKind.REWORK_INCREMENTED for e in result.events
-        )
-
-    def test_reviewed_to_implementing_increments_rework(self):
-        item = _make_item(workflow="issue", status="reviewed-implementation", rework_count=0)
-        gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="implementing", gate=gate)
-        assert result.success is True
-        assert result.field_writes["rework_count"] == 1
-
-    def test_idea_to_implementing_no_rework(self):
-        item = _make_item(workflow="issue", status="idea")
-        gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="implementing", gate=gate)
-        assert result.success is True
-        assert "rework_count" not in result.field_writes
 
 
 class TestDoneCleanup:
@@ -231,6 +275,8 @@ class TestDoneCleanup:
     def test_non_done_no_cleanup(self):
         item = _make_item(workflow="epic", status="idea")
         gate = _make_gate(done_nonce_verified=True)
-        result = prepare_update(item=item, field_name="status", value="implementing", gate=gate)
+        result = prepare_update(
+            item=item, field_name="status", value="implementing", gate=gate
+        )
         assert result.success is True
         assert "worktree" not in result.field_writes

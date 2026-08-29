@@ -38,7 +38,6 @@ def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
         title=d["title"],
         status=d["status"],
         priority=d["priority"],
-        rework_count=d.get("rework_count", 0),
         frozen=bool(d.get("frozen", 0)),
         project=d.get("project"),
         deployment_flow=d.get("deployment_flow"),
@@ -128,9 +127,7 @@ def _load_gate_context(
         from yoke_core.domain.workflow_behavior import generates_task_graph
         from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
-        if generates_task_graph(
-            load_item_workflow_runtime(conn, int(item_dict["id"]))
-        ):
+        if generates_task_graph(load_item_workflow_runtime(conn, int(item_dict["id"]))):
             task_count_row = conn.execute(
                 "SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = %s",
                 (item_dict["id"],),
@@ -157,7 +154,9 @@ def _load_gate_context(
                    )""",
                 (item_dict["id"],),
             ).fetchone()
-            gate.unsatisfied_verification_blocking = unsatisfied_val["cnt"] if unsatisfied_val else 0
+            gate.unsatisfied_verification_blocking = (
+                unsatisfied_val["cnt"] if unsatisfied_val else 0
+            )
 
             unsatisfied_all = conn.execute(
                 """SELECT COUNT(*) as cnt FROM qa_requirements qr
@@ -169,7 +168,9 @@ def _load_gate_context(
                    )""",
                 (item_dict["id"],),
             ).fetchone()
-            gate.unsatisfied_all_blocking = unsatisfied_all["cnt"] if unsatisfied_all else 0
+            gate.unsatisfied_all_blocking = (
+                unsatisfied_all["cnt"] if unsatisfied_all else 0
+            )
 
     if deployment_flow_value:
         from yoke_core.domain.deployment_flow_validator import (

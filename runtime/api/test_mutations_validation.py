@@ -25,7 +25,6 @@ def _make_item(**overrides) -> ItemState:
         title="Test item",
         status="idea",
         priority="medium",
-        rework_count=0,
         frozen=False,
         project="yoke",
     )
@@ -44,8 +43,10 @@ class TestDeploymentFlowValidation:
         item = _make_item(project="yoke")
         gate = _make_gate(flow_project="externalwebapp")
         result = prepare_update(
-            item=item, field_name="deployment_flow",
-            value="externalwebapp-flow", gate=gate,
+            item=item,
+            field_name="deployment_flow",
+            value="externalwebapp-flow",
+            gate=gate,
         )
         assert result.success is False
 
@@ -53,15 +54,18 @@ class TestDeploymentFlowValidation:
         item = _make_item(project="yoke")
         gate = _make_gate(flow_project="yoke")
         result = prepare_update(
-            item=item, field_name="deployment_flow",
-            value="yoke-flow", gate=gate,
+            item=item,
+            field_name="deployment_flow",
+            value="yoke-flow",
+            gate=gate,
         )
         assert result.success is True
 
     def test_flow_null_no_validation(self):
         item = _make_item(project="yoke")
         result = prepare_update(
-            item=item, field_name="deployment_flow",
+            item=item,
+            field_name="deployment_flow",
             value=None,
         )
         assert result.success is True
@@ -72,8 +76,10 @@ class TestDeployedToValidation:
         item = _make_item(project="externalwebapp")
         gate = _make_gate(valid_deploy_envs=["stage", "prod"])
         result = prepare_update(
-            item=item, field_name="deployed_to",
-            value="stage", gate=gate,
+            item=item,
+            field_name="deployed_to",
+            value="stage",
+            gate=gate,
         )
         assert result.success is True
 
@@ -81,8 +87,10 @@ class TestDeployedToValidation:
         item = _make_item(project="externalwebapp")
         gate = _make_gate(valid_deploy_envs=["stage", "prod"])
         result = prepare_update(
-            item=item, field_name="deployed_to",
-            value="dev", gate=gate,
+            item=item,
+            field_name="deployed_to",
+            value="dev",
+            gate=gate,
         )
         assert result.success is False
         assert "dev" in result.error
@@ -91,8 +99,10 @@ class TestDeployedToValidation:
         item = _make_item(project="externalwebapp")
         gate = _make_gate(valid_deploy_envs=[])
         result = prepare_update(
-            item=item, field_name="deployed_to",
-            value="stage", gate=gate,
+            item=item,
+            field_name="deployed_to",
+            value="stage",
+            gate=gate,
         )
         assert result.success is False
         assert "No deployment environments" in result.error
@@ -101,8 +111,10 @@ class TestDeployedToValidation:
         item = _make_item(project="externalwebapp")
         gate = _make_gate(valid_deploy_envs=["stage"])
         result = prepare_update(
-            item=item, field_name="deployed_to",
-            value=None, gate=gate,
+            item=item,
+            field_name="deployed_to",
+            value=None,
+            gate=gate,
         )
         assert result.success is True
 

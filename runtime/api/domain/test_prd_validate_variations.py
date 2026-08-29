@@ -146,9 +146,9 @@ class TestResolveBody:
         conn.execute(
             """
             INSERT INTO items (
-                id, title, workflow_id, workflow_version_id, status, priority, rework_count, frozen,
+                id, title, workflow_id, workflow_version_id, status, priority, frozen,
                 spec, created_at, updated_at, source, project_id, project_sequence
-            ) VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 0, 0, %s, %s, %s, 'user', 1, %s)
+            ) VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 0, %s, %s, %s, 'user', 1, %s)
             """,
             (
                 item_id,

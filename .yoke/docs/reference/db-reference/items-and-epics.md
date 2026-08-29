@@ -26,7 +26,6 @@ workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id)
 workflow_posture TEXT NOT NULL DEFAULT '{}'
 status TEXT NOT NULL -- current stage in the pinned definition
 priority TEXT NOT NULL DEFAULT 'medium' -- high|medium|low
-rework_count INTEGER DEFAULT 0
 frozen INTEGER DEFAULT 0
 github_issue TEXT
 deployed_to TEXT

@@ -39,7 +39,6 @@ def _make_item(**overrides) -> ItemState:
         title="Test item",
         status="idea",
         priority="medium",
-        rework_count=0,
         frozen=False,
         project="yoke",
     )
@@ -133,13 +132,13 @@ class TestPrepareCreate:
         assert result.field_writes["priority"] == "high"
         assert result.field_writes["status"] == "idea"
         assert result.field_writes["project"] == "yoke"
-        assert result.field_writes["rework_count"] == 0
         assert result.field_writes["frozen"] is False
         assert any(e.kind == MutationEventKind.CREATED for e in result.events)
 
     def test_default_priority(self):
         result = prepare_create(
-            title="Test", workflow=builtin_workflow_runtime("issue"),
+            title="Test",
+            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is True
         assert result.field_writes["priority"] == "medium"
@@ -154,7 +153,8 @@ class TestPrepareCreate:
 
     def test_empty_title(self):
         result = prepare_create(
-            title="", workflow=builtin_workflow_runtime("issue"),
+            title="",
+            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is False
 
@@ -187,7 +187,8 @@ class TestPrepareCreate:
 
     def test_flow_project_mismatch(self):
         result = prepare_create(
-            title="Test", workflow=builtin_workflow_runtime("issue"),
+            title="Test",
+            workflow=builtin_workflow_runtime("issue"),
             project="yoke",
             deployment_flow="externalwebapp-flow",
             flow_project="externalwebapp",
@@ -197,7 +198,8 @@ class TestPrepareCreate:
 
     def test_flow_project_match(self):
         result = prepare_create(
-            title="Test", workflow=builtin_workflow_runtime("issue"),
+            title="Test",
+            workflow=builtin_workflow_runtime("issue"),
             project="yoke",
             deployment_flow="yoke-flow",
             flow_project="yoke",
@@ -219,7 +221,8 @@ class TestPrepareCreate:
     def test_create_with_default_status(self):
         """omitting status defaults to idea."""
         result = prepare_create(
-            title="Normal item", workflow=builtin_workflow_runtime("issue"),
+            title="Normal item",
+            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is True
         assert result.field_writes["status"] == "idea"
@@ -281,8 +284,15 @@ class TestPrepareUpdateBasic:
     def test_supported_fields_are_complete(self):
         """All listed fields are in the supported set."""
         expected = {
-            "status", "frozen", "blocked", "blocked_reason",
-            "priority", "project", "deployment_flow", "deployed_to", "title",
+            "status",
+            "frozen",
+            "blocked",
+            "blocked_reason",
+            "priority",
+            "project",
+            "deployment_flow",
+            "deployed_to",
+            "title",
         }
         assert SUPPORTED_UPDATE_FIELDS == expected
 
@@ -302,7 +312,8 @@ class TestPrepareUpdateBasic:
     def test_title_update_too_long(self):
         item = _make_item()
         result = prepare_update(
-            item=item, field_name="title",
+            item=item,
+            field_name="title",
             value="x" * (TITLE_MAX_LENGTH + 1),
         )
         assert result.success is False
@@ -315,7 +326,9 @@ class TestPrepareUpdateBasic:
     def test_priority_update_invalid(self):
         item = _make_item()
         result = prepare_update(
-            item=item, field_name="priority", value="critical",
+            item=item,
+            field_name="priority",
+            value="critical",
         )
         assert result.success is False
 

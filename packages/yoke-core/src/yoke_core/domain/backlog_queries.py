@@ -21,29 +21,50 @@ from yoke_core.domain.project_identity import resolve_project
 # Shared constants
 # ---------------------------------------------------------------------------
 
-VALID_STRUCTURED_FIELDS = frozenset({
-    "spec", "design_spec", "technical_plan", "worktree_plan",
-    "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "db_mutation_profile", "db_compatibility_attestation",
-    "architecture_impact",
-})
+VALID_STRUCTURED_FIELDS = frozenset(
+    {
+        "spec",
+        "design_spec",
+        "technical_plan",
+        "worktree_plan",
+        "shepherd_log",
+        "shepherd_caveats",
+        "test_results",
+        "deploy_log",
+        "db_mutation_profile",
+        "db_compatibility_attestation",
+        "architecture_impact",
+    }
+)
 
 # Content fields that track spec_updated_at/spec_updated_by
-CONTENT_TRACKING_FIELDS = frozenset({
-    "spec", "design_spec", "technical_plan", "worktree_plan",
-    "db_mutation_profile", "db_compatibility_attestation",
-})
+CONTENT_TRACKING_FIELDS = frozenset(
+    {
+        "spec",
+        "design_spec",
+        "technical_plan",
+        "worktree_plan",
+        "db_mutation_profile",
+        "db_compatibility_attestation",
+    }
+)
 
-INTEGER_FIELDS = frozenset({"rework_count", "frozen", "id"})
+INTEGER_FIELDS = frozenset({"frozen", "id"})
 
-LABEL_SYNC_FIELDS = frozenset({
-    "status", "priority", "source", "owner",
-})
+LABEL_SYNC_FIELDS = frozenset(
+    {
+        "status",
+        "priority",
+        "source",
+        "owner",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
+
 
 def _yoke_root() -> Path:
     """Return the canonical ``yoke/`` state dir on the main repo.
@@ -62,6 +83,7 @@ def _yoke_root() -> Path:
     """
     try:
         from yoke_core.domain.worktree import resolve_yoke_root
+
         return Path(resolve_yoke_root())
     except (RuntimeError, ImportError):
         from yoke_core.api.repo_root import find_repo_root
@@ -82,6 +104,7 @@ def _assert_write_db_ready(db_path: str) -> None:
 # ---------------------------------------------------------------------------
 # Shared utility helpers
 # ---------------------------------------------------------------------------
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -120,6 +143,7 @@ def _normalize_item_ref(conn: Any, raw: Optional[str]) -> Optional[str]:
 # DB read helpers
 # ---------------------------------------------------------------------------
 
+
 def _resolve_deploy_envs(conn: Any, project: str) -> list[str]:
     """Resolve valid deployment environments for a project.
 
@@ -139,7 +163,9 @@ def _resolve_deploy_envs(conn: Any, project: str) -> list[str]:
             (ident.id,),
         ).fetchall()
         for r in rows:
-            val = r["env_name"] if hasattr(r, "keys") and "env_name" in r.keys() else r[0]
+            val = (
+                r["env_name"] if hasattr(r, "keys") and "env_name" in r.keys() else r[0]
+            )
             if val:
                 envs.add(val)
     except db_backend.operational_error_types(conn):
@@ -157,7 +183,12 @@ def _resolve_deploy_envs(conn: Any, project: str) -> list[str]:
         ).fetchone()
         if cap_row:
             import json as _json
-            config_val = cap_row["config"] if hasattr(cap_row, "keys") and "config" in cap_row.keys() else cap_row[0]
+
+            config_val = (
+                cap_row["config"]
+                if hasattr(cap_row, "keys") and "config" in cap_row.keys()
+                else cap_row[0]
+            )
             env_config = _json.loads(config_val)
             cap_envs = env_config.get("environments", [])
             if cap_envs:
@@ -170,9 +201,7 @@ def _resolve_deploy_envs(conn: Any, project: str) -> list[str]:
 
 def _get_next_id(conn: Any) -> int:
     """Get the next available item ID."""
-    row = conn.execute(
-        "SELECT COALESCE(MAX(id), 0) + 1 FROM items"
-    ).fetchone()
+    row = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM items").fetchone()
     return row[0]
 
 
@@ -201,9 +230,7 @@ def get_next_display_id(db_path: Optional[str] = None) -> str:
         conn.close()
 
 
-def dedup_search(
-    keywords: str, project: Optional[str] = None
-) -> list[dict[str, Any]]:
+def dedup_search(keywords: str, project: Optional[str] = None) -> list[dict[str, Any]]:
     """Search item titles and structured content for duplicate-like keyword matches.
 
     searches title plus structured fields directly instead of the

@@ -52,7 +52,7 @@ _MAKE_CONN_DDL = """
             id INTEGER PRIMARY KEY,
             title TEXT, workflow_id TEXT, workflow_version_id INTEGER,
             status TEXT, priority TEXT,
-            rework_count INTEGER, frozen INTEGER,
+            frozen INTEGER,
             blocked INTEGER DEFAULT 0, blocked_reason TEXT,
             github_issue TEXT, deployed_to TEXT,
             merged_at TEXT, created_at TEXT, updated_at TEXT, source TEXT,
@@ -222,7 +222,9 @@ def _make_conn():
 
 
 def _args(**kwargs) -> DoctorArgs:
-    defaults = dict(file=None, fix=False, only=None, quick=False, project="yoke", db_path=None)
+    defaults = dict(
+        file=None, fix=False, only=None, quick=False, project="yoke", db_path=None
+    )
     defaults.update(kwargs)
     return DoctorArgs(**defaults)
 

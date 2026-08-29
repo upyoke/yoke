@@ -72,9 +72,7 @@ def _resolve_session_source_actor(conn: Any, session_id: Optional[str]) -> int:
         ) from exc
 
 
-def _coerce_explicit_source(
-    conn: Any, source: str
-) -> int:
+def _coerce_explicit_source(conn: Any, source: str) -> int:
     """Validate an operator-supplied ``source`` argument as an actor id.
 
     Returns the integer actor id. Raises
@@ -91,9 +89,7 @@ def _coerce_explicit_source(
             "mechanism labels are no longer accepted on the write path"
         ) from exc
     if not validate_actor_id(conn, actor_id):
-        raise SourceActorResolutionError(
-            f"items.source={actor_id} does not match any actors row"
-        )
+        raise SourceActorResolutionError(f"items.source={actor_id} does not match any actors row")
     return actor_id
 
 
@@ -159,9 +155,7 @@ def execute_create(
         deployment_flow = normalize_deployment_flow_value(deployment_flow)
         project_identity = resolve_project(conn, project)
         assert project_identity is not None
-        flow_project, flow_err = validate_and_lookup_flow_project(
-            conn, deployment_flow, project
-        )
+        flow_project, flow_err = validate_and_lookup_flow_project(conn, deployment_flow, project)
         if flow_err:
             return {"success": False, "error": flow_err}
 
@@ -169,7 +163,8 @@ def execute_create(
             from yoke_core.domain.project_settings import get_project_str_for_id
 
             priority = get_project_str_for_id(
-                project_identity.id, "default_priority",
+                project_identity.id,
+                "default_priority",
             )
 
         from yoke_core.domain.workflow_registry import (
@@ -179,7 +174,8 @@ def execute_create(
         from yoke_core.domain.workflow_runtime import load_workflow_runtime
 
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, workflow,
+            conn,
+            workflow,
         )
         workflow_runtime = load_workflow_runtime(
             conn,
@@ -194,9 +190,7 @@ def execute_create(
         )
         if intake_block:
             return {"success": False, "error": intake_block}
-        clean_instruction = (
-            None if instruction is None else str(instruction).strip()
-        )
+        clean_instruction = None if instruction is None else str(instruction).strip()
         if entry_surface == "web_form" and not clean_instruction:
             return {
                 "success": False,
@@ -237,14 +231,12 @@ def execute_create(
             next_id = _get_next_id(conn)
             next_sequence = allocate_project_sequence(conn, project_identity.id)
             print(
-                f"[DRY-RUN] Would create: "
-                f"{project_identity.public_item_prefix}-{next_sequence}",
+                f"[DRY-RUN] Would create: {project_identity.public_item_prefix}-{next_sequence}",
                 file=out,
             )
             print(f"[DRY-RUN]   Title: {title}", file=out)
             print(
-                f"[DRY-RUN]   Workflow: {workflow_id}"
-                f" (version row {workflow_version_id})",
+                f"[DRY-RUN]   Workflow: {workflow_id} (version row {workflow_version_id})",
                 file=out,
             )
             print(
@@ -257,7 +249,10 @@ def execute_create(
                 print(f"[DRY-RUN]   Deployment Flow: {deployment_flow}", file=out)
             print(f"[DRY-RUN]   Source actor: {source_token}", file=out)
             print(f"[DRY-RUN]   Owner actor: {owner_token}", file=out)
-            print("[DRY-RUN] No files created, DB not modified, GitHub not synced.", file=out)
+            print(
+                "[DRY-RUN] No files created, DB not modified, GitHub not synced.",
+                file=out,
+            )
             return {"success": True, "item_id": next_id, "dry_run": True}
 
         # INSERT with retry on UNIQUE constraint violation
@@ -270,12 +265,21 @@ def execute_create(
             current_sequence = allocate_project_sequence(conn, project_identity.id)
             try:
                 _insert_item(
-                    conn, current_id, title,
-                    status or workflow_runtime.stage_ids[0], priority,
-                    0, 0,
-                    None, None,
-                    body, now, now, source_token,
-                    project_identity.id, current_sequence, deployment_flow,
+                    conn,
+                    current_id,
+                    title,
+                    status or workflow_runtime.stage_ids[0],
+                    priority,
+                    0,
+                    None,
+                    None,
+                    body,
+                    now,
+                    now,
+                    source_token,
+                    project_identity.id,
+                    current_sequence,
+                    deployment_flow,
                     owner=owner_token,
                     workflow_id=workflow_id,
                     workflow_version_id=workflow_version_id,
@@ -318,10 +322,12 @@ def execute_create(
         if not clean_instruction and body_len <= title_threshold:
             print("", file=out)
             print(f"WARNING: {item_ref} created with no body content.", file=out)
-            print("Cold-start sessions need full context: problem, fix plan, acceptance criteria.", file=out)
             print(
-                f"Use: printf '%s' \"$content\" | yoke items structured-field "
-                f"replace {item_ref} --field spec --stdin",
+                "Cold-start sessions need full context: problem, fix plan, acceptance criteria.",
+                file=out,
+            )
+            print(
+                f"Use: printf '%s' \"$content\" | yoke items structured-field replace {item_ref} --field spec --stdin",
                 file=out,
             )
             print("", file=out)

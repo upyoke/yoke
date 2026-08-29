@@ -26,7 +26,6 @@ CANONICAL_COLUMNS: tuple[str, ...] = (
     "workflow_version_id",
     "status",
     "priority",
-    "rework_count",
     "frozen",
     "github_issue",
     "deployed_to",
