@@ -22,8 +22,12 @@ def test_core_packet_teaches_safe_structural_patch_composition() -> None:
 def test_main_agent_packet_teaches_fleet_session_basics() -> None:
     body = sac.render_role_packet("main_agent")
     assert "yoke sessions list" in body
-    assert "yoke say --preview --session SESSION-ID" in body
-    assert "yoke say --session SESSION-ID --stdin" in body
+    # Preview and send lead with the item; the session fallback is named
+    # in the same entry's note rather than duplicated as a second pair.
+    assert "yoke say --preview --item PREFIX-N" in body
+    assert "yoke say --item PREFIX-N --stdin" in body
+    assert "fall back to --session only for a recipient no claim names" in body
+    assert "prefixes collide" in body
     assert (
         "yoke messages list --recipient-session CURRENT-SESSION-ID "
         "--state unacknowledged" in body
