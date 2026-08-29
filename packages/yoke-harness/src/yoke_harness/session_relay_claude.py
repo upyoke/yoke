@@ -231,7 +231,12 @@ def run_claude_cli_adapter(
         )
     short_id = background_agent_id(process)
     if short_id is None:
-        return _result(context, "outcome_unknown", "identity_parse_failed")
+        return _result(
+            context,
+            "outcome_unknown",
+            "identity_parse_failed",
+            process=process,
+        )
     resolution = resolve_background_session(
         short_id, lambda: session_lookup(invocation)
     )

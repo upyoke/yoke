@@ -164,6 +164,9 @@ def test_create_identity_failures_are_unknown_and_private(
     assert handoffs == []
     assert len(lookup_calls) == (0 if created.stdout == "no background identity" else 4)
     assert "private" not in repr(result.evidence)
+    if created.stdout == "no background identity":
+        assert result.private_diagnostic is not None
+        assert result.private_diagnostic.stdout == b"no background identity"
 
 
 def test_lookup_exception_text_never_enters_result() -> None:
