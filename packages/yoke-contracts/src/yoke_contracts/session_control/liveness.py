@@ -40,6 +40,31 @@ ENDED_CAUSE_WOUND_DOWN = "wound_down"
 ENDED_CAUSES: tuple[str, ...] = (ENDED_CAUSE_KILLED, ENDED_CAUSE_WOUND_DOWN)
 
 
+def live_session_sql(alias: str) -> str:
+    """SQL for the not-ended half of the roster, given a ``harness_sessions`` alias.
+
+    A session is gone once either stamp is set, whichever put it there, and the
+    two columns are independent. Every surface that splits the roster asks this
+    one question rather than spelling a predicate of its own — a surface that
+    tested only ``ended_at`` kept killed sessions on its live list.
+    """
+    return f"{alias}.ended_at IS NULL AND {alias}.terminated_at IS NULL"
+
+
+def ended_session_sql(alias: str) -> str:
+    """SQL for the ended half — the exact complement of :func:`live_session_sql`."""
+    return f"({alias}.ended_at IS NOT NULL OR {alias}.terminated_at IS NOT NULL)"
+
+
+def ended_at_sql(alias: str) -> str:
+    """When an ended session ended: its ordinary end stamp, else its kill stamp.
+
+    A killed session may carry only ``terminated_at``, so ordering or dating the
+    ended roster on ``ended_at`` alone renders it blank and sorts it last.
+    """
+    return f"COALESCE({alias}.ended_at, {alias}.terminated_at)"
+
+
 __all__ = [
     "ENDED_CAUSES",
     "ENDED_CAUSE_KILLED",
@@ -50,4 +75,7 @@ __all__ = [
     "LIVENESS_ENDED",
     "LIVENESS_STALE",
     "LIVENESS_STATES",
+    "ended_at_sql",
+    "ended_session_sql",
+    "live_session_sql",
 ]
