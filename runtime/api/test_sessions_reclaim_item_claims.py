@@ -172,6 +172,63 @@ class TestReclaimStaleItemClaimsRecheck:
         assert row["released_at"] is not None
         assert row["release_reason"] == "reclaimed"
 
+    def test_reclaim_releases_the_holder_item_focus(self, conn_with_events):
+        """A reclaimed holder stops reading as working the item it lost."""
+        from yoke_core.domain.sessions import (
+            reclaim_stale_item_claims,
+            set_current_item,
+        )
+
+        c = conn_with_events
+        _seed_holder(
+            c,
+            holder_session_id="holder-focus",
+            item_id=5010,
+            holder_heartbeat_ago_min=30,
+            claim_heartbeat_ago_min=30,
+        )
+        set_current_item(c, "holder-focus", "5010")
+
+        assert reclaim_stale_item_claims(c, "5010", stale_threshold_minutes=10) == 1
+
+        row = c.execute(
+            "SELECT current_item_id, recent_item_id FROM harness_sessions "
+            "WHERE session_id = %s",
+            ("holder-focus",),
+        ).fetchone()
+        assert row["current_item_id"] is None
+        assert str(row["recent_item_id"]) == "5010"
+
+    def test_aborted_reclaim_leaves_the_holder_focus_alone(
+        self,
+        conn_with_events,
+        monkeypatch,
+    ):
+        """Focus follows the claim: a claim that survives keeps its focus."""
+        from yoke_core.domain.sessions import (
+            reclaim_stale_item_claims,
+            set_current_item,
+        )
+
+        c = conn_with_events
+        _seed_holder(
+            c,
+            holder_session_id="holder-fresh",
+            item_id=5011,
+            holder_heartbeat_ago_min=1,
+            claim_heartbeat_ago_min=30,
+        )
+        set_current_item(c, "holder-fresh", "5011")
+        _capture_session_events(monkeypatch)
+
+        assert reclaim_stale_item_claims(c, "5011", stale_threshold_minutes=10) == 0
+
+        focus = c.execute(
+            "SELECT current_item_id FROM harness_sessions WHERE session_id = %s",
+            ("holder-fresh",),
+        ).fetchone()["current_item_id"]
+        assert str(focus) == "5011"
+
     def test_aborts_when_holder_session_heartbeat_is_fresh(
         self,
         conn_with_events,

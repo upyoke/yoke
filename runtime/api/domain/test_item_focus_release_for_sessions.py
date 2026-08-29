@@ -1,4 +1,4 @@
-"""Post-commit focus cleanup proofs for terminal item claim release."""
+"""Post-commit focus release proofs for item-scoped claim cleanup."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from yoke_core.domain.sessions import set_current_item
 from yoke_core.domain.sessions_claim_lifecycle_lock import (
     lock_session_rows_for_claim_lifecycle,
 )
-from yoke_core.domain.sessions_terminal_focus_cleanup import (
-    clear_terminal_item_focuses,
+from yoke_core.domain.sessions_item_focus_release import (
+    release_item_focus_for_sessions,
 )
 
 
@@ -25,14 +25,14 @@ def _join(worker: threading.Thread) -> None:
     assert not worker.is_alive(), f"thread {worker.name} did not finish"
 
 
-def test_terminal_focus_cleanup_is_sorted_and_moves_matching_focus_to_recent(
+def test_item_focus_release_is_sorted_and_moves_matching_focus_to_recent(
     test_db,
 ) -> None:
     for session_id in ("terminal-focus-b", "terminal-focus-a"):
         _register(test_db, session_id=session_id)
         set_current_item(test_db, session_id, 9811)
 
-    cleared = clear_terminal_item_focuses(
+    cleared = release_item_focus_for_sessions(
         test_db,
         9811,
         ("terminal-focus-b", "terminal-focus-a", "terminal-focus-b"),
@@ -50,7 +50,7 @@ def test_terminal_focus_cleanup_is_sorted_and_moves_matching_focus_to_recent(
     ]
 
 
-def test_terminal_focus_cleanup_preserves_concurrent_new_focus(test_db) -> None:
+def test_item_focus_release_preserves_concurrent_new_focus(test_db) -> None:
     """A newer focus wins while cleanup waits for the session-row lock."""
     session_id = "terminal-focus-race"
     _register(test_db, session_id=session_id)
@@ -72,7 +72,7 @@ def test_terminal_focus_cleanup_preserves_concurrent_new_focus(test_db) -> None:
     def cleanup() -> None:
         cleanup_started.set()
         try:
-            outcomes["cleared"] = clear_terminal_item_focuses(
+            outcomes["cleared"] = release_item_focus_for_sessions(
                 cleanup_conn,
                 9821,
                 (session_id,),

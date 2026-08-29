@@ -1,4 +1,11 @@
-"""Session current-item attribution helpers."""
+"""Session current-item focus helpers.
+
+``current_item_id`` names the item a session is *working*, and the work
+claim is its only writer: :func:`set_current_item` on claim acquisition,
+:func:`release_item_focus_if_current` on release. Touching an item
+without claiming it records :func:`record_recent_item` instead, so the
+roster never renders an unclaimed item as attended.
+"""
 
 from __future__ import annotations
 
@@ -47,33 +54,6 @@ def focus_fallback_item_id(
     if row is None or row["item_id"] is None:
         return None
     return normalize_claim_item_id(str(row["item_id"]))
-
-
-def attribution_takes_focus(
-    conn: Any,
-    session_id: str,
-    item_id: str,
-) -> bool:
-    """Whether touching ``item_id`` may become this session's focus.
-
-    Filing or updating an item is attribution, not a claim on it. It may
-    take the focus slot only when nothing better holds it: the session
-    already claims this item, or it holds no active item claim at all.
-    A session working claimed work keeps pointing at that work, so the
-    roster never renders a filed item as the item this session is on.
-    """
-    claimed = {
-        normalize_claim_item_id(str(row["item_id"]))
-        for row in conn.execute(
-            f"SELECT {scope_int_sql(conn, 'scope', 'item_id')} AS item_id "
-            "FROM work_claims "
-            f"WHERE session_id = {_p(conn)} AND target_kind = 'item' "
-            f"AND released_at IS NULL AND "
-            f"{scope_int_sql(conn, 'scope', 'item_id')} IS NOT NULL",
-            (session_id,),
-        ).fetchall()
-    }
-    return not claimed or normalize_claim_item_id(str(item_id)) in claimed
 
 
 def record_recent_item(
@@ -272,12 +252,43 @@ def release_current_item_focus(
         conn.commit()
 
 
+def release_item_focus_if_current(
+    conn: Any,
+    session_id: str,
+    item_id: Any,
+    *,
+    commit: bool = False,
+) -> bool:
+    """Release focus when it names ``item_id``, leaving other focus alone.
+
+    The single release-side entry point for every path that ends a
+    session's item work claim. Focus naming a different item belongs to
+    other live work and is untouched; focus naming this item archives to
+    ``recent_item_id`` and falls back to the session's newest remaining
+    item claim through :func:`release_current_item_focus`. Returns
+    whether this session's focus was released.
+    """
+    row = conn.execute(
+        f"SELECT current_item_id FROM harness_sessions WHERE session_id = {_p(conn)}",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return False
+    current = row["current_item_id"] if hasattr(row, "keys") else row[0]
+    if current is None:
+        return False
+    if normalize_claim_item_id(str(current)) != normalize_claim_item_id(str(item_id)):
+        return False
+    release_current_item_focus(conn, session_id, commit=commit)
+    return True
+
+
 __all__ = [
-    "attribution_takes_focus",
     "clear_current_item",
     "focus_fallback_item_id",
     "get_session_attribution",
     "record_recent_item",
     "release_current_item_focus",
+    "release_item_focus_if_current",
     "set_current_item",
 ]

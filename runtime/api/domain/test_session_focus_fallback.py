@@ -16,7 +16,7 @@ from runtime.api.test_sessions import (
 )
 from yoke_core.domain.sessions import (
     claim_work,
-    clear_terminal_item_focuses,
+    release_item_focus_for_sessions,
     operator_override_release_claim,
     release_claim,
     release_item_claim_for_execution,
@@ -100,7 +100,7 @@ def test_terminal_cleanup_falls_back_to_remaining_item_claim(conn):
         ("2026-08-22T00:00:00Z", target.kind, target.scope_json()),
     )
     conn.commit()
-    cleared = clear_terminal_item_focuses(conn, 1, ("sess-1",))
+    cleared = release_item_focus_for_sessions(conn, 1, ("sess-1",))
     assert cleared == ("sess-1",)
     current, recent = _focus(conn, "sess-1")
     assert current == "2"

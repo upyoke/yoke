@@ -27,6 +27,9 @@ from yoke_core.domain.work_claim_targets import (
 )
 
 from yoke_core.hooks.sessions_event_emit import _emit_event
+from yoke_core.domain.sessions_item_focus_release import (
+    release_item_focus_for_sessions,
+)
 from yoke_core.hooks.sessions_claim_reclaim import (
     reclaim_stale_conflicts,
 )
@@ -140,7 +143,7 @@ def _claim_typed(
         f"AND wc.claim_type='exclusive' AND wc.session_id <> %s",
         (*conflict_params, session_id),
     )
-    reclaim_stale_conflicts(
+    reclaimed_holders = reclaim_stale_conflicts(
         conn,
         conflict_claims,
         target=target,
@@ -174,6 +177,11 @@ def _claim_typed(
         )
     # End claim-row cleanup before taking the parent item lock.
     conn.commit()
+    if reclaimed_holders and target.item_id is not None:
+        # A reclaimed holder no longer has this item; its focus row would
+        # otherwise keep naming work it lost. Session rows only, and after
+        # the claim-row commit, so the canonical lock order still holds.
+        release_item_focus_for_sessions(conn, target.item_id, reclaimed_holders)
     if existing:
         raise PermissionError(_format_claim_conflict_message(target_label, existing))
     lock_session_rows_for_claim_lifecycle(conn, (session_id,))
