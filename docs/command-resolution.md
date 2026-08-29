@@ -9,6 +9,7 @@ historically intuitive group; they do not dispatch a guessed mutation.
 |---|---|
 | `yoke deployment-flows list` | Registered `deployment_flows.list` read. |
 | `yoke deployment-runs find-by-item` | Registered `deployment_runs.find_by_item` read. |
+| `yoke deployment-runs failure-trace` | Registered terminal-cause and dispatch-chain read. |
 | `yoke deployment-runs stages` | Registered `deployment_runs.stages` progress read. |
 | `yoke deployments` | Navigation to the deployment-flow and deployment-run groups. |
 | `yoke workflows version list` | Registered `workflows.version.list` inventory read. |

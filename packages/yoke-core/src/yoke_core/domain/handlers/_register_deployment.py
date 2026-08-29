@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import (
     deployment_common as _models,
+    deployment_failure_trace as _failure_trace,
     deployment_inspection as _inspection,
     deployment_run_projection as _run_projection,
     deployment_run_terminalization as _run_terminalization,
@@ -120,6 +121,18 @@ def register(registry) -> None:
         target_kinds=["workflow_run"], side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.failure_trace",
+        _failure_trace.handle_deployment_failure_trace,
+        _failure_trace.DeploymentFailureTraceRequest,
+        _failure_trace.DeploymentFailureTraceResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_failure_trace",
+        target_kinds=["deployment_run"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["downstream_project_visibility", "partial_chain_on_refusal"],
+        adapter_status="live", claim_required_kind=None,
     )
     registry.register(
         "deployment_runs.find_by_item",

@@ -55,6 +55,11 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
             "deployment_runs.find_by_item",
             _inspection.deployment_runs_find_by_item,
         ),
+    ("deployment-runs", "failure-trace"):
+        (
+            "deployment_runs.failure_trace",
+            _inspection.deployment_runs_failure_trace,
+        ),
     ("deployment-runs", "stages"):
         ("deployment_runs.stages", _inspection.deployment_runs_stages),
     ("deployment-runs", "update"):

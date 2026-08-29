@@ -238,6 +238,18 @@ class TestParseFailedLogZip:
 
 
 class TestFetchFailedLog:
+    def test_fetch_job_log_reads_exact_failed_attempt(self, monkeypatch):
+        calls = _install_urlopen(monkeypatch, [b"authentication required\n"])
+
+        result = github_actions_logs.fetch_job_log(
+            "o/r",
+            "99067752381",
+            token="ghs_x",
+        )
+
+        assert result == "authentication required\n"
+        assert "/actions/jobs/99067752381/logs" in calls[0]
+
     def test_composes_fetch_and_parse(self, monkeypatch):
         import json
 
