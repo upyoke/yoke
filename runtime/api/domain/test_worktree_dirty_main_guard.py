@@ -211,9 +211,49 @@ def test_narrative_includes_session_id_and_say_recipe(monkeypatch):
     assert verdict.blocked is True
     assert verdict.kind == BLOCK_DIRTY_TRACKED
     assert "abc-123" in verdict.narrative
+    # The holder's item addresses them; the session id stays as identity.
+    assert "yoke say --preview --item YOK-9" in verdict.narrative
+    assert "yoke say --item YOK-9 --stdin" in verdict.narrative
+    assert "foo.py" in verdict.narrative
+
+
+def test_narrative_falls_back_to_the_session_when_no_item_names_the_holder(
+    monkeypatch,
+):
+    """A holder with no current item has no address but its own id."""
+    monkeypatch.setattr(guard, "_run", _fake_run(_git_tracked("foo.py")))
+
+    def router(*, function_id, target, payload=None, **_k):
+        return _resp(
+            function_id,
+            result={
+                "rows": [
+                    {
+                        "session_id": "caller",
+                        "machine_id": "m1",
+                        "work_role": "item",
+                    },
+                    {
+                        "session_id": "abc-123",
+                        "machine_id": "m1",
+                        "work_role": "item",
+                        "actor_label": "ben",
+                    },
+                ]
+            },
+        )
+
+    _patch_dispatch(monkeypatch, router)
+    verdict = guard.evaluate_dirty_main_for_item(
+        "/repo",
+        item_id=1,
+        public_ref="YOK-1",
+        session_id="caller",
+        needed_paths=("foo.py",),
+    )
     assert "yoke say --preview --session abc-123" in verdict.narrative
     assert "yoke say --session abc-123 --stdin" in verdict.narrative
-    assert "foo.py" in verdict.narrative
+    assert "(no current item)" in verdict.narrative
 
 
 def test_untracked_scratch_warns_and_does_not_block(monkeypatch):

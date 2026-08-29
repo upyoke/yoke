@@ -207,7 +207,10 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "roles": ("main_agent",),
         "recipe": FLEET_MESSAGE_BOOTSTRAP_RECIPE,
         "notes": (
-            "Run each line separately; copy the full session id, check MESSAGEABLE, "
+            "Run each line separately; address the work with --item PREFIX-N "
+            "(one live claim, one holder) and fall back to --session only for a "
+            "recipient no claim names, copying the whole id from a listing — "
+            "prefixes collide, so never assemble or pad one. Check MESSAGEABLE, "
             "and pass bodies only through stdin. "
             "For manual inbox work, acknowledge only after `yoke messages get` "
             "confirms this top-level session is the recipient. "

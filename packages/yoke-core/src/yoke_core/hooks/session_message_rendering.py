@@ -58,7 +58,9 @@ def _render_message(
 
 
 def _parent_overflow_notice(hidden_count: int, session_id: str) -> str:
-    recipient = shlex.quote((session_id or "CURRENT-SESSION-ID")[:128])
+    # Quoted, never shortened: a clipped session id produces a listing
+    # command that quietly reads the wrong backlog, or none at all.
+    recipient = shlex.quote(session_id or "CURRENT-SESSION-ID")
     return " ".join(
         (
             f"{hidden_count} additional unacknowledged session message(s) were "

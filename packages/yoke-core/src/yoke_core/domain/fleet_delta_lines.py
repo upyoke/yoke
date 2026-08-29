@@ -15,9 +15,9 @@ from __future__ import annotations
 from yoke_core.domain.fleet_delta_alarms import (
     DeltaState,
     LINE_PREFIX,
+    identifier,
     idle_holder_alarms,
     inbox_lines,
-    short,
     starved_envelope_alarms,
     unowned_item_alarms,
 )
@@ -61,14 +61,14 @@ def session_deltas(previous: FleetSnapshot, current: FleetSnapshot) -> list[str]
         was = previous.sessions.get(session_id)
         if was is None:
             lines.append(
-                f"{LINE_PREFIX} session {short(session_id)} registered "
+                f"{LINE_PREFIX} session {identifier(session_id)} registered "
                 f"surface={row.executor_surface} mode={row.mode or 'none'}"
             )
             continue
         if was.lifecycle != row.lifecycle and row.lifecycle != "live":
             lines.append(
-                f"{LINE_PREFIX} session {short(session_id)} {row.lifecycle} "
-                f"surface={row.executor_surface}"
+                f"{LINE_PREFIX} session {identifier(session_id)} "
+                f"{row.lifecycle} surface={row.executor_surface}"
             )
     return lines
 

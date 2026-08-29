@@ -5,9 +5,9 @@ from __future__ import annotations
 from uuid import UUID
 
 
-FLEET_MESSAGE_RECIPE = """yoke sessions list --liveness active
-yoke say --preview --session SESSION-ID
-printf '%s\\n' 'MESSAGE' | yoke say --session SESSION-ID --stdin
+FLEET_MESSAGE_RECIPE = """yoke say --preview --item PREFIX-N
+printf '%s\\n' 'MESSAGE' | yoke say --item PREFIX-N --stdin
+# No claim addresses them? `yoke sessions list --liveness active`, then --session
 yoke messages list --recipient-session CURRENT-SESSION-ID --state unacknowledged
 yoke messages get MESSAGE-ID
 yoke messages acknowledge MESSAGE-ID"""
@@ -17,6 +17,22 @@ FLEET_UNDELIVERED_CANCEL_RECIPE = (
 )
 FLEET_MESSAGE_BOOTSTRAP_RECIPE = "\n\n".join(
     (FLEET_MESSAGE_RECIPE, FLEET_UNDELIVERED_CANCEL_RECIPE)
+)
+
+FLEET_ADDRESSING_GUIDANCE = (
+    "Anchors union, filters intersect. Every ANCHOR flag ADDS recipients — "
+    "naming a second one widens the audience rather than narrowing the "
+    "first, so `--process K --project P` reaches the whole project, not the "
+    "process holder within it. Only the FILTER flags narrow what the anchors "
+    "selected. Preview before sending and read the recipient count. "
+    "Address a worker by the work, not by its session id. A live item claim "
+    "has exactly one holder, so --item PREFIX-N reaches that worker and stays "
+    "correct across a handoff. A session id is an identity, not an address: "
+    "reach for --session only when no claim addresses the recipient, and then "
+    "pass the id whole. Session ids collide heavily at any prefix — thousands "
+    "of them share leading characters — so a fragment copied out of a watcher "
+    "line, a card, or a log can resolve to a real session that is the wrong "
+    "one. Never assemble, pad, or complete one; take it from a listing."
 )
 
 FLEET_ENVELOPE_TRUST_GUIDANCE = (
@@ -95,6 +111,7 @@ FLEET_OWNERSHIP_GUIDANCE = " ".join(
 FLEET_MESSAGE_WORKFLOW_HELP = "\n\n".join(
     (
         "Top-level Fleet workflow:\n" + FLEET_MESSAGE_BOOTSTRAP_RECIPE,
+        FLEET_ADDRESSING_GUIDANCE,
         FLEET_SUBSTANTIVE_ONLY_GUIDANCE,
         FLEET_ENVELOPE_TRUST_GUIDANCE,
         FLEET_BODY_TRUST_GUIDANCE,
@@ -105,6 +122,7 @@ FLEET_MESSAGE_WORKFLOW_HELP = "\n\n".join(
 
 
 __all__ = [
+    "FLEET_ADDRESSING_GUIDANCE",
     "FLEET_MESSAGE_BOOTSTRAP_RECIPE",
     "FLEET_BODY_TRUST_GUIDANCE",
     "FLEET_ENVELOPE_TRUST_GUIDANCE",

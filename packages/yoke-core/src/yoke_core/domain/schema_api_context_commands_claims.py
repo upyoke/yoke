@@ -35,7 +35,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "The session id returned here is a coordination identifier, "
             "not authority to mutate as that holder; copying it into "
             "`--session-id S` grants no capability over that holder's "
-            "claim."
+            "claim. To reach the holder, address the item."
         ),
     },
     {
@@ -64,8 +64,9 @@ CLAIMS_COMMANDS: list[dict] = [
             "doc is required (offer to create if absent), the document lock "
             "releases before a Blitz can claim it, workers launch CLI-only "
             "and item-bound (never `/yoke do`), workers are addressed with "
-            "`yoke say --item PREFIX-N --stdin` (`--session UUID` only for "
-            "claim-less recipients) and answer with substantive updates only "
+            "`yoke say --item PREFIX-N --stdin` (whole `--session UUID`, "
+            "never a prefix, only for claim-less recipients) and answer "
+            "with substantive updates only "
             "(never progress ticks — the send path refuses those as "
             "`body_not_substantive`), and the fleet report arrives appended "
             "to the messages this session receives — available work first, "

@@ -238,12 +238,18 @@ def format_dirty_main_narrative(
         for holder in holders:
             session_id = holder["session_id"]
             actor = holder.get("actor_label") or "unknown"
-            focus = holder.get("current_item") or "(no current item)"
+            current_item = holder.get("current_item") or ""
+            focus = current_item or "(no current item)"
+            # A held item addresses its one holder; a session id is only
+            # an identity, and is the fallback when no claim names them.
+            address = (
+                f"--item {current_item}" if current_item else f"--session {session_id}"
+            )
             lines.append(f"  session {session_id} actor={actor} focus={focus}")
             lines.append("Ask them to commit, stash, or drop the files:")
-            lines.append(f"  yoke say --preview --session {session_id}")
+            lines.append(f"  yoke say --preview {address}")
             lines.append(
-                f"  printf '%s\\n' {ask + preview!r} | yoke say --session {session_id} --stdin"
+                f"  printf '%s\\n' {ask + preview!r} | yoke say {address} --stdin"
             )
     else:
         lines.append(

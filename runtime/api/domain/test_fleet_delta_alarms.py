@@ -9,6 +9,8 @@ from yoke_core.domain.fleet_delta_alarms import (
     IDLE_HOLDER_MINUTES,
     STARVED_ENVELOPE_MINUTES,
     UNOWNED_ITEM_MINUTES,
+    address_recipe,
+    identifier,
     idle_holder_alarms,
     inbox_lines,
     starved_envelope_alarms,
@@ -214,7 +216,7 @@ def test_inbox_fires_on_the_arming_pass_for_an_envelope_already_waiting() -> Non
     state = DeltaState()
 
     assert inbox_lines(snapshot, state) == [
-        "fleet inbox msg-1111 state=pending from=worker-9"
+        "fleet inbox msg-1111 state=pending from=worker-9999"
     ]
     assert inbox_lines(snapshot, state) == [], "a level fires once, not per pass"
 
@@ -233,9 +235,77 @@ def test_inbox_reports_a_state_change_and_stays_silent_on_acknowledgement() -> N
 
     injected = _inbox("msg-1111", "injected", "steerer-0000")
     assert inbox_lines(_snapshot(envelopes={injected.key: injected}), state) == [
-        "fleet inbox msg-1111 state=injected from=worker-9"
+        "fleet inbox msg-1111 state=injected from=worker-9999"
     ]
 
     done = _inbox("msg-1111", "acknowledged", "steerer-0000")
     assert inbox_lines(_snapshot(envelopes={done.key: done}), state) == []
     assert not any(key.startswith("inbox:") for key in state.active_alarms)
+
+
+SESSION_ID = "019e41e1-9b2c-7a41-8f30-6d5a0c7b2e14"
+OTHER_SESSION_ID = "019e41e1-1d77-7c02-9a55-3b81f4e6c0aa"
+
+
+def test_a_line_carries_the_whole_session_id() -> None:
+    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
+    snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)})
+    line = idle_holder_alarms(snapshot, DeltaState())[0]
+    assert f"session={SESSION_ID}" in line
+
+
+def test_two_sessions_sharing_a_prefix_stay_distinguishable() -> None:
+    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
+    assert SESSION_ID[:8] == OTHER_SESSION_ID[:8]
+    snapshot = _snapshot(
+        sessions={
+            SESSION_ID: _session(SESSION_ID, activity_at=stale),
+            OTHER_SESSION_ID: _session(
+                OTHER_SESSION_ID, activity_at=stale, claimed_items=("YOK-2",)
+            ),
+        }
+    )
+    lines = idle_holder_alarms(snapshot, DeltaState())
+    assert len({line for line in lines}) == 2
+    assert any(f"session={SESSION_ID} " in line for line in lines)
+    assert any(f"session={OTHER_SESSION_ID} " in line for line in lines)
+
+
+def test_an_alarm_names_the_item_address_that_reaches_the_holder() -> None:
+    stale = NOW - timedelta(minutes=IDLE_HOLDER_MINUTES + 1)
+    snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, activity_at=stale)})
+    line = idle_holder_alarms(snapshot, DeltaState())[0]
+    assert "reach='yoke say --item YOK-1 --stdin'" in line
+
+
+def test_a_holderless_session_is_addressed_by_its_whole_id() -> None:
+    snapshot = _snapshot(sessions={SESSION_ID: _session(SESSION_ID, claimed_items=())})
+    assert address_recipe(SESSION_ID, snapshot) == (
+        f"yoke say --session {SESSION_ID} --stdin"
+    )
+
+
+def test_an_unknown_session_is_named_rather_than_shortened() -> None:
+    assert identifier("") == "unknown"
+    assert identifier(SESSION_ID) == SESSION_ID
+
+
+def test_a_starved_envelope_carries_whole_ids_and_the_reach() -> None:
+    sent = NOW - timedelta(minutes=STARVED_ENVELOPE_MINUTES + 1)
+    message_id = "8c2ebd0b-e53c-4fc3-a182-d9b5fbcaa594"
+    envelope = EnvelopeRow(
+        message_id=message_id,
+        recipient_session_id=SESSION_ID,
+        sender_session_id="steerer-0000",
+        state="pending",
+        injection_count=0,
+        created_at=sent,
+    )
+    snapshot = _snapshot(
+        sessions={SESSION_ID: _session(SESSION_ID, activity_at=sent - timedelta(1))},
+        envelopes={envelope.key: envelope},
+    )
+    line = starved_envelope_alarms(snapshot, DeltaState())[0]
+    assert f"message={message_id}" in line
+    assert f"recipient={SESSION_ID}" in line
+    assert "reach='yoke say --item YOK-1 --stdin'" in line

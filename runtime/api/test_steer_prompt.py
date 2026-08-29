@@ -284,7 +284,7 @@ class TestSteerWorkerLifecycle:
         assert "/yoke shepherd" in text
         assert "yoke say --item PREFIX-N --stdin" in text
         assert "yoke say --stdin --session" in text
-        assert "Never expand a truncated session id" in text
+        assert "never pad, complete, or expand one by hand" in text
         assert "yoke session-control launch preview" in text
         assert "session_control.launch.preview" in _read(_STEER_DIR / "SKILL.md")
         assert "session_control.launch.list" in _read(_STEER_DIR / "SKILL.md")

@@ -292,8 +292,8 @@ def test_say_help_teaches_the_complete_top_level_workflow(capsys) -> None:
     assert exit_info.value.code == 0
     rendered = capsys.readouterr().out
     assert "yoke sessions list --liveness active" in rendered
-    assert "yoke say --preview --session SESSION-ID" in rendered
-    assert "yoke say --session SESSION-ID --stdin" in rendered
+    assert "yoke say --preview --item PREFIX-N" in rendered
+    assert "yoke say --item PREFIX-N --stdin" in rendered
     assert "yoke messages get MESSAGE-ID" in rendered
     assert "yoke messages acknowledge MESSAGE-ID" in rendered
     assert "Top-level sender recovery for an undelivered message" in rendered
