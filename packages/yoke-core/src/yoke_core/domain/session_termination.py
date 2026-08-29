@@ -48,11 +48,23 @@ def _cancel_open_recipients(conn: Any, session_id: str, now: str) -> int:
 
 
 def _launch_identity(conn: Any, session_id: str) -> tuple[str | None, str | None]:
+    """Find the launch that started this session by either identity column.
+
+    A session is named on its launch twice, and the two are written by
+    different events: the relay records ``native_session_id`` when it reads
+    the native's identity, and registration records
+    ``registered_session_id`` when the attested session binds. Either can be
+    absent while the session itself runs normally, so matching on only one
+    of them loses the launch for exactly the sessions a reap most needs it
+    for. Without it the reap carries no launch custody handle and no native
+    id, and reports ``not_found`` for a native that is still running.
+    """
+    marker = _p(conn)
     row = conn.execute(
         "SELECT launch_id,native_session_id FROM session_launches "
-        f"WHERE registered_session_id={_p(conn)} "
+        f"WHERE registered_session_id={marker} OR native_session_id={marker} "
         "ORDER BY completed_at DESC,created_at DESC LIMIT 1",
-        (session_id,),
+        (session_id, session_id),
     ).fetchone()
     if row is None:
         return None, None
