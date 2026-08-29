@@ -186,10 +186,20 @@ The steerer messages a worker with
 `--session` only because the steerer is itemless (claim-less fallback).
 Never expand a truncated session id by hand.
 
+A worker's messages are substantive only. Every message costs this seat an
+inbox row and a hand acknowledgement, so a worker sends one when a gate goes
+red, it is blocked, its instruction conflicts with what it is seeing, it found
+a defect outside its scope, its item reached a terminal state, or it needs a
+decision. It never forwards progress output upward — a percentage, an
+elapsed-time poll, a watcher heartbeat, a "still green" note. Those belong in
+the worker's own visible output; this seat reads liveness from
+`yoke watch fleet`, and the send path refuses a progress tick as
+`body_not_substantive`.
+
 ```text
 {ROUTED_ENTRYPOINT}
 
-Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --session {STEERER_SESSION_ID}) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
+Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --session {STEERER_SESSION_ID}) and END your session — do not pick up further work, do not chain into other items. If your claim is swept mid-work, reacquire and continue.
 ```
 
 Author the routed variants side by side from the pinned `workflow_id` and

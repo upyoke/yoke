@@ -26,6 +26,7 @@ from yoke_core.domain.session_message_store import (
     public_recipients,
     recipient_project_ids,
 )
+from yoke_core.domain.session_message_substance import validate_body
 from yoke_core.domain.session_message_types import (
     ResolvedRecipient,
     SessionMessageError,
@@ -127,16 +128,10 @@ def send_message(
                 jsonpath="$.payload.confirmation_token",
             )
         _validate_routes(recipients)
-        body_bytes = len(body.encode("utf-8"))
-        if body_bytes == 0:
-            raise SessionMessageError("body_empty", "message body must not be empty")
-        max_body_bytes = min(policy.max_body_bytes for policy in policies.values())
-        if body_bytes > max_body_bytes:
-            raise SessionMessageError(
-                "body_too_large",
-                f"message body is {body_bytes} bytes; maximum is {max_body_bytes}",
-                jsonpath="$.payload.body",
-            )
+        validate_body(
+            body,
+            max_body_bytes=min(policy.max_body_bytes for policy in policies.values()),
+        )
         expiry_hours = min(policy.expiry_hours for policy in policies.values())
         expires_at = current + timedelta(hours=expiry_hours)
         wake_after_by_project = {pid: current for pid in policies}

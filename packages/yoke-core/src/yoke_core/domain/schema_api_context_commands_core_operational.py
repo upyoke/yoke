@@ -33,6 +33,7 @@ from yoke_contracts.session_control.teaching import (
     FLEET_ENVELOPE_TRUST_GUIDANCE,
     FLEET_MESSAGE_BOOTSTRAP_RECIPE,
     FLEET_OWNERSHIP_GUIDANCE,
+    FLEET_SUBSTANTIVE_ONLY_GUIDANCE,
     FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
     SUBAGENT_FLEET_GUIDANCE,
     TOP_LEVEL_FLEET_OWNERSHIP,
@@ -208,6 +209,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "and pass bodies only through stdin. "
             "For manual inbox work, acknowledge only after `yoke messages get` "
             "confirms this top-level session is the recipient. "
+            f"{FLEET_SUBSTANTIVE_ONLY_GUIDANCE} "
             f"{FLEET_ENVELOPE_TRUST_GUIDANCE} {FLEET_BODY_TRUST_GUIDANCE} "
             f"{FLEET_TOP_LEVEL_RECEIPT_GUIDANCE} {FLEET_OWNERSHIP_GUIDANCE}"
         ),

@@ -76,6 +76,17 @@ What you DO do during a Monitor-armed background command:
   `FAILED tests/test_foo.py::test_bar`, `merge step 3 complete`).
   No commentary, no preamble, no status summary, no filler between
   wakes - silence between matched lines is correct.
+- Relay means YOUR OWN visible output, and nothing else. Never
+  forward a matched line to another session as a durable Fleet
+  message (`yoke say`). A percentage, an elapsed-time poll, a
+  watcher heartbeat, and a "still green" note are progress output:
+  they cost the recipient an inbox row and a hand acknowledgement
+  and change nothing about what it would do, and the send path
+  refuses them as `body_not_substantive`. Message another session
+  when a gate goes red, you are blocked, your instruction conflicts
+  with what you see, you found a defect outside your scope, the item
+  reached a terminal state, or you need a decision. A steering seat
+  watches liveness with its own fleet watcher.
 - The watcher wrappers (`watch_pytest`, `watch_merge`) coalesce
   repetitive ticks at the wrapper layer. An emitted line may carry
   a `(suppressed N ticks)` suffix; relay the line including the
