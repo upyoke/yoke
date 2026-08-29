@@ -53,8 +53,8 @@ def _cmd_register_new(args: argparse.Namespace) -> int:
         json.dump({"project": args.project, "new_ids": new_ids}, sys.stdout)
         sys.stdout.write("\n")
     else:
-        for item_ref in new_refs:
-            sys.stdout.write(f"{item_ref}\n")
+        for public_ref in new_refs:
+            sys.stdout.write(f"{public_ref}\n")
     return 0
 
 

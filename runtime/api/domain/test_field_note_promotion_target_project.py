@@ -37,7 +37,7 @@ def promote(test_db, monkeypatch):
         insert_item(
             test_db, id=item_id, workflow_id="dash", title=kwargs["title"],
         )
-        return {"success": True, "item_id": item_id, "item_ref": "YOK-2400"}
+        return {"success": True, "item_id": item_id, "public_ref": "YOK-2400"}
 
     monkeypatch.setattr(backlog_create_op, "execute_create", _create)
 

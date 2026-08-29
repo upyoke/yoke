@@ -13,7 +13,7 @@ from yoke_core.domain.merge_queue_admission import (
 
 def _candidate(ref="YOK-A", targets=(), carrier=False):
     return TrainCandidate(
-        item_ref=ref,
+        public_ref=ref,
         claimed_target_ids=frozenset(targets),
         migration_carrier=carrier,
     )

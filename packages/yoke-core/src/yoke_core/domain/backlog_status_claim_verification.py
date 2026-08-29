@@ -30,7 +30,7 @@ def _verify_status_claim(
     """Verify the request session holds the active claim for a status write."""
     from yoke_core.domain.project_identity import render_item_ref
 
-    item_ref = render_item_ref(conn, item_id)
+    public_ref = render_item_ref(conn, item_id)
     # Request-scoped override first (done-transition status relays post it on a
     # ContextVar), then the process-global env vars so every existing env-driven
     # caller (repair-status, conduct, advance-skip, ...) is unchanged.
@@ -48,7 +48,7 @@ def _verify_status_claim(
             {
                 "bypass_source": bypass_source,
                 "session_id": request_session_id or "unknown",
-                "work_unit": item_ref,
+                "work_unit": public_ref,
             },
             out,
         )
@@ -60,7 +60,7 @@ def _verify_status_claim(
             item_id,
             {
                 "failure_type": "no_session_id",
-                "work_unit": item_ref,
+                "work_unit": public_ref,
             },
             out,
         )
@@ -76,11 +76,11 @@ def _verify_status_claim(
             {
                 "failure_type": "no_active_claim",
                 "session_id": request_session_id,
-                "work_unit": item_ref,
+                "work_unit": public_ref,
             },
             out,
         )
-        return False, f"no active claim on {item_ref}"
+        return False, f"no active claim on {public_ref}"
 
     claimant_session = str(claim.get("session_id") or "")
     if claimant_session == request_session_id:
@@ -93,7 +93,7 @@ def _verify_status_claim(
             "failure_type": "wrong_session",
             "session_id": request_session_id,
             "claimant_session": claimant_session,
-            "work_unit": item_ref,
+            "work_unit": public_ref,
         },
         out,
     )

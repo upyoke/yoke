@@ -220,7 +220,7 @@ def test_dash_item_entries_attach_checkout_project_to_bare_refs(
     assert handler(args) == 0
 
     assert captured["function_id"] == function_id
-    assert captured["target"].item_ref == "9"
+    assert captured["target"].public_ref == "9"
     assert captured["target"].project_id == "1"
 
 

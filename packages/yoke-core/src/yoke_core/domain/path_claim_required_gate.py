@@ -49,7 +49,7 @@ def evaluate(
     lists the claim ids that pass the gate (empty when blocked) so
     consumers can audit which row carried the coverage.
     """
-    item_ref = render_item_ref(conn, item_id)
+    public_ref = render_item_ref(conn, item_id)
     try:
         from yoke_core.domain.workflow_effective_policies import (
             load_item_effective_workflow_policies,
@@ -60,7 +60,7 @@ def evaluate(
         return {
             "verdict": GATE_BLOCK,
             "reason": (
-                f"item {item_ref} has an unreadable pinned path-claim policy: {exc}"
+                f"item {public_ref} has an unreadable pinned path-claim policy: {exc}"
             ),
             "satisfying_claims": [],
         }
@@ -68,7 +68,7 @@ def evaluate(
         return {
             "verdict": GATE_PASS,
             "reason": (
-                f"item {item_ref} effective workflow policy makes "
+                f"item {public_ref} effective workflow policy makes "
                 "path claims optional"
             ),
             "satisfying_claims": [],
@@ -77,7 +77,7 @@ def evaluate(
         conn,
         item_id,
         task_scoped=effective.path_claims == "required_per_task",
-        item_ref=item_ref,
+        public_ref=public_ref,
     )
 
 
@@ -86,10 +86,10 @@ def evaluate_required_coverage(
     item_id: int,
     *,
     task_scoped: bool = False,
-    item_ref: str | None = None,
+    public_ref: str | None = None,
 ) -> Dict[str, object]:
     """Evaluate concrete claim coverage without applying workflow opt-outs."""
-    item_ref = item_ref or render_item_ref(conn, item_id)
+    public_ref = public_ref or render_item_ref(conn, item_id)
     if task_scoped:
         from yoke_core.domain.path_claim_task_coverage import (
             evaluate_task_coverage,
@@ -100,7 +100,7 @@ def evaluate_required_coverage(
             return {
                 "verdict": GATE_PASS,
                 "reason": (
-                    f"item {item_ref} defers task-scoped path coverage "
+                    f"item {public_ref} defers task-scoped path coverage "
                     "until planning persists generated tasks"
                 ),
                 "satisfying_claims": [],
@@ -147,7 +147,7 @@ def evaluate_required_coverage(
             satisfying,
         )
         base_reason = (
-            f"item {item_ref} has {len(satisfying)} satisfying claim row(s)"
+            f"item {public_ref} has {len(satisfying)} satisfying claim row(s)"
         )
         if blocked_addenda:
             reason = base_reason + " — " + "; ".join(blocked_addenda)
@@ -161,12 +161,12 @@ def evaluate_required_coverage(
     return {
         "verdict": GATE_BLOCK,
         "reason": (
-            f"item {item_ref} has no non-terminal path claim and no "
+            f"item {public_ref} has no non-terminal path claim and no "
             f"active no-claim exception. Register coverage with "
             f"`yoke claims path register "
-            f"--item {item_ref} --integration-target main "
+            f"--item {public_ref} --integration-target main "
             f'--paths "<comma-separated paths>" [--allow-planned]` or '
-            f"record one with `yoke claims path register --item {item_ref} "
+            f"record one with `yoke claims path register --item {public_ref} "
             f"--mode exception --exception-reason "
             f'"<why this item touches no repo surface>"`.'
         ),

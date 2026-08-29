@@ -129,7 +129,7 @@ def run(args: List[str]) -> int:
     # Route control-plane reads through the transport-aware dispatcher so an
     # https-connected session relays them to the server instead of opening a
     # local Postgres connection (which the https transport refuses). Item-ref
-    # resolution happens server-side from the ``item_ref`` target; the
+    # resolution happens server-side from the ``public_ref`` target; the
     # recorded-survey read and conflict re-check run server-side too.
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -140,7 +140,7 @@ def run(args: List[str]) -> int:
         function_id="items.detail.get",
         target=TargetRef(
             kind="item",
-            item_ref=str(parsed.item),
+            public_ref=str(parsed.item),
             project_id=parsed.project,
         ),
     )
@@ -199,7 +199,7 @@ def run(args: List[str]) -> int:
         kind = str(blocker.get("kind") or "unknown")
         advisory = advisory_by_contact.setdefault((owner_item_id, kind), {
             "kind": kind,
-            "item_ref": f"item {owner_item_id}",
+            "public_ref": f"item {owner_item_id}",
             "status": str(blocker.get("state") or "unknown"),
             "shared_paths": [],
             "routes": {
@@ -217,8 +217,8 @@ def run(args: List[str]) -> int:
         )
         other_item = (other_detail.result or {}).get("item") \
             if other_detail.success else {}
-        advisory["item_ref"] = str(
-            other_item.get("public_ref") or advisory["item_ref"]
+        advisory["public_ref"] = str(
+            other_item.get("public_ref") or advisory["public_ref"]
         )
         if other_item.get("status"):
             advisory["status"] = str(other_item["status"])

@@ -99,7 +99,7 @@ def test_item_get_builds_server_resolved_target_and_renders_pin(capsys) -> None:
         assert workflows_item_get(["YOK-42"]) == 0
 
     assert captured["function_id"] == "workflows.item.get"
-    assert captured["target"].item_ref == "YOK-42"
+    assert captured["target"].public_ref == "YOK-42"
     assert capsys.readouterr().out.strip() == (
         "item-workflow|42|issue|3|17|implementing|single_implementation_lane"
     )
@@ -182,7 +182,7 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
         "expected_current_version": 1,
     }
     assert calls[1]["function_id"] == "workflows.item.migrate"
-    assert calls[1]["target"].item_ref == "YOK-42"
+    assert calls[1]["target"].public_ref == "YOK-42"
     assert calls[1]["payload"] == {"version": 2, "preview": True}
     assert calls[2]["function_id"] == "workflows.version.get"
     assert calls[2]["payload"] == {"workflow_id": "issue", "version": 1}

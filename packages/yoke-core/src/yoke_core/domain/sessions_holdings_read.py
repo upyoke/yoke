@@ -23,7 +23,7 @@ from yoke_core.domain.work_claim_targets import (
     from_row as work_claim_target_from_row,
     scope_int_sql,
 )
-from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
+from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_core.domain.sessions_holdings_claim_facts import (
     claimed_item_facts,
@@ -52,7 +52,7 @@ def render_claim_target(
             return str(raw_id or ""), {}
         found = item_facts.get(item_num)
         if found is not None:
-            return str(found["item_ref"]), dict(found)
+            return str(found["public_ref"]), dict(found)
         fallback = format_item_ref(
             None,
             DEFAULT_PUBLIC_ITEM_PREFIX,

@@ -20,7 +20,7 @@ def test_typed_anchors_union_then_deduplicate_authoritative_claims() -> None:
         conn,
         selector(
             session_ids=["s1"],
-            item_refs=["ALP-1"],
+            public_refs=["ALP-1"],
             epic_tasks=["ALP-1:1"],
             process_keys=["build-beta"],
         ),
@@ -80,7 +80,7 @@ def test_exclusions_apply_after_union_without_retaining_duplicate_hits() -> None
         conn,
         selector(
             session_ids=["s1", "s2"],
-            item_refs=["ALP-1"],
+            public_refs=["ALP-1"],
             projects=["alpha"],
             exclude_session_ids=["s1"],
         ),
@@ -92,7 +92,7 @@ def test_exclusions_apply_after_union_without_retaining_duplicate_hits() -> None
 def test_item_resolution_never_defaults_a_bare_reference_to_project() -> None:
     conn = message_connection()
     with pytest.raises(SessionMessageError) as raised:
-        resolve_recipients(conn, selector(item_refs=["1"]), now=NOW)
+        resolve_recipients(conn, selector(public_refs=["1"]), now=NOW)
     assert raised.value.code == "target_not_found"
 
 

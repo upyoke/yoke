@@ -74,7 +74,7 @@ def test_item_overview_and_detail_keep_their_distinct_targets() -> None:
     assert result == 0
     assert detail.function == "items.detail.get"
     assert detail.target.kind == "item"
-    assert detail.target.item_ref == TEST_ITEM_REF
+    assert detail.target.public_ref == TEST_ITEM_REF
     assert detail.target.project_id == "yoke"
     assert detail.payload == {}
 
@@ -181,7 +181,7 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
     assert result == 0
     assert link.function == "strategy.execution.link"
     assert link.target.kind == "item"
-    assert link.target.item_ref == TEST_ITEM_REF
+    assert link.target.public_ref == TEST_ITEM_REF
     assert link.payload == {"slug": "WORKFLOW-TYPES"}
 
     result, release = _run(
@@ -196,7 +196,7 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
     )
     assert result == 0
     assert release.function == "strategy.claim.release"
-    assert release.target.item_ref == TEST_ITEM_REF
+    assert release.target.public_ref == TEST_ITEM_REF
     assert release.payload == {"reason": "Execution document complete."}
 
     result, release = _run(
@@ -211,7 +211,7 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
     )
     assert result == 0
     assert release.function == "strategy.claim.break_glass_release"
-    assert release.target.item_ref == TEST_ITEM_REF
+    assert release.target.public_ref == TEST_ITEM_REF
     assert release.payload == {
         "reason": "Operator recovered an abandoned document claim."
     }

@@ -87,7 +87,7 @@ def _build_parser() -> Any:
 def _write_receipt(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     del stderr
     result = response.result or {}
-    ref = str(result.get("item_ref") or result.get("item_id") or "item")
+    ref = str(result.get("public_ref") or result.get("item_id") or "item")
     if result.get("changed"):
         extra = ""
         if result.get("frozen_cleared"):

@@ -50,7 +50,7 @@ def test_session_wake_resolves_an_item_holder_and_carries_a_prompt(monkeypatch) 
     )
 
     assert calls[0]["payload"] == {
-        "item_ref": "YOK-7",
+        "public_ref": "YOK-7",
         "prompt": "Continue.",
         "idempotency_key": "watchdog:YOK-7",
     }

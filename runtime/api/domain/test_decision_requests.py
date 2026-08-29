@@ -52,7 +52,7 @@ def _transition_request(conn):
         named_actor_ids=[3],
         subject_context={
             "item_id": 1907,
-            "item_ref": "YOK-1907",
+            "public_ref": "YOK-1907",
             "from_stage": "reviewing-implementation",
             "transition": "reviewing-implementation",
             "workflow_id": "issue",
@@ -252,5 +252,5 @@ def test_item_block_state_is_addressed_to_accountable_owner(conn):
     )
     notification = notification_rows(conn, 2)[0]
     assert notification["event_name"] == "ItemBlocked"
-    assert notification["event"]["context"]["item_ref"] == "YOK-4200"
+    assert notification["event"]["context"]["public_ref"] == "YOK-4200"
     assert notification["event"]["context"]["reason"] == ("Waiting for upstream schema")

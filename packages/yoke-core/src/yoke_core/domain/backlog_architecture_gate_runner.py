@@ -66,7 +66,7 @@ def _run_architecture_impact_gate(
         return None
     conn = connect(db_path)
     try:
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
         impact = _read_item_impact(conn, item_id)
         if impact is None or impact in {"none", "path_context_only"}:
             return None
@@ -75,12 +75,12 @@ def _run_architecture_impact_gate(
                 "success": False,
                 "error_code": "GATE_ARCHITECTURE_IMPACT_UNCERTAIN",
                 "error": (
-                    f"Cannot advance {item_ref} to '{target_status}' — "
+                    f"Cannot advance {public_ref} to '{target_status}' — "
                     "architecture_impact='uncertain'. Refine must resolve "
                     "to none, path_context_only, or "
                     "architecture_model_change. Repair: `printf '%s' "
                     "<value> | python3 -m yoke_core.cli.db_router "
-                    f"items update {item_ref} architecture_impact "
+                    f"items update {public_ref} architecture_impact "
                     "--stdin`."
                 ),
             }

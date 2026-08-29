@@ -147,7 +147,7 @@ def resolve_item_id_for_event(
     """Resolve public item refs to internal ids; leave work-unit sentinels alone."""
     if item_id is None:
         return None
-    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_contracts.public_ref import parse_public_item_ref
 
     prefix, _ = parse_public_item_ref(item_id)
     if (

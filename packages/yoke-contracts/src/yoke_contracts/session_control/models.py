@@ -18,7 +18,7 @@ from yoke_contracts.session_control.states import (
 
 class RecipientSelector(BaseModel):
     session_ids: List[str] = Field(default_factory=list)
-    item_refs: List[str] = Field(default_factory=list)
+    public_refs: List[str] = Field(default_factory=list)
     epic_tasks: List[str] = Field(default_factory=list)
     process_keys: List[str] = Field(default_factory=list)
     projects: List[str] = Field(default_factory=list)
@@ -32,6 +32,13 @@ class RecipientSelector(BaseModel):
     liveness: List[str] = Field(default_factory=list)
     exclude_session_ids: List[str] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_retired_selector_keys(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "item_refs" in data:
+            raise ValueError("replace selector.item_refs with selector.public_refs")
+        return data
+
     @model_validator(mode="after")
     def _known_surfaces(self) -> "RecipientSelector":
         unknown = sorted(set(self.executor_surfaces) - set(KNOWN_SURFACE_LABELS))
@@ -43,16 +50,11 @@ class RecipientSelector(BaseModel):
                 f"unknown liveness states: {', '.join(unknown_liveness)}; "
                 f"choose from {', '.join(LIVENESS_CHOICES)}"
             )
-        if not any(
-            (
-                self.session_ids,
-                self.item_refs,
-                self.epic_tasks,
-                self.process_keys,
-                self.projects,
-                self.universe,
-            )
-        ):
+        anchors = (
+            self.session_ids, self.public_refs, self.epic_tasks,
+            self.process_keys, self.projects, self.universe,
+        )
+        if not any(anchors):
             raise ValueError("at least one recipient anchor is required")
         return self
 

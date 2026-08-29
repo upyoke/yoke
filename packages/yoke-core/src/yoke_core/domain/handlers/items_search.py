@@ -29,7 +29,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.item_ref import format_item_ref, parse_public_item_ref
+from yoke_contracts.public_ref import format_item_ref, parse_public_item_ref
 from yoke_core.domain.handlers.items_project_scope import (
     actor_visible_scope,
     ambiguous_project_error,

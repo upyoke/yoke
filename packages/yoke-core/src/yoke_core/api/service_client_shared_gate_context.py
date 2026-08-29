@@ -34,7 +34,7 @@ def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
     d = dict(row)
     return mutations.ItemState(
         id=d["id"],
-        item_ref=render_item_ref(conn, int(d["id"])),
+        public_ref=render_item_ref(conn, int(d["id"])),
         title=d["title"],
         status=d["status"],
         priority=d["priority"],

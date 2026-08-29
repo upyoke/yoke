@@ -171,7 +171,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         )
         dep_payload = {"gate_point": "integration"}
         if ctx.item_id is None:
-            dep_payload["item_ref"] = ctx.args.branch
+            dep_payload["public_ref"] = ctx.args.branch
         dep_resp = call_dispatcher(
             function_id="merge.preflight.dependency_gate",
             target=dep_target,
@@ -222,7 +222,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             data = resp.result or {}
             if data.get("applicable"):
                 iid = int(data.get("item_id"))
-                ref = data.get("item_ref") or item_ref_for_id(iid)
+                ref = data.get("public_ref") or item_ref_for_id(iid)
                 if data.get("blocked"):
                     _print(f"  FAIL: Item {ref} is blocked (items.blocked=1).", err=True)
                     if data.get("reason"):

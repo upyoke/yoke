@@ -93,7 +93,7 @@ def live_execution_for_document(
     if claim is not None and str(claim["owner_kind"]) == "item":
         return {
             "item_id": int(claim["owner_item_id"]),
-            "item_ref": claim.get("item_ref"),
+            "public_ref": claim.get("public_ref"),
             "item_title": claim.get("item_title"),
             "item_status": claim.get("item_status"),
             "holds_document_claim": True,
@@ -107,7 +107,7 @@ def _non_terminal_linked_blitz(
     project_id: int,
     slug: str,
 ) -> Optional[dict[str, Any]]:
-    from yoke_contracts.item_ref import format_item_ref
+    from yoke_contracts.public_ref import format_item_ref
     from yoke_core.domain.item_terminal_resources import terminal_stage_ids
     from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
@@ -130,7 +130,7 @@ def _non_terminal_linked_blitz(
             continue
         return {
             "item_id": int(values["id"]),
-            "item_ref": format_item_ref(
+            "public_ref": format_item_ref(
                 values["project_slug"],
                 values["public_item_prefix"],
                 int(values["project_sequence"]),
@@ -156,7 +156,7 @@ def live_execution_refusal(
     )
     if execution is None:
         return None
-    reference = execution["item_ref"] or f"item {execution['item_id']}"
+    reference = execution["public_ref"] or f"item {execution['item_id']}"
     held = (
         "holds the document claim"
         if execution["holds_document_claim"]

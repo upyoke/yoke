@@ -217,7 +217,7 @@ class TestReleaseEpicTask:
         req = _CAPTURED[-1]
         assert req.function == "claims.work.release"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-1872"
+        assert req.target.public_ref == "YOK-1872"
         assert req.target.claim_id is None
         assert req.payload == {"reason": "done here"}
 
@@ -283,7 +283,7 @@ class TestPathRegisterModes:
         assert rc == 0, err
         req = _CAPTURED[-1]
         assert req.function == "claims.path.register"
-        assert req.target.item_ref == "YOK-1872"
+        assert req.target.public_ref == "YOK-1872"
         assert req.payload == {
             "paths": [],
             "mode": "exception",

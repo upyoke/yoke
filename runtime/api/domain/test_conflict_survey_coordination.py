@@ -300,7 +300,7 @@ def _run_preflight_status(monkeypatch, capsys, status):
         if function_id == "items.detail.get":
             item = (
                 {"id": 2290, "workflow": {"id": "dash"}}
-                if target.item_ref
+                if target.public_ref
                 else {"id": 2291, "public_ref": "YOK-2291"}
             )
             result = {"item": item}
@@ -334,7 +334,7 @@ def test_worktree_preflight_reports_survey_advisory_and_proceeds(monkeypatch, ca
 
     assert rc == 0 and len(prepared) == 1
     advisory = payload["advisories"][0]
-    assert advisory["item_ref"] == "YOK-2291"
+    assert advisory["public_ref"] == "YOK-2291"
     assert advisory["status"] == "implementing"
     assert advisory["shared_paths"] == ["src/shared.py"]
     assert "Proceed" in advisory["routes"]["proceed"]

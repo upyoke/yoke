@@ -74,7 +74,7 @@ def _issue_accessible_via_rest(
 def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) -> int:
     with _connect() as conn:
         try:
-            display_ref, canonical_epic_id = _resolve_epic(conn, epic_ref)
+            public_ref, canonical_epic_id = _resolve_epic(conn, epic_ref)
         except ValueError as exc:
             err.write(f"Error: {exc}\n")
             return 1
@@ -92,7 +92,7 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
         warnings = 0
         passed = 0
 
-        out.write(f"Validation: {display_ref} ({canonical_epic_id})\n\n")
+        out.write(f"Validation: {public_ref} ({canonical_epic_id})\n\n")
 
         placeholders = _terminal_success_placeholders(conn)
         terminal_params = tuple(sorted(TASK_TERMINAL_SUCCESS))

@@ -87,14 +87,14 @@ def spoof_reason(family: str, foreign_session: str) -> str:
 
 
 def recent_denial_reason(family: str, item_id: int, holder: str) -> str:
-    item_ref = item_ref_for_id(int(item_id))
+    public_ref = item_ref_for_id(int(item_id))
     return append_field_note_footer(
         "BLOCKED: claim-boundary bypass after live claim denial.\n\n"
-        f"Mutation family: {family}\nItem: {item_ref}\n"
+        f"Mutation family: {family}\nItem: {public_ref}\n"
         f"Live holder: {holder}\n\n"
         "A recent claim-work in this session was denied with "
         "'already claimed by session' for the same item. Subsequent "
-        f"mutating shapes against {item_ref} from this session are "
+        f"mutating shapes against {public_ref} from this session are "
         "blocked until the holder releases or hands off.",
         rule_id="lint-claim-ownership-mutations",
     )

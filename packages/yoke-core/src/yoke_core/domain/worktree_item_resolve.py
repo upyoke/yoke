@@ -52,7 +52,7 @@ def _placeholder(conn) -> str:
 
 
 def resolve_item_worktree(
-    item_ref: str | int,
+    public_ref: str | int,
     *,
     db_path: Optional[str] = None,
     scripts_dir: Optional[str] = None,
@@ -61,7 +61,7 @@ def resolve_item_worktree(
 
     Parameters
     ----------
-    item_ref:
+    public_ref:
         Item reference.
     db_path:
         Explicit DB path.  When ``None``, uses ``YOKE_DB`` or walks up.
@@ -83,7 +83,7 @@ def resolve_item_worktree(
 
     conn = connect(path=db_path)
     try:
-        item_num = parse_item_argument(item_ref, conn=conn)
+        item_num = parse_item_argument(public_ref, conn=conn)
 
         if scripts_dir is None:
             from yoke_core.api.repo_root import find_repo_root
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Resolve item worktree lane(s). Skill prose entry point."
     )
-    parser.add_argument("item_ref", help="Item reference (e.g. YOK-N).")
+    parser.add_argument("public_ref", help="Item reference (e.g. YOK-N).")
     grp = parser.add_mutually_exclusive_group()
     grp.add_argument(
         "--branches",
@@ -207,7 +207,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     try:
-        result = resolve_item_worktree(args.item_ref)
+        result = resolve_item_worktree(args.public_ref)
     except (ValueError, LookupError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)

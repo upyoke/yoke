@@ -6,7 +6,7 @@ import sys
 from typing import Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.engines import done_transition_github_sync
@@ -144,7 +144,7 @@ def finish_done_transition(
     workflow,
     repo_root,
     merge_ran: bool,
-    item_ref: str | None = None,
+    public_ref: str | None = None,
     prune_lane: Optional[Callable[[], object]] = None,
 ) -> int:
     """Close out a done transition that has already committed, and report it.
@@ -160,7 +160,7 @@ def finish_done_transition(
     closeout still has to import or read has to happen while the tree is
     still on disk.
     """
-    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
     try:
         _run_closeout(
             done_transition,
@@ -197,7 +197,7 @@ def _run_closeout(
     """Run every step that follows the committed status write."""
     print("\n=== Step 8: Sync done state to GitHub ===")
     done_transition_github_sync.apply_step_8(
-        item_id, old_status, result, item_ref=ref,
+        item_id, old_status, result, public_ref=ref,
     )
     # The scan addresses the item by its public ref: a digit string is a
     # project-local sequence, not items.id, so the internal id resolves

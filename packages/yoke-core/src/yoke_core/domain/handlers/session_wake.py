@@ -50,7 +50,7 @@ def handle_session_wake(request: FunctionCallRequest) -> HandlerOutcome:
             actor_id=numeric_actor_id(request),
             caller_session_id=caller_session_id,
             session_id=body.session_id,
-            item_ref=body.item_ref,
+            public_ref=body.public_ref,
             prompt=body.prompt,
             idempotency_key=body.idempotency_key,
         )

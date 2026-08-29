@@ -33,9 +33,9 @@ def resolve_requirement_event_target(row: Any) -> Tuple[Optional[str], Optional[
     """Map a qa_requirements row to canonical event item/task fields.
 
     ``row`` may be a ``sqlite3.Row`` or a dict with the same column-name
-    indexing semantics. Returns ``(item_ref, task_num_ref)`` where:
+    indexing semantics. Returns ``(public_ref, task_num_ref)`` where:
 
-    - ``item_ref`` is the stringified ``item_id`` for item-target rows,
+    - ``public_ref`` is the stringified ``item_id`` for item-target rows,
       the stringified ``epic_id`` for epic-task-target rows, or the raw
       ``deployment_run_id`` string for deployment-target rows.
     - ``task_num_ref`` is an int only for epic-task-target rows.
@@ -43,17 +43,17 @@ def resolve_requirement_event_target(row: Any) -> Tuple[Optional[str], Optional[
     Returns ``(None, None)`` when ``row`` is None or has no resolvable
     target columns.
     """
-    item_ref: Optional[str] = None
+    public_ref: Optional[str] = None
     task_num_ref: Optional[int] = None
     if row is not None:
         if row["item_id"] is not None:
-            item_ref = str(int(row["item_id"]))
+            public_ref = str(int(row["item_id"]))
         elif row["epic_id"] is not None:
-            item_ref = str(int(row["epic_id"]))
+            public_ref = str(int(row["epic_id"]))
             task_num_ref = int(row["task_num"]) if row["task_num"] is not None else None
         elif row["deployment_run_id"] is not None:
-            item_ref = str(row["deployment_run_id"])
-    return item_ref, task_num_ref
+            public_ref = str(row["deployment_run_id"])
+    return public_ref, task_num_ref
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def emit_qa_requirement_event(
         except Exception:
             return
 
-    item_ref, task_num_ref = resolve_requirement_event_target(req_row)
+    public_ref, task_num_ref = resolve_requirement_event_target(req_row)
 
     detail: dict = {
         "requirement_id": requirement_id,
@@ -120,7 +120,7 @@ def emit_qa_requirement_event(
             event_type="qa_lifecycle",
             source_type="system",
             severity="INFO",
-            item_id=item_ref,
+            item_id=public_ref,
             task_num=task_num_ref,
             context={"detail": detail},
             db_path=db_path,
@@ -191,7 +191,7 @@ def emit_qa_run_event(
         _safe_rollback(conn)
         return
 
-    item_ref, task_num_ref = resolve_requirement_event_target(req_row)
+    public_ref, task_num_ref = resolve_requirement_event_target(req_row)
 
     detail: dict = {
         "run_id": run_id,
@@ -210,7 +210,7 @@ def emit_qa_run_event(
             event_type="qa_execution",
             source_type="system",
             severity="INFO",
-            item_id=item_ref,
+            item_id=public_ref,
             task_num=task_num_ref,
             context={"detail": detail},
             db_path=db_path,

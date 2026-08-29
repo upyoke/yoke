@@ -50,11 +50,11 @@ def _relay_error(response: Any, fallback: str) -> str:
     return response.error.message if response.error is not None else fallback
 
 
-def _resolve_item(item_ref: str, project: Optional[str]) -> tuple[Any, str]:
+def _resolve_item(public_ref: str, project: Optional[str]) -> tuple[Any, str]:
     response = call_with_machine_lock_retry(
         lambda: call_dispatcher(
             function_id="items.detail.get",
-            target=TargetRef(kind="item", item_ref=item_ref, project_id=project),
+            target=TargetRef(kind="item", public_ref=public_ref, project_id=project),
             payload={},
         )
     )
@@ -114,14 +114,14 @@ def run(argv: List[str]) -> int:
         return _fail(f"could not resolve item {args.item!r}: {error}", as_json=as_json)
 
     item_id = int(item["id"])
-    item_ref = str(item.get("public_ref") or args.item)
+    public_ref = str(item.get("public_ref") or args.item)
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
     needs_evidence = workflow_id in EVIDENCE_WORKFLOWS and not args.skip_status
 
     if needs_evidence and not (args.result and args.verification):
         return _fail(
-            f"{item_ref} uses the {workflow_id} workflow, whose terminal "
+            f"{public_ref} uses the {workflow_id} workflow, whose terminal "
             "transition is evidence-gated: pass --result and --verification "
             "on this command (including when the merge queue already landed "
             "the branch). `yoke lifecycle transition --to done` cannot "
@@ -133,18 +133,18 @@ def run(argv: List[str]) -> int:
     lane_error = lane_resolution_error(item)
     if active_lanes(item) and lane_error:
         return _fail(
-            f"{item_ref}: {lane_error}",
+            f"{public_ref}: {lane_error}",
             as_json=as_json,
         )
 
-    branch = lane_branch(item, item_ref)
+    branch = lane_branch(item, public_ref)
     claim_error = _session_holds_claim(item_id, str(args.session_id))
     if claim_error:
         # A claim released by a close-out that already completed is not a
         # refusal to report; the item's own record says the work landed.
         closed_out = evidence.closed_out_envelope(
             item,
-            item_ref=item_ref,
+            public_ref=public_ref,
             branch=branch,
             claim_note=claim_error,
         )
@@ -152,12 +152,12 @@ def run(argv: List[str]) -> int:
             print(json.dumps(closed_out, indent=2, sort_keys=True))
             return 0
         if not recovery.claim_is_missing(claim_error):
-            return _fail(f"{item_ref}: {claim_error}", as_json=as_json)
+            return _fail(f"{public_ref}: {claim_error}", as_json=as_json)
 
     try:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
-        return _fail(f"{item_ref}: {exc}", as_json=as_json)
+        return _fail(f"{public_ref}: {exc}", as_json=as_json)
     _ensure_usable_cwd(repo_root, lane_path(item))
     project = str((item.get("project") or {}).get("slug") or "yoke")
     landed_lane = landed.landed_lane(
@@ -181,7 +181,7 @@ def run(argv: List[str]) -> int:
         )
         if recovery_error or recovered is None:
             return _fail(
-                f"{item_ref}: {recovery_error or 'claim recovery failed'}",
+                f"{public_ref}: {recovery_error or 'claim recovery failed'}",
                 as_json=as_json,
             )
         item = recovery.with_recorded_head(item, recovered)
@@ -201,7 +201,7 @@ def run(argv: List[str]) -> int:
         outcome, refusal = verify.verify_and_land(
             item,
             args,
-            item_ref=item_ref,
+            public_ref=public_ref,
             item_id=item_id,
             branch=branch,
             target=target,
@@ -209,17 +209,17 @@ def run(argv: List[str]) -> int:
             project=project,
         )
         if refusal:
-            return _fail(f"{item_ref}: {refusal}", as_json=as_json)
+            return _fail(f"{public_ref}: {refusal}", as_json=as_json)
     if not outcome.ok:
         return _fail(
-            f"{item_ref}: {outcome.error}",
+            f"{public_ref}: {outcome.error}",
             as_json=as_json,
             exit_code=outcome.exit_code,
             branch=branch,
             target=target,
         )
     if getattr(outcome, "landing_pending", False) is True:
-        pending.print_envelope(item_id, item_ref, branch, target, status, outcome)
+        pending.print_envelope(item_id, public_ref, branch, target, status, outcome)
         return 0
 
     close_lane = landed_lane or landed.LandedLane(
@@ -243,12 +243,12 @@ def run(argv: List[str]) -> int:
             lane=close_lane,
         )
         if restore_error:
-            return _fail(f"{item_ref}: {restore_error}", as_json=as_json)
+            return _fail(f"{public_ref}: {restore_error}", as_json=as_json)
 
     envelope: dict[str, Any] = {
         "ok": True,
         "item_id": item_id,
-        "item_ref": item_ref,
+        "public_ref": public_ref,
         "branch": branch,
         "target": target,
         "already_merged": outcome.already_merged,

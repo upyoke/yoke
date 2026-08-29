@@ -29,15 +29,15 @@ def hc_blocked_status_drift(conn, args: DoctorArgs, rec: RecordCollector) -> Non
         "SELECT id, blocked, blocked_reason FROM items WHERE status='blocked'",
     )
     for row in rows:
-        item_ref = render_item_ref(conn, int(row["id"]))
+        public_ref = render_item_ref(conn, int(row["id"]))
         if row["blocked"] == 1:
             fails.append(
-                f"- {item_ref}: status='blocked' AND blocked=1 (drift "
+                f"- {public_ref}: status='blocked' AND blocked=1 (drift "
                 "from legacy status — migrate via yoke items block / repair)"
             )
         else:
             fails.append(
-                f"- {item_ref}: status='blocked' but blocked=0 "
+                f"- {public_ref}: status='blocked' but blocked=0 "
                 "(legacy lifecycle position survived without flag — repair "
                 "the row to use the flag instead)"
             )

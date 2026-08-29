@@ -84,8 +84,8 @@ class ProseClaimCheck:
     reviewed_negative_claim_detected: bool = False
 
 
-def _build_recovery_line(item_ref: Optional[str], triggers: Sequence[str]) -> str:
-    target = item_ref or "PREFIX-N"
+def _build_recovery_line(public_ref: Optional[str], triggers: Sequence[str]) -> str:
+    target = public_ref or "PREFIX-N"
     quoted = ", ".join(f"'{t}'" for t in triggers[:3])
     if len(triggers) > 3:
         quoted += ", ..."
@@ -103,7 +103,7 @@ def check(
     prose: str,
     *,
     profile_raw: Any = None,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
 ) -> ProseClaimCheck:
     """Compose prose detection and claim-state read into a single verdict.
 
@@ -111,7 +111,7 @@ def check(
     (typically ``spec``, ``body``, or a concatenation of structured
     fields).  *profile_raw* is the stored ``db_mutation_profile`` JSON;
     pass ``None`` when the caller wants pure detection without claim
-    composition.  *item_ref* is the already-rendered public reference
+    composition.  *public_ref* is the already-rendered public reference
     (``render_item_ref``) the recovery line quotes back to the operator;
     this layer never builds one from an internal id, so the amend command
     it prints stays correct for every project prefix.
@@ -140,7 +140,7 @@ def check(
         and not negative_claim_detected
         and not reviewed_negative
     )
-    recovery = _build_recovery_line(item_ref, labels) if blocks else ""
+    recovery = _build_recovery_line(public_ref, labels) if blocks else ""
     return ProseClaimCheck(
         triggers=labels,
         has_declared_claim=has_declared,
@@ -206,7 +206,7 @@ def check_item(
         return check(
             prose,
             profile_raw=profile_raw,
-            item_ref=render_item_ref(c, item_id),
+            public_ref=render_item_ref(c, item_id),
         )
 
     if conn is not None:

@@ -12,10 +12,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from yoke_contracts.machine_config.test_machine import (
     validate_test_machine_settings,
 )
-from yoke_contracts.opaque_contract_payload import (
-    OpaqueContractPayload,
-    opaque_contract_payload,
-)
 
 
 HOST_CONTROL_PROTOCOL = "host-control-v1"
@@ -37,14 +33,7 @@ HostControlOperation = Literal[
 ]
 
 
-class _OpaqueContractModel(BaseModel):
-    """Serialize a validated model as an opaque envelope payload."""
-
-    def model_dump(self, *args: Any, **kwargs: Any) -> OpaqueContractPayload:
-        return opaque_contract_payload(super().model_dump(*args, **kwargs))
-
-
-class MachineQaCaseContract(_OpaqueContractModel):
+class MachineQaCaseContract(BaseModel):
     """Immutable database snapshot needed to execute and persist one case."""
 
     model_config = ConfigDict(extra="forbid")
@@ -109,7 +98,7 @@ class MachineQaCaseContract(_OpaqueContractModel):
         return self
 
 
-class HostControlExecutionContract(_OpaqueContractModel):
+class HostControlExecutionContract(BaseModel):
     """A complete, secret-free operation the local runner may perform."""
 
     model_config = ConfigDict(extra="forbid")

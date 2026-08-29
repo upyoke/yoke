@@ -69,7 +69,7 @@ def _cleanup_terminal_item_lanes(
     """Retire every surviving lane after a successful terminal transition."""
     if not _terminal_status(item, target_status):
         return ()
-    item_ref = str(item.get("public_ref") or item.get("id") or "item")
+    public_ref = str(item.get("public_ref") or item.get("id") or "item")
     project = item.get("project") or {}
     root = (
         Path(repo_root)
@@ -79,7 +79,7 @@ def _cleanup_terminal_item_lanes(
         )
     )
     if root is None or not root.is_dir():
-        return (f"{item_ref}: terminal lane cleanup preserved: checkout unavailable",)
+        return (f"{public_ref}: terminal lane cleanup preserved: checkout unavailable",)
     root = root.resolve()
     target = target_branch or str(project.get("default_branch") or "main")
     authority_block = _foreign_claim_reason(item, session_id)
@@ -109,7 +109,7 @@ def _cleanup_terminal_item_lanes(
             authority_block=authority_block,
         )
         location = f" at {path_text}" if path_text else " (branch only)"
-        warnings.extend(f"{item_ref}{location}: {reason}" for reason in preserved)
+        warnings.extend(f"{public_ref}{location}: {reason}" for reason in preserved)
     return tuple(warnings)
 
 
@@ -135,9 +135,9 @@ def cleanup_terminal_item_lanes(
             prune=prune,
         )
     except Exception as exc:  # noqa: BLE001 - terminal state is already committed
-        item_ref = str(item.get("public_ref") or item.get("id") or "item")
+        public_ref = str(item.get("public_ref") or item.get("id") or "item")
         return (
-            f"{item_ref}: terminal lane cleanup preserved after an unexpected refusal: {exc}",
+            f"{public_ref}: terminal lane cleanup preserved after an unexpected refusal: {exc}",
         )
 
 

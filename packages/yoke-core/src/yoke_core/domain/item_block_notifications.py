@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import (
@@ -60,7 +60,7 @@ def emit_item_block_state_notification(
     if route is None:
         raise LookupError(f"item {item['id']} does not exist")
     project_id = int(route["project_id"])
-    item_ref = format_item_ref(
+    public_ref = format_item_ref(
         str(route["slug"]),
         str(route["public_item_prefix"] or ""),
         int(route["project_sequence"]),
@@ -78,7 +78,7 @@ def emit_item_block_state_notification(
         org_id=None,
         context={
             "item_id": int(item["id"]),
-            "item_ref": item_ref,
+            "public_ref": public_ref,
             "blocked": blocked,
             "reason": reason,
             "owner_actor_id": owner_actor_id,

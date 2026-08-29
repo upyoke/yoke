@@ -178,7 +178,7 @@ def test_sessions_ownership_guard_dispatches_item_ref() -> None:
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.ownership_guard"
     assert req.target.kind == "item"
-    assert req.target.item_ref == "42"
+    assert req.target.public_ref == "42"
     assert req.target.project_id == "yoke"
     assert req.payload == {}
 

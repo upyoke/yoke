@@ -86,7 +86,7 @@ def test_elsewhere_wait_beats_local_blockers() -> None:
                 "project": "yoke",
                 "project_id": 1,
                 "count": 1,
-                "item_refs": ["YOK-20"],
+                "public_refs": ["YOK-20"],
                 "checkout_path": "/Users/bee/yoke",
             }
         ],
@@ -104,7 +104,7 @@ def test_home_runnable_still_charges() -> None:
         runnable_items=["PLAT-9"],
         selected_item="PLAT-9",
         sml_coherent=True,
-        runnable_elsewhere=[{"project": "yoke", "count": 1, "item_refs": ["YOK-20"]}],
+        runnable_elsewhere=[{"project": "yoke", "count": 1, "public_refs": ["YOK-20"]}],
         workspace_home_project="platform",
     )
     result = decide_next_action(_offer(), frontier)
@@ -151,7 +151,7 @@ def test_enrich_fills_blank_checkout_path(monkeypatch) -> None:
                     "project": "yoke",
                     "project_id": 1,
                     "count": 1,
-                    "item_refs": ["YOK-20"],
+                    "public_refs": ["YOK-20"],
                     "checkout_path": "",
                 }
             ],
@@ -170,7 +170,7 @@ def test_elsewhere_note_teaches_the_checkout_recipe() -> None:
             {
                 "project": "yoke",
                 "count": 2,
-                "item_refs": ["YOK-1", "YOK-2"],
+                "public_refs": ["YOK-1", "YOK-2"],
                 "checkout_path": "/Users/bee/yoke",
             }
         ],

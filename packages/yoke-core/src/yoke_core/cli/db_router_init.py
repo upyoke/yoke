@@ -251,10 +251,10 @@ def _extract_structured_field_section(
             f"WHERE id = {p}",
             (item_id,),
         ).fetchone()
-        item_ref = render_item_ref(conn, item_id)
+        public_ref = render_item_ref(conn, item_id)
         if row is None:
             print(
-                f"Error: item {item_ref} not found", file=sys.stderr
+                f"Error: item {public_ref} not found", file=sys.stderr
             )
             return 1
         text = row[0] if row else ""
@@ -262,7 +262,7 @@ def _extract_structured_field_section(
         if content is None:
             print(
                 f"Advisory: section '{section}' not found on "
-                f"{item_ref} field '{field}'",
+                f"{public_ref} field '{field}'",
                 file=sys.stderr,
             )
             return 0

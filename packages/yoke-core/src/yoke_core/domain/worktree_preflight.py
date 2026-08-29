@@ -105,7 +105,7 @@ def run_preflight(
     """Run the harness-universal advance implementation-entry preflight."""
     from yoke_core.domain.claim_recovery import canonical_item_ref
 
-    item_ref = canonical_item_ref(item_id) or str(item_id)
+    public_ref = canonical_item_ref(item_id) or str(item_id)
     # The worktree/branch name is the item's public ref; a recorded active
     # lane (if any) locates an existing worktree created under either the
     # public-ref or legacy naming scheme so re-entry never mis-detects it.
@@ -133,14 +133,14 @@ def run_preflight(
         )
         item = (detail.result or {}).get("item") or {} if detail.success else {}
         if item.get("public_ref"):
-            item_ref = str(item["public_ref"])
+            public_ref = str(item["public_ref"])
         if item.get("blocked"):
             out.ok = False
             out.block_kind = "blocked-flag"
             out.narrative = render_blocked_narrative(
                 item_id,
                 str(item.get("blocked_reason") or "") or None,
-                item_ref=item_ref,
+                public_ref=public_ref,
             )
             return out
     except Exception:  # noqa: BLE001 - degrade if the detail read is unavailable
@@ -168,7 +168,7 @@ def run_preflight(
         out.ok = False
         out.block_kind = BLOCK_WORK_CLAIM
         out.narrative = (
-            f"Could not acquire work claim for {item_ref}: {claim_msg}\n"
+            f"Could not acquire work claim for {public_ref}: {claim_msg}\n"
             "If another live session holds the claim, coordinate or wait. "
             "The remediation is NOT to widen a path claim — work-claim "
             "ownership and path-claim coverage are different invariants."
@@ -205,7 +205,7 @@ def run_preflight(
             )
         else:
             out.narrative = (
-                f"Path-claim activation blocked for {item_ref}:\n{pc_err}\n"
+                f"Path-claim activation blocked for {public_ref}:\n{pc_err}\n"
                 "Wait for the upstream coordination to clear, or reconcile "
                 "diverged refs (`git push` / `git pull` / `git rebase`)."
             )
@@ -228,7 +228,7 @@ def run_preflight(
             verdict = evaluate_dirty_main_for_item(
                 repo_root,
                 item_id=item_id,
-                item_ref=item_ref,
+                public_ref=public_ref,
                 session_id=session_id,
                 worktrees_dir=worktrees_dir,
             )

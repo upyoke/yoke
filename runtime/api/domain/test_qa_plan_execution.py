@@ -310,7 +310,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
         ) as execute_group,
     ):
         result = qa_plan_execution.execute_plan(
-            item_ref=TEST_ITEM_REF,
+            public_ref=TEST_ITEM_REF,
             transition_id="implemented",
             actor=actor,
         )

@@ -65,7 +65,7 @@ class ActorContext(BaseModel):
 class TargetRef(BaseModel):
     """Discriminated target reference. ``kind`` selects which keys are meaningful.
 
-    ``item_ref`` carries a raw public item reference (``PREFIX-N`` or a
+    ``public_ref`` carries a raw public item reference (``PREFIX-N`` or a
     bare project-local number) that the dispatcher resolves server-side
     into ``item_id`` before permission/claim checks — clients never need
     DB access to build an item-targeted envelope (relay contract,
@@ -88,7 +88,7 @@ class TargetRef(BaseModel):
         "global",
     ]
     item_id: Optional[int] = None
-    item_ref: Optional[str] = None
+    public_ref: Optional[str] = None
     epic_id: Optional[int] = None
     task_num: Optional[int] = None
     section_name: Optional[str] = None
@@ -99,6 +99,16 @@ class TargetRef(BaseModel):
     qa_requirement_id: Optional[int] = None
     deployment_run_id: Optional[str] = None
     workflow_run_id: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_retired_target_keys(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "item_ref" in data:
+            raise ValueError(
+                "target.public_ref carries the PREFIX-N token; "
+                "replace item_ref with public_ref"
+            )
+        return data
 
 
 class FunctionWarning(BaseModel):

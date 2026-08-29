@@ -125,7 +125,7 @@ def test_client_runner_advances_group_results_and_reuses_them() -> None:
         ) as execute_independent_machine,
     ):
         result = qa_plan_execution.execute_plan(
-            item_ref=TEST_ITEM_REF,
+            public_ref=TEST_ITEM_REF,
             transition_id="implemented",
             actor=actor,
         )
@@ -243,7 +243,7 @@ def test_fully_blocked_baseline_group_completes_with_distinct_plan_state() -> No
         ) as execute_group,
     ):
         result = qa_plan_execution.execute_plan(
-            item_ref=TEST_ITEM_REF,
+            public_ref=TEST_ITEM_REF,
             transition_id="implemented",
             actor=actor,
         )
@@ -329,7 +329,7 @@ def test_client_runner_resumes_from_durable_baseline_group_results() -> None:
         ) as execute_group,
     ):
         result = qa_plan_execution.execute_plan(
-            item_ref=TEST_ITEM_REF,
+            public_ref=TEST_ITEM_REF,
             transition_id="implemented",
             actor=actor,
         )

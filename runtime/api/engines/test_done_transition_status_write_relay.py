@@ -127,7 +127,7 @@ class TestItemDirectRelay:
             }),
         )
 
-        rc = dt._update_item_direct(44, "status", "done", item_ref=TEST_ITEM_REF)
+        rc = dt._update_item_direct(44, "status", "done", public_ref=TEST_ITEM_REF)
 
         assert rc == 1
         # The refusal narrative goes to server stdout over an https relay, so
@@ -203,7 +203,7 @@ class TestSetterEndToEndRelay:
             return _resp(kwargs["function_id"], {"applied": True})
 
         _patch_adapter(monkeypatch, fake)
-        assert dt._update_status_to_done(42, skip_qa=True, item_ref=TEST_ITEM_REF) is True
+        assert dt._update_status_to_done(42, skip_qa=True, public_ref=TEST_ITEM_REF) is True
 
         relay = [c for c in calls if c["function_id"] == "done_transition.item_status_set"]
         assert len(relay) == 1
@@ -241,7 +241,7 @@ class TestSetterEndToEndRelay:
         monkeypatch.setattr("time.sleep", lambda _s: None)
 
         settled = dt._update_status_to_done(
-            42, skip_qa=False, max_retries=2, item_ref=TEST_ITEM_REF,
+            42, skip_qa=False, max_retries=2, public_ref=TEST_ITEM_REF,
         )
 
         assert settled is False
@@ -261,7 +261,7 @@ class TestSetterEndToEndRelay:
 
         _patch_adapter(monkeypatch, fake)
         monkeypatch.setattr(status, "_batch_github_sync_tasks", lambda *a, **k: None)
-        dt._cascade_epic_tasks_to_done(42, item_ref=TEST_ITEM_REF)
+        dt._cascade_epic_tasks_to_done(42, public_ref=TEST_ITEM_REF)
 
         relays = [
             c for c in seen

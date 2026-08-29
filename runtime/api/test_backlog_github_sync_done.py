@@ -194,7 +194,7 @@ def test_validate_issue_in_repo_no_false_mismatch_on_project_repo():
     from yoke_core.domain.github_rest import Target
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
-    item_ref = "1"
+    public_ref = "1"
     issue_num = "1"
     project_repo = "owner-x/name-y"
     stderr = io.StringIO()
@@ -216,7 +216,7 @@ def test_validate_issue_in_repo_no_false_mismatch_on_project_repo():
                                               "state": "open"}})(),
     ):
         ok = epic_task_sync_github._validate_issue_in_repo(
-            item_ref, issue_num, project="yoke", stderr=stderr,
+            public_ref, issue_num, project="yoke", stderr=stderr,
         )
 
     assert ok is True

@@ -19,7 +19,7 @@ def clear_after_close_out(item_id: int, item: dict[str, Any]) -> str:
 def envelope(
     *,
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     branch: str,
     target: str,
     status: str,
@@ -29,7 +29,7 @@ def envelope(
     return {
         "ok": True,
         "item_id": item_id,
-        "item_ref": item_ref,
+        "public_ref": public_ref,
         "branch": branch,
         "target": target,
         "status": status,
@@ -44,7 +44,7 @@ def envelope(
 
 def print_envelope(
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     branch: str,
     target: str,
     status: str,
@@ -55,7 +55,7 @@ def print_envelope(
         json.dumps(
             envelope(
                 item_id=item_id,
-                item_ref=item_ref,
+                public_ref=public_ref,
                 branch=branch,
                 target=target,
                 status=status,

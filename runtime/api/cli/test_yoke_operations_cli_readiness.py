@@ -54,7 +54,7 @@ def test_readiness_check_dispatches_item_target() -> None:
     req = _CAPTURED[-1]
     assert req.function == "readiness.check.run"
     assert req.target.kind == "item"
-    assert req.target.item_ref == "YOK-1800"
+    assert req.target.public_ref == "YOK-1800"
     assert req.payload == {"skip_readiness_check": True}
 
 
@@ -66,7 +66,7 @@ def test_readiness_prd_validate_dispatches_item_target() -> None:
     req = _CAPTURED[-1]
     assert req.function == "readiness.prd_validate.run"
     assert req.target.kind == "item"
-    assert req.target.item_ref == "YOK-1800"
+    assert req.target.public_ref == "YOK-1800"
     assert req.payload == {"strict": True}
 
 
@@ -76,14 +76,14 @@ def test_readiness_repair_commands_dispatch() -> None:
     )
     assert rc == 0, err
     assert _CAPTURED[-1].function == "readiness.repair_stale_count"
-    assert _CAPTURED[-1].target.item_ref == "1800"
+    assert _CAPTURED[-1].target.public_ref == "1800"
 
     rc, _out, err = _run(
         "readiness", "repair-claim-coverage", "--item", "YOK-1800",
     )
     assert rc == 0, err
     assert _CAPTURED[-1].function == "readiness.repair_claim_coverage"
-    assert _CAPTURED[-1].target.item_ref == "YOK-1800"
+    assert _CAPTURED[-1].target.public_ref == "YOK-1800"
 
 
 def test_claims_path_gate_and_activation_dispatch() -> None:
@@ -91,7 +91,7 @@ def test_claims_path_gate_and_activation_dispatch() -> None:
     assert rc == 0, err
     req = _CAPTURED[-1]
     assert req.function == "claims.path.required_gate"
-    assert req.target.item_ref == "YOK-1800"
+    assert req.target.public_ref == "YOK-1800"
     assert req.payload == {}
 
     with patch(
@@ -107,5 +107,5 @@ def test_claims_path_gate_and_activation_dispatch() -> None:
     )
     req = _CAPTURED[-1]
     assert req.function == "claims.path.activation_run"
-    assert req.target.item_ref == "1800"
+    assert req.target.public_ref == "1800"
     assert req.payload == {}

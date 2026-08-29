@@ -1,7 +1,7 @@
 """HTTP-boundary backstop for server-side item-ref resolution.
 
 The relay contract's CI backstop: an https-only client carries raw
-``PREFIX-N`` / bare-number refs on ``target.item_ref`` and the cloud
+``PREFIX-N`` / bare-number refs on ``target.public_ref`` and the cloud
 boundary (bearer auth -> dispatcher -> resolver) turns them into
 ``target.item_id`` server-side. Exercises ``POST /v1/functions/call``
 through the real FastAPI app with a real minted token — the same path
@@ -135,7 +135,7 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
                     reset_registry_for_tests()
 
     def test_prefix_ref_resolves_server_side(self) -> None:
-        envelope = _envelope({"kind": "item", "item_ref": "YOK-4242"})
+        envelope = _envelope({"kind": "item", "public_ref": "YOK-4242"})
         envelope["payload"] = {"fields": ["status", "project_sequence"]}
         resp = self.client.post(
             "/v1/functions/call",
@@ -153,7 +153,7 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
         resp = self.client.post(
             "/v1/functions/call",
             json=_envelope(
-                {"kind": "item", "item_ref": "4242", "project_id": "yoke"},
+                {"kind": "item", "public_ref": "4242", "project_id": "yoke"},
             ),
         )
         self.assertEqual(resp.status_code, 200)
@@ -164,20 +164,20 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
     def test_bare_number_without_context_is_typed_error(self) -> None:
         resp = self.client.post(
             "/v1/functions/call",
-            json=_envelope({"kind": "item", "item_ref": "4242"}),
+            json=_envelope({"kind": "item", "public_ref": "4242"}),
         )
         body = resp.json()
         self.assertFalse(body["success"])
-        self.assertEqual(body["error"]["code"], "item_ref_unresolved")
+        self.assertEqual(body["error"]["code"], "public_ref_unresolved")
 
     def test_unknown_ref_is_typed_error(self) -> None:
         resp = self.client.post(
             "/v1/functions/call",
-            json=_envelope({"kind": "item", "item_ref": "YOK-999999"}),
+            json=_envelope({"kind": "item", "public_ref": "YOK-999999"}),
         )
         body = resp.json()
         self.assertFalse(body["success"])
-        self.assertEqual(body["error"]["code"], "item_ref_unresolved")
+        self.assertEqual(body["error"]["code"], "public_ref_unresolved")
 
 
 if __name__ == "__main__":

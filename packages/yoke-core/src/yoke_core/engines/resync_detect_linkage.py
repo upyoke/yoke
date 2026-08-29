@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Tuple
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
@@ -132,7 +132,7 @@ def stage1_linkage(
         item_pk = int(item_id_num)
         # The public display ref renders from prefix+sequence; identity
         # stays the internal ``items.id`` on the typed field.
-        item_ref = format_item_ref(
+        public_ref = format_item_ref(
             item_project,
             ref_prefix,
             ref_sequence,
@@ -141,7 +141,7 @@ def stage1_linkage(
         padded = str(item_pk).zfill(3)
         item_file = os.path.join(backlog_dir, f"{padded}.md")
         orphan = LocalOrphan(
-            item_ref,
+            public_ref,
             item_file,
             "backlog",
             item_project,
@@ -168,7 +168,7 @@ def stage1_linkage(
         if gh_num in project_issues:
             paired.append(
                 PairedItem(
-                    item_ref,
+                    public_ref,
                     item_file,
                     gh_num,
                     "backlog",

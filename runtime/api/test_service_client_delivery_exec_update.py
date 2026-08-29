@@ -234,7 +234,7 @@ class TestExecuteUpdateForceFinalize:
         import yoke_core.api.service_client as service_client
 
         item_id = 10
-        item_ref = f"YOK-{item_id}"
+        public_ref = f"YOK-{item_id}"
         _seed_item(tmp_db, id=item_id, status="reviewing-implementation")
         _seed_session(tmp_db)
         _seed_claim(tmp_db, item_id=str(item_id))
@@ -260,13 +260,13 @@ class TestExecuteUpdateForceFinalize:
         assert data["force_finalize"]["reason_intent"] == "handoff-to-polish"
         assert _item_field(tmp_db, item_id, "status") == "reviewed-implementation"
         assert self._active_claim(tmp_db, item_id)["release_reason"] == "handed_off"
-        assert f"Next: /yoke polish {item_ref}" in data["log"]
+        assert f"Next: /yoke polish {public_ref}" in data["log"]
 
     def test_force_to_implemented_releases_for_usher(self, tmp_db, monkeypatch, capsys):
         import yoke_core.api.service_client as service_client
 
         item_id = 11
-        item_ref = f"YOK-{item_id}"
+        public_ref = f"YOK-{item_id}"
         _seed_item(tmp_db, id=item_id, status="polishing-implementation")
         _seed_session(tmp_db)
         _seed_claim(tmp_db, item_id=str(item_id))
@@ -285,7 +285,7 @@ class TestExecuteUpdateForceFinalize:
         assert data["force_finalize"]["reason_intent"] == "handoff-to-usher"
         assert _item_field(tmp_db, item_id, "status") == "implemented"
         assert self._active_claim(tmp_db, item_id)["release_reason"] == "handed_off"
-        assert f"Next: /yoke usher {item_ref}" in data["log"]
+        assert f"Next: /yoke usher {public_ref}" in data["log"]
 
     def test_force_to_planning_status_keeps_claim_active(
         self, tmp_db, monkeypatch, capsys

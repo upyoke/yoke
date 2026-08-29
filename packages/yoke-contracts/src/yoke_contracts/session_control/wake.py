@@ -13,11 +13,11 @@ EXPLICIT_WAKE_ROUTING_FLAG = "explicit_stopped_wake"
 class SessionWakeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_id: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    item_ref: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    public_ref: Optional[str] = Field(default=None, min_length=1, max_length=100)
     prompt: Optional[str] = Field(default=None, max_length=1_000_000)
     idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
-    @field_validator("session_id", "item_ref", "prompt", "idempotency_key")
+    @field_validator("session_id", "public_ref", "prompt", "idempotency_key")
     @classmethod
     def _nonblank_optional_text(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
@@ -29,8 +29,8 @@ class SessionWakeRequest(BaseModel):
 
     @model_validator(mode="after")
     def _one_target(self) -> "SessionWakeRequest":
-        if bool(self.session_id) == bool(self.item_ref):
-            raise ValueError("exactly one of session_id or item_ref is required")
+        if bool(self.session_id) == bool(self.public_ref):
+            raise ValueError("exactly one of session_id or public_ref is required")
         return self
 
 

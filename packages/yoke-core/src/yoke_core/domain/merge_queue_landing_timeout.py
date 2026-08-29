@@ -30,7 +30,7 @@ from yoke_contracts.api.function_call import TargetRef
 GENERIC_RESUME = "the landing command you ran"
 
 
-def merge_item_resume_command(item_ref: str, args: Any) -> str:
+def merge_item_resume_command(public_ref: str, args: Any) -> str:
     """The exact ``yoke merge item`` command that resumes this landing.
 
     Built from the arguments the caller actually ran, because the
@@ -40,7 +40,7 @@ def merge_item_resume_command(item_ref: str, args: Any) -> str:
     ``yoke merge item`` namespace, read by attribute so the builder stays
     indifferent to flags it does not reproduce.
     """
-    parts = ["yoke", "merge", "item", str(item_ref)]
+    parts = ["yoke", "merge", "item", str(public_ref)]
     for flag, attr in (
         ("--project", "project"),
         ("--target", "target"),
@@ -95,7 +95,7 @@ def _ambient_session_id() -> str:
 def claim_state_clause(
     *,
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     dispatch: Callable[..., Any],
 ) -> str:
     """One sentence naming the claim state and what it means for the retry.
@@ -107,12 +107,12 @@ def claim_state_clause(
     if error:
         return (
             f"the item work claim could not be read ({error}) — confirm it "
-            f"with `yoke claims work holder-get {item_ref}`, then run"
+            f"with `yoke claims work holder-get {public_ref}`, then run"
         )
     if holder is None:
         return (
             "the item work claim is no longer held — re-acquire it with "
-            f"`yoke claims work acquire --item {item_ref} --reason "
+            f"`yoke claims work acquire --item {public_ref} --reason "
             '"resume landing"`, then run'
         )
     holder_session = str(holder.get("session_id") or "")
@@ -137,7 +137,7 @@ def timeout_message(
     pr_num: str,
     deadline_seconds: float,
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     resume_command: str,
     dispatch: Callable[..., Any],
     last_observed: str = "",
@@ -151,7 +151,7 @@ def timeout_message(
     """
     clause = claim_state_clause(
         item_id=item_id,
-        item_ref=item_ref,
+        public_ref=public_ref,
         dispatch=dispatch,
     )
     observed = (

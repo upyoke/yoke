@@ -211,12 +211,12 @@ def item_target(
 ) -> TargetRef:
     """Build an item-targeted :class:`TargetRef` carrying the raw ref.
 
-    The dispatcher resolves ``item_ref`` server-side, so adapters stay
+    The dispatcher resolves ``public_ref`` server-side, so adapters stay
     DB-free and identical envelopes work over both transports.
     """
     return TargetRef(
         kind=kind,  # type: ignore[arg-type]
-        item_ref=str(raw_ref).strip(),
+        public_ref=str(raw_ref).strip(),
         project_id=client_project_context(project),
         **extra,
     )

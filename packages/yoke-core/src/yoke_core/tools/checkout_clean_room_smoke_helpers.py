@@ -234,7 +234,7 @@ result = events.emit_event(
 print(json.dumps({
     "project": project_slug,
     "item_id": item_id,
-    "item_ref": f"{prefix}-{sequence}",
+    "public_ref": f"{prefix}-{sequence}",
     "title": title,
     "event_id": result.event_id,
     "write_ok": result.ok,

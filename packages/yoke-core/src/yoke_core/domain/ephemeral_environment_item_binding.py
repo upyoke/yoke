@@ -32,14 +32,14 @@ def _row_value(row: Any, name: str, index: int) -> Any:
 
 def _resolve_bound_item(
     conn: Any,
-    item_ref: str,
+    public_ref: str,
     *,
     project: str,
 ) -> int:
-    item_id = resolve_item_id(conn, item_ref, project=project)
+    item_id = resolve_item_id(conn, public_ref, project=project)
     if item_id is None:
         raise ValueError(
-            f"ephemeral environment item {item_ref!r} does not resolve "
+            f"ephemeral environment item {public_ref!r} does not resolve "
             f"in project {project!r}"
         )
     return int(item_id)
@@ -48,12 +48,12 @@ def _resolve_bound_item(
 def prepare_create_item_binding(
     conn: Any,
     *,
-    item_ref: str,
+    public_ref: str,
     project: str,
     branch: str,
 ) -> str:
     """Lock and canonicalize an active environment's optional item binding."""
-    clean_ref = str(item_ref or "").strip()
+    clean_ref = str(public_ref or "").strip()
     if not clean_ref:
         marker = _marker(conn)
         row = conn.execute(

@@ -57,7 +57,7 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
             "lifecycle.skip.record_recoverable_substrate"
         )
         assert captured["target"].kind == "item"
-        assert captured["target"].item_ref == "1849"
+        assert captured["target"].public_ref == "1849"
         assert captured["payload"] == {
             "chain_step": 2,
             "project": "yoke",
@@ -111,7 +111,7 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
                            session_id, json_mode):
             captured["function_id"] = function_id
             captured["target_kind"] = target.kind
-            captured["item_ref"] = target.item_ref
+            captured["public_ref"] = target.public_ref
             captured["payload"] = payload
             return 0
 
@@ -135,6 +135,6 @@ class TestLifecycleSkipRecordRecoverableSubstrate:
             "lifecycle.skip.record_recoverable_substrate"
         )
         assert captured["target_kind"] == "item"
-        assert captured["item_ref"] == "1849"
+        assert captured["public_ref"] == "1849"
         assert captured["payload"]["chain_step"] == 2
         assert captured["payload"]["failure_class"] == "cwd_drift"

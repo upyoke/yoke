@@ -6,7 +6,7 @@ import json
 from typing import Any, List, Mapping, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
-from yoke_contracts.board.project_scope import item_ref
+from yoke_contracts.board.project_scope import public_ref
 from yoke_contracts.board.sections_sessions_claim_reads import (
     coordination_claims_for_session,
     path_claims_for_items,
@@ -18,7 +18,7 @@ from yoke_contracts.board.sections_sessions_rendering import (
     _claims_for_session,
     _render_claim_target,
 )
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.session_holdings import (
     SESSION_PATH_HOLDING_KEY,
     coordination_holding_key,
@@ -37,7 +37,7 @@ BOARD_PREVIOUS_HOLDINGS_LIMIT = 6
 
 def _item_target(db: BoardDBLike, item_id: int) -> str:
     try:
-        return item_ref(db, item_id)
+        return public_ref(db, item_id)
     except Exception:
         return format_item_ref(None, None, None, item_id=item_id)
 
@@ -238,7 +238,7 @@ def _coordination_observations(
                 "target_kind": row[4],
                 "target_key": coordination_holding_key(lease_key),
                 "target": lease_key,
-                "owner_item_ref": owner_ref,
+                "owner_public_ref": owner_ref,
                 "released_at": terminal,
             }
         )
@@ -249,7 +249,7 @@ def _holding_label(entry: Mapping[str, Any]) -> str:
     kind = str(entry.get("holding_kind") or "")
     target = str(entry.get("target") or "?")
     if kind == "coordination":
-        suffix = f" ({entry['owner_item_ref']})" if entry.get("owner_item_ref") else ""
+        suffix = f" ({entry['owner_public_ref']})" if entry.get("owner_public_ref") else ""
         return f"{LEASE_GLYPH} {target}{suffix}"
     if kind == "strategy_document":
         return f"{STEERING_GLYPH} {target}"

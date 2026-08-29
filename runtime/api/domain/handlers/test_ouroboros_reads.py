@@ -137,7 +137,7 @@ class TestOuroborosEntryList:
             if entry["id"] == entry_id
         )
         assert promoted["item_id"] == 5090
-        assert promoted["item_ref"] == "YOK-5090"
+        assert promoted["public_ref"] == "YOK-5090"
         assert promoted["project_id"] == 1
         assert promoted["title"] == "Follow up on the observation"
         detail = ouroboros_reads.handle_ouroboros_entry_get(

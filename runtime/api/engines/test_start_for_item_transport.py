@@ -108,7 +108,7 @@ def test_start_for_item_entry_relays_through_dispatcher():
     request = _CAPTURED[-1]
     assert request.function == "deployment_runs.start_for_item"
     assert request.target.kind == "item"
-    assert request.target.item_ref == TEST_ITEM_REF
+    assert request.target.public_ref == TEST_ITEM_REF
     assert request.payload == {"release_lineage": _MERGE_SHA}
     # The composed handler prints the run id resolved server-side.
     assert out.strip() == "run-20260730-001"

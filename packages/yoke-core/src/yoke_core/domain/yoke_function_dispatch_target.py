@@ -3,7 +3,7 @@
 The relay contract (CLI grammar contract) requires that no `yoke` CLI
 adapter touch the DB before dispatch: a client carries the raw public
 item reference (``PREFIX-N`` or a bare project-local number) on
-``target.item_ref`` plus whatever project context it knows client-side
+``target.public_ref`` plus whatever project context it knows client-side
 on ``target.project_id``, and the dispatcher resolves the internal
 ``items.id`` here — identically for in-process and HTTPS callers.
 
@@ -28,19 +28,19 @@ from yoke_contracts.api.function_call import (
 )
 
 
-def resolve_target_item_ref(
+def resolve_target_public_ref(
     request: FunctionCallRequest,
 ) -> Optional[FunctionCallResponse]:
-    """Resolve ``target.item_ref`` into ``target.item_id`` in place.
+    """Resolve ``target.public_ref`` into ``target.item_id`` in place.
 
     Returns ``None`` on success / no-op; a typed error response when the
     ref cannot be resolved, or when an explicit ``target.item_id`` names
-    a different row than ``target.item_ref``. The public ref is always
+    a different row than ``target.public_ref``. The public ref is always
     resolved when present — a numeric tail stuffed into ``item_id`` must
     not skip that lookup.
     """
     target = request.target
-    if target.item_ref is None:
+    if target.public_ref is None:
         return None
     from yoke_core.domain import db_helpers
     from yoke_core.domain.yok_n_parser import parse_item_id
@@ -48,7 +48,7 @@ def resolve_target_item_ref(
     try:
         with db_helpers.connect() as conn:
             resolved = parse_item_id(
-                target.item_ref,
+                target.public_ref,
                 project=target.project_id or None,
                 conn=conn,
                 allow_bare_internal=False,
@@ -60,9 +60,9 @@ def resolve_target_item_ref(
             version=request.version,
             request_id=request.request_id,
             error=FunctionError(
-                code="item_ref_unresolved",
-                message=f"target.item_ref {target.item_ref!r}: {exc}",
-                jsonpath="$.target.item_ref",
+                code="public_ref_unresolved",
+                message=f"target.public_ref {target.public_ref!r}: {exc}",
+                jsonpath="$.target.public_ref",
             ),
         )
     if target.item_id is not None and int(target.item_id) != int(resolved):
@@ -75,7 +75,7 @@ def resolve_target_item_ref(
                 code="item_id_ref_mismatch",
                 message=(
                     f"target.item_id {int(target.item_id)} does not match "
-                    f"target.item_ref {target.item_ref!r} "
+                    f"target.public_ref {target.public_ref!r} "
                     f"(resolves to items.id={int(resolved)})"
                 ),
                 jsonpath="$.target",
@@ -90,4 +90,4 @@ def resolve_target_item_ref(
     return None
 
 
-__all__ = ["resolve_target_item_ref"]
+__all__ = ["resolve_target_public_ref"]

@@ -109,7 +109,7 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
                 f"WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
                 (body.ref,),
             ).fetchone()
-            item_ref = render_item_ref(conn, int(row[0])) if row else ""
+            public_ref = render_item_ref(conn, int(row[0])) if row else ""
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("item_lookup_failed", str(exc))
 
@@ -122,7 +122,7 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
         )
     return HandlerOutcome(
         result_payload={
-            "found": True, "id": row[0], "ref": item_ref, "status": row[1],
+            "found": True, "id": row[0], "ref": public_ref, "status": row[1],
         },
         primary_success=True,
     )

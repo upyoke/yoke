@@ -108,10 +108,10 @@ def hc_skip_polish_manual_hop(
         "honest.",
     ]
     for row in rows[:10]:
-        item_ref = render_item_ref(conn, int(row["item_id"]))
+        public_ref = render_item_ref(conn, int(row["item_id"]))
         gap = int(row["gap_s"] or 0)
         issues.append(
-            f"  - {item_ref}: reviewed-implementation -> "
+            f"  - {public_ref}: reviewed-implementation -> "
             f"polishing-implementation -> implemented in {gap}s "
             f"(at {row['a_at']})"
         )

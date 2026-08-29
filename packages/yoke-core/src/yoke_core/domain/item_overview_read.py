@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row

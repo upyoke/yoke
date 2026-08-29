@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Tuple
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 
 
@@ -36,7 +36,7 @@ def claimed_item_facts(
 ) -> Dict[int, Dict[str, Any]]:
     """Describe each claimed item in one read, keyed by internal id.
 
-    Values are the claim-payload shape itself — ``item_ref``,
+    Values are the claim-payload shape itself — ``public_ref``,
     ``item_project_id``, ``item_project_sequence``, ``item_status``,
     ``item_workflow_id`` — so every item claim says what it is and how far
     along it is, not only the one the session's focus names. An id with no
@@ -62,7 +62,7 @@ def claimed_item_facts(
     facts: Dict[int, Dict[str, Any]] = {}
     for row in rows:
         facts[int(row["id"])] = {
-            "item_ref": format_item_ref(
+            "public_ref": format_item_ref(
                 None,
                 row["prefix"],
                 row["project_sequence"],

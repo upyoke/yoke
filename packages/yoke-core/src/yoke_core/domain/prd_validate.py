@@ -64,10 +64,10 @@ class Report:
             raise ValueError(f"unknown result type: {result}")
 
 
-def resolve_body(item_ref: Optional[str], body_text: Optional[str]) -> tuple[str, str]:
+def resolve_body(public_ref: Optional[str], body_text: Optional[str]) -> tuple[str, str]:
     if body_text is not None:
-        return body_text, item_ref or "inline"
-    if not item_ref:
+        return body_text, public_ref or "inline"
+    if not public_ref:
         raise SystemExit(
             "Usage: python3 -m yoke_core.domain.prd_validate <YOK-N|N> [--strict]\n"
             "       python3 -m yoke_core.domain.prd_validate --body-text <text>\n"
@@ -78,7 +78,7 @@ def resolve_body(item_ref: Optional[str], body_text: Optional[str]) -> tuple[str
     try:
         from yoke_core.domain.yok_n_parser import parse_item_argument
 
-        num = parse_item_argument(item_ref, conn=conn)
+        num = parse_item_argument(public_ref, conn=conn)
         item_label = render_item_ref(conn, num)
         spec_row = conn.execute(
             "SELECT spec FROM items WHERE id=%s", (num,),
@@ -255,7 +255,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="prd-validate",
         description="Validate PRD/spec quality before planning",
     )
-    parser.add_argument("item_ref", nargs="?")
+    parser.add_argument("public_ref", nargs="?")
     parser.add_argument("--body-text")
     parser.add_argument("--strict", action="store_true")
     return parser
@@ -268,7 +268,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     if args.body_text is not None:
         body_text = sys.stdin.read() if args.body_text == "-" else args.body_text
     try:
-        body, item_label = resolve_body(args.item_ref, body_text)
+        body, item_label = resolve_body(args.public_ref, body_text)
     except SystemExit as exc:
         if isinstance(exc.code, str):
             print(exc.code, file=sys.stderr)

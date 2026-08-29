@@ -69,7 +69,12 @@ def test_terminal_lifecycle_receipt_precedes_lane_cleanup(monkeypatch) -> None:
     assert timeline == ["receipt", "cleanup"]
 
 
-def test_lifecycle_transition_prints_structured_success() -> None:
+def test_lifecycle_transition_prints_structured_success(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "yoke_cli.transport.public_ref_display.lookup_public_refs",
+        lambda ids: {7: "ITEM-7"} if 7 in ids else {},
+    )
+
     def stub(request):
         result = (
             {}
@@ -90,7 +95,7 @@ def test_lifecycle_transition_prints_structured_success() -> None:
     )
 
     assert rc == 0, err
-    assert json.loads(out) == {"item_id": 7, "to_status": "done"}
+    assert json.loads(out) == {"public_ref": "ITEM-7", "to_status": "done"}
 
 
 def test_deployment_run_create_falls_back_to_structured_receipt() -> None:

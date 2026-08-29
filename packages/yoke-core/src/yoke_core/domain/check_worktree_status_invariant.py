@@ -91,9 +91,9 @@ def _current_branch() -> Optional[str]:
     return name or None
 
 
-def _format_block(item_ref: str, observed: str) -> str:
+def _format_block(public_ref: str, observed: str) -> str:
     return (
-        f"ERROR: cannot commit on worktree branch {item_ref} while "
+        f"ERROR: cannot commit on worktree branch {public_ref} while "
         f"items.status is '{observed}'.\n"
         f"\n"
         f"Allowed statuses for a worktree-branch commit: "
@@ -104,7 +104,7 @@ def _format_block(item_ref: str, observed: str) -> str:
         f"already moved the item past polishing-implementation.\n"
         f"\n"
         f"Remediation:\n"
-        f"  - From refined-idea: run `/yoke advance {item_ref} "
+        f"  - From refined-idea: run `/yoke advance {public_ref} "
         f"implementation` to drive the proper transition.\n"
         f"  - From a post-polish status: investigate why a worktree "
         f"commit is being attempted; the implementation phase is over.\n"

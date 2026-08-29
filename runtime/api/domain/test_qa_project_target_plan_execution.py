@@ -162,7 +162,7 @@ def test_plan_execution_passes_the_runtime_base_url_to_the_command_runner() -> N
         ) as execute,
     ):
         result = qa_plan_execution.execute_plan(
-            item_ref="YOK-42",
+            public_ref="YOK-42",
             transition_id="implemented",
             base_url="https://preview.example.test/",
             actor=ActorContext(actor_id="7", session_id="project-target"),
@@ -202,7 +202,7 @@ def test_missing_runtime_base_url_prevents_case_side_effects() -> None:
         pytest.raises(qa_plan_execution.QaPlanExecutionError, match="requires --base-url"),
     ):
         qa_plan_execution.execute_plan(
-            item_ref="YOK-42",
+            public_ref="YOK-42",
             transition_id="implemented",
             actor=ActorContext(actor_id="7", session_id="project-target"),
         )

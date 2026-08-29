@@ -59,9 +59,9 @@ def _run_cli_skip(
         sys.stdout.write(body)
 
     print(
-        "Skip {via}: {item_ref} {frm} -> {to} (skipped {phase})".format(
+        "Skip {via}: {public_ref} {frm} -> {to} (skipped {phase})".format(
             via=result["via"],
-            item_ref=item_ref_for_id(item_id),
+            public_ref=item_ref_for_id(item_id),
             frm=result["from_status"],
             to=result["to_status"],
             phase=result["skipped_phase"],

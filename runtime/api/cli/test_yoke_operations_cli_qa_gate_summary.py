@@ -56,7 +56,7 @@ class TestQaGateSummary:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.gate_summary.run"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "1833"
+        assert req.target.public_ref == "1833"
         assert req.payload == {"transition": "reviewed-implementation"}
 
     def test_epic_task_target(self) -> None:

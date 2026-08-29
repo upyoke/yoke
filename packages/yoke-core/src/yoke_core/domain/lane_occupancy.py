@@ -36,7 +36,7 @@ from yoke_core.domain.work_claim_targets import scope_int_sql
 class LaneOccupant:
     """A live claim held by another session over the lane containing a path.
 
-    ``item_ref`` is the public reference (``prefix-sequence``) when it
+    ``public_ref`` is the public reference (``prefix-sequence``) when it
     can be resolved, and empty otherwise; callers render the numeric
     ``item_id`` only as a fallback, never as the primary identifier.
     """
@@ -44,7 +44,7 @@ class LaneOccupant:
     claim_id: int
     session_id: str
     item_id: int
-    item_ref: str
+    public_ref: str
     lane_path: str
 
 
@@ -159,7 +159,7 @@ def _active_lane_claims(conn: Any) -> List[LaneOccupant]:
                 claim_id=int(values[2] or 0),
                 session_id=claim_session,
                 item_id=int(values[1] or 0),
-                item_ref=ref,
+                public_ref=ref,
                 lane_path=lane_path,
             )
         )

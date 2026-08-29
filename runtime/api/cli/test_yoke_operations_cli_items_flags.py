@@ -50,7 +50,7 @@ def _stub_dispatch_ok(request: FunctionCallRequest) -> FunctionCallResponse:
         request_id=request.request_id,
         result={
             "item_id": 1,
-            "item_ref": "YOK-1",
+            "public_ref": "YOK-1",
             "status": "implementing",
             "frozen": True,
             "blocked": False,
@@ -92,7 +92,7 @@ class TestFlagRoutes:
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == function_id
         assert request.target.kind == "item"
-        assert request.target.item_ref == "YOK-42"
+        assert request.target.public_ref == "YOK-42"
         assert request.payload == {}
         assert request.actor.session_id == "test-session"
 
@@ -108,7 +108,7 @@ class TestFlagRoutes:
 
     def test_item_ref_relays_verbatim(self) -> None:
         assert _run("items", "freeze", "not-a-real-ref") == 0
-        assert _CAPTURED_REQUESTS[-1].target.item_ref == "not-a-real-ref"
+        assert _CAPTURED_REQUESTS[-1].target.public_ref == "not-a-real-ref"
 
     def test_every_flag_verb_carries_a_usage_line(self) -> None:
         for function_id in FLAG_FUNCTION_IDS:
@@ -121,7 +121,7 @@ class TestFlagRoutes:
         ) == 0
         request = _CAPTURED_REQUESTS[-1]
         assert request.function == "items.cancel.run"
-        assert request.target.item_ref == "42"
+        assert request.target.public_ref == "42"
         assert request.payload == {"reason": "superseded", "ref": "7"}
 
     def test_cancel_without_a_reason_is_a_usage_error(self) -> None:

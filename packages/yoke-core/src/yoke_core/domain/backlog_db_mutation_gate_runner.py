@@ -125,7 +125,7 @@ def _run_prose_vs_claim_check(
     conn = connect(db_path)
     try:
         outcome = db_claim_prose_check.check_item(item_id, conn=conn)
-        item_ref = render_item_ref(conn, item_id) if outcome.blocks else ""
+        public_ref = render_item_ref(conn, item_id) if outcome.blocks else ""
     except db_backend.operational_error_types(conn) as exc:
         # Minimal legacy schemas may lack the columns the check reads.
         # The contract has nothing to enforce in that case.
@@ -142,7 +142,7 @@ def _run_prose_vs_claim_check(
     return {
         "success": False,
         "error": (
-            f"prose-vs-claim mismatch on {item_ref}: stored "
+            f"prose-vs-claim mismatch on {public_ref}: stored "
             "db_mutation_profile is state='none' but spec/body declares "
             f"governed DB work ({triggers}).  {outcome.recovery}"
         ),

@@ -39,7 +39,7 @@ def test_manual_wake_forces_the_stopped_route_for_an_active_session() -> None:
         actor_id=10,
         caller_session_id=None,
         session_id="s2",
-        item_ref=None,
+        public_ref=None,
         prompt=None,
         now=NOW,
     )
@@ -69,7 +69,7 @@ def test_manual_wake_is_one_native_attempt_even_when_the_attempt_fails() -> None
         actor_id=10,
         caller_session_id="s1",
         session_id="s2",
-        item_ref=None,
+        public_ref=None,
         prompt="Continue the existing task.",
         now=NOW,
     )
@@ -110,14 +110,14 @@ def test_item_target_resolves_its_current_work_claim_holder() -> None:
         actor_id=10,
         caller_session_id="s1",
         session_id=None,
-        item_ref="ALP-1",
+        public_ref="ALP-1",
         prompt="Check the current work.",
         now=NOW,
     )
 
     assert result["target_session_id"] == NATIVE_WAKE_SESSION_ID
     details = message_details(conn, result["message_id"])
-    assert details["selector_snapshot"]["item_refs"] == ["ALP-1"]
+    assert details["selector_snapshot"]["public_refs"] == ["ALP-1"]
 
 
 def test_programmatic_wake_requires_project_write_authority() -> None:
@@ -129,7 +129,7 @@ def test_programmatic_wake_requires_project_write_authority() -> None:
             actor_id=11,
             caller_session_id=None,
             session_id="s2",
-            item_ref=None,
+            public_ref=None,
             prompt=None,
             now=NOW,
         )
@@ -176,7 +176,7 @@ def test_terminated_session_stays_non_wakeable_when_displayed_as_ended() -> None
             actor_id=10,
             caller_session_id="s1",
             session_id="s2",
-            item_ref=None,
+            public_ref=None,
             prompt=None,
             now=NOW,
         )
@@ -191,7 +191,7 @@ def test_idempotency_key_returns_the_same_explicit_wake_receipt() -> None:
         actor_id=10,
         caller_session_id=None,
         session_id="s2",
-        item_ref=None,
+        public_ref=None,
         prompt=None,
         idempotency_key="resume-s2-after-watchdog",
         now=NOW,
@@ -226,7 +226,7 @@ def test_second_explicit_wake_is_refused_inside_recipient_grace_window() -> None
         actor_id=10,
         caller_session_id=None,
         session_id="s2",
-        item_ref=None,
+        public_ref=None,
         prompt=None,
         idempotency_key="first-wake",
         now=NOW,
@@ -241,7 +241,7 @@ def test_second_explicit_wake_is_refused_inside_recipient_grace_window() -> None
             actor_id=10,
             caller_session_id=None,
             session_id="s2",
-            item_ref=None,
+            public_ref=None,
             prompt=None,
             idempotency_key="second-wake",
             now=NOW + timedelta(seconds=2),

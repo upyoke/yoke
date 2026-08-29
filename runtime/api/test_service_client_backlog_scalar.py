@@ -92,7 +92,7 @@ def test_freeze_dispatches_frozen_true(capsys: pytest.CaptureFixture[str]) -> No
     assert envelope["function"] == "items.scalar.update"
     assert envelope["target"] == {
         "kind": "item",
-        "item_ref": "1685",
+        "public_ref": "1685",
         "project_id": "yoke",
     }
     assert envelope["payload"] == {"field": "frozen", "value": True}
@@ -110,7 +110,7 @@ def test_thaw_dispatches_frozen_false(capsys: pytest.CaptureFixture[str]) -> Non
     assert rc == 0
     assert seen[0]["target"] == {
         "kind": "item",
-        "item_ref": "42",
+        "public_ref": "42",
         "project_id": "yoke",
     }
     assert seen[0]["payload"] == {"field": "frozen", "value": False}

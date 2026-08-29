@@ -17,6 +17,10 @@ ITEMS_ADAPTERS = [
         function_id="items.detail.get",
         cli_invocation="yoke items detail get ITEM --project P",
     ),
+    read_entry(
+        function_id="items.public_ref.lookup",
+        cli_invocation="yoke items public-ref lookup --id N [--id N ...]",
+    ),
     AdapterEntry(
         function_id="item_worktrees.create",
         cli_invocation=(

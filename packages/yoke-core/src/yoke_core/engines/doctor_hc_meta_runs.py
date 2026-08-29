@@ -130,7 +130,7 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             continue
 
         updated = row["updated_at"]
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
         if updated:
             upd_epoch = _base._iso_to_epoch(updated)
             if upd_epoch != 0:
@@ -139,9 +139,9 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     age_days = age_seconds // 86400
                     if age_days == 0:
                         age_hours = age_seconds // 3600
-                        issues.append(f"- {item_ref}: done for {age_hours} hours with no deployed_to value")
+                        issues.append(f"- {public_ref}: done for {age_hours} hours with no deployed_to value")
                     else:
-                        issues.append(f"- {item_ref}: done for {age_days} days with no deployed_to value")
+                        issues.append(f"- {public_ref}: done for {age_days} days with no deployed_to value")
 
     if issues:
         rec.record("HC-undeployed-done", "Undeployed done items", "WARN", "\n".join(issues))

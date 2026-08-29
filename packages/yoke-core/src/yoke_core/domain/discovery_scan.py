@@ -22,17 +22,17 @@ def _discovery_file(item_num: int) -> Path:
     return Path("/tmp") / f"discovery-scan.YOK-{item_num}.{os.getpid()}"
 
 
-def _item_context_matcher(item_ref: str) -> Callable[[str], bool]:
+def _item_context_matcher(public_ref: str) -> Callable[[str], bool]:
     """Return a predicate matching one item's public ref or bare sequence.
 
     Compiled once per scan rather than once per candidate entry.
     """
-    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_contracts.public_ref import parse_public_item_ref
 
-    _, sequence = parse_public_item_ref(item_ref)
+    _, sequence = parse_public_item_ref(public_ref)
     escaped = re.escape(str(sequence))
     public_pattern = re.compile(
-        rf"(?i)(^|[^A-Z0-9]){re.escape(item_ref)}(?=$|[^0-9])"
+        rf"(?i)(^|[^A-Z0-9]){re.escape(public_ref)}(?=$|[^0-9])"
     )
     bare_pattern = re.compile(
         rf"(^|[\s(/_-])0*{escaped}(?=$|[\s/)_-])"
@@ -66,7 +66,7 @@ def _read_ouroboros_unreviewed(
         try:
             from yoke_core.domain.project_identity import render_item_ref
 
-            item_ref = render_item_ref(conn, item_num)
+            public_ref = render_item_ref(conn, item_num)
             rows = conn.execute(
                 "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), o.category, "
                 "replace(o.body, chr(10), ' '), COALESCE(o.reviewed_at,''), "
@@ -80,16 +80,16 @@ def _read_ouroboros_unreviewed(
             conn.close()
     except db_backend.operational_error_types() + (RuntimeError,):
         return "(none)\n", 0, ""
-    matches = _item_context_matcher(item_ref)
+    matches = _item_context_matcher(public_ref)
     scoped_rows = [row for row in rows if matches(str(row[3] or ""))]
     output = "\n".join(_format_ouroboros_row(row) for row in scoped_rows)
     if not output.strip():
-        return "(none)\n", 0, item_ref
+        return "(none)\n", 0, public_ref
     count = len([line for line in output.splitlines() if line.strip()])
-    return output.rstrip("\n") + "\n", count, item_ref
+    return output.rstrip("\n") + "\n", count, public_ref
 
 
-def run_scan(item_ref: str, *, repo_root: Optional[str] = None, stdout=None, stderr=None) -> int:
+def run_scan(public_ref: str, *, repo_root: Optional[str] = None, stdout=None, stderr=None) -> int:
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
 
@@ -97,7 +97,7 @@ def run_scan(item_ref: str, *, repo_root: Optional[str] = None, stdout=None, std
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
     try:
-        item_num = parse_item_argument(item_ref, cwd=root)
+        item_num = parse_item_argument(public_ref, cwd=root)
     except ValueError as exc:
         stderr.write(f"Error: {exc}\n")
         return 2
@@ -107,7 +107,7 @@ def run_scan(item_ref: str, *, repo_root: Optional[str] = None, stdout=None, std
     ouro_text, ouro_count, item_label = _read_ouroboros_unreviewed(root, item_num)
 
     scan_output = (
-        f"--- Unreviewed ouroboros entries for {item_label or item_ref.strip()} ---\n"
+        f"--- Unreviewed ouroboros entries for {item_label or public_ref.strip()} ---\n"
         f"{ouro_text}\n"
         "=== END DISCOVERY SCAN ===\n"
     )
@@ -138,8 +138,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     if len(args) >= 2 and args[0] == "--repo-root":
         repo_root = args[1]
         args = args[2:]
-    item_ref = args[0] if args else ""
-    return run_scan(item_ref, repo_root=repo_root)
+    public_ref = args[0] if args else ""
+    return run_scan(public_ref, repo_root=repo_root)
 
 
 if __name__ == "__main__":

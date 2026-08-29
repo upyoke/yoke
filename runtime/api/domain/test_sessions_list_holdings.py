@@ -93,7 +93,7 @@ def test_current_coordination_holds_project_onto_the_holding_session(test_db):
     )
     assert item_owned["owner_kind"] == "item"
     assert item_owned["owner_item_id"] == 41
-    assert item_owned["owner_item_ref"] == "YOK-41"
+    assert item_owned["owner_public_ref"] == "YOK-41"
     assert {holding["owner_kind"] for holding in coordination} == {
         "item",
         "session",

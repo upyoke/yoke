@@ -162,7 +162,7 @@ def _coordination_observations(
                     **base,
                     "owner_kind": "item",
                     "owner_item_id": item_id,
-                    "owner_item_ref": owner_facts.get("item_ref"),
+                    "owner_public_ref": owner_facts.get("public_ref"),
                     "released_at": (
                         None
                         if held
@@ -228,7 +228,7 @@ def _path_observations(
         count = int(row.get("declared_count") or 0)
         if owner_kind == "item" and row.get("owner_item_id") is not None:
             item_id = int(row["owner_item_id"])
-            target = str((item_facts.get(item_id) or {}).get("item_ref") or item_id)
+            target = str((item_facts.get(item_id) or {}).get("public_ref") or item_id)
             for session_id in sorted(historical_item_sessions.get(item_id, set())):
                 held = terminal is None and session_id in current_item_sessions.get(
                     item_id, set()

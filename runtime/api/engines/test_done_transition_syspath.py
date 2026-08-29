@@ -150,7 +150,7 @@ def _finish(result, *, prune_lane, apply_step_8, tmp_path):
             workflow=None,
             repo_root=str(tmp_path),
             merge_ran=False,
-            item_ref="YOK-99",
+            public_ref="YOK-99",
             prune_lane=prune_lane,
         )
 
@@ -169,7 +169,7 @@ class TestLanePrunedLast:
         result = TransitionResult()
         seen = {}
 
-        def _sync(_item_id, _old_status, run_result, *, item_ref):
+        def _sync(_item_id, _old_status, run_result, *, public_ref):
             seen["lane_present_at_sync"] = lane.is_dir()
             run_result.add_step("8")
 

@@ -163,7 +163,7 @@ class TestDispatcherItemRefResolution:
 
     @staticmethod
     def _request(
-        item_ref: str, project: str | None = None, session_id: str = ""
+        public_ref: str, project: str | None = None, session_id: str = ""
     ) -> FunctionCallRequest:
         from yoke_contracts.api.function_call import (
             ActorContext,
@@ -175,7 +175,7 @@ class TestDispatcherItemRefResolution:
             actor=ActorContext(actor_id=None, session_id=session_id),
             target=TargetRef(
                 kind="item",
-                item_ref=item_ref,
+                public_ref=public_ref,
                 project_id=project,
             ),
         )
@@ -187,13 +187,13 @@ class TestDispatcherItemRefResolution:
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
-            resolve_target_item_ref,
+            resolve_target_public_ref,
         )
 
         monkeypatch.setattr(db_helpers, "connect", lambda: connect_test_db(ref_db))
 
         request = self._request("42", project="beta")
-        assert resolve_target_item_ref(request) is None
+        assert resolve_target_public_ref(request) is None
         assert request.target.item_id == 2001
         # the ambient hint is cleared so permission scoping derives
         # from the resolved item's own project
@@ -206,16 +206,16 @@ class TestDispatcherItemRefResolution:
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
-            resolve_target_item_ref,
+            resolve_target_public_ref,
         )
 
         monkeypatch.setattr(db_helpers, "connect", lambda: connect_test_db(ref_db))
 
         request = self._request("42", session_id="no-such-session")
-        response = resolve_target_item_ref(request)
+        response = resolve_target_public_ref(request)
         assert response is not None and not response.success
         assert response.error is not None
-        assert response.error.code == "item_ref_unresolved"
+        assert response.error.code == "public_ref_unresolved"
         assert "project-local" in response.error.message
 
     def test_bare_number_does_not_guess_session_item_project_context(
@@ -225,7 +225,7 @@ class TestDispatcherItemRefResolution:
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
-            resolve_target_item_ref,
+            resolve_target_public_ref,
         )
 
         conn = connect_test_db(ref_db)
@@ -242,7 +242,7 @@ class TestDispatcherItemRefResolution:
         monkeypatch.setattr(db_helpers, "connect", lambda: connect_test_db(ref_db))
 
         request = self._request("42", session_id="sess-beta")
-        response = resolve_target_item_ref(request)
+        response = resolve_target_public_ref(request)
         assert response is not None and not response.success
         assert response.error is not None
         assert "project-local" in response.error.message
@@ -255,7 +255,7 @@ class TestDispatcherItemRefResolution:
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
-            resolve_target_item_ref,
+            resolve_target_public_ref,
         )
 
         conn = connect_test_db(ref_db)
@@ -272,7 +272,7 @@ class TestDispatcherItemRefResolution:
         monkeypatch.setattr(db_helpers, "connect", lambda: connect_test_db(ref_db))
 
         request = self._request("TST-42", session_id="sess-beta")
-        assert resolve_target_item_ref(request) is None
+        assert resolve_target_public_ref(request) is None
         assert request.target.item_id == 1001
 
     def test_project_qualified_refs_are_typed_errors(
@@ -282,12 +282,12 @@ class TestDispatcherItemRefResolution:
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
-            resolve_target_item_ref,
+            resolve_target_public_ref,
         )
 
         monkeypatch.setattr(db_helpers, "connect", lambda: connect_test_db(ref_db))
 
-        response = resolve_target_item_ref(self._request("alpha/TST-42"))
+        response = resolve_target_public_ref(self._request("alpha/TST-42"))
         assert response is not None and not response.success
         assert response.error is not None
         assert "retired" in response.error.message

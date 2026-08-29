@@ -81,11 +81,11 @@ def migrate_issue_to_repo(
     """
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
-    item_ref = _display_item_ref(conn, item_id)
+    public_ref = _display_item_ref(conn, item_id)
 
     if _bgs()._dry_run():
         print(
-            f"[DRY-RUN] Skipping GitHub: migrate-issue {item_ref} "
+            f"[DRY-RUN] Skipping GitHub: migrate-issue {public_ref} "
             f"#{old_issue_num} {source_repo} → {target_repo}",
             file=stdout,
         )
@@ -132,7 +132,7 @@ def migrate_issue_to_repo(
         return 1
 
     print(
-        f"[migrate] {item_ref}: migrating issue #{old_issue_num} "
+        f"[migrate] {public_ref}: migrating issue #{old_issue_num} "
         f"from {source_repo} to {target_repo}",
         file=stdout,
     )
@@ -245,14 +245,14 @@ def migrate_issue_to_repo(
         _close_if_owned(db_conn if owns_conn else None, owns_conn)
 
     print(
-        f"[migrate] Updated DB: {item_ref} github_issue = #{new_issue_num}",
+        f"[migrate] Updated DB: {public_ref} github_issue = #{new_issue_num}",
         file=stdout,
     )
 
     # 6. Close old issue with forwarding comment, then delete.
     forward_msg = (
         f"Migrated to {target_repo}#{new_issue_num} "
-        f"({item_ref} project changed to {target_project})."
+        f"({public_ref} project changed to {target_project})."
     )
     try:
         github_rest.post_comment(
@@ -312,7 +312,7 @@ def migrate_issue_to_repo(
         pass  # event emission is best-effort
 
     print(
-        f"[migrate] {item_ref}: migration complete "
+        f"[migrate] {public_ref}: migration complete "
         f"(#{old_issue_num} → #{new_issue_num})",
         file=stdout,
     )

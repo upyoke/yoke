@@ -30,16 +30,16 @@ def conn():
 def test_resolve_target_item(conn):
     insert_item_requirement(conn, req_id=1, item_id=42)
     row = fetch_row(conn, 1)
-    item_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
-    assert item_ref == "42"
+    public_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
+    assert public_ref == "42"
     assert task_num_ref is None
 
 
 def test_resolve_target_epic_task(conn):
     insert_epic_requirement(conn, req_id=2, epic_id=100, task_num=3)
     row = fetch_row(conn, 2)
-    item_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
-    assert item_ref == "100"
+    public_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
+    assert public_ref == "100"
     assert task_num_ref == 3
 
 
@@ -52,29 +52,29 @@ def test_resolve_target_epic_no_task_num(conn):
     )
     conn.commit()
     row = fetch_row(conn, 10)
-    item_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
-    assert item_ref == "200"
+    public_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
+    assert public_ref == "200"
     assert task_num_ref is None
 
 
 def test_resolve_target_deployment_run(conn):
     insert_deployment_requirement(conn, req_id=3, run_id="run-abc-001")
     row = fetch_row(conn, 3)
-    item_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
-    assert item_ref == "run-abc-001"
+    public_ref, task_num_ref = qa_events.resolve_requirement_event_target(row)
+    assert public_ref == "run-abc-001"
     assert task_num_ref is None
 
 
 def test_resolve_target_none_row():
-    item_ref, task_num_ref = qa_events.resolve_requirement_event_target(None)
-    assert item_ref is None
+    public_ref, task_num_ref = qa_events.resolve_requirement_event_target(None)
+    assert public_ref is None
     assert task_num_ref is None
 
 
 def test_resolve_target_dict_row():
     """Dict-like rows work the same as sqlite3.Row (column-name indexing)."""
-    item_ref, task_num_ref = qa_events.resolve_requirement_event_target(
+    public_ref, task_num_ref = qa_events.resolve_requirement_event_target(
         {"item_id": 7, "epic_id": None, "task_num": None, "deployment_run_id": None}
     )
-    assert item_ref == "7"
+    assert public_ref == "7"
     assert task_num_ref is None

@@ -293,7 +293,7 @@ class TestQaPlanRematerialize:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "qa.plan.rematerialize"
         assert req.target.kind == "item"
-        assert req.target.item_ref == "YOK-1927"
+        assert req.target.public_ref == "YOK-1927"
         assert req.payload == {"transition_id": "release"}
 
 

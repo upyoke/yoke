@@ -94,7 +94,7 @@ def _item_state(conn: Any, item_id: int) -> tuple[str, str]:
     )
 
 
-def _require_terminal(conn: Any, item_id: int, status: str, item_ref: str) -> None:
+def _require_terminal(conn: Any, item_id: int, status: str, public_ref: str) -> None:
     from yoke_core.domain.item_terminal_resources import terminal_stage_ids
     from yoke_core.domain.workflow_item_binding_validation import (
         load_item_workflow_runtime,
@@ -103,9 +103,9 @@ def _require_terminal(conn: Any, item_id: int, status: str, item_ref: str) -> No
     runtime = load_item_workflow_runtime(conn, int(item_id))
     if status not in terminal_stage_ids(runtime):
         raise MergedAtCorrectionError(
-            f"{item_ref} is at {status!r}, not a terminal stage. A live item "
+            f"{public_ref} is at {status!r}, not a terminal stage. A live item "
             "records its merge through the merge boundary "
-            f"(`yoke merge item {item_ref}`), which stamps merged_at itself; "
+            f"(`yoke merge item {public_ref}`), which stamps merged_at itself; "
             "this surface only repairs an item already frozen without it."
         )
 
@@ -140,19 +140,19 @@ def operator_correct_merged_at(
 
     resolved_merged_at = _parse_merged_at(merged_at, now=now)
     status, existing = _item_state(conn, item_id)
-    item_ref = render_item_ref(conn, int(item_id))
+    public_ref = render_item_ref(conn, int(item_id))
 
     if existing:
         raise MergedAtCorrectionError(
-            f"{item_ref} already records merged_at={existing}. Recorded merge "
+            f"{public_ref} already records merged_at={existing}. Recorded merge "
             "provenance is immutable; this surface only fills an unset value."
         )
 
-    _require_terminal(conn, int(item_id), status, item_ref)
+    _require_terminal(conn, int(item_id), status, public_ref)
 
     context = {
         "item_id": int(item_id),
-        "item_ref": item_ref,
+        "public_ref": public_ref,
         "status": status,
         "merged_at": resolved_merged_at,
         "operator_reason": operator_reason,
@@ -173,7 +173,7 @@ def operator_correct_merged_at(
     return {
         "corrected": True,
         "item_id": int(item_id),
-        "item_ref": item_ref,
+        "public_ref": public_ref,
         "status": status,
         "merged_at": resolved_merged_at,
         "operator_reason": operator_reason,

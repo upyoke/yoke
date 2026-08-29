@@ -41,7 +41,7 @@ class OperatorCorrectMergedAtRequest(BaseModel):
 class OperatorCorrectMergedAtResponse(BaseModel):
     corrected: bool
     item_id: int
-    item_ref: str
+    public_ref: str
     status: str
     merged_at: str
     operator_reason: str

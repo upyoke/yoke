@@ -33,7 +33,7 @@ def test_name_comes_from_item_identity_and_title_columns():
     assert (
         assignment_session_name(
             conn,
-            item_ref="YOK-2580",
+            public_ref="YOK-2580",
             project_id=1,
         )
         == "YOK-2580: Record session presentation"
@@ -43,5 +43,5 @@ def test_name_comes_from_item_identity_and_title_columns():
 def test_cross_project_assignment_is_refused():
     conn = _connection()
     with pytest.raises(SessionLaunchError) as raised:
-        assignment_session_name(conn, item_ref="YOK-2580", project_id=2)
+        assignment_session_name(conn, public_ref="YOK-2580", project_id=2)
     assert raised.value.code == "assignment_project_mismatch"

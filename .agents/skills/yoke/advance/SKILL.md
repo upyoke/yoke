@@ -121,7 +121,7 @@ event, rebuilds the board after the final hop, and handles the claim lifecycle
 ### 1. Parse and Lookup
 
 Keep the operator's token as the public item ref. Do not treat the numeric
-tail of `PREFIX-N` as `items.id`. Function-call targets carry `item_ref` so
+tail of `PREFIX-N` as `items.id`. Function-call targets carry `public_ref` so
 the dispatcher resolves the internal id (see [`workflow-context.md`](workflow-context.md)).
 
 Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
@@ -179,9 +179,9 @@ For re-entry claim-holding targets (`reviewing-implementation`, `polishing-imple
 {
   "function": "claims.work.acquire",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_ref": "PREFIX-N"},
+  "target": {"kind": "item", "public_ref": "PREFIX-N"},
   "intent": "advance_run",
-  "payload": {"target": {"kind": "item", "item_ref": "PREFIX-N"}, "reason": "advance_run"}
+  "payload": {"target": {"kind": "item", "public_ref": "PREFIX-N"}, "reason": "advance_run"}
 }
 ```
 

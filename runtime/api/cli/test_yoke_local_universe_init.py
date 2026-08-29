@@ -361,8 +361,8 @@ def test_local_demo_seed_uses_non_prod_local_connection(
         return {
             "ok": True,
             "items": [
-                {"item_ref": "LOC-1", "title": "One"},
-                {"item_ref": "LOC-2", "title": "Two"},
+                {"public_ref": "LOC-1", "title": "One"},
+                {"public_ref": "LOC-2", "title": "Two"},
             ],
             "next_step": "run board",
         }
@@ -382,7 +382,7 @@ def test_local_demo_seed_uses_non_prod_local_connection(
         == 0
     )
     report = json.loads(capsys.readouterr().out)
-    assert [item["item_ref"] for item in report["items"]] == ["LOC-1", "LOC-2"]
+    assert [item["public_ref"] for item in report["items"]] == ["LOC-1", "LOC-2"]
 
 
 def test_local_demo_seed_refuses_prod_local_connection(

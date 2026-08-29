@@ -7,7 +7,7 @@ from typing import Any
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.machine_qa_capability import host_claim_target

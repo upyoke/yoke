@@ -141,7 +141,7 @@ def _request() -> FunctionCallRequest:
     return FunctionCallRequest(
         function="lifecycle.transition.execute",
         actor=ActorContext(actor_id="op", session_id=SESSION_ID),
-        target=TargetRef(kind="item", item_id=ITEM_ID, item_ref="YOK-4242"),
+        target=TargetRef(kind="item", item_id=ITEM_ID, public_ref="YOK-4242"),
         payload={
             "source_status": "idea",
             "target_status": "refining-idea",
@@ -154,7 +154,7 @@ def _scalar_request() -> FunctionCallRequest:
     return FunctionCallRequest(
         function="items.scalar.update",
         actor=ActorContext(actor_id="op", session_id=SESSION_ID),
-        target=TargetRef(kind="item", item_id=ITEM_ID, item_ref="YOK-4242"),
+        target=TargetRef(kind="item", item_id=ITEM_ID, public_ref="YOK-4242"),
         payload={"field": "status", "value": "refining-idea"},
     )
 

@@ -25,7 +25,7 @@ def retired_parent_epic_symbol() -> str:
 
 def db_router_items_command(
     verb: str,
-    item_ref: str,
+    public_ref: str,
     field: str,
     value: str = "",
 ) -> str:
@@ -34,7 +34,7 @@ def db_router_items_command(
         "python3 -m yoke_core.cli.db_router",
         "items",
         verb,
-        item_ref,
+        public_ref,
         field,
     ]
     if value:

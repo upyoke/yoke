@@ -189,7 +189,7 @@ session is not sent into yoke work or told only about platform blockers.
    "project": "yoke",
    "project_id": 1,
    "count": 2,
-   "item_refs": ["YOK-N", "YOK-M"],
+   "public_refs": ["YOK-N", "YOK-M"],
    "checkout_path": "/Users/bee/yoke"
   }
  ],

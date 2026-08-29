@@ -53,11 +53,11 @@ def _sync_task_children(
     if not enabled:
         return 0
     try:
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
     except Exception:
-        item_ref = f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
+        public_ref = f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
     return epic_task_sync.sync_epic_tasks(
-        item_ref,
+        public_ref,
         conn=conn,
         stdout=stdout,
         stderr=stderr,

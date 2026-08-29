@@ -233,7 +233,7 @@ def test_project_default_and_item_attachment_use_distinct_targets() -> None:
     assert result == 0
     assert item_request.function == "qa.item_plan.attach"
     assert item_request.target.kind == "item"
-    assert item_request.target.item_ref == TEST_ITEM_REF
+    assert item_request.target.public_ref == TEST_ITEM_REF
     assert item_request.payload["plan_id"] == 17
 
 

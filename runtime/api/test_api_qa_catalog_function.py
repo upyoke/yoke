@@ -103,7 +103,7 @@ def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
             "transition_id": "reviewing-implementation",
             "item_id": 2001,
             "transition_label": "reviewing implementation",
-            "item_ref": "YOK-2001",
+            "public_ref": "YOK-2001",
         },
     ]
     assert [case["case_key"] for case in detail["cases"]] == [
@@ -280,7 +280,7 @@ def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> Non
         "machines_total": 1,
         "machines_in_use": 1,
         "wait_reason": "all_machine_leases_in_use",
-        "active_lease": {"item_ref": "YOK-2101"},
+        "active_lease": {"public_ref": "YOK-2101"},
     }
     machine_methods = [
         row for row in methods if "test-machine" in row["required_capability_kinds"]

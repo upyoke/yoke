@@ -39,7 +39,7 @@ def message(holder_dispatch, *, resume=RESUME, last_observed=""):
         pr_num="42",
         deadline_seconds=2700.0,
         item_id=1,
-        item_ref="YOK-200",
+        public_ref="YOK-200",
         resume_command=resume,
         dispatch=holder_dispatch,
         last_observed=last_observed,

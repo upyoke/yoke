@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from yoke_contracts.item_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
+from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
 
 from yoke_core.domain.db_backend import connection_is_postgres
 

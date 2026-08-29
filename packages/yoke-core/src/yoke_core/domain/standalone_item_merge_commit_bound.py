@@ -94,7 +94,7 @@ def recover_issues(
 def recover_and_recheck(
     item: dict[str, Any],
     *,
-    item_ref: str,
+    public_ref: str,
     repo_root: Path,
     branch: str,
     qa_error: str,
@@ -103,7 +103,7 @@ def recover_and_recheck(
 ) -> tuple[str, str]:
     """Recover a commit-bound preflight refusal, then re-run preflight."""
     commit_sha, issues, eval_error = evaluate(
-        item, item_ref=item_ref, repo_root=repo_root, branch=branch,
+        item, public_ref=public_ref, repo_root=repo_root, branch=branch,
     )
     if eval_error or not is_commit_bound_refusal(issues):
         return commit_sha, qa_error
@@ -113,7 +113,7 @@ def recover_and_recheck(
     if recover_error:
         return commit_sha, f"{qa_error}\n{recover_error}"
     return preflight(
-        item, item_ref=item_ref, repo_root=repo_root, branch=branch,
+        item, public_ref=public_ref, repo_root=repo_root, branch=branch,
     )
 
 

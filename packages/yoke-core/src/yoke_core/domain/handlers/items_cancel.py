@@ -48,7 +48,7 @@ class CancelResponse(BaseModel):
     """Post-close item state plus whether this call changed anything."""
 
     item_id: int
-    item_ref: str
+    public_ref: str
     status: str
     reason: str
     ref: Optional[str] = None
@@ -86,7 +86,7 @@ def _load_state(item_id: int) -> Optional[Dict[str, Any]]:
         if row is None:
             return None
         return {
-            "item_ref": render_item_ref(conn, int(item_id)),
+            "public_ref": render_item_ref(conn, int(item_id)),
             "status": str(_cell(row, 0, "status") or ""),
             "frozen": bool(_cell(row, 1, "frozen")),
             "resolution": _cell(row, 2, "resolution"),
@@ -123,7 +123,7 @@ def handle_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     state = _load_state(item_id)
     if state is None:
         return _error("not_found", f"item {item_id} not found")
-    item_ref = str(state["item_ref"])
+    public_ref = str(state["public_ref"])
     from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
 
     reason, reason_error = normalize_cancellation_reason(payload.reason)
@@ -133,14 +133,14 @@ def handle_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         acquired = _acquire_for_caller(
             item_id,
-            item_ref,
+            public_ref,
             str(request.actor.session_id or ""),
             reason="item cancel",
         )
     except _ClaimRefused as refused:
         return _error(
             "claim_held",
-            f"{refused.item_ref} is claimed by session {refused.holder}; "
+            f"{refused.public_ref} is claimed by session {refused.holder}; "
             "coordinate with the holder before cancelling it.",
         )
     try:
@@ -161,7 +161,7 @@ def handle_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     changed = not bool(result.get("noop"))
     response = CancelResponse(
         item_id=item_id,
-        item_ref=str(final["item_ref"]),
+        public_ref=str(final["public_ref"]),
         status=str(final["status"]),
         reason=str(final.get("resolution") or reason),
         ref=final.get("resolution_ref") or payload.ref,

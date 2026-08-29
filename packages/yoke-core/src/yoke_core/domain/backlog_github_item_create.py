@@ -80,7 +80,7 @@ def sync_item(
         except ValueError:
             print(f"Error: Item {item_id} not found in database", file=stderr)
             return 1
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
 
         # Read all needed fields upfront
         fields = _item_fields(
@@ -98,7 +98,7 @@ def sync_item(
             conn=conn,
         )
         if fields is None or not fields.get("id"):
-            print(f"Error: Item {item_ref} not found in database", file=stderr)
+            print(f"Error: Item {public_ref} not found in database", file=stderr)
             return 1
 
         workflow_id = fields["workflow_id"]
@@ -112,7 +112,7 @@ def sync_item(
         # also short-circuits cleanly on auth failure.
         context = _item_context(item_pk, conn=conn)
         if context is None:
-            print(f"Error: Item {item_ref} not found", file=stderr)
+            print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         _, project, repo = context
         gh_project = project or "yoke"
@@ -131,7 +131,7 @@ def sync_item(
             resolve_project_github_auth(gh_project, conn=conn)
         except ProjectGithubAuthError as exc:
             print(
-                f"Error: sync_item short-circuit for {item_ref}: "
+                f"Error: sync_item short-circuit for {public_ref}: "
                 f"{type(exc).__name__}: {exc}",
                 file=stderr,
             )
@@ -140,7 +140,7 @@ def sync_item(
         if gh_issue and gh_issue != "null":
             # Already synced — update labels and body
             print(
-                f"{item_ref} already synced to GitHub issue {gh_issue} — syncing labels and body",
+                f"{public_ref} already synced to GitHub issue {gh_issue} — syncing labels and body",
                 file=stdout,
             )
             _bgs().sync_labels(item_pk, conn=conn, stdout=stdout, stderr=stderr)
@@ -154,7 +154,7 @@ def sync_item(
             )
 
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: sync-item for {item_ref}", file=stdout)
+            print(f"[DRY-RUN] Skipping GitHub: sync-item for {public_ref}", file=stdout)
             return 0
         if not _bgs()._github_auth_available(gh_project):
             print(
@@ -166,7 +166,7 @@ def sync_item(
         # Dedup: search for existing issue with exact public-ref title prefix.
         # GitHub's title search is fuzzy on bracketed/numeric tokens, so the
         # shared helper post-filters by exact-prefix match before reuse.
-        search_prefix = f"[{item_ref}]"
+        search_prefix = f"[{public_ref}]"
         found = search_existing_issue(
             search_prefix,
             project=gh_project,
@@ -175,7 +175,7 @@ def sync_item(
         if found:
             reuse_num, _ = found
             print(
-                f"Found existing GitHub issue #{reuse_num} for {item_ref} — reusing",
+                f"Found existing GitHub issue #{reuse_num} for {public_ref} — reusing",
                 file=stdout,
             )
             p = _p(conn)
@@ -186,7 +186,7 @@ def sync_item(
             conn.commit()
             _bgs()._regenerate_md(item_pk)
             print(
-                f"Synced: {item_ref} → GitHub issue #{reuse_num} (reused)", file=stdout
+                f"Synced: {public_ref} → GitHub issue #{reuse_num} (reused)", file=stdout
             )
             return _bgs()._sync_task_children(
                 item_pk,
@@ -263,7 +263,7 @@ def sync_item(
             "status": status,
             "workflow_id": workflow_id,
             "project": gh_project,
-            "identity": item_ref,
+            "identity": public_ref,
         }
         selected_body, body_mode = _budget.select_body_for_github(
             body,
@@ -272,18 +272,18 @@ def sync_item(
             item_id=int(item_pk),
         )
 
-        print(f"Creating GitHub issue for {item_ref}: {title}", file=stdout)
+        print(f"Creating GitHub issue for {public_ref}: {title}", file=stdout)
         try:
             created = github_rest.create_issue(
                 project=gh_project,
-                title=f"[{item_ref}] {title}",
+                title=f"[{public_ref}] {title}",
                 body=selected_body,
                 labels=create_labels,
             )
         except ProjectGithubAuthError as exc:
             print(
                 f"Error: sync_item create transport short-circuit for "
-                f"{item_ref}: {type(exc).__name__}: {exc}",
+                f"{public_ref}: {type(exc).__name__}: {exc}",
                 file=stderr,
             )
             return 1
@@ -325,7 +325,7 @@ def sync_item(
         _regenerate_md(item_pk)
 
         print(issue_url, file=stdout)
-        print(f"Synced: {item_ref} → GitHub issue #{issue_num}", file=stdout)
+        print(f"Synced: {public_ref} → GitHub issue #{issue_num}", file=stdout)
         return _bgs()._sync_task_children(
             item_pk,
             enabled=sync_task_children,

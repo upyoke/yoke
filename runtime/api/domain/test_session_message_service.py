@@ -51,7 +51,7 @@ def test_send_stores_body_hash_selector_and_immutable_recipient_snapshot() -> No
     conn = message_connection()
     result = _send(
         conn,
-        target=selector(session_ids=["s1"], item_refs=["ALP-1"]),
+        target=selector(session_ids=["s1"], public_refs=["ALP-1"]),
         body="Inspect the failing test.",
     )
 
@@ -80,7 +80,7 @@ def test_send_stores_body_hash_selector_and_immutable_recipient_snapshot() -> No
 
 def test_sender_idempotency_deduplicates_without_retargeting_claim_changes() -> None:
     conn = message_connection()
-    target = selector(item_refs=["ALP-1"])
+    target = selector(public_refs=["ALP-1"])
     first = _send(conn, target=target, key="same-intent")
     conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (str(NOW),))
     claim_target = make_item_target(101)
@@ -169,7 +169,7 @@ def test_universe_send_requires_exact_current_preview() -> None:
 
 def test_confirmed_send_refuses_recipient_drift_after_preview() -> None:
     conn = message_connection()
-    target = selector(item_refs=["ALP-1"])
+    target = selector(public_refs=["ALP-1"])
     preview = preview_message(conn, actor_id=10, selector=target, now=NOW)
     assert [row["session_id"] for row in preview["recipients"]] == ["s1"]
     conn.execute("UPDATE work_claims SET released_at=? WHERE id=1", (str(NOW),))

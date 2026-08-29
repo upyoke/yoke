@@ -100,7 +100,7 @@ def _parse_item_id(raw: str) -> str | None:
     item reference. Resolution to an internal id happens against the DB in
     :func:`_resolve_item_ref`.
     """
-    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_contracts.public_ref import parse_public_item_ref
 
     raw = raw.strip()
     if not raw:

@@ -99,16 +99,16 @@ def _resolve_item_to_claim_id(conn, item_arg: str) -> tuple[Optional[int], Optio
         "AND state IN ('planned', 'blocked', 'active') ORDER BY id ASC",
         (item_id,),
     ).fetchall()
-    item_ref = render_item_ref(conn, item_id)
+    public_ref = render_item_ref(conn, item_id)
     if not rows:
         return None, (
-            f"--item {item_ref}: no non-terminal exclusive claim "
+            f"--item {public_ref}: no non-terminal exclusive claim "
             "(planned/blocked/active). Pass the positional claim id."
         )
     if len(rows) > 1:
         ids = ", ".join(str(r[0]) for r in rows)
         return None, (
-            f"--item {item_ref}: {len(rows)} non-terminal exclusive "
+            f"--item {public_ref}: {len(rows)} non-terminal exclusive "
             f"claims match ({ids}). Pass the positional claim id."
         )
     return int(rows[0][0]), None

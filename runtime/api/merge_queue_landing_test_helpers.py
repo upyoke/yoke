@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from yoke_contracts.item_ref import parse_public_item_ref
+from yoke_contracts.public_ref import parse_public_item_ref
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
@@ -67,13 +67,13 @@ def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION):
             return ok_response({"holder": holder})
         if function_id == DB_READ_FUNCTION_ID:
             rows = []
-            for item_ref, shape in shapes.items():
-                prefix, sequence = parse_public_item_ref(item_ref)
+            for public_ref, shape in shapes.items():
+                prefix, sequence = parse_public_item_ref(public_ref)
                 if prefix is None or sequence is None:
                     continue
                 rows.append(
                     [
-                        shape.get("branch", item_ref),
+                        shape.get("branch", public_ref),
                         shape.get("item_id", sequence),
                         shape.get("project", "yoke"),
                         prefix,
@@ -96,7 +96,7 @@ def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION):
                     "statement_timeout_ms": 5000,
                 }
             )
-        ref = target.item_ref
+        ref = target.public_ref
         shape = shapes.get(ref) or {}
         if function_id == "claims.path.list":
             return ok_response({"claims": shape.get("claims", [])})
@@ -194,7 +194,7 @@ def land(**overrides):
     """Run one landing with the defaults every test starts from."""
     kwargs = {
         "item_id": 1,
-        "item_ref": "YOK-200",
+        "public_ref": "YOK-200",
         "commit_sha": LANE_SHA,
         "dispatch": dispatch_for({"YOK-200": {}}),
         "sleep": lambda _s: None,

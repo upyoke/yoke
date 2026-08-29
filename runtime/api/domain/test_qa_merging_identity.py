@@ -77,7 +77,7 @@ def test_passing_pr_entry_run_is_stale_against_lane_and_merge_only():
             }
         ],
         accepted_shas=(LANE, MERGE),
-        item_ref="ITEM-1",
+        public_ref="ITEM-1",
         require_any=True,
     )
 
@@ -99,7 +99,7 @@ def test_passing_pr_entry_run_is_covered_when_identity_includes_it():
             }
         ],
         accepted_shas=(LANE, PR_ENTRY, MERGE),
-        item_ref="ITEM-1",
+        public_ref="ITEM-1",
         require_any=True,
     )
 

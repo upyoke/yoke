@@ -18,7 +18,7 @@ def _claim_dict(
     state: str = "active",
     covered_paths: tuple = ("runtime/api/domain",),
     worktree_path: str = "/tmp/yoke-worktrees/YOK-1577",
-    item_ref: str | None = None,
+    public_ref: str | None = None,
 ) -> Dict:
     claim = {
         "id": claim_id,
@@ -29,8 +29,8 @@ def _claim_dict(
         "covered_paths": covered_paths,
         "worktree_path": worktree_path,
     }
-    if item_ref is not None:
-        claim["item_ref"] = item_ref
+    if public_ref is not None:
+        claim["public_ref"] = public_ref
     return claim
 
 
@@ -66,7 +66,7 @@ class TestOutOfClaim:
         worktree.mkdir()
         claim = _claim_dict(
             worktree_path=str(worktree),
-            item_ref="BUZ-7",
+            public_ref="BUZ-7",
         )
         verdict = evaluate_payload(
             _payload(command="rm docs/oof.md", cwd=str(worktree)),

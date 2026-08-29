@@ -89,7 +89,7 @@ def ordered_plan_requirements(
 
 def execute_plan(
     *,
-    item_ref: Optional[str] = None,
+    public_ref: Optional[str] = None,
     transition_id: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
     plan: Optional[str] = None,
@@ -104,7 +104,7 @@ def execute_plan(
 ) -> dict[str, Any]:
     """Resume and execute one server-authorized immutable ordered roster."""
     target, begin_payload = build_plan_execution_target(
-        item_ref=item_ref,
+        public_ref=public_ref,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
         plan=plan,

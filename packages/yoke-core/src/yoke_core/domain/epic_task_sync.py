@@ -124,7 +124,7 @@ def _epic_ref_name(
     conn: Any,
     stderr: TextIO,
 ) -> Optional[str]:
-    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_contracts.public_ref import parse_public_item_ref
     from yoke_core.domain.yok_n_parser import parse_item_argument
 
     _, sequence = parse_public_item_ref(epic_ref)
@@ -193,14 +193,14 @@ def _backfill_title_has_task_num(current_title: str, task_num: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def _validate_issue_in_repo(
-    item_ref: str,
+    public_ref: str,
     issue_num: str,
     *,
     project: str,
     stderr,
 ) -> bool:
     from yoke_core.domain.epic_task_sync_github import _validate_issue_in_repo as _impl
-    return _impl(item_ref, issue_num, project=project, stderr=stderr)
+    return _impl(public_ref, issue_num, project=project, stderr=stderr)
 
 
 def backfill_task_titles(epic_ref: str, **kwargs) -> int:

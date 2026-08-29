@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.merge_queue_status import render_merge_queue_status
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths

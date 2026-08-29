@@ -118,7 +118,7 @@ class TestDeploymentItemStamp:
         request = FunctionCallRequest(
             function="deployment_item_stamp.record",
             actor=ActorContext(actor_id=None, session_id="s-deploy-stamp"),
-            target=TargetRef(kind="item", item_ref="EXT-12"),
+            target=TargetRef(kind="item", public_ref="EXT-12"),
             payload={"field": "deploy_stage", "value": "complete"},
         )
         outcome = stamp.handle_deployment_item_stamp(request)

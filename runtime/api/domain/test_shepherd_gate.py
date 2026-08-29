@@ -43,7 +43,7 @@ def _open(path: str):
 
 def _insert_verdict(
     conn: Any,
-    item_ref: str,
+    public_ref: str,
     transition: str,
     verdict: str,
     worker: str = "architect",
@@ -53,7 +53,7 @@ def _insert_verdict(
     conn.execute(
         "INSERT INTO shepherd_verdicts (item, transition, worker, verdict, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (item_ref, transition, worker, verdict, created_at),
+        (public_ref, transition, worker, verdict, created_at),
     )
     conn.commit()
 

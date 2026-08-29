@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.json_helper import loads_text
@@ -92,13 +92,13 @@ def _dispatch_read(
     dispatch: Callable[..., Any],
     *,
     function_id: str,
-    item_ref: str,
+    public_ref: str,
     payload: dict[str, Any],
 ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     response = call_with_machine_lock_retry(
         lambda: dispatch(
             function_id=function_id,
-            target=TargetRef(kind="item", item_ref=item_ref),
+            target=TargetRef(kind="item", public_ref=public_ref),
             payload=payload,
         )
     )
@@ -107,17 +107,17 @@ def _dispatch_read(
         return (result if isinstance(result, dict) else {}), None
     error = getattr(response, "error", None)
     message = getattr(error, "message", None) or f"{function_id} failed"
-    return None, f"{function_id}({item_ref}): {message}"
+    return None, f"{function_id}({public_ref}): {message}"
 
 
 def candidate_shape(
-    dispatch: Callable[..., Any], item_ref: str
+    dispatch: Callable[..., Any], public_ref: str
 ) -> tuple[Optional[TrainCandidate], Optional[str]]:
     """Resolve one item's admission shape through registered reads."""
     claims_result, claims_err = _dispatch_read(
         dispatch,
         function_id="claims.path.list",
-        item_ref=item_ref,
+        public_ref=public_ref,
         payload={},
     )
     if claims_err:
@@ -136,7 +136,7 @@ def candidate_shape(
     profile_result, profile_err = _dispatch_read(
         dispatch,
         function_id="items.get.run",
-        item_ref=item_ref,
+        public_ref=public_ref,
         payload={"fields": ["db_mutation_profile"]},
     )
     if profile_err:
@@ -155,7 +155,7 @@ def candidate_shape(
             carrier = str(parsed.get("state") or "none") != "none"
     return (
         TrainCandidate(
-            item_ref=item_ref,
+            public_ref=public_ref,
             claimed_target_ids=frozenset(target_ids),
             migration_carrier=carrier,
         ),
@@ -194,7 +194,7 @@ def train_context(
     deps_result, deps_err = _dispatch_read(
         dispatch,
         function_id="shepherd.dependency_list.run",
-        item_ref=candidate_ref,
+        public_ref=candidate_ref,
         payload={},
     )
     if deps_err:

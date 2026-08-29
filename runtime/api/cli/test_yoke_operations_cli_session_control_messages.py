@@ -56,7 +56,7 @@ def test_say_preview_dispatches_semantic_selector(monkeypatch) -> None:
     assert captured["target"].kind == "global"
     assert captured["payload"] == {
         "selector": {
-            "item_refs": [TEST_ITEM_REF],
+            "public_refs": [TEST_ITEM_REF],
             "projects": ["platform"],
             "executor_surfaces": ["codex-desktop"],
             "liveness": ["active"],

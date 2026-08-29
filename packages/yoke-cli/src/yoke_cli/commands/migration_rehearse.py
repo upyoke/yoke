@@ -44,7 +44,7 @@ def migration_rehearse(args: List[str]) -> int:
         epilog=PREFLIGHT_HELP,
     )
     parser.add_argument(
-        "item_ref", help="Public item reference, for example YOK-123"
+        "public_ref", help="Public item reference, for example YOK-123"
     )
     parsed = parse_or_usage_error(parser, args, MIGRATION_REHEARSE_USAGE)
     if parsed is None:
@@ -66,7 +66,7 @@ def migration_rehearse(args: List[str]) -> int:
             )
             return 1
         module = importlib.import_module("yoke_core.domain.migration_apply")
-        return int(module.main(["rehearse", parsed.item_ref]))
+        return int(module.main(["rehearse", parsed.public_ref]))
     except Exception as exc:  # noqa: BLE001 - redact authority details
         print(
             "yoke migration rehearse failed "

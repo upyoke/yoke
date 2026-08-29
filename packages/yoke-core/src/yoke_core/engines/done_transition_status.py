@@ -63,19 +63,19 @@ def _populate_merged_at(item_id: int) -> None:
 
 
 def _update_status_to_done(
-    item_id: int, skip_qa: bool, max_retries: int = 3, *, item_ref: str
+    item_id: int, skip_qa: bool, max_retries: int = 3, *, public_ref: str
 ) -> bool:
     """Update item status to done with retry logic.
 
     This engine owns the done transition, so it asserts
     ``done_nonce_verified=True`` directly to :func:`backlog.execute_update`.
-    ``item_ref`` is the caller's already-resolved public ref, used for the
+    ``public_ref`` is the caller's already-resolved public ref, used for the
     claim-bypass audit source without opening a local connection.
 
     Returns True on success.
     """
     env_overrides = {
-        "YOKE_CLAIM_BYPASS": f"done-transition:{item_ref}",
+        "YOKE_CLAIM_BYPASS": f"done-transition:{public_ref}",
         "YOKE_STATUS_SOURCE": "done-transition",
         "YOKE_QA_GATE_BYPASS": "1" if skip_qa else "0",
     }
@@ -89,7 +89,7 @@ def _update_status_to_done(
             qa_bypass=skip_qa,
             rebuild_board=False,
             no_github=True,
-            item_ref=item_ref,
+            public_ref=public_ref,
         )
         if exit_code == 0:
             return True
@@ -114,11 +114,11 @@ def _update_status_to_done(
     return False
 
 
-def _cascade_epic_tasks_to_done(item_id: int, *, item_ref: str) -> None:
+def _cascade_epic_tasks_to_done(item_id: int, *, public_ref: str) -> None:
     """Cascade done status to all non-done epic tasks.
 
     ``item_id`` is the internal ``items.id``, which is also the ``epic_id``
-    the task reads and writes key on. ``item_ref`` is the caller's
+    the task reads and writes key on. ``public_ref`` is the caller's
     already-resolved public ref, used for the cascade audit sources and
     narratives without opening a local connection.
     """
@@ -157,14 +157,14 @@ def _cascade_epic_tasks_to_done(item_id: int, *, item_ref: str) -> None:
 
         env_overrides = {
             "YOKE_TASK_DONE_VERIFIED": "1",
-            "YOKE_CLAIM_BYPASS": f"done-cascade:{item_ref}",
+            "YOKE_CLAIM_BYPASS": f"done-cascade:{public_ref}",
         }
         if task_status == "reviewed-implementation":
             _parent()._update_task_status_direct(
                 item_id,
                 task_num,
                 "done",
-                f"Auto-promoted: task in done epic {item_ref}",
+                f"Auto-promoted: task in done epic {public_ref}",
                 env_overrides=env_overrides,
             )
             print(f"  Promoted: task {task_num} (reviewed-implementation -> done)")
@@ -174,7 +174,7 @@ def _cascade_epic_tasks_to_done(item_id: int, *, item_ref: str) -> None:
                 item_id,
                 task_num,
                 "done",
-                f"Auto-done: epic {item_ref} marked done",
+                f"Auto-done: epic {public_ref} marked done",
                 env_overrides=env_overrides,
             )
             print(f"  Cascaded: task {task_num} ({task_status} -> done)")
@@ -186,15 +186,15 @@ def _cascade_epic_tasks_to_done(item_id: int, *, item_ref: str) -> None:
 
     # Batch GitHub sync
     if task_nums:
-        _batch_github_sync_tasks(item_id, task_nums, item_ref=item_ref)
+        _batch_github_sync_tasks(item_id, task_nums, public_ref=public_ref)
 
 
 def _batch_github_sync_tasks(
-    item_id: int, task_nums: list[str], *, item_ref: str
+    item_id: int, task_nums: list[str], *, public_ref: str
 ) -> None:
     """Post batch GitHub summary for cascaded tasks via bearer-token REST.
 
-    ``item_ref`` is the caller's already-resolved public ref, used for the
+    ``public_ref`` is the caller's already-resolved public ref, used for the
     summary comment without opening a local connection on this path.
     """
     item_project = _parent()._query_item_field(item_id, "project") or "yoke"
@@ -278,7 +278,7 @@ def _batch_github_sync_tasks(
         except RestTransportError:
             pass
         # Post comment
-        body_text = f"**Status:** -> done (epic {item_ref} cascade)"
+        body_text = f"**Status:** -> done (epic {public_ref} cascade)"
         try:
             request_with_retry(
                 RestRequest(

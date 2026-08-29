@@ -132,7 +132,7 @@ def _populated_report():
     quiet = ClaimHolder(
         session_id="holder-session",
         item_id=3,
-        item_ref="YOK-3",
+        public_ref="YOK-3",
         mode="dash",
         parked=False,
         last_activity_at=LONG_AGO,
@@ -146,7 +146,7 @@ def _populated_report():
         available=(
             FrontierEntry(
                 item_id=1,
-                item_ref="YOK-1",
+                public_ref="YOK-1",
                 title="Long-unpicked work",
                 next_step="advance",
                 rank=1,
@@ -155,7 +155,7 @@ def _populated_report():
             ),
             FrontierEntry(
                 item_id=2,
-                item_ref="YOK-2",
+                public_ref="YOK-2",
                 title="Just released work",
                 next_step="advance",
                 rank=2,
@@ -183,7 +183,7 @@ def _populated_report():
         landed_open=(
             LandedItem(
                 item_id=4,
-                item_ref="YOK-4",
+                public_ref="YOK-4",
                 status="reviewing-implementation",
                 landed_at=LONG_AGO,
                 landed_seconds=3 * 3600,
@@ -193,7 +193,7 @@ def _populated_report():
             DeadWait(
                 session_id="holder-session",
                 item_id=3,
-                item_ref="YOK-3",
+                public_ref="YOK-3",
                 asked_seconds=7800,
                 answerer_session_id="gone-session",
                 reason="answerer session has ended",

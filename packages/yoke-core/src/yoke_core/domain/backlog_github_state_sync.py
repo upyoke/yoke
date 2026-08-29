@@ -42,11 +42,11 @@ from yoke_core.domain.project_github_auth import (
 
 
 def _emit_auth_warning(
-    item_ref: str, op_name: str, exc: ProjectGithubAuthError, *, stderr: TextIO,
+    public_ref: str, op_name: str, exc: ProjectGithubAuthError, *, stderr: TextIO,
 ) -> None:
     """Surface typed auth diagnostic without silent swallow."""
     print(
-        f"Warning: {op_name} skipped for {item_ref} — "
+        f"Warning: {op_name} skipped for {public_ref} — "
         f"sync_warning={exc.__class__.__name__}: {exc}", file=stderr,
     )
     print(f"  Repair: {repair_command_hint(exc, exc.project)}", file=stderr)
@@ -78,19 +78,19 @@ def close_issue(
         except ValueError:
             print(f"Error: Item {item_id} not found", file=stderr)
             return 1
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: close-issue for {item_ref}", file=stdout)
+            print(f"[DRY-RUN] Skipping GitHub: close-issue for {public_ref}", file=stdout)
             return 0
 
         context = _item_context(item_pk, conn=conn)
         if context is None:
-            print(f"Error: Item {item_ref} not found", file=stderr)
+            print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         github_issue, project, repo = context
         issue_num_str = github_issue.lstrip("#")
         if not issue_num_str or issue_num_str == "null":
-            print(f"{item_ref} not synced to GitHub, skipping close", file=stdout)
+            print(f"{public_ref} not synced to GitHub, skipping close", file=stdout)
             return 0
         issue_num = int(issue_num_str)
 
@@ -106,10 +106,10 @@ def close_issue(
         colors = _label_colors()
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), project=gh_project, stderr=stderr,
+            public_ref, str(issue_num), project=gh_project, stderr=stderr,
         ):
             print(
-                f"Warning: close_issue skipped for {item_ref} — "
+                f"Warning: close_issue skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
@@ -135,7 +135,7 @@ def close_issue(
         # Check if already closed
         state = _get_issue_state(str(issue_num), repo, gh_project)
         if state == "CLOSED":
-            print(f"Closed: {item_ref} -> {github_issue} (already closed)", file=stdout)
+            print(f"Closed: {public_ref} -> {github_issue} (already closed)", file=stdout)
             return 0
 
         # Close (with status-change comment)
@@ -148,10 +148,10 @@ def close_issue(
             print(f"Error: Failed to close {github_issue}: {exc}", file=stderr)
             return 1
 
-        print(f"Closed: {item_ref} -> {github_issue}", file=stdout)
+        print(f"Closed: {public_ref} -> {github_issue}", file=stdout)
         return 0
     except ProjectGithubAuthError as exc:
-        _emit_auth_warning(locals().get("item_ref", str(item_id)), "close_issue", exc, stderr=stderr)
+        _emit_auth_warning(locals().get("public_ref", str(item_id)), "close_issue", exc, stderr=stderr)
         return 1
     finally:
         _close_if_owned(conn, owns_conn)
@@ -180,19 +180,19 @@ def reopen_issue(
         except ValueError:
             print(f"Error: Item {item_id} not found", file=stderr)
             return 1
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: reopen-issue for {item_ref}", file=stdout)
+            print(f"[DRY-RUN] Skipping GitHub: reopen-issue for {public_ref}", file=stdout)
             return 0
 
         context = _item_context(item_pk, conn=conn)
         if context is None:
-            print(f"Error: Item {item_ref} not found", file=stderr)
+            print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         github_issue, project, repo = context
         issue_num_str = github_issue.lstrip("#")
         if not issue_num_str or issue_num_str == "null":
-            print(f"{item_ref} not synced to GitHub, skipping reopen", file=stdout)
+            print(f"{public_ref} not synced to GitHub, skipping reopen", file=stdout)
             return 0
         issue_num = int(issue_num_str)
 
@@ -207,10 +207,10 @@ def reopen_issue(
             return 1
 
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), project=gh_project, stderr=stderr,
+            public_ref, str(issue_num), project=gh_project, stderr=stderr,
         ):
             print(
-                f"Warning: reopen_issue skipped for {item_ref} — "
+                f"Warning: reopen_issue skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
@@ -219,7 +219,7 @@ def reopen_issue(
         # Check if already open
         state = _get_issue_state(str(issue_num), repo, gh_project)
         if state == "OPEN":
-            print(f"Already open: {item_ref} → {github_issue}", file=stdout)
+            print(f"Already open: {public_ref} → {github_issue}", file=stdout)
             return 0
 
         try:
@@ -230,10 +230,10 @@ def reopen_issue(
             print(f"Error: Failed to reopen {github_issue}: {exc}", file=stderr)
             return 1
 
-        print(f"Reopened: {item_ref} → {github_issue}", file=stdout)
+        print(f"Reopened: {public_ref} → {github_issue}", file=stdout)
         return 0
     except ProjectGithubAuthError as exc:
-        _emit_auth_warning(locals().get("item_ref", str(item_id)), "reopen_issue", exc, stderr=stderr)
+        _emit_auth_warning(locals().get("public_ref", str(item_id)), "reopen_issue", exc, stderr=stderr)
         return 1
     finally:
         _close_if_owned(conn, owns_conn)
@@ -271,10 +271,10 @@ def _sync_flag_label(
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
             return 0
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
             print(
-                f"[DRY-RUN] Skipping GitHub: sync-{log_name}-label for {item_ref} ({log_name}={value})",
+                f"[DRY-RUN] Skipping GitHub: sync-{log_name}-label for {public_ref} ({log_name}={value})",
                 file=stdout,
             )
             return 0
@@ -301,10 +301,10 @@ def _sync_flag_label(
             )
             return 1
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), project=gh_project, stderr=stderr,
+            public_ref, str(issue_num), project=gh_project, stderr=stderr,
         ):
             print(
-                f"Warning: sync_{log_name}_label skipped for {item_ref} — "
+                f"Warning: sync_{log_name}_label skipped for {public_ref} — "
                 "issue validation failed",
                 file=stderr,
             )
@@ -320,15 +320,15 @@ def _sync_flag_label(
 
         if str(value or "").lower() == "true":
             _label_rest.add_labels(auth.repo, issue_num, [label], token=auth.token)
-            print(f"{log_name.capitalize()} label added: {item_ref} → {github_issue}", file=stdout)
+            print(f"{log_name.capitalize()} label added: {public_ref} → {github_issue}", file=stdout)
         else:
             _label_rest.remove_label(auth.repo, issue_num, label, token=auth.token)
             for obsolete in extra_remove_on_clear:
                 _label_rest.remove_label(auth.repo, issue_num, obsolete, token=auth.token)
-            print(f"{log_name.capitalize()} label removed: {item_ref} → {github_issue}", file=stdout)
+            print(f"{log_name.capitalize()} label removed: {public_ref} → {github_issue}", file=stdout)
         return 0
     except ProjectGithubAuthError as exc:
-        _emit_auth_warning(locals().get("item_ref", str(item_id)), f"sync_{log_name}_label", exc, stderr=stderr)
+        _emit_auth_warning(locals().get("public_ref", str(item_id)), f"sync_{log_name}_label", exc, stderr=stderr)
         return 1
     finally:
         _close_if_owned(conn, owns_conn)

@@ -63,7 +63,7 @@ Call `lifecycle.transition.execute` — the handler runs the gate for `({_status
 {
   "function": "lifecycle.transition.execute",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
+  "target": {"kind": "item", "public_ref": "PREFIX-{N}"},
   "intent": "advance_finalize",
   "payload": {"target_status": "{_target}", "source_status": "{_status}", "reason": "advance_finalize"},
   "options": {"sync_github_body": true}
@@ -121,7 +121,7 @@ Call `items.scalar.update` for the `deployed_to` field. The handler validates th
 {
   "function": "items.scalar.update",
   "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "item", "item_ref": "PREFIX-{N}"},
+  "target": {"kind": "item", "public_ref": "PREFIX-{N}"},
   "intent": "advance_deploy_env",
   "payload": {"field": "deployed_to", "value": "{env-name}"}
 }

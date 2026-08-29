@@ -19,7 +19,7 @@ def _request() -> FunctionCallRequest:
     return FunctionCallRequest(
         function="items.detail.get",
         actor=ActorContext(session_id="s-1"),
-        target=TargetRef(kind="item", item_ref="YOK-1"),
+        target=TargetRef(kind="item", public_ref="YOK-1"),
     )
 
 

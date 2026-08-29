@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Callable, Iterable
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
@@ -116,15 +116,15 @@ def _recipient(conn: Any, *, item_id: int, project_id: int) -> tuple[str, int, s
     return str(row[0]), int(row[1]), route
 
 
-def _message_body(item_ref: str, pr_number: str, route: str) -> str:
+def _message_body(public_ref: str, pr_number: str, route: str) -> str:
     if route == "holder":
         return (
-            f"Landing complete for {item_ref} (pull request #{pr_number}) — "
+            f"Landing complete for {public_ref} (pull request #{pr_number}) — "
             "run close-out by re-entering the same `yoke merge item` command "
             "with its --result and --verification evidence."
         )
     return (
-        f"Landing complete for {item_ref} (pull request #{pr_number}), but its "
+        f"Landing complete for {public_ref} (pull request #{pr_number}), but its "
         "claim holder is gone. Route normal starvation/restaffing so "
         "`yoke merge item` can close the item out."
     )
@@ -190,7 +190,7 @@ def observe_pending_landings(
             conn.commit()
             result["unrouted"] += 1
             continue
-        item_ref = format_item_ref(
+        public_ref = format_item_ref(
             row["slug"],
             row["public_item_prefix"],
             row["project_sequence"],
@@ -202,7 +202,7 @@ def observe_pending_landings(
                 actor_id=actor_id,
                 sender_session_id=None,
                 selector=RecipientSelector(session_ids=[session_id]),
-                body=_message_body(item_ref, pr_number, route),
+                body=_message_body(public_ref, pr_number, route),
                 idempotency_key=f"merge-queue-landed:{row['id']}:{pr_number}",
                 now=current,
                 commit=False,

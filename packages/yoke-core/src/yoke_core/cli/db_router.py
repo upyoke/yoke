@@ -223,7 +223,7 @@ def _normalize_yok_n_arg(domain: str, remaining: List[str]) -> List[str]:
     if pos >= len(args):
         return remaining
     token = args[pos]
-    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_contracts.public_ref import parse_public_item_ref
 
     if parse_public_item_ref(token)[1] is None:
         return remaining

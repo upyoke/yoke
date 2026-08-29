@@ -102,7 +102,7 @@ def _flag_claims(conn) -> list[str]:
             continue
         claim_id = int(_value(row, "claim_id", 0))
         item_id = _value(row, "item_id", 1)
-        item_ref = (
+        public_ref = (
             render_item_ref(conn, int(item_id))
             if item_id is not None
             else "<item-ref>"
@@ -118,7 +118,7 @@ def _flag_claims(conn) -> list[str]:
                     f"`yoke claims path widen --claim-id {claim_id} "
                     f"--add-paths {canonical} --reason "
                     "'cover symlink canonical target' --item "
-                    f"{item_ref}`"
+                    f"{public_ref}`"
                 )
     return flagged
 

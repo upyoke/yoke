@@ -56,7 +56,7 @@ def test_core_packet_teaches_real_envelopes_and_wrong_guesses():
     fake = dispatch_for({"YOK-200": {"profile": '{"state":"declared"}'}})
     result = fake(
         function_id="items.get.run",
-        target=SimpleNamespace(item_ref="YOK-200"),
+        target=SimpleNamespace(public_ref="YOK-200"),
     ).result
     ItemsGetResponse.model_validate(result)
     assert "db_mutation_profile" not in result
@@ -71,7 +71,7 @@ def test_landing_fake_dependency_list_matches_handler_row_keys():
     fake = dispatch_for({"YOK-200": {"dependencies": [row]}})
     result = fake(
         function_id="shepherd.dependency_list.run",
-        target=SimpleNamespace(item_ref="YOK-200"),
+        target=SimpleNamespace(public_ref="YOK-200"),
     ).result
     ShepherdDependencyListResponse.model_validate(result)
     emitted = result["dependencies"][0]
@@ -113,7 +113,7 @@ def test_blocks_edge_refuses_dependent_against_real_list_projection(test_db):
 
     context, err = train_context(dispatch, "YOK-200", ("YOK-150",))
     assert err is None
-    verdict = evaluate_admission(TrainCandidate(item_ref="YOK-200"), context)
+    verdict = evaluate_admission(TrainCandidate(public_ref="YOK-200"), context)
     assert not verdict.admit
     assert verdict.reason == REFUSE_SERIAL_ORDERING
 
@@ -133,12 +133,12 @@ def test_migration_carrier_reads_fields_nested_items_get(test_db):
                 target=target,
                 payload=payload,
             )
-        item_id = int(str(target.item_ref).rsplit("-", 1)[-1])
+        item_id = int(str(target.public_ref).rsplit("-", 1)[-1])
         if function_id == "claims.path.list":
             return ok_response({"claims": []})
         if function_id == "items.get.run":
             got = reads.handle_items_get(_items_get_request(item_id, ["db_mutation_profile"]))
-            payloads[target.item_ref] = got.result_payload
+            payloads[target.public_ref] = got.result_payload
             return SimpleNamespace(
                 success=got.primary_success,
                 result=got.result_payload,
@@ -184,7 +184,7 @@ def test_queued_integration_branch_resolves_to_its_registered_item():
     assert len(lane_reads) == 1
     assert "FROM item_worktrees" in lane_reads[0]
     assert "YOK-150-integration" in lane_reads[0]
-    assert [member.item_ref for member in context.members] == ["YOK-150"]
+    assert [member.public_ref for member in context.members] == ["YOK-150"]
     assert context.notes == ()
 
 

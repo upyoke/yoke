@@ -185,7 +185,7 @@ def main_resolve() -> int:
         )
         return 2
 
-    item_ref = args[0]
+    public_ref = args[0]
     field = "path"
     i = 1
     while i < len(args):
@@ -205,7 +205,7 @@ def main_resolve() -> int:
         return 2
 
     try:
-        result = resolve_item_worktree(item_ref)
+        result = resolve_item_worktree(public_ref)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 2
@@ -216,7 +216,7 @@ def main_resolve() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    item_label = item_ref
+    item_label = public_ref
     if field in ("path", "branch") and result.has_multiple:
         print(
             f"Error: {item_label} resolves to "

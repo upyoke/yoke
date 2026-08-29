@@ -20,7 +20,8 @@ Every function call accepts and returns the same envelope shape, defined in `yok
   },
   "target": {                                         // typed target ref; shape depends on function
     "kind": "item | epic_task | section | claim | process | none",
-    "item_id": 1234,
+    "public_ref": "PREFIX-N",                          // client-supplied PREFIX-N (or bare sequence)
+    "item_id": 1234,                                  // resolved internal items.id (machine)
     "epic_id": 833,
     "task_num": 5,
     "section_name": "Progress Log",
@@ -45,21 +46,21 @@ Every function call accepts and returns the same envelope shape, defined in `yok
 }
 ```
 
-### Result `item_id` + `item_ref` convention
+### `public_ref` vs internal `item_id`
 
-Every agent-facing result that includes a bare internal `item_id` (the
-`items.id` integer) also includes `item_ref` — the public
-`{projects.public_item_prefix}-{items.project_sequence}` handle. The
-dispatcher applies this at the envelope layer via
-`yoke_core.domain.result_item_ref_enrichment.enrich_result_item_refs`
-(one shared helper; handlers must not assemble refs themselves). Mapped
-id keys gain sibling refs at every display-object and array depth. Nested
-exact-shape contracts such as claim scopes and Machine QA execution
-payloads remain opaque to enrichment. DB rows, events,
-telemetry, and test assertions keep bare integer `item_id` unchanged —
-only the result envelope is enriched. `items.create` established the
-dual-field shape; acquire, lifecycle, structured writes, and sessions
-touch inherit it through the same helper.
+`item_id` is the internal `items.id` integer. `public_ref` is the public
+`PREFIX-N` handle. A person never reads a bare internal id — not alone,
+and not paired with the public handle. Machine payloads (`--json`, HTTP
+`result`) keep integer `item_id`; the dispatcher does not add a sibling
+ref. Human CLI output is translated at the print layer
+(`yoke_cli.transport.public_ref_display`) on a display copy:
+`item_id` / `current_item_id` / `recent_item_id` / `epic_id` become
+`public_ref` / `current_public_ref` / `recent_public_ref` /
+`epic_public_ref`. Lookup over HTTPS uses `items.public_ref.lookup`.
+Request targets carry `target.public_ref`; there is no alias for a
+retired target key. Handlers that already know the public handle put it
+on `result.public_ref`. DB rows, events, telemetry, and tests keep bare
+integer `item_id`.
 
 The dispatcher always emits `YokeFunctionCalled`. Repeated calls with the same `(function, request_id)` emit `DispatcherIdempotencyReplay` and return the cached response verbatim. The dedup store is the `function_call_ledger` table (exact `request_id` match, written alongside the emission; rows expire after the replay TTL via the events retention prune) — events stay telemetry; the ledger owns the replay decision. Partial-state failures (the primary write succeeded but a downstream sync degraded) return HTTP 207 with `success=true`, `warnings=[...]`, and a `DispatcherDownstreamDegraded` row in `events`. See the yoke source-repo doc `docs/event-catalog.md` for the envelope schemas.
 
@@ -115,7 +116,8 @@ Replaces every hand-authored `printf '%s' "$content" | python3 -m yoke_core.cli.
 | `items.progress_log.append` | `"item"` | `yoke_core.domain.handlers.items_progress_log` | `{old_lines, new_lines, entry_count}` (read-then-upsert with `ordering=200`) |
 | `items.scalar.update` | `"item"` | `yoke_core.domain.handlers.items_scalar` → `prepare_update` | `{field, old, new}` |
 | `items.get` (read) | `None` | `yoke_core.domain.handlers.reads.items_get` | typed item payload (optional `fields[]`) |
-| `items.create` | `None` | `yoke_core.domain.handlers.items_create` → `backlog_create_op.execute_create` | `{item_id, item_ref, dry_run, log, execution_instructions, execution_instructions_considered}` |
+| `items.public_ref.lookup` (read) | `None` | `yoke_core.domain.handlers.items_public_ref` | `{refs: {internal_id: PREFIX-N}}` |
+| `items.create` | `None` | `yoke_core.domain.handlers.items_create` → `backlog_create_op.execute_create` | `{item_id, public_ref, dry_run, log, execution_instructions, execution_instructions_considered}` |
 
 **Canonical create — a non-web filer attests the operator instructions:**
 

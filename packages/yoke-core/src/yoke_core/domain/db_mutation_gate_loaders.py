@@ -47,9 +47,9 @@ class ItemIdRefMismatch(Exception):
 
 
 @contextmanager
-def acting_item_ref_bound(item_ref: Optional[str]) -> Iterator[None]:
+def acting_item_ref_bound(public_ref: Optional[str]) -> Iterator[None]:
     """Bind the caller's public item ref for the duration of a gate read."""
-    value = item_ref.strip() if isinstance(item_ref, str) and item_ref.strip() else None
+    value = public_ref.strip() if isinstance(public_ref, str) and public_ref.strip() else None
     token = _ACTING_ITEM_REF.set(value)
     try:
         yield

@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 def _target(parsed: argparse.Namespace) -> TargetRef:
     if parsed.item is not None:
-        return TargetRef(kind="item", item_ref=parsed.item, project_id=parsed.project)
+        return TargetRef(kind="item", public_ref=parsed.item, project_id=parsed.project)
     if parsed.item_id is not None:
         return TargetRef(kind="item", item_id=parsed.item_id)
     return TargetRef(

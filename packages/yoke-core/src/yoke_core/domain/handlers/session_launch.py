@@ -172,7 +172,7 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
         max_body_bytes = int(_fleet_policy(conn, project_id, "fleet.max_body_bytes"))
         session_name = assignment_session_name(
             conn,
-            item_ref=parsed.item,
+            public_ref=parsed.item,
             project_id=project_id,
         )
         outcome = create_launch(

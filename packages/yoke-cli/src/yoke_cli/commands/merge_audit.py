@@ -23,7 +23,7 @@ state, or GitHub state."""
 def _parse_optional_epic(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
-    from yoke_contracts.item_ref import parse_public_item_ref
+    from yoke_contracts.public_ref import parse_public_item_ref
 
     token = raw.strip()
     if parse_public_item_ref(token)[1] is None:

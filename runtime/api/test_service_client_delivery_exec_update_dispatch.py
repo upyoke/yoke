@@ -20,7 +20,7 @@ import sys
 
 
 def _resolve_test_item(request):
-    assert request.target.item_ref == "YOK-1"
+    assert request.target.public_ref == "YOK-1"
     request.target.item_id = 1
     request.target.project_id = None
     return None
@@ -54,7 +54,7 @@ class TestCmdExecuteUpdateCliDispatchParity:
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_target_item_ref", _resolve_test_item,
+            dispatch_module, "resolve_target_public_ref", _resolve_test_item,
         )
 
         rc = service_client.cmd_execute_update_cli(
@@ -95,7 +95,7 @@ class TestCmdExecuteUpdateCliDispatchParity:
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_target_item_ref", _resolve_test_item,
+            dispatch_module, "resolve_target_public_ref", _resolve_test_item,
         )
         monkeypatch.setattr(sys, "stdin", io.StringIO("# Spec\n"))
 
@@ -131,7 +131,7 @@ class TestCmdExecuteUpdateCliDispatchParity:
             dispatch_module, "verify_claim", lambda *a, **kw: None,
         )
         monkeypatch.setattr(
-            dispatch_module, "resolve_target_item_ref", _resolve_test_item,
+            dispatch_module, "resolve_target_public_ref", _resolve_test_item,
         )
         monkeypatch.setattr(sys, "stdin", io.StringIO("x\n"))
 

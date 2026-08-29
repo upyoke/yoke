@@ -10,18 +10,18 @@ from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
 
 def build_plan_execution_target(
     *,
-    item_ref: Optional[str],
+    public_ref: Optional[str],
     transition_id: Optional[str],
     deployment_run_id: Optional[str],
     plan: Optional[str],
     project: Optional[str],
 ) -> tuple[TargetRef, dict[str, str]]:
     """Validate one execution subject and build its function-call target."""
-    if bool(item_ref) == bool(deployment_run_id):
+    if bool(public_ref) == bool(deployment_run_id):
         raise QaPlanExecutionError(
-            "exactly one of item_ref or deployment_run_id is required"
+            "exactly one of public_ref or deployment_run_id is required"
         )
-    if item_ref:
+    if public_ref:
         if not transition_id:
             raise QaPlanExecutionError("item QA plan execution requires transition_id")
         if plan:
@@ -31,7 +31,7 @@ def build_plan_execution_target(
         return (
             TargetRef(
                 kind="item",
-                item_ref=str(item_ref),
+                public_ref=str(public_ref),
                 project_id=project,
             ),
             {"transition_id": transition_id},

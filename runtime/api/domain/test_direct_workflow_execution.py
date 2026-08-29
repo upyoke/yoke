@@ -196,7 +196,7 @@ def test_field_note_promotion_is_idempotent(
     def _create(**kwargs):
         calls.append(kwargs)
         insert_item(test_db, id=2130, workflow_id="dash", title=kwargs["title"])
-        return {"success": True, "item_id": 2130, "item_ref": "YOK-2130"}
+        return {"success": True, "item_id": 2130, "public_ref": "YOK-2130"}
 
     monkeypatch.setattr(backlog_create_op, "execute_create", _create)
     first = promote_field_note_to_dash(

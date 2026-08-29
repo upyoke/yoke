@@ -101,13 +101,13 @@ def _resolve_item_ref(conn: Any, raw: str) -> tuple[int, int]:
         raise SessionMessageError(
             "target_not_found",
             str(exc),
-            jsonpath="$.payload.selector.item_refs",
+            jsonpath="$.payload.selector.public_refs",
         ) from exc
     if item_id is None:
         raise SessionMessageError(
             "target_not_found",
             f"item anchor {raw!r} was not found; use a qualified public item ref",
-            jsonpath="$.payload.selector.item_refs",
+            jsonpath="$.payload.selector.public_refs",
         )
     return int(item_id), _item_project_id(conn, int(item_id))
 
@@ -154,7 +154,7 @@ def _anchor_hits(
         row = sessions.get(session_id)
         if row is not None:
             _add_hit(hits, session_id, f"session:{session_id}", int(row["project_id"]))
-    for raw in selector.item_refs:
+    for raw in selector.public_refs:
         item_id, project_id = _resolve_item_ref(conn, raw)
         for claim in claims:
             if claim["target_kind"] == "item" and int(claim["item_id"]) == item_id:

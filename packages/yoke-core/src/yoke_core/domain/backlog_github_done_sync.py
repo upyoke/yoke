@@ -70,8 +70,8 @@ def _done_sync_target(item_id: str | int):
     """Address the item the way the caller named it.
 
     Bare digits are internal ids on this surface, so they go on
-    ``item_id`` rather than ``item_ref``: the dispatcher reads a bare
-    number under ``item_ref`` as a project-local sequence and would
+    ``item_id`` rather than ``public_ref``: the dispatcher reads a bare
+    number under ``public_ref`` as a project-local sequence and would
     resolve a different item.
     """
     from yoke_contracts.api.function_call import TargetRef
@@ -79,7 +79,7 @@ def _done_sync_target(item_id: str | int):
     text = str(item_id).strip()
     if text.isdigit():
         return TargetRef(kind="item", item_id=int(text))
-    return TargetRef(kind="item", item_ref=text)
+    return TargetRef(kind="item", public_ref=text)
 
 
 def _relay_done_sync(
@@ -127,14 +127,14 @@ def sync_done_item(
         except ValueError:
             print(f"Error: Item {item_id} not found", file=stderr)
             return 1
-        item_ref = _item_ref(item_pk, conn=conn)
+        public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: sync-done-item for {item_ref}", file=stdout)
+            print(f"[DRY-RUN] Skipping GitHub: sync-done-item for {public_ref}", file=stdout)
             return 0
 
         context = _item_context(item_pk, conn=conn)
         if context is None:
-            print(f"Error: Item {item_ref} not found", file=stderr)
+            print(f"Error: Item {public_ref} not found", file=stderr)
             return 1
         github_issue, project, repo = context
         issue_num_str = github_issue.lstrip("#")
@@ -158,9 +158,9 @@ def sync_done_item(
             )
             return 1
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), project=gh_project, stderr=stderr
+            public_ref, str(issue_num), project=gh_project, stderr=stderr
         ):
-            print(f"Error: sync_done_item skipped for {item_ref}", file=stderr)
+            print(f"Error: sync_done_item skipped for {public_ref}", file=stderr)
             return 1
 
         fields = _item_fields(
@@ -214,7 +214,7 @@ def sync_done_item(
             "status": fields.get("status", ""),
             "workflow_id": fields.get("workflow_id", ""),
             "project": fields.get("project") or gh_project,
-            "identity": item_ref,
+            "identity": public_ref,
         }
 
         edit = _writer.update_issue_body_typed(
@@ -264,11 +264,11 @@ def sync_done_item(
 
         if edit.is_compact:
             print(
-                f"Done sync: {item_ref} -> {github_issue} (compact mirror)",
+                f"Done sync: {public_ref} -> {github_issue} (compact mirror)",
                 file=stdout,
             )
         else:
-            print(f"Done sync: {item_ref} -> {github_issue}", file=stdout)
+            print(f"Done sync: {public_ref} -> {github_issue}", file=stdout)
         return 0
     finally:
         _close_if_owned(conn, owns_conn)

@@ -34,7 +34,7 @@ from yoke_core.domain.project_identity import (
 
 _RESOLUTION_CMD = (
     "yoke claims path coordination-decision-build "
-    "--item {item_ref} --conflicting-claim {claim_id} "
+    "--item {public_ref} --conflicting-claim {claim_id} "
     "--paths {paths}"
 )
 
@@ -83,9 +83,9 @@ def compose_overlap_denial(
     """
     target_ids = [int(t) for t in candidate_target_ids]
     conflicts = _resolve_conflicts(conn, integration_target, target_ids)
-    item_ref = _display_item_ref(conn, item_id)
+    public_ref = _display_item_ref(conn, item_id)
     lines = [
-        f"BLOCKED: path-claim register overlap on item {item_ref} "
+        f"BLOCKED: path-claim register overlap on item {public_ref} "
         f"(integration_target={integration_target!r}).",
         f"  reason: {base_message}",
     ]
@@ -99,7 +99,7 @@ def compose_overlap_denial(
         lines.append("")
         lines.append("Build the coordination evidence packet:")
         lines.append("  " + _RESOLUTION_CMD.format(
-            item_ref=item_ref,
+            public_ref=public_ref,
             claim_id=first_claim_id,
             paths=paths_arg,
         ))
@@ -110,7 +110,7 @@ def compose_overlap_denial(
             "conflicting-claim id and overlapping paths):"
         )
         lines.append("  " + _RESOLUTION_CMD.format(
-            item_ref=item_ref,
+            public_ref=public_ref,
             claim_id="<claim-id>",
             paths="<paths>",
         ))

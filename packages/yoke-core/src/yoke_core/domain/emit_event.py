@@ -221,7 +221,7 @@ def emit(args: argparse.Namespace) -> int:
     session_id = _resolve_session_id(args.session_id)
     resolved_item_id: Optional[int] = None
     if args.item_id:
-        from yoke_contracts.item_ref import parse_public_item_ref
+        from yoke_contracts.public_ref import parse_public_item_ref
 
         _, sequence = parse_public_item_ref(args.item_id)
         if sequence is not None:

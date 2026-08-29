@@ -141,10 +141,10 @@ def _frozen_block(
         frozen_val = row[0] if not hasattr(row, "keys") else row["frozen"]
         if not frozen_val:
             return None
-        item_ref = render_item_ref(conn, int(item_id))
+        public_ref = render_item_ref(conn, int(item_id))
     return _error_outcome(
         "frozen",
-        f"{item_ref} is frozen; thaw the item before updating "
+        f"{public_ref} is frozen; thaw the item before updating "
         f"non-frozen fields (or pass force=True for sanctioned overrides).",
     )
 
@@ -180,7 +180,7 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
 
     captured = io.StringIO()
     with (
-        acting_item_ref_bound(target.item_ref),
+        acting_item_ref_bound(target.public_ref),
         capture_db_mutation_gate_warnings() as gate_warnings,
     ):
         result = backlog.execute_update(

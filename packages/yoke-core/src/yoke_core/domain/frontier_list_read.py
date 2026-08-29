@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_helpers
 from yoke_core.domain.dependency_planning import (
     BlockerDetail,
@@ -143,7 +143,7 @@ def _item_route_facts(
         facts[int(row["id"])] = {
             "project_id": int(row["project_id"]),
             "project_sequence": sequence,
-            "item_ref": format_item_ref(
+            "public_ref": format_item_ref(
                 row["slug"], row["public_item_prefix"], sequence,
             ),
         }
@@ -153,7 +153,7 @@ def _item_route_facts(
 def _blocked_row(
     step: ScheduledStep,
     detail: Optional[BlockerDetail | GateEvaluation],
-    item_ref: str,
+    public_ref: str,
     item_route: Dict[str, Any],
     blocking_route: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
@@ -162,7 +162,7 @@ def _blocked_row(
         # incomplete idea body. There is no blocking item or gate point;
         # the reasons channel carries the whole story.
         return {
-            "item_id": item_ref,
+            "item_id": public_ref,
             "title": step.title,
             "workflow_id": step.workflow_id,
             "project": step.project,
@@ -177,7 +177,7 @@ def _blocked_row(
             "created_at": step.created_at,
         }
     return {
-        "item_id": item_ref,
+        "item_id": public_ref,
         "title": step.title,
         "workflow_id": step.workflow_id,
         "project": step.project,
@@ -260,8 +260,8 @@ def list_frontier(
             conn,
             set(tracked_steps) | set(blocking_ids.values()),
         )
-        item_refs = {
-            item_id: str(route_facts[item_id]["item_ref"])
+        public_refs = {
+            item_id: str(route_facts[item_id]["public_ref"])
             for item_id in tracked_steps
         }
         conduct_eligible_ids = {
@@ -269,10 +269,10 @@ def list_frontier(
         }
         ready_rows: List[Dict[str, Any]] = []
         for step in schedule.ranked_steps:
-            item_ref = item_refs[step.item_id]
+            public_ref = public_refs[step.item_id]
             ready_rows.append({
                 "rank": step.rank,
-                "item_id": item_ref,
+                "item_id": public_ref,
                 "title": step.title,
                 "workflow_id": step.workflow_id,
                 "workflow_version": step.workflow_version,
@@ -285,7 +285,7 @@ def list_frontier(
                 "stage_label": step.stage_label,
                 "priority": step.priority,
                 "next_step": step.next_step.value,
-                "run_command": f"yoke {step.next_step.value} {item_ref}",
+                "run_command": f"yoke {step.next_step.value} {public_ref}",
                 "why_ready": _compose_why_ready(
                     step,
                     conduct_eligible_ids=conduct_eligible_ids,
@@ -305,7 +305,7 @@ def list_frontier(
             blocked_rows.append(_blocked_row(
                 step,
                 detail,
-                item_refs[step.item_id],
+                public_refs[step.item_id],
                 route_facts[step.item_id],
                 blocking_route,
             ))

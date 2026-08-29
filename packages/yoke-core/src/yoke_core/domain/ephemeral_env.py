@@ -110,7 +110,7 @@ def cmd_create(
     project_id = resolve_project_id(conn, project)
     item = prepare_create_item_binding(
         conn,
-        item_ref=item,
+        public_ref=item,
         project=project,
         branch=branch,
     )

@@ -60,7 +60,7 @@ def test_begin_denial_prevents_every_local_runner_side_effect() -> None:
             match="claim denied",
         ):
             qa_plan_execution.execute_plan(
-                item_ref=TEST_ITEM_REF,
+                public_ref=TEST_ITEM_REF,
                 transition_id="implemented",
                 actor=ACTOR,
             )
@@ -99,7 +99,7 @@ def test_advance_failure_aborts_and_never_reports_the_case_complete() -> None:
         ),
     ):
         result = qa_plan_execution.execute_plan(
-            item_ref=TEST_ITEM_REF,
+            public_ref=TEST_ITEM_REF,
             transition_id="implemented",
             actor=ACTOR,
         )
@@ -139,7 +139,7 @@ def test_interrupt_aborts_before_propagating_to_the_operator() -> None:
         pytest.raises(KeyboardInterrupt),
     ):
         qa_plan_execution.execute_plan(
-            item_ref=TEST_ITEM_REF,
+            public_ref=TEST_ITEM_REF,
             transition_id="implemented",
             actor=ACTOR,
         )

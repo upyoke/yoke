@@ -59,7 +59,7 @@ def _required_task_budgets(
     *,
     require_finalized: bool = True,
 ) -> dict[str, object]:
-    item_ref = render_item_ref(conn, int(item_id))
+    public_ref = render_item_ref(conn, int(item_id))
     if not all(
         _table_exists(conn, table)
         for table in ("epic_tasks", "epic_task_files")
@@ -89,7 +89,7 @@ def _required_task_budgets(
         return {
             "verdict": GATE_PASS,
             "reason": (
-                f"item {item_ref} defers task File Budgets until "
+                f"item {public_ref} defers task File Budgets until "
                 "planning persists generated tasks"
             ),
             "missing_tasks": [],
@@ -109,7 +109,7 @@ def _required_task_budgets(
             return {
                 "verdict": GATE_BLOCK,
                 "reason": (
-                    f"item {item_ref} generated task scope is incomplete: "
+                    f"item {public_ref} generated task scope is incomplete: "
                     + "; ".join(issues)
                 ),
                 "missing_tasks": missing,
@@ -117,7 +117,7 @@ def _required_task_budgets(
         return {
             "verdict": GATE_PASS,
             "reason": (
-                f"item {item_ref} has finalized explicit scope for every "
+                f"item {public_ref} has finalized explicit scope for every "
                 "generated task"
             ),
             "missing_tasks": [],
@@ -131,7 +131,7 @@ def _required_task_budgets(
         return {
             "verdict": GATE_BLOCK,
             "reason": (
-                f"item {item_ref} generated task(s) lack a persisted "
+                f"item {public_ref} generated task(s) lack a persisted "
                 "File Budget: " + ", ".join(map(str, missing))
             ),
             "missing_tasks": missing,
@@ -139,7 +139,7 @@ def _required_task_budgets(
     return {
         "verdict": GATE_PASS,
         "reason": (
-            f"item {item_ref} has a persisted File Budget for every "
+            f"item {public_ref} has a persisted File Budget for every "
             "generated task"
         ),
         "missing_tasks": [],
@@ -154,7 +154,7 @@ def evaluate_required_budget(
     require_finalized: bool = True,
 ) -> dict[str, object]:
     """Evaluate target-shaped required coverage without reading the pin."""
-    item_ref = render_item_ref(conn, int(item_id))
+    public_ref = render_item_ref(conn, int(item_id))
     if task_scoped:
         return _required_task_budgets(
             conn,
@@ -165,13 +165,13 @@ def evaluate_required_budget(
     if has_resolved_file_budget(spec):
         return {
             "verdict": GATE_PASS,
-            "reason": f"item {item_ref} declares a resolved File Budget",
+            "reason": f"item {public_ref} declares a resolved File Budget",
             "missing_tasks": [],
         }
     return {
         "verdict": GATE_BLOCK,
         "reason": (
-            f"item {item_ref} has no resolved ## File Budget section"
+            f"item {public_ref} has no resolved ## File Budget section"
         ),
         "missing_tasks": [],
     }
@@ -179,7 +179,7 @@ def evaluate_required_budget(
 
 def evaluate(conn: Any, item_id: int) -> dict[str, object]:
     """Evaluate the effective File Budget requirement for one item."""
-    item_ref = render_item_ref(conn, int(item_id))
+    public_ref = render_item_ref(conn, int(item_id))
     if not workflow_policy_schema_available(conn):
         return {
             "verdict": GATE_PASS,
@@ -192,7 +192,7 @@ def evaluate(conn: Any, item_id: int) -> dict[str, object]:
         return {
             "verdict": GATE_BLOCK,
             "reason": (
-                f"item {item_ref} has an unreadable pinned File Budget "
+                f"item {public_ref} has an unreadable pinned File Budget "
                 f"policy: {exc}"
             ),
             "missing_tasks": [],
@@ -201,7 +201,7 @@ def evaluate(conn: Any, item_id: int) -> dict[str, object]:
         return {
             "verdict": GATE_PASS,
             "reason": (
-                f"item {item_ref} effective workflow policy makes "
+                f"item {public_ref} effective workflow policy makes "
                 "File Budget optional"
             ),
             "missing_tasks": [],

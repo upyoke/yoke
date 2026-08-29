@@ -48,7 +48,7 @@ class TrainCandidate:
     ``migration_carrier`` reflects ``db_mutation_profile.state != "none"``.
     """
 
-    item_ref: str
+    public_ref: str
     claimed_target_ids: frozenset[int] = frozenset()
     migration_carrier: bool = False
 
@@ -89,9 +89,9 @@ def evaluate_admission(
 ) -> AdmissionVerdict:
     """Classify whether ``candidate`` may co-queue with current members."""
     serial = tuple(
-        member.item_ref
+        member.public_ref
         for member in context.members
-        if member.item_ref in context.serial_linked_refs
+        if member.public_ref in context.serial_linked_refs
     )
     if serial:
         return AdmissionVerdict(
@@ -101,10 +101,10 @@ def evaluate_admission(
         )
 
     overlapping = tuple(
-        member.item_ref
+        member.public_ref
         for member in context.members
         if candidate.claimed_target_ids & member.claimed_target_ids
-        and member.item_ref not in context.coordination_attested_refs
+        and member.public_ref not in context.coordination_attested_refs
     )
     if overlapping:
         return AdmissionVerdict(
@@ -115,7 +115,7 @@ def evaluate_admission(
 
     if candidate.migration_carrier:
         carriers = tuple(
-            member.item_ref
+            member.public_ref
             for member in context.members
             if member.migration_carrier
         )

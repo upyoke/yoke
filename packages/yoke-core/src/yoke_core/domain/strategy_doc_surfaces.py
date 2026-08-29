@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from yoke_contracts.item_ref import format_item_ref
+from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.actor_render import actor_render_label
 from yoke_core.domain.decision_requests import list_subject_requests
 from yoke_core.domain.item_worktrees import list_item_worktrees

@@ -14,15 +14,15 @@ from typing import Optional
 class _ClaimRefused(Exception):
     """A different live session holds the item's work claim."""
 
-    def __init__(self, item_ref: str, holder: str) -> None:
-        super().__init__(item_ref)
-        self.item_ref = item_ref
+    def __init__(self, public_ref: str, holder: str) -> None:
+        super().__init__(public_ref)
+        self.public_ref = public_ref
         self.holder = holder
 
 
 def _acquire_for_caller(
     item_id: int,
-    item_ref: str,
+    public_ref: str,
     session_id: str,
     *,
     reason: str = "item flag verb",
@@ -54,7 +54,7 @@ def _acquire_for_caller(
         if holder:
             if holder == str(session_id):
                 return None
-            raise _ClaimRefused(item_ref, holder)
+            raise _ClaimRefused(public_ref, holder)
         try:
             row = claim_work(
                 conn,
@@ -71,7 +71,7 @@ def _acquire_for_caller(
     winner = str(raced.get("session_id") or "")
     if winner and winner == str(session_id):
         return None
-    raise _ClaimRefused(item_ref, winner or "an unidentified session")
+    raise _ClaimRefused(public_ref, winner or "an unidentified session")
 
 
 def _release_acquired(

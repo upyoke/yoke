@@ -167,7 +167,7 @@ def run(args: List[str]) -> int:
     actor = build_actor(session_id=parsed.session_id)
     try:
         result = execute_plan(
-            item_ref=parsed.item,
+            public_ref=parsed.item,
             transition_id=parsed.transition,
             deployment_run_id=parsed.deployment_run_id,
             plan=parsed.plan,

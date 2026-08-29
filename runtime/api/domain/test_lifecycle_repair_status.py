@@ -225,7 +225,7 @@ def test_cli_dispatches_transport_keyed_repair(
 
     assert rc == 0
     assert captured["function_id"] == "lifecycle.repair_status.execute"
-    assert captured["target"].item_ref == "YOK-42"
+    assert captured["target"].public_ref == "YOK-42"
     assert captured["payload"] == {
         "target_status": "done",
         "source_status": "planned",

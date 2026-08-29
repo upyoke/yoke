@@ -296,5 +296,5 @@ def test_https_resolution_carries_raw_ref_and_project(monkeypatch) -> None:
         parse_item_argument("2318", project="yoke")
         == YOKE_INTERNAL_ID
     )
-    assert seen["target"].item_ref == "2318"
+    assert seen["target"].public_ref == "2318"
     assert seen["target"].project_id == "yoke"

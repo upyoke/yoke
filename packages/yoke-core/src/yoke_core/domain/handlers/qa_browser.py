@@ -133,7 +133,7 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
     return HandlerOutcome(
         result_payload={
             # Echo the resolved numeric id so ref-shaped callers (the
-            # dispatcher resolves target.item_ref before this handler
+            # dispatcher resolves target.public_ref before this handler
             # runs) learn it without a second round trip.
             "item_id": int(item_id),
             "requirements": requirements,

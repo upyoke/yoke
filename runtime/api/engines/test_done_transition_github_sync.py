@@ -67,7 +67,7 @@ def test_run_step_8_addresses_the_item_by_internal_id(monkeypatch):
 
     result = run_step_8(
         2527, "reviewing-implementation",
-        stderr=io.StringIO(), item_ref="YOK-2465",
+        stderr=io.StringIO(), public_ref="YOK-2465",
     )
 
     assert result.step_marker == "8"
