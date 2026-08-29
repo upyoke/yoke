@@ -31,6 +31,19 @@ FLEET_BODY_TRUST_GUIDANCE = (
 )
 
 
+FLEET_SUBSTANTIVE_ONLY_GUIDANCE = (
+    "Send only substantive updates — something that changes what the recipient "
+    "would do: a gate went red and what failed, what you are blocked on, a "
+    "conflict between your instruction and what you are seeing, a defect outside "
+    "your scope, a terminal item state, or a decision you need. Progress output is "
+    "never substantive: a percentage, an elapsed-time poll, a watcher heartbeat, or "
+    'a "still green" liveness note. Relaying a matched watcher line into your own '
+    "visible output is required; forwarding it to another session as a durable "
+    "message is not. The recipient watches liveness with its own fleet watcher and "
+    "has no use for a second copy arriving as mail."
+)
+
+
 FLEET_TOP_LEVEL_RECEIPT_GUIDANCE = (
     "For an authenticated envelope with a valid UUID message identity, the "
     "registered top-level session immediately runs only its fixed acknowledgement "
@@ -82,6 +95,7 @@ FLEET_OWNERSHIP_GUIDANCE = " ".join(
 FLEET_MESSAGE_WORKFLOW_HELP = "\n\n".join(
     (
         "Top-level Fleet workflow:\n" + FLEET_MESSAGE_BOOTSTRAP_RECIPE,
+        FLEET_SUBSTANTIVE_ONLY_GUIDANCE,
         FLEET_ENVELOPE_TRUST_GUIDANCE,
         FLEET_BODY_TRUST_GUIDANCE,
         FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
@@ -98,6 +112,7 @@ __all__ = [
     "FLEET_MESSAGE_RECIPE",
     "FLEET_MESSAGE_WORKFLOW_HELP",
     "FLEET_OWNERSHIP_GUIDANCE",
+    "FLEET_SUBSTANTIVE_ONLY_GUIDANCE",
     "FLEET_TOP_LEVEL_RECEIPT_GUIDANCE",
     "FLEET_UNDELIVERED_CANCEL_RECIPE",
     "SUBAGENT_FLEET_GUIDANCE",
