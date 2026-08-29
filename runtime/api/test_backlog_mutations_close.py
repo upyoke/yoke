@@ -108,15 +108,25 @@ class TestExecuteClose:
         patched["_post_comment"].assert_not_called()
         patched["_close_issue"].assert_not_called()
 
-    def test_close_rejects_invalid_reason(self, tmp_db):
+    def test_close_rejects_empty_reason(self, tmp_db):
         _seed_item(tmp_db, id=10)
         out = io.StringIO()
 
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
-            result = backlog.execute_close(10, "badvalue", out=out)
+            result = backlog.execute_close(10, "  ", out=out)
 
         assert result["success"] is False
-        assert "must be one of" in result["error"]
+        assert "non-empty" in result["error"]
+
+    def test_close_accepts_a_free_text_reason(self, tmp_db):
+        _seed_item(tmp_db, id=10)
+        out = io.StringIO()
+
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+            result = backlog.execute_close(10, "superseded by later work", out=out)
+
+        assert result["success"] is True
+        assert _item_field(tmp_db, 10, "resolution") == "superseded by later work"
 
     def test_close_rejects_delivery_tail(self, tmp_db):
         _seed_item(tmp_db, id=10, status="implemented")

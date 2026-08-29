@@ -61,7 +61,7 @@ def cmd_execute_close(args: list[str]) -> int:
         return _emit_backlog_result(
             {
                 "success": False,
-                "error": "--reason is required (duplicate, wontfix, obsolete, out-of-scope)",
+                "error": "--reason is required (non-empty one-line reason)",
             }
         )
 

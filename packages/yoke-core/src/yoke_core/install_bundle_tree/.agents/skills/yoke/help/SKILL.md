@@ -59,6 +59,9 @@ LOCAL TERMINAL HELPERS
   Explicit Yoke source-dev/admin setup.
  yoke items freeze PREFIX-N / yoke items thaw PREFIX-N
   Park an item off the active board, or return it. Lifecycle status is kept.
+  Work that will never resume is `yoke items cancel`, not freeze.
+ yoke items cancel PREFIX-N --reason TEXT [--ref PREFIX-M]
+  Cancel an item that will never resume. Takes the claim; frozen items cancel in one step.
  yoke items block PREFIX-N --reason TEXT / yoke items unblock PREFIX-N
   Set or clear the blocked flag and its reason. Lifecycle status is kept.
   The command takes the item claim for you; refuses if someone holds it.
