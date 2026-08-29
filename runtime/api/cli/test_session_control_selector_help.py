@@ -83,9 +83,7 @@ def test_project_says_outright_that_it_widens() -> None:
 
 
 def test_the_addressing_rule_leads_with_union_versus_intersect() -> None:
-    assert FLEET_ADDRESSING_GUIDANCE.startswith(
-        "Anchors union, filters intersect."
-    )
+    assert FLEET_ADDRESSING_GUIDANCE.startswith("Anchors union, filters intersect.")
     assert "--process K --project P" in FLEET_ADDRESSING_GUIDANCE
     assert "read the recipient count" in FLEET_ADDRESSING_GUIDANCE
 

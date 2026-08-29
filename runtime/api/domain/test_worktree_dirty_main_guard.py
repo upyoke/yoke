@@ -247,7 +247,7 @@ def test_narrative_falls_back_to_the_session_when_no_item_names_the_holder(
     verdict = guard.evaluate_dirty_main_for_item(
         "/repo",
         item_id=1,
-        item_ref="YOK-1",
+        public_ref="YOK-1",
         session_id="caller",
         needed_paths=("foo.py",),
     )
