@@ -17,7 +17,7 @@ import {
 import { appendSessionDiagnostics } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
 import { appendSessionPresentation, remotePresentationCount } from "./universe_session_presentation.js";
-import { appendSteeringContext, appendSteeringGroups, appendSteeringHoldings } from "./universe_sessions_steering.js";
+import { appendSteeringHoldings } from "./universe_sessions_steering.js";
 import {
   appendSessionMessaging,
   sessionRosterFilters,
@@ -125,7 +125,6 @@ export function sessionCard(
   appendHoldings(documentNode, body, row, projects);
   if (row.liveness !== "ended") appendSessionAge(documentNode, body, row);
   appendSessionDiagnostics(documentNode, body, row);
-  appendSteeringContext(documentNode, body, row);
   appendSessionMessaging(documentNode, body, row, onMessage);
   card.appendChild(body);
   return card;
@@ -163,9 +162,11 @@ function renderSessions(
     return;
   }
   const grid = el(documentNode, "div", "session-grid");
-  appendSteeringGroups(documentNode, grid, rows, (row) => sessionCard(
-    documentNode, row, who, mode, onMessage, projects,
-  ));
+  for (const row of rows) {
+    grid.appendChild(sessionCard(
+      documentNode, row, who, mode, onMessage, projects,
+    ));
+  }
   host.appendChild(grid);
 }
 

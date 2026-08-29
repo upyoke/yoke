@@ -326,10 +326,6 @@ test("Session cards contain variable text and stretch to their grid row", () => 
     sessionCss("universe_secondary_activity.css"),
     /\.session-grid \{[^}]*display: grid;/,
   );
-  assert.match(
-    sessionCss("universe_sessions_steering.css"),
-    /\.session-steering-worker-grid \{[^}]*display: grid;/,
-  );
   assert.ok(
     !/\.session-card \{[^}]*align-self/.test(css),
     "cards must inherit the grid's per-row stretch, not align to start",
