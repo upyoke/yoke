@@ -16,12 +16,15 @@ from yoke_cli.commands.adapters.session_control_launch_output import (
 )
 
 
+#: Union anchors first, in the order a reader should reach for them: the
+#: work addresses its own holder, so --item leads and --session is the
+#: fallback for a recipient no claim names.
 SELECTOR_ARGUMENTS = (
-    ("session_ids", "--session"),
     ("public_refs", "--item"),
     ("epic_tasks", "--epic-task"),
     ("process_keys", "--process"),
     ("projects", "--project"),
+    ("session_ids", "--session"),
     ("executor_families", "--executor"),
     ("executor_surfaces", "--surface"),
     ("work_roles", "--role"),
@@ -36,11 +39,18 @@ SELECTOR_ARGUMENTS = (
 def add_selector_arguments(parser: argparse.ArgumentParser) -> None:
     """Add union anchors followed by intersecting recipient filters."""
     anchor_help = {
-        "session_ids": "Exact top-level Yoke session id (repeatable).",
-        "public_refs": "Item whose current holder is a recipient (repeatable).",
+        "public_refs": (
+            "Item whose current holder is a recipient (repeatable). "
+            "The address to prefer: one live claim, one holder, no id to copy."
+        ),
         "epic_tasks": "Epic task as QUALIFIED-ITEM:TASK (repeatable).",
         "process_keys": "Claimed process key (repeatable).",
         "projects": "Project slug or id (repeatable).",
+        "session_ids": (
+            "Exact whole top-level Yoke session id (repeatable). For a "
+            "recipient no claim addresses; prefixes collide, so never "
+            "assemble, pad, or complete one."
+        ),
     }
     filter_help = {
         "executor_families": "Keep recipients from this executor family (repeatable).",

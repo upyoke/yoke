@@ -166,7 +166,7 @@ printf '%s' "$BODY" | yoke say --item PREFIX-N --stdin
 
 Also `--epic-task ITEM:N` and `--process KEY`. `--session UUID` is the
 fallback for a claim-less recipient only (this itemless steerer is one).
-Never expand a truncated session id by hand.
+No Yoke surface shortens a session id, so a short one did not come from Yoke: never pad, complete, or expand one by hand.
 
 ```text
 yoke messages list --json

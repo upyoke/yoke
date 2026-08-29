@@ -72,9 +72,9 @@ function itemHeldBy(session) {
   return claim?.target || session?.current_item || "";
 }
 
-function abbreviatedSessionId(value) {
+function sessionIdLabel(value) {
   const sessionId = String(value || "");
-  return sessionId ? `session ${sessionId.slice(0, 8)}` : "session not reported";
+  return sessionId ? `session ${sessionId}` : "session not reported";
 }
 
 function sessionIdentity(documentNode, sessionId, snapshot, sessions) {
@@ -83,7 +83,7 @@ function sessionIdentity(documentNode, sessionId, snapshot, sessions) {
     || snapshot?.executor_surface || snapshot?.executor;
   const work = itemHeldBy(session);
   const label = [surface, work].filter(Boolean).join(" · ")
-    || abbreviatedSessionId(sessionId);
+    || sessionIdLabel(sessionId);
   const identity = el(documentNode, "span", "session-message-party", label);
   const title = [
     sessionId ? `Session ${sessionId}` : "",

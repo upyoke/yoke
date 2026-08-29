@@ -184,7 +184,7 @@ ids and result codes.
 The steerer messages a worker with
 `yoke say --item PREFIX-N --stdin`. The worker reports back with
 `--session` only because the steerer is itemless (claim-less fallback).
-Never expand a truncated session id by hand.
+No Yoke surface shortens a session id, so a short one did not come from Yoke: never pad, complete, or expand one by hand.
 
 A worker's messages are substantive only. Every message costs this seat an
 inbox row and a hand acknowledgement, so a worker sends one when a gate goes

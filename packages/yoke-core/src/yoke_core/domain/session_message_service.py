@@ -32,13 +32,7 @@ from yoke_core.domain.session_message_types import (
     SessionMessageError,
     utc_now,
 )
-
-
-def _require_recipients(recipients: list[ResolvedRecipient]) -> None:
-    if not recipients:
-        raise SessionMessageError(
-            "zero_recipients", "recipient selector resolved to zero sessions"
-        )
+from yoke_core.domain.session_message_zero_recipients import require_recipients
 
 
 def _public_recipients(recipients: list[ResolvedRecipient]) -> list[dict[str, Any]]:
@@ -61,7 +55,7 @@ def preview_message(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     recipients = resolve_recipients(conn, selector, now=now)
-    _require_recipients(recipients)
+    require_recipients(recipients, selector)
     policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
     if selector.universe:
         authorize_universe(conn, actor_id=actor_id, policies=policies.values())
@@ -102,7 +96,7 @@ def send_message(
     begin_message_mutation(conn)
     try:
         recipients = resolve_recipients(conn, selector, now=current)
-        _require_recipients(recipients)
+        require_recipients(recipients, selector)
         policies = authorize_recipients(conn, actor_id=actor_id, recipients=recipients)
         expected_confirmation = confirmation_token(selector, recipients)
         if selector.universe:

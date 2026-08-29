@@ -238,7 +238,7 @@ def _http_error_detail(
         secrets=(secret,),
     )
     if request_id:
-        parts.append(f"request_id={request_id[:100]}")
+        parts.append(f"request_id={request_id}")
     try:
         raw = github_response_safety.read_bounded(
             exc,

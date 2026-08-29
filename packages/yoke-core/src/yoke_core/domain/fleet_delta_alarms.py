@@ -44,15 +44,31 @@ BACKLOG_STATUSES = frozenset({"idea"})
 LINE_PREFIX = "fleet"
 
 
-#: Characters of an identifier carried into a line. Eight is the
-#: conventional short form of a UUID and stays unambiguous across a
-#: fleet, while keeping a delta line readable at a glance.
-SHORT_ID_CHARS = 8
+def identifier(value: str) -> str:
+    """Return an identifier whole, or ``unknown`` when it is absent.
+
+    Never a leading fragment. Session ids are not uniformly distributed:
+    some are readable strings whose first characters are a constant, and
+    the UUID-shaped ones are time-ordered, so sessions started in the
+    same window share leading hex by construction. A prefix therefore
+    names a set rather than a session, and a reader who copies one out
+    of a line can address the wrong worker.
+    """
+    return value if value else "unknown"
 
 
-def short(identifier: str) -> str:
-    """Return the leading characters of an identifier, or ``unknown``."""
-    return identifier[:SHORT_ID_CHARS] if identifier else "unknown"
+def address_recipe(session_id: str, current: FleetSnapshot) -> str:
+    """The send form that reaches this session without a copied id.
+
+    A live item claim has exactly one holder, so the item reference is
+    an unambiguous address where a session id is only an identity. A
+    session holding no item has no such address and is named directly.
+    """
+    row = current.sessions.get(session_id)
+    held = row.claimed_items if row else ()
+    if held:
+        return f"yoke say --item {held[0]} --stdin"
+    return f"yoke say --session {identifier(session_id)} --stdin"
 
 
 def minutes_since(since: datetime | None, now: datetime) -> int | None:
@@ -112,16 +128,17 @@ def idle_holder_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
         idle = minutes_since(row.activity_at, current.taken_at)
         if idle is None or idle < IDLE_HOLDER_MINUTES:
             continue
-        key = f"idle-holder:session={short(row.session_id)}"
+        key = f"idle-holder:session={identifier(row.session_id)}"
         live.add(key)
         lines.extend(
             _raise_once(
                 state,
                 key,
                 f"{LINE_PREFIX} ALARM idle-holder "
-                f"session={short(row.session_id)} "
+                f"session={identifier(row.session_id)} "
                 f"items={','.join(row.claimed_items)} idle={idle}m "
-                f"surface={row.executor_surface}",
+                f"surface={row.executor_surface} "
+                f"reach={address_recipe(row.session_id, current)!r}",
             )
         )
     return lines + _clear(state, live, "idle-holder")
@@ -181,14 +198,14 @@ def inbox_lines(current: FleetSnapshot, state: DeltaState) -> list[str]:
             continue
         if row.state not in UNREAD_STATES:
             continue
-        inbox_key = f"inbox:{short(row.message_id)} state={row.state}"
+        inbox_key = f"inbox:{identifier(row.message_id)} state={row.state}"
         live.add(inbox_key)
         lines.extend(
             _raise_once(
                 state,
                 inbox_key,
-                f"{LINE_PREFIX} inbox {short(row.message_id)} "
-                f"state={row.state} from={short(row.sender_session_id)}",
+                f"{LINE_PREFIX} inbox {identifier(row.message_id)} "
+                f"state={row.state} from={identifier(row.sender_session_id)}",
             )
         )
     stale = {key for key in state.active_alarms if key.startswith("inbox:")} - live
@@ -228,8 +245,8 @@ def starved_envelope_alarms(current: FleetSnapshot, state: DeltaState) -> list[s
         if waiting is None:
             continue
         alarm_key = (
-            f"starved-envelope:message={short(row.message_id)} "
-            f"recipient={short(row.recipient_session_id)}"
+            f"starved-envelope:message={identifier(row.message_id)} "
+            f"recipient={identifier(row.recipient_session_id)}"
         )
         live.add(alarm_key)
         lines.extend(
@@ -237,9 +254,10 @@ def starved_envelope_alarms(current: FleetSnapshot, state: DeltaState) -> list[s
                 state,
                 alarm_key,
                 f"{LINE_PREFIX} ALARM starved-envelope "
-                f"message={short(row.message_id)} "
-                f"recipient={short(row.recipient_session_id)} "
-                f"pending={waiting}m injections=0",
+                f"message={identifier(row.message_id)} "
+                f"recipient={identifier(row.recipient_session_id)} "
+                f"pending={waiting}m injections=0 "
+                f"reach={address_recipe(row.recipient_session_id, current)!r}",
             )
         )
     return lines + _clear(state, live, "starved-envelope")
@@ -250,14 +268,14 @@ __all__ = [
     "DeltaState",
     "IDLE_HOLDER_MINUTES",
     "LINE_PREFIX",
-    "SHORT_ID_CHARS",
     "STARVED_ENVELOPE_MINUTES",
     "UNOWNED_ITEM_MINUTES",
     "UNREAD_STATES",
+    "address_recipe",
+    "identifier",
     "idle_holder_alarms",
     "inbox_lines",
     "minutes_since",
-    "short",
     "starved_envelope_alarms",
     "unowned_item_alarms",
 ]

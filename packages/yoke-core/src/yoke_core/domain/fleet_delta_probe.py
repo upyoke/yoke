@@ -44,12 +44,19 @@ Each pass reads `sessions.list`, `charge.schedule`, and the durable
 message listing, then prints one line per change. A pass that observes
 no change prints nothing.
 
+Every identifier is printed whole. Session ids collide heavily at any
+prefix, so a line never carries a fragment of one.
+
 Line shapes:
   fleet item YOK-N status <old> -> <new>
-  fleet session <id8> registered|ended|terminated surface=<surface>
-  fleet inbox <id8> state=pending|injected from=<id8>
+  fleet session <session-id> registered|ended|terminated surface=<surface>
+  fleet inbox <message-id> state=pending|injected from=<session-id>
   fleet ALARM idle-holder|unowned-item|starved-envelope ...
   fleet CLEAR <alarm-kind> <subject>
+
+An alarm naming a worker carries `reach=` — the send form that addresses
+it. A claimed item has exactly one holder, so `yoke say --item PREFIX-N
+--stdin` reaches that worker without copying any id at all.
 
 examples:
   yoke watch fleet -- --project yoke

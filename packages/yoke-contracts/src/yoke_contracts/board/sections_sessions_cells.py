@@ -42,12 +42,8 @@ def _display_model(
 
 
 def _display_session_id(session_id: Optional[str]) -> str:
-    """Keep session labels compact without hiding suffix differences."""
-    if not session_id:
-        return "?"
-    if len(session_id) <= 18:
-        return session_id
-    return f"{session_id[:8]}...{session_id[-4:]}"
+    """Render the session id whole; an elided one names several sessions."""
+    return session_id or "?"
 
 
 def _render_executor(executor: str, executor_surface: Optional[str]) -> str:

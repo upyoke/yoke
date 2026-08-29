@@ -164,7 +164,7 @@ def _write_launch_preview(result: Mapping[str, Any], stdout: TextIO) -> None:
         stdout,
     )
     columns: tuple[Column, ...] = (
-        ("RELAY", lambda row: row.get("relay_id"), 24),
+        ("RELAY", lambda row: row.get("relay_id"), None),
         ("MACHINE", lambda row: row.get("machine_id"), None),
         ("SURFACE", lambda row: row.get("surface"), 20),
         ("VERSION", lambda row: row.get("version"), 18),
@@ -187,8 +187,8 @@ def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
             ("REQUESTED", lambda row: row.get("requested_surface"), 18),
             ("SELECTED", lambda row: row.get("selected_surface"), 18),
-            ("NATIVE", lambda row: row.get("native_session_id"), 24),
-            ("REGISTERED", lambda row: row.get("registered_session_id"), 24),
+            ("NATIVE", lambda row: row.get("native_session_id"), None),
+            ("REGISTERED", lambda row: row.get("registered_session_id"), None),
             ("CORRELATION", _launch_identity, 24),
             ("DELIVERY", _instruction_delivery, 16),
             (

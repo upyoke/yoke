@@ -18,6 +18,9 @@ from yoke_cli.commands.adapters.session_control_roster_diagnostics_output import
 
 BODY_EXCERPT_CHARACTERS = 72
 EMPTY_VALUE = "—"
+#: ``(heading, accessor, width)``. A width caps prose; an identifier
+#: column passes ``None``, because the first characters of a session,
+#: message, or attempt id name a set of rows rather than one of them.
 Column = tuple[str, Callable[[Mapping[str, Any]], Any], int | None]
 
 
@@ -238,8 +241,8 @@ def _write_attempts(attempts: Iterable[Mapping[str, Any]], stdout: TextIO) -> No
     if not rows:
         return
     columns: tuple[Column, ...] = (
-        ("ATTEMPT", lambda row: row.get("attempt_id"), 18),
-        ("TARGET", lambda row: row.get("target_session_id"), 20),
+        ("ATTEMPT", lambda row: row.get("attempt_id"), None),
+        ("TARGET", lambda row: row.get("target_session_id"), None),
         ("TYPE", lambda row: humanize(row.get("attempt_kind")), 16),
         ("RESULT", lambda row: humanize(row.get("result_code")), 18),
         (
