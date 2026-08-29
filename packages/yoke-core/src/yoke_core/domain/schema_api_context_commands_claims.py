@@ -33,9 +33,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "issue-body edits are shared coordination state, work writes "
             "governed by the same item-claim ownership as code edits. "
             "The session id returned here is a coordination identifier, "
-            "not authority to mutate as that holder; copying it into "
-            "`--session-id S` grants no capability over that holder's "
-            "claim."
+            "never authority; to reach the holder, address the item."
         ),
     },
     {
