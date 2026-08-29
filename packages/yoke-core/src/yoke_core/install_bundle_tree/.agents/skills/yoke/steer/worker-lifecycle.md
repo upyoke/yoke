@@ -215,7 +215,9 @@ quiet so the stale-alive probe leaves it alone:
 yoke sessions touch --mode parked --reason "waiting on PREFIX-N"
 ```
 
-Any later tool call clears parked automatically. Do not unstamp by hand.
+That write persists until the worker stamps a working mode
+(`yoke sessions touch --mode dash`). Reporting and control-plane reads
+do not unpark.
 
 Use this recipe for every launch, whether the item just became runnable
 or the fleet report named it as available. There is no second staffing
