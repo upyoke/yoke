@@ -11,6 +11,9 @@ from yoke_contracts.session_control.surface_versions import (
 
 REGISTERED_SURFACE_PROOF_SCOPE = "registered_session_control_surface"
 REGISTERED_BROKER_PROOF_SCOPE = "registered_broker_wake_route"
+# Claude desktop create is a designed deferral: capability create=none and the
+# adapter has no native create route. Identify proves the registered-surface
+# path only, never operator-visible occupancy.
 ACCEPTANCE_SURFACE_CELLS = (
     ("claude-cli", "create"),
     ("claude-desktop", "identify"),

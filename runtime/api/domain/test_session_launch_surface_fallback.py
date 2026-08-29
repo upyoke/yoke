@@ -108,6 +108,13 @@ def test_fallback_is_same_family_version_proven_and_deterministic() -> None:
         version="2026.08.11-e8db854",
         machine_id="m2",
     )
+    add_relay(
+        conn,
+        relay_id="claude-cli",
+        surface="claude-cli",
+        version="2.1.238",
+        machine_id="m1",
+    )
 
     preview = preview_launch(
         conn,
@@ -127,12 +134,23 @@ def test_fallback_is_same_family_version_proven_and_deterministic() -> None:
         surface_fallback_enabled=True,
         now=NOW,
     )
+    claude_refused = preview_launch(
+        conn,
+        auth=authorization(),
+        project_id=10,
+        surface="claude-desktop",
+        allow_surface_fallback=True,
+        surface_fallback_enabled=True,
+        now=NOW,
+    )
 
     assert preview.selected_surface == "codex-cli"
     assert preview.fallback_used is True
     assert [relay.relay_id for relay in preview.eligible_relays] == ["cli"]
     assert refused.outcome == "unsupported_surface"
     assert refused.launchable is False
+    assert claude_refused.outcome == "unsupported_surface"
+    assert claude_refused.launchable is False
 
 
 def test_selected_surface_drives_native_job_and_registration() -> None:
