@@ -54,8 +54,12 @@ def configured_credential(
         "refresh_expires_at": (NOW + timedelta(days=30)).isoformat(),
     }
     if access_token is not None:
-        document["access_token"] = access_token
-        document["expires_at"] = expires_at.isoformat()
+        document["cached_access"] = {
+            "access_token": access_token,
+            "expires_at": expires_at.isoformat(),
+            "scope": "",
+            "token_type": "bearer",
+        }
     credential_store.write_credential_document(credential_path, document)
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({

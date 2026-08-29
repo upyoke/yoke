@@ -179,8 +179,12 @@ def test_offline_status_reports_the_access_token_a_push_would_carry(
 
     config, credential = _configured_machine(tmp_path, monkeypatch)
     document = json.loads(credential.read_text(encoding="utf-8"))
-    document["access_token"] = "stored-access"
-    document["expires_at"] = "2099-12-09T17:00:00+00:00"
+    document["cached_access"] = {
+        "access_token": "stored-access",
+        "expires_at": "2099-12-09T17:00:00+00:00",
+        "scope": "",
+        "token_type": "bearer",
+    }
     credential.write_text(json.dumps(document), encoding="utf-8")
 
     report = github_machine.status(config_path=config, check=False)

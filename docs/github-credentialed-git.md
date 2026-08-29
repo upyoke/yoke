@@ -93,6 +93,16 @@ Storing the access token costs no reach. The document already holds the
 refresh token, which mints access tokens for months, under the same owner-only
 permissions that an access token expiring in hours now lives under.
 
+The cache lives under one nested `cached_access` key rather than beside the
+refresh fields. A build shipped before the cache existed refuses a document
+carrying `access_token`, `expires_at`, `scope`, or `token_type` at the top
+level, and the recovery it names is a reconnect — the one action that revokes
+the token every other live process holds. Since a machine runs many Yoke
+processes that upgrade at different times, nesting is what keeps an older build
+reading the document: it sees a key it does not know, ignores it, and refreshes
+exactly as before. That is one storage shape and one reader, not a
+compatibility layer.
+
 `yoke github status` reports that stored token as its own binding — when it
 expires, and whether the next command will renew it. It reads the document
 locally and rotates nothing, so a status check cannot break a push in flight.

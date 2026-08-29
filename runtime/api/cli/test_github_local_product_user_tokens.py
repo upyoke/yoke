@@ -7,8 +7,11 @@ import json
 
 import pytest
 
-from runtime.api.cli.test_github_app_user_tokens import NOW, _configured_credential
-from runtime.api.cli.test_github_app_user_tokens import _FakeResponse
+from runtime.api.cli.github_user_token_test_support import (
+    NOW,
+    configured_credential,
+)
+from runtime.api.cli.github_user_token_test_support import FakeResponse
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import github_git_credential_store as credential_store
 from yoke_cli.config import machine_config
@@ -18,7 +21,7 @@ def test_helper_refresh_proves_local_product_profile_against_bundle(
     tmp_path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path))
-    config_path, _credential_path = _configured_credential(
+    config_path, _credential_path = configured_credential(
         tmp_path, expires_at=NOW + timedelta(hours=1)
     )
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -54,8 +57,10 @@ def test_explicit_local_refresh_ignores_active_hosted_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
-    config_path, _credential_path = _configured_credential(
-        tmp_path, expires_at=NOW + timedelta(hours=1),
+    # No stored token, so this reaches the live refresh whose connection
+    # selection is what the test is about.
+    config_path, _credential_path = configured_credential(
+        tmp_path, expires_at=NOW, access_token=None,
     )
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["active_env"] = "prod"
@@ -75,7 +80,7 @@ def test_explicit_local_refresh_ignores_active_hosted_connection(
         config_path=config_path,
         local_connection_selected=True,
         now=NOW,
-        opener=lambda request, timeout: _FakeResponse({
+        opener=lambda request, timeout: FakeResponse({
             "access_token": "local-access",
             "expires_in": 28_800,
             "refresh_token": "local-refresh",

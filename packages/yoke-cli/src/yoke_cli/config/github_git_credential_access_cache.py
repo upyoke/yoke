@@ -16,6 +16,16 @@ network git command.
 Storing it costs no reach: the document already holds the refresh token, which
 mints access tokens for months, under the same owner-only permissions that an
 access token expiring in hours now lives under.
+
+The cache lives under one nested key rather than beside the refresh fields.
+Builds already deployed across a fleet refuse a document carrying
+``access_token`` / ``expires_at`` / ``scope`` / ``token_type`` at the top
+level, and the recovery those builds name is a reconnect — the one action that
+revokes the token every other live process holds. Nesting keeps the document
+readable by a build that predates the cache: it sees a key it does not know,
+ignores it, and refreshes exactly as it did before, while an upgraded build
+finds the cache. That is one storage shape and one reader, not a compatibility
+layer; the flat layout simply collided with a guard that had already shipped.
 """
 
 from __future__ import annotations
@@ -31,6 +41,7 @@ else:  # pragma: no cover - copied helper always uses its immutable siblings
     import _yoke_github_git_credential_document as credential_document  # type: ignore
 
 
+ACCESS_STATE_KEY = "cached_access"
 ACCESS_TOKEN_KEY = "access_token"
 ACCESS_EXPIRES_AT_KEY = "expires_at"
 REFRESH_MARGIN_SECONDS = (
@@ -43,25 +54,29 @@ def access_state(
 ) -> dict[str, Any]:
     """Return the access half of a credential document, empty when it has none.
 
-    A document written before its first refresh carries no access token; that
-    is the cache's cold state, not a fault. A document carrying an access token
+    Accepts either a stored document, whose cache sits under
+    :data:`ACCESS_STATE_KEY`, or a freshly exchanged token response, whose
+    fields are flat. A document written before its first refresh carries no
+    access token; that is the cache's cold state, not a fault. An access token
     without a readable expiry is a fault, because nothing could decide when to
     stop serving it.
     """
 
-    if payload.get(ACCESS_TOKEN_KEY) is None and (
-        payload.get(ACCESS_EXPIRES_AT_KEY) is None
+    nested = payload.get(ACCESS_STATE_KEY)
+    source = nested if isinstance(nested, Mapping) else payload
+    if source.get(ACCESS_TOKEN_KEY) is None and (
+        source.get(ACCESS_EXPIRES_AT_KEY) is None
     ):
         return {}
     return {
         ACCESS_TOKEN_KEY: credential_document.required_string(
-            payload.get(ACCESS_TOKEN_KEY), ACCESS_TOKEN_KEY, error_type,
+            source.get(ACCESS_TOKEN_KEY), ACCESS_TOKEN_KEY, error_type,
         ),
         ACCESS_EXPIRES_AT_KEY: credential_document.parse_timestamp(
-            payload.get(ACCESS_EXPIRES_AT_KEY), ACCESS_EXPIRES_AT_KEY, error_type,
+            source.get(ACCESS_EXPIRES_AT_KEY), ACCESS_EXPIRES_AT_KEY, error_type,
         ).isoformat(),
-        "scope": str(payload.get("scope") or ""),
-        "token_type": str(payload.get("token_type") or "bearer"),
+        "scope": str(source.get("scope") or ""),
+        "token_type": str(source.get("token_type") or "bearer"),
     }
 
 
@@ -79,15 +94,16 @@ def persisted_document(
     next git command back to minting its own token.
     """
 
-    return {
-        **credential_document.persisted_document(
-            payload,
-            schema_version=schema_version,
-            error_type=error_type,
-            ownership_source=ownership_source,
-        ),
-        **access_state(payload, error_type=error_type),
-    }
+    document = credential_document.persisted_document(
+        payload,
+        schema_version=schema_version,
+        error_type=error_type,
+        ownership_source=ownership_source,
+    )
+    state = access_state(payload, error_type=error_type)
+    if state:
+        document[ACCESS_STATE_KEY] = state
+    return document
 
 
 def usable_token_state(
@@ -140,6 +156,7 @@ def result(
 
 __all__ = [
     "ACCESS_EXPIRES_AT_KEY",
+    "ACCESS_STATE_KEY",
     "ACCESS_TOKEN_KEY",
     "REFRESH_MARGIN_SECONDS",
     "access_state",

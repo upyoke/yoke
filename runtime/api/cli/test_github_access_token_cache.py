@@ -109,10 +109,12 @@ def test_renewed_access_token_is_persisted_beside_the_refresh_token(
         "refresh_expires_at": (NOW + timedelta(days=180)).isoformat(),
         "config_owners": [],
         "config_ownership_complete": False,
-        "access_token": "new-access",
-        "expires_at": (NOW + timedelta(hours=8)).isoformat(),
-        "scope": "",
-        "token_type": "bearer",
+        "cached_access": {
+            "access_token": "new-access",
+            "expires_at": (NOW + timedelta(hours=8)).isoformat(),
+            "scope": "",
+            "token_type": "bearer",
+        },
     }
     assert stat.S_IMODE(credential_path.stat().st_mode) == 0o600
 
@@ -178,8 +180,10 @@ def test_claiming_a_config_owner_does_not_evict_the_cached_token(
     credential_store.claim_config_owner(credential_path, config_path)
 
     stored = json.loads(credential_path.read_text(encoding="utf-8"))
-    assert stored["access_token"] == "stored-access"
-    assert stored["expires_at"] == (NOW + timedelta(hours=1)).isoformat()
+    assert stored["cached_access"]["access_token"] == "stored-access"
+    assert stored["cached_access"]["expires_at"] == (
+        NOW + timedelta(hours=1)
+    ).isoformat()
     assert stored["config_owners"] == [str(Path(config_path).resolve())]
 
 
@@ -194,5 +198,44 @@ def test_the_first_token_from_the_device_flow_is_stored_for_reuse() -> None:
         now=NOW,
     )
 
-    assert document["access_token"] == "first-access"
-    assert document["expires_at"] == (NOW + timedelta(hours=8)).isoformat()
+    assert document["cached_access"]["access_token"] == "first-access"
+    assert document["cached_access"]["expires_at"] == (
+        NOW + timedelta(hours=8)
+    ).isoformat()
+
+
+# The exact key names a build shipped before this cache existed refuses at the
+# top level of a credential document.
+KEYS_AN_OLDER_BUILD_REFUSES = ("access_token", "expires_at", "scope", "token_type")
+
+
+def test_the_document_stays_readable_by_a_build_without_the_cache(
+    tmp_path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A machine runs many Yoke processes, and they upgrade at different times.
+
+    A build that predates the cache refuses a document carrying those names at
+    the top level, and the recovery it names is a reconnect — which revokes the
+    token every other live process holds. Nesting the cache keeps that build
+    reading the document and refreshing exactly as it did before.
+    """
+
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path))
+    config_path, credential_path = configured_credential(
+        tmp_path, expires_at=NOW - timedelta(seconds=1)
+    )
+
+    github_user_tokens.access_token_from_machine_config(
+        config_path=config_path,
+        now=NOW,
+        opener=lambda request, timeout: FakeResponse({
+            "access_token": "new-access",
+            "expires_in": 28800,
+            "refresh_token": "new-refresh",
+            "refresh_token_expires_in": 15552000,
+        }),
+    )
+
+    stored = json.loads(credential_path.read_text(encoding="utf-8"))
+    assert not set(KEYS_AN_OLDER_BUILD_REFUSES) & set(stored)
+    assert stored["cached_access"]["access_token"] == "new-access"

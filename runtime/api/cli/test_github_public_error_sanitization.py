@@ -53,7 +53,9 @@ def test_git_credential_helper_sanitizes_store_error(
     assert rc == 1
     assert SECRET_PATH not in error
     assert "yoke github status" in error
-    assert "yoke github connect" in error
+    # Never a reconnect: it rotates the authorization and revokes the token
+    # every other running command holds.
+    assert "yoke github connect" not in error
 
 
 @pytest.mark.parametrize("invalid_body", [
@@ -97,7 +99,8 @@ def test_git_credential_helper_hides_invalid_credential_body(
     error = capsys.readouterr().err
     assert rc == 1
     assert "credential-body-must-not-leak" not in error
-    assert "yoke github connect" in error
+    assert "Retry the git command" in error
+    assert "yoke github connect" not in error
 
 
 def test_connect_sanitizes_initial_credential_save_error(

@@ -73,15 +73,17 @@ def main(
         credential = access_token_for_git_request(parsed.config_path, fields)
         if credential is None:
             return 0
-    except credential_store.GitHubCredentialStoreError as exc:
-        # Never advise reconnecting from here. A reconnect rotates the
-        # authorization and revokes the token every other local process is
-        # holding, and this failure is most often contention that a retry
-        # clears. `yoke github status` reads without rotating and says when a
-        # reconnect is genuinely the answer.
+    except credential_store.GitHubCredentialStoreError:
+        # The store's own message can name the credential path, and this
+        # stderr goes to whoever ran git, so the text here is fixed rather
+        # than interpolated. It also never advises reconnecting: a reconnect
+        # rotates the authorization and revokes the token every other local
+        # process is holding, while this failure is most often contention a
+        # retry clears. `yoke github status` reads without rotating and says
+        # when a reconnect is genuinely the answer.
         print(
-            f"yoke GitHub credential unavailable: {exc}. Retry the git "
-            "command; run `yoke github status` if it keeps failing",
+            "yoke GitHub credential unavailable. Retry the git command; run "
+            "`yoke github status` if it keeps failing",
             file=sys.stderr,
         )
         return 1
