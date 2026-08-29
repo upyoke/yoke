@@ -41,9 +41,9 @@ def zero_recipients_detail(selector: RecipientSelector) -> str:
             "live claim — or take a whole id from `yoke sessions list "
             "--liveness active`."
         )
-    if selector.item_refs:
+    if selector.public_refs:
         return (
-            f"no session holds a live work claim on {_listed(selector.item_refs)}, "
+            f"no session holds a live work claim on {_listed(selector.public_refs)}, "
             "so the item addresses nobody right now. Confirm the holder with "
             "`yoke claims work holder-get PREFIX-N`; an unclaimed item has no "
             "worker to reach, and a just-released one is between segments."

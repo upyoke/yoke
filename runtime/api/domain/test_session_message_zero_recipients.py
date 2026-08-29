@@ -23,7 +23,7 @@ def test_an_unresolved_session_id_names_it_and_offers_the_item_form() -> None:
 
 
 def test_an_unheld_item_says_the_item_addresses_nobody_right_now() -> None:
-    detail = zero_recipients_detail(RecipientSelector(item_refs=["YOK-1"]))
+    detail = zero_recipients_detail(RecipientSelector(public_refs=["YOK-1"]))
     assert "YOK-1" in detail
     assert "yoke claims work holder-get PREFIX-N" in detail
 
@@ -35,7 +35,7 @@ def test_a_roster_audience_points_at_the_filters_that_narrowed_it() -> None:
 
 
 def test_recipients_present_is_not_a_refusal() -> None:
-    require_recipients([object()], RecipientSelector(item_refs=["YOK-1"]))
+    require_recipients([object()], RecipientSelector(public_refs=["YOK-1"]))
 
 
 def test_no_recipients_raises_the_stable_code_carrying_the_detail() -> None:
