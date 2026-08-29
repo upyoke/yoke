@@ -33,6 +33,7 @@ from yoke_contracts.session_control.teaching import (
     FLEET_ENVELOPE_TRUST_GUIDANCE,
     FLEET_MESSAGE_BOOTSTRAP_RECIPE,
     FLEET_OWNERSHIP_GUIDANCE,
+    FLEET_SUBSTANTIVE_ONLY_GUIDANCE,
     FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
     SUBAGENT_FLEET_GUIDANCE,
     TOP_LEVEL_FLEET_OWNERSHIP,
@@ -44,16 +45,18 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Cancel / stop / fail a work item (terminal-exceptional)",
         "recipe": (
-            "yoke claims work acquire --item PREFIX-N "
-            "--reason 'superseded by PREFIX-X'\n"
-            "yoke lifecycle transition PREFIX-N --to cancelled "
-            "--reason 'superseded by PREFIX-X'\n"
-            "yoke claims work release --item PREFIX-N "
-            "--reason cancelled"
+            "yoke items cancel PREFIX-N --reason 'superseded by PREFIX-X' "
+            "--ref PREFIX-X\n"
+            "yoke lifecycle transition PREFIX-N --to stopped "
+            "--reason 'paused'\n"
+            "yoke lifecycle transition PREFIX-N --to failed "
+            "--reason 'blocked'"
         ),
         "notes": (
-            "Status writes require a claim. Substitute: cancelled "
-            "(abandoned/superseded), stopped (paused), failed."
+            "`items.cancel.run` takes the claim, cancels a frozen item in "
+            "one step (clears frozen as part of the terminal close), "
+            "reconciles item_dependencies, and closes GitHub. Substitute "
+            "stopped (paused) or failed via lifecycle transition."
         ),
     },
     {
@@ -208,6 +211,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "and pass bodies only through stdin. "
             "For manual inbox work, acknowledge only after `yoke messages get` "
             "confirms this top-level session is the recipient. "
+            f"{FLEET_SUBSTANTIVE_ONLY_GUIDANCE} "
             f"{FLEET_ENVELOPE_TRUST_GUIDANCE} {FLEET_BODY_TRUST_GUIDANCE} "
             f"{FLEET_TOP_LEVEL_RECEIPT_GUIDANCE} {FLEET_OWNERSHIP_GUIDANCE}"
         ),

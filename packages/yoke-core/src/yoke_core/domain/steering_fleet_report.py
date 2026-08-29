@@ -37,8 +37,9 @@ A deliberately held item is the operator's flag to set
 An item an operator is holding on purpose would otherwise read as available
 forever. The report does not guess at intent: the frontier composition it
 reads already drops frozen and operator-blocked items before they reach it,
-so ``yoke items freeze`` and ``yoke items block`` are the whole mechanism.
-An item that has read "waiting 30h12m" all day is one nobody flagged, and
+so ``yoke items freeze`` and ``yoke items block`` are the whole hold
+mechanism. Work that will never resume is ``yoke items cancel``, not
+freeze. An item that has read "waiting 30h12m" all day is one nobody flagged, and
 teaching the report to infer a hold from age would hide real unstaffed work.
 """
 

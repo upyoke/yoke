@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-29T13:25:15Z_
+_Audit generated_at: 2026-08-29T14:11:02Z_
 
 ## 1. Summary
 
-- Function ids registered: **439**
+- Function ids registered: **440**
 - Internal dispatch-only functions without CLI adapters: **86**
-- `yoke` CLI subcommands: **366** (366 carry usable `--help`)
-- Operation tracker: **343 wrapped**, 13 tool_cli, 126 permanent, 0 pending
-- Skill-body recipes: 327 total (275 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **367** (367 carry usable `--help`)
+- Operation tracker: **344 wrapped**, 13 tool_cli, 126 permanent, 0 pending
+- Skill-body recipes: 328 total (276 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **343** (operation tracker confirms 343 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **344** (operation tracker confirms 344 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -119,6 +119,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **343** (operation track
 | item_worktrees | `yoke item-worktrees path-record` | `item_worktrees.path_record` | ok |
 | item_worktrees | `yoke item-worktrees release` | `item_worktrees.release` | ok |
 | items | `yoke items block` | `items.block.run` | ok |
+| items | `yoke items cancel` | `items.cancel.run` | ok |
 | items | `yoke items create` | `items.create` | ok |
 | items | `yoke dash` | `items.create` | ok |
 | items | `yoke items detail get` | `items.detail.get` | ok |
@@ -548,9 +549,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 34 |
-| claude-code | 13 |
-| cursor | 3 |
+| codex | 36 |
+| claude-code | 14 |
 
 ## 8. Contradictions
 

@@ -171,10 +171,10 @@ yoke workflow-item epic-dispatch-chain get --epic <epic-id> --worktree <branch>
 yoke workflow-item epic-dispatch-chain refresh-activation --epic <epic-id> --worktree <branch> --task-num <task_num>`
   - Dispatches workflow_item.epic_dispatch_chain.*. Reads need no claim; update / refresh-activation require the epic work claim.
 - _Cancel / stop / fail a work item (terminal-exceptional)_
-  - `yoke claims work acquire --item PREFIX-N --reason 'superseded by PREFIX-X'
-yoke lifecycle transition PREFIX-N --to cancelled --reason 'superseded by PREFIX-X'
-yoke claims work release --item PREFIX-N --reason cancelled`
-  - Status writes require a claim. Substitute: cancelled (abandoned/superseded), stopped (paused), failed.
+  - `yoke items cancel PREFIX-N --reason 'superseded by PREFIX-X' --ref PREFIX-X
+yoke lifecycle transition PREFIX-N --to stopped --reason 'paused'
+yoke lifecycle transition PREFIX-N --to failed --reason 'blocked'`
+  - `items.cancel.run` takes the claim, cancels a frozen item in one step (clears frozen as part of the terminal close), reconciles item_dependencies, and closes GitHub. Substitute stopped (paused) or failed via lifecycle transition.
 - _Move a work item forward in lifecycle (claim → transition → release)_
   - `yoke claims work acquire --item PREFIX-N --reason transition
 yoke lifecycle transition PREFIX-N --to refined-idea
@@ -299,7 +299,7 @@ yoke watch doctor -- --full --json`
   - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress
 yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch
 yoke claims work acquire --process DOCTOR --project yoke --reason scheduled-run`
-  - Reason recommended on acquire, required on release. Pick exactly one target variant. Optional --session-id S is a self-identity assertion that the caller IS the named session; it is not cross-session authority. Steering claims are project-scoped work claims: `yoke claims steering acquire --project P [--reason TEXT]`. A second live steering claim for the project refuses and names its holder. Inspect with `yoke claims steering list --project P --active-only`; finish with `yoke claims steering release CLAIM_ID --reason TEXT`. Ordinary release and stale-session reclaim free the steering seat. The itemless loop is `/yoke steer SLUG [--project P]`: a strategy doc is required (offer to create if absent), the document lock releases before a Blitz can claim it, workers launch CLI-only and item-bound (never `/yoke do`), workers are addressed with `yoke say --item PREFIX-N --stdin` (`--session UUID` only for claim-less recipients), and the fleet report arrives appended to the messages this session receives — available work first, then idle holders, starved delivery, unregistered launches, items landed without close-out, and dead waits; pull it between wakes with `yoke steering report get --project P`.
+  - Reason recommended on acquire, required on release. Pick exactly one target variant. Optional --session-id S is a self-identity assertion that the caller IS the named session; it is not cross-session authority. Steering claims are project-scoped work claims: `yoke claims steering acquire --project P [--reason TEXT]`. A second live steering claim for the project refuses and names its holder. Inspect with `yoke claims steering list --project P --active-only`; finish with `yoke claims steering release CLAIM_ID --reason TEXT`. Ordinary release and stale-session reclaim free the steering seat. The itemless loop is `/yoke steer SLUG [--project P]`: a strategy doc is required (offer to create if absent), the document lock releases before a Blitz can claim it, workers launch CLI-only and item-bound (never `/yoke do`), workers are addressed with `yoke say --item PREFIX-N --stdin` (`--session UUID` only for claim-less recipients) and answer with substantive updates only (never progress ticks — the send path refuses those as `body_not_substantive`), and the fleet report arrives appended to the messages this session receives — available work first, then idle holders, starved delivery, unregistered launches, items landed without close-out, and dead waits; pull it between wakes with `yoke steering report get --project P`.
 - _Claim → mutate → release (generic plan-stage edit)_
   - `yoke claims work acquire --item PREFIX-N --reason edit
 printf '%s' "$NEW_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin

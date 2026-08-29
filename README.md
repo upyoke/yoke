@@ -256,8 +256,9 @@ Stage executor types: `auto`, `health-check`, `warm-up`, `environment-activate`,
 | `/yoke doctor`                   | 40+ health checks. `--fix` for auto-repair.           |
 | `/yoke curate`                   | Process agent learnings → work items + patterns.       |
 | `/yoke resync`                   | GitHub bidirectional sync.                            |
-| `yoke items freeze YOK-N`        | Park an item.                                         |
+| `yoke items freeze YOK-N`        | Park an item. Use `yoke items cancel` if it will never resume. |
 | `yoke items thaw YOK-N`          | Unfreeze.                                             |
+| `yoke items cancel YOK-N`        | Cancel an item that will never resume.                |
 
 ---
 
